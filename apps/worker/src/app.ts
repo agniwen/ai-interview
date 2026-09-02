@@ -12,6 +12,10 @@ import { getMeetingTranscriptionQueueStats } from "@app/meeting-processing-queue
 import { getResumeParseReadinessIssue } from "./parse-config";
 import { getInterviewNotificationSchedulerSnapshot } from "./interview-notifications/scheduler";
 import { captureWorkerException } from "./sentry";
+import { Effect } from "effect";
+
+const dependencyEffect = <A>(evaluate: () => Promise<A>) =>
+  Effect.tryPromise({ catch: (cause) => cause, try: evaluate });
 
 export interface WorkerAppDependencies {
   getInterviewNotificationSchedulerSnapshot: typeof getInterviewNotificationSchedulerSnapshot;
@@ -116,12 +120,17 @@ export function createWorkerApp(dependencies: WorkerAppDependencies = defaultDep
   });
 
   app.get("/operations/meetings", async (c) => {
-    const [database, mediaFinalization, finalTranscription, intelligence] = await Promise.all([
-      dependencies.getMeetingOperationsSnapshot(),
-      dependencies.getMeetingPlaybackQueueStats(),
-      dependencies.getMeetingTranscriptionQueueStats(),
-      dependencies.getMeetingIntelligenceQueueStats(),
-    ]);
+    const [database, mediaFinalization, finalTranscription, intelligence] = await Effect.runPromise(
+      Effect.all(
+        [
+          dependencyEffect(() => dependencies.getMeetingOperationsSnapshot()),
+          dependencyEffect(() => dependencies.getMeetingPlaybackQueueStats()),
+          dependencyEffect(() => dependencies.getMeetingTranscriptionQueueStats()),
+          dependencyEffect(() => dependencies.getMeetingIntelligenceQueueStats()),
+        ] as const,
+        { concurrency: "unbounded" },
+      ),
+    );
     return c.json(
       {
         ...database,

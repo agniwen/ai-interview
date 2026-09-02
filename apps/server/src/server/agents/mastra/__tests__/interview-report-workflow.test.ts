@@ -35,7 +35,25 @@ describe("runInterviewReportWorkflow", () => {
     const result = await runInterviewReportWorkflow(
       {
         candidateFormResponses: "最快到岗时间：一个月内",
-        dataCollectionResults: null,
+        dataCollectionResults: {
+          questions: [
+            {
+              answerSummary: "候选人介绍了招聘系统前端项目。",
+              difficulty: "easy",
+              endedAtSecs: 20,
+              evaluationFocus: null,
+              followUpCount: 0,
+              followUpDirections: null,
+              question: "请介绍项目。",
+              questionId: "question-1",
+              reason: null,
+              revision: 1,
+              startedAtSecs: 1,
+              status: "answered",
+            },
+          ],
+          schemaVersion: 2,
+        },
         questions: [
           {
             difficulty: "easy",
@@ -54,7 +72,25 @@ describe("runInterviewReportWorkflow", () => {
     });
     expect(generateEvaluation).toHaveBeenCalledWith({
       candidateFormResponses: "最快到岗时间：一个月内",
-      dataCollectionResults: null,
+      dataCollectionResults: {
+        questions: [
+          {
+            answerSummary: "候选人介绍了招聘系统前端项目。",
+            difficulty: "easy",
+            endedAtSecs: 20,
+            evaluationFocus: null,
+            followUpCount: 0,
+            followUpDirections: null,
+            question: "请介绍项目。",
+            questionId: "question-1",
+            reason: null,
+            revision: 1,
+            startedAtSecs: 1,
+            status: "answered",
+          },
+        ],
+        schemaVersion: 2,
+      },
       questions: [
         {
           difficulty: "easy",
@@ -69,5 +105,117 @@ describe("runInterviewReportWorkflow", () => {
       evaluation: { overallScore: 82 },
       summary: "面试摘要",
     });
+  });
+
+  it("uses a factual fallback without calling the summary model when no question collected candidate evidence", async () => {
+    const generateSummary = vi.fn().mockResolvedValue("编造的候选人表现摘要");
+    const generateEvaluation = vi.fn().mockRejectedValue(new Error("invalid structured output"));
+    const composeReport = vi.fn(({ evaluationResult, summaryResult }) => ({
+      evaluation: evaluationResult.status === "fulfilled" ? evaluationResult.value : null,
+      evaluationError: evaluationResult.status === "rejected" ? evaluationResult.reason : undefined,
+      summary: summaryResult.status === "fulfilled" ? summaryResult.value : null,
+    }));
+    const workflow = createInterviewReportWorkflow({
+      composeReport,
+      generateEvaluation,
+      generateSummary,
+    });
+
+    const result = await runInterviewReportWorkflow(
+      {
+        candidateFormResponses: "",
+        dataCollectionResults: {
+          questions: [
+            {
+              answerSummary: null,
+              difficulty: "easy",
+              endedAtSecs: 8,
+              evaluationFocus: null,
+              followUpCount: 0,
+              followUpDirections: null,
+              question: "请介绍你自己。",
+              questionId: "question-1",
+              reason: "system_shutdown",
+              revision: 1,
+              startedAtSecs: 8,
+              status: "unasked",
+            },
+          ],
+          schemaVersion: 2,
+        },
+        questions: [
+          {
+            difficulty: "easy",
+            order: 1,
+            question: "请介绍你自己。",
+            questionId: "question-1",
+          },
+        ],
+        transcript: [{ message: "您好，候选人！在", role: "agent", timeInCallSecs: 0 }],
+      },
+      workflow,
+    );
+
+    expect(generateSummary).not.toHaveBeenCalled();
+    expect(result.summary).toBe(
+      "本次面试未收集到候选人的有效回答，无法基于对话记录评价其表现、能力、亮点或不足，请人工复核。",
+    );
+  });
+
+  it("does not treat a candidate connectivity check and skipped outcome as answer evidence", async () => {
+    const generateSummary = vi.fn().mockResolvedValue("候选人表达流畅。");
+    const generateEvaluation = vi.fn().mockRejectedValue(new Error("invalid structured output"));
+    const composeReport = vi.fn(({ summaryResult }) => ({
+      evaluation: null,
+      summary: summaryResult.status === "fulfilled" ? summaryResult.value : null,
+    }));
+    const workflow = createInterviewReportWorkflow({
+      composeReport,
+      generateEvaluation,
+      generateSummary,
+    });
+
+    const result = await runInterviewReportWorkflow(
+      {
+        candidateFormResponses: "",
+        dataCollectionResults: {
+          questions: [
+            {
+              answerSummary: null,
+              difficulty: "easy",
+              endedAtSecs: 9,
+              evaluationFocus: null,
+              followUpCount: 0,
+              followUpDirections: null,
+              question: "请介绍你自己。",
+              questionId: "question-1",
+              reason: null,
+              revision: 1,
+              startedAtSecs: 8,
+              status: "skipped",
+            },
+          ],
+          schemaVersion: 2,
+        },
+        questions: [
+          {
+            difficulty: "easy",
+            order: 1,
+            question: "请介绍你自己。",
+            questionId: "question-1",
+          },
+        ],
+        transcript: [
+          { message: "您好，请介绍你自己。", role: "agent", timeInCallSecs: 0 },
+          { message: "听得到。", role: "user", timeInCallSecs: 5 },
+        ],
+      },
+      workflow,
+    );
+
+    expect(generateSummary).not.toHaveBeenCalled();
+    expect(result.summary).toBe(
+      "本次面试未收集到候选人的有效回答，无法基于对话记录评价其表现、能力、亮点或不足，请人工复核。",
+    );
   });
 });

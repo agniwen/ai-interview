@@ -1,5 +1,6 @@
 /* oxlint-disable avoid-new, no-non-null-assertion, no-useless-undefined, require-await -- Controlled promises and assertions model scheduler overlap. */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { InterviewNotificationEventRecord } from "./dao";
 import type { InterviewNotificationSchedulerDependencies } from "./scheduler";
 import {
   getInterviewNotificationSchedulerSnapshot,
@@ -51,6 +52,28 @@ describe("interview notification scheduler", () => {
         limit: 1,
       }),
     );
-    scheduler!.close();
+    await scheduler!.close();
+  });
+
+  it("drains the active poll when closing", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("INTERVIEW_NOTIFICATION_FLOW_ENABLED", "true");
+    vi.stubEnv("INTERVIEW_NOTIFICATION_WORKER_ENABLED", "true");
+    const { promise, resolve } = Promise.withResolvers<InterviewNotificationEventRecord[]>();
+    const scheduler = startInterviewNotificationScheduler({
+      claimEvents: vi.fn(() => promise),
+      processEvent: vi.fn(async () => undefined),
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    let closed = false;
+    const closing = scheduler!.close().then(() => {
+      closed = true;
+    });
+    await Promise.resolve();
+    expect(closed).toBe(false);
+    resolve([]);
+    await closing;
+    expect(closed).toBe(true);
   });
 });

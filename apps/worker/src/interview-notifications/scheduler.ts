@@ -58,7 +58,7 @@ export function getInterviewNotificationSchedulerSnapshot(): InterviewNotificati
 }
 
 export interface InterviewNotificationScheduler {
-  close(): void;
+  close(): Promise<void>;
   runOnce(): Promise<void>;
 }
 
@@ -85,40 +85,45 @@ export function startInterviewNotificationScheduler(
   const leaseOwner = `notification-worker:${process.pid}:${crypto.randomUUID()}`;
   let closed = false;
   let running = false;
+  let activeRun: Promise<void> | null = null;
 
-  const runOnce = async () => {
+  const runOnce = () => {
     if (closed || running) {
-      return;
+      return Promise.resolve();
     }
     running = true;
-    const runAt = new Date();
-    snapshot = { ...snapshot, enabled: true, lastRunAt: runAt.toISOString(), running: true };
-    try {
-      let claimed = 0;
-      while (claimed < batchSize) {
-        const [event] = await dependencies.claimEvents({
-          leaseDurationMs: EVENT_LEASE_DURATION_MS,
-          leaseOwner,
-          limit: 1,
-          now: new Date(),
-        });
-        if (!event) {
-          break;
+    activeRun = (async () => {
+      const runAt = new Date();
+      snapshot = { ...snapshot, enabled: true, lastRunAt: runAt.toISOString(), running: true };
+      try {
+        let claimed = 0;
+        while (claimed < batchSize) {
+          const [event] = await dependencies.claimEvents({
+            leaseDurationMs: EVENT_LEASE_DURATION_MS,
+            leaseOwner,
+            limit: 1,
+            now: new Date(),
+          });
+          if (!event) {
+            break;
+          }
+          claimed += 1;
+          await dependencies.processEvent(event, leaseOwner);
         }
-        claimed += 1;
-        await dependencies.processEvent(event, leaseOwner);
+        snapshot = { ...snapshot, claimed };
+        snapshot = { ...snapshot, lastSuccessAt: new Date().toISOString() };
+      } catch (error) {
+        snapshot = { ...snapshot, lastErrorAt: new Date().toISOString() };
+        console.error("[interview-notification-worker] poll failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+      } finally {
+        running = false;
+        activeRun = null;
+        snapshot = { ...snapshot, running: false };
       }
-      snapshot = { ...snapshot, claimed };
-      snapshot = { ...snapshot, lastSuccessAt: new Date().toISOString() };
-    } catch (error) {
-      snapshot = { ...snapshot, lastErrorAt: new Date().toISOString() };
-      console.error("[interview-notification-worker] poll failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-    } finally {
-      running = false;
-      snapshot = { ...snapshot, running: false };
-    }
+    })();
+    return activeRun;
   };
 
   const triggerRun = async () => {
@@ -130,9 +135,12 @@ export function startInterviewNotificationScheduler(
   console.info("[interview-notification-worker] scheduler started", { batchSize, intervalMs });
 
   return {
-    close: () => {
+    close: async () => {
       closed = true;
       clearInterval(timer);
+      if (activeRun) {
+        await Promise.allSettled([activeRun]);
+      }
       snapshot = { ...snapshot, running: false };
     },
     runOnce,

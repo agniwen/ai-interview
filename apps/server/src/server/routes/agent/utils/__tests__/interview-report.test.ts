@@ -7,6 +7,7 @@ import {
   buildFallbackInterviewEvaluation,
   buildFallbackInterviewSummary,
   buildInterviewEvaluationPrompt,
+  buildInterviewSummaryPrompt,
   formatCandidateFormSubmissions,
   generateInterviewEvaluation,
   generateInterviewReport,
@@ -26,6 +27,26 @@ const TRANSCRIPT: InterviewTranscriptTurn[] = [
 const QUESTIONS: InterviewEvaluationQuestion[] = [
   { difficulty: "easy", order: 1, question: "请介绍你的项目。", questionId: "question-1" },
 ];
+
+const ANSWERED_RESULTS: InterviewDataCollectionResults = {
+  questions: [
+    {
+      answerSummary: "候选人介绍了招聘系统前端项目。",
+      difficulty: "easy",
+      endedAtSecs: 20,
+      evaluationFocus: null,
+      followUpCount: 0,
+      followUpDirections: null,
+      question: "请介绍你的项目。",
+      questionId: "question-1",
+      reason: null,
+      revision: 1,
+      startedAtSecs: 1,
+      status: "answered",
+    },
+  ],
+  schemaVersion: 2,
+};
 
 const EVALUATION = {
   hrEvaluation: {
@@ -73,6 +94,22 @@ describe("generateInterviewReport", () => {
     expect(generateEvaluation).not.toHaveBeenCalled();
   });
 
+  it("fails closed when candidate text has no audited question outcome", async () => {
+    generateSummary.mockResolvedValue("候选人表现积极。");
+    generateEvaluation.mockResolvedValue(EVALUATION);
+
+    await expect(
+      generateInterviewReport(
+        { candidateFormResponses: "", questions: QUESTIONS, transcript: TRANSCRIPT },
+        dependencies,
+      ),
+    ).resolves.toMatchObject({
+      summary:
+        "本次面试未收集到候选人的有效回答，无法基于对话记录评价其表现、能力、亮点或不足，请人工复核。",
+    });
+    expect(generateSummary).not.toHaveBeenCalled();
+  });
+
   it("generates summary and structured evaluation with Mastra agents", async () => {
     generateSummary.mockResolvedValue(" 面试摘要 ");
     generateEvaluation.mockResolvedValue(EVALUATION);
@@ -81,6 +118,7 @@ describe("generateInterviewReport", () => {
       generateInterviewReport(
         {
           candidateFormResponses: "当前求职状态：在职，一个月内到岗",
+          dataCollectionResults: ANSWERED_RESULTS,
           questions: QUESTIONS,
           transcript: TRANSCRIPT,
         },
@@ -94,7 +132,7 @@ describe("generateInterviewReport", () => {
     expect(generateSummary).toHaveBeenCalledWith({ transcript: TRANSCRIPT });
     expect(generateEvaluation).toHaveBeenCalledWith({
       candidateFormResponses: "当前求职状态：在职，一个月内到岗",
-      dataCollectionResults: undefined,
+      dataCollectionResults: ANSWERED_RESULTS,
       questions: QUESTIONS,
       transcript: TRANSCRIPT,
     });
@@ -109,6 +147,15 @@ describe("generateInterviewReport", () => {
     );
   });
 
+  it("instructs the summary model to report only transcript-backed facts", () => {
+    const prompt = buildInterviewSummaryPrompt(TRANSCRIPT);
+
+    expect(prompt).toContain("不得补充、推测或编造");
+    expect(prompt).toContain("面试官的提问或陈述不能作为候选人的事实或表现证据");
+    expect(prompt).toContain("不得将未提问的问题描述为候选人跳过");
+    expect(prompt).toContain("我负责招聘系统前端。");
+  });
+
   it("preserves partial success when evaluation fails", async () => {
     generateSummary.mockResolvedValue("摘要");
     generateEvaluation.mockRejectedValue(new Error("evaluation failed"));
@@ -117,6 +164,7 @@ describe("generateInterviewReport", () => {
       generateInterviewReport(
         {
           candidateFormResponses: "",
+          dataCollectionResults: ANSWERED_RESULTS,
           questions: QUESTIONS,
           transcript: TRANSCRIPT,
         },

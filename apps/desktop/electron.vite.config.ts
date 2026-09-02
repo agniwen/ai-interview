@@ -12,7 +12,7 @@ function envFileNames(mode: string): string[] {
   return [`.env.${mode}.local`, `.env.${mode}`, ".env.local", ".env"];
 }
 
-export default defineConfig(({ mode }) => {
+export function createDesktopConfig(mode: string) {
   const hasCurrentEnv = envFileNames(mode).some((fileName) =>
     existsSync(resolve(desktopRoot, fileName)),
   );
@@ -23,6 +23,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     main: {
+      build: {
+        externalizeDeps: {
+          exclude: ["@app/meeting-live-transcript"],
+        },
+      },
       envDir,
       envPrefix: ["VITE_", "SENTRY_DESKTOP_DSN", "SENTRY_DSN", "SENTRY_RELEASE"],
     },
@@ -45,4 +50,6 @@ export default defineConfig(({ mode }) => {
       },
     },
   };
-});
+}
+
+export default defineConfig(({ mode }) => createDesktopConfig(mode));

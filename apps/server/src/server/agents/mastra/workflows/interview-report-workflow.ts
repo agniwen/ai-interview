@@ -5,6 +5,7 @@ import { interviewDataCollectionResultsSchema } from "@app/shared/interview/ques
 import {
   composeInterviewReport,
   generateInterviewEvaluation,
+  generateGroundedInterviewSummary,
   generateInterviewSummary,
   interviewEvaluationSchema,
 } from "../../../routes/agent/utils/interview-report";
@@ -77,11 +78,18 @@ export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps)
   const summaryStep = createStep({
     execute: async ({ inputData }) => {
       try {
+        const summary = await generateGroundedInterviewSummary(
+          {
+            dataCollectionResults: inputData.dataCollectionResults,
+            transcript: inputData.transcript,
+          },
+          deps.generateSummary,
+        );
         return {
           ...inputData,
           summaryResult: {
             status: "fulfilled" as const,
-            value: await deps.generateSummary({ transcript: inputData.transcript }),
+            value: summary,
           },
         };
       } catch (error) {

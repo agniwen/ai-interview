@@ -12,11 +12,26 @@ import {
   interviewReportSummaryAgent,
 } from "@app/ai-runtime/simple-generators";
 
-const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，使用面试对话的主要语言撰写一段篇幅相当于中文 200-300 字的面试摘要。
-摘要需包括：面试涉及的主要话题、候选人的整体表现、值得关注的亮点或不足，面试对话记录中，如果用户跳过了某个问题，则该问题视为0分。
+const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请只根据以下面试对话记录，使用面试对话的主要语言撰写摘要。
+
+事实约束（优先级最高）：
+- 摘要中的每项事实和判断都必须能由候选人在对话记录中的明确原话直接支持；不得补充、推测或编造对话中没有的信息。
+- 面试官的提问或陈述不能作为候选人的事实或表现证据，也不能因为面试官提到了某个话题就声称双方已经讨论过该话题。
+- 不得使用简历、岗位描述、面试前表单、常识或通用面试套话填补信息空白。
+- 不得将未提问的问题描述为候选人跳过；只有候选人明确表示拒绝回答或跳过时，才能写为“候选人跳过”。
+- 没有直接证据时，不得评价候选人的态度、表达流畅度、准备程度、能力、潜力、亮点或不足。
+- 若有效回答较少，应明确说明证据有限，只总结实际收集到的内容，不得为了达到篇幅要求扩写。
+
+内容要求：
+- 优先概括实际讨论的主要话题和候选人明确表达的关键信息，再总结有原话支撑的表现、亮点或不足。
+- 信息充分时，篇幅相当于中文 200-300 字；信息不足时允许显著短于该篇幅。
+- 不输出分数，不添加“面试摘要”等标题，只输出摘要正文。
 
 ## 面试对话记录
 {transcript}`;
+
+export const NO_CANDIDATE_ANSWER_SUMMARY =
+  "本次面试未收集到候选人的有效回答，无法基于对话记录评价其表现、能力、亮点或不足，请人工复核。";
 
 const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据以下面试对话记录和面试题目，对候选人的表现进行结构化评估。
 
@@ -284,6 +299,49 @@ export function formatTranscript(turns: InterviewTranscriptTurn[]): string {
     .join("\n");
 }
 
+export function buildInterviewSummaryPrompt(transcript: InterviewTranscriptTurn[]): string {
+  return SUMMARY_PROMPT.replace("{transcript}", formatTranscript(transcript));
+}
+
+function hasCandidateAnswerEvidence(options: {
+  dataCollectionResults?: InterviewDataCollectionResults | null;
+  transcript: InterviewTranscriptTurn[];
+}): boolean {
+  const hasCandidateTurn = options.transcript.some(
+    (turn) => turn.role === "user" && turn.message.trim().length > 0,
+  );
+  if (!hasCandidateTurn) {
+    return false;
+  }
+
+  const outcomes = options.dataCollectionResults?.questions;
+  if (!outcomes || outcomes.length === 0) {
+    return false;
+  }
+
+  return outcomes.some(
+    (outcome) =>
+      outcome.status === "answered" ||
+      outcome.status === "insufficient" ||
+      (outcome.status === "interrupted" &&
+        outcome.reason !== "question_prompt_interrupted" &&
+        Boolean(outcome.answerSummary?.trim())),
+  );
+}
+
+export async function generateGroundedInterviewSummary(
+  options: {
+    dataCollectionResults?: InterviewDataCollectionResults | null;
+    transcript: InterviewTranscriptTurn[];
+  },
+  generate: (input: { transcript: InterviewTranscriptTurn[] }) => Promise<string>,
+): Promise<string> {
+  if (!hasCandidateAnswerEvidence(options)) {
+    return NO_CANDIDATE_ANSWER_SUMMARY;
+  }
+  return await generate({ transcript: options.transcript });
+}
+
 export function formatQuestions(
   questions: InterviewEvaluationQuestion[],
   dataCollectionResults?: InterviewDataCollectionResults | null,
@@ -424,7 +482,7 @@ export async function generateInterviewSummary(options: {
 }): Promise<string> {
   return await generateTextWithMastraAgent({
     agent: interviewReportSummaryAgent,
-    prompt: SUMMARY_PROMPT.replace("{transcript}", formatTranscript(options.transcript)),
+    prompt: buildInterviewSummaryPrompt(options.transcript),
     temperature: 0.2,
   });
 }
@@ -498,7 +556,10 @@ export async function generateInterviewReport(
   }
 
   const [summaryResult, evaluationResult] = await Promise.allSettled([
-    dependencies.generateSummary({ transcript }),
+    generateGroundedInterviewSummary(
+      { dataCollectionResults: options.dataCollectionResults, transcript },
+      dependencies.generateSummary,
+    ),
     dependencies.generateEvaluation({
       candidateFormResponses: options.candidateFormResponses,
       dataCollectionResults: options.dataCollectionResults,

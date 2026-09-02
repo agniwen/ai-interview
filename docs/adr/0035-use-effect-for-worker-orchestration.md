@@ -1,0 +1,23 @@
+# Use Effect for worker orchestration
+
+Adopt an exactly pinned Effect 4 release-candidate version across `apps/worker` orchestration and the execution-heavy parts of its direct dependency packages because the worker concentrates typed failure policy, scheduling, concurrency, resource ownership, and graceful shutdown. Keep existing Hono, BullMQ, DAO, provider, and shared-package Promise APIs as stable facades. Direct dependencies may add separate Effect-native entry points for the worker when wrapping the entire operation as one opaque Promise would hide meaningful retry, cancellation, or resource lifecycles; server, web, and other consumers are not forced to migrate. Pure transformations remain ordinary TypeScript.
+
+## Considered Options
+
+- Limit Effect to one notification pilot. Rejected because the same lifecycle and failure-policy problems recur across the worker and the intended change is to establish one consistent worker runtime.
+- Replace shared-package Promise APIs or migrate the server at the same time. Rejected to contain the compatibility surface and avoid forcing unrelated consumers into the Effect runtime. Additive Effect-native entry points are allowed where the worker needs to compose an execution-heavy dependency without treating it as an opaque Promise.
+- Maintain old and new worker implementations behind a feature flag. Rejected because a long-lived dual stack would duplicate behavior and make semantic parity harder to maintain.
+
+## Consequences
+
+- Existing processor, scheduler, Hono, and BullMQ Promise boundaries remain compatible. Existing processing order, persistence transitions, error codes, concurrency limits, idempotency, lease behavior, and externally visible logs must not change.
+- Effect-native entry points and existing Promise facades execute one implementation rather than retaining parallel business logic. The Promise facade maps results and failures back to its existing contract.
+- Effect Services are capability-sized. Existing dependency objects feed capability Layers; DAO methods and utility functions do not each become separate Services.
+- Typed failures are capability-owned tagged unions rather than one global worker error. Unknown third-party failures and broken invariants remain defects until a boundary can classify them honestly.
+- Structured concurrency must preserve existing side-effect completion semantics. Concurrent work that currently continues after a sibling rejects must still settle before the failure is reported unless the existing adapter already supports cancellation safely.
+- When a primary operation and its finalizer both fail, report and retain the cleanup failure in Sentry while exposing the primary operation failure at the Promise or queue boundary. A mandatory finalizer may fail an otherwise successful operation according to the capability's existing contract; best-effort cleanup remains observational only.
+- New automatic retries are limited to explicitly classified transient failures on idempotent external operations. Each operation may retry at most twice after its initial attempt, uses jittered exponential backoff starting at 250 ms with a two-second default delay cap, and may honor a trustworthy `Retry-After` value only up to 30 seconds and within the remaining lease or job deadline. Unknown-result operations are not retried immediately. Durable queue, lease, checkpoint, outbox, and database retry behavior remains authoritative.
+- Continue using Sentry and preserve existing structured console output. Do not add Effect tracing, OpenTelemetry, or a new telemetry backend as part of this migration.
+- Keep the existing Zod and `@t3-oss/env-core` configuration system. Parsed configuration may be supplied to Effect programs, but configuration schemas and secret-redaction behavior do not move to Effect Config.
+- Graceful shutdown stops new queue work and scheduled polls first, drains active BullMQ jobs, notification events, and mail-ingest polls without adding a new forced timeout, then releases owned resources in reverse dependency order. A partial startup failure immediately finalizes every resource acquired so far.
+- Migrate the worker runtime, schedulers, processors, HTTP diagnostics, meeting-capacity script, and execution-heavy code reachable through the worker's direct dependencies in verified slices, then deliver them together without a persistent compatibility flag. Do not migrate package paths used only by server or web, or pure schemas, data rules, and transformations. Preserve all existing behavior assertions and add focused tests for retry bounds, virtual time, resource finalization, interruption, and shutdown.

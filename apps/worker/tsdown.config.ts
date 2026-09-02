@@ -14,6 +14,7 @@ export default defineConfig({
       /^@app\/object-storage(?:\/|$)/,
       /^@app\/resume-parse-queue(?:\/|$)/,
       /^@app\/resume-processing(?:\/|$)/,
+      /^@app\/server\/human-interview-evaluation-ready$/,
       /^@app\/shared(?:\/|$)/,
     ],
     onlyBundle: false,

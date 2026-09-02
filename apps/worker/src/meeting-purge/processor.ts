@@ -1,3 +1,4 @@
+// oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
 import type {
   abortMeetingRecordingMultipartUpload,
   deleteMeetingRecordingObject,
@@ -8,6 +9,8 @@ import type {
   MeetingProviderArtifactInput,
 } from "@app/meeting-processing/purge";
 import type { MeetingPurgeJobData } from "@app/meeting-processing-queue/meeting-purge";
+import { Context, Data, Effect, Layer } from "effect";
+import { retryTransientPromise } from "../effect/retry";
 
 export interface MeetingPurgeDependencies {
   abortMultipartUpload: typeof abortMeetingRecordingMultipartUpload;
@@ -29,6 +32,18 @@ export interface MeetingPurgeDependencies {
   >["recordMeetingProviderPurgeOutcome"];
   release: ReturnType<typeof createMeetingPurgeDao>["releaseMeetingPurgeClaim"];
 }
+
+export class MeetingPurgeProcessor extends Context.Service<
+  MeetingPurgeProcessor,
+  MeetingPurgeDependencies
+>()("@app/worker/MeetingPurgeProcessor") {}
+
+export const meetingPurgeProcessorLayer = (dependencies: MeetingPurgeDependencies) =>
+  Layer.succeed(MeetingPurgeProcessor, dependencies);
+
+class MeetingPurgeFailure extends Data.TaggedError("MeetingPurgeFailure")<{
+  readonly cause: unknown;
+}> {}
 
 // 每批最多并发 8 个对象删除/校验，限制 R2 压力与 Promise 数量。 / Runs at most eight object deletes or checks per batch to bound R2 pressure and promise count.
 const STORAGE_OPERATION_CONCURRENCY = 8;
@@ -56,7 +71,7 @@ async function runBounded<T>(items: T[], operation: (item: T) => Promise<void>):
 }
 
 // 按租约顺序清理 multipart、对象与供应商产物，最终轮会反查对象；任何失败都先释放认领再抛出。 / Under a lease, clears multipart uploads, objects, and provider artifacts in order, verifies objects on the final sweep, and releases the claim before rethrowing failures.
-export async function runMeetingPurgeProcessing(
+async function runMeetingPurgeProcessingPromise(
   input: MeetingPurgeJobData,
   dependencies: MeetingPurgeDependencies,
 ): Promise<void> {
@@ -66,12 +81,16 @@ export async function runMeetingPurgeProcessing(
   }
   try {
     try {
-      await runBounded(claim.multipartUploads, dependencies.abortMultipartUpload);
+      await runBounded(claim.multipartUploads, (upload) =>
+        retryTransientPromise(() => dependencies.abortMultipartUpload(upload)),
+      );
     } catch {
       throw new Error("meeting-multipart-abort-failed");
     }
     try {
-      await runBounded(claim.storageKeys, dependencies.deleteStorageObject);
+      await runBounded(claim.storageKeys, (storageKey) =>
+        retryTransientPromise(() => dependencies.deleteStorageObject(storageKey)),
+      );
     } catch {
       throw new Error("meeting-storage-delete-failed");
     }
@@ -79,7 +98,7 @@ export async function runMeetingPurgeProcessing(
       let objectStillExists = false;
       try {
         await runBounded(claim.storageKeys, async (storageKey) => {
-          if (await dependencies.headStorageObject(storageKey)) {
+          if (await retryTransientPromise(() => dependencies.headStorageObject(storageKey))) {
             objectStillExists = true;
           }
         });
@@ -162,4 +181,26 @@ export async function runMeetingPurgeProcessing(
     }
     throw error;
   }
+}
+
+export function runMeetingPurgeProcessingEffect(input: MeetingPurgeJobData) {
+  return Effect.gen(function* () {
+    const dependencies = yield* MeetingPurgeProcessor;
+    yield* Effect.tryPromise({
+      catch: (cause) => new MeetingPurgeFailure({ cause }),
+      try: () => runMeetingPurgeProcessingPromise(input, dependencies),
+    });
+  });
+}
+
+export async function runMeetingPurgeProcessing(
+  input: MeetingPurgeJobData,
+  dependencies: MeetingPurgeDependencies,
+): Promise<void> {
+  await Effect.runPromise(
+    runMeetingPurgeProcessingEffect(input).pipe(
+      Effect.provide(meetingPurgeProcessorLayer(dependencies)),
+      Effect.catchTag("MeetingPurgeFailure", (failure) => Effect.fail(failure.cause)),
+    ),
+  );
 }

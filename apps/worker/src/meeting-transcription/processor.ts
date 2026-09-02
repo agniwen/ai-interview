@@ -1,3 +1,4 @@
+// oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -28,6 +29,11 @@ import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
 import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
 import pLimit from "p-limit";
+import { Context, Data, Effect, Layer } from "effect";
+import { retryTransientPromise } from "../effect/retry";
+import { cleanupPreservingPrimary } from "../effect/cleanup";
+import { settleAllOrThrow } from "../effect/parallel";
+import { captureWorkerException } from "../sentry";
 
 export {
   assertMeetingTranscriptionFfmpegAvailable,
@@ -112,6 +118,19 @@ export interface MeetingTranscriptionDependencies {
     task: (reservedBytes: number) => Promise<Result>,
   ) => Promise<Result>;
 }
+
+export class MeetingTranscriptionProcessor extends Context.Service<
+  MeetingTranscriptionProcessor,
+  MeetingTranscriptionDependencies
+>()("@app/worker/MeetingTranscriptionProcessor") {}
+
+export const meetingTranscriptionProcessorLayer = (
+  dependencies: MeetingTranscriptionDependencies,
+) => Layer.succeed(MeetingTranscriptionProcessor, dependencies);
+
+class MeetingTranscriptionFailure extends Data.TaggedError("MeetingTranscriptionFailure")<{
+  readonly cause: unknown;
+}> {}
 
 function positiveEnvInteger(name: string, fallback: number): number {
   const value = Number.parseInt(process.env[name] ?? "", 10);
@@ -337,7 +356,7 @@ async function requestHumanInterviewEvaluationBestEffort(input: {
 }
 
 // oxlint-disable-next-line complexity -- source admission, checkpoint recovery, and failure persistence form one job boundary.
-export async function runMeetingTranscriptionProcessing(
+async function runMeetingTranscriptionProcessingPromise(
   input: MeetingTranscriptionJobData,
   context: { attempt: number; maxAttempts: number },
   dependencies: MeetingTranscriptionDependencies,
@@ -369,6 +388,8 @@ export async function runMeetingTranscriptionProcessing(
     return;
   }
   let workingDirectory: string | null = null;
+  let primaryCause: unknown;
+  let hasPrimaryFailure = false;
   try {
     if (meeting.manifestSha256 !== input.sourceManifestSha256) {
       throw new Error("Meeting Recording 清单已变化");
@@ -409,12 +430,14 @@ export async function runMeetingTranscriptionProcessing(
         storageKey: source.storageKey,
         track: parseMeetingTranscriptionSourceTrack(source.track),
       }));
-      await Promise.all(
+      await settleAllOrThrow(
         preparedSources.map(async (source) => {
-          await dependencies.downloadSource({
-            filePath: source.filePath,
-            storageKey: source.storageKey,
-          });
+          await retryTransientPromise(() =>
+            dependencies.downloadSource({
+              filePath: source.filePath,
+              storageKey: source.storageKey,
+            }),
+          );
         }),
       );
       const chunks = await dependencies.prepareChunks({
@@ -464,6 +487,8 @@ export async function runMeetingTranscriptionProcessing(
       });
     }
   } catch (error) {
+    primaryCause = error;
+    hasPrimaryFailure = true;
     const errorMessage =
       error instanceof Error ? error.message : "Meeting transcription processing failed";
     try {
@@ -485,7 +510,49 @@ export async function runMeetingTranscriptionProcessing(
     throw error;
   } finally {
     if (workingDirectory) {
-      await dependencies.removeWorkingDirectory(workingDirectory);
+      const directory = workingDirectory;
+      await cleanupPreservingPrimary({
+        cleanup: () => dependencies.removeWorkingDirectory(directory),
+        hasPrimaryFailure,
+        onCleanupFailure: (error) => {
+          captureWorkerException(error, "worker.meeting-transcription.cleanup", {
+            meetingId: input.meetingId,
+            processingRunId,
+          });
+          console.error("[meeting-transcription-worker] failed to remove working directory", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+            meetingId: input.meetingId,
+            processingRunId,
+          });
+        },
+        primaryCause,
+      });
     }
   }
+}
+
+export function runMeetingTranscriptionProcessingEffect(
+  input: MeetingTranscriptionJobData,
+  context: { attempt: number; maxAttempts: number },
+) {
+  return Effect.gen(function* () {
+    const dependencies = yield* MeetingTranscriptionProcessor;
+    yield* Effect.tryPromise({
+      catch: (cause) => new MeetingTranscriptionFailure({ cause }),
+      try: () => runMeetingTranscriptionProcessingPromise(input, context, dependencies),
+    });
+  });
+}
+
+export async function runMeetingTranscriptionProcessing(
+  input: MeetingTranscriptionJobData,
+  context: { attempt: number; maxAttempts: number },
+  dependencies: MeetingTranscriptionDependencies,
+): Promise<void> {
+  await Effect.runPromise(
+    runMeetingTranscriptionProcessingEffect(input, context).pipe(
+      Effect.provide(meetingTranscriptionProcessorLayer(dependencies)),
+      Effect.catchTag("MeetingTranscriptionFailure", (failure) => Effect.fail(failure.cause)),
+    ),
+  );
 }

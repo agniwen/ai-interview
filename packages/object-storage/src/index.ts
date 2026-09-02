@@ -2,6 +2,28 @@ import type { GetObjectCommandInput, S3Client } from "@aws-sdk/client-s3";
 import { createReadStream, createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { z } from "zod";
+import { Data, Effect } from "effect";
+
+export class ObjectStorageFailure extends Data.TaggedError("ObjectStorageFailure")<{
+  readonly cause: unknown;
+  readonly operation: "abort-multipart" | "delete" | "download" | "head";
+}> {}
+
+function storageEffect<A>(
+  operation: ObjectStorageFailure["operation"],
+  evaluate: () => Promise<A>,
+) {
+  return Effect.tryPromise({
+    catch: (cause) => new ObjectStorageFailure({ cause, operation }),
+    try: evaluate,
+  });
+}
+
+function runStorageEffect<A>(effect: Effect.Effect<A, ObjectStorageFailure>): Promise<A> {
+  return Effect.runPromise(
+    effect.pipe(Effect.catchTag("ObjectStorageFailure", (failure) => Effect.fail(failure.cause))),
+  );
+}
 
 function parseBooleanEnv(name: string, value: string): boolean {
   if (value === "1" || value === "true" || value === "yes") {
@@ -260,14 +282,20 @@ export async function buildMeetingTranscriptionStagingKey(input: {
   );
 }
 
-export async function deleteMeetingRecordingObject(storageKey: string): Promise<void> {
-  const [{ DeleteObjectCommand }, { client, config }] = await Promise.all([
-    import("@aws-sdk/client-s3"),
-    getRecordingClient(),
-  ]);
-  await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
-    abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS),
+export function deleteMeetingRecordingObjectEffect(storageKey: string) {
+  return storageEffect("delete", async () => {
+    const [{ DeleteObjectCommand }, { client, config }] = await Promise.all([
+      import("@aws-sdk/client-s3"),
+      getRecordingClient(),
+    ]);
+    await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
+      abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS),
+    });
   });
+}
+
+export function deleteMeetingRecordingObject(storageKey: string): Promise<void> {
+  return runStorageEffect(deleteMeetingRecordingObjectEffect(storageKey));
 }
 
 function isNoSuchKey(error: Error): boolean {
@@ -338,30 +366,39 @@ export async function createMeetingRecordingMultipartUpload(input: {
   return result.UploadId;
 }
 
-export async function abortMeetingRecordingMultipartUpload(input: {
+export function abortMeetingRecordingMultipartUploadEffect(input: {
+  storageKey: string;
+  uploadId: string;
+}) {
+  return storageEffect("abort-multipart", async () => {
+    const [{ AbortMultipartUploadCommand }, { client, config }] = await Promise.all([
+      import("@aws-sdk/client-s3"),
+      getRecordingClient(),
+    ]);
+    try {
+      await client.send(
+        new AbortMultipartUploadCommand({
+          Bucket: config.bucket,
+          Key: input.storageKey,
+          UploadId: input.uploadId,
+        }),
+        { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
+      );
+    } catch (error) {
+      const uploadError = error instanceof Error ? error : new Error(String(error));
+      if (uploadError.name === "NoSuchUpload") {
+        return;
+      }
+      throw error;
+    }
+  });
+}
+
+export function abortMeetingRecordingMultipartUpload(input: {
   storageKey: string;
   uploadId: string;
 }): Promise<void> {
-  const [{ AbortMultipartUploadCommand }, { client, config }] = await Promise.all([
-    import("@aws-sdk/client-s3"),
-    getRecordingClient(),
-  ]);
-  try {
-    await client.send(
-      new AbortMultipartUploadCommand({
-        Bucket: config.bucket,
-        Key: input.storageKey,
-        UploadId: input.uploadId,
-      }),
-      { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
-    );
-  } catch (error) {
-    const uploadError = error instanceof Error ? error : new Error(String(error));
-    if (uploadError.name === "NoSuchUpload") {
-      return;
-    }
-    throw error;
-  }
+  return runStorageEffect(abortMeetingRecordingMultipartUploadEffect(input));
 }
 
 export async function listMeetingRecordingUploadParts(input: {
@@ -453,62 +490,90 @@ export async function completeMeetingRecordingMultipartUpload(input: {
   );
 }
 
-export async function headMeetingRecordingObject(storageKey: string): Promise<{
+export function headMeetingRecordingObjectEffect(storageKey: string) {
+  return storageEffect(
+    "head",
+    async (): Promise<{
+      checksumSha256: string | null;
+      contentLength: number;
+      contentType: string;
+      etag: string | null;
+      sha256: string | null;
+    } | null> => {
+      const [{ HeadObjectCommand }, { client, config }] = await Promise.all([
+        import("@aws-sdk/client-s3"),
+        getRecordingClient(),
+      ]);
+      try {
+        const result = await client.send(
+          new HeadObjectCommand({
+            Bucket: config.bucket,
+            ChecksumMode: "ENABLED",
+            Key: storageKey,
+          }),
+          { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
+        );
+        if (result.ContentLength === undefined || !result.ContentType) {
+          return null;
+        }
+        return {
+          checksumSha256: result.ChecksumSHA256 ?? null,
+          contentLength: result.ContentLength,
+          contentType: result.ContentType,
+          etag: result.ETag ?? null,
+          sha256: result.Metadata?.sha256 ?? null,
+        };
+      } catch (error) {
+        const headError = error instanceof Error ? error : new Error(String(error));
+        const parsedMetadata = z
+          .object({ $metadata: z.object({ httpStatusCode: z.number().optional() }).optional() })
+          .safeParse(error);
+        if (
+          isNoSuchKey(headError) ||
+          (parsedMetadata.success && parsedMetadata.data.$metadata?.httpStatusCode === 404)
+        ) {
+          return null;
+        }
+        throw error;
+      }
+    },
+  );
+}
+
+export function headMeetingRecordingObject(storageKey: string): Promise<{
   checksumSha256: string | null;
   contentLength: number;
   contentType: string;
   etag: string | null;
   sha256: string | null;
 } | null> {
-  const [{ HeadObjectCommand }, { client, config }] = await Promise.all([
-    import("@aws-sdk/client-s3"),
-    getRecordingClient(),
-  ]);
-  try {
-    const result = await client.send(
-      new HeadObjectCommand({ Bucket: config.bucket, ChecksumMode: "ENABLED", Key: storageKey }),
-      { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
-    );
-    if (result.ContentLength === undefined || !result.ContentType) {
-      return null;
-    }
-    return {
-      checksumSha256: result.ChecksumSHA256 ?? null,
-      contentLength: result.ContentLength,
-      contentType: result.ContentType,
-      etag: result.ETag ?? null,
-      sha256: result.Metadata?.sha256 ?? null,
-    };
-  } catch (error) {
-    const headError = error instanceof Error ? error : new Error(String(error));
-    const parsedMetadata = z
-      .object({ $metadata: z.object({ httpStatusCode: z.number().optional() }).optional() })
-      .safeParse(error);
-    if (
-      isNoSuchKey(headError) ||
-      (parsedMetadata.success && parsedMetadata.data.$metadata?.httpStatusCode === 404)
-    ) {
-      return null;
-    }
-    throw error;
-  }
+  return runStorageEffect(headMeetingRecordingObjectEffect(storageKey));
 }
 
-export async function downloadMeetingRecordingObjectToFile(input: {
+export function downloadMeetingRecordingObjectToFileEffect(input: {
+  filePath: string;
+  storageKey: string;
+}) {
+  return storageEffect("download", async () => {
+    const [{ GetObjectCommand }, { client, config }] = await Promise.all([
+      import("@aws-sdk/client-s3"),
+      getRecordingClient(),
+    ]);
+    const response = await client.send(
+      new GetObjectCommand({ Bucket: config.bucket, Key: input.storageKey }),
+    );
+    if (!response.Body) {
+      throw new Error("Meeting Recording 源对象没有可读取内容");
+    }
+    await pipeline(response.Body.transformToWebStream(), createWriteStream(input.filePath));
+  });
+}
+
+export function downloadMeetingRecordingObjectToFile(input: {
   filePath: string;
   storageKey: string;
 }): Promise<void> {
-  const [{ GetObjectCommand }, { client, config }] = await Promise.all([
-    import("@aws-sdk/client-s3"),
-    getRecordingClient(),
-  ]);
-  const response = await client.send(
-    new GetObjectCommand({ Bucket: config.bucket, Key: input.storageKey }),
-  );
-  if (!response.Body) {
-    throw new Error("Meeting Recording 源对象没有可读取内容");
-  }
-  await pipeline(response.Body.transformToWebStream(), createWriteStream(input.filePath));
+  return runStorageEffect(downloadMeetingRecordingObjectToFileEffect(input));
 }
 
 interface MeetingRecordingFileInput {

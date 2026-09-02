@@ -7,6 +7,9 @@ export * from "@app/resume-processing/review/resumes/utils/review-queue";
 
 export const enqueueResumePoolReviewGenerationBestEffort: typeof implementation.enqueueResumePoolReviewGenerationBestEffort =
   bindResumeProcessingDatabase(db, implementation.enqueueResumePoolReviewGenerationBestEffort);
+/** @deprecated Use scheduleResumeEvaluationForRecord. */
+export const enqueueResumeReviewGenerationForRecordBestEffort: typeof implementation.enqueueResumeReviewGenerationForRecordBestEffort =
+  bindResumeProcessingDatabase(db, implementation.enqueueResumeReviewGenerationForRecordBestEffort);
 export const enqueueResumeReassessmentForRecord: typeof implementation.enqueueResumeReassessmentForRecord =
   bindResumeProcessingDatabase(db, implementation.enqueueResumeReassessmentForRecord);
 export const scheduleResumeEvaluationForRecord: typeof implementation.scheduleResumeEvaluationForRecord =

@@ -126,5 +126,30 @@ describe("runHumanInterviewEvaluationProcessing", () => {
       dependencies,
     );
     expect(markFailed).toHaveBeenCalledOnce();
+    expect(dependencies.notifyReady).not.toHaveBeenCalled();
+  });
+
+  it("does not mark a published evaluation failed when its notification fails", async () => {
+    const error = new Error("notification unavailable");
+    const markFailed = vi.fn();
+    await expect(
+      runHumanInterviewEvaluationProcessing(
+        {
+          meetingSessionId: "session-1",
+          organizationId: "org-1",
+          roundId: "round-1",
+          transcriptRevisionId: "revision-1",
+        },
+        { attempt: 5, maxAttempts: 5 },
+        {
+          generate: vi.fn(),
+          loadInput: vi.fn(() => Promise.resolve(null)),
+          markFailed,
+          notifyReady: vi.fn(() => Promise.reject(error)),
+          publish: vi.fn(),
+        },
+      ),
+    ).rejects.toBe(error);
+    expect(markFailed).not.toHaveBeenCalled();
   });
 });

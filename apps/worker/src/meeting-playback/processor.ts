@@ -1,3 +1,4 @@
+// oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createReadStream } from "node:fs";
@@ -20,6 +21,11 @@ import type {
   removeMeetingPlaybackCleanupKey,
 } from "./dao";
 import type { MeetingPlaybackJobData } from "@app/meeting-processing-queue/meeting-playback";
+import { Context, Data, Effect, Layer } from "effect";
+import { retryTransientPromise } from "../effect/retry";
+import { cleanupPreservingPrimary } from "../effect/cleanup";
+import { settleAllOrThrow } from "../effect/parallel";
+import { captureWorkerException } from "../sentry";
 
 interface PlaybackSourceAsset {
   contentType: string;
@@ -93,6 +99,18 @@ export interface MeetingPlaybackDependencies {
     storageKey: string;
   }) => Promise<boolean>;
 }
+
+export class MeetingPlaybackProcessor extends Context.Service<
+  MeetingPlaybackProcessor,
+  MeetingPlaybackDependencies
+>()("@app/worker/MeetingPlaybackProcessor") {}
+
+export const meetingPlaybackProcessorLayer = (dependencies: MeetingPlaybackDependencies) =>
+  Layer.succeed(MeetingPlaybackProcessor, dependencies);
+
+class MeetingPlaybackFailure extends Data.TaggedError("MeetingPlaybackFailure")<{
+  readonly cause: unknown;
+}> {}
 
 // 流式哈希混音文件，返回上传完整性校验与发布记录共用的元数据。 / Streams the mixed file hash and returns metadata shared by upload verification and publication.
 async function inspectFile(filePath: string): Promise<{ sha256: string; sizeBytes: number }> {
@@ -193,7 +211,7 @@ export function createDefaultMeetingPlaybackDependencies(
 
 // 认领后下载双轨、混音、登记清理键、上传校验并 CAS 发布；未发布对象在 finally 回收。 / After claiming, downloads both tracks, mixes, registers cleanup, verifies upload, and CAS-publishes; unpublished objects are reclaimed in finally.
 // oxlint-disable-next-line complexity -- claim, external upload, CAS publish, and loser cleanup form one job boundary.
-export async function runMeetingPlaybackProcessing(
+async function runMeetingPlaybackProcessingPromise(
   input: MeetingPlaybackJobData,
   dependencies: MeetingPlaybackDependencies,
 ): Promise<void> {
@@ -209,6 +227,8 @@ export async function runMeetingPlaybackProcessing(
   let cleanupPlayback = false;
   let playbackStorageKey: string | null = null;
   let workingDirectory: string | null = null;
+  let primaryCause: unknown;
+  let hasPrimaryFailure = false;
   try {
     const claimed = await dependencies.markProcessing({ ...input, processingRunId });
     if (!claimed) {
@@ -223,12 +243,16 @@ export async function runMeetingPlaybackProcessing(
     const microphonePath = join(workingDirectory, "microphone.webm");
     const systemPath = join(workingDirectory, "system.webm");
     const outputPath = join(workingDirectory, "playback.webm");
-    await Promise.all([
-      dependencies.downloadSource({
-        filePath: microphonePath,
-        storageKey: microphone.storageKey,
-      }),
-      dependencies.downloadSource({ filePath: systemPath, storageKey: system.storageKey }),
+    await settleAllOrThrow([
+      retryTransientPromise(() =>
+        dependencies.downloadSource({
+          filePath: microphonePath,
+          storageKey: microphone.storageKey,
+        }),
+      ),
+      retryTransientPromise(() =>
+        dependencies.downloadSource({ filePath: systemPath, storageKey: system.storageKey }),
+      ),
     ]);
     await dependencies.mixSources({
       microphonePath,
@@ -308,6 +332,8 @@ export async function runMeetingPlaybackProcessing(
       cleanupPlayback = true;
     }
   } catch (error) {
+    primaryCause = error;
+    hasPrimaryFailure = true;
     const errorMessage = describeMeetingPlaybackError(error);
     console.error("[meeting-playback-worker] processing failed", {
       errorMessage,
@@ -342,7 +368,45 @@ export async function runMeetingPlaybackProcessing(
       }
     }
     if (workingDirectory) {
-      await dependencies.removeWorkingDirectory(workingDirectory);
+      const directory = workingDirectory;
+      await cleanupPreservingPrimary({
+        cleanup: () => dependencies.removeWorkingDirectory(directory),
+        hasPrimaryFailure,
+        onCleanupFailure: (error) => {
+          captureWorkerException(error, "worker.meeting-playback.cleanup", {
+            meetingId: input.meetingId,
+            processingRunId,
+          });
+          console.error("[meeting-playback-worker] failed to remove working directory", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+            meetingId: input.meetingId,
+            processingRunId,
+          });
+        },
+        primaryCause,
+      });
     }
   }
+}
+
+export function runMeetingPlaybackProcessingEffect(input: MeetingPlaybackJobData) {
+  return Effect.gen(function* () {
+    const dependencies = yield* MeetingPlaybackProcessor;
+    yield* Effect.tryPromise({
+      catch: (cause) => new MeetingPlaybackFailure({ cause }),
+      try: () => runMeetingPlaybackProcessingPromise(input, dependencies),
+    });
+  });
+}
+
+export async function runMeetingPlaybackProcessing(
+  input: MeetingPlaybackJobData,
+  dependencies: MeetingPlaybackDependencies,
+): Promise<void> {
+  await Effect.runPromise(
+    runMeetingPlaybackProcessingEffect(input).pipe(
+      Effect.provide(meetingPlaybackProcessorLayer(dependencies)),
+      Effect.catchTag("MeetingPlaybackFailure", (failure) => Effect.fail(failure.cause)),
+    ),
+  );
 }

@@ -70,9 +70,53 @@ import {
   initializeWorkerSentry,
   reportQueueFailure,
 } from "./sentry";
+import { createWorkerLifecycle } from "./effect/lifecycle";
+import { Exit } from "effect";
 
 validateWorkerEnv();
 initializeWorkerSentry();
+
+const reportFinalizerFailure = (failure: { cause: unknown; resource: string }) => {
+  captureWorkerException(failure.cause, "worker.finalizer", { resource: failure.resource });
+  console.error("[worker] resource cleanup failed", {
+    errorName: failure.cause instanceof Error ? failure.cause.name : "UnknownError",
+    resource: failure.resource,
+  });
+};
+const triggerLifecycle = createWorkerLifecycle(reportFinalizerFailure);
+const resourceLifecycle = createWorkerLifecycle(reportFinalizerFailure);
+const activeRecoveryRuns = new Set<Promise<void>>();
+
+function trackRecoveryRun(run: () => Promise<void>): Promise<void> {
+  const active = run();
+  activeRecoveryRuns.add(active);
+  // oxlint-disable-next-line promise/prefer-await-to-then -- finalization removes this exact in-flight Promise from the drain set.
+  void active.finally(() => activeRecoveryRuns.delete(active));
+  return active;
+}
+
+async function closeWorkerLifecycles(exit: Exit.Exit<unknown, unknown> = Exit.void): Promise<void> {
+  // Stop HTTP, timers, and schedulers before draining BullMQ workers and closing queues.
+  let cleanupError: unknown;
+  let hasCleanupError = false;
+  try {
+    await triggerLifecycle.close(exit);
+  } catch (error) {
+    cleanupError = error;
+    hasCleanupError = true;
+  }
+  try {
+    await resourceLifecycle.close(exit);
+  } catch (error) {
+    if (!hasCleanupError) {
+      cleanupError = error;
+      hasCleanupError = true;
+    }
+  }
+  if (hasCleanupError) {
+    throw cleanupError;
+  }
+}
 
 // 仅接受 1/true/yes，避免未识别的环境值意外启动语义索引消费。 / Accepts only 1/true/yes so unknown environment values cannot start semantic-index consumption.
 function isResumeSemanticIndexEnabled(): boolean {
@@ -349,6 +393,31 @@ async function reconcileMeetingTranscriptionJobs(): Promise<void> {
 // 统一组装 HTTP、队列消费者、恢复定时器与优雅关闭流程。 / Composes HTTP, queue consumers, recovery timers, and graceful shutdown in one process boundary.
 // oxlint-disable-next-line complexity -- worker bootstrap coordinates independently configurable queues and recovery timers.
 async function main() {
+  resourceLifecycle.addFinalizer("database", async () => {
+    if (process.env.DATABASE_URL) {
+      const { closeDatabase } = await import("./db");
+      await closeDatabase();
+    }
+  });
+  resourceLifecycle.addFinalizer(
+    "resume-review-generation-queue",
+    closeResumeReviewGenerationQueue,
+  );
+  resourceLifecycle.addFinalizer("resume-semantic-index-queue", closeResumeSemanticIndexQueue);
+  resourceLifecycle.addFinalizer("resume-parse-queue", closeResumeParseQueue);
+  resourceLifecycle.addFinalizer(
+    "human-interview-evaluation-queue",
+    closeHumanInterviewEvaluationQueue,
+  );
+  resourceLifecycle.addFinalizer(
+    "human-interview-recording-queue",
+    closeHumanInterviewRecordingQueue,
+  );
+  resourceLifecycle.addFinalizer("meeting-transcription-queue", closeMeetingTranscriptionQueue);
+  resourceLifecycle.addFinalizer("meeting-intelligence-queue", closeMeetingIntelligenceQueue);
+  resourceLifecycle.addFinalizer("meeting-answer-queue", closeMeetingAnswerQueue);
+  resourceLifecycle.addFinalizer("meeting-purge-queue", closeMeetingPurgeQueue);
+  resourceLifecycle.addFinalizer("meeting-playback-queue", closeMeetingPlaybackQueue);
   const { hostname, port } = resolveWorkerServerConfig();
   const backgroundProcessingEnabled = isWorkerBackgroundProcessingEnabled();
   const app = createWorkerApp();
@@ -365,10 +434,20 @@ async function main() {
     } else {
       console.error("[worker] server error", { errorName: error.name });
     }
+    await closeWorkerLifecycles(Exit.fail(error));
     await flushWorkerSentry();
     process.exit(1);
   });
   const closeServer = promisify(server.close.bind(server));
+  let serverClosePromise: Promise<void> | undefined;
+  const closeHttpServer = () => {
+    serverClosePromise ??= closeServer();
+    return serverClosePromise;
+  };
+  triggerLifecycle.addFinalizer("http-server-fallback", closeHttpServer);
+  triggerLifecycle.addFinalizer("recovery-drain", async () => {
+    await Promise.allSettled(activeRecoveryRuns);
+  });
 
   let worker: ReturnType<typeof createResumeParseWorker> | null = null;
   // Notification outbox polling has its own feature flags and remains independent
@@ -394,6 +473,11 @@ async function main() {
       );
     },
   });
+  if (interviewNotificationScheduler) {
+    triggerLifecycle.addFinalizer("interview-notification-scheduler", () =>
+      interviewNotificationScheduler.close(),
+    );
+  }
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
@@ -430,11 +514,19 @@ async function main() {
       },
     );
     humanInterviewEvaluationWorker.on("failed", reportQueueFailure("human-interview-evaluation"));
+    resourceLifecycle.addFinalizer("human-interview-evaluation-worker", () =>
+      humanInterviewEvaluationWorker?.close(),
+    );
     await reconcileHumanInterviewEvaluationJobs();
     humanInterviewEvaluationRecoveryTimer = setInterval(() => {
-      void reconcileHumanInterviewEvaluationJobs();
+      void trackRecoveryRun(reconcileHumanInterviewEvaluationJobs);
     }, 60_000);
     humanInterviewEvaluationRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("human-interview-evaluation-recovery", () => {
+      if (humanInterviewEvaluationRecoveryTimer) {
+        clearInterval(humanInterviewEvaluationRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isHumanInterviewRecordingQueueConfigured()) {
     humanInterviewRecordingWorker = createHumanInterviewRecordingWorker(
@@ -451,11 +543,19 @@ async function main() {
       },
     );
     humanInterviewRecordingWorker.on("failed", reportQueueFailure("human-interview-recording"));
+    resourceLifecycle.addFinalizer("human-interview-recording-worker", () =>
+      humanInterviewRecordingWorker?.close(),
+    );
     await reconcileHumanInterviewRecordingJobs();
     humanInterviewRecordingRecoveryTimer = setInterval(() => {
-      void reconcileHumanInterviewRecordingJobs();
+      void trackRecoveryRun(reconcileHumanInterviewRecordingJobs);
     }, 60_000);
     humanInterviewRecordingRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("human-interview-recording-recovery", () => {
+      if (humanInterviewRecordingRecoveryTimer) {
+        clearInterval(humanInterviewRecordingRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isMeetingAnswerQueueConfigured()) {
     meetingAnswerWorker = createMeetingAnswerWorker(async (payload, context) => {
@@ -467,11 +567,17 @@ async function main() {
       await runMeetingAnswerProcessing(payload, context, defaultMeetingAnswerDependencies);
     });
     meetingAnswerWorker.on("failed", reportQueueFailure("meeting-answer"));
+    resourceLifecycle.addFinalizer("meeting-answer-worker", () => meetingAnswerWorker?.close());
     await reconcileMeetingAnswerJobs();
     meetingAnswerRecoveryTimer = setInterval(() => {
-      void reconcileMeetingAnswerJobs();
+      void trackRecoveryRun(reconcileMeetingAnswerJobs);
     }, 60_000);
     meetingAnswerRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("meeting-answer-recovery", () => {
+      if (meetingAnswerRecoveryTimer) {
+        clearInterval(meetingAnswerRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isMeetingProcessingQueueConfigured()) {
     meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
@@ -481,11 +587,17 @@ async function main() {
       await runMeetingPlaybackProcessing(payload, defaultMeetingPlaybackDependencies);
     });
     meetingPlaybackWorker.on("failed", reportQueueFailure("meeting-playback"));
+    resourceLifecycle.addFinalizer("meeting-playback-worker", () => meetingPlaybackWorker?.close());
     await reconcileMeetingPlaybackJobs();
     meetingPlaybackRecoveryTimer = setInterval(() => {
-      void reconcileMeetingPlaybackJobs();
+      void trackRecoveryRun(reconcileMeetingPlaybackJobs);
     }, 60_000);
     meetingPlaybackRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("meeting-playback-recovery", () => {
+      if (meetingPlaybackRecoveryTimer) {
+        clearInterval(meetingPlaybackRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isMeetingPurgeQueueConfigured()) {
     meetingPurgeWorker = createMeetingPurgeWorker(async (payload) => {
@@ -495,11 +607,17 @@ async function main() {
       await runMeetingPurgeProcessing(payload, defaultMeetingPurgeDependencies);
     });
     meetingPurgeWorker.on("failed", reportQueueFailure("meeting-purge"));
+    resourceLifecycle.addFinalizer("meeting-purge-worker", () => meetingPurgeWorker?.close());
     await reconcileMeetingPurgeJobs();
     meetingPurgeRecoveryTimer = setInterval(() => {
-      void reconcileMeetingPurgeJobs();
+      void trackRecoveryRun(reconcileMeetingPurgeJobs);
     }, 60_000);
     meetingPurgeRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("meeting-purge-recovery", () => {
+      if (meetingPurgeRecoveryTimer) {
+        clearInterval(meetingPurgeRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isMeetingIntelligenceQueueConfigured()) {
     meetingIntelligenceWorker = createMeetingIntelligenceWorker(async (payload, context) => {
@@ -513,11 +631,19 @@ async function main() {
       );
     });
     meetingIntelligenceWorker.on("failed", reportQueueFailure("meeting-intelligence"));
+    resourceLifecycle.addFinalizer("meeting-intelligence-worker", () =>
+      meetingIntelligenceWorker?.close(),
+    );
     await reconcileMeetingIntelligenceJobs();
     meetingIntelligenceRecoveryTimer = setInterval(() => {
-      void reconcileMeetingIntelligenceJobs();
+      void trackRecoveryRun(reconcileMeetingIntelligenceJobs);
     }, 60_000);
     meetingIntelligenceRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("meeting-intelligence-recovery", () => {
+      if (meetingIntelligenceRecoveryTimer) {
+        clearInterval(meetingIntelligenceRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isMeetingTranscriptionQueueConfigured()) {
     const { reapStaleMeetingTranscriptionDirectories, validateMeetingTranscriptionRuntime } =
@@ -536,11 +662,19 @@ async function main() {
       );
     });
     meetingTranscriptionWorker.on("failed", reportQueueFailure("meeting-transcription"));
+    resourceLifecycle.addFinalizer("meeting-transcription-worker", () =>
+      meetingTranscriptionWorker?.close(),
+    );
     await reconcileMeetingTranscriptionJobs();
     meetingTranscriptionRecoveryTimer = setInterval(() => {
-      void reconcileMeetingTranscriptionJobs();
+      void trackRecoveryRun(reconcileMeetingTranscriptionJobs);
     }, 60_000);
     meetingTranscriptionRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("meeting-transcription-recovery", () => {
+      if (meetingTranscriptionRecoveryTimer) {
+        clearInterval(meetingTranscriptionRecoveryTimer);
+      }
+    });
   }
   if (backgroundProcessingEnabled && isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
@@ -553,6 +687,7 @@ async function main() {
       });
     });
     worker.on("failed", reportQueueFailure("resume-parse"));
+    resourceLifecycle.addFinalizer("resume-parse-worker", () => worker?.close());
     if (isResumeSemanticIndexEnabled()) {
       await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
@@ -569,27 +704,45 @@ async function main() {
         await runResumeSemanticEnrichmentJob(payload);
       });
       semanticIndexWorker.on("failed", reportQueueFailure("resume-semantic-index"));
+      resourceLifecycle.addFinalizer("resume-semantic-index-worker", () =>
+        semanticIndexWorker?.close(),
+      );
     }
     reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload, context) => {
       const { processResumeReviewGenerationJob } = await import("./resume-processing/review");
       await processResumeReviewGenerationJob(payload, undefined, context);
     });
     reviewGenerationWorker.on("failed", reportQueueFailure("resume-review-generation"));
+    resourceLifecycle.addFinalizer("resume-review-generation-worker", () =>
+      reviewGenerationWorker?.close(),
+    );
     mailIngestScheduler = startMailIngestScheduler();
+    if (mailIngestScheduler) {
+      triggerLifecycle.addFinalizer("mail-ingest-scheduler", () => mailIngestScheduler?.close());
+    }
   }
   if (backgroundProcessingEnabled && !worker) {
     console.warn("[worker] REDIS_URL is not set; resume parse worker is not started.");
     mailIngestScheduler = startMailIngestScheduler();
+    if (mailIngestScheduler) {
+      triggerLifecycle.addFinalizer("mail-ingest-scheduler", () => mailIngestScheduler?.close());
+    }
   }
   if (mailIngestScheduler) {
     mailIngestTriggerWorker = createMailIngestTriggerWorker(async ({ organizationId }) => {
       await mailIngestScheduler?.runNow({ organizationId });
     });
     mailIngestTriggerWorker.on("failed", reportQueueFailure("mail-ingest-trigger"));
+    resourceLifecycle.addFinalizer("mail-ingest-trigger-worker", () =>
+      mailIngestTriggerWorker?.close(),
+    );
   }
   if (!backgroundProcessingEnabled) {
     console.info("[worker] general background processing disabled");
   }
+
+  // Registered last so normal shutdown stops new HTTP work before draining background resources.
+  triggerLifecycle.addFinalizer("http-server", closeHttpServer);
 
   console.info(`[worker] listening on http://${hostname}:${port}`);
   console.info("[worker] connection config", getWorkerConnectionSummary());
@@ -600,55 +753,7 @@ async function main() {
     void (async () => {
       try {
         console.info(`[worker] shutting down after ${signal}`);
-        mailIngestScheduler?.close();
-        await mailIngestTriggerWorker?.close();
-        interviewNotificationScheduler?.close();
-        await closeServer();
-        await worker?.close();
-        await semanticIndexWorker?.close();
-        await reviewGenerationWorker?.close();
-        if (meetingPlaybackRecoveryTimer) {
-          clearInterval(meetingPlaybackRecoveryTimer);
-        }
-        if (meetingPurgeRecoveryTimer) {
-          clearInterval(meetingPurgeRecoveryTimer);
-        }
-        if (meetingAnswerRecoveryTimer) {
-          clearInterval(meetingAnswerRecoveryTimer);
-        }
-        if (meetingIntelligenceRecoveryTimer) {
-          clearInterval(meetingIntelligenceRecoveryTimer);
-        }
-        if (meetingTranscriptionRecoveryTimer) {
-          clearInterval(meetingTranscriptionRecoveryTimer);
-        }
-        if (humanInterviewRecordingRecoveryTimer) {
-          clearInterval(humanInterviewRecordingRecoveryTimer);
-        }
-        if (humanInterviewEvaluationRecoveryTimer) {
-          clearInterval(humanInterviewEvaluationRecoveryTimer);
-        }
-        await meetingPlaybackWorker?.close();
-        await meetingPurgeWorker?.close();
-        await meetingAnswerWorker?.close();
-        await meetingIntelligenceWorker?.close();
-        await meetingTranscriptionWorker?.close();
-        await humanInterviewRecordingWorker?.close();
-        await humanInterviewEvaluationWorker?.close();
-        await closeMeetingPlaybackQueue();
-        await closeMeetingPurgeQueue();
-        await closeMeetingAnswerQueue();
-        await closeMeetingIntelligenceQueue();
-        await closeMeetingTranscriptionQueue();
-        await closeHumanInterviewRecordingQueue();
-        await closeHumanInterviewEvaluationQueue();
-        await closeResumeParseQueue();
-        await closeResumeSemanticIndexQueue();
-        await closeResumeReviewGenerationQueue();
-        if (process.env.DATABASE_URL) {
-          const { closeDatabase } = await import("./db");
-          await closeDatabase();
-        }
+        await closeWorkerLifecycles();
         process.exit(0);
       } catch (error) {
         captureWorkerException(error, "worker.shutdown", { signal });
@@ -672,6 +777,7 @@ try {
   console.error("[worker] fatal startup failure", {
     errorName: error instanceof Error ? error.name : "UnknownError",
   });
+  await closeWorkerLifecycles(Exit.fail(error));
   await flushWorkerSentry();
   process.exit(1);
 }
