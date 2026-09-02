@@ -19,7 +19,7 @@ import type {
   InterviewNotificationChannel,
   InterviewNotificationPayloadSnapshot,
 } from "@app/db-schema/interview-notifications";
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { createInterviewNotificationDelivery } from "../dao";
 import type { InterviewNotificationEventRecord, NotificationDatabase } from "../dao";
 import { renderInterviewNotificationTemplateContent } from "./templates";
@@ -389,7 +389,14 @@ async function loadTargets(
   const interviewers = await database
     .select({ userId: studioHumanInterviewMeetingInterviewer.userId })
     .from(studioHumanInterviewMeetingInterviewer)
-    .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, event.humanMeetingId));
+    .where(
+      and(
+        eq(studioHumanInterviewMeetingInterviewer.meetingId, event.humanMeetingId),
+        event.type === "human_evaluation_summary_ready"
+          ? ne(studioHumanInterviewMeetingInterviewer.role, "observer")
+          : undefined,
+      ),
+    );
   return loadUserTargets(
     database,
     interviewers.map((item) => item.userId),

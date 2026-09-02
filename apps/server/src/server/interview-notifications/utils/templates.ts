@@ -43,6 +43,14 @@ export const CORE_INTERVIEW_NOTIFICATION_TEMPLATES = [
     subjectTemplate: null,
   },
   {
+    audienceType: "meeting_interviewer",
+    channel: "feishu",
+    contentTemplate:
+      "{{candidateName}} 的 {{roundName}} AI 评价已生成，请返回招聘系统审核并确认。\n[确认面试评价]({{interviewLink}})\n最终评价以面试官保存的内容为准。",
+    eventType: "human_evaluation_summary_ready",
+    subjectTemplate: null,
+  },
+  {
     audienceType: "initiator_fallback",
     channel: "feishu",
     contentTemplate:

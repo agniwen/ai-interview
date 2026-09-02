@@ -55,6 +55,27 @@ describe("worker interview notification presentation", () => {
     );
   });
 
+  it("asks an interviewer to confirm a newly generated AI evaluation", () => {
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        renderedContent:
+          "AI 评价已生成。[确认面试评价](http://localhost:3000/human-interview/interviewer/signed-token)",
+        type: "human_evaluation_summary_ready",
+      }),
+    );
+
+    expect(card?.title).toBe("AI 评价待确认");
+    expect(JSON.stringify(card)).toContain("AI 评价草稿已生成");
+    expect(card?.children.find((child) => child.type === "actions")?.children).toContainEqual(
+      expect.objectContaining({
+        label: "确认面试评价",
+        type: "link-button",
+        url: "http://localhost:3000/human-interview/interviewer/signed-token",
+      }),
+    );
+  });
+
   it("expands the candidate-accepted HR notification into a detailed status card", () => {
     const card = toCardElement(
       InterviewNotificationCard({

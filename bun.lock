@@ -99,6 +99,7 @@
         "@app/ai-runtime": "workspace:*",
         "@app/database": "workspace:*",
         "@app/db-schema": "workspace:*",
+        "@app/meeting-live-transcript": "workspace:*",
         "@app/meeting-media": "workspace:*",
         "@app/meeting-processing": "workspace:*",
         "@app/meeting-processing-queue": "workspace:*",
@@ -321,6 +322,7 @@
         "@app/object-storage": "workspace:*",
         "@app/resume-parse-queue": "workspace:*",
         "@app/resume-processing": "workspace:*",
+        "@app/server": "workspace:*",
         "@app/shared": "workspace:*",
         "@hono/node-server": "^1.19.14",
         "@sentry/hono": "10.71.0",
@@ -338,6 +340,7 @@
       "devDependencies": {
         "@types/mailparser": "^3.4.6",
         "@types/node": "24.11.2",
+        "dotenv": "^17.4.2",
         "tsdown": "^0.22.2",
         "tsx": "^4.21.0",
         "typescript": "catalog:",

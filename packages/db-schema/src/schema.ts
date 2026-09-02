@@ -2180,6 +2180,44 @@ export const studioHumanInterviewEvaluationSnapshot = pgTable(
   ],
 );
 
+// Transactional outbox for confirmed human evaluations, independent of message delivery.
+export const humanInterviewDocumentSync = pgTable(
+  "human_interview_document_sync",
+  {
+    attemptCount: integer("attempt_count").notNull().default(0),
+    blockId: text("block_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    documentId: text("document_id"),
+    documentUrl: text("document_url"),
+    error: text("error"),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    providerId: text("provider_id"),
+    roundId: text("round_id")
+      .notNull()
+      .unique()
+      .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    snapshotId: text("snapshot_id")
+      .primaryKey()
+      .references(() => studioHumanInterviewEvaluationSnapshot.id, { onDelete: "cascade" }),
+    status: text("status")
+      .$type<"pending" | "syncing" | "waiting_document" | "failed" | "synced">()
+      .notNull()
+      .default("pending"),
+    syncedAt: timestamp("synced_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("human_interview_document_sync_due_idx").on(table.status, table.nextAttemptAt),
+    check(
+      "human_interview_document_sync_status_check",
+      sql`${table.status} in ('pending', 'syncing', 'waiting_document', 'failed', 'synced')`,
+    ),
+  ],
+);
+
 // 真人复面会议：一场会议对应一个 LiveKit room、一个候选人 round 和多个面试官。
 // 评价结果仍然写在 studioHumanInterviewRound；这里保存会议级生命周期和录音处理状态。
 //

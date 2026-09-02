@@ -39,6 +39,11 @@ async function main() {
     ]);
     runtime.add("database", closeDatabase);
 
+    const { startHumanInterviewDocumentSync } =
+      await import("./server/routes/studio/routes/interviews/adapters/default-document-sync-scheduler");
+    const documentSync = startHumanInterviewDocumentSync();
+    runtime.add("human interview document sync", documentSync.close);
+
     const stopFeishuBots = await startFeishuBotsIfEnabled();
     if (stopFeishuBots) {
       runtime.add("Feishu bots", stopFeishuBots);

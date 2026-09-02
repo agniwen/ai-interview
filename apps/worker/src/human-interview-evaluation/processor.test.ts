@@ -4,6 +4,7 @@ import { runHumanInterviewEvaluationProcessing } from "./processor";
 describe("runHumanInterviewEvaluationProcessing", () => {
   it("基于完整输入生成并发布可复核草稿", async () => {
     const publish = vi.fn(() => Promise.resolve(true));
+    const notifyReady = vi.fn(() => Promise.resolve());
     await runHumanInterviewEvaluationProcessing(
       {
         meetingSessionId: "session-1",
@@ -43,6 +44,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
           }),
         ),
         markFailed: vi.fn(() => Promise.resolve()),
+        notifyReady,
         publish,
       },
     );
@@ -54,6 +56,31 @@ describe("runHumanInterviewEvaluationProcessing", () => {
         transcriptRevisionId: "revision-1",
       }),
     );
+    expect(notifyReady).toHaveBeenCalledWith(
+      expect.objectContaining({ roundId: "round-1", transcriptRevisionId: "revision-1" }),
+    );
+  });
+
+  it("retries the ready notification even when the evaluation was already published", async () => {
+    const notifyReady = vi.fn(() => Promise.resolve());
+    await runHumanInterviewEvaluationProcessing(
+      {
+        meetingSessionId: "session-1",
+        organizationId: "org-1",
+        roundId: "round-1",
+        transcriptRevisionId: "revision-1",
+      },
+      { attempt: 2, maxAttempts: 5 },
+      {
+        generate: vi.fn(),
+        loadInput: vi.fn(() => Promise.resolve(null)),
+        markFailed: vi.fn(() => Promise.resolve()),
+        notifyReady,
+        publish: vi.fn(),
+      },
+    );
+
+    expect(notifyReady).toHaveBeenCalledOnce();
   });
 
   it("中间失败保留 generating 状态给 BullMQ 重试，最后一次才标记 failed", async () => {
@@ -70,6 +97,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
         }),
       ),
       markFailed,
+      notifyReady: vi.fn(() => Promise.resolve()),
       publish: vi.fn(() => Promise.resolve(true)),
     };
 

@@ -26,6 +26,7 @@
     "@app/object-storage": "workspace:*",
     "@app/resume-parse-queue": "workspace:*",
     "@app/resume-processing": "workspace:*",
+    "@app/server": "workspace:*",
     "@app/shared": "workspace:*",
     "@hono/node-server": "^1.19.14",
     "@sentry/hono": "10.71.0",

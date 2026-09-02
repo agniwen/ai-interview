@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import {
   jobDescription,
+  humanInterviewDocumentSync,
   meetingRecruitingContext,
   meetingSession,
   meetingTranscriptRevision,
@@ -375,6 +376,7 @@ export function createHumanInterviewEvaluationDao(
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
           evaluationStatus: studioHumanInterviewRound.evaluationStatus,
           roundId: studioHumanInterviewRound.id,
+          roundStatus: studioHumanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
         .from(studioHumanInterviewMeeting)
@@ -400,6 +402,8 @@ export function createHumanInterviewEvaluationDao(
         .limit(1);
       if (
         !context?.activeTranscriptRevisionId ||
+        context.roundStatus !== "pending" ||
+        context.evaluationStatus === "submitted" ||
         context.transcriptionStatus !== "ready" ||
         (!input.force && ["draft", "submitted", "generating"].includes(context.evaluationStatus))
       ) {
@@ -682,15 +686,22 @@ export function createHumanInterviewEvaluationDao(
   async function saveHumanInterviewEvaluationDraft(input: {
     actorId: string;
     evaluation: HumanInterviewEvaluation;
-    meetingSessionId: string;
+    meetingSessionId: string | null;
     organizationId: string;
     roundId: string;
-    transcriptRevisionId: string;
+    transcriptRevisionId: string | null;
   }): Promise<boolean> {
     const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
     return await db.transaction(async (tx) => {
       const [context] = await tx
-        .select({ id: studioHumanInterviewRound.id })
+        .select({
+          activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
+          id: studioHumanInterviewRound.id,
+          meetingSessionId: meetingSession.id,
+          roundStatus: studioHumanInterviewRound.status,
+          transcriptionStatus: meetingSession.transcriptionStatus,
+        })
         .from(studioHumanInterviewRound)
         .innerJoin(
           studioHumanInterviewMeetingRound,
@@ -700,7 +711,7 @@ export function createHumanInterviewEvaluationDao(
           studioHumanInterviewMeeting,
           eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
         )
-        .innerJoin(
+        .leftJoin(
           meetingSession,
           eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
         )
@@ -708,14 +719,17 @@ export function createHumanInterviewEvaluationDao(
           and(
             eq(studioHumanInterviewRound.id, input.roundId),
             eq(studioHumanInterviewRound.organizationId, input.organizationId),
-            eq(meetingSession.id, input.meetingSessionId),
-            eq(meetingSession.transcriptionStatus, "ready"),
-            eq(meetingSession.activeTranscriptRevisionId, input.transcriptRevisionId),
+            input.meetingSessionId ? eq(meetingSession.id, input.meetingSessionId) : undefined,
           ),
         )
         .for("update", { of: studioHumanInterviewRound })
         .limit(1);
-      if (!context) {
+      if (
+        !context ||
+        context.roundStatus !== "pending" ||
+        context.evaluationStatus === "submitted" ||
+        !isHumanInterviewEvaluationSubmissionCurrent(context, input.transcriptRevisionId)
+      ) {
         return false;
       }
       const [updated] = await tx
@@ -737,37 +751,47 @@ export function createHumanInterviewEvaluationDao(
   async function submitHumanInterviewEvaluation(input: {
     actorId: string;
     evaluation: HumanInterviewEvaluation;
-    meetingSessionId: string;
+    meetingSessionId: string | null;
     organizationId: string;
     outcome: HumanInterviewRoundOutcome;
     roundId: string;
-    transcriptRevisionId: string;
+    transcriptRevisionId: string | null;
   }): Promise<boolean> {
     const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
     const now = new Date();
     return await db.transaction(async (tx) => {
-      const [transcript] = await tx
-        .select({
-          activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
-          transcriptionStatus: meetingSession.transcriptionStatus,
-        })
-        .from(meetingSession)
-        .where(
-          and(
-            eq(meetingSession.id, input.meetingSessionId),
-            eq(meetingSession.organizationId, input.organizationId),
-          ),
-        )
-        .for("update")
-        .limit(1);
-      if (
-        !transcript ||
-        !isHumanInterviewEvaluationSubmissionCurrent(transcript, input.transcriptRevisionId)
-      ) {
-        return false;
+      if (input.meetingSessionId) {
+        // Match the transcript-correction path's lock order: session before round.
+        // Keep the reviewed revision stable through the final submission commit.
+        const [transcript] = await tx
+          .select({
+            activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+            transcriptionStatus: meetingSession.transcriptionStatus,
+          })
+          .from(meetingSession)
+          .where(
+            and(
+              eq(meetingSession.id, input.meetingSessionId),
+              eq(meetingSession.organizationId, input.organizationId),
+            ),
+          )
+          .for("update")
+          .limit(1);
+        if (
+          !transcript ||
+          !isHumanInterviewEvaluationSubmissionCurrent(transcript, input.transcriptRevisionId)
+        ) {
+          return false;
+        }
       }
       const [round] = await tx
-        .select({ organizationId: studioHumanInterviewRound.organizationId })
+        .select({
+          activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
+          organizationId: studioHumanInterviewRound.organizationId,
+          roundStatus: studioHumanInterviewRound.status,
+          transcriptionStatus: meetingSession.transcriptionStatus,
+        })
         .from(studioHumanInterviewRound)
         .innerJoin(
           studioHumanInterviewMeetingRound,
@@ -777,16 +801,27 @@ export function createHumanInterviewEvaluationDao(
           studioHumanInterviewMeeting,
           eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
         )
+        .leftJoin(
+          meetingSession,
+          eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+        )
         .where(
           and(
             eq(studioHumanInterviewRound.id, input.roundId),
             eq(studioHumanInterviewRound.organizationId, input.organizationId),
-            eq(studioHumanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId),
+            input.meetingSessionId
+              ? eq(studioHumanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId)
+              : undefined,
           ),
         )
         .for("update", { of: studioHumanInterviewRound })
         .limit(1);
-      if (!round) {
+      if (
+        !round ||
+        round.roundStatus !== "pending" ||
+        round.evaluationStatus === "submitted" ||
+        !isHumanInterviewEvaluationSubmissionCurrent(round, input.transcriptRevisionId)
+      ) {
         return false;
       }
       await tx
@@ -806,16 +841,22 @@ export function createHumanInterviewEvaluationDao(
           updatedAt: now,
         })
         .where(eq(studioHumanInterviewRound.id, input.roundId));
+      const snapshotId = crypto.randomUUID();
       await tx.insert(studioHumanInterviewEvaluationSnapshot).values({
         createdBy: input.actorId,
         evaluation,
-        id: crypto.randomUUID(),
+        id: snapshotId,
         meetingSessionId: input.meetingSessionId,
         organizationId: input.organizationId,
         outcome: input.outcome,
         roundId: input.roundId,
         source: "human_submitted",
         transcriptRevisionId: input.transcriptRevisionId,
+      });
+      await tx.insert(humanInterviewDocumentSync).values({
+        organizationId: input.organizationId,
+        roundId: input.roundId,
+        snapshotId,
       });
       await dependencies.enqueueHumanInterviewRoundCompletion(tx, {
         actorUserId: input.actorId,

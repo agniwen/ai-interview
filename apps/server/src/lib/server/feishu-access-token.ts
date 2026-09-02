@@ -12,6 +12,7 @@ const tenantTokenCache = new Map<string, { expiresAt: number; token: string }>()
 export async function getFeishuTenantAccessToken(
   appId: string,
   appSecret: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const now = Date.now();
   const cached = tenantTokenCache.get(appId);
@@ -25,6 +26,7 @@ export async function getFeishuTenantAccessToken(
       body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
       headers: { "content-type": "application/json; charset=utf-8" },
       method: "POST",
+      signal,
     },
   );
   const parsed = feishuTenantTokenResponseSchema.safeParse(await response.json());

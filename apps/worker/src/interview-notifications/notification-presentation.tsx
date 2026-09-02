@@ -60,6 +60,9 @@ function actionLabel(input: NotificationPresentationInput): string {
   if (input.type === "ai_interview_completed") {
     return "前往 AI 面试列表";
   }
+  if (input.type === "human_evaluation_summary_ready") {
+    return "确认面试评价";
+  }
   return "查看面试安排";
 }
 
@@ -87,6 +90,7 @@ function notificationTitle(input: NotificationPresentationInput): string {
     ai_invitation_exception: "面试接受异常告警",
     ai_report_ready: "AI 面试报告已生成",
     human_candidate_invitation_requested: "在线面试邀请",
+    human_evaluation_summary_ready: "AI 评价待确认",
     human_interview_cancelled: "面试安排已取消",
     human_interview_completed: "面试评价汇总通知",
     human_interview_confirmed: "业务复试安排已确认",
@@ -108,6 +112,7 @@ function notificationStatus(type: InterviewNotificationEventType): string | null
     ai_invitation_accepted: "接受 第一轮 HR 面试",
     ai_invitation_declined: "拒绝 第一轮 HR 面试",
     human_candidate_invitation_requested: "待候选人确认",
+    human_evaluation_summary_ready: "待确认",
     human_interview_cancelled: "已取消",
     human_interview_completed: "已结束",
     human_interview_confirmed: "安排已确认",
@@ -136,6 +141,8 @@ function notificationSummary(input: NotificationPresentationInput): string {
     ai_invitation_declined: "候选人主动放弃本轮面试，面试流程终止。",
     ai_invitation_exception: "候选人未能完成面试确认，请及时查看异常原因并跟进。",
     human_candidate_invitation_requested: "请在邀请有效期内确认是否参加本次面试。",
+    human_evaluation_summary_ready:
+      "AI 评价草稿已生成，请结合实际面试情况审核修改，并保存最终评价。",
     human_interview_cancelled: "本轮面试已取消，对应提醒不再继续发送。",
     human_interview_confirmed: "候选人已接受，面试安排已生效，请按约定时间参加。",
     human_interview_reminder: "面试即将开始，请提前调试设备并准时进入会议。",

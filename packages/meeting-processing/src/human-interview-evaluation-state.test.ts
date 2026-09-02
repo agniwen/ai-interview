@@ -1,28 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  canSaveHumanInterviewEvaluationDraft,
   isHumanInterviewEvaluationPublishCurrent,
   isHumanInterviewEvaluationSubmissionCurrent,
 } from "./human-interview-evaluation-state";
 
 describe("human interview evaluation state", () => {
-  it("requires the ready final transcript before a human draft can be saved", () => {
-    expect(
-      canSaveHumanInterviewEvaluationDraft({
-        meetingSessionId: null,
-        transcript: null,
-        transcriptionState: "pending",
-      }),
-    ).toBe(false);
-    expect(
-      canSaveHumanInterviewEvaluationDraft({
-        meetingSessionId: "meeting-session-current",
-        transcript: { id: "revision-current" },
-        transcriptionState: "ready",
-      }),
-    ).toBe(true);
-  });
-
   it("rejects an AI result after the active transcript revision changes", () => {
     expect(
       isHumanInterviewEvaluationPublishCurrent(
@@ -47,6 +29,7 @@ describe("human interview evaluation state", () => {
   });
 
   it("rejects a human submission after the active transcript revision changes", () => {
+    expect(isHumanInterviewEvaluationSubmissionCurrent(null, null)).toBe(true);
     expect(
       isHumanInterviewEvaluationSubmissionCurrent(
         {

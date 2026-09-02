@@ -240,7 +240,11 @@ export function HumanMeetingStage({
             viewMode !== "review" && "hidden",
           )}
         >
-          <HumanMeetingReview active={viewMode === "review"} inviteToken={inviteToken} />
+          <HumanMeetingReview
+            active={viewMode === "review"}
+            inviteToken={inviteToken}
+            onClose={() => onViewModeChange("meeting")}
+          />
         </div>
       ) : null}
 

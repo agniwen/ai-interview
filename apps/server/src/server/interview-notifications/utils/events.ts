@@ -533,7 +533,8 @@ interface HumanMeetingEventInput {
     | "human_invitation_exception"
     | "human_interviewer_added"
     | "human_interview_cancelled"
-    | "human_interview_completed";
+    | "human_interview_completed"
+    | "human_evaluation_summary_ready";
 }
 
 export function resolveHumanMeetingEventInterviewLink(input: {

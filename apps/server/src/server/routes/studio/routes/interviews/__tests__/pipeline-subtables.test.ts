@@ -50,6 +50,8 @@ import {
   loadHumanInterviewReview,
   publishHumanInterviewEvaluation,
   recoverHumanInterviewReviewFromLiveTranscript,
+  requestHumanInterviewEvaluation,
+  saveHumanInterviewEvaluationDraft,
   submitHumanInterviewEvaluation,
 } from "../dao/human-interview-evaluation";
 import {
@@ -827,6 +829,102 @@ describe("human interview meetings DAO", () => {
     ).resolves.toMatchObject({ status: "ready" });
   });
 
+  it("转录失败或缺失时仍可保存并提交面试官人工评价", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "人工评价" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "无转录人工评价会议",
+      },
+      organizationId: ORG,
+    });
+    const evaluation = {
+      detailedAnalysis: "基于面试官现场观察给出的完整分析",
+      evidenceTurnIds: [],
+      overallEvaluation: "人工整体评价",
+      professionalSkill: "良",
+      rating: "B" as const,
+      risks: "人工确认风险",
+      rolePosition: "执行者",
+      salaryRecommendation: "",
+      seniorityPosition: "中级",
+      strengths: "人工确认优势",
+    };
+
+    await expect(
+      saveHumanInterviewEvaluationDraft({
+        actorId: INTERVIEWER_A,
+        evaluation,
+        meetingSessionId: null,
+        organizationId: ORG,
+        roundId: round.id,
+        transcriptRevisionId: null,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      submitHumanInterviewEvaluation({
+        actorId: INTERVIEWER_A,
+        evaluation,
+        meetingSessionId: null,
+        organizationId: ORG,
+        outcome: "inconclusive",
+        roundId: round.id,
+        transcriptRevisionId: null,
+      }),
+    ).resolves.toBe(true);
+
+    // A stale second interviewer tab must not replace a finalized evaluation.
+    await expect(
+      saveHumanInterviewEvaluationDraft({
+        actorId: INTERVIEWER_B,
+        evaluation: { ...evaluation, overallEvaluation: "旧页面草稿" },
+        meetingSessionId: null,
+        organizationId: ORG,
+        roundId: round.id,
+        transcriptRevisionId: null,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      submitHumanInterviewEvaluation({
+        actorId: INTERVIEWER_B,
+        evaluation: { ...evaluation, overallEvaluation: "旧页面再次提交" },
+        meetingSessionId: null,
+        organizationId: ORG,
+        outcome: "pass",
+        roundId: round.id,
+        transcriptRevisionId: null,
+      }),
+    ).resolves.toBe(false);
+
+    const review = await listHumanInterviewRounds(RECORD_ID, ORG);
+    expect(review[0]).toMatchObject({
+      evaluation,
+      evaluationStatus: "submitted",
+      evaluationTranscriptRevisionId: null,
+      outcome: "inconclusive",
+      status: "completed",
+    });
+    const snapshots = await listHumanInterviewEvaluationSnapshotsForAnalysis({
+      organizationId: ORG,
+      roundId: round.id,
+    });
+    expect(snapshots).toMatchObject([
+      {
+        evaluation,
+        meetingSessionId: null,
+        source: "human_submitted",
+        transcriptRevisionId: null,
+      },
+    ]);
+  });
+
   it("过期的录音启动占用可由后续入会事件重新接管", async () => {
     await clearSubtables();
     const round = await createHumanInterviewRound({
@@ -1051,6 +1149,9 @@ describe("human interview meetings DAO", () => {
       roundId: round.id,
       transcriptRevisionId,
     });
+    await expect(
+      requestHumanInterviewEvaluation({ force: true, meetingSessionId, organizationId: ORG }),
+    ).resolves.toBeNull();
 
     const [submitted] = await db
       .select({

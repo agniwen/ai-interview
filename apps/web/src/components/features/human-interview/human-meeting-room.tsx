@@ -493,7 +493,11 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
                 state={candidateMaterialsState}
               />
             ) : (
-              <HumanMeetingReview active inviteToken={props.inviteToken} />
+              <HumanMeetingReview
+                active
+                inviteToken={props.inviteToken}
+                onClose={() => setViewMode("meeting")}
+              />
             )}
           </div>
           <footer className="flex shrink-0 items-center justify-center border-white/10 border-t px-4 py-3">

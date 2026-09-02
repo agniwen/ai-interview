@@ -427,7 +427,7 @@ async function syncCalloutContent(
     desiredCallout: FeishuDocumentBlock;
     documentId: string;
     existingCallout: ExistingDocumentBlock;
-    section: InterviewEvaluationStructureSection;
+    section: string;
   },
   dependencies: FeishuDocxDependencies,
 ): Promise<void> {
@@ -1046,6 +1046,82 @@ export async function updateFeishuDocxInterviewEvaluationStructure(
 }> {
   return await serializeDocumentStructureUpdate(options.documentId, () =>
     updateFeishuDocxInterviewEvaluationStructureUnlocked(options, dependencies),
+  );
+}
+
+interface HumanInterviewDocxUpdate {
+  accessToken: string;
+  documentId: string;
+  blockId: string | null;
+  snapshotId: string;
+  block: FeishuDocumentBlock;
+  onBlockCreated: (blockId: string) => Promise<void>;
+}
+
+export async function updateFeishuDocxHumanInterviewEvaluation(
+  input: HumanInterviewDocxUpdate,
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<void> {
+  await serializeDocumentStructureUpdate(input.documentId, async () => {
+    let { blockId } = input;
+    if (!blockId) {
+      const [created] = await appendBlocks(
+        input.documentId,
+        input.documentId,
+        [input.block],
+        input.accessToken,
+        dependencies,
+        undefined,
+        `human-evaluation:${input.snapshotId}:section`,
+      );
+      blockId = created?.block_id ?? null;
+      if (!blockId) {
+        throw new Error("飞书未返回评价区块 ID");
+      }
+      // Persist before writing content so a crash can resume this exact block.
+      await input.onBlockCreated(blockId);
+    }
+    const blocks = await listDocumentBlocks(input.documentId, input.accessToken, dependencies);
+    const blocksById = new Map(blocks.map((block) => [block.block_id, block]));
+    const existingCallout = blocksById.get(blockId);
+    if (!existingCallout || existingCallout.block_type !== 19) {
+      throw new Error("飞书评价区块已被删除或类型已变更，请人工核查");
+    }
+    if (!existingCallout.children?.[0]) {
+      throw new Error("飞书评价区块缺少标题，请人工核查");
+    }
+    await syncCalloutContent(
+      {
+        accessToken: input.accessToken,
+        blocksById,
+        desiredCallout: input.block,
+        documentId: input.documentId,
+        existingCallout,
+        section: `human:${input.snapshotId}`,
+      },
+      dependencies,
+    );
+  });
+}
+
+export async function updateFeishuHumanInterviewEvaluation(
+  providerId: FeishuProviderId,
+  input: Omit<HumanInterviewDocxUpdate, "accessToken"> & { deadlineAt: number },
+): Promise<void> {
+  const deadline = AbortSignal.timeout(Math.max(1, input.deadlineAt - Date.now()));
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
+  const accessToken = await getFeishuTenantAccessToken(
+    appId,
+    appSecret,
+    AbortSignal.any([deadline, AbortSignal.timeout(30_000)]),
+  );
+  await updateFeishuDocxHumanInterviewEvaluation(
+    { ...input, accessToken },
+    {
+      ...defaultDependencies,
+      fetcher: (url, init) =>
+        fetch(url, { ...init, signal: AbortSignal.any([deadline, AbortSignal.timeout(30_000)]) }),
+    },
   );
 }
 

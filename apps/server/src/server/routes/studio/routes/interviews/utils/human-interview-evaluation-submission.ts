@@ -55,11 +55,11 @@ export async function submitAndFinalizeHumanInterviewEvaluation(
   input: {
     actorId: string;
     evaluation: HumanInterviewEvaluation;
-    meetingSessionId: string;
+    meetingSessionId: string | null;
     organizationId: string;
     outcome: HumanInterviewRoundOutcome;
     roundId: string;
-    transcriptRevisionId: string;
+    transcriptRevisionId: string | null;
   },
   overrides: Partial<HumanInterviewEvaluationSubmissionDependencies> = {},
 ): Promise<boolean> {

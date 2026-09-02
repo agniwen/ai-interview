@@ -12,6 +12,7 @@ export interface HumanInterviewEvaluationProcessorDependencies {
   markFailed: ReturnType<
     typeof createHumanInterviewEvaluationWorkerDao
   >["markHumanInterviewEvaluationFailed"];
+  notifyReady: (input: HumanInterviewEvaluationJobData) => Promise<void>;
   publish: ReturnType<
     typeof createHumanInterviewEvaluationWorkerDao
   >["publishHumanInterviewEvaluation"];
@@ -22,22 +23,22 @@ export async function runHumanInterviewEvaluationProcessing(
   context: { attempt: number; maxAttempts: number },
   dependencies: HumanInterviewEvaluationProcessorDependencies,
 ): Promise<void> {
+  let source: Awaited<ReturnType<HumanInterviewEvaluationProcessorDependencies["loadInput"]>>;
   try {
-    const source = await dependencies.loadInput(input);
-    if (!source) {
-      return;
+    source = await dependencies.loadInput(input);
+    if (source) {
+      const evaluation = await dependencies.generate({
+        ...source,
+        salaryRange: null,
+      });
+      await dependencies.publish({
+        evaluation,
+        meetingSessionId: input.meetingSessionId,
+        organizationId: input.organizationId,
+        roundId: input.roundId,
+        transcriptRevisionId: input.transcriptRevisionId,
+      });
     }
-    const evaluation = await dependencies.generate({
-      ...source,
-      salaryRange: null,
-    });
-    await dependencies.publish({
-      evaluation,
-      meetingSessionId: input.meetingSessionId,
-      organizationId: input.organizationId,
-      roundId: input.roundId,
-      transcriptRevisionId: input.transcriptRevisionId,
-    });
   } catch (error) {
     if (context.attempt < context.maxAttempts) {
       throw error;
@@ -48,5 +49,7 @@ export async function runHumanInterviewEvaluationProcessing(
       roundId: input.roundId,
       transcriptRevisionId: input.transcriptRevisionId,
     });
+    return;
   }
+  await dependencies.notifyReady(input);
 }

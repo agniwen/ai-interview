@@ -119,9 +119,11 @@ async function requestJson<TResult>(path: string, init?: RequestInit): Promise<T
 export function HumanMeetingReview({
   active,
   inviteToken,
+  onClose,
 }: {
   active: boolean;
   inviteToken: string;
+  onClose: () => void;
 }) {
   const basePath = `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}`;
   const [review, setReview] = useState<HumanInterviewReviewRecord | null>(null);
@@ -306,20 +308,47 @@ export function HumanMeetingReview({
               </select>
             </Field>
             {isSubmitted ? (
-              <div className="rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 font-medium text-emerald-300 text-sm">
-                本轮评价已保存 · {submittedOutcomeLabel}
+              <div className="flex items-center gap-2">
+                <div className="rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 font-medium text-emerald-300 text-sm">
+                  本轮评价已保存 · {submittedOutcomeLabel}
+                </div>
+                <Button
+                  className="border-white/30 bg-white/5 hover:bg-white/10"
+                  disabled={Boolean(busy)}
+                  onClick={onClose}
+                  variant="outline"
+                >
+                  关闭
+                </Button>
               </div>
             ) : (
               <div className="flex gap-2">
                 <Button
-                  disabled={
-                    Boolean(busy) || !review.transcript || !evaluation.overallEvaluation.trim()
-                  }
+                  disabled={Boolean(busy) || !evaluation.overallEvaluation.trim()}
                   onClick={async () => {
-                    const transcriptRevisionId = review.transcript?.id;
-                    if (!transcriptRevisionId) {
-                      return;
-                    }
+                    const transcriptRevisionId = review.transcript?.id ?? null;
+                    await run("save", async () => {
+                      await requestJson<unknown>(`${basePath}/evaluation-draft`, {
+                        body: JSON.stringify({
+                          evaluation,
+                          transcriptRevisionId,
+                        }),
+                        headers: { "Content-Type": "application/json" },
+                        method: "POST",
+                      });
+                      evaluationDirtyRef.current = false;
+                      toast.success("评价草稿已保存");
+                      await load();
+                    });
+                  }}
+                  variant="outline"
+                >
+                  保存
+                </Button>
+                <Button
+                  disabled={Boolean(busy) || !evaluation.overallEvaluation.trim()}
+                  onClick={async () => {
+                    const transcriptRevisionId = review.transcript?.id ?? null;
                     await run("submit", async () => {
                       await requestJson<unknown>(`${basePath}/evaluation-submit`, {
                         body: JSON.stringify({
@@ -331,16 +360,76 @@ export function HumanMeetingReview({
                         method: "POST",
                       });
                       evaluationDirtyRef.current = false;
-                      toast.success("本轮评价已保存并同步到面试轮次");
+                      toast.success("本轮评价已提交并同步到面试轮次");
                       await load();
                     });
                   }}
                 >
-                  保存评价
+                  提交
+                </Button>
+                <Button
+                  className="border-white/30 bg-white/5 hover:bg-white/10"
+                  disabled={Boolean(busy)}
+                  onClick={onClose}
+                  variant="outline"
+                >
+                  关闭
                 </Button>
               </div>
             )}
           </div>
+          {isSubmitted && review.documentSync ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/60">
+              <span>
+                {
+                  (
+                    {
+                      failed: "飞书评价表同步失败，将自动重试；请确认文档访问权限",
+                      pending: "飞书评价表待同步",
+                      synced: "已同步到飞书评价表",
+                      syncing: "正在同步飞书评价表…",
+                      waiting_document: "暂无飞书评价表，生成后将自动同步",
+                    } as const
+                  )[review.documentSync.status]
+                }
+              </span>
+              {review.documentSync.status === "synced" && review.documentSync.documentUrl ? (
+                <a
+                  className="text-blue-300 underline"
+                  href={review.documentSync.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  查看评价表
+                </a>
+              ) : null}
+              {review.documentSync.status === "failed" ||
+              review.documentSync.status === "waiting_document" ? (
+                <Button
+                  disabled={Boolean(busy)}
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    run("sync", async () => {
+                      await requestJson(`${basePath}/evaluation-document-retry`, {
+                        method: "POST",
+                      });
+                      await load();
+                      toast.success("已安排重新同步评价表");
+                    })
+                  }
+                >
+                  重试同步
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {review.evaluationStatus === "generating" ? (
+            <p className="mt-3 text-right text-white/50 text-xs leading-5">
+              AI
+              评价生成可能需要一些时间，你可以先关闭此页面。生成完成后，我们会通过飞书发送评价链接，请返回审核并提交最终评价。
+            </p>
+          ) : null}
         </section>
       </div>
     </div>

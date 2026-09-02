@@ -35,7 +35,11 @@ import {
 import { submitAndFinalizeHumanInterviewEvaluation } from "../../../studio/routes/interviews/utils/human-interview-evaluation-submission";
 import type { Env } from "../../../../type";
 import { resolveHumanInterviewReviewMutationAccess } from "./access";
-import { canSaveHumanInterviewEvaluationDraft } from "../../../studio/routes/interviews/utils/human-interview-evaluation-state";
+import { humanInterviewDocumentSyncRouter } from "./document-sync-route";
+import { db } from "../../../../../lib/server/db/index";
+import { createHumanInterviewDocumentSyncDao } from "../../../studio/routes/interviews/dao/human-interview-document-sync";
+
+const documentSyncDao = createHumanInterviewDocumentSyncDao(db);
 
 const liveTranscriptDraftSaveSchema = z.object({
   draft: meetingLiveTranscriptDraftSchema,
@@ -45,7 +49,7 @@ const liveTranscriptDraftSaveSchema = z.object({
 const humanInterviewEvaluationDraftSaveSchema = z
   .object({
     evaluation: humanInterviewEvaluationSchema,
-    transcriptRevisionId: z.uuid(),
+    transcriptRevisionId: z.uuid().nullable(),
   })
   .strict();
 
@@ -116,8 +120,16 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
       organizationId: scope.organizationId,
       roundId: scope.roundId,
     });
-    return review ? c.json(review, 200) : c.json({ error: "真人复面复核内容不存在。" }, 404);
+    if (!review) {
+      return c.json({ error: "真人复面复核内容不存在。" }, 404);
+    }
+    const documentSync = await documentSyncDao.loadStatus({
+      organizationId: scope.organizationId,
+      roundId: scope.roundId,
+    });
+    return c.json({ ...review, documentSync }, 200);
   })
+  .route("/human-interview-meetings/interviewer", humanInterviewDocumentSyncRouter)
   .post(
     "/human-interview-meetings/interviewer/:inviteToken/live-transcript-recovery",
     async (c) => {
@@ -275,11 +287,14 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
         organizationId: scope.organizationId,
         roundId: scope.roundId,
       });
-      if (!review || !canSaveHumanInterviewEvaluationDraft(review)) {
-        return c.json({ error: "请等待完整转录生成后再保存评价草稿。" }, 409);
+      if (!review) {
+        return c.json({ error: "真人复面复核内容不存在。" }, 404);
       }
       const input = c.req.valid("json");
-      if (review.transcript.id !== input.transcriptRevisionId) {
+      if (
+        input.transcriptRevisionId !== null &&
+        review.transcript?.id !== input.transcriptRevisionId
+      ) {
         return c.json({ error: "转录已更新，请刷新后重新保存评价草稿。" }, 409);
       }
       const saved = await saveHumanInterviewEvaluationDraft({
@@ -292,7 +307,7 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
       });
       return saved
         ? c.json({ ok: true }, 200)
-        : c.json({ error: "转录已更新，请刷新后重新保存评价草稿。" }, 409);
+        : c.json({ error: "本轮已提交、已结束或转录已更新，请刷新后查看。" }, 409);
     },
   )
   .post(
@@ -360,7 +375,7 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
       z.object({
         evaluation: humanInterviewEvaluationSchema,
         outcome: humanInterviewRoundOutcomeSchema,
-        transcriptRevisionId: z.uuid(),
+        transcriptRevisionId: z.uuid().nullable(),
       }),
       jsonValidatorError("真人复面评价提交参数无效。"),
     ),
@@ -379,8 +394,8 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
         organizationId: scope.organizationId,
         roundId: scope.roundId,
       });
-      if (!(review?.meetingSessionId && review.transcript)) {
-        return c.json({ error: "请等待完整转录生成后再提交评价。" }, 409);
+      if (!review) {
+        return c.json({ error: "真人复面复核内容不存在。" }, 404);
       }
       const submitted = await submitAndFinalizeHumanInterviewEvaluation({
         actorId: scope.userId,
@@ -393,6 +408,6 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
       });
       return submitted
         ? c.json({ ok: true }, 200)
-        : c.json({ error: "转录已更新，请刷新后重新确认评价。" }, 409);
+        : c.json({ error: "本轮已提交、已结束或转录已更新，请刷新后查看。" }, 409);
     },
   );

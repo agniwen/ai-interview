@@ -82,12 +82,12 @@ async function flush() {
   });
 }
 
-async function renderReview() {
+async function renderReview(onClose = vi.fn()) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   roots.push(root);
-  act(() => root.render(<HumanMeetingReview active inviteToken="invite-1" />));
+  act(() => root.render(<HumanMeetingReview active inviteToken="invite-1" onClose={onClose} />));
   await flush();
   expect(container.textContent).toContain("面试评价");
   return container;
@@ -146,6 +146,40 @@ afterEach(() => {
 });
 
 describe("HumanMeetingReview", () => {
+  it("allows the interviewer to close the review and explains that AI evaluation can finish later", async () => {
+    currentReview = reviewRecord({ evaluationStatus: "generating" });
+    const onClose = vi.fn();
+    const container = await renderReview(onClose);
+
+    expect(container.textContent).toContain(
+      "AI 评价生成可能需要一些时间，你可以先关闭此页面。生成完成后，我们会通过飞书发送评价链接，请返回审核并提交最终评价。",
+    );
+    act(() => button(container, "关闭").click());
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("does not show the AI waiting hint after evaluation generation fails", async () => {
+    currentReview = reviewRecord({
+      evaluationError: "AI 评价生成失败",
+      evaluationStatus: "failed",
+    });
+
+    const container = await renderReview();
+
+    expect(container.textContent).toContain("AI 评价生成失败");
+    expect(container.textContent).not.toContain("AI 评价生成可能需要一些时间");
+  });
+
+  it("shows save, submit, and close actions in the requested order", async () => {
+    const container = await renderReview();
+    const actions = [...container.querySelectorAll<HTMLButtonElement>("button")]
+      .map((candidate) => candidate.textContent?.trim())
+      .filter((label) => ["保存", "提交", "关闭"].includes(label ?? ""));
+
+    expect(actions).toEqual(["保存", "提交", "关闭"]);
+  });
+
   it("keeps an unsaved round outcome across polling refreshes", async () => {
     const container = await renderReview();
     const outcome = [...container.querySelectorAll<HTMLSelectElement>("select")].find((select) =>
@@ -173,7 +207,7 @@ describe("HumanMeetingReview", () => {
   it("binds the final evaluation submission to the reviewed transcript revision", async () => {
     const container = await renderReview();
 
-    act(() => button(container, "保存评价").click());
+    act(() => button(container, "提交").click());
     await flush();
 
     const submitCall = fetchMock.mock.calls.find(([request]) =>
@@ -181,6 +215,57 @@ describe("HumanMeetingReview", () => {
     );
     expect(JSON.parse(String(submitCall?.[1]?.body))).toMatchObject({
       transcriptRevisionId: "00000000-0000-4000-8000-000000000001",
+    });
+  });
+
+  it("saves an evaluation draft without submitting the round outcome", async () => {
+    const container = await renderReview();
+
+    act(() => button(container, "保存").click());
+    await flush();
+
+    const saveCall = fetchMock.mock.calls.find(([request]) =>
+      String(request).endsWith("/evaluation-draft"),
+    );
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
+      evaluation,
+      transcriptRevisionId: "00000000-0000-4000-8000-000000000001",
+    });
+    expect(JSON.parse(String(saveCall?.[1]?.body))).not.toHaveProperty("outcome");
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+    ).toBe(false);
+  });
+
+  it("allows manual save and submission when transcription failed", async () => {
+    currentReview = reviewRecord({
+      evaluationStatus: "failed",
+      meetingSessionId: null,
+      transcript: null,
+      transcriptionError: "录音转录失败",
+      transcriptionState: "failed",
+    });
+    const container = await renderReview();
+
+    expect(button(container, "保存").disabled).toBe(false);
+    expect(button(container, "提交").disabled).toBe(false);
+
+    act(() => button(container, "保存").click());
+    await flush();
+    const saveCall = fetchMock.mock.calls.find(([request]) =>
+      String(request).endsWith("/evaluation-draft"),
+    );
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
+      transcriptRevisionId: null,
+    });
+
+    act(() => button(container, "提交").click());
+    await flush();
+    const submitCall = fetchMock.mock.calls.find(([request]) =>
+      String(request).endsWith("/evaluation-submit"),
+    );
+    expect(JSON.parse(String(submitCall?.[1]?.body))).toMatchObject({
+      transcriptRevisionId: null,
     });
   });
 
@@ -205,15 +290,16 @@ describe("HumanMeetingReview", () => {
     }
 
     act(() => change(outcome, "pass"));
-    act(() => button(container, "保存评价").click());
+    act(() => button(container, "提交").click());
     await flush();
 
     expect(container.textContent).toContain("本轮评价已保存 · 通过");
     expect(
       [...container.querySelectorAll<HTMLButtonElement>("button")].some(
-        (candidate) => candidate.textContent?.trim() === "保存评价",
+        (candidate) => candidate.textContent?.trim() === "提交",
       ),
     ).toBe(false);
+    expect(button(container, "关闭")).toBeTruthy();
   });
 
   it("keeps an empty transcript revision hidden from the evaluation flow", async () => {
@@ -240,8 +326,53 @@ describe("HumanMeetingReview", () => {
 
     const container = await renderReview();
 
-    expect(button(container, "保存评价").disabled).toBe(true);
+    expect(button(container, "保存").disabled).toBe(true);
+    expect(button(container, "提交").disabled).toBe(true);
     expect(container.textContent).toContain("正在整理会议内容并生成评价");
     expect(container.textContent).not.toContain("使用实时字幕生成评价");
+  });
+});
+
+describe("confirmed evaluation document sync", () => {
+  it("shows a failed sync while keeping the submitted evaluation locked and allows retry", async () => {
+    currentReview = reviewRecord({
+      documentSync: {
+        documentUrl: "https://feishu.cn/docx/doc-1",
+        status: "failed",
+        syncedAt: null,
+      },
+      evaluationStatus: "submitted",
+      roundStatus: "completed",
+    });
+    const container = await renderReview();
+    expect(container.textContent).toContain("飞书评价表同步失败");
+    expect(
+      [...container.querySelectorAll("textarea")].every(
+        (field) => field.disabled || field.readOnly,
+      ),
+    ).toBe(true);
+    act(() => button(container, "重试同步").click());
+    await flush();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/evaluation-document-retry"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+  it("shows the synced target document link", async () => {
+    currentReview = reviewRecord({
+      documentSync: {
+        documentUrl: "https://feishu.cn/docx/doc-1",
+        status: "synced",
+        syncedAt: "2026-09-02T03:00:00Z",
+      },
+      evaluationStatus: "submitted",
+      roundStatus: "completed",
+    });
+    const container = await renderReview();
+    expect(container.textContent).toContain("已同步到飞书评价表");
+    expect(container.querySelector('a[href="https://feishu.cn/docx/doc-1"]')?.textContent).toBe(
+      "查看评价表",
+    );
+    expect(container.textContent).not.toContain("重试同步");
   });
 });

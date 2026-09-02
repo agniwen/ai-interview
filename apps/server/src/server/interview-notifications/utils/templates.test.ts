@@ -12,6 +12,18 @@ describe("interview notification templates", () => {
     }
   });
 
+  it("provides a Feishu confirmation template when a human evaluation draft is ready", () => {
+    const template = CORE_INTERVIEW_NOTIFICATION_TEMPLATES.find(
+      (item) =>
+        item.eventType === "human_evaluation_summary_ready" &&
+        item.audienceType === "meeting_interviewer" &&
+        item.channel === "feishu",
+    );
+
+    expect(template?.contentTemplate).toContain("AI 评价已生成");
+    expect(template?.contentTemplate).toContain("[确认面试评价]({{interviewLink}})");
+  });
+
   it("uses direct confirmation copy and no interviewer confirmation request templates", () => {
     expect(JSON.stringify(CORE_INTERVIEW_NOTIFICATION_TEMPLATES)).not.toContain(
       '"human_interviewer_confirmation_requested"',

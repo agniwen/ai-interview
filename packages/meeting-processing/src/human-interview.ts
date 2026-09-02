@@ -5,7 +5,6 @@ export {
 } from "./human-interview-evaluation-dao";
 export { generateHumanInterviewEvaluation } from "./human-interview-evaluation-generator";
 export {
-  canSaveHumanInterviewEvaluationDraft,
   isHumanInterviewEvaluationPublishCurrent,
   isHumanInterviewEvaluationSubmissionCurrent,
 } from "./human-interview-evaluation-state";
