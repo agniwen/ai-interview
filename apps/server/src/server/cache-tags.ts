@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../lib/server/db/index";
-import { studioInterview } from "@arc/db-schema/schema";
+import { studioInterview } from "@app/db-schema/schema";
 
 export interface CacheInvalidator {
   revalidateTag: (tag: string) => Promise<void> | void;

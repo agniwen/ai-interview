@@ -10,7 +10,7 @@ import type { ComponentPropsWithoutRef, FC } from "react";
 import { ComposerPrimitive, unstable_defaultDirectiveFormatter } from "@assistant-ui/react";
 import type { Unstable_DirectiveFormatter, Unstable_TriggerItem } from "@assistant-ui/react";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 type IconComponent = FC<{ className?: string }>;
 

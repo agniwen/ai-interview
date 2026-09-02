@@ -12,12 +12,12 @@ import {
   createMeetingIntelligenceLeaseLostError,
   meetingIntelligencePayloadSchema,
   validateMeetingIntelligenceEvidence,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import type {
   MeetingIntelligenceGenerationProgress,
   MeetingIntelligencePayload,
   MeetingIntelligenceTemplate,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import { z } from "zod";
 
 interface IntelligenceTranscriptTurn {

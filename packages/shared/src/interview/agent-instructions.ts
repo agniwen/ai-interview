@@ -10,8 +10,8 @@
  * UI preview and backend dispatch call it through the dispatch contract builder.
  */
 
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
 
 export interface AgentInstructionPresetQuestion {
   content: string;

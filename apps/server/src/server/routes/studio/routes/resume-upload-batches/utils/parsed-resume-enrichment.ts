@@ -11,7 +11,7 @@ import {
   enqueueResumeReviewGenerationForRecordBestEffort,
 } from "../../resumes/utils/review-queue";
 import { reassessResumeRecord } from "../../resumes/utils/review-worker";
-import { studioInterview } from "@arc/db-schema/schema";
+import { studioInterview } from "@app/db-schema/schema";
 
 export interface ParsedResumeEnrichmentDependencies extends CandidateQuestionGenerationDependencies {
   enqueueResumePoolReviewGenerationBestEffort: typeof enqueueResumePoolReviewGenerationBestEffort;

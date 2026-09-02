@@ -6,7 +6,7 @@ import { OTPInput, OTPInputContext } from "input-otp";
 import * as React from "react";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function InputOTP({
   className,

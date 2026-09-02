@@ -2,7 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";

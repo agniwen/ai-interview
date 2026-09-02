@@ -18,15 +18,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { humanInterviewFormatMeta } from "@arc/db-schema/studio-interviews";
+import { humanInterviewFormatMeta } from "@app/db-schema/studio-interviews";
 import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
-} from "@arc/shared/studio-pipeline-stages";
+} from "@app/shared/studio-pipeline-stages";
 import {
   normalizeHumanInterviewEvaluationText,
   normalizeHumanInterviewProfessionalSkill,
-} from "@arc/shared/human-interview-evaluation";
+} from "@app/shared/human-interview-evaluation";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   isApiError,

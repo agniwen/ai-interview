@@ -1,9 +1,9 @@
-import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
+import type { PersistedInterviewTurn } from "@app/db-schema/interview-session";
 import { describe, expect, it } from "vitest";
 import {
   coalescePersistedInterviewTurns,
   countDisplayInterviewTurns,
-} from "@arc/shared/interview-transcript-turns";
+} from "@app/shared/interview-transcript-turns";
 
 function turn(
   id: string,

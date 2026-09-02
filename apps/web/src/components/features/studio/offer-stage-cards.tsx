@@ -16,8 +16,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
-import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+import { offerDraftStatusMeta } from "@app/db-schema/studio-interviews";
+import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import {
   cancelOfferDraft,
   fetchStudioResume,

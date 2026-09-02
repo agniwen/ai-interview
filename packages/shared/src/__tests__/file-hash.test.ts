@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidSha256Hex, sha256HexOfBytes, sha256HexOfFile } from "@arc/shared/file-hash";
+import { isValidSha256Hex, sha256HexOfBytes, sha256HexOfFile } from "@app/shared/file-hash";
 
 describe("sha256Hex helpers", () => {
   // Known SHA-256 of the empty string

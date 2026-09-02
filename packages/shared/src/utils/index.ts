@@ -4,8 +4,8 @@
  * 通用工具函数统一入口。
  * Single entry point for shared utility helpers.
  *
- * 业务代码请优先 `import { cn, formatDate, ensureArray } from "@arc/shared/utils"`。
- * Prefer `import { cn, formatDate, ensureArray } from "@arc/shared/utils"` from app code.
+ * 业务代码请优先 `import { cn, formatDate, ensureArray } from "@app/shared/utils"`。
+ * Prefer `import { cn, formatDate, ensureArray } from "@app/shared/utils"` from app code.
  */
 
 export * from "./cn";

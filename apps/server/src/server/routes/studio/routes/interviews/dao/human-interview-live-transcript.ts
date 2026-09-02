@@ -3,8 +3,8 @@ import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingInterviewer,
-} from "@arc/db-schema/schema";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+} from "@app/db-schema/schema";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 
 export async function loadHumanInterviewLiveTranscriptDraft(input: {
   meetingId: string;

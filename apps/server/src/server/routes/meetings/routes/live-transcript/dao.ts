@@ -1,7 +1,7 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import { meetingLiveTranscriptLease } from "@arc/db-schema/schema";
-import type { MeetingLiveTranscriptTrack } from "@arc/shared/meeting-transcription";
+import { meetingLiveTranscriptLease } from "@app/db-schema/schema";
+import type { MeetingLiveTranscriptTrack } from "@app/shared/meeting-transcription";
 import { resolveMeetingLiveTranscriptConcurrency } from "./authorization-gate";
 
 const LIVE_TRANSCRIPT_CAPACITY_LOCK = "meeting-live-transcript-capacity";

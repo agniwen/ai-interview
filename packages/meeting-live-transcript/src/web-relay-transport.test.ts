@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // oxlint-disable promise/avoid-new -- The relay handshake is driven by WebSocket events.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 import { z } from "zod";
 import { connectHumanInterviewTranscriptRelay } from "./web-relay-transport";
 

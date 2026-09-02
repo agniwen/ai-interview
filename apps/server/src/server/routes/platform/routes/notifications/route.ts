@@ -1,4 +1,4 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { createInternalErrorResponse } from "../../../../error-handler";

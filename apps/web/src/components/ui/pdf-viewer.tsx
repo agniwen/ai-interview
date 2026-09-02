@@ -17,7 +17,7 @@ import type * as ReactPdf from "react-pdf";
 
 import "react-pdf/dist/Page/TextLayer.css";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import {
   DocumentViewerSidebarSkeleton,

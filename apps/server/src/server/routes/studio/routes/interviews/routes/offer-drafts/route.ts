@@ -2,8 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../../lib/server/db/index";
-import { studioInterview } from "@arc/db-schema/schema";
-import { offerDraftInputSchema, offerResponseInputSchema } from "@arc/db-schema/studio-interviews";
+import { studioInterview } from "@app/db-schema/schema";
+import { offerDraftInputSchema, offerResponseInputSchema } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import {

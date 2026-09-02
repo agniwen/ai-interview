@@ -15,7 +15,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { db } from "../../../lib/server/db/index";
 import { getObjectBytes, getObjectStream, presignRecordingGetObjectUrl } from "@app/object-storage";
-import { interviewConversation, minimaxVoicePreview, studioInterview } from "@arc/db-schema/schema";
+import { interviewConversation, minimaxVoicePreview, studioInterview } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
 import {
@@ -49,7 +49,7 @@ import {
 } from "../studio/routes/interviews/utils/human-interview-livekit";
 import { stopActiveHumanInterviewRecording } from "../studio/routes/interviews/utils/human-interview-recording-service";
 import { loadResumeDetail } from "../studio/routes/resumes/dao/resumes";
-import type { PublicReferralUploadResult } from "@arc/shared/referrals";
+import type { PublicReferralUploadResult } from "@app/shared/referrals";
 import {
   handleHumanInterviewInvitationResponseError,
   isCurrentHumanInterviewInvitationToken,
@@ -70,7 +70,7 @@ import {
 } from "../studio/routes/job-descriptions/dao/referral-links";
 
 async function getResumeParseQueueApi() {
-  return await import("@arc/resume-parse-queue/resume-parse");
+  return await import("@app/resume-parse-queue/resume-parse");
 }
 
 export interface PublicRouterDependencies {

@@ -1,5 +1,5 @@
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Spinner({ className, ...props }: Omit<React.ComponentProps<typeof Icon>, "icon">) {
   return (

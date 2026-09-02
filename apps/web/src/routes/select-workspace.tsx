@@ -1,6 +1,6 @@
 import { IconArrowRight, IconPlus } from "@tabler/icons-react";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

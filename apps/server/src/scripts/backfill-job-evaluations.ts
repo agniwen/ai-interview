@@ -5,10 +5,10 @@ import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
   parseStoredJobDescriptionStructuredConfig,
-} from "@arc/db-schema/job-description-structured-config";
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import type { JsonValue } from "@arc/db-schema/json";
+} from "@app/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import type { JsonValue } from "@app/db-schema/json";
 import { z } from "zod";
 
 export const TARGET_WORKSPACE_ID = "org_default";
@@ -237,7 +237,7 @@ function parseBaseConfig(value: JsonValue): JobDescriptionStructuredConfig {
 async function workspaceFingerprint(organizationId: string): Promise<string> {
   const [{ db }, { jobDescription }, { asc, ne }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   const rows = await db
@@ -299,12 +299,12 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
     { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION },
   ] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
     import("../server/routes/studio/routes/job-descriptions/application/default-job-evaluation-lifecycle"),
     import("../lib/server/job-evaluation-hash"),
-    import("@arc/db-schema/job-description-evaluation"),
-    import("@arc/shared/structured-resume-scoring"),
+    import("@app/db-schema/job-description-evaluation"),
+    import("@app/shared/structured-resume-scoring"),
   ]);
   const analysis = await analyzeJobDescription(job.prompt);
   const structuredConfig = mergeAnalyzedConfig(parseBaseConfig(job.structuredConfig), analysis);
@@ -417,7 +417,7 @@ function memberRolePriority(role: string): number {
 async function loadScope() {
   const [{ db }, { jobDescription, member, organization }, { asc, eq }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   const [workspace] = await db
@@ -459,7 +459,7 @@ async function loadScope() {
 async function loadJobById(id: string): Promise<BackfillJobRow> {
   const [{ db }, { jobDescription }, { and, eq }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   const [job] = await db

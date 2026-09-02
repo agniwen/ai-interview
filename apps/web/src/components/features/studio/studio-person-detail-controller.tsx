@@ -1,9 +1,9 @@
 /* oxlint-disable complexity -- detail controller coordinates query and command state. */
 "use client";
 
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useReducedMotion } from "motion/react";

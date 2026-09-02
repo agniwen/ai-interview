@@ -2,11 +2,11 @@
 
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { describeResumeProgress } from "@arc/shared/studio-resumes";
-import { formatDate } from "@arc/shared/utils/time";
+import { describeResumeProgress } from "@app/shared/studio-resumes";
+import { formatDate } from "@app/shared/utils/time";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { getCandidateStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";

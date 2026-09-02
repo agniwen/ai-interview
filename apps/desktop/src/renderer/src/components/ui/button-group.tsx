@@ -4,7 +4,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { cva } from "class-variance-authority";
 
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 // Ignore Base UI `[data-base-ui-focus-guard]` siblings (injected while Popover/Menu is open)
 // so first/last real controls keep shared radius. Class names must stay full string

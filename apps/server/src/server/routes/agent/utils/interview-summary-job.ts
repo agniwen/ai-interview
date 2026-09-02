@@ -2,8 +2,8 @@ import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../lib/server/db/index";
 import { captureBackendException } from "../../../../lib/server/sentry";
-import { interviewConversation } from "@arc/db-schema/schema";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import { interviewConversation } from "@app/db-schema/schema";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import { notifyInterviewSummaryReady } from "./feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "../../../cache-tags";
 import { runInterviewReportWorkflow } from "../../../agents/mastra/workflows/interview-report-workflow";
@@ -16,7 +16,7 @@ import { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
 import {
   isInterviewQuestionSetComplete,
   parseInterviewDataCollectionResults,
-} from "@arc/shared/interview/question-outcomes";
+} from "@app/shared/interview/question-outcomes";
 import { enqueueAiReportReadyEvent } from "../../../interview-notifications/utils/events";
 import {
   isInterviewNotificationFlowEnabled,

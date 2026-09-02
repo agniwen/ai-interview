@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/coss-style";
 import { Icon } from "@/components/ui/icon";
 import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const Combobox = ComboboxPrimitive.Root;
 

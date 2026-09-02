@@ -1,5 +1,5 @@
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
-import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
+import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@app/shared/upload-task-inbox";
 
 export interface UploadTaskPreviewState {
   record: UploadTaskInboxRecord | null;

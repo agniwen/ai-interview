@@ -854,7 +854,7 @@ describe("isMinedPositive", () => {
 ```ts
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@app/server/lib/server/db";
-import { studioInterview } from "@arc/db-schema/schema";
+import { studioInterview } from "@app/db-schema/schema";
 import { labelKey } from "./labels";
 import type { PositiveLabel } from "./types";
 

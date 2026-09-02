@@ -3,7 +3,7 @@ import {
   meetingRecordingAsset,
   meetingSession,
   meetingStorageCleanupKey,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { db } from "../db";
 
 // 只允许媒体库可见生命周期进入回放查询，排除 trashed/purging 等删除状态。 / Limits playback source queries to library lifecycle states, excluding deletion states such as trashed and purging.

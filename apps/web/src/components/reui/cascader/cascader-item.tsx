@@ -17,7 +17,7 @@ import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Spinner } from "@/components/ui/spinner";
 import {
   IconLoader2,

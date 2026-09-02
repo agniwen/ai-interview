@@ -13,13 +13,13 @@
  * fetch+FormData inside their dialog components.
  */
 
-import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
+import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
+import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
-} from "@arc/shared/studio-interview-rounds";
+} from "@app/shared/studio-interview-rounds";
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -31,16 +31,16 @@ import type {
   OfferDraftInput,
   PipelineStage,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
+} from "@app/db-schema/studio-interviews";
+import type { ResumeSemanticSourceType } from "@app/db-schema/schema";
 import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
   HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
-} from "@arc/shared/studio-pipeline-stages";
-import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-pipeline-stages";
+import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
 import { rpc, studioInterviewsRpc } from "@/lib/client/rpc";
 import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 

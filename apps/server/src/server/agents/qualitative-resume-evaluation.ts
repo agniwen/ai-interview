@@ -1,9 +1,9 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   QUALITATIVE_RESUME_EVALUATION_SCHEMA_VERSION,
   qualitativeResumeEvaluationV2Schema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
 import {
   generateStructuredWithMastraAgent,
   resumeReviewQualitativeAgent,

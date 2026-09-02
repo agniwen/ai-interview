@@ -1,4 +1,4 @@
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const WHITESPACE_REGEX = /\s+/u;

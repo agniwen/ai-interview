@@ -3,7 +3,7 @@
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import * as React from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export type TabsVariant = "default" | "underline";
 type TabsListVariant = TabsVariant | "line";

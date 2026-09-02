@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import { SYNTHETIC_RESUME_REVIEW_CASES } from "./cases";
 
 describe("synthetic resume review cases", () => {

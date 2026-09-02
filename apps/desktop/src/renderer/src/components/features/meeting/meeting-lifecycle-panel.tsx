@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
+import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import {
   Frame,

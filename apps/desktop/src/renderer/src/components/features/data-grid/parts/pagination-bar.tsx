@@ -1,4 +1,4 @@
-import { DEFAULT_PAGE_SIZE_OPTIONS } from "@arc/shared/pagination";
+import { DEFAULT_PAGE_SIZE_OPTIONS } from "@app/shared/pagination";
 import {
   Pagination,
   PaginationContent,
@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export interface PaginationBarProps {
   loading?: boolean;

@@ -3,11 +3,11 @@ import type {
   InterviewNotificationChannel,
   InterviewNotificationEventType,
   InterviewNotificationTemplateVariable,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 import {
   extractInterviewNotificationTemplateVariables,
   renderInterviewNotificationTemplate,
-} from "@arc/shared/interview-notifications";
+} from "@app/shared/interview-notifications";
 
 export interface InterviewNotificationTemplateContent {
   audienceType: InterviewNotificationAudienceType;

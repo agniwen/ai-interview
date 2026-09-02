@@ -4,9 +4,9 @@ import {
   jobDescriptionVersion,
   resumeEvaluationFailure,
   resumeEvaluationVersion,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
-import type { ResumeEvaluationHistoryResponse } from "@arc/shared/studio-resumes";
+import type { ResumeEvaluationHistoryResponse } from "@app/shared/studio-resumes";
 import { factory } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { loadResumeDetail } from "../../dao/resumes";

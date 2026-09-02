@@ -16,7 +16,7 @@ import {
   upsertChatMessage,
 } from "../../../chat/dao/chat";
 import { extractV6NativeApproval } from "../../../chat/utils/extract-v6-native-approval";
-import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
+import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@app/db-schema/chat-context-bindings";
 import { loadResumeRecordFocus } from "./dao";
 import { resolveRecruitingCopilotFocus } from "./focus";
 import { hasExplicitJobBindingConsent, validateClientChatMessages } from "./messages";

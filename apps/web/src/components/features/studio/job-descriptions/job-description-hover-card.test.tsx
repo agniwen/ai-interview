@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type { JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";

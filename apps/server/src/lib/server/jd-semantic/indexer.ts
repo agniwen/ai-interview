@@ -9,7 +9,7 @@ import {
 import { buildJobDescriptionSemanticTexts } from "../resume-semantic/text-builders";
 import type { JobDescriptionSemanticInput } from "../resume-semantic/text-builders";
 import type { ResumeEmbeddingChunk, ResumeVectorStore } from "../resume-semantic/vector-store";
-import { department, jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
+import { department, jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
 import { hashJobDescriptionForSemanticIndex } from "./hash";
 
 export interface JdSemanticIndexJob {

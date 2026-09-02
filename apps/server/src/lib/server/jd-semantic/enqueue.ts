@@ -43,7 +43,7 @@ const defaultDependencies: JobDescriptionSemanticIndexDependencies = {
   },
   async enqueueJobs(jobs) {
     const { enqueueResumeSemanticIndexJobs } =
-      await import("@arc/resume-parse-queue/resume-semantic-index");
+      await import("@app/resume-parse-queue/resume-semantic-index");
     await enqueueResumeSemanticIndexJobs(jobs);
   },
   async getConfig() {

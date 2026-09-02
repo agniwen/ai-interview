@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 import { InputControl } from "@/components/ui/input";
 import { TextareaControl } from "@/components/ui/textarea";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (

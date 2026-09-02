@@ -1,1 +1,1 @@
-export { createBrowserPcmSidecar } from "@arc/meeting-live-transcript/browser";
+export { createBrowserPcmSidecar } from "@app/meeting-live-transcript/browser";

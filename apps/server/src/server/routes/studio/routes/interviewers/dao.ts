@@ -1,7 +1,7 @@
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
-import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
-import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
+import type { InterviewerListRecord, InterviewerRecord } from "@app/shared/interviewers";
+import { minimaxVoiceSchema } from "@app/db-schema/minimax-voices";
 import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
@@ -12,7 +12,7 @@ import {
 } from "../../../../../lib/server/db/pagination";
 import type { PaginatedResult, PaginationParams } from "../../../../../lib/server/db/pagination";
 import { serializeDate } from "../../../../../lib/server/db/serialize";
-import { department, interviewer, jobDescriptionInterviewer } from "@arc/db-schema/schema";
+import { department, interviewer, jobDescriptionInterviewer } from "@app/db-schema/schema";
 
 const interviewerListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

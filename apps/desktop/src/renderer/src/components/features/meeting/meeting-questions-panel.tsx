@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { MeetingQuestionExchange, MeetingQuestionThread } from "@arc/shared/meeting-answer";
+import type { MeetingQuestionExchange, MeetingQuestionThread } from "@app/shared/meeting-answer";
 import { Button } from "@/components/ui/button";
 import {
   Frame,

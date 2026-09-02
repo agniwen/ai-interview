@@ -8,14 +8,14 @@ import type {
   saveMeetingIntelligenceCheckpoint,
   saveMeetingIntelligenceProgress,
 } from "@app/server/worker/meeting-intelligence";
-import type { MeetingIntelligenceJobData } from "@arc/meeting-processing-queue/meeting-intelligence";
-import { MEETING_INTELLIGENCE_PROMPT_VERSION } from "@arc/meeting-processing-queue/meeting-intelligence";
+import type { MeetingIntelligenceJobData } from "@app/meeting-processing-queue/meeting-intelligence";
+import { MEETING_INTELLIGENCE_PROMPT_VERSION } from "@app/meeting-processing-queue/meeting-intelligence";
 import {
   isMeetingIntelligenceLeaseLostError,
   isMeetingIntelligenceTerminalError,
   MeetingIntelligenceTerminalError,
-} from "@arc/shared/meeting-intelligence";
-import type { MeetingIntelligencePayload } from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
+import type { MeetingIntelligencePayload } from "@app/shared/meeting-intelligence";
 
 export interface MeetingIntelligenceDependencies {
   claim: typeof claimMeetingIntelligenceRun;

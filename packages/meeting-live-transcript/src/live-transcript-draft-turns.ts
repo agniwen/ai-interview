@@ -1,8 +1,8 @@
-import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptTrack,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import type {
   LiveTranscriptConnection,
   LiveTranscriptDraftSnapshot,

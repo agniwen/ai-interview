@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/icon";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { formatDatePickerValue, parseDatePickerValue } from "@/lib/client/date-picker-value";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface DatePickerProps {
   "aria-label"?: string;

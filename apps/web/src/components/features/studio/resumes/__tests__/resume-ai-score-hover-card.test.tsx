@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";

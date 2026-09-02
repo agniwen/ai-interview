@@ -48,10 +48,10 @@ import { analysisStreamEventSchema, readAiRunEventStream } from "@/lib/client/ai
 import { runAsyncAction } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
+import { generatedInterviewQuestionSchema } from "@app/db-schema/interview/types";
+import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import type { AiInterviewLinkValidity } from "@app/shared/interview/ai-interview-invitation";
 import { ResumeOverviewPanel } from "./resume-overview-panel";
 import { normalizeCandidateInterviewQuestions } from "../candidate-interview-questions";
 

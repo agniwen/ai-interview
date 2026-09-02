@@ -1,4 +1,4 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -7,8 +7,8 @@ import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
-} from "@arc/db-schema/schema";
-import { candidateFormTemplateSchema } from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/schema";
+import { candidateFormTemplateSchema } from "@app/db-schema/candidate-forms";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requirePermission } from "../../../../middlewares/permission";
 import {

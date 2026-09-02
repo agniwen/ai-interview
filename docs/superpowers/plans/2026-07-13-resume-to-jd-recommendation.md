@@ -284,7 +284,7 @@ describe("resumeSemanticIndexJobSchema", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/resume-parse-queue test resume-semantic-index`
+Run: `pnpm --filter @app/resume-parse-queue test resume-semantic-index`
 Expected: FAIL（enum 拒绝 job_description）
 
 - [ ] **Step 3: 改 enum** — `resume-semantic-index.ts:18`：
@@ -295,7 +295,7 @@ sourceType: z.enum(["studio_interview", "resume_pool_item", "job_description"]),
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/resume-parse-queue test resume-semantic-index`
+Run: `pnpm --filter @app/resume-parse-queue test resume-semantic-index`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -420,7 +420,7 @@ Expected: FAIL（模块不存在）
 ```ts
 import { and, eq } from "drizzle-orm";
 import { db } from "@app/server/lib/server/db";
-import { department, jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
+import { department, jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
 import { embedResumeSemanticTexts } from "@app/server/lib/server/resume-semantic/embedding";
 import { getResumeEmbeddingConfig } from "@app/server/lib/server/resume-semantic/embedding";
 // 注意：markSemanticIndexIndexed/Failed/Skipped 在 indexer.ts 中【未 export】——只能用已导出的
@@ -638,7 +638,7 @@ export async function enqueueJobDescriptionIndexJobBestEffort(input: {
       return;
     }
     const { enqueueResumeSemanticIndexJobs } =
-      await import("@arc/resume-parse-queue/resume-semantic-index");
+      await import("@app/resume-parse-queue/resume-semantic-index");
     await enqueueResumeSemanticIndexJobs([job]);
   } catch (error) {
     console.warn("[jd-semantic-index] enqueue failed", {
@@ -884,7 +884,7 @@ git commit -m "feat(jd-semantic): add backfill script for existing JDs"
 
 - [ ] **Step 2: typecheck**
 
-Run: `pnpm --filter @arc/shared typecheck`
+Run: `pnpm --filter @app/shared typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -1214,7 +1214,7 @@ git commit -m "feat(resume-pool): add POST /:id/recommendations endpoint"
 
 ```tsx
 import { useQuery } from "@tanstack/react-query";
-import type { JobDescriptionRecommendationResult } from "@arc/shared/job-descriptions";
+import type { JobDescriptionRecommendationResult } from "@app/shared/job-descriptions";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
@@ -1294,7 +1294,7 @@ export const resumePoolBindSchema = z.object({
 Run: `pnpm --filter @app/server test resume-pool`（新用例）
 Expected: FAIL
 
-- [ ] **Step 3: DAO** — `dao.ts` 加 `bindResumePoolItemJobDescription`：`db.transaction` 内 `update(resumePoolItem).set({ jobDescriptionId, updatedAt }).where(and(eq(id), eq(organizationId), isNull(resumePoolItem.jobDescriptionId)))` → 用返回的 `rowCount`/结果长度判断是否命中；命中才 `writeResumePoolEvent(tx, { type: "bound", ... })` 并返回 `true`，否则返回 `false`（已绑定）。事件类型：`resumePoolEvent.type` 列是 `text().$type<ResumePoolEventType>()`（**TS 联合类型、非 pg enum，故无需 DB 迁移**）。在 `@arc/db-schema` 里 `ResumePoolEventType` 联合类型补 `"bound"`（纯类型改动），DAO 用 `type:"bound"`。若该联合有对应 Zod schema 也一并加。
+- [ ] **Step 3: DAO** — `dao.ts` 加 `bindResumePoolItemJobDescription`：`db.transaction` 内 `update(resumePoolItem).set({ jobDescriptionId, updatedAt }).where(and(eq(id), eq(organizationId), isNull(resumePoolItem.jobDescriptionId)))` → 用返回的 `rowCount`/结果长度判断是否命中；命中才 `writeResumePoolEvent(tx, { type: "bound", ... })` 并返回 `true`，否则返回 `false`（已绑定）。事件类型：`resumePoolEvent.type` 列是 `text().$type<ResumePoolEventType>()`（**TS 联合类型、非 pg enum，故无需 DB 迁移**）。在 `@app/db-schema` 里 `ResumePoolEventType` 联合类型补 `"bound"`（纯类型改动），DAO 用 `type:"bound"`。若该联合有对应 Zod schema 也一并加。
 
 - [ ] **Step 4: route.ts** — 加（校验 JD 属组织的逻辑照抄 import handler `route.ts:310-323`）：
 

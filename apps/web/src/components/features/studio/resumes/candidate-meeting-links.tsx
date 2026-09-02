@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
+import type { MeetingLibraryItem } from "@app/shared/meeting-recording";
 import { fetchStudioResumeMeetings } from "@/lib/client/api";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function hashString(str: string): [number, number] {
   let h1 = 0xde_ad_be_ef;

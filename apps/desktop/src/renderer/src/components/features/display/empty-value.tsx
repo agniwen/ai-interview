@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export function EmptyValue({ className, children = "—", ...props }: ComponentProps<"span">) {
   return (

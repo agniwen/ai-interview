@@ -2,9 +2,9 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import type {
   JobDescriptionTalentRecommendation,
   JobDescriptionTalentRecommendationResult,
-} from "@arc/shared/job-descriptions";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { jobDescription, studioInterview } from "@arc/db-schema/schema";
+} from "@app/shared/job-descriptions";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { jobDescription, studioInterview } from "@app/db-schema/schema";
 import { db } from "../../../../../../lib/server/db/index";
 import { QdrantResumeVectorStore } from "../../../../../../lib/server/qdrant/resume-vector-store";
 import {

@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { withCleanup } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
-import { formatDateOnly } from "@arc/shared/utils/time";
+import { formatDateOnly } from "@app/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
 

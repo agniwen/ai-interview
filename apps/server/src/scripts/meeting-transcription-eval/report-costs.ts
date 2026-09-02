@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@arc/meeting-processing-queue/meeting-transcription";
+import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@app/meeting-processing-queue/meeting-transcription";
 import {
   applyMeetingTranscriptionActualCosts,
   meetingTranscriptionCostLedgerSchema,

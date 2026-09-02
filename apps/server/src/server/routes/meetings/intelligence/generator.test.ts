@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MeetingIntelligenceGenerationProgress } from "@arc/shared/meeting-intelligence";
+import type { MeetingIntelligenceGenerationProgress } from "@app/shared/meeting-intelligence";
 import { generateMeetingIntelligence } from "./generator";
 
 afterEach(() => {

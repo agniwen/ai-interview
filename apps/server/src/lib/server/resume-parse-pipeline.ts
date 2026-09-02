@@ -11,10 +11,10 @@ import { z } from "zod";
 import {
   normalizeResumeStructuredSourceFileName,
   resumeParserGenerationSchema,
-} from "@arc/db-schema/resume-parser-schema";
-import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+} from "@app/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
+import type { AttachmentTextSource } from "@app/db-schema/db-enums";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import {
   collectOfficeXmlText as collectXmlTextByLocalName,
   extractOfficeXmlText as extractXmlText,
@@ -56,7 +56,7 @@ export type ResumeTextSource = Exclude<AttachmentTextSource, "pdf-parse">;
 export {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
-} from "@arc/shared/resume-documents";
+} from "@app/shared/resume-documents";
 
 export interface ResumeDocumentInput {
   bytes: Uint8Array;

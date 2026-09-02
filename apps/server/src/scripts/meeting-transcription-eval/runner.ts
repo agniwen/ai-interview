@@ -1,9 +1,9 @@
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
+import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
 import pRetry from "p-retry";
 import type {
   CanonicalMeetingTranscript,
   MeetingTranscriptionProviderId,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import {
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
@@ -12,7 +12,7 @@ import { MEETING_TRANSCRIPTION_BENCHMARK_MAX_TRANSCRIPT_CHARS } from "./dataset"
 import type { MeetingTranscriptionEvalCase } from "./dataset";
 import { scoreMeetingTranscription } from "./metrics";
 import type { MeetingTranscriptionBenchmarkRun } from "./types";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 
 export interface MeetingTranscriptionBenchmarkAdapter {
   deleteArtifact?: (artifact: JsonValue) => Promise<void>;

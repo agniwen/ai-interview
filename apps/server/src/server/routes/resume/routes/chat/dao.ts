@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import { db } from "../../../../../lib/server/db/index";
-import { studioInterview } from "@arc/db-schema/schema";
+import { studioInterview } from "@app/db-schema/schema";
 
 export async function loadResumeRecordFocus(input: {
   organizationId: string;

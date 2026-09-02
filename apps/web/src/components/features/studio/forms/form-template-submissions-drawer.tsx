@@ -4,7 +4,7 @@ import { IconInbox, IconLoader2 } from "@tabler/icons-react";
 import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateSnapshot,
-} from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/candidate-forms";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { useMemo } from "react";

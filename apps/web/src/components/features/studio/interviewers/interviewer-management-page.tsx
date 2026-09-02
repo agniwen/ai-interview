@@ -1,12 +1,12 @@
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconPlus, IconUserCircle } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
-import type { DepartmentRecord } from "@arc/shared/departments";
+import type { DepartmentRecord } from "@app/shared/departments";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
-import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
+import type { InterviewerListRecord, InterviewerRecord } from "@app/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@app/server/web/studio";
 
 import { useMemo, useState } from "react";
@@ -31,7 +31,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
+import { getMinimaxVoiceMeta } from "@app/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
 import { InterviewerFormDialog } from "@/components/features/studio/interviewers/interviewer-form-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";

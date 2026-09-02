@@ -9,8 +9,8 @@ import type {
   CandidateOutcome,
   PipelineStage,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
+} from "@app/db-schema/studio-interviews";
+import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 
 export type FeishuEvaluationDocumentStatus = "generated" | "answers_available" | "unavailable";
 

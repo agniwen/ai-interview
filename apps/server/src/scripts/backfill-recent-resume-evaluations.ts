@@ -1,12 +1,12 @@
 import "../standalone/preload";
 
 import { createHash } from "node:crypto";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-description-structured-config";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import { computeResumeEvaluationInputHash } from "../lib/server/resume-evaluation-input-hash";
-import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
+import { deriveStructuredResumeSummaries } from "@app/shared/structured-resume-scoring";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import type { GeneratedResumeAssessment } from "../server/routes/studio/routes/resumes/utils/review-lifecycle";
 
@@ -225,7 +225,7 @@ export async function loadRecentRows(
   const [{ db }, { jobDescription, studioInterview }, { and, desc, eq, gte, lt, lte }] =
     await Promise.all([
       import("../lib/server/db"),
-      import("@arc/db-schema/schema"),
+      import("@app/db-schema/schema"),
       import("drizzle-orm"),
     ]);
   const dateWindow = date ? buildChinaDateWindow(date) : null;
@@ -276,7 +276,7 @@ export async function loadRecentRows(
 async function assertTargetWorkspace(): Promise<void> {
   const [{ db }, { organization }, { eq }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   const [workspace] = await db
@@ -292,7 +292,7 @@ async function assertTargetWorkspace(): Promise<void> {
 async function claimTarget(row: RecentResumeRow, campaign: string) {
   const [{ db }, { jobDescription, studioInterview }, { and, eq }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   return db.transaction(async (tx) => {
@@ -394,7 +394,7 @@ async function commitAssessment(
   }
   const [{ db }, { jobDescription, studioInterview }, { and, eq }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   return db.transaction(async (tx) => {
@@ -497,7 +497,7 @@ async function markFailed(
 ): Promise<void> {
   const [{ db }, { studioInterview }, { and, eq }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   await db

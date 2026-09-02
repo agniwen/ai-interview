@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { MeetingQuestionThread } from "@arc/shared/meeting-answer";
+import type { MeetingQuestionThread } from "@app/shared/meeting-answer";
 import {
   hasActiveMeetingQuestion,
   meetingAnswerSeekSeconds,

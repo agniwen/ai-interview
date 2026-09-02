@@ -1,4 +1,4 @@
-import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
+import type { RecruitingDashboardMetrics } from "@app/shared/studio-dashboard";
 import { loadRecruitingDashboardMetrics } from "@app/server/web/studio";
 import { LRUCache } from "lru-cache";
 

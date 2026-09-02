@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@arc/shared/utils";
-import { formatDateInAppTimeZone } from "@arc/shared/utils/time";
+import { cn } from "@app/shared/utils";
+import { formatDateInAppTimeZone } from "@app/shared/utils/time";
 import { defaultRangeExtractor } from "@tanstack/react-virtual";
 import type { Range } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useState } from "react";

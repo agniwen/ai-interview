@@ -14,7 +14,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Badge } from "@/components/ui/badge";
 import * as messages from "@/paraglide/messages";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Section, SectionLead, SectionTitle } from "./section";
 

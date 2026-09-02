@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 import {
   relayHumanInterviewTranscriptMessage,
   relayHumanInterviewTranscriptPcm,

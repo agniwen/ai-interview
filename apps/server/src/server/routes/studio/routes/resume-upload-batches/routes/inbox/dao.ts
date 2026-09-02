@@ -5,8 +5,8 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
-} from "@arc/db-schema/schema";
-import { UPLOAD_TASK_INBOX_PAGE_SIZE } from "@arc/shared/upload-task-inbox";
+} from "@app/db-schema/schema";
+import { UPLOAD_TASK_INBOX_PAGE_SIZE } from "@app/shared/upload-task-inbox";
 import { decodeUploadTaskInboxCursor, encodeUploadTaskInboxCursor } from "./cursor";
 
 export async function queryUploadTaskInbox(input: {

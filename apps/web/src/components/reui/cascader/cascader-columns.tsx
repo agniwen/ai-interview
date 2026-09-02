@@ -14,7 +14,7 @@ import {
 } from "@/components/reui/cascader/cascader-lib";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { IconLoader2 } from "@tabler/icons-react";
 

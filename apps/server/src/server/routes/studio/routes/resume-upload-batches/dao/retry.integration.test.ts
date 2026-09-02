@@ -8,7 +8,7 @@ import {
   resumeUploadBatchItem,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { claimFailedResumeParseRetry } from "./retry";
 
 const ORGANIZATION_ID = "resume_retry_unlimited_org";

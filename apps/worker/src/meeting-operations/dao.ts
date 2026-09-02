@@ -20,7 +20,7 @@ import {
   meetingProcessingRun,
   meetingSession,
   meetingTranscriptRevision,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 // 容量配置只接受正整数，空值、零或非法输入均使用已审定默认值。 / Capacity settings accept positive integers only; missing, zero, or invalid values use the reviewed default.
 function resolvePositiveInteger(raw: string | undefined, fallback: number): number {

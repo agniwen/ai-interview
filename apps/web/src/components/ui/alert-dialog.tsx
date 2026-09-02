@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { Button, ButtonSizeProvider } from "@/components/ui/button";
 import { cossModalMotionClass, cossModalOverlayMotionClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;

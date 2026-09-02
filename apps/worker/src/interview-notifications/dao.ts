@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { interviewNotification, interviewNotificationEvent } from "@arc/db-schema/schema";
-import type { InterviewNotificationDeliveryStatus } from "@arc/db-schema/interview-notifications";
+import { interviewNotification, interviewNotificationEvent } from "@app/db-schema/schema";
+import type { InterviewNotificationDeliveryStatus } from "@app/db-schema/interview-notifications";
 import type { Database } from "../db";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];

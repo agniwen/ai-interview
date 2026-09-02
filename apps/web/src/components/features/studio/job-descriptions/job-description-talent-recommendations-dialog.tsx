@@ -12,7 +12,7 @@ import type {
   JobDescriptionListRecord,
   JobDescriptionTalentRecommendation,
   JobDescriptionTalentRecommendationResult,
-} from "@arc/shared/job-descriptions";
+} from "@app/shared/job-descriptions";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";

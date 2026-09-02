@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { updateMeetingRecruitingContextSchema } from "@arc/shared/meeting-recording";
+import { updateMeetingRecruitingContextSchema } from "@app/shared/meeting-recording";
 import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import { getWorkspaceRequestContext } from "../../../../context/workspace-request-context";
 import { factory, jsonValidatorError } from "../../../../factory";

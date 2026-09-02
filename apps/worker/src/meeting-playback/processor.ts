@@ -19,7 +19,7 @@ import type {
   registerMeetingPlaybackCleanupKey,
   removeMeetingPlaybackCleanupKey,
 } from "./dao";
-import type { MeetingPlaybackJobData } from "@arc/meeting-processing-queue/meeting-playback";
+import type { MeetingPlaybackJobData } from "@app/meeting-processing-queue/meeting-playback";
 
 interface PlaybackSourceAsset {
   contentType: string;
@@ -179,7 +179,7 @@ export function createDefaultMeetingPlaybackDependencies(
       const [{ getMeetingTranscriptionJobForMeeting }, { enqueueMeetingTranscriptionJobs }] =
         await Promise.all([
           import("@app/server/worker/meeting-transcription"),
-          import("@arc/meeting-processing-queue/meeting-transcription"),
+          import("@app/meeting-processing-queue/meeting-transcription"),
         ]);
       const job = await getMeetingTranscriptionJobForMeeting(input);
       if (job) {

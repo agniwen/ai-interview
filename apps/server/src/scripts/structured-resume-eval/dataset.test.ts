@@ -1,12 +1,12 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import {
   computeStructuredResumeEvaluation,
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DIMENSIONS,
-} from "@arc/shared/structured-resume-scoring";
-import type { StructuredResumeRuleJudgment } from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
+import type { StructuredResumeRuleJudgment } from "@app/shared/structured-resume-scoring";
 import { computeJobEvaluationPayloadHash } from "../../lib/server/job-evaluation-hash";
 import {
   bindStructuredResumeEvalCandidate,

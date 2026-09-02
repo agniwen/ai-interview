@@ -1,5 +1,5 @@
-import type { FeishuEvaluationDocumentStatus } from "@arc/shared/studio-interview-rounds";
-import { hasExistingInterviewAnswers } from "@arc/shared/interview/question-outcomes";
+import type { FeishuEvaluationDocumentStatus } from "@app/shared/studio-interview-rounds";
+import { hasExistingInterviewAnswers } from "@app/shared/interview/question-outcomes";
 
 interface EvaluationDocumentConversation {
   conversationId: string;

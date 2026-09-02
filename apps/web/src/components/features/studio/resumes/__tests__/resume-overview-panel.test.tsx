@@ -4,9 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import type { JsonValue } from "@arc/db-schema/json";
-import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import type { JsonValue } from "@app/db-schema/json";
+import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
 import { ResumeOverviewPanel } from "../resume-overview-panel";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.

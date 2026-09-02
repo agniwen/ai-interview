@@ -9,7 +9,7 @@ import { IconInfoCircle } from "@tabler/icons-react";
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import {

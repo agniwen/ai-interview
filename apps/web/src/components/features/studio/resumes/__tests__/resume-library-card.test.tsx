@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
+import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@app/shared/studio-resumes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { ResumeLibraryCard } from "../resume-library-card";

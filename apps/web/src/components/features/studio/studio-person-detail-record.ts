@@ -1,5 +1,5 @@
-import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 
 export interface UnifiedRecord {
   id: string;

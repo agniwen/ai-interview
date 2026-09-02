@@ -2,8 +2,8 @@ import { parseJsonOutput } from "@app/ai-runtime/json-output";
 import {
   normalizeResumeStructuredSourceFileName,
   resumeParserGenerationSchema,
-} from "@arc/db-schema/resume-parser-schema";
-import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+} from "@app/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
 import { runAliyunResumeExtraction } from "./aliyun-docmining";
 import { ALIYUN_RESUME_EXTRACTION_PROMPT } from "./aliyun-resume-prompt";
 

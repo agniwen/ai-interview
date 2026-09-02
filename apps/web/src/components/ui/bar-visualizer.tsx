@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export interface AudioAnalyserOptions {
   fftSize?: number;

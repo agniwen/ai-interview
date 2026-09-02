@@ -3,7 +3,7 @@
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 import { enableReactActEnvironment, renderInAct, unmountInAct } from "@/test-utils/react-act";
 import { ResumeLibraryMetricsSection } from "./resume-library-metrics-section";
 

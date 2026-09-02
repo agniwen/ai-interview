@@ -6,7 +6,7 @@ import {
   interviewEvidenceSnapshot,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type { Database } from "../lib/server/db/index";
 import { loadStandaloneEnv } from "../standalone/env";
 

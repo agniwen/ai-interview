@@ -5,15 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { HumanInterviewReviewRecord } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import {
   humanInterviewEvaluationRatingSchema,
   humanInterviewRoundOutcomeSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type {
   HumanInterviewEvaluation,
   HumanInterviewRoundOutcome,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

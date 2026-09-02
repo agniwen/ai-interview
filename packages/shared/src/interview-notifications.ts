@@ -1,12 +1,12 @@
 import {
   interviewNotificationPayloadSnapshotSchema,
   interviewNotificationTemplateVariableSchema,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 import type {
   InterviewNotificationEventType,
   InterviewNotificationPayloadSnapshot,
   InterviewNotificationTemplateVariable,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 
 export {
   aiInvitationExceptionTypeSchema,
@@ -30,7 +30,7 @@ export {
   interviewNotificationTemplateStatusValues,
   interviewNotificationTemplateVariableSchema,
   interviewNotificationTemplateVariableValues,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 export type {
   AiInvitationExceptionType,
   CandidateInterviewInvitationStatus,
@@ -43,7 +43,7 @@ export type {
   InterviewNotificationScopeType,
   InterviewNotificationTemplateStatus,
   InterviewNotificationTemplateVariable,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 
 export const INTERVIEW_NOTIFICATION_RETRY_DELAYS_MS = [60_000, 300_000, 900_000] as const;
 

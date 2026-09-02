@@ -3,7 +3,7 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { cossMenuItemClass, cossPopupSurfaceClass } from "@/components/ui/coss-style";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;

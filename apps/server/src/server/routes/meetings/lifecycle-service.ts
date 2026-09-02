@@ -1,12 +1,12 @@
 import {
   enqueueMeetingPurgeJobs,
   isMeetingPurgeQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-purge";
+} from "@app/meeting-processing-queue/meeting-purge";
 import type {
   PaginatedTrashedMeetings,
   TrashedMeetingListQuery,
-} from "@arc/shared/meeting-recording";
-import { toPaginatedResult } from "@arc/shared/pagination";
+} from "@app/shared/meeting-recording";
+import { toPaginatedResult } from "@app/shared/pagination";
 import {
   listTrashedMeetingSessions,
   requestMeetingPurge,

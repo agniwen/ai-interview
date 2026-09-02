@@ -1,5 +1,5 @@
-import type { DepartmentRecord } from "@arc/shared/departments";
-import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type { DepartmentRecord } from "@app/shared/departments";
+import type { JobDescriptionFormValues, JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";

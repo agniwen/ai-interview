@@ -32,7 +32,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as m from "@/paraglide/messages";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface NavItem {
   icon: typeof IconRobot;

@@ -14,7 +14,7 @@
 import { eq, like, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "../lib/server/db/index";
-import { resumePoolItem } from "@arc/db-schema/schema";
+import { resumePoolItem } from "@app/db-schema/schema";
 
 export interface ResumePoolFixtureOwners {
   /** Organization ids used by this suite's fixtures. */

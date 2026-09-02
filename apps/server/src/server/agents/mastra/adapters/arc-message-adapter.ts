@@ -6,7 +6,7 @@ import type {
   ArcMessageRole,
   ArcSourcePart,
   ArcToolPart,
-} from "@arc/db-schema/ai-message";
+} from "@app/db-schema/ai-message";
 
 const arcMessageRoleSchema = z.enum(["assistant", "system", "tool", "user"]);
 const arcTextPartSchema = z.object({ text: z.string(), type: z.literal("text") }).passthrough();

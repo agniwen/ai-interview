@@ -1,4 +1,4 @@
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { describe, expect, it } from "vitest";
 import {
   buildResumePoolVirtualRows,

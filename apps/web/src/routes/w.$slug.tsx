@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { AppVersionProvider } from "@/components/features/app-version/app-version-provider";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";

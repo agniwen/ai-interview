@@ -9,7 +9,7 @@
  * requests). In the browser we reuse a singleton so all components share one cache.
  */
 
-import { createQueryClient } from "@arc/shared/query-client";
+import { createQueryClient } from "@app/shared/query-client";
 
 let browserQueryClient: ReturnType<typeof createQueryClient> | undefined;
 

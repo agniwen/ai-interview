@@ -1,9 +1,9 @@
 import type {
   StructuredResumeGateStatus,
   StructuredResumeGrade,
-} from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
-import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
+import type { AiInterviewLinkValidity } from "@app/shared/interview/ai-interview-invitation";
 
 interface LaunchSchedule {
   id: string;

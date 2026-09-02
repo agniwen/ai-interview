@@ -2,7 +2,7 @@
 
 import { IconClockHour3 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function formatElapsed(seconds: number): string {
   const hours = Math.floor(seconds / 3600);

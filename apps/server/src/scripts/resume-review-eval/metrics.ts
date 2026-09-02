@@ -1,4 +1,4 @@
-import { RESUME_REVIEW_DIMENSIONS } from "@arc/shared/resume-review";
+import { RESUME_REVIEW_DIMENSIONS } from "@app/shared/resume-review";
 import type {
   ActionConfusion,
   EvalSliceMetrics,

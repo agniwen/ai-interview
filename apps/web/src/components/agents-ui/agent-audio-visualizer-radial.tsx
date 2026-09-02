@@ -8,7 +8,7 @@ import { useMultibandTrackVolume } from "@livekit/components-react";
 import { cva } from "class-variance-authority";
 import { useMemo } from "react";
 import { useAgentAudioVisualizerRadialAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-radial";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export const AgentAudioVisualizerRadialVariants = cva(
   [

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
+import type { MeetingLibraryItem } from "@app/shared/meeting-recording";
 import {
   canRetryMeetingProcessing,
   meetingDetailRefetchInterval,

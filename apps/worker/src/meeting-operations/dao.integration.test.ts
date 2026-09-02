@@ -7,7 +7,7 @@ import {
   meetingTranscriptRevision,
   organization,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { loadMeetingOperationsSnapshot } from "./dao";
 
 function createFixtureNamespace(label: string): string {

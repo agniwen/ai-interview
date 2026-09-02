@@ -1,11 +1,11 @@
 // oxlint-disable promise/prefer-await-to-callbacks -- MessagePort and provider callbacks are event based.
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import { z } from "zod";
-import { liveCorrectionBatchSchema } from "@arc/shared/meeting-live-correction";
+import { liveCorrectionBatchSchema } from "@app/shared/meeting-live-correction";
 import {
   meetingLiveTranscriptContextSchema,
   meetingLiveTranscriptVocabularySchema,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { createLiveTranscriptCorrectionSession } from "./live-transcript-correction-session";
 import type {
   DashScopeRealtimeWsConnection,

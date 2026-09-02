@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { HumanInterviewReviewRecord } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { HumanMeetingReview } from "./human-meeting-review";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.

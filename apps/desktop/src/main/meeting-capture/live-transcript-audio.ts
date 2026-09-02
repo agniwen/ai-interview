@@ -1,1 +1,1 @@
-export { createLiveTranscriptAudio } from "@arc/meeting-live-transcript/server";
+export { createLiveTranscriptAudio } from "@app/meeting-live-transcript/server";

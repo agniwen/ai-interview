@@ -2,13 +2,13 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 import type {
   CandidateTimelineEvent,
   CandidateTimelineEventMeta,
   CandidateTimelineEventTone,
   CandidateTimelineResponse,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
@@ -20,14 +20,14 @@ import {
   studioOfferDraft,
   studioRoundEmailLog,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   candidateOutcomeMeta,
   humanInterviewRoundOutcomeMeta,
   offerDraftStatusMeta,
   pipelineStageMeta,
   scheduleEntryStatusMeta,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { loadResumeDetail } from "./resumes";
 import { auditDescription, auditTitle, auditTone, stageLabel } from "./timeline-audit";
 import { z } from "zod";

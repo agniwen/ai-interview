@@ -17,7 +17,7 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";

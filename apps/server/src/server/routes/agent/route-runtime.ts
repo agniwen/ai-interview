@@ -1,14 +1,14 @@
 import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../lib/server/db/index";
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 import {
   interviewAuditLog,
   interviewConversation,
   interviewConversationTurn,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import {
   notifyInterviewSummaryReady,
@@ -19,11 +19,11 @@ import { runSummaryJob } from "./utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "./utils/evidence-snapshot";
 import { enqueueAiInterviewCompletedEvent } from "../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../interview-notifications/utils/feature-flags";
-import { mergeInterviewEndReasonMetadata } from "@arc/shared/interview/end-reason";
+import { mergeInterviewEndReasonMetadata } from "@app/shared/interview/end-reason";
 import {
   mergeInterviewQuestionOutcome,
   parseInterviewDataCollectionResults,
-} from "@arc/shared/interview/question-outcomes";
+} from "@app/shared/interview/question-outcomes";
 import { createAgentRouter } from "./route";
 import type {
   AgentRouterDependencies,

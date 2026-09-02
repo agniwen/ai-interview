@@ -1,1 +1,1 @@
-export { createMeetingLiveTranscriptHints } from "@arc/meeting-live-transcript/hints";
+export { createMeetingLiveTranscriptHints } from "@app/meeting-live-transcript/hints";

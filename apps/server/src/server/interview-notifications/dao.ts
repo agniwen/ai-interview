@@ -3,7 +3,7 @@ import {
   interviewNotificationEventTypeSchema,
   interviewNotificationPayloadSnapshotSchema,
   interviewNotificationScopeTypeSchema,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 import type {
   InterviewNotificationAudienceType,
   InterviewNotificationChannel,
@@ -11,8 +11,8 @@ import type {
   InterviewNotificationEventType,
   InterviewNotificationPayloadSnapshot,
   InterviewNotificationScopeType,
-} from "@arc/db-schema/interview-notifications";
-import { interviewNotification, interviewNotificationEvent } from "@arc/db-schema/schema";
+} from "@app/db-schema/interview-notifications";
+import { interviewNotification, interviewNotificationEvent } from "@app/db-schema/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 

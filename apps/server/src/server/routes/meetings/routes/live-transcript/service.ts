@@ -1,7 +1,7 @@
 import type {
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptTrack,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { resolveMeetingTranscriptionQwenBaseUrl } from "../../transcription/provider-endpoint";
 import {
   DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL,

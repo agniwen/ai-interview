@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ThemeMode } from "@/lib/settings";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { themeModeSchema } from "../../../../preload/orpc-contract";
 
 const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = [

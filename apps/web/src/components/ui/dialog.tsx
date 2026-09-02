@@ -12,7 +12,7 @@ import {
   cossModalSurfaceClass,
 } from "@/components/ui/coss-style";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface ResponsiveDialogContextValue {
   isMobile: boolean;

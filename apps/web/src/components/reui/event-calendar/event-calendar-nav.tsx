@@ -14,7 +14,7 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { addDays, format } from "date-fns";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {

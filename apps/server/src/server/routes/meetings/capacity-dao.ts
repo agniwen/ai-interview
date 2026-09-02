@@ -1,11 +1,11 @@
 import { and, eq, gt, ne, sql } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
-import { meetingRecordingAsset, meetingSession } from "@arc/db-schema/schema";
+import { meetingRecordingAsset, meetingSession } from "@app/db-schema/schema";
 import type {
   CreateMultipartSavedMeetingInput,
   CreateSmallSavedMeetingInput,
-} from "@arc/shared/meeting-recording";
-import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
+} from "@app/shared/meeting-recording";
+import { formatDefaultMeetingTitle } from "@app/shared/utils/time";
 import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 type NewMeetingAsset = (

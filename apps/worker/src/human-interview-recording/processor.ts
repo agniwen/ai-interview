@@ -13,8 +13,8 @@ import type {
   saveHumanInterviewRecordingProcessingError,
 } from "@app/server/worker/human-interview";
 import type { getMeetingTranscriptionJobForMeeting } from "@app/server/worker/meeting-transcription";
-import type { HumanInterviewRecordingJobData } from "@arc/meeting-processing-queue/human-interview-recording";
-import type { enqueueMeetingTranscriptionJobs } from "@arc/meeting-processing-queue/meeting-transcription";
+import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
+import type { enqueueMeetingTranscriptionJobs } from "@app/meeting-processing-queue/meeting-transcription";
 
 export interface HumanInterviewRecordingProcessorDependencies {
   download: typeof downloadMeetingRecordingObjectToFile;

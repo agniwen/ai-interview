@@ -4,8 +4,8 @@ import {
   generateQualitativeResumeEvaluation,
   normalizeGeneratedQualitativeResumeEvaluation,
 } from "./qualitative-resume-evaluation";
-import { qualitativeResumeEvaluationV2Schema } from "@arc/db-schema/qualitative-resume-evaluation";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { qualitativeResumeEvaluationV2Schema } from "@app/db-schema/qualitative-resume-evaluation";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 
 const profile = {
   age: null,

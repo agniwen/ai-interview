@@ -1,5 +1,5 @@
-import type { JsonValue } from "@arc/db-schema/json";
-import { statement } from "@arc/shared/permissions";
+import type { JsonValue } from "@app/db-schema/json";
+import { statement } from "@app/shared/permissions";
 import { z } from "zod";
 
 /**

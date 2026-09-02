@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { z } from "zod";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 
 const MAX_BENCHMARK_JSON_BYTES = 64 * 1024 * 1024;
 

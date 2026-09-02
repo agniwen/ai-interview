@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
-import type { JobDescriptionMetrics } from "@arc/shared/job-descriptions";
+import type { JobDescriptionMetrics } from "@app/shared/job-descriptions";
 
 /**
  * Chart choices (distinct forms + single interactive mark each):

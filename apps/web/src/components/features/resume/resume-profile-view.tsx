@@ -1,13 +1,13 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   formatResumeEducationItem,
   sortResumeEducationExperiences,
-} from "@arc/shared/resume-education";
+} from "@app/shared/resume-education";
 import {
   isCurrentResumePeriod,
   sortResumeExperiencesByPeriod,
-} from "@arc/shared/resume-experience";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/resume-experience";
+import { cn } from "@app/shared/utils";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";

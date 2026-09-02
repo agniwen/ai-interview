@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 enum ReadyState {
   HAVE_FUTURE_DATA = 3,

@@ -6,13 +6,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationRuleDraft,
-} from "@arc/db-schema/job-description-evaluation";
-import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
+import { toJobEvaluationRuleDraft } from "@app/db-schema/job-description-evaluation";
 import type {
   JobDescriptionDeductionRules,
   JobDescriptionStructuredConfig,
-} from "@arc/db-schema/job-description-structured-config";
-import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
+} from "@app/db-schema/job-description-structured-config";
+import type { JobDescriptionRecord } from "@app/shared/job-descriptions";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";

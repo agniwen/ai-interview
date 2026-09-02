@@ -4,59 +4,59 @@ import {
   closeResumeParseQueue,
   createResumeParseWorker,
   isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
+} from "@app/resume-parse-queue/resume-parse";
 import {
   closeResumeSemanticIndexQueue,
   createResumeSemanticIndexWorker,
   enqueueResumeSemanticIndexJobs,
-} from "@arc/resume-parse-queue/resume-semantic-index";
+} from "@app/resume-parse-queue/resume-semantic-index";
 import {
   closeResumeReviewGenerationQueue,
   createResumeReviewGenerationWorker,
-} from "@arc/resume-parse-queue/resume-review-generation";
-import { createMailIngestTriggerWorker } from "@arc/resume-parse-queue/mail-ingest-trigger";
+} from "@app/resume-parse-queue/resume-review-generation";
+import { createMailIngestTriggerWorker } from "@app/resume-parse-queue/mail-ingest-trigger";
 import {
   closeMeetingAnswerQueue,
   createMeetingAnswerWorker,
   enqueueMeetingAnswerJobs,
   isMeetingAnswerQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-answer";
+} from "@app/meeting-processing-queue/meeting-answer";
 import {
   closeMeetingIntelligenceQueue,
   createMeetingIntelligenceWorker,
   enqueueMeetingIntelligenceJobs,
   isMeetingIntelligenceQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-intelligence";
+} from "@app/meeting-processing-queue/meeting-intelligence";
 import {
   closeMeetingPlaybackQueue,
   createMeetingPlaybackWorker,
   enqueueMeetingPlaybackJobs,
   isMeetingProcessingQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-playback";
+} from "@app/meeting-processing-queue/meeting-playback";
 import {
   closeMeetingPurgeQueue,
   createMeetingPurgeWorker,
   enqueueMeetingPurgeJobs,
   isMeetingPurgeQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-purge";
+} from "@app/meeting-processing-queue/meeting-purge";
 import {
   closeMeetingTranscriptionQueue,
   createMeetingTranscriptionWorker,
   enqueueMeetingTranscriptionJobs,
   isMeetingTranscriptionQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-transcription";
+} from "@app/meeting-processing-queue/meeting-transcription";
 import {
   closeHumanInterviewRecordingQueue,
   createHumanInterviewRecordingWorker,
   enqueueHumanInterviewRecordingJobs,
   isHumanInterviewRecordingQueueConfigured,
-} from "@arc/meeting-processing-queue/human-interview-recording";
+} from "@app/meeting-processing-queue/human-interview-recording";
 import {
   closeHumanInterviewEvaluationQueue,
   createHumanInterviewEvaluationWorker,
   enqueueHumanInterviewEvaluationJobs,
   isHumanInterviewEvaluationQueueConfigured,
-} from "@arc/meeting-processing-queue/human-interview-evaluation";
+} from "@app/meeting-processing-queue/human-interview-evaluation";
 import { createWorkerApp } from "./app";
 import { isWorkerBackgroundProcessingEnabled, resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, validateWorkerEnv } from "./env";
@@ -83,7 +83,7 @@ function isResumeSemanticIndexEnabled(): boolean {
 // 启动时从数据库恢复未完成批次项，再补入可能因进程退出而丢失的解析队列。 / Restores incomplete batch items from the database at startup and replenishes jobs lost on process exit.
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
   const { recoverIncompleteBatchItems } = await import("@app/server/worker/resumes");
-  const { enqueueResumeParseJobs } = await import("@arc/resume-parse-queue/resume-parse");
+  const { enqueueResumeParseJobs } = await import("@app/resume-parse-queue/resume-parse");
   const jobs = await recoverIncompleteBatchItems();
   if (jobs.length === 0) {
     console.info("[resume-parse-worker] startup recovery found no pending items");

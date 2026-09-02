@@ -7,13 +7,13 @@
  * slug parameter. No mutations are exposed here.
  */
 
-import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
+import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
-} from "@arc/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { publicRpc } from "@/lib/client/rpc";
 import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 

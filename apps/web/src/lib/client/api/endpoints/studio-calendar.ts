@@ -1,4 +1,4 @@
-import type { StudioAiCalendarEventPreview } from "@arc/shared/studio-calendar";
+import type { StudioAiCalendarEventPreview } from "@app/shared/studio-calendar";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 

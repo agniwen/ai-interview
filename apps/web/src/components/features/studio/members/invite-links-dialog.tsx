@@ -45,7 +45,7 @@ import {
   getWorkspaceRoleDescription,
 } from "./role-display";
 import type { WorkspaceRoleOption } from "./role-display";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 
 interface InviteLinkDto {
   id: string;

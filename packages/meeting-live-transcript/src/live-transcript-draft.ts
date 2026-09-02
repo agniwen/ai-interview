@@ -1,12 +1,12 @@
 // oxlint-disable max-lines, promise/avoid-new, promise/prefer-await-to-callbacks -- This cohesive state machine exceeds the generic line limit; provider completion and reconnect scheduling are callback-based by design.
-import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptHints,
   MeetingLiveTranscriptTrack,
   MeetingLiveTranscriptWord,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import {
   appendLiveTranscriptTurn,
   createLiveTranscriptCorrectionBatches,

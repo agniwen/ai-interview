@@ -43,7 +43,7 @@ import type {
   FilterRule,
 } from "@/components/reui/filters/filters-types";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import {

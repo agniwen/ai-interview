@@ -1,9 +1,9 @@
-import { humanInterviewRoundOutcomeMeta } from "@arc/db-schema/studio-interviews";
+import { humanInterviewRoundOutcomeMeta } from "@app/db-schema/studio-interviews";
 /* oxlint-disable no-use-before-define -- status helpers compose one another */
 import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
-} from "@arc/shared/studio-pipeline-stages";
+} from "@app/shared/studio-pipeline-stages";
 
 interface HumanInterviewStatusDescription {
   label: string;

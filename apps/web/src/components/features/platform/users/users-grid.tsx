@@ -1,6 +1,6 @@
 "use client";
 
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 
 import {
   IconBan,
@@ -51,7 +51,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { formatDate, formatDateOnly } from "@arc/shared/utils/time";
+import { formatDate, formatDateOnly } from "@app/shared/utils/time";
 import { formatUserNameWithRemark } from "./user-display";
 
 interface UserRecord {

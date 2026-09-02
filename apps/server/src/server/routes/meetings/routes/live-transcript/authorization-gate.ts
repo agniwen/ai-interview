@@ -1,7 +1,7 @@
 import type {
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptTrack,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 
 interface AuthorizationIdentity {
   captureId: string;

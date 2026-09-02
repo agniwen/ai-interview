@@ -1,6 +1,6 @@
 "use client";
 
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 
 import { IconBuilding, IconInbox } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";

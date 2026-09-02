@@ -221,7 +221,7 @@ function getReportMode(options: Options): ExecutionReport["mode"] {
 async function loadRecordSnapshots(ids: string[]) {
   const [{ db }, { studioInterview }, { inArray }] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   const rows = await db
@@ -318,9 +318,9 @@ async function run(options: Options): Promise<void> {
       backfill,
     ] = await Promise.all([
       import("../lib/server/db"),
-      import("@arc/db-schema/job-description-evaluation"),
-      import("@arc/db-schema/job-description-structured-config"),
-      import("@arc/db-schema/schema"),
+      import("@app/db-schema/job-description-evaluation"),
+      import("@app/db-schema/job-description-structured-config"),
+      import("@app/db-schema/schema"),
       import("drizzle-orm"),
       import("./backfill-recent-resume-evaluations"),
     ]);

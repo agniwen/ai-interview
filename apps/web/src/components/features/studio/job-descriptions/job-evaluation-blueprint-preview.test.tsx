@@ -3,9 +3,9 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
-import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
+import type { JobEvaluationBlueprint } from "@app/db-schema/job-description-evaluation";
+import { toJobEvaluationRuleDraft } from "@app/db-schema/job-description-evaluation";
 import {
   JobEvaluationBlueprintPreview,
   serializeEvaluationRules,

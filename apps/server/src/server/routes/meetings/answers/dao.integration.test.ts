@@ -10,13 +10,13 @@ import {
   member,
   organization,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { createMeetingAnswerExchange, createMeetingQuestionThread } from "./dao";
-import { MEETING_ANSWER_INSUFFICIENT_EVIDENCE_TEXT } from "@arc/shared/meeting-answer";
+import { MEETING_ANSWER_INSUFFICIENT_EVIDENCE_TEXT } from "@app/shared/meeting-answer";
 import type {
   MeetingQuestionExchange,
   MeetingQuestionThreadSummary,
-} from "@arc/shared/meeting-answer";
+} from "@app/shared/meeting-answer";
 
 const SUFFIX = String(process.pid);
 const ORG_ID = `meeting_answer_org_${SUFFIX}`;

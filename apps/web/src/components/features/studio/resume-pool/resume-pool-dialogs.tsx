@@ -6,7 +6,7 @@ import type {
   ResumePoolInitialRecruitmentStage,
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
-} from "@arc/shared/resume-pool";
+} from "@app/shared/resume-pool";
 
 import { useState } from "react";
 import type { ReactNode } from "react";

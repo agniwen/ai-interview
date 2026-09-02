@@ -1,6 +1,6 @@
 "use client";
 
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 
 import { IconMicrophone, IconRadio, IconUsers, IconVideo } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";

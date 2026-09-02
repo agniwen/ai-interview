@@ -1,11 +1,11 @@
 import {
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
-} from "@arc/db-schema/job-description-evaluation";
-import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
-import { parseStoredJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import { jobDescription } from "@arc/db-schema/schema";
-import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/job-description-evaluation";
+import type { JobDescriptionDeductionRules } from "@app/db-schema/job-description-structured-config";
+import { parseStoredJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
+import { jobDescription } from "@app/db-schema/schema";
+import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@app/shared/structured-resume-scoring";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { computeJobEvaluationDraftInputHash } from "../../../../../../lib/server/job-evaluation-hash";

@@ -14,13 +14,13 @@ import {
   studioInterview,
   studioInterviewSchedule,
   studioOfferDraft,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   OfferDraftInput,
   OfferDraftStatus,
   PipelineStage,
-} from "@arc/db-schema/studio-interviews";
-import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+} from "@app/db-schema/studio-interviews";
+import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 
 export type { OfferDraftRecord };
 

@@ -12,12 +12,12 @@ import {
   studioHumanInterviewRoundInterviewer,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   HumanInterviewRoundInput,
   HumanInterviewRoundOutcome,
-} from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewRoundRecord } from "@arc/shared/studio-pipeline-stages";
+} from "@app/db-schema/studio-interviews";
+import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
 import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-completion";
 import {
   COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,

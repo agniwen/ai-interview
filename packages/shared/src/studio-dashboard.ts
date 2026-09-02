@@ -1,5 +1,5 @@
-import type { OfferDraftStatus } from "@arc/db-schema/studio-interviews";
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
+import type { OfferDraftStatus } from "@app/db-schema/studio-interviews";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 
 export type DashboardActionSeverity = "info" | "warning" | "danger";
 

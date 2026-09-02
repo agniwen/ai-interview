@@ -25,7 +25,7 @@ import {
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import {
   DocumentViewerThumbnailSidebar,

@@ -1,7 +1,7 @@
 import type {
   HumanInterviewEvaluation,
   HumanInterviewRoundOutcome,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { submitHumanInterviewEvaluation } from "../dao/human-interview-evaluation";
 import { endHumanInterviewMeetingsByRound } from "../dao/human-interview-meetings";
 import {

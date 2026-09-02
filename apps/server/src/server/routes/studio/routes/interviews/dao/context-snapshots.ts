@@ -4,9 +4,9 @@ import type {
   InterviewContextSnapshotPayload,
   InterviewContextSnapshotReason,
   InterviewSnapshotStatus,
-} from "@arc/db-schema/interview-snapshots";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-snapshots";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
 import { jsonValueSchema, stableStringify } from "../../../../../../lib/server/stable-stringify";
 import type { JsonValue } from "../../../../../../lib/server/stable-stringify";
 import { db } from "../../../../../../lib/server/db/index";
@@ -22,7 +22,7 @@ import {
   jobDescription,
   jobDescriptionInterviewer,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { resolveOrCreateTemplateVersion } from "../../forms/dao/versions";
 import {

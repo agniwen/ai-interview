@@ -1,5 +1,5 @@
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import type { StudioAiCalendarEvent } from "@arc/shared/studio-calendar";
+import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
+import type { StudioAiCalendarEvent } from "@app/shared/studio-calendar";
 
 export interface AiCalendarScheduledRow {
   candidateName: string;

@@ -1,6 +1,6 @@
-import type { MeetingTranscriptionProviderId } from "@arc/shared/meeting-transcription";
+import type { MeetingTranscriptionProviderId } from "@app/shared/meeting-transcription";
 import { z } from "zod";
-import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
+import { meetingTranscriptionProviderSchema } from "@app/shared/meeting-transcription";
 
 export type BenchmarkEntityCategory = "english" | "technical";
 

@@ -28,7 +28,7 @@ import {
 
 import { createPortal } from "react-dom";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

@@ -12,7 +12,7 @@
 
 import { AnimatePresence, m } from "motion/react";
 import { createPortal } from "react-dom";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 import {
   AlertDialog,

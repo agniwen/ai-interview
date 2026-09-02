@@ -3,12 +3,12 @@ import type {
   ClosedMeta,
   PipelineStage,
   ResumeEvaluationStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+} from "@app/db-schema/studio-interviews";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import {
   canApplyCandidatePipelineEvent,
   getCandidatePipelineEventForTargetStage,
-} from "@arc/shared/candidate-pipeline-machine";
+} from "@app/shared/candidate-pipeline-machine";
 
 export interface CandidateTransitionExisting {
   closedMeta: ClosedMeta | null;

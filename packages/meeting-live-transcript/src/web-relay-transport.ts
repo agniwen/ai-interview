@@ -1,7 +1,7 @@
 // oxlint-disable promise/avoid-new -- Browser WebSocket readiness is callback-only.
-import { liveCorrectionEventSchema } from "@arc/shared/meeting-live-correction";
-import type { LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
-import type { MeetingLiveTranscriptTrack } from "@arc/shared/meeting-transcription";
+import { liveCorrectionEventSchema } from "@app/shared/meeting-live-correction";
+import type { LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
+import type { MeetingLiveTranscriptTrack } from "@app/shared/meeting-transcription";
 import { z } from "zod";
 import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-transcript-draft";
 import {

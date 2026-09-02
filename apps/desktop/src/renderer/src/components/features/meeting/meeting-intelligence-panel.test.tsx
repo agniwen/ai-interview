@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { MeetingIntelligenceResult } from "@arc/shared/meeting-intelligence";
-import type { FinalMeetingTranscriptRevision } from "@arc/shared/meeting-transcription";
+import type { MeetingIntelligenceResult } from "@app/shared/meeting-intelligence";
+import type { FinalMeetingTranscriptRevision } from "@app/shared/meeting-transcription";
 import {
   canRegenerateMeetingIntelligence,
   intelligenceEvidenceTurns,

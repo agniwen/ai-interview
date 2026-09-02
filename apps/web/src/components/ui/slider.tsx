@@ -2,7 +2,7 @@
 
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Slider({
   className,

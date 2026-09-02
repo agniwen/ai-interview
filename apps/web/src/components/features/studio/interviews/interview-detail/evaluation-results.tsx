@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { resolveRecommendationVariant } from "./helpers";
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
 import { useKeywordHighlight } from "./keyword-highlight/context";
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
-import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
-import type { InterviewQuestionOutcome } from "@arc/shared/interview/question-outcomes";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
+import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import type { InterviewQuestionOutcome } from "@app/shared/interview/question-outcomes";
 
 const evidenceQuoteSchema = z.object({
   quote: z.string().optional(),

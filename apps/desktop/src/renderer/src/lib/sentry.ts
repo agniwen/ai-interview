@@ -1,4 +1,4 @@
-import { createSentryOptions, resolveSentryDsn } from "@arc/shared/sentry";
+import { createSentryOptions, resolveSentryDsn } from "@app/shared/sentry";
 import * as Sentry from "@sentry/electron/renderer";
 
 const initializeDesktopRendererSentry = () => {

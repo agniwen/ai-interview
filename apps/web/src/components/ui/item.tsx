@@ -5,7 +5,7 @@ import { cva } from "class-variance-authority";
 import * as React from "react";
 
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (

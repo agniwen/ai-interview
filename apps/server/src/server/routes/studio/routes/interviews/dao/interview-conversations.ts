@@ -1,19 +1,19 @@
 import type {
   InterviewReportSnapshotMetadata,
   StudioInterviewConversationReport,
-} from "@arc/db-schema/interview-session";
-import type { JsonValue } from "@arc/db-schema/json";
-import { interviewKeyInformationSchema } from "@arc/db-schema/interview-key-information";
+} from "@app/db-schema/interview-session";
+import type { JsonValue } from "@app/db-schema/json";
+import { interviewKeyInformationSchema } from "@app/db-schema/interview-key-information";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
+import { formatCandidateFormAnswer } from "@app/shared/candidate-form-answer";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewContextSnapshot,
   interviewConversation,
   interviewConversationTurn,
   interviewEvidenceSnapshot,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 type InterviewConversationRow = typeof interviewConversation.$inferSelect;
 type InterviewConversationTurnRow = typeof interviewConversationTurn.$inferSelect;

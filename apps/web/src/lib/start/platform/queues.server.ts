@@ -2,14 +2,14 @@ import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { createQueryClient } from "@arc/shared/query-client";
+import { createQueryClient } from "@app/shared/query-client";
 import {
   getResumeParseQueueOverview,
   listResumeParseQueueJobs,
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
-} from "@arc/resume-parse-queue/resume-parse";
-import type { ResumeParseJobListState } from "@arc/resume-parse-queue/resume-parse";
+} from "@app/resume-parse-queue/resume-parse";
+import type { ResumeParseJobListState } from "@app/resume-parse-queue/resume-parse";
 import { enrichResumeParseQueueJobs } from "@app/server/web/platform";
 import { z } from "zod";
 

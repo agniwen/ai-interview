@@ -1,4 +1,4 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { z } from "zod";
 import {
   generateStructuredWithMastraAgent,
@@ -6,22 +6,22 @@ import {
   resumeScreeningEvidenceAgent,
 } from "@app/ai-runtime/simple-generators";
 
-import type { ResumeReview } from "@arc/shared/resume-review";
+import type { ResumeReview } from "@app/shared/resume-review";
 import {
   evaluateResumeScreening,
   resumeScreeningEvidenceResultSchema,
-} from "@arc/shared/resume-screening";
+} from "@app/shared/resume-screening";
 import type {
   ResumeScreeningEvidenceResult,
   ResumeScreeningPolicy,
   ResumeScreeningResult,
   ResumeScreeningSemanticRule,
   ResumeScreeningSkillRule,
-} from "@arc/shared/resume-screening";
+} from "@app/shared/resume-screening";
 import {
   RESUME_REVIEW_SCHEMA_VERSION,
   formatResumeReviewMarkdown,
-} from "@arc/shared/resume-review";
+} from "@app/shared/resume-review";
 import type { ResumeReviewGenerationResult } from "./resume-analysis-review";
 
 const RESUME_REVIEW_SERVER_TIME_ZONE = "Asia/Shanghai";

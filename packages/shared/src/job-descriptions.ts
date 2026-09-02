@@ -1,17 +1,17 @@
-import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import type { MinimaxVoiceId } from "@app/db-schema/minimax-voices";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationMode,
   JobEvaluationRuleDraft,
   JobLifecycleStatus,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
-} from "@arc/db-schema/job-description-structured-config";
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import { z } from "zod";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
 import {
   createDefaultResumeScreeningPolicy,
   resumeScreeningPolicySchema,

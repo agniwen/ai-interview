@@ -1,7 +1,7 @@
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
-import type { statement } from "@arc/shared/permissions";
-import { hasPermissionInStatements } from "@arc/shared/permission-statements";
-import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
+import type { statement } from "@app/shared/permissions";
+import { hasPermissionInStatements } from "@app/shared/permission-statements";
+import type { WorkspacePermissionStatements } from "@app/shared/permission-statements";
 import { computeWorkspacePermissionSnapshot } from "./workspace-permission-snapshot";
 
 export type WorkspaceResource = keyof typeof statement;

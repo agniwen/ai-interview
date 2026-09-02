@@ -8,8 +8,8 @@ import {
   organization,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
-import type { InterviewContextSnapshotPayload } from "@arc/db-schema/interview-snapshots";
+} from "@app/db-schema/schema";
+import type { InterviewContextSnapshotPayload } from "@app/db-schema/interview-snapshots";
 import { createInterviewEvidenceSnapshot } from "../evidence-snapshot";
 
 const ORG_ID = "test_evidence_snapshot_org";

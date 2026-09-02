@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
-} from "@arc/shared/studio-pipeline-stages";
+} from "@app/shared/studio-pipeline-stages";
 import { MeetingLinksDialogView } from "./human-interview-stage-meetings";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { meetingLibrarySearchQuerySchema } from "@arc/shared/meeting-search";
+import { meetingLibrarySearchQuerySchema } from "@app/shared/meeting-search";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { searchSavedMeetings } from "./service";
 

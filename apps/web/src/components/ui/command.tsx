@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (

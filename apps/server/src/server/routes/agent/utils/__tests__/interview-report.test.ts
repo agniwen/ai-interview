@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
-import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import {
   applyInterviewReportAnswerFallback,
   applyQuestionOutcomesToEvaluation,

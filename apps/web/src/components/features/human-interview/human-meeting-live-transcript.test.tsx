@@ -4,7 +4,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LiveTranscriptDraftSnapshot } from "@arc/meeting-live-transcript/draft";
+import type { LiveTranscriptDraftSnapshot } from "@app/meeting-live-transcript/draft";
 import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
@@ -93,12 +93,12 @@ vi.mock("@livekit/components-react", () => ({
   ],
 }));
 
-vi.mock("@arc/meeting-live-transcript/browser", () => ({
+vi.mock("@app/meeting-live-transcript/browser", () => ({
   connectHumanInterviewTranscriptRelay: vi.fn(),
   createBrowserPcmSidecar: vi.fn(),
 }));
 
-vi.mock("@arc/meeting-live-transcript/draft", () => ({
+vi.mock("@app/meeting-live-transcript/draft", () => ({
   createDurableLiveTranscriptDraft: (snapshot: LiveTranscriptDraftSnapshot) =>
     snapshot.captureId
       ? {

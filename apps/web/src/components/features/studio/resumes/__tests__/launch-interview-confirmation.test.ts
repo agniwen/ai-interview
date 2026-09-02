@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import {
   getStructuredLaunchConfirmation,
   requiresStructuredLaunchConfirmation,

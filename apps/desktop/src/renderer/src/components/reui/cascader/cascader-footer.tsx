@@ -16,7 +16,7 @@ import type { CascaderActionItem } from "@/components/reui/cascader/cascader-typ
 import { Popover as PopoverPrimitive } from "@base-ui/react";
 import { useDirection } from "@base-ui/react/direction-provider";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Icon } from "@/components/ui/icon";
 
 /**

@@ -1,15 +1,15 @@
 import { db } from "../../../../../../lib/server/db/index";
-import { studioInterview } from "@arc/db-schema/schema";
-import type { StudioInterviewResumeSourceType } from "@arc/db-schema/schema";
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
+import { studioInterview } from "@app/db-schema/schema";
+import type { StudioInterviewResumeSourceType } from "@app/db-schema/schema";
+import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeReview } from "@app/db-schema/resume-review";
 import type {
   ResumeParseStatus,
   PipelineStage,
   ResumeReviewStatus,
   ResumeScreeningStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
+} from "@app/db-schema/studio-interviews";
+import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 import type { ReusableResumePoolEvaluation } from "../../resume-pool/utils/evaluation-reuse";
 import { syncResumeSkills } from "../dao/skills";
 

@@ -3,8 +3,8 @@
  * Pure helpers for the candidate pre-interview forms.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
+import { buildCandidateFormAnswersSchema } from "@app/db-schema/candidate-forms";
 import { z } from "zod";
 import type { AnswerMap, FieldErrorMap } from "./types";
 

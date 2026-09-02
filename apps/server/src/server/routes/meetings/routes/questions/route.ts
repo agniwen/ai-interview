@@ -4,7 +4,7 @@ import { factory, jsonValidatorError } from "../../../../factory";
 import {
   createMeetingQuestionThreadSchema,
   MEETING_ANSWER_REQUEST_BODY_MAX_BYTES,
-} from "@arc/shared/meeting-answer";
+} from "@app/shared/meeting-answer";
 import {
   askMeetingQuestion,
   createSavedMeetingQuestionThread,

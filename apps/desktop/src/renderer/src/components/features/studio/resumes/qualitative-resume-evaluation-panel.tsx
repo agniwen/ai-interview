@@ -4,14 +4,14 @@ import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
   QualitativeResumeEvaluationV2,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
   ResumeEvaluationFailureRecord,
   ResumeEvaluationHistoryRecord,
   ResumeLibraryDetail,
-} from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { resumeEvaluationNotice } from "./resume-library-evaluation-summary";

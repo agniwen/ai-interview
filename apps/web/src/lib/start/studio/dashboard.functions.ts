@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
+import type { RecruitingDashboardMetrics } from "@app/shared/studio-dashboard";
 import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioDashboardMetrics } from "./dashboard.server";
 import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";

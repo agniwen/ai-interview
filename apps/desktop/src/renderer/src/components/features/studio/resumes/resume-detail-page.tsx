@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { QualitativeResumeEvaluationPanel } from "./qualitative-resume-evaluation-panel";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { ResumeOverviewPanel } from "@/components/features/studio/resumes/resume-overview-panel";
 import { ResumeReviewStructuredView } from "@/components/features/studio/resumes/resume-review-structured-view";

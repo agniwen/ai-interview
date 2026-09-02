@@ -1,4 +1,4 @@
-import type { UploadTaskInboxPage } from "@arc/shared/upload-task-inbox";
+import type { UploadTaskInboxPage } from "@app/shared/upload-task-inbox";
 import { z } from "zod";
 import { queryUploadTaskInbox } from "./dao";
 import {
@@ -24,7 +24,7 @@ export async function listUploadTaskInbox(input: {
   userId: string;
 }): Promise<UploadTaskInboxPage> {
   const page = await queryUploadTaskInbox(input);
-  const { getResumeParseQueueJobsByItemIds } = await import("@arc/resume-parse-queue/resume-parse");
+  const { getResumeParseQueueJobsByItemIds } = await import("@app/resume-parse-queue/resume-parse");
   let queueJobs: Awaited<ReturnType<typeof getResumeParseQueueJobsByItemIds>> = [];
   try {
     queueJobs = await getResumeParseQueueJobsByItemIds(page.records.map((record) => record.id));

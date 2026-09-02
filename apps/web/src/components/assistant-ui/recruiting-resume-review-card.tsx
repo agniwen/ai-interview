@@ -4,14 +4,14 @@ import {
   getResumeReviewBaseScore,
   getResumeReviewDimension,
   RESUME_REVIEW_DIMENSIONS,
-} from "@arc/shared/resume-review";
-import type { ResumeReviewLoose } from "@arc/shared/resume-review";
-import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
+} from "@app/shared/resume-review";
+import type { ResumeReviewLoose } from "@app/shared/resume-review";
+import type { StructuredResumeReview } from "@app/shared/recruiting-copilot";
 import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
   QualitativeResumeEvaluationV2,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";

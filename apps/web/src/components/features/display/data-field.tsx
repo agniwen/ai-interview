@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { EmptyValue } from "@/components/features/display/empty-value";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export type DataFieldKind = "boolean" | "date" | "datetime" | "email" | "number" | "phone" | "text";
 

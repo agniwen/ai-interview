@@ -1,8 +1,8 @@
 "use client";
 
-import { listTextQuery } from "@arc/shared/list-text-filters";
-import type { AgentNotificationType } from "@arc/db-schema/db-enums";
-import type { InterviewNotificationEventType } from "@arc/db-schema/interview-notifications";
+import { listTextQuery } from "@app/shared/list-text-filters";
+import type { AgentNotificationType } from "@app/db-schema/db-enums";
+import type { InterviewNotificationEventType } from "@app/db-schema/interview-notifications";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";

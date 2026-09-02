@@ -1,4 +1,4 @@
-import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@app/db-schema/studio-interviews";
 import type { LabelExclusionReason, LabelReason, LabelStrength, OutcomeLabel } from "./types";
 
 interface OutcomeFields {

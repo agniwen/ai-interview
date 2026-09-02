@@ -8,7 +8,7 @@ import type { DocxViewerPreview as DocxViewerPreviewComponent } from "@/componen
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { XlsxViewerPreview as XlsxViewerPreviewComponent } from "@/components/ui/xlsx-viewer";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { runAsyncAction } from "@/lib/client/async-control";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";

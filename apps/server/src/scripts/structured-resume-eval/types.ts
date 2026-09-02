@@ -1,11 +1,11 @@
-import type { StructuredResumeDimension } from "@arc/shared/structured-resume-scoring";
+import type { StructuredResumeDimension } from "@app/shared/structured-resume-scoring";
 import type {
   StructuredResumeGateStatus,
   StructuredResumeGrade,
-} from "@arc/db-schema/structured-resume-evaluation";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/structured-resume-evaluation";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { JobEvaluationBlueprint } from "@app/db-schema/job-description-evaluation";
+import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 
 export const STRUCTURED_RULE_STATUS_CLASSES = [
   "insufficient_evidence",

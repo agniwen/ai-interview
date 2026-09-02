@@ -1,4 +1,4 @@
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import type { ActiveOrganizationState } from "@/lib/start/auth-session-types";
 
 export type HomeGotoTarget = "agent" | "chat" | "studio";

@@ -8,8 +8,8 @@ import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume
 import type { ResumeDocumentPreviewKind } from "@/components/features/resume/resume-document-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
-import { cn } from "@arc/shared/utils";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
+import { cn } from "@app/shared/utils";
 
 export type PreviewableResumeDocumentKind = ResumeDocumentPreviewKind;
 export const UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP =

@@ -24,7 +24,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { memo, useCallback, useState } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /**
  * Generic-ish sortable vertical list built on top of dnd-kit.

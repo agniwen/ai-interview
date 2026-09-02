@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import { globalConfig } from "@arc/db-schema/schema";
-import { DEFAULT_JOB_CODE_PREFIX } from "@arc/shared/global-config";
-import type { GlobalConfigInput, GlobalConfigRecord } from "@arc/shared/global-config";
+import { globalConfig } from "@app/db-schema/schema";
+import { DEFAULT_JOB_CODE_PREFIX } from "@app/shared/global-config";
+import type { GlobalConfigInput, GlobalConfigRecord } from "@app/shared/global-config";
 
 function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {
   return {

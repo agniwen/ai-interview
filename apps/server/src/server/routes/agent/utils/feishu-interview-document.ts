@@ -2,11 +2,11 @@ import { eq } from "drizzle-orm";
 import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import { interviewNotification } from "@arc/db-schema/schema";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
-import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import { interviewNotification } from "@app/db-schema/schema";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { db } from "../../../../lib/server/db/index";
 import { getRequiredEnv } from "../../../../lib/server/env";
 import { captureBackendException } from "../../../../lib/server/sentry";

@@ -1,4 +1,4 @@
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 
 export function normalizeCandidateInterviewQuestions(
   questions: InterviewQuestion[],

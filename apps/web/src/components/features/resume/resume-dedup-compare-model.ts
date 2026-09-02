@@ -1,4 +1,4 @@
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
 
 export type ResumeComparisonSourceType = "resume_pool_item" | "studio_interview";
 export type ResumeComparisonDocumentKind = "docx" | "image" | "pdf" | "xlsx";

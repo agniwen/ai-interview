@@ -7,7 +7,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import * as m from "@/paraglide/messages";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface CenterCarouselItem {
   key: string;

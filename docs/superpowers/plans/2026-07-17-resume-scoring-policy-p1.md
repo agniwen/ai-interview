@@ -8,7 +8,7 @@
 
 **Architecture:** 新增 workspace 实体 **Resume Scoring Policy**（global 种子 1 条 + 可选多条 job-scoped）。**策略解析在 workflow 入口之前完成**（DAO，有 org/JD 上下文）；快照作为 **Mastra `resume-review-workflow` 的输入字段** 流入。Workflow 仍是 `qualitative → scoring → compose` 三步：前两步走现有 Mastra Agent（`resumeReviewQualitativeAgent` / `resumeReviewScoringAgent`），**compose 步纯代码**（加权综合分 + nextStep 约束 + 挂 snapshot）。落库 `resume_review` jsonb + 冗余 `resume_review_base_score`。Screening 与 Review 存储仍分离；**Resume Evaluation Decision** 在 compose/UI 统一。
 
-**Tech Stack:** [Mastra](https://mastra.ai/)（`@mastra/core` Agent / Workflow / Scorer / Observability）+ TypeScript / Hono / Drizzle / Zod / Vitest；React 19 / TanStack Router / Query / Hono RPC / shadcn。共享类型在 `@arc/db-schema` + `@arc/shared`。
+**Tech Stack:** [Mastra](https://mastra.ai/)（`@mastra/core` Agent / Workflow / Scorer / Observability）+ TypeScript / Hono / Drizzle / Zod / Vitest；React 19 / TanStack Router / Query / Hono RPC / shadcn。共享类型在 `@app/db-schema` + `@app/shared`。
 
 **ADRs / glossary:**
 
@@ -25,7 +25,7 @@
 - JSON：`c.json(data, status)` + `zValidator(..., jsonValidatorError("..."))`；日期 `.toISOString()`。
 - 前端 feature UI 放 `src/components/features/<feature>/`；`src/routes/` 只做路由薄壳。
 - 权限写：**仅 owner/admin**（新 resource + page action）；读策略配置页同写权限；简历详情上策略名/快照摘要对能看简历的人可见。
-- 命令：`pnpm --filter @arc/db-schema …` / `@arc/shared` / `@app/server` / `@app/web`；根目录 `pnpm fix` 提交前。
+- 命令：`pnpm --filter @app/db-schema …` / `@app/shared` / `@app/server` / `@app/web`；根目录 `pnpm fix` 提交前。
 - Conventional commits；每个 Task 结束提交一次。
 - **P1 不做：** Workspace Deduction Rule Set、Agent 2 扣项 schema、改策略批量重算、默认改列表排序、替换向量推荐分。
 - **Mastra 边界（见下节）：** 策略 CRUD / 权重数学 / nextStep 约束 **不**做成 Agent tool 或 LLM 输出；只扩展现有 workflow 输入与 compose 步。
@@ -68,7 +68,7 @@
 ```text
 review-generation / worker
   ├─ resolveScoringPolicyForJob(orgId, jdId)     // DAO，非 Mastra
-  ├─ buildScoringPolicySnapshot(policy)          // @arc/shared 纯函数
+  ├─ buildScoringPolicySnapshot(policy)          // @app/shared 纯函数
   └─ runResumeReviewWorkflow | streamResumeReviewWorkflow
         input: {
           resumeProfile,
@@ -253,7 +253,7 @@ it("weights enabled dimensions only (equal 3)", () => {
 - [ ] **Step 2: 跑测确认 FAIL**
 
 ```bash
-pnpm --filter @arc/shared test resume-review
+pnpm --filter @app/shared test resume-review
 ```
 
 - [ ] **Step 3: 实现 schema + 计算 + nextStep 约束**
@@ -263,7 +263,7 @@ pnpm --filter @arc/shared test resume-review
 - [ ] **Step 4: 测 PASS + typecheck packages**
 
 ```bash
-pnpm --filter @arc/shared test && pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/shared test && pnpm --filter @app/db-schema typecheck
 ```
 
 - [ ] **Step 5: Commit**
@@ -424,7 +424,7 @@ git commit -m "feat(api): studio scoring-policies CRUD"
 **Files:**
 
 - Modify: `apps/server/src/server/agents/mastra/workflows/resume-review-workflow.ts`
-  - 扩展 `resumeReviewInputSchema`：`scoringPolicySnapshot`（用 `@arc/db-schema` / shared 的 Zod）
+  - 扩展 `resumeReviewInputSchema`：`scoringPolicySnapshot`（用 `@app/db-schema` / shared 的 Zod）
   - `qualitative` / `scoring` step：**透传** snapshot（spread `inputData`）
   - `compose-review`：`deps.composeReview(qual, scoring, { snapshot: inputData.scoringPolicySnapshot, screeningResult: inputData.screeningResult })`
   - 更新 `stepLabels`：`compose-review` → `按策略汇总评分`（或保留原中文并注明策略）
@@ -650,7 +650,7 @@ git commit -m "feat(jd): show effective resume scoring policy"
 **Verify:**
 
 ```bash
-pnpm --filter @arc/shared test
+pnpm --filter @app/shared test
 pnpm --filter @app/server test
 pnpm --filter @app/server test resume-review-workflow
 pnpm --filter @app/server test recruitment-scorers

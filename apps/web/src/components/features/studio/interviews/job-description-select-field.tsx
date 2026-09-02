@@ -1,7 +1,7 @@
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { rpcFetch } from "@/lib/client/api";
 import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 import { rpc } from "@/lib/client/rpc";

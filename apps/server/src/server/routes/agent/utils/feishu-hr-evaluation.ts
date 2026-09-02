@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   generateStructuredWithMastraAgent,
   interviewReportEvaluationAgent,

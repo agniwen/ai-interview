@@ -13,12 +13,12 @@ import {
   studioInterviewNotificationRecipient,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   InterviewNotificationAudienceType,
   InterviewNotificationChannel,
   InterviewNotificationPayloadSnapshot,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { createInterviewNotificationDelivery } from "../dao";
 import type { InterviewNotificationEventRecord, NotificationDatabase } from "../dao";

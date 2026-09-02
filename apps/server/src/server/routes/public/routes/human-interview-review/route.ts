@@ -5,12 +5,12 @@ import { z } from "zod";
 import {
   humanInterviewEvaluationSchema,
   humanInterviewRoundOutcomeSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import {
   createMeetingTranscriptCorrectionSchema,
   MAX_MEETING_TRANSCRIPT_TEXT_CHARS,
   meetingLiveTranscriptDraftSchema,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
   createHumanMeetingTranscriptRevision,

@@ -12,9 +12,9 @@ import { requirePermission } from "../../../../../../middlewares/permission";
 import { getGlobalConfig } from "../../../global-config/dao";
 import { insertRoundEmailLog, summarizeRoundEmailLogs } from "./dao";
 import { renderRoundInviteEmail } from "./utils/templates";
-import type { SendRoundEmailResponse } from "@arc/db-schema/round-email-log";
-import { summaryQuerySchema } from "@arc/db-schema/round-email-log";
-import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
+import type { SendRoundEmailResponse } from "@app/db-schema/round-email-log";
+import { summaryQuerySchema } from "@app/db-schema/round-email-log";
+import { studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
 
 const sendParamsSchema = z.object({ roundId: z.string().min(1) });
 

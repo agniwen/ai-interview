@@ -3,8 +3,8 @@ import {
   getResumeReviewDimension,
   RESUME_REVIEW_DIMENSIONS,
   resumeReviewLooseSchema,
-} from "@arc/shared/resume-review";
-import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
+} from "@app/shared/resume-review";
+import { resumeScreeningResultSchema } from "@app/shared/resume-screening";
 import { deriveOutcomeLabel } from "./labels";
 import type {
   DatasetDiagnostics,
@@ -140,7 +140,7 @@ export async function loadResumeReviewEvalRows(
 ): Promise<ResumeReviewEvalRow[]> {
   const [{ db }, { studioInterview }, { asc, eq }] = await Promise.all([
     import("../../lib/server/db/index"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   return db

@@ -1,9 +1,9 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   createDefaultJobDescriptionStructuredConfig,
   createDefaultResumeScreeningPolicy,
-} from "@arc/shared/job-descriptions";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+} from "@app/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import type { SyntheticJdMatchCase } from "./types";
 
 const SYNTHETIC_TIME = "2026-07-19T00:00:00.000Z";

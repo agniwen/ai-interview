@@ -7,7 +7,7 @@ import type { buttonVariants } from "@/components/ui/button";
 import { useSessionContext } from "@livekit/components-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /**
  * Props for the AgentDisconnectButton component.

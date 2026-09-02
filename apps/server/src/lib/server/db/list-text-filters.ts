@@ -1,7 +1,7 @@
 import { and, sql } from "drizzle-orm";
 import type { SQLWrapper } from "drizzle-orm";
-import { listTextFiltersSchema, parseListTextFilters } from "@arc/shared/list-text-filters";
-import type { ListTextResource, listTextFields } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema, parseListTextFilters } from "@app/shared/list-text-filters";
+import type { ListTextResource, listTextFields } from "@app/shared/list-text-filters";
 
 export function literalTextContains(column: SQLWrapper, value: string) {
   return sql`${column} ILIKE ${`%${value.replaceAll(/[!%_]/g, "!$&")}%`} ESCAPE '!'`;

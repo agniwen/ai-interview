@@ -1,4 +1,4 @@
-import type { MailIngestJdBindStatus } from "@arc/db-schema/schema";
+import type { MailIngestJdBindStatus } from "@app/db-schema/schema";
 
 /**
  * 由现有 resolveMailJobBinding 已算出的中间值派生 jdBindStatus（仅观测，不改绑定动作）。

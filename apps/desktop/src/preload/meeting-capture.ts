@@ -2,7 +2,7 @@
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptHints,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import type { LocalMeetingSession } from "./local-meeting-session";
 
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;

@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@arc/shared": "workspace:*"
+    "@app/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.11.2",

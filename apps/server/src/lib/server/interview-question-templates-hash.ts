@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { InterviewQuestionTemplateSnapshot } from "@arc/db-schema/interview-question-templates";
+import type { InterviewQuestionTemplateSnapshot } from "@app/db-schema/interview-question-templates";
 import { jsonValueSchema, stableStringify } from "./stable-stringify";
 
 export function hashTemplateSnapshot(snapshot: InterviewQuestionTemplateSnapshot): string {

@@ -154,7 +154,7 @@ pnpm --filter @app/server eval:resume-reviews -- \
 建议验证命令：
 
 ```bash
-pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
+pnpm --filter @app/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
 pnpm --filter @app/server eval:resume-reviews:synthetic -- \
   --execute --runs 3 --strict
 pnpm --filter @app/server test

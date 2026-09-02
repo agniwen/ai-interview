@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { reassignMeetingOwnerSchema } from "@arc/shared/meeting-recording";
+import { reassignMeetingOwnerSchema } from "@app/shared/meeting-recording";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { reassignSavedMeetingOwner } from "../../../../collaboration-service";
 

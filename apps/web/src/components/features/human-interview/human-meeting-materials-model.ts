@@ -1,5 +1,5 @@
-import type { HumanInterviewCandidateMaterialListItem } from "@arc/shared/human-interview-candidate-materials";
-import type { HumanInterviewMeetingStatus } from "@arc/db-schema/studio-interviews";
+import type { HumanInterviewCandidateMaterialListItem } from "@app/shared/human-interview-candidate-materials";
+import type { HumanInterviewMeetingStatus } from "@app/db-schema/studio-interviews";
 
 export type HumanMeetingViewMode = "materials" | "meeting" | "review";
 

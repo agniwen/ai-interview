@@ -3,7 +3,7 @@
  * Array helpers. All functions are pure—inputs are never mutated.
  */
 
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import { isPresent } from "./guards";
 import { chunk as lodashChunk, partition as lodashPartition, uniq, uniqBy } from "lodash-es";
 

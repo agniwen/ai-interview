@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /**
  * 判断记录创建时间相对当前简历（reference）的先后关系。

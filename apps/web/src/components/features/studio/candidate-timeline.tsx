@@ -1,7 +1,7 @@
 "use client";
 
 import { IconRobot, IconUserCircle } from "@tabler/icons-react";
-import type { CandidateTimelineEvent, CandidateTimelineResponse } from "@arc/shared/studio-resumes";
+import type { CandidateTimelineEvent, CandidateTimelineResponse } from "@app/shared/studio-resumes";
 import type { ReactNode } from "react";
 
 import { MarkdownView } from "@/components/features/display/markdown-view";
@@ -10,8 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { cn } from "@arc/shared/utils";
-import { formatRelativeTime } from "@arc/shared/utils/time";
+import { cn } from "@app/shared/utils";
+import { formatRelativeTime } from "@app/shared/utils/time";
 
 const AI_REPORT_DESCRIPTION_MAX_LENGTH = 220;
 

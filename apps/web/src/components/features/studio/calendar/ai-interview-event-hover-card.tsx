@@ -3,8 +3,8 @@
 import type {
   StudioAiCalendarEvent,
   StudioAiCalendarEventPreview,
-} from "@arc/shared/studio-calendar";
-import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
+} from "@app/shared/studio-calendar";
+import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";

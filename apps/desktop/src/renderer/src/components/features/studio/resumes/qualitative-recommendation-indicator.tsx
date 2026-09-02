@@ -1,5 +1,5 @@
-import type { QualitativeRecommendationLevel } from "@arc/db-schema/qualitative-resume-evaluation";
-import { cn } from "@arc/shared/utils";
+import type { QualitativeRecommendationLevel } from "@app/db-schema/qualitative-resume-evaluation";
+import { cn } from "@app/shared/utils";
 import { Icon } from "@/components/ui/icon";
 
 export const QUALITATIVE_RECOMMENDATION_LABEL = {

@@ -3,7 +3,7 @@
 // Shared DTOs for the late-pipeline stages (human interview / offer / closed).
 // Imported by both DAO and client; single source of truth.
 
-import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/interview-notifications";
+import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
 import type {
   FinalMeetingTranscriptRevision,
   MeetingTranscriptState,
@@ -23,7 +23,7 @@ import type {
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 
 export interface PublicAiInterviewInvitationPreview {
   candidateName: string;

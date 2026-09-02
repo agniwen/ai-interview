@@ -2,7 +2,7 @@
 
 import type { AgentState } from "@livekit/components-react";
 import { AnimatePresence, motion } from "motion/react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const stateConfig: Record<string, { label: string; dotClass: string }> = {
   connecting: { dotClass: "bg-gray-400", label: "正在连接..." },

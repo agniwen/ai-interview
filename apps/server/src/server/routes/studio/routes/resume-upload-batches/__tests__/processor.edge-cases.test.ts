@@ -14,8 +14,8 @@ import {
   resumeUploadBatchItem,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
+} from "@app/db-schema/schema";
+import type { ResumeReview } from "@app/db-schema/resume-review";
 import { insertBatchWithItems } from "../dao/batches";
 import { createResumeUploadBatchProcessor } from "../utils/processor";
 import type { ResumeUploadBatchProcessorDependencies } from "../utils/processor";

@@ -1,5 +1,5 @@
 // oxlint-disable unicorn/consistent-function-scoping -- Keeping the target factory beside these focused batch tests makes the fixtures easier to scan.
-import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 import { describe, expect, it } from "vitest";
 import { createLiveTranscriptCorrectionBatches } from "./live-transcript-draft-turns";
 

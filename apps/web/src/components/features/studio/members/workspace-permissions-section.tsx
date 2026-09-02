@@ -41,7 +41,7 @@ import {
   useWorkspaceMemberRole,
   useWorkspaceSlug,
 } from "@/lib/client/workspace-context";
-import { roles } from "@arc/shared/permissions";
+import { roles } from "@app/shared/permissions";
 import { WORKSPACE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 import {
   BUILT_IN_WORKSPACE_ROLE_NAMES,

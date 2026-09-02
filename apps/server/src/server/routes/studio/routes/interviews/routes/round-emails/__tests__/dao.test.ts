@@ -13,7 +13,7 @@ import {
   studioInterviewSchedule,
   studioRoundEmailLog,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { insertRoundEmailLog, summarizeRoundEmailLogs } from "../dao";
 
 const ORG = "test_org_round_emails_dao";

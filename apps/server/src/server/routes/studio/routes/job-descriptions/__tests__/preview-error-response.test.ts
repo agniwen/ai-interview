@@ -1,7 +1,7 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it } from "vitest";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import type { member, organization, user } from "@arc/db-schema/schema";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import type { member, organization, user } from "@app/db-schema/schema";
 import { factory } from "../../../../../factory";
 import { requirePermission as defaultRequirePermission } from "../../../../../middlewares/permission";
 import { createJobDescriptionsRouter } from "../route";

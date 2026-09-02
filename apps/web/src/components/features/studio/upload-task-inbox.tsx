@@ -3,8 +3,8 @@
 import { IconAlertCircle, IconInbox, IconLoader2, IconRefresh } from "@tabler/icons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { UploadTaskInboxPage, UploadTaskInboxRecord } from "@arc/shared/upload-task-inbox";
-import { formatRelativeTime } from "@arc/shared/utils/time";
+import type { UploadTaskInboxPage, UploadTaskInboxRecord } from "@app/shared/upload-task-inbox";
+import { formatRelativeTime } from "@app/shared/utils/time";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResumeDocumentFileIcon,

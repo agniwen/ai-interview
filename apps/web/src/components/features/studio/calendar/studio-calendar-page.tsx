@@ -5,8 +5,8 @@ import { addDays, format, startOfWeek } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { humanInterviewFormatMeta } from "@arc/db-schema/studio-interviews";
-import type { StudioCalendarEvent } from "@arc/shared/studio-calendar";
+import { humanInterviewFormatMeta } from "@app/db-schema/studio-interviews";
+import type { StudioCalendarEvent } from "@app/shared/studio-calendar";
 import { PageHeader } from "@/components/features/studio/page-header";
 import {
   EventCalendar,

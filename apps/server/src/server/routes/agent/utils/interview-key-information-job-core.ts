@@ -1,5 +1,5 @@
-import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
-import type { InterviewKeyInformation } from "@arc/db-schema/interview-key-information";
+import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
+import type { InterviewKeyInformation } from "@app/db-schema/interview-key-information";
 import type { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
 import type { generateInterviewKeyInformation } from "./interview-key-information";
 import type { buildInterviewReportQuestionsFromContext } from "./interview-report-questions";

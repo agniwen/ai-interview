@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MeetingLibraryItem, TrashedMeetingItem } from "@arc/shared/meeting-recording";
+import type { MeetingLibraryItem, TrashedMeetingItem } from "@app/shared/meeting-recording";
 import {
   filterArchivedMeetings,
   filterMeetingRecords,

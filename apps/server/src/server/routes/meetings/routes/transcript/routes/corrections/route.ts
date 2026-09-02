@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
-import { createMeetingTranscriptCorrectionSchema } from "@arc/shared/meeting-transcription";
+import { createMeetingTranscriptCorrectionSchema } from "@app/shared/meeting-transcription";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { correctSavedMeetingTranscript } from "../../../../transcription/service";
 

@@ -1,4 +1,4 @@
-import type { HumanInterviewEvaluationStatus } from "@arc/db-schema/studio-interviews";
+import type { HumanInterviewEvaluationStatus } from "@app/db-schema/studio-interviews";
 
 interface HumanInterviewEvaluationDraftSource {
   meetingSessionId: string | null;

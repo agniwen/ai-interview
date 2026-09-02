@@ -5,9 +5,9 @@ import {
   pipelineStageMeta,
   pipelineStageSchema,
   resumeEvaluationStatusSchema,
-} from "@arc/db-schema/studio-interviews";
-import type { CandidateTimelineEventTone } from "@arc/shared/studio-resumes";
-import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
+} from "@app/db-schema/studio-interviews";
+import type { CandidateTimelineEventTone } from "@app/shared/studio-resumes";
+import { describeResumeEvaluationStatus } from "@app/shared/studio-resumes";
 
 const optionalAuditStringSchema = z
   .string()

@@ -9,7 +9,7 @@ import { DayPicker, getDefaultClassNames } from "react-day-picker";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Calendar({
   className,

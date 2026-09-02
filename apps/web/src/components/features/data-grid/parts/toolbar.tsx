@@ -7,14 +7,14 @@ import {
   listTextFields,
   parseListTextFilters,
   serializeListTextFilters,
-} from "@arc/shared/list-text-filters";
-import { parseCsvParam } from "@arc/shared/csv";
+} from "@app/shared/list-text-filters";
+import { parseCsvParam } from "@app/shared/csv";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { DebouncedSearchInput } from "./debounced-search-input";
 import { FilterConditions } from "./filter-conditions";
 import type { ToolbarConditionConfig, ToolbarFilterConfig } from "./filter-config";

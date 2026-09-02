@@ -2,13 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
+import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import type {
   CreateMeetingTranscriptCorrectionInput,
   FinalMeetingTranscriptRevision,
   FinalMeetingTranscriptTurn,
   MeetingTranscriptResult,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
 import {
   Frame,

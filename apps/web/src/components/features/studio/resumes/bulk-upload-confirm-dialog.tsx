@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import type { ResumeUploadBatchDedupPolicy, ResumeUploadBatchJdMode } from "@arc/db-schema/schema";
+import type { ResumeUploadBatchDedupPolicy, ResumeUploadBatchJdMode } from "@app/db-schema/schema";
 
 export interface BulkUploadConfirmConfig {
   jdMode: ResumeUploadBatchJdMode;

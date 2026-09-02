@@ -1,13 +1,13 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   resumeEducationExperienceSchema,
   resumeProjectExperienceSchema,
   resumeWorkExperienceSchema,
-} from "@arc/db-schema/interview/types";
+} from "@app/db-schema/interview/types";
 import { z } from "zod";
-import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
-import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
-import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
+import { formatResumeEducationSchoolWithLevel } from "@app/shared/resume-education";
+import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
+import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@app/shared/studio-resumes";
 
 /** Library list cards keep the original 3-row cap for work/education. */
 const LIBRARY_SNAPSHOT_LIMIT = 3;

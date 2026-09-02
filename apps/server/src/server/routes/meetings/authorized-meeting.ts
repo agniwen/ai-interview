@@ -1,4 +1,4 @@
-import type { MeetingAccessRole, MeetingGrantRole } from "@arc/shared/meeting-recording";
+import type { MeetingAccessRole, MeetingGrantRole } from "@app/shared/meeting-recording";
 import { loadMeetingSessionForAccess } from "./dao";
 import { isWorkspaceAdministrator, resolveMeetingAccessRole } from "./access";
 import { z } from "zod";

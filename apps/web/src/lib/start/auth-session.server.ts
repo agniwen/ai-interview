@@ -17,9 +17,9 @@ import {
   member as memberTable,
   organization as organizationTable,
   user as userTable,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type { WorkspaceAction, WorkspaceResource } from "@app/server/web/runtime";
-import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { hasPermissionInStatements } from "@app/shared/permission-statements";
 
 export function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,

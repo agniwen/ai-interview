@@ -1,4 +1,4 @@
-import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
+import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";

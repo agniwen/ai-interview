@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
-import { makePaginationSchema } from "@arc/shared/pagination";
-import type { PaginatedResult } from "@arc/shared/pagination";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import { makePaginationSchema } from "@app/shared/pagination";
+import type { PaginatedResult } from "@app/shared/pagination";
 
 export const MEETING_SOURCE_TRACKS = ["microphone", "system"] as const;
 export const MEETING_MULTIPART_PART_BYTES = 8 * 1024 * 1024;

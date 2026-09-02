@@ -6,9 +6,9 @@ import type {
   ResumeEvaluationStatus,
   ResumeReviewStatus,
   ResumeScreeningStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { ResumeReviewAction, ResumeReviewDimensionKey } from "@arc/shared/resume-review";
-import type { ResumeScreeningRecommendation } from "@arc/shared/resume-screening";
+} from "@app/db-schema/studio-interviews";
+import type { ResumeReviewAction, ResumeReviewDimensionKey } from "@app/shared/resume-review";
+import type { ResumeScreeningRecommendation } from "@app/shared/resume-screening";
 
 export type OutcomeLabel = "negative" | "positive";
 export type LabelStrength = "strong" | "weak";

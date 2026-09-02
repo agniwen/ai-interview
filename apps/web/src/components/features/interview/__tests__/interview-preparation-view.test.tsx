@@ -1,4 +1,4 @@
-import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
+import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { InterviewPreparationView } from "../interview-preparation-view";

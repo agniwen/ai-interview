@@ -5,7 +5,7 @@ import {
   redirect,
   useLoaderData,
 } from "@tanstack/react-router";
-import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
+import type { RecruitingDashboardMetrics } from "@app/shared/studio-dashboard";
 import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -14,8 +14,8 @@ import { useMemo } from "react";
 import { barY, defineChart, group } from "@tanstack/charts";
 import { scaleBand, scaleLinear } from "d3-scale";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
-import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import { offerDraftStatusMeta } from "@app/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartColor, chartTooltip } from "@/components/ui/chart";

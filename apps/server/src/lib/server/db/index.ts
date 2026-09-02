@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { relations } from "@arc/db-schema/relations";
+import { relations } from "@app/db-schema/relations";
 import { getPostgresConnectionOptions } from "./connection-options";
 
 if (!process.env.DATABASE_URL) {

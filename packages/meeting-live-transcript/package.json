@@ -1,5 +1,5 @@
 {
-  "name": "@arc/meeting-live-transcript",
+  "name": "@app/meeting-live-transcript",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@arc/db-schema": "workspace:*",
-    "@arc/shared": "workspace:*",
+    "@app/db-schema": "workspace:*",
+    "@app/shared": "workspace:*",
     "ws": "^8.21.3",
     "zod": "catalog:"
   },

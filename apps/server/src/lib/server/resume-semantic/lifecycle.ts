@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/index";
-import { resumeSemanticIndex } from "@arc/db-schema/schema";
+import { resumeSemanticIndex } from "@app/db-schema/schema";
 import type { ResumeSemanticSourceType, ResumeVectorStore } from "./vector-store";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import { getResumeSemanticIndexConfig } from "./indexer";

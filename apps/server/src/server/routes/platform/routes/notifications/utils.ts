@@ -3,9 +3,9 @@ import { z } from "zod";
 import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import { account, interviewNotification, studioInterview } from "@arc/db-schema/schema";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import { account, interviewNotification, studioInterview } from "@app/db-schema/schema";
 import { generateFeishuHrEvaluationWithPromptForInterview } from "../../../agent/utils/feishu-hr-evaluation";
 import {
   buildHrInterviewEvaluationBlock,

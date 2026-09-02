@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import { buildInterviewEvaluationDocument } from "../interview-evaluation-doc";
 import type { FeishuDocumentBlock } from "../interview-evaluation-doc";
 

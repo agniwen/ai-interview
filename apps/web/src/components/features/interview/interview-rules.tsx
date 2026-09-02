@@ -5,7 +5,7 @@ import {
   IconVideo,
   IconVolume2,
 } from "@tabler/icons-react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { RuleItem } from "./interview-rule-item";
 
 export function InterviewRules({

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { ResumeReview } from "@app/db-schema/resume-review";
 import { createResumeRecordFromStorage } from "./create-from-storage";
 
 type ResumeRecordValues = Readonly<Record<string, string | null | Date | ResumeReview>>;

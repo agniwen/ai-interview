@@ -2,13 +2,13 @@ import {
   enqueueMeetingAnswerJobs,
   isMeetingAnswerQueueConfigured,
   MEETING_ANSWER_PROMPT_VERSION,
-} from "@arc/meeting-processing-queue/meeting-answer";
+} from "@app/meeting-processing-queue/meeting-answer";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import type {
   MeetingQuestionExchange,
   MeetingQuestionThread,
   MeetingQuestionThreadSummary,
-} from "@arc/shared/meeting-answer";
+} from "@app/shared/meeting-answer";
 import { meetingAccessCapabilities } from "../access";
 import { loadAuthorizedMeeting, meetingRole } from "../authorized-meeting";
 import { recordMeetingAudit } from "../dao";

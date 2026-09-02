@@ -1,5 +1,5 @@
-import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import type { WorkspacePermissionStatements } from "@app/shared/permission-statements";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import { getWorkspaceAccessState } from "@/lib/start/auth-session";
 
 /** Background permission snapshot refresh interval (TanStack Query refetchInterval). */

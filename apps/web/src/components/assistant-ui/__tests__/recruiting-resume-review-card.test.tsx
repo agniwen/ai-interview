@@ -3,8 +3,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
-import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
-import type { ResumeReviewLoose } from "@arc/shared/resume-review";
+import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import type { ResumeReviewLoose } from "@app/shared/resume-review";
 import { installNoopResizeObserver } from "@/test-utils/react-act";
 import {
   buildRecruitingResumeReviewCardModel,

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 
 import { OfferCardView } from "./offer-stage-cards";
 

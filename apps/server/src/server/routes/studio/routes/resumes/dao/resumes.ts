@@ -1,4 +1,4 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
 import { and, arrayContains, asc, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -13,25 +13,25 @@ import {
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
-import { department, jobDescription, studioInterview, user } from "@arc/db-schema/schema";
-import { candidateOutcomeValues, pipelineStageValues } from "@arc/db-schema/studio-interviews";
-import type { JsonValue } from "@arc/db-schema/json";
+import { department, jobDescription, studioInterview, user } from "@app/db-schema/schema";
+import { candidateOutcomeValues, pipelineStageValues } from "@app/db-schema/studio-interviews";
+import type { JsonValue } from "@app/db-schema/json";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
   ResumeLibraryListRecord,
   ResumeStageProgress,
-} from "@arc/shared/studio-resumes";
-import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+} from "@app/shared/studio-resumes";
+import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
 import { EMPTY_STAGE_PROGRESS, loadResumeStageProgress } from "./resume-derived-fields";
-import { resumeReviewActionSchema } from "@arc/shared/resume-review";
-import type { ResumeReviewAction } from "@arc/shared/resume-review";
-import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import { resumeReviewActionSchema } from "@app/shared/resume-review";
+import type { ResumeReviewAction } from "@app/shared/resume-review";
+import { resumeScreeningResultSchema } from "@app/shared/resume-screening";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   qualitativeRecommendationLevelSchema,
   qualitativeResumeEvaluationSchema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 import { normalizeSkill } from "./skills";
 import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "./keyword-search";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";

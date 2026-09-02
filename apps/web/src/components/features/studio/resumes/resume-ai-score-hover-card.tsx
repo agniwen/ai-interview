@@ -1,9 +1,9 @@
 "use client";
 
-import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
-import { getResumeReviewBaseScore } from "@arc/shared/resume-review";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+import type { QualitativeResumeEvaluation } from "@app/db-schema/qualitative-resume-evaluation";
+import { getResumeReviewBaseScore } from "@app/shared/resume-review";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";

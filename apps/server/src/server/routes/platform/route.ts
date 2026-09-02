@@ -1,5 +1,5 @@
 import { buildListTextFilterWhere } from "../../../lib/server/db/list-text-filters";
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { z } from "zod";
 import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
@@ -7,20 +7,20 @@ import { factory, jsonValidatorError } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
 import { adminMiddleware } from "../../middlewares/admin";
 import { db } from "../../../lib/server/db/index";
-import { organization, member, session, user } from "@arc/db-schema/schema";
-import { resumeParseStatusValues } from "@arc/db-schema/studio-interviews";
+import { organization, member, session, user } from "@app/db-schema/schema";
+import { resumeParseStatusValues } from "@app/db-schema/studio-interviews";
 import {
   getResumeParseQueueOverview,
   listAllResumeParseQueueJobs,
   listResumeParseQueueJobs,
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
-} from "@arc/resume-parse-queue/resume-parse";
+} from "@app/resume-parse-queue/resume-parse";
 import {
   getResumeReviewGenerationQueueOverview,
   listResumeReviewGenerationQueueJobs,
   RESUME_REVIEW_GENERATION_QUEUE_NAME,
-} from "@arc/resume-parse-queue/resume-review-generation";
+} from "@app/resume-parse-queue/resume-review-generation";
 import {
   createMailIngestAccount,
   getMailIngestAccountLoginConfig,

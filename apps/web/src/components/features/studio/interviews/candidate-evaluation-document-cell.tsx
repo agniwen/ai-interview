@@ -1,4 +1,4 @@
-import type { StudioInterviewRoundListRecord } from "@arc/shared/studio-interview-rounds";
+import type { StudioInterviewRoundListRecord } from "@app/shared/studio-interview-rounds";
 import { IconLoader2 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";

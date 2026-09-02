@@ -1,11 +1,11 @@
 import { and, count, desc, eq, exists, gte, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { startOfBeijingDay, toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
+import { startOfBeijingDay, toBeijingCalendarDate } from "@app/shared/beijing-calendar";
 import type {
   DashboardActivityRow,
   DashboardActionItem,
   RecruitingDashboardMetrics,
-} from "@arc/shared/studio-dashboard";
+} from "@app/shared/studio-dashboard";
 import {
   candidateFormSubmission,
   department,
@@ -16,9 +16,9 @@ import {
   studioInterviewSchedule,
   studioOfferDraft,
   user,
-} from "@arc/db-schema/schema";
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
-import { candidateOutcomeSchema, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/schema";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import { candidateOutcomeSchema, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 
 // Dashboard activity uses 30 days; resume-library uploader rankings keep a
 // full-year daily window so all supported client-side ranges share one payload.

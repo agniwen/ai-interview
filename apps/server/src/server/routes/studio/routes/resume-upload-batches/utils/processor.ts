@@ -5,13 +5,13 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
-} from "@arc/db-schema/schema";
-import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
+} from "@app/db-schema/schema";
+import type { ProcessNextResult } from "@app/shared/bulk-resume-upload";
 import { getObjectStream } from "@app/object-storage";
 import { parseResumeBytesToProfile } from "../../../../../agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "../../../../../../lib/server/resume-parse-cache-policy";
 import { isResumeParseCacheSourceCompatible } from "../../../../../../lib/server/resume-parse-provider";
-import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
+import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
 import type { toItemDto } from "../dao/batches";
 import {
   claimNextPendingItem,

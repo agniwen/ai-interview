@@ -1,12 +1,12 @@
-import type { JsonValue } from "@arc/db-schema/json";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
-import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
+import type { JsonValue } from "@app/db-schema/json";
+import type { ResumeReview } from "@app/db-schema/resume-review";
+import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
-import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
+import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
 import { z } from "zod";
 
 export const PRE_QUALITATIVE_CURRENT_ARCHIVE_RUN_ID = "archive:pre-qualitative-current";

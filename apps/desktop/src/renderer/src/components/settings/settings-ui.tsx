@@ -1,4 +1,4 @@
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /**
  * Copied from the web app's 个人中心 账号资料 section

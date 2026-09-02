@@ -14,7 +14,7 @@ import {
   resumeUploadBatchItem,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { cancelBatch, insertBatchWithItems } from "../dao/batches";
 import { getClaimMissRetryError, createResumeUploadBatchProcessor } from "../utils/processor";
 import type { ResumeUploadBatchProcessorDependencies } from "../utils/processor";

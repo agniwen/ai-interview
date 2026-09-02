@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

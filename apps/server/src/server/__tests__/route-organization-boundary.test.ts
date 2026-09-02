@@ -91,7 +91,7 @@ describe("server route organization boundary", () => {
 
   it("keeps application cores independent from HTTP and concrete persistence", () => {
     const forbiddenImport =
-      /(?:from\s+["'](?:@hono\/|hono(?:\/|["'])|@tanstack\/|@app\/server\/lib\/server\/db["']|@arc\/db-schema\/schema["']|drizzle-orm["']|@\/)|import\s+["']@\/)/;
+      /(?:from\s+["'](?:@hono\/|hono(?:\/|["'])|@tanstack\/|@app\/server\/lib\/server\/db["']|@app\/db-schema\/schema["']|drizzle-orm["']|@\/)|import\s+["']@\/)/;
     const offenders = collectSourceFiles(routesRoot)
       .filter(isProductionSource)
       .filter((filePath) => filePath.includes(`${path.sep}application${path.sep}`))

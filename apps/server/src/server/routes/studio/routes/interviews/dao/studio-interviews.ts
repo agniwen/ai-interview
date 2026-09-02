@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
-import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
-import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
+import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
+import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
 import { db } from "../../../../../../lib/server/db/index";
-import { jobDescription, studioInterview, user } from "@arc/db-schema/schema";
-import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import { jobDescription, studioInterview, user } from "@app/db-schema/schema";
+import type { ResumeSemanticSourceType } from "@app/db-schema/schema";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 
 export interface DedupMatchRecord {
   id: string;

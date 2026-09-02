@@ -1,6 +1,6 @@
-import { getResumeReviewDimension, RESUME_REVIEW_DIMENSIONS } from "@arc/shared/resume-review";
-import type { ResumeReviewAction, ResumeReviewLoose } from "@arc/shared/resume-review";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { getResumeReviewDimension, RESUME_REVIEW_DIMENSIONS } from "@app/shared/resume-review";
+import type { ResumeReviewAction, ResumeReviewLoose } from "@app/shared/resume-review";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 
 export const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 export const STRUCTURED_GATE_LABELS = {

@@ -4,7 +4,7 @@ import type {
   HumanInterviewCandidateMaterialListResponse,
   HumanInterviewCandidateOverviewResponse,
   HumanInterviewCandidateQuestionsResponse,
-} from "@arc/shared/human-interview-candidate-materials";
+} from "@app/shared/human-interview-candidate-materials";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 

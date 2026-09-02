@@ -17,7 +17,7 @@ import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 import { Popover as PopoverPrimitive } from "@base-ui/react";
 import { useDirection } from "@base-ui/react/direction-provider";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { IconChevronRight } from "@tabler/icons-react";
 
 /**

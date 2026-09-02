@@ -7,7 +7,7 @@ import type {
   PlatformNotificationProviderFilter,
   PlatformNotificationStatusFilter,
 } from "@app/server/web/platform";
-import { createQueryClient } from "@arc/shared/query-client";
+import { createQueryClient } from "@app/shared/query-client";
 import { z } from "zod";
 
 export interface PlatformNotificationFilters extends Record<string, string> {

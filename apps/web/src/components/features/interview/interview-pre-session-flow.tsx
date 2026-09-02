@@ -1,7 +1,7 @@
 "use client";
 
 import { IconLoader2, IconRefresh } from "@tabler/icons-react";
-import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
+import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { InterviewBackground } from "./interview-background";

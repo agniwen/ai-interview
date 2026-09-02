@@ -1,6 +1,6 @@
 import { db } from "../../../../../../lib/server/db/index";
-import type { JsonObject } from "@arc/db-schema/json";
-import { interviewAuditLog } from "@arc/db-schema/schema";
+import type { JsonObject } from "@app/db-schema/json";
+import { interviewAuditLog } from "@app/db-schema/schema";
 
 export async function recordCandidateActivity({
   action,

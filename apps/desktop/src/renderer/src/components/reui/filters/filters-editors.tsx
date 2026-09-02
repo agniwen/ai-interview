@@ -43,7 +43,7 @@ import type {
   FilterOptionsState,
 } from "@/components/reui/filters/filters-types";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";

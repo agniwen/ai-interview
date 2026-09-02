@@ -3,7 +3,7 @@
 // `projectAttachmentToResumeProfile` 把 chat_attachment 行的 superset
 // 投影到 ResumeProfile 子集，形状不符时返回 null。
 import { describe, expect, it } from "vitest";
-import { resumeParserGenerationSchema } from "@arc/db-schema/resume-parser-schema";
+import { resumeParserGenerationSchema } from "@app/db-schema/resume-parser-schema";
 import { projectAttachmentToResumeProfile, toResumeProfile } from "../resume-parser-agent";
 
 const MINIMAL_STRUCTURED = {

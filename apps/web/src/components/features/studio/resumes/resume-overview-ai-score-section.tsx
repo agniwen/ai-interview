@@ -1,8 +1,8 @@
 /* oxlint-disable complexity -- AI score section branches across legacy and structured evaluation modes. */
 "use client";
 
-import { getResumeReviewBaseScore, resumeReviewActionLabel } from "@arc/shared/resume-review";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { getResumeReviewBaseScore, resumeReviewActionLabel } from "@app/shared/resume-review";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";

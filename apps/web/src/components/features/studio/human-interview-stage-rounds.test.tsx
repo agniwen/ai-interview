@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
-} from "@arc/shared/studio-pipeline-stages";
-import type { HumanInterviewEvaluation } from "@arc/db-schema/studio-interviews";
+} from "@app/shared/studio-pipeline-stages";
+import type { HumanInterviewEvaluation } from "@app/db-schema/studio-interviews";
 import { RoundCard } from "./human-interview-stage-rounds";
 import type { RoundCardDependencies } from "./human-interview-stage-rounds";
 import { ApiError } from "@/lib/client/api";

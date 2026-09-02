@@ -1,8 +1,8 @@
 "use client";
 
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
-import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import type { AnalysisStreamEvent } from "@app/shared/api-stream";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { generateResumeReviewMarkdownFirst } from "@/lib/client/resume-analysis";

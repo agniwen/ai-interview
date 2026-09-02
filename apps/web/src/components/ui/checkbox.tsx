@@ -4,7 +4,7 @@ import { IconCheck } from "@tabler/icons-react";
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
   return (

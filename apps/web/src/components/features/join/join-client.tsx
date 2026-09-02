@@ -1,7 +1,7 @@
 "use client";
 
 import { useNavigate } from "@tanstack/react-router";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

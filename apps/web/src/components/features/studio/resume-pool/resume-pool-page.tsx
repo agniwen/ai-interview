@@ -3,7 +3,7 @@
 /* oxlint-disable complexity -- page controller coordinates filters, incremental loading, uploads, and route navigation. */
 
 import { IconLoader2, IconRefresh, IconTrash } from "@tabler/icons-react";
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

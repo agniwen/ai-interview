@@ -14,7 +14,7 @@ import { IconHeartHandshake, IconPlus } from "@tabler/icons-react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import { listOfferDrafts } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";

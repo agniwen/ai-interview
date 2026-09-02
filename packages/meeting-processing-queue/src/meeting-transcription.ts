@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
 import type { ConnectionOptions, Job, JobsOptions, JobType } from "bullmq";
 import { z } from "zod";
-import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
+import { meetingTranscriptionProviderSchema } from "@app/shared/meeting-transcription";
 
 export const MEETING_TRANSCRIPTION_QUEUE_NAME = "meeting-transcription";
 export const MEETING_TRANSCRIPTION_JOB_NAME = "transcribe-final-meeting";

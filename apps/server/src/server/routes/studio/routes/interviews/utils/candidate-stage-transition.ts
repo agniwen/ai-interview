@@ -6,8 +6,8 @@ import {
   getHumanInterviewOfferReadinessError,
   loadHumanInterviewRoundReadiness,
 } from "../dao/human-interview-rounds";
-import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
-import type { JsonObject } from "@arc/db-schema/json";
+import { interviewAuditLog, studioInterview } from "@app/db-schema/schema";
+import type { JsonObject } from "@app/db-schema/json";
 import {
   getCandidateReactivationError,
   getCandidateStageTransitionError,

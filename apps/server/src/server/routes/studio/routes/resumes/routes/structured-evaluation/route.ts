@@ -2,15 +2,15 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../../lib/server/db/index";
-import { studioInterview } from "@arc/db-schema/schema";
+import { studioInterview } from "@app/db-schema/schema";
 import {
   structuredResumeEvaluationV1Schema,
   structuredResumeGateStatusSchema,
-} from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
 import {
   applyGateCorrection,
   deriveStructuredResumeSummaries,
-} from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
 import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";

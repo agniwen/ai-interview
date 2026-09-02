@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
   candidateFormQuestionTypeSchema,
   DEFAULT_DISPLAY_MODE,
-} from "@arc/db-schema/candidate-forms";
-import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/candidate-forms";
+import type { CandidateFormQuestionInput } from "@app/db-schema/candidate-forms";
 import {
   formQuestionAgent,
   generateStructuredWithMastraAgent,

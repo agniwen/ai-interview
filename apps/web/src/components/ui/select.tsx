@@ -9,7 +9,7 @@ import {
   cossPopupSurfaceClass,
   cossTriggerSurfaceClass,
 } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 type SelectRootItems = NonNullable<SelectPrimitive.Root.Props<unknown>["items"]>;
 type SelectItemElementProps = React.ComponentProps<typeof SelectItem>;

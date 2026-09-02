@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { interviewQuestionOutcomeSchema } from "@arc/shared/interview/question-outcomes";
+import { interviewQuestionOutcomeSchema } from "@app/shared/interview/question-outcomes";
 
 export const questionCheckpointPayloadSchema = z
   .object({

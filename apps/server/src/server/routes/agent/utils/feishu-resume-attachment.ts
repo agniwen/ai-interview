@@ -1,6 +1,6 @@
 import type { getObjectBytes } from "@app/object-storage";
 import type { convertPptxToPdf } from "../../studio/utils/pptx-preview";
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
 
 function isPdf(bytes: Uint8Array): boolean {
   return (

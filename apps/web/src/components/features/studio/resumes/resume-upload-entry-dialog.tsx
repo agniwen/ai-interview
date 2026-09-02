@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Modal } from "@/components/ui/modal";
-import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
+import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@app/shared/bulk-resume-upload";
 import {
   isSupportedResumeDocumentInput,
   supportedResumeDocumentAccept,
   supportedResumeDocumentLabel,
-} from "@arc/shared/resume-documents";
+} from "@app/shared/resume-documents";
 
 interface ResumeUploadEntryDialogProps {
   disabled?: boolean;

@@ -5,7 +5,7 @@ import { isInterviewNotificationFlowEnabled } from "../../../../../interview-not
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

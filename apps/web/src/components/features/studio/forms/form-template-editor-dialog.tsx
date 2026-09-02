@@ -19,8 +19,8 @@ import type {
   CandidateFormQuestionType,
   CandidateFormTemplateInput,
   CandidateFormTemplateRecord,
-} from "@arc/db-schema/candidate-forms";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+} from "@app/db-schema/candidate-forms";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -54,14 +54,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import {
   candidateFormQuestionInputSchema,
   candidateFormQuestionTypeSchema,
   candidateFormScopeSchema,
   candidateFormTemplateSchema,
   DEFAULT_DISPLAY_MODE,
-} from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/candidate-forms";
 import { z } from "zod";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { QuestionConfigPanel, QuestionPreview } from "./form-template-question-config";

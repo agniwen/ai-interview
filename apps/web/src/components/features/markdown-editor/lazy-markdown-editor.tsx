@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MarkdownEditorProps } from "./index";
 

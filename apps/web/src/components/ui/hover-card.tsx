@@ -3,7 +3,7 @@
 import { PreviewCard as HoverCardPrimitive } from "@base-ui/react/preview-card";
 
 import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function HoverCard({ ...props }: HoverCardPrimitive.Root.Props) {
   return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />;

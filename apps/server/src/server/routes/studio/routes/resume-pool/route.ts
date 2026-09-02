@@ -5,8 +5,8 @@ import {
   getObjectBytes as defaultGetObjectBytes,
   getObjectStream as defaultGetObjectStream,
 } from "@app/object-storage";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { jobDescription } from "@arc/db-schema/schema";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { jobDescription } from "@app/db-schema/schema";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {

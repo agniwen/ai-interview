@@ -2,12 +2,12 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect } from "react";
-import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { hasPermissionInStatements } from "@app/shared/permission-statements";
 import type {
   PermissionAction,
   PermissionResource,
   WorkspacePermissionStatements,
-} from "@arc/shared/permission-statements";
+} from "@app/shared/permission-statements";
 import {
   fetchWorkspaceAccessSnapshot,
   WORKSPACE_PERMISSION_REFRESH_INTERVAL_MS,

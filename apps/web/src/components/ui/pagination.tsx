@@ -5,7 +5,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { IconChevronLeft, IconChevronRight, IconDots } from "@tabler/icons-react";
 import type * as React from "react";
 import { type Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export function Pagination({
   className,

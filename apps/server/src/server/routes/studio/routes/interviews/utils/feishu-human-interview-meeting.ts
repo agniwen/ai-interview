@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../../../../../../lib/server/db/index";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
-import type { HumanInterviewMeetingRecord } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
   account,
   member,
@@ -14,7 +14,7 @@ import {
   studioHumanInterviewRound,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   HumanInterviewMeetingError,
   loadHumanInterviewMeetingById,

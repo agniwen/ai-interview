@@ -10,7 +10,7 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { createMailIngestAccount, listAccountMailMessages } from "../dao";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 

@@ -1,8 +1,8 @@
 import type {
   ResumeLibraryProfileSnapshot,
   ResumeLibraryProfileSnapshotLine,
-} from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 
 function renderSnapshotLine(line: ResumeLibraryProfileSnapshotLine) {
   return (

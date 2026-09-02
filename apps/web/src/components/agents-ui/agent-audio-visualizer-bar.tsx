@@ -9,7 +9,7 @@ import { cva } from "class-variance-authority";
 import * as React from "react";
 import { Children, cloneElement, isValidElement, useMemo } from "react";
 import { useAgentAudioVisualizerBarAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-bar";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /** 克隆唯一 React 子元素，并把条形可视化器属性合并到该元素。 / Clones the sole React child and merges bar-visualizer props into it. */
 function cloneSingleChild(

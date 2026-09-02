@@ -11,7 +11,7 @@
 // nested ScopedJobDescriptionsModal (scope=interviewer) reused from the
 // interviewer page, which DOES support row-level JD delete.
 
-import type { InterviewerListRecord } from "@arc/shared/interviewers";
+import type { InterviewerListRecord } from "@app/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@app/server/web/studio";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -23,7 +23,7 @@ import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
+import { getMinimaxVoiceMeta } from "@app/db-schema/minimax-voices";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { ScopedJobDescriptionsModal } from "./scoped-job-descriptions-modal";
 

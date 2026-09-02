@@ -1,10 +1,10 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
-import { department } from "@arc/db-schema/schema";
-import { departmentFormSchema, departmentUpdateSchema } from "@arc/shared/departments";
+import { department } from "@app/db-schema/schema";
+import { departmentFormSchema, departmentUpdateSchema } from "@app/shared/departments";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requirePermission } from "../../../../middlewares/permission";
 import {

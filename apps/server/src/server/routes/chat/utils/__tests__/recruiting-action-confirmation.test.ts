@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ArcMessage } from "@arc/db-schema/ai-message";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { ArcMessage } from "@app/db-schema/ai-message";
+import type { JsonValue } from "@app/db-schema/json";
 import {
   deriveRecruitingActionConfirmationsFromMessages,
   hasPendingRecruitingBindProposal,

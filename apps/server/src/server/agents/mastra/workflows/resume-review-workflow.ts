@@ -1,17 +1,17 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import type { WorkflowStreamEvent } from "@mastra/core/stream";
 import { z } from "zod";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import {
   composeResumeReviewResult,
   generateResumeQualitativeReview,
   generateResumeReviewScoring,
 } from "../../resume-analysis-agent";
 import { resumeQualitativeSchema, resumeScoringSchema } from "../../resume-analysis-review";
-import type { AiRunEvent } from "@arc/shared/ai-run-events";
+import type { AiRunEvent } from "@app/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
-import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
-import { resumeReviewSchema } from "@arc/shared/resume-review";
+import { resumeScreeningResultSchema } from "@app/shared/resume-screening";
+import { resumeReviewSchema } from "@app/shared/resume-review";
 import type { ResumeReviewGenerationResult } from "../../resume-analysis-agent";
 
 const resumeReviewInputSchema = z.object({

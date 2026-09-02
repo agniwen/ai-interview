@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { createContext, useContext } from "react";
 import type * as React from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 
 const alertVariants = cva(

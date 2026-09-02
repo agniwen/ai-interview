@@ -19,8 +19,8 @@ import {
 
 import type { ComponentProps, ReactNode } from "react";
 import { useState } from "react";
-import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
-import type { PipelineStage, ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
+import type { PipelineStage, ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { withCleanup } from "@/lib/client/async-control";
@@ -35,9 +35,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { CandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
-import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
-import { cn } from "@arc/shared/utils";
+import type { CandidatePipelineEvent } from "@app/shared/candidate-pipeline-machine";
+import { canApplyCandidatePipelineEvent } from "@app/shared/candidate-pipeline-machine";
+import { cn } from "@app/shared/utils";
 import { copyInterviewLink } from "@/components/features/studio/interviews/interview-link-actions";
 
 export interface PipelineStageActionBarProps {

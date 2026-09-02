@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ResumeReview } from "@arc/shared/resume-review";
+import type { ResumeReview } from "@app/shared/resume-review";
 import { buildResumeReviewEvalDataset } from "./dataset";
 import type { ResumeReviewEvalRow } from "./types";
 

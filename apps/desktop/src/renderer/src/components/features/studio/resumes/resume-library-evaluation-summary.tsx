@@ -1,6 +1,6 @@
-import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
-import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import { describeResumeLibraryReviewCard } from "@app/shared/resume-review";
+import type { ResumeReviewActionTone } from "@app/shared/resume-review";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { Icon } from "@/components/ui/icon";
 import { QualitativeRecommendationIndicator } from "./qualitative-recommendation-indicator";
 

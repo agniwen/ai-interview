@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
+import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@app/shared/bulk-resume-upload";
 
 export const createBatchInputSchema = z.object({
   dedupPolicy: z.enum(["skip", "create"]),

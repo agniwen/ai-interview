@@ -11,7 +11,7 @@ import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 dayjs.extend(customParseFormat);
 

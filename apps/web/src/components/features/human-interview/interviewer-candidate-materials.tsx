@@ -1,9 +1,9 @@
 "use client";
 
 import { IconAlertTriangle, IconFileDescription } from "@tabler/icons-react";
-import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
-import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
+import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, lazy, Suspense, useState } from "react";
 import { DataField } from "@/components/features/display/data-field";

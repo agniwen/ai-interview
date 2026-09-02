@@ -4,9 +4,9 @@ import { IconRefresh, IconUserPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { humanInterviewRoundOutcomeMeta } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewRoundOutcome } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewRoundRecord } from "@arc/shared/studio-pipeline-stages";
+import { humanInterviewRoundOutcomeMeta } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   cancelHumanInterviewRound,

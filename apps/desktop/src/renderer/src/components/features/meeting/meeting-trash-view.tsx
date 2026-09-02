@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { TrashedMeetingItem } from "@arc/shared/meeting-recording";
-import { DEFAULT_PAGE_SIZE } from "@arc/shared/pagination";
+import type { TrashedMeetingItem } from "@app/shared/meeting-recording";
+import { DEFAULT_PAGE_SIZE } from "@app/shared/pagination";
 import type { KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
 import {
@@ -27,7 +27,7 @@ import {
   restoreMeeting,
 } from "@/lib/client/meetings";
 import { formatAppDateTime } from "@/lib/client/datetime";
-import { meetingDisplayTitle } from "@arc/shared/utils/time";
+import { meetingDisplayTitle } from "@app/shared/utils/time";
 
 function archiveListStatus(input: {
   error: boolean;

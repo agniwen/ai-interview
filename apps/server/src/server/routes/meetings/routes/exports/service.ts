@@ -4,18 +4,18 @@ import {
   formatMeetingExportFooter,
   formatMeetingExportHeader,
   formatMeetingExportTurn,
-} from "@arc/shared/meeting-export";
+} from "@app/shared/meeting-export";
 import type {
   MeetingAudioExportTrack,
   MeetingExportFormat,
   MeetingExportSnapshot,
   MeetingTextExportFormat,
-} from "@arc/shared/meeting-export";
-import type { JsonObject } from "@arc/db-schema/json";
+} from "@app/shared/meeting-export";
+import type { JsonObject } from "@app/db-schema/json";
 import {
   meetingIntelligencePayloadSchema,
   meetingIntelligenceTemplateSchema,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import { recordMeetingAudit } from "../../dao";
 import { loadMeetingExportContext, loadMeetingExportTurnsPage } from "./dao";
 

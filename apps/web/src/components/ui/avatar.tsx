@@ -4,7 +4,7 @@ import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
 import { generatePalette, GradientAvatar } from "@outpacelabs/avatars";
 import * as React from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Avatar({
   className,

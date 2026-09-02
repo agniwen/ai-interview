@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/client/auth-client";
-import { formatDate } from "@arc/shared/utils/time";
+import { formatDate } from "@app/shared/utils/time";
 import { getWorkspaceRoleLabel } from "./role-display";
 
 interface InvitationItem {

@@ -6,7 +6,7 @@ import type {
   MeetingShareSettings,
   UpdateMeetingNoteInput,
   UpdateMeetingShareInput,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 import { z } from "zod";
 import {
   listMeetingAccessGrants,

@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
-import type { StudioInterviewRoundListRecord } from "@arc/shared/studio-interview-rounds";
+import type { StudioInterviewRoundListRecord } from "@app/shared/studio-interview-rounds";
 import { resolveAiInterviewLinkState } from "./ai-interview-link-state";
 
 async function copyInterviewUrl(url: string, successMessage: string) {

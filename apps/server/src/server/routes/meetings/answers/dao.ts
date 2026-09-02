@@ -6,18 +6,18 @@ import {
   meetingQuestionThread,
   meetingSession,
   member,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   MeetingQuestionExchange,
   MeetingQuestionThread,
   MeetingQuestionThreadSummary,
-} from "@arc/shared/meeting-answer";
+} from "@app/shared/meeting-answer";
 import {
   MEETING_ANSWER_MAX_EXCHANGES_PER_THREAD,
   MEETING_ANSWER_MAX_THREADS_PER_MEETING,
   meetingAnswerPayloadSchema,
   meetingQuestionStatusSchema,
-} from "@arc/shared/meeting-answer";
+} from "@app/shared/meeting-answer";
 
 const PUBLIC_ANSWER_FAILURE = "回答生成失败，请稍后重新提问。";
 const MAX_ACTIVE_QUESTIONS_PER_USER = 3;

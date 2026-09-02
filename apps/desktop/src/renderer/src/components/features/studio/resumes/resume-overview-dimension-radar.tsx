@@ -1,7 +1,7 @@
 "use client";
 
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import type { ReviewDimensionDisplay } from "./resume-review-display";
 
 /** Plain empty copy for unevaluated review cards — no badge/border chrome. */

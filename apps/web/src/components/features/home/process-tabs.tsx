@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as messages from "@/paraglide/messages";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { getHomeDemoCopy } from "./home-demo-copy";
 import { ModernArtwork } from "./modern-artwork";
 import { Section, SectionLead, SectionTitle } from "./section";

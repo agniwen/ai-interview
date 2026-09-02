@@ -3,7 +3,7 @@ import { useRender } from "@base-ui/react/use-render";
 import type * as React from "react";
 import { type Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export function Pagination({
   className,

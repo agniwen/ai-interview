@@ -1,6 +1,6 @@
 "use client";
 
-import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatTimeDisplayText } from "@/components/features/display/time-display";

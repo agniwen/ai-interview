@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptAuthorization } from "@app/shared/meeting-transcription";
 import {
   createLiveTranscriptAuthorizationGate,
   LiveTranscriptAuthorizationRateLimitError,

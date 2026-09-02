@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import { resolveHomeRedirect } from "./home-navigation";
 
 describe("resolveHomeRedirect", () => {

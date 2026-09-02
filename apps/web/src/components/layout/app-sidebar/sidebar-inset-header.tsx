@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface SidebarInsetHeaderProps {
   // 当前激活菜单的图标。仅桌面端显示，移动端保留 SidebarTrigger。

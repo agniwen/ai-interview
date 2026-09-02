@@ -8,7 +8,7 @@ import {
   formatNumber,
   formatPercent,
   truncate,
-} from "@arc/shared/utils/format";
+} from "@app/shared/utils/format";
 
 describe("formatDisplayValue", () => {
   it("returns default fallback '未发现信息' for null and undefined", () => {

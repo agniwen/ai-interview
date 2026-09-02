@@ -10,7 +10,7 @@ import { IconCheck, IconChevronDown } from "@tabler/icons-react";
  * multi share the same interaction.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import type { AnswerValue } from "./types";
 
 export function MobileChoicePicker({

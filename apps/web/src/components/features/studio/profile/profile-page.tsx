@@ -28,12 +28,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { formatDateOnly } from "@arc/shared/utils/time";
+import { formatDateOnly } from "@app/shared/utils/time";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const WHITESPACE_REGEX = /\s+/u;
 const PROFILE_NAME_MAX_LENGTH = 120;

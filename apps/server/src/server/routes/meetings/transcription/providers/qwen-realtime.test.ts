@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import {
   createQwenRealtimeTranscriptionAuthorization,
   DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL,

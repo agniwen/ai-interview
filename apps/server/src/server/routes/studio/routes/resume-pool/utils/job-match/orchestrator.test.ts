@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createDefaultJobDescriptionStructuredConfig,
   createDefaultResumeScreeningPolicy,
-} from "@arc/shared/job-descriptions";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+} from "@app/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { runNewMailResumeJobMatch } from "./orchestrator";
 import type {
   NewMailResumeJobMatchContext,

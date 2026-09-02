@@ -1,20 +1,20 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../lib/server/db/index";
-import type { ArcMessage } from "@arc/db-schema/ai-message";
+import type { ArcMessage } from "@app/db-schema/ai-message";
 import type {
   ChatContextBindings,
   RecruitingContextJobBindingMeta,
-} from "@arc/db-schema/chat-context-bindings";
+} from "@app/db-schema/chat-context-bindings";
 import {
   EMPTY_CHAT_CONTEXT_BINDINGS,
   RECRUITING_CONTEXT_JOB_BINDING_META_KEY,
   buildContextJobBindingMessageId,
   deriveChatContextBindingsFromMessages,
   readRecruitingContextJobBinding,
-} from "@arc/db-schema/chat-context-bindings";
-import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
-import { chatConversation, chatMessage } from "@arc/db-schema/schema";
+} from "@app/db-schema/chat-context-bindings";
+import type { JobDescriptionConfig } from "@app/db-schema/job-description-config";
+import { chatConversation, chatMessage } from "@app/db-schema/schema";
 import type { RecruitingActionConfirmation } from "../utils/recruiting-action-confirmation";
 import {
   deriveRecruitingActionConfirmationsFromMessages,

@@ -23,8 +23,8 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+} from "@app/db-schema/schema";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { factory } from "../../../../../factory";
 import {
   createResumePoolItem,

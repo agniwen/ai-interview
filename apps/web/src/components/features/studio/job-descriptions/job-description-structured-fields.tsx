@@ -7,13 +7,13 @@ import type {
   JobDescriptionDimensionWeights,
   JobDescriptionScoringCondition,
   JobDescriptionStructuredConfig,
-} from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
 import {
   JOB_DESCRIPTION_HARD_GATE_MAX_LENGTH,
   JOB_DESCRIPTION_SCORING_CONDITION_LIMIT,
   JOB_DESCRIPTION_SCORING_CONDITION_MAX_LENGTH,
-} from "@arc/db-schema/job-description-structured-config";
-import { cn } from "@arc/shared/utils";
+} from "@app/db-schema/job-description-structured-config";
+import { cn } from "@app/shared/utils";
 import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

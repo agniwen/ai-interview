@@ -1,6 +1,6 @@
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeJobMatchRecallSource } from "@arc/db-schema/schema";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeJobMatchRecallSource } from "@app/db-schema/schema";
 import { z } from "zod";
 import {
   generateStructuredWithMastraAgent,

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { MeetingTranscriptResult } from "@arc/shared/meeting-transcription";
+import type { MeetingTranscriptResult } from "@app/shared/meeting-transcription";
 import {
   canCorrectMeetingTranscript,
   isTranscriptCorrectionConflict,

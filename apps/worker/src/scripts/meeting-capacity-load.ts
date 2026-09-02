@@ -7,7 +7,7 @@ import {
   enqueueMeetingTranscriptionJobs,
   getMeetingTranscriptionQueue,
   meetingTranscriptionJobSchema,
-} from "@arc/meeting-processing-queue/meeting-transcription";
+} from "@app/meeting-processing-queue/meeting-transcription";
 import { z } from "zod";
 
 // 选择 live-lease、direct-upload 或 final-transcription 三种独立准入路径。 / Selects one independent admission path: live-lease, direct-upload, or final-transcription.

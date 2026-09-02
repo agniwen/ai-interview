@@ -9,13 +9,13 @@ import {
   meetingTranscriptRevision,
   meetingTranscriptTurn,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   CreateMeetingTranscriptCorrectionInput,
   FinalMeetingTranscriptRevision,
   MeetingTranscriptRevisionSummary,
-} from "@arc/shared/meeting-transcription";
-import { meetingTranscriptRevisionProviderSchema } from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
+import { meetingTranscriptRevisionProviderSchema } from "@app/shared/meeting-transcription";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 
 const TRANSCRIPT_TURN_INSERT_BATCH_SIZE = 1000;

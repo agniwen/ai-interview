@@ -6,11 +6,11 @@ import {
   meetingSession,
   meetingTranscriptTurn,
   member,
-} from "@arc/db-schema/schema";
-import type { MeetingAnswerJobData } from "@arc/meeting-processing-queue/meeting-answer";
-import { meetingAnswerPayloadSchema } from "@arc/shared/meeting-answer";
-import type { MeetingAnswerPayload } from "@arc/shared/meeting-answer";
-import { meetingIntelligencePayloadSchema } from "@arc/shared/meeting-intelligence";
+} from "@app/db-schema/schema";
+import type { MeetingAnswerJobData } from "@app/meeting-processing-queue/meeting-answer";
+import { meetingAnswerPayloadSchema } from "@app/shared/meeting-answer";
+import type { MeetingAnswerPayload } from "@app/shared/meeting-answer";
+import { meetingIntelligencePayloadSchema } from "@app/shared/meeting-intelligence";
 import { db } from "../db";
 
 // 生成五分钟未提交时允许恢复任务重新认领，避免 processing 永久悬挂。 / Allows recovery to reclaim generation not committed within five minutes, preventing permanent processing state.

@@ -4,9 +4,9 @@ import type { SQL } from "drizzle-orm";
 import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { createQueryClient } from "@arc/shared/query-client";
+import { createQueryClient } from "@app/shared/query-client";
 import { db } from "@app/server/web/runtime";
-import { session, user } from "@arc/db-schema/schema";
+import { session, user } from "@app/db-schema/schema";
 import { z } from "zod";
 
 type EmptyFilters = Record<string, never>;

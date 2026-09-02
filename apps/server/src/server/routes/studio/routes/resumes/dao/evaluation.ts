@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
-import type { ResumeEvaluationStatus } from "@arc/shared/studio-resumes";
+import { interviewAuditLog, studioInterview } from "@app/db-schema/schema";
+import type { ResumeEvaluationStatus } from "@app/shared/studio-resumes";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

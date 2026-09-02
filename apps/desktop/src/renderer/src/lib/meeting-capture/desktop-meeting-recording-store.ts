@@ -6,7 +6,7 @@ import type {
   MeetingRecordingStore,
   RecoverableMeetingCapture,
 } from "../../../../preload/meeting-capture";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 import type { LocalMeetingSession } from "../../../../preload/local-meeting-session";
 
 const WRITE_TIMEOUT_MS = 30_000;

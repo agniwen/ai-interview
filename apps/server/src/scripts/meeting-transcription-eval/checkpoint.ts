@@ -2,7 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 import writeFileAtomic from "write-file-atomic";
-import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
+import { meetingTranscriptionProviderSchema } from "@app/shared/meeting-transcription";
 import { meetingTranscriptionBenchmarkRunSchema } from "./types";
 import type { MeetingTranscriptionBenchmarkRun } from "./types";
 

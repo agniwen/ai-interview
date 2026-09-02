@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /** Electron frameless windows need an explicit no-drag on every chrome control. */
 interface ElectronNoDragStyle extends CSSProperties {

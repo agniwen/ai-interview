@@ -4,9 +4,9 @@ import { z } from "zod";
 import {
   generatedInterviewQuestionSchema,
   resumeProfileSchema,
-} from "@arc/db-schema/interview/types";
+} from "@app/db-schema/interview/types";
 import { generateInterviewQuestionsForProfile } from "../../resume-analysis-agent";
-import type { AiRunEvent } from "@arc/shared/ai-run-events";
+import type { AiRunEvent } from "@app/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 
 const interviewQuestionSchema = generatedInterviewQuestionSchema.extend({

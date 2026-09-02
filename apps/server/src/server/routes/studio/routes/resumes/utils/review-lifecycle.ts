@@ -2,14 +2,14 @@ import type {
   CandidateOutcome,
   PipelineStage,
   ResumeParseStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
-import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
-import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
-import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/studio-interviews";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeReview } from "@app/db-schema/resume-review";
+import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
+import type { QualitativeResumeEvaluation } from "@app/db-schema/qualitative-resume-evaluation";
+import type { StructuredResumeSummaryFields } from "@app/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "../../../../../../lib/server/resume-evaluation-input-hash";
-import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
+import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 
 export type GeneratedResumeAssessment =
   | {

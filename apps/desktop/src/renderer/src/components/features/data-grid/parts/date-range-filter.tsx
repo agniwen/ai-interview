@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
-import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
+import { dateRangeFilterBounds } from "@app/shared/date-range-filter";
 
 const QUICK_RANGES = [
   { label: "今天", value: "today" },

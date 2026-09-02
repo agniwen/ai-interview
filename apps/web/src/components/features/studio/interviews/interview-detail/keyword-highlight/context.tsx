@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 export const ALL_KEYWORD_CATEGORIES: readonly KeywordCategory[] = ["skill", "metric", "risk"];

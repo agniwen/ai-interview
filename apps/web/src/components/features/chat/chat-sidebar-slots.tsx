@@ -41,7 +41,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { deleteConversation, fetchConversations } from "@/lib/client/api";
 import { chatConversationKeys } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { isStudioResumeChatId } from "../studio/studio-resume-chat";
 

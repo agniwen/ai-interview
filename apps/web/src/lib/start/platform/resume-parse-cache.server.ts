@@ -2,7 +2,7 @@ import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { createQueryClient } from "@arc/shared/query-client";
+import { createQueryClient } from "@app/shared/query-client";
 import { queryPaginatedResumeParseCache } from "@app/server/web/platform";
 import type { ResumeParseCacheFilters, ResumeParseCacheQuery } from "@app/server/web/platform";
 import { z } from "zod";

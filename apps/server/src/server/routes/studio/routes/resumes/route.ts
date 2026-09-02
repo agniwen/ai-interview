@@ -5,9 +5,9 @@ import { resumeLibraryReadRouter as defaultResumeLibraryReadRouter } from "./rea
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db as defaultDb } from "../../../../../lib/server/db/index";
-import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@arc/db-schema/schema";
-import { resumeReviewSchema } from "@arc/shared/resume-review";
-import type { ResumeReview } from "@arc/shared/resume-review";
+import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@app/db-schema/schema";
+import { resumeReviewSchema } from "@app/shared/resume-review";
+import type { ResumeReview } from "@app/shared/resume-review";
 import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
@@ -17,7 +17,7 @@ import {
   resumeIdentityUpdateSchema,
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import { invalidateStudioInterviewCaches as defaultInvalidateStudioInterviewCaches } from "../../../../cache-tags";
 import { removeImportedInterviewFromConversations as defaultRemoveImportedInterviewFromConversations } from "../../../chat/dao/chat";
 import { factory, jsonValidatorError } from "../../../../factory";
@@ -31,7 +31,7 @@ import {
   resetResumeEvaluationForJobChange as defaultResetResumeEvaluationForJobChange,
   updateResumeEvaluationStatus as defaultUpdateResumeEvaluationStatus,
 } from "./dao/evaluation";
-import { parseResumePayloadInput } from "@arc/db-schema/studio-interviews";
+import { parseResumePayloadInput } from "@app/db-schema/studio-interviews";
 import {
   normalizeResumeFile as defaultNormalizeResumeFile,
   resolveResumeUploadStorage as defaultResolveResumeUploadStorage,

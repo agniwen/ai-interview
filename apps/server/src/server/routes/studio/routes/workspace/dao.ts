@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle
 import { db } from "../../../../../lib/server/db/index";
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { serializeDate } from "../../../../../lib/server/db/serialize";
-import { startOfBeijingDay } from "@arc/shared/beijing-calendar";
+import { startOfBeijingDay } from "@app/shared/beijing-calendar";
 import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
 import {
@@ -13,7 +13,7 @@ import {
   session,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { recruitingGroupRoleSchema } from "./schema";
 
 export const DEFAULT_RECRUITING_GROUP_NAME = "默认招聘组";

@@ -7,20 +7,20 @@ import {
   resumeEvaluationVersion,
   resumePoolItem,
   studioInterview,
-} from "@arc/db-schema/schema";
-import type { JsonValue } from "@arc/db-schema/json";
+} from "@app/db-schema/schema";
+import type { JsonValue } from "@app/db-schema/json";
 import type {
   ResumeReviewGenerationJobContext,
   ResumeReviewGenerationJobData,
-} from "@arc/resume-parse-queue/resume-review-generation";
-import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
-import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/resume-parse-queue/resume-review-generation";
+import { resumeScreeningResultSchema } from "@app/shared/resume-screening";
+import type { ResumeScreeningResult } from "@app/shared/resume-screening";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
   qualitativeResumeEvaluationV2Schema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import { deriveStructuredResumeSummaries } from "@app/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "../../../../../../lib/server/resume-evaluation-input-hash";
 import { matchJobDescriptionForResume } from "../../../../../agents/job-description-match-agent";
 import { matchNewMailResumePoolItem } from "../../resume-pool/utils/job-match/service";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
+import { resolveCandidateQuestionGenerationEnabled } from "@app/shared/interview/candidate-question-generation-config";
 
 describe("candidate question generation config", () => {
   it("enables candidate-specific question generation by default", () => {

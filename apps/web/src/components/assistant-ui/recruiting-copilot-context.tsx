@@ -2,10 +2,10 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ComponentProps, ComponentType, CSSProperties, PropsWithChildren } from "react";
-import type { ResumeReviewLoose } from "@arc/shared/resume-review";
-import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
-import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
-import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
+import type { ResumeReviewLoose } from "@app/shared/resume-review";
+import type { StructuredResumeReview } from "@app/shared/recruiting-copilot";
+import type { QualitativeResumeEvaluation } from "@app/db-schema/qualitative-resume-evaluation";
+import type { JobEvaluationMode } from "@app/db-schema/job-description-evaluation";
 import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { ResumeDocumentPreviewDialog as DefaultResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";

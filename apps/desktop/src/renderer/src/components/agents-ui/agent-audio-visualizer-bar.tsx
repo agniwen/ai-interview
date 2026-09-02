@@ -13,7 +13,7 @@ import { cva } from "class-variance-authority";
 import * as React from "react";
 import { Children, cloneElement, isValidElement, useMemo } from "react";
 import { useAgentAudioVisualizerBarAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-bar";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function cloneSingleChild(
   children: ReactNode | ReactNode[],

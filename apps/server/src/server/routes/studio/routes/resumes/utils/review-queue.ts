@@ -1,22 +1,22 @@
 import { and, eq, isNull, notInArray } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { resumeEvaluationFailure, studioInterview } from "@arc/db-schema/schema";
+import { resumeEvaluationFailure, studioInterview } from "@app/db-schema/schema";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
   qualitativeResumeEvaluationSchema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
-} from "@arc/resume-parse-queue/resume-review-generation";
-import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/resume-parse-queue/resume-review-generation";
+import type { ResumeReviewGenerationJobData } from "@app/resume-parse-queue/resume-review-generation";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
 } from "../../job-descriptions/dao";
 import { matchJobDescriptionForResume } from "../../../../../agents/job-description-match-agent";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { ensureCurrentJobDescriptionVersion } from "./job-description-version";
 
 type PersistedResumeRecordReviewJobData = Extract<

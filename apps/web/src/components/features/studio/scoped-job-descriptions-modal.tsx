@@ -18,7 +18,7 @@
 
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@app/server/web/studio";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";

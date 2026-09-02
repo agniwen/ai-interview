@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "../../../../../factory";
 import { resumePoolImportInputSchema } from "../schema";
-import type { ResumePoolDetail } from "@arc/shared/resume-pool";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumePoolDetail } from "@app/shared/resume-pool";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { DedupMatchRecord } from "../../interviews/dao/studio-interviews";
 import { createResumePoolRouter } from "../route";
 import type { ResumePoolRouterDependencies } from "../route";

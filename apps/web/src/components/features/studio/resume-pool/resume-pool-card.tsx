@@ -9,7 +9,7 @@ import {
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { useSyncExternalStore } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 

@@ -8,7 +8,7 @@ import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
-import { getResumeDocumentKind, resumeDocumentFormats } from "@arc/shared/resume-documents";
+import { getResumeDocumentKind, resumeDocumentFormats } from "@app/shared/resume-documents";
 
 /**
  * 招聘台与 AI 面试详情共用的"候选人基础信息卡片"。

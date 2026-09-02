@@ -8,7 +8,7 @@ import {
   saveHumanInterviewRecordingProcessingError,
 } from "@app/server/worker/human-interview";
 import { getMeetingTranscriptionJobForMeeting } from "@app/server/worker/meeting-transcription";
-import { enqueueMeetingTranscriptionJobs } from "@arc/meeting-processing-queue/meeting-transcription";
+import { enqueueMeetingTranscriptionJobs } from "@app/meeting-processing-queue/meeting-transcription";
 import type { HumanInterviewRecordingProcessorDependencies } from "./processor";
 
 export const defaultHumanInterviewRecordingDependencies: HumanInterviewRecordingProcessorDependencies =

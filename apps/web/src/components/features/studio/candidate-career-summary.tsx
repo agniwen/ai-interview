@@ -1,9 +1,9 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   formatResumeEducationSchoolWithLevel,
   sortResumeEducationExperiences,
-} from "@arc/shared/resume-education";
-import { sortResumeExperiencesByPeriod } from "@arc/shared/resume-experience";
+} from "@app/shared/resume-education";
+import { sortResumeExperiencesByPeriod } from "@app/shared/resume-experience";
 import { IconBriefcase2, IconSchool } from "@tabler/icons-react";
 import { EmptyValue } from "@/components/features/display/empty-value";
 

@@ -17,7 +17,7 @@ import {
 import { authClient } from "@/lib/client/auth-client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
 import { ChatMessageSkeletonContent, ChatPageSkeleton } from "./chat-page-skeleton";
 import {

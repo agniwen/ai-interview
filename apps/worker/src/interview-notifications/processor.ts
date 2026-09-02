@@ -4,11 +4,11 @@ import type {
   InterviewNotificationChannel,
   InterviewNotificationEventType,
   InterviewNotificationPayloadSnapshot,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 import {
   classifyInterviewNotificationFailure,
   getInterviewNotificationRetryAt,
-} from "@arc/shared/interview-notifications";
+} from "@app/shared/interview-notifications";
 
 export interface InterviewNotificationSendResult {
   providerMessageId: string | null;

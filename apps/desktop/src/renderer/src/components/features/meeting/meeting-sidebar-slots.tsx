@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
-import { meetingDisplayTitle } from "@arc/shared/utils/time";
+import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
+import { meetingDisplayTitle } from "@app/shared/utils/time";
 import { useEffect, useRef, useState } from "react";
 import {
   SidebarBodyPortalContent,

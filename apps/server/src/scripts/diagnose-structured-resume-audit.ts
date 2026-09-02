@@ -1,12 +1,12 @@
 import { isDeepStrictEqual } from "node:util";
-import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-structured-config";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   areStructuredResumeEvidenceSourcesValid,
   computeStructuredResumeEvaluation,
   STRUCTURED_RESUME_DIMENSIONS,
-} from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
 import { z } from "zod";
 import { computeJobEvaluationPayloadHash } from "../lib/server/job-evaluation-hash";
 

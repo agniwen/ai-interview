@@ -34,7 +34,7 @@ import {
   resolveActiveMicrophoneLabel,
   resolvePreferredMicrophoneDeviceId,
 } from "@/lib/client/microphone-device";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const LK_TOGGLE_VARIANT_1 = [
   "data-[state=off]:bg-accent data-[state=off]:hover:bg-foreground/10",

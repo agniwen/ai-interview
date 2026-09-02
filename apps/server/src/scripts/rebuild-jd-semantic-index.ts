@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { asc, eq } from "drizzle-orm";
-import { jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
-import type { JsonValue } from "@arc/db-schema/json";
+import { jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
+import type { JsonValue } from "@app/db-schema/json";
 import { loadStandaloneEnv } from "../standalone/env";
 import { runJdSemanticBackfillRecords } from "./backfill-jd-semantic-index";
 

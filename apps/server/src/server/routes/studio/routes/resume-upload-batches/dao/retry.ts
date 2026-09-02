@@ -5,8 +5,8 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
-} from "@arc/db-schema/schema";
-import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
+} from "@app/db-schema/schema";
+import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
 import { reconcileBatchProgress } from "./batches";
 
 export type ResumeParseRetryTarget =

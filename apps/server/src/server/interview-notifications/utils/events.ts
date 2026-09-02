@@ -16,19 +16,19 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   AiInvitationExceptionType,
   InterviewNotificationEventType,
-} from "@arc/db-schema/interview-notifications";
-import { buildInterviewLink } from "@arc/shared/interview/interview-record";
-import { buildInterviewNotificationDedupeKey } from "@arc/shared/interview-notifications";
+} from "@app/db-schema/interview-notifications";
+import { buildInterviewLink } from "@app/shared/interview/interview-record";
+import { buildInterviewNotificationDedupeKey } from "@app/shared/interview-notifications";
 import {
   hasExistingInterviewAnswers,
   isInterviewQuestionSetComplete,
   parseInterviewDataCollectionResults,
-} from "@arc/shared/interview/question-outcomes";
-import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+} from "@app/shared/interview/question-outcomes";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { and, asc, desc, eq, inArray, lt, lte } from "drizzle-orm";
 import {
   buildCandidateInviteToken,

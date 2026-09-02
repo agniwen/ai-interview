@@ -17,16 +17,16 @@ import type { Ref } from "react";
 import {
   createBrowserPcmSidecar,
   connectHumanInterviewTranscriptRelay,
-} from "@arc/meeting-live-transcript/browser";
-import type { HumanInterviewTranscriptRelayAuthorization } from "@arc/meeting-live-transcript/browser";
+} from "@app/meeting-live-transcript/browser";
+import type { HumanInterviewTranscriptRelayAuthorization } from "@app/meeting-live-transcript/browser";
 import {
   createDurableLiveTranscriptDraft,
   createLiveTranscriptDraft,
-} from "@arc/meeting-live-transcript/draft";
-import type { LiveTranscriptDraftSnapshot } from "@arc/meeting-live-transcript/draft";
-import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
-import { cn } from "@arc/shared/utils";
+} from "@app/meeting-live-transcript/draft";
+import type { LiveTranscriptDraftSnapshot } from "@app/meeting-live-transcript/draft";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
+import { cn } from "@app/shared/utils";
 import { z } from "zod";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createHumanMeetingAudioMix } from "./human-meeting-audio-mix";

@@ -55,7 +55,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { addDays } from "date-fns";
 import type { Locale } from "date-fns";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const BASE_VIEWS: CalendarView[] = ["month", "week", "day", "days", "agenda"];
 const ALL_VIEWS: CalendarView[] = [...BASE_VIEWS, "resource"];

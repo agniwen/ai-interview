@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import { compileJobEvaluationDraft } from "../job-evaluation-lifecycle";
 
 const mocks = {

@@ -1,4 +1,4 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { z } from "zod";
 
 const nonEmptyString = z.string().trim().min(1);

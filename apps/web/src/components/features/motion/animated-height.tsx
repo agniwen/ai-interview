@@ -4,7 +4,7 @@ import { m, useReducedMotion } from "motion/react";
 import type { ComponentType, CSSProperties, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export const ANIMATED_HEIGHT_COMPLETE_EVENT = "animated-height-complete";
 

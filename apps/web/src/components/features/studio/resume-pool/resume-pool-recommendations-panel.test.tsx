@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import type { ResumePoolDetail } from "@arc/shared/resume-pool";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
+import type { ResumePoolDetail } from "@app/shared/resume-pool";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";

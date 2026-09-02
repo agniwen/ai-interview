@@ -2,8 +2,8 @@ import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text
 import { and, asc, count, desc, eq, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
-import { chatAttachment, organization, user } from "@arc/db-schema/schema";
+import type { AttachmentTextSource } from "@app/db-schema/db-enums";
+import { chatAttachment, organization, user } from "@app/db-schema/schema";
 import type { ResumeParseCacheQuery } from "./schema";
 
 function toIsoString(value: Date | string): string {

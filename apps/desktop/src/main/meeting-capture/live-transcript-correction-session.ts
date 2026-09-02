@@ -1,1 +1,1 @@
-export { createLiveTranscriptCorrectionSession } from "@arc/meeting-live-transcript/server";
+export { createLiveTranscriptCorrectionSession } from "@app/meeting-live-transcript/server";

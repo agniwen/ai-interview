@@ -3,12 +3,12 @@ import {
   humanInterviewEvaluationAgent,
 } from "@app/ai-runtime/simple-generators";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
-import { humanInterviewEvaluationSchema } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewEvaluation } from "@arc/db-schema/studio-interviews";
+import { humanInterviewEvaluationSchema } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewEvaluation } from "@app/db-schema/studio-interviews";
 import {
   normalizeHumanInterviewEvaluationText,
   normalizeHumanInterviewProfessionalSkill,
-} from "@arc/shared/human-interview-evaluation";
+} from "@app/shared/human-interview-evaluation";
 
 interface EvaluationTurn {
   id: string;

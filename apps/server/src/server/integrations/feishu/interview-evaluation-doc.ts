@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
-} from "@arc/db-schema/qualitative-resume-evaluation";
-import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import type { JsonObject } from "@arc/db-schema/json";
-import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
-import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/qualitative-resume-evaluation";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { JsonObject } from "@app/db-schema/json";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 
 interface FeishuTextRun {
   text_run: {

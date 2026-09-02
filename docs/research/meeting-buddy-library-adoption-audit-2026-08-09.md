@@ -110,7 +110,7 @@
 - `onFailedAttempt` 只记录已实际消费的 retry，不能把业务层恢复次数混入 SDK 内部重试。
 - 不同时在 runner、adapter、SDK 三层启用重试。建议 benchmark 只保留 adapter 的 per-chunk retry；runner 继续 `maxAttempts: 1`。
 
-BullMQ 的 job retries/backoff 已由 [`@arc/meeting-processing-queue`](../../packages/meeting-processing-queue/src/meeting-transcription.ts) 提供，不要再用 `p-retry` 包裹整个 Worker job。
+BullMQ 的 job retries/backoff 已由 [`@app/meeting-processing-queue`](../../packages/meeting-processing-queue/src/meeting-transcription.ts) 提供，不要再用 `p-retry` 包裹整个 Worker job。
 
 ### 3. 并发限制：采用 `p-limit` 的 permit，保留有副作用的批处理边界
 

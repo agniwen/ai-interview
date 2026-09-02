@@ -4,7 +4,7 @@ import type {
   publishHumanInterviewEvaluation,
   generateHumanInterviewEvaluation,
 } from "@app/server/worker/human-interview";
-import type { HumanInterviewEvaluationJobData } from "@arc/meeting-processing-queue/human-interview-evaluation";
+import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
 
 export interface HumanInterviewEvaluationProcessorDependencies {
   generate: typeof generateHumanInterviewEvaluation;

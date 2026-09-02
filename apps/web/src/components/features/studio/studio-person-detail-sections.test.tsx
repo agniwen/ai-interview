@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import { CollectedCandidateInfoList, getReportFormItems } from "./studio-person-detail-sections";
 
 describe("CollectedCandidateInfoList", () => {

@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ElementType } from "react";
 import { memo, useMemo } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface TextShimmerStyle extends CSSProperties {
   "--spread": string;

@@ -10,7 +10,7 @@ import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { GlobalConfigRecord } from "@arc/shared/global-config";
+import type { GlobalConfigRecord } from "@app/shared/global-config";
 
 const PROMPT_MAX_LENGTH = 10_000;
 const COMPANY_CONTEXT_MAX_LENGTH = 8000;

@@ -1,7 +1,7 @@
 "use client";
 
 import { IconChevronRight } from "@tabler/icons-react";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import type { ButtonHTMLAttributes } from "react";
 
 import {
@@ -9,7 +9,7 @@ import {
   getCandidateStageBadgeVariant,
 } from "@/components/features/studio/candidate-stage-badge";
 import { badgeVariants } from "@/components/ui/badge";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 

@@ -6,8 +6,8 @@ import {
   resumeEvaluationVersion,
   resumePoolItem,
   studioInterview,
-} from "@arc/db-schema/schema";
-import type { JsonValue } from "@arc/db-schema/json";
+} from "@app/db-schema/schema";
+import type { JsonValue } from "@app/db-schema/json";
 import type { Database } from "../lib/server/db/index";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";

@@ -1,4 +1,4 @@
-import type { MeetingTranscriptionProviderId } from "@arc/shared/meeting-transcription";
+import type { MeetingTranscriptionProviderId } from "@app/shared/meeting-transcription";
 
 const KNOWN_ENDPOINTS = new Map<string, string>([
   ["deepgram:https://api.au.deepgram.com", "deepgram-au"],

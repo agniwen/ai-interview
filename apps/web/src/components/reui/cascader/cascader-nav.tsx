@@ -19,7 +19,7 @@ import { useDirection } from "@base-ui/react/direction-provider";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 
 /* -------------------------------------------------------------------------- */

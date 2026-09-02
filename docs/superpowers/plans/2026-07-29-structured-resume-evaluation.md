@@ -190,8 +190,8 @@ management-year scope; do not infer links to unrelated gates.
 Run and confirm failure:
 
 ```bash
-pnpm --filter @arc/shared test structured-resume
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/shared test structured-resume
+pnpm --filter @app/db-schema typecheck
 ```
 
 **Step 2: Implement the product-owned V1 deduction semantics and job-owned values**
@@ -213,9 +213,9 @@ pnpm --filter @arc/db-schema typecheck
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @arc/shared test structured-resume
-pnpm --filter @arc/shared typecheck
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/shared test structured-resume
+pnpm --filter @app/shared typecheck
+pnpm --filter @app/db-schema typecheck
 ```
 
 **Step 5: Commit**
@@ -269,7 +269,7 @@ The generated SQL must be reviewed and, if necessary, edited so it:
 Create an isolated disposable PostgreSQL database containing an upgraded-data fixture with at least one existing legacy job and legacy resume result. Pass its URL explicitly; never run this task against the application `.env` database:
 
 ```bash
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/db-schema typecheck
 env DATABASE_URL="$STRUCTURED_EVAL_MIGRATION_DATABASE_URL" pnpm db:migrate
 ```
 
@@ -348,7 +348,7 @@ All Agent calls, canonicalization, hashing, row locks, stale checks, and persist
 - [ ] Hash only blueprint/scoring inputs for preview invalidation: public JD, seven gates, six weights, priority conditions, exclusion conditions, and the complete deduction-rule configuration.
 - [ ] Exclude name, code, department, interviewer assignment, communication questions, and candidate forms. Name and code still freeze at publication, but changing them on a draft does not invalidate a blueprint they do not influence.
 - [ ] Canonicalize object keys and condition ordering before hashing.
-- [ ] Keep Node crypto in backend `lib/server`; do not pull `node:*` into `@arc/shared`.
+- [ ] Keep Node crypto in backend `lib/server`; do not pull `node:*` into `@app/shared`.
 
 **Step 3: Write failing lifecycle tests**
 
@@ -795,7 +795,7 @@ Create one mode-aware invalidation helper used by all candidate mutations:
 pnpm --filter @app/server test route-behavior
 pnpm --filter @app/server test resume-pool
 pnpm --filter @app/server test review-queue
-pnpm --filter @arc/resume-parse-queue test
+pnpm --filter @app/resume-parse-queue test
 ```
 
 **Step 6: Commit**
@@ -854,7 +854,7 @@ Keep legacy `resumeReviewBaseScore`/next-step fields for legacy cards.
 ```bash
 pnpm --filter @app/server test resumes/dao
 pnpm --filter @app/web test resume-library
-pnpm --filter @arc/shared typecheck
+pnpm --filter @app/shared typecheck
 ```
 
 **Step 5: Commit**
@@ -1076,11 +1076,11 @@ git commit -m "feat(evals): add structured resume calibration gate"
 **Automated verification:**
 
 ```bash
-pnpm --filter @arc/db-schema typecheck
-pnpm --filter @arc/shared test
-pnpm --filter @arc/shared typecheck
-pnpm --filter @arc/resume-parse-queue test
-pnpm --filter @arc/resume-parse-queue typecheck
+pnpm --filter @app/db-schema typecheck
+pnpm --filter @app/shared test
+pnpm --filter @app/shared typecheck
+pnpm --filter @app/resume-parse-queue test
+pnpm --filter @app/resume-parse-queue typecheck
 pnpm --filter @app/server test
 pnpm --filter @app/server typecheck
 pnpm --filter @app/web test

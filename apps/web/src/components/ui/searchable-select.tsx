@@ -13,7 +13,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { InputGroupAddon } from "@/components/ui/input-group";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 // =====================================================================
 // 单选可搜索下拉。底层使用 Coss/Base UI Combobox：输入框本身即搜索框。

@@ -1,5 +1,5 @@
-import type { ResumeEducationDisplayItem } from "@arc/shared/resume-education";
-import { cn } from "@arc/shared/utils";
+import type { ResumeEducationDisplayItem } from "@app/shared/resume-education";
+import { cn } from "@app/shared/utils";
 import { Badge } from "@/components/ui/badge";
 
 function educationLevelTagClassName(level: string | null | undefined) {

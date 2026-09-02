@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface SplitTextProps {
   text: string;

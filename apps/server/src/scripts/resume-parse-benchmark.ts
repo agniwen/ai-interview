@@ -1,6 +1,6 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import { structuredSchema } from "@app/db-schema/resume-parser-schema";
 import { runAliyunResumeExtraction } from "../lib/server/aliyun-docmining";
 import { loadStandaloneEnv } from "../standalone/env";
 

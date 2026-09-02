@@ -8,12 +8,12 @@ import {
   organization,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
-import type { AgentNotificationStatus, AgentNotificationType } from "@arc/db-schema/db-enums";
-import { agentNotificationStatusSchema } from "@arc/db-schema/db-enums";
+} from "@app/db-schema/schema";
+import type { AgentNotificationStatus, AgentNotificationType } from "@app/db-schema/db-enums";
+import { agentNotificationStatusSchema } from "@app/db-schema/db-enums";
 import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
 import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
-import type { InterviewNotificationEventType } from "@arc/db-schema/interview-notifications";
+import type { InterviewNotificationEventType } from "@app/db-schema/interview-notifications";
 
 export const platformNotificationStatusFilterValues = ["all", "pending", "sent", "failed"] as const;
 

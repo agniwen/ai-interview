@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { statement } from "@arc/shared/permissions";
+import type { statement } from "@app/shared/permissions";
 
 export interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */

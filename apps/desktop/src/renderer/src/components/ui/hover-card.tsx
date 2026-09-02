@@ -4,7 +4,7 @@ import * as React from "react";
 import { HoverCard as HoverCardPrimitive } from "radix-ui";
 
 import { cossPopupSurfaceClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function HoverCard({ ...props }: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
   return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />;

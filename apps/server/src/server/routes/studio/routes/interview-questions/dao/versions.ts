@@ -1,7 +1,7 @@
 import type {
   InterviewQuestionTemplateSnapshot,
   InterviewQuestionTemplateVersionRecord,
-} from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-question-templates";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
@@ -9,8 +9,8 @@ import {
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
-} from "@arc/db-schema/schema";
-import { buildTemplateSnapshot } from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/schema";
+import { buildTemplateSnapshot } from "@app/db-schema/interview-question-templates";
 import { hashTemplateSnapshot } from "../../../../../../lib/server/interview-question-templates-hash";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { mapQuestionRow } from "./queries";

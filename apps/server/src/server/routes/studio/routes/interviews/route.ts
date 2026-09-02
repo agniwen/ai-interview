@@ -1,4 +1,4 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { studioInterviewCollectionRouter } from "./collection-route";
 import { studioInterviewDetailRouter } from "./detail-route";
@@ -6,20 +6,20 @@ import { studioInterviewHumanRouter } from "./human-route";
 import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import { db } from "../../../../../lib/server/db/index";
-import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
+import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import { parseCsvParam } from "@arc/shared/csv";
+import { parseCsvParam } from "@app/shared/csv";
 import {
   candidateExpectationsMetaSchema,
   candidateOutcomeSchema,
   closedMetaSchema,
   pipelineStageSchema,
   studioInterviewQuestionClientSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { refreshInterviewContextSnapshot } from "./dao/context-snapshots";
 import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";

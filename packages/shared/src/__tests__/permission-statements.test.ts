@@ -3,7 +3,7 @@ import {
   clonePermissionStatements,
   hasPermissionInStatements,
   normalizePermissionStatements,
-} from "@arc/shared/permission-statements";
+} from "@app/shared/permission-statements";
 
 describe("permission-statements", () => {
   it("checks resource/action membership", () => {

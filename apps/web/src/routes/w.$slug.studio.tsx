@@ -12,7 +12,7 @@ import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
-import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { hasPermissionInStatements } from "@app/shared/permission-statements";
 
 function findStudioPageByPath(pathname: string, slug: string) {
   const studioBasePath = `/w/${slug}/studio`;

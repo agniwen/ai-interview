@@ -1,10 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { jobDescription, resumePoolItem, studioInterview, user } from "@arc/db-schema/schema";
-import type { ResumePoolScope, ResumeSemanticSourceType } from "@arc/db-schema/schema";
-import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { jobDescription, resumePoolItem, studioInterview, user } from "@app/db-schema/schema";
+import type { ResumePoolScope, ResumeSemanticSourceType } from "@app/db-schema/schema";
+import { getCandidateActivityStatus } from "@app/shared/candidate-pipeline-machine";
 import type { DedupMatchRecord } from "../../../server/routes/studio/routes/interviews/dao/studio-interviews";
 import { buildResumeProfileSnapshotFromProfile } from "../../../server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";

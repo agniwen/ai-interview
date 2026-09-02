@@ -1,4 +1,4 @@
-import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
+import type { PersistedInterviewTurn } from "@app/db-schema/interview-session";
 
 const TRAILING_PUNCTUATION = /[\s,.;:!?，。；：！？、]$/;
 const LEADING_PUNCTUATION = /^[\s,.;:!?，。；：！？、]/;

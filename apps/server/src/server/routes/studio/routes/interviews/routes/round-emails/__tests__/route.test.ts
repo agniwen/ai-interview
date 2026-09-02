@@ -14,7 +14,7 @@ import {
   studioInterviewSchedule,
   studioRoundEmailLog,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 const mocks = {
   sendMock: vi.fn(),

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { studioInterview } from "@arc/db-schema/schema";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { studioInterview } from "@app/db-schema/schema";
 import { db } from "../../../../../../lib/server/db/index";
 import type {
   ResumeSemanticChunkType,

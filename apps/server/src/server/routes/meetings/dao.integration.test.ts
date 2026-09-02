@@ -8,7 +8,7 @@ import {
   member,
   organization,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   listMeetingAccessGrants,
   listMeetingSessionsForAccess,

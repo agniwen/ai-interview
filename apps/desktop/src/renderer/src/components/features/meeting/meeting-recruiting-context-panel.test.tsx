@@ -4,7 +4,7 @@ import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MeetingRecruitingContextSettings } from "@arc/shared/meeting-recording";
+import type { MeetingRecruitingContextSettings } from "@app/shared/meeting-recording";
 import {
   canManageMeetingRecruitingContext,
   MeetingRecruitingContextView,

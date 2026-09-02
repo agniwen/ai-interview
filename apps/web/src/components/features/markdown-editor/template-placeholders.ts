@@ -7,7 +7,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
-/** 与 `@arc/shared` / agent 端 `_apply_placeholders` 保持一致的可替换占位符。 */
+/** 与 `@app/shared` / agent 端 `_apply_placeholders` 保持一致的可替换占位符。 */
 const TEMPLATE_PLACEHOLDER_PATTERN = /\{(?:候选人姓名|岗位)\}/g;
 
 const PLACEHOLDER_CLASS = "rounded bg-primary/15 px-0.5 text-primary";

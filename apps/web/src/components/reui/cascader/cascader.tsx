@@ -76,7 +76,7 @@ import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 import { IconChevronDown, IconX } from "@tabler/icons-react";

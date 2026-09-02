@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import { chatAttachment, jobDescription } from "@arc/db-schema/schema";
+import { chatAttachment, jobDescription } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { requirePermission } from "../../../../middlewares/permission";
@@ -22,7 +22,7 @@ import { uploadTaskInboxRouter } from "./routes/inbox/route";
 import { createBatchInputSchema } from "./schema";
 
 async function getResumeParseQueueApi() {
-  return await import("@arc/resume-parse-queue/resume-parse");
+  return await import("@app/resume-parse-queue/resume-parse");
 }
 
 async function removeCancelledQueueJobsBestEffort(

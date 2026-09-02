@@ -2,11 +2,11 @@ import { and, eq } from "drizzle-orm";
 import {
   clonePermissionStatements,
   normalizePermissionStatements,
-} from "@arc/shared/permission-statements";
-import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
-import { roles, statement } from "@arc/shared/permissions";
+} from "@app/shared/permission-statements";
+import type { WorkspacePermissionStatements } from "@app/shared/permission-statements";
+import { roles, statement } from "@app/shared/permissions";
 import { z } from "zod";
-import { organizationRole } from "@arc/db-schema/schema";
+import { organizationRole } from "@app/db-schema/schema";
 import {
   listRecruitingGroupRoles,
   RECRUITING_GROUP_RESOURCES,

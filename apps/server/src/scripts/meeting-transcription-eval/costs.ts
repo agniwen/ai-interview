@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
+import { meetingTranscriptionProviderSchema } from "@app/shared/meeting-transcription";
 import type { MeetingTranscriptionBenchmarkRun } from "./types";
 
 export const meetingTranscriptionCostLedgerSchema = z.partialRecord(

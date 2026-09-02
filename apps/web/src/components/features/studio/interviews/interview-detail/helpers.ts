@@ -6,8 +6,8 @@
  * Extracted into their own file so the main component can focus on UI / interaction.
  */
 
-import type { JsonObject } from "@arc/db-schema/json";
-import { readInterviewEndReason } from "@arc/shared/interview/end-reason";
+import type { JsonObject } from "@app/db-schema/json";
+import { readInterviewEndReason } from "@app/shared/interview/end-reason";
 
 export function formatInterviewEndReason(metadata: JsonObject): string {
   switch (readInterviewEndReason(metadata)) {

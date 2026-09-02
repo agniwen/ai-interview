@@ -6,11 +6,11 @@ import { isInterviewNotificationFlowEnabled } from "../../../../../interview-not
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   AiInvitationExceptionType,
   CandidateInterviewInvitationStatus,
-} from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/interview-notifications";
 import {
   decodeCandidateInviteToken,
   hashInviteToken,

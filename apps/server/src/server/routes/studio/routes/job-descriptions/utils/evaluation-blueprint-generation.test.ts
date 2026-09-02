@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 import {
   generateEvaluationBlueprintCandidate,

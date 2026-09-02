@@ -1,4 +1,4 @@
-import type { MeetingLiveTranscriptHints } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptHints } from "@app/shared/meeting-transcription";
 
 export interface RecruitingTranscriptHintSource {
   candidateName: string;

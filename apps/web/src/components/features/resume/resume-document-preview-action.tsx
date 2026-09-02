@@ -9,7 +9,7 @@ import {
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
 import { Button } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const ACTION_ICON_CLASS = "size-3.5";
 const ACTION_BUTTON_CLASS = "h-8 gap-1 px-2 text-xs";

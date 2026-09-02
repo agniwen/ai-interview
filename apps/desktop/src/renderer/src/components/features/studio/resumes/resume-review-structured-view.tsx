@@ -5,14 +5,14 @@ import {
   getResumeReviewBaseScore,
   resumeReviewActionLabel,
   resumeReviewBiasCategoryLabel,
-} from "@arc/shared/resume-review";
-import type { ResumeReview, ResumeReviewLoose } from "@arc/shared/resume-review";
+} from "@app/shared/resume-review";
+import type { ResumeReview, ResumeReviewLoose } from "@app/shared/resume-review";
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { OverviewDimensionRadar, UnevaluatedText } from "./resume-overview-dimension-radar";
 import { actionVariant, getReviewDimensionDisplays } from "./resume-review-display";
 import type { ReviewDimensionDisplay } from "./resume-review-display";

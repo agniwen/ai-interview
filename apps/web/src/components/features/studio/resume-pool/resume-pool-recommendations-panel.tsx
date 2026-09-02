@@ -5,12 +5,12 @@ import type {
   JobDescriptionListRecord,
   JobDescriptionRecommendation,
   JobDescriptionRecommendationResult,
-} from "@arc/shared/job-descriptions";
+} from "@app/shared/job-descriptions";
 import type {
   ResumePoolDetail,
   ResumePoolJobMatchCandidate,
   ResumePoolJobMatchResult,
-} from "@arc/shared/resume-pool";
+} from "@app/shared/resume-pool";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";

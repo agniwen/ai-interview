@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { formatDateOnly } from "@arc/shared/utils/time";
+import { formatDateOnly } from "@app/shared/utils/time";
 import {
   dateTimeLocalInputToISOString,
   isoStringToDateTimeLocalInput,

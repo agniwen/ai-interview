@@ -7,7 +7,7 @@ import type {
   LiveTranscriptDraftStatus,
   LiveTranscriptDraftTurn,
 } from "@/lib/meeting-capture/live-transcript-draft";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { playTranscriptCorrectionSweep } from "./live-transcript-correction-sweep";
 
 const STATUS_LABEL = {

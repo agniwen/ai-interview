@@ -532,7 +532,7 @@ WHERE id = ?
 
 ```bash
 pnpm db:generate
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/db-schema typecheck
 ```
 
 ### Task 2：文件名精准匹配（测试先行）
@@ -690,7 +690,7 @@ pnpm --filter @arc/db-schema typecheck
 按任务运行聚焦测试，最终执行：
 
 ```bash
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/db-schema typecheck
 pnpm --filter @app/worker test
 pnpm --filter @app/worker typecheck
 pnpm --filter @app/server test

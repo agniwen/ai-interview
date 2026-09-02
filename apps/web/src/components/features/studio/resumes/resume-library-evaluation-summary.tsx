@@ -1,8 +1,8 @@
 import { IconSparkles } from "@tabler/icons-react";
-import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
-import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+import { describeResumeLibraryReviewCard } from "@app/shared/resume-review";
+import type { ResumeReviewActionTone } from "@app/shared/resume-review";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import { ResumeAiScoreHoverCard } from "./resume-ai-score-hover-card";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 

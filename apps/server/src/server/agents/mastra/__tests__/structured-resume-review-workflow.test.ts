@@ -1,8 +1,8 @@
 /* oxlint-disable max-lines -- workflow contract coverage intentionally stays together for shared fixtures. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import type { JsonObject } from "@arc/db-schema/json";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
+import type { JsonObject } from "@app/db-schema/json";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   assembleStructuredResumeEvaluation,
   computeStructuredResumeCalculation,

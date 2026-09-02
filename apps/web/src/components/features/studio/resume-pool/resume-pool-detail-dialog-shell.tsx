@@ -2,7 +2,7 @@
 
 import { IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { lazy, Suspense } from "react";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Modal } from "@/components/ui/modal";

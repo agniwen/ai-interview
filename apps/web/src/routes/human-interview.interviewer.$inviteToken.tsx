@@ -4,8 +4,8 @@ import {
   humanInterviewMeetingInterviewerRoleSchema,
   humanInterviewMeetingStatusSchema,
   humanInterviewRecordingStatusSchema,
-} from "@arc/db-schema/studio-interviews";
-import type { PublicHumanInterviewInterviewerPreview } from "@arc/shared/studio-pipeline-stages";
+} from "@app/db-schema/studio-interviews";
+import type { PublicHumanInterviewInterviewerPreview } from "@app/shared/studio-pipeline-stages";
 import { z } from "zod";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
 import { formatDocumentTitle } from "@/lib/start/document-title";

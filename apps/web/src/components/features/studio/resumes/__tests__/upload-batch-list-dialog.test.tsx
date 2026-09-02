@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BulkResumeBatchDto } from "@arc/shared/bulk-resume-upload";
+import type { BulkResumeBatchDto } from "@app/shared/bulk-resume-upload";
 import { UploadBatchListDialog } from "../upload-batch-list-dialog";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.

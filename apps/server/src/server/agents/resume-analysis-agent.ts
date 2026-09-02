@@ -2,17 +2,17 @@ import type {
   GeneratedInterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from "@arc/db-schema/interview/types";
+} from "@app/db-schema/interview/types";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
-import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
+import { normalizeResumeScoringFacts } from "@app/db-schema/resume-scoring-facts";
+import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
 import { generateResumeStructured } from "../../lib/server/resume-parse-pipeline";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
   supportedResumeDocumentLabel,
-} from "@arc/shared/resume-documents";
+} from "@app/shared/resume-documents";
 import { isResumeParseCacheEnabled } from "../../lib/server/resume-parse-cache-policy";
 import { isResumeParseCacheSourceCompatible } from "../../lib/server/resume-parse-provider";
 import type { ResumeTextSource } from "../../lib/server/resume-parse-pipeline";
@@ -30,7 +30,7 @@ import type {
   ResumeParseWorkflowProgressEvent,
   ResumeParseWorkflowOutput,
 } from "./mastra/workflows/resume-parse-workflow";
-import { sha256HexOfBytes } from "@arc/shared/file-hash";
+import { sha256HexOfBytes } from "@app/shared/file-hash";
 import {
   createAttachment,
   findAttachmentByContentHash,
@@ -43,7 +43,7 @@ import {
 } from "./resume-parser-agent";
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
-import type { AiRunEvent } from "@arc/shared/ai-run-events";
+import type { AiRunEvent } from "@app/shared/ai-run-events";
 import {
   CANDIDATE_INTERVIEW_QUESTION_INSTRUCTIONS,
   flattenGeneratedCandidateInterviewQuestionSlots,

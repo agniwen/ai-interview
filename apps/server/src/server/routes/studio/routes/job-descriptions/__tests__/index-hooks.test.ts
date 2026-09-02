@@ -18,7 +18,7 @@ import {
   member,
   organization,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { factory } from "../../../../../factory";
 import { requirePermission as defaultRequirePermission } from "../../../../../middlewares/permission";
 import { generateStructuredJobBlueprintPreview } from "../application/default-job-evaluation-lifecycle";

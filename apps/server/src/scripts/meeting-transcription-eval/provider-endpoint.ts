@@ -1,4 +1,4 @@
-import type { MeetingTranscriptionProviderId } from "@arc/shared/meeting-transcription";
+import type { MeetingTranscriptionProviderId } from "@app/shared/meeting-transcription";
 import { resolveMeetingTranscriptionProviderEndpoint } from "../../server/routes/meetings/transcription/provider-endpoint";
 
 interface MeetingTranscriptionBenchmarkEndpoint {

@@ -1,14 +1,14 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { jobDescriptionVersion } from "@arc/db-schema/schema";
+import { jobDescriptionVersion } from "@app/db-schema/schema";
 import {
   generateResumeReview,
   generateResumeScreeningResult,
 } from "../../../../../agents/resume-analysis-agent";
-import type { ResumeScreeningPolicy, ResumeScreeningResult } from "@arc/shared/resume-screening";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
+import type { ResumeScreeningPolicy, ResumeScreeningResult } from "@app/shared/resume-screening";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import { deriveStructuredResumeSummaries } from "@app/shared/structured-resume-scoring";
 import type { loadRecruitingJobDescriptionById } from "../../job-descriptions/dao";
 import {
   STRUCTURED_RESUME_ENGINE_VERSION,

@@ -12,13 +12,13 @@
 import { validateUIMessages } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
-import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
-import type { JsonValue } from "@arc/db-schema/json";
-import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { AttachmentTextSource } from "@app/db-schema/db-enums";
+import type { JobDescriptionConfig } from "@app/db-schema/job-description-config";
+import type { JsonValue } from "@app/db-schema/json";
+import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@app/db-schema/studio-interviews";
 import { chatRpc, rpc } from "@/lib/client/rpc";
-import { sha256HexOfFile } from "@arc/shared/file-hash";
-import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
+import { sha256HexOfFile } from "@app/shared/file-hash";
+import { isSupportedResumeDocumentInput } from "@app/shared/resume-documents";
 import { apiFetch } from "../client";
 import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 

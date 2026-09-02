@@ -1,12 +1,12 @@
 import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import type {
   CandidateFormScope,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateQuestionRecord,
   CandidateFormTemplateRecord,
   JobDescriptionRef,
-} from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/candidate-forms";
 import type { SQL } from "drizzle-orm";
 import { and, asc, count, eq, exists, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { z } from "zod";
@@ -25,7 +25,7 @@ import {
   candidateFormTemplateQuestion,
   jobDescription,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 // =====================================================================
 // Pagination + filters

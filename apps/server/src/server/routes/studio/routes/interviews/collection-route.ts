@@ -2,7 +2,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
-import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
+import { studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
@@ -13,7 +13,7 @@ import {
   studioInterviewQuestionClientSchema,
   studioInterviewFormSchema,
   toNullableString,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
@@ -21,7 +21,7 @@ import {
 } from "../../../../agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
-import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
+import { resolveCandidateQuestionGenerationEnabled } from "@app/shared/interview/candidate-question-generation-config";
 import { autoBindApplicableTemplates } from "../interview-questions/dao/bindings";
 import { createInterviewContextSnapshot } from "./dao/context-snapshots";
 import {

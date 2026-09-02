@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../lib/server/db/index";
-import { meetingSession, organization, user } from "@arc/db-schema/schema";
+import { meetingSession, organization, user } from "@app/db-schema/schema";
 import { createFixtureNamespace } from "../../../test-utils/fixture-id";
 import { withDatabaseAdvisoryTestLock } from "../../../test-utils/database-advisory-lock";
 import {

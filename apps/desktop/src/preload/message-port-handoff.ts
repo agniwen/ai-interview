@@ -2,8 +2,8 @@ import {
   meetingLiveTranscriptContextSchema,
   meetingLiveTranscriptTrackSchema,
   meetingLiveTranscriptVocabularySchema,
-} from "@arc/shared/meeting-transcription";
-import type { LiveTranscriptPortAuthorization } from "@arc/shared/meeting-live-correction";
+} from "@app/shared/meeting-transcription";
+import type { LiveTranscriptPortAuthorization } from "@app/shared/meeting-live-correction";
 import { z } from "zod";
 
 const liveTranscriptClientMessageSchema = z

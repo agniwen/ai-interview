@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
+import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
 
 export const MEETING_TRANSCRIPTION_BENCHMARK_MAX_TRANSCRIPT_CHARS = 200_000;
 const MAX_OVERLAP_REFERENCE_CHARS = 100_000;

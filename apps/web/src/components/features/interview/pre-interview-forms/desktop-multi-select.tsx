@@ -9,11 +9,11 @@ import { IconCheck, IconChevronDown } from "@tabler/icons-react";
  * `<SelectTrigger>`, so multi-select and single-select line up visually.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
 
 import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import type { AnswerValue } from "./types";
 
 export function DesktopMultiSelect({

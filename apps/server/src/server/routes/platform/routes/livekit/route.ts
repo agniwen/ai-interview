@@ -2,7 +2,7 @@ import {
   listTextFiltersSchema,
   parseListTextFilters,
   matchesListTextFilters,
-} from "@arc/shared/list-text-filters";
+} from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";

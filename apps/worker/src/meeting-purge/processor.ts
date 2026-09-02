@@ -12,7 +12,7 @@ import type {
   recordMeetingProviderPurgeOutcome,
   releaseMeetingPurgeClaim,
 } from "@app/server/worker/meeting-purge";
-import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
+import type { MeetingPurgeJobData } from "@app/meeting-processing-queue/meeting-purge";
 
 export interface MeetingPurgeDependencies {
   abortMultipartUpload: typeof abortMeetingRecordingMultipartUpload;

@@ -1,11 +1,11 @@
 "use client";
 
-import type { DepartmentRecord } from "@arc/shared/departments";
-import type { InterviewerListRecord } from "@arc/shared/interviewers";
+import type { DepartmentRecord } from "@app/shared/departments";
+import type { InterviewerListRecord } from "@app/shared/interviewers";
 import {
   filterInterviewerIdsByDepartment,
   getDepartmentSyncedInterviewerSelection,
-} from "@arc/shared/job-description-interviewers";
+} from "@app/shared/job-description-interviewers";
 import {
   Field,
   FieldContent,

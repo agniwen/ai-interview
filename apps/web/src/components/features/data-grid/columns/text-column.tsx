@@ -1,6 +1,6 @@
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import type { DataGridFeatures } from "../table-features";
 
 export interface TextColumnOptions<TData> {

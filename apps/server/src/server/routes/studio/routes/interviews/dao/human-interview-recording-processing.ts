@@ -9,8 +9,8 @@ import {
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
   studioInterview,
-} from "@arc/db-schema/schema";
-import type { HumanInterviewRecordingJobData } from "@arc/meeting-processing-queue/human-interview-recording";
+} from "@app/db-schema/schema";
+import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
 
 const TERMINAL_RECORDING_PROCESSING_ERROR_PREFIX = "录音处理失败：";
 

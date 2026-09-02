@@ -6,9 +6,9 @@ import type {
   ResumeReviewDimensionKey,
   ResumeReviewLoose,
   ResumeReviewPoint,
-} from "@arc/db-schema/resume-review";
-import { RESUME_REVIEW_DIMENSION_DEFINITIONS } from "@arc/db-schema/resume-review";
-import type { ResumeReviewStatus } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/resume-review";
+import { RESUME_REVIEW_DIMENSION_DEFINITIONS } from "@app/db-schema/resume-review";
+import type { ResumeReviewStatus } from "@app/db-schema/studio-interviews";
 
 export {
   RESUME_REVIEW_SCHEMA_VERSION,
@@ -20,7 +20,7 @@ export {
   resumeReviewLooseSchema,
   resumeReviewPointSchema,
   resumeReviewSchema,
-} from "@arc/db-schema/resume-review";
+} from "@app/db-schema/resume-review";
 export type {
   ResumeReview,
   ResumeReviewAction,
@@ -30,7 +30,7 @@ export type {
   ResumeReviewDimensionKey,
   ResumeReviewLoose,
   ResumeReviewPoint,
-} from "@arc/db-schema/resume-review";
+} from "@app/db-schema/resume-review";
 
 export const resumeReviewActionLabel = {
   hold: "暂缓",

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   canLaunchInterviewFromResume,
   getResumeActionLockedReason,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "@/components/features/studio/lazy-studio-person-detail-panel";

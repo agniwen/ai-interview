@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../../lib/server/db/index";
-import { interviewNotification } from "@arc/db-schema/schema";
+import { interviewNotification } from "@app/db-schema/schema";
 
 export async function loadLatestFeishuDocumentUrls({
   ids: inputIds,

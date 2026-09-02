@@ -1,9 +1,9 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
-import { attachmentTextSourceSchema } from "@arc/db-schema/db-enums";
-import { sha256HexOfBytes } from "@arc/shared/file-hash";
-import type { AiRunEvent } from "@arc/shared/ai-run-events";
+import { structuredSchema } from "@app/db-schema/resume-parser-schema";
+import { attachmentTextSourceSchema } from "@app/db-schema/db-enums";
+import { sha256HexOfBytes } from "@app/shared/file-hash";
+import type { AiRunEvent } from "@app/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 import {
   generateResumeStructured,

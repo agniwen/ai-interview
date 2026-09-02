@@ -1,13 +1,13 @@
-import type { JobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
+import type { JobEvaluationRuleDraft } from "@app/db-schema/job-description-evaluation";
 import type {
   JobDescriptionDeductionRules,
   StructuredResumeRuleId,
-} from "@arc/db-schema/job-description-structured-config";
-import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
+import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-structured-config";
 import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DIMENSIONS,
-} from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
 import { JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT } from "./job-description-form-values";
 import { JobDescriptionMarkdownSurface } from "./job-description-markdown-surface";
 

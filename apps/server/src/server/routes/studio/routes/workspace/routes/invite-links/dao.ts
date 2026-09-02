@@ -1,8 +1,8 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { db } from "../../../../../../../lib/server/db/index";
-import { member, user, workspaceInviteLink } from "@arc/db-schema/schema";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { member, user, workspaceInviteLink } from "@app/db-schema/schema";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 
 // 16 字符 base62 ≈ 95 bit 熵，碰撞概率忽略不计。
 const generateCode = customAlphabet(

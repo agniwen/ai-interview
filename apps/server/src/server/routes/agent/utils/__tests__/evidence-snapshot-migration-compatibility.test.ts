@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { InterviewContextSnapshotPayload } from "@arc/db-schema/interview-snapshots";
+import type { InterviewContextSnapshotPayload } from "@app/db-schema/interview-snapshots";
 import { createInterviewEvidenceSnapshotWithDependencies } from "../evidence-snapshot-core";
 import type {
   EvidenceSnapshotConversation,

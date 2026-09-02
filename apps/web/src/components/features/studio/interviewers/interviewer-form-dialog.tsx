@@ -1,14 +1,14 @@
 "use client";
 
 import { IconLoader2, IconSquare, IconVolume2 } from "@tabler/icons-react";
-import type { DepartmentRecord } from "@arc/shared/departments";
-import type { InterviewerFormValues, InterviewerRecord } from "@arc/shared/interviewers";
-import { interviewerFormSchema } from "@arc/shared/interviewers";
+import type { DepartmentRecord } from "@app/shared/departments";
+import type { InterviewerFormValues, InterviewerRecord } from "@app/shared/interviewers";
+import { interviewerFormSchema } from "@app/shared/interviewers";
 import {
   minimaxVoiceSchema,
   DEFAULT_MINIMAX_VOICE_ID,
   MINIMAX_INTERVIEWER_VOICES,
-} from "@arc/db-schema/minimax-voices";
+} from "@app/db-schema/minimax-voices";
 import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
-import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import type { MinimaxVoiceId } from "@app/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/components/features/studio/entity-form-dialog";
 import { useEntityForm } from "@/components/features/studio/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";

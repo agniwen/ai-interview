@@ -1,4 +1,4 @@
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconInbox } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,7 +34,7 @@ import {
   buildWorkspaceRoleOptions,
 } from "@/components/features/studio/members/role-display";
 import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
-import { isWorkspaceAdministratorRole } from "@arc/shared/permissions";
+import { isWorkspaceAdministratorRole } from "@app/shared/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

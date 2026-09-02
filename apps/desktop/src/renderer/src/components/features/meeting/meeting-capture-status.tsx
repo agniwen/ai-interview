@@ -11,7 +11,7 @@ import type {
   MeetingCaptureSnapshot,
   WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import type { CapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import { formatAppDateTime } from "@/lib/client/datetime";

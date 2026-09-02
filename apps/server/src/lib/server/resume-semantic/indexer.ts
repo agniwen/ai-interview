@@ -1,9 +1,9 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "../db/index";
-import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
-import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
+import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@app/db-schema/schema";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
+import { getCandidateActivityStatus } from "@app/shared/candidate-pipeline-machine";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import { embedResumeSemanticTexts, getResumeEmbeddingConfig } from "./embedding";
 import { hashResumeProfileForSemanticIndex } from "./profile-hash";

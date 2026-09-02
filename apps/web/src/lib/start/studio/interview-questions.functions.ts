@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioInterviewQuestionsData } from "./interview-questions.server";
 import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";

@@ -1,8 +1,8 @@
 "use client";
 
 import { IconArrowBackUp, IconLoader2, IconPencil } from "@tabler/icons-react";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 
@@ -45,11 +45,11 @@ import {
   createResumeLibraryFormValues,
   getResumeActionLockedReason,
   resumeLibraryEditFormSchema,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import {
   getScheduleEntryDateValue,
   scheduleEntryStatusMeta,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 
 // 统一编辑对话框 props，通过 mode 分发到简历或面试模式。
 // Unified edit dialog props; dispatches to resume or interview body via mode.

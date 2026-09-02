@@ -1,4 +1,4 @@
-import type { ResumeUploadBatchStatus } from "@arc/db-schema/schema";
+import type { ResumeUploadBatchStatus } from "@app/db-schema/schema";
 
 export const BULK_RESUME_BATCH_POLL_INTERVAL_MS = 10_000;
 

@@ -15,8 +15,8 @@ import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
 } from "../../../studio/routes/job-descriptions/dao";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
-import { studioInterview } from "@arc/db-schema/schema";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
+import { studioInterview } from "@app/db-schema/schema";
 
 const streamHeaders = {
   "Cache-Control": "no-cache",

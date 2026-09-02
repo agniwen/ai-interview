@@ -13,7 +13,7 @@ import type { MeetingTranscriptionDependencies, TranscriptionMeetingAccess } fro
 import type {
   FinalMeetingTranscriptRevision,
   MeetingTranscriptRevisionSummary,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 
 type MockedMeetingTranscriptionDependencies = {
   [Key in keyof MeetingTranscriptionDependencies]: Mock<MeetingTranscriptionDependencies[Key]>;

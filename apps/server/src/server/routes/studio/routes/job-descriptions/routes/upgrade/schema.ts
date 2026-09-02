@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { jobEvaluationRuleDraftSchema } from "@arc/db-schema/job-description-evaluation";
+import { jobEvaluationRuleDraftSchema } from "@app/db-schema/job-description-evaluation";
 import {
   jobDescriptionDeductionRulesSchema,
   jobDescriptionStructuredConfigSchema,
-} from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
 
 export const upgradeVersionSchema = z.coerce.number().int().positive();
 

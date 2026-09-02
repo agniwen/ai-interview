@@ -9,15 +9,15 @@
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
-import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
+import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
+import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { cossWhisperShadowClass } from "@/components/ui/coss-style";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 
 export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/50 bg-background/80 bg-clip-padding backdrop-blur-lg ${cossWhisperShadowClass}`;
 

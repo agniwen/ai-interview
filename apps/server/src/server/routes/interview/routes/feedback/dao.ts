@@ -1,11 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import { studioInterviewSchedule } from "@arc/db-schema/schema";
+import { studioInterviewSchedule } from "@app/db-schema/schema";
 import type {
   CandidateInterviewFeedback,
   CandidateInterviewFeedbackInput,
-} from "@arc/db-schema/studio-interviews";
-import { buildCandidateInterviewFeedback } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
+import { buildCandidateInterviewFeedback } from "@app/db-schema/studio-interviews";
 
 export async function submitCandidateInterviewFeedback(
   input: CandidateInterviewFeedbackInput & { interviewRecordId: string; roundId: string },

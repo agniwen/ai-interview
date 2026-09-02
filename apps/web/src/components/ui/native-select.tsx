@@ -2,7 +2,7 @@ import { IconChevronDown } from "@tabler/icons-react";
 import * as React from "react";
 
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function NativeSelect({
   className,

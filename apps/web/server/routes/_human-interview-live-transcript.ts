@@ -2,10 +2,10 @@
 import {
   connectDashScopeRealtimeWs,
   createLiveTranscriptCorrectionSession,
-} from "@arc/meeting-live-transcript/server";
-import type { DashScopeRealtimeWsConnection } from "@arc/meeting-live-transcript/server";
-import { liveCorrectionBatchSchema } from "@arc/shared/meeting-live-correction";
-import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+} from "@app/meeting-live-transcript/server";
+import type { DashScopeRealtimeWsConnection } from "@app/meeting-live-transcript/server";
+import { liveCorrectionBatchSchema } from "@app/shared/meeting-live-correction";
+import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 import {
   heartbeatWorkspaceMeetingLiveTranscript,
   releaseWorkspaceMeetingLiveTranscript,

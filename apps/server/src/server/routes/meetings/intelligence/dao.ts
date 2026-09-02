@@ -8,15 +8,15 @@ import {
   meetingTranscriptTurn,
   member,
   user,
-} from "@arc/db-schema/schema";
-import type { MeetingIntelligenceJobData } from "@arc/meeting-processing-queue/meeting-intelligence";
+} from "@app/db-schema/schema";
+import type { MeetingIntelligenceJobData } from "@app/meeting-processing-queue/meeting-intelligence";
 import type {
   MeetingIntelligenceGenerationProgress,
   MeetingIntelligencePayload,
   MeetingIntelligenceResult,
   MeetingIntelligenceRevision,
   MeetingIntelligenceTemplate,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import {
   MEETING_INTELLIGENCE_DECISION_POLICY_VERSION,
   MeetingIntelligenceTerminalError,
@@ -26,7 +26,7 @@ import {
   meetingIntelligenceRunResultSchema,
   meetingIntelligenceTemplateSchema,
   validateMeetingIntelligenceEvidence,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import { z } from "zod";
 
 const PUBLIC_INTELLIGENCE_FAILURE_MESSAGE = "Meeting Intelligence 生成失败，请稍后重试。";

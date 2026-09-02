@@ -7,7 +7,7 @@
 // between the resume-mode detail dialog and the launch-interview dialog so the
 // same data renders the same way in both places.
 
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { ResumeOverviewAiScoreSection } from "./resume-overview-ai-score-section";
 import { ResumeOverviewCandidateInfoSection } from "./resume-overview-candidate-info-section";

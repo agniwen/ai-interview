@@ -2,7 +2,7 @@
 import type { Cell, Header, RowData } from "@tanstack/react-table";
 import type { CSSProperties } from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import type { DataGridFeatures } from "../table-features";
 
 /**

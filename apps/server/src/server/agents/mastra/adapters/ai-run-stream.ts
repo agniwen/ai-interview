@@ -1,5 +1,5 @@
-import type { AiRunEvent } from "@arc/shared/ai-run-events";
-import { isAiRunTerminalEvent } from "@arc/shared/ai-run-events";
+import type { AiRunEvent } from "@app/shared/ai-run-events";
+import { isAiRunTerminalEvent } from "@app/shared/ai-run-events";
 import type { WorkflowStreamEvent } from "@mastra/core/stream";
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 10_000;

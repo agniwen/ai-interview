@@ -8,7 +8,7 @@ import {
   interviewQuestionTemplateVersion,
   organization,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { ensureApplicableBindings, loadInterviewQuestionTemplateBindings } from "../bindings";
 
 const ORG_A = "test_questions_scope_org_a";

@@ -3,7 +3,7 @@
 import { IconChevronDown } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ANIMATED_HEIGHT_COMPLETE_EVENT } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 

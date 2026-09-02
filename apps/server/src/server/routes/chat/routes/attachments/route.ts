@@ -4,7 +4,7 @@ import {
   parseResumeFast,
 } from "../../../../../lib/server/resume-parse-pipeline";
 import { isResumeParseCacheSourceCompatible } from "../../../../../lib/server/resume-parse-provider";
-import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
+import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
 import { projectAttachmentToResumeProfile } from "../../../../agents/resume-parser-agent";
 import {
   getUserAttachment,

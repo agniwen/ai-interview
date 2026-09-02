@@ -1,15 +1,15 @@
 import type {
   JobEvaluationBlueprint,
   JobEvaluationRuleDraft,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import {
   jobEvaluationBlueprintSchema,
   jobEvaluationRuleDraftSchema,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import type {
   JobDescriptionDeductionRules,
   JobDescriptionStructuredConfig,
-} from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
 import {
   computeJobEvaluationDraftInputHash,
   computeJobEvaluationPayloadHash,

@@ -9,11 +9,11 @@ import { toast } from "sonner";
 import type {
   FeishuHumanInterviewSyncStatus,
   HumanInterviewMeetingInterviewerRole,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
-} from "@arc/shared/studio-pipeline-stages";
+} from "@app/shared/studio-pipeline-stages";
 import { issueHumanInterviewMeetingLinks, retryHumanInterviewFeishuSync } from "@/lib/client/api";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";

@@ -52,7 +52,7 @@ import {
 import { createTingwuHttpClient } from "./tingwu-http";
 import { acquireMeetingTranscriptionBenchmarkRunLock } from "./run-lock";
 import { resolveMeetingTranscriptionBenchmarkEndpoint } from "./provider-endpoint";
-import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@arc/meeting-processing-queue/meeting-transcription";
+import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@app/meeting-processing-queue/meeting-transcription";
 import type { MeetingTranscriptionBenchmarkRun } from "./types";
 import { readBoundedBenchmarkJson } from "./bounded-json";
 

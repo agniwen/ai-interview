@@ -1,12 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { generateInterviewQuestionsForProfile } from "../../../../../agents/resume-analysis-agent";
-import { jobDescription, studioInterview } from "@arc/db-schema/schema";
+import { jobDescription, studioInterview } from "@app/db-schema/schema";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
-} from "@arc/resume-parse-queue/resume-review-generation";
-import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
+} from "@app/resume-parse-queue/resume-review-generation";
+import { resolveCandidateQuestionGenerationEnabled } from "@app/shared/interview/candidate-question-generation-config";
 
 export interface CandidateQuestionGenerationDependencies {
   generateInterviewQuestionsForProfile: typeof generateInterviewQuestionsForProfile;

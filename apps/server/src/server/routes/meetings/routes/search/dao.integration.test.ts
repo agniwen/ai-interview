@@ -10,7 +10,7 @@ import {
   member,
   organization,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { createMeetingNote, deleteMeetingNote, updateMeetingNote } from "../notes/dao";
 import { searchMeetingSessionsForAccess } from "./dao";
 

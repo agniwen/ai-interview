@@ -1,5 +1,5 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
-import { attachmentParseStatusValues, attachmentTextSourceValues } from "@arc/db-schema/db-enums";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
+import { attachmentParseStatusValues, attachmentTextSourceValues } from "@app/db-schema/db-enums";
 import { z } from "zod";
 
 export const resumeParseCacheFilterSchema = z.object({

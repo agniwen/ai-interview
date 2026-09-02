@@ -3,7 +3,7 @@ import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewRound,
   studioHumanInterviewRoundInterviewer,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 
 export async function loadHumanInterviewMeetingInterviewerIds(

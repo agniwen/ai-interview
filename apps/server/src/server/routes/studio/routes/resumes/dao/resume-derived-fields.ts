@@ -1,13 +1,13 @@
 import { and, asc, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import type { ResumeStageProgress } from "@arc/shared/studio-resumes";
+import type { ResumeStageProgress } from "@app/shared/studio-resumes";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewConversation,
   studioHumanInterviewRound,
   studioInterviewSchedule,
   studioOfferDraft,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 // 兜底默认值：候选人完全没有任何子表数据时返回（虽然聚合 SQL 总会返回一个对象，
 // 但 row.stageProgress 可能是 null —— 兜一手让下游永远拿到完整 shape）。

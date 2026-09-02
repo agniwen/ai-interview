@@ -1,5 +1,5 @@
 {
-  "name": "@arc/resume-parse-queue",
+  "name": "@app/resume-parse-queue",
   "version": "0.0.0",
   "private": true,
   "description": "Redis/BullMQ queue runtime for async resume parsing",

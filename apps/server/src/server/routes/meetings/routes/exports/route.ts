@@ -3,7 +3,7 @@ import { factory, jsonValidatorError } from "../../../../factory";
 import {
   meetingAudioExportTrackSchema,
   meetingExportFormatSchema,
-} from "@arc/shared/meeting-export";
+} from "@app/shared/meeting-export";
 import { z } from "zod";
 import { prepareMeetingExport } from "./service";
 

@@ -3,7 +3,7 @@
 import type {
   StudioAiCalendarEvent,
   StudioAiCalendarEventPreview,
-} from "@arc/shared/studio-calendar";
+} from "@app/shared/studio-calendar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";

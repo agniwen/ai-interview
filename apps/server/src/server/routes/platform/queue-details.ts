@@ -1,4 +1,4 @@
-import type { ResumeParseQueueJobsResult } from "@arc/resume-parse-queue/resume-parse";
+import type { ResumeParseQueueJobsResult } from "@app/resume-parse-queue/resume-parse";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -8,7 +8,7 @@ import {
   resumeUploadBatchItem,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 export interface PlatformQueueOrganization {
   id: string;

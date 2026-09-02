@@ -15,7 +15,7 @@ import { CandidateMeetingLinks } from "@/components/features/studio/resumes/cand
 import { Button } from "@/components/ui/button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsContent } from "@/components/ui/tabs";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";

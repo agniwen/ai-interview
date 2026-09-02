@@ -4,7 +4,7 @@ import {
   isInterviewQuestionSetComplete,
   mergeInterviewQuestionOutcome,
   parseInterviewDataCollectionResults,
-} from "@arc/shared/interview/question-outcomes";
+} from "@app/shared/interview/question-outcomes";
 
 const OUTCOME = {
   answerSummary: "候选人说明了告警、根因和预防措施",

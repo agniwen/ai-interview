@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/client/auth-client";
 import { withCleanup } from "@/lib/client/async-control";
 import * as m from "@/paraglide/messages";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { FeishuIcon } from "./feishu-icon";
 
 interface FeishuSignInButtonProps {

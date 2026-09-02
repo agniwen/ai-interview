@@ -1,11 +1,11 @@
-import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 // oxlint-disable max-lines, promise/avoid-new, promise/prefer-await-to-callbacks, unicorn/consistent-function-scoping -- This state-machine suite intentionally stays together; deferred provider callbacks and local deterministic schedulers are the behavior under test.
 import { describe, expect, it, vi } from "vitest";
 import {
   createLiveTranscriptDraft,
   createDurableLiveTranscriptDraft,
 } from "./live-transcript-draft";
-import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 import type {
   LiveTranscriptConnection,
   LiveTranscriptEvent,

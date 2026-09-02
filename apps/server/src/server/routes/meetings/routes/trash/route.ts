@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { trashedMeetingListQuerySchema } from "@arc/shared/meeting-recording";
+import { trashedMeetingListQuerySchema } from "@app/shared/meeting-recording";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { listTrashedSavedMeetings } from "../../lifecycle-service";
 

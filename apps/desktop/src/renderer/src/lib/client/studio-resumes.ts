@@ -1,14 +1,14 @@
 import type {
   StructuredResumeEvaluationV1,
   StructuredResumeGateStatus,
-} from "@arc/db-schema/structured-resume-evaluation";
-import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/structured-resume-evaluation";
+import type { StructuredResumeSummaryFields } from "@app/shared/structured-resume-scoring";
 import type {
   ResumeEvaluationHistoryRecord,
   ResumeEvaluationFailureRecord,
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 

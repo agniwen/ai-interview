@@ -7,7 +7,7 @@ import {
   resumePoolImport,
   resumePoolItem,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export interface ResumePoolJobAssociationRepairCandidate {

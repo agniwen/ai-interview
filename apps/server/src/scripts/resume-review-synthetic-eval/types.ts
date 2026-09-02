@@ -1,10 +1,10 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type {
   ResumeReview,
   ResumeReviewAction,
   ResumeReviewDimensionKey,
-} from "@arc/shared/resume-review";
-import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
+} from "@app/shared/resume-review";
+import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 
 export interface ScoreBand {
   max: number;

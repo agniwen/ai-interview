@@ -1,20 +1,20 @@
 import {
   nextShanghaiCalendarDayStart,
   shanghaiCalendarDayStart,
-} from "@arc/shared/date-range-filter";
+} from "@app/shared/date-range-filter";
 import { resumeLibraryListQuerySchema } from "./list-schema";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { db } from "../../../../../lib/server/db/index";
 import { getObjectBytes, getObjectStream } from "@app/object-storage";
-import { studioInterview } from "@arc/db-schema/schema";
-import { parseCsvParam } from "@arc/shared/csv";
+import { studioInterview } from "@app/db-schema/schema";
+import { parseCsvParam } from "@app/shared/csv";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import { resumeEvaluationStatusSubmitSchema } from "@arc/shared/studio-resumes";
+import { resumeEvaluationStatusSubmitSchema } from "@app/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
 import { getWorkspaceRequestContext } from "../../../../context/workspace-request-context";
 import { factory, jsonValidatorError } from "../../../../factory";
@@ -31,7 +31,7 @@ import { listOrgSkillSuggestions } from "./dao/skills";
 import {
   structuredResumeGateStatusSchema,
   structuredResumeGradeSchema,
-} from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
 import { toBadRequest } from "../../../interview/utils";
 import {
   listInterviewRoundsForCandidate,
@@ -48,7 +48,7 @@ import { createPptxPreviewPdfResponse } from "../../utils/pptx-preview";
 import { launchAiInterviewRound } from "./application/default-launch-ai-interview-round";
 import { LaunchAiInterviewMutationError } from "./application/launch-ai-interview-round";
 import { loadResumeLibraryMetrics } from "./dao/metrics";
-import { aiInterviewLinkValiditySchema } from "@arc/shared/interview/ai-interview-invitation";
+import { aiInterviewLinkValiditySchema } from "@app/shared/interview/ai-interview-invitation";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),

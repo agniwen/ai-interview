@@ -6,7 +6,7 @@ import type {
   MeetingSourceTrack,
   MultipartMeetingUploadInstruction,
   MultipartSavedMeetingDescriptor,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 
 interface LocalMultipartFragment {
   localPath: string;

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { getResumeDocumentKind } from "@app/shared/resume-documents";
 
 type RunCommand = (
   command: string,

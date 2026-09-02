@@ -2,7 +2,7 @@ import {
   enqueueMeetingTranscriptionJobs,
   isMeetingTranscriptionQueueConfigured,
   retryMeetingTranscriptionJob,
-} from "@arc/meeting-processing-queue/meeting-transcription";
+} from "@app/meeting-processing-queue/meeting-transcription";
 import type {
   CreateMeetingTranscriptCorrectionInput,
   FinalMeetingTranscriptRevision,
@@ -11,8 +11,8 @@ import type {
   MeetingTranscriptionPolicy,
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
-} from "@arc/shared/meeting-transcription";
-import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-transcription";
+import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import { meetingAccessCapabilities, isWorkspaceAdministrator } from "../access";
 import { loadAuthorizedMeeting, meetingRole } from "../authorized-meeting";
 import type { MeetingAccessInput } from "../authorized-meeting";

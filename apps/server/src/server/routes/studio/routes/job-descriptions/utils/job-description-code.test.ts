@@ -1,5 +1,5 @@
-import { globalConfigSchema } from "@arc/shared/global-config";
-import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
+import { globalConfigSchema } from "@app/shared/global-config";
+import { jobDescriptionFormSchema } from "@app/shared/job-descriptions";
 import { describe, expect, it } from "vitest";
 import {
   buildJobDescriptionCodeCandidates,

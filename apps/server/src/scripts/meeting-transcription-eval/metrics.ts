@@ -1,4 +1,4 @@
-import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
+import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
 import type {
   BenchmarkEntity,
   BenchmarkInterval,

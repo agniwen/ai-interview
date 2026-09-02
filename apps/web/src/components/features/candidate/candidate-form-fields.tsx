@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import {
   describeResumeEvaluationStatus,
   resumeEvaluationStatusFormValueSchema,
-} from "@arc/shared/studio-resumes";
-import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
+import type { ResumeLibraryFormValues } from "@app/shared/studio-resumes";
 import {
   Select,
   SelectContent,
@@ -26,7 +26,7 @@ import { z } from "zod";
 import {
   supportedResumeDocumentAccept,
   supportedResumeDocumentLabel,
-} from "@arc/shared/resume-documents";
+} from "@app/shared/resume-documents";
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。

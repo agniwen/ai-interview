@@ -1,8 +1,8 @@
 "use client";
 
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { CandidateTimelineResponse } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { CandidateTimelineResponse } from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

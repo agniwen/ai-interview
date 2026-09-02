@@ -17,7 +17,7 @@ import type { CalendarView } from "@/components/reui/event-calendar/event-calend
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const DEFAULT_VIEW_COMPONENTS: Record<CalendarView, ComponentType> = {
   agenda: EventCalendarAgendaView,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { describeInterviewers } from "./job-description-select-field";
 
 describe("describeInterviewers", () => {

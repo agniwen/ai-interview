@@ -9,7 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 type ViewMode = "preview" | "raw";
 

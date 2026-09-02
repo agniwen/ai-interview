@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import type {
@@ -8,12 +8,12 @@ import type {
   ResumePoolStatus,
   ResumeJobMatchRunStatus,
   ResumeJobMatchSelectionMethod,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type { ResumeLibraryProfileSnapshot } from "./studio-resumes";
 import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
 export const resumePoolStatusSchema = z.enum(["active", "archived"]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 
 import { IconDatabase } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -38,8 +38,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import type { ResumeParseCacheFilters } from "@app/server/web/platform";
-import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
-import { formatBytes } from "@arc/shared/utils/format";
+import type { AttachmentTextSource } from "@app/db-schema/db-enums";
+import { formatBytes } from "@app/shared/utils/format";
 
 export interface ResumeParseCacheRecord {
   contentHash: string;

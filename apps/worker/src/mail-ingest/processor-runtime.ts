@@ -1,6 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
-import { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
+import { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import {
   claimMailIngestAccount,

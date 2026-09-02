@@ -2,7 +2,7 @@ import { z } from "zod";
 import type {
   CreateSmallSavedMeetingInput,
   SmallSavedMeetingResponse,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 import type { MeetingServiceDependencies } from "./service-dependencies";
 
 const SERVER_VERIFIED_STATUSES = new Set([

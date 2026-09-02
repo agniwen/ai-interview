@@ -36,7 +36,7 @@ import {
 import { getDefaultFilterOperator } from "@/components/reui/filters/filters-operators";
 import type { FilterField } from "@/components/reui/filters/filters-types";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { IconFilterPlus } from "@tabler/icons-react";

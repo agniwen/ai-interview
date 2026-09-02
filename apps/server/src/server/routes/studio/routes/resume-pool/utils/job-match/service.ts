@@ -15,9 +15,9 @@ import {
   resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
-} from "@arc/db-schema/schema";
-import type { ResumeJobMatchJobSnapshot } from "@arc/db-schema/schema";
-import type { JsonObject } from "@arc/db-schema/json";
+} from "@app/db-schema/schema";
+import type { ResumeJobMatchJobSnapshot } from "@app/db-schema/schema";
+import type { JsonObject } from "@app/db-schema/json";
 import { runNewMailResumeJobMatch } from "./orchestrator";
 import type { NewMailResumeJobMatchContext, ResumeJobMatchOutcome } from "./orchestrator";
 

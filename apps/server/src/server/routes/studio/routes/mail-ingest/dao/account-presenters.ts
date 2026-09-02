@@ -1,5 +1,5 @@
 import { decryptMailIngestSecret } from "../../../../../../lib/server/mail-ingest-crypto";
-import type { mailIngestAccount } from "@arc/db-schema/schema";
+import type { mailIngestAccount } from "@app/db-schema/schema";
 import type { MailIngestLoginConfig } from "../validation";
 
 type AccountRow = typeof mailIngestAccount.$inferSelect;

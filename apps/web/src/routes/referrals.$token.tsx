@@ -15,12 +15,12 @@ import {
   fetchPublicReferralPreview,
   uploadPublicReferralResume,
 } from "@/lib/client/api/endpoints/referrals";
-import { MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
+import { MAX_RESUME_FILE_SIZE_BYTES } from "@app/shared/bulk-resume-upload";
 import {
   isSupportedResumeDocumentInput,
   supportedResumeDocumentAccept,
   supportedResumeDocumentLabel,
-} from "@arc/shared/resume-documents";
+} from "@app/shared/resume-documents";
 
 function validateReferralResume(file: File): string | null {
   if (file.size > MAX_RESUME_FILE_SIZE_BYTES) {

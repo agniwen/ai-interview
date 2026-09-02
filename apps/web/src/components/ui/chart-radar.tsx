@@ -14,7 +14,7 @@ import {
 import type { ChartTooltipBodyRenderContext } from "@tanstack/charts/react/tooltip";
 import { scaleLinear, scalePoint } from "d3-scale";
 import { curveLinearClosed } from "d3-shape";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import {
   Chart,
   ChartContainer,

@@ -1,5 +1,5 @@
-import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
-import { cn } from "@arc/shared/utils";
+import { countDisplayInterviewTurns } from "@app/shared/interview-transcript-turns";
+import { cn } from "@app/shared/utils";
 import type { ReactNode } from "react";
 
 import { env } from "@/env/client";

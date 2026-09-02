@@ -3,9 +3,9 @@ import { parseDataGridSearchParams } from "@/components/features/data-grid/query
 import {
   RESUME_LIBRARY_INFINITE_PAGE_SIZE,
   resumeLibrarySortIds,
-} from "@arc/shared/studio-resumes";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import { pipelineStageValues } from "@arc/db-schema/studio-interviews";
+} from "@app/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
+import { pipelineStageValues } from "@app/db-schema/studio-interviews";
 
 import {
   useCallback,

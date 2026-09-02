@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
-} from "@arc/shared/studio-pipeline-stages";
+} from "@app/shared/studio-pipeline-stages";
 import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,

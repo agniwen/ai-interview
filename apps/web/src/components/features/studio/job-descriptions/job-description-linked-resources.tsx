@@ -1,8 +1,8 @@
 "use client";
 
 import { IconClipboardList, IconExternalLink, IconListCheck } from "@tabler/icons-react";
-import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
-import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
+import type { CandidateFormTemplateListRecord } from "@app/db-schema/candidate-forms";
+import type { InterviewQuestionTemplateListRecord } from "@app/db-schema/interview-question-templates";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 import { Badge } from "@/components/ui/badge";

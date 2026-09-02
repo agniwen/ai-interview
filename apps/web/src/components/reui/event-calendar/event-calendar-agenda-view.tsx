@@ -24,7 +24,7 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { addDays, format } from "date-fns";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { IconCalendarEvent } from "@tabler/icons-react";
 

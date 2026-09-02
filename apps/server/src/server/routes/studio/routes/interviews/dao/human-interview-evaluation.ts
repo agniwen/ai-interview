@@ -14,15 +14,15 @@ import {
   studioHumanInterviewRound,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   HumanInterviewEvaluation,
   HumanInterviewRoundOutcome,
-} from "@arc/db-schema/studio-interviews";
-import { humanInterviewEvaluationSchema } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewEvaluationJobData } from "@arc/meeting-processing-queue/human-interview-evaluation";
+} from "@app/db-schema/studio-interviews";
+import { humanInterviewEvaluationSchema } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
 import { loadMeetingTranscriptRevision } from "../../../../meetings/transcription/revision-dao";
-import type { HumanInterviewReviewRecord } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-completion";
 import { z } from "zod";
 import {

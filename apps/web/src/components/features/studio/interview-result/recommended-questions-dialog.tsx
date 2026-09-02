@@ -1,9 +1,9 @@
 "use client";
 
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
-import { DIFFICULTY_LABEL, DIFFICULTY_PILL_CLASS } from "@arc/shared/interview-question-difficulty";
-import { cn } from "@arc/shared/utils";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
+import { DIFFICULTY_LABEL, DIFFICULTY_PILL_CLASS } from "@app/shared/interview-question-difficulty";
+import { cn } from "@app/shared/utils";
 import { IconEdit, IconLoader2 } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useState } from "react";

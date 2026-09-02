@@ -1,4 +1,4 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, max, ne } from "drizzle-orm";
@@ -12,19 +12,19 @@ import {
   jobDescriptionInterviewer,
   jobDescriptionVersion,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   jobDescriptionSaveSchema,
   publishedJobOperationalUpdateSchema,
   structuredJobDescriptionPublishSchema,
-} from "@arc/shared/job-descriptions";
-import { jobEvaluationRuleDraftSchema } from "@arc/db-schema/job-description-evaluation";
+} from "@app/shared/job-descriptions";
+import { jobEvaluationRuleDraftSchema } from "@app/db-schema/job-description-evaluation";
 import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionDeductionRulesSchema,
-} from "@arc/db-schema/job-description-structured-config";
-import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
-import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
+} from "@app/db-schema/job-description-structured-config";
+import type { ReferralLinkCreateResult } from "@app/shared/referrals";
+import { validateJobDescriptionInterviewerDepartments } from "@app/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { requirePermission } from "../../../../middlewares/permission";

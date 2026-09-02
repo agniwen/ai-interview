@@ -9,9 +9,9 @@ import {
   materializeMeetingAnswer,
   meetingAnswerModelOutputSchema,
   MeetingAnswerTerminalError,
-} from "@arc/shared/meeting-answer";
-import type { MeetingAnswerModelOutput, MeetingAnswerPayload } from "@arc/shared/meeting-answer";
-import type { MeetingIntelligencePayload } from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-answer";
+import type { MeetingAnswerModelOutput, MeetingAnswerPayload } from "@app/shared/meeting-answer";
+import type { MeetingIntelligencePayload } from "@app/shared/meeting-intelligence";
 
 interface AnswerTranscriptTurn {
   endMs: number;

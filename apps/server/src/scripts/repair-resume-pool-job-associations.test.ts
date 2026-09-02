@@ -9,7 +9,7 @@ import {
   resumePoolImport,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { loadResumePoolItem } from "../server/routes/studio/routes/resume-pool/dao";
 import { repairResumePoolJobAssociations } from "./repair-resume-pool-job-associations";
 

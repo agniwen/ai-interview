@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
+import type { MeetingLibraryItem } from "@app/shared/meeting-recording";
 import { APP_TIME_ZONE } from "@/lib/client/datetime";
 import { desktopMeetingKeys, fetchMeetings, searchMeetings } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";

@@ -19,7 +19,7 @@ import {
   studioOfferDraft,
   studioOrgSkill,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { loadResumeDetail, queryPaginatedResumeRecords } from "../dao/resumes";
 import { syncResumeSkills } from "../dao/skills";
 import { loadCandidateTimeline } from "../dao/timeline";

@@ -1,4 +1,4 @@
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 
 export function transcriptContext(texts: string[]): JsonObject[] {
   return texts

@@ -4,8 +4,8 @@ import type {
   MeetingLibraryItem,
   MeetingPlaybackAuthorization,
   MeetingProcessingState,
-} from "@arc/shared/meeting-recording";
-import type { MeetingLibrarySearchMatch } from "@arc/shared/meeting-search";
+} from "@app/shared/meeting-recording";
+import type { MeetingLibrarySearchMatch } from "@app/shared/meeting-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MeetingAudioPlayer } from "./meeting-audio-player";
@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatAppDateTime } from "@/lib/client/datetime";
-import { meetingDisplayTitle } from "@arc/shared/utils/time";
+import { meetingDisplayTitle } from "@app/shared/utils/time";
 
 const PROCESSING_STATE_META = {
   failed: { label: "处理失败", variant: "danger" },

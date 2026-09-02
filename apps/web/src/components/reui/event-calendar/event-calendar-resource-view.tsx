@@ -43,7 +43,7 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { addDays, addMinutes } from "date-fns";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const EMPTY_ALL_DAY_SEGMENTS: EventCalendarSegment[] = [];

@@ -33,11 +33,11 @@ import {
   resumeUploadBatchItem,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
-import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
-import type { JsonObject, JsonValue } from "@arc/db-schema/json";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+} from "@app/db-schema/schema";
+import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@app/db-schema/schema";
+import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
+import type { JsonObject, JsonValue } from "@app/db-schema/json";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type {
   PaginatedResumePoolResult,
@@ -49,8 +49,8 @@ import type {
   ResumePoolJobMatchResult,
   ResumePoolSourceChannel,
   ResumePoolUploaderOption,
-} from "@arc/shared/resume-pool";
-import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+} from "@app/shared/resume-pool";
+import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
 import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource,

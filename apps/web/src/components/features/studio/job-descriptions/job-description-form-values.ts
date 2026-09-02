@@ -1,6 +1,6 @@
-import type { InterviewerListRecord } from "@arc/shared/interviewers";
-import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
-import { filterInterviewerIdsByDepartment } from "@arc/shared/job-description-interviewers";
+import type { InterviewerListRecord } from "@app/shared/interviewers";
+import type { JobDescriptionFormValues, JobDescriptionRecord } from "@app/shared/job-descriptions";
+import { filterInterviewerIdsByDepartment } from "@app/shared/job-description-interviewers";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 export const NAME_MAX_LENGTH = 120;

@@ -6,14 +6,14 @@ import type {
   CandidateFormDisplayMode,
   CandidateFormQuestionInput,
   CandidateFormQuestionType,
-} from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/candidate-forms";
 import {
   candidateFormDisplayModeSchema,
   candidateFormQuestionInputSchema,
   candidateFormQuestionTypeSchema,
   DEFAULT_DISPLAY_MODE,
   DISPLAY_MODES_BY_TYPE,
-} from "@arc/db-schema/candidate-forms";
+} from "@app/db-schema/candidate-forms";
 import { useStore } from "@tanstack/react-form";
 import { useMemo } from "react";
 import { z } from "zod";
@@ -33,7 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 
 const DISPLAY_MODE_LABELS = {

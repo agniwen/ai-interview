@@ -6,7 +6,7 @@
 
 **Architecture:** 就地增强 `mail_ingest_message`（加列）+ worker 采集点改造（`processor.ts`）+ DAO 写入/查询 + 工作区/平台两个 messages 端点。前端日志 UI 是独立的后续 Plan B（消费本 API）。
 
-**Tech Stack:** TypeScript、Drizzle ORM（PostgreSQL）、Hono、Vitest、pnpm monorepo（`@arc/db-schema`、后端 `@app/server`、worker `apps/worker`）。
+**Tech Stack:** TypeScript、Drizzle ORM（PostgreSQL）、Hono、Vitest、pnpm monorepo（`@app/db-schema`、后端 `@app/server`、worker `apps/worker`）。
 
 **Spec:** `docs/adr/2026-07-09-mail-ingest-observability-design.md`
 
@@ -107,7 +107,7 @@ Run:
 
 ```bash
 pnpm db:generate
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/db-schema typecheck
 ```
 
 Expected: 在 drizzle 迁移目录生成一个新迁移（`ALTER TABLE ... ADD COLUMN` + `CREATE INDEX`）；typecheck 通过。
@@ -170,7 +170,7 @@ Expected: FAIL —「Cannot find module './job-binding'」。
 创建 `job-binding.ts`：
 
 ```ts
-import type { MailIngestJdBindStatus } from "@arc/db-schema/schema";
+import type { MailIngestJdBindStatus } from "@app/db-schema/schema";
 
 /**
  * 由现有 resolveMailJobBinding 已算出的中间值派生 jdBindStatus（仅观测，不改绑定动作）。
@@ -227,7 +227,7 @@ import {
   updateMailIngestMessageResult,
   claimMailIngestMessageForProcessing,
 } from "../dao";
-import { mailIngestMessage } from "@arc/db-schema/schema";
+import { mailIngestMessage } from "@app/db-schema/schema";
 
 describe("mail ingest observability writers", () => {
   it("updateMailIngestMessageResult persists observability fields", async () => {
@@ -343,7 +343,7 @@ export async function updateMailIngestMessageResult(
 }
 ```
 
-在文件顶部 import 处补 `MailIngestJdBindStatus`、`MailIngestSkipReason`（来自 `@arc/db-schema/schema`）。
+在文件顶部 import 处补 `MailIngestJdBindStatus`、`MailIngestSkipReason`（来自 `@app/db-schema/schema`）。
 
 - [ ] **Step 4: 加 `markMailIngestMessageSkipped`**（`dao.ts`，紧邻上一函数）
 
@@ -531,7 +531,7 @@ async function resolveMailJobBinding(
 }
 ```
 
-import 顶部加 `deriveJdBindStatus`（`./job-binding`）与 `MailIngestJdBindStatus`（`@arc/db-schema/schema`）。
+import 顶部加 `deriveJdBindStatus`（`./job-binding`）与 `MailIngestJdBindStatus`（`@app/db-schema/schema`）。
 
 - [ ] **Step 4: `createBatchForMail` 无附件返回 null（不抛）**
 
@@ -911,7 +911,7 @@ Run:
 
 ```bash
 pnpm fix
-pnpm --filter @arc/db-schema typecheck
+pnpm --filter @app/db-schema typecheck
 pnpm --filter @app/worker test
 pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest
 ```

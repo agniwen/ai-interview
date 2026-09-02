@@ -5,8 +5,8 @@ import type { RecruitingVisibilityScope } from "../../access/recruiting-visibili
 import {
   hasPermissionInStatements,
   normalizePermissionStatements,
-} from "@arc/shared/permission-statements";
-import { roles } from "@arc/shared/permissions";
+} from "@app/shared/permission-statements";
+import { roles } from "@app/shared/permissions";
 import { z } from "zod";
 import {
   jobDescription,
@@ -17,11 +17,11 @@ import {
   organizationRole,
   recruitingGroupMember,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   MeetingRecruitingContextLink,
   MeetingRecruitingRecordSummary,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 
 const LINKABLE_MEETING_STATUSES = [
   "workspace-verified",

@@ -1,4 +1,4 @@
-import type { UploadTaskInboxRecord } from "@arc/shared/upload-task-inbox";
+import type { UploadTaskInboxRecord } from "@app/shared/upload-task-inbox";
 import { describe, expect, it } from "vitest";
 import {
   getUploadTaskPreviewTarget,

@@ -1,9 +1,9 @@
 "use client";
 
 import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
-import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
-import type { CandidateInterviewFeedbackInput } from "@arc/db-schema/studio-interviews";
-import { cn } from "@arc/shared/utils";
+import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
+import type { CandidateInterviewFeedbackInput } from "@app/db-schema/studio-interviews";
+import { cn } from "@app/shared/utils";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 

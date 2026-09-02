@@ -9,7 +9,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 import { copyInterviewLink } from "../interviews/interview-link-actions";
 import { resolveAiInterviewLinkState } from "../interviews/ai-interview-link-state";

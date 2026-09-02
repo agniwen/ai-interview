@@ -169,7 +169,7 @@ const defaultDependencies: ServerEntryDependencies = {
   createOgImageResponse,
   getEnv: (name) => process.env[name],
   getResumeParseQueueStats: async () => {
-    const { getResumeParseQueueStats } = await import("@arc/resume-parse-queue/resume-parse");
+    const { getResumeParseQueueStats } = await import("@app/resume-parse-queue/resume-parse");
     return getResumeParseQueueStats();
   },
   initializeFeishuBots: async () => {
@@ -177,7 +177,7 @@ const defaultDependencies: ServerEntryDependencies = {
     await initializeFeishuBots();
   },
   isResumeParseQueueConfigured: async () => {
-    const { isResumeParseQueueConfigured } = await import("@arc/resume-parse-queue/resume-parse");
+    const { isResumeParseQueueConfigured } = await import("@app/resume-parse-queue/resume-parse");
     return isResumeParseQueueConfigured();
   },
   pingDatabase: async () => {

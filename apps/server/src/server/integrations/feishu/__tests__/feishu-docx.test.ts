@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- Feishu document adapter scenarios share realistic API fixtures and request invariants. */
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import {
   createFeishuDocx,
   grantFeishuDocxAccess,

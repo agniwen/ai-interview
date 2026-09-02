@@ -1,7 +1,7 @@
 "use client";
 
 import { IconFileText, IconHistory, IconUserPlus } from "@tabler/icons-react";
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";

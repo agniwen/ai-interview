@@ -12,7 +12,7 @@ import {
 import {
   enqueueMeetingPlaybackJobs,
   isMeetingProcessingQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-playback";
+} from "@app/meeting-processing-queue/meeting-playback";
 import {
   createOrLoadMeetingSession,
   isMeetingPurgeTombstoned,
@@ -26,7 +26,7 @@ import {
   renewMeetingDirectUploadLease,
 } from "./dao";
 import { loadAuthorizedMeeting } from "./authorized-meeting";
-import type { MeetingGrantRole } from "@arc/shared/meeting-recording";
+import type { MeetingGrantRole } from "@app/shared/meeting-recording";
 
 export interface MeetingServiceAsset {
   contentType: string;

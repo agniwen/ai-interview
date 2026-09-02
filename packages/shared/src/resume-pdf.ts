@@ -1,7 +1,7 @@
-import type { ArcMessage } from "@arc/shared/ai-message";
-import { getArcFileName, getArcFileUrl, isArcFilePart } from "@arc/shared/ai-message";
-import { decodeDataUrl } from "@arc/shared/data-url";
-import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
+import type { ArcMessage } from "@app/shared/ai-message";
+import { getArcFileName, getArcFileUrl, isArcFilePart } from "@app/shared/ai-message";
+import { decodeDataUrl } from "@app/shared/data-url";
+import { isSupportedResumeDocumentInput } from "@app/shared/resume-documents";
 
 // ---------------------------------------------------------------------------
 // Resume document helpers used across the chat / screening pipelines.

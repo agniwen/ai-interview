@@ -1,4 +1,4 @@
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { KeywordHighlightProvider } from "../context";

@@ -7,7 +7,7 @@ Electron desktop app for Meeting Buddy (`@app/desktop`) — HR–candidate conve
 - [electron-vite](https://electron-vite.org/)
 - React 19 + TypeScript
 - TanStack Router (hash history — safe for Electron `file://` + dev)
-- TanStack Query (`@arc/shared/query-client` defaults)
+- TanStack Query (`@app/shared/query-client` defaults)
 - Tailwind CSS v4 (`@tailwindcss/vite`) — theme tokens aligned with web app
 - Icons via Iconify + Phosphor (`@iconify/react`, `@iconify-json/ph`) — https://icones.js.org/collection/ph
 - shadcn/coss-style UI subset under `src/renderer/src/components/ui/`

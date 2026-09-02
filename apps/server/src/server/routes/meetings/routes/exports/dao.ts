@@ -5,7 +5,7 @@ import {
   meetingTranscriptRevision,
   meetingTranscriptTurn,
   member,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { isWorkspaceAdministrator } from "../../access";
 
 export type MeetingExportContext =

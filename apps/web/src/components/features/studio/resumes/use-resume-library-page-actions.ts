@@ -1,8 +1,8 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { canDeleteResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import { canDeleteResumeRecord, canLaunchInterviewFromResume } from "@app/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { bulkDeleteStudioResumes, deleteStudioResume } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";

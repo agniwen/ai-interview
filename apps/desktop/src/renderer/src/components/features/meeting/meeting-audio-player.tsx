@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { MeetingPlaybackAuthorization } from "@arc/shared/meeting-recording";
-import { cn } from "@arc/shared/utils";
+import type { MeetingPlaybackAuthorization } from "@app/shared/meeting-recording";
+import { cn } from "@app/shared/utils";
 import {
   AudioPlayerButton,
   AudioPlayerDuration,

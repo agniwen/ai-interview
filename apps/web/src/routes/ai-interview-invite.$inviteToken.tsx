@@ -1,8 +1,8 @@
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { candidateInterviewInvitationStatusSchema } from "@arc/db-schema/interview-notifications";
-import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
+import { candidateInterviewInvitationStatusSchema } from "@app/db-schema/interview-notifications";
+import type { PublicAiInterviewInvitationPreview } from "@app/shared/studio-pipeline-stages";
 import { AiInterviewInvitationPage } from "@/components/features/interview/ai-interview-invitation-page";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";

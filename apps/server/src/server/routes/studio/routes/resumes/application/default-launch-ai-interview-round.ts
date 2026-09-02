@@ -8,10 +8,10 @@ import {
   refreshInterviewContextSnapshot,
 } from "../../interviews/dao/context-snapshots";
 import { setResumeEvaluationStatusWithAuditTx } from "../dao/evaluation";
-import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
-import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
-import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
-import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
+import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
+import { createDefaultScheduleEntry } from "@app/db-schema/studio-interviews";
+import { canApplyCandidatePipelineEvent } from "@app/shared/candidate-pipeline-machine";
+import { canLaunchInterviewFromResume } from "@app/shared/studio-resumes";
 import {
   createLaunchAiInterviewRound,
   isStructuredEvaluationConfirmationValid,

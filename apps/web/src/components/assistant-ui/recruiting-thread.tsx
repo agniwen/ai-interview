@@ -39,7 +39,7 @@ import { Button } from "@/components/ui/button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
 import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import {

@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/index";
-import { resumePoolItem, studioInterview } from "@arc/db-schema/schema";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumePoolScope } from "@arc/db-schema/schema";
-import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
+import { resumePoolItem, studioInterview } from "@app/db-schema/schema";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumePoolScope } from "@app/db-schema/schema";
+import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
 import { findSemanticResumeDuplicates } from "./dedup-service";
 import { replaceDuplicateMatchesForSource } from "./duplicate-matches";
 import { runResumeSemanticIndexJob } from "./indexer";

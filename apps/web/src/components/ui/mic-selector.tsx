@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LiveWaveform } from "@/components/ui/live-waveform";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const PAREN_SUFFIX_RE = /\s*\([^)]*\)/g;
 

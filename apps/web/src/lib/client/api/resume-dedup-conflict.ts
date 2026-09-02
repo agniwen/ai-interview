@@ -1,6 +1,6 @@
 import type { DedupMatchRecord } from "./endpoints/studio-interviews";
 import { isApiError } from "./errors";
-import { pipelineStageSchema } from "@arc/db-schema/studio-interviews";
+import { pipelineStageSchema } from "@app/db-schema/studio-interviews";
 import { z } from "zod";
 
 const dedupMatchSchema = z.object({

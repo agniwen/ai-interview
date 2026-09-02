@@ -1,6 +1,6 @@
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { candidateFormSubmission, jobDescription, studioInterview } from "@arc/db-schema/schema";
+import { candidateFormSubmission, jobDescription, studioInterview } from "@app/db-schema/schema";
 
 export interface CandidateSearchRow {
   candidateName: string;

@@ -2,8 +2,8 @@ import type {
   MeetingDetail,
   MeetingPlaybackAuthorization,
   MeetingProcessingState,
-} from "@arc/shared/meeting-recording";
-import type { MeetingTranscriptResult } from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-recording";
+import type { MeetingTranscriptResult } from "@app/shared/meeting-transcription";
 import type { LiveTranscriptDraftStatus } from "@/lib/meeting-capture/live-transcript-draft";
 import type { LocalMeetingSessionState } from "../../../../../preload/local-meeting-session";
 import type { WorkspaceSavePhase } from "../../../../../preload/meeting-capture";

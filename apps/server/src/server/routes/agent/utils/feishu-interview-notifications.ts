@@ -8,7 +8,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { db } from "../../../../lib/server/db/index";
 import { buildSenderFromAddress, getResendClient } from "../../../../lib/server/resend";
 import { getRequiredEnv } from "../../../../lib/server/env";
@@ -23,7 +23,7 @@ import {
 } from "./interview-notification-format";
 import { getGlobalConfig } from "../../studio/routes/global-config/dao";
 import { renderInterviewSummaryEmail } from "../../studio/routes/interviews/routes/round-emails/utils/templates";
-import { isInterviewQuestionSetComplete } from "@arc/shared/interview/question-outcomes";
+import { isInterviewQuestionSetComplete } from "@app/shared/interview/question-outcomes";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const RETRY_BATCH_SIZE = 20;

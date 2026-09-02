@@ -1,11 +1,11 @@
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import type { PublicHumanInterviewMeetingPreview } from "@arc/shared/studio-pipeline-stages";
+import type { PublicHumanInterviewMeetingPreview } from "@app/shared/studio-pipeline-stages";
 import {
   humanInterviewMeetingStatusSchema,
   humanInterviewRecordingStatusSchema,
-} from "@arc/db-schema/studio-interviews";
-import { candidateInterviewInvitationStatusSchema } from "@arc/db-schema/interview-notifications";
+} from "@app/db-schema/studio-interviews";
+import { candidateInterviewInvitationStatusSchema } from "@app/db-schema/interview-notifications";
 import { z } from "zod";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
 import { formatDocumentTitle } from "@/lib/start/document-title";

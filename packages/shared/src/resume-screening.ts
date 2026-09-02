@@ -1,5 +1,5 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { JsonValue } from "@app/db-schema/json";
 import { z } from "zod";
 
 const nonEmptyStringSchema = z.string().trim().min(1);

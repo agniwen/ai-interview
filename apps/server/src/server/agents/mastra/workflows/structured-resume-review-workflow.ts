@@ -5,8 +5,8 @@ import {
   structuredResumeEvidenceSchema,
   structuredResumeEvaluationV1Schema,
   structuredResumeRuleStatusSchema,
-} from "@arc/db-schema/structured-resume-evaluation";
-import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/structured-resume-evaluation";
+import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-structured-config";
 import {
   assembleStructuredResumeEvaluation,
   computeStructuredResumeCalculation,
@@ -28,7 +28,7 @@ import type {
   StructuredResumePromptContext,
 } from "../../structured-resume-evaluation";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
-import type { AiRunEvent } from "@arc/shared/ai-run-events";
+import type { AiRunEvent } from "@app/shared/ai-run-events";
 
 const STEP_LABELS = {
   "assemble-structured-evaluation": "组装评估结果",

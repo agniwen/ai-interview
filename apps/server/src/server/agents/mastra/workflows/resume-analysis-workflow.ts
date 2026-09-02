@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   generatedInterviewQuestionSchema,
   resumeProfileSchema,
-} from "@arc/db-schema/interview/types";
+} from "@app/db-schema/interview/types";
 import {
   generateInterviewQuestionsForProfile,
   parseResumeBytesToProfile,

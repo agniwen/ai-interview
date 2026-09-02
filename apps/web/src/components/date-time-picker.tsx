@@ -16,7 +16,7 @@ import {
   parseDatePickerValue,
   parseDateTimePickerValue,
 } from "@/lib/client/date-picker-value";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));

@@ -6,7 +6,7 @@ import type {
   ResumeUploadBatchStatus,
   ResumeUploadBatchTarget,
   ResumePoolScope,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 export const MAX_BULK_BATCH_SIZE = 100;
 export const MAX_RESUME_FILE_SIZE_BYTES = 20 * 1024 * 1024;

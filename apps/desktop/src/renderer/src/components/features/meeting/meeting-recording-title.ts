@@ -1,5 +1,5 @@
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
-import { formatDefaultMeetingTitle, meetingDisplayTitle } from "@arc/shared/utils/time";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
+import { formatDefaultMeetingTitle, meetingDisplayTitle } from "@app/shared/utils/time";
 import type { LocalMeetingSession } from "../../../../../preload/local-meeting-session";
 
 export const RECORDING_TITLE_DELAY_MS = 30_000;

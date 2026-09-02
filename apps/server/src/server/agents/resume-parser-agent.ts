@@ -1,9 +1,9 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { JsonValue } from "@arc/db-schema/json";
-import { readPdfBytes } from "@arc/shared/resume-pdf";
-import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
-import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { JsonValue } from "@app/db-schema/json";
+import { readPdfBytes } from "@app/shared/resume-pdf";
+import { structuredSchema } from "@app/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
+import { normalizeResumeScoringFacts } from "@app/db-schema/resume-scoring-facts";
 
 export type { ResumeParserStructured };
 export { structuredSchema };

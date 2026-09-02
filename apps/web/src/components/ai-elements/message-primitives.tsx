@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "ai";
 import type { HTMLAttributes } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];

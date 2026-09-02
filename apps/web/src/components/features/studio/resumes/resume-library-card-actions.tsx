@@ -26,8 +26,8 @@ import {
   canDeleteResumeRecord,
   canEditResumeRecord,
   canLaunchInterviewFromResume,
-} from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 
 const ACTION_ICON_CLASS = "size-3.5";

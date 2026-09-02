@@ -1,7 +1,7 @@
 import { IconHistory } from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { canDeleteResumeRecord } from "@arc/shared/studio-resumes";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import { canDeleteResumeRecord } from "@app/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";

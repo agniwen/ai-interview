@@ -1,7 +1,7 @@
 // 对象工具的纯函数测试 / Pure-function tests for the object helpers.
 
 import { describe, expect, it } from "vitest";
-import { mergeDefined, omit, pick } from "@arc/shared/utils/object";
+import { mergeDefined, omit, pick } from "@app/shared/utils/object";
 
 describe("pick", () => {
   it("picks the listed keys", () => {

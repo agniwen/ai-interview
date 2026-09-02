@@ -6,7 +6,7 @@
 
 import { EditorContent } from "@tiptap/react";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { MarkdownEditorBubbleMenu } from "./bubble-menu";
 import { MarkdownEditorToolbar } from "./toolbar";
 import { useMarkdownEditor } from "./use-markdown-editor";

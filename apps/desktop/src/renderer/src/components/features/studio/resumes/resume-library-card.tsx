@@ -7,13 +7,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { describeResumeProgress } from "@arc/shared/studio-resumes";
+import { describeResumeProgress } from "@app/shared/studio-resumes";
 import type {
   ResumeLibraryListRecord,
   ResumeLibraryProfileSnapshot,
   ResumeLibraryProfileSnapshotLine,
-} from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import {
   formatLocalDateTime,
   formatResumeRecordDisplayId,

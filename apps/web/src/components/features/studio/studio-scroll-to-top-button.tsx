@@ -5,7 +5,7 @@ import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 
 const SHOW_AFTER_PX = 320;

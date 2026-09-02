@@ -3,11 +3,11 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../../../../lib/server/db/index";
 import { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import {
   qualitativeResumeEvaluationV1Schema,
   qualitativeResumeEvaluationV2Schema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 import {
   interviewAuditLog,
   interviewConversation,
@@ -17,16 +17,16 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
-import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/schema";
+import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 import type {
   HumanInterviewCandidateAiEvaluationResponse,
   HumanInterviewCandidateHrInformationResponse,
   HumanInterviewCandidateMaterialListItem,
   HumanInterviewCandidateOverviewResponse,
   HumanInterviewCandidateQuestionsResponse,
-} from "@arc/shared/human-interview-candidate-materials";
-import { humanInterviewCandidateHrEvaluationSchema } from "@arc/shared/human-interview-candidate-materials";
+} from "@app/shared/human-interview-candidate-materials";
+import { humanInterviewCandidateHrEvaluationSchema } from "@app/shared/human-interview-candidate-materials";
 import { z } from "zod";
 
 export type HumanInterviewCandidateMaterialsScope = NonNullable<

@@ -18,7 +18,7 @@ import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 interface Props {
   editor: Editor | null;
   disabled?: boolean;

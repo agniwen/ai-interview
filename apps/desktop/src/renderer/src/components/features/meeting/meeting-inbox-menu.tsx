@@ -18,7 +18,7 @@ import type {
   RecoverableMeetingCapture,
   WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { formatAppDateTimeShort } from "@/lib/client/datetime";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";

@@ -5,7 +5,7 @@ import * as React from "react";
 import { Chart as TanStackChart } from "@tanstack/react-charts";
 import { Chart as TanStackTooltipChart } from "@tanstack/react-charts/tooltip";
 import { tooltip as tanstackTooltip } from "@tanstack/charts/tooltip";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { dark: ".dark", light: "" } as const;

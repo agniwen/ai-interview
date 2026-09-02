@@ -1,5 +1,5 @@
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
-import { pipelineStageSchema } from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, PipelineStage } from "@app/db-schema/studio-interviews";
+import { pipelineStageSchema } from "@app/db-schema/studio-interviews";
 import { setup, transition } from "xstate";
 
 export type CandidatePipelineEventType =

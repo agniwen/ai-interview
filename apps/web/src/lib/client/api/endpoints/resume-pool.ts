@@ -1,7 +1,7 @@
 import type {
   JobDescriptionListRecord,
   JobDescriptionRecommendationResult,
-} from "@arc/shared/job-descriptions";
+} from "@app/shared/job-descriptions";
 import type {
   PaginatedResumePoolResult,
   ResumePoolDetail,
@@ -10,8 +10,8 @@ import type {
   ResumePoolJobMatchResult,
   ResumePoolListRecord,
   ResumePoolUploaderOption,
-} from "@arc/shared/resume-pool";
-import type { ResumePoolScope } from "@arc/db-schema/schema";
+} from "@app/shared/resume-pool";
+import type { ResumePoolScope } from "@app/db-schema/schema";
 import { rpc } from "@/lib/client/rpc";
 import type { DedupMatchRecord } from "./studio-interviews";
 import { apiFetch } from "../client";

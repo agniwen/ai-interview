@@ -1,18 +1,18 @@
-import type { resumePoolItem } from "@arc/db-schema/schema";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import type { resumePoolItem } from "@app/db-schema/schema";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
 import { buildResumeProfileSnapshotFromProfile } from "../../resumes/dao/resume-profile-snapshot";
 import {
   formatResumeEducationItems,
   formatResumeEducationLines,
-} from "@arc/shared/resume-education";
+} from "@app/shared/resume-education";
 import type {
   ResumePoolDetail,
   ResumePoolJobBindingMode,
   ResumePoolListRecord,
   ResumePoolProfileHighlights,
   ResumePoolSourceChannel,
-} from "@arc/shared/resume-pool";
+} from "@app/shared/resume-pool";
 
 type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
 type PoolListRow = Omit<PoolRow, "qualitativeResumeEvaluation">;

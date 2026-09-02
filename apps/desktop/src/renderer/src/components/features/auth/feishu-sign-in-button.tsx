@@ -10,7 +10,7 @@ import {
   desktopAuthSuccessUrl,
 } from "@/lib/auth-client";
 import { env } from "@/env";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface FeishuSignInButtonProps {
   className?: string;

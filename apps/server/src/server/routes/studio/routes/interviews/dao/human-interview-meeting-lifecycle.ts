@@ -3,11 +3,11 @@ import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingEvent,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingProvider,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { cancelPendingHumanMeetingReminders } from "../../../../../interview-notifications/utils/events";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 

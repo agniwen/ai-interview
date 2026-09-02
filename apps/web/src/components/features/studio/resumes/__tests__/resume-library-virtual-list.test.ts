@@ -1,5 +1,5 @@
-import { resumeLibrarySortIds } from "@arc/shared/studio-resumes";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import { resumeLibrarySortIds } from "@app/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {

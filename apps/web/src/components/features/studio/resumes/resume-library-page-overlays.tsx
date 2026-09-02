@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { toDedupSourceFromLibraryRecord } from "@/components/features/resume/resume-dedup-source";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
@@ -14,7 +14,7 @@ import { StudioScrollToTopButton } from "@/components/features/studio/studio-scr
 import { ResumeUploadEntryDialog } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
-import type { BulkResumeBatchDto } from "@arc/shared/bulk-resume-upload";
+import type { BulkResumeBatchDto } from "@app/shared/bulk-resume-upload";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import {

@@ -1,11 +1,11 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
-import { department, interviewer } from "@arc/db-schema/schema";
-import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
-import { interviewerFormSchema, interviewerUpdateSchema } from "@arc/shared/interviewers";
+import { department, interviewer } from "@app/db-schema/schema";
+import { minimaxVoiceSchema } from "@app/db-schema/minimax-voices";
+import { interviewerFormSchema, interviewerUpdateSchema } from "@app/shared/interviewers";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { getOrCreateMinimaxVoicePreview } from "./voice-preview";
 import {

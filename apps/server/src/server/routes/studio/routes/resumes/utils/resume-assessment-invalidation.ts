@@ -1,4 +1,4 @@
-import type { studioInterview } from "@arc/db-schema/schema";
+import type { studioInterview } from "@app/db-schema/schema";
 
 export const INVALIDATED_AI_RESUME_ASSESSMENT = {
   notes: null,

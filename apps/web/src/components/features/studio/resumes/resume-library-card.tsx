@@ -12,13 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { describeResumeProgress } from "@arc/shared/studio-resumes";
+import { describeResumeProgress } from "@app/shared/studio-resumes";
 import type {
   ResumeLibraryListRecord,
   ResumeLibraryProfileSnapshot,
   ResumeLibraryProfileSnapshotLine,
-} from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import { ResumeLibraryCardActions } from "./resume-library-card-actions";
 import { ResumeLibraryEvaluationSummary } from "./resume-library-evaluation-summary";
 import type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";

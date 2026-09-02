@@ -1,4 +1,4 @@
-import { meetingDisplayTitle } from "@arc/shared/utils/time";
+import { meetingDisplayTitle } from "@app/shared/utils/time";
 
 export function parseMeetingSessionId(pathname: string): string | null {
   const match = /^\/meetings\/([^/]+)(?:\/more)?$/.exec(pathname);

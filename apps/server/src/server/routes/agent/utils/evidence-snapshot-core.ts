@@ -2,8 +2,8 @@ import type {
   InterviewContextSnapshotPayload,
   InterviewEvidenceSnapshotFormSubmission,
   InterviewEvidenceSnapshotPayload,
-} from "@arc/db-schema/interview-snapshots";
-import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
+} from "@app/db-schema/interview-snapshots";
+import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
 import type { InterviewEvidenceSnapshotRecord } from "./evidence-snapshot";
 
 export interface EvidenceSnapshotConversation {

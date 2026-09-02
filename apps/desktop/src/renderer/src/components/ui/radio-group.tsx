@@ -5,7 +5,7 @@ import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
   return (

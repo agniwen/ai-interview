@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import { meetingAuditLog, meetingNote, meetingSession } from "@arc/db-schema/schema";
-import type { CreateMeetingNoteInput, UpdateMeetingNoteInput } from "@arc/shared/meeting-recording";
+import { meetingAuditLog, meetingNote, meetingSession } from "@app/db-schema/schema";
+import type { CreateMeetingNoteInput, UpdateMeetingNoteInput } from "@app/shared/meeting-recording";
 import {
   MeetingSearchProjectionLimitError,
   rebuildMeetingSearchProjection,

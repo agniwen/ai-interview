@@ -1,8 +1,8 @@
 import { pathToFileURL } from "node:url";
 import { eq } from "drizzle-orm";
-import type { ArcMessage } from "@arc/db-schema/ai-message";
-import type { JsonValue } from "@arc/db-schema/json";
-import { chatMessage } from "@arc/db-schema/schema";
+import type { ArcMessage } from "@app/db-schema/ai-message";
+import type { JsonValue } from "@app/db-schema/json";
+import { chatMessage } from "@app/db-schema/schema";
 import type { Database } from "../lib/server/db/index";
 import { legacyUiMessageToArcMessage } from "../server/agents/mastra/adapters/arc-message-adapter";
 import { loadStandaloneEnv } from "../standalone/env";

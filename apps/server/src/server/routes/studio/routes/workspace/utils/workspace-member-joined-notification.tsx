@@ -5,7 +5,7 @@ import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section } 
 import { db } from "../../../../../../lib/server/db/index";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
-import { account, organization, user } from "@arc/db-schema/schema";
+import { account, organization, user } from "@app/db-schema/schema";
 
 export interface WorkspaceMemberJoinedNotificationContext {
   joinedMemberName: string;

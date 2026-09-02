@@ -1,13 +1,13 @@
 import {
   enqueueResumeParseJobs,
   isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
+} from "@app/resume-parse-queue/resume-parse";
 import type {
   ResumeParseRetryClaim,
   ResumeParseRetryRequest,
   ResumeParseRetryTarget,
 } from "../dao/retry";
-import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
+import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
 
 interface ResumeParseRetryAdapters {
   claim: (input: ResumeParseRetryRequest) => Promise<ResumeParseRetryClaim>;

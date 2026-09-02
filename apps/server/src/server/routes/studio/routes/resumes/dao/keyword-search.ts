@@ -1,4 +1,4 @@
-import { listTextFiltersSchema, parseListTextFilters } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema, parseListTextFilters } from "@app/shared/list-text-filters";
 import { literalTextContains } from "../../../../../../lib/server/db/list-text-filters";
 import { and, sql } from "drizzle-orm";
 import type { SQL, SQLWrapper } from "drizzle-orm";

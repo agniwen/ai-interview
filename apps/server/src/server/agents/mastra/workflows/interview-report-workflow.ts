@@ -1,7 +1,7 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
-import { interviewDataCollectionResultsSchema } from "@arc/shared/interview/question-outcomes";
+import { generatedInterviewQuestionSchema } from "@app/db-schema/interview/types";
+import { interviewDataCollectionResultsSchema } from "@app/shared/interview/question-outcomes";
 import {
   composeInterviewReport,
   generateInterviewEvaluation,

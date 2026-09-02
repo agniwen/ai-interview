@@ -2,7 +2,7 @@ import type {
   PublicReferralPreview,
   PublicReferralUploadResult,
   ReferralLinkCreateResult,
-} from "@arc/shared/referrals";
+} from "@app/shared/referrals";
 import { apiFetch } from "../client";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";

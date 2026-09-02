@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VISIBLE_PIPELINE_STAGES } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { ResumeLibraryMetricsSection } from "@/components/features/studio/resumes/resume-library-metrics-section";
 import { studioResumeKeys } from "@/lib/client/api/query-keys";

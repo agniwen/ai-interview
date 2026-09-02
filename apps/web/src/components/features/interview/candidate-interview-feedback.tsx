@@ -4,13 +4,13 @@ import type {
   CandidateInterviewFeedback,
   CandidateInterviewFeedbackCategory,
   CandidateInterviewFeedbackInput,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import {
   candidateInterviewFeedbackCategoryMeta,
   candidateInterviewFeedbackCategoryValues,
   candidateInterviewFeedbackInputSchema,
-} from "@arc/db-schema/studio-interviews";
-import { cn } from "@arc/shared/utils";
+} from "@app/db-schema/studio-interviews";
+import { cn } from "@app/shared/utils";
 import {
   IconArrowsMaximize,
   IconArrowsMinimize,

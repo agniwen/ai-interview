@@ -43,7 +43,7 @@ pnpm --filter @app/server eval:resume-reviews -- --org org_default
 真实结果数据成熟前，使用 24 个合成边界案例守住规则正确性：学历和年限边界、信息缺失、技能全量/至少项匹配、语义证据、规则严重级别和空策略。运行：
 
 ```bash
-pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
+pnpm --filter @app/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
 ```
 
 合成案例只验证结构和规则契约：信息不足必须进入人工核实，明确 blocking 失败只能暂缓推进，不能用来拟合六维权重、业务阈值或证明真实误拒率。

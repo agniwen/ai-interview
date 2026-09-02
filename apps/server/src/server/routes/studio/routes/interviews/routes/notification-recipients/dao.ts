@@ -7,7 +7,7 @@ import {
   studioInterview,
   studioInterviewNotificationRecipient,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 export interface InterviewNotificationRecipientRecord {

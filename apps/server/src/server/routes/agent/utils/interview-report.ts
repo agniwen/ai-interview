@@ -1,10 +1,10 @@
 import { z } from "zod";
-import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
-import type { InterviewEvidenceSnapshotFormSubmission } from "@arc/db-schema/interview-snapshots";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import { hasExistingInterviewAnswers } from "@arc/shared/interview/question-outcomes";
-import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
-import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
+import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
+import type { InterviewEvidenceSnapshotFormSubmission } from "@app/db-schema/interview-snapshots";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import { hasExistingInterviewAnswers } from "@app/shared/interview/question-outcomes";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import { formatCandidateFormAnswer } from "@app/shared/candidate-form-answer";
 import {
   generateStructuredWithMastraAgent,
   generateTextWithMastraAgent,

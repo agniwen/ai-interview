@@ -6,7 +6,7 @@ import {
   organization,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { interviewRouter } from "../route";
 
 const ORGANIZATION_ID = "test_candidate_end_reason_org";

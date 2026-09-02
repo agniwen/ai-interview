@@ -1,4 +1,4 @@
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 
 export type LocalMeetingSessionState =
   | "recording"

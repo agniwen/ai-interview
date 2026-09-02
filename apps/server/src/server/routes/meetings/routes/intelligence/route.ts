@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "../../../../factory";
-import { requestMeetingIntelligenceSchema } from "@arc/shared/meeting-intelligence";
+import { requestMeetingIntelligenceSchema } from "@app/shared/meeting-intelligence";
 import {
   getSavedMeetingIntelligence,
   regenerateSavedMeetingIntelligence,

@@ -1,6 +1,6 @@
-import type { parseScheduleEntriesInput } from "@arc/db-schema/studio-interviews";
-import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
+import type { parseScheduleEntriesInput } from "@app/db-schema/studio-interviews";
+import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
 import {
@@ -8,12 +8,12 @@ import {
   jobDescription,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   buildCandidateInterviewView,
   pickCurrentScheduleEntry,
   sortScheduleEntries,
-} from "@arc/shared/interview/interview-record";
+} from "@app/shared/interview/interview-record";
 import { parseResumeFastToProfile, ResumeAnalysisError } from "../../agents/resume-analysis-agent";
 import { projectAttachmentToResumeProfile } from "../../agents/resume-parser-agent";
 import {
@@ -22,12 +22,12 @@ import {
   updateStructuredByHash,
 } from "../chat/dao/chat-attachments";
 import { generateResumeStructured } from "../../../lib/server/resume-parse-pipeline";
-import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
+import { getResumeDocumentExtension } from "@app/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
 } from "../studio/routes/interviews/dao/context-snapshots";
-import { sha256HexOfBytes } from "@arc/shared/file-hash";
+import { sha256HexOfBytes } from "@app/shared/file-hash";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import { isResumeParseCacheEnabled } from "../../../lib/server/resume-parse-cache-policy";
 import { isResumeParseCacheSourceCompatible } from "../../../lib/server/resume-parse-provider";

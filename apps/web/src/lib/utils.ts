@@ -1,1 +1,1 @@
-export { cn } from "@arc/shared/utils/cn";
+export { cn } from "@app/shared/utils/cn";

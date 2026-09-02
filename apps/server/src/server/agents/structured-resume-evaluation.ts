@@ -1,17 +1,17 @@
 /* oxlint-disable max-lines -- the evaluator keeps its schemas, Agent prompts, deterministic normalization, scoring, and artifact assembly in one versioned module. */
 import { z } from "zod";
-import type { JsonValue } from "@arc/db-schema/json";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
-import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
-import type { ResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
+import type { JsonValue } from "@app/db-schema/json";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
+import { normalizeResumeScoringFacts } from "@app/db-schema/resume-scoring-facts";
+import type { ResumeScoringFacts } from "@app/db-schema/resume-scoring-facts";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-description-structured-config";
 import {
   structuredResumeEvidenceSchema,
   structuredResumeEvaluationV1Schema,
   structuredResumeGateStatusSchema,
   structuredResumeRuleStatusSchema,
-} from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
 import {
   areStructuredResumeEvidenceSourcesValid,
   computeRelevantExperience,
@@ -20,13 +20,13 @@ import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION,
   STRUCTURED_RESUME_DIMENSIONS,
-} from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
 import type {
   StructuredResumeAdjustmentMatch,
   StructuredResumeGateJudgment,
   StructuredResumeRuleJudgment,
-} from "@arc/shared/structured-resume-scoring";
-import type { StructuredResumeSkillAssessment } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/shared/structured-resume-scoring";
+import type { StructuredResumeSkillAssessment } from "@app/db-schema/structured-resume-evaluation";
 import {
   generateStructuredWithMastraAgent,
   structuredResumeAdjustmentAgent,

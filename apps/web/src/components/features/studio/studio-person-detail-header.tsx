@@ -5,10 +5,10 @@ import { IconExternalLink, IconRobot } from "@tabler/icons-react";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
-} from "@arc/shared/studio-interview-rounds";
-import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-interview-rounds";
+import { canLaunchInterviewFromResume } from "@app/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
@@ -18,8 +18,8 @@ import { Button } from "@/components/ui/button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HumanInterviewMeetingTokenResponse } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewMeetingTokenResponse } from "@app/shared/studio-pipeline-stages";
 import {
   getHumanInterviewRecordingPollDelayMs,
   shouldPollHumanInterviewRecordingStatus,

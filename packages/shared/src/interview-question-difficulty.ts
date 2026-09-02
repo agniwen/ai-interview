@@ -1,4 +1,4 @@
-import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
 
 export const DIFFICULTY_LABEL = {
   easy: "简单",

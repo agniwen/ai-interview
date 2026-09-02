@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import type { DataGridFetchParams } from "@/components/features/data-grid";
 
 import { authClient } from "@/lib/client/auth-client";

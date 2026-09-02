@@ -1,13 +1,13 @@
 import { z } from "zod";
-import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview, ResumeReviewAction } from "@arc/db-schema/resume-review";
+import type { ResumeAnalysisResult, ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeReview, ResumeReviewAction } from "@app/db-schema/resume-review";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   resumeEvaluationStatusMeta,
   resumeEvaluationStatusSchema,
   resumeParseStatusMeta,
   resumeReviewStatusMeta,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -21,19 +21,19 @@ import type {
   ResumeReviewStatus,
   ResumeScreeningStatus,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "./resume-screening";
 import type {
   StructuredResumeEvaluationV1,
   StructuredResumeGateStatus,
   StructuredResumeGrade,
-} from "@arc/db-schema/structured-resume-evaluation";
-import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
+import type { JobEvaluationMode } from "@app/db-schema/job-description-evaluation";
 import type {
   QualitativeResumeEvaluation,
   QualitativeRecommendationLevel,
   ResumeEvaluationContractMode,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 
 /**
  * AI 面试阶段的派生进度：从 studio_interview_schedule 聚合。

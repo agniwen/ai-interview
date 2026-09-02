@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
+import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import {
   Frame,

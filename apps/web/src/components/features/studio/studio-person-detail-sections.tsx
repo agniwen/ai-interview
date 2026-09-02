@@ -8,10 +8,10 @@
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { z } from "zod";
 
 import type {

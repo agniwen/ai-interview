@@ -7,7 +7,7 @@ import {
   interviewQuestionTemplateJobDescription,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   loadActiveInterviewContextSnapshot,
   refreshInterviewContextSnapshot,

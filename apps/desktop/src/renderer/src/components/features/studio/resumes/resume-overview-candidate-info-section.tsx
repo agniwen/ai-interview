@@ -2,8 +2,8 @@
  * Desktop read-only candidate info (web overview section display path).
  * Edit / JD hover-card are intentionally omitted for the desktop client.
  */
-import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { describeResumeEvaluationStatus } from "@app/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 

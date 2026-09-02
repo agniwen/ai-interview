@@ -1,8 +1,8 @@
-import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
-import type { InterviewContextSnapshotJobDescription } from "@arc/db-schema/interview-snapshots";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import { interviewKeyInformationSchema } from "@arc/db-schema/interview-key-information";
-import type { InterviewKeyInformation } from "@arc/db-schema/interview-key-information";
+import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
+import type { InterviewContextSnapshotJobDescription } from "@app/db-schema/interview-snapshots";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import { interviewKeyInformationSchema } from "@app/db-schema/interview-key-information";
+import type { InterviewKeyInformation } from "@app/db-schema/interview-key-information";
 import {
   generateStructuredWithMastraAgent,
   interviewKeyInformationAgent,

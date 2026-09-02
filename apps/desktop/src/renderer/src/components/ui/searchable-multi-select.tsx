@@ -21,7 +21,7 @@ import {
 import { Icon } from "@/components/ui/icon";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 import { filterSearchableOption } from "@/components/ui/searchable-select";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 // =====================================================================
 // 多选可搜索下拉。底层使用 Coss/Base UI Combobox multiple，输入区直接可搜索。

@@ -7,9 +7,9 @@ import {
   useLoaderData,
   useParams,
 } from "@tanstack/react-router";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
-import type { ResumeEvaluationStatus } from "@arc/shared/studio-resumes";
-import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
+import type { ResumeEvaluationStatus } from "@app/shared/studio-resumes";
+import { describeResumeEvaluationStatus } from "@app/shared/studio-resumes";
 
 import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "@/components/features/studio/lazy-studio-person-detail-panel";
 import { formatDocumentTitle } from "@/lib/start/document-title";

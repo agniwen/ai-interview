@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { JobDescriptionDimensionWeights } from "@arc/db-schema/job-description-structured-config";
+import type { JobDescriptionDimensionWeights } from "@app/db-schema/job-description-structured-config";
 import {
   getDimensionWeightBoundaries,
   moveDimensionWeightBoundary,

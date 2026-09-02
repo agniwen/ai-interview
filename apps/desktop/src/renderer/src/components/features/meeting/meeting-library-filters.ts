@@ -2,8 +2,8 @@ import type {
   MeetingLibraryItem,
   MeetingProcessingState,
   TrashedMeetingItem,
-} from "@arc/shared/meeting-recording";
-import { meetingDisplayTitle } from "@arc/shared/utils/time";
+} from "@app/shared/meeting-recording";
+import { meetingDisplayTitle } from "@app/shared/utils/time";
 import { appDayjs } from "@/lib/client/datetime";
 
 export interface MeetingLibraryFilters {

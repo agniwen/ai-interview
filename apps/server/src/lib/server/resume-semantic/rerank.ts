@@ -1,4 +1,4 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 
 export interface VectorSimilarityScores {
   resumeOverview?: number;

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { createMeetingNoteSchema, updateMeetingNoteSchema } from "@arc/shared/meeting-recording";
+import { createMeetingNoteSchema, updateMeetingNoteSchema } from "@app/shared/meeting-recording";
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
   addMeetingNote,

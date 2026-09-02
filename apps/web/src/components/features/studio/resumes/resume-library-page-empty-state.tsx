@@ -1,5 +1,5 @@
 import { IconUsers } from "@tabler/icons-react";
-import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
 import { ResumeUploadEntryButton } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { z } from "zod";
 
 const jsonValueSchema = z.json();

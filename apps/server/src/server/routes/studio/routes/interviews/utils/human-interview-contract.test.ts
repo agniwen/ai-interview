@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   humanInterviewEvaluationSchema,
   humanInterviewMeetingInputSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 
 describe("human interview contract", () => {
   it("保留历史群面数据，同时仅在新建会议输入上限制单轮次", () => {

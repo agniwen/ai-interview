@@ -7,7 +7,7 @@ import {
   isWorkspaceAdministratorRole,
   roles,
   STUDIO_PAGE_PERMISSION_ACTIONS,
-} from "@arc/shared/permissions";
+} from "@app/shared/permissions";
 
 describe("workspace administrator roles", () => {
   it("only treats owner and admin as administrators", () => {

@@ -16,7 +16,7 @@ import type {
   MeetingProcessingState,
   MeetingSourceTrack,
   MultipartSavedMeetingResponse,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 import {
   isWorkspaceAdministrator,
   meetingAccessCapabilities,

@@ -1,6 +1,6 @@
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT } from "./job-description-form-values";
 
 export function JobDescriptionMarkdownSurface({

@@ -8,7 +8,7 @@ import { mermaid } from "@streamdown/mermaid";
 
 import { memo } from "react";
 import { Streamdown } from "streamdown";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 export { Message, MessageContent } from "./message-primitives";
 export type { MessageContentProps, MessageProps } from "./message-primitives";
 

@@ -18,8 +18,8 @@ Simplified Chinese.
   parsing worker for queued PDF/OCR processing.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI,
   Google, ElevenLabs, Minimax, Silero VAD, and turn detector plugins.
-- **Shared packages** (`packages/`): `@arc/shared`, `@arc/db-schema`, and
-  `@arc/resume-parse-queue`.
+- **Shared packages** (`packages/`): `@app/shared`, `@app/db-schema`, and
+  `@app/resume-parse-queue`.
 - **Application runtime packages** (`packages/`): `@app/ai-runtime`,
   `@app/meeting-media`, and `@app/object-storage`.
 

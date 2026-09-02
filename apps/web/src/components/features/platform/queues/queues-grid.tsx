@@ -38,7 +38,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { formatBytes } from "@arc/shared/utils/format";
+import { formatBytes } from "@app/shared/utils/format";
 import {
   batchStatusMeta,
   formatCount,

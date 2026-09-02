@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { jobDescription } from "@arc/db-schema/schema";
+import { jobDescription } from "@app/db-schema/schema";
 
 /**
  * 取简历绑定岗位的名称，按组织隔离：只有当岗位属于该组织时才返回名字，

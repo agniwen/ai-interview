@@ -1,7 +1,7 @@
 import type {
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 
 type HumanInterviewReviewMutation = "edit" | "submit";
 

@@ -1,9 +1,9 @@
 import { EgressStatus } from "@livekit/protocol";
 import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
-import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
+import type { InterviewRecordingStatus } from "@app/db-schema/db-enums";
 import { db } from "../../../lib/server/db/index";
-import { interviewConversation } from "@arc/db-schema/schema";
+import { interviewConversation } from "@app/db-schema/schema";
 import { factory } from "../../factory";
 import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import {
@@ -18,7 +18,7 @@ import {
   startEligibleHumanInterviewRecordingWithRetry,
   stopActiveHumanInterviewRecordingByRoomName,
 } from "../studio/routes/interviews/utils/human-interview-recording-service";
-import { enqueueHumanInterviewRecordingJobs } from "@arc/meeting-processing-queue/human-interview-recording";
+import { enqueueHumanInterviewRecordingJobs } from "@app/meeting-processing-queue/human-interview-recording";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {

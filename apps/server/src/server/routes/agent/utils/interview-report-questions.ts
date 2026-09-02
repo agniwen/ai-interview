@@ -1,5 +1,5 @@
-import type { InterviewContextSnapshotPayload } from "@arc/db-schema/interview-snapshots";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewContextSnapshotPayload } from "@app/db-schema/interview-snapshots";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 
 export function buildInterviewReportQuestionsFromContext(
   context: InterviewContextSnapshotPayload,

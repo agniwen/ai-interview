@@ -5,8 +5,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 import { db } from "../../../../../../../lib/server/db/index";
-import type { RoundEmailLogStatus, RoundEmailSummaryMap } from "@arc/db-schema/round-email-log";
-import { studioRoundEmailLog } from "@arc/db-schema/schema";
+import type { RoundEmailLogStatus, RoundEmailSummaryMap } from "@app/db-schema/round-email-log";
+import { studioRoundEmailLog } from "@app/db-schema/schema";
 
 interface InsertRoundEmailLogInput {
   errorMessage: string | null;

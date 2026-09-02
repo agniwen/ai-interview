@@ -5,7 +5,7 @@ import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 export async function enqueueHumanMeetingConfirmedIfReady(
   tx: Transaction,

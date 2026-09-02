@@ -13,8 +13,8 @@ import type {
   BulkResumeUploadFileDescriptor,
   CreateBulkResumeBatchInput,
   ProcessNextResult,
-} from "@arc/shared/bulk-resume-upload";
-import type { UploadTaskInboxPage } from "@arc/shared/upload-task-inbox";
+} from "@app/shared/bulk-resume-upload";
+import type { UploadTaskInboxPage } from "@app/shared/upload-task-inbox";
 import { apiFetch } from "@/lib/client/api/client";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";

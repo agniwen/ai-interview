@@ -22,7 +22,7 @@ import {
   organization,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { createOrLoadMeetingSession, loadMeetingSessionForAccess } from "./dao";
 import { withDatabaseAdvisoryTestLock } from "../../../test-utils/database-advisory-lock";
 import { listMeetingQuestionThreads } from "./answers/dao";

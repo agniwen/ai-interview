@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 import * as React from "react";
 import { useEffect, useRef } from "react";

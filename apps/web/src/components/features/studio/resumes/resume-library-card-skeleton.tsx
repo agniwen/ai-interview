@@ -1,6 +1,6 @@
 import { Card, CardPanel } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { RESUME_LIBRARY_CARD_SKELETON_ROW_CLASS } from "./resume-library-card-layout";
 
 export function ResumeLibraryCardSkeleton({ className }: { className?: string }) {

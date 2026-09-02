@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import type { InterviewEvidenceSnapshotPayload } from "@arc/db-schema/interview-snapshots";
+import type { InterviewEvidenceSnapshotPayload } from "@app/db-schema/interview-snapshots";
 import { db } from "../../../../lib/server/db/index";
 import { serializeDate } from "../../../../lib/server/db/serialize";
 import { jsonValueSchema } from "../../../../lib/server/stable-stringify";
-import { interviewConversation, interviewEvidenceSnapshot } from "@arc/db-schema/schema";
+import { interviewConversation, interviewEvidenceSnapshot } from "@app/db-schema/schema";
 import { loadSubmissionsByInterview } from "../../studio/routes/forms/dao/submissions";
 import {
   hashSnapshotPayload,

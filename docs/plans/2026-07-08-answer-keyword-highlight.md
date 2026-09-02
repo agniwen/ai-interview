@@ -4,14 +4,14 @@
 
 **Goal:** 在面试报告与问答记录中，用纯前端规则/词典自动识别并高亮候选人相关文本里的技能、数字/绩效、风险词三类关键词，两处结果一致，可按类别开关。
 
-**Architecture:** 一个纯函数提取层 `@arc/shared/answer-keywords`（同步、可测）产出关键词片段；web 侧 `HighlightedText` 渲染 `<mark>`，`KeywordHighlightProvider` + `KeywordHighlightLegend` 提供共享的分类开关状态；在 `studio-person-detail-panel.tsx` 的报告 Tab 内接入。无 LLM、不改数据库、不动后端。
+**Architecture:** 一个纯函数提取层 `@app/shared/answer-keywords`（同步、可测）产出关键词片段；web 侧 `HighlightedText` 渲染 `<mark>`，`KeywordHighlightProvider` + `KeywordHighlightLegend` 提供共享的分类开关状态；在 `studio-person-detail-panel.tsx` 的报告 Tab 内接入。无 LLM、不改数据库、不动后端。
 
-**Tech Stack:** TypeScript、React 19、Vitest、Tailwind CSS v4、`@arc/shared` 工作区包。
+**Tech Stack:** TypeScript、React 19、Vitest、Tailwind CSS v4、`@app/shared` 工作区包。
 
 ## Global Constraints
 
-- 提取器放 `@arc/shared`，纯/同构，不引入 `node:*`、web 运行时或 `@/` 本地模块。
-- `@arc/shared` 的 `package.json` 已有 `"exports": { "./*": "./src/*.ts" }`，故 `@arc/shared/answer-keywords` 直接解析到 `src/answer-keywords.ts`——**无需**新增 barrel 或改 `exports`。
+- 提取器放 `@app/shared`，纯/同构，不引入 `node:*`、web 运行时或 `@/` 本地模块。
+- `@app/shared` 的 `package.json` 已有 `"exports": { "./*": "./src/*.ts" }`，故 `@app/shared/answer-keywords` 直接解析到 `src/answer-keywords.ts`——**无需**新增 barrel 或改 `exports`。
 - `KeywordSpan.start/end` 为 JS 字符串下标（UTF-16 code unit），与 `String.prototype.slice(start, end)` 一致。
 - 类别固定三类：`"skill" | "metric" | "risk"`；优先级 `risk > skill > metric`。
 - metric 只匹配紧跟单位/百分号的数字；裸数字（年份/题号/年龄/版本号）不命中。
@@ -23,7 +23,7 @@
 
 ## File Structure
 
-**新建（提取层，`@arc/shared`）：**
+**新建（提取层，`@app/shared`）：**
 
 - `packages/shared/src/answer-keywords-dictionary.ts` — 内置技能词典、风险词表、metric 正则。
 - `packages/shared/src/answer-keywords.ts` — 类型 + `extractAnswerKeywords`。
@@ -45,7 +45,7 @@
 
 ---
 
-## Task 1: 关键词提取器 `@arc/shared/answer-keywords`
+## Task 1: 关键词提取器 `@app/shared/answer-keywords`
 
 **Files:**
 
@@ -129,7 +129,7 @@ describe("extractAnswerKeywords", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/shared exec vitest run src/answer-keywords.test.ts`
+Run: `pnpm --filter @app/shared exec vitest run src/answer-keywords.test.ts`
 Expected: FAIL —「Cannot find module './answer-keywords'」。
 
 - [ ] **Step 3: 写词典模块**
@@ -387,7 +387,7 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 
 - [ ] **Step 5: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/shared exec vitest run src/answer-keywords.test.ts`
+Run: `pnpm --filter @app/shared exec vitest run src/answer-keywords.test.ts`
 Expected: PASS（9 个用例全绿）。
 
 - [ ] **Step 6: 提交**
@@ -423,7 +423,7 @@ git commit -m "feat(shared): 候选人回答关键词提取器（技能/数字/�
 ```tsx
 "use client";
 
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 export const ALL_KEYWORD_CATEGORIES: readonly KeywordCategory[] = ["skill", "metric", "risk"];
@@ -481,8 +481,8 @@ export function useKeywordHighlight(): KeywordHighlightContextValue {
 ```tsx
 "use client";
 
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
-import { cn } from "@arc/shared/utils";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
+import { cn } from "@app/shared/utils";
 import { useKeywordHighlight } from "./context";
 
 const CATEGORY_META: { category: KeywordCategory; label: string; dotClass: string }[] = [
@@ -579,7 +579,7 @@ git commit -m "feat(studio): 关键词高亮分类开关状态与图例"
 创建 `.../keyword-highlight/highlighted-text.test.tsx`：
 
 ```tsx
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HighlightedText } from "./highlighted-text";
@@ -620,8 +620,8 @@ Expected: FAIL —「Cannot find module './highlighted-text'」。
 ```tsx
 "use client";
 
-import { extractAnswerKeywords, type KeywordCategory } from "@arc/shared/answer-keywords";
-import { cn } from "@arc/shared/utils";
+import { extractAnswerKeywords, type KeywordCategory } from "@app/shared/answer-keywords";
+import { cn } from "@app/shared/utils";
 import { useMemo } from "react";
 import { ALL_KEYWORD_CATEGORIES } from "./context";
 
@@ -836,7 +836,7 @@ function EvidenceList({
 ```tsx
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
 import { useKeywordHighlight } from "./keyword-highlight/context";
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 ```
 
 再把 `EvidenceList` 内的 quote 渲染，从：
@@ -1078,7 +1078,7 @@ Run:
 pnpm fix
 pnpm --filter @app/web typecheck
 pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail
-pnpm --filter @arc/shared test
+pnpm --filter @app/shared test
 ```
 
 Expected: `pnpm fix` 无报错并把 Step 2 的缩进补齐；typecheck 通过；两处 vitest 全绿。

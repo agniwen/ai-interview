@@ -1,4 +1,4 @@
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
@@ -13,8 +13,8 @@ import {
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundListRecord,
-} from "@arc/shared/studio-interview-rounds";
-import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
+} from "@app/shared/studio-interview-rounds";
+import { pipelineStageMeta, scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";

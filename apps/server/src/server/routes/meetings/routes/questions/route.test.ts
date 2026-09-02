@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "../../../../factory";
-import { MEETING_ANSWER_REQUEST_BODY_MAX_BYTES } from "@arc/shared/meeting-answer";
+import { MEETING_ANSWER_REQUEST_BODY_MAX_BYTES } from "@app/shared/meeting-answer";
 import { createMeetingQuestionsRouter } from "./route";
 import type { MeetingQuestionsDependencies } from "./route";
 

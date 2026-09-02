@@ -25,19 +25,19 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
-import { buildInterviewLink } from "@arc/shared/interview/interview-record";
-import { deriveJdRequiredSkills } from "@arc/shared/resume-screening";
+} from "@app/db-schema/schema";
+import { buildInterviewLink } from "@app/shared/interview/interview-record";
+import { deriveJdRequiredSkills } from "@app/shared/resume-screening";
 import {
   buildCandidateInterviewFeedback,
   scheduleEntryStatusSchema,
-} from "@arc/db-schema/studio-interviews";
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
+import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
-} from "@arc/shared/studio-interview-rounds";
+} from "@app/shared/studio-interview-rounds";
 import { loadStudioCandidate } from "./studio-interviews";
 import { loadRoundFeishuEvaluationDocuments } from "./evaluation-documents";
 

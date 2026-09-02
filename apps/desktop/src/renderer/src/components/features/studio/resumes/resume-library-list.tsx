@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { DESKTOP_SCROLL_TO_TOP_EVENT } from "@/components/features/studio/desktop-scroll-to-top-button";
 import { Button } from "@/components/ui/button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { useResumeLibraryCardHeight } from "./card-height";
 import { ResumeLibraryCard } from "./resume-library-card";
 import { ResumeLibraryListSkeleton } from "./resume-library-list-skeleton";

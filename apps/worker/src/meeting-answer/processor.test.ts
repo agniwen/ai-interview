@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MeetingAnswerTerminalError } from "@arc/shared/meeting-answer";
+import { MeetingAnswerTerminalError } from "@app/shared/meeting-answer";
 import { runMeetingAnswerProcessing } from "./processor";
 
 const context = {

@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
-import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
 import type {
   InterviewContextSnapshotPayload,
   InterviewEvidenceSnapshotPayload,
-} from "@arc/db-schema/interview-snapshots";
-import type { InterviewQuestionTemplateSnapshot } from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-snapshots";
+import type { InterviewQuestionTemplateSnapshot } from "@app/db-schema/interview-question-templates";
 import {
   interviewContextSnapshot,
   interviewConversation,
@@ -15,7 +15,7 @@ import {
   organization,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   queryInterviewConversationReportByRound,
   queryInterviewConversationReportsByRound,

@@ -1,5 +1,5 @@
-import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/interview-notifications";
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
+import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
+import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
 
 export type AiInterviewAccessDecision = "allowed" | "auto_accept" | "unavailable";
 

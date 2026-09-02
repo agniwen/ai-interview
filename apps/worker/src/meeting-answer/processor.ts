@@ -5,12 +5,12 @@ import type {
   publishMeetingAnswerExchange,
 } from "./dao";
 import type { generateMeetingAnswer, getMeetingAnswerGeneratorSnapshot } from "./generator";
-import type { MeetingAnswerJobData } from "@arc/meeting-processing-queue/meeting-answer";
-import { MEETING_ANSWER_PROMPT_VERSION } from "@arc/meeting-processing-queue/meeting-answer";
+import type { MeetingAnswerJobData } from "@app/meeting-processing-queue/meeting-answer";
+import { MEETING_ANSWER_PROMPT_VERSION } from "@app/meeting-processing-queue/meeting-answer";
 import {
   isMeetingAnswerTerminalError,
   MeetingAnswerTerminalError,
-} from "@arc/shared/meeting-answer";
+} from "@app/shared/meeting-answer";
 
 export interface MeetingAnswerDependencies {
   claim: typeof claimMeetingAnswerExchange;

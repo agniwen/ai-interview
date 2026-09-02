@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { TITLE_BAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /**
  * Agent-style recording shell: full-height scroll stage + floating bottom composer.

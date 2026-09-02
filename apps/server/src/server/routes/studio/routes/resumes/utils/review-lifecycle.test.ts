@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
-import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeReview } from "@app/db-schema/resume-review";
+import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 import { runResumeAssessmentLifecycle } from "./review-lifecycle";
 import type {
   GeneratedResumeAssessment,

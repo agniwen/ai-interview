@@ -4,7 +4,7 @@ import {
   publishUpgradeDraftSchema,
   updateUpgradeDraftSchema,
 } from "./schema";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 
 describe("job evaluation upgrade schemas", () => {
   it("requires an explicit irreversible publish confirmation", () => {

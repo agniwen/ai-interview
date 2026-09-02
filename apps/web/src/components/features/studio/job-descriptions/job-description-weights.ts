@@ -1,4 +1,4 @@
-import type { JobDescriptionDimensionWeights } from "@arc/db-schema/job-description-structured-config";
+import type { JobDescriptionDimensionWeights } from "@app/db-schema/job-description-structured-config";
 
 export const JOB_DESCRIPTION_DIMENSIONS = [
   { color: "var(--job-weight-skill)", key: "skillMatch", label: "技能" },

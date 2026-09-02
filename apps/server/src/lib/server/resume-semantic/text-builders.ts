@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 
 export type ResumeSemanticChunkType = "resume_overview" | "skill_role" | "work_project";
 

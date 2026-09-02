@@ -3,7 +3,7 @@ import { CAPTURE_FRAGMENT_DURATION_MS } from "../../../../preload/meeting-captur
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptHints,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import type {
   CaptureSink,
   CaptureTrack,

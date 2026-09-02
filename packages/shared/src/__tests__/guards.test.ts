@@ -12,7 +12,7 @@ import {
   isPlainObject,
   isPresent,
   isString,
-} from "@arc/shared/utils/guards";
+} from "@app/shared/utils/guards";
 
 describe("isString", () => {
   it.each([

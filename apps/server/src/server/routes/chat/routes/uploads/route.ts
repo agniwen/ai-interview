@@ -5,13 +5,13 @@ import { isResumeParseCacheSourceCompatible } from "../../../../../lib/server/re
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
-} from "@arc/shared/resume-documents";
+} from "@app/shared/resume-documents";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import { isResumeParseCacheEnabled } from "../../../../../lib/server/resume-parse-cache-policy";
-import type { AttachmentParseStatus, AttachmentTextSource } from "@arc/db-schema/db-enums";
-import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
-import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import { sha256HexOfBytes } from "@arc/shared/file-hash";
+import type { AttachmentParseStatus, AttachmentTextSource } from "@app/db-schema/db-enums";
+import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
+import { sha256HexOfBytes } from "@app/shared/file-hash";
 import { createAttachment, findAttachmentByContentHash } from "../../dao/chat-attachments";
 import type { ChatAttachmentRow } from "../../dao/chat-attachments";
 import { MAX_ATTACHMENT_SIZE, uploadPreflightSchema } from "../../schema";

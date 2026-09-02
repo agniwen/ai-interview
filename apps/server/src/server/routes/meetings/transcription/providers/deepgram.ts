@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
+import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
 import type {
   CanonicalMeetingTranscript,
   CanonicalMeetingTranscriptTurn,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { MeetingProviderQuotaError, MeetingProviderResponseError } from "../provider";
 import type { MeetingTranscriptionProvider } from "../provider";
 

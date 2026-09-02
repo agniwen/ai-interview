@@ -1,8 +1,8 @@
 // oxlint-disable no-promise-executor-return, prefer-await-to-callbacks, promise/avoid-new -- The fake MessagePort mirrors Electron's event API.
 import { runInNewContext } from "node:vm";
-import { liveCorrectionEventSchema } from "@arc/shared/meeting-live-correction";
+import { liveCorrectionEventSchema } from "@app/shared/meeting-live-correction";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import { registerLiveTranscriptIpcHandlers } from "./live-transcript-ipc-handlers";
 import type { LiveTranscriptIpcEvent, LiveTranscriptPort } from "./live-transcript-ipc-handlers";
 import type {

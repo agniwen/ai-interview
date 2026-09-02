@@ -1,13 +1,13 @@
 import type {
   JobDescriptionListRecord,
   JobDescriptionRecommendationResult,
-} from "@arc/shared/job-descriptions";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+} from "@app/shared/job-descriptions";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type {
   ResumeJobMatchRecallSource,
   ResumeJobMatchRunStatus,
   ResumeJobMatchSelectionMethod,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type { JobDescriptionRankingResult } from "../../../../../../agents/job-description-match-agent";
 import {
   matchPublishedJobFromResumeFileName,

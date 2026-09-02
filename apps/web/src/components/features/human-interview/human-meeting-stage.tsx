@@ -30,8 +30,8 @@ import { Track } from "livekit-client";
 import type { MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { cn } from "@arc/shared/utils";
-import type { HumanInterviewRecordingStatus } from "@arc/db-schema/studio-interviews";
+import { cn } from "@app/shared/utils";
+import type { HumanInterviewRecordingStatus } from "@app/db-schema/studio-interviews";
 import {
   AlertDialog,
   AlertDialogAction,

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { toast } from "sonner";
-import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
+import { formatDefaultMeetingTitle } from "@app/shared/utils/time";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,7 @@ import { createMeetingLiveTranscriptHints } from "@/lib/meeting-capture/meeting-
 import { createDurableLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft";
 import { desktopMeetingKeys, requestRecordingTitle } from "@/lib/client/meetings";
 import { resolveActiveWorkspace } from "@/lib/client/workspace";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { MeetingActiveRecordingIndicator } from "./meeting-capture-status";
 import {
   captureSnapshotAtom,

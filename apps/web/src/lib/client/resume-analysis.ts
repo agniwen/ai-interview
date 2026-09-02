@@ -2,13 +2,13 @@ import type {
   InterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from "@arc/db-schema/interview/types";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
-import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
-import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
-import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
-import { resumeReviewSchema } from "@arc/shared/resume-review";
-import type { ResumeReview } from "@arc/shared/resume-review";
+} from "@app/db-schema/interview/types";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
+import { createDefaultScheduleEntry } from "@app/db-schema/studio-interviews";
+import type { AnalysisStreamEvent } from "@app/shared/api-stream";
+import type { ResumeLibraryFormValues } from "@app/shared/studio-resumes";
+import { resumeReviewSchema } from "@app/shared/resume-review";
+import type { ResumeReview } from "@app/shared/resume-review";
 import { z } from "zod";
 import { analysisStreamEventSchema, readAiRunEventStream } from "./ai-run-event-stream";
 import { rpc } from "./rpc";

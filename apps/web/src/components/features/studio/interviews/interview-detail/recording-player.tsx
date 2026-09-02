@@ -21,7 +21,7 @@ import {
 import { ApiError } from "@/lib/client/api/errors";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
+import type { InterviewRecordingStatus } from "@app/db-schema/db-enums";
 
 interface RecordingPlayerProps {
   recordId: string;

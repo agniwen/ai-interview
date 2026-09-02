@@ -9,7 +9,7 @@ import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function BubbleBtn({
   active,

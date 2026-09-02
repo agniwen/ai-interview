@@ -9,8 +9,8 @@ import type {
   MultipartMeetingUploadInstruction,
   MultipartSavedMeetingDescriptor,
   SmallMeetingUploadInstruction,
-} from "@arc/shared/meeting-recording";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-recording";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 import type { LocalMeetingSession } from "./local-meeting-session";
 
 export interface MeetingCaptureApi {

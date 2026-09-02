@@ -1,7 +1,7 @@
 "use client";
 
 import { IconMessage2 } from "@tabler/icons-react";
-import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
+import type { PersistedInterviewTurn } from "@app/db-schema/interview-session";
 
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -13,8 +13,8 @@ import {
 import { Message, MessageContent } from "@/components/ai-elements/message-primitives";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
-import { coalescePersistedInterviewTurns } from "@arc/shared/interview-transcript-turns";
-import { cn } from "@arc/shared/utils";
+import { coalescePersistedInterviewTurns } from "@app/shared/interview-transcript-turns";
+import { cn } from "@app/shared/utils";
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
 import { useKeywordHighlight } from "./keyword-highlight/context";
 

@@ -151,10 +151,10 @@ async function main(options: RecoveryOptions) {
     { rollbackFailedResumeParseRetry },
   ] = await Promise.all([
     import("../lib/server/db/index"),
-    import("@arc/db-schema/schema"),
-    import("@arc/resume-parse-queue/resume-parse"),
-    import("@arc/resume-parse-queue/resume-review-generation"),
-    import("@arc/resume-parse-queue/resume-semantic-index"),
+    import("@app/db-schema/schema"),
+    import("@app/resume-parse-queue/resume-parse"),
+    import("@app/resume-parse-queue/resume-review-generation"),
+    import("@app/resume-parse-queue/resume-semantic-index"),
     import("../server/routes/studio/routes/resume-upload-batches/dao/retry"),
   ]);
 

@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
-} from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
 import {
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
-} from "@arc/db-schema/job-description-evaluation";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/job-description-evaluation";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   STRUCTURED_RESUME_DIMENSIONS,
   applyGateCorrection,

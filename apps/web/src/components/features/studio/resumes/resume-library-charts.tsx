@@ -15,9 +15,9 @@ import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { defineDonutChart } from "@/lib/client/charts/donut";
-import { toBeijingDayKey } from "@arc/shared/beijing-calendar";
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
+import { toBeijingDayKey } from "@app/shared/beijing-calendar";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import { cn } from "@app/shared/utils";
 
 type PipelineBucket =
   | "screening"

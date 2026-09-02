@@ -1,4 +1,4 @@
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 
 export function getJobDescriptionUpgradeActionLabel(record: {
   evaluationMode: "legacy" | "qualitative" | "structured";

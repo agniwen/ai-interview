@@ -4,12 +4,12 @@ import { IconLoader2 } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
-} from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-question-templates";
 import {
   interviewQuestionTemplateScopeSchema,
   interviewQuestionTemplateSchema,
-} from "@arc/db-schema/interview-question-templates";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+} from "@app/db-schema/interview-question-templates";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 

@@ -6,7 +6,7 @@ import type {
   LocalMeetingSession,
   LocalMeetingSessionCreateInput,
 } from "../../preload/local-meeting-session";
-import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 
 interface LocalMeetingSessionStoreOptions {
   migrationsFolder?: string;

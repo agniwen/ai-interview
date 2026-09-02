@@ -1,6 +1,6 @@
 // oxlint-disable promise/avoid-new -- Node ws exposes readiness only through event callbacks.
 import { randomUUID } from "node:crypto";
-import type { JsonObject, JsonValue } from "@arc/db-schema/json";
+import type { JsonObject, JsonValue } from "@app/db-schema/json";
 import { WebSocket } from "ws";
 import { z } from "zod";
 import { transcriptContext } from "./transcript-context";

@@ -3,7 +3,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { ChatHeader, ChatHeaderTitleProvider } from "@/components/features/chat/chat-header";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { cn } from "@arc/shared/utils/cn";
+import { cn } from "@app/shared/utils/cn";
 import { documentTitleMeta } from "@/lib/start/document-title";
 
 function AgentLayout({ children }: { children: ReactNode }) {

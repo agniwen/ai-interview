@@ -1,8 +1,8 @@
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconListCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
@@ -11,7 +11,7 @@ import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
-} from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-question-templates";
 import type { PaginatedInterviewQuestionTemplateResult } from "@app/server/web/studio";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

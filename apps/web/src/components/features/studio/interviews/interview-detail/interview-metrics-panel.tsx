@@ -1,5 +1,5 @@
 import { DetailRow } from "./detail-row";
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
 

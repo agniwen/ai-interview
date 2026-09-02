@@ -8,7 +8,7 @@ import {
   useRouter,
   useRouterState,
 } from "@tanstack/react-router";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import "overlayscrollbars/overlayscrollbars.css";
 import "../styles/globals.css";
 import { NotFoundPage } from "@/components/layout/not-found-view";

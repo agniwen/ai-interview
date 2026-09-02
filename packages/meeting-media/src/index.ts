@@ -4,9 +4,9 @@ import { readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
-import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
-import type { MeetingTranscriptionSourceTrack } from "@arc/shared/meeting-recording";
+import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
+import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
+import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
 
 export interface FinalTranscriptionAudioChunk {
   contentType: string;

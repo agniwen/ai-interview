@@ -13,7 +13,7 @@ import {
   formatRelativeTime,
   meetingDisplayTitle,
   toDate,
-} from "@arc/shared/utils/time";
+} from "@app/shared/utils/time";
 
 describe("toDate", () => {
   it("returns null for null / undefined", () => {

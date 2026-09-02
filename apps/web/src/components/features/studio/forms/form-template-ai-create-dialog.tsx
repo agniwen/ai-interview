@@ -1,8 +1,8 @@
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
-import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { CandidateFormQuestionInput } from "@app/db-schema/candidate-forms";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";

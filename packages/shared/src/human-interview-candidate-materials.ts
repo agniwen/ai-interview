@@ -1,6 +1,6 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
-import type { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import type { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 import { z } from "zod";
 
 export const humanInterviewCandidateHrEvaluationSchema = z

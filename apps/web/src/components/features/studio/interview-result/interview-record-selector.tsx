@@ -1,7 +1,7 @@
 "use client";
 
 import { IconArrowBackUp, IconChevronDown } from "@tabler/icons-react";
-import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
+import { countDisplayInterviewTurns } from "@app/shared/interview-transcript-turns";
 
 import {
   DATE_TIME_DISPLAY_OPTIONS,

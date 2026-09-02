@@ -2,7 +2,7 @@ import { z } from "zod";
 import type {
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptTrack,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 
 export const DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL = "qwen-audio-3.0-asr-flash-streaming";
 export const MAX_MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS = 1800;

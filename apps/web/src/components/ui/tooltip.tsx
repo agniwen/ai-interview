@@ -2,7 +2,7 @@
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { cossTooltipMotionClass } from "@/components/ui/coss-style";
 
 function TooltipProvider({

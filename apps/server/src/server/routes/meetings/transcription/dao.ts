@@ -10,18 +10,18 @@ import {
   meetingTranscriptionChunk,
   meetingTranscriptionPolicy,
   member,
-} from "@arc/db-schema/schema";
-import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@arc/meeting-processing-queue/meeting-transcription";
-import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
+} from "@app/db-schema/schema";
+import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@app/meeting-processing-queue/meeting-transcription";
+import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
 import type {
   CanonicalMeetingTranscript,
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import {
   meetingTranscriptionProviderSchema,
   canonicalMeetingTranscriptSchema,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { isWorkspaceAdministrator } from "../access";
 import type { FinalTranscriptionAudioChunk } from "./provider";

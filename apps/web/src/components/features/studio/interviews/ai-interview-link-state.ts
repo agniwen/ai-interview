@@ -1,5 +1,5 @@
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import { formatDateInAppTimeZone, toDate } from "@arc/shared/utils/time";
+import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
+import { formatDateInAppTimeZone, toDate } from "@app/shared/utils/time";
 
 export interface AiInterviewLinkStateInput {
   candidateInviteExpiresAt: string | null;

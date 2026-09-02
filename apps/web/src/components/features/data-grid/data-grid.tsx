@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { PaginationBar, PaginationBarSkeleton } from "./parts/pagination-bar";
 import {
   getPinnedEdgeClassName,

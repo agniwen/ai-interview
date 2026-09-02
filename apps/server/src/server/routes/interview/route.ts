@@ -7,9 +7,9 @@ import {
   candidateFormSubmission,
   interviewConversation,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
-import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
-import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/schema";
+import { buildCandidateFormAnswersSchema } from "@app/db-schema/candidate-forms";
+import { RECONNECT_GRACE_MS } from "@app/db-schema/studio-interviews";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "../../factory";
@@ -17,12 +17,12 @@ import { createInternalErrorResponse } from "../../error-handler";
 import { loadSubmittedTemplateIds } from "../studio/routes/forms/dao/submissions";
 import { loadActiveInterviewContextSnapshot } from "../studio/routes/interviews/dao/context-snapshots";
 import { cacheTags, lookupOrgIdByInterviewRecord, safeUpdateTag } from "../../cache-tags";
-import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
-import { INTERVIEW_END_REASON } from "@arc/shared/interview/end-reason";
+import { resolveInterviewRecordingEnabled } from "@app/shared/interview/recording-config";
+import { INTERVIEW_END_REASON } from "@app/shared/interview/end-reason";
 import {
   buildInterviewDispatchMetadata,
   selectInterviewDispatchInterviewer,
-} from "@arc/shared/interview/dispatch-contract";
+} from "@app/shared/interview/dispatch-contract";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,

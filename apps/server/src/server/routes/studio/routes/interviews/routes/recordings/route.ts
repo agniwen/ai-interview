@@ -6,7 +6,7 @@ import { factory } from "../../../../../../factory";
 import { createInternalErrorResponse } from "../../../../../../error-handler";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { resolveCandidateIdForRound } from "../../dao/interview-rounds";
-import { interviewConversation } from "@arc/db-schema/schema";
+import { interviewConversation } from "@app/db-schema/schema";
 
 interface RecordingRow {
   recordingFileKey: string | null;

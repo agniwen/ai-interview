@@ -12,7 +12,7 @@ import { transitionCandidateStage } from "../../../studio/routes/interviews/util
 import { loadRecruitingJobDescriptionById } from "../../../studio/routes/job-descriptions/dao";
 import { loadResumePoolItem } from "../../../studio/routes/resume-pool/dao";
 import { normalizeResumePoolItemId } from "../../../../agents/mastra/tools/resume-pool-id";
-import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
+import { interviewAuditLog, studioInterview } from "@app/db-schema/schema";
 import {
   patchRecruitingActionConfirmationInConversation,
   upsertConversationContextJobBinding,

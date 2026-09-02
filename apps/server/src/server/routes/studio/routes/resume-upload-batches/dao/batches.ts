@@ -6,21 +6,21 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   ResumePoolScope,
   ResumePoolSourceChannel,
   ResumeUploadBatchItemStatus,
   ResumeUploadBatchStatus,
   ResumeUploadBatchTarget,
-} from "@arc/db-schema/schema";
-import { DEFAULT_RESUME_PARSE_STALE_PROCESSING_SECONDS } from "@arc/shared/bulk-resume-upload";
+} from "@app/db-schema/schema";
+import { DEFAULT_RESUME_PARSE_STALE_PROCESSING_SECONDS } from "@app/shared/bulk-resume-upload";
 import type {
   BulkResumeBatchDetailDto,
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
-} from "@arc/shared/bulk-resume-upload";
-import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
+} from "@app/shared/bulk-resume-upload";
+import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
 import { deleteDuplicateMatchesForSource } from "../../../../../../lib/server/resume-semantic/duplicate-matches";
 
 type BatchRow = typeof resumeUploadBatch.$inferSelect;

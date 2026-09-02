@@ -1,4 +1,4 @@
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { useState } from "react";
 
 export function useResumeLibraryPageState() {

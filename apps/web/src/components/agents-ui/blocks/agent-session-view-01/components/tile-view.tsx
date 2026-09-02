@@ -13,7 +13,7 @@ import { useTheme } from "next-themes";
 import * as React from "react";
 import { useMemo } from "react";
 import { AgentAudioVisualizerAura } from "@/components/agents-ui/agent-audio-visualizer-aura";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const ANIMATION_TRANSITION: MotionProps["transition"] = {
   damping: 75,

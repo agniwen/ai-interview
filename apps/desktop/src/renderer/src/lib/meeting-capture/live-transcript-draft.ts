@@ -1,1 +1,1 @@
-export * from "@arc/meeting-live-transcript/draft";
+export * from "@app/meeting-live-transcript/draft";

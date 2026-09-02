@@ -4,8 +4,8 @@ import type {
   InterviewNotificationAudienceType,
   InterviewNotificationEventType,
   InterviewNotificationPayloadSnapshot,
-} from "@arc/db-schema/interview-notifications";
-import { formatInterviewNotificationDateTime } from "@arc/shared/interview-notifications";
+} from "@app/db-schema/interview-notifications";
+import { formatInterviewNotificationDateTime } from "@app/shared/interview-notifications";
 
 interface NotificationPresentationInput {
   audienceType: InterviewNotificationAudienceType;

@@ -1,7 +1,7 @@
 "use client";
 
-import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
-import { cn } from "@arc/shared/utils";
+import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
+import { cn } from "@app/shared/utils";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { ThemeToggle } from "@/components/theme/theme-toggle";

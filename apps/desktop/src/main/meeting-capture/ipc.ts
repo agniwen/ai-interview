@@ -10,9 +10,9 @@ import type { LocalMeetingRecordingStore } from "./local-meeting-recording-store
 import type {
   MultipartMeetingUploadInstruction,
   SmallMeetingUploadInstruction,
-} from "@arc/shared/meeting-recording";
-import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
-import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-recording";
+import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 import { getMainWindowWebContents } from "../window";
 import { registerMeetingCaptureMediaSessionHandlers } from "./media-session";
 

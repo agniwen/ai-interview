@@ -2,10 +2,10 @@ import type {
   JobDescriptionDeductionRules,
   JobDescriptionDimensionWeights,
   StructuredResumeRuleId,
-} from "@arc/db-schema/job-description-structured-config";
-import { DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES } from "@arc/db-schema/job-description-structured-config";
-import type { JsonValue } from "@arc/db-schema/json";
-import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/job-description-structured-config";
+import { DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES } from "@app/db-schema/job-description-structured-config";
+import type { JsonValue } from "@app/db-schema/json";
+import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
 import { z } from "zod";
 
 export const STRUCTURED_RESUME_DIMENSIONS = [
@@ -170,7 +170,7 @@ interface DeductionRule {
   thresholdRank?: number;
 }
 
-export type { StructuredResumeRuleId } from "@arc/db-schema/job-description-structured-config";
+export type { StructuredResumeRuleId } from "@app/db-schema/job-description-structured-config";
 
 export const STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION = 1;
 

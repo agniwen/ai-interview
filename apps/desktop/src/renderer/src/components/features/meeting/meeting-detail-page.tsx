@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
+import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
 import {
   Alert,
   AlertAction,
@@ -25,8 +25,8 @@ import {
   retryMeetingTranscript,
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
-import type { MeetingDetail, MeetingPlaybackAuthorization } from "@arc/shared/meeting-recording";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type { MeetingDetail, MeetingPlaybackAuthorization } from "@app/shared/meeting-recording";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { MeetingCaptureComposer, MeetingInterruptedComposer } from "./meeting-capture-status";

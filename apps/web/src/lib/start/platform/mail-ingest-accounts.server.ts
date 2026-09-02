@@ -3,7 +3,7 @@ import type { DataGridQueryState } from "@/components/features/data-grid/query-c
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { queryPaginatedPlatformMailIngestAccounts } from "@app/server/web/platform";
-import { createQueryClient } from "@arc/shared/query-client";
+import { createQueryClient } from "@app/shared/query-client";
 import { z } from "zod";
 
 type EmptyFilters = Record<string, never>;

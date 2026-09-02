@@ -6,7 +6,7 @@ import * as React from "react";
 import { Button, ButtonSizeProvider } from "@/components/ui/button";
 import { cossModalSurfaceClass } from "@/components/ui/coss-style";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;

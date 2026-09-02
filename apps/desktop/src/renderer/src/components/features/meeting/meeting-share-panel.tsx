@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import type { MeetingAccessRole, MeetingGrantRole } from "@arc/shared/meeting-recording";
+import type { MeetingAccessRole, MeetingGrantRole } from "@app/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {

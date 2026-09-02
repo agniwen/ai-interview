@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 
 const PLACEHOLDER = "未发现信息";
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type HTMLAttributes } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export type WaveformProps = HTMLAttributes<HTMLDivElement> & {
   barColor?: string;

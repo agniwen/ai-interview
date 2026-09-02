@@ -1,4 +1,4 @@
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconBuilding, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -7,7 +7,7 @@ import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-d
 import { ScopedInterviewersModal } from "@/components/features/studio/scoped-interviewers-modal";
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
-import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
+import type { DepartmentListRecord, DepartmentRecord } from "@app/shared/departments";
 import type { PaginatedDepartmentResult } from "@app/server/web/studio";
 
 import { useMemo, useState } from "react";

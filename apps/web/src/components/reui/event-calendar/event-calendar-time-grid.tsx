@@ -42,7 +42,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { addDays, addMinutes, differenceInMinutes, format } from "date-fns";
 import type { EventListeners } from "overlayscrollbars";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /** Current time, refreshed on an interval and on tab focus. */

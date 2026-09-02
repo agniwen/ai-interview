@@ -1,7 +1,7 @@
 import type {
   MeetingTranscriptionProviderCandidate,
   MeetingTranscriptionProviderId,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import {
   resolveMeetingTranscriptionProviderEndpoint,
   resolveMeetingTranscriptionQwenBaseUrl,

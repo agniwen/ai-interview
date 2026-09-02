@@ -22,9 +22,9 @@ import {
   ensureDefaultRecruitingGroupForWorkspace,
 } from "../../server/routes/studio/routes/workspace/dao";
 import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../../server/routes/studio/routes/workspace/utils/workspace-member-joined-notification";
-import { ac, roles } from "@arc/shared/permissions";
+import { ac, roles } from "@app/shared/permissions";
 import { db } from "./db";
-import * as schema from "@arc/db-schema/schema";
+import * as schema from "@app/db-schema/schema";
 
 const baseURL = getRequiredEnv("BETTER_AUTH_URL");
 

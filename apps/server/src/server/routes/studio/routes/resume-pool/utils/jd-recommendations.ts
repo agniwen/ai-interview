@@ -3,9 +3,9 @@ import { and, count, eq, inArray } from "drizzle-orm";
 import type {
   JobDescriptionRecommendation,
   JobDescriptionRecommendationResult,
-} from "@arc/shared/job-descriptions";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { department, jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
+} from "@app/shared/job-descriptions";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import { department, jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
 import { db } from "../../../../../../lib/server/db/index";
 import { QdrantResumeVectorStore } from "../../../../../../lib/server/qdrant/resume-vector-store";
 import {
@@ -14,7 +14,7 @@ import {
   isResumeSemanticIndexEnabled,
 } from "../../../../../../lib/server/resume-semantic/embedding";
 import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../../lib/server/resume-semantic/enqueue";
-import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
+import { isResumeParseQueueConfigured } from "@app/resume-parse-queue/resume-parse";
 import { getResumeSemanticIndexConfig } from "../../../../../../lib/server/resume-semantic/indexer";
 import {
   SEARCH_LIMIT_BY_CHUNK,

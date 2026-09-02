@@ -28,9 +28,9 @@ import {
 import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
 import type { requestAutomaticMeetingIntelligence } from "@app/server/worker/meeting-intelligence";
 import type { requestAutomaticHumanInterviewEvaluation } from "@app/server/worker/human-interview";
-import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
-import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
-import type { MeetingTranscriptionSourceTrack } from "@arc/shared/meeting-recording";
+import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
+import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
+import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
 import pLimit from "p-limit";
 
 export {

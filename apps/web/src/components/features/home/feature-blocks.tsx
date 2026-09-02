@@ -2,8 +2,8 @@
 // Purpose: explains three recruiting actions with close-up editorial scenes and focused UI.
 
 import { IconBriefcase, IconSparkles } from "@tabler/icons-react";
-import { RESUME_REVIEW_DIMENSIONS } from "@arc/shared/resume-review";
-import { cn } from "@arc/shared/utils";
+import { RESUME_REVIEW_DIMENSIONS } from "@app/shared/resume-review";
+import { cn } from "@app/shared/utils";
 import type { ReactNode } from "react";
 import { Message, MessageContent } from "@/components/ai-elements/message-primitives";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

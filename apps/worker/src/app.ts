@@ -4,11 +4,11 @@ import { HTTPException } from "hono/http-exception";
 import {
   getResumeParseQueueStats,
   isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
-import { getResumeReviewGenerationQueueStats } from "@arc/resume-parse-queue/resume-review-generation";
-import { getMeetingIntelligenceQueueStats } from "@arc/meeting-processing-queue/meeting-intelligence";
-import { getMeetingPlaybackQueueStats } from "@arc/meeting-processing-queue/meeting-playback";
-import { getMeetingTranscriptionQueueStats } from "@arc/meeting-processing-queue/meeting-transcription";
+} from "@app/resume-parse-queue/resume-parse";
+import { getResumeReviewGenerationQueueStats } from "@app/resume-parse-queue/resume-review-generation";
+import { getMeetingIntelligenceQueueStats } from "@app/meeting-processing-queue/meeting-intelligence";
+import { getMeetingPlaybackQueueStats } from "@app/meeting-processing-queue/meeting-playback";
+import { getMeetingTranscriptionQueueStats } from "@app/meeting-processing-queue/meeting-transcription";
 import { getResumeParseReadinessIssue } from "./parse-config";
 import { getInterviewNotificationSchedulerSnapshot } from "./interview-notifications/scheduler";
 import { captureWorkerException } from "./sentry";

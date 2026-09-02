@@ -1,5 +1,5 @@
 import type { auth } from "../lib/server/auth";
-import type { member, organization } from "@arc/db-schema/schema";
+import type { member, organization } from "@app/db-schema/schema";
 
 type OrganizationRow = typeof organization.$inferSelect;
 type MemberRow = typeof member.$inferSelect;

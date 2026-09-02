@@ -1,5 +1,5 @@
-import type { statement } from "@arc/shared/permissions";
-import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
+import type { statement } from "@app/shared/permissions";
+import type { WorkspacePermissionStatements } from "@app/shared/permission-statements";
 
 export type ActiveOrganizationState =
   | { status: "unauthenticated" }

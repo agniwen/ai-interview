@@ -18,15 +18,15 @@ import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import {
   INTERVIEW_QUESTION_DIFFICULTY_OPTIONS,
   interviewQuestionTemplateDifficultySchema,
-} from "@arc/db-schema/interview-question-templates";
-import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-question-templates";
+import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
 import {
   INTERVIEW_QUESTION_DIMENSION_OPTIONS,
   interviewQuestionDimensionSchema,
-} from "@arc/db-schema/interview/types";
-import type { InterviewQuestionDimension } from "@arc/db-schema/interview/types";
-import { DIFFICULTY_PILL_CLASS } from "@arc/shared/interview-question-difficulty";
-import { cn } from "@arc/shared/utils";
+} from "@app/db-schema/interview/types";
+import type { InterviewQuestionDimension } from "@app/db-schema/interview/types";
+import { DIFFICULTY_PILL_CLASS } from "@app/shared/interview-question-difficulty";
+import { cn } from "@app/shared/utils";
 import { z } from "zod";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 

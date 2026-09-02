@@ -2,24 +2,24 @@ import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../db/index";
 import { serializeDate } from "../db/serialize";
-import { describeResumeProgress } from "@arc/shared/studio-resumes";
+import { describeResumeProgress } from "@app/shared/studio-resumes";
 import {
   EMPTY_STAGE_PROGRESS,
   loadResumeStageProgress,
 } from "../../../server/routes/studio/routes/resumes/dao/resume-derived-fields";
 import type { DedupMatchRecord } from "../../../server/routes/studio/routes/interviews/dao/studio-interviews";
 import { buildResumeProfileSnapshotFromProfile } from "../../../server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeSemanticDuplicateLevel, ResumeSemanticSourceType } from "@arc/db-schema/schema";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
-import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeSemanticDuplicateLevel, ResumeSemanticSourceType } from "@app/db-schema/schema";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
+import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
 import {
   jobDescription,
   resumeDuplicateMatch,
   resumePoolItem,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { getResumeSemanticIndexConfig } from "./indexer";
 
 export interface PersistDuplicateMatchesInput {

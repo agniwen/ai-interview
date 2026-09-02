@@ -1,5 +1,5 @@
 import type { FilterQuery, FilterRule } from "@/components/reui/filters/filters-types";
-import { parseCsvParam } from "@arc/shared/csv";
+import { parseCsvParam } from "@app/shared/csv";
 import { getToolbarFilterOperator } from "./filter-config";
 import type { ToolbarConditionConfig, ToolbarFilterValue } from "./filter-config";
 

@@ -26,17 +26,17 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   StudioAiCalendarEventPreview,
   StudioCalendarCandidate,
   StudioCalendarEvent,
   StudioCalendarInterviewer,
-} from "@arc/shared/studio-calendar";
+} from "@app/shared/studio-calendar";
 import type {
   HumanInterviewMeetingStatus,
   HumanInterviewRoundStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { buildAiCalendarEvents } from "./events";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;

@@ -4,7 +4,7 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import * as React from "react";
 
 import { cossPopupSurfaceClass } from "@/components/ui/coss-style";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;

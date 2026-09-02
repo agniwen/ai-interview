@@ -1,5 +1,5 @@
 import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
-import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
+import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
 
 export { MeetingProviderResponseError } from "./provider-response-error";
 

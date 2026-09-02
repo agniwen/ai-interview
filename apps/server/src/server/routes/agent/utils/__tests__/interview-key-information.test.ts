@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { interviewKeyInformationSchema } from "@arc/db-schema/interview-key-information";
+import { interviewKeyInformationSchema } from "@app/db-schema/interview-key-information";
 import { interviewKeyInformationAgent } from "@app/ai-runtime/simple-generators";
 import { generateInterviewKeyInformation } from "../interview-key-information";
 import type { InterviewKeyInformationDependencies } from "../interview-key-information";

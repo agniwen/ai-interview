@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const INLINE_THUMBNAIL_SIDEBAR_MIN_WIDTH = 768;
 

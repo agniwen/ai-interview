@@ -16,7 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import { createOfferDraft, patchOfferDraft, respondOfferDraft } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";

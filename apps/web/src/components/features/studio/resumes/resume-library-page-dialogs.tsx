@@ -1,6 +1,6 @@
 "use client";
 
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { ResumeDocumentPreviewModal } from "@/components/features/resume/resume-document-preview-modal";
 import {
   AlertDialog,

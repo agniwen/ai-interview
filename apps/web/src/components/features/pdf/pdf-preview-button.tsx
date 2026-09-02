@@ -4,7 +4,7 @@ import { IconEye } from "@tabler/icons-react";
 import { useState } from "react";
 import { PdfPreviewDialog } from "@/components/features/pdf/pdf-preview-dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export interface PdfPreviewButtonProps {
   url: string;

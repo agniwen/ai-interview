@@ -5,16 +5,16 @@ import {
   jobDescriptionEvaluationUpgradeAudit,
   jobDescriptionEvaluationUpgradeDraft,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import {
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import {
   createDefaultJobDescriptionStructuredConfig,
   parseStoredJobDescriptionStructuredConfig,
-} from "@arc/db-schema/job-description-structured-config";
-import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/job-description-structured-config";
+import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@app/shared/structured-resume-scoring";
 import { computeJobEvaluationDraftInputHash } from "../../../../../../../lib/server/job-evaluation-hash";
 import type {
   JobEvaluationUpgradeDraft,

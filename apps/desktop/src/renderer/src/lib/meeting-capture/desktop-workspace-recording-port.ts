@@ -6,8 +6,8 @@ import type {
   CreateSmallSavedMeetingInput,
   MultipartSavedMeetingResponse,
   SmallSavedMeetingResponse,
-} from "@arc/shared/meeting-recording";
-import { MEETING_SINGLE_PUT_MAX_BYTES } from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
+import { MEETING_SINGLE_PUT_MAX_BYTES } from "@app/shared/meeting-recording";
 import { resolveActiveWorkspace } from "@/lib/client/workspace";
 import { apiUrl } from "@/lib/client/rpc";
 import { apiJson } from "@/lib/client/rpc-fetch";

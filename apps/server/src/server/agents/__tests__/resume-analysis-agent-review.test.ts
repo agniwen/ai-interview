@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview } from "@arc/shared/resume-review";
-import { formatResumeReviewMarkdown } from "@arc/shared/resume-review";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeReview } from "@app/shared/resume-review";
+import { formatResumeReviewMarkdown } from "@app/shared/resume-review";
 import {
   composeResumeReviewResult,
   generateResumeReview,

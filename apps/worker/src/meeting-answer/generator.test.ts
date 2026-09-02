@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateMeetingAnswer, selectMeetingAnswerTranscriptContext } from "./generator";
-import { isMeetingAnswerTerminalError } from "@arc/shared/meeting-answer";
+import { isMeetingAnswerTerminalError } from "@app/shared/meeting-answer";
 
 const turns = [
   {

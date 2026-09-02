@@ -13,10 +13,10 @@ import type {
   WorkerMailIngestAccount,
 } from "@app/server/worker/mail-ingest";
 import type { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import type { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
-import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
-import { sha256HexOfBytes } from "@arc/shared/file-hash";
-import type { MailIngestJdBindStatus } from "@arc/db-schema/schema";
+import type { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
+import { getResumeDocumentExtension } from "@app/shared/resume-documents";
+import { sha256HexOfBytes } from "@app/shared/file-hash";
+import type { MailIngestJdBindStatus } from "@app/db-schema/schema";
 import {
   buildMailSearchCriteria,
   extractJobCodesFromSubject,

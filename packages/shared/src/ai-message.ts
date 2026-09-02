@@ -7,7 +7,7 @@ import type {
   ArcSourcePart,
   ArcTextPart,
   ArcToolPart,
-} from "@arc/db-schema/ai-message";
+} from "@app/db-schema/ai-message";
 import { z } from "zod";
 
 export type {

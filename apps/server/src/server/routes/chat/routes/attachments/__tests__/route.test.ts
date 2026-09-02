@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import { createDefaultResumeScreeningPolicy } from "@arc/shared/job-descriptions";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
+import { createDefaultResumeScreeningPolicy } from "@app/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { factory } from "../../../../../factory";
 import type { ChatAttachmentRow } from "../../../dao/chat-attachments";
 import { createAttachmentsRouter } from "../route";

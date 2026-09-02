@@ -1,5 +1,5 @@
-import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
-import type { MeetingAudioExportTrack, MeetingExportFormat } from "@arc/shared/meeting-export";
+import type { MeetingAccessRole } from "@app/shared/meeting-recording";
+import type { MeetingAudioExportTrack, MeetingExportFormat } from "@app/shared/meeting-export";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {

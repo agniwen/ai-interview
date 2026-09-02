@@ -1,5 +1,5 @@
-import type { ResumeUploadBatchItemStatus } from "@arc/db-schema/schema";
-import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
+import type { ResumeUploadBatchItemStatus } from "@app/db-schema/schema";
+import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@app/shared/upload-task-inbox";
 import { z } from "zod";
 
 const QUEUE_STATES = new Set<string>([

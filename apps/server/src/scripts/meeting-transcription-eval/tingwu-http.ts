@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import {
   MeetingProviderQuotaError,
   MeetingProviderResponseError,

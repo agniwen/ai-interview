@@ -1,4 +1,4 @@
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { Badge } from "@/components/ui/badge";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";

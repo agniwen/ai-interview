@@ -1,4 +1,4 @@
-import type { InterviewNotificationAudienceType } from "@arc/db-schema/interview-notifications";
+import type { InterviewNotificationAudienceType } from "@app/db-schema/interview-notifications";
 
 export function resolveInternalNotificationUserIds(input: {
   audienceType: Extract<

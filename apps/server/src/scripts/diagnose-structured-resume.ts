@@ -4,9 +4,9 @@ import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-description-structured-config";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { z } from "zod";
 import { loadServerEnv } from "../standalone/env";
 import type { StructuredResumeGenerator } from "../server/agents/structured-resume-evaluation";
@@ -209,7 +209,7 @@ async function loadTargets(options: DiagnosticOptions): Promise<DiagnosticTarget
   const [{ db }, { jobDescription, organization, studioInterview }, { and, desc, eq }] =
     await Promise.all([
       import("../lib/server/db"),
-      import("@arc/db-schema/schema"),
+      import("@app/db-schema/schema"),
       import("drizzle-orm"),
     ]);
   const [workspace] = await db
@@ -439,7 +439,7 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     import("../server/agents/resume-analysis-agent"),
     import("../server/agents/resume-parser-agent"),
     import("@app/object-storage"),
-    import("@arc/shared/file-hash"),
+    import("@app/shared/file-hash"),
   ]);
   const actualStructuredModel = modelModule.getMastraModelIdentifier(
     modelModule.mastraModels.structuredModel,

@@ -11,10 +11,10 @@ import {
   organization,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
-import type { AiInvitationExceptionType } from "@arc/db-schema/interview-notifications";
-import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
-import { buildInterviewLink } from "@arc/shared/interview/interview-record";
+} from "@app/db-schema/schema";
+import type { AiInvitationExceptionType } from "@app/db-schema/interview-notifications";
+import type { PublicAiInterviewInvitationPreview } from "@app/shared/studio-pipeline-stages";
+import { buildInterviewLink } from "@app/shared/interview/interview-record";
 import {
   hashAiInterviewInvitationToken,
   isAiInterviewInvitationExpired,

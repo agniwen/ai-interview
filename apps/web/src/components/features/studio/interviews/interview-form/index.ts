@@ -2,7 +2,7 @@
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
-import { studioInterviewClientFormSchema } from "@arc/db-schema/studio-interviews";
+import { studioInterviewClientFormSchema } from "@app/db-schema/studio-interviews";
 
 export type InterviewFormValues = z.infer<typeof studioInterviewClientFormSchema>;
 export type InterviewFormApi = ReturnType<typeof useInterviewForm>;

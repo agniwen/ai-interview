@@ -1,7 +1,7 @@
 "use client";
 
-import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
-import { cn } from "@arc/shared/utils";
+import type { JobDescriptionRecord } from "@app/shared/job-descriptions";
+import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 

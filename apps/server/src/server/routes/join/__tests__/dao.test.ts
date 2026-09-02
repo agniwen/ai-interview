@@ -8,7 +8,7 @@ import {
   recruitingGroupMember,
   user,
   workspaceInviteLink,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { acceptInviteLink, getJoinPreview } from "../dao";
 
 const ORG = "test_join_org";

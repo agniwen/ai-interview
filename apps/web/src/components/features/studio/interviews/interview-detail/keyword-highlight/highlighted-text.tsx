@@ -1,8 +1,8 @@
 "use client";
 
-import { extractAnswerKeywords } from "@arc/shared/answer-keywords";
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
-import { cn } from "@arc/shared/utils";
+import { extractAnswerKeywords } from "@app/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
+import { cn } from "@app/shared/utils";
 import { useMemo } from "react";
 import { useKeywordHighlight } from "./context";
 

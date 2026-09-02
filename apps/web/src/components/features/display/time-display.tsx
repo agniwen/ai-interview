@@ -1,7 +1,7 @@
 import { IconCalendar } from "@tabler/icons-react";
 
-import { cn } from "@arc/shared/utils";
-import { DEFAULT_DATE_TIME_FORMAT, formatDateInAppTimeZone, toDate } from "@arc/shared/utils/time";
+import { cn } from "@app/shared/utils";
+import { DEFAULT_DATE_TIME_FORMAT, formatDateInAppTimeZone, toDate } from "@app/shared/utils/time";
 
 // 表格内创建/更新时间统一展示为 `YY/MM/DD HH:mm`，固定东八区。
 // Tables render created/updated timestamps as `YY/MM/DD HH:mm` in Asia/Shanghai.

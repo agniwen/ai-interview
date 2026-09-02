@@ -2,8 +2,8 @@ import { AccessToken, RoomConfiguration, RoomServiceClient } from "livekit-serve
 import type {
   HumanInterviewMeetingParticipantRole,
   HumanInterviewMeetingTokenResponse,
-} from "@arc/shared/studio-pipeline-stages";
-import type { JsonObject } from "@arc/db-schema/json";
+} from "@app/shared/studio-pipeline-stages";
+import type { JsonObject } from "@app/db-schema/json";
 
 interface LiveKitServerConfig {
   apiKey: string;

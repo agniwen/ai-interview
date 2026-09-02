@@ -277,7 +277,7 @@ async function main(): Promise<void> {
     import("@app/ai-runtime/models"),
     import("./diagnose-structured-resume-audit"),
     import("@mastra/core/agent"),
-    import("@arc/db-schema/structured-resume-evaluation"),
+    import("@app/db-schema/structured-resume-evaluation"),
   ]);
   const workflowInput = evaluation.structuredResumeWorkflowInputSchema.parse(source.workflowInput);
   const promptContext = evaluation.createStructuredResumePromptContext(workflowInput);

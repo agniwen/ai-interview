@@ -8,7 +8,7 @@ import type {
   BulkResumeBatchDetailDto,
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
-} from "@arc/shared/bulk-resume-upload";
+} from "@app/shared/bulk-resume-upload";
 import { useBulkUploadWithDependencies } from "../use-bulk-upload";
 import type { BulkUploadDependencies } from "../use-bulk-upload";
 

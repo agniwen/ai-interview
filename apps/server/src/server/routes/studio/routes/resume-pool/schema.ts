@@ -1,11 +1,11 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { z } from "zod";
-import { resumePoolCreateSchema, resumePoolImportSchema } from "@arc/shared/resume-pool";
-import { createdAtDateQuerySchema } from "@arc/shared/date-range-filter";
+import { resumePoolCreateSchema, resumePoolImportSchema } from "@app/shared/resume-pool";
+import { createdAtDateQuerySchema } from "@app/shared/date-range-filter";
 export {
   nextShanghaiCalendarDayStart,
   shanghaiCalendarDayStart,
-} from "@arc/shared/date-range-filter";
+} from "@app/shared/date-range-filter";
 
 export const resumePoolListQuerySchema = createdAtDateQuerySchema.safeExtend({
   importStatus: z.enum(["imported", "not_imported"]).optional(),

@@ -1,4 +1,4 @@
-import type { ResumePoolInitialRecruitmentStage } from "@arc/shared/resume-pool";
+import type { ResumePoolInitialRecruitmentStage } from "@app/shared/resume-pool";
 
 interface ResumePoolAdmissionSource {
   id: string;

@@ -7,14 +7,14 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
+import type { ResumeAnalysisResult } from "@app/db-schema/interview/types";
 import type { db as database } from "../../../../../../lib/server/db/index";
 import type {
   member as memberTable,
   organization as organizationTable,
   studioInterview as studioInterviewTable,
   user as userTable,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type { loadResumeDetail as loadResumeDetailFn } from "../dao/resumes";
 import type { parseResumeLibraryEditFormInput as parseResumeLibraryEditFormInputFn } from "../route";
 
@@ -62,7 +62,7 @@ describeWithDatabase("resume detail route database behavior", () => {
 
   beforeAll(async () => {
     ({ db } = await import("../../../../../../lib/server/db/index"));
-    ({ member, organization, studioInterview, user } = await import("@arc/db-schema/schema"));
+    ({ member, organization, studioInterview, user } = await import("@app/db-schema/schema"));
     ({ loadResumeDetail } = await import("../dao/resumes"));
     ({ parseResumeLibraryEditFormInput } = await import("../route"));
 

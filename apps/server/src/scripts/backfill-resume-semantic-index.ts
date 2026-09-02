@@ -1,9 +1,9 @@
 import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, isNotNull, notExists, sql } from "drizzle-orm";
-import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
-import type { JsonValue } from "@arc/db-schema/json";
+import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@app/db-schema/schema";
+import type { JsonValue } from "@app/db-schema/json";
 import type { Database } from "../lib/server/db/index";
-import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
+import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
 import { loadStandaloneEnv } from "../standalone/env";
 
 type SemanticBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";

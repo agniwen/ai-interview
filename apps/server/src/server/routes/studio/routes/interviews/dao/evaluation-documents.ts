@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { uniq } from "lodash-es";
 
 import { db } from "../../../../../../lib/server/db/index";
-import { interviewConversation } from "@arc/db-schema/schema";
+import { interviewConversation } from "@app/db-schema/schema";
 import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
 import { resolveEvaluationDocument } from "./evaluation-document-status";
 import type { FeishuEvaluationDocumentProjection } from "./evaluation-document-status";

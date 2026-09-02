@@ -1,7 +1,7 @@
-import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 // oxlint-disable no-promise-executor-return, promise/avoid-new -- MessagePort delivery is confirmed through deferred callbacks.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptAuthorization } from "@app/shared/meeting-transcription";
 import type { LiveTranscriptEvent } from "./live-transcript-draft";
 import { connectQwenRealtimeTranscription } from "./qwen-realtime-transport";
 

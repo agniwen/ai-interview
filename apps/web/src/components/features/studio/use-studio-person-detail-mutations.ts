@@ -1,8 +1,8 @@
 "use client";
 
-import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Dispatch } from "react";

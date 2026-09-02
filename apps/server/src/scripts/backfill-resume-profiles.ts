@@ -1,15 +1,15 @@
 import { pathToFileURL } from "node:url";
 import { and, asc, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { AttachmentTextSource } from "@app/db-schema/db-enums";
+import type { JsonValue } from "@app/db-schema/json";
 import {
   chatAttachment,
   resumeEvaluationVersion,
   resumePoolItem,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type { Database } from "../lib/server/db/index";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";

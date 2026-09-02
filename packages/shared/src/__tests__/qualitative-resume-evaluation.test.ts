@@ -3,7 +3,7 @@ import {
   qualitativeResumeEvaluationSchema,
   qualitativeResumeEvaluationV1Schema,
   qualitativeResumeEvaluationV2Schema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 
 const dimension = (basis: "both" | "general" | "job", evaluation: string) => ({
   basis,

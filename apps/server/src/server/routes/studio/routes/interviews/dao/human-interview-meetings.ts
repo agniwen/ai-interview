@@ -12,16 +12,16 @@ import {
   studioHumanInterviewRoundInterviewer,
   studioInterview,
   user,
-} from "@arc/db-schema/schema";
-import type { HumanInterviewMeetingInput } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewRecordingJobData } from "@arc/meeting-processing-queue/human-interview-recording";
+} from "@app/db-schema/schema";
+import type { HumanInterviewMeetingInput } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
 import type {
   HumanInterviewMeetingCandidateLinkRecord,
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
   PublicHumanInterviewInterviewerPreview,
   PublicHumanInterviewMeetingPreview,
-} from "@arc/shared/studio-pipeline-stages";
+} from "@app/shared/studio-pipeline-stages";
 import {
   HumanInterviewMeetingError,
   buildCandidateInviteToken,

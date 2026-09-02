@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { BorderBeam } from "border-beam";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 
 type FileUploadItem = {

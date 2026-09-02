@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export type DataFieldsColumns = 1 | 2 | 3 | 4;
 export type DataFieldsDensity = "compact" | "default" | "relaxed";

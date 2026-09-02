@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export function PendingOutlet({
   children,

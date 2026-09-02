@@ -20,9 +20,9 @@ import type {
   HumanInterviewMeetingTokenResponse,
   PublicHumanInterviewInterviewerPreview,
   PublicHumanInterviewMeetingPreview,
-} from "@arc/shared/studio-pipeline-stages";
-import { humanInterviewRecordingStatusSchema } from "@arc/db-schema/studio-interviews";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/studio-pipeline-stages";
+import { humanInterviewRecordingStatusSchema } from "@app/db-schema/studio-interviews";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";

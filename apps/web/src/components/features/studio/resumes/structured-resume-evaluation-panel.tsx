@@ -3,15 +3,15 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import type { StructuredResumeRuleId } from "@arc/db-schema/job-description-structured-config";
-import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
-import type { StructuredResumeGateStatus } from "@arc/db-schema/structured-resume-evaluation";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import type { StructuredResumeRuleId } from "@app/db-schema/job-description-structured-config";
+import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-structured-config";
+import type { StructuredResumeGateStatus } from "@app/db-schema/structured-resume-evaluation";
 import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DIMENSIONS,
-} from "@arc/shared/structured-resume-scoring";
-import { cn } from "@arc/shared/utils";
+} from "@app/shared/structured-resume-scoring";
+import { cn } from "@app/shared/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";

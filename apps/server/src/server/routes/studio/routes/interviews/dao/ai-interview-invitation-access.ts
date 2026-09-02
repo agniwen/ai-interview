@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { getRequiredEnv } from "../../../../../../lib/server/env";
-import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
+import type { AiInterviewLinkValidity } from "@app/shared/interview/ai-interview-invitation";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AI_INVITATION_TTL_MS = 30 * DAY_MS;

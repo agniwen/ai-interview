@@ -4,7 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
+import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
 import { MeetingDetailTitle } from "./meeting-detail-title";
 
 // SAFETY: The test fixture is constructed with the asserted shape before this boundary.

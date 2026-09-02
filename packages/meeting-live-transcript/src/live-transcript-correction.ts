@@ -1,6 +1,6 @@
-import type { JsonObject } from "@arc/db-schema/json";
-import { liveCorrectionResultSchema } from "@arc/shared/meeting-live-correction";
-import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import type { JsonObject } from "@app/db-schema/json";
+import { liveCorrectionResultSchema } from "@app/shared/meeting-live-correction";
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 import { z } from "zod";
 
 export const LIVE_CORRECTION_MODEL = "qwen-audio-3.0-asr-flash";

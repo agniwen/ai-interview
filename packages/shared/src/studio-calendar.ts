@@ -2,8 +2,8 @@ import type {
   HumanInterviewFormat,
   HumanInterviewMeetingStatus,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { InterviewSummaryStatus } from "@arc/db-schema/db-enums";
+} from "@app/db-schema/studio-interviews";
+import type { InterviewSummaryStatus } from "@app/db-schema/db-enums";
 
 export interface StudioCalendarCandidate {
   candidateName: string;

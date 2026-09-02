@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ArcMessage } from "@arc/db-schema/ai-message";
+import type { ArcMessage } from "@app/db-schema/ai-message";
 import {
   RECRUITING_CONTEXT_JOB_BINDING_META_KEY,
   deriveChatContextBindingsFromMessages,
-} from "@arc/db-schema/chat-context-bindings";
+} from "@app/db-schema/chat-context-bindings";
 
 describe("deriveChatContextBindingsFromMessages", () => {
   it("derives later bindings over earlier ones for the same person", () => {

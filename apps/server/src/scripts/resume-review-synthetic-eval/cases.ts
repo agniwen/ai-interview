@@ -1,4 +1,4 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { SyntheticResumeReviewCase } from "./types";
 
 const education: NonNullable<ResumeProfile["educationExperiences"]>[number] = {

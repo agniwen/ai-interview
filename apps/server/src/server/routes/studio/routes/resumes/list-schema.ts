@@ -1,5 +1,5 @@
-import { createdAtDateQuerySchema } from "@arc/shared/date-range-filter";
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { createdAtDateQuerySchema } from "@app/shared/date-range-filter";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { z } from "zod";
 
 export const resumeLibraryListQuerySchema = createdAtDateQuerySchema.safeExtend({

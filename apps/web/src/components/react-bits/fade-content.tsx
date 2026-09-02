@@ -2,7 +2,7 @@
 
 import type { ReactNode, Ref } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface FadeContentProps {
   children: ReactNode;

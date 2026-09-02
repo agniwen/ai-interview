@@ -4,8 +4,8 @@ import type {
   InterviewNotificationChannel,
   InterviewNotificationEventType,
   InterviewNotificationPayloadSnapshot,
-} from "@arc/db-schema/interview-notifications";
-import { InterviewNotificationProviderError } from "@arc/shared/interview-notifications";
+} from "@app/db-schema/interview-notifications";
+import { InterviewNotificationProviderError } from "@app/shared/interview-notifications";
 import { FEISHU_PROVIDER_IDS } from "../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../integrations/feishu/provider";
 import { z } from "zod";

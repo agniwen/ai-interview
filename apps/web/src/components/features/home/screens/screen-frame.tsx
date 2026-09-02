@@ -3,7 +3,7 @@
 // Purpose: fixed 1600x900 inner canvas scaled to fit container width via cqi units,
 // keeping pixel-perfect mock layout while flexing to outer width.
 import type { ReactNode } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const WINDOW_CONTROL_BASE_CLASS =
   "relative size-3.5 overflow-hidden rounded-full shadow-[inset_0_1px_1px_rgb(255_255_255_/_0.18)]";

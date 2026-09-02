@@ -1,4 +1,4 @@
-import type { CandidateFormTemplateSnapshotQuestion } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateSnapshotQuestion } from "@app/db-schema/candidate-forms";
 
 export function formatCandidateFormAnswer(
   question: Pick<CandidateFormTemplateSnapshotQuestion, "options" | "type">,

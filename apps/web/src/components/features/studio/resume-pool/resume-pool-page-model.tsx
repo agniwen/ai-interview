@@ -1,16 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ResumePoolScope } from "@arc/db-schema/schema";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { ResumePoolScope } from "@app/db-schema/schema";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import type {
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
   ResumePoolUploaderOption,
-} from "@arc/shared/resume-pool";
-import { formatDateInAppTimeZone } from "@arc/shared/utils/time";
-import { dateRangeFilterLabel } from "@arc/shared/date-range-filter";
+} from "@app/shared/resume-pool";
+import { formatDateInAppTimeZone } from "@app/shared/utils/time";
+import { dateRangeFilterLabel } from "@app/shared/date-range-filter";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
@@ -30,7 +30,7 @@ import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
-export { dateRangeFilterBounds as resumePoolCreatedAtBounds } from "@arc/shared/date-range-filter";
+export { dateRangeFilterBounds as resumePoolCreatedAtBounds } from "@app/shared/date-range-filter";
 
 type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
 

@@ -1,7 +1,7 @@
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
   qualitativeResumeEvaluationV2Schema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+} from "@app/db-schema/qualitative-resume-evaluation";
 
 export interface ReusableResumePoolEvaluation {
   contractVersion: typeof QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION;

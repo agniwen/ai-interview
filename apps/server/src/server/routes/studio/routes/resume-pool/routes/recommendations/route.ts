@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { JobDescriptionRecommendationResult } from "@arc/shared/job-descriptions";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { JobDescriptionRecommendationResult } from "@app/shared/job-descriptions";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { loadResumePoolItem } from "../../dao";

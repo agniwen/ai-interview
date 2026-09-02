@@ -9,7 +9,7 @@ import * as React from "react";
 import { useMemo } from "react";
 import { ReactShaderToy } from "@/components/agents-ui/react-shader-toy";
 import { useAgentAudioVisualizerAura } from "@/hooks/agents-ui/use-agent-audio-visualizer-aura";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /**
  * @license

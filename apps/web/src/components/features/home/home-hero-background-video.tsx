@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { useHydrated } from "@/hooks/use-hydrated";
 import type { ResolvedTheme } from "@/lib/client/theme-cookie";
 

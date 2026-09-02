@@ -10,7 +10,7 @@ import { cva } from "class-variance-authority";
 import * as React from "react";
 import { Children, cloneElement, isValidElement, memo, useMemo } from "react";
 import { useAgentAudioVisualizerGridAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-grid";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 /** 克隆唯一 React 子元素，并把网格可视化器属性合并到该元素。 / Clones the sole React child and merges grid-visualizer props into it. */
 function cloneSingleChild(

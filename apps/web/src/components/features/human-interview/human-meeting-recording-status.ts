@@ -1,5 +1,5 @@
-import type { HumanInterviewRecordingStatus } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewMeetingTokenResponse } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewRecordingStatus } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewMeetingTokenResponse } from "@app/shared/studio-pipeline-stages";
 
 export function shouldPollHumanInterviewRecordingStatus(
   token: HumanInterviewMeetingTokenResponse | null,

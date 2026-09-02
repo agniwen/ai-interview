@@ -5,7 +5,7 @@ import { LocalDateTimeText } from "@/components/features/display/local-date-time
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import type { BulkResumeBatchDto } from "@arc/shared/bulk-resume-upload";
+import type { BulkResumeBatchDto } from "@app/shared/bulk-resume-upload";
 
 interface Props {
   batches: BulkResumeBatchDto[];

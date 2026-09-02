@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { InterviewQuestionTemplateQuestionInput } from "@arc/db-schema/interview-question-templates";
-import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
-import type { GeneratedInterviewQuestion, InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewQuestionTemplateQuestionInput } from "@app/db-schema/interview-question-templates";
+import { generatedInterviewQuestionSchema } from "@app/db-schema/interview/types";
+import type { GeneratedInterviewQuestion, InterviewQuestion } from "@app/db-schema/interview/types";
 import {
   generateStructuredWithMastraAgent,
   interviewQuestionAgent,

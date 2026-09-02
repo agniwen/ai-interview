@@ -4,7 +4,7 @@ import type {
   MeetingAccessRole,
   MeetingRecruitingContextSettings,
   MeetingRecruitingRecordSummary,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import {
   Frame,

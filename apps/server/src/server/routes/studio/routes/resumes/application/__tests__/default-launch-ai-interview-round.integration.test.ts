@@ -10,7 +10,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { persistLaunchAiInterviewRound } from "../default-launch-ai-interview-round";
 
 const ORG_ID = "atomic_launch_org";

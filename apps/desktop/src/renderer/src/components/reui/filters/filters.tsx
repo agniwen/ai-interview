@@ -89,7 +89,7 @@ import type {
 } from "@/components/reui/filters/filters-types";
 import { cva } from "class-variance-authority";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
 
 /* -------------------------------------------------------------------------- */

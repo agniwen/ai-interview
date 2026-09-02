@@ -5,18 +5,18 @@ import { mkdir, open, readFile, readdir, rm, stat, unlink } from "node:fs/promis
 import { dirname, join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 import { z } from "zod";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonValue } from "@app/db-schema/json";
 import type {
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
   MultipartMeetingUploadInstruction,
   MultipartSavedMeetingDescriptor,
   SmallMeetingUploadInstruction,
-} from "@arc/shared/meeting-recording";
-import { MEETING_MULTIPART_PART_BYTES } from "@arc/shared/meeting-recording";
-import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
-import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
+} from "@app/shared/meeting-recording";
+import { MEETING_MULTIPART_PART_BYTES } from "@app/shared/meeting-recording";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
+import { formatDefaultMeetingTitle } from "@app/shared/utils/time";
 import {
   describeLocalMeetingMultipart,
   uploadMeetingObject,

@@ -1,6 +1,6 @@
 "use client";
 
-import type { statement } from "@arc/shared/permissions";
+import type { statement } from "@app/shared/permissions";
 import { useWorkspaceCan } from "@/lib/client/workspace-context";
 
 /**

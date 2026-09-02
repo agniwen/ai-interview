@@ -2,7 +2,7 @@
 
 import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card";
 import type React from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 
 export const PreviewCard: typeof PreviewCardPrimitive.Root = PreviewCardPrimitive.Root;

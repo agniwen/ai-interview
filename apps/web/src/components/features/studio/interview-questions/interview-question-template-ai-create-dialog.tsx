@@ -1,8 +1,8 @@
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
-import type { InterviewQuestionTemplateQuestionInput } from "@arc/db-schema/interview-question-templates";
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { InterviewQuestionTemplateQuestionInput } from "@app/db-schema/interview-question-templates";
+import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";

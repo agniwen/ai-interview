@@ -1,6 +1,6 @@
 "use client";
 
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 
 import { IconChartHistogram, IconTags } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentInstructions } from "@arc/shared/interview/agent-instructions";
+import { buildAgentInstructions } from "@app/shared/interview/agent-instructions";
 
 describe("buildAgentInstructions", () => {
   it("requires the interview to stay in Simplified Chinese", () => {

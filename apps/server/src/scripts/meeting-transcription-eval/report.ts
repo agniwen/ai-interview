@@ -1,5 +1,5 @@
-import { MEETING_TRANSCRIPTION_PROVIDERS } from "@arc/shared/meeting-transcription";
-import type { MeetingTranscriptionProviderId } from "@arc/shared/meeting-transcription";
+import { MEETING_TRANSCRIPTION_PROVIDERS } from "@app/shared/meeting-transcription";
+import type { MeetingTranscriptionProviderId } from "@app/shared/meeting-transcription";
 import type { MeetingTranscriptionBenchmarkRun, MeetingTranscriptionBenchmarkScore } from "./types";
 
 const PRODUCTION_ELIGIBLE_PROVIDERS = new Set<MeetingTranscriptionProviderId>([

@@ -4,8 +4,8 @@ import {
   closedMetaSchema,
   pipelineStageSchema,
   studioInterviewQuestionClientSchema,
-} from "@arc/db-schema/studio-interviews";
-import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
+} from "@app/db-schema/studio-interviews";
+import { isSupportedResumeDocumentInput } from "@app/shared/resume-documents";
 
 export const jobDescriptionConfigSchema = z.union([
   z.object({

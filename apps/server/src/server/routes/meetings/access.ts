@@ -2,7 +2,7 @@ import type {
   MeetingAccessRole,
   MeetingGrantRole,
   MeetingVisibility,
-} from "@arc/shared/meeting-recording";
+} from "@app/shared/meeting-recording";
 
 export function isWorkspaceAdministrator(memberRole: string): boolean {
   return memberRole === "owner" || memberRole === "admin";

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   generatedInterviewQuestionSchema,
   interviewQuestionDimensionSchema,
-} from "@arc/db-schema/interview/types";
+} from "@app/db-schema/interview/types";
 
 type InterviewQuestionDimension = z.infer<typeof interviewQuestionDimensionSchema>;
 

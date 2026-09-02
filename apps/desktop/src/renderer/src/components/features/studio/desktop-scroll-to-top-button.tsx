@@ -8,7 +8,7 @@ import {
   DESKTOP_MAIN_SCROLL_RESTORATION_ID,
   findDesktopMainScrollElement,
 } from "@/components/features/studio/resumes/scroll-element";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const SHOW_AFTER_PX = 320;
 

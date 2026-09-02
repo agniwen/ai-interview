@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
 

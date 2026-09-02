@@ -2,8 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
+import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
 import { z } from "zod";
 import { loadServerEnv } from "../standalone/env";
 import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
@@ -183,7 +183,7 @@ async function main(): Promise<void> {
     modelModule,
   ] = await Promise.all([
     import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
+    import("@app/db-schema/schema"),
     import("drizzle-orm"),
     import("../server/routes/studio/routes/resumes/utils/review-queue"),
     import("../server/routes/studio/routes/resumes/utils/review-worker"),

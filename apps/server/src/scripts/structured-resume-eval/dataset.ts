@@ -3,15 +3,15 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
-import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
-import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
+import { resumeProfileSchema } from "@app/db-schema/interview/types";
+import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-evaluation";
+import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-description-structured-config";
 import {
   structuredResumeEvaluationV1Schema,
   structuredResumeGateStatusSchema,
   structuredResumeGradeSchema,
   structuredResumeRuleStatusSchema,
-} from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
 import {
   areStructuredResumeEvidenceSourcesValid,
   computeRelevantExperience,
@@ -19,12 +19,12 @@ import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION,
   STRUCTURED_RESUME_DIMENSIONS,
-} from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
 import type {
   StructuredResumeDimension,
   StructuredResumeRuleId,
   StructuredResumeRuleJudgment,
-} from "@arc/shared/structured-resume-scoring";
+} from "@app/shared/structured-resume-scoring";
 import { computeJobEvaluationPayloadHash } from "../../lib/server/job-evaluation-hash";
 import type {
   StructuredResumeEvalCandidate,

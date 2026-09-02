@@ -5,7 +5,7 @@ import {
   INTERVIEW_DISPATCH_SCHEMA_VERSION,
   interviewDispatchContractSchema,
   selectInterviewDispatchInterviewer,
-} from "@arc/shared/interview/dispatch-contract";
+} from "@app/shared/interview/dispatch-contract";
 
 const baseInput = {
   allowTextInput: true,

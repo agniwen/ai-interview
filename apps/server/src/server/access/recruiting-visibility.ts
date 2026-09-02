@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../lib/server/db/index";
-import { member, recruitingGroupMember } from "@arc/db-schema/schema";
+import { member, recruitingGroupMember } from "@app/db-schema/schema";
 
 export type RecruitingVisibilityScope =
   | { kind: "all" }

@@ -1,7 +1,7 @@
 /* oxlint-disable require-await, no-useless-undefined -- Vitest mocks preserve Promise-shaped dependency contracts. */
 import { describe, expect, it, vi } from "vitest";
 import type { InterviewNotificationDeliveryRecord, InterviewNotificationEventRecord } from "./dao";
-import { InterviewNotificationProviderError } from "@arc/shared/interview-notifications";
+import { InterviewNotificationProviderError } from "@app/shared/interview-notifications";
 import type { InterviewNotificationProcessorDependencies } from "./processor";
 import { processInterviewNotificationEvent } from "./processor";
 

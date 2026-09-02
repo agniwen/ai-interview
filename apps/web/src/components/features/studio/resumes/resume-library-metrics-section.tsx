@@ -1,11 +1,11 @@
 "use client";
 
-import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 import { Component } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { ResumeLibraryCharts } from "./resume-library-charts";
 import { ResumeLibraryMetricsSkeleton } from "./resume-library-metrics-skeleton";
 

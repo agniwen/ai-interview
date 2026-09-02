@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import { z } from "zod";
 
 const jsonValueSchema = z.json();

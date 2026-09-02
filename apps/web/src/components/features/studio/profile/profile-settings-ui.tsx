@@ -1,4 +1,4 @@
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export function SettingsSection({
   children,

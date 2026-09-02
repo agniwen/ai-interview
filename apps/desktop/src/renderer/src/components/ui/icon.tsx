@@ -9,7 +9,7 @@
 import { addCollection, Icon as IconifyIcon } from "@iconify/react";
 import ph from "@iconify-json/ph/icons.json";
 import type { ComponentProps } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 addCollection(ph);
 

@@ -23,13 +23,13 @@ import {
   closeCategoryValues,
   pipelineStageSchema,
   pipelineStageMeta,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type {
   CandidateOutcome,
   ClosedMeta,
   CloseCategory,
   PipelineStage,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { fetchStudioResume, transitionInterviewRecord } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";

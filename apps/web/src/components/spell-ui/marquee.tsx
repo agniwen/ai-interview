@@ -2,7 +2,7 @@
 
 import { Children, useRef, useState } from "react";
 import type { HTMLAttributes } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 interface MarqueeProps extends HTMLAttributes<HTMLDivElement> {
   duration?: number;

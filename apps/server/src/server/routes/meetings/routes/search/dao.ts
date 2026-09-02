@@ -9,9 +9,9 @@ import {
   meetingTranscriptTurn,
   member,
   user,
-} from "@arc/db-schema/schema";
-import type { MeetingLibrarySearchMatch } from "@arc/shared/meeting-search";
-import { MAX_MEETING_TRANSCRIPT_TEXT_CHARS } from "@arc/shared/meeting-transcription";
+} from "@app/db-schema/schema";
+import type { MeetingLibrarySearchMatch } from "@app/shared/meeting-search";
+import { MAX_MEETING_TRANSCRIPT_TEXT_CHARS } from "@app/shared/meeting-transcription";
 import { isWorkspaceAdministrator } from "../../access";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

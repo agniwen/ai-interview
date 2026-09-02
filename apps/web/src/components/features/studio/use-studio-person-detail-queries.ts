@@ -1,8 +1,8 @@
 /* oxlint-disable complexity -- query hook coordinates resolve, reports, forms, timeline, and record assembly. */
 "use client";
 
-import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";

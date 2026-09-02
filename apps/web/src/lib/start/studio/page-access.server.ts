@@ -1,4 +1,4 @@
-import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { hasPermissionInStatements } from "@app/shared/permission-statements";
 import type {
   StudioPagePermissionAction,
   WorkspaceAccessState,

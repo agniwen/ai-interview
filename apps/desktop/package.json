@@ -23,9 +23,9 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
-    "@arc/db-schema": "workspace:*",
-    "@arc/meeting-live-transcript": "workspace:*",
-    "@arc/shared": "workspace:*",
+    "@app/db-schema": "workspace:*",
+    "@app/meeting-live-transcript": "workspace:*",
+    "@app/shared": "workspace:*",
     "@base-ui/react": "^1.5.0",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",

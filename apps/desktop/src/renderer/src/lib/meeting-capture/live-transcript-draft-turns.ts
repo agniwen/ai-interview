@@ -2,4 +2,4 @@ export {
   appendLiveTranscriptTurn,
   createDurableLiveTranscriptDraft,
   createLiveTranscriptCorrectionBatches,
-} from "@arc/meeting-live-transcript/draft";
+} from "@app/meeting-live-transcript/draft";

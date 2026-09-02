@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export function Frame({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
   return (

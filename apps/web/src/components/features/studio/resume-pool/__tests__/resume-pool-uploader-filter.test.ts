@@ -10,7 +10,7 @@ import {
   RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
 } from "../resume-pool-page-model";
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 
 describe("resume pool uploader filter", () => {
   const uploaders = [

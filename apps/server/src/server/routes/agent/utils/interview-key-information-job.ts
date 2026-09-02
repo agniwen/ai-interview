@@ -1,6 +1,6 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../../../../lib/server/db/index";
-import { interviewConversation } from "@arc/db-schema/schema";
+import { interviewConversation } from "@app/db-schema/schema";
 import { cacheTags, safeUpdateTag } from "../../../cache-tags";
 import { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
 import { generateInterviewKeyInformation } from "./interview-key-information";

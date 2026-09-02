@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 

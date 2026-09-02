@@ -1,7 +1,7 @@
-import { statement } from "@arc/shared/permissions";
-import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
+import { statement } from "@app/shared/permissions";
+import type { WorkspacePermissionStatements } from "@app/shared/permission-statements";
 import { and, eq } from "drizzle-orm";
-import { recruitingGroupMember } from "@arc/db-schema/schema";
+import { recruitingGroupMember } from "@app/db-schema/schema";
 
 type WorkspaceResource = keyof typeof statement;
 

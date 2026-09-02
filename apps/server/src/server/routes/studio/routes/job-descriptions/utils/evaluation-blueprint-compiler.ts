@@ -2,20 +2,20 @@
 import type {
   JobEvaluationBlueprint,
   JobEvaluationRuleDraft,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import {
   JOB_EVALUATION_BLUEPRINT_MAX_REQUIREMENTS,
   JOB_EVALUATION_BLUEPRINT_MAX_REQUIREMENTS_PER_CATEGORY,
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import type {
   JobDescriptionStructuredConfig,
   StructuredResumeRuleId,
-} from "@arc/db-schema/job-description-structured-config";
-import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
-import type { StructuredResumeDimension } from "@arc/shared/structured-resume-scoring";
-import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/job-description-structured-config";
+import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-structured-config";
+import type { StructuredResumeDimension } from "@app/shared/structured-resume-scoring";
+import { STRUCTURED_RESUME_DIMENSIONS } from "@app/shared/structured-resume-scoring";
 import { z } from "zod";
 import { computeJobEvaluationPayloadHash } from "../../../../../../lib/server/job-evaluation-hash";
 import {

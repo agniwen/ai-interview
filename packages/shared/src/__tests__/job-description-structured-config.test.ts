@@ -3,7 +3,7 @@ import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
 } from "../job-descriptions";
-import { parseStoredJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { parseStoredJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 
 describe("job description structured config", () => {
   it("creates the confirmed six-dimension defaults", () => {

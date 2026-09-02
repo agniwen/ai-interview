@@ -1,5 +1,5 @@
-import type { JsonValue } from "@arc/db-schema/json";
-import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import type { JsonValue } from "@app/db-schema/json";
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 import { z } from "zod";
 import { createLiveTranscriptCorrection } from "./live-transcript-correction";
 import type { DashScopeRealtimeWsConnection } from "./live-transcript-ws";

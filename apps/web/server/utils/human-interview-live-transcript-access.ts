@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
-import { createMeetingLiveTranscriptHints } from "@arc/meeting-live-transcript/hints";
-import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
-import { meetingLiveTranscriptTrackSchema } from "@arc/shared/meeting-transcription";
+import { createMeetingLiveTranscriptHints } from "@app/meeting-live-transcript/hints";
+import type { MeetingLiveTranscriptAuthorization } from "@app/shared/meeting-transcription";
+import { meetingLiveTranscriptTrackSchema } from "@app/shared/meeting-transcription";
 import {
   createWorkspaceMeetingLiveTranscriptAuthorization,
   isHumanInterviewMeetingAfterValidUntil,

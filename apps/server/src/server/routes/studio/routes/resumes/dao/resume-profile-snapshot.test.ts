@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   buildResumeProfileSnapshot,
   buildResumeProfileSnapshotFromProfile,

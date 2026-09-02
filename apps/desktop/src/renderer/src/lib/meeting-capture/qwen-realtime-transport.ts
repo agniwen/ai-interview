@@ -1,14 +1,14 @@
-import { liveCorrectionEventSchema } from "@arc/shared/meeting-live-correction";
-import type { LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import { liveCorrectionEventSchema } from "@app/shared/meeting-live-correction";
+import type { LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 import {
   DASHSCOPE_SAMPLE_RATE,
   WORKLET_SAMPLE_RATE,
   dashScopeServerEventSchema,
   handleDashScopeEvent,
   resamplePcm16,
-} from "@arc/meeting-live-transcript/qwen-events";
+} from "@app/meeting-live-transcript/qwen-events";
 // oxlint-disable promise/avoid-new -- The IPC handshake is confirmed by the first provider event.
-import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptAuthorization } from "@app/shared/meeting-transcription";
 import { z } from "zod";
 import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-transcript-draft";
 

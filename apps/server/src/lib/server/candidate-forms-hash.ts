@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
 import { jsonValueSchema, stableStringify } from "./stable-stringify";
 
 /**

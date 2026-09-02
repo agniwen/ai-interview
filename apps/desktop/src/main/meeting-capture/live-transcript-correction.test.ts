@@ -1,6 +1,6 @@
 // oxlint-disable promise/avoid-new -- Deferred requests exercise in-flight cancellation.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 import {
   createLiveTranscriptCorrection,
   LIVE_CORRECTION_MODEL,

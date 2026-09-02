@@ -5,7 +5,7 @@
  *   event: ai-run
  *   data: {...AiRunEvent}
  */
-import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import type { AnalysisStreamEvent } from "@app/shared/api-stream";
 import { z } from "zod";
 
 const aiRunErrorSchema = z.object({

@@ -1,7 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
-import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";
-import type { PaginatedResumeLibraryResult } from "@arc/shared/studio-resumes";
+import { dateRangeFilterBounds } from "@app/shared/date-range-filter";
+import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@app/shared/studio-resumes";
+import type { PaginatedResumeLibraryResult } from "@app/shared/studio-resumes";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   fetchRecruitingJobDescriptions,

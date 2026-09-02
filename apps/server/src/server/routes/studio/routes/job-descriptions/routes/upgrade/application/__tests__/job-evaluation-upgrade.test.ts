@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { toJobEvaluationRuleDraft } from "@app/db-schema/job-description-evaluation";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import type { JobEvaluationUpgradeError } from "../job-evaluation-upgrade";
 import { createJobEvaluationUpgradeApplication } from "../job-evaluation-upgrade";
 

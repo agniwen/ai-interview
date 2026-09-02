@@ -31,11 +31,11 @@ import {
   meetingTranscriptRevision,
   member,
   user,
-} from "@arc/db-schema/schema";
-import { MEETING_TRASH_RETENTION_MS } from "@arc/shared/meeting-recording";
-import type { TrashedMeetingListQuery } from "@arc/shared/meeting-recording";
-import { paginationOffset } from "@arc/shared/pagination";
-import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
+} from "@app/db-schema/schema";
+import { MEETING_TRASH_RETENTION_MS } from "@app/shared/meeting-recording";
+import type { TrashedMeetingListQuery } from "@app/shared/meeting-recording";
+import { paginationOffset } from "@app/shared/pagination";
+import type { MeetingPurgeJobData } from "@app/meeting-processing-queue/meeting-purge";
 import {
   hasMeetingDirectUploadCapacity,
   lockMeetingDirectUploadCapacity,

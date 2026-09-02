@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const SIDEBAR_WIDTH = "17rem";
 const SIDEBAR_WIDTH_ICON = "3rem";

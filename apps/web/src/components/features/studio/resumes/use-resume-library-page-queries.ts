@@ -8,13 +8,13 @@ import {
 import { useRouter } from "@tanstack/react-router";
 import { useAtom } from "jotai";
 import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
-import { parseCsvParam } from "@arc/shared/csv";
-import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
-import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";
+import { parseCsvParam } from "@app/shared/csv";
+import { dateRangeFilterBounds } from "@app/shared/date-range-filter";
+import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@app/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";

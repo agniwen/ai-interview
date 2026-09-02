@@ -3,11 +3,11 @@ import {
   isMeetingIntelligenceQueueConfigured,
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
-} from "@arc/meeting-processing-queue/meeting-intelligence";
+} from "@app/meeting-processing-queue/meeting-intelligence";
 import type {
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import { meetingAccessCapabilities } from "../access";
 import { loadAuthorizedMeeting, meetingRole } from "../authorized-meeting";
 import { recordMeetingAudit } from "../dao";

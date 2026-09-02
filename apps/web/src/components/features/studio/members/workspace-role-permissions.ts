@@ -2,7 +2,7 @@ import {
   STUDIO_PAGE_PERMISSION_ACTIONS,
   STUDIO_PAGE_PERMISSION_LABELS,
   statement,
-} from "@arc/shared/permissions";
+} from "@app/shared/permissions";
 import { z } from "zod";
 
 export type PermissionResource = keyof typeof statement;

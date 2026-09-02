@@ -1,7 +1,7 @@
-import type { JsonValue } from "@arc/db-schema/json";
-import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
+import type { JsonValue } from "@app/db-schema/json";
+import type { ResumeAnalysisResult, ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
+import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
 import type { ChatAttachmentRow, CreateAttachmentInput } from "../chat/dao/chat-attachments";
 import type { ParsedResumeProfileResult } from "../../agents/resume-analysis-agent";
 

@@ -1,4 +1,4 @@
-import type { ListTextResource } from "@arc/shared/list-text-filters";
+import type { ListTextResource } from "@app/shared/list-text-filters";
 import type { FilterEditor, FilterOperator } from "@/components/reui/filters/filters-types";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 

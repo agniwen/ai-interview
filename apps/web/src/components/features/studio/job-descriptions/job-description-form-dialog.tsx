@@ -1,11 +1,11 @@
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
-import type { DepartmentRecord } from "@arc/shared/departments";
-import type { InterviewerListRecord } from "@arc/shared/interviewers";
-import { buildJobDescriptionInterviewerOptions } from "@arc/shared/job-description-interviewers";
-import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
-import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type { DepartmentRecord } from "@app/shared/departments";
+import type { InterviewerListRecord } from "@app/shared/interviewers";
+import { buildJobDescriptionInterviewerOptions } from "@app/shared/job-description-interviewers";
+import { jobDescriptionFormSchema } from "@app/shared/job-descriptions";
+import type { JobDescriptionFormValues, JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";

@@ -8,13 +8,13 @@
  * convention as studio-interviews.
  */
 
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
-import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
+import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { AiInterviewLinkValidity } from "@app/shared/interview/ai-interview-invitation";
+import type { MeetingLibraryItem } from "@app/shared/meeting-recording";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
-} from "@arc/shared/studio-interview-rounds";
+} from "@app/shared/studio-interview-rounds";
 import type {
   CandidateTimelineResponse,
   PaginatedResumeLibraryResult,
@@ -22,13 +22,13 @@ import type {
   ResumeIdentityUpdateInput,
   ResumeLibraryDetail,
   ResumeLibraryMetrics,
-} from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
 import type {
   StructuredResumeEvaluationV1,
   StructuredResumeGateStatus,
   StructuredResumeGrade,
-} from "@arc/db-schema/structured-resume-evaluation";
-import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
+} from "@app/db-schema/structured-resume-evaluation";
+import type { StructuredResumeSummaryFields } from "@app/shared/structured-resume-scoring";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";

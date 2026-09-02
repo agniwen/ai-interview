@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../lib/server/db/index";
-import { organizationRole } from "@arc/db-schema/schema";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { organizationRole } from "@app/db-schema/schema";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 
 type BuiltInWorkspaceRole = "owner" | "admin" | "member" | typeof NO_ACCESS_WORKSPACE_ROLE;
 

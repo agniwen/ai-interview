@@ -11,7 +11,7 @@ import {
   closedMetaSchema,
   pipelineStageSchema,
   studioInterviewQuestionClientSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { Button } from "@/components/ui/button";
 import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";

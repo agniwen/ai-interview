@@ -1,9 +1,9 @@
-import { listTextQuery } from "@arc/shared/list-text-filters";
+import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClientOnly, useNavigate, useRouter, useSearch } from "@tanstack/react-router";
-import type { DepartmentRecord } from "@arc/shared/departments";
-import type { InterviewerListRecord } from "@arc/shared/interviewers";
+import type { DepartmentRecord } from "@app/shared/departments";
+import type { InterviewerListRecord } from "@app/shared/interviewers";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
@@ -11,7 +11,7 @@ import type {
   JobDescriptionListRecord,
   JobDescriptionMetrics,
   JobDescriptionRecord,
-} from "@arc/shared/job-descriptions";
+} from "@app/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@app/server/web/studio";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { JobDescriptionChartsSkeleton } from "@/components/features/studio/job-descriptions/job-description-charts-skeleton";

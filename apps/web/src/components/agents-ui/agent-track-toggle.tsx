@@ -14,7 +14,7 @@ import { Track } from "livekit-client";
 
 import { Fragment, useMemo, useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export const agentTrackToggleVariants = cva(["size-9"], {
   defaultVariants: {

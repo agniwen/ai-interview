@@ -7,14 +7,14 @@ import {
   interviewAuditLog,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import { buildInterviewDispatchContract } from "@arc/shared/interview/dispatch-contract";
+import { buildInterviewDispatchContract } from "@app/shared/interview/dispatch-contract";
 import {
   nullableInstantDateTimeInputSchema,
   scheduleEntryStatusSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { loadSubmissionsByInterview } from "../forms/dao/submissions";
 import {
@@ -36,7 +36,7 @@ import { runSummaryJob } from "../../../agent/utils/interview-summary-job";
 import {
   hasExistingInterviewAnswers,
   isInterviewQuestionSetComplete,
-} from "@arc/shared/interview/question-outcomes";
+} from "@app/shared/interview/question-outcomes";
 import { recordingsRouter } from "./routes/recordings/route";
 import { reportsRouter } from "./routes/reports/route";
 import { loadRecordById } from "../../../interview/utils";

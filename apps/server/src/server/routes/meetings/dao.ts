@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 import {
   meetingAccessGrant,
   meetingAuditLog,
@@ -9,8 +9,8 @@ import {
   meetingSession,
   member,
   user,
-} from "@arc/db-schema/schema";
-import type { MeetingGrantRole, UpdateMeetingShareInput } from "@arc/shared/meeting-recording";
+} from "@app/db-schema/schema";
+import type { MeetingGrantRole, UpdateMeetingShareInput } from "@app/shared/meeting-recording";
 import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 export {

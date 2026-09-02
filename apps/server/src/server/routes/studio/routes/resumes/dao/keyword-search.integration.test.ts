@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { z } from "zod";
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";

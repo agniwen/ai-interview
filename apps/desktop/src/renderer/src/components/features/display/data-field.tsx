@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatAppDate, formatAppDateTime } from "@/lib/client/datetime";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 export type DataFieldKind = "boolean" | "date" | "datetime" | "email" | "number" | "phone" | "text";
 

@@ -5,8 +5,8 @@ import {
   canEditResumeRecord,
   describeResumeEvaluationStatus,
   resumeEvaluationStatusFormValueSchema,
-} from "@arc/shared/studio-resumes";
-import type { ResumeIdentityUpdateInput, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+} from "@app/shared/studio-resumes";
+import type { ResumeIdentityUpdateInput, ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";

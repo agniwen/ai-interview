@@ -6,7 +6,7 @@ import type { ComponentProps } from "react";
 import { useEffect, useRef } from "react";
 import * as WheelPickerPrimitive from "@ncdai/react-wheel-picker";
 
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 type WheelPickerValue = WheelPickerPrimitive.WheelPickerValue;
 

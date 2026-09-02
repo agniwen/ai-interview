@@ -3,7 +3,7 @@ import type {
   InterviewQuestionTemplateQuestionRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
-} from "@arc/db-schema/interview-question-templates";
+} from "@app/db-schema/interview-question-templates";
 import { and, asc, count, desc, eq, exists, inArray, isNull, or } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
@@ -14,7 +14,7 @@ import {
   interviewQuestionTemplateVersion,
   jobDescription,
   studioInterview,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { loadJobDescriptionsByTemplate, mapQuestionRow } from "./queries";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";

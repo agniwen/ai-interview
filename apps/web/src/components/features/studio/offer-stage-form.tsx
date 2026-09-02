@@ -12,8 +12,8 @@
 // the caller to launch the close flow.
 
 import type { Dispatch, SetStateAction } from "react";
-import type { OfferDraftInput } from "@arc/db-schema/studio-interviews";
-import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+import type { OfferDraftInput } from "@app/db-schema/studio-interviews";
+import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import { DatePicker } from "@/components/date-time-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

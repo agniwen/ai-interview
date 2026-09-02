@@ -1,5 +1,5 @@
-import type { MeetingProcessingState } from "@arc/shared/meeting-recording";
-import type { MeetingLibrarySearchResult } from "@arc/shared/meeting-search";
+import type { MeetingProcessingState } from "@app/shared/meeting-recording";
+import type { MeetingLibrarySearchResult } from "@app/shared/meeting-search";
 import { z } from "zod";
 import { resolveMeetingAccessRole } from "../../access";
 import { recordMeetingAudit } from "../../dao";

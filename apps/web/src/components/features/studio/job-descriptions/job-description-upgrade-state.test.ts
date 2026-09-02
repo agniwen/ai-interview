@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import {
   canPublishJobDescriptionUpgrade,
   getJobDescriptionUpgradeActionLabel,

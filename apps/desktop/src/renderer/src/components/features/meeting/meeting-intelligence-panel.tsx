@@ -2,16 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
-import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
+import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import type {
   MeetingIntelligencePayload,
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
-} from "@arc/shared/meeting-intelligence";
+} from "@app/shared/meeting-intelligence";
 import type {
   FinalMeetingTranscriptRevision,
   FinalMeetingTranscriptTurn,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
 import {
   Frame,

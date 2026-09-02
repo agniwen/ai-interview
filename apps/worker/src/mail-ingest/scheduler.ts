@@ -1,4 +1,4 @@
-import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
+import { isResumeParseQueueConfigured } from "@app/resume-parse-queue/resume-parse";
 import { resolveMailIngestConfig } from "./config";
 import type { MailIngestConfig } from "./config";
 import type { MailIngestRunScope, RunResult } from "./processor";

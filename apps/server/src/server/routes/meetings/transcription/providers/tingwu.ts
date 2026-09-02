@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { JsonValue } from "@arc/db-schema/json";
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
+import type { JsonValue } from "@app/db-schema/json";
+import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
 import type {
   CanonicalMeetingTranscript,
   CanonicalMeetingTranscriptTurn,
-} from "@arc/shared/meeting-transcription";
+} from "@app/shared/meeting-transcription";
 import { MeetingProviderResponseError } from "../provider";
 import type { FinalTranscriptionAudioChunk, MeetingTranscriptionProvider } from "../provider";
 

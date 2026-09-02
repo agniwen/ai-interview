@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { cn } from "@arc/shared/utils";
+import { cn } from "@app/shared/utils";
 
 const markdownComponents = {
   table({ children, className, ...props }: ComponentProps<"table">) {

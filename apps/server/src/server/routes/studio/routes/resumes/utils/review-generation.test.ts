@@ -1,4 +1,4 @@
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResumeReviewGenerationDependencies } from "./review-generation";
 import { generateResumeReviewBestEffort } from "./review-generation";

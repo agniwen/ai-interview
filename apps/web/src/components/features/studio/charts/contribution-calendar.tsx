@@ -11,8 +11,8 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { withHorizontalWheelScroll } from "@/lib/client/charts/horizontal-wheel-scroll";
-import { toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
-import { cn } from "@arc/shared/utils";
+import { toBeijingCalendarDate } from "@app/shared/beijing-calendar";
+import { cn } from "@app/shared/utils";
 
 export interface ContributionDayCount {
   count: number;

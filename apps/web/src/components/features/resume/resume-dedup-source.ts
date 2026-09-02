@@ -1,6 +1,6 @@
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
+import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
+import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@app/shared/studio-resumes";
 import type { DedupSourceCandidate } from "@/lib/client/api";
 
 /** Build the left-hand "current candidate" panel from a resume-library list row. */

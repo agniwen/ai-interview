@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { auth } from "@app/server/web/runtime";
-import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import { codeParamsSchema, getJoinPreview } from "@app/server/web/join";
 import { InvalidJoinLink } from "@/components/features/join/invalid-join-link";
 import { JoinClient } from "@/components/features/join/join-client";

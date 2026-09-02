@@ -3,9 +3,9 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import { createDefaultJobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
+import type { JsonValue } from "@app/db-schema/json";
 import { StructuredResumeEvaluationPanel } from "../structured-resume-evaluation-panel";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.

@@ -1,5 +1,5 @@
 import type { WorkspaceAccessState } from "@/lib/start/auth-session-types";
-import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { hasPermissionInStatements } from "@app/shared/permission-statements";
 
 export function canReadStudioResumes(
   access: Extract<WorkspaceAccessState, { status: "ready" }>,

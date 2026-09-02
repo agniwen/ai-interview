@@ -23,13 +23,13 @@ import {
   mailIngestMessage,
   resumePoolItem,
   resumeUploadBatchItem,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 import type {
   MailIngestJdBindStatus,
   MailIngestMessageStatus,
   MailIngestSkipReason,
-} from "@arc/db-schema/schema";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/schema";
+import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
 
 const PROCESSING_STALE_MS = 30 * 60 * 1000;
 const ERROR_MAX = 500;

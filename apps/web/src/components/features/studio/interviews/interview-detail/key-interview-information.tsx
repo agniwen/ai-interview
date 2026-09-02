@@ -1,6 +1,6 @@
 "use client";
 
-import type { InterviewKeyInformation } from "@arc/db-schema/interview-key-information";
+import type { InterviewKeyInformation } from "@app/db-schema/interview-key-information";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";

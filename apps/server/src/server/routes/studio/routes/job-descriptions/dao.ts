@@ -1,22 +1,22 @@
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
 import type {
   JobDescriptionInterviewerSummary,
   JobDescriptionListRecord,
   JobDescriptionMetrics,
   JobDescriptionRecord,
-} from "@arc/shared/job-descriptions";
+} from "@app/shared/job-descriptions";
 import {
   createDefaultResumeScreeningPolicy,
   resumeScreeningPolicySchema,
-} from "@arc/shared/resume-screening";
+} from "@app/shared/resume-screening";
 import {
   createDefaultJobDescriptionStructuredConfig,
   parseStoredJobDescriptionStructuredConfig,
-} from "@arc/db-schema/job-description-structured-config";
-import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
-import type { JsonObject } from "@arc/db-schema/json";
+} from "@app/db-schema/job-description-structured-config";
+import { minimaxVoiceSchema } from "@app/db-schema/minimax-voices";
+import type { JsonObject } from "@app/db-schema/json";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
@@ -36,7 +36,7 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+} from "@app/db-schema/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

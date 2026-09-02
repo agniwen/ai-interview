@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { MeetingProcessingState } from "@arc/shared/meeting-recording";
+import type { MeetingProcessingState } from "@app/shared/meeting-recording";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";

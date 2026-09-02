@@ -1,7 +1,7 @@
 "use client";
 
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
-import { cn } from "@arc/shared/utils";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
+import { cn } from "@app/shared/utils";
 import { useKeywordHighlight } from "./context";
 
 const CATEGORY_META: { category: KeywordCategory; label: string; dotClass: string }[] = [

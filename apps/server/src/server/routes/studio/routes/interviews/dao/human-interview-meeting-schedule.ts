@@ -5,9 +5,9 @@ import {
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
   studioHumanInterviewRoundInterviewer,
-} from "@arc/db-schema/schema";
-import type { HumanInterviewMeetingScheduleUpdate } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewMeetingRecord } from "@arc/shared/studio-pipeline-stages";
+} from "@app/db-schema/schema";
+import type { HumanInterviewMeetingScheduleUpdate } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
   buildCandidateInviteToken,
   buildInviteExpiry,

@@ -1,4 +1,4 @@
-import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
+import { isSupportedResumeDocumentInput } from "@app/shared/resume-documents";
 
 const JOB_CODE_IN_SUBJECT_PATTERN = /(^|[^A-Za-z0-9])(?<code>[A-Za-z0-9]{7})(?=$|[^A-Za-z0-9])/g;
 
