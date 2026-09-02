@@ -218,7 +218,6 @@
         "blobatar": "2.7.0",
         "border-beam": "^1.0.1",
         "class-variance-authority": "^0.7.1",
-        "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
         "d3-scale": "^4.0.2",
         "d3-shape": "^3.2.0",
@@ -260,7 +259,6 @@
         "simplex-noise": "^4.0.3",
         "sonner": "^2.0.7",
         "streamdown": "^2.5.0",
-        "tailwind-merge": "^3.6.0",
         "takumi-js": "^2.0.2",
         "three": "^0.167.1",
         "tiptap-markdown": "^0.9.0",
@@ -512,10 +510,9 @@
         "@app/db-schema": "workspace:*",
         "@tanstack/query-core": "^5.100.9",
         "better-auth": "^1.7.2",
-        "clsx": "^2.1.1",
+        "cn": "^0.2.4",
         "dayjs": "^1.11.20",
         "lodash-es": "^4.18.1",
-        "tailwind-merge": "^3.6.0",
         "xstate": "^5.32.3",
         "zod": "catalog:",
       },
@@ -2402,6 +2399,8 @@
     "cluster-key-slot": ["cluster-key-slot@1.1.2", "", {}, "sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA=="],
 
     "cmdk": ["cmdk@1.1.1", "", { "dependencies": { "@radix-ui/react-compose-refs": "1.1.2", "@radix-ui/react-dialog": "1.1.18", "@radix-ui/react-id": "1.1.1", "@radix-ui/react-primitive": "2.1.4" }, "peerDependencies": { "react": "19.2.7", "react-dom": "19.2.7" } }, "sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg=="],
+
+    "cn": ["cn@0.2.4", "", { "bin": { "cn": "bin/cn.mjs" } }, "sha512-SzQvoh5FwizWtQg9+JueKdjWhlfCZMdu5DqNHm9q1wUlRVmKb9WXlepR9bTTbPwzEOyX1ujJ6lcCppmn3bNUCg=="],
 
     "code-block-writer": ["code-block-writer@13.0.3", "", {}, "sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg=="],
 
