@@ -7,6 +7,7 @@ import {
   buildFallbackInterviewEvaluation,
   buildFallbackInterviewSummary,
   buildInterviewEvaluationPrompt,
+  buildInterviewSummaryPrompt,
   formatCandidateFormSubmissions,
   generateInterviewEvaluation,
   generateInterviewReport,
@@ -107,6 +108,15 @@ describe("generateInterviewReport", () => {
     ).toMatch(
       /当前求职状态：在职，一个月内到岗[\s\S]*年龄、成家情况、是否可以接受短期海外出差及周期[\s\S]*hrEvaluation\.projectHighlights：候选人分享的亮点项目/,
     );
+  });
+
+  it("instructs the summary model to report only transcript-backed facts", () => {
+    const prompt = buildInterviewSummaryPrompt(TRANSCRIPT);
+
+    expect(prompt).toContain("不得补充、推测或编造");
+    expect(prompt).toContain("面试官的提问或陈述不能作为候选人的事实或表现证据");
+    expect(prompt).toContain("不得将未提问的问题描述为候选人跳过");
+    expect(prompt).toContain("我负责招聘系统前端。");
   });
 
   it("preserves partial success when evaluation fails", async () => {
