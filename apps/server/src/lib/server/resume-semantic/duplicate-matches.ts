@@ -7,7 +7,6 @@ const semantic = createResumeSemanticProcessing(db);
 export {
   aggregateDuplicateMatchSummaries,
   isDuplicateMatchVisibleToSource,
-  listActiveStudioDuplicateMatchSummaries,
   resolveDuplicateMatchRows,
   toDuplicateMatchInsertRows,
 } from "@app/resume-processing/semantic";
@@ -22,6 +21,8 @@ export const listActiveDuplicateMatchCounts: ResumeSemanticProcessing["listActiv
   semantic.listActiveDuplicateMatchCounts;
 export const listActiveDuplicateSummariesAgainstStudioInterviews: ResumeSemanticProcessing["listActiveDuplicateSummariesAgainstStudioInterviews"] =
   semantic.listActiveDuplicateSummariesAgainstStudioInterviews;
+export const listActiveStudioDuplicateMatchSummaries: ResumeSemanticProcessing["listActiveStudioDuplicateMatchSummaries"] =
+  semantic.listActiveStudioDuplicateMatchSummaries;
 export const listDuplicateMatchesForSource: ResumeSemanticProcessing["listDuplicateMatchesForSource"] =
   semantic.listDuplicateMatchesForSource;
 export const replaceDuplicateMatchesForSource: ResumeSemanticProcessing["replaceDuplicateMatchesForSource"] =

@@ -21,11 +21,38 @@ function databaseWithIndexState(profileHash: string): Database {
   return database;
 }
 
+function databaseWithEmptyDuplicateMatches(): Database {
+  const query = {
+    from: () => query,
+    innerJoin: () => query,
+    leftJoin: () => query,
+    where: () => Promise.resolve([]),
+  };
+  // SAFETY: The focused duplicate-summary callback under test uses only
+  // select/from/innerJoin/leftJoin/where, all of which this fixture implements.
+  const database = Object.create(null) as Database;
+  Object.defineProperty(database, "select", {
+    value: vi.fn(() => query),
+  });
+  return database;
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
 describe("resume semantic database scope", () => {
+  it("keeps the studio duplicate-summary query bound to its database", async () => {
+    const semantic = createResumeSemanticProcessing(databaseWithEmptyDuplicateMatches());
+
+    const summaries = await semantic.listActiveStudioDuplicateMatchSummaries({
+      organizationId: "org-1",
+      sourceIds: ["resume-1"],
+    });
+
+    expect(summaries).toEqual(new Map());
+  });
+
   it("keeps returned resume indexer dependencies bound across concurrent runtimes", async () => {
     vi.stubEnv("QDRANT_URL", "http://127.0.0.1:6333");
     const first = createResumeSemanticProcessing(

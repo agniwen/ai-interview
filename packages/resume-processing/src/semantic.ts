@@ -51,7 +51,6 @@ export type { JdIndexerDeps, JdSemanticIndexJob } from "./semantic/jd/indexer";
 export {
   aggregateDuplicateMatchSummaries,
   isDuplicateMatchVisibleToSource,
-  listActiveStudioDuplicateMatchSummaries,
   resolveDuplicateMatchRows,
   toDuplicateMatchInsertRows,
 } from "./semantic/resume/duplicate-matches";
@@ -123,6 +122,10 @@ export function createResumeSemanticProcessing(database: Database) {
     listActiveDuplicateSummariesAgainstStudioInterviews: bindResumeProcessingDatabase(
       database,
       duplicateMatches.listActiveDuplicateSummariesAgainstStudioInterviews,
+    ),
+    listActiveStudioDuplicateMatchSummaries: bindResumeProcessingDatabase(
+      database,
+      duplicateMatches.listActiveStudioDuplicateMatchSummaries,
     ),
     listDuplicateMatchesForSource: bindResumeProcessingDatabase(
       database,
