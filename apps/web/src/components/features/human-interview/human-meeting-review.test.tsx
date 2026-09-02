@@ -89,7 +89,7 @@ async function renderReview() {
   roots.push(root);
   act(() => root.render(<HumanMeetingReview active inviteToken="invite-1" />));
   await flush();
-  expect(container.textContent).toContain("AI 评价与人工复核");
+  expect(container.textContent).toContain("面试评价");
   return container;
 }
 
@@ -161,54 +161,19 @@ describe("HumanMeetingReview", () => {
     expect(outcome.value).toBe("pass");
   });
 
-  it("saving transcript edits does not discard an unsaved evaluation", async () => {
+  it("does not show the meeting transcript in the evaluation flow", async () => {
     const container = await renderReview();
-    const transcript = [...container.querySelectorAll<HTMLTextAreaElement>("textarea")].find(
-      (textarea) => textarea.value === "服务端转录",
-    );
-    const overall = [...container.querySelectorAll<HTMLTextAreaElement>("textarea")].find(
-      (textarea) => textarea.value === "服务端整体评价",
-    );
-    if (!(transcript && overall)) {
-      throw new Error("找不到转录或评价输入框");
-    }
 
-    act(() => {
-      change(transcript, "未保存的转录修改");
-      change(overall, "未保存的评价修改");
-    });
-    act(() => button(container, "保存转录修改").click());
-    await flush();
-
-    expect(overall.value).toBe("未保存的评价修改");
-  });
-
-  it("saving an evaluation draft does not discard unsaved transcript edits", async () => {
-    const container = await renderReview();
-    const transcript = [...container.querySelectorAll<HTMLTextAreaElement>("textarea")].find(
-      (textarea) => textarea.value === "服务端转录",
-    );
-    if (!transcript) {
-      throw new Error("找不到转录输入框");
-    }
-
-    act(() => change(transcript, "等待保存的人工修订"));
-    act(() => button(container, "保存草稿").click());
-    await flush();
-
-    expect(transcript.value).toBe("等待保存的人工修订");
-    const saveCall = fetchMock.mock.calls.find(([request]) =>
-      String(request).endsWith("/evaluation-draft"),
-    );
-    expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
-      transcriptRevisionId: "00000000-0000-4000-8000-000000000001",
-    });
+    expect(container.textContent).not.toContain("会议转录");
+    expect(container.textContent).not.toContain("服务端转录");
+    expect(container.textContent).not.toContain("人工补录完整对话");
+    expect(container.textContent).not.toContain("保存草稿");
   });
 
   it("binds the final evaluation submission to the reviewed transcript revision", async () => {
     const container = await renderReview();
 
-    act(() => button(container, "提交评价").click());
+    act(() => button(container, "保存评价").click());
     await flush();
 
     const submitCall = fetchMock.mock.calls.find(([request]) =>
@@ -240,18 +205,18 @@ describe("HumanMeetingReview", () => {
     }
 
     act(() => change(outcome, "pass"));
-    act(() => button(container, "提交评价").click());
+    act(() => button(container, "保存评价").click());
     await flush();
 
-    expect(container.textContent).toContain("本轮评价已提交 · 通过");
+    expect(container.textContent).toContain("本轮评价已保存 · 通过");
     expect(
       [...container.querySelectorAll<HTMLButtonElement>("button")].some(
-        (candidate) => candidate.textContent?.trim() === "提交评价",
+        (candidate) => candidate.textContent?.trim() === "保存评价",
       ),
     ).toBe(false);
   });
 
-  it("offers manual supplementation when recognition returns an empty revision", async () => {
+  it("keeps an empty transcript revision hidden from the evaluation flow", async () => {
     const emptyReview = reviewRecord();
     if (!emptyReview.transcript) {
       throw new Error("测试数据缺少转录版本");
@@ -260,10 +225,11 @@ describe("HumanMeetingReview", () => {
 
     const container = await renderReview();
 
-    expect(container.textContent).toContain("人工补录完整对话");
+    expect(container.textContent).not.toContain("人工补录完整对话");
+    expect(container.textContent).not.toContain("会议转录");
   });
 
-  it("does not allow an evaluation draft before the final transcript exists", async () => {
+  it("waits for background processing before the evaluation can be saved", async () => {
     currentReview = reviewRecord({
       evaluation: null,
       evaluationStatus: "not_started",
@@ -274,17 +240,8 @@ describe("HumanMeetingReview", () => {
 
     const container = await renderReview();
 
-    expect(button(container, "保存草稿").disabled).toBe(true);
-    expect(button(container, "提交评价").disabled).toBe(true);
-    expect(button(container, "使用实时字幕生成评价").disabled).toBe(false);
-
-    act(() => button(container, "使用实时字幕生成评价").click());
-    await flush();
-
-    expect(
-      fetchMock.mock.calls.some(([request]) =>
-        String(request).endsWith("/live-transcript-recovery"),
-      ),
-    ).toBe(true);
+    expect(button(container, "保存评价").disabled).toBe(true);
+    expect(container.textContent).toContain("正在整理会议内容并生成评价");
+    expect(container.textContent).not.toContain("使用实时字幕生成评价");
   });
 });

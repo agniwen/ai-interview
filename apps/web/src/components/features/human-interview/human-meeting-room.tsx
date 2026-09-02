@@ -405,6 +405,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       throw new Error(result.error);
     }
     toast.success("会议已结束");
+    setViewMode("review");
     dispatch({ type: "disconnected" });
   }
 
@@ -479,7 +480,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
                 {getRoomTitle(props)}
               </h1>
               <p className="text-white/60 text-xs">
-                {viewMode === "materials" ? "面试准备 · 候选人资料" : "会议转录与评价复核"}
+                {viewMode === "materials" ? "面试准备 · 候选人资料" : "面试评价"}
               </p>
             </div>
           </header>
@@ -552,7 +553,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
                   候选人资料
                 </Button>
                 <Button onClick={() => setViewMode("review")} size="lg" variant="outline">
-                  会议复核
+                  面试评价
                 </Button>
               </>
             ) : null}

@@ -304,7 +304,7 @@ export function HumanMeetingStage({
             ) : (
               <IconChecklist className="size-4" />
             )}
-            {viewMode === "review" ? "切换到会议" : "会议复核"}
+            {viewMode === "review" ? "切换到会议" : "面试评价"}
           </button>
         ) : null}
         {canEndMeeting ? (
