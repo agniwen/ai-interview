@@ -9,6 +9,7 @@ import type {
 } from "@/lib/meeting-capture/live-transcript-draft";
 import { cn } from "@app/shared/utils";
 import { playTranscriptCorrectionSweep } from "./live-transcript-correction-sweep";
+import { MeetingSpeakerLabel } from "./meeting-speaker";
 
 const STATUS_LABEL = {
   buffering: "延迟",
@@ -19,10 +20,6 @@ const STATUS_LABEL = {
 } satisfies Record<Exclude<LiveTranscriptDraftStatus, "idle" | "live">, string>;
 
 const AUTO_FOLLOW_BOTTOM_THRESHOLD_PX = 80;
-
-function transcriptSpeakerLabel(track: LiveTranscriptDraftTurn["track"]): string {
-  return track === "microphone" ? "说话人B" : "说话人A";
-}
 
 export function shouldFollowLiveTranscript(viewport: {
   clientHeight: number;
@@ -76,9 +73,7 @@ function TranscriptTurn({
       data-live-transcript-turn={turn.id}
       ref={blockRef}
     >
-      <p className="text-muted-foreground text-xs not-italic">
-        {transcriptSpeakerLabel(turn.track)}
-      </p>
+      <MeetingSpeakerLabel className="not-italic" />
       <div className="flex items-start gap-2 text-sm leading-relaxed">
         {turn.correcting ? (
           <output

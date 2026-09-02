@@ -30,6 +30,7 @@ import {
   retryMeetingTranscript,
 } from "@/lib/client/meetings";
 import { formatAppDateTime } from "@/lib/client/datetime";
+import { createMeetingSpeakerProfiles, MeetingSpeakerLabel } from "./meeting-speaker";
 
 export function transcriptSeekSeconds(startMs: number): number {
   return Math.max(0, startMs / 1000);
@@ -43,17 +44,6 @@ function formatTranscriptTime(timeMs: number): string {
   return (hours > 0 ? [hours, minutes, seconds] : [minutes, seconds])
     .map((value) => String(value).padStart(2, "0"))
     .join(":");
-}
-
-function speakerLabel(speakerKey: string, speakerDisplayName?: string | null): string {
-  if (speakerDisplayName) {
-    return speakerDisplayName;
-  }
-  if (speakerKey === "local") {
-    return "本机";
-  }
-  const remoteNumber = speakerKey.match(/^remote-(\d+)$/)?.[1];
-  return remoteNumber ? `远端 ${remoteNumber}` : "远端";
 }
 
 function SavedLiveTranscriptDraft({
@@ -73,10 +63,8 @@ function SavedLiveTranscriptDraft({
         <div className="flex max-h-80 flex-col gap-3 overflow-y-auto">
           {draft.turns.map((turn) => (
             <article className="border-b pb-3 last:border-b-0" key={turn.id}>
-              <p className="mb-1 text-muted-foreground text-xs">
-                {turn.track === "microphone" ? "说话人B" : "说话人A"}
-                {turn.final ? "" : " · 未完成片段"}
-              </p>
+              <MeetingSpeakerLabel className="mb-1" />
+              {turn.final ? null : <p className="mb-1 text-muted-foreground text-xs">未完成片段</p>}
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
             </article>
           ))}
@@ -125,12 +113,18 @@ export function splitTranscriptTurn(
  */
 function VirtualTranscriptTurns({
   onSeek,
+  speakerScopeId,
   turns,
 }: {
   onSeek: (seconds: number) => void;
+  speakerScopeId: string;
   turns: FinalMeetingTranscriptTurn[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const speakerProfiles = useMemo(
+    () => createMeetingSpeakerProfiles(turns, speakerScopeId),
+    [speakerScopeId, turns],
+  );
   const virtualizer = useVirtualizer({
     count: turns.length,
     estimateSize: () => 96,
@@ -162,9 +156,10 @@ function VirtualTranscriptTurns({
                 {formatTranscriptTime(turn.startMs)}
               </Button>
               <div className="min-w-0">
-                <p className="mb-1 text-muted-foreground text-xs">
-                  {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}
-                </p>
+                <MeetingSpeakerLabel
+                  className="mb-1"
+                  profile={speakerProfiles.get(turn.speakerKey)}
+                />
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
               </div>
             </article>
@@ -194,6 +189,10 @@ function MeetingTranscriptCorrectionEditor({
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [turns, setTurns] = useState(() => revision.turns.map((turn) => ({ ...turn })));
+  const speakerProfiles = useMemo(
+    () => createMeetingSpeakerProfiles(turns, revision.id),
+    [revision.id, turns],
+  );
   const selected = turns[selectedIndex] ?? null;
   const valid = turns.every(
     (turn, index) =>
@@ -288,7 +287,7 @@ function MeetingTranscriptCorrectionEditor({
               onChange={(event) =>
                 updateSpeakerDisplayName(selected.speakerKey, event.target.value)
               }
-              placeholder={speakerLabel(selected.speakerKey)}
+              placeholder={speakerProfiles.get(selected.speakerKey)?.label ?? "未知说话人"}
               value={selected.speakerDisplayName ?? ""}
             />
           </label>
@@ -412,6 +411,7 @@ export function MeetingTranscriptView({
   onSeek,
   result,
   retrying = false,
+  speakerScopeId,
 }: {
   canCorrect?: boolean;
   canRetry: boolean;
@@ -420,6 +420,7 @@ export function MeetingTranscriptView({
   onSeek: (seconds: number) => void;
   result: MeetingTranscriptResult;
   retrying?: boolean;
+  speakerScopeId?: string;
 }) {
   const savedDraft = result.draft ? <SavedLiveTranscriptDraft draft={result.draft} /> : null;
   if (result.state === "pending") {
@@ -474,7 +475,11 @@ export function MeetingTranscriptView({
       {result.revision.turns.length === 0 ? (
         <p className="text-muted-foreground text-sm">此录音没有识别到语音。</p>
       ) : (
-        <VirtualTranscriptTurns onSeek={onSeek} turns={result.revision.turns} />
+        <VirtualTranscriptTurns
+          onSeek={onSeek}
+          speakerScopeId={speakerScopeId ?? result.revision.id}
+          turns={result.revision.turns}
+        />
       )}
     </div>
   );
@@ -507,16 +512,24 @@ function transcriptStageEmptyHint(
 type MeetingTranscriptStageTurn = Pick<FinalMeetingTranscriptTurn, "id" | "text"> &
   Partial<Pick<FinalMeetingTranscriptTurn, "speakerDisplayName" | "speakerKey">>;
 
-export function MeetingTranscriptStageTurns({ turns }: { turns: MeetingTranscriptStageTurn[] }) {
+export function MeetingTranscriptStageTurns({
+  speakerScopeId = "meeting-transcript",
+  turns,
+}: {
+  speakerScopeId?: string;
+  turns: MeetingTranscriptStageTurn[];
+}) {
+  const speakerProfiles = useMemo(
+    () => createMeetingSpeakerProfiles(turns, speakerScopeId),
+    [speakerScopeId, turns],
+  );
   return (
     <div className="grid select-text" aria-live="polite">
       {turns.map((turn) => (
         <article className="grid cursor-text gap-1 rounded-sm px-px py-1" key={turn.id}>
-          {turn.speakerKey ? (
-            <p className="text-muted-foreground text-xs">
-              {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}
-            </p>
-          ) : null}
+          <MeetingSpeakerLabel
+            profile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
+          />
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
         </article>
       ))}
@@ -527,19 +540,24 @@ export function MeetingTranscriptStageTurns({ turns }: { turns: MeetingTranscrip
 /** Read-only transcript stage used by the session landing page. */
 export function MeetingTranscriptStage({
   error,
+  speakerScopeId,
   result,
 }: {
   error?: unknown;
+  speakerScopeId?: string;
   result: MeetingTranscriptResult | undefined;
 }) {
   const draftTurns = result?.draft?.turns ?? [];
   const finalTurns = result?.revision?.turns ?? [];
-  const turns = draftTurns.length > 0 ? draftTurns : finalTurns;
+  const turns = finalTurns.length > 0 ? finalTurns : draftTurns;
   const stageError = error instanceof Error ? error : null;
   const emptyHint = transcriptStageEmptyHint(result, stageError, turns.length > 0);
 
   return turns.length > 0 ? (
-    <MeetingTranscriptStageTurns turns={turns} />
+    <MeetingTranscriptStageTurns
+      speakerScopeId={speakerScopeId ?? result?.revision?.id}
+      turns={turns}
+    />
   ) : (
     <div className="flex flex-1 items-center justify-center py-16">
       <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
@@ -653,6 +671,7 @@ export function MeetingTranscriptPanel({
           onSeek={onSeek}
           result={transcriptQuery.data}
           retrying={retryMutation.isPending}
+          speakerScopeId={meetingId}
         />
       );
   }
@@ -754,6 +773,7 @@ export function MeetingTranscriptPanel({
                             revision: historicalRevisionQuery.data,
                             state: "ready",
                           }}
+                          speakerScopeId={meetingId}
                         />
                       ) : null}
                     </div>

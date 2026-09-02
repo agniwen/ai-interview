@@ -199,8 +199,10 @@ describe("LiveTranscriptDraftPanel", () => {
 
       expect(html).toContain("第一段转录");
       expect(html).toContain("第二段转录");
-      expect(html).toContain("说话人A");
-      expect(html).toContain("说话人B");
+      expect(html.match(/未知说话人/g)).toHaveLength(2);
+      expect(html.match(/data-meeting-speaker-avatar=/g)).toHaveLength(2);
+      expect(html).not.toContain("说话人A");
+      expect(html).not.toContain("说话人B");
       expect(html.match(/aria-label="AI 正在校正"/g)).toHaveLength(1);
       expect(html).not.toContain("我的麦克风");
       expect(html).not.toContain("系统音频");
@@ -396,14 +398,15 @@ describe("live correction block sweep", () => {
     expect(glimm.playSweep).toHaveBeenCalledOnce();
   });
 
-  it("renders fixed speaker labels without correction hover details", () => {
+  it("keeps speakers unknown until diarization without correction hover details", () => {
     renderTurn(corrected);
     expect(container.querySelector('[data-live-transcript-turn="mic:1"]')?.textContent).toContain(
-      "说话人B",
+      "未知说话人",
     );
     expect(
       container.querySelector('[data-live-transcript-turn="system:1"]')?.textContent,
-    ).toContain("说话人A");
+    ).toContain("未知说话人");
+    expect(document.body.querySelectorAll("[data-meeting-speaker-avatar]")).toHaveLength(2);
     expect(document.body.querySelector('[data-slot="hover-card-content"]')).toBeNull();
   });
 

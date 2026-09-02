@@ -4,6 +4,7 @@ import type { MeetingTranscriptResult } from "@app/shared/meeting-transcription"
 import {
   canCorrectMeetingTranscript,
   isTranscriptCorrectionConflict,
+  MeetingTranscriptStage,
   MeetingTranscriptStageTurns,
   MeetingTranscriptView,
   splitTranscriptTurn,
@@ -123,6 +124,8 @@ describe("Final Meeting Transcript panel", () => {
     );
 
     expect(html).toContain("已保存的实时字幕草稿");
+    expect(html).toContain("未知说话人");
+    expect(html).toContain('data-meeting-speaker-avatar="true"');
     expect(html).toContain("候选人的实时回答");
   });
 
@@ -137,10 +140,45 @@ describe("Final Meeting Transcript panel", () => {
     );
 
     expect(html).toContain("00:01");
-    expect(html).toContain("本机");
-    expect(html).toContain("远端 1");
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html.match(/data-meeting-speaker-avatar=/g)).toHaveLength(2);
+    expect(html.match(/<img /g)).toHaveLength(2);
+    expect(html).not.toContain("本机");
+    expect(html).not.toContain("远端 1");
     expect(html).toContain("你好，我们开始吧。");
     expect(transcriptSeekSeconds(1250)).toBe(1.25);
+  });
+
+  it("prefers analyzed speaker identities over the unknown live draft", () => {
+    const html = renderToStaticMarkup(
+      <MeetingTranscriptStage
+        result={{
+          ...readyTranscript,
+          draft: {
+            capturedAt: "2026-08-12T08:00:00.000Z",
+            droppedAudioMs: 0,
+            droppedPcmFrames: 0,
+            error: null,
+            sections: [],
+            turns: [
+              {
+                final: true,
+                id: "draft-turn",
+                sectionId: "draft-section",
+                text: "不应优先展示的实时草稿",
+                track: "system",
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html).toContain("你好，我们开始吧。");
+    expect(html).not.toContain("不应优先展示的实时草稿");
   });
 
   it("matches the live transcript spacing without hover treatment on the completed page", () => {
@@ -150,6 +188,9 @@ describe("Final Meeting Transcript panel", () => {
 
     expect(html).toContain('class="grid select-text"');
     expect(html).toContain("cursor-text");
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html.match(/data-meeting-speaker-avatar=/g)).toHaveLength(2);
     expect(html).not.toContain("hover:bg-foreground/4");
     expect(html).toContain("rounded-sm");
     expect(html).toContain("px-px");

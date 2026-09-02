@@ -592,6 +592,7 @@ export function MeetingDetailPage({
                   <MeetingTranscriptStage
                     error={transcriptQuery.error}
                     result={transcriptQuery.data}
+                    speakerScopeId={meetingId}
                   />
                 ) : (
                   <MeetingLocalTranscriptStage localDraft={localDraft} />
