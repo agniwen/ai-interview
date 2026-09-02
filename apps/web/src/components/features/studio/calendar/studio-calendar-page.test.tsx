@@ -107,7 +107,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
 
 beforeEach(() => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-06-17T09:00:00+08:00"));
+  vi.setSystemTime(new Date("2026-09-02T09:00:00+08:00"));
 });
 
 afterEach(() => {
@@ -147,6 +147,27 @@ describe("StudioCalendarPage", () => {
     expect(host.textContent).toContain("李四 · 技术复面");
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(3);
     expect(host.querySelector('[data-slot="event-calendar-event-dot"]')).toBeNull();
+    const todayHeader = host.querySelector<HTMLElement>(
+      '[data-slot="event-calendar-day-header"][data-today] > span',
+    );
+    expect(todayHeader?.className).toContain("bg-primary/10");
+    expect(todayHeader?.className).toContain("rounded-md");
+    const weekHeaders = [
+      ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-day-header"] > span'),
+    ];
+    expect(
+      weekHeaders.some(
+        (header) => header.textContent === "周一8.31" && header.children.length === 2,
+      ),
+    ).toBe(true);
+    expect(
+      weekHeaders.some(
+        (header) => header.textContent === "周二9.1" && header.children.length === 2,
+      ),
+    ).toBe(true);
+    expect(
+      weekHeaders.some((header) => header.textContent === "周三2" && header.children.length === 2),
+    ).toBe(true);
     expect(host.querySelector('[data-calendar-event-icon="ai"]')).not.toBeNull();
     expect(host.querySelector('[data-calendar-event-icon="human"]')).not.toBeNull();
     const aiEvent = [
@@ -197,9 +218,16 @@ describe("StudioCalendarPage", () => {
 
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).toBeNull();
     expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
+    expect(host.querySelector('[data-slot="event-calendar-month-view"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(3);
     expect(host.querySelectorAll('[data-calendar-event-icon="ai"]')).toHaveLength(2);
     expect(host.querySelectorAll('[data-calendar-event-icon="human"]')).toHaveLength(2);
+    const monthTodayDayNumbers = host.querySelectorAll<HTMLElement>(
+      '[data-slot="event-calendar-month-cell"][data-today] span',
+    );
+    expect(
+      [...monthTodayDayNumbers].some((dayNumber) => dayNumber.classList.contains("bg-primary")),
+    ).toBe(true);
 
     const dayTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "日",

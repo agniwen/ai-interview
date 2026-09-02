@@ -1,7 +1,7 @@
 "use client";
 
 import { IconSparkles, IconUser } from "@tabler/icons-react";
-import { addDays, format, startOfWeek } from "date-fns";
+import { addDays, format, isFirstDayOfMonth, isLastDayOfMonth, startOfWeek } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -24,6 +24,7 @@ import {
   EventCalendarTitle,
 } from "@/components/reui/event-calendar/event-calendar-nav";
 import type {
+  CalendarView,
   CalendarEvent,
   EventCalendarDateRange,
   EventCalendarRangeInfo,
@@ -178,6 +179,38 @@ function CalendarViewTabs() {
   );
 }
 
+function CalendarDayHeader({
+  day,
+  isToday,
+  view,
+}: {
+  day: Date;
+  isToday: boolean;
+  view: CalendarView;
+}) {
+  const formatWithMonth = view === "week" && (isFirstDayOfMonth(day) || isLastDayOfMonth(day));
+  const weekday = format(day, "EEE", { locale: zhCN });
+  const date = format(day, formatWithMonth ? "M.d" : "d", { locale: zhCN });
+  const label = format(day, view === "month" ? "EEE" : "EEE d", {
+    locale: zhCN,
+  });
+  const todayClassName =
+    "-my-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-semibold text-primary";
+
+  if (view === "week") {
+    return (
+      <span
+        className={`inline-flex flex-col items-center leading-tight ${isToday ? todayClassName : ""}`}
+      >
+        <span>{weekday}</span>
+        <span>{date}</span>
+      </span>
+    );
+  }
+
+  return <span className={isToday ? `inline-flex ${todayClassName}` : undefined}>{label}</span>;
+}
+
 function CalendarNav() {
   return (
     <EventCalendarNav>
@@ -315,6 +348,7 @@ export function StudioCalendarPage({
             renderEventTooltip={({ occurrence }) => (
               <CalendarEventTooltip event={occurrence.event.data} />
             )}
+            renderDayHeader={(props) => <CalendarDayHeader {...props} />}
             scrollToHour={8}
             views={["month", "week", "day"]}
             weekStartsOn={1}
