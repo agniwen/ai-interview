@@ -21,12 +21,18 @@ function documentDecision(
     submittedOutcome: HumanInterviewRoundOutcome | null;
   },
   blockId: string | null,
+  syncedAt: Date | null,
 ) {
   const outcome = context.outcome ?? context.submittedOutcome;
   if (!outcome) {
     throw new Error("同步任务缺少正式提交结论");
   }
-  return { outcome, ratingOnly: Boolean(blockId) && outcome !== context.submittedOutcome };
+  // A block is checkpointed before its body is written. Only a successful sync
+  // proves that later outcome corrections can safely leave the other fields alone.
+  return {
+    outcome,
+    ratingOnly: Boolean(blockId && syncedAt) && outcome !== context.submittedOutcome,
+  };
 }
 
 export function createHumanInterviewDocumentSyncDao(db: Database) {
@@ -73,7 +79,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (!context) {
           throw new Error("同步任务缺少正式提交评价");
         }
-        const decision = documentDecision(context, job.blockId);
+        const decision = documentDecision(context, job.blockId, job.syncedAt);
         let target = {
           documentId: job.documentId,
           documentUrl: job.documentUrl,
@@ -192,7 +198,8 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           nextAttemptAt: new Date(
             now.getTime() + Math.min(60_000 * 2 ** Math.min(job.attemptCount - 1, 6), 3_600_000),
           ),
-          syncedAt: result.status === "synced" ? now : null,
+          // Retain the last success across failed outcome-only updates and retries.
+          syncedAt: result.status === "synced" ? now : undefined,
         })
         .where(owned(job));
     },

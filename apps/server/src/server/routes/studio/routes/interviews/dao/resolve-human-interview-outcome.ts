@@ -93,7 +93,6 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
             leaseOwner: null,
             nextAttemptAt: now,
             status: "pending",
-            syncedAt: null,
           })
           .where(eq(humanInterviewDocumentSync.snapshotId, sync.snapshotId));
       }

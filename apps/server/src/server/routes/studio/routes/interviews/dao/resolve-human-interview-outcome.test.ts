@@ -17,6 +17,10 @@ import { createResolveHumanInterviewOutcomeDao } from "./resolve-human-interview
 import { createHumanInterviewDocumentSyncDao } from "./human-interview-document-sync";
 import { createHumanInterviewRound } from "./human-interview-rounds";
 import { submitHumanInterviewEvaluation } from "./human-interview-evaluation";
+import { syncHumanInterviewDocument } from "../application/sync-human-interview-document";
+import { updateFeishuDocxHumanInterviewEvaluation } from "../../../../../integrations/feishu/feishu-docx";
+import { buildHumanInterviewEvaluationBlock } from "../../../../../integrations/feishu/human-interview-evaluation-doc";
+import { INTERVIEW_STAGE_PLACEHOLDER_FIELDS } from "../../../../../integrations/feishu/interview-evaluation-doc";
 
 const orgId = "outcome-test-org";
 const actorId = "outcome-test-user";
@@ -33,6 +37,10 @@ const evaluation = {
   strengths: "优势",
 };
 const persist = createResolveHumanInterviewOutcomeDao(db);
+const text = (content: string) => ({
+  block_type: 2,
+  text: { elements: [{ text_run: { content } }] },
+});
 const request = (outcome: string) => ({
   body: JSON.stringify({ outcome }),
   headers: { "Content-Type": "application/json" },
@@ -101,6 +109,7 @@ async function fixture() {
     roundId,
     snapshotId,
     status: "synced",
+    syncedAt: new Date("2026-09-01"),
   });
   return {
     actorId,
@@ -200,6 +209,87 @@ describe("resolve historical human interview outcome", () => {
       }
     },
   );
+  it.each(["before-body-write", "after-body-delete"])(
+    "retries the complete evaluation after resolving an initial sync failure: %s",
+    async (stage) => {
+      const input = await fixture();
+      await db
+        .update(humanInterviewDocumentSync)
+        .set({ status: "failed", syncedAt: null })
+        .where(eq(humanInterviewDocumentSync.snapshotId, input.snapshotId));
+      await resolveHumanInterviewOutcome(input, { persist });
+      const fields = stage === "before-body-write" ? INTERVIEW_STAGE_PLACEHOLDER_FIELDS : [];
+      const writes: string[] = [];
+      const dao = createHumanInterviewDocumentSyncDao(db);
+      await syncHumanInterviewDocument({
+        ...dao,
+        updateDocument: (job) =>
+          updateFeishuDocxHumanInterviewEvaluation(
+            { ...job, accessToken: "test-token", block: buildHumanInterviewEvaluationBlock(job) },
+            {
+              fetcher: (_url, init) => {
+                if (init?.method === "GET") {
+                  return Promise.resolve(
+                    Response.json({
+                      code: 0,
+                      data: {
+                        items: [
+                          {
+                            block_id: "block",
+                            block_type: 19,
+                            children: ["title", ...fields.map((_, i) => `field-${i}`)],
+                          },
+                          { block_id: "title", ...text("业务一面评价") },
+                          ...fields.map((field, i) => ({ block_id: `field-${i}`, ...text(field) })),
+                        ],
+                      },
+                    }),
+                  );
+                }
+                writes.push(String(init?.body));
+                return Promise.resolve(Response.json({ code: 0, data: {} }));
+              },
+              sleep: () => Promise.resolve(),
+            },
+          ),
+      });
+      expect(await dao.loadStatus({ organizationId: orgId, roundId: input.roundId })).toMatchObject(
+        { status: "synced" },
+      );
+      for (const field of [
+        "面试官：修改人",
+        "C（通过）",
+        "职级定位：高级",
+        "专业技能：中",
+        "优势特点：优势",
+        "劣势风险：风险",
+      ]) {
+        expect(writes.join("\n")).toContain(field);
+      }
+    },
+  );
+  it("keeps a completed initial sync across failed rating-only retries", async () => {
+    const input = await fixture();
+    await resolveHumanInterviewOutcome(input, { persist });
+    const dao = createHumanInterviewDocumentSyncDao(db);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const job = await dao.claim();
+      expect(job).toMatchObject({ ratingOnly: true, snapshotId: input.snapshotId });
+      if (!job || job === "deferred") {
+        throw new Error("Missing sync job");
+      }
+      await dao.finish(job, { error: "temporary failure", status: "failed" });
+      expect(await dao.loadStatus({ organizationId: orgId, roundId: input.roundId })).toMatchObject(
+        { syncedAt: "2026-09-01T00:00:00.000Z" },
+      );
+      await dao.retry({ organizationId: orgId, roundId: input.roundId });
+    }
+    const job = await dao.claim();
+    if (!job || job === "deferred") {
+      throw new Error("Missing final sync job");
+    }
+    await dao.finish(job, { error: null, status: "synced" });
+  });
   it("rejects a concurrent second decision", async () => {
     const input = await fixture();
     const results = await Promise.allSettled([
