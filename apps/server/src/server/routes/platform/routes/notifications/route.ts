@@ -7,6 +7,7 @@ import { resendInterviewSummaryNotification } from "../../../agent/utils/feishu-
 import {
   platformNotificationProviderFilterValues,
   platformNotificationStatusFilterValues,
+  listPlatformNotificationResendRecipients,
   queryPaginatedPlatformNotifications,
 } from "./dao";
 import {
@@ -18,6 +19,7 @@ import {
 
 export interface PlatformNotificationsRouterDependencies {
   grantDocumentAccess: typeof grantPlatformNotificationDocumentAccess;
+  listRecipients: typeof listPlatformNotificationResendRecipients;
   previewNotification: typeof previewPlatformFeishuNotification;
   queryNotifications: typeof queryPaginatedPlatformNotifications;
   resendNotification: typeof resendInterviewSummaryNotification;
@@ -26,6 +28,7 @@ export interface PlatformNotificationsRouterDependencies {
 
 const defaultDependencies: PlatformNotificationsRouterDependencies = {
   grantDocumentAccess: grantPlatformNotificationDocumentAccess,
+  listRecipients: listPlatformNotificationResendRecipients,
   previewNotification: previewPlatformFeishuNotification,
   queryNotifications: queryPaginatedPlatformNotifications,
   resendNotification: resendInterviewSummaryNotification,
@@ -53,11 +56,16 @@ const querySchema = z.object({
   textFilters: listTextFiltersSchema("notifications"),
 });
 
+const resendSchema = z.object({
+  recipientUserId: z.string().trim().min(1).optional(),
+});
+
 export function createPlatformNotificationsRouter(
   dependencies: PlatformNotificationsRouterDependencies = defaultDependencies,
 ) {
   const {
     grantDocumentAccess,
+    listRecipients,
     previewNotification,
     queryNotifications,
     resendNotification,
@@ -69,14 +77,25 @@ export function createPlatformNotificationsRouter(
     .get("/", zValidator("query", querySchema, jsonValidatorError("参数校验失败")), async (c) =>
       c.json(await queryNotifications(c.req.valid("query")), 200),
     )
-    .post("/:id/resend", async (c) => {
-      try {
-        return c.json(await resendNotification(c.req.param("id")), 200);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "重新发送飞书通知失败";
-        return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
-      }
+    .get("/:id/resend-recipients", async (c) => {
+      const result = await listRecipients(c.req.param("id"));
+      return result ? c.json(result, 200) : c.json({ error: "通知记录不存在" }, 404);
     })
+    .post(
+      "/:id/resend",
+      zValidator("json", resendSchema, jsonValidatorError("接收人参数无效")),
+      async (c) => {
+        try {
+          return c.json(
+            await resendNotification(c.req.param("id"), c.req.valid("json").recipientUserId),
+            200,
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "重新发送飞书通知失败";
+          return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
+        }
+      },
+    )
     .post("/:id/update-document-structure", async (c) => {
       try {
         return c.json(await updateDocumentStructure(c.req.param("id")), 200);

@@ -4,21 +4,26 @@ import { listTextQuery } from "@app/shared/list-text-filters";
 import type { AgentNotificationType } from "@app/db-schema/db-enums";
 import type { InterviewNotificationEventType } from "@app/db-schema/interview-notifications";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
@@ -109,6 +114,22 @@ interface NotificationsResult {
   records: PlatformNotificationRecord[];
   total: number;
   totalPages: number;
+}
+
+interface ResendRecipientRecord {
+  email: string;
+  id: string;
+  image: string | null;
+  name: string;
+}
+
+interface ResendRecipientResult {
+  records: ResendRecipientRecord[];
+}
+
+interface ResendNotificationInput {
+  recipientUserId?: string;
+  record: PlatformNotificationRecord;
 }
 
 interface FeishuTextContent {
@@ -301,10 +322,143 @@ function FeishuNotificationPreviewDialog({
   );
 }
 
+const ORIGINAL_RECIPIENT_VALUE = "__original_recipient__";
+
+function fetchResendRecipients(
+  record: PlatformNotificationRecord | null,
+): Promise<ResendRecipientResult> {
+  if (!record) {
+    return Promise.resolve({ records: [] });
+  }
+  return rpcFetch(
+    rpc.api.platform.notifications[":id"]["resend-recipients"].$get({
+      param: { id: record.id },
+    }),
+    "加载飞书通知接收人失败",
+  );
+}
+
+function buildResendRecipientOptions(
+  record: PlatformNotificationRecord | null,
+  recipients: ResendRecipientResult["records"] | undefined,
+) {
+  if (!record) {
+    return [];
+  }
+
+  const originalRecipientName =
+    record.recipientUser.name ??
+    record.recipientUser.email ??
+    record.recipientOpenId ??
+    "当前接收人";
+
+  return [
+    {
+      avatarUrl: record.recipientUser.image,
+      description: `当前接收人 · ${record.recipientUser.email ?? record.recipientOpenId ?? "飞书用户"}`,
+      label: originalRecipientName,
+      value: ORIGINAL_RECIPIENT_VALUE,
+    },
+    ...(recipients ?? [])
+      .filter((recipient) => recipient.id !== record.recipientUser.id)
+      .map((recipient) => ({
+        avatarUrl: recipient.image,
+        description: recipient.email,
+        label: recipient.name,
+        value: recipient.id,
+      })),
+  ];
+}
+
+function FeishuNotificationResendDialog({
+  onOpenChange,
+  onSubmit,
+  pending,
+  record,
+}: {
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (input: ResendNotificationInput) => void;
+  pending: boolean;
+  record: PlatformNotificationRecord | null;
+}) {
+  const [selectedValue, setSelectedValue] = useState<string | null>(ORIGINAL_RECIPIENT_VALUE);
+  const recipientsQuery = useQuery({
+    enabled: Boolean(record),
+    queryFn: () => fetchResendRecipients(record),
+    queryKey: ["platform-notifications", "resend-recipients", record?.id],
+    retry: false,
+    staleTime: 30_000,
+  });
+  const options = buildResendRecipientOptions(record, recipientsQuery.data?.records);
+
+  const handleSubmit = () => {
+    if (!(record && selectedValue)) {
+      return;
+    }
+    onSubmit({
+      recipientUserId: selectedValue === ORIGINAL_RECIPIENT_VALUE ? undefined : selectedValue,
+      record,
+    });
+  };
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={Boolean(record)}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>重新发送飞书通知</DialogTitle>
+          <DialogDescription>
+            默认发送给原接收人，也可以选择同一工作区内已绑定对应飞书机器人的其他用户。
+          </DialogDescription>
+        </DialogHeader>
+        <FieldGroup>
+          <Field data-disabled={pending || recipientsQuery.isPending}>
+            <FieldLabel htmlFor="platform-notification-resend-recipient">接收人</FieldLabel>
+            {recipientsQuery.isPending ? (
+              <Skeleton className="h-9 w-full" />
+            ) : (
+              <SearchableSelect
+                clearable={false}
+                disabled={pending}
+                emptyMessage="没有可发送的用户"
+                id="platform-notification-resend-recipient"
+                onChange={setSelectedValue}
+                options={options}
+                placeholder="选择接收人"
+                required
+                searchPlaceholder="搜索姓名或邮箱"
+                value={selectedValue}
+              />
+            )}
+            <FieldDescription>
+              候选列表仅包含已绑定 {record ? PROVIDER_LABEL[record.providerId] : "对应飞书"}
+              账号的工作区成员。
+            </FieldDescription>
+            {recipientsQuery.isError ? (
+              <p className="text-destructive text-sm">{recipientsQuery.error.message}</p>
+            ) : null}
+          </Field>
+        </FieldGroup>
+        <DialogFooter>
+          <Button disabled={pending} onClick={() => onOpenChange(false)} variant="outline">
+            取消
+          </Button>
+          <Button
+            disabled={pending || recipientsQuery.isPending || recipientsQuery.isError}
+            onClick={handleSubmit}
+          >
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            发送通知
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function NotificationsGrid() {
   const queryClient = useQueryClient();
   const [previewRecord, setPreviewRecord] = useState<PlatformNotificationRecord | null>(null);
-  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendRecord, setResendRecord] = useState<PlatformNotificationRecord | null>(null);
   const [updatingStructureId, setUpdatingStructureId] = useState<string | null>(null);
 
   function fetchNotifications(params: {
@@ -336,10 +490,10 @@ export function NotificationsGrid() {
   }
 
   const resendMutation = useMutation({
-    mutationFn: async (record: PlatformNotificationRecord) => {
-      setResendingId(record.id);
+    mutationFn: async ({ recipientUserId, record }: ResendNotificationInput) => {
       await rpcFetch(
         rpc.api.platform.notifications[":id"].resend.$post({
+          json: { recipientUserId },
           param: { id: record.id },
         }),
         "重新发送飞书通知失败",
@@ -348,11 +502,9 @@ export function NotificationsGrid() {
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "重新发送飞书通知失败");
     },
-    onSettled: () => {
-      setResendingId(null);
-    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["platform-notifications"] });
+      setResendRecord(null);
       toast.success("飞书通知已重新发送");
     },
   });
@@ -553,10 +705,10 @@ export function NotificationsGrid() {
           },
         },
         {
-          disabled: (record) => resendMutation.isPending && resendingId === record.id,
+          disabled: (record) => resendMutation.isPending && resendRecord?.id === record.id,
           disabledReason: () => "正在重新发送",
           label: "重新发送通知",
-          onClick: (record) => resendMutation.mutateAsync(record),
+          onClick: (record) => setResendRecord(record),
         },
       ],
     }),
@@ -608,6 +760,17 @@ export function NotificationsGrid() {
           }
         }}
         record={previewRecord}
+      />
+      <FeishuNotificationResendDialog
+        key={resendRecord?.id ?? "closed"}
+        onOpenChange={(open) => {
+          if (!(open || resendMutation.isPending)) {
+            setResendRecord(null);
+          }
+        }}
+        onSubmit={(input) => resendMutation.mutate(input)}
+        pending={resendMutation.isPending}
+        record={resendRecord}
       />
     </>
   );

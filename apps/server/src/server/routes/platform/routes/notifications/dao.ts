@@ -3,8 +3,10 @@ import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-o
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
 import {
+  account,
   interviewConversation,
   interviewNotification,
+  member,
   organization,
   studioInterview,
   user,
@@ -72,6 +74,64 @@ export interface PlatformNotificationsResult {
   records: PlatformNotificationRecord[];
   total: number;
   totalPages: number;
+}
+
+export interface PlatformNotificationResendRecipient {
+  email: string;
+  id: string;
+  image: string | null;
+  name: string;
+}
+
+export async function listPlatformNotificationResendRecipients(
+  notificationId: string,
+): Promise<{ records: PlatformNotificationResendRecipient[] } | null> {
+  const [notification] = await db
+    .select({
+      organizationId: interviewNotification.organizationId,
+      providerId: interviewNotification.providerId,
+    })
+    .from(interviewNotification)
+    .where(eq(interviewNotification.id, notificationId))
+    .limit(1);
+  if (!notification) {
+    return null;
+  }
+
+  const rows = await db
+    .select({
+      accountUpdatedAt: account.updatedAt,
+      email: user.email,
+      id: user.id,
+      image: user.image,
+      name: user.name,
+    })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .innerJoin(
+      account,
+      and(eq(account.userId, user.id), eq(account.providerId, notification.providerId)),
+    )
+    .where(eq(member.organizationId, notification.organizationId))
+    .orderBy(asc(user.name), desc(account.updatedAt));
+
+  const seen = new Set<string>();
+  return {
+    records: rows.flatMap((row) => {
+      if (seen.has(row.id)) {
+        return [];
+      }
+      seen.add(row.id);
+      return [
+        {
+          email: row.email,
+          id: row.id,
+          image: row.image,
+          name: row.name,
+        },
+      ];
+    }),
+  };
 }
 
 function toIsoString(value: Date | null): string | null {

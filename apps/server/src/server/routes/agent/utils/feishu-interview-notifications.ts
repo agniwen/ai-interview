@@ -4,6 +4,7 @@ import {
   account,
   interviewConversation,
   interviewNotification,
+  member,
   organization,
   studioInterview,
   studioInterviewSchedule,
@@ -420,14 +421,17 @@ async function sendGoogleSummaryEmail({
 
 export async function resendInterviewSummaryNotification(
   notificationId: string,
+  recipientUserId?: string,
 ): Promise<ResendInterviewSummaryNotificationResult> {
   const [notification] = await db
     .select({
       conversationId: interviewNotification.conversationId,
       id: interviewNotification.id,
       interviewRecordId: interviewNotification.interviewRecordId,
+      organizationId: interviewNotification.organizationId,
       providerId: interviewNotification.providerId,
       recipientOpenId: interviewNotification.recipientOpenId,
+      recipientUserId: interviewNotification.recipientUserId,
       type: interviewNotification.type,
     })
     .from(interviewNotification)
@@ -469,13 +473,87 @@ export async function resendInterviewSummaryNotification(
     targetRole: context.targetRole,
   };
 
+  let resendNotificationId = notification.id;
+  let resendRecipientOpenId = notification.recipientOpenId;
+  let resendRecipientUserId = notification.recipientUserId;
+  if (recipientUserId && recipientUserId !== notification.recipientUserId) {
+    const [recipient] = await db
+      .select({ accountId: account.accountId })
+      .from(member)
+      .innerJoin(
+        account,
+        and(eq(account.userId, member.userId), eq(account.providerId, notification.providerId)),
+      )
+      .where(
+        and(
+          eq(member.organizationId, notification.organizationId),
+          eq(member.userId, recipientUserId),
+        ),
+      )
+      .orderBy(desc(account.updatedAt))
+      .limit(1);
+    if (!recipient) {
+      throw new Error("所选用户不是当前工作区内已绑定对应飞书机器人的成员");
+    }
+
+    const insertedId = crypto.randomUUID();
+    const [inserted] = await db
+      .insert(interviewNotification)
+      .values({
+        conversationId: notification.conversationId,
+        id: insertedId,
+        interviewRecordId: notification.interviewRecordId,
+        organizationId: notification.organizationId,
+        providerId: notification.providerId,
+        recipientOpenId: recipient.accountId,
+        recipientUserId,
+        status: "pending",
+        type: notification.type,
+      })
+      .onConflictDoNothing({
+        target: [
+          interviewNotification.interviewRecordId,
+          interviewNotification.conversationId,
+          interviewNotification.type,
+          interviewNotification.recipientUserId,
+          interviewNotification.providerId,
+        ],
+      })
+      .returning({ id: interviewNotification.id });
+    if (inserted) {
+      resendNotificationId = inserted.id;
+    } else {
+      const [existing] = await db
+        .select({ id: interviewNotification.id })
+        .from(interviewNotification)
+        .where(
+          and(
+            eq(interviewNotification.interviewRecordId, notification.interviewRecordId),
+            eq(interviewNotification.conversationId, notification.conversationId),
+            eq(interviewNotification.type, notification.type),
+            eq(interviewNotification.recipientUserId, recipientUserId),
+            eq(interviewNotification.providerId, notification.providerId),
+          ),
+        )
+        .limit(1);
+      if (!existing) {
+        throw new Error("无法创建所选接收人的飞书通知记录");
+      }
+      resendNotificationId = existing.id;
+    }
+    resendRecipientOpenId = recipient.accountId;
+    resendRecipientUserId = recipientUserId;
+  }
+
   await db
     .update(interviewNotification)
     .set({
       error: null,
+      recipientOpenId: resendRecipientOpenId,
+      recipientUserId: resendRecipientUserId,
       status: "pending",
     })
-    .where(eq(interviewNotification.id, notification.id));
+    .where(eq(interviewNotification.id, resendNotificationId));
 
   try {
     const documentUrl = await ensureInterviewEvaluationDocument({
@@ -483,17 +561,13 @@ export async function resendInterviewSummaryNotification(
       conversationId: notification.conversationId,
       input: notificationInput,
       interviewRecordId: notification.interviewRecordId,
-      notificationId: notification.id,
+      notificationId: resendNotificationId,
       providerId: notification.providerId,
-      recipientOpenId: notification.recipientOpenId,
+      recipientOpenId: resendRecipientOpenId,
     });
     const { card } = buildNotificationCard(notificationInput, documentUrl);
     const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
-    const sent = await postFeishuDirectCard(
-      notification.providerId,
-      notification.recipientOpenId,
-      card,
-    );
+    const sent = await postFeishuDirectCard(notification.providerId, resendRecipientOpenId, card);
     const sentAt = new Date();
     await db
       .update(interviewNotification)
@@ -503,11 +577,11 @@ export async function resendInterviewSummaryNotification(
         sentAt,
         status: "sent",
       })
-      .where(eq(interviewNotification.id, notification.id));
-    return { notificationId: notification.id, sentAt: sentAt.toISOString() };
+      .where(eq(interviewNotification.id, resendNotificationId));
+    return { notificationId: resendNotificationId, sentAt: sentAt.toISOString() };
   } catch (error) {
     const notificationError = error instanceof Error ? error : new Error(String(error));
-    await markNotificationFailed(notification.id, notificationError);
+    await markNotificationFailed(resendNotificationId, notificationError);
     throw error;
   }
 }

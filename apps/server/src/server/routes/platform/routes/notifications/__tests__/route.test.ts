@@ -5,6 +5,7 @@ import { createPlatformRouter } from "../../../route";
 
 const mocks = {
   grantDocumentAccess: vi.fn(),
+  listRecipients: vi.fn(),
   previewNotification: vi.fn(),
   queryNotifications: vi.fn(),
   resendNotification: vi.fn(),
@@ -27,6 +28,7 @@ function makeApp(role?: string) {
 describe("platform notifications routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.listRecipients.mockResolvedValue({ records: [] });
     mocks.queryNotifications.mockResolvedValue({ records: [], total: 0 });
   });
 
@@ -50,20 +52,68 @@ describe("platform notifications routes", () => {
   it("preserves resend success and error statuses", async () => {
     mocks.resendNotification.mockResolvedValueOnce({ ok: true });
     const success = await makeApp("admin").request("/platform/notifications/log_1/resend", {
+      body: JSON.stringify({ recipientUserId: "user_2" }),
+      headers: { "content-type": "application/json" },
       method: "POST",
     });
     mocks.resendNotification.mockRejectedValueOnce(new Error("通知记录不存在"));
     const missing = await makeApp("admin").request("/platform/notifications/log_2/resend", {
+      body: JSON.stringify({}),
+      headers: { "content-type": "application/json" },
       method: "POST",
     });
     mocks.resendNotification.mockRejectedValueOnce(new Error("发送失败"));
     const invalid = await makeApp("admin").request("/platform/notifications/log_3/resend", {
+      body: JSON.stringify({}),
+      headers: { "content-type": "application/json" },
       method: "POST",
     });
 
     expect(success.status).toBe(200);
+    expect(mocks.resendNotification).toHaveBeenNthCalledWith(1, "log_1", "user_2");
     expect(missing.status).toBe(404);
     expect(invalid.status).toBe(400);
+  });
+
+  it("lists eligible resend recipients for one notification", async () => {
+    mocks.listRecipients.mockResolvedValueOnce({
+      records: [
+        {
+          email: "other@example.com",
+          id: "user_2",
+          image: null,
+          name: "其他接收人",
+        },
+      ],
+    });
+
+    const response = await makeApp("admin").request(
+      "/platform/notifications/log_1/resend-recipients",
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.listRecipients).toHaveBeenCalledWith("log_1");
+    await expect(response.json()).resolves.toEqual({
+      records: [
+        {
+          email: "other@example.com",
+          id: "user_2",
+          image: null,
+          name: "其他接收人",
+        },
+      ],
+    });
+  });
+
+  it("returns 404 when resend recipient options cannot find the notification", async () => {
+    mocks.listRecipients.mockResolvedValueOnce(null);
+
+    const response = await makeApp("admin").request(
+      "/platform/notifications/missing/resend-recipients",
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "通知记录不存在" });
   });
 
   it("returns an HR evaluation preview without sending a notification", async () => {
