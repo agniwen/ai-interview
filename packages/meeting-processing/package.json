@@ -2,7 +2,7 @@
   "name": "@app/meeting-processing",
   "version": "0.0.0",
   "private": true,
-  "description": "Reusable meeting transcription, intelligence, purge, and human interview processing",
+  "description": "Reusable meeting transcription, intelligence, purge, search projection, and human-interview processing workflows",
   "type": "module",
   "exports": {
     "./human-interview": "./src/human-interview.ts",

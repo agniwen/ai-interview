@@ -7,6 +7,23 @@ runs the actual voice conversation, then reports the transcript back to web.
 
 For repo-wide setup (web + agent together), see the root [`README.md`](../../README.md).
 
+## 职责与边界
+
+本应用只负责实时语音面试会话：加入 LiveKit 房间、组织 STT → LLM → TTS 流程、执行面试工具、管理录制并把事件/报告回调给服务端。招聘数据持久化、鉴权、候选人状态流转和页面展示属于 `apps/server` / `apps/web`，不要在 Agent 内直接连接业务数据库。
+
+## 修改与新增指南
+
+| 需求                           | 修改位置                                                      |
+| ------------------------------ | ------------------------------------------------------------- |
+| 调整面试会话、模型或工具编排   | `src/agent.py` 及其拆出的同域模块                             |
+| 调整录制上传                   | `src/recording.py`                                            |
+| 调整服务端回调或报告           | `src/report.py`，同时核对服务端回调契约                       |
+| 新增 STT 适配器                | `src/` 下独立 provider 模块，避免把 provider 分支堆入入口文件 |
+| 修改提示词、工具描述或交接规则 | 先在 `tests/` 增加行为测试，再修改实现                        |
+| 修改依赖或 Python 版本         | `pyproject.toml`，随后执行 `uv sync` 更新锁文件               |
+
+新增跨应用字段时，先修改服务端拥有的契约并保持回调向后兼容；密钥只进入环境变量和部署密钥文件，不写入源码或测试夹具。
+
 ## Pipeline
 
 | Stage          | Provider                                               | Notes                           |

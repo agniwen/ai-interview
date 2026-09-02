@@ -2,7 +2,7 @@
   "name": "@app/server",
   "version": "0.0.0",
   "private": true,
-  "description": "Hono backend runtime for ARC",
+  "description": "Hono API runtime that owns authentication, workspace-scoped recruiting routes, persistence orchestration, and RPC contracts",
   "type": "module",
   "exports": {
     "./env": "./src/lib/server/env.ts",

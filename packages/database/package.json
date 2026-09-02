@@ -2,7 +2,7 @@
   "name": "@app/database",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared Drizzle database construction and database type for backend runtimes",
+  "description": "Shared Drizzle database factory and database type used by server, worker, and reusable processing packages",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

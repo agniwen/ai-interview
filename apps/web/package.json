@@ -2,6 +2,7 @@
   "name": "@app/web",
   "version": "2.0.2",
   "private": true,
+  "description": "TanStack Start recruiter web app that renders product workflows and mounts the Hono API at /api for integrated runs",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

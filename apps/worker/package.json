@@ -2,6 +2,7 @@
   "name": "@app/worker",
   "version": "0.0.0",
   "private": true,
+  "description": "Background runtime for resume parsing, meeting processing, interview notifications, and operational health endpoints",
   "files": [
     "dist"
   ],

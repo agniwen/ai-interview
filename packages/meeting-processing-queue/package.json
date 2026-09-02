@@ -2,7 +2,7 @@
   "name": "@app/meeting-processing-queue",
   "version": "0.0.0",
   "private": true,
-  "description": "Redis/BullMQ queue runtime for Meeting Buddy processing",
+  "description": "Redis/BullMQ queue contracts and producers for meeting transcription, playback, intelligence, purge, and evaluation jobs",
   "type": "module",
   "exports": {
     "./*": "./src/*.ts"

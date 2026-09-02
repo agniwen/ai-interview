@@ -2,7 +2,7 @@
   "name": "@app/meeting-media",
   "version": "0.0.0",
   "private": true,
-  "description": "Meeting recording normalization and transcription audio preparation",
+  "description": "Provider-independent meeting recording normalization and transcription-ready audio preparation",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

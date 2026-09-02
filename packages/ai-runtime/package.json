@@ -2,7 +2,7 @@
   "name": "@app/ai-runtime",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared server-side model configuration and structured generation runtime",
+  "description": "Provider-neutral server-side AI model selection, JSON generation, and simple text generation primitives",
   "type": "module",
   "exports": {
     "./json-output": "./src/json-output.ts",

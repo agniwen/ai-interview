@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ChatWorkspace from "./chat-workspace";
 
 const mocks = vi.hoisted(() => ({
+  // SAFETY: The test mutates this slot only between renders to model useChat's optional Error.
+  chatError: undefined as Error | undefined,
   clearError: vi.fn(),
   fetchConversation: vi.fn(),
   getOrCreateChat: vi.fn(),
@@ -21,18 +23,23 @@ const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn(),
   setMessages: vi.fn(),
   setSessionTitle: vi.fn(),
+  toastError: vi.fn(),
   upsertConversation: vi.fn(),
 }));
 
 vi.mock("@ai-sdk/react", () => ({
   useChat: () => ({
     clearError: mocks.clearError,
-    error: undefined,
+    error: mocks.chatError,
     messages: [],
     regenerate: mocks.regenerate,
     setMessages: mocks.setMessages,
     status: "ready",
   }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: mocks.toastError },
 }));
 
 vi.mock("@assistant-ui/react", () => ({
@@ -132,6 +139,7 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   vi.clearAllMocks();
+  mocks.chatError = undefined;
   mocks.getOrCreateChat.mockReturnValue({ sendMessage: mocks.sendMessage });
   mocks.hasChat.mockReturnValue(false);
   mocks.patchConversation.mockResolvedValue(null);
@@ -149,6 +157,31 @@ afterEach(() => {
 });
 
 describe("ChatWorkspace conversation bundle boundary", () => {
+  it("reports chat failures with an error toast instead of an inline error bar", async () => {
+    mocks.chatError = new Error("模型请求失败");
+
+    await renderWorkspace(null);
+
+    expect(mocks.toastError).toHaveBeenCalledWith("请求失败，这一步没有完成，请稍后重试。", {
+      id: "recruiting-chat-error",
+    });
+    expect(mocks.clearError).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain("请求失败，这一步没有完成。");
+  });
+
+  it("reports history failures with an error toast instead of inline content", async () => {
+    mocks.fetchConversation.mockRejectedValue(new Error("network unavailable"));
+
+    await renderWorkspace("conversation-1");
+
+    await vi.waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith("无法加载聊天记录，请稍后重试。", {
+        id: "recruiting-chat-error",
+      });
+    });
+    expect(container.textContent).not.toContain("无法加载聊天记录，请稍后重试。");
+  });
+
   it("keeps history UI and candidate-detail providers behind the lazy module", () => {
     const featureDirectory = resolve("src/components/features/chat");
     const workspaceSource = readFileSync(resolve(featureDirectory, "chat-workspace.tsx"), "utf-8");

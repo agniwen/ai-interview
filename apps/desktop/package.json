@@ -2,7 +2,7 @@
   "name": "@app/desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "Meeting Buddy (AI Hiring Copilot Desktop) — Electron app for HR–candidate conversation capture and transcription",
+  "description": "Electron desktop client for authenticated meeting capture, local recording recovery, and live transcription in AI Hiring Copilot",
   "homepage": "https://github.com/agniwen/ai-interview",
   "author": "ARC",
   "main": "./out/main/index.js",
