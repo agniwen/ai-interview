@@ -9,7 +9,7 @@ type RunMailIngestOnce = (
 ) => Promise<RunResult>;
 
 export interface MailIngestScheduler {
-  close: () => void;
+  close: () => Promise<void>;
   runNow: (scope: MailIngestRunScope) => Promise<RunResult>;
 }
 
@@ -18,6 +18,12 @@ export function createMailIngestScheduler(
   config: MailIngestConfig,
   runMailIngestOnce: RunMailIngestOnce,
 ): MailIngestScheduler {
+  const closedResult: RunResult = {
+    accounts: 0,
+    messagesFailed: 0,
+    messagesQueued: 0,
+    messagesSkipped: 0,
+  };
   let activeRun: Promise<RunResult> | null = null;
   let closed = false;
   let timer: NodeJS.Timeout | null = null;
@@ -30,6 +36,9 @@ export function createMailIngestScheduler(
   };
 
   const execute = async (scope?: MailIngestRunScope): Promise<RunResult> => {
+    if (closed) {
+      return closedResult;
+    }
     if (activeRun) {
       return activeRun;
     }
@@ -42,7 +51,7 @@ export function createMailIngestScheduler(
   };
 
   const runAutomatic = async () => {
-    if (activeRun) {
+    if (closed || activeRun) {
       return;
     }
     try {
@@ -71,11 +80,17 @@ export function createMailIngestScheduler(
   });
 
   return {
-    close: () => {
+    close: async () => {
       closed = true;
       clearTimer();
+      if (activeRun) {
+        await Promise.allSettled([activeRun]);
+      }
     },
     runNow: async (scope) => {
+      if (closed) {
+        return closedResult;
+      }
       clearTimer();
       scheduleNext();
       if (activeRun) {

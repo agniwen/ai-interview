@@ -1,3 +1,4 @@
+// oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
 import type {
   createMeetingIntelligenceDao,
   generateMeetingIntelligence,
@@ -11,6 +12,7 @@ import {
   MeetingIntelligenceTerminalError,
 } from "@app/shared/meeting-intelligence";
 import type { MeetingIntelligencePayload } from "@app/shared/meeting-intelligence";
+import { Context, Data, Effect, Layer } from "effect";
 
 export interface MeetingIntelligenceDependencies {
   claim: ReturnType<typeof createMeetingIntelligenceDao>["claimMeetingIntelligenceRun"];
@@ -44,8 +46,20 @@ export interface MeetingIntelligenceDependencies {
   saveProgress: ReturnType<typeof createMeetingIntelligenceDao>["saveMeetingIntelligenceProgress"];
 }
 
+export class MeetingIntelligenceProcessor extends Context.Service<
+  MeetingIntelligenceProcessor,
+  MeetingIntelligenceDependencies
+>()("@app/worker/MeetingIntelligenceProcessor") {}
+
+export const meetingIntelligenceProcessorLayer = (dependencies: MeetingIntelligenceDependencies) =>
+  Layer.succeed(MeetingIntelligenceProcessor, dependencies);
+
+class MeetingIntelligenceFailure extends Data.TaggedError("MeetingIntelligenceFailure")<{
+  readonly cause: unknown;
+}> {}
+
 // 以 execution token/租约保护生成，复用 durable checkpoint，并仅在模型快照匹配时发布。 / Protects generation with an execution token and lease, resumes durable checkpoints, and publishes only when the model snapshot matches.
-export async function runMeetingIntelligenceProcessing(
+async function runMeetingIntelligenceProcessingPromise(
   input: MeetingIntelligenceJobData,
   context: { attempt: number; maxAttempts: number },
   dependencies: MeetingIntelligenceDependencies,
@@ -150,4 +164,30 @@ export async function runMeetingIntelligenceProcessing(
     }
     throw error;
   }
+}
+
+export function runMeetingIntelligenceProcessingEffect(
+  input: MeetingIntelligenceJobData,
+  context: { attempt: number; maxAttempts: number },
+) {
+  return Effect.gen(function* () {
+    const dependencies = yield* MeetingIntelligenceProcessor;
+    yield* Effect.tryPromise({
+      catch: (cause) => new MeetingIntelligenceFailure({ cause }),
+      try: () => runMeetingIntelligenceProcessingPromise(input, context, dependencies),
+    });
+  });
+}
+
+export async function runMeetingIntelligenceProcessing(
+  input: MeetingIntelligenceJobData,
+  context: { attempt: number; maxAttempts: number },
+  dependencies: MeetingIntelligenceDependencies,
+): Promise<void> {
+  await Effect.runPromise(
+    runMeetingIntelligenceProcessingEffect(input, context).pipe(
+      Effect.provide(meetingIntelligenceProcessorLayer(dependencies)),
+      Effect.catchTag("MeetingIntelligenceFailure", (failure) => Effect.fail(failure.cause)),
+    ),
+  );
 }

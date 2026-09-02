@@ -1,3 +1,4 @@
+// oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
 import type { InterviewNotificationDeliveryRecord, InterviewNotificationEventRecord } from "./dao";
 import type {
   InterviewNotificationAudienceType,
@@ -9,6 +10,7 @@ import {
   classifyInterviewNotificationFailure,
   getInterviewNotificationRetryAt,
 } from "@app/shared/interview-notifications";
+import { Context, Data, Effect, Layer } from "effect";
 
 export interface InterviewNotificationSendResult {
   providerMessageId: string | null;
@@ -57,6 +59,19 @@ export interface InterviewNotificationProcessorDependencies {
     status: "completed" | "dead" | "failed";
   }): Promise<boolean>;
 }
+
+export class InterviewNotificationProcessor extends Context.Service<
+  InterviewNotificationProcessor,
+  InterviewNotificationProcessorDependencies
+>()("@app/worker/InterviewNotificationProcessor") {}
+
+export const interviewNotificationProcessorLayer = (
+  dependencies: InterviewNotificationProcessorDependencies,
+) => Layer.succeed(InterviewNotificationProcessor, dependencies);
+
+class InterviewNotificationFailure extends Data.TaggedError("InterviewNotificationFailure")<{
+  readonly cause: unknown;
+}> {}
 
 // 发送超过一分钟未提交时允许其他 Worker 接管，降低崩溃后的阻塞时间。 / Allows another worker to reclaim a send not committed within one minute after a crash.
 const DELIVERY_LEASE_DURATION_MS = 60_000;
@@ -124,7 +139,7 @@ async function finalizeEvent(
 }
 
 // 逐条以租约保护发送和结果提交，失败先分类为重试/死信/未知，再收敛父事件。 / Sends and commits each delivery under a lease, classifies failures as retry/dead/unknown, then finalizes the parent event.
-export async function processInterviewNotificationEvent(
+async function processInterviewNotificationEventPromise(
   event: InterviewNotificationEventRecord,
   input: { leaseOwner: string; now?: Date },
   dependencies: InterviewNotificationProcessorDependencies,
@@ -203,4 +218,30 @@ export async function processInterviewNotificationEvent(
   }
 
   await finalizeEvent(event.id, input.leaseOwner, now, dependencies);
+}
+
+export function processInterviewNotificationEventEffect(
+  event: InterviewNotificationEventRecord,
+  input: { leaseOwner: string; now?: Date },
+) {
+  return Effect.gen(function* () {
+    const dependencies = yield* InterviewNotificationProcessor;
+    yield* Effect.tryPromise({
+      catch: (cause) => new InterviewNotificationFailure({ cause }),
+      try: () => processInterviewNotificationEventPromise(event, input, dependencies),
+    });
+  });
+}
+
+export async function processInterviewNotificationEvent(
+  event: InterviewNotificationEventRecord,
+  input: { leaseOwner: string; now?: Date },
+  dependencies: InterviewNotificationProcessorDependencies,
+): Promise<void> {
+  await Effect.runPromise(
+    processInterviewNotificationEventEffect(event, input).pipe(
+      Effect.provide(interviewNotificationProcessorLayer(dependencies)),
+      Effect.catchTag("InterviewNotificationFailure", (failure) => Effect.fail(failure.cause)),
+    ),
+  );
 }

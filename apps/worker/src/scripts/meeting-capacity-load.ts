@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { setTimeout as delay } from "node:timers/promises";
 import {
   buildMeetingTranscriptionJobId,
   closeMeetingTranscriptionQueue,
@@ -9,6 +8,9 @@ import {
   meetingTranscriptionJobSchema,
 } from "@app/meeting-processing-queue/meeting-transcription";
 import { z } from "zod";
+import { Effect } from "effect";
+
+const delay = (milliseconds: number) => Effect.runPromise(Effect.sleep(milliseconds));
 
 // 选择 live-lease、direct-upload 或 final-transcription 三种独立准入路径。 / Selects one independent admission path: live-lease, direct-upload, or final-transcription.
 const MODE = process.env.MEETING_LOAD_MODE?.trim();
@@ -288,12 +290,19 @@ async function runFinalTranscriptionLoad(): Promise<void> {
   }
 }
 
-if (MODE === "live") {
-  await runLiveLeaseLoad();
-} else if (MODE === "upload") {
-  await runDirectUploadLoad();
-} else if (MODE === "final") {
-  await runFinalTranscriptionLoad();
-} else {
-  throw new Error("MEETING_LOAD_MODE must be live, upload, or final");
-}
+await Effect.runPromise(
+  Effect.tryPromise({
+    catch: (cause) => cause,
+    try: async () => {
+      if (MODE === "live") {
+        await runLiveLeaseLoad();
+      } else if (MODE === "upload") {
+        await runDirectUploadLoad();
+      } else if (MODE === "final") {
+        await runFinalTranscriptionLoad();
+      } else {
+        throw new Error("MEETING_LOAD_MODE must be live, upload, or final");
+      }
+    },
+  }),
+);

@@ -30,7 +30,7 @@ describe("mail ingest scheduler", () => {
     await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
     expect(runMailIngestOnce).toHaveBeenCalledTimes(3);
 
-    scheduler.close();
+    await scheduler.close();
   });
 
   it("runs a requested workspace after an in-flight automatic poll", async () => {
@@ -53,7 +53,7 @@ describe("mail ingest scheduler", () => {
     expect(runMailIngestOnce).toHaveBeenCalledTimes(2);
     expect(runMailIngestOnce).toHaveBeenLastCalledWith(config, { organizationId: "org_1" });
 
-    scheduler.close();
+    await scheduler.close();
   });
 
   it("schedules the next poll 15 minutes after the manual trigger time", async () => {
@@ -79,6 +79,47 @@ describe("mail ingest scheduler", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(runMailIngestOnce).toHaveBeenCalledTimes(3);
 
-    scheduler.close();
+    await scheduler.close();
+  });
+
+  it("drains the active mailbox poll when closing", async () => {
+    vi.useFakeTimers();
+    const { promise, resolve } = Promise.withResolvers<{
+      accounts: number;
+      messagesFailed: number;
+      messagesQueued: number;
+      messagesSkipped: number;
+    }>();
+    const scheduler = createMailIngestScheduler(
+      config,
+      vi.fn(() => promise),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+
+    let closed = false;
+    const closing = scheduler.close().then(() => {
+      closed = true;
+    });
+    await Promise.resolve();
+    expect(closed).toBe(false);
+    resolve({ accounts: 1, messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 });
+    await closing;
+    expect(closed).toBe(true);
+  });
+
+  it("does not start another scan after closing", async () => {
+    vi.useFakeTimers();
+    const runMailIngestOnce = vi.fn().mockResolvedValue({
+      accounts: 0,
+      messagesFailed: 0,
+      messagesQueued: 0,
+      messagesSkipped: 0,
+    });
+    const scheduler = createMailIngestScheduler(config, runMailIngestOnce);
+    await scheduler.close();
+
+    await scheduler.runNow({ organizationId: "org_1" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(runMailIngestOnce).not.toHaveBeenCalled();
   });
 });

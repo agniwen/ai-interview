@@ -1,3 +1,4 @@
+// oxlint-disable max-classes-per-file -- Effect services and tagged errors are class-based capability contracts.
 import type { ImapFlow, ImapFlowOptions } from "imapflow";
 import type { ParsedMail } from "mailparser";
 import { z } from "zod";
@@ -17,6 +18,9 @@ import {
 import { getMailIngestGroupListenStart, groupMailIngestAccounts } from "./account-groups";
 import { deriveJdBindStatus } from "./job-binding";
 import type { MailIngestConfig } from "./config";
+import { Context, Data, Effect, Layer } from "effect";
+import { cleanupPreservingPrimary } from "../effect/cleanup";
+import { captureWorkerException } from "../sentry";
 
 export interface RunResult {
   accounts: number;
@@ -75,6 +79,18 @@ export interface MailIngestDependencies {
   putObjectBytes: typeof putObjectBytes;
   updateMailIngestMessageResult: MailIngestDao["updateMessageResult"];
 }
+
+export class MailIngestProcessor extends Context.Service<
+  MailIngestProcessor,
+  MailIngestDependencies
+>()("@app/worker/MailIngestProcessor") {}
+
+export const mailIngestProcessorLayer = (dependencies: MailIngestDependencies) =>
+  Layer.succeed(MailIngestProcessor, dependencies);
+
+class MailIngestFailure extends Data.TaggedError("MailIngestFailure")<{
+  readonly cause: unknown;
+}> {}
 
 function firstAddress(mail: ParsedMail): string | null {
   return (
@@ -342,9 +358,13 @@ async function processAccountGroup(
     });
   });
 
-  await client.connect();
-  const lock = await client.getMailboxLock(connectionAccount.mailbox);
+  let releaseLock: (() => void) | undefined;
+  let primaryCause: unknown;
+  let hasPrimaryFailure = false;
   try {
+    await client.connect();
+    const lock = await client.getMailboxLock(connectionAccount.mailbox);
+    releaseLock = () => lock.release();
     const { mailbox } = client;
     const uidValidity = mailbox ? String(mailbox.uidValidity) : "unknown";
     const listenStartAt = getMailIngestGroupListenStart(accounts);
@@ -390,9 +410,40 @@ async function processAccountGroup(
       }
     }
     return { result, tallies };
+  } catch (error) {
+    primaryCause = error;
+    hasPrimaryFailure = true;
+    throw error;
   } finally {
-    lock.release();
-    await client.logout();
+    await cleanupPreservingPrimary({
+      cleanup: async () => {
+        let releaseError: unknown;
+        try {
+          releaseLock?.();
+        } catch (error) {
+          releaseError = error;
+        }
+        try {
+          await client.logout();
+        } catch (error) {
+          releaseError ??= error;
+        }
+        if (releaseError !== undefined) {
+          throw releaseError;
+        }
+      },
+      hasPrimaryFailure,
+      onCleanupFailure: (error) => {
+        captureWorkerException(error, "worker.mail-ingest.cleanup", {
+          accountIds: accounts.map((account) => account.id),
+        });
+        console.error("[mail-ingest] failed to close IMAP resources", {
+          accountIds: accounts.map((account) => account.id),
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+      },
+      primaryCause,
+    });
   }
 }
 
@@ -483,8 +534,23 @@ async function runMailIngestOnceWithDependencies(
 
 // 将 IO 端口一次性绑定到处理器，保持轮询编排可在测试中替换。 / Binds IO ports once so polling orchestration remains replaceable in tests.
 export function createMailIngestProcessor(dependencies: MailIngestDependencies) {
+  const layer = mailIngestProcessorLayer(dependencies);
+  const runMailIngestOnceEffect = (config: MailIngestConfig, scope?: MailIngestRunScope) =>
+    Effect.gen(function* runMailIngestOnceProgram() {
+      const ports = yield* MailIngestProcessor;
+      return yield* Effect.tryPromise({
+        catch: (cause) => new MailIngestFailure({ cause }),
+        try: () => runMailIngestOnceWithDependencies(config, ports, scope),
+      });
+    });
   return {
     runMailIngestOnce: (config: MailIngestConfig, scope?: MailIngestRunScope) =>
-      runMailIngestOnceWithDependencies(config, dependencies, scope),
+      Effect.runPromise(
+        runMailIngestOnceEffect(config, scope).pipe(
+          Effect.provide(layer),
+          Effect.catchTag("MailIngestFailure", (failure) => Effect.fail(failure.cause)),
+        ),
+      ),
+    runMailIngestOnceEffect,
   };
 }

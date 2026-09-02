@@ -32,6 +32,7 @@
     "@t3-oss/env-core": "^0.13.11",
     "chat": "catalog:",
     "drizzle-orm": "catalog:",
+    "effect": "catalog:",
     "hono": "^4.12.18",
     "imapflow": "^1.4.1",
     "mailparser": "^3.9.10",
