@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/frame";
 import { desktopMeetingKeys, restoreMeeting, trashMeeting } from "@/lib/client/meetings";
 import { showMeetingArchivedToast } from "./meeting-archive-toast";
+import { showMeetingDeletionError } from "./meeting-deletion-toast";
 
 export function canManageMeetingLifecycle(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
@@ -41,7 +42,7 @@ export function MeetingLifecyclePanel({
   const restoreMutation = useMutation({
     mutationFn: (_toastId: string | number) => restoreMeeting(slug, meetingId),
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "撤回归档失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "撤回归档失败");
     },
     onSuccess: async (_, toastId) => {
       await refreshMeetingLists();

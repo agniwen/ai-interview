@@ -330,8 +330,18 @@ export function MeetingCaptureComposer({
   if (!snapshot.active) {
     return null;
   }
-  const busy = snapshot.phase === "saving" || snapshot.phase === "discarding";
+  const transitioning = snapshot.phase === "pausing" || snapshot.phase === "resuming";
+  const busy = snapshot.phase === "saving" || snapshot.phase === "discarding" || transitioning;
   const paused = snapshot.phase === "paused";
+  let captureActionIcon = paused ? "ph:play-fill" : "ph:pause-fill";
+  let captureActionLabel = paused ? "继续录制" : "暂停录制";
+  if (snapshot.phase === "pausing") {
+    captureActionIcon = "ph:circle-notch";
+    captureActionLabel = "正在暂停录制";
+  } else if (snapshot.phase === "resuming") {
+    captureActionIcon = "ph:circle-notch";
+    captureActionLabel = "正在继续录制";
+  }
 
   return (
     <div className="grid min-w-0 gap-4 px-3 pb-1" data-slot="meeting-recording-composer">
@@ -367,15 +377,18 @@ export function MeetingCaptureComposer({
             <span className="font-mono text-sm tabular-nums leading-none">{elapsed}</span>
           </div>
           <Button
-            aria-label={paused ? "继续录制" : "暂停录制"}
+            aria-label={captureActionLabel}
             className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary"
             disabled={busy}
             onClick={paused ? onResume : onPause}
             size="icon"
-            title={paused ? "继续录制" : "暂停录制"}
+            title={captureActionLabel}
             variant="ghost"
           >
-            <Icon className="size-5" icon={paused ? "ph:play-fill" : "ph:pause-fill"} />
+            <Icon
+              className={cn("size-5", transitioning && "animate-spin")}
+              icon={captureActionIcon}
+            />
           </Button>
           <Button
             aria-label="结束并保存录制"

@@ -23,6 +23,7 @@ import { formatAppDateTimeShort } from "@/lib/client/datetime";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";
 import { createDeferredInboxDiscard } from "./inbox-deferred-discard";
+import { showMeetingDeletionError, showMeetingDeletionSuccess } from "./meeting-deletion-toast";
 import { useMeetingCaptureSnapshot, useMeetingRecordingActions } from "./meeting-recording-context";
 
 interface ElectronNoDragStyle extends CSSProperties {
@@ -251,10 +252,10 @@ export function MeetingInboxMenu() {
       commit: () => meetingCapture.discard({ captureId, includeSaved }),
       onError: (error) => {
         setCaptureHidden(captureId, false);
-        toast.error(error instanceof Error ? error.message : "清理本地录音失败");
+        showMeetingDeletionError(error instanceof Error ? error.message : "清理本地录音失败");
       },
     });
-    const toastId = toast.success("已移除本地录音", {
+    const toastId = showMeetingDeletionSuccess("已移除本地录音", {
       action: (
         <Button
           className="ml-auto"

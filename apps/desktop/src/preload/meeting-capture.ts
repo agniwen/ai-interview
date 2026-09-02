@@ -15,7 +15,9 @@ export type CapturePhase =
   | "idle"
   | "starting"
   | "active"
+  | "pausing"
   | "paused"
+  | "resuming"
   | "saving"
   | "discarding"
   | "saved-local"
@@ -343,6 +345,24 @@ export function createMeetingCapture({
     if (store.listLocalSessions) {
       patch({ localSessions: await store.listLocalSessions() });
     }
+  };
+
+  const refreshLocalSessionsInBackground = (): void => {
+    void refreshLocalSessions().catch((error) => {
+      console.warn("[meeting-capture] local session refresh failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+    });
+  };
+
+  const patchLocalSession = (updated: LocalMeetingSession): void => {
+    const existingIndex = snapshot.localSessions.findIndex((item) => item.id === updated.id);
+    patch({
+      localSessions:
+        existingIndex === -1
+          ? [updated, ...snapshot.localSessions]
+          : snapshot.localSessions.map((item, index) => (index === existingIndex ? updated : item)),
+    });
   };
 
   const patchWorkspaceSave = (
@@ -688,7 +708,6 @@ export function createMeetingCapture({
         trackContentTypes: acquired.trackContentTypes,
         videoTracksDiscarded: acquired.videoTracksDiscarded,
       });
-      await refreshLocalSessions();
       prepared = acquired;
       const active: ActiveMeetingCapture = {
         captureId,
@@ -705,6 +724,7 @@ export function createMeetingCapture({
       patch({ active });
       await acquired.start(sink, { captureId, liveTranscriptHints: input.liveTranscriptHints });
       patch({ phase: "active" });
+      refreshLocalSessionsInBackground();
       console.info("[meeting-capture-renderer] recording active", {
         captureId,
         recruitingRecordId: input.recruitingRecordId ?? null,
@@ -871,17 +891,30 @@ export function createMeetingCapture({
       throw new Error("当前没有可暂停的录制");
     }
     const { active } = snapshot;
-    await prepared.pause();
+    patch({ error: null, phase: "pausing" });
+    try {
+      await prepared.pause();
+    } catch (error) {
+      patch({
+        error: error instanceof Error ? error.message : "暂停录制失败",
+        phase: "active",
+      });
+      throw error;
+    }
     const pausedAtMs = now().getTime();
     const resumedAtMs = active.resumedAt ? Date.parse(active.resumedAt) : pausedAtMs;
     const elapsedMs = active.elapsedMs + Math.max(0, pausedAtMs - resumedAtMs);
     clearSilenceTimer();
-    await store.updateLocalSession?.(active.captureId, { state: "paused" });
-    await refreshLocalSessions();
     patch({
       active: snapshot.active ? { ...snapshot.active, elapsedMs, resumedAt: null } : null,
       phase: "paused",
     });
+    const updated = await store.updateLocalSession?.(active.captureId, { state: "paused" });
+    if (updated) {
+      patchLocalSession(updated);
+    } else {
+      await refreshLocalSessions();
+    }
   };
 
   const resume = async (): Promise<void> => {
@@ -889,14 +922,27 @@ export function createMeetingCapture({
       throw new Error("当前没有可继续的暂停录制");
     }
     const { captureId } = snapshot.active;
-    await prepared.resume();
+    patch({ error: null, phase: "resuming" });
+    try {
+      await prepared.resume();
+    } catch (error) {
+      patch({
+        error: error instanceof Error ? error.message : "继续录制失败",
+        phase: "paused",
+      });
+      throw error;
+    }
     const resumedAt = now().toISOString();
-    await store.updateLocalSession?.(captureId, { state: "recording" });
-    await refreshLocalSessions();
     patch({
       active: snapshot.active ? { ...snapshot.active, resumedAt } : null,
       phase: "active",
     });
+    const updated = await store.updateLocalSession?.(captureId, { state: "recording" });
+    if (updated) {
+      patchLocalSession(updated);
+    } else {
+      await refreshLocalSessions();
+    }
   };
 
   const save = (input: SaveMeetingCaptureInput = {}): Promise<LocalSavedMeeting> => {

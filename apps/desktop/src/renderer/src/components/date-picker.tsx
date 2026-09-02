@@ -67,7 +67,10 @@ export function DatePicker({
         <div className="flex justify-between gap-2 p-2">
           <Button
             disabled={!draft}
-            onClick={() => setDraft(undefined)}
+            onClick={() => {
+              onValueChange("");
+              setOpen(false);
+            }}
             size="sm"
             type="button"
             variant="ghost"

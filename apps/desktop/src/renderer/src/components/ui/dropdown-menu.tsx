@@ -100,6 +100,56 @@ function DropdownMenuSeparator({ className, ...props }: MenuPrimitive.Separator.
   );
 }
 
+function DropdownMenuSub({ ...props }: MenuPrimitive.SubmenuRoot.Props) {
+  return <MenuPrimitive.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />;
+}
+
+function DropdownMenuSubTrigger({
+  children,
+  className,
+  inset,
+  ...props
+}: MenuPrimitive.SubmenuTrigger.Props & {
+  inset?: boolean;
+}) {
+  return (
+    <MenuPrimitive.SubmenuTrigger
+      data-inset={inset}
+      data-slot="dropdown-menu-sub-trigger"
+      className={cn(
+        cossMenuItemClass,
+        "px-2 py-1.5 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-popup-open:bg-accent data-popup-open:text-accent-foreground data-[inset]:pl-8",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <Icon className="ml-auto size-4" icon="ph:caret-right" />
+    </MenuPrimitive.SubmenuTrigger>
+  );
+}
+
+function DropdownMenuSubContent({
+  align = "start",
+  alignOffset = -3,
+  className,
+  side = "right",
+  sideOffset = 0,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuContent>) {
+  return (
+    <DropdownMenuContent
+      align={align}
+      alignOffset={alignOffset}
+      className={cn("w-auto", className)}
+      data-slot="dropdown-menu-sub-content"
+      side={side}
+      sideOffset={sideOffset}
+      {...props}
+    />
+  );
+}
+
 function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
   return <MenuPrimitive.RadioGroup data-slot="dropdown-menu-radio-group" {...props} />;
 }
@@ -130,5 +180,8 @@ export {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 };

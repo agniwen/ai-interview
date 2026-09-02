@@ -131,23 +131,6 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         throw new Error("系统音频没有返回可录制音轨，请检查屏幕与系统音频权限和输出路由");
       }
 
-      let transcriptMicrophoneTrack = microphoneTrack;
-      let processedTrack: MediaStreamTrack | null = null;
-      if (this.liveTranscriptSidecar) {
-        try {
-          processedTrack = microphoneTrack.clone();
-          await processedTrack.applyConstraints({
-            autoGainControl: true,
-            echoCancellation: true,
-            noiseSuppression: true,
-          });
-          transcriptMicrophoneTrack = processedTrack;
-        } catch {
-          processedTrack?.stop();
-          // Live ASR processing is best effort. The authoritative raw recording must still start.
-        }
-      }
-
       const mimeType = chooseMimeType();
       const recorders: RecorderState[] = [];
       const monitors: (() => Promise<void>)[] = [];
@@ -155,6 +138,35 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
       let captureError: Error | null = null;
       let pendingBytes = 0;
       let sidecarStopped = false;
+      let transcriptMicrophoneTrack = microphoneTrack;
+      let transcriptTrackPromise: Promise<MediaStreamTrack> | null = null;
+
+      const prepareTranscriptMicrophoneTrack = (): Promise<MediaStreamTrack> => {
+        if (!this.liveTranscriptSidecar) {
+          return Promise.resolve(microphoneTrack);
+        }
+        transcriptTrackPromise ??= (async () => {
+          const processedTrack = microphoneTrack.clone();
+          try {
+            await processedTrack.applyConstraints({
+              autoGainControl: true,
+              echoCancellation: true,
+              noiseSuppression: true,
+            });
+            if (disposed || sidecarStopped) {
+              processedTrack.stop();
+              return microphoneTrack;
+            }
+            transcriptMicrophoneTrack = processedTrack;
+            return processedTrack;
+          } catch {
+            processedTrack.stop();
+            // Live ASR processing is best effort. The authoritative raw recording must still start.
+            return microphoneTrack;
+          }
+        })();
+        return transcriptTrackPromise;
+      };
 
       const stopSidecar = () => {
         if (sidecarStopped) {
@@ -199,22 +211,29 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           const snapshot = this.liveTranscriptSidecar?.getSnapshot?.();
           return snapshot ? createDurableLiveTranscriptDraft(snapshot) : null;
         },
-        pause: async () => {
+        pause: () => {
           for (const { recorder } of recorders) {
             if (recorder.state === "recording") {
               recorder.pause();
             }
           }
-          await this.liveTranscriptSidecar?.flushCorrections?.();
+          const correctionFlush = this.liveTranscriptSidecar?.flushCorrections?.();
           this.liveTranscriptSidecar?.pause?.();
+          void correctionFlush?.catch(() => {
+            // Live corrections stay best effort and never delay the authoritative local pause.
+          });
+          return Promise.resolve();
         },
-        resume: async () => {
+        resume: () => {
           for (const { recorder } of recorders) {
             if (recorder.state === "paused") {
               recorder.resume();
             }
           }
-          await this.liveTranscriptSidecar?.resume?.();
+          void Promise.resolve(this.liveTranscriptSidecar?.resume?.()).catch(() => {
+            // Reconnecting the optional transcript must not delay local recording.
+          });
+          return Promise.resolve();
         },
         start: (
           sink: CaptureSink,
@@ -339,16 +358,23 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           startMonitor("system", systemTrack);
           startRecorder("microphone", microphoneTrack);
           startRecorder("system", systemTrack);
-          void this.liveTranscriptSidecar
-            ?.start({
-              captureId: input.captureId,
-              initialDraft: input.initialLiveTranscriptDraft,
-              liveTranscriptHints: input.liveTranscriptHints,
-              tracks: { microphone: transcriptMicrophoneTrack, system: systemTrack },
-            })
-            .catch(() => {
-              // Live Transcript Draft is explicitly non-authoritative and must not fail recording.
-            });
+          if (this.liveTranscriptSidecar) {
+            void prepareTranscriptMicrophoneTrack()
+              .then((transcriptTrack) => {
+                if (disposed || sidecarStopped) {
+                  return;
+                }
+                return this.liveTranscriptSidecar?.start({
+                  captureId: input.captureId,
+                  initialDraft: input.initialLiveTranscriptDraft,
+                  liveTranscriptHints: input.liveTranscriptHints,
+                  tracks: { microphone: transcriptTrack, system: systemTrack },
+                });
+              })
+              .catch(() => {
+                // Live Transcript Draft is explicitly non-authoritative and must not fail recording.
+              });
+          }
           return Promise.resolve();
         },
         stop: async () => {

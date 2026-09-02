@@ -78,6 +78,20 @@ describe("MeetingCaptureComposer", () => {
     expect(html).toContain('aria-label="继续录制"');
   });
 
+  it("locks the center action while a pause transition is in flight", () => {
+    const html = renderToStaticMarkup(
+      <MeetingCaptureComposer
+        onPause={vi.fn()}
+        onResume={vi.fn()}
+        onSave={vi.fn()}
+        snapshot={{ ...ACTIVE_SNAPSHOT, phase: "pausing" }}
+      />,
+    );
+
+    expect(html).toContain('aria-label="正在暂停录制"');
+    expect(html).toContain("disabled");
+  });
+
   it("freezes the displayed recording time while paused", () => {
     vi.useFakeTimers();
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

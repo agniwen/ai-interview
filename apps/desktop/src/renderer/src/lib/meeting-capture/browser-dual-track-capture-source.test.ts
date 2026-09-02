@@ -207,14 +207,21 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
       },
     );
     vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValue(15_000);
+    let resolveCorrectionFlush!: () => void;
+    // The unresolved gate proves that local pause completion does not await transcript correction.
+    // oxlint-disable-next-line promise/avoid-new -- A directly controlled pending promise is the assertion boundary.
+    const correctionFlush = new Promise<void>((resolve) => {
+      resolveCorrectionFlush = resolve;
+    });
     const sidecar = {
-      flushCorrections: vi.fn(() => Promise.resolve()),
+      flushCorrections: vi.fn(() => correctionFlush),
       pause: vi.fn(),
       resume: vi.fn(),
       start: vi.fn().mockRejectedValue(new Error("provider disconnected")),
       stop: vi.fn(),
     };
     const prepared = await new BrowserDualTrackCaptureSource(sidecar).acquire();
+    expect(processedMicrophoneTrack.applyConstraints).not.toHaveBeenCalled();
     const committed = { microphone: 0, system: 0 };
     const failure = vi.fn();
     await prepared.start(
@@ -234,26 +241,36 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     recorders[1]?.emit({ data: new Blob(["system"]) } as BlobEvent);
     await vi.waitFor(() => expect(committed).toEqual({ microphone: 15_000, system: 15_000 }));
 
-    await prepared.pause();
+    let pauseResolved = false;
+    const pausePromise = prepared.pause().then(() => {
+      pauseResolved = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pauseResolved).toBe(true);
     expect(recorders.map((recorder) => recorder.state)).toEqual(["paused", "paused"]);
     expect(sidecar.flushCorrections).toHaveBeenCalledOnce();
     expect(sidecar.pause).toHaveBeenCalledOnce();
+    resolveCorrectionFlush();
+    await pausePromise;
 
     await prepared.resume();
     expect(recorders.map((recorder) => recorder.state)).toEqual(["recording", "recording"]);
     expect(sidecar.resume).toHaveBeenCalledOnce();
 
     expect(failure).not.toHaveBeenCalled();
-    expect(processedMicrophoneTrack.applyConstraints).toHaveBeenCalledWith({
-      autoGainControl: true,
-      echoCancellation: true,
-      noiseSuppression: true,
+    await vi.waitFor(() => {
+      expect(processedMicrophoneTrack.applyConstraints).toHaveBeenCalledWith({
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true,
+      });
+      expect(sidecar.start).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tracks: { microphone: processedMicrophoneTrack, system: systemTrack },
+        }),
+      );
     });
-    expect(sidecar.start).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tracks: { microphone: processedMicrophoneTrack, system: systemTrack },
-      }),
-    );
     expect(sidecar.start).toHaveBeenCalledOnce();
   });
 });

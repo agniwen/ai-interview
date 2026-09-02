@@ -213,6 +213,44 @@ describe("MeetingCapture", () => {
     await capture.discard();
   });
 
+  it("publishes an active capture without waiting for the local session list refresh", async () => {
+    const delegate = new LocalMeetingRecordingStore(root);
+    const delayedRefresh = Promise.withResolvers<ReturnType<typeof delegate.listLocalSessions>>();
+    let delayListRefresh = false;
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000092",
+      source: new DeterministicCaptureSource(),
+      store: {
+        append: (input, bytes) => delegate.append(input, bytes),
+        begin: (input) => delegate.begin(input),
+        discard: (captureId) => delegate.discard(captureId),
+        listLocalSessions: () =>
+          delayListRefresh ? delayedRefresh.promise : delegate.listLocalSessions(),
+        markWorkspaceVerified: (captureId, recoveryCopyDeleteAfter) =>
+          delegate.markWorkspaceVerified(captureId, recoveryCopyDeleteAfter),
+        recover: () => delegate.recover(),
+        save: (captureId, liveTranscriptDraft) => delegate.save(captureId, liveTranscriptDraft),
+        updateLocalSession: (captureId, patch) => delegate.updateLocalSession(captureId, patch),
+      },
+    });
+    const observed = latestSnapshot(capture);
+    await waitFor(observed.read, (snapshot) => snapshot.recoveryComplete);
+    delayListRefresh = true;
+
+    let startResolved = false;
+    const startPromise = capture.start().then(() => {
+      startResolved = true;
+    });
+
+    await vi.waitFor(() => expect(observed.read().phase).toBe("active"));
+    expect(startResolved).toBe(true);
+
+    delayedRefresh.resolve(delegate.listLocalSessions());
+    await startPromise;
+    await capture.discard();
+    observed.unsubscribe();
+  });
+
   it("stops at the four-hour boundary and durably saves committed audio", async () => {
     vi.useFakeTimers();
     const source = new DeterministicCaptureSource();

@@ -30,6 +30,7 @@ import {
 } from "@/lib/client/meetings";
 import { canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { showMeetingArchivedToast } from "./meeting-archive-toast";
+import { showMeetingDeletionError } from "./meeting-deletion-toast";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { useMeetingCaptureSnapshot, useMeetingRecordingActions } from "./meeting-recording-context";
 import {
@@ -89,7 +90,7 @@ export function MeetingSidebarSlots() {
       toastId: string | number;
     }) => restoreMeeting(slug, meetingId),
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "撤回归档失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "撤回归档失败");
     },
     onSuccess: async (_, { slug, toastId }) => {
       await refreshMeetingLists(slug);
@@ -100,7 +101,7 @@ export function MeetingSidebarSlots() {
     mutationFn: ({ meetingId, slug }: { meetingId: string; slug: string }) =>
       trashMeeting(slug, meetingId),
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "归档失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "归档失败");
     },
     onSuccess: async (_, { meetingId, slug }) => {
       void refreshMeetingLists(slug);

@@ -32,6 +32,7 @@ import {
   RECORDING_TITLE_DELAY_MS,
   TITLE_GENERATION_STATES,
 } from "./meeting-recording-title";
+import { showMeetingDeletionError, showMeetingDeletionSuccess } from "./meeting-deletion-toast";
 
 export interface OpenMeetingRecordingOptions {
   /** 预选招聘台记录 id（从卡片点入时传入）。 */
@@ -358,7 +359,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     try {
       await meetingCapture.discard(pendingDiscard);
       setPendingDiscard(null);
-      toast.success("本地录音已放弃并清理");
+      showMeetingDeletionSuccess("本地录音已放弃并清理");
       if (
         discardedId &&
         (pathname === `/meetings/${discardedId}` ||
@@ -367,7 +368,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         void navigate({ to: "/meetings" });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "清理本地录音失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "清理本地录音失败");
     }
   }, [
     captureSnapshot.active?.captureId,

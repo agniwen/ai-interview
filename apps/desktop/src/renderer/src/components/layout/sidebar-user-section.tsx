@@ -12,6 +12,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
@@ -23,11 +26,17 @@ import {
   setActiveWorkspace,
 } from "@/lib/client/workspace";
 import type { WorkspaceOrg } from "@/lib/client/workspace";
+import { cn } from "@app/shared/utils";
 
 const WHITESPACE_REGEX = /\s+/;
 
-const userTriggerClassName =
-  "h-10 w-full justify-start gap-2 rounded-lg px-2 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none";
+const sidebarFooterTriggerInteractionClassName =
+  "transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none";
+
+const userTriggerClassName = cn(
+  "h-10 w-full justify-start gap-2 rounded-lg px-2",
+  sidebarFooterTriggerInteractionClassName,
+);
 
 function getInitials(name?: string | null, email?: string | null) {
   const source = (name ?? email ?? "").trim();
@@ -57,7 +66,7 @@ function SidebarSettingsButton() {
   return (
     <Button
       aria-label="设置"
-      className="shrink-0 rounded-lg"
+      className={cn("shrink-0 rounded-lg", sidebarFooterTriggerInteractionClassName)}
       nativeButton={false}
       render={<Link to="/settings" />}
       size="icon"
@@ -122,31 +131,35 @@ export function UserMenuDropdown({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-muted-foreground text-xs">
-            切换工作区
-          </DropdownMenuLabel>
-          {workspaces.length > 0 ? (
-            <DropdownMenuRadioGroup
-              onValueChange={(workspaceId) => {
-                if (workspaceId !== activeWorkspace?.id) {
-                  onSwitchWorkspace(workspaceId);
-                }
-              }}
-              value={activeWorkspace?.id ?? ""}
-            >
-              {workspaces.map((workspace) => (
-                <DropdownMenuRadioItem
-                  disabled={switchingWorkspace}
-                  key={workspace.id}
-                  value={workspace.id}
-                >
-                  <span className="truncate">{workspace.name}</span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          ) : (
-            <DropdownMenuItem disabled>暂无可用工作区</DropdownMenuItem>
-          )}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger openOnHover>切换工作区</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-56">
+              <DropdownMenuGroup>
+                {workspaces.length > 0 ? (
+                  <DropdownMenuRadioGroup
+                    onValueChange={(workspaceId) => {
+                      if (workspaceId !== activeWorkspace?.id) {
+                        onSwitchWorkspace(workspaceId);
+                      }
+                    }}
+                    value={activeWorkspace?.id ?? ""}
+                  >
+                    {workspaces.map((workspace) => (
+                      <DropdownMenuRadioItem
+                        disabled={switchingWorkspace}
+                        key={workspace.id}
+                        value={workspace.id}
+                      >
+                        <span className="truncate">{workspace.name}</span>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                ) : (
+                  <DropdownMenuItem disabled>暂无可用工作区</DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onSignOut} variant="destructive">
