@@ -326,7 +326,6 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const pauseRecording = useCallback(async () => {
     try {
       await meetingCapture.pause();
-      toast.success("录制已暂停");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "暂停录制失败");
     }
@@ -335,7 +334,6 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const resumeRecording = useCallback(async () => {
     try {
       await meetingCapture.resume();
-      toast.success("录制已继续");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "继续录制失败");
     }
