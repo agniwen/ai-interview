@@ -2,7 +2,7 @@ import type { parseScheduleEntriesInput } from "@app/db-schema/studio-interviews
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   globalConfig,
   jobDescription,
@@ -21,7 +21,7 @@ import {
   findAttachmentByContentHash,
   updateStructuredByHash,
 } from "../chat/dao/chat-attachments";
-import { generateResumeStructured } from "../../../lib/server/resume-parse-pipeline";
+import { generateResumeStructured } from "@server/lib/server/resume-parse-pipeline";
 import { getResumeDocumentExtension } from "@app/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
@@ -29,8 +29,8 @@ import {
 } from "../studio/routes/interviews/dao/context-snapshots";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import { isResumeParseCacheEnabled } from "../../../lib/server/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "../../../lib/server/resume-parse-provider";
+import { isResumeParseCacheEnabled } from "@server/lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "@server/lib/server/resume-parse-provider";
 import { createInternalErrorResponse } from "../../error-handler";
 import { resolveCandidateCompanyContext } from "./candidate-briefing";
 import {

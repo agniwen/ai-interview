@@ -1,0 +1,21 @@
+{
+  "name": "@app/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared Drizzle database construction and database type for backend runtimes",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/db-schema": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { db } from "../../../../../../../lib/server/db/index";
-import { hashJobDescriptionForSemanticIndex } from "../../../../../../../lib/server/jd-semantic/hash";
-import { hashResumeProfileForSemanticIndex } from "../../../../../../../lib/server/resume-semantic/profile-hash";
+import { db } from "@server/lib/server/db/index";
+import { hashJobDescriptionForSemanticIndex } from "@server/lib/server/jd-semantic/hash";
+import { hashResumeProfileForSemanticIndex } from "@server/lib/server/resume-semantic/profile-hash";
 import { rankJobDescriptionsForResume } from "../../../../../../agents/job-description-match-agent";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import { listRecruitingJobDescriptions } from "../../../job-descriptions/dao";

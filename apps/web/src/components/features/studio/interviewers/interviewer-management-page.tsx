@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { InterviewerListRecord, InterviewerRecord } from "@app/shared/interviewers";
-import type { PaginatedInterviewerResult } from "@app/server/web/studio";
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +53,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
         filters: Record<string, never>;
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedInterviewerResult> =>
+      }) =>
         rpcFetch(
           rpc.api.w[":slug"].studio.interviewers.$get({
             param: { slug },

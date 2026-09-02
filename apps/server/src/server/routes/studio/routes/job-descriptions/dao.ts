@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "@server/lib/server/db/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
 import type {
@@ -20,14 +20,14 @@ import type { JsonObject } from "@app/db-schema/json";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   buildOrderBy,
   calcTotalPages,
   makePaginationSchema,
-} from "../../../../../lib/server/db/pagination";
-import type { PaginatedResult, PaginationParams } from "../../../../../lib/server/db/pagination";
-import { serializeDate } from "../../../../../lib/server/db/serialize";
+} from "@server/lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "@server/lib/server/db/pagination";
+import { serializeDate } from "@server/lib/server/db/serialize";
 import {
   department,
   interviewer,

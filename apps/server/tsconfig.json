@@ -2,6 +2,9 @@
   "extends": "../../tsconfig.base.json",
 
   "compilerOptions": {
+    "paths": {
+      "@server/*": ["./src/*"]
+    },
     "rootDir": "./src",
     "types": ["node"],
     "noEmit": true,

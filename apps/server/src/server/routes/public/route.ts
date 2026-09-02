@@ -13,7 +13,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { db } from "../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { getObjectBytes, getObjectStream, presignRecordingGetObjectUrl } from "@app/object-storage";
 import { interviewConversation, minimaxVoicePreview, studioInterview } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../factory";
@@ -58,6 +58,7 @@ import {
 } from "../studio/routes/interviews/dao/human-interview-candidate-response";
 import { aiInterviewInvitationsRouter } from "./routes/ai-interview-invitations/route";
 import { humanInterviewCandidateMaterialsRouter } from "./routes/human-interview-candidate-materials/route";
+import { humanInterviewLiveTranscriptRouter } from "./routes/human-interview-live-transcript/route";
 import { validateResumeFile } from "../../agents/resume-analysis-agent";
 import {
   cancelBatch,
@@ -211,6 +212,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       });
     })
     .route("/ai-interview-invitations", aiInterviewInvitationsRouter)
+    .route("/human-interview-meetings/interviewer", humanInterviewLiveTranscriptRouter)
     .get("/human-interview-meetings/interviewer/:inviteToken", async (c) => {
       const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
         c.req.param("inviteToken"),

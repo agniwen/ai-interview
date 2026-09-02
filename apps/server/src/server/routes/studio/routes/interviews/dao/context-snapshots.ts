@@ -7,9 +7,9 @@ import type {
 } from "@app/db-schema/interview-snapshots";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
-import { jsonValueSchema, stableStringify } from "../../../../../../lib/server/stable-stringify";
-import type { JsonValue } from "../../../../../../lib/server/stable-stringify";
-import { db } from "../../../../../../lib/server/db/index";
+import { jsonValueSchema, stableStringify } from "@server/lib/server/stable-stringify";
+import type { JsonValue } from "@server/lib/server/stable-stringify";
+import { db } from "@server/lib/server/db/index";
 import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
@@ -23,7 +23,7 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
 } from "@app/db-schema/schema";
-import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import { serializeDate } from "@server/lib/server/db/serialize";
 import { resolveOrCreateTemplateVersion } from "../../forms/dao/versions";
 import {
   autoBindApplicableTemplates,

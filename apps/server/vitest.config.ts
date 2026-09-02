@@ -19,12 +19,8 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: /^#lib\/server\/(.*)$/,
-        replacement: path.resolve(__dirname, "src/lib/server/$1"),
-      },
-      {
-        find: /^#server\/(.*)$/,
-        replacement: path.resolve(__dirname, "src/server/$1"),
+        find: /^@server\/(.*)$/,
+        replacement: path.resolve(__dirname, "src/$1"),
       },
     ],
   },

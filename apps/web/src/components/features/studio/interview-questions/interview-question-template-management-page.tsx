@@ -12,7 +12,6 @@ import type {
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@app/db-schema/interview-question-templates";
-import type { PaginatedInterviewQuestionTemplateResult } from "@app/server/web/studio";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -81,7 +80,7 @@ export function InterviewQuestionTemplateManagementPage({
       filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
       sortBy: string | undefined;
       sortOrder: "asc" | "desc" | undefined;
-    }): Promise<PaginatedInterviewQuestionTemplateResult> => {
+    }) => {
       const query: TemplateListQuery = {
         ...listTextQuery(params),
         page: String(params.page),

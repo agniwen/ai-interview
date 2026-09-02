@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "../../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { presignRecordingGetObjectUrl } from "@app/object-storage";
 import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import { factory } from "../../../../../../factory";

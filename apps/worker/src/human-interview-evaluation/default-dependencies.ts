@@ -1,15 +1,11 @@
-import {
-  generateHumanInterviewEvaluation,
-  loadHumanInterviewEvaluationInput,
-  markHumanInterviewEvaluationFailed,
-  publishHumanInterviewEvaluation,
-} from "@app/server/worker/human-interview";
+import { generateHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
+import { humanInterviewEvaluationDao } from "../meeting-processing-daos";
 import type { HumanInterviewEvaluationProcessorDependencies } from "./processor";
 
 export const defaultHumanInterviewEvaluationDependencies: HumanInterviewEvaluationProcessorDependencies =
   {
     generate: generateHumanInterviewEvaluation,
-    loadInput: loadHumanInterviewEvaluationInput,
-    markFailed: markHumanInterviewEvaluationFailed,
-    publish: publishHumanInterviewEvaluation,
+    loadInput: humanInterviewEvaluationDao.loadHumanInterviewEvaluationInput,
+    markFailed: humanInterviewEvaluationDao.markHumanInterviewEvaluationFailed,
+    publish: humanInterviewEvaluationDao.publishHumanInterviewEvaluation,
   };

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {
   enqueueAiInvitationExceptionEvent,

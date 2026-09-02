@@ -3,7 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   member,
   department,

@@ -10,18 +10,7 @@
       "types": "./dist/rpc-client.d.ts",
       "default": "./src/rpc-client.ts"
     },
-    "./web/join": "./src/exports/web/join.ts",
-    "./web/human-interview": "./src/exports/web/human-interview.ts",
-    "./web/platform": "./src/exports/web/platform.ts",
-    "./web/runtime": "./src/exports/web/runtime.ts",
-    "./web/studio": "./src/exports/web/studio.ts",
-    "./worker/interview-notifications": "./src/exports/worker/interview-notifications.ts",
-    "./worker/human-interview": "./src/exports/worker/human-interview.ts",
-    "./worker/mail-ingest": "./src/exports/worker/mail-ingest.ts",
-    "./worker/meeting-intelligence": "./src/exports/worker/meeting-intelligence.ts",
-    "./worker/meeting-purge": "./src/exports/worker/meeting-purge.ts",
-    "./worker/meeting-transcription": "./src/exports/worker/meeting-transcription.ts",
-    "./worker/resumes": "./src/exports/worker/resumes.ts"
+    "./web/runtime": "./src/exports/web/runtime.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.rpc-client.json",
@@ -34,11 +23,15 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.56",
     "@app/ai-runtime": "workspace:*",
+    "@app/database": "workspace:*",
     "@app/db-schema": "workspace:*",
+    "@app/meeting-live-transcript": "workspace:*",
     "@app/meeting-media": "workspace:*",
+    "@app/meeting-processing": "workspace:*",
     "@app/meeting-processing-queue": "workspace:*",
     "@app/object-storage": "workspace:*",
     "@app/resume-parse-queue": "workspace:*",
+    "@app/resume-processing": "workspace:*",
     "@app/shared": "workspace:*",
     "@chat-adapter/state-pg": "^4.28.1",
     "@hono/node-server": "^1.19.14",

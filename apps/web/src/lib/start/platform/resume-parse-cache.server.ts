@@ -1,28 +1,27 @@
 import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
+import { rpcFetch } from "@/lib/client/api";
+import { getServerRpc } from "@/lib/start/server-rpc";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@app/shared/query-client";
-import { queryPaginatedResumeParseCache } from "@app/server/web/platform";
-import type { ResumeParseCacheFilters, ResumeParseCacheQuery } from "@app/server/web/platform";
+import type { ResumeParseCacheFilters } from "@app/shared/resume-parse-cache";
 import { z } from "zod";
 
 type ResumeParseCacheGridQuery = DataGridQueryState<ResumeParseCacheFilters>;
+const SORT_COLUMNS = ["filename", "size", "parsedAt", "createdAt", "parsedStatus"] as const;
 
-function toBackendQuery(query: ResumeParseCacheGridQuery): ResumeParseCacheQuery {
-  const sortBy =
-    query.sortBy === "filename" ||
-    query.sortBy === "size" ||
-    query.sortBy === "createdAt" ||
-    query.sortBy === "parsedStatus"
-      ? query.sortBy
-      : "parsedAt";
+function normalizeSortColumn(value: string | undefined): (typeof SORT_COLUMNS)[number] {
+  return SORT_COLUMNS.find((column) => column === value) ?? "parsedAt";
+}
+
+function toApiQuery(query: ResumeParseCacheGridQuery) {
   return {
     ...query.filters,
-    page: query.page,
-    pageSize: query.pageSize,
-    search: query.search,
-    sortBy,
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    search: query.search || undefined,
+    sortBy: normalizeSortColumn(query.sortBy),
     sortOrder: query.sortOrder ?? "desc",
   };
 }
@@ -30,9 +29,14 @@ function toBackendQuery(query: ResumeParseCacheGridQuery): ResumeParseCacheQuery
 export async function loadPlatformResumeParseCacheHydrationState(
   query: ResumeParseCacheGridQuery,
 ): Promise<JsonValue> {
+  const rpc = getServerRpc();
   const queryClient = createQueryClient();
   await queryClient.prefetchQuery({
-    queryFn: () => queryPaginatedResumeParseCache(toBackendQuery(query)),
+    queryFn: () =>
+      rpcFetch(
+        rpc.api.platform["resume-parse-cache"].$get({ query: toApiQuery(query) }),
+        "加载解析缓存失败",
+      ),
     queryKey: buildDataGridQueryKey(["platform-resume-parse-cache"], query),
   });
 

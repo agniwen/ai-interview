@@ -2,8 +2,8 @@ import type { MinimaxVoiceId } from "@app/db-schema/minimax-voices";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../../../lib/server/db/index";
-import { getRequiredEnv } from "../../../../../lib/server/env";
+import { db } from "@server/lib/server/db/index";
+import { getRequiredEnv } from "@server/lib/server/env";
 import { putObjectBytes } from "@app/object-storage";
 import { minimaxVoicePreview } from "@app/db-schema/schema";
 

@@ -25,6 +25,43 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("@app/server package boundary", () => {
+  it("keeps reusable processing packages independent from HTTP and application packages", () => {
+    const packageRoots = [
+      path.join(repoRoot, "packages/meeting-processing"),
+      path.join(repoRoot, "packages/resume-processing"),
+    ];
+    const violations = packageRoots.flatMap((packageRoot) => {
+      const packageJson = readFileSync(path.join(packageRoot, "package.json"), "utf-8");
+      const manifestViolations = /"(?:@hono\/[^"/]+|hono|@app\/server)"/.test(packageJson)
+        ? [path.relative(repoRoot, path.join(packageRoot, "package.json"))]
+        : [];
+      const sourceViolations = sourceFiles(path.join(packageRoot, "src")).flatMap((file) => {
+        const source = readFileSync(file, "utf-8");
+        const importsHttpOrApplication =
+          /(?:from\s+|import\()["'](?:@hono\/|hono["'/]|@app\/server|(?:\.\.\/)+apps\/)/.test(
+            source,
+          );
+        const isRouteModule = /(?:^|\/)route\.[cm]?[jt]sx?$/.test(file);
+        return importsHttpOrApplication || isRouteModule ? [path.relative(repoRoot, file)] : [];
+      });
+      return [...manifestViolations, ...sourceViolations];
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps the Worker independent from the server application package", () => {
+    const workerRoot = path.join(repoRoot, "apps/worker");
+    const workerPackageJson = readFileSync(path.join(workerRoot, "package.json"), "utf-8");
+    const sourceViolations = sourceFiles(path.join(workerRoot, "src")).flatMap((file) => {
+      const source = readFileSync(file, "utf-8");
+      return /@app\/server(?:\/|["'])/.test(source) ? [path.relative(repoRoot, file)] : [];
+    });
+
+    expect(workerPackageJson).not.toContain('"@app/server"');
+    expect(sourceViolations).toEqual([]);
+  });
+
   it("uses only explicit package entrypoints", () => {
     const packageJson = readServerPackageJson();
 
@@ -36,6 +73,7 @@ describe("@app/server package boundary", () => {
   it("does not re-export capabilities already owned by the Worker", () => {
     const packageJson = readServerPackageJson();
 
+    expect(Object.keys(packageJson.exports).some((key) => key.startsWith("./worker/"))).toBe(false);
     expect(packageJson.exports).not.toHaveProperty("./worker/meeting-answer");
     expect(packageJson.exports).not.toHaveProperty("./worker/meeting-operations");
     expect(packageJson.exports).not.toHaveProperty("./worker/meeting-playback");
@@ -55,7 +93,32 @@ describe("@app/server package boundary", () => {
     expect(violations).toEqual([]);
   });
 
-  it("uses relative imports instead of package aliases or self-imports", () => {
+  it("keeps Studio web data access behind Hono RPC", () => {
+    const packageJson = readServerPackageJson();
+    const webSources = sourceFiles(path.join(repoRoot, "apps/web/src"));
+    const studioExport = ["@app/server", "web", "studio"].join("/");
+    const directStudioImports = webSources.flatMap((file) => {
+      const source = readFileSync(file, "utf-8");
+      return source.includes(studioExport) ? [path.relative(repoRoot, file)] : [];
+    });
+
+    expect(packageJson.exports).not.toHaveProperty("./web/studio");
+    expect(directStudioImports).toEqual([]);
+  });
+
+  it("exposes only the web host runtime from the server package", () => {
+    const packageJson = readServerPackageJson();
+    const webExports = Object.keys(packageJson.exports).filter((key) => key.startsWith("./web/"));
+    const runtimeSource = readFileSync(
+      path.join(serverRoot, "src/exports/web/runtime.ts"),
+      "utf-8",
+    );
+
+    expect(webExports).toEqual(["./web/runtime"]);
+    expect(runtimeSource).not.toMatch(/export\s*\{[^}]*\b(?:auth|db)\b/);
+  });
+
+  it("avoids hash aliases and package self-imports inside server source", () => {
     const violations = sourceFiles(path.join(serverRoot, "src")).flatMap((file) => {
       const source = readFileSync(file, "utf-8");
       return /#(?:server|lib\/server)\/|@app\/server\//.test(source)

@@ -1,6 +1,6 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { studioInterview } from "@app/db-schema/schema";
-import { db } from "../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { labelKey } from "./labels";
 import type { PositiveLabel } from "./types";
 

@@ -11,23 +11,19 @@ import {
 } from "@app/meeting-media";
 import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type {
-  claimMeetingTranscriptionChunk,
-  claimMeetingTranscriptionRun,
+  createMeetingTranscriptionDao,
   MeetingTranscriptionProvider,
-  markMeetingTranscriptionChunkFailed,
-  markMeetingTranscriptionFailed,
-  publishMeetingTranscript,
-} from "@app/server/worker/meeting-transcription";
+} from "@app/meeting-processing/transcription";
 import {
   assertMeetingTranscriptionJobEndpoint,
   createQwenAsrMeetingTranscriptionProvider,
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
   resolveMeetingTranscriptionQwenBaseUrl,
-} from "@app/server/worker/meeting-transcription";
+} from "@app/meeting-processing/transcription";
 import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
-import type { requestAutomaticMeetingIntelligence } from "@app/server/worker/meeting-intelligence";
-import type { requestAutomaticHumanInterviewEvaluation } from "@app/server/worker/human-interview";
+import type { createRequestAutomaticMeetingIntelligence } from "@app/meeting-processing/intelligence";
+import type { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
 import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
 import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
@@ -83,8 +79,8 @@ function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscripti
 }
 
 export interface MeetingTranscriptionDependencies {
-  claim: typeof claimMeetingTranscriptionRun;
-  claimChunk: typeof claimMeetingTranscriptionChunk;
+  claim: ReturnType<typeof createMeetingTranscriptionDao>["claimMeetingTranscriptionRun"];
+  claimChunk: ReturnType<typeof createMeetingTranscriptionDao>["claimMeetingTranscriptionChunk"];
   createRunId: () => string;
   createWorkingDirectory: () => Promise<string>;
   downloadSource: typeof downloadMeetingRecordingObjectToFile;
@@ -92,17 +88,19 @@ export interface MeetingTranscriptionDependencies {
   loadSource: (
     input: MeetingTranscriptionJobData,
   ) => Promise<TranscriptionSource | null | undefined>;
-  markFailed: typeof markMeetingTranscriptionFailed;
-  markChunkFailed: typeof markMeetingTranscriptionChunkFailed;
+  markFailed: ReturnType<typeof createMeetingTranscriptionDao>["markMeetingTranscriptionFailed"];
+  markChunkFailed: ReturnType<
+    typeof createMeetingTranscriptionDao
+  >["markMeetingTranscriptionChunkFailed"];
   prepareChunks: (input: {
     directory: string;
     sources: PrepareChunkSource[];
   }) => Promise<FinalTranscriptionAudioChunk[]>;
   provider: MeetingTranscriptionProvider;
   providerForJob?: (input: MeetingTranscriptionJobData) => MeetingTranscriptionProvider;
-  publish: typeof publishMeetingTranscript;
-  requestIntelligence: typeof requestAutomaticMeetingIntelligence;
-  requestHumanEvaluation: typeof requestAutomaticHumanInterviewEvaluation;
+  publish: ReturnType<typeof createMeetingTranscriptionDao>["publishMeetingTranscript"];
+  requestIntelligence: ReturnType<typeof createRequestAutomaticMeetingIntelligence>;
+  requestHumanEvaluation: ReturnType<typeof createRequestAutomaticHumanInterviewEvaluation>;
   removeWorkingDirectory: (directory: string) => Promise<void>;
   saveChunkCheckpoint: (
     input: MeetingTranscriptionJobData & { processingRunId: string },

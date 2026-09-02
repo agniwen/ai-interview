@@ -208,7 +208,7 @@ function defaultOutputPath(candidateName: string): string {
 async function loadTargets(options: DiagnosticOptions): Promise<DiagnosticTarget[]> {
   const [{ db }, { jobDescription, organization, studioInterview }, { and, desc, eq }] =
     await Promise.all([
-      import("../lib/server/db"),
+      import("@server/lib/server/db"),
       import("@app/db-schema/schema"),
       import("drizzle-orm"),
     ]);
@@ -432,10 +432,10 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     import("../server/agents/mastra/workflows/structured-resume-review-workflow"),
     import("@app/ai-runtime/simple-generators"),
     import("@app/ai-runtime/models"),
-    import("../lib/server/resume-evaluation-input-hash"),
-    import("../lib/server/resume-parse-pipeline"),
-    import("../lib/server/resume-parse-pipeline-dependencies"),
-    import("../lib/server/resume-parse-provider"),
+    import("@server/lib/server/resume-evaluation-input-hash"),
+    import("@server/lib/server/resume-parse-pipeline"),
+    import("@server/lib/server/resume-parse-pipeline-dependencies"),
+    import("@server/lib/server/resume-parse-provider"),
     import("../server/agents/resume-analysis-agent"),
     import("../server/agents/resume-parser-agent"),
     import("@app/object-storage"),

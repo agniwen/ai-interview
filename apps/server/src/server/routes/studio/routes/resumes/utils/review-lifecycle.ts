@@ -8,7 +8,7 @@ import type { ResumeReview } from "@app/db-schema/resume-review";
 import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
 import type { QualitativeResumeEvaluation } from "@app/db-schema/qualitative-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@app/shared/structured-resume-scoring";
-import { computeResumeEvaluationInputHash } from "../../../../../../lib/server/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "@server/lib/server/resume-evaluation-input-hash";
 import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 
 export type GeneratedResumeAssessment =

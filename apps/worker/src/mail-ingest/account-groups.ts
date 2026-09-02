@@ -1,4 +1,4 @@
-import type { WorkerMailIngestAccount } from "@app/server/worker/mail-ingest";
+import type { WorkerMailIngestAccount } from "@app/resume-processing/mail-ingest";
 
 export interface MailIngestAccountGroup {
   accounts: WorkerMailIngestAccount[];

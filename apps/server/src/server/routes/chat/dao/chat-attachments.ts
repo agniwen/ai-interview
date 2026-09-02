@@ -1,7 +1,7 @@
 import { structuredSchema } from "@app/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
-import { db } from "../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { chatAttachment } from "@app/db-schema/schema";
 
 // 行级类型直接来自 Drizzle schema —— 单一来源，schema 改动会自动传导到这里。

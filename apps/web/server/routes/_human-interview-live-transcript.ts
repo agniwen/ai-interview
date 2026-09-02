@@ -6,10 +6,6 @@ import {
 import type { DashScopeRealtimeWsConnection } from "@app/meeting-live-transcript/server";
 import { liveCorrectionBatchSchema } from "@app/shared/meeting-live-correction";
 import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
-import {
-  heartbeatWorkspaceMeetingLiveTranscript,
-  releaseWorkspaceMeetingLiveTranscript,
-} from "@app/server/web/human-interview";
 import { defineWebSocketHandler } from "nitro";
 import { z } from "zod";
 import { authorizeHumanInterviewLiveTranscriptUpgrade } from "../utils/human-interview-live-transcript-access";
@@ -84,7 +80,7 @@ const captureCorrections = new Map<
 >();
 
 function captureKey(context: HumanInterviewLiveTranscriptContext): string {
-  return `${context.organizationId}:${context.userId}:${context.captureId}`;
+  return `${context.inviteToken}:${context.captureId}`;
 }
 
 function retainCapture(context: HumanInterviewLiveTranscriptContext): void {
@@ -94,11 +90,15 @@ function retainCapture(context: HumanInterviewLiveTranscriptContext): void {
 
 async function releaseCaptureLease(context: HumanInterviewLiveTranscriptContext): Promise<void> {
   try {
-    await releaseWorkspaceMeetingLiveTranscript({
-      captureId: context.captureId,
-      organizationId: context.organizationId,
-      userId: context.userId,
-    });
+    await fetch(
+      new URL(
+        `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(
+          context.inviteToken,
+        )}/live-transcript/${encodeURIComponent(context.captureId)}`,
+        context.apiOrigin,
+      ),
+      { method: "DELETE" },
+    );
   } catch (error) {
     console.warn("failed to release human interview transcript lease", error);
   }
@@ -142,11 +142,15 @@ export default defineWebSocketHandler({
       void renewHumanInterviewLiveTranscriptLease({
         close: (reason) => peer.close(1011, reason),
         heartbeat: () =>
-          heartbeatWorkspaceMeetingLiveTranscript({
-            captureId: context.captureId,
-            organizationId: context.organizationId,
-            userId: context.userId,
-          }),
+          fetch(
+            new URL(
+              `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(
+                context.inviteToken,
+              )}/live-transcript/${encodeURIComponent(context.captureId)}/heartbeat`,
+              context.apiOrigin,
+            ),
+            { method: "POST" },
+          ).then((response) => response.ok),
       });
     }, HEARTBEAT_MS);
     heartbeat.unref();

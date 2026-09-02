@@ -1,64 +1,79 @@
 import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
+import { rpcFetch } from "@/lib/client/api";
+import { getServerRpc } from "@/lib/start/server-rpc";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@app/shared/query-client";
-import {
-  getResumeParseQueueOverview,
-  listResumeParseQueueJobs,
-  RESUME_PARSE_JOB_LIST_STATES,
-  RESUME_PARSE_QUEUE_NAME,
-} from "@app/resume-parse-queue/resume-parse";
-import type { ResumeParseJobListState } from "@app/resume-parse-queue/resume-parse";
-import { enrichResumeParseQueueJobs } from "@app/server/web/platform";
 import { z } from "zod";
 
 export interface PlatformQueueFilters extends Record<string, string> {
+  parseStatus: string;
   queue: string;
   state: string;
+  uploadStatus: string;
 }
 
-function normalizeJobState(value: string): ResumeParseJobListState {
-  return RESUME_PARSE_JOB_LIST_STATES.find((state) => state === value) ?? "all";
+const JOB_STATES = [
+  "all",
+  "waiting",
+  "active",
+  "delayed",
+  "failed",
+  "completed",
+  "paused",
+  "prioritized",
+  "waiting-children",
+] as const;
+const PARSE_STATUSES = ["all", "queued", "unparsed", "processing", "ready", "failed"] as const;
+const UPLOAD_STATUSES = [
+  "all",
+  "pending",
+  "processing",
+  "succeeded",
+  "failed",
+  "duplicate_skipped",
+  "cancelled",
+] as const;
+
+function normalizeJobState(value: string): (typeof JOB_STATES)[number] {
+  return JOB_STATES.find((state) => state === value) ?? "all";
 }
 
-export async function listPlatformQueuesOverview() {
-  const overview = await getResumeParseQueueOverview();
-  return { records: [overview], total: 1 };
+function normalizeParseStatus(value: string): (typeof PARSE_STATUSES)[number] {
+  return PARSE_STATUSES.find((status) => status === value) ?? "all";
 }
 
-export async function listPlatformQueueJobs(query: DataGridQueryState<PlatformQueueFilters>) {
-  if (query.filters.queue !== RESUME_PARSE_QUEUE_NAME) {
-    return {
-      page: query.page,
-      pageSize: query.pageSize,
-      records: [],
-      state: normalizeJobState(query.filters.state),
-      total: 0,
-      totalPages: 0,
-    };
-  }
-
-  const result = await listResumeParseQueueJobs({
-    page: query.page,
-    pageSize: query.pageSize,
-    search: query.search,
-    state: normalizeJobState(query.filters.state),
-  });
-  return await enrichResumeParseQueueJobs(result);
+function normalizeUploadStatus(value: string): (typeof UPLOAD_STATUSES)[number] {
+  return UPLOAD_STATUSES.find((status) => status === value) ?? "all";
 }
 
 export async function loadPlatformQueuesHydrationState(
   query: DataGridQueryState<PlatformQueueFilters>,
 ): Promise<JsonValue> {
+  const rpc = getServerRpc();
   const queryClient = createQueryClient();
   await Promise.all([
     queryClient.prefetchQuery({
-      queryFn: () => listPlatformQueuesOverview(),
+      queryFn: () => rpcFetch(rpc.api.platform.queues.$get(), "加载队列概览失败"),
       queryKey: ["platform-queues"],
     }),
     queryClient.prefetchQuery({
-      queryFn: () => listPlatformQueueJobs(query),
+      queryFn: () =>
+        rpcFetch(
+          rpc.api.platform.queues[":queueName"].jobs.$get({
+            param: { queueName: query.filters.queue },
+            query: {
+              page: String(query.page),
+              pageSize: String(query.pageSize),
+              parseStatus: normalizeParseStatus(query.filters.parseStatus),
+              search: query.search || undefined,
+              state: normalizeJobState(query.filters.state),
+              uploadStatus: normalizeUploadStatus(query.filters.uploadStatus),
+            },
+          }),
+          "加载队列任务失败",
+        ),
       queryKey: buildDataGridQueryKey(["platform-queue-jobs"], query),
     }),
   ]);

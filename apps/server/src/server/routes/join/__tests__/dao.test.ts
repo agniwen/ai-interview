@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   member,
   organization,
@@ -84,6 +84,7 @@ describe("join dao", () => {
   it("getJoinPreview returns valid + workspace info for active link", async () => {
     await seedLink();
     const preview = await getJoinPreview({ code: "TESTCODE12345678", userId: null });
+    expect(preview.authenticated).toBe(false);
     expect(preview.valid).toBe(true);
     expect(preview.workspace?.slug).toBe("test-join-org");
     expect(preview.alreadyMember).toBe(false);
@@ -99,6 +100,7 @@ describe("join dao", () => {
   it("getJoinPreview returns alreadyMember=true for existing member", async () => {
     await seedLink();
     const preview = await getJoinPreview({ code: "TESTCODE12345678", userId: OWNER });
+    expect(preview.authenticated).toBe(true);
     expect(preview.valid).toBe(true);
     expect(preview.alreadyMember).toBe(true);
   });

@@ -8,7 +8,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { getObjectBytes, getObjectStream } from "@app/object-storage";
 import { studioInterview } from "@app/db-schema/schema";
 import { parseCsvParam } from "@app/shared/csv";
@@ -37,8 +37,8 @@ import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
 } from "../interviews/dao/interview-rounds";
-import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
-import { listDuplicateMatchesForSource } from "../../../../../lib/server/resume-semantic/duplicate-matches";
+import { findSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
+import { listDuplicateMatchesForSource } from "@server/lib/server/resume-semantic/duplicate-matches";
 import {
   enqueueResumeReassessmentForRecord,
   ResumeReassessmentEnqueueError,

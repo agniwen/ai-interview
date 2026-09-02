@@ -18,7 +18,7 @@ import {
   validateStructuredResumeInput,
 } from "../../structured-resume-evaluation";
 import type { StructuredResumeGenerator } from "../../structured-resume-evaluation";
-import { computeJobEvaluationPayloadHash } from "../../../../lib/server/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "@server/lib/server/job-evaluation-hash";
 import {
   createStructuredResumeReviewWorkflow,
   runStructuredResumeReviewWorkflow,

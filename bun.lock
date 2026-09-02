@@ -97,11 +97,14 @@
       "dependencies": {
         "@ai-sdk/openai-compatible": "^2.0.56",
         "@app/ai-runtime": "workspace:*",
-        "@app/meeting-media": "workspace:*",
-        "@app/object-storage": "workspace:*",
+        "@app/database": "workspace:*",
         "@app/db-schema": "workspace:*",
+        "@app/meeting-media": "workspace:*",
+        "@app/meeting-processing": "workspace:*",
         "@app/meeting-processing-queue": "workspace:*",
+        "@app/object-storage": "workspace:*",
         "@app/resume-parse-queue": "workspace:*",
+        "@app/resume-processing": "workspace:*",
         "@app/shared": "workspace:*",
         "@chat-adapter/state-pg": "^4.28.1",
         "@hono/node-server": "^1.19.14",
@@ -162,10 +165,10 @@
       "version": "2.0.2",
       "dependencies": {
         "@ai-sdk/react": "^3.0.221",
-        "@app/server": "workspace:*",
         "@app/db-schema": "workspace:*",
         "@app/meeting-live-transcript": "workspace:*",
         "@app/resume-parse-queue": "workspace:*",
+        "@app/server": "workspace:*",
         "@app/shared": "workspace:*",
         "@assistant-ui/react": "^0.14.24",
         "@assistant-ui/react-ai-sdk": "^1.3.38",
@@ -310,25 +313,29 @@
       "version": "0.0.0",
       "dependencies": {
         "@app/ai-runtime": "workspace:*",
-        "@app/meeting-media": "workspace:*",
-        "@app/object-storage": "workspace:*",
+        "@app/database": "workspace:*",
         "@app/db-schema": "workspace:*",
+        "@app/meeting-media": "workspace:*",
+        "@app/meeting-processing": "workspace:*",
         "@app/meeting-processing-queue": "workspace:*",
+        "@app/object-storage": "workspace:*",
         "@app/resume-parse-queue": "workspace:*",
+        "@app/resume-processing": "workspace:*",
         "@app/shared": "workspace:*",
         "@hono/node-server": "^1.19.14",
         "@sentry/hono": "10.71.0",
         "@t3-oss/env-core": "^0.13.11",
+        "chat": "catalog:",
         "drizzle-orm": "catalog:",
         "hono": "^4.12.18",
         "imapflow": "^1.4.1",
         "mailparser": "^3.9.10",
         "p-limit": "^7.3.1",
         "postgres": "^3.4.9",
+        "resend": "^6.12.3",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@app/server": "workspace:*",
         "@types/mailparser": "^3.4.6",
         "@types/node": "24.11.2",
         "tsdown": "^0.22.2",
@@ -346,6 +353,18 @@
       },
       "devDependencies": {
         "@types/node": "24.11.2",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/database": {
+      "name": "@app/database",
+      "version": "0.0.0",
+      "dependencies": {
+        "@app/db-schema": "workspace:*",
+        "drizzle-orm": "catalog:",
+        "postgres": "^3.4.9",
+      },
+      "devDependencies": {
         "typescript": "catalog:",
       },
     },
@@ -381,6 +400,25 @@
       "version": "0.0.0",
       "dependencies": {
         "@app/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "24.11.2",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "packages/meeting-processing": {
+      "name": "@app/meeting-processing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@app/ai-runtime": "workspace:*",
+        "@app/database": "workspace:*",
+        "@app/db-schema": "workspace:*",
+        "@app/meeting-media": "workspace:*",
+        "@app/meeting-processing-queue": "workspace:*",
+        "@app/shared": "workspace:*",
+        "drizzle-orm": "catalog:",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@types/node": "24.11.2",
@@ -424,6 +462,38 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@types/node": "24.11.2",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "packages/resume-processing": {
+      "name": "@app/resume-processing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@app/ai-runtime": "workspace:*",
+        "@app/database": "workspace:*",
+        "@app/db-schema": "workspace:*",
+        "@app/object-storage": "workspace:*",
+        "@app/resume-parse-queue": "workspace:*",
+        "@app/shared": "workspace:*",
+        "@mastra/core": "^1.50.1",
+        "@qdrant/js-client-rest": "^1.18.0",
+        "@t3-oss/env-core": "^0.13.11",
+        "drizzle-orm": "catalog:",
+        "fast-xml-parser": "^5.8.0",
+        "html-to-text": "9.0.5",
+        "jszip": "^3.10.1",
+        "lodash-es": "^4.18.1",
+        "mammoth": "^1.12.0",
+        "mupdf": "^1.27.0",
+        "openai": "^6.37.0",
+        "p-retry": "7.1.1",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/html-to-text": "^9.0.4",
+        "@types/lodash-es": "^4.17.12",
         "@types/node": "24.11.2",
         "typescript": "catalog:",
         "vitest": "catalog:",
@@ -524,27 +594,33 @@
 
     "@app/ai-runtime": ["@app/ai-runtime@workspace:packages/ai-runtime"],
 
+    "@app/database": ["@app/database@workspace:packages/database"],
+
+    "@app/db-schema": ["@app/db-schema@workspace:packages/db-schema"],
+
     "@app/desktop": ["@app/desktop@workspace:apps/desktop"],
+
+    "@app/meeting-live-transcript": ["@app/meeting-live-transcript@workspace:packages/meeting-live-transcript"],
 
     "@app/meeting-media": ["@app/meeting-media@workspace:packages/meeting-media"],
 
+    "@app/meeting-processing": ["@app/meeting-processing@workspace:packages/meeting-processing"],
+
+    "@app/meeting-processing-queue": ["@app/meeting-processing-queue@workspace:packages/meeting-processing-queue"],
+
     "@app/object-storage": ["@app/object-storage@workspace:packages/object-storage"],
 
+    "@app/resume-parse-queue": ["@app/resume-parse-queue@workspace:packages/resume-parse-queue"],
+
+    "@app/resume-processing": ["@app/resume-processing@workspace:packages/resume-processing"],
+
     "@app/server": ["@app/server@workspace:apps/server"],
+
+    "@app/shared": ["@app/shared@workspace:packages/shared"],
 
     "@app/web": ["@app/web@workspace:apps/web"],
 
     "@app/worker": ["@app/worker@workspace:apps/worker"],
-
-    "@app/db-schema": ["@app/db-schema@workspace:packages/db-schema"],
-
-    "@app/meeting-live-transcript": ["@app/meeting-live-transcript@workspace:packages/meeting-live-transcript"],
-
-    "@app/meeting-processing-queue": ["@app/meeting-processing-queue@workspace:packages/meeting-processing-queue"],
-
-    "@app/resume-parse-queue": ["@app/resume-parse-queue@workspace:packages/resume-parse-queue"],
-
-    "@app/shared": ["@app/shared@workspace:packages/shared"],
 
     "@asamuzakjp/css-color": ["@asamuzakjp/css-color@5.1.11", "", { "dependencies": { "@asamuzakjp/generational-cache": "1.0.1", "@csstools/css-calc": "3.2.1", "@csstools/css-color-parser": "4.1.1", "@csstools/css-parser-algorithms": "4.0.0", "@csstools/css-tokenizer": "4.0.0" } }, "sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg=="],
 

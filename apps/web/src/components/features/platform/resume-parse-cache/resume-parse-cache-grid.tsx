@@ -37,7 +37,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import type { ResumeParseCacheFilters } from "@app/server/web/platform";
+import type { ResumeParseCacheFilters } from "@app/shared/resume-parse-cache";
 import type { AttachmentTextSource } from "@app/db-schema/db-enums";
 import { formatBytes } from "@app/shared/utils/format";
 

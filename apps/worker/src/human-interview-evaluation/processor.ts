@@ -1,16 +1,20 @@
 import type {
-  loadHumanInterviewEvaluationInput,
-  markHumanInterviewEvaluationFailed,
-  publishHumanInterviewEvaluation,
+  createHumanInterviewEvaluationWorkerDao,
   generateHumanInterviewEvaluation,
-} from "@app/server/worker/human-interview";
+} from "@app/meeting-processing/human-interview";
 import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
 
 export interface HumanInterviewEvaluationProcessorDependencies {
   generate: typeof generateHumanInterviewEvaluation;
-  loadInput: typeof loadHumanInterviewEvaluationInput;
-  markFailed: typeof markHumanInterviewEvaluationFailed;
-  publish: typeof publishHumanInterviewEvaluation;
+  loadInput: ReturnType<
+    typeof createHumanInterviewEvaluationWorkerDao
+  >["loadHumanInterviewEvaluationInput"];
+  markFailed: ReturnType<
+    typeof createHumanInterviewEvaluationWorkerDao
+  >["markHumanInterviewEvaluationFailed"];
+  publish: ReturnType<
+    typeof createHumanInterviewEvaluationWorkerDao
+  >["publishHumanInterviewEvaluation"];
 }
 
 export async function runHumanInterviewEvaluationProcessing(

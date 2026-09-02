@@ -1,4 +1,8 @@
+import path from "node:path";
+import { config as loadEnv } from "dotenv";
 import { defineConfig } from "vitest/config";
+
+loadEnv({ path: path.resolve(import.meta.dirname, ".env"), quiet: true });
 
 const verbose =
   process.env.VITEST_VERBOSE === "1" ||

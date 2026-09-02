@@ -1,11 +1,12 @@
 import { nanoid } from "nanoid";
-import { db } from "../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { addMemberToDefaultRecruitingGroup } from "../studio/routes/workspace/dao";
 import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../studio/routes/workspace/utils/workspace-member-joined-notification";
 import { member } from "@app/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 
 export interface JoinPreview {
+  authenticated: boolean;
   valid: boolean;
   initialRole?: string;
   workspace?: {
@@ -25,13 +26,13 @@ export async function getJoinPreview(input: {
     where: { code: input.code, disabledAt: { isNull: true } },
   });
   if (!link) {
-    return { valid: false };
+    return { authenticated: Boolean(input.userId), valid: false };
   }
   const org = await db.query.organization.findFirst({
     where: { id: link.organizationId },
   });
   if (!org) {
-    return { valid: false };
+    return { authenticated: Boolean(input.userId), valid: false };
   }
   let alreadyMember = false;
   if (input.userId) {
@@ -42,6 +43,7 @@ export async function getJoinPreview(input: {
   }
   return {
     alreadyMember,
+    authenticated: Boolean(input.userId),
     initialRole: link.initialRole,
     valid: true,
     workspace: { id: org.id, logo: org.logo, name: org.name, slug: org.slug },

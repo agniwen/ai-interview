@@ -1,46 +1,65 @@
 import { Buffer } from "node:buffer";
-import { createMeetingLiveTranscriptHints } from "@app/meeting-live-transcript/hints";
 import type { MeetingLiveTranscriptAuthorization } from "@app/shared/meeting-transcription";
 import { meetingLiveTranscriptTrackSchema } from "@app/shared/meeting-transcription";
-import {
-  createWorkspaceMeetingLiveTranscriptAuthorization,
-  isHumanInterviewMeetingAfterValidUntil,
-  isHumanInterviewMeetingBeforeScheduledStart,
-  resolveHumanInterviewMeetingInterviewerInviteToken,
-} from "@app/server/web/human-interview";
 import { z } from "zod";
 
 const captureIdSchema = z.string().uuid();
 const sectionIdSchema = z.string().min(1).max(512);
 
-type InterviewerScope = NonNullable<
-  Awaited<ReturnType<typeof resolveHumanInterviewMeetingInterviewerInviteToken>>
->;
-
 export interface HumanInterviewLiveTranscriptContext extends Record<string, unknown> {
+  apiOrigin: string;
   authorization: MeetingLiveTranscriptAuthorization;
   captureId: string;
-  organizationId: string;
+  inviteToken: string;
   sectionId: string;
   track: "microphone" | "system";
-  userId: string;
 }
 
 interface Dependencies {
-  createAuthorization: typeof createWorkspaceMeetingLiveTranscriptAuthorization;
-  now: () => Date;
-  resolveInvite: (inviteToken: string) => Promise<InterviewerScope | null>;
+  authorize: (input: {
+    captureId: string;
+    inviteToken: string;
+    request: Request;
+    track: "microphone" | "system";
+  }) => Promise<MeetingLiveTranscriptAuthorization>;
 }
-
-const defaultDependencies: Dependencies = {
-  createAuthorization: createWorkspaceMeetingLiveTranscriptAuthorization,
-  now: () => new Date(),
-  resolveInvite: resolveHumanInterviewMeetingInterviewerInviteToken,
-};
 
 function reject(status: number, message: string): never {
   throw new Response(message, { status });
 }
+
+async function authorizeThroughServerApi(input: {
+  captureId: string;
+  inviteToken: string;
+  request: Request;
+  track: "microphone" | "system";
+}): Promise<MeetingLiveTranscriptAuthorization> {
+  const url = new URL(
+    `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(
+      input.inviteToken,
+    )}/live-transcript`,
+    input.request.url,
+  );
+  const response = await fetch(url, {
+    body: JSON.stringify({ captureId: input.captureId, track: input.track }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  // SAFETY: This is the JSON contract of the matching server-owned Hono route;
+  // the required authorization field is checked before it is returned.
+  const body = (await response.json()) as {
+    authorization?: MeetingLiveTranscriptAuthorization;
+    error?: string;
+  };
+  if (!(response.ok && body.authorization)) {
+    reject(response.status, body.error ?? "实时字幕服务暂不可用。");
+  }
+  return body.authorization;
+}
+
+const defaultDependencies: Dependencies = {
+  authorize: authorizeThroughServerApi,
+};
 
 function protocolValue(protocols: string[], prefix: string): string {
   const protocol = protocols.find((candidate) => candidate.startsWith(prefix));
@@ -93,51 +112,18 @@ export async function authorizeHumanInterviewLiveTranscriptUpgrade(
   ) {
     reject(400, "实时字幕连接参数无效。");
   }
-  const scope = await deps.resolveInvite(inviteToken);
-  if (!scope) {
-    reject(401, "真人复面链接不可用。");
-  }
-  if (scope.role === "observer") {
-    reject(403, "旁听人员不能开启实时字幕。");
-  }
-  if (scope.status === "cancelled" || scope.status === "ended") {
-    reject(403, "该真人复面会议已结束或取消。");
-  }
-  const now = deps.now();
-  if (
-    scope.status === "scheduled" &&
-    isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt, now)
-  ) {
-    reject(403, "真人复面尚未到可进入时间。");
-  }
-  if (isHumanInterviewMeetingAfterValidUntil(scope.validUntil, now)) {
-    reject(403, "该真人复面会议已超过有效时间。");
-  }
-  const authorization = await deps.createAuthorization({
+  const authorization = await deps.authorize({
     captureId: captureId.data,
-    organizationId: scope.organizationId,
+    inviteToken,
+    request,
     track: track.data,
-    userId: scope.userId,
-  });
-  if (authorization === "capacity") {
-    reject(429, "实时字幕容量已满，请稍后重试。");
-  }
-  if (authorization === "unavailable") {
-    reject(503, "实时字幕服务暂不可用。");
-  }
-  const hints = createMeetingLiveTranscriptHints({
-    candidateName: scope.candidateName,
-    jobDescriptionDepartmentName: scope.jobDescriptionDepartmentName,
-    jobDescriptionName: scope.jobDescriptionName,
-    resumeSkills: scope.resumeSkills,
-    targetRole: scope.targetRole,
   });
   return {
-    authorization: { ...authorization, ...hints },
+    apiOrigin: new URL(request.url).origin,
+    authorization,
     captureId: captureId.data,
-    organizationId: scope.organizationId,
+    inviteToken,
     sectionId: sectionId.data,
     track: track.data,
-    userId: scope.userId,
   };
 }

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { db } from "../../../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { member, organization, user, workspaceInviteLink } from "@app/db-schema/schema";
 import {
   createInviteLink,

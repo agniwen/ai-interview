@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "../../../lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "@server/lib/server/db/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { z } from "zod";
 import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
@@ -6,7 +6,7 @@ import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
 import { adminMiddleware } from "../../middlewares/admin";
-import { db } from "../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { organization, member, session, user } from "@app/db-schema/schema";
 import { resumeParseStatusValues } from "@app/db-schema/studio-interviews";
 import {

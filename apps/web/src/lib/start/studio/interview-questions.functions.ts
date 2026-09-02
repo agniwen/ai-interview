@@ -25,7 +25,7 @@ export const loadStudioInterviewQuestionsState = createServerFn({ method: "GET" 
 
     return {
       ...(await loadStudioInterviewQuestionsData({
-        workspaceId: access.workspace.id,
+        slug: access.workspace.slug,
       })),
       status: "ready",
     };

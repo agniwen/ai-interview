@@ -1,5 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { getRequiredEnv } from "../../lib/server/env";
+import { getRequiredEnv } from "@server/lib/server/env";
 
 function getAlibabaBaseURL(): string {
   return getRequiredEnv("ALIBABA_BASE_URL");

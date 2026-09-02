@@ -6,8 +6,10 @@ import type { JsonValue } from "@/lib/start/server-function-types";
 import { loadPlatformQueuesHydrationState } from "./queues.server";
 
 const queueFiltersSchema = z.object({
+  parseStatus: z.string(),
   queue: z.string(),
   state: z.string(),
+  uploadStatus: z.string(),
 });
 
 export type PlatformQueuesState =

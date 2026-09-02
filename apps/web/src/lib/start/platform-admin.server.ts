@@ -1,5 +1,5 @@
-import { getRequestHeaders } from "@tanstack/react-start/server";
-import { auth } from "@app/server/web/runtime";
+import { getServerRpc } from "@/lib/start/server-rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 
 export type PlatformAdminState =
   | { status: "unauthenticated" }
@@ -7,12 +7,8 @@ export type PlatformAdminState =
   | { status: "ready" };
 
 export async function getPlatformAdminStateFromRequest(): Promise<PlatformAdminState> {
-  const session = await auth.api.getSession({ headers: getRequestHeaders() });
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-  if (session.user.role !== "admin") {
-    return { status: "forbidden" };
-  }
-  return { status: "ready" };
+  return await rpcFetch(
+    getServerRpc().api.session["platform-admin"].$get(),
+    "加载平台管理员状态失败",
+  );
 }

@@ -20,6 +20,7 @@ describe("platform user remarks", () => {
     expect(routeSource).toContain('"/users/:userId/remark"');
 
     const hydrationSource = readRepoFile("apps/web/src/lib/start/platform/users.server.ts");
-    expect(hydrationSource).toContain("remark: user.remark");
+    expect(hydrationSource).toContain("rpc.api.platform.users.$get");
+    expect(hydrationSource).not.toContain("remark: user.remark");
   });
 });

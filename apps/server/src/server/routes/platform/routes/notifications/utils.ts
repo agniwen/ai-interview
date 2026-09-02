@@ -64,7 +64,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
   generateHrEvaluation: generateFeishuHrEvaluationWithPromptForInterview,
   grantDocumentAccess: grantFeishuInterviewEvaluationDocxAccess,
   loadCurrentUserAccount: async (userId, providerId) => {
-    const { db } = await import("../../../../../lib/server/db/index");
+    const { db } = await import("@server/lib/server/db/index");
     const [currentUserAccount] = await db
       .select({ accountId: account.accountId })
       .from(account)
@@ -74,7 +74,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
     return currentUserAccount?.accountId ?? null;
   },
   loadDocument: async (notificationId) => {
-    const { db } = await import("../../../../../lib/server/db/index");
+    const { db } = await import("@server/lib/server/db/index");
     const [notification] = await db
       .select({
         documentId: interviewNotification.feishuDocumentId,
@@ -88,7 +88,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
     return notification ?? null;
   },
   loadPreview: async (notificationId) => {
-    const { db } = await import("../../../../../lib/server/db/index");
+    const { db } = await import("@server/lib/server/db/index");
     const [notification] = await db
       .select({
         candidateName: studioInterview.candidateName,
@@ -106,7 +106,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
 
 const defaultStructureDependencies: PlatformNotificationStructureDependencies = {
   loadStructure: async (notificationId) => {
-    const { db } = await import("../../../../../lib/server/db/index");
+    const { db } = await import("@server/lib/server/db/index");
     const [notification] = await db
       .select({
         documentId: interviewNotification.feishuDocumentId,

@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
-import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import { db } from "@server/lib/server/db/index";
+import { serializeDate } from "@server/lib/server/db/serialize";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
 import type { JsonObject } from "@app/db-schema/json";
 import type {

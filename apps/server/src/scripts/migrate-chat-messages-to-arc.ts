@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import type { ArcMessage } from "@app/db-schema/ai-message";
 import type { JsonValue } from "@app/db-schema/json";
 import { chatMessage } from "@app/db-schema/schema";
-import type { Database } from "../lib/server/db/index";
+import type { Database } from "@server/lib/server/db/index";
 import { legacyUiMessageToArcMessage } from "../server/agents/mastra/adapters/arc-message-adapter";
 import { loadStandaloneEnv } from "../standalone/env";
 
@@ -113,7 +113,7 @@ export async function runChatMessageArcMigration(input: {
 
 export async function migrateChatMessagesToArc(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("../lib/server/db/index");
+  const { closeDatabase, db } = await import("@server/lib/server/db/index");
   const dryRun = !parseBooleanEnv(process.env.CHAT_MESSAGE_ARC_APPLY);
   const limit = parseOptionalPositiveInteger(
     process.env.CHAT_MESSAGE_ARC_LIMIT,

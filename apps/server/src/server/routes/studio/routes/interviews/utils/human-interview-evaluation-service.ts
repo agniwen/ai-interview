@@ -2,6 +2,7 @@ import {
   enqueueHumanInterviewEvaluationJobs,
   isHumanInterviewEvaluationQueueConfigured,
 } from "@app/meeting-processing-queue/human-interview-evaluation";
+import { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
 import {
   claimHumanInterviewEvaluationAfterTranscriptCorrection,
   requestHumanInterviewEvaluation,
@@ -32,13 +33,11 @@ export async function requestAutomaticHumanInterviewEvaluation(
     requestEvaluation: requestHumanInterviewEvaluation,
     ...overrides,
   };
-  if (!dependencies.isEvaluationQueueConfigured()) {
-    return;
-  }
-  const job = await dependencies.requestEvaluation({ ...input, force: false });
-  if (job) {
-    await dependencies.enqueueEvaluationJobs([job]);
-  }
+  await createRequestAutomaticHumanInterviewEvaluation({
+    enqueueJobs: dependencies.enqueueEvaluationJobs,
+    isQueueConfigured: dependencies.isEvaluationQueueConfigured,
+    requestEvaluation: dependencies.requestEvaluation,
+  })(input);
 }
 
 export async function requestHumanInterviewEvaluationAfterTranscriptCorrection(

@@ -1,5 +1,5 @@
 import { and, eq, gt, sql } from "drizzle-orm";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { meetingLiveTranscriptLease } from "@app/db-schema/schema";
 import type { MeetingLiveTranscriptTrack } from "@app/shared/meeting-transcription";
 import { resolveMeetingLiveTranscriptConcurrency } from "./authorization-gate";

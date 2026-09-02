@@ -5,7 +5,7 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "../../../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { createRoundEmailsRouter } from "../route";
 import type { Env } from "../../../../../../../type";
 import {

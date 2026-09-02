@@ -8,7 +8,6 @@ import { ScopedInterviewersModal } from "@/components/features/studio/scoped-int
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@app/shared/departments";
-import type { PaginatedDepartmentResult } from "@app/server/web/studio";
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,7 @@ export function DepartmentManagementPage() {
         filters: Record<string, never>;
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedDepartmentResult> => {
+      }) => {
         const query = {
           ...listTextQuery(params),
           page: String(params.page),

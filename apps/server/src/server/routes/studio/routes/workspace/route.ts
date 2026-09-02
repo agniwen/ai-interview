@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { organization, recruitingGroup } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requirePermission } from "../../../../middlewares/permission";

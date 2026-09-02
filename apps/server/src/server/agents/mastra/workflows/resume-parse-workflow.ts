@@ -8,8 +8,8 @@ import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 import {
   generateResumeStructured,
   parseResumeDocument,
-} from "../../../../lib/server/resume-parse-pipeline";
-import type { ResumeParseProgressEvent } from "../../../../lib/server/resume-parse-pipeline";
+} from "@server/lib/server/resume-parse-pipeline";
+import type { ResumeParseProgressEvent } from "@server/lib/server/resume-parse-pipeline";
 
 const resumeParseInputSchema = z.object({
   bytesBase64: z.string().min(1),

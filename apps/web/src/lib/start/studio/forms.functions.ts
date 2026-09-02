@@ -22,7 +22,7 @@ export const loadStudioFormsState = createServerFn({ method: "GET" })
 
     return {
       ...(await loadStudioFormsData({
-        workspaceId: access.workspace.id,
+        slug: access.workspace.slug,
       })),
       status: "ready",
     };

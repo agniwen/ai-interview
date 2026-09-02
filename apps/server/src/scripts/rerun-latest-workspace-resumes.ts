@@ -220,7 +220,7 @@ function getReportMode(options: Options): ExecutionReport["mode"] {
 
 async function loadRecordSnapshots(ids: string[]) {
   const [{ db }, { studioInterview }, { inArray }] = await Promise.all([
-    import("../lib/server/db"),
+    import("@server/lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -317,7 +317,7 @@ async function run(options: Options): Promise<void> {
       { asc, eq },
       backfill,
     ] = await Promise.all([
-      import("../lib/server/db"),
+      import("@server/lib/server/db"),
       import("@app/db-schema/job-description-evaluation"),
       import("@app/db-schema/job-description-structured-config"),
       import("@app/db-schema/schema"),
@@ -598,7 +598,7 @@ async function run(options: Options): Promise<void> {
     report.fatalError = serializeLogValue(error);
     process.exitCode = 1;
     try {
-      const { closeDatabase } = await import("../lib/server/db");
+      const { closeDatabase } = await import("@server/lib/server/db");
       await closeDatabase();
     } catch {
       // Database may not have initialized.

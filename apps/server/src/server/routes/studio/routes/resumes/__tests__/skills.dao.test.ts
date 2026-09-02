@@ -2,7 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { member, organization, studioInterview, studioOrgSkill, user } from "@app/db-schema/schema";
 import { listOrgSkillSuggestions, syncResumeSkills } from "../dao/skills";
 

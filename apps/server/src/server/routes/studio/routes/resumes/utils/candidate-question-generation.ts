@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { generateInterviewQuestionsForProfile } from "../../../../../agents/resume-analysis-agent";
 import { jobDescription, studioInterview } from "@app/db-schema/schema";
 import {

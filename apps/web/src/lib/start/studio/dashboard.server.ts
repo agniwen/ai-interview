@@ -1,6 +1,7 @@
 import type { RecruitingDashboardMetrics } from "@app/shared/studio-dashboard";
-import { loadRecruitingDashboardMetrics } from "@app/server/web/studio";
 import { LRUCache } from "lru-cache";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
+import { getServerRpc } from "@/lib/start/server-rpc";
 
 interface DashboardMetricsCacheEntry {
   expiresAt: number | null;
@@ -17,32 +18,40 @@ export function clearStudioDashboardMetricsCache(): void {
 }
 
 export function loadStudioDashboardMetrics(
-  workspaceId: string,
-  loadMetrics: typeof loadRecruitingDashboardMetrics = loadRecruitingDashboardMetrics,
+  slug: string,
+  loadMetrics: (slug: string) => Promise<RecruitingDashboardMetrics> = (workspaceSlug) => {
+    const rpc = getServerRpc();
+    return rpcFetch(
+      rpc.api.w[":slug"].studio.resumes["dashboard-metrics"].$get({
+        param: { slug: workspaceSlug },
+      }),
+      "加载招聘看板失败",
+    );
+  },
 ): Promise<RecruitingDashboardMetrics> {
-  const cached = dashboardMetricsCache.get(workspaceId);
+  const cached = dashboardMetricsCache.get(slug);
   if (cached && (cached.expiresAt === null || cached.expiresAt > Date.now())) {
     return cached.promise;
   }
-  dashboardMetricsCache.delete(workspaceId);
+  dashboardMetricsCache.delete(slug);
 
-  const token = Symbol(workspaceId);
+  const token = Symbol(slug);
   const promise = (async () => {
     try {
-      const metrics = await loadMetrics(workspaceId);
-      const current = dashboardMetricsCache.get(workspaceId);
+      const metrics = await loadMetrics(slug);
+      const current = dashboardMetricsCache.get(slug);
       if (current?.token === token) {
         current.expiresAt = Date.now() + 10_000;
       }
       return metrics;
     } catch (error) {
-      if (dashboardMetricsCache.get(workspaceId)?.token === token) {
-        dashboardMetricsCache.delete(workspaceId);
+      if (dashboardMetricsCache.get(slug)?.token === token) {
+        dashboardMetricsCache.delete(slug);
       }
       throw error;
     }
   })();
-  dashboardMetricsCache.set(workspaceId, {
+  dashboardMetricsCache.set(slug, {
     expiresAt: null,
     promise,
     token,

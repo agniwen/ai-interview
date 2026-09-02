@@ -18,7 +18,7 @@ export const loadStudioDashboardState = createServerFn({ method: "GET" })
     }
 
     return {
-      metrics: await loadStudioDashboardMetrics(access.workspace.id),
+      metrics: await loadStudioDashboardMetrics(access.workspace.slug),
       status: "ready",
     };
   });

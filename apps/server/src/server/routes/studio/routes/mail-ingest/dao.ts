@@ -2,20 +2,19 @@ import {
   buildWorkspaceMailIngestFilters,
   buildPlatformMailIngestFilters,
 } from "./dao/account-filters";
-import { and, asc, count, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
-import { db } from "../../../../../lib/server/db/index";
-import { calcTotalPages, makePaginationSchema } from "../../../../../lib/server/db/pagination";
-import type { PaginatedResult, PaginationParams } from "../../../../../lib/server/db/pagination";
+import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { db } from "@server/lib/server/db/index";
+import { calcTotalPages, makePaginationSchema } from "@server/lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "@server/lib/server/db/pagination";
 import { mailIngestAccount, member, organization, user as userTable } from "@app/db-schema/schema";
-import { encryptMailIngestSecret } from "../../../../../lib/server/mail-ingest-crypto";
+import { encryptMailIngestSecret } from "@server/lib/server/mail-ingest-crypto";
 import type { createMailIngestAccountSchema, updateMailIngestAccountSchema } from "./schema";
 import type { MailIngestLoginConfig } from "./validation";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   toMailIngestAccountDto,
   toMailIngestLoginConfig,
   toNullableMailIngestAccountDto,
-  toWorkerMailIngestAccount,
 } from "./dao/account-presenters";
 import type {
   MailIngestAccountDto,
@@ -23,6 +22,7 @@ import type {
   WorkerMailIngestAccount,
   WorkspaceMailIngestAccountRow,
 } from "./dao/account-presenters";
+import { mailIngestWorkerDao } from "./dao/worker";
 
 export type {
   MailIngestAccountDto,
@@ -31,8 +31,6 @@ export type {
   WorkspaceMailIngestAccountRow,
 } from "./dao/account-presenters";
 
-const MAIL_INGEST_ACCOUNT_LEASE_MS = 14 * 60 * 1000;
-const ERROR_MESSAGE_MAX = 500;
 const WORKSPACE_MAIL_INGEST_SORT_COLUMNS = [
   "userName",
   "userEmail",
@@ -69,29 +67,11 @@ const workspaceMailIngestPaginationSchema = makePaginationSchema(
   },
 );
 
-const mailIngestErrorSchema = z.object({
-  message: z.string().optional(),
-  responseStatus: z.string().optional(),
-  responseText: z.string().optional(),
-});
-
 interface MailIngestPaginationInput {
   page?: number | string;
   pageSize?: number | string;
   sortBy?: string;
   sortOrder?: string;
-}
-
-function truncateError(error: z.output<typeof mailIngestErrorSchema>): string {
-  const parts = [error.message ?? "未知错误"];
-  if (error.responseStatus?.trim()) {
-    parts.push(error.responseStatus.trim());
-  }
-  if (error.responseText?.trim()) {
-    parts.push(error.responseText.trim());
-  }
-  const message = parts.join(" · ");
-  return message.length > ERROR_MESSAGE_MAX ? message.slice(0, ERROR_MESSAGE_MAX) : message;
 }
 
 function parseNullableDate(value: string | null | undefined): Date | null | undefined {
@@ -676,44 +656,18 @@ export async function deleteMailIngestAccount({
   return rows.length > 0;
 }
 
-export async function listEnabledMailIngestAccounts(
+export function listEnabledMailIngestAccounts(
   limit = 20,
   scope?: { organizationId: string },
 ): Promise<WorkerMailIngestAccount[]> {
-  const filters = [eq(mailIngestAccount.enabled, true)];
-  if (scope) {
-    filters.push(eq(mailIngestAccount.organizationId, scope.organizationId));
-  }
-  const rows = await db
-    .select()
-    .from(mailIngestAccount)
-    .where(and(...filters))
-    .orderBy(mailIngestAccount.lastCheckedAt)
-    .limit(limit);
-  return rows.map(toWorkerMailIngestAccount);
+  return mailIngestWorkerDao.listEnabledAccounts(limit, scope);
 }
 
-export async function claimMailIngestAccount(accountId: string): Promise<Date | null> {
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - MAIL_INGEST_ACCOUNT_LEASE_MS);
-  const rows = await db
-    .update(mailIngestAccount)
-    .set({ lastError: null, pollingStartedAt: now, updatedAt: now })
-    .where(
-      and(
-        eq(mailIngestAccount.id, accountId),
-        eq(mailIngestAccount.enabled, true),
-        or(
-          isNull(mailIngestAccount.pollingStartedAt),
-          lt(mailIngestAccount.pollingStartedAt, staleBefore),
-        ),
-      ),
-    )
-    .returning({ pollingStartedAt: mailIngestAccount.pollingStartedAt });
-  return rows[0]?.pollingStartedAt ?? null;
+export function claimMailIngestAccount(accountId: string): Promise<Date | null> {
+  return mailIngestWorkerDao.claimAccount(accountId);
 }
 
-export async function finishMailIngestAccountRun(
+export function finishMailIngestAccountRun(
   accountId: string,
   opts?: {
     error?: unknown;
@@ -727,28 +681,5 @@ export async function finishMailIngestAccountRun(
     };
   },
 ): Promise<void> {
-  const now = new Date();
-  const updateValues = {
-    lastCheckedAt: now,
-    lastError: opts?.error ? truncateError(mailIngestErrorSchema.parse(opts.error)) : null,
-    pollingStartedAt: null,
-    updatedAt: now,
-  };
-  if (opts?.counts) {
-    Object.assign(updateValues, {
-      lastRunFailed: opts.counts.failed,
-      lastRunMatched: opts.counts.matched,
-      lastRunQueued: opts.counts.queued,
-      lastRunReceived: opts.counts.received,
-      lastRunSubjectSkipped: opts.counts.subjectSkipped,
-    });
-  }
-  const filters = [eq(mailIngestAccount.id, accountId)];
-  if (opts?.pollingStartedAt) {
-    filters.push(eq(mailIngestAccount.pollingStartedAt, opts.pollingStartedAt));
-  }
-  await db
-    .update(mailIngestAccount)
-    .set(updateValues)
-    .where(and(...filters));
+  return mailIngestWorkerDao.finishAccountRun(accountId, opts);
 }

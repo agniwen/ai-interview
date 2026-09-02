@@ -6,7 +6,7 @@ import type {
   Output,
 } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
-import { getRequiredEnv } from "../../lib/server/env";
+import { getRequiredEnv } from "@server/lib/server/env";
 import { createAlibabaProvider } from "./provider";
 
 /**

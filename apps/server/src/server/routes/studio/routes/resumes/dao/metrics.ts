@@ -1,5 +1,5 @@
 import { and, count, desc, eq, exists, gte, isNotNull, ne, sql } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { startOfBeijingDay, toBeijingCalendarDate } from "@app/shared/beijing-calendar";
 import type {
   DashboardActivityRow,

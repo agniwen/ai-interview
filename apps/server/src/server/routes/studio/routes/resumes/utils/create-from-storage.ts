@@ -1,4 +1,4 @@
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { studioInterview } from "@app/db-schema/schema";
 import type { StudioInterviewResumeSourceType } from "@app/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";

@@ -1,6 +1,6 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
-import { db as defaultDb } from "../../../../../lib/server/db/index";
+import { db as defaultDb } from "@server/lib/server/db/index";
 import {
   getObjectBytes as defaultGetObjectBytes,
   getObjectStream as defaultGetObjectStream,
@@ -35,8 +35,8 @@ import {
 } from "../resumes/utils/review-queue";
 import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "../resumes/utils/candidate-question-generation";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "../resumes/utils/review-worker";
-import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
-import { listDuplicateMatchesForSource as defaultListDuplicateMatchesForSource } from "../../../../../lib/server/resume-semantic/duplicate-matches";
+import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
+import { listDuplicateMatchesForSource as defaultListDuplicateMatchesForSource } from "@server/lib/server/resume-semantic/duplicate-matches";
 import { completeResumePoolReadinessWithDefaultAdapters as defaultCompleteResumePoolReadinessWithDefaultAdapters } from "./utils/readiness";
 import {
   bindResumePoolItemJobDescription as defaultBindResumePoolItemJobDescription,

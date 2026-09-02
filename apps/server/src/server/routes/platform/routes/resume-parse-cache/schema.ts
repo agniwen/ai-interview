@@ -1,12 +1,7 @@
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
-import { attachmentParseStatusValues, attachmentTextSourceValues } from "@app/db-schema/db-enums";
+import { resumeParseCacheFilterSchema } from "@app/shared/resume-parse-cache";
+import type { ResumeParseCacheFilters } from "@app/shared/resume-parse-cache";
 import { z } from "zod";
-
-export const resumeParseCacheFilterSchema = z.object({
-  cacheType: z.enum(["all", "structured", "text_only"]).default("all"),
-  parsedStatus: z.enum(["all", ...attachmentParseStatusValues]).default("all"),
-  textSource: z.enum(["all", ...attachmentTextSourceValues]).default("all"),
-});
 
 export const resumeParseCacheQuerySchema = resumeParseCacheFilterSchema.extend({
   page: z.coerce.number().int().min(1).default(1),
@@ -17,6 +12,5 @@ export const resumeParseCacheQuerySchema = resumeParseCacheFilterSchema.extend({
   textFilters: listTextFiltersSchema("parseCache"),
 });
 
-export type ResumeParseCacheFilters = z.infer<typeof resumeParseCacheFilterSchema> &
-  Record<string, string>;
+export type { ResumeParseCacheFilters };
 export type ResumeParseCacheQuery = z.infer<typeof resumeParseCacheQuerySchema>;

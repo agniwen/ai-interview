@@ -3,7 +3,8 @@
   "compilerOptions": {
     "incremental": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@server/*": ["../server/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],

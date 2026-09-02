@@ -1,0 +1,32 @@
+{
+  "name": "@app/meeting-processing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reusable meeting transcription, intelligence, purge, and human interview processing",
+  "type": "module",
+  "exports": {
+    "./human-interview": "./src/human-interview.ts",
+    "./intelligence": "./src/intelligence.ts",
+    "./purge": "./src/purge.ts",
+    "./transcription": "./src/transcription.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/ai-runtime": "workspace:*",
+    "@app/database": "workspace:*",
+    "@app/db-schema": "workspace:*",
+    "@app/meeting-media": "workspace:*",
+    "@app/meeting-processing-queue": "workspace:*",
+    "@app/shared": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

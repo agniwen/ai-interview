@@ -26,7 +26,7 @@ export const loadStudioJobDescriptionsState = createServerFn({ method: "GET" })
 
     return {
       ...(await loadStudioJobDescriptionsData({
-        workspaceId: access.workspace.id,
+        slug: access.workspace.slug,
       })),
       status: "ready",
     };

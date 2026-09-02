@@ -2,8 +2,8 @@ import type { Env } from "./type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { auth, trustedOrigins } from "../lib/server/auth";
-import { runWithAuthRequestHeaders } from "../lib/server/auth-request-context";
+import { auth, trustedOrigins } from "@server/lib/server/auth";
+import { runWithAuthRequestHeaders } from "@server/lib/server/auth-request-context";
 import { handleServerError } from "./error-handler";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
@@ -16,6 +16,7 @@ import { platformRouter } from "./routes/platform/route";
 import { publicRouter } from "./routes/public/route";
 import { humanInterviewReviewRouter } from "./routes/public/routes/human-interview-review/route";
 import { resumeRouter } from "./routes/resume/route";
+import { sessionRouter } from "./routes/session/route-runtime";
 import { workspaceRouter } from "./routes/workspace/route";
 import { attachBusinessRoutes } from "./routing";
 
@@ -36,6 +37,7 @@ const apiRoutes = factory
   .route("/platform", platformRouter)
   .route("/public", publicRouter)
   .route("/join", joinRouter)
+  .route("/session", sessionRouter)
   .route("/w/:slug", workspaceRouter);
 
 const trustedOriginSet = new Set(trustedOrigins);

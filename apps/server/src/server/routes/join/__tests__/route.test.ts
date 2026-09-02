@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { testClient } from "hono/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { member, organization, workspaceInviteLink } from "@app/db-schema/schema";
 import { factory } from "../../../factory";
 import { joinRouter } from "../route";
@@ -41,6 +41,7 @@ describe("/join route", () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.authenticated).toBe(false);
     expect(body.valid).toBe(true);
   });
 

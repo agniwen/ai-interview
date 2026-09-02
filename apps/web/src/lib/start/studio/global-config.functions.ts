@@ -21,7 +21,7 @@ export const loadStudioGlobalConfigState = createServerFn({ method: "GET" })
     }
 
     return {
-      initial: await loadStudioGlobalConfigInitial(access.workspace.id),
+      initial: await loadStudioGlobalConfigInitial(access.workspace.slug),
       status: "ready",
     };
   });

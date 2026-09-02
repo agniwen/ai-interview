@@ -3,15 +3,8 @@ import {
   deleteMeetingRecordingObject,
   headMeetingRecordingObject,
 } from "@app/object-storage";
-import {
-  claimMeetingPurge,
-  completeMeetingPurgeStorageBatch,
-  continueMeetingPurgeProviderBatch,
-  finalizeMeetingPurge,
-  recordMeetingProviderPurgeOutcome,
-  releaseMeetingPurgeClaim,
-} from "@app/server/worker/meeting-purge";
-import type { MeetingProviderArtifactInput } from "@app/server/worker/meeting-purge";
+import type { MeetingProviderArtifactInput } from "@app/meeting-processing/purge";
+import { meetingPurgeDao as purgeDao } from "../meeting-processing-daos";
 import type { MeetingPurgeDependencies } from "./processor";
 
 function deleteProviderArtifact(
@@ -22,13 +15,13 @@ function deleteProviderArtifact(
 
 export const defaultMeetingPurgeDependencies: MeetingPurgeDependencies = {
   abortMultipartUpload: abortMeetingRecordingMultipartUpload,
-  claim: claimMeetingPurge,
-  completeStorageBatch: completeMeetingPurgeStorageBatch,
-  continueProviderBatch: continueMeetingPurgeProviderBatch,
+  claim: purgeDao.claimMeetingPurge,
+  completeStorageBatch: purgeDao.completeMeetingPurgeStorageBatch,
+  continueProviderBatch: purgeDao.continueMeetingPurgeProviderBatch,
   deleteProviderArtifact,
   deleteStorageObject: deleteMeetingRecordingObject,
-  finalize: finalizeMeetingPurge,
+  finalize: purgeDao.finalizeMeetingPurge,
   headStorageObject: headMeetingRecordingObject,
-  recordProviderOutcome: recordMeetingProviderPurgeOutcome,
-  release: releaseMeetingPurgeClaim,
+  recordProviderOutcome: purgeDao.recordMeetingProviderPurgeOutcome,
+  release: purgeDao.releaseMeetingPurgeClaim,
 };

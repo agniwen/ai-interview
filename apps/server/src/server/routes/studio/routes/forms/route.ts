@@ -2,7 +2,7 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,

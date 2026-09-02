@@ -5,7 +5,7 @@ import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-eva
 import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-description-structured-config";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
-import { computeResumeEvaluationInputHash } from "../lib/server/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "@server/lib/server/resume-evaluation-input-hash";
 import { deriveStructuredResumeSummaries } from "@app/shared/structured-resume-scoring";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import type { GeneratedResumeAssessment } from "../server/routes/studio/routes/resumes/utils/review-lifecycle";
@@ -224,7 +224,7 @@ export async function loadRecentRows(
 ): Promise<RecentResumeRow[]> {
   const [{ db }, { jobDescription, studioInterview }, { and, desc, eq, gte, lt, lte }] =
     await Promise.all([
-      import("../lib/server/db"),
+      import("@server/lib/server/db"),
       import("@app/db-schema/schema"),
       import("drizzle-orm"),
     ]);
@@ -275,7 +275,7 @@ export async function loadRecentRows(
 
 async function assertTargetWorkspace(): Promise<void> {
   const [{ db }, { organization }, { eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("@server/lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -291,7 +291,7 @@ async function assertTargetWorkspace(): Promise<void> {
 
 async function claimTarget(row: RecentResumeRow, campaign: string) {
   const [{ db }, { jobDescription, studioInterview }, { and, eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("@server/lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -393,7 +393,7 @@ async function commitAssessment(
     throw new Error("评估结果不是结构化新版本。");
   }
   const [{ db }, { jobDescription, studioInterview }, { and, eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("@server/lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -496,7 +496,7 @@ async function markFailed(
   errorMessage: string,
 ): Promise<void> {
   const [{ db }, { studioInterview }, { and, eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("@server/lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -747,7 +747,7 @@ async function main(): Promise<void> {
     console.error(error);
     process.exitCode = 1;
   } finally {
-    const { closeDatabase } = await import("../lib/server/db");
+    const { closeDatabase } = await import("@server/lib/server/db");
     await closeDatabase();
   }
 }

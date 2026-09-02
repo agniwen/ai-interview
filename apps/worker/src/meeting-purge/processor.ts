@@ -4,29 +4,30 @@ import type {
   headMeetingRecordingObject,
 } from "@app/object-storage";
 import type {
-  claimMeetingPurge,
-  completeMeetingPurgeStorageBatch,
-  continueMeetingPurgeProviderBatch,
-  finalizeMeetingPurge,
+  createMeetingPurgeDao,
   MeetingProviderArtifactInput,
-  recordMeetingProviderPurgeOutcome,
-  releaseMeetingPurgeClaim,
-} from "@app/server/worker/meeting-purge";
+} from "@app/meeting-processing/purge";
 import type { MeetingPurgeJobData } from "@app/meeting-processing-queue/meeting-purge";
 
 export interface MeetingPurgeDependencies {
   abortMultipartUpload: typeof abortMeetingRecordingMultipartUpload;
-  claim: typeof claimMeetingPurge;
-  completeStorageBatch: typeof completeMeetingPurgeStorageBatch;
-  continueProviderBatch: typeof continueMeetingPurgeProviderBatch;
+  claim: ReturnType<typeof createMeetingPurgeDao>["claimMeetingPurge"];
+  completeStorageBatch: ReturnType<
+    typeof createMeetingPurgeDao
+  >["completeMeetingPurgeStorageBatch"];
+  continueProviderBatch: ReturnType<
+    typeof createMeetingPurgeDao
+  >["continueMeetingPurgeProviderBatch"];
   deleteProviderArtifact: (
     input: MeetingProviderArtifactInput & { provider: string },
   ) => Promise<"deleted" | "unsupported">;
   deleteStorageObject: typeof deleteMeetingRecordingObject;
   headStorageObject: typeof headMeetingRecordingObject;
-  finalize: typeof finalizeMeetingPurge;
-  recordProviderOutcome: typeof recordMeetingProviderPurgeOutcome;
-  release: typeof releaseMeetingPurgeClaim;
+  finalize: ReturnType<typeof createMeetingPurgeDao>["finalizeMeetingPurge"];
+  recordProviderOutcome: ReturnType<
+    typeof createMeetingPurgeDao
+  >["recordMeetingProviderPurgeOutcome"];
+  release: ReturnType<typeof createMeetingPurgeDao>["releaseMeetingPurgeClaim"];
 }
 
 // 每批最多并发 8 个对象删除/校验，限制 R2 压力与 Promise 数量。 / Runs at most eight object deletes or checks per batch to bound R2 pressure and promise count.

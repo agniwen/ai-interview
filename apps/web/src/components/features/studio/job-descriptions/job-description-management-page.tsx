@@ -12,7 +12,6 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@app/shared/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@app/server/web/studio";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { JobDescriptionChartsSkeleton } from "@/components/features/studio/job-descriptions/job-description-charts-skeleton";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
@@ -94,7 +93,7 @@ export function JobDescriptionManagementPage({
       filters: { departmentId: string; interviewerId: string };
       sortBy: string | undefined;
       sortOrder: "asc" | "desc" | undefined;
-    }): Promise<PaginatedJobDescriptionResult> => {
+    }) => {
       const query: JobDescriptionListQuery = {
         ...listTextQuery(params),
         page: String(params.page),

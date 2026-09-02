@@ -3,35 +3,35 @@ import { simpleParser } from "mailparser";
 import { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import {
-  claimMailIngestAccount,
-  claimMailIngestMessageForProcessing,
-  fetchPublishedJobDescriptionsByCodes,
-  finishMailIngestAccountRun,
+  configureResumeProcessingDatabase,
   insertBatchWithItems,
-  listEnabledMailIngestAccounts,
   loadBatchDetail,
-  markMailIngestMessageSkipped,
-  updateMailIngestMessageResult,
-} from "@app/server/worker/mail-ingest";
+} from "@app/resume-processing/ingest";
+import { createMailIngestDao } from "@app/resume-processing/mail-ingest";
+import { decryptMailIngestSecret } from "@app/resume-processing/mail-ingest-crypto";
+import { db } from "../db";
 import { createMailIngestProcessor } from "./processor";
 import type { ImapClient, MailIngestDependencies } from "./processor";
 
+configureResumeProcessingDatabase(db);
+const mailIngestDao = createMailIngestDao(db, { decryptSecret: decryptMailIngestSecret });
+
 const productionMailIngestDependencies = {
   buildAttachmentKeyByHash,
-  claimMailIngestAccount,
-  claimMailIngestMessageForProcessing,
+  claimMailIngestAccount: mailIngestDao.claimAccount,
+  claimMailIngestMessageForProcessing: mailIngestDao.claimMessageForProcessing,
   createImapClient: (options: ConstructorParameters<typeof ImapFlow>[0]): ImapClient =>
     new ImapFlow(options),
   enqueueResumeParseJobs,
-  fetchPublishedJobDescriptionsByCodes,
-  finishMailIngestAccountRun,
+  fetchPublishedJobDescriptionsByCodes: mailIngestDao.fetchPublishedJobDescriptionsByCodes,
+  finishMailIngestAccountRun: mailIngestDao.finishAccountRun,
   insertBatchWithItems,
-  listEnabledMailIngestAccounts,
+  listEnabledMailIngestAccounts: mailIngestDao.listEnabledAccounts,
   loadBatchDetail,
-  markMailIngestMessageSkipped,
+  markMailIngestMessageSkipped: mailIngestDao.markMessageSkipped,
   parseMail: simpleParser,
   putObjectBytes,
-  updateMailIngestMessageResult,
+  updateMailIngestMessageResult: mailIngestDao.updateMessageResult,
 } satisfies MailIngestDependencies;
 
 export const { runMailIngestOnce } = createMailIngestProcessor(productionMailIngestDependencies);

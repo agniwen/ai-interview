@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- Feishu sync checkpoints stay together so retry state remains auditable. */
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";

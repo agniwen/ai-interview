@@ -91,7 +91,7 @@ describe("server route organization boundary", () => {
 
   it("keeps application cores independent from HTTP and concrete persistence", () => {
     const forbiddenImport =
-      /(?:from\s+["'](?:@hono\/|hono(?:\/|["'])|@tanstack\/|@app\/server\/lib\/server\/db["']|@app\/db-schema\/schema["']|drizzle-orm["']|@\/)|import\s+["']@\/)/;
+      /(?:from\s+["'](?:@hono\/|hono(?:\/|["'])|@tanstack\/|@(?:app\/server|server)\/lib\/server\/db["']|@app\/db-schema\/schema["']|drizzle-orm["']|@\/)|import\s+["']@\/)/;
     const offenders = collectSourceFiles(routesRoot)
       .filter(isProductionSource)
       .filter((filePath) => filePath.includes(`${path.sep}application${path.sep}`))
@@ -129,7 +129,7 @@ describe("server route organization boundary", () => {
 
   it("does not grow the legacy route-to-database debt", () => {
     const directDbImport =
-      /from\s+["'](?:@app\/server\/|(?:\.\.\/)+)lib\/server\/db(?:\/index)?["']/;
+      /from\s+["'](?:@app\/server\/|@server\/|(?:\.\.\/)+)lib\/server\/db(?:\/index)?["']/;
     const offenders = collectSourceFiles(routesRoot)
       .filter((filePath) => path.basename(filePath) === "route.ts")
       .filter((filePath) => directDbImport.test(readSource(filePath)))

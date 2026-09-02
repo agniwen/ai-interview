@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { resumeLibraryReadRouter as defaultResumeLibraryReadRouter } from "./read-route";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db as defaultDb } from "../../../../../lib/server/db/index";
+import { db as defaultDb } from "@server/lib/server/db/index";
 import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@app/db-schema/schema";
 import { resumeReviewSchema } from "@app/shared/resume-review";
 import type { ResumeReview } from "@app/shared/resume-review";
@@ -37,13 +37,13 @@ import {
   resolveResumeUploadStorage as defaultResolveResumeUploadStorage,
   toBadRequest as defaultToBadRequest,
 } from "../../../interview/utils";
-import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
+import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource as defaultDeleteDuplicateMatchesForSource,
   replaceDuplicateMatchesForSource as defaultReplaceDuplicateMatchesForSource,
-} from "../../../../../lib/server/resume-semantic/duplicate-matches";
-import { enqueueResumeSemanticIndexJobBestEffort as defaultEnqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
-import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndexBestEffort } from "../../../../../lib/server/resume-semantic/lifecycle";
+} from "@server/lib/server/resume-semantic/duplicate-matches";
+import { enqueueResumeSemanticIndexJobBestEffort as defaultEnqueueResumeSemanticIndexJobBestEffort } from "@server/lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndexBestEffort } from "@server/lib/server/resume-semantic/lifecycle";
 import {
   loadRecruitingJobDescriptionById as defaultLoadRecruitingJobDescriptionById,
   recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
@@ -56,7 +56,7 @@ import {
   scheduleResumeEvaluationForRecord as defaultScheduleResumeEvaluationForRecord,
 } from "./utils/review-queue";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "./utils/review-worker";
-import { computeResumeEvaluationInputHash } from "../../../../../lib/server/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "@server/lib/server/resume-evaluation-input-hash";
 import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
@@ -70,6 +70,7 @@ import {
   retryFailedResumeParse as defaultRetryFailedResumeParse,
 } from "../resume-upload-batches/utils/retry";
 import { interviewQuestionsRouter as defaultInterviewQuestionsRouter } from "./routes/interview-questions/route";
+import { dashboardMetricsRouter as defaultDashboardMetricsRouter } from "./routes/dashboard-metrics/route";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -137,6 +138,7 @@ export function parseResumeReviewFormInput(
 
 const defaultResumeLibraryRouterDependencies = {
   createResumeRecordFromStorage: defaultCreateResumeRecordFromStorage,
+  dashboardMetricsRouter: defaultDashboardMetricsRouter,
   db: defaultDb,
   deleteDuplicateMatchesForSource: defaultDeleteDuplicateMatchesForSource,
   deleteResumeSemanticIndexBestEffort: defaultDeleteResumeSemanticIndexBestEffort,
@@ -180,6 +182,7 @@ export function createResumeLibraryRouter(
   const dependencies = { ...defaultResumeLibraryRouterDependencies, ...overrides };
   const {
     createResumeRecordFromStorage,
+    dashboardMetricsRouter,
     db,
     deleteDuplicateMatchesForSource,
     deleteResumeSemanticIndexBestEffort,
@@ -251,6 +254,7 @@ export function createResumeLibraryRouter(
   return (
     factory
       .createApp()
+      .route("/dashboard-metrics", dashboardMetricsRouter)
       .route("/", resumeLibraryReadRouter)
       .route("/:id/evaluation-history", defaultResumeEvaluationHistoryRouter)
       .route("/:id/meetings", recruitingRecordMeetingsRouter)

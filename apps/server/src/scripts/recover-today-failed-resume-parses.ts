@@ -150,7 +150,7 @@ async function main(options: RecoveryOptions) {
     { closeResumeSemanticIndexQueue },
     { rollbackFailedResumeParseRetry },
   ] = await Promise.all([
-    import("../lib/server/db/index"),
+    import("@server/lib/server/db/index"),
     import("@app/db-schema/schema"),
     import("@app/resume-parse-queue/resume-parse"),
     import("@app/resume-parse-queue/resume-review-generation"),

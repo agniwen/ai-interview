@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
-import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../../lib/server/resume-semantic/enqueue";
+import { db } from "@server/lib/server/db/index";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@server/lib/server/resume-semantic/enqueue";
 import {
   defaultCandidateQuestionGenerationDependencies,
   generateCandidateInterviewQuestions,

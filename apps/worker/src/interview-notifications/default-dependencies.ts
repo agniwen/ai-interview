@@ -7,7 +7,7 @@ import {
   markInterviewNotificationDeliverySent,
   updateInterviewNotificationEventState,
 } from "./dao";
-import { sendInterviewNotification } from "@app/server/worker/interview-notifications";
+import { sendInterviewNotification } from "./channel-adapters";
 import type { InterviewNotificationProcessorDependencies } from "./processor";
 
 export const defaultInterviewNotificationProcessorDependencies = {

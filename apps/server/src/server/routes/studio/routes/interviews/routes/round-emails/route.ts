@@ -5,8 +5,8 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { db } from "../../../../../../../lib/server/db/index";
-import { buildSenderFromAddress, getResendClient } from "../../../../../../../lib/server/resend";
+import { db } from "@server/lib/server/db/index";
+import { buildSenderFromAddress, getResendClient } from "@server/lib/server/resend";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { getGlobalConfig } from "../../../global-config/dao";

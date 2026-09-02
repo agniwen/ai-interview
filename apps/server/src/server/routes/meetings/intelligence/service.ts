@@ -4,6 +4,7 @@ import {
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
 } from "@app/meeting-processing-queue/meeting-intelligence";
+import { createRequestAutomaticMeetingIntelligence } from "@app/meeting-processing/intelligence";
 import type {
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
@@ -138,28 +139,11 @@ export async function requestAutomaticMeetingIntelligence(
   },
   dependencies: MeetingIntelligenceDependencies = defaultDependencies,
 ): Promise<void> {
-  if (!dependencies.isMeetingIntelligenceQueueConfigured()) {
-    return;
-  }
-  const [current, generator] = await Promise.all([
-    dependencies.loadMeetingIntelligenceResult(input),
-    Promise.resolve(dependencies.getMeetingIntelligenceGeneratorSnapshot()),
-  ]);
-  if (!current) {
-    return;
-  }
-  const run = await dependencies.requestMeetingIntelligenceRun({
-    actorId: null,
-    meetingId: input.meetingId,
-    model: generator.model,
-    organizationId: input.organizationId,
-    pipelineVersion: MEETING_INTELLIGENCE_PIPELINE_VERSION,
-    promptVersion: MEETING_INTELLIGENCE_PROMPT_VERSION,
-    provider: generator.provider,
-    requestKind: "automatic",
-    template: current.current?.template ?? current.suggestedTemplate,
-  });
-  if (run && run !== "forbidden") {
-    await enqueueIntelligenceBestEffort(run.processingRunId, dependencies);
-  }
+  await createRequestAutomaticMeetingIntelligence({
+    enqueueJobs: dependencies.enqueueMeetingIntelligenceJobs,
+    getGeneratorSnapshot: dependencies.getMeetingIntelligenceGeneratorSnapshot,
+    isQueueConfigured: dependencies.isMeetingIntelligenceQueueConfigured,
+    loadResult: dependencies.loadMeetingIntelligenceResult,
+    requestRun: dependencies.requestMeetingIntelligenceRun,
+  })(input);
 }

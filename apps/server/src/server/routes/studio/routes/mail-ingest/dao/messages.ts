@@ -1,22 +1,8 @@
-import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  gte,
-  ilike,
-  inArray,
-  isNull,
-  lt,
-  lte,
-  or,
-  sql,
-} from "drizzle-orm";
+import { buildListTextFilterWhere } from "@server/lib/server/db/list-text-filters";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 
-import { db } from "../../../../../../lib/server/db/index";
-import { listActiveDuplicateMatchCounts } from "../../../../../../lib/server/resume-semantic/duplicate-matches";
+import { db } from "@server/lib/server/db/index";
+import { listActiveDuplicateMatchCounts } from "@server/lib/server/resume-semantic/duplicate-matches";
 import {
   jobDescription,
   mailIngestAccount,
@@ -30,24 +16,12 @@ import type {
   MailIngestSkipReason,
 } from "@app/db-schema/schema";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
+import { mailIngestWorkerDao } from "./worker";
 
-const PROCESSING_STALE_MS = 30 * 60 * 1000;
-const ERROR_MAX = 500;
 const DISPLAY_ERROR_MAX = 300;
+export type { MailIngestMessageClaim } from "@app/resume-processing/mail-ingest";
 
-function truncateError(error: Error | string): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.length > ERROR_MAX ? message.slice(0, ERROR_MAX) : message;
-}
-
-export interface MailIngestMessageClaim {
-  id: string;
-  moveTo: "processed" | "failed" | null;
-  shouldProcess: boolean;
-  status: MailIngestMessageStatus;
-}
-
-export async function claimMailIngestMessageForProcessing(input: {
+export function claimMailIngestMessageForProcessing(input: {
   accountId: string;
   fromAddress: string | null;
   mailbox: string;
@@ -56,82 +30,11 @@ export async function claimMailIngestMessageForProcessing(input: {
   subject: string | null;
   uid: string;
   uidValidity: string;
-}): Promise<MailIngestMessageClaim> {
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - PROCESSING_STALE_MS);
-  const [row] = await db
-    .insert(mailIngestMessage)
-    .values({
-      accountId: input.accountId,
-      fromAddress: input.fromAddress,
-      id: crypto.randomUUID(),
-      mailbox: input.mailbox,
-      messageId: input.messageId,
-      processedAt: now,
-      receivedAt: input.receivedAt,
-      status: "processing",
-      subject: input.subject,
-      uid: input.uid,
-      uidValidity: input.uidValidity,
-    })
-    .onConflictDoNothing({
-      target: [
-        mailIngestMessage.accountId,
-        mailIngestMessage.mailbox,
-        mailIngestMessage.uidValidity,
-        mailIngestMessage.uid,
-      ],
-    })
-    .returning({ id: mailIngestMessage.id, status: mailIngestMessage.status });
-  if (row) {
-    return { id: row.id, moveTo: null, shouldProcess: true, status: row.status };
-  }
-
-  const [existing] = await db
-    .select({
-      id: mailIngestMessage.id,
-      processedAt: mailIngestMessage.processedAt,
-      status: mailIngestMessage.status,
-    })
-    .from(mailIngestMessage)
-    .where(
-      and(
-        eq(mailIngestMessage.accountId, input.accountId),
-        eq(mailIngestMessage.mailbox, input.mailbox),
-        eq(mailIngestMessage.uidValidity, input.uidValidity),
-        eq(mailIngestMessage.uid, input.uid),
-      ),
-    )
-    .limit(1);
-  if (!existing) {
-    throw new Error("邮件处理记录 claim 失败。");
-  }
-  if (existing.status !== "processing") {
-    return {
-      id: existing.id,
-      moveTo: existing.status === "failed" ? "failed" : "processed",
-      shouldProcess: false,
-      status: existing.status,
-    };
-  }
-
-  const [staleRow] = await db
-    .update(mailIngestMessage)
-    .set({ batchId: null, errorMessage: null, processedAt: now, status: "processing" })
-    .where(
-      and(
-        eq(mailIngestMessage.id, existing.id),
-        eq(mailIngestMessage.status, "processing"),
-        or(isNull(mailIngestMessage.processedAt), lt(mailIngestMessage.processedAt, staleBefore)),
-      ),
-    )
-    .returning({ id: mailIngestMessage.id, status: mailIngestMessage.status });
-  return staleRow
-    ? { id: staleRow.id, moveTo: null, shouldProcess: true, status: staleRow.status }
-    : { id: existing.id, moveTo: null, shouldProcess: false, status: existing.status };
+}) {
+  return mailIngestWorkerDao.claimMessageForProcessing(input);
 }
 
-export async function updateMailIngestMessageResult(
+export function updateMailIngestMessageResult(
   id: string,
   result: {
     batchId?: string | null;
@@ -144,37 +47,15 @@ export async function updateMailIngestMessageResult(
     resumeAttachmentCount?: number | null;
   },
 ): Promise<void> {
-  await db
-    .update(mailIngestMessage)
-    .set({
-      attachmentCount: result.attachmentCount ?? null,
-      batchId: result.batchId ?? null,
-      boundJobDescriptionId: result.boundJobDescriptionId ?? null,
-      errorMessage: result.error ? truncateError(result.error) : null,
-      extractedJobCodes: result.extractedJobCodes ?? null,
-      jdBindStatus: result.jdBindStatus ?? null,
-      processedAt: new Date(),
-      resumeAttachmentCount: result.resumeAttachmentCount ?? null,
-      status: result.status,
-    })
-    .where(eq(mailIngestMessage.id, id));
+  return mailIngestWorkerDao.updateMessageResult(id, result);
 }
 
-export async function markMailIngestMessageSkipped(
+export function markMailIngestMessageSkipped(
   id: string,
   skipReason: MailIngestSkipReason,
   extra?: { attachmentCount?: number | null; resumeAttachmentCount?: number | null },
 ): Promise<void> {
-  await db
-    .update(mailIngestMessage)
-    .set({
-      attachmentCount: extra?.attachmentCount ?? null,
-      processedAt: new Date(),
-      resumeAttachmentCount: extra?.resumeAttachmentCount ?? null,
-      skipReason,
-      status: "skipped",
-    })
-    .where(eq(mailIngestMessage.id, id));
+  return mailIngestWorkerDao.markMessageSkipped(id, skipReason, extra);
 }
 
 export interface MailMessageLogAttachment {

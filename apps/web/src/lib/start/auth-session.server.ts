@@ -1,5 +1,3 @@
-import { getRequestHeaders } from "@tanstack/react-start/server";
-import { and, asc, eq, isNull, ne, or } from "drizzle-orm";
 import type {
   ActiveOrganizationState,
   NoAccessWaitState,
@@ -7,19 +5,13 @@ import type {
   WorkspaceAccessState,
   WorkspaceSelectionState,
 } from "@/lib/start/auth-session-types";
-import {
-  auth,
-  db,
-  isNoAccessWorkspaceRole,
-  computeWorkspacePermissionSnapshot,
-} from "@app/server/web/runtime";
-import {
-  member as memberTable,
-  organization as organizationTable,
-  user as userTable,
-} from "@app/db-schema/schema";
-import type { WorkspaceAction, WorkspaceResource } from "@app/server/web/runtime";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
+import { getServerRpc } from "@/lib/start/server-rpc";
+import type { statement } from "@app/shared/permissions";
 import { hasPermissionInStatements } from "@app/shared/permission-statements";
+
+type WorkspaceResource = keyof typeof statement;
+type WorkspaceAction<R extends WorkspaceResource> = (typeof statement)[R][number];
 
 export function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,
@@ -34,200 +26,30 @@ export function workspaceAccessHasPermission<R extends WorkspaceResource>({
 }
 
 export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrganizationState> {
-  const requestHeaders = getRequestHeaders();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-
-  const [preference] = await db
-    .select({ organizationId: userTable.lastActiveOrganizationId })
-    .from(userTable)
-    .where(eq(userTable.id, session.user.id))
-    .limit(1);
-  if (!preference?.organizationId) {
-    return { status: "no_active_workspace" };
-  }
-
-  const organizations = await auth.api.listOrganizations({ headers: requestHeaders });
-  const active = organizations.find(
-    (organization) => organization.id === preference.organizationId,
+  return await rpcFetch(
+    getServerRpc().api.session["active-workspace"].$get(),
+    "加载当前工作区失败",
   );
-  if (!active) {
-    return { status: "no_active_workspace" };
-  }
-
-  const currentMember = await db.query.member.findFirst({
-    columns: { role: true },
-    where: { organizationId: active.id, userId: session.user.id },
-  });
-  if (!currentMember) {
-    return { status: "no_active_workspace" };
-  }
-
-  return {
-    member: {
-      role: currentMember.role,
-    },
-    status: "ready",
-    workspace: {
-      id: active.id,
-      slug: active.slug,
-    },
-  };
 }
 
 export async function getWorkspaceSelectionStateFromRequest(): Promise<WorkspaceSelectionState> {
-  const requestHeaders = getRequestHeaders();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-
-  const [organizations, memberships] = await Promise.all([
-    auth.api.listOrganizations({ headers: requestHeaders }),
-    db
-      .select({ organizationId: memberTable.organizationId, role: memberTable.role })
-      .from(memberTable)
-      .where(eq(memberTable.userId, session.user.id)),
-  ]);
-  const roleByOrganizationId = new Map(
-    memberships.map((row) => [row.organizationId, row.role] as const),
-  );
-
-  return {
-    organizations: organizations.map((organization) => ({
-      id: organization.id,
-      logo: organization.logo ?? null,
-      name: organization.name,
-      role: roleByOrganizationId.get(organization.id) ?? "member",
-      slug: organization.slug,
-    })),
-    status: "ready",
-    user: {
-      email: session.user.email,
-      image: session.user.image,
-      name: session.user.name,
-    },
-  };
-}
-
-async function resolveWorkspaceAccess(
-  requestHeaders: Headers,
-  slug: string,
-): Promise<WorkspaceAccessState> {
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-
-  const organizations = await auth.api.listOrganizations({ headers: requestHeaders });
-  const matched = organizations.find((organization) => organization.slug === slug);
-  if (!matched) {
-    return { status: "not_found" };
-  }
-
-  const currentMember = await db.query.member.findFirst({
-    columns: { role: true },
-    where: { organizationId: matched.id, userId: session.user.id },
-  });
-  if (!currentMember) {
-    return { status: "not_found" };
-  }
-
-  await db
-    .update(userTable)
-    .set({ lastActiveOrganizationId: matched.id })
-    .where(
-      and(
-        eq(userTable.id, session.user.id),
-        or(
-          isNull(userTable.lastActiveOrganizationId),
-          ne(userTable.lastActiveOrganizationId, matched.id),
-        ),
-      ),
-    );
-
-  const permissionSnapshot = await computeWorkspacePermissionSnapshot({
-    memberRole: currentMember.role,
-    organizationId: matched.id,
-    userId: session.user.id,
-  });
-
-  return {
-    member: {
-      role: currentMember.role,
-    },
-    permissions: permissionSnapshot.statements,
-    status: "ready",
-    user: {
-      id: session.user.id,
-    },
-    workspace: {
-      id: matched.id,
-      slug: matched.slug,
-    },
-  };
+  return await rpcFetch(getServerRpc().api.session.workspaces.$get(), "加载工作区列表失败");
 }
 
 export async function getNoAccessWaitStateFromRequest(): Promise<NoAccessWaitState> {
-  const requestHeaders = getRequestHeaders();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-
-  const [[preference], rows] = await Promise.all([
-    db
-      .select({ organizationId: userTable.lastActiveOrganizationId })
-      .from(userTable)
-      .where(eq(userTable.id, session.user.id))
-      .limit(1),
-    db
-      .select({
-        logo: organizationTable.logo,
-        name: organizationTable.name,
-        organizationId: organizationTable.id,
-        role: memberTable.role,
-        slug: organizationTable.slug,
-      })
-      .from(memberTable)
-      .innerJoin(organizationTable, eq(organizationTable.id, memberTable.organizationId))
-      .where(eq(memberTable.userId, session.user.id))
-      .orderBy(asc(memberTable.createdAt)),
-  ]);
-
-  const activeWaitingWorkspace = rows.find(
-    (row) => row.organizationId === preference?.organizationId && isNoAccessWorkspaceRole(row.role),
+  return await rpcFetch(
+    getServerRpc().api.session["no-access-wait"].$get(),
+    "加载工作区访问状态失败",
   );
-  const waitingWorkspace =
-    activeWaitingWorkspace ??
-    (rows.length > 0 && rows.every((row) => isNoAccessWorkspaceRole(row.role)) ? rows[0] : null);
-
-  if (!waitingWorkspace) {
-    return { status: "not_waiting" };
-  }
-
-  return {
-    status: "waiting",
-    user: {
-      email: session.user.email,
-      image: session.user.image,
-      name: session.user.name,
-    },
-    workspace: {
-      id: waitingWorkspace.organizationId,
-      logo: waitingWorkspace.logo,
-      name: waitingWorkspace.name,
-      slug: waitingWorkspace.slug,
-    },
-  };
 }
 
 export async function resolveWorkspaceAccessFromRequest(
   slug: string,
 ): Promise<WorkspaceAccessState> {
-  return await resolveWorkspaceAccess(getRequestHeaders(), slug);
+  return await rpcFetch(
+    getServerRpc().api.session.workspaces[":slug"].access.$get({ param: { slug } }),
+    "加载工作区权限失败",
+  );
 }
 
 /**
@@ -237,7 +59,7 @@ export async function resolveFirstAllowedStudioPagePath(
   slug: string,
   pagePaths: readonly { action: StudioPagePermissionAction; path: string }[],
 ): Promise<string | null> {
-  const state = await resolveWorkspaceAccess(getRequestHeaders(), slug);
+  const state = await resolveWorkspaceAccessFromRequest(slug);
   if (state.status !== "ready") {
     return null;
   }

@@ -1,17 +1,7 @@
 import type { ImapFlow, ImapFlowOptions } from "imapflow";
 import type { ParsedMail } from "mailparser";
 import { z } from "zod";
-import type {
-  claimMailIngestMessageForProcessing,
-  fetchPublishedJobDescriptionsByCodes,
-  finishMailIngestAccountRun,
-  insertBatchWithItems,
-  listEnabledMailIngestAccounts,
-  loadBatchDetail,
-  markMailIngestMessageSkipped,
-  updateMailIngestMessageResult,
-  WorkerMailIngestAccount,
-} from "@app/server/worker/mail-ingest";
+import type { MailIngestDao, WorkerMailIngestAccount } from "@app/resume-processing/mail-ingest";
 import type { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import type { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
 import { getResumeDocumentExtension } from "@app/shared/resume-documents";
@@ -51,19 +41,39 @@ export type ImapClient = Pick<
 
 export interface MailIngestDependencies {
   buildAttachmentKeyByHash: typeof buildAttachmentKeyByHash;
-  claimMailIngestAccount: (accountId: string) => Promise<Date | null>;
-  claimMailIngestMessageForProcessing: typeof claimMailIngestMessageForProcessing;
+  claimMailIngestAccount: MailIngestDao["claimAccount"];
+  claimMailIngestMessageForProcessing: MailIngestDao["claimMessageForProcessing"];
   createImapClient: (options: ImapFlowOptions) => ImapClient;
   enqueueResumeParseJobs: typeof enqueueResumeParseJobs;
-  fetchPublishedJobDescriptionsByCodes: typeof fetchPublishedJobDescriptionsByCodes;
-  finishMailIngestAccountRun: typeof finishMailIngestAccountRun;
-  insertBatchWithItems: typeof insertBatchWithItems;
-  listEnabledMailIngestAccounts: typeof listEnabledMailIngestAccounts;
-  loadBatchDetail: typeof loadBatchDetail;
-  markMailIngestMessageSkipped: typeof markMailIngestMessageSkipped;
+  fetchPublishedJobDescriptionsByCodes: MailIngestDao["fetchPublishedJobDescriptionsByCodes"];
+  finishMailIngestAccountRun: MailIngestDao["finishAccountRun"];
+  insertBatchWithItems(input: {
+    dedupPolicy: WorkerMailIngestAccount["dedupPolicy"];
+    files: {
+      contentHash: string;
+      fileSize: number;
+      originalFileName: string;
+      storageKey: string;
+    }[];
+    jdMode: WorkerMailIngestAccount["jdMode"];
+    jobDescriptionId: string | null;
+    jobMatchRequestedAt: Date;
+    organizationId: string;
+    resumePoolScope: "public";
+    sourceChannel: "mail_ingest";
+    target: WorkerMailIngestAccount["target"];
+    userId: string;
+  }): Promise<string>;
+  listEnabledMailIngestAccounts: MailIngestDao["listEnabledAccounts"];
+  loadBatchDetail(
+    batchId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<{ items: { id: string }[] } | null>;
+  markMailIngestMessageSkipped: MailIngestDao["markMessageSkipped"];
   parseMail: (source: Buffer) => Promise<ParsedMail>;
   putObjectBytes: typeof putObjectBytes;
-  updateMailIngestMessageResult: typeof updateMailIngestMessageResult;
+  updateMailIngestMessageResult: MailIngestDao["updateMessageResult"];
 }
 
 function firstAddress(mail: ParsedMail): string | null {

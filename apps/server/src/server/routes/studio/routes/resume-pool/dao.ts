@@ -18,7 +18,7 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { omit } from "lodash-es";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   jobDescription,
   mailIngestMessage,
@@ -51,15 +51,15 @@ import type {
   ResumePoolUploaderOption,
 } from "@app/shared/resume-pool";
 import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
-import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
+import { findSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource,
   listActiveDuplicateSummariesAgainstStudioInterviews,
   replaceDuplicateMatchesForSource,
-} from "../../../../../lib/server/resume-semantic/duplicate-matches";
-import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
-import { deleteResumeSemanticIndexBestEffort } from "../../../../../lib/server/resume-semantic/lifecycle";
-import { cloneResumeSemanticIndexFromPoolToInterview } from "../../../../../lib/server/resume-semantic/clone";
+} from "@server/lib/server/resume-semantic/duplicate-matches";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@server/lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort } from "@server/lib/server/resume-semantic/lifecycle";
+import { cloneResumeSemanticIndexFromPoolToInterview } from "@server/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "../resumes/utils/create-from-storage";
 import { normalizeSkill } from "../resumes/dao/skills";
 import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "../resumes/dao/keyword-search";

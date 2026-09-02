@@ -12,7 +12,6 @@
 // interviewer page, which DOES support row-level JD delete.
 
 import type { InterviewerListRecord } from "@app/shared/interviewers";
-import type { PaginatedInterviewerResult } from "@app/server/web/studio";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -62,7 +61,7 @@ export function ScopedInterviewersModal({
   const listQuery = useQuery({
     enabled: open && departmentId !== null,
     placeholderData: (prev) => prev,
-    queryFn: (): Promise<PaginatedInterviewerResult> => {
+    queryFn: () => {
       if (!departmentId) {
         return Promise.resolve({ page, pageSize, records: [], total: 0, totalPages: 1 });
       }

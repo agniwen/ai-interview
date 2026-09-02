@@ -19,7 +19,6 @@
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@app/server/web/studio";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +86,7 @@ export function ScopedJobDescriptionsModal({
   const listQuery = useQuery({
     enabled: open && scope !== null,
     placeholderData: (prev) => prev,
-    queryFn: (): Promise<PaginatedJobDescriptionResult> => {
+    queryFn: () => {
       if (!scope) {
         return Promise.resolve({ page, pageSize, records: [], total: 0, totalPages: 1 });
       }

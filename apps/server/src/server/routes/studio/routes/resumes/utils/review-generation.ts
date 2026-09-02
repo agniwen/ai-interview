@@ -1,6 +1,6 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { and, eq } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { jobDescriptionVersion } from "@app/db-schema/schema";
 import {
   generateResumeReview,

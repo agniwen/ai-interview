@@ -1,6 +1,6 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { createDatabase } from "@app/database";
+import type { Database } from "@app/database";
 import postgres from "postgres";
-import { relations } from "@app/db-schema/relations";
 
 type PostgresClient = ReturnType<typeof postgres>;
 
@@ -25,8 +25,8 @@ const client: PostgresClient = postgres(databaseUrl, {
   max_lifetime: readPositiveInteger("POSTGRES_MAX_LIFETIME_SECONDS", 60 * 20),
 });
 
-export const db = drizzle({ client, relations });
-export type Database = typeof db;
+export const db = createDatabase(client);
+export type { Database };
 
 export async function pingDatabase(): Promise<void> {
   await client`select 1`;

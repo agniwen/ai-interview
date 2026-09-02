@@ -1,7 +1,7 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../../lib/server/db/index";
-import { captureBackendException } from "../../../../lib/server/sentry";
+import { db } from "@server/lib/server/db/index";
+import { captureBackendException } from "@server/lib/server/sentry";
 import { interviewConversation } from "@app/db-schema/schema";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import { notifyInterviewSummaryReady } from "./feishu-interview-notifications";

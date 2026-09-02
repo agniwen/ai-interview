@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db as defaultDb } from "../../../../../../../lib/server/db/index";
+import { db as defaultDb } from "@server/lib/server/db/index";
 import { studioInterview } from "@app/db-schema/schema";
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";

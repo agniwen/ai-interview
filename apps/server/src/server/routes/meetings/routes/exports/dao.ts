@@ -1,5 +1,5 @@
 import { and, asc, eq, gt } from "drizzle-orm";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   meetingSession,
   meetingTranscriptRevision,

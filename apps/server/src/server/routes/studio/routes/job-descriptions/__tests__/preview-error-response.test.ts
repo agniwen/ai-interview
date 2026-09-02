@@ -119,6 +119,8 @@ const dependencies: JobDescriptionsRouterDependencies = {
     requirePermission: allowPermission,
     safeUpdateTag: () => {},
   }),
+  loadJobDescriptionMetrics: () =>
+    Promise.resolve({ candidatesByJd: [], completionByJd: [], loadByInterviewer: [] }),
   requirePermission: allowPermission,
 };
 

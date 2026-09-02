@@ -1,4 +1,4 @@
-import type { Database } from "../../lib/server/db/index";
+import type { Database } from "@server/lib/server/db/index";
 import {
   interviewNotificationEventTypeSchema,
   interviewNotificationPayloadSnapshotSchema,

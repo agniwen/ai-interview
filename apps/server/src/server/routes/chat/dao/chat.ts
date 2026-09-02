@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import type { ArcMessage } from "@app/db-schema/ai-message";
 import type {
   ChatContextBindings,

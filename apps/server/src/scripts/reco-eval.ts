@@ -1,9 +1,9 @@
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { getResumeEmbeddingConfig } from "../lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "../lib/server/resume-semantic/indexer";
-import { QdrantResumeVectorStore } from "../lib/server/qdrant/resume-vector-store";
+import { getResumeEmbeddingConfig } from "@server/lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "@server/lib/server/resume-semantic/indexer";
+import { QdrantResumeVectorStore } from "@server/lib/server/qdrant/resume-vector-store";
 import { loadRecruitingJobDescriptionById } from "../server/routes/studio/routes/job-descriptions/dao";
 import {
   createDefaultRecommendationDeps,

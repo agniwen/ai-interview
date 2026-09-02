@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { WorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import {

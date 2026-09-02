@@ -2,20 +2,20 @@
 import { createTool } from "@mastra/core/tools";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import type { RecruitingVisibilityScope } from "../../../access/recruiting-visibility";
-import { QdrantResumeVectorStore } from "../../../../lib/server/qdrant/resume-vector-store";
+import { QdrantResumeVectorStore } from "@server/lib/server/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
   getResumeEmbeddingConfig,
   isResumeSemanticIndexEnabled,
-} from "../../../../lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "../../../../lib/server/resume-semantic/indexer";
-import type { ResumeSemanticTextChunk } from "../../../../lib/server/resume-semantic/text-builders";
+} from "@server/lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "@server/lib/server/resume-semantic/indexer";
+import type { ResumeSemanticTextChunk } from "@server/lib/server/resume-semantic/text-builders";
 import type {
   ResumeVectorSearchResult,
   ResumeVectorStore,
-} from "../../../../lib/server/resume-semantic/vector-store";
+} from "@server/lib/server/resume-semantic/vector-store";
 import { listResumeRecords } from "../../../routes/studio/routes/resumes/dao/resumes";
 import {
   listRecruitingJobDescriptions,

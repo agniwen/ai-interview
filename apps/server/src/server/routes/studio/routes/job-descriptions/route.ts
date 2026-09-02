@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, max, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   department,
   interviewer,
@@ -32,6 +32,7 @@ import {
   listAllJobDescriptions,
   listRecruitingJobDescriptions,
   loadJobDescriptionById,
+  loadJobDescriptionMetrics,
   loadRecruitingJobDescriptionById,
   queryPaginatedJobDescriptions,
   serializeJobDescription,
@@ -40,7 +41,7 @@ import { cacheTags, safeUpdateTag } from "../../../../cache-tags";
 import {
   deleteJobDescriptionSemanticIndexBestEffort,
   enqueueJobDescriptionIndexJobBestEffort,
-} from "../../../../../lib/server/jd-semantic/enqueue";
+} from "@server/lib/server/jd-semantic/enqueue";
 import { generateJobDescriptionFromPrompt } from "./utils/ai-job-description-generate";
 import { generateResumeScreeningPolicyFromJobDescription } from "./utils/resume-screening-policy-generate";
 import {
@@ -212,6 +213,7 @@ export interface JobDescriptionsRouterDependencies {
   enqueueJobDescriptionIndexJobBestEffort: typeof enqueueJobDescriptionIndexJobBestEffort;
   generateStructuredJobBlueprintPreview: typeof generateStructuredJobBlueprintPreview;
   jobEvaluationPreviewStreamRouter: typeof jobEvaluationPreviewStreamRouter;
+  loadJobDescriptionMetrics: typeof loadJobDescriptionMetrics;
   requirePermission: typeof requirePermission;
 }
 
@@ -220,6 +222,7 @@ const defaultDependencies: JobDescriptionsRouterDependencies = {
   enqueueJobDescriptionIndexJobBestEffort,
   generateStructuredJobBlueprintPreview,
   jobEvaluationPreviewStreamRouter,
+  loadJobDescriptionMetrics,
   requirePermission,
 };
 
@@ -296,6 +299,14 @@ export function createJobDescriptionsRouter(
       }
       const records = await listAllJobDescriptions(activeOrg.id);
       return c.json({ records }, 200);
+    })
+    .get("/metrics", dependencies.requirePermission("jd", "read"), async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const metrics = await dependencies.loadJobDescriptionMetrics(activeOrg.id);
+      return c.json(metrics, 200);
     })
     .get("/recruiting", dependencies.requirePermission("jd", "read"), async (c) => {
       const { activeOrg } = c.var;

@@ -82,7 +82,7 @@ function isResumeSemanticIndexEnabled(): boolean {
 
 // 启动时从数据库恢复未完成批次项，再补入可能因进程退出而丢失的解析队列。 / Restores incomplete batch items from the database at startup and replenishes jobs lost on process exit.
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
-  const { recoverIncompleteBatchItems } = await import("@app/server/worker/resumes");
+  const { recoverIncompleteBatchItems } = await import("./resume-processing/ingest");
   const { enqueueResumeParseJobs } = await import("@app/resume-parse-queue/resume-parse");
   const jobs = await recoverIncompleteBatchItems();
   if (jobs.length === 0) {
@@ -97,7 +97,7 @@ async function recoverIncompleteResumeParseJobs(): Promise<void> {
 
 // 以持久化索引状态为准补发语义索引任务，空结果不会触碰队列。 / Re-enqueues semantic-index work from persisted state and leaves the queue untouched when none is due.
 async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
-  const { listRecoverableResumeSemanticIndexJobs } = await import("@app/server/worker/resumes");
+  const { listRecoverableResumeSemanticIndexJobs } = await import("./resume-processing/semantic");
   const jobs = await listRecoverableResumeSemanticIndexJobs();
   if (jobs.length === 0) {
     console.info("[resume-semantic-index-worker] startup recovery found no pending sources");
@@ -125,8 +125,8 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
 
 // 按数据库中的到期时间补发清理任务，使失败或遗漏的删除最终继续执行。 / Re-enqueues purges due in the database so failed or missed deletion eventually resumes.
 async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
-  const { listRecoverableMeetingPurgeJobs } = await import("@app/server/worker/meeting-purge");
-  const jobs = await listRecoverableMeetingPurgeJobs();
+  const { meetingPurgeDao } = await import("./meeting-processing-daos");
+  const jobs = await meetingPurgeDao.listRecoverableMeetingPurgeJobs();
   if (jobs.length === 0) {
     console.info("[meeting-purge-worker] recovery found no due meetings");
     return;
@@ -149,11 +149,9 @@ async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
 
 // 先补建缺失的自动智能请求，再从持久化运行状态恢复可重试任务。 / Backfills missing automatic-intelligence requests before recovering retryable persisted runs.
 async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
-  const { listMeetingsNeedingAutomaticIntelligence, listRecoverableMeetingIntelligenceJobs } =
-    await import("@app/server/worker/meeting-intelligence");
-  const { requestAutomaticMeetingIntelligence } =
-    await import("@app/server/worker/meeting-intelligence");
-  const missing = await listMeetingsNeedingAutomaticIntelligence();
+  const { meetingIntelligenceDao, requestAutomaticMeetingIntelligence } =
+    await import("./meeting-processing-daos");
+  const missing = await meetingIntelligenceDao.listMeetingsNeedingAutomaticIntelligence();
   for (const meeting of missing) {
     try {
       await requestAutomaticMeetingIntelligence(meeting);
@@ -166,7 +164,7 @@ async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
       });
     }
   }
-  const jobs = await listRecoverableMeetingIntelligenceJobs();
+  const jobs = await meetingIntelligenceDao.listRecoverableMeetingIntelligenceJobs();
   if (jobs.length === 0) {
     console.info("[meeting-intelligence-worker] recovery found no pending runs");
     return;
@@ -177,9 +175,8 @@ async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
 
 // 从数据库补发待处理或中断的最终转写，恢复队列与会议状态的一致性。 / Re-enqueues pending or interrupted final transcriptions to reconcile queue and meeting state.
 async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
-  const { listRecoverableMeetingTranscriptionJobs } =
-    await import("@app/server/worker/meeting-transcription");
-  const jobs = await listRecoverableMeetingTranscriptionJobs();
+  const { meetingTranscriptionDao } = await import("./meeting-processing-daos");
+  const jobs = await meetingTranscriptionDao.listRecoverableMeetingTranscriptionJobs();
   if (jobs.length === 0) {
     console.info("[meeting-transcription-worker] recovery found no pending meetings");
     return;
@@ -192,9 +189,8 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 
 // 防止定时器重叠时同一恢复查询并发入队。 / Prevents overlapping timers from enqueueing the same recovery class concurrently.
 async function recoverIncompleteHumanInterviewRecordingJobs(): Promise<void> {
-  const { listRecoverableHumanInterviewRecordingJobs } =
-    await import("@app/server/worker/human-interview");
-  const jobs = await listRecoverableHumanInterviewRecordingJobs();
+  const { humanInterviewRecordingDao } = await import("./meeting-processing-daos");
+  const jobs = await humanInterviewRecordingDao.listRecoverableHumanInterviewRecordingJobs();
   if (jobs.length === 0) {
     console.info("[human-interview-recording-worker] recovery found no pending recordings");
     return;
@@ -206,9 +202,8 @@ async function recoverIncompleteHumanInterviewRecordingJobs(): Promise<void> {
 }
 
 async function recoverIncompleteHumanInterviewEvaluationJobs(): Promise<void> {
-  const { listRecoverableHumanInterviewEvaluationJobs } =
-    await import("@app/server/worker/human-interview");
-  const jobs = await listRecoverableHumanInterviewEvaluationJobs();
+  const { humanInterviewEvaluationDao } = await import("./meeting-processing-daos");
+  const jobs = await humanInterviewEvaluationDao.listRecoverableHumanInterviewEvaluationJobs();
   if (jobs.length === 0) {
     console.info("[human-interview-evaluation-worker] recovery found no pending evaluations");
     return;
@@ -550,7 +545,7 @@ async function main() {
   if (backgroundProcessingEnabled && isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ bypassCache, itemId }, context) => {
-      const { runBulkResumeUploadWorkflow } = await import("@app/server/worker/resumes");
+      const { runBulkResumeUploadWorkflow } = await import("./resume-processing/ingest");
       await runBulkResumeUploadWorkflow({
         bypassCache,
         itemId,
@@ -562,7 +557,7 @@ async function main() {
       await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
         if (payload.sourceType === "job_description") {
-          const { runJdSemanticIndexJob } = await import("@app/server/worker/resumes");
+          const { runJdSemanticIndexJob } = await import("./resume-processing/semantic");
           await runJdSemanticIndexJob({
             organizationId: payload.organizationId,
             sourceId: payload.sourceId,
@@ -570,13 +565,13 @@ async function main() {
           });
           return;
         }
-        const { runResumeSemanticEnrichmentJob } = await import("@app/server/worker/resumes");
+        const { runResumeSemanticEnrichmentJob } = await import("./resume-processing/semantic");
         await runResumeSemanticEnrichmentJob(payload);
       });
       semanticIndexWorker.on("failed", reportQueueFailure("resume-semantic-index"));
     }
     reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload, context) => {
-      const { processResumeReviewGenerationJob } = await import("@app/server/worker/resumes");
+      const { processResumeReviewGenerationJob } = await import("./resume-processing/review");
       await processResumeReviewGenerationJob(payload, undefined, context);
     });
     reviewGenerationWorker.on("failed", reportQueueFailure("resume-review-generation"));

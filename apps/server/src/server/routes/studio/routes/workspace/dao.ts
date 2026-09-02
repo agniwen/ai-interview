@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
-import { db } from "../../../../../lib/server/db/index";
-import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
-import { serializeDate } from "../../../../../lib/server/db/serialize";
+import { db } from "@server/lib/server/db/index";
+import { buildListTextFilterWhere } from "@server/lib/server/db/list-text-filters";
+import { serializeDate } from "@server/lib/server/db/serialize";
 import { startOfBeijingDay } from "@app/shared/beijing-calendar";
 import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../integrations/feishu/provider";

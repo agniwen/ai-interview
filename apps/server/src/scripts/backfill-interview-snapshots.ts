@@ -7,7 +7,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@app/db-schema/schema";
-import type { Database } from "../lib/server/db/index";
+import type { Database } from "@server/lib/server/db/index";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export type InterviewSnapshotBackfillTarget = "all" | "context" | "evidence";
@@ -293,7 +293,7 @@ async function loadInterviewSnapshotBackfillRecords(
 
 export async function backfillInterviewSnapshots(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("../lib/server/db/index");
+  const { closeDatabase, db } = await import("@server/lib/server/db/index");
   const { createInterviewEvidenceSnapshot } =
     await import("../server/routes/agent/utils/evidence-snapshot");
   const { createInterviewContextSnapshot } =

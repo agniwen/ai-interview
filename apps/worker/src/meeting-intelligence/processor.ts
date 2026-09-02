@@ -1,13 +1,8 @@
 import type {
-  claimMeetingIntelligenceRun,
-  heartbeatMeetingIntelligenceRun,
+  createMeetingIntelligenceDao,
   generateMeetingIntelligence,
   getMeetingIntelligenceGeneratorSnapshot,
-  markMeetingIntelligenceFailed,
-  publishMeetingIntelligence,
-  saveMeetingIntelligenceCheckpoint,
-  saveMeetingIntelligenceProgress,
-} from "@app/server/worker/meeting-intelligence";
+} from "@app/meeting-processing/intelligence";
 import type { MeetingIntelligenceJobData } from "@app/meeting-processing-queue/meeting-intelligence";
 import { MEETING_INTELLIGENCE_PROMPT_VERSION } from "@app/meeting-processing-queue/meeting-intelligence";
 import {
@@ -18,11 +13,11 @@ import {
 import type { MeetingIntelligencePayload } from "@app/shared/meeting-intelligence";
 
 export interface MeetingIntelligenceDependencies {
-  claim: typeof claimMeetingIntelligenceRun;
+  claim: ReturnType<typeof createMeetingIntelligenceDao>["claimMeetingIntelligenceRun"];
   createExecutionToken: () => string;
   generate: typeof generateMeetingIntelligence;
   generatorSnapshot: typeof getMeetingIntelligenceGeneratorSnapshot;
-  heartbeat: typeof heartbeatMeetingIntelligenceRun;
+  heartbeat: ReturnType<typeof createMeetingIntelligenceDao>["heartbeatMeetingIntelligenceRun"];
   loadTranscript: (input: {
     meetingId: string;
     organizationId: string;
@@ -41,10 +36,12 @@ export interface MeetingIntelligenceDependencies {
     | null
     | undefined
   >;
-  markFailed: typeof markMeetingIntelligenceFailed;
-  publish: typeof publishMeetingIntelligence;
-  saveCheckpoint: typeof saveMeetingIntelligenceCheckpoint;
-  saveProgress: typeof saveMeetingIntelligenceProgress;
+  markFailed: ReturnType<typeof createMeetingIntelligenceDao>["markMeetingIntelligenceFailed"];
+  publish: ReturnType<typeof createMeetingIntelligenceDao>["publishMeetingIntelligence"];
+  saveCheckpoint: ReturnType<
+    typeof createMeetingIntelligenceDao
+  >["saveMeetingIntelligenceCheckpoint"];
+  saveProgress: ReturnType<typeof createMeetingIntelligenceDao>["saveMeetingIntelligenceProgress"];
 }
 
 // 以 execution token/租约保护生成，复用 durable checkpoint，并仅在模型快照匹配时发布。 / Protects generation with an execution token and lease, resumes durable checkpoints, and publishes only when the model snapshot matches.

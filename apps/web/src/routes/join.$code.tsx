@@ -1,12 +1,12 @@
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeaders } from "@tanstack/react-start/server";
-import { auth } from "@app/server/web/runtime";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
-import { codeParamsSchema, getJoinPreview } from "@app/server/web/join";
+import { z } from "zod";
 import { InvalidJoinLink } from "@/components/features/join/invalid-join-link";
 import { JoinClient } from "@/components/features/join/join-client";
+import { rpcFetch } from "@/lib/client/api";
 import { formatDocumentTitle } from "@/lib/start/document-title";
+import { getServerRpc } from "@/lib/start/server-rpc";
 import { codeInputSchema } from "@/lib/start/server-fn-validators";
 
 type JoinRouteState =
@@ -25,6 +25,10 @@ type JoinRouteState =
       };
     };
 
+const codeParamsSchema = z.object({
+  code: z.string().regex(/^[0-9A-Za-z]{16}$/u, "邀请码格式不正确。"),
+});
+
 const getJoinRouteState = createServerFn({ method: "GET" })
   .validator(codeInputSchema)
   .handler(async ({ data }): Promise<JoinRouteState> => {
@@ -33,16 +37,17 @@ const getJoinRouteState = createServerFn({ method: "GET" })
       return { status: "invalid" };
     }
 
-    const requestHeaders = getRequestHeaders();
-    const session = await auth.api.getSession({ headers: requestHeaders });
-    const userId = session?.user?.id ?? null;
-    const preview = await getJoinPreview({ code: parsed.data.code, userId });
+    const rpc = getServerRpc();
+    const preview = await rpcFetch(
+      rpc.api.join[":code"].preview.$get({ param: { code: parsed.data.code } }),
+      "加载邀请链接失败",
+    );
 
     if (!preview.valid || !preview.workspace) {
       return { status: "invalid" };
     }
 
-    if (!userId) {
+    if (!preview.authenticated) {
       return { code: parsed.data.code, status: "login_required" };
     }
 

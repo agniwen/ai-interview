@@ -1,4 +1,4 @@
-import { db } from "../../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { FEISHU_PROVIDER_IDS } from "../../../../../../integrations/feishu/provider";
 import {
   account,

@@ -1,4 +1,4 @@
-import { db } from "../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { isNoAccessWorkspaceRole } from "../access/workspace-roles";
 import { factory } from "../factory";
 

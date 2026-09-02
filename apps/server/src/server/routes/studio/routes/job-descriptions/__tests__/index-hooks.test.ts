@@ -10,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { testClient } from "hono/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   department,
   interviewer,
@@ -51,6 +51,8 @@ const routerDependencies: JobDescriptionsRouterDependencies = {
   },
   generateStructuredJobBlueprintPreview,
   jobEvaluationPreviewStreamRouter: createJobEvaluationPreviewStreamRouter(),
+  loadJobDescriptionMetrics: () =>
+    Promise.resolve({ candidatesByJd: [], completionByJd: [], loadByInterviewer: [] }),
   requirePermission: (resource, action) =>
     defaultRequirePermission(resource, action, {
       createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),

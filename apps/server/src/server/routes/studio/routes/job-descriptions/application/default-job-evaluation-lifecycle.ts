@@ -7,8 +7,8 @@ import { parseStoredJobDescriptionStructuredConfig } from "@app/db-schema/job-de
 import { jobDescription } from "@app/db-schema/schema";
 import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@app/shared/structured-resume-scoring";
 import { and, eq } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
-import { computeJobEvaluationDraftInputHash } from "../../../../../../lib/server/job-evaluation-hash";
+import { db } from "@server/lib/server/db/index";
+import { computeJobEvaluationDraftInputHash } from "@server/lib/server/job-evaluation-hash";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import { generateEvaluationBlueprintCandidate } from "../utils/evaluation-blueprint-compiler";
 import type { JobEvaluationRuleDraftProgress } from "../utils/evaluation-blueprint-compiler";

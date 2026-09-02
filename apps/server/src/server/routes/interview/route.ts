@@ -1,7 +1,7 @@
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
-import { db } from "../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { buildRecordingFileKey, isRecordingStorageConfigured } from "@app/object-storage";
 import {
   candidateFormSubmission,

@@ -176,12 +176,11 @@ export function createDefaultMeetingPlaybackDependencies(
     createRunId: randomUUID,
     createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-playback-")),
     enqueueTranscription: async (input) => {
-      const [{ getMeetingTranscriptionJobForMeeting }, { enqueueMeetingTranscriptionJobs }] =
-        await Promise.all([
-          import("@app/server/worker/meeting-transcription"),
-          import("@app/meeting-processing-queue/meeting-transcription"),
-        ]);
-      const job = await getMeetingTranscriptionJobForMeeting(input);
+      const [{ meetingTranscriptionDao }, { enqueueMeetingTranscriptionJobs }] = await Promise.all([
+        import("../meeting-processing-daos"),
+        import("@app/meeting-processing-queue/meeting-transcription"),
+      ]);
+      const job = await meetingTranscriptionDao.getMeetingTranscriptionJobForMeeting(input);
       if (job) {
         await enqueueMeetingTranscriptionJobs([job]);
       }

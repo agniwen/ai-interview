@@ -1,5 +1,5 @@
 import { and, eq, exists, isNull, notExists, sql } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import {
   candidateFormSubmission,
   candidateFormTemplate,

@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
 import {
   interviewAuditLog,

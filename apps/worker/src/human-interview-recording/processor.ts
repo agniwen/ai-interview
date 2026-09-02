@@ -7,23 +7,25 @@ import type {
   downloadMeetingRecordingObjectToFile,
   headMeetingRecordingObject,
 } from "@app/object-storage";
-import type {
-  ingestHumanInterviewRecording,
-  markHumanInterviewTranscriptionUnavailable,
-  saveHumanInterviewRecordingProcessingError,
-} from "@app/server/worker/human-interview";
-import type { getMeetingTranscriptionJobForMeeting } from "@app/server/worker/meeting-transcription";
+import type { createHumanInterviewRecordingDao } from "@app/meeting-processing/human-interview";
+import type { createMeetingTranscriptionDao } from "@app/meeting-processing/transcription";
 import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
 import type { enqueueMeetingTranscriptionJobs } from "@app/meeting-processing-queue/meeting-transcription";
 
 export interface HumanInterviewRecordingProcessorDependencies {
   download: typeof downloadMeetingRecordingObjectToFile;
   enqueueTranscription: typeof enqueueMeetingTranscriptionJobs;
-  getTranscriptionJob: typeof getMeetingTranscriptionJobForMeeting;
+  getTranscriptionJob: ReturnType<
+    typeof createMeetingTranscriptionDao
+  >["getMeetingTranscriptionJobForMeeting"];
   head: typeof headMeetingRecordingObject;
-  ingest: typeof ingestHumanInterviewRecording;
-  markError: typeof saveHumanInterviewRecordingProcessingError;
-  markTranscriptionUnavailable: typeof markHumanInterviewTranscriptionUnavailable;
+  ingest: ReturnType<typeof createHumanInterviewRecordingDao>["ingestHumanInterviewRecording"];
+  markError: ReturnType<
+    typeof createHumanInterviewRecordingDao
+  >["saveHumanInterviewRecordingProcessingError"];
+  markTranscriptionUnavailable: ReturnType<
+    typeof createHumanInterviewRecordingDao
+  >["markHumanInterviewTranscriptionUnavailable"];
 }
 
 async function sha256File(filePath: string): Promise<string> {

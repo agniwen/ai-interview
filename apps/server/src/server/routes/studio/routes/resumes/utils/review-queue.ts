@@ -1,5 +1,5 @@
 import { and, eq, isNull, notInArray } from "drizzle-orm";
-import { db } from "../../../../../../lib/server/db/index";
+import { db } from "@server/lib/server/db/index";
 import { resumeEvaluationFailure, studioInterview } from "@app/db-schema/schema";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,

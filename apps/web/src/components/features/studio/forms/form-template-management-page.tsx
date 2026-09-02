@@ -12,7 +12,6 @@ import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
 } from "@app/db-schema/candidate-forms";
-import type { PaginatedCandidateFormTemplateResult } from "@app/server/web/studio";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -83,7 +82,7 @@ export function CandidateFormTemplateManagementPage({
         filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedCandidateFormTemplateResult> => {
+      }) => {
         const query: TemplateListQuery = {
           ...listTextQuery(params),
           page: String(params.page),
