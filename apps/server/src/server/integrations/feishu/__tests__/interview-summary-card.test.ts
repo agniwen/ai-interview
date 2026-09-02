@@ -12,10 +12,10 @@ describe("toLarkInteractiveCard", () => {
         detailUrl: "https://example.com/studio/interviews?roundId=round-1",
         duration: "18 分钟",
         interviewQuestions: [
-          "请说明你如何定位一次线上性能问题？",
-          "请介绍你主导的跨团队项目。",
-          "你会如何评估 AI 功能的业务价值？",
-          "这道题不应出现在通知中。",
+          "请说明你如何定位一次线上性能问题？（业务水平）",
+          "请介绍你主导的跨团队项目。（项目管理）",
+          "你会如何评估 AI 功能的业务价值？（AI应用）",
+          "这道题不应出现在通知中。（软实力）",
         ],
         interviewStartedAt: "2026/07/07 14:20",
         overallScore: "86/100",
@@ -73,8 +73,8 @@ describe("toLarkInteractiveCard", () => {
       "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
     );
     expect(JSON.stringify(larkCard)).toContain("**候选人面试题（节选 3 道）**");
-    expect(JSON.stringify(larkCard)).toContain("1. 请说明你如何定位一次线上性能问题？");
-    expect(JSON.stringify(larkCard)).toContain("3. 你会如何评估 AI 功能的业务价值？");
+    expect(JSON.stringify(larkCard)).toContain("1. 请说明你如何定位一次线上性能问题？（业务水平）");
+    expect(JSON.stringify(larkCard)).toContain("3. 你会如何评估 AI 功能的业务价值？（AI应用）");
     expect(JSON.stringify(larkCard)).not.toContain("这道题不应出现在通知中");
     expect(JSON.stringify(larkCard)).toContain("整体匹配度较高。");
     expect(JSON.stringify(larkCard)).toContain('"tag":"button"');

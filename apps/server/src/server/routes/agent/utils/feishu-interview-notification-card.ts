@@ -1,4 +1,5 @@
 import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 
@@ -32,7 +33,10 @@ export function extractNotificationCardSupplement(source: {
       ? parsedQuestions.data
           .toSorted((left, right) => left.order - right.order)
           .slice(0, 3)
-          .map((question) => question.question)
+          .map(
+            (question) =>
+              `${question.question}（${INTERVIEW_QUESTION_DIMENSION_LABEL[question.dimension ?? "business"]}）`,
+          )
       : [],
     questionAnswers:
       dataCollectionResults?.questions

@@ -124,16 +124,16 @@ describe("partial interview summary notifications", () => {
       extractNotificationCardSupplement({
         dataCollectionResults: null,
         interviewQuestions: [
-          { difficulty: "hard", order: 4, question: "第四题" },
-          { difficulty: "medium", order: 2, question: "第二题" },
-          { difficulty: "medium", order: 1, question: "第一题" },
-          { difficulty: "hard", order: 3, question: "第三题" },
+          { difficulty: "hard", dimension: "team_management", order: 4, question: "第四题" },
+          { difficulty: "medium", dimension: "ai_application", order: 2, question: "第二题" },
+          { difficulty: "medium", dimension: "business", order: 1, question: "第一题" },
+          { difficulty: "hard", dimension: "project_management", order: 3, question: "第三题" },
         ],
         qualitativeResumeEvaluation,
         resumeEvaluationArtifactMode: "qualitative",
       }),
     ).toEqual({
-      interviewQuestions: ["第一题", "第二题", "第三题"],
+      interviewQuestions: ["第一题（业务水平）", "第二题（AI应用）", "第三题（项目管理）"],
       questionAnswers: [],
       resumeEvaluation:
         "候选人具备多年企业软件交付经验，近期项目职责与岗位核心要求相符，并能提供较完整的技术决策与业务结果证据，整体建议进入下一轮。",
@@ -149,7 +149,7 @@ describe("partial interview summary notifications", () => {
         resumeEvaluationArtifactMode: "structured",
       }),
     ).toEqual({
-      interviewQuestions: ["保留的面试题"],
+      interviewQuestions: ["保留的面试题（业务水平）"],
       questionAnswers: [],
       resumeEvaluation: null,
     });
