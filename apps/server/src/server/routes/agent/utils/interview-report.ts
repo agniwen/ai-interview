@@ -303,7 +303,7 @@ export function buildInterviewSummaryPrompt(transcript: InterviewTranscriptTurn[
   return SUMMARY_PROMPT.replace("{transcript}", formatTranscript(transcript));
 }
 
-export function hasInterviewSummaryEvidence(options: {
+function hasCandidateAnswerEvidence(options: {
   dataCollectionResults?: InterviewDataCollectionResults | null;
   transcript: InterviewTranscriptTurn[];
 }): boolean {
@@ -316,14 +316,30 @@ export function hasInterviewSummaryEvidence(options: {
 
   const outcomes = options.dataCollectionResults?.questions;
   if (!outcomes || outcomes.length === 0) {
-    return true;
+    return false;
   }
 
   return outcomes.some(
     (outcome) =>
-      outcome.status !== "unasked" &&
-      !(outcome.status === "interrupted" && outcome.reason === "question_prompt_interrupted"),
+      outcome.status === "answered" ||
+      outcome.status === "insufficient" ||
+      (outcome.status === "interrupted" &&
+        outcome.reason !== "question_prompt_interrupted" &&
+        Boolean(outcome.answerSummary?.trim())),
   );
+}
+
+export async function generateGroundedInterviewSummary(
+  options: {
+    dataCollectionResults?: InterviewDataCollectionResults | null;
+    transcript: InterviewTranscriptTurn[];
+  },
+  generate: (input: { transcript: InterviewTranscriptTurn[] }) => Promise<string>,
+): Promise<string> {
+  if (!hasCandidateAnswerEvidence(options)) {
+    return NO_CANDIDATE_ANSWER_SUMMARY;
+  }
+  return await generate({ transcript: options.transcript });
 }
 
 export function formatQuestions(
@@ -540,12 +556,10 @@ export async function generateInterviewReport(
   }
 
   const [summaryResult, evaluationResult] = await Promise.allSettled([
-    hasInterviewSummaryEvidence({
-      dataCollectionResults: options.dataCollectionResults,
-      transcript,
-    })
-      ? dependencies.generateSummary({ transcript })
-      : Promise.resolve(NO_CANDIDATE_ANSWER_SUMMARY),
+    generateGroundedInterviewSummary(
+      { dataCollectionResults: options.dataCollectionResults, transcript },
+      dependencies.generateSummary,
+    ),
     dependencies.generateEvaluation({
       candidateFormResponses: options.candidateFormResponses,
       dataCollectionResults: options.dataCollectionResults,

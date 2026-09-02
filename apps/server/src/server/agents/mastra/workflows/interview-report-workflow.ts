@@ -5,10 +5,9 @@ import { interviewDataCollectionResultsSchema } from "@app/shared/interview/ques
 import {
   composeInterviewReport,
   generateInterviewEvaluation,
+  generateGroundedInterviewSummary,
   generateInterviewSummary,
-  hasInterviewSummaryEvidence,
   interviewEvaluationSchema,
-  NO_CANDIDATE_ANSWER_SUMMARY,
 } from "../../../routes/agent/utils/interview-report";
 
 const interviewTranscriptTurnSchema = z.object({
@@ -79,12 +78,13 @@ export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps)
   const summaryStep = createStep({
     execute: async ({ inputData }) => {
       try {
-        const summary = hasInterviewSummaryEvidence({
-          dataCollectionResults: inputData.dataCollectionResults,
-          transcript: inputData.transcript,
-        })
-          ? await deps.generateSummary({ transcript: inputData.transcript })
-          : NO_CANDIDATE_ANSWER_SUMMARY;
+        const summary = await generateGroundedInterviewSummary(
+          {
+            dataCollectionResults: inputData.dataCollectionResults,
+            transcript: inputData.transcript,
+          },
+          deps.generateSummary,
+        );
         return {
           ...inputData,
           summaryResult: {
