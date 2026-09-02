@@ -5,11 +5,19 @@
 
 import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/interview-notifications";
 import type {
+  FinalMeetingTranscriptRevision,
+  MeetingTranscriptState,
+} from "./meeting-transcription";
+import type {
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
+  HumanInterviewEvaluation,
+  HumanInterviewEvaluationRating,
+  HumanInterviewEvaluationStatus,
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingStatus,
+  HumanInterviewRecordingStatus,
   HumanInterviewerAssignmentStatus,
   HumanInterviewFormat,
   HumanInterviewRoundOutcome,
@@ -48,6 +56,15 @@ export interface HumanInterviewRoundRecord {
   outcome: HumanInterviewRoundOutcome | null;
   score: number | null;
   feedback: string | null;
+  evaluation: HumanInterviewEvaluation | null;
+  evaluationOverall: string | null;
+  evaluationRating: HumanInterviewEvaluationRating | null;
+  evaluationError: string | null;
+  evaluationStatus: HumanInterviewEvaluationStatus;
+  evaluationSubmittedAt: string | null;
+  evaluationTranscriptRevisionId: string | null;
+  evaluationUpdatedAt: string | null;
+  evaluationUpdatedBy: string | null;
   notes: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
@@ -113,7 +130,12 @@ export interface HumanInterviewMeetingRecord {
   validUntil: string | null;
   cancelledAt: string | null;
   recordingEgressId: string | null;
+  recordingDurationMs: number | null;
+  recordingError: string | null;
   recordingFileKey: string | null;
+  recordingSizeBytes: number | null;
+  recordingStatus: HumanInterviewRecordingStatus;
+  processingMeetingSessionId: string | null;
   scheduleVersion: number;
   notes: string | null;
   createdBy: string | null;
@@ -164,6 +186,7 @@ export interface PublicHumanInterviewMeetingPreview {
   candidateInviteStatus: CandidateInterviewInvitationStatus;
   candidateName: string;
   meetingId: string;
+  recordingStatus: HumanInterviewRecordingStatus;
   roundLabel: string;
   scheduledAt: string | null;
   validUntil: string | null;
@@ -175,12 +198,28 @@ export interface PublicHumanInterviewInterviewerPreview {
   candidateName: string;
   interviewerName: string;
   meetingId: string;
+  recordingStatus: HumanInterviewRecordingStatus;
   role: HumanInterviewMeetingInterviewerRole;
   roundLabel: string;
   scheduledAt: string | null;
   validUntil: string | null;
   status: HumanInterviewMeetingStatus;
   title: string;
+}
+
+export interface HumanInterviewReviewRecord {
+  evaluation: HumanInterviewEvaluation | null;
+  evaluationError: string | null;
+  evaluationStatus: HumanInterviewEvaluationStatus;
+  evaluationUpdatedAt: string | null;
+  evaluationUpdatedBy: string | null;
+  meetingSessionId: string | null;
+  outcome: HumanInterviewRoundOutcome | null;
+  roundId: string;
+  roundStatus: HumanInterviewRoundStatus;
+  transcript: FinalMeetingTranscriptRevision | null;
+  transcriptionError: string | null;
+  transcriptionState: MeetingTranscriptState;
 }
 
 /**

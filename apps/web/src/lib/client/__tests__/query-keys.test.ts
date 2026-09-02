@@ -32,7 +32,7 @@ describe("humanInterviewKeys", () => {
       { candidateId: "candidate_1", slug: "acme" },
     );
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(invalidateQueries).toHaveBeenCalledTimes(4);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, {
       queryKey: ["human-interview-rounds", "acme", "candidate_1"],
     });
@@ -42,6 +42,9 @@ describe("humanInterviewKeys", () => {
     expect(invalidateQueries).toHaveBeenNthCalledWith(3, {
       queryKey: ["studio-resumes"],
     });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(4, {
+      queryKey: ["studio-calendar", "acme", "ranges"],
+    });
   });
 
   it("invalidates every candidate's human interview data after a group meeting changes", async () => {
@@ -49,7 +52,7 @@ describe("humanInterviewKeys", () => {
 
     await invalidateHumanInterviewWorkspaceQueries({ invalidateQueries }, { slug: "acme" });
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(invalidateQueries).toHaveBeenCalledTimes(4);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, {
       queryKey: ["human-interview-rounds", "acme"],
     });
@@ -59,6 +62,9 @@ describe("humanInterviewKeys", () => {
     expect(invalidateQueries).toHaveBeenNthCalledWith(3, {
       queryKey: ["studio-resumes"],
     });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(4, {
+      queryKey: ["studio-calendar", "acme", "ranges"],
+    });
   });
 });
 
@@ -67,6 +73,7 @@ describe("studioCalendarKeys", () => {
     expect(studioCalendarKeys.range("acme", "2026-07-01", "2026-08-01")).toEqual([
       "studio-calendar",
       "acme",
+      "ranges",
       "2026-07-01",
       "2026-08-01",
     ]);

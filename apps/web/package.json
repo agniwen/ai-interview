@@ -29,6 +29,7 @@
     "@ai-sdk/react": "^3.0.221",
     "@app/server": "workspace:*",
     "@arc/db-schema": "workspace:*",
+    "@arc/meeting-live-transcript": "workspace:*",
     "@arc/resume-parse-queue": "workspace:*",
     "@arc/shared": "workspace:*",
     "@assistant-ui/react": "^0.14.24",

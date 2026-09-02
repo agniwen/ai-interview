@@ -1,5 +1,6 @@
 /* oxlint-disable max-lines -- integration suite covering run claims, policy linearization, chunk checkpoints, and default-policy materialization in one transactional fixture. */
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../../lib/server/db/index";
 import {
@@ -24,7 +25,10 @@ import {
   saveMeetingTranscriptionChunkCheckpoint,
   updateMeetingTranscriptionPolicy,
 } from "./dao";
-import { createHumanMeetingTranscriptRevision } from "./revision-dao";
+import {
+  createHumanMeetingTranscriptRevision,
+  createInitialHumanMeetingTranscriptRevision,
+} from "./revision-dao";
 import { searchMeetingSessionsForAccess } from "../routes/search/dao";
 
 const TEST_SUFFIX = String(process.pid);
@@ -607,6 +611,100 @@ describe("Meeting transcription publication", () => {
     });
   });
 
+  it("creates the first authoritative transcript from a manual supplement after failure", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({
+        ...job,
+        attempt: 1,
+        processingRunId: runId("run-manual-supplement"),
+      }),
+    ).resolves.toBe("claimed");
+    await expect(
+      markMeetingTranscriptionFailed({
+        ...job,
+        errorCode: "provider-error",
+        errorMessage: "provider rejected the recording",
+        processingRunId: runId("run-manual-supplement"),
+        terminal: true,
+      }),
+    ).resolves.toBe(true);
+
+    const result = await createInitialHumanMeetingTranscriptRevision({
+      actorId: USER_ID,
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      text: "面试官：请介绍项目。\n候选人：这是完整的人工补录。",
+    });
+    const firstRevisionId = z.object({ id: z.string() }).parse(result).id;
+
+    expect(result).toMatchObject({
+      basedOnRevisionId: null,
+      kind: "human",
+      provider: "qwen",
+      revision: 1,
+      turns: [
+        {
+          endMs: 10_000,
+          speakerDisplayName: "人工补录",
+          startMs: 0,
+          text: "面试官：请介绍项目。\n候选人：这是完整的人工补录。",
+        },
+      ],
+    });
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: {
+          activeTranscriptRevisionId: true,
+          transcriptionError: true,
+          transcriptionStatus: true,
+        },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({
+      activeTranscriptRevisionId: expect.any(String),
+      transcriptionError: null,
+      transcriptionStatus: "ready",
+    });
+    await expect(searchTranscript("完整的人工补录")).resolves.toMatchObject([
+      { match: { kind: "transcript", startMs: 0 } },
+    ]);
+    const replacement = await createInitialHumanMeetingTranscriptRevision({
+      actorId: USER_ID,
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      text: "人工复核后的完整对话",
+    });
+    expect(replacement).toMatchObject({
+      basedOnRevisionId: firstRevisionId,
+      kind: "human",
+      revision: 2,
+      turns: [{ text: "人工复核后的完整对话" }],
+    });
+  });
+
+  it("creates a manual transcript when no provider job is available", async () => {
+    await db
+      .delete(meetingTranscriptionPolicy)
+      .where(eq(meetingTranscriptionPolicy.organizationId, ORGANIZATION_ID));
+
+    const result = await createInitialHumanMeetingTranscriptRevision({
+      actorId: USER_ID,
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      text: "转录服务不可用时的人工补录",
+    });
+
+    expect(result).toMatchObject({
+      basedOnRevisionId: null,
+      kind: "human",
+      model: "manual-input",
+      provider: "manual",
+      region: "local",
+      revision: 1,
+      turns: [{ text: "转录服务不可用时的人工补录" }],
+    });
+  });
+
   it("returns a backoff meeting to pending when provider policy is disabled", async () => {
     await expect(
       claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-backoff") }),
@@ -872,30 +970,49 @@ describe("Meeting transcription publication", () => {
     await db
       .delete(meetingTranscriptionPolicy)
       .where(eq(meetingTranscriptionPolicy.organizationId, ORGANIZATION_ID));
-    process.env.MEETING_TRANSCRIPTION_QWEN_ENABLED = "true";
-    try {
-      await expect(
-        getMeetingTranscriptionJobForMeeting({
-          meetingId: MEETING_ID,
-          organizationId: ORGANIZATION_ID,
-        }),
-      ).resolves.toMatchObject({
+    await expect(
+      getMeetingTranscriptionJobForMeeting({
         meetingId: MEETING_ID,
-        model: "qwen3-asr-flash-filetrans",
-        policyRevision: 1,
-        provider: "qwen",
-        region: "qwen-cn-beijing",
-        sourceManifestSha256: SOURCE_SHA,
-      });
-      const [row] = await db
-        .select()
-        .from(meetingTranscriptionPolicy)
-        .where(eq(meetingTranscriptionPolicy.organizationId, ORGANIZATION_ID));
-      expect(row?.selectedProvider).toBe("qwen");
-      expect(row?.allowedProviders).toEqual(["qwen"]);
-      expect(row?.revision).toBe(1);
-    } finally {
-      delete process.env.MEETING_TRANSCRIPTION_QWEN_ENABLED;
-    }
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toMatchObject({
+      meetingId: MEETING_ID,
+      model: "qwen3-asr-flash-filetrans",
+      policyRevision: 1,
+      provider: "qwen",
+      region: "qwen-cn-beijing",
+      sourceManifestSha256: SOURCE_SHA,
+    });
+    const [row] = await db
+      .select()
+      .from(meetingTranscriptionPolicy)
+      .where(eq(meetingTranscriptionPolicy.organizationId, ORGANIZATION_ID));
+    expect(row?.selectedProvider).toBe("qwen");
+    expect(row?.allowedProviders).toEqual(["qwen"]);
+    expect(row?.revision).toBe(1);
   }, 30_000);
+
+  it("uses a diarization-capable Qwen model for a mixed meeting recording", async () => {
+    await db.delete(meetingRecordingAsset).where(eq(meetingRecordingAsset.meetingId, MEETING_ID));
+    await db.insert(meetingRecordingAsset).values({
+      contentType: "audio/ogg",
+      durationMs: 10_000,
+      fragmentCount: 1,
+      id: `${MEETING_ID}:mixed`,
+      meetingId: MEETING_ID,
+      sha256: "d".repeat(64),
+      sizeBytes: 100,
+      status: "ready",
+      storageKey: `${MEETING_ID}/mixed.ogg`,
+      track: "mixed",
+      uploadMode: "single",
+      verifiedAt: new Date(),
+    });
+    await expect(
+      getMeetingTranscriptionJobForMeeting({
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toMatchObject({ model: "qwen-audio-3.0-asr-flash-filetrans" });
+  });
 });

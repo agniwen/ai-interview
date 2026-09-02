@@ -1,9 +1,4 @@
-// 真人复面单轮 DAO。每个 mutation 都是一个事务，确保 round 与 interviewer junction 同步。
-// 路由层只负责权限 + 输入校验 + 调用这里的函数。
-//
-// Human-interview round DAO. Each mutation runs in a single transaction so the
-// round row and its interviewer junction stay consistent. Route handlers do
-// auth + zod validation, then call into these helpers.
+// 真人复面单轮 DAO：mutation 事务同步 round 与 interviewer junction；路由层只做权限、校验与调用。
 
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -132,6 +127,15 @@ function toRecord(row: {
     cancelledAt: serializeDate(round.cancelledAt),
     completedAt: serializeDate(round.completedAt),
     createdAt: serializeDate(round.createdAt) ?? new Date().toISOString(),
+    evaluation: round.evaluation,
+    evaluationError: round.evaluationError,
+    evaluationOverall: round.evaluation?.overallEvaluation ?? null,
+    evaluationRating: round.evaluation?.rating ?? null,
+    evaluationStatus: round.evaluationStatus,
+    evaluationSubmittedAt: serializeDate(round.evaluationSubmittedAt),
+    evaluationTranscriptRevisionId: round.evaluationTranscriptRevisionId,
+    evaluationUpdatedAt: serializeDate(round.evaluationUpdatedAt),
+    evaluationUpdatedBy: round.evaluationUpdatedBy,
     feedback: round.feedback,
     format: round.format,
     id: round.id,
@@ -355,7 +359,7 @@ export async function createHumanInterviewRound({
       organizationId,
       outcome: input.outcome ?? null,
       scheduledAt,
-      score: input.score ?? null,
+      score: null,
       sortOrder,
       status: "pending",
       updatedAt: now,
@@ -379,11 +383,11 @@ export async function createHumanInterviewRound({
 
 // 编辑轮次：根据 status 决定可写字段。
 //   pending：所有字段都能改（label / 时间 / 面试官 / 形式 / 地点 / 备注）
-//   completed：只允许改 feedback / score（如果想纠正评分）
+//   completed：只允许改 feedback
 //   cancelled：不允许改
 //
-// Editable fields depend on status. pending = anything; completed = feedback +
-// score only; cancelled = nothing.
+// Editable fields depend on status. pending = anything; completed = feedback
+// only; cancelled = nothing.
 export interface EditRoundOptions {
   roundId: string;
   organizationId: string;
@@ -526,14 +530,13 @@ export async function editHumanInterviewRound({
     }
 
     if (existing.status === "completed") {
-      // completed：只允许修订 feedback / score。
-      // completed → feedback + score only.
+      // completed：只允许修订 feedback。
+      // completed → feedback only.
       const feedback = normalizeRequiredFeedback(input.feedback ?? existing.feedback);
       await tx
         .update(studioHumanInterviewRound)
         .set({
           feedback,
-          score: input.score ?? existing.score,
           updatedAt: now,
         })
         .where(eq(studioHumanInterviewRound.id, roundId));
@@ -566,7 +569,6 @@ export async function editHumanInterviewRound({
         meetingUrl: input.meetingUrl ?? existing.meetingUrl,
         notes: input.notes ?? existing.notes,
         scheduledAt: nextScheduledAt,
-        score: input.score ?? existing.score,
         updatedAt: now,
       })
       .where(eq(studioHumanInterviewRound.id, roundId));
@@ -588,14 +590,13 @@ export async function editHumanInterviewRound({
   return updated;
 }
 
-// 标记完成：仅 pending → completed；带 outcome / 可选 score / feedback。
-// Mark a pending round as completed; outcome required, score/feedback optional.
+// 标记完成：仅 pending → completed；带 outcome / feedback，不再维护数字评分。
+// Mark a pending round as completed; numeric scoring is retired.
 export interface CompleteRoundOptions {
   actorUserId?: string | null;
   roundId: string;
   organizationId: string;
   outcome: HumanInterviewRoundOutcome;
-  score?: number | null;
   feedback?: string | null;
 }
 export async function completeHumanInterviewRound({
@@ -603,7 +604,6 @@ export async function completeHumanInterviewRound({
   roundId,
   organizationId,
   outcome,
-  score,
   feedback,
 }: CompleteRoundOptions): Promise<HumanInterviewRoundRecord> {
   const nextFeedback = normalizeRequiredFeedback(feedback);
@@ -622,7 +622,7 @@ export async function completeHumanInterviewRound({
         completedAt: now,
         feedback: nextFeedback,
         outcome,
-        score: score ?? null,
+        score: null,
         status: "completed",
         updatedAt: now,
       })

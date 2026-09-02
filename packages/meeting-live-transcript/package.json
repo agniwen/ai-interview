@@ -1,0 +1,30 @@
+{
+  "name": "@arc/meeting-live-transcript",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./browser": "./src/browser.ts",
+    "./draft": "./src/live-transcript-draft.ts",
+    "./hints": "./src/meeting-live-transcript-hints.ts",
+    "./qwen-events": "./src/qwen-events.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arc/db-schema": "workspace:*",
+    "@arc/shared": "workspace:*",
+    "ws": "^8.21.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "@types/ws": "^8.18.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -202,33 +202,6 @@ function MeetingLinksContent({
         </p>
       ) : null}
 
-      {links.feishu?.calendarEventUrl ? (
-        <section className="space-y-2">
-          <h4 className="flex items-center gap-2 font-medium text-sm">
-            <IconLink className="size-4" />
-            飞书日程
-          </h4>
-          <MeetingLinkRow
-            description="查看面试安排"
-            label="打开飞书日程"
-            url={links.feishu.calendarEventUrl}
-          />
-          <p className="text-muted-foreground text-xs">
-            系统内改期会同步到飞书日程；取消仍需同时在飞书中处理。
-          </p>
-        </section>
-      ) : null}
-
-      {links.feishu?.meetingUrl ? (
-        <section className="space-y-2">
-          <h4 className="flex items-center gap-2 font-medium text-sm">
-            <IconLink className="size-4" />
-            飞书会议链接
-          </h4>
-          <MeetingLinkRow description="发给候选人" label="飞书会议" url={links.feishu.meetingUrl} />
-        </section>
-      ) : null}
-
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
           <IconUsers className="size-4" />

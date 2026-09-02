@@ -162,7 +162,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
     };
     if (
       dependencies.model.startsWith("qwen-audio-3.0-asr-flash-filetrans") &&
-      input.chunk.track === "system"
+      (input.chunk.track === "system" || input.chunk.track === "mixed")
     ) {
       parameters.diarization_enabled = true;
     }
@@ -260,6 +260,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
   }
 
   return {
+    // oxlint-disable-next-line complexity -- provider polling, response validation, and speaker mapping share one ordered transcript pass.
     async transcribeFinal(input): Promise<CanonicalMeetingTranscript> {
       if (!dependencies.apiKey.trim()) {
         throw new Error("ALIBABA_API_KEY is not set for Meeting transcription");
@@ -293,23 +294,34 @@ export function createQwenAsrMeetingTranscriptionProvider(
                 continue;
               }
               const local = chunk.track === "microphone";
-              if (!local) {
+              const candidate = chunk.track === "candidate";
+              if (!(local || candidate)) {
                 const identity = `${chunk.index}:${sentence.speaker_id ?? 0}`;
                 if (!remoteSpeakers.has(identity)) {
                   remoteSpeakers.set(identity, `remote-${remoteSpeakers.size + 1}`);
                 }
               }
-              turns.push({
+              let speakerKey = "remote-1";
+              let track: "local" | "remote" = "remote";
+              if (local) {
+                speakerKey = "local";
+                track = "local";
+              } else if (!candidate) {
+                speakerKey =
+                  remoteSpeakers.get(`${chunk.index}:${sentence.speaker_id ?? 0}`) ?? "remote-1";
+              }
+              const turn: CanonicalMeetingTranscriptTurn = {
                 confidence: null,
                 endMs,
-                speakerKey: local
-                  ? "local"
-                  : (remoteSpeakers.get(`${chunk.index}:${sentence.speaker_id ?? 0}`) ??
-                    "remote-1"),
+                speakerKey,
                 startMs,
                 text,
-                track: local ? "local" : "remote",
-              });
+                track,
+              };
+              if (candidate && chunk.speakerDisplayName) {
+                turn.speakerDisplayName = chunk.speakerDisplayName;
+              }
+              turns.push(turn);
             }
           }
         } finally {

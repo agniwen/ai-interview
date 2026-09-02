@@ -47,6 +47,7 @@ import {
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
 } from "../studio/routes/interviews/utils/human-interview-livekit";
+import { stopActiveHumanInterviewRecording } from "../studio/routes/interviews/utils/human-interview-recording-service";
 import { loadResumeDetail } from "../studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@arc/shared/referrals";
 import {
@@ -222,6 +223,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
           candidateName: scope.candidateName,
           interviewerName: scope.interviewerName,
           meetingId: scope.meetingId,
+          recordingStatus: scope.recordingStatus,
           role: scope.role,
           roundLabel: scope.roundLabel,
           scheduledAt: scope.scheduledAt,
@@ -292,6 +294,11 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       if (!scope) {
         return c.json({ error: "真人复面链接不可用。" }, 404);
       }
+      try {
+        await stopActiveHumanInterviewRecording(scope.meetingId);
+      } catch (error) {
+        console.warn("failed to stop livekit human interview recording", error);
+      }
       const roomName = await endHumanInterviewMeeting({ meetingId: scope.meetingId });
       try {
         await deleteHumanInterviewLiveKitRoom(roomName);
@@ -326,6 +333,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
           candidateInviteStatus: scope.candidateInviteStatus,
           candidateName: scope.candidateName,
           meetingId: scope.meetingId,
+          recordingStatus: scope.recordingStatus,
           roundLabel: scope.roundLabel,
           scheduledAt: scope.scheduledAt,
           status: scope.status,

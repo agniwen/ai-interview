@@ -45,7 +45,18 @@ import {
   enqueueMeetingTranscriptionJobs,
   isMeetingTranscriptionQueueConfigured,
 } from "@arc/meeting-processing-queue/meeting-transcription";
-import { listMeetingTranscriptionProviderCandidates } from "@app/server/worker/meeting-transcription";
+import {
+  closeHumanInterviewRecordingQueue,
+  createHumanInterviewRecordingWorker,
+  enqueueHumanInterviewRecordingJobs,
+  isHumanInterviewRecordingQueueConfigured,
+} from "@arc/meeting-processing-queue/human-interview-recording";
+import {
+  closeHumanInterviewEvaluationQueue,
+  createHumanInterviewEvaluationWorker,
+  enqueueHumanInterviewEvaluationJobs,
+  isHumanInterviewEvaluationQueueConfigured,
+} from "@arc/meeting-processing-queue/human-interview-evaluation";
 import { createWorkerApp } from "./app";
 import { isWorkerBackgroundProcessingEnabled, resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, validateWorkerEnv } from "./env";
@@ -180,11 +191,75 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 }
 
 // 防止定时器重叠时同一恢复查询并发入队。 / Prevents overlapping timers from enqueueing the same recovery class concurrently.
+async function recoverIncompleteHumanInterviewRecordingJobs(): Promise<void> {
+  const { listRecoverableHumanInterviewRecordingJobs } =
+    await import("@app/server/worker/human-interview");
+  const jobs = await listRecoverableHumanInterviewRecordingJobs();
+  if (jobs.length === 0) {
+    console.info("[human-interview-recording-worker] recovery found no pending recordings");
+    return;
+  }
+  await enqueueHumanInterviewRecordingJobs(jobs);
+  console.info("[human-interview-recording-worker] recovery enqueued recordings", {
+    count: jobs.length,
+  });
+}
+
+async function recoverIncompleteHumanInterviewEvaluationJobs(): Promise<void> {
+  const { listRecoverableHumanInterviewEvaluationJobs } =
+    await import("@app/server/worker/human-interview");
+  const jobs = await listRecoverableHumanInterviewEvaluationJobs();
+  if (jobs.length === 0) {
+    console.info("[human-interview-evaluation-worker] recovery found no pending evaluations");
+    return;
+  }
+  await enqueueHumanInterviewEvaluationJobs(jobs);
+  console.info("[human-interview-evaluation-worker] recovery enqueued evaluations", {
+    count: jobs.length,
+  });
+}
+
 let meetingPlaybackRecoveryRunning = false;
 let meetingPurgeRecoveryRunning = false;
 let meetingAnswerRecoveryRunning = false;
 let meetingIntelligenceRecoveryRunning = false;
 let meetingTranscriptionRecoveryRunning = false;
+let humanInterviewRecordingRecoveryRunning = false;
+let humanInterviewEvaluationRecoveryRunning = false;
+
+async function reconcileHumanInterviewEvaluationJobs(): Promise<void> {
+  if (humanInterviewEvaluationRecoveryRunning) {
+    return;
+  }
+  humanInterviewEvaluationRecoveryRunning = true;
+  try {
+    await recoverIncompleteHumanInterviewEvaluationJobs();
+  } catch (error) {
+    captureWorkerException(error, "worker.human-interview-evaluation.reconcile");
+    console.error("[human-interview-evaluation-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    humanInterviewEvaluationRecoveryRunning = false;
+  }
+}
+
+async function reconcileHumanInterviewRecordingJobs(): Promise<void> {
+  if (humanInterviewRecordingRecoveryRunning) {
+    return;
+  }
+  humanInterviewRecordingRecoveryRunning = true;
+  try {
+    await recoverIncompleteHumanInterviewRecordingJobs();
+  } catch (error) {
+    captureWorkerException(error, "worker.human-interview-recording.reconcile");
+    console.error("[human-interview-recording-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    humanInterviewRecordingRecoveryRunning = false;
+  }
+}
 
 // 为会议智能恢复增加单飞保护；失败仅记录，留给下一轮继续。 / Adds single-flight protection to intelligence recovery; failures are logged for the next cycle.
 async function reconcileMeetingIntelligenceJobs(): Promise<void> {
@@ -277,6 +352,7 @@ async function reconcileMeetingTranscriptionJobs(): Promise<void> {
 }
 
 // 统一组装 HTTP、队列消费者、恢复定时器与优雅关闭流程。 / Composes HTTP, queue consumers, recovery timers, and graceful shutdown in one process boundary.
+// oxlint-disable-next-line complexity -- worker bootstrap coordinates independently configurable queues and recovery timers.
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
   const backgroundProcessingEnabled = isWorkerBackgroundProcessingEnabled();
@@ -337,6 +413,55 @@ async function main() {
   let meetingPurgeRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
   let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
+  let humanInterviewRecordingWorker: ReturnType<typeof createHumanInterviewRecordingWorker> | null =
+    null;
+  let humanInterviewRecordingRecoveryTimer: NodeJS.Timeout | null = null;
+  let humanInterviewEvaluationWorker: ReturnType<
+    typeof createHumanInterviewEvaluationWorker
+  > | null = null;
+  let humanInterviewEvaluationRecoveryTimer: NodeJS.Timeout | null = null;
+  if (backgroundProcessingEnabled && isHumanInterviewEvaluationQueueConfigured()) {
+    humanInterviewEvaluationWorker = createHumanInterviewEvaluationWorker(
+      async (payload, context) => {
+        const { defaultHumanInterviewEvaluationDependencies } =
+          await import("./human-interview-evaluation/default-dependencies");
+        const { runHumanInterviewEvaluationProcessing } =
+          await import("./human-interview-evaluation/processor");
+        await runHumanInterviewEvaluationProcessing(
+          payload,
+          context,
+          defaultHumanInterviewEvaluationDependencies,
+        );
+      },
+    );
+    humanInterviewEvaluationWorker.on("failed", reportQueueFailure("human-interview-evaluation"));
+    await reconcileHumanInterviewEvaluationJobs();
+    humanInterviewEvaluationRecoveryTimer = setInterval(() => {
+      void reconcileHumanInterviewEvaluationJobs();
+    }, 60_000);
+    humanInterviewEvaluationRecoveryTimer.unref();
+  }
+  if (backgroundProcessingEnabled && isHumanInterviewRecordingQueueConfigured()) {
+    humanInterviewRecordingWorker = createHumanInterviewRecordingWorker(
+      async (payload, context) => {
+        const { defaultHumanInterviewRecordingDependencies } =
+          await import("./human-interview-recording/default-dependencies");
+        const { runHumanInterviewRecordingProcessing } =
+          await import("./human-interview-recording/processor");
+        await runHumanInterviewRecordingProcessing(
+          payload,
+          context,
+          defaultHumanInterviewRecordingDependencies,
+        );
+      },
+    );
+    humanInterviewRecordingWorker.on("failed", reportQueueFailure("human-interview-recording"));
+    await reconcileHumanInterviewRecordingJobs();
+    humanInterviewRecordingRecoveryTimer = setInterval(() => {
+      void reconcileHumanInterviewRecordingJobs();
+    }, 60_000);
+    humanInterviewRecordingRecoveryTimer.unref();
+  }
   if (backgroundProcessingEnabled && isMeetingAnswerQueueConfigured()) {
     meetingAnswerWorker = createMeetingAnswerWorker(async (payload, context) => {
       const [{ defaultMeetingAnswerDependencies }, { runMeetingAnswerProcessing }] =
@@ -399,11 +524,7 @@ async function main() {
     }, 60_000);
     meetingIntelligenceRecoveryTimer.unref();
   }
-  if (
-    backgroundProcessingEnabled &&
-    isMeetingTranscriptionQueueConfigured() &&
-    listMeetingTranscriptionProviderCandidates().length > 0
-  ) {
+  if (backgroundProcessingEnabled && isMeetingTranscriptionQueueConfigured()) {
     const { reapStaleMeetingTranscriptionDirectories, validateMeetingTranscriptionRuntime } =
       await import("./meeting-transcription/processor");
     await reapStaleMeetingTranscriptionDirectories();
@@ -480,6 +601,7 @@ async function main() {
   console.info("[worker] resume parse config", getResumeParseConfigSummary());
 
   const shutdown = (signal: NodeJS.Signals) => {
+    // oxlint-disable-next-line complexity -- shutdown mirrors every optional worker and timer initialized above.
     void (async () => {
       try {
         console.info(`[worker] shutting down after ${signal}`);
@@ -505,16 +627,26 @@ async function main() {
         if (meetingTranscriptionRecoveryTimer) {
           clearInterval(meetingTranscriptionRecoveryTimer);
         }
+        if (humanInterviewRecordingRecoveryTimer) {
+          clearInterval(humanInterviewRecordingRecoveryTimer);
+        }
+        if (humanInterviewEvaluationRecoveryTimer) {
+          clearInterval(humanInterviewEvaluationRecoveryTimer);
+        }
         await meetingPlaybackWorker?.close();
         await meetingPurgeWorker?.close();
         await meetingAnswerWorker?.close();
         await meetingIntelligenceWorker?.close();
         await meetingTranscriptionWorker?.close();
+        await humanInterviewRecordingWorker?.close();
+        await humanInterviewEvaluationWorker?.close();
         await closeMeetingPlaybackQueue();
         await closeMeetingPurgeQueue();
         await closeMeetingAnswerQueue();
         await closeMeetingIntelligenceQueue();
         await closeMeetingTranscriptionQueue();
+        await closeHumanInterviewRecordingQueue();
+        await closeHumanInterviewEvaluationQueue();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();
         await closeResumeReviewGenerationQueue();

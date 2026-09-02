@@ -24,7 +24,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.{ts,tsx}"],
     // VITEST_VERBOSE=1 → list every test; default hides console from passed tests.
     reporters: verbose ? ["verbose"] : ["default"],
     silent: verbose ? false : "passed-only",

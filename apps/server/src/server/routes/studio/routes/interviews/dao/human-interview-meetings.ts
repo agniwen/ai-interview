@@ -1,8 +1,10 @@
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../../lib/server/db/index";
 import {
+  department,
+  jobDescription,
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingInterviewer,
   studioHumanInterviewMeetingRound,
@@ -12,6 +14,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type { HumanInterviewMeetingInput } from "@arc/db-schema/studio-interviews";
+import type { HumanInterviewRecordingJobData } from "@arc/meeting-processing-queue/human-interview-recording";
 import type {
   HumanInterviewMeetingCandidateLinkRecord,
   HumanInterviewMeetingLinkBundle,
@@ -78,8 +81,13 @@ function toRecord({
     liveKitRoomName: meeting.liveKitRoomName,
     notes: meeting.notes,
     organizationId: meeting.organizationId,
+    processingMeetingSessionId: meeting.processingMeetingSessionId,
+    recordingDurationMs: meeting.recordingDurationMs,
     recordingEgressId: meeting.recordingEgressId,
+    recordingError: meeting.recordingError,
     recordingFileKey: meeting.recordingFileKey,
+    recordingSizeBytes: meeting.recordingSizeBytes,
+    recordingStatus: meeting.recordingStatus,
     rounds,
     scheduleVersion: meeting.scheduleVersion,
     scheduledAt: serializeDate(meeting.scheduledAt),
@@ -486,8 +494,13 @@ export interface HumanInterviewMeetingInviteScope extends PublicHumanInterviewMe
 }
 
 export interface HumanInterviewMeetingInterviewerInviteScope extends PublicHumanInterviewInterviewerPreview {
+  jobDescriptionDepartmentName: string | null;
+  jobDescriptionName: string | null;
   liveKitRoomName: string | null;
   organizationId: string;
+  resumeSkills: string[];
+  roundId: string;
+  targetRole: string | null;
   userId: string;
 }
 
@@ -509,6 +522,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
       liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
       meetingId: studioHumanInterviewMeeting.id,
       organizationId: studioHumanInterviewMeeting.organizationId,
+      recordingStatus: studioHumanInterviewMeeting.recordingStatus,
       roundId: studioHumanInterviewRound.id,
       roundLabel: studioHumanInterviewRound.label,
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
@@ -551,6 +565,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
     liveKitRoomName: row.liveKitRoomName,
     meetingId: row.meetingId,
     organizationId: row.organizationId,
+    recordingStatus: row.recordingStatus,
     roundId: row.roundId,
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
@@ -574,6 +589,7 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
       meetingId: studioHumanInterviewMeeting.id,
       organizationId: studioHumanInterviewMeeting.organizationId,
+      recordingStatus: studioHumanInterviewMeeting.recordingStatus,
       role: studioHumanInterviewMeetingInterviewer.role,
       scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
@@ -604,7 +620,12 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
   const [context] = await db
     .select({
       candidateName: studioInterview.candidateName,
+      jobDescriptionDepartmentName: department.name,
+      jobDescriptionName: jobDescription.name,
+      resumeProfile: studioInterview.resumeProfile,
+      roundId: studioHumanInterviewRound.id,
       roundLabel: studioHumanInterviewRound.label,
+      targetRole: studioInterview.targetRole,
     })
     .from(studioHumanInterviewMeetingRound)
     .innerJoin(
@@ -612,6 +633,20 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
     )
     .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(studioInterview.organizationId, jobDescription.organizationId),
+      ),
+    )
+    .leftJoin(
+      department,
+      and(
+        eq(jobDescription.departmentId, department.id),
+        eq(studioInterview.organizationId, department.organizationId),
+      ),
+    )
     .where(eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId))
     .orderBy(asc(studioHumanInterviewRound.sortOrder))
     .limit(1);
@@ -622,13 +657,19 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
   return {
     candidateName: context.candidateName,
     interviewerName: row.interviewerName ?? "未命名",
+    jobDescriptionDepartmentName: context.jobDescriptionDepartmentName,
+    jobDescriptionName: context.jobDescriptionName,
     liveKitRoomName: row.liveKitRoomName,
     meetingId: row.meetingId,
     organizationId: row.organizationId,
+    recordingStatus: row.recordingStatus,
+    resumeSkills: context.resumeProfile?.skills ?? [],
     role: row.role,
+    roundId: context.roundId,
     roundLabel: context.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
     status: row.status,
+    targetRole: context.targetRole,
     title: row.title,
     userId: row.userId,
     validUntil: serializeDate(row.validUntil),
@@ -642,6 +683,352 @@ async function loadMeetingIdByRoomName(roomName: string): Promise<string | null>
     .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
     .limit(1);
   return meeting?.id ?? null;
+}
+
+export interface HumanInterviewRecordingStartClaim {
+  candidateIdentity: string;
+  meetingId: string;
+  organizationId: string;
+  roomName: string;
+}
+
+const HUMAN_INTERVIEW_RECORDING_START_LEASE_MS = 2 * 60 * 1000;
+
+export async function claimHumanInterviewRecordingStartByRoomName(
+  roomName: string,
+): Promise<HumanInterviewRecordingStartClaim | null> {
+  return await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({
+        id: studioHumanInterviewMeeting.id,
+        organizationId: studioHumanInterviewMeeting.organizationId,
+        recordingStatus: studioHumanInterviewMeeting.recordingStatus,
+        status: studioHumanInterviewMeeting.status,
+        updatedAt: studioHumanInterviewMeeting.updatedAt,
+      })
+      .from(studioHumanInterviewMeeting)
+      .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
+      .for("update")
+      .limit(1);
+    const now = new Date();
+    const staleStarting =
+      meeting?.recordingStatus === "starting" &&
+      meeting.updatedAt.getTime() <= now.getTime() - HUMAN_INTERVIEW_RECORDING_START_LEASE_MS;
+    const claimable =
+      meeting?.recordingStatus === "pending" ||
+      meeting?.recordingStatus === "failed" ||
+      staleStarting;
+    if (!(meeting && claimable && ["scheduled", "in_progress"].includes(meeting.status))) {
+      return null;
+    }
+    const [candidate, interviewer] = await Promise.all([
+      tx
+        .select({
+          joinedAt: studioHumanInterviewMeetingRound.joinedAt,
+          roundId: studioHumanInterviewMeetingRound.roundId,
+        })
+        .from(studioHumanInterviewMeetingRound)
+        .where(
+          and(
+            eq(studioHumanInterviewMeetingRound.meetingId, meeting.id),
+            isNotNull(studioHumanInterviewMeetingRound.joinedAt),
+            or(
+              isNull(studioHumanInterviewMeetingRound.leftAt),
+              gt(
+                studioHumanInterviewMeetingRound.joinedAt,
+                studioHumanInterviewMeetingRound.leftAt,
+              ),
+            ),
+          ),
+        )
+        .limit(1),
+      tx
+        .select({ joinedAt: studioHumanInterviewMeetingInterviewer.joinedAt })
+        .from(studioHumanInterviewMeetingInterviewer)
+        .where(
+          and(
+            eq(studioHumanInterviewMeetingInterviewer.meetingId, meeting.id),
+            isNotNull(studioHumanInterviewMeetingInterviewer.joinedAt),
+            or(
+              isNull(studioHumanInterviewMeetingInterviewer.leftAt),
+              gt(
+                studioHumanInterviewMeetingInterviewer.joinedAt,
+                studioHumanInterviewMeetingInterviewer.leftAt,
+              ),
+            ),
+          ),
+        )
+        .limit(1),
+    ]);
+    if (!(candidate[0] && interviewer[0])) {
+      return null;
+    }
+    await tx
+      .update(studioHumanInterviewMeeting)
+      .set({
+        candidateRecordingError: null,
+        candidateRecordingStatus: "starting",
+        recordingError: null,
+        recordingStatus: "starting",
+        updatedAt: now,
+      })
+      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+    return {
+      candidateIdentity: `candidate_${candidate[0].roundId}`,
+      meetingId: meeting.id,
+      organizationId: meeting.organizationId,
+      roomName,
+    };
+  });
+}
+
+export async function markHumanInterviewRecordingStarted(input: {
+  candidateEgressId: string;
+  candidateFileKey: string;
+  egressId: string;
+  fileKey: string;
+  meetingId: string;
+}): Promise<boolean> {
+  const [meeting] = await db
+    .update(studioHumanInterviewMeeting)
+    .set({
+      candidateRecordingEgressId: input.candidateEgressId,
+      candidateRecordingError: null,
+      candidateRecordingFileKey: input.candidateFileKey,
+      candidateRecordingStatus: "active",
+      recordingEgressId: input.egressId,
+      recordingError: null,
+      recordingFileKey: input.fileKey,
+      recordingStatus: "active",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(studioHumanInterviewMeeting.id, input.meetingId),
+        eq(studioHumanInterviewMeeting.recordingStatus, "starting"),
+      ),
+    )
+    .returning({ status: studioHumanInterviewMeeting.status });
+  return Boolean(meeting && ["scheduled", "in_progress"].includes(meeting.status));
+}
+
+export async function markHumanInterviewRecordingFailed(input: {
+  candidateEgressId?: string;
+  candidateFileKey?: string;
+  egressId?: string;
+  error: string;
+  fileKey?: string;
+  meetingId: string;
+}): Promise<void> {
+  await db
+    .update(studioHumanInterviewMeeting)
+    .set({
+      candidateRecordingEgressId: input.candidateEgressId,
+      candidateRecordingError: input.error,
+      candidateRecordingFileKey: input.candidateFileKey,
+      candidateRecordingStatus: "failed",
+      recordingEgressId: input.egressId,
+      recordingError: input.error,
+      recordingFileKey: input.fileKey,
+      recordingStatus: "failed",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(studioHumanInterviewMeeting.id, input.meetingId),
+        inArray(studioHumanInterviewMeeting.recordingStatus, ["starting", "active"]),
+      ),
+    );
+}
+
+export async function markHumanInterviewRecordingEgressFailed(input: {
+  egressId: string;
+  error: string;
+  roomName?: string;
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({
+        candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
+        id: studioHumanInterviewMeeting.id,
+      })
+      .from(studioHumanInterviewMeeting)
+      .where(
+        or(
+          eq(studioHumanInterviewMeeting.recordingEgressId, input.egressId),
+          eq(studioHumanInterviewMeeting.candidateRecordingEgressId, input.egressId),
+          input.roomName
+            ? and(
+                eq(studioHumanInterviewMeeting.liveKitRoomName, input.roomName),
+                eq(studioHumanInterviewMeeting.recordingStatus, "starting"),
+              )
+            : undefined,
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!meeting) {
+      return;
+    }
+    const candidate = meeting.candidateEgressId === input.egressId;
+    await tx
+      .update(studioHumanInterviewMeeting)
+      .set(
+        candidate
+          ? {
+              candidateRecordingEgressId: input.egressId,
+              candidateRecordingError: input.error,
+              candidateRecordingStatus: "failed",
+              recordingError: input.error,
+              recordingStatus: "failed",
+              updatedAt: new Date(),
+            }
+          : {
+              candidateRecordingError: input.error,
+              candidateRecordingStatus: "failed",
+              recordingEgressId: input.egressId,
+              recordingError: input.error,
+              recordingStatus: "failed",
+              updatedAt: new Date(),
+            },
+      )
+      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+  });
+}
+
+export async function markHumanInterviewRecordingCompleted(input: {
+  durationMs: number;
+  egressId: string;
+  fileKey: string;
+  roomName?: string;
+  sizeBytes: number;
+}): Promise<HumanInterviewRecordingJobData | null> {
+  return await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select()
+      .from(studioHumanInterviewMeeting)
+      .where(
+        or(
+          eq(studioHumanInterviewMeeting.recordingEgressId, input.egressId),
+          eq(studioHumanInterviewMeeting.candidateRecordingEgressId, input.egressId),
+          input.roomName
+            ? and(
+                eq(studioHumanInterviewMeeting.liveKitRoomName, input.roomName),
+                eq(studioHumanInterviewMeeting.recordingStatus, "starting"),
+              )
+            : undefined,
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!meeting) {
+      return null;
+    }
+    const candidate = meeting.candidateRecordingEgressId === input.egressId;
+    const [updated] = await tx
+      .update(studioHumanInterviewMeeting)
+      .set(
+        candidate
+          ? {
+              candidateRecordingDurationMs: input.durationMs,
+              candidateRecordingError: null,
+              candidateRecordingFileKey: input.fileKey,
+              candidateRecordingSizeBytes: input.sizeBytes,
+              candidateRecordingStatus: "completed",
+              updatedAt: new Date(),
+            }
+          : {
+              recordingDurationMs: input.durationMs,
+              recordingEgressId: input.egressId,
+              recordingError: null,
+              recordingFileKey: input.fileKey,
+              recordingSizeBytes: input.sizeBytes,
+              recordingStatus:
+                meeting.candidateRecordingStatus === "failed" ? "failed" : "completed",
+              updatedAt: new Date(),
+            },
+      )
+      .where(eq(studioHumanInterviewMeeting.id, meeting.id))
+      .returning();
+    if (
+      !updated ||
+      updated.recordingStatus !== "completed" ||
+      updated.candidateRecordingStatus !== "completed" ||
+      !updated.recordingDurationMs ||
+      !updated.recordingEgressId ||
+      !updated.recordingFileKey ||
+      !updated.recordingSizeBytes ||
+      !updated.candidateRecordingDurationMs ||
+      !updated.candidateRecordingEgressId ||
+      !updated.candidateRecordingFileKey ||
+      !updated.candidateRecordingSizeBytes
+    ) {
+      return null;
+    }
+    return {
+      candidateDurationMs: updated.candidateRecordingDurationMs,
+      candidateEgressId: updated.candidateRecordingEgressId,
+      candidateFileKey: updated.candidateRecordingFileKey,
+      candidateSizeBytes: updated.candidateRecordingSizeBytes,
+      durationMs: updated.recordingDurationMs,
+      egressId: updated.recordingEgressId,
+      fileKey: updated.recordingFileKey,
+      meetingId: updated.id,
+      organizationId: updated.organizationId,
+      sizeBytes: updated.recordingSizeBytes,
+    };
+  });
+}
+
+export async function loadActiveHumanInterviewRecordingEgressId(
+  meetingId: string,
+): Promise<string[]> {
+  const [meeting] = await db
+    .select({
+      candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
+      egressId: studioHumanInterviewMeeting.recordingEgressId,
+    })
+    .from(studioHumanInterviewMeeting)
+    .where(
+      and(
+        eq(studioHumanInterviewMeeting.id, meetingId),
+        eq(studioHumanInterviewMeeting.recordingStatus, "active"),
+      ),
+    )
+    .limit(1);
+  return meeting
+    ? [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
+        Boolean(value),
+      )
+    : [];
+}
+
+export async function loadActiveHumanInterviewRecordingByRoomName(
+  roomName: string,
+): Promise<{ egressIds: string[]; meetingId: string } | null> {
+  const [meeting] = await db
+    .select({
+      candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
+      egressId: studioHumanInterviewMeeting.recordingEgressId,
+      meetingId: studioHumanInterviewMeeting.id,
+    })
+    .from(studioHumanInterviewMeeting)
+    .where(
+      and(
+        eq(studioHumanInterviewMeeting.liveKitRoomName, roomName),
+        eq(studioHumanInterviewMeeting.recordingStatus, "active"),
+      ),
+    )
+    .limit(1);
+  if (!meeting) {
+    return null;
+  }
+  return {
+    egressIds: [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
+      Boolean(value),
+    ),
+    meetingId: meeting.meetingId,
+  };
 }
 
 export async function markHumanInterviewMeetingInProgress(meetingId: string): Promise<void> {
@@ -738,7 +1125,7 @@ export async function markHumanInterviewParticipantJoined({
   if (identity.startsWith("candidate_")) {
     await db
       .update(studioHumanInterviewMeetingRound)
-      .set({ joinedAt: now })
+      .set({ joinedAt: now, leftAt: null })
       .where(
         and(
           eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
@@ -751,7 +1138,7 @@ export async function markHumanInterviewParticipantJoined({
   if (identity.startsWith("interviewer_")) {
     await db
       .update(studioHumanInterviewMeetingInterviewer)
-      .set({ joinedAt: now })
+      .set({ joinedAt: now, leftAt: null })
       .where(
         and(
           eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),

@@ -21,6 +21,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@arc/db-schema": "workspace:*",
+        "@arc/meeting-live-transcript": "workspace:*",
         "@arc/shared": "workspace:*",
         "@base-ui/react": "^1.5.0",
         "@electron-toolkit/preload": "^3.0.2",
@@ -163,6 +164,7 @@
         "@ai-sdk/react": "^3.0.221",
         "@app/server": "workspace:*",
         "@arc/db-schema": "workspace:*",
+        "@arc/meeting-live-transcript": "workspace:*",
         "@arc/resume-parse-queue": "workspace:*",
         "@arc/shared": "workspace:*",
         "@assistant-ui/react": "^0.14.24",
@@ -358,6 +360,22 @@
         "typescript": "catalog:",
       },
     },
+    "packages/meeting-live-transcript": {
+      "name": "@arc/meeting-live-transcript",
+      "version": "0.0.0",
+      "dependencies": {
+        "@arc/db-schema": "workspace:*",
+        "@arc/shared": "workspace:*",
+        "ws": "^8.21.3",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/node": "24.11.2",
+        "@types/ws": "^8.18.1",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
     "packages/meeting-media": {
       "name": "@app/meeting-media",
       "version": "0.0.0",
@@ -519,6 +537,8 @@
     "@app/worker": ["@app/worker@workspace:apps/worker"],
 
     "@arc/db-schema": ["@arc/db-schema@workspace:packages/db-schema"],
+
+    "@arc/meeting-live-transcript": ["@arc/meeting-live-transcript@workspace:packages/meeting-live-transcript"],
 
     "@arc/meeting-processing-queue": ["@arc/meeting-processing-queue@workspace:packages/meeting-processing-queue"],
 

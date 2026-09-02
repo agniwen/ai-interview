@@ -11,7 +11,14 @@ import {
   markHumanInterviewMeetingInProgressByRoomName,
   markHumanInterviewParticipantJoined,
   markHumanInterviewParticipantLeft,
+  markHumanInterviewRecordingCompleted,
+  markHumanInterviewRecordingEgressFailed,
 } from "../studio/routes/interviews/dao/human-interview-meetings";
+import {
+  startEligibleHumanInterviewRecordingWithRetry,
+  stopActiveHumanInterviewRecordingByRoomName,
+} from "../studio/routes/interviews/utils/human-interview-recording-service";
+import { enqueueHumanInterviewRecordingJobs } from "@arc/meeting-processing-queue/human-interview-recording";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {
@@ -50,10 +57,11 @@ function getReceiver(): WebhookReceiver | null {
   return cachedReceiver;
 }
 
+// oxlint-disable-next-line complexity -- one verified webhook dispatcher owns the complete human-meeting lifecycle.
 async function handleHumanInterviewWebhook(
   event: Awaited<ReturnType<WebhookReceiver["receive"]>>,
 ): Promise<boolean> {
-  const roomName = event.room?.name;
+  const roomName = event.room?.name ?? event.egressInfo?.roomName;
   if (!roomName?.startsWith("human_")) {
     return false;
   }
@@ -66,6 +74,14 @@ async function handleHumanInterviewWebhook(
       identity: event.participant.identity,
       roomName,
     });
+    try {
+      await startEligibleHumanInterviewRecordingWithRetry(roomName);
+    } catch (error) {
+      console.error("failed to start human interview recording", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        roomName,
+      });
+    }
   }
   if (event.event === "participant_left" && event.participant?.identity) {
     await markHumanInterviewParticipantLeft({
@@ -74,7 +90,47 @@ async function handleHumanInterviewWebhook(
     });
   }
   if (event.event === "room_finished") {
+    try {
+      await stopActiveHumanInterviewRecordingByRoomName(roomName);
+    } catch (error) {
+      console.warn("failed to stop human interview recording after room finish", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        roomName,
+      });
+    }
     await endHumanInterviewMeetingByRoomName(roomName);
+  }
+  if (event.event === "egress_ended" && event.egressInfo?.egressId) {
+    const info = event.egressInfo;
+    if (info.status === EgressStatus.EGRESS_COMPLETE) {
+      const [file] = info.fileResults;
+      const durationMs = file ? Number(file.duration / 1_000_000n) : 0;
+      const sizeBytes = file ? Number(file.size) : 0;
+      if (file?.filename && durationMs > 0 && sizeBytes > 0) {
+        const recordingJob = await markHumanInterviewRecordingCompleted({
+          durationMs,
+          egressId: info.egressId,
+          fileKey: file.filename,
+          roomName,
+          sizeBytes,
+        });
+        if (recordingJob) {
+          await enqueueHumanInterviewRecordingJobs([recordingJob]);
+        }
+      } else {
+        await markHumanInterviewRecordingEgressFailed({
+          egressId: info.egressId,
+          error: "LiveKit 录音完成事件缺少有效文件信息",
+          roomName,
+        });
+      }
+    } else {
+      await markHumanInterviewRecordingEgressFailed({
+        egressId: info.egressId,
+        error: info.error || "LiveKit 真人复面录音失败",
+        roomName,
+      });
+    }
   }
 
   safeUpdateTag("studio-interviews");

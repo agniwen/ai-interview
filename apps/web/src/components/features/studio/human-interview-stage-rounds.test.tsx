@@ -8,6 +8,7 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@arc/shared/studio-pipeline-stages";
+import type { HumanInterviewEvaluation } from "@arc/db-schema/studio-interviews";
 import { RoundCard } from "./human-interview-stage-rounds";
 import type { RoundCardDependencies } from "./human-interview-stage-rounds";
 import { ApiError } from "@/lib/client/api";
@@ -48,6 +49,15 @@ const round: HumanInterviewRoundRecord = {
   cancelledAt: null,
   completedAt: null,
   createdAt: "2026-08-05T09:00:00.000Z",
+  evaluation: null,
+  evaluationError: null,
+  evaluationOverall: null,
+  evaluationRating: null,
+  evaluationStatus: "not_started",
+  evaluationSubmittedAt: null,
+  evaluationTranscriptRevisionId: null,
+  evaluationUpdatedAt: null,
+  evaluationUpdatedBy: null,
   feedback: null,
   format: "online",
   id: "round-1",
@@ -96,8 +106,13 @@ const meeting: HumanInterviewMeetingRecord = {
   liveKitRoomName: "human-meeting-1",
   notes: null,
   organizationId: "org-1",
+  processingMeetingSessionId: null,
+  recordingDurationMs: null,
   recordingEgressId: null,
+  recordingError: null,
   recordingFileKey: null,
+  recordingSizeBytes: null,
+  recordingStatus: "pending",
   rounds: [],
   scheduleVersion: 1,
   scheduledAt: "2026-08-05T09:30:00.000Z",
@@ -150,6 +165,7 @@ describe("RoundCard rescheduling", () => {
             onEndMeeting={vi.fn()}
             onOpenLinks={vi.fn()}
             onRescheduled={onRescheduled}
+            onReview={vi.fn()}
             round={round}
             roundNumber={2}
             slug="test-workspace"
@@ -227,6 +243,7 @@ describe("RoundCard rescheduling", () => {
             onEndMeeting={vi.fn()}
             onOpenLinks={vi.fn()}
             onRescheduled={onRescheduled}
+            onReview={vi.fn()}
             round={round}
             roundNumber={2}
             slug="test-workspace"
@@ -256,6 +273,123 @@ describe("RoundCard rescheduling", () => {
 });
 
 describe("RoundCard interviewer arrangement", () => {
+  it("shows one complete unified evaluation with submission status", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const evaluation: HumanInterviewEvaluation = {
+      detailedAnalysis: "完整详细分析内容",
+      evidenceTurnIds: ["turn-1"],
+      overallEvaluation: "唯一整体评价内容",
+      professionalSkill: "优。具备完整的系统架构与前端工程化能力。",
+      rating: "A",
+      risks: "规模化经验需要确认",
+      rolePosition: "核心方案负责人",
+      salaryRecommendation: "",
+      seniorityPosition: "高级专家",
+      strengths: "架构思路清晰",
+    };
+    const evaluatedRound = {
+      ...round,
+      evaluation,
+      evaluationOverall: evaluation.overallEvaluation,
+      evaluationRating: evaluation.rating,
+      evaluationStatus: "submitted" as const,
+      feedback: evaluation.overallEvaluation,
+      status: "completed" as const,
+    };
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RoundCard
+            canCreate
+            canDelete
+            canUpdate
+            dependencies={dependencies}
+            meeting={meeting}
+            onCancel={vi.fn()}
+            onComplete={vi.fn()}
+            onCreateMeeting={vi.fn()}
+            onEndMeeting={vi.fn()}
+            onOpenLinks={vi.fn()}
+            onRescheduled={vi.fn()}
+            onReview={vi.fn()}
+            round={evaluatedRound}
+            roundNumber={2}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(host.textContent).toContain("评价 · 已提交");
+    expect(host.textContent).not.toContain("AI 评价");
+    expect(host.textContent).toContain("评级A");
+    expect(host.textContent).toContain("专业技能优");
+    expect(host.textContent).not.toContain("具备完整的系统架构与前端工程化能力");
+    expect(host.textContent).toContain("职级定位高级专家");
+    expect(host.textContent).toContain("角色定位核心方案负责人");
+    expect(host.textContent).toContain("优势特点架构思路清晰");
+    expect(host.textContent).toContain("劣势风险规模化经验需要确认");
+    expect(host.textContent).toContain("薪资建议-");
+    expect(host.textContent).toContain("整体评价唯一整体评价内容");
+    expect(host.textContent).toContain("完整详细分析完整详细分析内容");
+    expect(host.textContent?.match(/唯一整体评价内容/g)).toHaveLength(1);
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
+  it("offers the unified review flow after the meeting has ended", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const onReview = vi.fn();
+    const endedMeeting: HumanInterviewMeetingRecord = {
+      ...meeting,
+      endedAt: "2026-08-05T10:30:00.000Z",
+      status: "ended",
+    };
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RoundCard
+            canCreate
+            canDelete
+            canUpdate
+            dependencies={dependencies}
+            meeting={endedMeeting}
+            onCancel={vi.fn()}
+            onComplete={vi.fn()}
+            onCreateMeeting={vi.fn()}
+            onEndMeeting={vi.fn()}
+            onOpenLinks={vi.fn()}
+            onRescheduled={vi.fn()}
+            onReview={onReview}
+            round={round}
+            roundNumber={2}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    const reviewButton = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "评价并完成",
+    );
+    expect(reviewButton).toBeDefined();
+    act(() => reviewButton?.click());
+    expect(onReview).toHaveBeenCalledWith(endedMeeting);
+    expect(host.textContent).not.toContain("标记完成");
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
   it("shows interviewer assignments as HR-managed arrangements", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
@@ -306,6 +440,7 @@ describe("RoundCard interviewer arrangement", () => {
             onEndMeeting={vi.fn()}
             onOpenLinks={vi.fn()}
             onRescheduled={vi.fn()}
+            onReview={vi.fn()}
             round={statusRound}
             roundNumber={2}
             slug="test-workspace"
@@ -344,6 +479,7 @@ describe("RoundCard interviewer arrangement", () => {
             onEndMeeting={vi.fn()}
             onOpenLinks={vi.fn()}
             onRescheduled={vi.fn()}
+            onReview={vi.fn()}
             round={round}
             roundNumber={2}
             slug="test-workspace"

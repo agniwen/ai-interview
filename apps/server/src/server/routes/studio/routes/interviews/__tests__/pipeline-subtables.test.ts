@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- integration suite covering human-interview and offer subtable lifecycle invariants. */
 // 真人复面 + Offer 子表 DAO 的集成测试。覆盖：
 //   1. 真人复面：create（自动 advance pipelineStage）→ complete → cancel；status 守卫
 //   2. Offer：create（auto-supersede 旧 sent 版本）→ patch（仅 draft 时）→ send → respond
@@ -9,9 +10,13 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
+  meetingSession,
+  meetingTranscriptRevision,
   member,
   organization,
   studioHumanInterviewMeeting,
+  studioHumanInterviewMeetingInterviewer,
+  studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
   studioHumanInterviewRoundInterviewer,
   studioInterview,
@@ -29,11 +34,32 @@ import {
 } from "../dao/human-interview-rounds";
 import {
   createHumanInterviewMeeting,
+  claimHumanInterviewRecordingStartByRoomName,
   endHumanInterviewMeetingsByRound,
   HumanInterviewMeetingError,
   isHumanInterviewMeetingAfterValidUntil,
   listHumanInterviewMeetings,
+  markHumanInterviewRecordingCompleted,
+  markHumanInterviewRecordingFailed,
+  markHumanInterviewRecordingStarted,
+  markHumanInterviewParticipantJoined,
+  markHumanInterviewParticipantLeft,
 } from "../dao/human-interview-meetings";
+import {
+  listHumanInterviewEvaluationSnapshotsForAnalysis,
+  loadHumanInterviewReview,
+  publishHumanInterviewEvaluation,
+  recoverHumanInterviewReviewFromLiveTranscript,
+  submitHumanInterviewEvaluation,
+} from "../dao/human-interview-evaluation";
+import {
+  loadHumanInterviewLiveTranscriptDraft,
+  saveHumanInterviewLiveTranscriptDraft,
+} from "../dao/human-interview-live-transcript";
+import {
+  listRecoverableHumanInterviewRecordingJobs,
+  saveHumanInterviewRecordingProcessingError,
+} from "../dao/human-interview-recording-processing";
 import {
   cancelOfferDraft,
   createOfferDraft,
@@ -259,7 +285,7 @@ describe("human interview rounds DAO", () => {
     expect(row?.pipelineStage).toBe("offer");
   });
 
-  it("completeHumanInterviewRound 写 outcome + score + feedback；非 pending 拒绝", async () => {
+  it("completeHumanInterviewRound 写 outcome + feedback 且不再写数字评分；非 pending 拒绝", async () => {
     await clearSubtables();
     const round = await createHumanInterviewRound({
       input: { format: "phone", interviewerIds: [INTERVIEWER_A], label: "电话面" },
@@ -271,11 +297,10 @@ describe("human interview rounds DAO", () => {
       organizationId: ORG,
       outcome: "pass",
       roundId: round.id,
-      score: 88,
     });
     expect(completed.status).toBe("completed");
     expect(completed.outcome).toBe("pass");
-    expect(completed.score).toBe(88);
+    expect(completed.score).toBeNull();
     expect(completed.completedAt).not.toBeNull();
 
     // 已完成轮次再次 complete 应被拒。
@@ -357,6 +382,35 @@ describe("human interview rounds DAO", () => {
     expect(list[1]?.status).toBe("pending");
   });
 
+  it("listHumanInterviewRounds 返回当前完整定性评价", async () => {
+    await clearSubtables();
+    const created = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "完整评价" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const evaluation = {
+      detailedAnalysis: "逐轮分析与完整对话结论",
+      evidenceTurnIds: ["turn-1"],
+      overallEvaluation: "整体评价内容",
+      professionalSkill: "优",
+      rating: "A" as const,
+      risks: "规模化落地经验仍需确认",
+      rolePosition: "核心方案负责人",
+      salaryRecommendation: "",
+      seniorityPosition: "高级专家",
+      strengths: "架构思路清晰",
+    };
+    await db
+      .update(studioHumanInterviewRound)
+      .set({ evaluation, evaluationStatus: "draft" })
+      .where(eq(studioHumanInterviewRound.id, created.id));
+
+    const [listed] = await listHumanInterviewRounds(RECORD_ID, ORG);
+
+    expect(listed).toMatchObject({ evaluation, evaluationStatus: "draft" });
+  });
+
   it("createHumanInterviewRound 只在上一轮完成且通过后推进", async () => {
     await clearSubtables();
     const failedRound = await createHumanInterviewRound({
@@ -429,40 +483,46 @@ describe("human interview rounds DAO", () => {
 });
 
 describe("human interview meetings DAO", () => {
-  it("createHumanInterviewMeeting 关联多个候选人轮次和多个面试官", async () => {
+  it("createHumanInterviewMeeting 只关联一个候选人轮次并支持多个面试官", async () => {
     await clearSubtables();
 
     const roundA = await createHumanInterviewRound({
-      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "技术复面" },
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+        label: "技术复面",
+      },
       interviewRecordId: RECORD_ID,
       organizationId: ORG,
     });
-    const roundB = await createHumanInterviewRound({
-      input: { format: "online", interviewerIds: [INTERVIEWER_B], label: "技术复面" },
-      interviewRecordId: RECORD_ID_B,
-      organizationId: ORG,
-    });
-
     const meeting = await createHumanInterviewMeeting({
       createdBy: HR_USER,
       input: {
-        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
-        roundIds: [roundA.id, roundB.id],
+        roundIds: [roundA.id],
         scheduledAt: "2026-05-30T10:00:00.000Z",
-        title: "技术群面",
+        title: "技术复面",
       },
       organizationId: ORG,
     });
 
     expect(meeting.liveKitRoomName).toMatch(/^human_/);
-    expect(meeting.rounds.map((r) => r.interviewRecordId).toSorted()).toEqual(
-      [RECORD_ID, RECORD_ID_B].toSorted(),
-    );
+    expect(meeting.rounds.map((r) => r.interviewRecordId)).toEqual([RECORD_ID]);
     expect(meeting.interviewers.map((i) => i.id).toSorted()).toEqual(
       [INTERVIEWER_A, INTERVIEWER_B].toSorted(),
     );
     expect(meeting.interviewers.find((i) => i.id === INTERVIEWER_A)?.role).toBe("host");
     expect(meeting.validUntil).toBe("2026-05-30T11:00:00.000Z");
+
+    await expect(
+      createHumanInterviewMeeting({
+        createdBy: HR_USER,
+        input: {
+          roundIds: [roundA.id, crypto.randomUUID()],
+          title: "无效群面",
+        },
+        organizationId: ORG,
+      }),
+    ).rejects.toMatchObject({ message: "一场真人复面会议只能关联一个候选人轮次。" });
 
     const forCandidate = await listHumanInterviewMeetings({
       interviewRecordId: RECORD_ID,
@@ -589,6 +649,477 @@ describe("human interview meetings DAO", () => {
     });
     expect(ended?.status).toBe("ended");
     expect(ended?.endedAt).not.toBeNull();
+  });
+
+  it("按面试官保存实时字幕草稿，并在会议结束后拒绝继续覆盖", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "实时字幕" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "实时字幕会议",
+      },
+      organizationId: ORG,
+    });
+    const draft = {
+      capturedAt: "2026-09-01T02:00:00.000Z",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      sections: [
+        {
+          id: "section-1",
+          sequence: 0,
+          startedAt: "2026-09-01T01:59:00.000Z",
+          track: "microphone" as const,
+        },
+      ],
+      turns: [
+        {
+          final: true,
+          id: "turn-1",
+          sectionId: "section-1",
+          text: "这是已持久化的实时字幕",
+          track: "microphone" as const,
+        },
+      ],
+    };
+
+    await expect(
+      saveHumanInterviewLiveTranscriptDraft({
+        draft,
+        expectedVersion: 0,
+        meetingId: meeting.id,
+        organizationId: ORG,
+        userId: INTERVIEWER_A,
+      }),
+    ).resolves.toEqual({ version: 1 });
+    await expect(
+      loadHumanInterviewLiveTranscriptDraft({
+        meetingId: meeting.id,
+        userId: INTERVIEWER_A,
+      }),
+    ).resolves.toEqual({ draft, version: 1 });
+
+    await expect(
+      saveHumanInterviewLiveTranscriptDraft({
+        draft: { ...draft, capturedAt: "2026-09-01T02:00:30.000Z" },
+        expectedVersion: 0,
+        meetingId: meeting.id,
+        organizationId: ORG,
+        userId: INTERVIEWER_A,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      loadHumanInterviewLiveTranscriptDraft({
+        meetingId: meeting.id,
+        userId: INTERVIEWER_A,
+      }),
+    ).resolves.toEqual({ draft, version: 1 });
+
+    await endHumanInterviewMeetingsByRound({ organizationId: ORG, roundId: round.id });
+    await expect(
+      saveHumanInterviewLiveTranscriptDraft({
+        draft: { ...draft, capturedAt: "2026-09-01T02:01:00.000Z" },
+        expectedVersion: 1,
+        meetingId: meeting.id,
+        organizationId: ORG,
+        userId: INTERVIEWER_A,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("完整录音缺失时可显式使用已保存实时字幕进入统一评价流程", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "字幕恢复" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "字幕恢复会议",
+      },
+      organizationId: ORG,
+    });
+    const draft = {
+      capturedAt: "2026-09-01T02:02:00.000Z",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      sections: [
+        {
+          id: "section-local",
+          sequence: 0,
+          startedAt: "2026-09-01T02:00:00.000Z",
+          track: "microphone" as const,
+        },
+        {
+          id: "section-remote",
+          sequence: 1,
+          startedAt: "2026-09-01T02:00:00.000Z",
+          track: "system" as const,
+        },
+      ],
+      turns: [
+        {
+          endMs: 2000,
+          final: true,
+          id: "turn-local",
+          sectionId: "section-local",
+          startMs: 500,
+          text: "请介绍一下项目经验。",
+          track: "microphone" as const,
+        },
+        {
+          endMs: 5000,
+          final: true,
+          id: "turn-remote",
+          sectionId: "section-remote",
+          startMs: 2500,
+          text: "我负责过核心系统改造。",
+          track: "system" as const,
+        },
+      ],
+    };
+    await saveHumanInterviewLiveTranscriptDraft({
+      draft,
+      expectedVersion: 0,
+      meetingId: meeting.id,
+      organizationId: ORG,
+      userId: INTERVIEWER_A,
+    });
+    await endHumanInterviewMeetingsByRound({ organizationId: ORG, roundId: round.id });
+
+    const recovered = await recoverHumanInterviewReviewFromLiveTranscript({
+      actorId: INTERVIEWER_A,
+      meetingId: meeting.id,
+      organizationId: ORG,
+      roundId: round.id,
+    });
+    expect(recovered).toMatchObject({ status: "ready" });
+    const review = await loadHumanInterviewReview({
+      meetingId: meeting.id,
+      organizationId: ORG,
+      roundId: round.id,
+    });
+    expect(review?.transcriptionState).toBe("ready");
+    expect(review?.transcript?.turns).toMatchObject([
+      { speakerDisplayName: "面试官 A", speakerKey: `interviewer:${INTERVIEWER_A}` },
+      { speakerDisplayName: "复面测试", speakerKey: `candidate:${round.id}` },
+    ]);
+    await expect(
+      recoverHumanInterviewReviewFromLiveTranscript({
+        actorId: INTERVIEWER_A,
+        meetingId: meeting.id,
+        organizationId: ORG,
+        roundId: round.id,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+  });
+
+  it("过期的录音启动占用可由后续入会事件重新接管", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "录音恢复" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "录音恢复会议",
+      },
+      organizationId: ORG,
+    });
+    await db
+      .update(studioHumanInterviewMeetingRound)
+      .set({ joinedAt: NOW })
+      .where(eq(studioHumanInterviewMeetingRound.meetingId, meeting.id));
+    await db
+      .update(studioHumanInterviewMeetingInterviewer)
+      .set({ joinedAt: NOW })
+      .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, meeting.id));
+    await db
+      .update(studioHumanInterviewMeeting)
+      .set({
+        recordingStatus: "starting",
+        updatedAt: new Date(Date.now() - 3 * 60 * 1000),
+      })
+      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+
+    const roomName = meeting.liveKitRoomName ?? "";
+    await expect(claimHumanInterviewRecordingStartByRoomName(roomName)).resolves.toMatchObject({
+      meetingId: meeting.id,
+    });
+    await markHumanInterviewRecordingStarted({
+      candidateEgressId: "egress-candidate-recovered-from-webhook",
+      candidateFileKey: "human-interviews/org/meeting/candidate-audio.ogg",
+      egressId: "egress-recovered-from-webhook",
+      fileKey: "human-interviews/org/meeting/room-audio.ogg",
+      meetingId: meeting.id,
+    });
+
+    await expect(
+      markHumanInterviewRecordingCompleted({
+        durationMs: 30_000,
+        egressId: "egress-recovered-from-webhook",
+        fileKey: "human-interviews/org/meeting/room-audio.ogg",
+        roomName,
+        sizeBytes: 1024,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      markHumanInterviewRecordingCompleted({
+        durationMs: 30_000,
+        egressId: "egress-candidate-recovered-from-webhook",
+        fileKey: "human-interviews/org/meeting/candidate-audio.ogg",
+        roomName,
+        sizeBytes: 512,
+      }),
+    ).resolves.toMatchObject({ meetingId: meeting.id });
+
+    await markHumanInterviewRecordingFailed({
+      egressId: "egress-recovered-from-webhook",
+      error: "迟到的启动协程错误",
+      meetingId: meeting.id,
+    });
+    const [recording] = await db
+      .select({ recordingStatus: studioHumanInterviewMeeting.recordingStatus })
+      .from(studioHumanInterviewMeeting)
+      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+    expect(recording?.recordingStatus).toBe("completed");
+  });
+
+  it("只有候选人与面试官同时在线时才启动录音，离会后可重新加入", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "在线状态" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "在线状态会议",
+      },
+      organizationId: ORG,
+    });
+    const roomName = meeting.liveKitRoomName ?? "";
+
+    await markHumanInterviewParticipantJoined({
+      identity: `candidate_${round.id}`,
+      roomName,
+    });
+    await markHumanInterviewParticipantLeft({
+      identity: `candidate_${round.id}`,
+      roomName,
+    });
+    await markHumanInterviewParticipantJoined({
+      identity: `interviewer_${INTERVIEWER_A}`,
+      roomName,
+    });
+
+    await expect(claimHumanInterviewRecordingStartByRoomName(roomName)).resolves.toBeNull();
+
+    await markHumanInterviewParticipantJoined({
+      identity: `candidate_${round.id}`,
+      roomName,
+    });
+    await expect(claimHumanInterviewRecordingStartByRoomName(roomName)).resolves.toMatchObject({
+      meetingId: meeting.id,
+    });
+  });
+
+  it("保留 AI 原始评价与人工提交评价，并以人工评价作为当前值", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "历史评分" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    await db
+      .update(studioHumanInterviewRound)
+      .set({ score: 88 })
+      .where(eq(studioHumanInterviewRound.id, round.id));
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "历史评分复面",
+      },
+      organizationId: ORG,
+    });
+    const meetingSessionId = "meeting_session_historical_score";
+    const transcriptRevisionId = "transcript_revision_historical_score";
+    await db.insert(meetingSession).values({
+      id: meetingSessionId,
+      manifestSha256: "a".repeat(64),
+      organizationId: ORG,
+      ownerId: HR_USER,
+      savedAt: NOW,
+      startedAt: NOW,
+      status: "ready",
+      title: "历史评分复面",
+      transcriptionStatus: "ready",
+    });
+    await db.insert(meetingTranscriptRevision).values({
+      id: transcriptRevisionId,
+      kind: "human",
+      meetingId: meetingSessionId,
+      model: "manual",
+      organizationId: ORG,
+      pipelineVersion: "human-v1",
+      provider: "human",
+      region: "local",
+      revision: 1,
+      sourceManifestSha256: "a".repeat(64),
+    });
+    await Promise.all([
+      db
+        .update(meetingSession)
+        .set({ activeTranscriptRevisionId: transcriptRevisionId })
+        .where(eq(meetingSession.id, meetingSessionId)),
+      db
+        .update(studioHumanInterviewMeeting)
+        .set({ processingMeetingSessionId: meetingSessionId })
+        .where(eq(studioHumanInterviewMeeting.id, meeting.id)),
+    ]);
+
+    const aiEvaluation = {
+      detailedAnalysis: "AI 完整分析",
+      evidenceTurnIds: [],
+      overallEvaluation: "AI 整体评价",
+      professionalSkill: "良",
+      rating: "B" as const,
+      risks: "AI 风险",
+      rolePosition: "执行者",
+      salaryRecommendation: "",
+      seniorityPosition: "中级",
+      strengths: "AI 优势",
+    };
+    await db
+      .update(studioHumanInterviewRound)
+      .set({
+        evaluationStatus: "generating",
+        evaluationTranscriptRevisionId: transcriptRevisionId,
+      })
+      .where(eq(studioHumanInterviewRound.id, round.id));
+    await expect(
+      publishHumanInterviewEvaluation({
+        evaluation: aiEvaluation,
+        meetingSessionId,
+        organizationId: ORG,
+        roundId: round.id,
+        transcriptRevisionId,
+      }),
+    ).resolves.toBe(true);
+
+    const humanEvaluation = {
+      detailedAnalysis: "人工复核后的完整分析",
+      evidenceTurnIds: [],
+      overallEvaluation: "人工整体评价",
+      professionalSkill: "优",
+      rating: "A" as const,
+      risks: "人工确认风险",
+      rolePosition: "负责人",
+      salaryRecommendation: "",
+      seniorityPosition: "高级",
+      strengths: "人工确认优势",
+    };
+
+    await submitHumanInterviewEvaluation({
+      actorId: INTERVIEWER_A,
+      evaluation: humanEvaluation,
+      meetingSessionId,
+      organizationId: ORG,
+      outcome: "pass",
+      roundId: round.id,
+      transcriptRevisionId,
+    });
+
+    const [submitted] = await db
+      .select({
+        evaluation: studioHumanInterviewRound.evaluation,
+        score: studioHumanInterviewRound.score,
+      })
+      .from(studioHumanInterviewRound)
+      .where(eq(studioHumanInterviewRound.id, round.id));
+    expect(submitted?.score).toBe(88);
+    expect(submitted?.evaluation).toEqual(humanEvaluation);
+
+    const snapshots = await listHumanInterviewEvaluationSnapshotsForAnalysis({
+      organizationId: ORG,
+      roundId: round.id,
+    });
+    expect(snapshots).toMatchObject([
+      { evaluation: aiEvaluation, source: "ai_generated" },
+      {
+        createdBy: INTERVIEWER_A,
+        evaluation: humanEvaluation,
+        outcome: "pass",
+        source: "human_submitted",
+      },
+    ]);
+  });
+
+  it("录音处理耗尽重试次数后不再被恢复任务无限入队", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "处理失败" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "处理失败会议",
+      },
+      organizationId: ORG,
+    });
+    await db
+      .update(studioHumanInterviewMeeting)
+      .set({
+        candidateRecordingDurationMs: 30_000,
+        candidateRecordingEgressId: "candidate-egress-terminal-processing-failure",
+        candidateRecordingFileKey: "human-interviews/org/meeting/candidate-terminal.ogg",
+        candidateRecordingSizeBytes: 512,
+        candidateRecordingStatus: "completed",
+        recordingDurationMs: 30_000,
+        recordingEgressId: "egress-terminal-processing-failure",
+        recordingFileKey: "human-interviews/org/meeting/terminal.ogg",
+        recordingSizeBytes: 1024,
+        recordingStatus: "completed",
+      })
+      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+
+    const recoverableBeforeFailure = await listRecoverableHumanInterviewRecordingJobs();
+    expect(recoverableBeforeFailure.some((job) => job.meetingId === meeting.id)).toBe(true);
+
+    await saveHumanInterviewRecordingProcessingError({
+      error: "对象存储持续不可用",
+      meetingId: meeting.id,
+      terminal: true,
+    });
+
+    const recoverableAfterFailure = await listRecoverableHumanInterviewRecordingJobs();
+    expect(recoverableAfterFailure.some((job) => job.meetingId === meeting.id)).toBe(false);
   });
 });
 

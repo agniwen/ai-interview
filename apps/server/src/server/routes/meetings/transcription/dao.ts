@@ -25,7 +25,10 @@ import {
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { isWorkspaceAdministrator } from "../access";
 import type { FinalTranscriptionAudioChunk } from "./provider";
-import { findMeetingTranscriptionProviderCandidate } from "./provider-registry";
+import {
+  findMeetingTranscriptionProviderCandidate,
+  resolveMeetingTranscriptionProviderModel,
+} from "./provider-registry";
 
 const PUBLIC_TRANSCRIPTION_FAILURE_MESSAGE = "最终会议转录失败，请稍后重试。";
 const PUBLIC_TRANSCRIPTION_QUOTA_MESSAGE =
@@ -172,9 +175,10 @@ export async function updateMeetingTranscriptionPolicy(input: {
 }
 
 function sourceAssetsReady(assets: { status: string; track: string }[]): boolean {
-  return ["microphone", "system"].every((track) =>
-    assets.some((asset) => asset.track === track && asset.status === "ready"),
+  const readyTracks = new Set(
+    assets.filter((asset) => asset.status === "ready").map((asset) => asset.track),
   );
+  return readyTracks.has("mixed") || (readyTracks.has("microphone") && readyTracks.has("system"));
 }
 
 export const DEFAULT_MEETING_TRANSCRIPTION_PROVIDER = "qwen" as const;
@@ -238,7 +242,7 @@ export async function getMeetingTranscriptionJobForMeeting(input: {
   }
   return {
     meetingId: meeting.id,
-    model: candidate.model,
+    model: resolveMeetingTranscriptionProviderModel(candidate, meeting.assets),
     organizationId: meeting.organizationId,
     pipelineVersion: MEETING_TRANSCRIPTION_PIPELINE_VERSION,
     policyRevision: policy.revision,
@@ -289,7 +293,7 @@ export async function listRecoverableMeetingTranscriptionJobs(): Promise<
     }
     jobs.push({
       meetingId: meeting.id,
-      model: candidate.model,
+      model: resolveMeetingTranscriptionProviderModel(candidate, meeting.assets),
       organizationId: meeting.organizationId,
       pipelineVersion: MEETING_TRANSCRIPTION_PIPELINE_VERSION,
       policyRevision: policy.revision,

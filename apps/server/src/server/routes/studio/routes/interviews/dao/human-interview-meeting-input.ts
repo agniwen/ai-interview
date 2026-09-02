@@ -23,6 +23,9 @@ export async function validateHumanInterviewMeetingInput({
   organizationId: string;
   roundIds: string[];
 }): Promise<string[]> {
+  if (roundIds.length !== 1 || new Set(roundIds).size !== 1) {
+    throw new HumanInterviewMeetingError("一场真人复面会议只能关联一个候选人轮次。", 400);
+  }
   const rounds = await db
     .select({ id: studioHumanInterviewRound.id, status: studioHumanInterviewRound.status })
     .from(studioHumanInterviewRound)

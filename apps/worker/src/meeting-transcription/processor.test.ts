@@ -101,6 +101,7 @@ function createDependencies() {
     },
     publish: vi.fn(() => Promise.resolve(true)),
     removeWorkingDirectory: vi.fn(() => Promise.resolve()),
+    requestHumanEvaluation: vi.fn(() => Promise.resolve()),
     requestIntelligence: vi.fn(() => Promise.resolve()),
     saveChunkCheckpoint: vi.fn((_input, _chunk, transcript) => Promise.resolve(transcript)),
     withMediaPermit: vi.fn((requiredBytes, task) => task(requiredBytes)),
@@ -178,6 +179,10 @@ describe("Meeting final transcription processor", () => {
       meetingId: job.meetingId,
       organizationId: job.organizationId,
     });
+    expect(dependencies.requestHumanEvaluation).toHaveBeenCalledWith({
+      meetingSessionId: job.meetingId,
+      organizationId: job.organizationId,
+    });
   });
 
   it("resolves the production adapter from the provider snapshot on the job", async () => {
@@ -224,6 +229,10 @@ describe("Meeting final transcription processor", () => {
     expect(dependencies.createWorkingDirectory).not.toHaveBeenCalled();
     expect(dependencies.requestIntelligence).toHaveBeenCalledWith({
       meetingId: job.meetingId,
+      organizationId: job.organizationId,
+    });
+    expect(dependencies.requestHumanEvaluation).toHaveBeenCalledWith({
+      meetingSessionId: job.meetingId,
       organizationId: job.organizationId,
     });
   });

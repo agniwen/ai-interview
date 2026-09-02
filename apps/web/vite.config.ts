@@ -113,6 +113,9 @@ export default defineConfig(({ mode }) => {
           brotli: true,
           gzip: true,
         },
+        features: {
+          websocket: true,
+        },
         preset: "bun",
         routeRules: {
           "/**": {
@@ -131,6 +134,7 @@ export default defineConfig(({ mode }) => {
             },
           },
         },
+        serverDir: "./server",
       }),
     ],
     preview: {

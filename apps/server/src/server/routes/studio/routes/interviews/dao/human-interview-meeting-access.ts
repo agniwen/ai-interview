@@ -144,12 +144,20 @@ export function verifyInterviewerInviteToken(token: string): InterviewerInvitePa
   return parsed.success && parsed.data.exp >= Date.now() ? parsed.data : null;
 }
 
-export function isHumanInterviewMeetingBeforeScheduledStart(scheduledAt: string | null): boolean {
+export function isHumanInterviewMeetingBeforeScheduledStart(
+  scheduledAt: string | null,
+  nowInput: string | number | Date = Date.now(),
+): boolean {
   if (!scheduledAt) {
     return false;
   }
   const start = new Date(scheduledAt);
-  return !Number.isNaN(start.getTime()) && start.getTime() - EARLY_JOIN_WINDOW_MS > Date.now();
+  const now = new Date(nowInput);
+  return (
+    !Number.isNaN(start.getTime()) &&
+    !Number.isNaN(now.getTime()) &&
+    start.getTime() - EARLY_JOIN_WINDOW_MS > now.getTime()
+  );
 }
 
 export function isHumanInterviewMeetingAfterValidUntil(

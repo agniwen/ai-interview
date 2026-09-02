@@ -132,7 +132,7 @@ describe("human interviewer assignment state", () => {
   it("does not require interviewer responses for formal confirmation", async () => {
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "true";
 
-    const expiresAt = new Date("2026-08-30T06:00:00.000Z");
+    const expiresAt = new Date("2026-09-29T06:00:00.000Z");
     const inviteToken = buildCandidateInviteToken({
       exp: expiresAt.getTime(),
       meetingId: MEETING_ID,
@@ -202,7 +202,7 @@ describe("human interviewer assignment state", () => {
   });
 
   it("creates reminders immediately after candidate acceptance", async () => {
-    const expiresAt = new Date("2026-08-30T06:00:00.000Z");
+    const expiresAt = new Date("2026-09-29T06:00:00.000Z");
     const inviteToken = buildCandidateInviteToken({
       exp: expiresAt.getTime(),
       meetingId: MEETING_ID,

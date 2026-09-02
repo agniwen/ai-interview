@@ -581,6 +581,14 @@ _Avoid_: Calendar event, timeslot
 A live interview session involving a human interviewer and a candidate.
 _Avoid_: AI interview, manual round
 
+**Human Interview Evaluation**:
+The single current evaluation for one human interview round. AI may create its draft and a person may revise or submit it, but the user-facing evaluation does not identify itself as AI-authored or human-authored.
+_Avoid_: AI evaluation, human evaluation, parallel final evaluations
+
+**Human Interview Evaluation Snapshot**:
+A historical copy of an AI-generated or person-submitted human interview evaluation retained for later quality analysis; it never competes with the round's single current evaluation in the recruiting interface.
+_Avoid_: Current evaluation, visible evaluation version, second final evaluation
+
 **Interviewer Candidate Materials**:
 A read-only, meeting-scoped view of every candidate attached to one human interview meeting, available through a valid interviewer invite link for hosts, interviewers, and observers without requiring sign-in. It may include candidate details, resume content, AI evaluation, AI-interview information, and recommended questions, but never includes candidates outside that meeting or appears in the candidate-side meeting experience.
 _Avoid_: Workspace-wide candidate access, candidate-facing dossier, interviewer assignment scope, signed-in member access

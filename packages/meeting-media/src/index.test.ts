@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { normalizeMeetingRecordingSegments } from "./index";
+import { mergeMeetingTranscriptionChunkResults, normalizeMeetingRecordingSegments } from "./index";
 
 const execFileAsync = promisify(execFile);
 const roots: string[] = [];
@@ -69,5 +69,71 @@ describe("normalizeMeetingRecordingSegments", () => {
     ]);
 
     expect(Number.parseFloat(stdout)).toBeGreaterThan(1.9);
+  });
+});
+
+describe("mergeMeetingTranscriptionChunkResults", () => {
+  it("uses the candidate participant recording to label the candidate in the full dialogue", () => {
+    const baseChunk = {
+      contentType: "audio/webm",
+      endMs: 10_000,
+      filePath: "/tmp/audio.webm",
+      index: 0,
+      startMs: 0,
+    };
+    const transcript = mergeMeetingTranscriptionChunkResults([
+      {
+        chunk: { ...baseChunk, track: "mixed" },
+        transcript: {
+          language: "zh",
+          turns: [
+            {
+              confidence: null,
+              endMs: 1500,
+              speakerKey: "remote-1",
+              startMs: 100,
+              text: "请介绍一下支付系统项目",
+              track: "remote",
+            },
+            {
+              confidence: null,
+              endMs: 4200,
+              speakerKey: "remote-2",
+              startMs: 1700,
+              text: "我负责支付系统的核心架构和稳定性治理",
+              track: "remote",
+            },
+          ],
+        },
+      },
+      {
+        chunk: {
+          ...baseChunk,
+          speakerDisplayName: "候选人 · 刘夏江",
+          track: "candidate",
+        },
+        transcript: {
+          language: "zh",
+          turns: [
+            {
+              confidence: null,
+              endMs: 4200,
+              speakerKey: "remote-1",
+              startMs: 1700,
+              text: "我负责支付系统核心架构以及稳定性治理",
+              track: "remote",
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(transcript.turns).toEqual([
+      expect.objectContaining({ speakerDisplayName: null, text: "请介绍一下支付系统项目" }),
+      expect.objectContaining({
+        speakerDisplayName: "候选人 · 刘夏江",
+        text: "我负责支付系统的核心架构和稳定性治理",
+      }),
+    ]);
   });
 });

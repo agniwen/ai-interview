@@ -1,6 +1,14 @@
 import type { HumanInterviewCandidateMaterialListItem } from "@arc/shared/human-interview-candidate-materials";
+import type { HumanInterviewMeetingStatus } from "@arc/db-schema/studio-interviews";
 
-export type HumanMeetingViewMode = "materials" | "meeting";
+export type HumanMeetingViewMode = "materials" | "meeting" | "review";
+
+export function resolveInitialHumanMeetingViewMode(
+  mode: "candidate" | "interviewer",
+  status: HumanInterviewMeetingStatus,
+): HumanMeetingViewMode {
+  return mode === "interviewer" && status === "ended" ? "review" : "meeting";
+}
 
 export function resolveEffectiveCandidateId(
   candidates: HumanInterviewCandidateMaterialListItem[],
@@ -15,5 +23,5 @@ export function shouldReturnToMeetingForLocalScreenShare(
   viewMode: HumanMeetingViewMode,
   hasLocalScreenShare: boolean,
 ) {
-  return viewMode === "materials" && hasLocalScreenShare;
+  return viewMode !== "meeting" && hasLocalScreenShare;
 }

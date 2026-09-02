@@ -78,3 +78,31 @@ export async function rpcFetch<T extends RpcCall>(
     });
   }
 }
+
+/**
+ * Explicit-result variant for exceptionally deep Hono route trees. Runtime
+ * behavior is identical to rpcFetch; callers provide the already-shared DTO
+ * instead of asking TypeScript to expand the full route response union.
+ */
+export function rpcFetchAs<TResult>(promise: RpcCall, errorFallback: string): Promise<TResult>;
+export function rpcFetchAs<TResult>(
+  promise: RpcCall,
+  errorFallback: string,
+  options: { allow404: true },
+): Promise<TResult | null>;
+export async function rpcFetchAs<TResult>(
+  promise: RpcCall,
+  errorFallback: string,
+  options?: { allow404?: boolean },
+): Promise<TResult | null> {
+  // SAFETY: this is the explicit-DTO escape hatch for route types that exceed
+  // TypeScript's instantiation depth; decoding and error behavior stay central.
+  if (options?.allow404) {
+    const decoded = await rpcFetch(promise, errorFallback, { allow404: true });
+    // SAFETY: callers bind TResult to the shared DTO returned by this exact route.
+    return decoded as TResult | null;
+  }
+  const decoded = await rpcFetch(promise, errorFallback);
+  // SAFETY: callers bind TResult to the shared DTO returned by this exact route.
+  return decoded as TResult;
+}

@@ -11,10 +11,12 @@
       "default": "./src/rpc-client.ts"
     },
     "./web/join": "./src/exports/web/join.ts",
+    "./web/human-interview": "./src/exports/web/human-interview.ts",
     "./web/platform": "./src/exports/web/platform.ts",
     "./web/runtime": "./src/exports/web/runtime.ts",
     "./web/studio": "./src/exports/web/studio.ts",
     "./worker/interview-notifications": "./src/exports/worker/interview-notifications.ts",
+    "./worker/human-interview": "./src/exports/worker/human-interview.ts",
     "./worker/mail-ingest": "./src/exports/worker/mail-ingest.ts",
     "./worker/meeting-intelligence": "./src/exports/worker/meeting-intelligence.ts",
     "./worker/meeting-purge": "./src/exports/worker/meeting-purge.ts",

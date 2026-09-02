@@ -46,7 +46,8 @@ function createProvider(options: {
   deleteAudioUrl?: (url: string, signal: AbortSignal) => Promise<void>;
   fetch?: typeof globalThis.fetch;
   model?: string;
-  track?: "microphone" | "system";
+  speakerDisplayName?: string;
+  track?: "candidate" | "microphone" | "system";
   urlHost?: string;
 }) {
   const chunk: FinalTranscriptionAudioChunk = {
@@ -54,6 +55,7 @@ function createProvider(options: {
     endMs: 10_000,
     filePath: "/private/system.webm",
     index: 0,
+    speakerDisplayName: options.speakerDisplayName,
     startMs: 0,
     track: options.track ?? "system",
   };
@@ -210,6 +212,26 @@ describe("Qwen ASR Meeting transcription provider", () => {
     }
     expect(submitBody).toMatchObject({ parameters: { channel_id: [0], enable_itn: true } });
     expect(JSON.stringify(submitBody)).not.toContain("diarization");
+  });
+
+  it("marks a participant recording with its verified candidate display name", async () => {
+    const transcript = await createProvider({
+      speakerDisplayName: "候选人 · 刘夏江",
+      track: "candidate",
+    });
+
+    expect(transcript.turns).toEqual([
+      expect.objectContaining({
+        speakerDisplayName: "候选人 · 刘夏江",
+        speakerKey: "remote-1",
+        track: "remote",
+      }),
+      expect.objectContaining({
+        speakerDisplayName: "候选人 · 刘夏江",
+        speakerKey: "remote-1",
+        track: "remote",
+      }),
+    ]);
   });
 
   it("enables supported speaker diarization only for the remote system track on Qwen Audio 3", async () => {

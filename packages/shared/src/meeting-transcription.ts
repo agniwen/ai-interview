@@ -3,6 +3,13 @@ import { z } from "zod";
 export const MEETING_TRANSCRIPTION_PROVIDERS = ["tingwu", "deepgram", "openai", "qwen"] as const;
 export const meetingTranscriptionProviderSchema = z.enum(MEETING_TRANSCRIPTION_PROVIDERS);
 export type MeetingTranscriptionProviderId = z.infer<typeof meetingTranscriptionProviderSchema>;
+export const meetingTranscriptRevisionProviderSchema = z.union([
+  meetingTranscriptionProviderSchema,
+  z.literal("manual"),
+]);
+export type MeetingTranscriptRevisionProvider = z.infer<
+  typeof meetingTranscriptRevisionProviderSchema
+>;
 
 export const updateMeetingTranscriptionPolicySchema = z
   .object({
@@ -196,6 +203,7 @@ const canonicalTranscriptTurnBaseSchema = z
   .object({
     confidence: z.number().min(0).max(1).nullable(),
     endMs: z.number().int().nonnegative(),
+    speakerDisplayName: z.string().trim().min(1).max(128).nullable().optional(),
     speakerKey: z.string().min(1).max(128),
     startMs: z.number().int().nonnegative(),
     text: z.string().trim().min(1).max(100_000),
@@ -336,7 +344,7 @@ export interface FinalMeetingTranscriptRevision {
   kind: "final" | "human";
   language: string | null;
   model: string;
-  provider: MeetingTranscriptionProviderId;
+  provider: MeetingTranscriptRevisionProvider;
   region: string;
   revision: number;
   turns: FinalMeetingTranscriptTurn[];

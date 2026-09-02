@@ -11,18 +11,17 @@ import {
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
   cancelHumanInterviewRoundWithMeetings,
-  completeHumanInterviewRound,
   createHumanInterviewRound,
   editHumanInterviewRound,
   EditRoundError,
   listHumanInterviewRounds,
   maybeAdvanceToHumanInterview,
 } from "./dao/human-interview-rounds";
-import { endHumanInterviewMeetingsByRound } from "./dao/human-interview-meetings";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
 } from "./utils/human-interview-livekit";
+import { stopActiveHumanInterviewRecordingByRoomName } from "./utils/human-interview-recording-service";
 import { offerDraftsRouter } from "./routes/offer-drafts/route";
 import { recordCandidateActivity } from "./utils/candidate-activity";
 import { requirePermission } from "../../../../middlewares/permission";
@@ -36,12 +35,11 @@ import { humanInterviewFeedbackSchema } from "./utils/human-interview-readiness"
 // Candidate stage transition input. Encodes the (pipelineStage, outcome)
 // invariant: closed ⇔ a terminal outcome; everything else stays in_pipeline.
 
-// 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。
+// 真人复面：「标记完成」的 input。outcome / feedback 必填。
 // Human interview "mark complete" input. Outcome required.
 const completeHumanRoundSchema = z.object({
   feedback: humanInterviewFeedbackSchema,
   outcome: humanInterviewRoundOutcomeSchema,
-  score: z.number().int().min(0).max(100).nullable().optional(),
 });
 
 // 真人复面：「取消」的 input。reason 可选，便于后续审计 / 通知候选人。
@@ -179,57 +177,12 @@ export const studioInterviewHumanRouter = factory
     "/:id/human-interview-rounds/:roundId/complete",
     requirePermission("humanInterview", "update"),
     zValidator("json", completeHumanRoundSchema, jsonValidatorError("标记完成参数无效。")),
-    async (c) => {
+    (c) => {
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const roundId = c.req.param("roundId");
-      const { outcome, score, feedback } = c.req.valid("json");
-      try {
-        const updated = await completeHumanInterviewRound({
-          actorUserId: c.var.user?.id ?? null,
-          feedback,
-          organizationId: activeOrg.id,
-          outcome,
-          roundId,
-          score,
-        });
-        await recordCandidateActivity({
-          action: "human_interview_round_completed",
-          detail: {
-            outcome: updated.outcome,
-            roundId: updated.id,
-            roundLabel: updated.label,
-            score: updated.score,
-          },
-          interviewRecordId: updated.interviewRecordId,
-          operatorId: c.var.user?.id ?? null,
-          organizationId: activeOrg.id,
-        });
-        const roomNames = await endHumanInterviewMeetingsByRound({
-          organizationId: activeOrg.id,
-          roundId,
-        });
-        await Promise.all(
-          roomNames.map(async (roomName) => {
-            try {
-              await deleteHumanInterviewLiveKitRoom(roomName);
-            } catch (error) {
-              if (!(error instanceof HumanInterviewLiveKitConfigError)) {
-                console.warn("failed to delete livekit human interview room", error);
-              }
-            }
-          }),
-        );
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof EditRoundError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
+      return c.json({ error: "请进入会议看板复核并提交评价后完成本轮面试。" }, 409);
     },
   )
   .post(
@@ -263,6 +216,14 @@ export const studioInterviewHumanRouter = factory
           organizationId: activeOrg.id,
         });
         for (const roomName of deletedLiveKitRoomNames) {
+          if (!roomName) {
+            continue;
+          }
+          try {
+            await stopActiveHumanInterviewRecordingByRoomName(roomName);
+          } catch (error) {
+            console.warn("failed to stop livekit human interview recording", error);
+          }
           try {
             await deleteHumanInterviewLiveKitRoom(roomName);
           } catch (error) {

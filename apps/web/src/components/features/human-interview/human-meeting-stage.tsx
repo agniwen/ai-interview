@@ -10,6 +10,8 @@ import {
   IconMicrophoneOff,
   IconPhoneOff,
   IconPlayerStop,
+  IconPointFilled,
+  IconChecklist,
   IconUsers,
   IconVideo,
   IconVideoOff,
@@ -26,9 +28,10 @@ import {
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import type { MouseEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@arc/shared/utils";
+import type { HumanInterviewRecordingStatus } from "@arc/db-schema/studio-interviews";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +47,9 @@ import { MicrophoneDeviceMenu, VoiceEffectMenu } from "./human-meeting-audio-con
 import { shouldReturnToMeetingForLocalScreenShare } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
+import { HumanMeetingReview } from "./human-meeting-review";
+import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
+import type { HumanMeetingLiveTranscriptHandle } from "./human-meeting-live-transcript";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 
 const participantMetadataSchema = z.object({
@@ -107,6 +113,7 @@ async function runEndMeeting(onEndMeeting: () => Promise<void> | void): Promise<
 export interface HumanMeetingStageProps {
   canPublish: boolean;
   canUseVoiceEffects: boolean;
+  canUseLiveTranscript: boolean;
   canEndMeeting: boolean;
   candidateMaterialsState: InterviewerCandidateMaterialsState;
   inviteToken: string | null;
@@ -115,13 +122,16 @@ export interface HumanMeetingStageProps {
   onEndMeeting: () => Promise<void> | void;
   onViewModeChange: (mode: HumanMeetingViewMode) => void;
   participantName: string;
+  recordingStatus: HumanInterviewRecordingStatus;
   title: string;
   viewMode: HumanMeetingViewMode;
 }
 
+// oxlint-disable-next-line complexity -- stage rendering reflects the approved meeting, materials, sharing, recording, and review modes.
 export function HumanMeetingStage({
   canPublish,
   canUseVoiceEffects,
+  canUseLiveTranscript,
   canEndMeeting,
   candidateMaterialsState,
   inviteToken,
@@ -130,10 +140,12 @@ export function HumanMeetingStage({
   onEndMeeting,
   onViewModeChange,
   participantName,
+  recordingStatus,
   title,
   viewMode,
 }: HumanMeetingStageProps) {
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
   const participants = useParticipants();
   const tracks = useTracks(
     [
@@ -157,6 +169,7 @@ export function HumanMeetingStage({
 
   async function handleEndConfirm(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    await liveTranscriptRef.current?.flush();
     const ended = await runEndMeeting(onEndMeeting);
     if (ended) {
       setEndConfirmOpen(false);
@@ -164,16 +177,19 @@ export function HumanMeetingStage({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
         <div>
           <h1 className="font-medium text-xl text-white tracking-normal">{title}</h1>
           <p className="text-white/60 text-xs">{participantName}</p>
         </div>
-        <Badge variant="inverse">
-          <IconUsers data-icon="inline-start" />
-          {participants.length}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <RecordingStatusBadge status={recordingStatus} />
+          <Badge variant="inverse">
+            <IconUsers data-icon="inline-start" />
+            {participants.length}
+          </Badge>
+        </div>
       </header>
 
       <div
@@ -214,6 +230,17 @@ export function HumanMeetingStage({
             onStateChange={onCandidateMaterialsStateChange}
             state={candidateMaterialsState}
           />
+        </div>
+      ) : null}
+
+      {inviteToken ? (
+        <div
+          className={cn(
+            "relative min-h-0 flex-1 overflow-hidden",
+            viewMode !== "review" && "hidden",
+          )}
+        >
+          <HumanMeetingReview active={viewMode === "review"} inviteToken={inviteToken} />
         </div>
       ) : null}
 
@@ -266,6 +293,20 @@ export function HumanMeetingStage({
             {viewMode === "materials" ? "切换到会议" : "切换到候选人资料"}
           </button>
         ) : null}
+        {inviteToken ? (
+          <button
+            className={humanMeetingControlButtonClass}
+            onClick={() => onViewModeChange(viewMode === "review" ? "meeting" : "review")}
+            type="button"
+          >
+            {viewMode === "review" ? (
+              <IconVideo className="size-4" />
+            ) : (
+              <IconChecklist className="size-4" />
+            )}
+            {viewMode === "review" ? "切换到会议" : "会议复核"}
+          </button>
+        ) : null}
         {canEndMeeting ? (
           <button
             className={endButtonClass}
@@ -286,6 +327,9 @@ export function HumanMeetingStage({
           离开
         </DisconnectButton>
       </footer>
+      {inviteToken && canUseLiveTranscript ? (
+        <HumanMeetingLiveTranscript inviteToken={inviteToken} ref={liveTranscriptRef} />
+      ) : null}
       <AlertDialog onOpenChange={setEndConfirmOpen} open={endConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -304,6 +348,27 @@ export function HumanMeetingStage({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function RecordingStatusBadge({ status }: { status: HumanInterviewRecordingStatus }) {
+  if (status === "pending") {
+    return null;
+  }
+  const label = {
+    active: "录音中",
+    completed: "录音已保存",
+    failed: "录音异常",
+    starting: "正在启动录音",
+  }[status];
+  return (
+    <Badge variant={status === "failed" ? "destructive" : "inverse"}>
+      <IconPointFilled
+        className={cn("size-3", status === "active" && "animate-pulse text-red-400")}
+        data-icon="inline-start"
+      />
+      {label}
+    </Badge>
   );
 }
 

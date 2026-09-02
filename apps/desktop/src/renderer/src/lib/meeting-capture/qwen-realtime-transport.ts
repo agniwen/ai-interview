@@ -1,151 +1,26 @@
 import { liveCorrectionEventSchema } from "@arc/shared/meeting-live-correction";
 import type { LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
+import {
+  DASHSCOPE_SAMPLE_RATE,
+  WORKLET_SAMPLE_RATE,
+  dashScopeServerEventSchema,
+  handleDashScopeEvent,
+  resamplePcm16,
+} from "@arc/meeting-live-transcript/qwen-events";
 // oxlint-disable promise/avoid-new -- The IPC handshake is confirmed by the first provider event.
 import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
 import { z } from "zod";
 import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-transcript-draft";
 
-const WORKLET_SAMPLE_RATE = 24_000;
-const DASHSCOPE_SAMPLE_RATE = 16_000;
 const MAX_INFLIGHT_BYTES = 64 * 1024;
 const CONNECTION_TIMEOUT_MS = 10_000;
 
-const dashScopeServerEventSchema = z.object({
-  end_ms: z.number().int().nonnegative().optional(),
-  item_id: z.string().optional(),
-  model: z.string().optional(),
-  original_text: z.string().optional(),
-  start_ms: z.number().int().nonnegative().optional(),
-  stash: z.string().optional(),
-  status: z.string().optional(),
-  text: z.string().optional(),
-  transcript: z.string().optional(),
-  type: z.string().optional(),
-  words: z
-    .array(
-      z.object({
-        end_ms: z.number().int().nonnegative(),
-        punctuation: z.string().max(16),
-        start_ms: z.number().int().nonnegative(),
-        text: z.string().min(1).max(256),
-      }),
-    )
-    .max(2000)
-    .optional(),
-});
-type DashScopeServerEvent = z.infer<typeof dashScopeServerEventSchema>;
 const portMessageSchema = z.object({
   byteLength: z.number().optional(),
   event: dashScopeServerEventSchema.optional(),
   reason: z.string().optional(),
   type: z.string().optional(),
 });
-
-/**
- * 主进程 AudioWorklet 以 24k 输出（OpenAI WebRTC 的既有格式），qwen 需要 16k；
- * 在渲染进程做线性重采样，不动共用的 worklet。
- * The shared AudioWorklet outputs 24k (the OpenAI format); Qwen needs 16k, so the
- * transport resamples linearly without touching the shared worklet.
- */
-function resamplePcm16(input: Int16Array, fromRate: number, toRate: number): Int16Array {
-  const ratio = fromRate / toRate;
-  const outputLength = Math.round(input.length / ratio);
-  const output = new Int16Array(outputLength);
-  for (let index = 0; index < outputLength; index += 1) {
-    const source = index * ratio;
-    const sourceIndex = Math.floor(source);
-    const fraction = source - sourceIndex;
-    const left = input[sourceIndex] ?? 0;
-    const right = input[Math.min(sourceIndex + 1, input.length - 1)] ?? left;
-    output[index] = Math.round(left + (right - left) * fraction);
-  }
-  return output;
-}
-
-function completedTranscriptEvent(event: DashScopeServerEvent): LiveTranscriptEvent | null {
-  if (!(event.item_id && event.transcript)) {
-    return null;
-  }
-  const transcript: LiveTranscriptEvent = {
-    itemId: event.item_id,
-    text: event.transcript,
-    type: "completed",
-  };
-  if (event.end_ms !== undefined) {
-    transcript.endMs = event.end_ms;
-  }
-  if (event.start_ms !== undefined) {
-    transcript.startMs = event.start_ms;
-  }
-  if (event.words) {
-    transcript.words = event.words.map((word) => ({
-      endMs: word.end_ms,
-      punctuation: word.punctuation,
-      startMs: word.start_ms,
-      text: word.text,
-    }));
-  }
-  return transcript;
-}
-
-function handleDashScopeEvent(
-  event: DashScopeServerEvent,
-  input: {
-    onDisconnect: (reason: string) => void;
-    onTranscript: (event: LiveTranscriptEvent) => void;
-  },
-): void {
-  if (event.type === "meeting.transcription.correction-status") {
-    if (
-      event.item_id &&
-      event.original_text &&
-      (event.status === "started" || event.status === "finished")
-    ) {
-      input.onTranscript({
-        itemId: event.item_id,
-        originalText: event.original_text,
-        text: "",
-        type: event.status === "started" ? "correction-started" : "correction-finished",
-      });
-    }
-    return;
-  }
-  if (event.type === "meeting.transcription.corrected") {
-    if (event.item_id && event.model && event.original_text && event.transcript?.trim()) {
-      input.onTranscript({
-        correctionModel: event.model,
-        itemId: event.item_id,
-        originalText: event.original_text,
-        text: event.transcript,
-        type: "corrected",
-      });
-    }
-    return;
-  }
-  if (event.type === "conversation.item.input_audio_transcription.text") {
-    if (event.item_id) {
-      const text = [event.text, event.stash].filter((part) => part !== undefined).join("");
-      input.onTranscript({ itemId: event.item_id, text, type: "snapshot" });
-    }
-    return;
-  }
-  if (event.type === "conversation.item.input_audio_transcription.completed") {
-    const transcript = completedTranscriptEvent(event);
-    if (transcript) {
-      input.onTranscript(transcript);
-    }
-    return;
-  }
-  if (event.type === "error") {
-    console.error("[meeting-capture-renderer] DashScope error event", { event });
-    input.onDisconnect("provider-disconnected");
-    return;
-  }
-  if (event.type === "session.finished") {
-    console.info("[meeting-capture-renderer] DashScope session finished");
-    input.onDisconnect("provider-disconnected");
-  }
-}
 
 /**
  * 通过 preload 转发到主进程的 MessagePort 直连 DashScope Qwen-ASR-Realtime；

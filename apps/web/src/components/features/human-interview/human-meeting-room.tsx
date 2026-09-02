@@ -21,11 +21,18 @@ import type {
   PublicHumanInterviewInterviewerPreview,
   PublicHumanInterviewMeetingPreview,
 } from "@arc/shared/studio-pipeline-stages";
+import { humanInterviewRecordingStatusSchema } from "@arc/db-schema/studio-interviews";
 import { cn } from "@arc/shared/utils";
 import { Button } from "@/components/ui/button";
 import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
+import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
+import { HumanMeetingReview } from "./human-meeting-review";
+import {
+  getHumanInterviewRecordingPollDelayMs,
+  shouldPollHumanInterviewRecordingStatus,
+} from "./human-meeting-recording-status";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 
 type HumanMeetingRoomProps =
@@ -71,6 +78,21 @@ async function fetchMeetingToken(path: string): Promise<HumanInterviewMeetingTok
     throw new Error("会议令牌响应无效");
   }
   return token.data;
+}
+
+async function fetchRecordingStatus(props: HumanMeetingRoomProps) {
+  const path =
+    props.mode === "candidate"
+      ? `/api/public/human-interview-meetings/${encodeURIComponent(props.inviteToken)}`
+      : `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(props.inviteToken)}`;
+  const response = await fetch(path, { cache: "no-store" });
+  if (!response.ok) {
+    return null;
+  }
+  const body = z
+    .object({ recordingStatus: humanInterviewRecordingStatusSchema })
+    .safeParse(await response.json());
+  return body.success ? body.data.recordingStatus : null;
 }
 
 function fetchCandidateToken(inviteToken: string): Promise<HumanInterviewMeetingTokenResponse> {
@@ -283,6 +305,7 @@ function meetingRoomReducer(state: MeetingRoomState, action: MeetingRoomAction):
   }
 }
 
+// oxlint-disable-next-line complexity -- room orchestration intentionally keeps media, timing, materials, and review state at one boundary.
 export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -290,7 +313,11 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     props.mode === "candidate" ? props.preview.candidateInviteStatus : "accepted",
   );
   const [candidateResponsePending, setCandidateResponsePending] = useState(false);
-  const [viewMode, setViewMode] = useState<HumanMeetingViewMode>("meeting");
+  const [recordingStatus, setRecordingStatus] = useState(props.preview.recordingStatus);
+  const [recordingFailedPolls, setRecordingFailedPolls] = useState(0);
+  const [viewMode, setViewMode] = useState<HumanMeetingViewMode>(() =>
+    resolveInitialHumanMeetingViewMode(props.mode, props.preview.status),
+  );
   const [candidateMaterialsState, setCandidateMaterialsState] =
     useState<InterviewerCandidateMaterialsState>({
       candidateId: null,
@@ -321,6 +348,33 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     );
     return () => window.clearTimeout(timer);
   }, [props.preview.scheduledAt, props.preview.status, nowMs]);
+
+  // oxlint-disable-next-line react-doctor/no-fetch-in-effect -- recording state is a bounded, cancellable poll of the active public meeting.
+  useEffect(() => {
+    if (!shouldPollHumanInterviewRecordingStatus(token, recordingStatus)) {
+      return;
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const status = await fetchRecordingStatus(props);
+        if (!cancelled && status) {
+          setRecordingStatus(status);
+          setRecordingFailedPolls((attempts) => (status === "failed" ? attempts + 1 : 0));
+        }
+      } catch {
+        // Preview polling is best effort; the next interval retries.
+      }
+    };
+    const timer = window.setTimeout(
+      refresh,
+      getHumanInterviewRecordingPollDelayMs(recordingStatus, recordingFailedPolls),
+    );
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [props, recordingFailedPolls, recordingStatus, token]);
 
   async function joinMeeting() {
     if (startBlockMessage) {
@@ -416,7 +470,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   }
 
   if (!token) {
-    if (props.mode === "interviewer" && viewMode === "materials") {
+    if (props.mode === "interviewer" && viewMode !== "meeting") {
       return (
         <main className="dark flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-950 text-white">
           <header className="flex shrink-0 items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
@@ -424,16 +478,22 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               <h1 className="font-medium text-white text-xl tracking-normal">
                 {getRoomTitle(props)}
               </h1>
-              <p className="text-white/60 text-xs">面试准备 · 候选人资料</p>
+              <p className="text-white/60 text-xs">
+                {viewMode === "materials" ? "面试准备 · 候选人资料" : "会议转录与评价复核"}
+              </p>
             </div>
           </header>
           <div className="min-h-0 flex-1">
-            <InterviewerCandidateMaterials
-              active
-              inviteToken={props.inviteToken}
-              onStateChange={setCandidateMaterialsState}
-              state={candidateMaterialsState}
-            />
+            {viewMode === "materials" ? (
+              <InterviewerCandidateMaterials
+                active
+                inviteToken={props.inviteToken}
+                onStateChange={setCandidateMaterialsState}
+                state={candidateMaterialsState}
+              />
+            ) : (
+              <HumanMeetingReview active inviteToken={props.inviteToken} />
+            )}
           </div>
           <footer className="flex shrink-0 items-center justify-center border-white/10 border-t px-4 py-3">
             <button
@@ -486,10 +546,15 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               {joinButtonText}
             </Button>
             {props.mode === "interviewer" ? (
-              <Button onClick={() => setViewMode("materials")} size="lg" variant="outline">
-                <IconFileDescription className="size-4" />
-                候选人资料
-              </Button>
+              <>
+                <Button onClick={() => setViewMode("materials")} size="lg" variant="outline">
+                  <IconFileDescription className="size-4" />
+                  候选人资料
+                </Button>
+                <Button onClick={() => setViewMode("review")} size="lg" variant="outline">
+                  会议复核
+                </Button>
+              </>
             ) : null}
           </div>
         </section>
@@ -514,8 +579,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       <DefaultMicrophoneStarter enabled={token.participantRole !== "observer"} />
       <HumanMeetingStage
         canPublish={token.participantRole !== "observer"}
+        canUseLiveTranscript={props.mode === "interviewer" && token.participantRole !== "observer"}
         canUseVoiceEffects={props.mode === "interviewer" && token.participantRole !== "observer"}
-        canEndMeeting={props.mode === "interviewer"}
+        canEndMeeting={props.mode === "interviewer" && token.participantRole !== "observer"}
         isEnding={isEnding}
         onEndMeeting={endMeeting}
         inviteToken={props.mode === "interviewer" ? props.inviteToken : null}
@@ -523,6 +589,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
         onCandidateMaterialsStateChange={setCandidateMaterialsState}
         onViewModeChange={setViewMode}
         participantName={token.participantName}
+        recordingStatus={recordingStatus}
         title={getRoomTitle(props)}
         viewMode={props.mode === "interviewer" ? viewMode : "meeting"}
       />

@@ -41,6 +41,7 @@ import {
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
 } from "./utils/human-interview-livekit";
+import { stopActiveHumanInterviewRecordingByRoomName } from "./utils/human-interview-recording-service";
 import { getFeishuTenantAccessToken } from "../../../../../lib/server/feishu-access-token";
 import {
   getFeishuAppCredentials,
@@ -713,6 +714,13 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
               meetingId: c.req.param("meetingId"),
               organizationId: activeOrg.id,
             });
+            if (roomName) {
+              try {
+                await stopActiveHumanInterviewRecordingByRoomName(roomName);
+              } catch (error) {
+                console.warn("failed to stop livekit human interview recording", error);
+              }
+            }
             try {
               await deleteHumanInterviewLiveKitRoom(roomName);
             } catch (error) {
@@ -744,6 +752,13 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
               meetingId: c.req.param("meetingId"),
               organizationId: activeOrg.id,
             });
+            if (roomName) {
+              try {
+                await stopActiveHumanInterviewRecordingByRoomName(roomName);
+              } catch (error) {
+                console.warn("failed to stop livekit human interview recording", error);
+              }
+            }
             try {
               await deleteHumanInterviewLiveKitRoom(roomName);
             } catch (error) {

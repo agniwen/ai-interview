@@ -174,6 +174,47 @@ export async function buildRecordingFileKey(input: {
   );
 }
 
+export async function buildHumanInterviewRecordingFileKey(input: {
+  meetingId: string;
+  organizationId: string;
+}): Promise<string> {
+  const { config } = await getRecordingClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  const organizationId = encodeURIComponent(input.organizationId);
+  const meetingId = encodeURIComponent(input.meetingId);
+  return `${prefix}human-interviews/${organizationId}/${meetingId}/room-audio.ogg`.replace(
+    /^\/+/,
+    "",
+  );
+}
+
+export async function buildHumanInterviewCandidateRecordingFileKey(input: {
+  meetingId: string;
+  organizationId: string;
+}): Promise<string> {
+  const roomFileKey = await buildHumanInterviewRecordingFileKey(input);
+  return roomFileKey.replace(/room-audio\.ogg$/u, "candidate-audio.ogg");
+}
+
+export async function getHumanInterviewRecordingUploadConfig(): Promise<{
+  accessKey: string;
+  bucket: string;
+  endpoint: string;
+  forcePathStyle: boolean;
+  region: string;
+  secret: string;
+}> {
+  const { config } = await getRecordingClient();
+  return {
+    accessKey: config.accessKeyId,
+    bucket: config.bucket,
+    endpoint: config.endpoint,
+    forcePathStyle: config.forcePathStyle,
+    region: config.region,
+    secret: config.secretAccessKey,
+  };
+}
+
 export async function buildMeetingRecordingAssetKey(input: {
   meetingId: string;
   organizationId: string;
@@ -207,7 +248,7 @@ export async function buildMeetingTranscriptionStagingKey(input: {
   meetingId: string;
   organizationId: string;
   stagingToken: string;
-  track: "microphone" | "system";
+  track: "candidate" | "microphone" | "mixed" | "system";
 }): Promise<string> {
   const { config } = await getRecordingClient();
   const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";

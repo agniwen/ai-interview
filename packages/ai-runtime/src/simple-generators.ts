@@ -263,6 +263,15 @@ export const meetingAnswerAgent = new Agent({
   name: "MeetingAnswerAgent",
 });
 
+export const humanInterviewEvaluationAgent = new Agent({
+  id: "human-interview-evaluation-agent",
+  instructions:
+    "你是真人面试评价助手。只根据完整面试转录、岗位 JD 与候选人简历生成可由面试官复核的结构化 SABC 评价，并保留稳定转录证据 ID。",
+  maxRetries: 1,
+  model: withThinkingDisabled(mastraModels.structuredModel),
+  name: "HumanInterviewEvaluationAgent",
+});
+
 export const resumeEducationBackfillAgent = new Agent({
   id: "resume-education-backfill-agent",
   instructions: "你是简历教育经历解析助手，只提取教育经历并输出结构化字段。",

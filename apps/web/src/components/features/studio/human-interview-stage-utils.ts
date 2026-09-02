@@ -115,11 +115,12 @@ export function canCancelHumanInterviewRound(
 }
 
 export function canCompleteHumanInterviewRound(
-  round: HumanInterviewRoundRecord,
-  meeting: HumanInterviewMeetingRecord | null,
-  disabled?: boolean,
+  _round: Pick<HumanInterviewRoundRecord, "status">,
+  _meeting: Pick<HumanInterviewMeetingRecord, "status"> | null,
+  _disabled?: boolean,
 ): boolean {
-  return disabled !== true && round.status === "pending" && meeting?.status === "ended";
+  // Completion now happens only when an interviewer submits the reviewed evaluation.
+  return false;
 }
 
 export function canRescheduleHumanInterviewRound(

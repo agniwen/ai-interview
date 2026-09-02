@@ -55,8 +55,13 @@ const meeting: HumanInterviewMeetingRecord = {
   liveKitRoomName: "human-interview-meeting-1",
   notes: null,
   organizationId: "org-1",
+  processingMeetingSessionId: null,
+  recordingDurationMs: null,
   recordingEgressId: null,
+  recordingError: null,
   recordingFileKey: null,
+  recordingSizeBytes: null,
+  recordingStatus: "pending",
   rounds: [],
   scheduleVersion: 1,
   scheduledAt: "2026-08-05T09:30:00.000Z",
@@ -92,7 +97,7 @@ const links: HumanInterviewMeetingLinkBundle = {
 };
 
 describe("MeetingLinksDialog", () => {
-  it("shows the synchronized Feishu calendar without presenting a Feishu meeting", async () => {
+  it("hides Feishu details while keeping candidate and interviewer links visible", async () => {
     issueLinksMock.mockResolvedValue(links);
     const container = document.createElement("div");
     document.body.append(container);
@@ -117,9 +122,8 @@ describe("MeetingLinksDialog", () => {
     });
 
     const text = document.body.textContent ?? "";
-    expect(text).toContain("飞书日程");
-    expect(text.indexOf("飞书日程")).toBeLessThan(text.indexOf("候选人确认链接"));
-    expect(document.body.innerHTML).toContain(
+    expect(text).not.toContain("飞书日程");
+    expect(document.body.innerHTML).not.toContain(
       "https://applink.feishu.cn/client/calendar/event/event-1",
     );
     expect(text).not.toContain("飞书会议链接");

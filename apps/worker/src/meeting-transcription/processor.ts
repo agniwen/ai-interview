@@ -27,8 +27,10 @@ import {
 } from "@app/server/worker/meeting-transcription";
 import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
 import type { requestAutomaticMeetingIntelligence } from "@app/server/worker/meeting-intelligence";
+import type { requestAutomaticHumanInterviewEvaluation } from "@app/server/worker/human-interview";
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
+import type { MeetingTranscriptionSourceTrack } from "@arc/shared/meeting-recording";
 import pLimit from "p-limit";
 
 export {
@@ -51,6 +53,7 @@ interface SourceAsset {
   contentType: string;
   durationMs: number;
   sizeBytes: number;
+  speakerDisplayName?: string | null;
   segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
   status: string;
   storageKey: string;
@@ -68,7 +71,15 @@ interface PrepareChunkSource {
   durationMs: number;
   filePath: string;
   segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
-  track: "microphone" | "system";
+  speakerDisplayName?: string;
+  track: MeetingTranscriptionSourceTrack;
+}
+
+function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscriptionSourceTrack {
+  if (track === "microphone" || track === "mixed" || track === "system" || track === "candidate") {
+    return track;
+  }
+  throw new Error(`Unsupported Meeting Recording track: ${track}`);
 }
 
 export interface MeetingTranscriptionDependencies {
@@ -91,6 +102,7 @@ export interface MeetingTranscriptionDependencies {
   providerForJob?: (input: MeetingTranscriptionJobData) => MeetingTranscriptionProvider;
   publish: typeof publishMeetingTranscript;
   requestIntelligence: typeof requestAutomaticMeetingIntelligence;
+  requestHumanEvaluation: typeof requestAutomaticHumanInterviewEvaluation;
   removeWorkingDirectory: (directory: string) => Promise<void>;
   saveChunkCheckpoint: (
     input: MeetingTranscriptionJobData & { processingRunId: string },
@@ -155,7 +167,7 @@ export function createMeetingTranscriptionProviderForJob(
     baseUrl,
     createAudioUrl,
     deleteAudioUrl,
-    model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen3-asr-flash-filetrans",
+    model: job.model,
   });
 }
 
@@ -169,6 +181,7 @@ type MeetingTranscriptionRuntimeAdapters = Pick<
   | "markFailed"
   | "publish"
   | "requestIntelligence"
+  | "requestHumanEvaluation"
   | "saveChunkCheckpoint"
 >;
 
@@ -307,6 +320,24 @@ async function requestAutomaticIntelligenceBestEffort(input: {
 }
 
 // 固定源清单后执行资源准入、双轨下载、可恢复分片转写与 CAS 发布，并按供应商错误决定重试终止性。 / Pins the source manifest, performs resource admission, dual-track download, resumable chunk transcription, and CAS publication, then classifies provider errors for retry terminality.
+async function requestHumanInterviewEvaluationBestEffort(input: {
+  dependencies: MeetingTranscriptionDependencies;
+  meetingId: string;
+  organizationId: string;
+}): Promise<void> {
+  try {
+    await input.dependencies.requestHumanEvaluation({
+      meetingSessionId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+  } catch (error) {
+    console.error("[meeting-transcription-worker] failed to request human interview evaluation", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      meetingId: input.meetingId,
+    });
+  }
+}
+
 // oxlint-disable-next-line complexity -- source admission, checkpoint recovery, and failure persistence form one job boundary.
 export async function runMeetingTranscriptionProcessing(
   input: MeetingTranscriptionJobData,
@@ -329,6 +360,11 @@ export async function runMeetingTranscriptionProcessing(
       meetingId: input.meetingId,
       organizationId: input.organizationId,
     });
+    await requestHumanInterviewEvaluationBestEffort({
+      dependencies,
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
     return;
   }
   if (claim !== "claimed") {
@@ -339,18 +375,27 @@ export async function runMeetingTranscriptionProcessing(
     if (meeting.manifestSha256 !== input.sourceManifestSha256) {
       throw new Error("Meeting Recording 清单已变化");
     }
+    const mixed = meeting.assets.find((asset) => asset.track === "mixed");
+    const candidate = meeting.assets.find((asset) => asset.track === "candidate");
     const microphone = meeting.assets.find((asset) => asset.track === "microphone");
     const system = meeting.assets.find((asset) => asset.track === "system");
-    if (!(microphone?.status === "ready" && system?.status === "ready")) {
+    const sources = mixed?.status === "ready" ? [mixed] : [];
+    if (sources.length > 0 && candidate?.status === "ready") {
+      sources.push(candidate);
+    }
+    if (sources.length === 0 && microphone?.status === "ready" && system?.status === "ready") {
+      sources.push(microphone, system);
+    }
+    if (sources.length === 0) {
       throw new Error("Meeting Recording 源音轨尚未完整验证");
     }
-    const sourceBytes = microphone.sizeBytes + system.sizeBytes;
+    const sourceBytes = sources.reduce((total, source) => total + source.sizeBytes, 0);
     if (
-      microphone.sizeBytes > MAX_SOURCE_BYTES ||
-      system.sizeBytes > MAX_SOURCE_BYTES ||
+      sources.some(
+        (source) => source.sizeBytes > MAX_SOURCE_BYTES || source.durationMs > MAX_DURATION_MS,
+      ) ||
       sourceBytes > MAX_TOTAL_SOURCE_BYTES ||
-      microphone.durationMs > MAX_DURATION_MS ||
-      system.durationMs > MAX_DURATION_MS
+      sourceBytes <= 0
     ) {
       throw new Error("Meeting Recording 超出最终转录的资源预算");
     }
@@ -358,31 +403,31 @@ export async function runMeetingTranscriptionProcessing(
       const directory = await dependencies.createWorkingDirectory();
       workingDirectory = directory;
       await dependencies.ensureDiskCapacity({ directory, requiredBytes: reservedBytes });
-      const microphonePath = join(directory, "microphone-source.webm");
-      const systemPath = join(directory, "system-source.webm");
-      await Promise.all([
-        dependencies.downloadSource({
-          filePath: microphonePath,
-          storageKey: microphone.storageKey,
+      const preparedSources = sources.map((source) => ({
+        durationMs: source.durationMs,
+        filePath: join(directory, `${source.track}-source.media`),
+        segments: source.segments,
+        speakerDisplayName: source.speakerDisplayName ?? undefined,
+        storageKey: source.storageKey,
+        track: parseMeetingTranscriptionSourceTrack(source.track),
+      }));
+      await Promise.all(
+        preparedSources.map(async (source) => {
+          await dependencies.downloadSource({
+            filePath: source.filePath,
+            storageKey: source.storageKey,
+          });
         }),
-        dependencies.downloadSource({ filePath: systemPath, storageKey: system.storageKey }),
-      ]);
+      );
       const chunks = await dependencies.prepareChunks({
         directory,
-        sources: [
-          {
-            durationMs: microphone.durationMs,
-            filePath: microphonePath,
-            segments: microphone.segments,
-            track: "microphone",
-          },
-          {
-            durationMs: system.durationMs,
-            filePath: systemPath,
-            segments: system.segments,
-            track: "system",
-          },
-        ],
+        sources: preparedSources.map((source) => ({
+          durationMs: source.durationMs,
+          filePath: source.filePath,
+          segments: source.segments,
+          speakerDisplayName: source.speakerDisplayName,
+          track: source.track,
+        })),
       });
       return { chunks };
     });
@@ -410,6 +455,11 @@ export async function runMeetingTranscriptionProcessing(
     });
     if (published) {
       await requestAutomaticIntelligenceBestEffort({
+        dependencies,
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      });
+      await requestHumanInterviewEvaluationBestEffort({
         dependencies,
         meetingId: input.meetingId,
         organizationId: input.organizationId,

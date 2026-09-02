@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import {
   humanInterviewMeetingInterviewerRoleSchema,
   humanInterviewMeetingStatusSchema,
+  humanInterviewRecordingStatusSchema,
 } from "@arc/db-schema/studio-interviews";
 import type { PublicHumanInterviewInterviewerPreview } from "@arc/shared/studio-pipeline-stages";
 import { z } from "zod";
@@ -19,6 +20,7 @@ const interviewerPreviewSchema = z.object({
   candidateName: z.string(),
   interviewerName: z.string(),
   meetingId: z.string(),
+  recordingStatus: humanInterviewRecordingStatusSchema,
   role: humanInterviewMeetingInterviewerRoleSchema,
   roundLabel: z.string(),
   scheduledAt: z.string().nullable(),

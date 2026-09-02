@@ -59,11 +59,15 @@ import type {
   ClosedMeta,
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
+  HumanInterviewEvaluation,
+  HumanInterviewEvaluationSnapshotSource,
+  HumanInterviewEvaluationStatus,
   HumanInterviewFormat,
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingProvider,
   HumanInterviewMeetingStatus,
+  HumanInterviewRecordingStatus,
   HumanInterviewerAssignmentStatus,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
@@ -681,7 +685,7 @@ export const meetingTranscriptRevision = pgTable(
     check(
       "meeting_transcript_revision_source_check",
       sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null)
-        or (${table.kind} = 'human' and ${table.basedOnRevisionId} is not null and ${table.processingRunId} is null)`,
+        or (${table.kind} = 'human' and ${table.processingRunId} is null)`,
     ),
     check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
     uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
@@ -991,7 +995,7 @@ export const meetingTranscriptionChunk = pgTable(
     check("meeting_transcription_chunk_time_check", sql`${table.endMs} > ${table.startMs}`),
     check(
       "meeting_transcription_chunk_track_check",
-      sql`${table.track} in ('microphone', 'system')`,
+      sql`${table.track} in ('microphone', 'system', 'candidate', 'mixed')`,
     ),
     check(
       "meeting_transcription_chunk_status_check",
@@ -1041,6 +1045,7 @@ export const meetingRecordingAsset = pgTable(
       jsonb("segments").$type<{ durationMs: number; offsetBytes: number; sizeBytes: number }[]>(),
     sha256: text("sha256").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
+    speakerDisplayName: text("speaker_display_name"),
     status: text("status").default("uploading").notNull(),
     storageKey: text("storage_key").notNull().unique(),
     track: text("track").notNull(),
@@ -2083,6 +2088,21 @@ export const studioHumanInterviewRound = pgTable(
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>(),
+    evaluationError: text("evaluation_error"),
+    evaluationStatus: text("evaluation_status")
+      .$type<HumanInterviewEvaluationStatus>()
+      .notNull()
+      .default("not_started"),
+    evaluationSubmittedAt: timestamp("evaluation_submitted_at", { withTimezone: true }),
+    evaluationTranscriptRevisionId: text("evaluation_transcript_revision_id").references(
+      () => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
+    evaluationUpdatedAt: timestamp("evaluation_updated_at", { withTimezone: true }),
+    evaluationUpdatedBy: text("evaluation_updated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     feedback: text("feedback"),
     format: text("format").$type<HumanInterviewFormat>().notNull(),
     id: text("id").primaryKey(),
@@ -2111,19 +2131,74 @@ export const studioHumanInterviewRound = pgTable(
     index("studio_human_interview_round_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_human_interview_round_org_idx").on(table.organizationId),
     index("studio_human_interview_round_status_idx").on(table.status),
+    index("studio_human_interview_round_evaluation_status_idx").on(table.evaluationStatus),
+    check(
+      "studio_human_interview_round_evaluation_status_check",
+      sql`${table.evaluationStatus} in ('not_started', 'generating', 'draft', 'submitted', 'failed')`,
+    ),
   ],
 );
 
-// 真人复面会议：一场会议对应一个 LiveKit room，可包含多个候选人的 round 和多个面试官。
-// 评价结果仍然写在 studioHumanInterviewRound；这里仅保存会议级生命周期/录制信息。
+// AI 生成结果与面试官最终提交结果的不可变快照，用于后续评价效果分析。
+// 当前业务状态仍由 studioHumanInterviewRound.evaluation 承载并直接覆盖。
+export const studioHumanInterviewEvaluationSnapshot = pgTable(
+  "studio_human_interview_evaluation_snapshot",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>().notNull(),
+    id: text("id").primaryKey(),
+    meetingSessionId: text("meeting_session_id").references(() => meetingSession.id, {
+      onDelete: "set null",
+    }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    roundId: text("round_id")
+      .notNull()
+      .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    source: text("source").$type<HumanInterviewEvaluationSnapshotSource>().notNull(),
+    transcriptRevisionId: text("transcript_revision_id").references(
+      () => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (table) => [
+    index("studio_human_interview_evaluation_snapshot_round_created_idx").on(
+      table.roundId,
+      table.createdAt,
+    ),
+    index("studio_human_interview_evaluation_snapshot_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    check(
+      "studio_human_interview_evaluation_snapshot_source_check",
+      sql`${table.source} in ('ai_generated', 'human_submitted')`,
+    ),
+  ],
+);
+
+// 真人复面会议：一场会议对应一个 LiveKit room、一个候选人 round 和多个面试官。
+// 评价结果仍然写在 studioHumanInterviewRound；这里保存会议级生命周期和录音处理状态。
 //
-// Human-interview meeting. One meeting maps to one LiveKit room and can include
-// multiple candidate rounds plus multiple interviewers. Per-candidate verdicts
-// remain on studioHumanInterviewRound.
+// Human-interview meeting. One meeting maps to one LiveKit room, one candidate
+// round, and multiple interviewers. Per-round verdicts remain on
+// studioHumanInterviewRound.
 export const studioHumanInterviewMeeting = pgTable(
   "studio_human_interview_meeting",
   {
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    candidateRecordingDurationMs: integer("candidate_recording_duration_ms"),
+    candidateRecordingEgressId: text("candidate_recording_egress_id"),
+    candidateRecordingError: text("candidate_recording_error"),
+    candidateRecordingFileKey: text("candidate_recording_file_key"),
+    candidateRecordingSizeBytes: integer("candidate_recording_size_bytes"),
+    candidateRecordingStatus: text("candidate_recording_status")
+      .$type<HumanInterviewRecordingStatus>()
+      .notNull()
+      .default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
@@ -2149,8 +2224,18 @@ export const studioHumanInterviewMeeting = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    processingMeetingSessionId: text("processing_meeting_session_id")
+      .references(() => meetingSession.id, { onDelete: "set null" })
+      .unique(),
+    recordingDurationMs: integer("recording_duration_ms"),
     recordingEgressId: text("recording_egress_id"),
+    recordingError: text("recording_error"),
     recordingFileKey: text("recording_file_key"),
+    recordingSizeBytes: integer("recording_size_bytes"),
+    recordingStatus: text("recording_status")
+      .$type<HumanInterviewRecordingStatus>()
+      .notNull()
+      .default("pending"),
     scheduleVersion: integer("schedule_version").notNull().default(1),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
@@ -2169,6 +2254,10 @@ export const studioHumanInterviewMeeting = pgTable(
       table.scheduledAt,
     ),
     index("studio_human_interview_meeting_status_idx").on(table.organizationId, table.status),
+    index("studio_human_interview_meeting_recording_status_idx").on(
+      table.organizationId,
+      table.recordingStatus,
+    ),
     uniqueIndex("studio_human_interview_meeting_id_org_uq").on(table.id, table.organizationId),
     uniqueIndex("studio_human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
     index("studio_human_interview_meeting_feishu_meeting_idx").on(
@@ -2178,6 +2267,14 @@ export const studioHumanInterviewMeeting = pgTable(
     check(
       "studio_human_interview_meeting_schedule_version_check",
       sql`${table.scheduleVersion} > 0`,
+    ),
+    check(
+      "studio_human_interview_meeting_recording_status_check",
+      sql`${table.recordingStatus} in ('pending', 'starting', 'active', 'completed', 'failed')`,
+    ),
+    check(
+      "studio_human_interview_meeting_candidate_recording_status_check",
+      sql`${table.candidateRecordingStatus} in ('pending', 'starting', 'active', 'completed', 'failed')`,
     ),
   ],
 );
@@ -2256,6 +2353,8 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
     feishuOpenId: text("feishu_open_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),
+    liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
+    liveTranscriptDraftVersion: integer("live_transcript_draft_version").notNull().default(0),
     meetingId: text("meeting_id")
       .notNull()
       .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
@@ -2270,6 +2369,10 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
   (table) => [
     primaryKey({ columns: [table.meetingId, table.userId] }),
     index("studio_human_interview_meeting_interviewer_user_idx").on(table.userId),
+    check(
+      "studio_human_interview_meeting_interviewer_draft_version_check",
+      sql`${table.liveTranscriptDraftVersion} >= 0`,
+    ),
   ],
 );
 

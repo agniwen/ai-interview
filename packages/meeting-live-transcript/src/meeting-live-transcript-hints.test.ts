@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createMeetingLiveTranscriptHints } from "./meeting-live-transcript-hints";
 
-describe("meeting live transcript hints", () => {
+describe("shared meeting live transcript hints", () => {
   it("builds a bounded context and ordinary-weight unique hotwords from recruiting metadata", () => {
     const hints = createMeetingLiveTranscriptHints({
       candidateName: "张三",

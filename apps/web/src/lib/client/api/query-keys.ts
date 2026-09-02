@@ -32,7 +32,8 @@ export const studioCalendarKeys = {
   aiEventPreview: (slug: string, roundId: string, conversationId: string | null) =>
     ["studio-calendar", slug, "ai-event-preview", roundId, conversationId] as const,
   range: (slug: string, start: string, end: string) =>
-    ["studio-calendar", slug, start, end] as const,
+    [...studioCalendarKeys.ranges(slug), start, end] as const,
+  ranges: (slug: string) => ["studio-calendar", slug, "ranges"] as const,
 };
 
 export const studioResumeKeys = {
@@ -60,6 +61,7 @@ export async function invalidateHumanInterviewCandidateQueries(
       queryKey: humanInterviewKeys.meetings(slug, candidateId),
     }),
     queryClient.invalidateQueries({ queryKey: humanInterviewKeys.studioResumes() }),
+    queryClient.invalidateQueries({ queryKey: studioCalendarKeys.ranges(slug) }),
   ]);
 }
 
@@ -71,5 +73,6 @@ export async function invalidateHumanInterviewWorkspaceQueries(
     queryClient.invalidateQueries({ queryKey: humanInterviewKeys.roundsByWorkspace(slug) }),
     queryClient.invalidateQueries({ queryKey: humanInterviewKeys.meetingsByWorkspace(slug) }),
     queryClient.invalidateQueries({ queryKey: humanInterviewKeys.studioResumes() }),
+    queryClient.invalidateQueries({ queryKey: studioCalendarKeys.ranges(slug) }),
   ]);
 }

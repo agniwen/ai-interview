@@ -7,16 +7,9 @@ import {
   resolveMeetingTranscriptionQwenBaseUrl,
 } from "./provider-endpoint";
 
-function enabled(value: string | undefined): boolean {
-  return ["1", "true", "yes"].includes(value?.trim().toLowerCase() ?? "");
-}
-
 export function listMeetingTranscriptionProviderCandidates(
   env: NodeJS.ProcessEnv = process.env,
 ): MeetingTranscriptionProviderCandidate[] {
-  if (!enabled(env.MEETING_TRANSCRIPTION_QWEN_ENABLED)) {
-    return [];
-  }
   const endpoint = resolveMeetingTranscriptionProviderEndpoint({
     baseUrl: resolveMeetingTranscriptionQwenBaseUrl(env),
     provider: "qwen",
@@ -38,4 +31,20 @@ export function findMeetingTranscriptionProviderCandidate(
   return (
     listMeetingTranscriptionProviderCandidates(env).find((item) => item.id === provider) ?? null
   );
+}
+
+export function resolveMeetingTranscriptionProviderModel(
+  candidate: MeetingTranscriptionProviderCandidate,
+  assets: { status: string; track: string }[],
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const hasReadyMixedAudio = assets.some(
+    (asset) => asset.status === "ready" && asset.track === "mixed",
+  );
+  if (candidate.id === "qwen" && hasReadyMixedAudio) {
+    return (
+      env.MEETING_TRANSCRIPTION_QWEN_MIXED_MODEL?.trim() || "qwen-audio-3.0-asr-flash-filetrans"
+    );
+  }
+  return candidate.model;
 }

@@ -14,8 +14,10 @@ import { livekitRouter } from "./routes/livekit/route";
 import { meetingLocalRecoveryRouter } from "./routes/meeting-local-recovery/route";
 import { platformRouter } from "./routes/platform/route";
 import { publicRouter } from "./routes/public/route";
+import { humanInterviewReviewRouter } from "./routes/public/routes/human-interview-review/route";
 import { resumeRouter } from "./routes/resume/route";
 import { workspaceRouter } from "./routes/workspace/route";
+import { attachBusinessRoutes } from "./routing";
 
 // 中文：所有业务路由都聚合到 apiRoutes，再以 .route("/api", apiRoutes) 挂上去。
 // 不要写 .basePath("/api") —— 那样 hc<AppType> 推断出的客户端类型不会带 /api 前缀，
@@ -66,12 +68,15 @@ export function createServerApp() {
     .on(["POST", "GET"], "/api/auth/*", (c) =>
       runWithAuthRequestHeaders(c.req.raw.headers, () => auth.handler(c.req.raw)),
     )
-    .use(betterAuthMiddleware)
-    .route("/api", apiRoutes);
+    .use(betterAuthMiddleware);
 
-  honoApp.notFound((c) => c.json({ error: "Not Found" }, 404));
-  honoApp.onError(handleServerError);
-  return honoApp;
+  // The review board uses plain fetch rather than hc. Its router type is erased,
+  // keeping it out of the global RPC schema while preserving sibling public routes.
+  const routedApp = attachBusinessRoutes(honoApp, apiRoutes, humanInterviewReviewRouter);
+
+  routedApp.notFound((c) => c.json({ error: "Not Found" }, 404));
+  routedApp.onError(handleServerError);
+  return routedApp;
 }
 
 export type AppType = ReturnType<typeof createServerApp>;

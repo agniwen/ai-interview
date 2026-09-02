@@ -40,6 +40,7 @@ import type {
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { addDays, addMinutes, differenceInMinutes, format } from "date-fns";
+import type { EventListeners } from "overlayscrollbars";
 
 import { cn } from "@arc/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -91,6 +92,7 @@ function EventCalendarTimeGrid({
       isEqual: (a, b) => getRangeKey(a) === getRangeKey(b),
     },
   );
+  const loading = useEventCalendarSelector((state) => state.loading);
 
   const startHour = dayStartHour ?? settings.dayStartHour;
   const endHour = dayEndHour ?? settings.dayEndHour;
@@ -113,6 +115,18 @@ function EventCalendarTimeGrid({
 
   // Initial scroll to scrollToHour + api.scrollToTime registration (contained)
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const overlayViewportRef = useRef<HTMLElement | null>(null);
+  const initializeOverlayViewportRef = useRef<((viewport: HTMLElement) => void) | null>(null);
+  const overlayScrollEvents = useMemo<EventListeners>(
+    () => ({
+      initialized: (overlayScrollbars) => {
+        const viewport = overlayScrollbars.elements().viewport;
+        overlayViewportRef.current = viewport;
+        initializeOverlayViewportRef.current?.(viewport);
+      },
+    }),
+    [],
+  );
   useEffect(() => {
     if (!contained) {
       return;
@@ -121,48 +135,76 @@ function EventCalendarTimeGrid({
     if (!el) {
       return;
     }
-    const viewport = el.querySelector<HTMLElement>("[data-slot=scroll-area-viewport]");
-    // Measure a rendered slot row - the CSS var is in rem, rects are in px.
-    const slotRow = el.querySelector<HTMLElement>("[data-slot=event-calendar-time-gutter] > div");
-    const slotPx = slotRow?.getBoundingClientRect().height || 64;
-    const pxPerMinute = slotPx / interval;
-    const scrollTo = (minutes: number) => {
-      // keep the hour label above the target line visible (it hangs -top-2)
-      viewport?.scrollTo({
-        top: Math.max(0, (minutes - startHour * 60) * pxPerMinute - 12),
+    let gutterObserver: ResizeObserver | null = null;
+    let overlayFrameId: number | null = null;
+    const bindViewport = (viewport: HTMLElement | null) => {
+      if (!viewport) {
+        return;
+      }
+      // Measure a rendered slot row - the CSS var is in rem, rects are in px.
+      const slotRow = el.querySelector<HTMLElement>("[data-slot=event-calendar-time-gutter] > div");
+      const slotPx = slotRow?.getBoundingClientRect().height || 64;
+      const pxPerMinute = slotPx / interval;
+      const scrollTo = (minutes: number) => {
+        // keep the hour label above the target line visible (it hangs -top-2)
+        viewport.scrollTo?.({
+          top: Math.max(0, (minutes - startHour * 60) * pxPerMinute - 12),
+        });
+      };
+      scrollTo(viewConfig.scrollToHour * 60);
+      instance.internals.registerScrollHandler((time) => {
+        const minutes =
+          typeof time === "number"
+            ? time
+            : toZoned(time, settings.timeZone).getHours() * 60 +
+              toZoned(time, settings.timeZone).getMinutes();
+        scrollTo(minutes);
+      });
+      // Classic (width-consuming) scrollbars squeeze the scrolling track while
+      // the header/all-day rows outside keep full width, drifting the column
+      // borders. Mirror the measured gutter onto those rows via a CSS var -
+      // 0px for overlay scrollbars and the custom ScrollArea, so both modes
+      // lay out identically.
+      const root = el.closest<HTMLElement>(
+        "[data-slot=event-calendar-time-grid], [data-slot=event-calendar-resource-view]",
+      );
+      const syncScrollbarGutter = () => {
+        root?.style.setProperty(
+          "--ec-scrollbar-w",
+          `${viewport.offsetWidth - viewport.clientWidth}px`,
+        );
+      };
+      syncScrollbarGutter();
+      gutterObserver?.disconnect();
+      if (typeof ResizeObserver !== "undefined") {
+        gutterObserver = new ResizeObserver(syncScrollbarGutter);
+        gutterObserver.observe(viewport);
+      }
+    };
+    const scheduleOverlayViewport = (viewport: HTMLElement) => {
+      if (overlayFrameId !== null) {
+        cancelAnimationFrame(overlayFrameId);
+      }
+      overlayFrameId = requestAnimationFrame(() => {
+        overlayFrameId = null;
+        bindViewport(viewport);
       });
     };
-    scrollTo(viewConfig.scrollToHour * 60);
-    instance.internals.registerScrollHandler((time) => {
-      const minutes =
-        typeof time === "number"
-          ? time
-          : toZoned(time, settings.timeZone).getHours() * 60 +
-            toZoned(time, settings.timeZone).getMinutes();
-      scrollTo(minutes);
-    });
-    // Classic (width-consuming) scrollbars squeeze the scrolling track while
-    // the header/all-day rows outside keep full width, drifting the column
-    // borders. Mirror the measured gutter onto those rows via a CSS var -
-    // 0px for overlay scrollbars and the custom ScrollArea, so both modes
-    // lay out identically.
-    const root = el.closest<HTMLElement>(
-      "[data-slot=event-calendar-time-grid], [data-slot=event-calendar-resource-view]",
-    );
-    const syncScrollbarGutter = () => {
-      root?.style.setProperty(
-        "--ec-scrollbar-w",
-        `${viewport ? viewport.offsetWidth - viewport.clientWidth : 0}px`,
-      );
-    };
-    syncScrollbarGutter();
-    const gutterObserver = viewport ? new ResizeObserver(syncScrollbarGutter) : null;
-    if (viewport) {
-      gutterObserver?.observe(viewport);
+    initializeOverlayViewportRef.current = scheduleOverlayViewport;
+    const overlayViewport = overlayViewportRef.current;
+    const nativeViewport = el.querySelector<HTMLElement>("[data-slot=scroll-area-viewport]");
+    if (nativeViewport) {
+      bindViewport(nativeViewport);
+    } else if (overlayViewport?.isConnected) {
+      scheduleOverlayViewport(overlayViewport);
     }
     return () => {
       instance.internals.registerScrollHandler(null);
       gutterObserver?.disconnect();
+      if (overlayFrameId !== null) {
+        cancelAnimationFrame(overlayFrameId);
+      }
+      initializeOverlayViewportRef.current = null;
     };
   }, [
     contained,
@@ -170,6 +212,7 @@ function EventCalendarTimeGrid({
     settings.timeZone,
     startHour,
     interval,
+    loading,
     viewConfig.scrollToHour,
     // scrollbars custom<->native swaps the scroller DOM: re-bind the
     // viewport, the scroll wiring, and the measured --ec-scrollbar-w
@@ -295,7 +338,9 @@ function EventCalendarTimeGrid({
                 {track}
               </div>
             ) : (
-              <ScrollArea className="h-full">{track}</ScrollArea>
+              <ScrollArea className="h-full" events={overlayScrollEvents}>
+                {track}
+              </ScrollArea>
             )}
           </div>
         ) : (

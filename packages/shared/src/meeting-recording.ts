@@ -150,6 +150,7 @@ export type CreateMultipartSavedMeetingInput = z.infer<typeof createMultipartSav
 export type MeetingSourceAssetInput = z.infer<typeof meetingSourceAssetSchema>;
 export type MeetingSourceSegmentInput = z.infer<typeof meetingSourceSegmentSchema>;
 export type MeetingSourceTrack = (typeof MEETING_SOURCE_TRACKS)[number];
+export type MeetingTranscriptionSourceTrack = MeetingSourceTrack | "candidate" | "mixed";
 
 export interface SmallMeetingUploadInstruction {
   contentType: string;

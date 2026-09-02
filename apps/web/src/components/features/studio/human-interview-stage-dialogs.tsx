@@ -368,13 +368,11 @@ export function CompleteRoundDialog({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const [outcome, setOutcome] = useState<HumanInterviewRoundOutcome>("pass");
-  const [score, setScore] = useState("");
   const [feedback, setFeedback] = useState("");
 
   function handleOpenChange(next: boolean) {
     if (!next) {
       setOutcome("pass");
-      setScore("");
       setFeedback("");
     }
     onOpenChange(next);
@@ -385,13 +383,6 @@ export function CompleteRoundDialog({
       if (!round) {
         throw new Error("missing round");
       }
-      const parsedScore = score === "" ? null : Number(score);
-      if (
-        parsedScore !== null &&
-        (Number.isNaN(parsedScore) || parsedScore < 0 || parsedScore > 100)
-      ) {
-        throw new Error("评分需为 0-100 的数字");
-      }
       const trimmedFeedback = feedback.trim();
       if (!trimmedFeedback) {
         throw new Error("请填写面试评价");
@@ -399,7 +390,6 @@ export function CompleteRoundDialog({
       return completeHumanInterviewRound(slug, candidateId, round.id, {
         feedback: trimmedFeedback,
         outcome,
-        score: parsedScore,
       });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "标记完成失败"),
@@ -417,7 +407,7 @@ export function CompleteRoundDialog({
         <DialogHeader>
           <DialogTitle>标记完成：{round?.label}</DialogTitle>
           <DialogDescription>
-            录入面试结果。完成后会自动结束该轮次下的会议，且只能修改评分和反馈。
+            录入面试结果。完成后会自动结束该轮次下的会议，后续仍可修订反馈。
           </DialogDescription>
         </DialogHeader>
 
@@ -444,21 +434,6 @@ export function CompleteRoundDialog({
                   </div>
                 ))}
             </RadioGroup>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="round-score">
-              评分（0-100，可选）
-            </Label>
-            <Input
-              id="round-score"
-              inputMode="numeric"
-              max={100}
-              min={0}
-              onChange={(e) => setScore(e.target.value)}
-              type="number"
-              value={score}
-            />
           </div>
 
           <div className="grid gap-1.5">

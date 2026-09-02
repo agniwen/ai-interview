@@ -14,6 +14,7 @@ import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
   isApiError,
+  issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   listHumanInterviewRounds,
 } from "@/lib/client/api";
@@ -23,6 +24,8 @@ import {
   invalidateHumanInterviewWorkspaceQueries,
 } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { authClient } from "@/lib/client/auth-client";
+import { toAbsoluteUrl } from "@/lib/client/clipboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -112,6 +115,7 @@ export function HumanInterviewStagePanel({
   disabled,
 }: PanelProps) {
   const slug = useWorkspaceSlug();
+  const { data: session } = authClient.useSession();
   const queryClient = useQueryClient();
   const { data: rounds = [], isLoading } = useQuery({
     queryFn: () => listHumanInterviewRounds(slug, candidateId),
@@ -182,6 +186,28 @@ export function HumanInterviewStagePanel({
       invalidateRounds();
     },
   });
+  const reviewMeetingMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      const userId = session?.user.id;
+      if (!userId) {
+        throw new Error("登录状态已失效，请刷新后重试");
+      }
+      const links = await issueHumanInterviewMeetingLinks(slug, meetingId);
+      const reviewerLink = links.interviewerLinks.find(
+        (link) => link.userId === userId && link.role !== "observer",
+      );
+      if (!reviewerLink) {
+        throw new Error("当前账号不是本轮面试官，无法提交会议评价");
+      }
+      return reviewerLink.url;
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "进入会议评价失败");
+    },
+    onSuccess: (url) => {
+      window.location.assign(toAbsoluteUrl(url));
+    },
+  });
 
   let roundsContent: ReactNode;
   if (isLoading) {
@@ -232,6 +258,7 @@ export function HumanInterviewStagePanel({
               onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
               onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
               onRescheduled={invalidateRescheduledMeeting}
+              onReview={(item) => reviewMeetingMutation.mutate(item.id)}
               round={round}
               roundNumber={businessRoundNumbers.get(round.id) ?? 2}
               slug={slug}

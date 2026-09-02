@@ -1,7 +1,10 @@
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import type { PublicHumanInterviewMeetingPreview } from "@arc/shared/studio-pipeline-stages";
-import { humanInterviewMeetingStatusSchema } from "@arc/db-schema/studio-interviews";
+import {
+  humanInterviewMeetingStatusSchema,
+  humanInterviewRecordingStatusSchema,
+} from "@arc/db-schema/studio-interviews";
 import { candidateInterviewInvitationStatusSchema } from "@arc/db-schema/interview-notifications";
 import { z } from "zod";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
@@ -18,6 +21,7 @@ const candidatePreviewSchema = z.object({
   candidateInviteStatus: candidateInterviewInvitationStatusSchema,
   candidateName: z.string(),
   meetingId: z.string(),
+  recordingStatus: humanInterviewRecordingStatusSchema,
   roundLabel: z.string(),
   scheduledAt: z.string().nullable(),
   status: humanInterviewMeetingStatusSchema,

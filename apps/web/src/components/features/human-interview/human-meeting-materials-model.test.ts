@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveEffectiveCandidateId,
+  resolveInitialHumanMeetingViewMode,
   shouldReturnToMeetingForLocalScreenShare,
 } from "./human-meeting-materials-model";
 
@@ -20,5 +21,11 @@ describe("human meeting candidate materials model", () => {
     expect(shouldReturnToMeetingForLocalScreenShare("materials", true)).toBe(true);
     expect(shouldReturnToMeetingForLocalScreenShare("materials", false)).toBe(false);
     expect(shouldReturnToMeetingForLocalScreenShare("meeting", true)).toBe(false);
+  });
+
+  it("opens ended interviewer meetings directly in review", () => {
+    expect(resolveInitialHumanMeetingViewMode("interviewer", "ended")).toBe("review");
+    expect(resolveInitialHumanMeetingViewMode("interviewer", "in_progress")).toBe("meeting");
+    expect(resolveInitialHumanMeetingViewMode("candidate", "ended")).toBe("meeting");
   });
 });

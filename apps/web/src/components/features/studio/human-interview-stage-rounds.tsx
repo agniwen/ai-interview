@@ -4,6 +4,7 @@
 import {
   IconBan,
   IconCheck,
+  IconChecklist,
   IconCircleCheck,
   IconCopy,
   IconLoader2,
@@ -22,6 +23,10 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@arc/shared/studio-pipeline-stages";
+import {
+  normalizeHumanInterviewEvaluationText,
+  normalizeHumanInterviewProfessionalSkill,
+} from "@arc/shared/human-interview-evaluation";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   isApiError,
@@ -100,6 +105,7 @@ async function copyMeetingLink(url: string, label: string) {
   }
 }
 
+// oxlint-disable-next-line complexity -- the card composes permission, meeting lifecycle, evaluation, and scheduling states.
 export function RoundCard({
   round,
   canCreate,
@@ -113,6 +119,7 @@ export function RoundCard({
   onEndMeeting,
   onOpenLinks,
   onRescheduled,
+  onReview,
   roundNumber,
   slug,
   dependencies = defaultRoundCardDependencies,
@@ -129,6 +136,7 @@ export function RoundCard({
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
   onRescheduled: () => void;
+  onReview: (meeting: HumanInterviewMeetingRecord) => void;
   roundNumber: number;
   slug: string;
   dependencies?: RoundCardDependencies;
@@ -143,6 +151,9 @@ export function RoundCard({
     Boolean(round.scheduledAt);
   const canCancelRound = canDelete && canCancelHumanInterviewRound(round, meeting, disabled);
   const canCompleteRound = canUpdate && canCompleteHumanInterviewRound(round, meeting, disabled);
+  const canReviewRound = Boolean(
+    canUpdate && canWrite && round.status === "pending" && meeting?.status === "ended",
+  );
 
   return (
     <Card className="gap-0 rounded-lg py-0">
@@ -180,6 +191,8 @@ export function RoundCard({
           <InterviewerAssignmentList meeting={meeting} round={round} />
         ) : null}
 
+        {round.evaluation ? <RoundEvaluation evaluation={round.evaluation} round={round} /> : null}
+
         {hasRoundDetails(round) ? (
           <div className="space-y-1 border-border/40 border-t pt-3 text-sm">
             {round.score === null ? null : (
@@ -187,7 +200,7 @@ export function RoundCard({
                 评分：<span className="font-medium text-foreground">{round.score}</span>
               </div>
             )}
-            {round.feedback ? (
+            {!round.evaluation && round.feedback ? (
               <p className="whitespace-pre-wrap text-foreground/90 text-xs leading-relaxed">
                 {round.feedback}
               </p>
@@ -204,16 +217,61 @@ export function RoundCard({
           canCreateMeeting={canCreateMeeting}
           canEndMeeting={canUpdate && canEndHumanInterviewMeeting(meeting, disabled)}
           canOpenLinks={canOpenMeetingLinks(meeting)}
+          canReviewRound={canReviewRound}
           meeting={meeting}
           onCancel={onCancel}
           onComplete={onComplete}
           onCreateMeeting={onCreateMeeting}
           onEndMeeting={onEndMeeting}
           onOpenLinks={onOpenLinks}
+          onReview={onReview}
           slug={slug}
         />
       </CardContent>
     </Card>
+  );
+}
+
+function RoundEvaluation({
+  evaluation,
+  round,
+}: {
+  evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
+  round: HumanInterviewRoundRecord;
+}) {
+  const submitted = round.evaluationStatus === "submitted";
+  return (
+    <div className="space-y-3 border-border/40 border-t pt-3 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={submitted ? "success" : "warning"}>
+          评价 · {submitted ? "已提交" : "待提交"}
+        </Badge>
+      </div>
+      <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        <EvaluationField label="评级" value={evaluation.rating} />
+        <EvaluationField
+          label="专业技能"
+          value={normalizeHumanInterviewProfessionalSkill(evaluation.professionalSkill)}
+        />
+        <EvaluationField label="职级定位" value={evaluation.seniorityPosition} />
+        <EvaluationField label="角色定位" value={evaluation.rolePosition} />
+        <EvaluationField label="优势特点" value={evaluation.strengths} />
+        <EvaluationField label="劣势风险" value={evaluation.risks} />
+        <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
+      </div>
+      <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />
+      <EvaluationField label="完整详细分析" value={evaluation.detailedAnalysis} />
+    </div>
+  );
+}
+
+function EvaluationField({ label, value }: { label: string; value: string }) {
+  const displayValue = normalizeHumanInterviewEvaluationText(value);
+  return (
+    <div className="space-y-1">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">{displayValue}</p>
+    </div>
   );
 }
 
@@ -449,6 +507,7 @@ function RoundCardActions({
   meeting,
   canCreateMeeting,
   canOpenLinks,
+  canReviewRound,
   canEndMeeting,
   canCancelRound,
   canCompleteRound,
@@ -457,11 +516,13 @@ function RoundCardActions({
   onCreateMeeting,
   onEndMeeting,
   onOpenLinks,
+  onReview,
   slug,
 }: {
   meeting: HumanInterviewMeetingRecord | null;
   canCreateMeeting: boolean;
   canOpenLinks: boolean;
+  canReviewRound: boolean;
   canEndMeeting: boolean;
   canCancelRound: boolean;
   canCompleteRound: boolean;
@@ -470,10 +531,16 @@ function RoundCardActions({
   onCreateMeeting: () => void;
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
+  onReview: (meeting: HumanInterviewMeetingRecord) => void;
   slug: string;
 }) {
   const hasActions =
-    canCreateMeeting || canOpenLinks || canEndMeeting || canCancelRound || canCompleteRound;
+    canCreateMeeting ||
+    canOpenLinks ||
+    canEndMeeting ||
+    canCancelRound ||
+    canCompleteRound ||
+    canReviewRound;
   if (!hasActions) {
     return null;
   }
@@ -487,6 +554,12 @@ function RoundCardActions({
   function handleEndMeeting() {
     if (meeting) {
       onEndMeeting(meeting);
+    }
+  }
+
+  function handleReview() {
+    if (meeting) {
+      onReview(meeting);
     }
   }
 
@@ -509,6 +582,12 @@ function RoundCardActions({
         <Button onClick={handleEndMeeting} size="sm" variant="outline">
           <IconPlayerStop className="size-4" />
           结束会议
+        </Button>
+      ) : null}
+      {canReviewRound ? (
+        <Button onClick={handleReview} size="sm">
+          <IconChecklist className="size-4" />
+          评价并完成
         </Button>
       ) : null}
       {canCompleteRound ? (

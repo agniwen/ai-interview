@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHumanInterviewMeetingTitle,
+  canCompleteHumanInterviewRound,
   getHumanInterviewBusinessRoundNumbers,
   getHumanInterviewScheduleBlockReason,
 } from "./human-interview-stage-utils";
+
+describe("canCompleteHumanInterviewRound", () => {
+  it("does not expose the retired direct-completion action after a meeting ends", () => {
+    expect(canCompleteHumanInterviewRound({ status: "pending" }, { status: "ended" })).toBe(false);
+  });
+});
 
 describe("buildHumanInterviewMeetingTitle", () => {
   it("includes the candidate and round label", () => {

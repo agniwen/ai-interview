@@ -394,6 +394,9 @@ async function runBenchmark(outputPath: string) {
         ),
       });
       for (const chunk of chunks) {
+        if (chunk.track === "mixed" || chunk.track === "candidate") {
+          throw new Error("The dual-track transcription benchmark does not accept mixed audio");
+        }
         const identity = await inspectLocalBenchmarkAsset(chunk.filePath);
         const url = tingwuUrls[benchmarkCase.id]?.[chunk.track]?.[chunk.index];
         if (!url) {
@@ -445,6 +448,11 @@ async function runBenchmark(outputPath: string) {
           });
           provider = createTingwuMeetingTranscriptionProvider({
             createAudioUrl: (chunk) => {
+              if (chunk.track === "mixed" || chunk.track === "candidate") {
+                return Promise.reject(
+                  new Error("The dual-track transcription benchmark does not accept mixed audio"),
+                );
+              }
               const url = tingwuUrls[benchmarkCase.id]?.[chunk.track]?.[chunk.index];
               if (!url) {
                 return Promise.reject(

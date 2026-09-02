@@ -15,7 +15,7 @@ import type {
 } from "@arc/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { publicRpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 
 export function resolvePublicInterviewRecordId(recordId: string): Promise<string | null> {
   return rpcFetch(
@@ -35,8 +35,10 @@ export function fetchPublicInterviewRound(
   );
 }
 
-export function fetchPublicInterviewRoundReports(roundId: string) {
-  return rpcFetch(
+export function fetchPublicInterviewRoundReports(
+  roundId: string,
+): Promise<StudioInterviewConversationReport[]> {
+  return rpcFetchAs<StudioInterviewConversationReport[]>(
     publicRpc["interview-rounds"][":id"].reports.$get({ param: { id: roundId } }),
     "加载面试报告失败",
   );
@@ -46,7 +48,7 @@ export function fetchPublicInterviewRoundReport(
   roundId: string,
   conversationId: string,
 ): Promise<StudioInterviewConversationReport | null> {
-  return rpcFetch(
+  return rpcFetchAs<StudioInterviewConversationReport>(
     publicRpc["interview-rounds"][":id"].reports[":conversationId"].$get({
       param: { conversationId, id: roundId },
     }),
@@ -59,7 +61,7 @@ export function fetchPublicInterviewRecordingUrl(
   roundId: string,
   conversationId: string,
 ): Promise<{ url: string; expiresInSeconds: number }> {
-  return rpcFetch(
+  return rpcFetchAs<{ expiresInSeconds: number; url: string }>(
     publicRpc["interview-rounds"][":id"].recordings[":conversationId"].$get({
       param: { conversationId, id: roundId },
     }),

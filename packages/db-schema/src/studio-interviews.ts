@@ -303,9 +303,62 @@ export type HumanInterviewMeetingInterviewerRole = z.infer<
   typeof humanInterviewMeetingInterviewerRoleSchema
 >;
 
+export const humanInterviewEvaluationRatingValues = ["S", "A", "B", "C"] as const;
+export const humanInterviewEvaluationRatingSchema = z.enum(humanInterviewEvaluationRatingValues);
+export type HumanInterviewEvaluationRating = z.infer<typeof humanInterviewEvaluationRatingSchema>;
+
+export const humanInterviewEvaluationStatusValues = [
+  "not_started",
+  "generating",
+  "draft",
+  "submitted",
+  "failed",
+] as const;
+export const humanInterviewEvaluationStatusSchema = z.enum(humanInterviewEvaluationStatusValues);
+export type HumanInterviewEvaluationStatus = z.infer<typeof humanInterviewEvaluationStatusSchema>;
+
+export const humanInterviewEvaluationSnapshotSourceValues = [
+  "ai_generated",
+  "human_submitted",
+] as const;
+export const humanInterviewEvaluationSnapshotSourceSchema = z.enum(
+  humanInterviewEvaluationSnapshotSourceValues,
+);
+export type HumanInterviewEvaluationSnapshotSource = z.infer<
+  typeof humanInterviewEvaluationSnapshotSourceSchema
+>;
+
+export const humanInterviewRecordingStatusValues = [
+  "pending",
+  "starting",
+  "active",
+  "completed",
+  "failed",
+] as const;
+export const humanInterviewRecordingStatusSchema = z.enum(humanInterviewRecordingStatusValues);
+export type HumanInterviewRecordingStatus = z.infer<typeof humanInterviewRecordingStatusSchema>;
+
+const humanInterviewEvaluationTextSchema = z.string().trim().max(20_000);
+
+export const humanInterviewEvaluationSchema = z
+  .object({
+    detailedAnalysis: humanInterviewEvaluationTextSchema,
+    evidenceTurnIds: z.array(z.string().trim().min(1)).max(500),
+    overallEvaluation: humanInterviewEvaluationTextSchema,
+    professionalSkill: humanInterviewEvaluationTextSchema,
+    rating: humanInterviewEvaluationRatingSchema,
+    risks: humanInterviewEvaluationTextSchema,
+    rolePosition: humanInterviewEvaluationTextSchema,
+    salaryRecommendation: humanInterviewEvaluationTextSchema,
+    seniorityPosition: humanInterviewEvaluationTextSchema,
+    strengths: humanInterviewEvaluationTextSchema,
+  })
+  .strict();
+export type HumanInterviewEvaluation = z.infer<typeof humanInterviewEvaluationSchema>;
+
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
 // 面试官可以暂为空，供“先创建会议，再由列表外人员接受邀请”流程使用；
-// 时间可空（未定档），评分 0-100，可空。
+// 时间可空（未定档）。历史数字评分保留在读取模型中，新流程不再写入。
 // Interviewers may be empty while an external interviewer invitation is pending.
 export const humanInterviewRoundInputSchema = z.object({
   feedback: z.string().trim().max(5000, "面试反馈不能超过 5000 字").nullable().optional(),
@@ -317,7 +370,6 @@ export const humanInterviewRoundInputSchema = z.object({
   notes: z.string().trim().max(500).nullable().optional(),
   outcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
   scheduledAt: nullableInstantDateTimeInputSchema,
-  score: z.number().int().min(0).max(100).nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
 export type HumanInterviewRoundInput = z.infer<typeof humanInterviewRoundInputSchema>;
@@ -326,10 +378,7 @@ export const humanInterviewMeetingInputSchema = z.object({
   // 兼容旧客户端；会议面试官由 roundIds 对应的轮次指派关系派生。
   interviewerIds: z.array(z.string().trim().min(1)).max(10, "面试官最多 10 人").optional(),
   notes: z.string().trim().max(1000, "会议备注不能超过 1000 字").nullable().optional(),
-  roundIds: z
-    .array(z.string().trim().min(1))
-    .min(1, "至少添加 1 位候选人")
-    .max(20, "候选人最多 20 人"),
+  roundIds: z.array(z.string().trim().min(1)).length(1, "一场真人复面会议只能关联一个候选人轮次"),
   scheduledAt: nullableInstantDateTimeInputSchema,
   title: z.string().trim().min(1, "请输入会议名称").max(100, "会议名称不能超过 100 字"),
   validUntil: nullableInstantDateTimeInputSchema,

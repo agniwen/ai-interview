@@ -42,7 +42,7 @@ import type {
 } from "@arc/shared/studio-pipeline-stages";
 import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
 import { rpc, studioInterviewsRpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 
 /**
  * 简历语义查重单条命中。
@@ -242,8 +242,11 @@ export function fetchStudioInterviewRound(
  * 拉取某轮次的面试报告列表（按时间倒序，仅含本轮次 conversations）。
  * Fetch the interview reports for a single round (newest first, per-round only).
  */
-export function fetchStudioInterviewRoundReports(slug: string, roundId: string) {
-  return rpcFetch(
+export function fetchStudioInterviewRoundReports(
+  slug: string,
+  roundId: string,
+): Promise<StudioInterviewConversationReport[]> {
+  return rpcFetchAs<StudioInterviewConversationReport[]>(
     rpc.api.w[":slug"].studio.interviews[":id"].reports.$get({ param: { id: roundId, slug } }),
     "加载面试报告失败",
   );
@@ -254,7 +257,7 @@ export function fetchStudioInterviewRoundReport(
   roundId: string,
   conversationId: string,
 ): Promise<StudioInterviewConversationReport | null> {
-  return rpcFetch(
+  return rpcFetchAs<StudioInterviewConversationReport>(
     rpc.api.w[":slug"].studio.interviews[":id"].reports[":conversationId"].$get({
       param: { conversationId, id: roundId, slug },
     }),
@@ -558,8 +561,8 @@ export function createHumanInterviewRound(
 }
 
 /**
- * 编辑真人复面轮次。pending 可改全部字段；completed 仅可改 feedback / score。
- * Edit a round; pending allows everything, completed only feedback + score.
+ * 编辑真人复面轮次。pending 可改排期字段；completed 仅可改 feedback。
+ * Edit a round; pending allows scheduling fields, completed only feedback.
  */
 export function patchHumanInterviewRound(
   slug: string,
@@ -584,7 +587,7 @@ export function completeHumanInterviewRound(
   slug: string,
   candidateId: string,
   roundId: string,
-  input: { outcome: HumanInterviewRoundOutcome; score?: number | null; feedback: string },
+  input: { outcome: HumanInterviewRoundOutcome; feedback: string },
 ): Promise<HumanInterviewRoundRecord> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][

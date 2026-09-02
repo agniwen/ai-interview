@@ -20,7 +20,7 @@ import { chatRpc, rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@arc/shared/file-hash";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 import { apiFetch } from "../client";
-import { rpcFetch } from "../rpc-fetch";
+import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 
 const storedChatMessageSchema = z
   .object({ role: z.enum(["assistant", "system", "tool", "user"]) })
@@ -56,6 +56,10 @@ export interface ChatConversationDetail extends ChatConversationSummary {
   resumeImports: Record<string, string>;
   messages: UIMessage[];
 }
+
+type StoredChatConversationDetail = Omit<ChatConversationDetail, "messages"> & {
+  messages: JsonValue[];
+};
 
 /**
  * 创建 / 更新会话的请求体。
@@ -180,7 +184,7 @@ export async function fetchConversation(
   slug: string,
   id: string,
 ): Promise<ChatConversationDetail | null> {
-  const data = await rpcFetch(
+  const data = await rpcFetchAs<{ conversation: StoredChatConversationDetail }>(
     chatRpc(slug).conversations[":id"].$get({ param: { id } }),
     "加载会话失败",
     { allow404: true },

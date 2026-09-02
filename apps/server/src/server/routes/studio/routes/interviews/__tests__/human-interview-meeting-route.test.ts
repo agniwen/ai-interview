@@ -650,10 +650,10 @@ describe("POST /human-interview-meetings", () => {
     expect(updatedRound?.scheduledAt?.toISOString()).toBe("2026-08-05T10:30:00.000Z");
   });
 
-  it("records a reschedule activity for every candidate linked to the meeting", async () => {
-    const meetingId = "test_feishu_group_schedule_update";
-    await seedReadyFeishuMeeting(meetingId, [ROUND_ID, SECOND_ROUND_ID]);
-    process.env.FEISHU_APP_ID2 = "cli_test_feishu_group_schedule_update";
+  it("records a reschedule activity for the meeting candidate", async () => {
+    const meetingId = "test_feishu_single_schedule_update";
+    await seedReadyFeishuMeeting(meetingId, [ROUND_ID]);
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_single_schedule_update";
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         new Response(
@@ -693,11 +693,7 @@ describe("POST /human-interview-meetings", () => {
       })
       .from(interviewAuditLog)
       .where(eq(interviewAuditLog.organizationId, ORG_ID));
-    expect(
-      activities.toSorted((left, right) =>
-        left.interviewRecordId.localeCompare(right.interviewRecordId),
-      ),
-    ).toEqual([
+    expect(activities).toEqual([
       {
         action: "human_interview_round_updated",
         detail: {
@@ -706,16 +702,6 @@ describe("POST /human-interview-meetings", () => {
           scheduledAt: "2026-08-05T10:30:00.000Z",
         },
         interviewRecordId: INTERVIEW_ID,
-        operatorId: OPERATOR_ID,
-      },
-      {
-        action: "human_interview_round_updated",
-        detail: {
-          roundId: SECOND_ROUND_ID,
-          roundLabel: "真人复面",
-          scheduledAt: "2026-08-05T10:30:00.000Z",
-        },
-        interviewRecordId: SECOND_INTERVIEW_ID,
         operatorId: OPERATOR_ID,
       },
     ]);

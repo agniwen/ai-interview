@@ -6,14 +6,16 @@ import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
+import type { MeetingTranscriptionSourceTrack } from "@arc/shared/meeting-recording";
 
 export interface FinalTranscriptionAudioChunk {
   contentType: string;
   endMs: number;
   filePath: string;
   index: number;
+  speakerDisplayName?: string;
   startMs: number;
-  track: "microphone" | "system";
+  track: MeetingTranscriptionSourceTrack;
 }
 
 const execFileAsync = promisify(execFile);
@@ -49,7 +51,8 @@ export interface MeetingTranscriptionChunkSource {
   durationMs: number;
   filePath: string;
   segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
-  track: "microphone" | "system";
+  speakerDisplayName?: string;
+  track: MeetingTranscriptionSourceTrack;
 }
 
 export async function normalizeMeetingRecordingSegments(input: {
@@ -165,6 +168,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
         endMs: Math.min(source.durationMs, startMs + MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS),
         filePath: join(input.directory, name),
         index,
+        speakerDisplayName: source.speakerDisplayName,
         startMs,
         track: source.track,
       });
@@ -173,24 +177,85 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
   return chunks;
 }
 
+function normalizeMeetingTranscriptText(value: string): string {
+  return value.toLocaleLowerCase().replaceAll(/[\p{P}\p{S}\s]+/gu, "");
+}
+
+function meetingTranscriptTextSimilarity(left: string, right: string): number {
+  const leftText = normalizeMeetingTranscriptText(left);
+  const rightText = normalizeMeetingTranscriptText(right);
+  if (!(leftText && rightText)) {
+    return 0;
+  }
+  const leftPairs = new Set(
+    Array.from({ length: Math.max(1, leftText.length - 1) }, (_, index) =>
+      leftText.slice(index, index + 2),
+    ),
+  );
+  const rightPairs = new Set(
+    Array.from({ length: Math.max(1, rightText.length - 1) }, (_, index) =>
+      rightText.slice(index, index + 2),
+    ),
+  );
+  const overlap = [...leftPairs].filter((pair) => rightPairs.has(pair)).length;
+  return (2 * overlap) / (leftPairs.size + rightPairs.size);
+}
+
 export function mergeMeetingTranscriptionChunkResults(
   results: { chunk: FinalTranscriptionAudioChunk; transcript: CanonicalMeetingTranscript }[],
 ): CanonicalMeetingTranscript {
-  const remoteSpeakers = new Map<string, string>();
-  const turns = results.flatMap(({ chunk, transcript }) =>
-    transcript.turns.map((turn) => {
-      if (turn.track === "local") {
-        return turn;
-      }
-      const identity = `${chunk.track}:${chunk.index}:${turn.speakerKey}`;
-      let speakerKey = remoteSpeakers.get(identity);
-      if (!speakerKey) {
-        speakerKey = `remote-${remoteSpeakers.size + 1}`;
-        remoteSpeakers.set(identity, speakerKey);
-      }
-      return { ...turn, speakerKey };
-    }),
+  const candidateResults = new Map(
+    results
+      .filter((result) => result.chunk.track === "candidate")
+      .map((result) => [result.chunk.index, result]),
   );
+  const remoteSpeakers = new Map<string, string>();
+  const turns = results
+    .filter((result) => result.chunk.track !== "candidate")
+    .flatMap(({ chunk, transcript }) => {
+      const candidateResult =
+        chunk.track === "mixed" ? candidateResults.get(chunk.index) : undefined;
+      const candidateText =
+        candidateResult?.transcript.turns.map((turn) => turn.text).join(" ") ?? "";
+      const candidateDisplayName = candidateResult?.chunk.speakerDisplayName;
+      const speakerTexts = new Map<string, string[]>();
+      for (const turn of transcript.turns) {
+        const texts = speakerTexts.get(turn.speakerKey) ?? [];
+        texts.push(turn.text);
+        speakerTexts.set(turn.speakerKey, texts);
+      }
+      const rankedSpeakers = [...speakerTexts.entries()]
+        .map(([speakerKey, texts]) => ({
+          score: meetingTranscriptTextSimilarity(texts.join(" "), candidateText),
+          speakerKey,
+        }))
+        .toSorted((left, right) => right.score - left.score);
+      const candidateSpeakerKey =
+        candidateDisplayName &&
+        rankedSpeakers[0] &&
+        rankedSpeakers[0].score >= 0.25 &&
+        rankedSpeakers[0].score - (rankedSpeakers[1]?.score ?? 0) >= 0.08
+          ? rankedSpeakers[0].speakerKey
+          : null;
+      return transcript.turns.map((turn) => {
+        if (turn.track === "local") {
+          return { ...turn, speakerDisplayName: turn.speakerDisplayName ?? null };
+        }
+        const identity = `${chunk.track}:${chunk.index}:${turn.speakerKey}`;
+        let speakerKey = remoteSpeakers.get(identity);
+        if (!speakerKey) {
+          speakerKey = `remote-${remoteSpeakers.size + 1}`;
+          remoteSpeakers.set(identity, speakerKey);
+        }
+        return {
+          ...turn,
+          speakerDisplayName:
+            turn.speakerDisplayName ??
+            (turn.speakerKey === candidateSpeakerKey ? candidateDisplayName : null),
+          speakerKey,
+        };
+      });
+    });
   turns.sort(
     (left, right) =>
       left.startMs - right.startMs ||

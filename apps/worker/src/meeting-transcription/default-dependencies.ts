@@ -9,6 +9,7 @@ import {
   saveMeetingTranscriptionChunkCheckpoint,
 } from "@app/server/worker/meeting-transcription";
 import { requestAutomaticMeetingIntelligence } from "@app/server/worker/meeting-intelligence";
+import { requestAutomaticHumanInterviewEvaluation } from "@app/server/worker/human-interview";
 import { createDefaultMeetingTranscriptionDependencies } from "./processor";
 
 export const defaultMeetingTranscriptionDependencies =
@@ -20,6 +21,7 @@ export const defaultMeetingTranscriptionDependencies =
     markChunkFailed: markMeetingTranscriptionChunkFailed,
     markFailed: markMeetingTranscriptionFailed,
     publish: publishMeetingTranscript,
+    requestHumanEvaluation: requestAutomaticHumanInterviewEvaluation,
     requestIntelligence: requestAutomaticMeetingIntelligence,
     saveChunkCheckpoint: saveMeetingTranscriptionChunkCheckpoint,
   });
