@@ -1,8 +1,8 @@
 # 真人面试线上 LiveKit 配置说明
 
-适用：2026-09-03 检查的当前线上服务器。本文提供操作步骤，尚未在生产执行。
+适用：2026-09-03 检查的当前线上服务器。LiveKit、Redis 与 Egress 统一使用 `/app/livekit/docker-compose.yaml` 管理。
 
-## 1. 当前部署与需要补齐的部分
+## 1. 当前部署
 
 | 项目                   | 当前值                                  |
 | ---------------------- | --------------------------------------- |
@@ -15,8 +15,9 @@
 | LiveKit 容器内配置文件 | `/etc/livekit/config.yaml`              |
 | 现有 Compose 文件      | `/app/livekit/docker-compose.yaml`      |
 | LiveKit Redis          | `127.0.0.1:6379`，与 LiveKit 同机       |
+| Egress 容器            | `livekit-egress-1`、`livekit-egress-2`，版本 `v1.14.1` |
 
-当前 LiveKit 配置没有 `webhook`，当前主机也没有 Egress 容器。需要配置事件回调，并部署或确认已在其他机器部署的 Egress 录音服务。
+首次检查时，LiveKit 没有加载 `webhook`，主机也没有 Egress 容器。2026-09-03 17:45 已重启 LiveKit，确认新配置加载成功，真实事件回调返回 200；18:23 两个 Egress 实例启动，录音与存储验证通过。本文时间均为北京时间。
 
 两条链路分别验收：
 
@@ -71,11 +72,13 @@ docker restart livekit-server
 docker logs --since 2m livekit-server
 ```
 
+文件通过单文件 bind mount 挂载。编辑器原子替换宿主机文件后，正在运行的容器可能仍读取旧文件；需在重启后核对宿主机与容器内文件一致，不能只看宿主机内容。普通 `docker compose up -d` 在服务定义没有变化时不会重启现有 LiveKit。
+
 ## 3. 部署 Egress 录音服务
 
-如果已有另一台机器运行 Egress，先核对它连接的是上述 LiveKit 和同一个 Redis；不必重复部署。下面方案适用于当前 Linux 主机，独立 Compose 项目管理 Egress，保留现有 LiveKit/Redis 部署。
+如果已有另一台机器运行 Egress，先核对它连接的是上述 LiveKit 和同一个 Redis；不必重复部署。下面方案适用于当前 Linux 主机，把 Egress 加入现有 Compose，保留 LiveKit/Redis 的原服务配置。
 
-新建 `/app/livekit/egress.env`，填入与 LiveKit、Web 相同的一组线上密钥：
+在 `/app/livekit/.env` 中配置与 LiveKit、Web 相同的一组线上密钥。该文件由同目录 Compose 自动加载；已有文件时保留其他配置：
 
 ```dotenv
 LIVEKIT_API_KEY=<当前线上 API Key>
@@ -85,59 +88,74 @@ LIVEKIT_API_SECRET=<该 Key 对应的 Secret>
 设置文件权限：
 
 ```sh
-chmod 600 /app/livekit/egress.env
+chmod 600 /app/livekit/.env
 ```
 
-新建 `/app/livekit/docker-compose.egress.yaml`：
+将下面的 `x-egress` 放在现有 Compose 顶层，将两个 `egress-*` 服务合并到现有 `services` 中。不要覆盖原来的 `redis-livekit` 和 `livekit-server`，也不要重复声明 `services`：
 
 ```yaml
+x-egress: &egress
+  image: livekit/egress:v1.14.1
+  network_mode: host
+  restart: unless-stopped
+  cap_add:
+    - SYS_ADMIN
+  shm_size: 1gb
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
 services:
-  egress:
-    image: livekit/egress:v1.14.1
-    network_mode: host
-    restart: unless-stopped
-    cap_add:
-      - SYS_ADMIN
-    shm_size: 1gb
-    deploy:
-      replicas: 2
+  # 保留已有 redis-livekit、livekit-server 服务。
+  egress-1:
+    <<: *egress
+    container_name: livekit-egress-1
     environment:
       EGRESS_CONFIG_BODY: |
-        api_key: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in egress.env}
-        api_secret: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in egress.env}
+        api_key: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env}
+        api_secret: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env}
         ws_url: ws://127.0.0.1:7880
         insecure: true
         redis:
           address: 127.0.0.1:6379
+        template_port: 7980
+        enable_chrome_sandbox: true
+        log_level: info
+  egress-2:
+    <<: *egress
+    container_name: livekit-egress-2
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env}
+        api_secret: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env}
+        ws_url: ws://127.0.0.1:7880
+        insecure: true
+        redis:
+          address: 127.0.0.1:6379
+        template_port: 7981
         enable_chrome_sandbox: true
         log_level: info
 ```
 
-这里的 `127.0.0.1` 依赖 `network_mode: host`，仅用于当前同机部署。跨机器部署时改用 Egress 可达的 LiveKit 地址及同一 Redis 的受控网络地址；Redis 的认证信息与数据库编号也须一致。
+这里的 `127.0.0.1` 依赖 `network_mode: host`，仅用于当前同机部署。两个实例使用不同的 `template_port`，避免抢占同一宿主机端口；不要直接用默认端口扩为两个副本。跨机器部署时改用 Egress 可达的 LiveKit 地址及同一 Redis 的受控网络地址；Redis 的认证信息与数据库编号也须一致。
 
 `v1.14.1` 是仓库本地联调用过的版本。两个实例用于初始联调，并不表示已验证生产并发容量。Egress 官方建议每个实例至少 4 CPU / 4 GB，需要结合这台同时运行 Web、Worker 等服务的机器评估资源。
+
+实例数不等于面试场数。当前业务会录制整场混音和每个参与者的独立音轨，两人面试通常对应 3 个 Egress 任务。一个实例可以按资源接收多个任务；两个同机实例共享该机的 4 核、16 GB，增加实例不会增加主机算力。正式多场并发需按目标人数和场数压测，并为 Web、Worker、LiveKit 留出余量。
 
 验证配置语法并启动：
 
 ```sh
-docker compose -p ai-interview-egress \
-  --env-file /app/livekit/egress.env \
-  -f /app/livekit/docker-compose.egress.yaml config --quiet
-
-docker compose -p ai-interview-egress \
-  --env-file /app/livekit/egress.env \
-  -f /app/livekit/docker-compose.egress.yaml up -d
-
-docker compose -p ai-interview-egress \
-  --env-file /app/livekit/egress.env \
-  -f /app/livekit/docker-compose.egress.yaml ps
-
-docker compose -p ai-interview-egress \
-  --env-file /app/livekit/egress.env \
-  -f /app/livekit/docker-compose.egress.yaml logs --since 5m
+cd /app/livekit
+docker compose config --quiet
+docker compose up -d egress-1 egress-2
+docker compose ps
+docker compose logs --since 5m egress-1 egress-2
 ```
 
-使用 `config --quiet` 避免在终端打印展开后的密钥。当前业务代码在启动 Egress 时传入对象存储配置，无需另在 Egress 中复制一套 R2 配置。
+以后在该目录运行 `docker compose up -d` 可统一管理四个服务。使用 `config --quiet` 避免在终端打印展开后的密钥。当前业务代码在启动 Egress 时传入对象存储配置，无需另在 Egress 中复制一套 R2 配置。
 
 ## 4. Web 与 Worker 配置
 
@@ -187,6 +205,22 @@ docker logs --since 10m livekit-server
 ```
 
 对外分享日志前隐藏邀请链接、令牌和个人信息。不能只凭容器运行、接口 200、麦克风图标或页面“录音仍在继续”判定录音成功。没有启动录音的旧会议无法靠补回调恢复过去的音频；旧会议状态也不会自动补齐。
+
+## 6. 2026-09-03 现场验收结果
+
+已在独立测试房间发布两路合成音频，未采集真实麦克风。整场混音与两路独立音轨共 3 个任务同时进入 `EGRESS_ACTIVE`，停止后全部进入 `EGRESS_COMPLETE`，没有录音任务错误。
+
+| 文件 | 时长 | 大小 |
+| --- | --- | --- |
+| 混音 | 8.26 秒 | 135,227 字节 |
+| 独立音轨 1 | 9.08 秒 | 148,579 字节 |
+| 独立音轨 2 | 9.06 秒 | 148,135 字节 |
+
+通过 Worker 的存储凭据独立读取对象，确认文件大小与 Egress 结果一致、文件头为 `OggS`。测试房间与这 3 个测试对象已清理。`egress_started`、`egress_updated`、`egress_ended`、`room_finished` 回调均成功送达，Web 返回 200；LiveKit、Web 和 Worker 健康检查均返回 200。
+
+这是录音基础设施与对象存储的验证，不包含真实业务会议的完整会后转录、评价和页面播放验收，也不代表多场并发容量已经验证。
+
+18:14 结束的业务测试会议发生在 Egress 就绪之前：结束接口返回 200、房间关闭和回调正常，但没有生成录音。系统使用 8 条实时字幕恢复后续处理；AI 评价因 `rating` 枚举不合法及额外字段校验失败，重试后进入 `failed`。该问题的输出约束和错误反馈已在提交 `6daa802d` 中修复，并通过与线上同型号模型的合成材料验证；线上需重新发布 Worker 后再验收。此故障不能归因于 Webhook 断开，也不能用重新部署 Egress 补回历史录音。
 
 ## 官方参考
 
