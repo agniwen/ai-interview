@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
@@ -49,7 +49,11 @@ export async function loadStudioHumanInterviewReviewScope(input: {
           : undefined,
       ),
     )
-    .orderBy(desc(studioHumanInterviewMeeting.createdAt))
+    .orderBy(
+      sql`${studioHumanInterviewMeeting.status} = 'cancelled'`,
+      desc(studioHumanInterviewMeeting.createdAt),
+      desc(studioHumanInterviewMeeting.id),
+    )
     .limit(1);
   if (!row) {
     return null;

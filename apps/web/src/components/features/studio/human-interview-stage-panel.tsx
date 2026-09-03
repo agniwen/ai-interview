@@ -4,7 +4,8 @@
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { findHumanInterviewRoundMeeting } from "@app/shared/human-interview-meeting-detail";
 import type { ReactNode } from "react";
 import { useReducer } from "react";
 import { toast } from "sonner";
@@ -223,10 +224,7 @@ export function HumanInterviewStagePanel({
     roundsContent = (
       <div className="space-y-3">
         {rounds.map((round) => {
-          const meeting =
-            meetings.find((item) =>
-              item.rounds.some((meetingRound) => meetingRound.roundId === round.id),
-            ) ?? null;
+          const meeting = findHumanInterviewRoundMeeting(meetings, round.id);
           return (
             <RoundCard
               canCreate={canCreate}
@@ -235,6 +233,32 @@ export function HumanInterviewStagePanel({
               disabled={disabled}
               key={round.id}
               meeting={meeting}
+              meetingDetailLink={
+                meeting?.status === "ended" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId"
+                        params={{
+                          meetingId: meeting.id,
+                          recordId: candidateId,
+                          roundId: round.id,
+                          slug,
+                        }}
+                        state={(previous) => ({
+                          ...previous,
+                          fromHumanInterviewCandidate: candidateId,
+                        })}
+                      />
+                    }
+                  >
+                    会议详情
+                  </Button>
+                ) : null
+              }
               onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
               onComplete={() => dispatchDialog({ target: round, type: "completeTargetChanged" })}
               onCreateMeeting={() => createMeetingMutation.mutate(round)}

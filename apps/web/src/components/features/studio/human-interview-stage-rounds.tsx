@@ -23,10 +23,7 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@app/shared/studio-pipeline-stages";
-import {
-  normalizeHumanInterviewEvaluationText,
-  normalizeHumanInterviewProfessionalSkill,
-} from "@app/shared/human-interview-evaluation";
+import { RoundEvaluation } from "./human-interview-evaluation-summary";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   isApiError,
@@ -114,6 +111,7 @@ export function RoundCard({
   canUpdate,
   disabled,
   meeting,
+  meetingDetailLink,
   onComplete,
   onCancel,
   onCreateMeeting,
@@ -131,6 +129,7 @@ export function RoundCard({
   canUpdate: boolean;
   disabled?: boolean;
   meeting: HumanInterviewMeetingRecord | null;
+  meetingDetailLink?: ReactNode;
   onComplete: () => void;
   onCancel: () => void;
   onCreateMeeting: () => void;
@@ -196,6 +195,7 @@ export function RoundCard({
               </span>
             </div>
           </div>
+          {meeting?.status === "ended" ? meetingDetailLink : null}
         </div>
 
         {round.interviewers.length > 0 ? (
@@ -247,49 +247,6 @@ export function RoundCard({
         />
       ) : null}
     </Card>
-  );
-}
-
-function RoundEvaluation({
-  evaluation,
-  round,
-}: {
-  evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
-  round: HumanInterviewRoundRecord;
-}) {
-  const submitted = round.evaluationStatus === "submitted";
-  return (
-    <div className="space-y-3 border-border/40 border-t pt-3 text-xs">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={submitted ? "success" : "warning"}>
-          评价 · {submitted ? "已提交" : "待提交"}
-        </Badge>
-      </div>
-      <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-        <EvaluationField label="评级" value={evaluation.rating} />
-        <EvaluationField
-          label="专业技能"
-          value={normalizeHumanInterviewProfessionalSkill(evaluation.professionalSkill)}
-        />
-        <EvaluationField label="职级定位" value={evaluation.seniorityPosition} />
-        <EvaluationField label="角色定位" value={evaluation.rolePosition} />
-        <EvaluationField label="优势特点" value={evaluation.strengths} />
-        <EvaluationField label="劣势风险" value={evaluation.risks} />
-        <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
-      </div>
-      <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />
-      <EvaluationField label="完整详细分析" value={evaluation.detailedAnalysis} />
-    </div>
-  );
-}
-
-function EvaluationField({ label, value }: { label: string; value: string }) {
-  const displayValue = normalizeHumanInterviewEvaluationText(value);
-  return (
-    <div className="space-y-1">
-      <span className="font-medium text-muted-foreground">{label}</span>
-      <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">{displayValue}</p>
-    </div>
   );
 }
 

@@ -273,6 +273,45 @@ describe("RoundCard rescheduling", () => {
 });
 
 describe("RoundCard interviewer arrangement", () => {
+  it.each(["ended", "scheduled", "in_progress", "cancelled"] as const)(
+    "exposes read-only meeting details only after ending (%s)",
+    (status) => {
+      const queryClient = new QueryClient();
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RoundCard
+              canCreate={false}
+              canDelete={false}
+              canUpdate={false}
+              disabled
+              dependencies={dependencies}
+              meeting={{ ...meeting, status }}
+              meetingDetailLink={<a href="https://example.test/meeting-detail">会议详情</a>}
+              round={{ ...round, outcome: "fail", status: "completed" }}
+              roundNumber={2}
+              slug="light"
+              onCancel={vi.fn()}
+              onComplete={vi.fn()}
+              onCreateMeeting={vi.fn()}
+              onEndMeeting={vi.fn()}
+              onOpenLinks={vi.fn()}
+              onRescheduled={vi.fn()}
+              onReview={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      expect(host.querySelector('a[href="https://example.test/meeting-detail"]') !== null).toBe(
+        status === "ended",
+      );
+      act(() => root.unmount());
+      queryClient.clear();
+    },
+  );
   it.each([
     ["inconclusive", true, false, true],
     ["inconclusive", false, false, false],

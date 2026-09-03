@@ -66,6 +66,7 @@ beforeAll(async () => {
     })),
   );
   await db.insert(studioHumanInterviewMeeting).values({
+    createdAt: now,
     id: meetingId,
     organizationId: orgId,
     status: "ended",
@@ -81,6 +82,28 @@ beforeAll(async () => {
 afterAll(cleanup);
 
 describe("authenticated review database scope", () => {
+  it("keeps the evaluation linked to the non-cancelled meeting when a newer attempt was cancelled", async () => {
+    const cancelledId = "review_access_test_cancelled";
+    await db.insert(studioHumanInterviewMeeting).values({
+      createdAt: new Date(now.getTime() + 1000),
+      id: cancelledId,
+      organizationId: orgId,
+      status: "cancelled",
+      title: "Cancelled replacement",
+    });
+    await db.insert(studioHumanInterviewMeetingRound).values({
+      meetingId: cancelledId,
+      roundId: rounds[1],
+    });
+    try {
+      const scope = await loadStudioHumanInterviewReviewScope(input);
+      expect(scope).toMatchObject({ meetingId, roundId: rounds[1] });
+    } finally {
+      await db
+        .delete(studioHumanInterviewMeeting)
+        .where(eq(studioHumanInterviewMeeting.id, cancelledId));
+    }
+  });
   it("returns the requested candidate and round, not the first round linked to a meeting", async () => {
     const scope = await loadStudioHumanInterviewReviewScope(input);
     expect(scope).toMatchObject({
