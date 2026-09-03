@@ -37,17 +37,16 @@ describe("meeting speaker presentation", () => {
     expect([...reopened]).toEqual([...resumed]);
   });
 
-  it("renders the unknown speaker with a fixed blue circular blobatar", () => {
+  it("renders the unknown speaker with the fixed animated alain00 blobatar without a background", () => {
     const html = renderToStaticMarkup(<MeetingSpeakerLabel profile={UNKNOWN_MEETING_SPEAKER} />);
-    const decodedHtml = decodeURIComponent(html);
 
-    expect(html).toContain("<img");
-    expect(html).toContain("data:image/svg+xml");
-    expect(html).toContain('alt=""');
-    expect(html).toContain('data-meeting-speaker-avatar="true"');
+    expect(html).toContain("<svg");
+    expect(html).not.toContain("<img");
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('class="mo-root"');
+    expect(html).toContain("M82.41 51.21C82.41 71.76");
+    expect(html).toMatch(/<svg[^>]*><g class="mo-root">/);
     expect(html).toContain("未知说话人");
-    expect(decodedHtml).toContain("M100 50C100 77.61");
-    expect(decodedHtml).toContain("#4683e8");
   });
 
   it("keeps identified speakers on their stable generated avatar", () => {
@@ -58,5 +57,9 @@ describe("meeting speaker presentation", () => {
     expect(html).toContain("<img");
     expect(html).toContain('alt=""');
     expect(html).toContain('data-meeting-speaker-avatar="true"');
+    const encodedAvatar = html.match(/src="data:image\/svg\+xml,([^"]+)"/)?.[1];
+    expect(encodedAvatar).toBeDefined();
+    const avatarSvg = decodeURIComponent(encodedAvatar?.replaceAll("&#x27;", "'") ?? "");
+    expect(avatarSvg).toMatch(/^<svg [^>]+><g /);
   });
 });

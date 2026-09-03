@@ -1,4 +1,5 @@
 import { Blobatar } from "@blobatar/react";
+import "blobatar/motion.css";
 import { cn } from "@app/shared/utils";
 
 export interface MeetingSpeakerProfile {
@@ -15,8 +16,6 @@ export const UNKNOWN_MEETING_SPEAKER: MeetingSpeakerProfile = {
   avatarId: "meeting:unknown-speaker",
   label: "未知说话人",
 };
-
-const UNKNOWN_MEETING_SPEAKER_HUE = 260;
 
 export function createMeetingSpeakerProfiles(
   turns: MeetingSpeakerTurn[],
@@ -53,15 +52,28 @@ export function MeetingSpeakerLabel({
   const isUnknownSpeaker = profile.avatarId === UNKNOWN_MEETING_SPEAKER.avatarId;
   return (
     <div className={cn("flex items-center gap-1.5 text-muted-foreground text-xs", className)}>
-      <Blobatar
-        alt=""
-        background={isUnknownSpeaker ? "circle" : undefined}
-        className="size-5 shrink-0"
-        data-meeting-speaker-avatar="true"
-        hue={isUnknownSpeaker ? UNKNOWN_MEETING_SPEAKER_HUE : undefined}
-        name={profile.avatarId}
-        size={20}
-      />
+      {isUnknownSpeaker ? (
+        <Blobatar
+          animate="hover"
+          aria-hidden="true"
+          background={false}
+          className="size-5 shrink-0"
+          data-meeting-speaker-avatar="true"
+          name="alain00"
+          size={20}
+          // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Blobatar names its silhouette-selection trait "shape".
+          traits={{ shape: 0.11 }}
+        />
+      ) : (
+        <Blobatar
+          alt=""
+          background={false}
+          className="size-5 shrink-0"
+          data-meeting-speaker-avatar="true"
+          name={profile.avatarId}
+          size={20}
+        />
+      )}
       <span>{profile.label}</span>
     </div>
   );
