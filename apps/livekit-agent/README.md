@@ -28,7 +28,7 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 
 | Stage          | Provider                                               | Notes                           |
 | -------------- | ------------------------------------------------------ | ------------------------------- |
-| STT            | ElevenLabs (`scribe_v2`, language `zh`)                | livekit-plugins-elevenlabs      |
+| STT            | Aliyun (`qwen-audio-3.0-asr-flash-streaming`, `zh`)    | project-owned streaming adapter |
 | LLM            | Aliyun DashScope (`deepseek-v4-flash-0731` by default) | OpenAI-compatible endpoint      |
 | TTS            | Minimax                                                | livekit-plugins-minimax-ai      |
 | VAD            | Silero                                                 | downloaded via `download-files` |
@@ -132,7 +132,7 @@ will work.
    ```bash
    cd apps/livekit-agent
    cp .env.example .env.secrets
-   # fill in LIVEKIT_*, DASHSCOPE_API_KEY, ELEVEN_API_KEY, DEEPGRAM_API_KEY,
+   # fill in LIVEKIT_*, DASHSCOPE_API_KEY, DEEPGRAM_API_KEY,
    #         MINIMAX_API_KEY,
    #         CALLBACK_BASE_URL, AGENT_CALLBACK_SECRET, RECORDING_R2_*
    ```
@@ -173,7 +173,7 @@ src/
   agent.py        Entrypoint — AgentSession wiring, room handlers, dispatch
   recording.py    LiveKit Egress → R2 recording lifecycle
   report.py       POSTs session summary back to web (CALLBACK_BASE_URL)
-  aliyun_stt.py   Optional aligned DashScope streaming STT adapter
+  aliyun_stt.py   Default aligned DashScope streaming STT adapter
 tests/            pytest suite
 ```
 

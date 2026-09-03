@@ -1,6 +1,11 @@
 import asyncio
+import json
+from types import SimpleNamespace
 
-from livekit.agents import DEFAULT_API_CONNECT_OPTIONS, stt
+import aiohttp
+import pytest
+from livekit import rtc
+from livekit.agents import DEFAULT_API_CONNECT_OPTIONS, APIStatusError, stt
 
 from aliyun_stt import STT, SpeechStream
 
@@ -13,6 +18,54 @@ class _EventChannel:
         self.events.append(event)
 
 
+class _FakeWebSocket:
+    def __init__(self):
+        self.audio_started = False
+        self.closed = False
+        self.messages = asyncio.Queue()
+        self.sent_json = []
+
+    async def close(self):
+        self.closed = True
+
+    async def receive(self):
+        message = await self.messages.get()
+        if json.loads(message.data)["header"]["event"] == "task-started":
+            self.audio_started = True
+        return message
+
+    async def send_bytes(self, _data):
+        assert self.audio_started is True
+
+    async def send_json(self, data):
+        self.sent_json.append(data)
+        if data["header"]["action"] == "finish-task":
+            await self.messages.put(
+                SimpleNamespace(
+                    data=json.dumps(
+                        {
+                            "header": {
+                                "event": "task-finished",
+                                "task_id": data["header"]["task_id"],
+                            },
+                            "payload": {},
+                        }
+                    ),
+                    type=aiohttp.WSMsgType.TEXT,
+                )
+            )
+
+
+class _FakeHttpSession:
+    def __init__(self, websocket):
+        self.websocket = websocket
+        self.ws_connect_calls = []
+
+    async def ws_connect(self, url, *, headers):
+        self.ws_connect_calls.append((url, headers))
+        return self.websocket
+
+
 def test_qwen_audio_streaming_is_the_default_aligned_stt():
     recognizer = STT(api_key="test-key")
 
@@ -21,10 +74,25 @@ def test_qwen_audio_streaming_is_the_default_aligned_stt():
     assert recognizer.capabilities.interim_results is True
     assert recognizer.capabilities.aligned_transcript == "word"
     assert recognizer.capabilities.offline_recognize is False
+    assert recognizer.model == "qwen-audio-3.0-asr-flash-streaming"
+    assert recognizer.provider == "aliyun"
+
+
+def test_qwen_audio_uses_configured_workspace_endpoint():
+    recognizer = STT(
+        api_key="test-key",
+        base_url="wss://workspace.cn-beijing.maas.aliyuncs.com/api-ws/v1/inference",
+        workspace="workspace",
+    )
+
+    assert recognizer._opts.get_ws_url() == (
+        "wss://workspace.cn-beijing.maas.aliyuncs.com/api-ws/v1/inference"
+    )
+    assert recognizer._opts.get_header()["X-DashScope-WorkSpace"] == "workspace"
 
 
 def test_qwen_audio_request_only_sends_supported_parameters():
-    recognizer = STT(api_key="test-key", max_sentence_silence=1000)
+    recognizer = STT(api_key="test-key")
 
     request = recognizer._opts.get_run_task_params("task-id")
     parameters = request["payload"]["parameters"]
@@ -34,7 +102,7 @@ def test_qwen_audio_request_only_sends_supported_parameters():
         "format": "pcm",
         "sample_rate": 16000,
         "semantic_punctuation_enabled": False,
-        "max_sentence_silence": 1000,
+        "max_sentence_silence": 1300,
         "heartbeat": True,
         "language_hints": ["zh"],
     }
@@ -215,3 +283,67 @@ async def test_stream_resamples_input_to_the_declared_pcm_rate(monkeypatch):
         assert stream._needed_sr == 16000
     finally:
         await stream.aclose()
+
+
+async def test_stream_waits_for_task_started_before_sending_audio():
+    websocket = _FakeWebSocket()
+    session = _FakeHttpSession(websocket)
+    recognizer = STT(api_key="test-key", http_session=session)
+    stream = recognizer.stream(conn_options=DEFAULT_API_CONNECT_OPTIONS)
+    task_id = None
+
+    try:
+        while not websocket.sent_json:
+            await asyncio.sleep(0)
+        task_id = websocket.sent_json[0]["header"]["task_id"]
+        stream.push_frame(rtc.AudioFrame.create(16000, 1, 1600))
+        stream.end_input()
+        await asyncio.sleep(0)
+        await websocket.messages.put(
+            SimpleNamespace(
+                data=json.dumps(
+                    {
+                        "header": {"event": "task-started", "task_id": task_id},
+                        "payload": {},
+                    }
+                ),
+                type=aiohttp.WSMsgType.TEXT,
+            )
+        )
+        await stream._task
+    finally:
+        await stream.aclose()
+
+    assert task_id is not None
+    assert websocket.closed is True
+    assert [item["header"]["action"] for item in websocket.sent_json] == [
+        "run-task",
+        "finish-task",
+    ]
+
+
+def test_task_failed_becomes_a_livekit_api_error():
+    stream = object.__new__(SpeechStream)
+    stream._event_ch = _EventChannel()
+    stream._language = "zh"
+    stream._request_id = "request-id"
+    stream._speaking = False
+    task_started = asyncio.Event()
+
+    with pytest.raises(APIStatusError, match="request timeout") as error:
+        stream._process_stream_event(
+            {
+                "header": {
+                    "error_code": "CLIENT_ERROR",
+                    "error_message": "request timeout after 23 seconds.",
+                    "event": "task-failed",
+                    "task_id": "task-id",
+                },
+                "payload": {},
+            },
+            task_id="task-id",
+            task_started=task_started,
+        )
+
+    assert error.value.request_id == "task-id"
+    assert error.value.body["error_code"] == "CLIENT_ERROR"
