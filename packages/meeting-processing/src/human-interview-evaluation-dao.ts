@@ -30,12 +30,14 @@ import {
 } from "./human-interview-evaluation-state";
 
 import type { Database } from "@app/database";
+import type { TranscriptAttribution } from "@app/db-schema/human-interview-recording";
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 interface EvaluationMeetingTranscriptRevision {
   id: string;
   turns: {
+    attribution?: TranscriptAttribution | null;
     id: string;
     speakerDisplayName: string | null;
     speakerKey: string;
@@ -310,6 +312,8 @@ export function createHumanInterviewEvaluationDao(
         evaluationUpdatedBy: studioHumanInterviewRound.evaluationUpdatedBy,
         meetingSessionId: studioHumanInterviewMeeting.processingMeetingSessionId,
         outcome: studioHumanInterviewRound.outcome,
+        recordingError: studioHumanInterviewMeeting.recordingError,
+        recordingTracks: studioHumanInterviewMeeting.recordingTracks,
         roundId: studioHumanInterviewRound.id,
         roundStatus: studioHumanInterviewRound.status,
         transcriptionError: meetingSession.transcriptionError,
@@ -355,12 +359,18 @@ export function createHumanInterviewEvaluationDao(
       evaluationUpdatedBy: row.evaluationUpdatedBy,
       meetingSessionId: row.meetingSessionId,
       outcome: row.outcome,
+      recordingNotice:
+        row.recordingError ??
+        (row.recordingTracks?.some((track) => track.status === "failed")
+          ? "部分录音缺失，已保留可用内容，可手动提交评价。"
+          : null),
       roundId: row.roundId,
       roundStatus: row.roundStatus,
       transcript,
-      transcriptionError: row.transcriptionError,
+      transcriptionError: row.transcriptionError ?? row.recordingError,
       transcriptionState: humanInterviewTranscriptionStateSchema.parse(
-        row.transcriptionStatus ?? "pending",
+        row.transcriptionStatus ??
+          (row.recordingError?.startsWith("录音处理失败：") ? "failed" : "pending"),
       ),
     };
   }
@@ -530,7 +540,7 @@ export function createHumanInterviewEvaluationDao(
     candidateName: string;
     jobDescription: string;
     resume: string;
-    turns: { id: string; speakerDisplayName: string | null; speakerKey: string; text: string }[];
+    turns: EvaluationMeetingTranscriptRevision["turns"];
   } | null> {
     const [context, transcript] = await Promise.all([
       db
@@ -572,6 +582,7 @@ export function createHumanInterviewEvaluationDao(
       jobDescription: row.jobDescription ?? "",
       resume: row.resume ?? "",
       turns: transcript.turns.map((turn) => ({
+        attribution: turn.attribution,
         id: turn.id,
         speakerDisplayName: turn.speakerDisplayName,
         speakerKey: turn.speakerKey,

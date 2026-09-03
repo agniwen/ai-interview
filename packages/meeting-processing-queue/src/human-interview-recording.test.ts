@@ -25,4 +25,45 @@ describe("human interview recording queue contract", () => {
       buildHumanInterviewRecordingJobId(job),
     );
   });
+
+  it("deduplicates reordered manifests but retries a newly recovered file", () => {
+    const tracks = ["candidate", "interviewer"].map((role, index) => ({
+      displayName: role,
+      durationMs: 4000,
+      egressId: `EG_${index}`,
+      endedAtMs: 6000,
+      error: null,
+      fileKey: `${role}.ogg`,
+      id: `55efbc70-c0ba-496b-bd67-9e3b4d46210${index}`,
+      participantIdentity: role,
+      publishedAtMs: 1000,
+      role,
+      sizeBytes: 100,
+      startedAtMs: 2000,
+      status: "completed",
+      trackId: `TR_${index}`,
+      updatedAtMs: 6000,
+    }));
+    const parsed = humanInterviewRecordingJobSchema.parse({
+      meetingId: "meeting",
+      organizationId: "org",
+      tracks,
+      version: 2,
+    });
+    const reversed = humanInterviewRecordingJobSchema.parse({
+      ...parsed,
+      tracks: tracks.toReversed(),
+    });
+    expect(buildHumanInterviewRecordingJobId(parsed)).toBe(
+      buildHumanInterviewRecordingJobId(reversed),
+    );
+    expect(
+      buildHumanInterviewRecordingJobId(
+        humanInterviewRecordingJobSchema.parse({
+          ...parsed,
+          tracks: tracks.map((track) => ({ ...track, status: "failed" })),
+        }),
+      ),
+    ).not.toBe(buildHumanInterviewRecordingJobId(parsed));
+  });
 });

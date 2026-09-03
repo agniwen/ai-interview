@@ -14,12 +14,14 @@ import {
   markHumanInterviewRecordingCompleted,
   markHumanInterviewRecordingEgressFailed,
 } from "../studio/routes/interviews/dao/human-interview-meetings";
-import {
-  startEligibleHumanInterviewRecordingWithRetry,
-  stopActiveHumanInterviewRecordingByRoomName,
-} from "../studio/routes/interviews/utils/human-interview-recording-service";
+import { stopActiveHumanInterviewRecordingByRoomName } from "../studio/routes/interviews/utils/human-interview-recording-service";
 import { enqueueHumanInterviewRecordingJobs } from "@app/meeting-processing-queue/human-interview-recording";
 import { shouldStartHumanInterviewRecording } from "./utils";
+import {
+  applyHumanInterviewTrackEgress,
+  markHumanInterviewTrackUnpublished,
+  synchronizeHumanInterviewTrackRecordings,
+} from "../studio/routes/interviews/application/default-record-human-interview-tracks";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {
@@ -78,7 +80,12 @@ async function handleHumanInterviewWebhook(
   }
   if (shouldStartHumanInterviewRecording(event)) {
     try {
-      await startEligibleHumanInterviewRecordingWithRetry(roomName);
+      await synchronizeHumanInterviewTrackRecordings(
+        roomName,
+        event.track?.sid
+          ? { timestampMs: Number(event.createdAt) * 1000 || Date.now(), trackId: event.track.sid }
+          : undefined,
+      );
     } catch (error) {
       console.error("failed to start human interview recording", {
         errorName: error instanceof Error ? error.name : "UnknownError",
@@ -87,9 +94,21 @@ async function handleHumanInterviewWebhook(
     }
   }
   if (event.event === "participant_left" && event.participant?.identity) {
+    await markHumanInterviewTrackUnpublished({
+      participantIdentity: event.participant.identity,
+      roomName,
+      timestampMs: Number(event.createdAt) * 1000 || Date.now(),
+    });
     await markHumanInterviewParticipantLeft({
       identity: event.participant.identity,
       roomName,
+    });
+  }
+  if (event.event === "track_unpublished" && event.track?.sid) {
+    await markHumanInterviewTrackUnpublished({
+      roomName,
+      timestampMs: Number(event.createdAt) * 1000 || Date.now(),
+      trackId: event.track.sid,
     });
   }
   if (event.event === "room_finished") {
@@ -102,6 +121,14 @@ async function handleHumanInterviewWebhook(
       });
     }
     await endHumanInterviewMeetingByRoomName(roomName);
+  }
+  if (
+    event.event.startsWith("egress_") &&
+    event.egressInfo?.egressId &&
+    (await applyHumanInterviewTrackEgress(roomName, event.egressInfo))
+  ) {
+    safeUpdateTag("studio-interviews");
+    return true;
   }
   if (event.event === "egress_ended" && event.egressInfo?.egressId) {
     const info = event.egressInfo;

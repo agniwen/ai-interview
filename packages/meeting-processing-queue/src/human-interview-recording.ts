@@ -6,7 +6,7 @@ import { z } from "zod";
 export const HUMAN_INTERVIEW_RECORDING_QUEUE_NAME = "human-interview-recording";
 export const HUMAN_INTERVIEW_RECORDING_JOB_NAME = "ingest-human-interview-recording";
 
-export const humanInterviewRecordingJobSchema = z.object({
+const legacyRecordingJobSchema = z.object({
   candidateDurationMs: z.number().int().positive(),
   candidateEgressId: z.string().min(1),
   candidateFileKey: z.string().min(1),
@@ -18,6 +18,41 @@ export const humanInterviewRecordingJobSchema = z.object({
   organizationId: z.string().min(1),
   sizeBytes: z.number().int().positive(),
 });
+export const humanInterviewTrackRecordingJobSchema = z.object({
+  meetingId: z.string().min(1),
+  organizationId: z.string().min(1),
+  tracks: z
+    .array(
+      z.object({
+        displayName: z.string().nullable(),
+        durationMs: z.number().nonnegative(),
+        egressId: z.string().nullable(),
+        endedAtMs: z.number().nullable(),
+        error: z.string().nullable(),
+        fileKey: z.string().min(1),
+        id: z.string().uuid(),
+        participantIdentity: z.string().nullable(),
+        publishedAtMs: z.number(),
+        role: z.enum(["mixed", "candidate", "interviewer"]),
+        sizeBytes: z.number().nonnegative(),
+        startedAtMs: z.number().nullable(),
+        status: z.enum(["starting", "active", "completed", "failed"]),
+        trackId: z.string().min(1),
+        unpublishedAtMs: z.number().nullable().optional(),
+        updatedAtMs: z.number(),
+      }),
+    )
+    .min(1)
+    .max(200),
+  version: z.literal(2),
+});
+export const humanInterviewRecordingJobSchema = z.union([
+  legacyRecordingJobSchema,
+  humanInterviewTrackRecordingJobSchema,
+]);
+export type HumanInterviewTrackRecordingJobData = z.infer<
+  typeof humanInterviewTrackRecordingJobSchema
+>;
 export type HumanInterviewRecordingJobData = z.infer<typeof humanInterviewRecordingJobSchema>;
 
 type Processor = (
@@ -73,7 +108,20 @@ function getQueue(): Queue<HumanInterviewRecordingJobData> {
 export function buildHumanInterviewRecordingJobId(data: HumanInterviewRecordingJobData): string {
   const suffix = createHash("sha256")
     .update(
-      `${data.meetingId}|${data.egressId}|${data.fileKey}|${data.candidateEgressId}|${data.candidateFileKey}`,
+      "tracks" in data
+        ? JSON.stringify([
+            data.meetingId,
+            data.tracks
+              .map(({ id, egressId, status, sizeBytes, startedAtMs }) => ({
+                egressId,
+                id,
+                sizeBytes,
+                startedAtMs,
+                status,
+              }))
+              .toSorted((a, b) => a.id.localeCompare(b.id)),
+          ])
+        : `${data.meetingId}|${data.egressId}|${data.fileKey}|${data.candidateEgressId}|${data.candidateFileKey}`,
     )
     .digest("hex")
     .slice(0, 24);
@@ -93,6 +141,9 @@ export async function enqueueHumanInterviewRecordingJobs(
       const existing = await current.getJob(jobId);
       if (existing) {
         const state = await existing.getState();
+        if ("tracks" in data && state === "completed") {
+          return;
+        }
         if (state !== "completed" && state !== "failed") {
           return;
         }

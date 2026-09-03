@@ -2,6 +2,30 @@ import { describe, expect, it, vi } from "vitest";
 import { generateHumanInterviewEvaluation } from "./human-interview-evaluation-generator";
 
 describe("generateHumanInterviewEvaluation", () => {
+  it.each(["unknown", "interviewer"] as const)("不信任名称伪装为候选人的 %s 发言", async (role) => {
+    const generate = vi.fn();
+    await expect(
+      generateHumanInterviewEvaluation(
+        {
+          candidateName: "候选人",
+          jobDescription: "岗位",
+          resume: "简历",
+          salaryRange: null,
+          turns: [
+            {
+              attribution: { method: "track", role },
+              id: "wrong",
+              speakerDisplayName: "候选人",
+              speakerKey: "remote-1",
+              text: "我负责项目",
+            },
+          ],
+        },
+        { generate },
+      ),
+    ).rejects.toThrow("尚未可靠识别候选人");
+    expect(generate).not.toHaveBeenCalled();
+  });
   it("将缺失内容归一化为横线，并把专业技能压缩为简短等级", async () => {
     const generate = vi.fn((_prompt: string) =>
       Promise.resolve({

@@ -15,6 +15,7 @@ export default defineConfig({
       /^@app\/resume-parse-queue(?:\/|$)/,
       /^@app\/resume-processing(?:\/|$)/,
       /^@app\/server\/human-interview-evaluation-ready$/,
+      /^@app\/server\/human-interview-recording$/,
       /^@app\/shared(?:\/|$)/,
     ],
     onlyBundle: false,

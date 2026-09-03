@@ -46,8 +46,9 @@ function createProvider(options: {
   deleteAudioUrl?: (url: string, signal: AbortSignal) => Promise<void>;
   fetch?: typeof globalThis.fetch;
   model?: string;
+  recordingIdentity?: FinalTranscriptionAudioChunk["recordingIdentity"];
   speakerDisplayName?: string;
-  track?: "candidate" | "microphone" | "system";
+  track?: FinalTranscriptionAudioChunk["track"];
   urlHost?: string;
 }) {
   const chunk: FinalTranscriptionAudioChunk = {
@@ -55,6 +56,7 @@ function createProvider(options: {
     endMs: 10_000,
     filePath: "/private/system.webm",
     index: 0,
+    recordingIdentity: options.recordingIdentity,
     speakerDisplayName: options.speakerDisplayName,
     startMs: 0,
     track: options.track ?? "system",
@@ -234,43 +236,55 @@ describe("Qwen ASR Meeting transcription provider", () => {
     ]);
   });
 
-  it("enables supported speaker diarization only for the remote system track on Qwen Audio 3", async () => {
-    const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
-      if (String(url).includes("/services/audio/asr/transcription")) {
-        return Promise.resolve(
-          jsonResponse({ output: { task_id: "task-audio-3", task_status: "PENDING" } }),
-        );
-      }
-      if (String(url).includes("/api/v1/tasks/")) {
-        return Promise.resolve(
-          jsonResponse({
-            output: {
-              result: {
-                transcription_url:
-                  "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
+  it.each(["system", "mixed", "participant-room-retry"] as const)(
+    "enables supported speaker diarization for %s on Qwen Audio 3",
+    async (track) => {
+      const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
+        if (String(url).includes("/services/audio/asr/transcription")) {
+          return Promise.resolve(
+            jsonResponse({ output: { task_id: "task-audio-3", task_status: "PENDING" } }),
+          );
+        }
+        if (String(url).includes("/api/v1/tasks/")) {
+          return Promise.resolve(
+            jsonResponse({
+              output: {
+                result: {
+                  transcription_url:
+                    "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
+                },
+                task_status: "SUCCEEDED",
               },
-              task_status: "SUCCEEDED",
-            },
-          }),
-        );
-      }
-      return Promise.resolve(jsonResponse(transcriptionResult()));
-    });
+            }),
+          );
+        }
+        return Promise.resolve(jsonResponse(transcriptionResult()));
+      });
 
-    await createProvider({
-      fetch: submit,
-      model: "qwen-audio-3.0-asr-flash-filetrans",
-      track: "system",
-    });
+      await createProvider({
+        fetch: submit,
+        model: "qwen-audio-3.0-asr-flash-filetrans",
+        recordingIdentity:
+          track === "participant-room-retry"
+            ? {
+                offsetMs: 0,
+                participantIdentity: null,
+                role: "unknown",
+                sourceId: "room-retry",
+              }
+            : undefined,
+        track,
+      });
 
-    const [submitCall] = submit.mock.calls;
-    const submitBody = JSON.parse(String(submitCall?.[1]?.body));
-    expect(submitBody.parameters).toMatchObject({
-      channel_id: [0],
-      diarization_enabled: true,
-      enable_itn: true,
-    });
-  });
+      const [submitCall] = submit.mock.calls;
+      const submitBody = JSON.parse(String(submitCall?.[1]?.body));
+      expect(submitBody.parameters).toMatchObject({
+        channel_id: [0],
+        diarization_enabled: true,
+        enable_itn: true,
+      });
+    },
+  );
 
   it("surfaces provider quota exhaustion", async () => {
     const fetch = vi.fn(() => Promise.resolve(jsonResponse({}, 429)));

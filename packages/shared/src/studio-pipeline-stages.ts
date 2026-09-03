@@ -208,6 +208,7 @@ export interface PublicHumanInterviewInterviewerPreview {
 }
 
 export interface HumanInterviewReviewRecord {
+  recordingNotice?: string | null;
   documentSync?: {
     status: "pending" | "syncing" | "waiting_document" | "failed" | "synced";
     documentUrl: string | null;

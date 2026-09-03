@@ -99,7 +99,7 @@ function createDependencies() {
         }),
       ),
     },
-    publish: vi.fn(() => Promise.resolve(true)),
+    publish: vi.fn<MeetingTranscriptionDependencies["publish"]>(() => Promise.resolve(true)),
     removeWorkingDirectory: vi.fn(() => Promise.resolve()),
     requestHumanEvaluation: vi.fn(() => Promise.resolve()),
     requestIntelligence: vi.fn(() => Promise.resolve()),
@@ -109,6 +109,216 @@ function createDependencies() {
 }
 
 describe("Meeting final transcription processor", () => {
+  it("recovers missing interviewer speech from a retried room recording when the playback mix fails", async () => {
+    const deps = createDependencies();
+    const assets = (["candidate", "unknown", "unknown"] as const).map((role, index) => ({
+      contentType: "audio/ogg",
+      durationMs: 60_000,
+      recordingIdentity: {
+        offsetMs: index === 2 ? 5000 : 0,
+        participantIdentity: role === "candidate" ? "candidate-1" : null,
+        recoveryRanges: role === "unknown" ? [{ endMs: 65_000, startMs: 0 }] : [],
+        role,
+        silenceRanges: role === "candidate" ? [{ endMs: 60_000, startMs: 0 }] : [],
+        sourceId: `source-${index}`,
+      },
+      sizeBytes: 100,
+      status: "ready",
+      storageKey: `${index}.ogg`,
+      track: index === 1 ? "mixed" : `participant-${index}`,
+    }));
+    await runMeetingTranscriptionProcessing(
+      job,
+      { attempt: 3, maxAttempts: 3 },
+      {
+        ...deps,
+        loadSource: () =>
+          Promise.resolve({
+            assets,
+            id: job.meetingId,
+            manifestSha256: job.sourceManifestSha256,
+            organizationId: job.organizationId,
+          }),
+        prepareChunks: ({ sources }) =>
+          Promise.resolve(
+            sources.map((source) => ({
+              ...source,
+              contentType: "audio/webm",
+              endMs: source.durationMs + (source.recordingIdentity?.offsetMs ?? 0),
+              index: 0,
+              startMs: source.recordingIdentity?.offsetMs ?? 0,
+            })),
+          ),
+        provider: {
+          transcribeFinal: ({ chunks }) => {
+            if (chunks[0]?.track === "mixed") {
+              return Promise.reject(new Error("room ASR failed"));
+            }
+            return Promise.resolve({
+              language: "zh",
+              turns:
+                chunks[0]?.track === "participant-2"
+                  ? [
+                      {
+                        confidence: null,
+                        endMs: 7000,
+                        speakerKey: "remote-1",
+                        startMs: 6000,
+                        text: "请介绍项目",
+                        track: "remote" as const,
+                      },
+                    ]
+                  : [],
+            });
+          },
+        },
+      },
+    );
+    expect(deps.publish).toHaveBeenCalledOnce();
+    expect(deps.publish.mock.calls[0]?.[0].transcript.turns).toEqual([
+      expect.objectContaining({
+        attribution: expect.objectContaining({
+          method: "candidate-excluded",
+          role: "interviewer",
+          sourceId: "source-2",
+        }),
+        endMs: 7000,
+        startMs: 6000,
+        text: "请介绍项目",
+      }),
+    ]);
+    expect(deps.requestHumanEvaluation).toHaveBeenCalledOnce();
+  });
+
+  it.each([true, false])(
+    "recovers a failed interviewer from the room mix without treating missing candidate ASR as exclusion (silence=%s)",
+    async (verifiedSilence) => {
+      const deps = createDependencies();
+      const assets = (["candidate", "interviewer", "unknown"] as const).map((role, index) => ({
+        contentType: "audio/ogg",
+        durationMs: 60_000,
+        recordingIdentity: {
+          offsetMs: 0,
+          participantIdentity: `${index}`,
+          recoveryRanges: [],
+          role,
+          silenceRanges:
+            role === "candidate" && verifiedSilence ? [{ endMs: 60_000, startMs: 0 }] : [],
+          sourceId: `${index}`,
+        },
+        sizeBytes: 100,
+        status: "ready",
+        storageKey: `${index}.ogg`,
+        track: role === "unknown" ? "mixed" : `participant-${index}`,
+      }));
+      await runMeetingTranscriptionProcessing(
+        job,
+        { attempt: 3, maxAttempts: 3 },
+        {
+          ...deps,
+          loadSource: () =>
+            Promise.resolve({
+              assets,
+              id: job.meetingId,
+              manifestSha256: job.sourceManifestSha256,
+              organizationId: job.organizationId,
+            }),
+          prepareChunks: ({ sources }) =>
+            Promise.resolve(
+              sources.map((source) => ({
+                ...source,
+                contentType: "audio/webm",
+                endMs: 60_000,
+                index: 0,
+                startMs: 0,
+              })),
+            ),
+          provider: {
+            transcribeFinal: ({ chunks }) => {
+              if (chunks[0]?.recordingIdentity?.role === "interviewer") {
+                return Promise.reject(new Error("ASR failed"));
+              }
+              return Promise.resolve({
+                language: "zh",
+                turns:
+                  chunks[0]?.track === "mixed"
+                    ? [
+                        {
+                          confidence: null,
+                          endMs: 2000,
+                          speakerKey: "remote-1",
+                          startMs: 1000,
+                          text: "请介绍项目",
+                          track: "remote" as const,
+                        },
+                      ]
+                    : [],
+              });
+            },
+          },
+        },
+      );
+      expect(deps.publish).toHaveBeenCalledOnce();
+      expect(deps.publish.mock.calls[0]?.[0].transcript.turns[0]?.attribution).toMatchObject({
+        method: verifiedSilence ? "candidate-excluded" : "unconfirmed",
+        role: verifiedSilence ? "interviewer" : "unknown",
+      });
+      expect(deps.publish.mock.calls[0]?.[0].warning).toContain("部分录音");
+      expect(deps.requestHumanEvaluation).toHaveBeenCalledOnce();
+    },
+  );
+  it.each([false, true])(
+    "transcribes complete identity tracks without sending room retries to ASR (retry=%s)",
+    async (withRoomRetry) => {
+      const deps = createDependencies();
+      const roles = withRoomRetry
+        ? (["candidate", "interviewer", "unknown", "unknown"] as const)
+        : (["candidate", "interviewer", "unknown"] as const);
+      const assets = roles.map((role, i) => ({
+        contentType: "audio/ogg",
+        durationMs: 60_000,
+        recordingIdentity: {
+          offsetMs: 0,
+          participantIdentity: `${i}`,
+          recoveryRanges: [],
+          role,
+          sourceId: `${i}`,
+        },
+        sizeBytes: 100,
+        status: "ready",
+        storageKey: `${i}.ogg`,
+        track: i === 2 ? "mixed" : `participant-${i}`,
+      }));
+      await runMeetingTranscriptionProcessing(
+        job,
+        { attempt: 1, maxAttempts: 3 },
+        {
+          ...deps,
+          loadSource: () =>
+            Promise.resolve({
+              assets,
+              id: job.meetingId,
+              manifestSha256: job.sourceManifestSha256,
+              organizationId: job.organizationId,
+            }),
+          prepareChunks: ({ sources }) =>
+            Promise.resolve(
+              sources.map((source) => ({
+                ...source,
+                contentType: "audio/webm",
+                endMs: 60_000,
+                index: 0,
+                startMs: 0,
+              })),
+            ),
+        },
+      );
+      expect(deps.provider.transcribeFinal.mock.calls).toHaveLength(2);
+      expect(
+        deps.publish.mock.calls[0]?.[0].transcript.turns.map((turn) => turn.attribution?.role),
+      ).toEqual(["candidate", "interviewer"]);
+    },
+  );
   it("rejects a production job when the worker endpoint cannot prove the recorded region", () => {
     expect(() =>
       // SAFETY: This test constructs the value with the asserted contract before this boundary.

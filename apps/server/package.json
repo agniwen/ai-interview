@@ -5,6 +5,7 @@
   "description": "Hono API runtime that owns authentication, workspace-scoped recruiting routes, persistence orchestration, and RPC contracts",
   "type": "module",
   "exports": {
+    "./human-interview-recording": "./src/server/routes/studio/routes/interviews/application/default-record-human-interview-tracks.ts",
     "./web/document-sync": "./src/server/routes/studio/routes/interviews/adapters/default-document-sync-scheduler.ts",
     "./env": "./src/lib/server/env.ts",
     "./human-interview-evaluation-ready": "./src/server/interview-notifications/human-evaluation-ready.ts",

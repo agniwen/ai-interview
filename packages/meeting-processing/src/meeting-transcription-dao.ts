@@ -197,7 +197,11 @@ export function createMeetingTranscriptionDao(
     const readyTracks = new Set(
       assets.filter((asset) => asset.status === "ready").map((asset) => asset.track),
     );
-    return readyTracks.has("mixed") || (readyTracks.has("microphone") && readyTracks.has("system"));
+    return (
+      readyTracks.has("mixed") ||
+      [...readyTracks].some((track) => track.startsWith("participant-")) ||
+      (readyTracks.has("microphone") && readyTracks.has("system"))
+    );
   }
 
   const DEFAULT_MEETING_TRANSCRIPTION_PROVIDER = "qwen" as const;
@@ -689,6 +693,7 @@ export function createMeetingTranscriptionDao(
     input: MeetingTranscriptionJobData & {
       processingRunId: string;
       transcript: CanonicalMeetingTranscript;
+      warning?: string;
     },
   ): Promise<boolean> {
     return await db.transaction(async (tx) => {
@@ -769,7 +774,7 @@ export function createMeetingTranscriptionDao(
         .update(meetingSession)
         .set({
           activeTranscriptRevisionId: revisionId,
-          transcriptionError: null,
+          transcriptionError: input.warning ?? null,
           transcriptionRunId: null,
           transcriptionStatus: "ready",
         })

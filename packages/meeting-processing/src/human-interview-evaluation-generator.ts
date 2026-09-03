@@ -11,6 +11,10 @@ import {
 } from "@app/shared/human-interview-evaluation";
 
 interface EvaluationTurn {
+  attribution?: {
+    role: "candidate" | "interviewer" | "unknown";
+    method: "track" | "manual" | "unconfirmed" | "candidate-excluded";
+  } | null;
   id: string;
   speakerDisplayName: string | null;
   speakerKey: string;
@@ -56,6 +60,12 @@ export async function generateHumanInterviewEvaluation(
   const evidenceTurnIds = new Set(
     input.turns
       .filter((turn) => {
+        if (turn.attribution) {
+          return (
+            turn.attribution.role === "candidate" &&
+            (turn.attribution.method === "track" || turn.attribution.method === "manual")
+          );
+        }
         const displayName = turn.speakerDisplayName?.trim();
         return displayName === input.candidateName || displayName?.startsWith("候选人") === true;
       })
@@ -78,7 +88,8 @@ export async function generateHumanInterviewEvaluation(
 
 硬性约束：
 - 必须分析输入中的全部对话，不得只写摘要；detailedAnalysis 要覆盖主要问题、候选人回答、事实证据、相互印证和矛盾或不确定项；
-- 只有 speakerDisplayName 明确为候选人姓名或以“候选人”开头的发言才是候选人证据；匿名 speakerKey 或 remote track 不代表候选人身份，问答位置或上下文推断也不能证明候选人身份；
+- attribution 存在时，仅 role=candidate 且 method=track/manual 的发言可以作为候选人证据，展示名不决定身份。历史无 attribution 的数据仅使用已标注候选人的发言；匿名 speakerKey 或 remote track 不代表候选人身份，问答位置或上下文推断也不能证明候选人身份；
+- 录音缺失、转录失败和身份不明是材料局限，不代表候选人能力不足，不得因缺少提问、漏录或未覆盖的问题降低评级；材料不足的字段填写 -，不得臆造负面结论；
 - 无法可靠归属给候选人的内容不得作为评价证据，也不得把面试官的问题、提示或陈述当作候选人能力；归属不明时必须写入不确定项；
 - 所有判断只允许来自输入的岗位 JD、简历和转录，不得臆测；
 - evidenceTurnIds 只能逐字使用转录 JSON 中的 id；

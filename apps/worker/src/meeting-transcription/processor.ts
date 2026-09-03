@@ -6,6 +6,8 @@ import { join } from "node:path";
 import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import {
   assertMeetingTranscriptionFfmpegAvailable,
+  candidateExclusionRanges,
+  isMixedMeetingRecordingSource,
   mergeMeetingTranscriptionChunkResults,
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
@@ -27,7 +29,10 @@ import type { createRequestAutomaticMeetingIntelligence } from "@app/meeting-pro
 import type { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
 import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
-import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
+import type {
+  MeetingTranscriptionSourceTrack,
+  RecordingIdentity,
+} from "@app/shared/meeting-recording";
 import pLimit from "p-limit";
 import { Context, Data, Effect, Layer } from "effect";
 import { retryTransientPromise } from "../effect/retry";
@@ -52,6 +57,7 @@ const MIN_DISK_HEADROOM_BYTES = 512 * 1024 * 1024;
 const STALE_DIRECTORY_AGE_MS = 24 * 60 * 60 * 1000;
 
 interface SourceAsset {
+  recordingIdentity?: RecordingIdentity | null;
   contentType: string;
   durationMs: number;
   sizeBytes: number;
@@ -70,6 +76,7 @@ interface TranscriptionSource {
 }
 
 interface PrepareChunkSource {
+  recordingIdentity?: RecordingIdentity;
   durationMs: number;
   filePath: string;
   segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
@@ -78,6 +85,10 @@ interface PrepareChunkSource {
 }
 
 function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscriptionSourceTrack {
+  if (/^participant-[a-zA-Z0-9-]+$/.test(track)) {
+    // SAFETY: the anchored pattern establishes the participant source-track contract.
+    return track as `participant-${string}`;
+  }
   if (track === "microphone" || track === "mixed" || track === "system" || track === "candidate") {
     return track;
   }
@@ -398,8 +409,17 @@ async function runMeetingTranscriptionProcessingPromise(
     const candidate = meeting.assets.find((asset) => asset.track === "candidate");
     const microphone = meeting.assets.find((asset) => asset.track === "microphone");
     const system = meeting.assets.find((asset) => asset.track === "system");
-    const sources = mixed?.status === "ready" ? [mixed] : [];
-    if (sources.length > 0 && candidate?.status === "ready") {
+    const identityRecording = meeting.assets.some((asset) => asset.recordingIdentity);
+    const roomMixes = meeting.assets.filter(isMixedMeetingRecordingSource);
+    let sources = mixed?.status === "ready" ? [mixed] : [];
+    if (identityRecording) {
+      sources = meeting.assets.filter(
+        (asset) =>
+          asset.status === "ready" &&
+          (asset.track === "mixed" || asset.track.startsWith("participant-")),
+      );
+    }
+    if (!identityRecording && sources.length > 0 && candidate?.status === "ready") {
       sources.push(candidate);
     }
     if (sources.length === 0 && microphone?.status === "ready" && system?.status === "ready") {
@@ -418,6 +438,7 @@ async function runMeetingTranscriptionProcessingPromise(
     ) {
       throw new Error("Meeting Recording 超出最终转录的资源预算");
     }
+    const failedRanges: { startMs: number; endMs: number }[] = [];
     const prepared = await dependencies.withMediaPermit(sourceBytes * 2, async (reservedBytes) => {
       const directory = await dependencies.createWorkingDirectory();
       workingDirectory = directory;
@@ -425,30 +446,63 @@ async function runMeetingTranscriptionProcessingPromise(
       const preparedSources = sources.map((source) => ({
         durationMs: source.durationMs,
         filePath: join(directory, `${source.track}-source.media`),
+        recordingIdentity: source.recordingIdentity ?? undefined,
         segments: source.segments,
         speakerDisplayName: source.speakerDisplayName ?? undefined,
         storageKey: source.storageKey,
         track: parseMeetingTranscriptionSourceTrack(source.track),
       }));
-      await settleAllOrThrow(
+      const downloaded = await settleAllOrThrow(
         preparedSources.map(async (source) => {
-          await retryTransientPromise(() =>
-            dependencies.downloadSource({
-              filePath: source.filePath,
-              storageKey: source.storageKey,
-            }),
-          );
+          try {
+            await retryTransientPromise(() =>
+              dependencies.downloadSource({
+                filePath: source.filePath,
+                storageKey: source.storageKey,
+              }),
+            );
+            return source;
+          } catch (error) {
+            if (!identityRecording || context.attempt < context.maxAttempts) {
+              throw error;
+            }
+            failedRanges.push({
+              endMs: (source.recordingIdentity?.offsetMs ?? 0) + source.durationMs,
+              startMs: source.recordingIdentity?.offsetMs ?? 0,
+            });
+            return null;
+          }
         }),
       );
+      const available = downloaded.filter((source) => source !== null);
+      const chunkSources = available.map((source) => ({
+        durationMs: source.durationMs,
+        filePath: source.filePath,
+        recordingIdentity: source.recordingIdentity,
+        segments: source.segments,
+        speakerDisplayName: source.speakerDisplayName,
+        track: source.track,
+      }));
+      if (identityRecording) {
+        const chunks: FinalTranscriptionAudioChunk[] = [];
+        for (const source of chunkSources) {
+          try {
+            chunks.push(...(await dependencies.prepareChunks({ directory, sources: [source] })));
+          } catch (error) {
+            if (context.attempt < context.maxAttempts) {
+              throw error;
+            }
+            failedRanges.push({
+              endMs: (source.recordingIdentity?.offsetMs ?? 0) + source.durationMs,
+              startMs: source.recordingIdentity?.offsetMs ?? 0,
+            });
+          }
+        }
+        return { chunks };
+      }
       const chunks = await dependencies.prepareChunks({
         directory,
-        sources: preparedSources.map((source) => ({
-          durationMs: source.durationMs,
-          filePath: source.filePath,
-          segments: source.segments,
-          speakerDisplayName: source.speakerDisplayName,
-          track: source.track,
-        })),
+        sources: chunkSources,
       });
       return { chunks };
     });
@@ -456,23 +510,99 @@ async function runMeetingTranscriptionProcessingPromise(
       chunk: FinalTranscriptionAudioChunk;
       transcript: CanonicalMeetingTranscript;
     }[] = [];
-    for (const chunk of prepared.chunks) {
-      const transcript = await transcribeChunk({
-        chunk,
-        dependencies,
-        job: input,
-        processingRunId,
-      });
-      if (!transcript) {
-        return;
+    const primaryChunks = identityRecording
+      ? prepared.chunks.filter((chunk) => !isMixedMeetingRecordingSource(chunk))
+      : prepared.chunks;
+    for (const chunk of primaryChunks) {
+      try {
+        const transcript = await transcribeChunk({
+          chunk,
+          dependencies,
+          job: input,
+          processingRunId,
+        });
+        if (!transcript) {
+          return;
+        }
+        chunkResults.push({ chunk, transcript });
+      } catch (error) {
+        if (!identityRecording || context.attempt < context.maxAttempts) {
+          throw error;
+        }
+        failedRanges.push({ endMs: chunk.endMs, startMs: chunk.startMs });
       }
-      chunkResults.push({ chunk, transcript });
     }
-    const transcript = mergeMeetingTranscriptionChunkResults(chunkResults);
+    if (identityRecording) {
+      const ranges = [
+        ...roomMixes.flatMap((source) => source.recordingIdentity?.recoveryRanges ?? []),
+        ...failedRanges,
+      ];
+      if (primaryChunks.length === 0) {
+        ranges.push({ endMs: MAX_DURATION_MS, startMs: 0 });
+      }
+      for (const chunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
+        if (!ranges.some((range) => range.startMs < chunk.endMs && range.endMs > chunk.startMs)) {
+          continue;
+        }
+        try {
+          const recovered = await transcribeChunk({
+            chunk,
+            dependencies,
+            job: input,
+            processingRunId,
+          });
+          if (!recovered) {
+            return;
+          }
+          chunkResults.push({
+            chunk,
+            transcript: {
+              ...recovered,
+              turns: recovered.turns.filter((turn) =>
+                ranges.some((range) => turn.startMs < range.endMs && turn.endMs > range.startMs),
+              ),
+            },
+          });
+        } catch (error) {
+          if (context.attempt < context.maxAttempts || chunkResults.length === 0) {
+            throw error;
+          }
+        }
+      }
+      if (chunkResults.length === 0) {
+        throw new Error("录音转录与全场补救均失败，可手动提交评价");
+      }
+    }
+    const exclusions = candidateExclusionRanges(
+      sources.flatMap((source) =>
+        source.recordingIdentity?.role === "candidate"
+          ? [
+              {
+                endMs: source.recordingIdentity.offsetMs + source.durationMs,
+                silenceRanges: source.recordingIdentity.silenceRanges ?? [],
+                sourceId: source.recordingIdentity.sourceId,
+                startMs: source.recordingIdentity.offsetMs,
+              },
+            ]
+          : [],
+      ),
+    );
+    const transcript = mergeMeetingTranscriptionChunkResults(chunkResults, exclusions);
+    let warning: string | undefined;
+    if (
+      identityRecording &&
+      (failedRanges.length > 0 ||
+        roomMixes.some((source) => source.recordingIdentity?.recoveryRanges?.length) ||
+        transcript.turns.some((turn) => turn.attribution?.role === "unknown"))
+    ) {
+      warning =
+        "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；待确认发言不作为候选人能力证据。";
+    }
     const published = await dependencies.publish({
       ...input,
       processingRunId,
       transcript,
+      warning,
     });
     if (published) {
       await requestAutomaticIntelligenceBestEffort({

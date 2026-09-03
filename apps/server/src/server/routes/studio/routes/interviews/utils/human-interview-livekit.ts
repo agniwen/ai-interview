@@ -100,3 +100,12 @@ export async function getHumanInterviewLiveKitParticipant(roomName: string, iden
   const client = new RoomServiceClient(toHttpLiveKitUrl(serverUrl), apiKey, apiSecret);
   return await client.getParticipant(roomName, identity);
 }
+
+export async function listHumanInterviewLiveKitParticipants(roomName: string) {
+  const { apiKey, apiSecret, serverUrl } = getLiveKitServerConfig();
+  return await new RoomServiceClient(
+    toHttpLiveKitUrl(serverUrl),
+    apiKey,
+    apiSecret,
+  ).listParticipants(roomName);
+}

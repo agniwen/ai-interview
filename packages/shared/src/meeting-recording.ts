@@ -2,6 +2,10 @@ import { z } from "zod";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 import { makePaginationSchema } from "@app/shared/pagination";
 import type { PaginatedResult } from "@app/shared/pagination";
+export type {
+  RecordingIdentity,
+  TranscriptAttribution,
+} from "@app/db-schema/human-interview-recording";
 
 export const MEETING_SOURCE_TRACKS = ["microphone", "system"] as const;
 export const MEETING_MULTIPART_PART_BYTES = 8 * 1024 * 1024;
@@ -150,7 +154,11 @@ export type CreateMultipartSavedMeetingInput = z.infer<typeof createMultipartSav
 export type MeetingSourceAssetInput = z.infer<typeof meetingSourceAssetSchema>;
 export type MeetingSourceSegmentInput = z.infer<typeof meetingSourceSegmentSchema>;
 export type MeetingSourceTrack = (typeof MEETING_SOURCE_TRACKS)[number];
-export type MeetingTranscriptionSourceTrack = MeetingSourceTrack | "candidate" | "mixed";
+export type MeetingTranscriptionSourceTrack =
+  | MeetingSourceTrack
+  | "candidate"
+  | "mixed"
+  | `participant-${string}`;
 
 export interface SmallMeetingUploadInstruction {
   contentType: string;

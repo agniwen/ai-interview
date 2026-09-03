@@ -37,7 +37,7 @@ interface HumanInterviewRecordingEgressPort {
   stopEgress: (egressId: string) => Promise<HumanInterviewRecordingEgressResult>;
 }
 
-function getLiveKitEgressClient(): HumanInterviewRecordingEgressPort {
+function getLiveKitEgressClient(): EgressClient {
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
   const serverUrl = process.env.LIVEKIT_URL;
@@ -51,6 +51,33 @@ function getLiveKitEgressClient(): HumanInterviewRecordingEgressPort {
     url.protocol = "http:";
   }
   return new EgressClient(url.toString(), apiKey, apiSecret);
+}
+
+export async function startHumanInterviewTrackRecording(input: {
+  roomName: string;
+  fileKey: string;
+  trackId: string;
+}): Promise<string> {
+  const output = new EncodedFileOutput({
+    fileType: EncodedFileType.OGG,
+    filepath: input.fileKey,
+    output: { case: "s3", value: new S3Upload(await getHumanInterviewRecordingUploadConfig()) },
+  });
+  const client = getLiveKitEgressClient();
+  const info =
+    input.trackId === "mixed"
+      ? await client.startRoomCompositeEgress(input.roomName, output, { audioOnly: true })
+      : await client.startTrackCompositeEgress(input.roomName, output, {
+          audioTrackId: input.trackId,
+        });
+  if (!info.egressId) {
+    throw new Error("LiveKit 未返回录音任务 ID");
+  }
+  return info.egressId;
+}
+
+export async function listHumanInterviewEgress(roomName: string) {
+  return await getLiveKitEgressClient().listEgress({ roomName });
 }
 
 export async function findActiveHumanInterviewRoomRecordings(

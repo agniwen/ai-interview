@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, max } from "drizzle-orm";
+import { and, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../lib/server/db/index";
 import {
@@ -44,6 +44,7 @@ async function serializeTranscriptRevision(
     region: revision.region,
     revision: revision.revision,
     turns: turns.map((turn) => ({
+      attribution: turn.attribution,
       confidence: turn.confidence,
       endMs: turn.endMs,
       id: turn.id,
@@ -84,6 +85,7 @@ export async function createHumanMeetingTranscriptRevision(input: {
   correction: CreateMeetingTranscriptCorrectionInput;
   meetingId: string;
   organizationId: string;
+  confirmedRoles?: Record<string, "candidate" | "interviewer" | "unknown">;
 }): Promise<FinalMeetingTranscriptRevision | "conflict" | "invalid-range" | "not-found"> {
   const result = await db.transaction(async (tx) => {
     const [meeting] = await tx
@@ -121,8 +123,12 @@ export async function createHumanMeetingTranscriptRevision(input: {
     }
     const sourceTurns = await tx
       .select({
+        attribution: meetingTranscriptTurn.attribution,
+        endMs: meetingTranscriptTurn.endMs,
+        id: meetingTranscriptTurn.id,
         speakerDisplayName: meetingTranscriptTurn.speakerDisplayName,
         speakerKey: meetingTranscriptTurn.speakerKey,
+        startMs: meetingTranscriptTurn.startMs,
       })
       .from(meetingTranscriptTurn)
       .where(eq(meetingTranscriptTurn.revisionId, source.id));
@@ -139,14 +145,11 @@ export async function createHumanMeetingTranscriptRevision(input: {
       ),
     ];
     const [duration] = await tx
-      .select({ durationMs: max(meetingRecordingAsset.durationMs) })
+      .select({
+        durationMs: sql<number>`max(${meetingRecordingAsset.durationMs} + coalesce((${meetingRecordingAsset.recordingIdentity}->>'offsetMs')::integer, 0))`,
+      })
       .from(meetingRecordingAsset)
-      .where(
-        and(
-          eq(meetingRecordingAsset.meetingId, input.meetingId),
-          inArray(meetingRecordingAsset.track, ["microphone", "system", "mixed"]),
-        ),
-      );
+      .where(and(eq(meetingRecordingAsset.meetingId, input.meetingId)));
     const durationMs = Number(duration?.durationMs ?? 0);
     if (input.correction.turns.some((turn) => turn.endMs > durationMs)) {
       return { status: "invalid-range" as const };
@@ -178,12 +181,26 @@ export async function createHumanMeetingTranscriptRevision(input: {
     if (!revision) {
       throw new Error("创建人工修订失败");
     }
-    const turns = input.correction.turns.map((turn, sequence) => ({
-      ...turn,
-      id: crypto.randomUUID(),
-      revisionId,
-      sequence,
-    }));
+    const turns = input.correction.turns.map((turn, sequence) => {
+      const original = sourceTurns.find(
+        (item) =>
+          item.speakerKey === turn.speakerKey &&
+          item.startMs === turn.startMs &&
+          item.endMs === turn.endMs,
+      );
+      const confirmedRole = original ? input.confirmedRoles?.[original.id] : undefined;
+      return {
+        ...turn,
+        // Client-supplied provenance is never trusted. Only this server-owned confirmation path changes roles.
+        attribution:
+          confirmedRole && original?.attribution
+            ? { ...original.attribution, method: "manual" as const, role: confirmedRole }
+            : (original?.attribution ?? null),
+        id: crypto.randomUUID(),
+        revisionId,
+        sequence,
+      };
+    });
     if (turns.length > 0) {
       for (let offset = 0; offset < turns.length; offset += TRANSCRIPT_TURN_INSERT_BATCH_SIZE) {
         await tx
@@ -343,6 +360,7 @@ export async function createInitialHumanMeetingTranscriptRevision(input: {
     }
     const turns = [
       {
+        attribution: null,
         confidence: null,
         endMs: durationMs,
         id: crypto.randomUUID(),

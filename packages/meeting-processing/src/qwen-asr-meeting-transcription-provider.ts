@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
+import { isMixedMeetingRecordingSource } from "@app/meeting-media";
 import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
 import type {
   CanonicalMeetingTranscript,
@@ -168,7 +169,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
     };
     if (
       dependencies.model.startsWith("qwen-audio-3.0-asr-flash-filetrans") &&
-      (input.chunk.track === "system" || input.chunk.track === "mixed")
+      (input.chunk.track === "system" || isMixedMeetingRecordingSource(input.chunk))
     ) {
       parameters.diarization_enabled = true;
     }

@@ -254,6 +254,92 @@ describe("Meeting transcription publication", () => {
     );
   });
 
+  it("preserves recording provenance and changes roles only through server-owned confirmation", async () => {
+    const processingRunId = runId("attribution");
+    await claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId });
+    await publishMeetingTranscript({
+      ...job,
+      processingRunId,
+      transcript: {
+        language: "zh",
+        turns: [
+          {
+            attribution: {
+              method: "unconfirmed",
+              participantIdentity: null,
+              role: "unknown",
+              sourceId: "mixed-file",
+            },
+            confidence: null,
+            endMs: 2000,
+            speakerKey: "remote-1",
+            startMs: 1000,
+            text: "待确认原文",
+            track: "remote",
+          },
+        ],
+      },
+    });
+    const source = await db.query.meetingTranscriptRevision.findFirst({
+      where: { meetingId: MEETING_ID },
+      with: { turns: true },
+    });
+    const original = source?.turns[0];
+    if (!source || !original) {
+      throw new Error("missing transcript fixture");
+    }
+    const correction = {
+      actorId: USER_ID,
+      correction: {
+        language: "zh",
+        sourceRevisionId: source.id,
+        turns: [
+          {
+            attribution: {
+              method: "manual" as const,
+              participantIdentity: "forged",
+              role: "candidate" as const,
+              sourceId: "forged-file",
+            },
+            confidence: null,
+            endMs: 2000,
+            speakerDisplayName: "候选人",
+            speakerKey: "remote-1",
+            startMs: 1000,
+            text: "人工修改文字",
+            track: "remote" as const,
+          },
+        ],
+      },
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+    };
+    const edited = await createHumanMeetingTranscriptRevision(correction);
+    if (!isHumanRevision(edited) || !edited.turns[0]) {
+      throw new Error("missing edited revision");
+    }
+    expect(edited.turns[0].attribution).toEqual(original.attribution);
+    const confirmed = await createHumanMeetingTranscriptRevision({
+      ...correction,
+      confirmedRoles: { [edited.turns[0].id]: "candidate" },
+      correction: { ...correction.correction, sourceRevisionId: edited.id },
+    });
+    if (!isHumanRevision(confirmed)) {
+      throw new Error("missing confirmed revision");
+    }
+    expect(confirmed.turns[0]?.attribution).toEqual({
+      method: "manual",
+      participantIdentity: null,
+      role: "candidate",
+      sourceId: "mixed-file",
+    });
+    const preserved = await db.query.meetingTranscriptTurn.findFirst({
+      where: { id: original.id },
+    });
+    expect(preserved?.attribution).toEqual(original.attribution);
+    expect(preserved?.text).toBe("待确认原文");
+  });
+
   it("keeps the machine revision immutable and detects concurrent human corrections", async () => {
     await expect(
       claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-correct") }),

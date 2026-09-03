@@ -994,15 +994,16 @@ export async function loadActiveHumanInterviewRecordingEgressId(
     .select({
       candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
       egressId: studioHumanInterviewMeeting.recordingEgressId,
+      tracks: studioHumanInterviewMeeting.recordingTracks,
     })
     .from(studioHumanInterviewMeeting)
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.recordingStatus, "active"),
-      ),
-    )
+    .where(and(eq(studioHumanInterviewMeeting.id, meetingId)))
     .limit(1);
+  if (meeting?.tracks) {
+    return meeting.tracks.flatMap((track) =>
+      track.egressId && ["starting", "active"].includes(track.status) ? [track.egressId] : [],
+    );
+  }
   return meeting
     ? [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
         Boolean(value),
@@ -1018,22 +1019,22 @@ export async function loadActiveHumanInterviewRecordingByRoomName(
       candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
       egressId: studioHumanInterviewMeeting.recordingEgressId,
       meetingId: studioHumanInterviewMeeting.id,
+      tracks: studioHumanInterviewMeeting.recordingTracks,
     })
     .from(studioHumanInterviewMeeting)
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.liveKitRoomName, roomName),
-        eq(studioHumanInterviewMeeting.recordingStatus, "active"),
-      ),
-    )
+    .where(and(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName)))
     .limit(1);
   if (!meeting) {
     return null;
   }
   return {
-    egressIds: [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
-      Boolean(value),
-    ),
+    egressIds: meeting.tracks
+      ? meeting.tracks.flatMap((track) =>
+          track.egressId && ["starting", "active"].includes(track.status) ? [track.egressId] : [],
+        )
+      : [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
+          Boolean(value),
+        ),
     meetingId: meeting.meetingId,
   };
 }

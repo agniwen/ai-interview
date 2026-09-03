@@ -6,9 +6,14 @@ import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { canonicalMeetingTranscriptSchema } from "@app/shared/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
-import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
+import type {
+  MeetingTranscriptionSourceTrack,
+  RecordingIdentity,
+} from "@app/shared/meeting-recording";
+export { detectCandidateSilence, candidateExclusionRanges } from "./candidate-silence";
 
 export interface FinalTranscriptionAudioChunk {
+  recordingIdentity?: RecordingIdentity;
   contentType: string;
   endMs: number;
   filePath: string;
@@ -16,6 +21,15 @@ export interface FinalTranscriptionAudioChunk {
   speakerDisplayName?: string;
   startMs: number;
   track: MeetingTranscriptionSourceTrack;
+}
+
+export function isMixedMeetingRecordingSource(source: {
+  track: string;
+  recordingIdentity?: RecordingIdentity | null;
+}): boolean {
+  return source.recordingIdentity
+    ? source.recordingIdentity.role === "unknown"
+    : source.track === "mixed";
 }
 
 const execFileAsync = promisify(execFile);
@@ -48,6 +62,7 @@ export async function readMeetingTranscriptionFfmpegVersion(ffmpegBin?: string):
 }
 
 export interface MeetingTranscriptionChunkSource {
+  recordingIdentity?: RecordingIdentity;
   durationMs: number;
   filePath: string;
   segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
@@ -156,7 +171,11 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
     );
     const directoryEntries = await readdir(input.directory);
     const names = directoryEntries
-      .filter((name) => name.startsWith(`${source.track}-`) && name.endsWith(".webm"))
+      .filter(
+        (name) =>
+          name.startsWith(`${source.track}-`) &&
+          /^\d+\.webm$/.test(name.slice(source.track.length + 1)),
+      )
       .toSorted();
     for (const [index, name] of names.entries()) {
       const startMs = index * MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS;
@@ -165,11 +184,14 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
       }
       chunks.push({
         contentType: "audio/webm",
-        endMs: Math.min(source.durationMs, startMs + MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS),
+        endMs:
+          (source.recordingIdentity?.offsetMs ?? 0) +
+          Math.min(source.durationMs, startMs + MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS),
         filePath: join(input.directory, name),
         index,
+        recordingIdentity: source.recordingIdentity,
         speakerDisplayName: source.speakerDisplayName,
-        startMs,
+        startMs: (source.recordingIdentity?.offsetMs ?? 0) + startMs,
         track: source.track,
       });
     }
@@ -201,61 +223,139 @@ function meetingTranscriptTextSimilarity(left: string, right: string): number {
   return (2 * overlap) / (leftPairs.size + rightPairs.size);
 }
 
+function chunkAttribution(
+  chunk: FinalTranscriptionAudioChunk,
+): CanonicalMeetingTranscript["turns"][number]["attribution"] {
+  const source = chunk.recordingIdentity;
+  if (source) {
+    return {
+      method: source.role === "unknown" ? "unconfirmed" : "track",
+      participantIdentity: source.participantIdentity,
+      role: source.role,
+      sourceId: source.sourceId,
+    };
+  }
+  if (chunk.track === "candidate" || chunk.track === "mixed") {
+    return {
+      method: chunk.track === "candidate" ? "track" : "unconfirmed",
+      participantIdentity: null,
+      role: chunk.track === "candidate" ? "candidate" : "unknown",
+      sourceId: chunk.track,
+    };
+  }
+  return null;
+}
+
+function chunkSpeakerName(
+  chunk: FinalTranscriptionAudioChunk,
+  fallback: string | null | undefined,
+) {
+  const attribution = chunkAttribution(chunk);
+  if (attribution?.role === "candidate") {
+    return chunk.speakerDisplayName ?? "候选人";
+  }
+  if (attribution?.role === "interviewer") {
+    return "面试官";
+  }
+  if (attribution?.role === "unknown") {
+    return "待确认";
+  }
+  return fallback ?? null;
+}
+
+function chunkSpeakerIdentity(
+  chunk: FinalTranscriptionAudioChunk,
+  turn: CanonicalMeetingTranscript["turns"][number],
+) {
+  const source = chunk.recordingIdentity;
+  if (source && source.role !== "unknown") {
+    return `${source.role}:${source.participantIdentity ?? source.sourceId}`;
+  }
+  if (isMixedMeetingRecordingSource(chunk)) {
+    return `${chunk.track}:${chunk.index}:${turn.startMs}:${turn.endMs}`;
+  }
+  return `${chunk.track}:${chunk.index}:${turn.speakerKey}`;
+}
+
 export function mergeMeetingTranscriptionChunkResults(
   results: { chunk: FinalTranscriptionAudioChunk; transcript: CanonicalMeetingTranscript }[],
+  excludedCandidateRanges: { startMs: number; endMs: number; sourceId: string }[] = [],
 ): CanonicalMeetingTranscript {
-  const candidateResults = new Map(
-    results
-      .filter((result) => result.chunk.track === "candidate")
-      .map((result) => [result.chunk.index, result]),
-  );
+  const candidateTurns = results
+    .filter(
+      (result) =>
+        result.chunk.track === "candidate" ||
+        result.chunk.recordingIdentity?.role === "candidate" ||
+        result.chunk.recordingIdentity?.role === "interviewer",
+    )
+    .flatMap((result) => result.transcript.turns);
   const remoteSpeakers = new Map<string, string>();
-  const turns = results
-    .filter((result) => result.chunk.track !== "candidate")
-    .flatMap(({ chunk, transcript }) => {
-      const candidateResult =
-        chunk.track === "mixed" ? candidateResults.get(chunk.index) : undefined;
-      const candidateText =
-        candidateResult?.transcript.turns.map((turn) => turn.text).join(" ") ?? "";
-      const candidateDisplayName = candidateResult?.chunk.speakerDisplayName;
-      const speakerTexts = new Map<string, string[]>();
-      for (const turn of transcript.turns) {
-        const texts = speakerTexts.get(turn.speakerKey) ?? [];
-        texts.push(turn.text);
-        speakerTexts.set(turn.speakerKey, texts);
-      }
-      const rankedSpeakers = [...speakerTexts.entries()]
-        .map(([speakerKey, texts]) => ({
-          score: meetingTranscriptTextSimilarity(texts.join(" "), candidateText),
-          speakerKey,
-        }))
-        .toSorted((left, right) => right.score - left.score);
-      const candidateSpeakerKey =
-        candidateDisplayName &&
-        rankedSpeakers[0] &&
-        rankedSpeakers[0].score >= 0.25 &&
-        rankedSpeakers[0].score - (rankedSpeakers[1]?.score ?? 0) >= 0.08
-          ? rankedSpeakers[0].speakerKey
-          : null;
-      return transcript.turns.map((turn) => {
-        if (turn.track === "local") {
+  const recoveredTurns: { track: string; turn: CanonicalMeetingTranscript["turns"][number] }[] = [];
+  const turns = results.flatMap(({ chunk, transcript }) =>
+    transcript.turns
+      .filter((turn) => {
+        if (!isMixedMeetingRecordingSource(chunk)) {
+          return true;
+        }
+        // Deduplicate only a locally aligned utterance. Never propagate a role to an ASR cluster.
+        const otherSourceTurns = recoveredTurns
+          .filter((item) => item.track !== chunk.track)
+          .map((item) => item.turn);
+        const duplicate = [...candidateTurns, ...otherSourceTurns].some((candidate) => {
+          const overlap =
+            Math.min(candidate.endMs, turn.endMs) - Math.max(candidate.startMs, turn.startMs);
+          return (
+            overlap / Math.max(candidate.endMs - candidate.startMs, turn.endMs - turn.startMs) >=
+              0.8 && meetingTranscriptTextSimilarity(candidate.text, turn.text) >= 0.8
+          );
+        });
+        if (!duplicate) {
+          recoveredTurns.push({ track: chunk.track, turn });
+        }
+        return !duplicate;
+      })
+      .map((turn) => {
+        if (
+          turn.track === "local" &&
+          !chunk.recordingIdentity &&
+          chunk.track !== "candidate" &&
+          !isMixedMeetingRecordingSource(chunk)
+        ) {
           return { ...turn, speakerDisplayName: turn.speakerDisplayName ?? null };
         }
-        const identity = `${chunk.track}:${chunk.index}:${turn.speakerKey}`;
+        const identity = chunkSpeakerIdentity(chunk, turn);
         let speakerKey = remoteSpeakers.get(identity);
         if (!speakerKey) {
           speakerKey = `remote-${remoteSpeakers.size + 1}`;
           remoteSpeakers.set(identity, speakerKey);
         }
+        const attribution = chunkAttribution(chunk);
+        let speakerDisplayName = chunkSpeakerName(chunk, turn.speakerDisplayName);
+        const proof = excludedCandidateRanges.find(
+          (range) => range.startMs <= turn.startMs - 300 && range.endMs >= turn.endMs + 300,
+        );
+        const candidateOverlap = results.some(
+          (result) =>
+            result.chunk.recordingIdentity?.role === "candidate" &&
+            result.transcript.turns.some(
+              (candidate) => candidate.startMs < turn.endMs && candidate.endMs > turn.startMs,
+            ),
+        );
+        if (isMixedMeetingRecordingSource(chunk) && attribution && proof && !candidateOverlap) {
+          attribution.role = "interviewer";
+          attribution.method = "candidate-excluded";
+          attribution.excludedBySourceIds = proof.sourceId.split(",");
+          speakerDisplayName = "面试官";
+        }
         return {
           ...turn,
-          speakerDisplayName:
-            turn.speakerDisplayName ??
-            (turn.speakerKey === candidateSpeakerKey ? candidateDisplayName : null),
+          attribution,
+          speakerDisplayName,
           speakerKey,
+          track: "remote" as const,
         };
-      });
-    });
+      }),
+  );
   turns.sort(
     (left, right) =>
       left.startMs - right.startMs ||

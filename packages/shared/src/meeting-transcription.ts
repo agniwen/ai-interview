@@ -201,6 +201,16 @@ export interface MeetingLiveTranscriptAuthorization {
 
 const canonicalTranscriptTurnBaseSchema = z
   .object({
+    attribution: z
+      .object({
+        excludedBySourceIds: z.array(z.string()).optional(),
+        method: z.enum(["track", "manual", "unconfirmed", "candidate-excluded"]),
+        participantIdentity: z.string().nullable(),
+        role: z.enum(["candidate", "interviewer", "unknown"]),
+        sourceId: z.string().min(1),
+      })
+      .nullable()
+      .optional(),
     confidence: z.number().min(0).max(1).nullable(),
     endMs: z.number().int().nonnegative(),
     speakerDisplayName: z.string().trim().min(1).max(128).nullable().optional(),
