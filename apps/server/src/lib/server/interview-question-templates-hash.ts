@@ -8,3 +8,16 @@ export function hashTemplateSnapshot(snapshot: InterviewQuestionTemplateSnapshot
     .update(stableStringify(jsonValueSchema.parse(rest)))
     .digest("hex");
 }
+
+export function hashTemplateSourceSnapshot(snapshot: InterviewQuestionTemplateSnapshot): string {
+  const { templateId: _templateId, ...rest } = snapshot;
+  const sourceSnapshot = {
+    ...rest,
+    questions: rest.questions.map(
+      ({ followUpContract: _followUpContract, ...question }) => question,
+    ),
+  };
+  return createHash("sha256")
+    .update(stableStringify(jsonValueSchema.parse(sourceSnapshot)))
+    .digest("hex");
+}

@@ -1,4 +1,5 @@
 import type {
+  InterviewQuestionFollowUpContract,
   InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateQuestionRecord,
   InterviewQuestionTemplateRecord,
@@ -437,6 +438,7 @@ export interface InterviewPresetQuestion {
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
+  followUpContract?: InterviewQuestionFollowUpContract | null;
 }
 
 export async function loadInterviewPresetQuestions(
@@ -472,6 +474,7 @@ export async function loadInterviewPresetQuestions(
           content: trimmed,
           difficulty: q.difficulty,
           evaluationFocus: q.evaluationFocus ?? null,
+          followUpContract: q.followUpContract ?? null,
           followUpDirections: q.followUpDirections ?? null,
         });
       }

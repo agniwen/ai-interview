@@ -1,4 +1,5 @@
 import type {
+  InterviewQuestionFollowUpContract,
   InterviewQuestionTemplateSnapshot,
   InterviewQuestionTemplateVersionRecord,
 } from "@app/db-schema/interview-question-templates";
@@ -11,15 +12,20 @@ import {
   interviewQuestionTemplateVersion,
 } from "@app/db-schema/schema";
 import { buildTemplateSnapshot } from "@app/db-schema/interview-question-templates";
-import { hashTemplateSnapshot } from "../../../../../../lib/server/interview-question-templates-hash";
+import {
+  hashTemplateSnapshot,
+  hashTemplateSourceSnapshot,
+} from "../../../../../../lib/server/interview-question-templates-hash";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { mapQuestionRow } from "./queries";
+import { attachFollowUpContracts } from "../application/compile-follow-up-contracts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export async function resolveOrCreateInterviewQuestionTemplateVersion(
   tx: Tx,
   templateId: string,
+  followUpContracts?: ReadonlyMap<string, InterviewQuestionFollowUpContract>,
 ): Promise<InterviewQuestionTemplateVersionRecord> {
   const [templateRow] = await tx
     .select()
@@ -39,7 +45,7 @@ export async function resolveOrCreateInterviewQuestionTemplateVersion(
     .select({ jobDescriptionId: interviewQuestionTemplateJobDescription.jobDescriptionId })
     .from(interviewQuestionTemplateJobDescription)
     .where(eq(interviewQuestionTemplateJobDescription.templateId, templateId));
-  const snapshot: InterviewQuestionTemplateSnapshot = buildTemplateSnapshot({
+  const sourceSnapshot: InterviewQuestionTemplateSnapshot = buildTemplateSnapshot({
     description: templateRow.description,
     jobDescriptionIds: linkRows.map((row) => row.jobDescriptionId),
     questions: questionRows.map(mapQuestionRow),
@@ -47,18 +53,38 @@ export async function resolveOrCreateInterviewQuestionTemplateVersion(
     templateId: templateRow.id,
     title: templateRow.title,
   });
+  const snapshot: InterviewQuestionTemplateSnapshot = followUpContracts
+    ? {
+        ...sourceSnapshot,
+        questions: attachFollowUpContracts(sourceSnapshot.questions, followUpContracts),
+      }
+    : sourceSnapshot;
   const contentHash = hashTemplateSnapshot(snapshot);
+  const sourceHash = hashTemplateSourceSnapshot(sourceSnapshot);
 
-  const [existing] = await tx
-    .select()
-    .from(interviewQuestionTemplateVersion)
-    .where(
-      and(
-        eq(interviewQuestionTemplateVersion.templateId, templateId),
-        eq(interviewQuestionTemplateVersion.contentHash, contentHash),
-      ),
-    )
-    .limit(1);
+  let existing: typeof interviewQuestionTemplateVersion.$inferSelect | undefined;
+  if (followUpContracts) {
+    const exactRows = await tx
+      .select()
+      .from(interviewQuestionTemplateVersion)
+      .where(
+        and(
+          eq(interviewQuestionTemplateVersion.templateId, templateId),
+          eq(interviewQuestionTemplateVersion.contentHash, contentHash),
+        ),
+      )
+      .limit(1);
+    [existing] = exactRows;
+  } else {
+    const sourceVersionRows = await tx
+      .select()
+      .from(interviewQuestionTemplateVersion)
+      .where(eq(interviewQuestionTemplateVersion.templateId, templateId))
+      .orderBy(desc(interviewQuestionTemplateVersion.version));
+    existing = sourceVersionRows.find(
+      (version) => hashTemplateSourceSnapshot(version.snapshot) === sourceHash,
+    );
+  }
   if (existing) {
     return {
       contentHash: existing.contentHash,

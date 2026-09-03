@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import math
 import re
 import time
 from collections.abc import AsyncIterable, Callable, Coroutine
@@ -234,6 +236,37 @@ def _follow_up_prompt(
     return f"请补充{joined}。", joined
 
 
+def _contract_topic_prompt(
+    question: DispatchQuestion,
+    requested_topic_ids: list[str] | None,
+    covered_topic_ids: frozenset[str],
+    *,
+    limit: int = 3,
+) -> tuple[str | None, tuple[str, ...]]:
+    contract = question.follow_up_contract
+    if contract is None:
+        return None, ()
+    facet_by_id = {facet.id: facet for facet in contract.facets}
+    selected_ids: list[str] = []
+    for topic_id in requested_topic_ids or ():
+        if (
+            topic_id in facet_by_id
+            and topic_id not in covered_topic_ids
+            and topic_id not in selected_ids
+        ):
+            selected_ids.append(topic_id)
+        if len(selected_ids) >= limit:
+            break
+    if not selected_ids:
+        selected_ids = [
+            facet.id for facet in contract.facets if facet.id not in covered_topic_ids
+        ][:limit]
+    if not selected_ids:
+        return None, ()
+    labels = [facet_by_id[topic_id].label for topic_id in selected_ids]
+    return f"请补充{'、'.join(labels)}。", tuple(selected_ids)
+
+
 class InterviewQuestionProgress:
     def __init__(
         self,
@@ -290,7 +323,10 @@ class InterviewQuestionProgress:
         self, answer_summary: str, *, now: float
     ) -> InterviewQuestionOutcome | None:
         self.skip_confirmation_pending = False
+        contract = self.question.follow_up_contract
         limit = _FOLLOW_UP_LIMITS[self.question.difficulty]
+        if contract is not None and contract.coverage_mode == "all_required":
+            limit = max(2, math.ceil(len(contract.facets) / 3) + 1)
         if limit is not None and self.follow_up_count >= limit:
             return self._outcome(
                 QuestionOutcomeStatus.INSUFFICIENT,
@@ -400,21 +436,42 @@ def _question_instructions(
         if revisitable_questions
         else "当前没有可补充的先前题目。"
     )
+    difficulty_rule = (
+        "本题是明确字段收集题，即使难度为 easy，也应使用 follow_up 补齐追问契约中的缺失项；最多按系统允许次数追问。"
+        if question.follow_up_contract is not None
+        and question.follow_up_contract.coverage_mode == "all_required"
+        else "easy 题不得追问；medium 题最多追问两次；hard 题不设固定追问上限。"
+    )
+    follow_up_contract = (
+        json.dumps(
+            {
+                "coverageMode": question.follow_up_contract.coverage_mode,
+                "facets": [
+                    {"id": facet.id, "label": facet.label}
+                    for facet in question.follow_up_contract.facets
+                ],
+            },
+            ensure_ascii=False,
+        )
+        if question.follow_up_contract is not None
+        else "未配置"
+    )
     return f"""你正在执行一道独立的必问面试题。本阶段只处理这一道题，整轮面试尚未结束。
 
 题目：{question.content}
 难度：{question.difficulty}
 考核意图：{question.evaluation_focus or "未配置"}
 追问方向：{question.follow_up_directions or "未配置"}
+追问契约：{follow_up_contract}
 
 完成规则：
 - {evaluation_rule}
 - 候选人每次发言后必须且只能调用一次 submit_question_decision。工具调用前后都不得输出候选人可见文本；所有对外话术由系统代码生成。
 - 不得复述或总结候选人已经提供的信息，不得要求候选人确认整份回答，也不得用"你刚才提到"之类的话重述答案。
 - 信息足够时使用 action=answered，并在 answer_summary 写仅供内部记录的简短累计摘要。不要说"已记录"、"信息完整"、"回答得很好"或任何确认语。answered 只表示已收集到可评估信息，不表示回答正确或表现良好。
-- 回答尚未覆盖考核意图时使用 action=follow_up。missing_topic 从追问方向原文选取一个或多个尚未收集到的短要点，可用顿号并列；不得改写为追问方向里不存在的措辞，也不得夹带题目原文、候选人答案、总结、句子或对话话术。covered_topics 必须累计列出候选人已经实质回答的追问方向短要点原文；仅提到、否认、不知道或尚未定位不算已覆盖。missing_topic 中的要点不得同时出现在 covered_topics 中。
+- 回答尚未覆盖考核意图时使用 action=follow_up。有追问契约时，missing_topic_ids 只能选择尚未收集到的 facet id，covered_topic_ids 累计列出已经实质回答的 facet id；一次最多选择 3 个缺失项。没有追问契约时才使用 missing_topic 和 covered_topics 兼容旧题目，missing_topic 可写一个或多个尚未收集到的短要点。仅提到、否认、不知道或尚未定位不算已覆盖，缺失项不得同时标记为已覆盖。
 - 追问优先参考配置方向，也可以根据实际回答调整，但不得转向无关主题。
-- easy 题不得追问；medium 题最多追问两次；hard 题不设固定追问上限。
+- {difficulty_rule}
 - 候选人第一次明确拒答或要求下一题时使用 action=request_skip；只有候选人随后明确确认跳过时才使用 action=confirm_skip。候选人改口继续回答时使用 action=continue_current，取消待确认状态。如果候选人的发言已经提供足够信息，即使末尾说了“下一题”，也优先使用 action=answered；只有信息仍不足且候选人明确拒绝继续时才请求跳过。如果候选人在同一发言中先提供了实质性部分答案、再要求跳过，action=request_skip 时仍需填写 answer_summary 和 covered_topics，不能丢弃已经收集的信息。
 - 候选人明确要求结束整轮面试时使用 action=end_round，不要把它记成跳过当前题。
 - 礼貌用语、简短确认或过渡语（如"谢谢""好的""嗯""可以""继续"）都不是结束整轮的信号；"下一题"按首次跳过当前题的请求处理，也不是结束整轮。禁止因此告别或声称信息收集完整、面试结束。
@@ -498,10 +555,11 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         self.session.update_options(
             endpointing_opts={
                 "mode": "dynamic",
-                # Slightly looser than session defaults so long answers with
-                # thinking pauses are less likely to be cut mid-sentence.
-                "min_delay": 0.8,
-                "max_delay": 5.5,
+                # Match the patient session defaults. A shorter per-question
+                # override split slow answers into fragments and advanced the
+                # task while the candidate was still answering the prior item.
+                "min_delay": 1.5,
+                "max_delay": 7.0,
             }
         )
         if self._previous_outcome is None and not self._previously_asked:
@@ -694,6 +752,15 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             for topic in _requested_follow_up_topics(value, frozenset()):
                 self._covered_topics.add(topic)
 
+    def _record_covered_topic_ids(self, covered_topic_ids: list[str] | None) -> None:
+        contract = self._question.follow_up_contract
+        if contract is None:
+            return
+        valid_ids = {facet.id for facet in contract.facets}
+        self._covered_topics.update(
+            topic_id for topic_id in covered_topic_ids or () if topic_id in valid_ids
+        )
+
     @function_tool(name=_DECISION_TOOL_NAME)
     async def submit_question_decision(
         self,
@@ -702,13 +769,15 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         answer_summary: str = "",
         missing_topic: str = "",
         covered_topics: list[str] | None = None,
+        missing_topic_ids: list[str] | None = None,
+        covered_topic_ids: list[str] | None = None,
         target_question_ids: list[str] | None = None,
     ) -> None:
         """每次候选人发言只调用一次, 用 action 记录本题状态。
 
         answer_summary 只供内部记录, 绝不向候选人展示。follow_up 时的
-        missing_topic 可写一个或多个追问方向原文短要点, covered_topics
-        累计记录已实质回答的追问方向短要点。clarify、wait 和
+        有追问契约时使用 missing_topic_ids / covered_topic_ids 记录动态信息项,
+        旧题目才使用 missing_topic / covered_topics。clarify、wait 和
         continue_current 不消耗追问次数。
         """
         if self.done() or self._prompt_playout_in_progress:
@@ -721,6 +790,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
 
         if action is QuestionTurnAction.ANSWERED:
             self._record_covered_topics(covered_topics)
+            self._record_covered_topic_ids(covered_topic_ids)
             self._pending_missing_topic = None
             self._complete_if_active(
                 self.progress.record_answered(
@@ -730,6 +800,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             )
         elif action is QuestionTurnAction.FOLLOW_UP:
             self._record_covered_topics(covered_topics)
+            self._record_covered_topic_ids(covered_topic_ids)
             summary = self._resolved_answer_summary(answer_summary)
             if (
                 self._previous_outcome is not None
@@ -743,17 +814,35 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
                     self.progress.record_answered(summary, now=self._now())
                 )
                 return None
+            contract_prompt, selected_topic_ids = _contract_topic_prompt(
+                self._question,
+                missing_topic_ids,
+                frozenset(self._covered_topics),
+            )
+            if (
+                self._question.follow_up_contract is not None
+                and contract_prompt is None
+            ):
+                self._pending_missing_topic = None
+                self._complete_if_active(
+                    self.progress.record_answered(summary, now=self._now())
+                )
+                return None
             outcome = self.progress.record_follow_up(summary, now=self._now())
             if outcome is not None:
                 self._pending_missing_topic = None
                 self._complete_if_active(outcome)
                 return None
-            prompt, trusted_topic = _follow_up_prompt(
-                self._question.follow_up_directions,
-                missing_topic,
-                frozenset(self._covered_topics),
-                self._question.content,
-            )
+            if contract_prompt:
+                prompt = contract_prompt
+                trusted_topic = "、".join(selected_topic_ids)
+            else:
+                prompt, trusted_topic = _follow_up_prompt(
+                    self._question.follow_up_directions,
+                    missing_topic,
+                    frozenset(self._covered_topics),
+                    self._question.content,
+                )
             self._pending_missing_topic = trusted_topic or "尚未说明的关键点"
             self._last_candidate_prompt = prompt
             self._say_with_rollback(
@@ -763,8 +852,18 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             )
         elif action is QuestionTurnAction.CLARIFY:
             self.progress.record_meta_turn()
+            contract_prompt, _ = _contract_topic_prompt(
+                self._question,
+                missing_topic_ids,
+                frozenset(),
+                limit=1,
+            )
             self._say_with_rollback(
-                "请告诉我需要澄清的具体部分。",
+                (
+                    contract_prompt.replace("请补充", "这里主要想了解", 1)
+                    if contract_prompt
+                    else "请告诉我需要澄清的具体部分。"
+                ),
                 snapshot=snapshot,
                 speech_id=speech_id,
             )
@@ -786,12 +885,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         elif action is QuestionTurnAction.CONTINUE_CURRENT:
             self.progress.cancel_skip_confirmation()
             self.progress.record_meta_turn()
-            self._say_with_rollback(
-                "好的，请继续回答。",
-                snapshot=snapshot,
-                speech_id=speech_id,
-                remember_prompt=False,
-            )
+            self._persist_draft()
         elif action is QuestionTurnAction.REQUEST_SKIP:
             provided_summary = _normalize_internal_text(
                 answer_summary,
@@ -823,6 +917,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
                     speech_id=speech_id,
                 )
         elif action is QuestionTurnAction.OFF_TOPIC:
+            self._record_covered_topic_ids(covered_topic_ids)
             outcome = self.progress.record_off_topic(
                 now=self._now(),
                 answer_summary=self._answer_summary or None,
@@ -830,8 +925,24 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             if outcome is not None:
                 self._complete_if_active(outcome)
             else:
+                contract_prompt, _ = _contract_topic_prompt(
+                    self._question,
+                    missing_topic_ids,
+                    frozenset(self._covered_topics),
+                    limit=2,
+                )
+                if (
+                    contract_prompt is None
+                    and self._question.follow_up_contract is not None
+                ):
+                    contract_prompt, _ = _contract_topic_prompt(
+                        self._question,
+                        missing_topic_ids,
+                        frozenset(),
+                        limit=2,
+                    )
                 self._say_with_rollback(
-                    "请直接回答刚才的问题。",
+                    contract_prompt or "请直接回答刚才的问题。",
                     snapshot=snapshot,
                     speech_id=speech_id,
                 )

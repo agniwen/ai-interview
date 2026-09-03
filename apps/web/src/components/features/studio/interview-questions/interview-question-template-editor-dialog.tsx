@@ -32,6 +32,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
+import { env } from "@/env/client";
+import { FollowUpContractHoverCard } from "./follow-up-contract-hover-card";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -331,6 +333,21 @@ export function InterviewQuestionTemplateEditorDialog({
                 sortOrder: sortIndex,
               })}
               form={form}
+              renderHeaderAccessory={(question, index) => {
+                if (
+                  !env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ||
+                  !record ||
+                  !question.id
+                ) {
+                  return null;
+                }
+                const contract = record.questions.find(
+                  (recordQuestion) => recordQuestion.id === question.id,
+                )?.followUpContract;
+                return contract ? (
+                  <FollowUpContractHoverCard contract={contract} questionNumber={index + 1} />
+                ) : null;
+              }}
               resetKey={record?.id ?? "new"}
             />
             <FieldError errors={questionListErrors} />

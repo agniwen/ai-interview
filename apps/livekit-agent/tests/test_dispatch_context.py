@@ -7,7 +7,7 @@ from dispatch_context import DispatchContextError, parse_dispatch_context
 
 def _payload(**overrides):
     payload = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "session": {
             "allowTextInput": True,
             "interviewRecordId": "record-1",
@@ -34,6 +34,18 @@ def _payload(**overrides):
                 "difficulty": "medium",
                 "evaluationFocus": "确认候选人能够定位并复盘线上故障",
                 "followUpDirections": "追问定位信号、根因与预防措施",
+                "followUpContract": {
+                    "coverageMode": "sufficient_for_evaluation",
+                    "facets": [
+                        {
+                            "id": "facet-root-cause",
+                            "label": "故障根因",
+                            "sourceField": "follow_up_directions",
+                            "sourceText": "根因",
+                        }
+                    ],
+                    "schemaVersion": 1,
+                },
             }
         ],
     }
@@ -44,7 +56,7 @@ def _payload(**overrides):
 def test_parses_versioned_dispatch_context_into_typed_fields():
     context = parse_dispatch_context(json.dumps(_payload(), ensure_ascii=False))
 
-    assert context.schema_version == 2
+    assert context.schema_version == 3
     assert context.session.interview_record_id == "record-1"
     assert context.candidate.name == "郭靖"
     assert context.recording.file_key == "recordings/room-1.mp4"
@@ -54,6 +66,8 @@ def test_parses_versioned_dispatch_context_into_typed_fields():
     assert context.questions[0].id == "question-1"
     assert context.questions[0].evaluation_focus == "确认候选人能够定位并复盘线上故障"
     assert context.questions[0].follow_up_directions == "追问定位信号、根因与预防措施"
+    assert context.questions[0].follow_up_contract is not None
+    assert context.questions[0].follow_up_contract.facets[0].label == "故障根因"
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,10 @@ import type {
   InterviewSnapshotStatus,
 } from "@app/db-schema/interview-snapshots";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
-import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
+import type {
+  InterviewQuestionFollowUpContract,
+  InterviewQuestionTemplateDifficulty,
+} from "@app/db-schema/interview-question-templates";
 import { jsonValueSchema, stableStringify } from "../../../../../../lib/server/stable-stringify";
 import type { JsonValue } from "../../../../../../lib/server/stable-stringify";
 import { db } from "../../../../../../lib/server/db/index";
@@ -66,6 +69,7 @@ export interface ContextSnapshotPresetQuestion {
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
+  followUpContract?: InterviewQuestionFollowUpContract | null;
   id: string;
 }
 
@@ -401,6 +405,7 @@ export function flattenPresetQuestionsFromContextSnapshot(
           content,
           difficulty: question.difficulty,
           evaluationFocus: question.evaluationFocus ?? null,
+          followUpContract: question.followUpContract ?? null,
           followUpDirections: question.followUpDirections ?? null,
           id: question.id,
         });

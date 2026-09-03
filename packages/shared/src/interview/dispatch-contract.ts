@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { InterviewContextSnapshotInterviewer } from "@app/db-schema/interview-snapshots";
+import { interviewQuestionFollowUpContractSchema } from "@app/db-schema/interview-question-templates";
 import {
   buildAgentInstructions,
   resolveClosingPrompt,
@@ -7,7 +8,7 @@ import {
 } from "@app/shared/interview/agent-instructions";
 import type { AgentInstructionContext } from "@app/shared/interview/agent-instructions";
 
-export const INTERVIEW_DISPATCH_SCHEMA_VERSION = 2 as const;
+export const INTERVIEW_DISPATCH_SCHEMA_VERSION = 3 as const;
 
 const sessionSchema = z
   .object({
@@ -60,6 +61,7 @@ const questionSchema = z
     content: z.string().trim().min(1),
     difficulty: z.enum(["easy", "medium", "hard"]),
     evaluationFocus: z.string().trim().min(1).nullable(),
+    followUpContract: interviewQuestionFollowUpContractSchema.nullable(),
     followUpDirections: z.string().trim().min(1).nullable(),
     id: z.string().trim().min(1),
   })
@@ -138,6 +140,7 @@ export function buildInterviewDispatchContract(
       content: question.content,
       difficulty: question.difficulty,
       evaluationFocus: question.evaluationFocus?.trim() || null,
+      followUpContract: question.followUpContract ?? null,
       followUpDirections: question.followUpDirections?.trim() || null,
       id: question.id,
     })),

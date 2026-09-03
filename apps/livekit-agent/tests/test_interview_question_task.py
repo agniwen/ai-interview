@@ -4,7 +4,11 @@ from types import SimpleNamespace
 import pytest
 from livekit.agents import AgentTask, ModelSettings, llm
 
-from dispatch_context import DispatchQuestion
+from dispatch_context import (
+    DispatchFollowUpContract,
+    DispatchFollowUpFacet,
+    DispatchQuestion,
+)
 from interview_question_task import (
     InterviewQuestionProgress,
     InterviewQuestionTask,
@@ -23,6 +27,68 @@ def _question(difficulty: str = "medium") -> DispatchQuestion:
         evaluation_focus="确认候选人能够定位并复盘线上故障",
         follow_up_directions="追问定位信号、根因和预防措施",
     )
+
+
+def _contract_question() -> DispatchQuestion:
+    return DispatchQuestion(
+        id="question-contract",
+        content="请提供最近工作的岗位、团队情况和汇报对象。",
+        difficulty="medium",
+        evaluation_focus="记录真实履历",
+        follow_up_directions="缺失则追问",
+        follow_up_contract=DispatchFollowUpContract(
+            coverage_mode="all_required",
+            facets=(
+                DispatchFollowUpFacet(id="facet-role", label="岗位"),
+                DispatchFollowUpFacet(id="facet-team", label="团队情况"),
+                DispatchFollowUpFacet(id="facet-report", label="汇报对象"),
+            ),
+        ),
+    )
+
+
+def test_required_collection_contract_can_follow_up_even_when_question_is_easy():
+    question = _contract_question()
+    question = DispatchQuestion(
+        id=question.id,
+        content=question.content,
+        difficulty="easy",
+        evaluation_focus=question.evaluation_focus,
+        follow_up_directions=question.follow_up_directions,
+        follow_up_contract=question.follow_up_contract,
+    )
+    progress = InterviewQuestionProgress(question, started_at=10.0)
+
+    assert progress.record_follow_up("部分回答", now=20.0) is None
+
+
+def test_required_collection_contract_can_cover_every_valid_facet():
+    base = _contract_question()
+    question = DispatchQuestion(
+        id=base.id,
+        content=base.content,
+        difficulty="easy",
+        evaluation_focus=base.evaluation_focus,
+        follow_up_directions=base.follow_up_directions,
+        follow_up_contract=DispatchFollowUpContract(
+            coverage_mode="all_required",
+            facets=tuple(
+                DispatchFollowUpFacet(id=f"facet-{index}", label=f"信息项{index}")
+                for index in range(16)
+            ),
+        ),
+    )
+    progress = InterviewQuestionProgress(question, started_at=10.0)
+
+    for index in range(6):
+        assert (
+            progress.record_follow_up(f"第{index + 1}次补充", now=20.0 + index) is None
+        )
+
+    assert progress.record_follow_up("仍然缺失", now=30.0) is None
+    outcome = progress.record_follow_up("仍然缺失", now=31.0)
+    assert outcome is not None
+    assert outcome.follow_up_count == 7
 
 
 def test_medium_question_becomes_insufficient_instead_of_starting_a_third_follow_up():
@@ -359,6 +425,123 @@ async def test_follow_up_speaks_only_a_configured_missing_topic():
 
     assert spoken == ["请补充根因。"]
     assert task.progress.follow_up_count == 1
+
+
+@pytest.mark.asyncio
+async def test_contract_follow_up_speaks_only_selected_dynamic_facets():
+    task = InterviewQuestionTask(_contract_question())
+    spoken: list[str] = []
+
+    class Session:
+        def say(self, text: str):
+            spoken.append(text)
+            return object()
+
+    session = Session()
+    task._get_activity_or_raise = lambda: SimpleNamespace(session=session)  # type: ignore[method-assign]
+
+    await task.submit_question_decision(
+        _run_context("contract-follow-up"),
+        action=QuestionTurnAction.FOLLOW_UP,
+        answer_summary="候选人说明了岗位",
+        missing_topic_ids=["facet-team", "facet-report"],
+        covered_topic_ids=["facet-role"],
+    )
+
+    assert spoken == ["请补充团队情况、汇报对象。"]
+
+
+@pytest.mark.asyncio
+async def test_contract_follow_up_with_every_facet_covered_completes_without_legacy_prompt():
+    task = InterviewQuestionTask(_contract_question())
+    spoken: list[str] = []
+
+    class Session:
+        def say(self, text: str):
+            spoken.append(text)
+            return object()
+
+    task._get_activity_or_raise = lambda: SimpleNamespace(session=Session())  # type: ignore[method-assign]
+
+    await task.submit_question_decision(
+        _run_context("contract-covered"),
+        action=QuestionTurnAction.FOLLOW_UP,
+        answer_summary="候选人已经回答全部信息项",
+        covered_topic_ids=["facet-role", "facet-team", "facet-report"],
+    )
+
+    assert spoken == []
+    assert _task_result(task).status is QuestionOutcomeStatus.ANSWERED
+
+
+@pytest.mark.asyncio
+async def test_contract_off_topic_redirects_to_a_specific_missing_facet():
+    task = InterviewQuestionTask(_contract_question())
+    spoken: list[str] = []
+
+    class Session:
+        def say(self, text: str):
+            spoken.append(text)
+            return object()
+
+    session = Session()
+    task._get_activity_or_raise = lambda: SimpleNamespace(session=session)  # type: ignore[method-assign]
+
+    await task.submit_question_decision(
+        _run_context("contract-off-topic"),
+        action=QuestionTurnAction.OFF_TOPIC,
+        covered_topic_ids=["facet-role"],
+    )
+
+    assert spoken == ["请补充团队情况、汇报对象。"]
+
+
+@pytest.mark.asyncio
+async def test_contract_meta_prompts_stay_specific_when_facets_were_marked_covered():
+    task = InterviewQuestionTask(_contract_question())
+    spoken: list[str] = []
+
+    class Session:
+        def say(self, text: str):
+            spoken.append(text)
+            return object()
+
+    task._get_activity_or_raise = lambda: SimpleNamespace(session=Session())  # type: ignore[method-assign]
+    covered = ["facet-role", "facet-team", "facet-report"]
+
+    await task.submit_question_decision(
+        _run_context("contract-clarify"),
+        action=QuestionTurnAction.CLARIFY,
+        covered_topic_ids=covered,
+    )
+    await task.submit_question_decision(
+        _run_context("contract-off-topic-covered"),
+        action=QuestionTurnAction.OFF_TOPIC,
+        covered_topic_ids=covered,
+    )
+
+    assert spoken == ["这里主要想了解岗位。", "请补充岗位、团队情况。"]
+
+
+@pytest.mark.asyncio
+async def test_continue_current_does_not_interrupt_an_unfinished_answer():
+    task = InterviewQuestionTask(_contract_question())
+    spoken: list[str] = []
+
+    class Session:
+        def say(self, text: str):
+            spoken.append(text)
+            return object()
+
+    session = Session()
+    task._get_activity_or_raise = lambda: SimpleNamespace(session=session)  # type: ignore[method-assign]
+
+    await task.submit_question_decision(
+        _run_context("contract-continue"),
+        action=QuestionTurnAction.CONTINUE_CURRENT,
+    )
+
+    assert spoken == []
 
 
 @pytest.mark.asyncio
@@ -786,7 +969,7 @@ async def test_empty_missing_topic_uses_generic_follow_up(missing_topic):
     [
         (QuestionTurnAction.CLARIFY, "请告诉我需要澄清的具体部分。"),
         (QuestionTurnAction.WAIT, "好的，请准备好后继续。"),
-        (QuestionTurnAction.CONTINUE_CURRENT, "好的，请继续回答。"),
+        (QuestionTurnAction.CONTINUE_CURRENT, None),
     ],
 )
 async def test_meta_turns_use_fixed_text_without_consuming_follow_ups(action, expected):
@@ -806,7 +989,7 @@ async def test_meta_turns_use_fixed_text_without_consuming_follow_ups(action, ex
         action=action,
     )
 
-    assert spoken == [expected]
+    assert spoken == ([] if expected is None else [expected])
     assert task.progress.follow_up_count == 0
     assert task.progress.off_topic_count == 0
     assert not task.done()
@@ -910,7 +1093,6 @@ async def test_skip_requires_explicit_second_stage_and_can_be_cancelled():
 
     assert spoken == [
         "请确认是否确定跳过当前题。",
-        "好的，请继续回答。",
         "请确认是否确定跳过当前题。",
     ]
     assert task.progress.skip_confirmation_pending is True

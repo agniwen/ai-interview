@@ -28,6 +28,7 @@ import type { InterviewQuestionDimension } from "@app/db-schema/interview/types"
 import { DIFFICULTY_PILL_CLASS } from "@app/shared/interview-question-difficulty";
 import { cn } from "@app/shared/utils";
 import { z } from "zod";
+import type { ReactNode } from "react";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 
 const DIFFICULTY_PILL = {
@@ -51,6 +52,7 @@ interface SortableQuestionListItem {
 const sortableQuestionListItemStateSchema = z.object({
   difficulty: interviewQuestionTemplateDifficultySchema.optional(),
   dimension: interviewQuestionDimensionSchema.optional(),
+  id: z.string().optional(),
 });
 
 interface SortableQuestionListEditorProps {
@@ -78,6 +80,7 @@ interface SortableQuestionListEditorProps {
   emptyTitle?: string;
   emptyDescription?: string;
   disabled?: boolean;
+  renderHeaderAccessory?: (item: { id?: string }, index: number) => ReactNode;
 }
 
 export function SortableQuestionListEditor(props: SortableQuestionListEditorProps) {
@@ -107,6 +110,7 @@ function QuestionListBody({
   emptyTitle = "暂无面试题",
   emptyDescription = "添加面试官在面试中按顺序必问的题目，可单独标注难度。",
   disabled,
+  renderHeaderAccessory,
 }: SortableQuestionListEditorProps & {
   // oxlint-disable-next-line no-explicit-any
   field: any;
@@ -186,6 +190,7 @@ function QuestionListBody({
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className="ml-auto flex items-center gap-1">
+                      {renderHeaderAccessory?.(items[index] ?? {}, index)}
                       {dimensionFieldName ? (
                         <form.Field name={`${arrayFieldName}[${index}].${dimensionFieldName}`}>
                           {/* oxlint-disable-next-line no-explicit-any */}
