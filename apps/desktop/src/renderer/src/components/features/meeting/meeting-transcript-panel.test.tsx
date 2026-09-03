@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MeetingTranscriptResult } from "@app/shared/meeting-transcription";
@@ -6,10 +7,12 @@ import {
   isTranscriptCorrectionConflict,
   MeetingTranscriptStage,
   MeetingTranscriptStageTurns,
+  MeetingTranscriptPanel,
   MeetingTranscriptView,
   splitTranscriptTurn,
 } from "./meeting-transcript-panel";
 import { ApiError } from "@/lib/client/api-error";
+import { desktopMeetingKeys } from "@/lib/client/meetings";
 
 const readyTranscript: MeetingTranscriptResult = {
   error: null,
@@ -53,40 +56,51 @@ const readyTranscript: MeetingTranscriptResult = {
 };
 
 describe("Final Meeting Transcript panel", () => {
+  it("keeps the retranscription action visible in the panel header", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+    });
+    queryClient.setQueryData(desktopMeetingKeys.transcript("workspace", "meeting-76"), {
+      error: null,
+      revision: null,
+      state: "pending",
+    } satisfies MeetingTranscriptResult);
+
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <MeetingTranscriptPanel accessRole="owner" meetingId="meeting-76" slug="workspace" />
+      </QueryClientProvider>,
+    );
+    const actionIndex = html.indexOf(">重新转录</button>");
+    const panelIndex = html.indexOf('data-slot="frame-panel"');
+
+    expect(actionIndex).toBeGreaterThan(-1);
+    expect(actionIndex).toBeLessThan(panelIndex);
+    expect(html).toContain("disabled");
+  });
+
   it("distinguishes pending, processing and failed states", () => {
     const pending = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        result={{ error: null, revision: null, state: "pending" }}
-      />,
+      <MeetingTranscriptView result={{ error: null, revision: null, state: "pending" }} />,
     );
     expect(pending).toContain("等待 Workspace 管理员配置并选择转录服务");
 
     const processing = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        result={{ error: null, revision: null, state: "processing" }}
-      />,
+      <MeetingTranscriptView result={{ error: null, revision: null, state: "processing" }} />,
     );
     expect(processing).toContain("正在生成最终转录");
 
     const failed = renderToStaticMarkup(
       <MeetingTranscriptView
-        canRetry
-        onRetry={() => {}}
         result={{ error: "provider unavailable", revision: null, state: "failed" }}
       />,
     );
     expect(failed).toContain("provider unavailable");
-    expect(failed).toContain("重新转录");
   });
 
   it("renders the durable live draft while final transcription is pending", () => {
     const html = renderToStaticMarkup(
       <MeetingTranscriptView
-        canRetry={false}
         result={{
           draft: {
             capturedAt: "2026-08-12T08:00:00.000Z",
@@ -125,9 +139,7 @@ describe("Final Meeting Transcript panel", () => {
   });
 
   it("renders final turns like the recording view with numbered speaker avatars", () => {
-    const html = renderToStaticMarkup(
-      <MeetingTranscriptView canRetry onRetry={() => {}} result={readyTranscript} />,
-    );
+    const html = renderToStaticMarkup(<MeetingTranscriptView result={readyTranscript} />);
 
     expect(html).toContain("说话人1");
     expect(html).toContain("说话人2");
@@ -136,17 +148,12 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).not.toContain("本机");
     expect(html).not.toContain("远端 1");
     expect(html).toContain("你好，我们开始吧。");
-    expect(html).toContain("重新转录");
     expect(html).not.toContain("跳转到");
   });
 
   it("keeps the current final transcript visible while regeneration is processing", () => {
     const html = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry
-        onRetry={() => {}}
-        result={{ ...readyTranscript, state: "processing" }}
-      />,
+      <MeetingTranscriptView result={{ ...readyTranscript, state: "processing" }} />,
     );
 
     expect(html).toContain("正在重新转录，完成前继续展示当前最终版本");
@@ -221,9 +228,7 @@ describe("Final Meeting Transcript panel", () => {
           }
         : null,
     };
-    const html = renderToStaticMarkup(
-      <MeetingTranscriptView canRetry={false} onRetry={() => {}} result={corrected} />,
-    );
+    const html = renderToStaticMarkup(<MeetingTranscriptView result={corrected} />);
 
     expect(html).toContain("人工修订 revision 2");
     expect(html).toContain("说话人1");

@@ -92,21 +92,22 @@ export function MeetingTranscriptStageTurns({
 }
 
 function MeetingTranscriptRetryButton({
-  canRetry,
+  disabled,
   onRetry,
   retrying,
-  variant = "default",
 }: {
-  canRetry: boolean;
-  onRetry?: () => void;
+  disabled: boolean;
+  onRetry: () => void;
   retrying: boolean;
-  variant?: "default" | "outline";
 }) {
-  if (!(canRetry && onRetry)) {
-    return null;
-  }
   return (
-    <Button disabled={retrying} onClick={onRetry} size="sm" type="button" variant={variant}>
+    <Button
+      disabled={disabled || retrying}
+      onClick={onRetry}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
       {retrying ? "正在重新转录…" : "重新转录"}
     </Button>
   );
@@ -123,18 +124,12 @@ function TranscriptErrorMessage({ error, fallback }: { error: unknown; fallback:
 
 function ReadyMeetingTranscript({
   canCorrect,
-  canRetry,
   onEdit,
-  onRetry,
-  retrying,
   revision,
   speakerScopeId,
 }: {
   canCorrect: boolean;
-  canRetry: boolean;
   onEdit?: () => void;
-  onRetry?: () => void;
-  retrying: boolean;
   revision: FinalMeetingTranscriptRevision;
   speakerScopeId: string;
 }) {
@@ -146,19 +141,11 @@ function ReadyMeetingTranscript({
           {revision.provider} · {revision.model}
           {revision.createdBy ? ` · ${revision.createdBy.name}` : ""}
         </p>
-        <div className="flex items-center gap-2">
-          <MeetingTranscriptRetryButton
-            canRetry={canRetry}
-            onRetry={onRetry}
-            retrying={retrying}
-            variant="outline"
-          />
-          {canCorrect && onEdit ? (
-            <Button onClick={onEdit} size="sm" type="button" variant="outline">
-              修正转录
-            </Button>
-          ) : null}
-        </div>
+        {canCorrect && onEdit ? (
+          <Button onClick={onEdit} size="sm" type="button" variant="outline">
+            修正转录
+          </Button>
+        ) : null}
       </div>
       {revision.turns.length === 0 ? (
         <p className="text-muted-foreground text-sm">此录音没有识别到语音。</p>
@@ -436,19 +423,13 @@ function MeetingTranscriptCorrectionEditor({
 
 export function MeetingTranscriptView({
   canCorrect = false,
-  canRetry,
   onEdit,
-  onRetry,
   result,
-  retrying = false,
   speakerScopeId,
 }: {
   canCorrect?: boolean;
-  canRetry: boolean;
   onEdit?: () => void;
-  onRetry?: () => void;
   result: MeetingTranscriptResult;
-  retrying?: boolean;
   speakerScopeId?: string;
 }) {
   const savedDraft = result.draft ? <SavedLiveTranscriptDraft draft={result.draft} /> : null;
@@ -461,8 +442,6 @@ export function MeetingTranscriptView({
         {result.revision ? (
           <ReadyMeetingTranscript
             canCorrect={false}
-            canRetry={false}
-            retrying={false}
             revision={result.revision}
             speakerScopeId={speakerScopeId ?? result.revision.id}
           />
@@ -481,8 +460,6 @@ export function MeetingTranscriptView({
         {result.revision ? (
           <ReadyMeetingTranscript
             canCorrect={false}
-            canRetry={false}
-            retrying={false}
             revision={result.revision}
             speakerScopeId={speakerScopeId ?? result.revision.id}
           />
@@ -496,7 +473,6 @@ export function MeetingTranscriptView({
     return (
       <div className="flex flex-col items-start gap-3">
         <p className="text-destructive text-sm">{result.error ?? "最终会议转录失败"}</p>
-        <MeetingTranscriptRetryButton canRetry={canRetry} onRetry={onRetry} retrying={retrying} />
         {savedDraft}
       </div>
     );
@@ -507,10 +483,7 @@ export function MeetingTranscriptView({
   return (
     <ReadyMeetingTranscript
       canCorrect={canCorrect}
-      canRetry={canRetry}
       onEdit={onEdit}
-      onRetry={onRetry}
-      retrying={retrying}
       revision={result.revision}
       speakerScopeId={speakerScopeId ?? result.revision.id}
     />
@@ -669,15 +642,12 @@ export function MeetingTranscriptPanel({
       ) : (
         <MeetingTranscriptView
           canCorrect={canCorrect}
-          canRetry={canRetry}
           onEdit={() => {
             setConflictNotice(null);
             correctionMutation.reset();
             setEditing(true);
           }}
-          onRetry={() => retryMutation.mutate()}
           result={transcriptQuery.data}
-          retrying={retryMutation.isPending}
           speakerScopeId={meetingId}
         />
       );
@@ -688,6 +658,18 @@ export function MeetingTranscriptPanel({
         <FrameHeading>
           <FrameTitle>最终转录</FrameTitle>
         </FrameHeading>
+        {canRetry ? (
+          <MeetingTranscriptRetryButton
+            disabled={
+              transcriptQuery.isPending ||
+              !transcriptQuery.data ||
+              transcriptQuery.data.state === "pending" ||
+              transcriptQuery.data.state === "processing"
+            }
+            onRetry={() => retryMutation.mutate()}
+            retrying={retryMutation.isPending}
+          />
+        ) : null}
       </FrameHeader>
       <FramePanel className="flex flex-col gap-3">
         {transcriptQuery.isPending ? (
@@ -756,7 +738,6 @@ export function MeetingTranscriptPanel({
                       />
                       {historicalRevisionQuery.data ? (
                         <MeetingTranscriptView
-                          canRetry={false}
                           result={{
                             error: null,
                             revision: historicalRevisionQuery.data,
