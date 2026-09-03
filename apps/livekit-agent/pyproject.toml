@@ -9,9 +9,9 @@ description = "LiveKit voice-interview worker for AI Hiring Copilot, including c
 requires-python = ">=3.10, <3.15"
 dependencies = [
   "httpx[socks]>=0.28.1",
-  "livekit-agents[openai,elevenlabs,google,deepgram]~=1.6.7",
+  "livekit-agents[openai,elevenlabs,google,deepgram]~=1.7.1",
   "livekit-plugins-ai-coustics~=0.2",
-  "livekit-plugins-minimax-ai~=1.6.7",
+  "livekit-plugins-minimax-ai~=1.7.1",
   "livekit-plugins-noise-cancellation~=0.2",
   "python-dotenv",
   "sentry-sdk==2.68.1",
