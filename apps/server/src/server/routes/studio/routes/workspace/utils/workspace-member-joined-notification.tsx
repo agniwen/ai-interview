@@ -30,9 +30,7 @@ export function WorkspaceMemberJoinedCard({
       </Section>
       <Divider />
       <Section>
-        <CardText>
-          该成员已完成飞书登录并加入工作区。请回到真人复面安排，刷新面试官列表后进行选择。
-        </CardText>
+        <CardText>该成员已完成飞书登录并加入工作区。</CardText>
       </Section>
       {membersUrl ? <Divider /> : null}
       {membersUrl ? (
