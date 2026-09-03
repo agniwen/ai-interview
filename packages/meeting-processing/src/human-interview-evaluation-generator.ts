@@ -5,10 +5,15 @@ import {
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 import { humanInterviewEvaluationSchema } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewEvaluation } from "@app/db-schema/studio-interviews";
+import { z } from "zod";
 import {
   normalizeHumanInterviewEvaluationText,
   normalizeHumanInterviewProfessionalSkill,
 } from "@app/shared/human-interview-evaluation";
+
+const evaluationOutputSchema = JSON.stringify(
+  z.toJSONSchema(humanInterviewEvaluationSchema, { io: "input" }),
+);
 
 interface EvaluationTurn {
   attribution?: {
@@ -80,24 +85,28 @@ export async function generateHumanInterviewEvaluation(
     observabilityLabel: "human-interview-evaluation",
     prompt: `请为真人复面生成一份供面试官复核和修改的完整评价草稿。
 
+输出必须是下面 JSON Schema 定义的单个对象，包含全部必填字段，不得增加字段。Schema 仅用于约束输出，不要返回 Schema 本身：
+${evaluationOutputSchema}
+
 评级采用 S/A/B/C，参考 OKR 定性分档：
 - S：显著超出岗位要求，能够承担关键影响范围；
 - A：充分满足岗位要求，并有明确超出项；
 - B：基本满足岗位要求，但存在需要确认或补足的差距；
 - C：存在与核心岗位要求直接冲突或明显不足的证据。
+rating 必须根据已有可靠证据和岗位要求返回 S、A、B、C 中的单个值；不得附带中文说明，也不得机械套用默认评级。rating 不适用缺失文字占位规则，不得返回 -、空字符串或 null。
 
 硬性约束：
 - 必须分析输入中的全部对话，不得只写摘要；detailedAnalysis 要覆盖主要问题、候选人回答、事实证据、相互印证和矛盾或不确定项；
 - attribution 存在时，仅 role=candidate 且 method=track/manual 的发言可以作为候选人证据，展示名不决定身份。历史无 attribution 的数据仅使用已标注候选人的发言；匿名 speakerKey 或 remote track 不代表候选人身份，问答位置或上下文推断也不能证明候选人身份；
-- 录音缺失、转录失败和身份不明是材料局限，不代表候选人能力不足，不得因缺少提问、漏录或未覆盖的问题降低评级；材料不足的字段填写 -，不得臆造负面结论；
+- 录音缺失、转录失败和身份不明是材料局限，不代表候选人能力不足，不得因缺少提问、漏录或未覆盖的问题降低评级；材料不足的描述类文字字段填写 -，不得臆造负面结论；
 - 无法可靠归属给候选人的内容不得作为评价证据，也不得把面试官的问题、提示或陈述当作候选人能力；归属不明时必须写入不确定项；
 - 所有判断只允许来自输入的岗位 JD、简历和转录，不得臆测；
-- evidenceTurnIds 只能逐字使用转录 JSON 中的 id；
+- evidenceTurnIds 必须是字符串数组，只能逐字使用转录 JSON 中的 id；没有可引用证据时返回 []，不得返回 - 或拼接后的字符串；
 - SABC 评级不得自动映射为通过、待定或不通过；
 - 不输出 0–100 数字评分；
 - professionalSkill 只能填写：优、良、中、差或 -；只给简短等级，不得附带原因、证据或详细描述；
 - 当前岗位没有结构化薪资范围，salaryRecommendation 必须填写 -；该字段仍会在页面显示并允许人工填写；
-- 无法判断或没有内容的字段统一填写 -，不得留空，不得用“信息不足”“无法判断”等句子替代；
+- 无法判断或没有内容的描述类文字字段统一填写 -，不得留空，不得用“信息不足”“无法判断”等句子替代；此规则不适用于 rating 和 evidenceTurnIds；
 - seniorityPosition、rolePosition、strengths、risks、overallEvaluation 和 detailedAnalysis 都必须返回字符串；有可靠内容时正常填写，不得编造。
 
 候选人：${input.candidateName}
