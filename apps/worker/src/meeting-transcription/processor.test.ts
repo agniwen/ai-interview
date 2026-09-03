@@ -14,7 +14,7 @@ import {
 
 const job = {
   meetingId: "meeting-76",
-  model: "qwen3-asr-flash-filetrans",
+  model: "qwen-audio-3.0-asr-flash-filetrans",
   organizationId: "org-76",
   pipelineVersion: "final-v1" as const,
   policyRevision: 1,
@@ -369,6 +369,9 @@ describe("Meeting final transcription processor", () => {
       directory: "/tmp/meeting-76",
       requiredBytes: 400,
     });
+    expect(dependencies.prepareChunks).toHaveBeenCalledWith(
+      expect.objectContaining({ chunkDurationMs: 8 * 60 * 60 * 1000 }),
+    );
     expect(dependencies.provider.transcribeFinal).toHaveBeenCalledTimes(2);
     const chunks = await dependencies.prepareChunks.mock.results[0]?.value;
     expect(dependencies.provider.transcribeFinal).toHaveBeenNthCalledWith(1, {

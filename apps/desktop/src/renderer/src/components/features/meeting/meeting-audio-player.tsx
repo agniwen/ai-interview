@@ -3,25 +3,17 @@ import type { MeetingPlaybackAuthorization } from "@app/shared/meeting-recording
 import { cn } from "@app/shared/utils";
 import {
   AudioPlayerButton,
-  AudioPlayerDuration,
+  AudioPlayerElapsedDuration,
   AudioPlayerProvider,
   AudioPlayerSpeed,
-  AudioPlayerTime,
   useAudioPlayer,
   useAudioPlayerTime,
 } from "@/components/ui/audio-player";
 import { AudioScrubber } from "@/components/ui/waveform";
 import { extractWaveformPeaks, placeholderWaveform } from "@/lib/client/audio-waveform";
-import {
-  MEETING_COMPOSER_RADIUS,
-  MeetingComposerFrame,
-  MeetingComposerRow,
-} from "./meeting-recording-session-layout";
 
 const PLAYBACK_ITEM_ID = "meeting-playback";
-const CONTROL_CLASS = cn("size-8 shrink-0", MEETING_COMPOSER_RADIUS);
-const TIME_CLASS = "w-10 shrink-0 text-center text-xs leading-none";
-const WAVEFORM_HEIGHT = 32;
+const WAVEFORM_HEIGHT = 48;
 
 export interface MeetingAudioPlayerProps {
   className?: string;
@@ -158,20 +150,36 @@ function MeetingAudioPlayerControls({
   }, [onPlaybackError, player.ref]);
 
   return (
-    <MeetingComposerRow className={className} slot="meeting-audio-player">
-      <AudioPlayerButton className={CONTROL_CLASS} item={item} size="icon-sm" variant="outline" />
-      <AudioPlayerTime className={TIME_CLASS} />
-      <AudioScrubber
-        className="min-w-0 flex-1"
-        currentTime={currentTime}
-        data={waveform}
-        duration={player.duration ?? 0}
-        height={WAVEFORM_HEIGHT}
-        onSeek={(time) => player.seek(time)}
-      />
-      <AudioPlayerDuration className={TIME_CLASS} />
-      <AudioPlayerSpeed className={cn(CONTROL_CLASS, "min-w-8 px-1")} />
-    </MeetingComposerRow>
+    <div className={cn("grid min-w-0 gap-3 px-3 pb-1", className)} data-slot="meeting-audio-player">
+      <div className="flex min-w-0 items-center" data-slot="meeting-playback-waveform-row">
+        <AudioScrubber
+          barGap={5}
+          barRadius={2}
+          barWidth={2}
+          className="w-full min-w-0"
+          currentTime={currentTime}
+          data={waveform}
+          duration={player.duration ?? 0}
+          fadeEdges
+          height={WAVEFORM_HEIGHT}
+          onSeek={(time) => player.seek(time)}
+          showHandle={false}
+        />
+      </div>
+      <div
+        className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3"
+        data-slot="meeting-playback-controls"
+      >
+        <AudioPlayerElapsedDuration className="min-w-0 truncate pl-1 text-xs leading-none" />
+        <AudioPlayerButton
+          className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary"
+          item={item}
+          size="icon"
+          variant="ghost"
+        />
+        <AudioPlayerSpeed className="h-10 w-[3.2rem] min-w-0 justify-self-end rounded-full border-transparent bg-muted px-0 text-foreground shadow-none hover:bg-muted/80 hover:text-foreground" />
+      </div>
+    </div>
   );
 }
 
@@ -187,11 +195,7 @@ export function MeetingAudioPlayer(props: MeetingAudioPlayerProps) {
   );
 }
 
-/** 已结束 session 底部的回放条，外壳与录制中 floating bar 相同。 */
+/** 已结束 session 底部的回放区，与录制中 composer 使用同一开放式布局。 */
 export function MeetingPlaybackComposer(props: MeetingAudioPlayerProps) {
-  return (
-    <MeetingComposerFrame>
-      <MeetingAudioPlayer {...props} />
-    </MeetingComposerFrame>
-  );
+  return <MeetingAudioPlayer {...props} />;
 }

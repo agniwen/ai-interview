@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -307,6 +308,29 @@ export function AudioPlayerDuration({ className, ...otherProps }: HTMLProps<HTML
   );
 }
 
+export function AudioPlayerElapsedDuration({
+  className,
+  ...otherProps
+}: HTMLProps<HTMLSpanElement>) {
+  const player = useAudioPlayer();
+  const time = useAudioPlayerTime();
+  const duration = player.duration;
+  const hasDuration =
+    duration !== undefined && Number.isFinite(duration) && !Number.isNaN(duration);
+  const elapsedLabel = formatPlayerTime(time);
+  const durationLabel = hasDuration ? formatPlayerTime(duration) : "--:--";
+
+  return (
+    <span
+      {...otherProps}
+      aria-label={`当前播放时间 ${elapsedLabel}，总时长 ${durationLabel}`}
+      className={cn("text-muted-foreground text-sm tabular-nums", className)}
+    >
+      {elapsedLabel} / {durationLabel}
+    </span>
+  );
+}
+
 function PlayButton({
   className,
   loading,
@@ -333,7 +357,7 @@ function PlayButton({
       <Icon
         aria-hidden="true"
         className={cn(loading && "opacity-0")}
-        icon={playing ? "ph:pause" : "ph:play"}
+        icon={playing ? "ph:pause-fill" : "ph:play-fill"}
       />
       {loading ? (
         <span className="absolute inset-0 flex items-center justify-center rounded-[inherit] backdrop-blur-xs">
@@ -408,16 +432,18 @@ export function AudioPlayerSpeed({
         {player.playbackRate === 1 ? "1×" : `${player.playbackRate}×`}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-24">
-        {speeds.map((speed) => (
-          <DropdownMenuItem
-            className="flex items-center justify-between"
-            key={speed}
-            onClick={() => player.setPlaybackRate(speed)}
-          >
-            <span>{speed === 1 ? "正常" : `${speed}×`}</span>
-            {player.playbackRate === speed ? <Icon icon="ph:check" /> : null}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          {speeds.map((speed) => (
+            <DropdownMenuItem
+              className="flex items-center justify-between"
+              key={speed}
+              onClick={() => player.setPlaybackRate(speed)}
+            >
+              <span>{speed === 1 ? "正常" : `${speed}×`}</span>
+              {player.playbackRate === speed ? <Icon icon="ph:check" /> : null}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -357,7 +357,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     try {
       await meetingCapture.discard(pendingDiscard);
       setPendingDiscard(null);
-      showMeetingDeletionSuccess("本地录音已放弃并清理");
+      showMeetingDeletionSuccess("已删除本地录音");
       if (
         discardedId &&
         (pathname === `/meetings/${discardedId}` ||
@@ -366,7 +366,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         void navigate({ to: "/meetings" });
       }
     } catch (error) {
-      showMeetingDeletionError(error instanceof Error ? error.message : "清理本地录音失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "删除本地录音失败");
     }
   }, [
     captureSnapshot.active?.captureId,

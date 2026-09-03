@@ -151,13 +151,6 @@ export function MeetingLocalTranscriptStage({
 
 const MORE_LABEL_MIN_WIDTH_PX = 62 * 16;
 
-function meetingDetailContentClassName(showPlaybackBar: boolean): string {
-  if (showPlaybackBar) {
-    return "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-24 sm:px-6";
-  }
-  return "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6";
-}
-
 function sessionStatusAlertTitle(id: MeetingPostSaveStep["id"]): string {
   if (id === "upload") {
     return "上传失败";
@@ -191,7 +184,7 @@ function MeetingMoreEntryButton({ meetingId }: { meetingId: string }) {
           render={
             <Button
               aria-label="查看更多"
-              className="absolute top-4 right-4 z-20 inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 font-normal text-[13px] leading-none text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:bg-background dark:hover:bg-sidebar-accent @[62rem]:border-transparent @[62rem]:px-2.5 [&_svg]:block"
+              className="absolute top-12 right-4 z-20 inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 font-normal text-[13px] leading-none text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:bg-background dark:hover:bg-sidebar-accent @[62rem]:border-transparent @[62rem]:px-2.5 [&_svg]:block"
               nativeButton={false}
               ref={setTrigger}
               render={<Link params={{ meetingId }} to="/meetings/$meetingId/more" />}
@@ -518,7 +511,8 @@ export function MeetingDetailPage({
             snapshot={captureSnapshot}
           />
         }
-        main={<LiveTranscriptDraftPanel header={renderDetailHeader(null)} snapshot={liveDraft} />}
+        header={renderDetailHeader(null)}
+        main={<LiveTranscriptDraftPanel snapshot={liveDraft} />}
       />
     );
   }
@@ -556,7 +550,6 @@ export function MeetingDetailPage({
     (transcriptQuery.data?.draft?.turns.length ?? 0) > 0 || (localDraft?.turns.length ?? 0) > 0;
   const playback = playbackQuery.data;
   const isInterruptedSession = localSession?.state === "interrupted";
-  const showPlaybackBar = Boolean(playback) && !isInterruptedSession;
   const status = sessionDetailStatus({
     playbackState: meeting?.processingState,
     transcript: transcriptQuery.data,
@@ -568,7 +561,7 @@ export function MeetingDetailPage({
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
       {isInitialLoading ? null : (
         <MeetingRecordingSessionLayout
-          composerClassName={isInterruptedSession ? "max-w-2xl" : undefined}
+          composerClassName="max-w-2xl"
           composer={sessionComposer({
             interrupted: isInterruptedSession,
             onContinueInterrupted: () => {
@@ -581,13 +574,16 @@ export function MeetingDetailPage({
             playback,
             seekToSeconds,
           })}
+          header={renderDetailHeader(
+            status,
+            showDraftBadge && !isInterruptedSession ? <SessionDraftBadge /> : undefined,
+          )}
           overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
           main={
             isInterruptedSession && localDraft ? (
-              <LiveTranscriptDraftPanel header={renderDetailHeader(status)} snapshot={localDraft} />
+              <LiveTranscriptDraftPanel snapshot={localDraft} />
             ) : (
-              <div className={meetingDetailContentClassName(showPlaybackBar)}>
-                {renderDetailHeader(status, showDraftBadge ? <SessionDraftBadge /> : null)}
+              <div className="container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6">
                 {meeting ? (
                   <MeetingTranscriptStage
                     error={transcriptQuery.error}

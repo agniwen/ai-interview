@@ -123,11 +123,13 @@ export async function normalizeMeetingRecordingSegments(input: {
 }
 
 export async function prepareMeetingTranscriptionAudioChunks(input: {
+  chunkDurationMs?: number;
   directory: string;
   ffmpegBin?: string;
   ffmpegTimeoutMs?: number;
   sources: MeetingTranscriptionChunkSource[];
 }): Promise<FinalTranscriptionAudioChunk[]> {
+  const chunkDurationMs = input.chunkDurationMs ?? MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS;
   const chunks: FinalTranscriptionAudioChunk[] = [];
   for (const source of input.sources) {
     const normalizedSourcePath = await normalizeMeetingRecordingSegments({
@@ -158,7 +160,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
         "-f",
         "segment",
         "-segment_time",
-        String(MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS / 1000),
+        String(chunkDurationMs / 1000),
         "-reset_timestamps",
         "1",
         outputPattern,
@@ -178,7 +180,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
       )
       .toSorted();
     for (const [index, name] of names.entries()) {
-      const startMs = index * MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS;
+      const startMs = index * chunkDurationMs;
       if (startMs >= source.durationMs) {
         continue;
       }
@@ -186,7 +188,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
         contentType: "audio/webm",
         endMs:
           (source.recordingIdentity?.offsetMs ?? 0) +
-          Math.min(source.durationMs, startMs + MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS),
+          Math.min(source.durationMs, startMs + chunkDurationMs),
         filePath: join(input.directory, name),
         index,
         recordingIdentity: source.recordingIdentity,

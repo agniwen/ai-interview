@@ -8,8 +8,8 @@ import type {
 import type { MeetingLibrarySearchMatch } from "@app/shared/meeting-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SettingsGroup, SettingsRow } from "@/components/settings/settings-ui";
 import { MeetingAudioPlayer } from "./meeting-audio-player";
-import { Frame, FrameHeader, FrameHeading, FramePanel, FrameTitle } from "@/components/ui/frame";
 import {
   Table,
   TableBody,
@@ -126,6 +126,7 @@ export function MeetingLibraryView({
 }
 
 export function MeetingDetailView({
+  additionalRows,
   meeting,
   onPlaybackError,
   onRetryProcessing,
@@ -133,7 +134,9 @@ export function MeetingDetailView({
   retryProcessing = false,
   seekRequestId,
   seekToSeconds,
+  titleContent,
 }: {
+  additionalRows?: ReactNode;
   meeting: MeetingDetail;
   onPlaybackError?: () => void;
   onRetryProcessing?: () => void;
@@ -141,43 +144,41 @@ export function MeetingDetailView({
   retryProcessing?: boolean;
   seekRequestId?: number;
   seekToSeconds?: number;
+  titleContent?: ReactNode;
 }) {
   // 这是无数据副作用的展示组件；重试、续签和跨面板 seek 都由 MeetingDetailPage 编排。
   // This is a side-effect-free view; retries, authorization refresh, and cross-panel seeking live in MeetingDetailPage.
   const state = PROCESSING_STATE_META[meeting.processingState];
+  const detailStateLabel = meeting.processingState === "ready" ? "处理成功" : state.label;
   return (
-    <Frame>
-      <FrameHeader className="justify-between gap-3">
-        <FrameHeading>
-          <FrameTitle>{meetingDisplayTitle(meeting.title)}</FrameTitle>
-        </FrameHeading>
-        <Badge className="shrink-0" variant={state.variant}>
-          {state.label}
-        </Badge>
-      </FrameHeader>
-      <FramePanel>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
-          <div className="min-w-0">
-            <dt className="text-muted-foreground text-xs">创建者</dt>
-            <dd className="truncate font-medium">{meeting.creator.name}</dd>
+    <section className="flex flex-col gap-4">
+      <header className="min-w-0">
+        {titleContent ?? (
+          <h1 className="truncate font-semibold text-xl tracking-tight">
+            {meetingDisplayTitle(meeting.title)}
+          </h1>
+        )}
+      </header>
+      <SettingsGroup>
+        <SettingsRow label="处理状态">
+          <div className="flex justify-end">
+            <Badge variant={state.variant}>{detailStateLabel}</Badge>
           </div>
-          <div className="min-w-0">
-            <dt className="text-muted-foreground text-xs">时长</dt>
-            <dd className="font-medium tabular-nums">
-              {formatMeetingDuration(meeting.durationMs)}
-            </dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-muted-foreground text-xs">开始时间</dt>
-            <dd className="font-medium tabular-nums">{formatAppDateTime(meeting.startedAt)}</dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-muted-foreground text-xs">保存时间</dt>
-            <dd className="font-medium tabular-nums">{formatAppDateTime(meeting.savedAt)}</dd>
-          </div>
-        </dl>
-      </FramePanel>
-      <FramePanel>
+        </SettingsRow>
+        <SettingsRow label="创建者">
+          <p className="truncate text-right text-sm">{meeting.creator.name}</p>
+        </SettingsRow>
+        <SettingsRow description={`保存于 ${formatAppDateTime(meeting.savedAt)}`} label="录制时间">
+          <p className="text-right text-sm tabular-nums">{formatAppDateTime(meeting.startedAt)}</p>
+        </SettingsRow>
+        <SettingsRow label="录制时长">
+          <p className="text-right text-sm tabular-nums">
+            {formatMeetingDuration(meeting.durationMs)}
+          </p>
+        </SettingsRow>
+        {additionalRows}
+      </SettingsGroup>
+      <div className="py-2">
         {playback ? (
           <MeetingAudioPlayer
             onPlaybackError={onPlaybackError}
@@ -193,13 +194,18 @@ export function MeetingDetailView({
                 : "正在从双轨源生成可播放录音。"}
             </p>
             {meeting.processingState === "failed" && onRetryProcessing ? (
-              <Button disabled={retryProcessing} onClick={onRetryProcessing} type="button">
+              <Button
+                disabled={retryProcessing}
+                onClick={onRetryProcessing}
+                size="sm"
+                type="button"
+              >
                 {retryProcessing ? "正在重试…" : "重试生成播放音频"}
               </Button>
             ) : null}
           </div>
         )}
-      </FramePanel>
-    </Frame>
+      </div>
+    </section>
   );
 }

@@ -39,11 +39,10 @@ describe("Meeting Recruiting Context panel", () => {
     expect(canManageMeetingRecruitingContext("administrator")).toBe(true);
   });
 
-  it("shows the linked candidate and a non-destructive Recruiting Interview template suggestion", () => {
+  it("shows the linked candidate without redundant guidance", () => {
     const html = renderToStaticMarkup(
       <MeetingRecruitingContextView
         candidates={[]}
-        onSave={() => {}}
         onSelectedIdChange={() => {}}
         selectedId="candidate-79"
         settings={linked}
@@ -52,8 +51,7 @@ describe("Meeting Recruiting Context panel", () => {
 
     expect(html).toContain("Alice");
     expect(html).toContain("Product Designer");
-    expect(html).toContain("招聘面试");
-    expect(html).toContain("不会覆盖已有的通用会议洞察");
+    expect(html).not.toContain("不会覆盖已有的通用会议洞察");
     expect(html).not.toContain("保存关联");
   });
 });

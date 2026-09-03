@@ -46,7 +46,7 @@ export const meetingTranscriptRouter = factory
       return c.json({ error: "Meeting Session 不存在" }, 404);
     }
     if (result === "forbidden") {
-      return c.json({ error: "无权重试最终转录" }, 403);
+      return c.json({ error: "无权重新生成最终转录" }, 403);
     }
     if (result.state === "unavailable") {
       return c.json({ error: "最终转录 provider 或队列暂不可用" }, 503);

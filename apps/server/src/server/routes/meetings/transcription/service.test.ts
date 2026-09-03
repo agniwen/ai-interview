@@ -34,6 +34,7 @@ const mocks: MockedMeetingTranscriptionDependencies = {
   recordMeetingAudit: vi.fn(),
   requestAutomaticMeetingIntelligence: vi.fn(),
   resetMeetingTranscriptionForRetry: vi.fn(),
+  restoreMeetingTranscriptionAfterRetryFailure: vi.fn(),
   retryMeetingTranscriptionJob: vi.fn(),
   updateMeetingTranscriptionPolicy: vi.fn(),
 };
@@ -243,6 +244,7 @@ describe("Meeting transcription service", () => {
     };
     mocks.loadTranscriptionMeeting.mockResolvedValue(
       meetingAccess({
+        activeTranscriptRevisionId: "revision-76",
         liveTranscriptDraft,
       }),
     );
@@ -263,6 +265,29 @@ describe("Meeting transcription service", () => {
       revision: { id: "revision-76" },
       state: "ready",
     });
+  });
+
+  it("keeps the active final revision visible while regeneration is processing", async () => {
+    mocks.loadTranscriptionMeeting.mockResolvedValue(
+      meetingAccess({
+        activeTranscriptRevisionId: "revision-76",
+        role: "owner",
+        transcriptionStatus: "processing",
+      }),
+    );
+    mocks.loadActiveMeetingTranscript.mockResolvedValue(transcriptRevision());
+
+    await expect(
+      getSavedMeetingTranscript(
+        {
+          meetingId: "meeting-76",
+          memberRole: "member",
+          organizationId: "org-76",
+          userId: "owner-76",
+        },
+        mocks,
+      ),
+    ).resolves.toMatchObject({ revision: { id: "revision-76" }, state: "processing" });
   });
 
   it("lets an owner explicitly retry a failed final transcription", async () => {
@@ -300,9 +325,120 @@ describe("Meeting transcription service", () => {
       expect.objectContaining({ meetingId: "meeting-76", provider: "qwen" }),
     );
     expect(mocks.getMeetingTranscriptionJobForMeeting).toHaveBeenCalledWith({
+      allowTerminalStatus: true,
       meetingId: "meeting-76",
       organizationId: "org-76",
-      preferFallback: true,
+    });
+  });
+
+  it("regenerates a ready final transcript from the complete saved audio", async () => {
+    mocks.loadTranscriptionMeeting.mockResolvedValue(
+      meetingAccess({
+        activeTranscriptRevisionId: "revision-76",
+        role: "owner",
+        transcriptionStatus: "ready",
+      }),
+    );
+    mocks.isMeetingTranscriptionQueueConfigured.mockReturnValue(true);
+    mocks.resetMeetingTranscriptionForRetry.mockResolvedValue([{ id: "meeting-76" }]);
+    mocks.getMeetingTranscriptionJobForMeeting.mockResolvedValue({
+      meetingId: "meeting-76",
+      model: "qwen-audio-3.0-asr-flash-filetrans",
+      organizationId: "org-76",
+      pipelineVersion: "final-v1",
+      policyRevision: 1,
+      provider: "qwen",
+      region: "qwen-cn-beijing",
+      sourceManifestSha256: "b".repeat(64),
+    });
+
+    await expect(
+      retrySavedMeetingTranscription(
+        {
+          meetingId: "meeting-76",
+          memberRole: "member",
+          organizationId: "org-76",
+          userId: "owner-76",
+        },
+        mocks,
+      ),
+    ).resolves.toEqual({ state: "processing" });
+    expect(mocks.resetMeetingTranscriptionForRetry).toHaveBeenCalledWith({
+      meetingId: "meeting-76",
+      organizationId: "org-76",
+    });
+    expect(mocks.retryMeetingTranscriptionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meetingId: "meeting-76",
+        model: "qwen-audio-3.0-asr-flash-filetrans",
+        provider: "qwen",
+      }),
+    );
+  });
+
+  it("keeps a ready transcript authoritative when regeneration cannot build a job", async () => {
+    mocks.loadTranscriptionMeeting.mockResolvedValue(
+      meetingAccess({
+        activeTranscriptRevisionId: "revision-76",
+        role: "owner",
+        transcriptionStatus: "ready",
+      }),
+    );
+    mocks.isMeetingTranscriptionQueueConfigured.mockReturnValue(true);
+    mocks.getMeetingTranscriptionJobForMeeting.mockResolvedValue(null);
+
+    await expect(
+      retrySavedMeetingTranscription(
+        {
+          meetingId: "meeting-76",
+          memberRole: "member",
+          organizationId: "org-76",
+          userId: "owner-76",
+        },
+        mocks,
+      ),
+    ).resolves.toEqual({ state: "unavailable" });
+    expect(mocks.resetMeetingTranscriptionForRetry).not.toHaveBeenCalled();
+  });
+
+  it("restores the ready transcript when regeneration enqueue fails", async () => {
+    mocks.loadTranscriptionMeeting.mockResolvedValue(
+      meetingAccess({
+        activeTranscriptRevisionId: "revision-76",
+        role: "owner",
+        transcriptionStatus: "ready",
+      }),
+    );
+    mocks.isMeetingTranscriptionQueueConfigured.mockReturnValue(true);
+    mocks.getMeetingTranscriptionJobForMeeting.mockResolvedValue({
+      meetingId: "meeting-76",
+      model: "qwen-audio-3.0-asr-flash-filetrans",
+      organizationId: "org-76",
+      pipelineVersion: "final-v1",
+      policyRevision: 1,
+      provider: "qwen",
+      region: "qwen-cn-beijing",
+      sourceManifestSha256: "b".repeat(64),
+    });
+    mocks.resetMeetingTranscriptionForRetry.mockResolvedValue([{ id: "meeting-76" }]);
+    mocks.retryMeetingTranscriptionJob.mockRejectedValue(new Error("queue unavailable"));
+
+    await expect(
+      retrySavedMeetingTranscription(
+        {
+          meetingId: "meeting-76",
+          memberRole: "member",
+          organizationId: "org-76",
+          userId: "owner-76",
+        },
+        mocks,
+      ),
+    ).rejects.toThrow("queue unavailable");
+    expect(mocks.restoreMeetingTranscriptionAfterRetryFailure).toHaveBeenCalledWith({
+      meetingId: "meeting-76",
+      organizationId: "org-76",
+      transcriptionError: null,
+      transcriptionStatus: "ready",
     });
   });
 

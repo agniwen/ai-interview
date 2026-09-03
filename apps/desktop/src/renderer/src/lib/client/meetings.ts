@@ -164,7 +164,7 @@ export function trashMeeting(
   slug: string,
   meetingId: string,
 ): Promise<{ purgeAfter: string; state: "already-trashed" | "trashed" }> {
-  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "归档失败", {
+  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "删除录制失败", {
     method: "POST",
   });
 }
@@ -386,7 +386,7 @@ export function retryMeetingTranscript(
 ): Promise<{ state: "processing" | "ready" }> {
   return apiJson(
     apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/retry`),
-    "重试最终会议转录失败",
+    "重新生成最终会议转录失败",
     { method: "POST" },
   );
 }

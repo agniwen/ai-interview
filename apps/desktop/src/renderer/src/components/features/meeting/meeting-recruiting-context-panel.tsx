@@ -5,15 +5,8 @@ import type {
   MeetingRecruitingContextSettings,
   MeetingRecruitingRecordSummary,
 } from "@app/shared/meeting-recording";
-import { Button } from "@/components/ui/button";
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FrameHeading,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
+import { SettingsRow } from "@/components/settings/settings-ui";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   desktopMeetingKeys,
@@ -51,7 +44,6 @@ export function MeetingRecruitingContextView({
   candidates,
   error = null,
   loadingCandidates = false,
-  onSave,
   onSearch,
   onSelectedIdChange,
   saving = false,
@@ -61,7 +53,6 @@ export function MeetingRecruitingContextView({
   candidates: MeetingRecruitingRecordSummary[];
   error?: unknown;
   loadingCandidates?: boolean;
-  onSave: () => void;
   onSearch?: (search: string) => void;
   onSelectedIdChange: (id: string | null) => void;
   saving?: boolean;
@@ -80,61 +71,49 @@ export function MeetingRecruitingContextView({
     }));
   }, [candidates, settings.link]);
   return (
-    <Frame>
-      <FrameHeader>
-        <FrameHeading>
-          <FrameTitle>招聘关联</FrameTitle>
-          <FrameDescription>
-            可选关联一位候选人；移除关联不会删除会议或候选人记录。
-          </FrameDescription>
-        </FrameHeading>
-      </FrameHeader>
-      <FramePanel className="flex flex-col gap-4">
-        {error ? (
-          <p className="text-destructive text-sm">
-            {error instanceof Error ? error.message : "加载招聘关联失败"}
-          </p>
-        ) : null}
-        {settings.link ? (
-          <div className="min-w-0">
-            <p className="font-medium text-sm">{settings.link.record.candidateName}</p>
-            <p className="mt-0.5 text-muted-foreground text-xs">
-              {candidateDescription(settings.link.record)}
+    <SettingsRow
+      description="选择候选人后自动保存"
+      htmlFor="meeting-recruiting-context"
+      label="招聘关联"
+    >
+      {settings.canManage ? (
+        <div className="flex flex-col gap-1">
+          <SearchableSelect
+            clearable
+            disabled={saving}
+            emptyMessage="没有可访问的招聘记录"
+            id="meeting-recruiting-context"
+            loading={loadingCandidates}
+            onChange={onSelectedIdChange}
+            onSearch={onSearch}
+            options={options}
+            placeholder="不关联招聘记录"
+            searchPlaceholder="搜索候选人或岗位…"
+            serverSideFilter
+            value={selectedId}
+          />
+          {saving ? <p className="text-right text-muted-foreground text-xs">保存中…</p> : null}
+          {error ? (
+            <p className="text-right text-destructive text-xs">
+              {error instanceof Error ? error.message : "保存招聘关联失败"}
             </p>
-            <p className="mt-2 text-muted-foreground text-xs">
-              建议使用招聘面试模板；不会覆盖已有的通用会议洞察。
-            </p>
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-sm">当前未关联招聘记录。</p>
-        )}
-        {settings.canManage ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="min-w-0 flex-1">
-              <label className="mb-1 block text-xs" htmlFor="meeting-recruiting-context">
-                招聘记录
-              </label>
-              <SearchableSelect
-                clearable
-                emptyMessage="没有可访问的招聘记录"
-                id="meeting-recruiting-context"
-                loading={loadingCandidates}
-                onChange={onSelectedIdChange}
-                onSearch={onSearch}
-                options={options}
-                placeholder="不关联招聘记录"
-                searchPlaceholder="搜索候选人或岗位…"
-                serverSideFilter
-                value={selectedId}
-              />
-            </div>
-            <Button className="shrink-0" disabled={saving} onClick={onSave} type="button">
-              {saving ? "正在保存…" : "保存关联"}
-            </Button>
-          </div>
-        ) : null}
-      </FramePanel>
-    </Frame>
+          ) : null}
+        </div>
+      ) : (
+        <div className="text-right text-sm">
+          {settings.link ? (
+            <>
+              <p>{settings.link.record.candidateName}</p>
+              <p className="text-muted-foreground text-xs">
+                {candidateDescription(settings.link.record)}
+              </p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">未关联</p>
+          )}
+        </div>
+      )}
+    </SettingsRow>
   );
 }
 
@@ -172,31 +151,29 @@ export function MeetingRecruitingContextPanel({
     setSelectedId(contextQuery.data?.link?.record.id ?? null);
   }, [contextQuery.data?.link?.record.id]);
   const mutation = useMutation({
-    mutationFn: () => updateMeetingRecruitingContext(slug, meetingId, selectedId),
+    mutationFn: (recruitingRecordId: string | null) =>
+      updateMeetingRecruitingContext(slug, meetingId, recruitingRecordId),
+    onError: () => {
+      setSelectedId(contextQuery.data?.link?.record.id ?? null);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: contextKey });
     },
   });
   if (contextQuery.isPending) {
-    return null;
+    return (
+      <SettingsRow label="招聘关联">
+        <Skeleton className="ml-auto h-9 w-full max-w-xs" />
+      </SettingsRow>
+    );
   }
   if (contextQuery.error) {
     return (
-      <Frame>
-        <FrameHeader>
-          <FrameHeading>
-            <FrameTitle>招聘关联</FrameTitle>
-            <FrameDescription>
-              可选关联一位候选人；移除关联不会删除会议或候选人记录。
-            </FrameDescription>
-          </FrameHeading>
-        </FrameHeader>
-        <FramePanel>
-          <p className="text-destructive text-sm">
-            {contextQuery.error instanceof Error ? contextQuery.error.message : "加载招聘关联失败"}
-          </p>
-        </FramePanel>
-      </Frame>
+      <SettingsRow label="招聘关联">
+        <p className="text-right text-destructive text-sm">
+          {contextQuery.error instanceof Error ? contextQuery.error.message : "加载招聘关联失败"}
+        </p>
+      </SettingsRow>
     );
   }
   if (!contextQuery.data) {
@@ -207,9 +184,11 @@ export function MeetingRecruitingContextPanel({
       candidates={candidatesQuery.data ?? []}
       error={candidatesQuery.error ?? mutation.error}
       loadingCandidates={candidatesQuery.isFetching}
-      onSave={() => mutation.mutate()}
       onSearch={setSearch}
-      onSelectedIdChange={setSelectedId}
+      onSelectedIdChange={(id) => {
+        setSelectedId(id);
+        mutation.mutate(id);
+      }}
       saving={mutation.isPending}
       selectedId={selectedId}
       settings={contextQuery.data}

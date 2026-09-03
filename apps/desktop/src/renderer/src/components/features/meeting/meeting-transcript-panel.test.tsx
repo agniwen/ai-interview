@@ -8,7 +8,6 @@ import {
   MeetingTranscriptStageTurns,
   MeetingTranscriptView,
   splitTranscriptTurn,
-  transcriptSeekSeconds,
 } from "./meeting-transcript-panel";
 import { ApiError } from "@/lib/client/api-error";
 
@@ -59,7 +58,6 @@ describe("Final Meeting Transcript panel", () => {
       <MeetingTranscriptView
         canRetry={false}
         onRetry={() => {}}
-        onSeek={() => {}}
         result={{ error: null, revision: null, state: "pending" }}
       />,
     );
@@ -69,7 +67,6 @@ describe("Final Meeting Transcript panel", () => {
       <MeetingTranscriptView
         canRetry={false}
         onRetry={() => {}}
-        onSeek={() => {}}
         result={{ error: null, revision: null, state: "processing" }}
       />,
     );
@@ -79,19 +76,17 @@ describe("Final Meeting Transcript panel", () => {
       <MeetingTranscriptView
         canRetry
         onRetry={() => {}}
-        onSeek={() => {}}
         result={{ error: "provider unavailable", revision: null, state: "failed" }}
       />,
     );
     expect(failed).toContain("provider unavailable");
-    expect(failed).toContain("重试最终转录");
+    expect(failed).toContain("重新转录");
   });
 
   it("renders the durable live draft while final transcription is pending", () => {
     const html = renderToStaticMarkup(
       <MeetingTranscriptView
         canRetry={false}
-        onSeek={() => {}}
         result={{
           draft: {
             capturedAt: "2026-08-12T08:00:00.000Z",
@@ -129,17 +124,11 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("候选人的实时回答");
   });
 
-  it("renders provider-neutral final turns and maps timestamps to playback seconds", () => {
+  it("renders final turns like the recording view with numbered speaker avatars", () => {
     const html = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        onSeek={() => {}}
-        result={readyTranscript}
-      />,
+      <MeetingTranscriptView canRetry onRetry={() => {}} result={readyTranscript} />,
     );
 
-    expect(html).toContain("00:01");
     expect(html).toContain("说话人1");
     expect(html).toContain("说话人2");
     expect(html.match(/data-meeting-speaker-avatar=/g)).toHaveLength(2);
@@ -147,7 +136,22 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).not.toContain("本机");
     expect(html).not.toContain("远端 1");
     expect(html).toContain("你好，我们开始吧。");
-    expect(transcriptSeekSeconds(1250)).toBe(1.25);
+    expect(html).toContain("重新转录");
+    expect(html).not.toContain("跳转到");
+  });
+
+  it("keeps the current final transcript visible while regeneration is processing", () => {
+    const html = renderToStaticMarkup(
+      <MeetingTranscriptView
+        canRetry
+        onRetry={() => {}}
+        result={{ ...readyTranscript, state: "processing" }}
+      />,
+    );
+
+    expect(html).toContain("正在重新转录，完成前继续展示当前最终版本");
+    expect(html).toContain("你好，我们开始吧。");
+    expect(html).not.toContain(">重新转录<");
   });
 
   it("prefers analyzed speaker identities over the unknown live draft", () => {
@@ -218,17 +222,14 @@ describe("Final Meeting Transcript panel", () => {
         : null,
     };
     const html = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        onSeek={() => {}}
-        result={corrected}
-      />,
+      <MeetingTranscriptView canRetry={false} onRetry={() => {}} result={corrected} />,
     );
 
     expect(html).toContain("人工修订 revision 2");
-    expect(html).toContain("面试官");
-    expect(html).toContain("候选人");
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html).not.toContain("面试官");
+    expect(html).not.toContain("候选人");
   });
 
   it("allows editors to split transcript structure while viewers remain read-only", () => {

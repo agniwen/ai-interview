@@ -6,7 +6,7 @@ export function GeneralSettingsPage(): React.JSX.Element {
   const settings = useSettings();
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6 pb-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 pt-12 pb-16">
       <div className="space-y-0.5">
         <h1 className="text-xl font-medium tracking-tight text-foreground">通用</h1>
         <p className="text-sm text-muted-foreground">应用运行相关的通用偏好。</p>

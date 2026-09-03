@@ -16,6 +16,8 @@ export const UNKNOWN_MEETING_SPEAKER: MeetingSpeakerProfile = {
   label: "未知说话人",
 };
 
+const UNKNOWN_MEETING_SPEAKER_HUE = 260;
+
 export function createMeetingSpeakerProfiles(
   turns: MeetingSpeakerTurn[],
   scopeId: string,
@@ -48,12 +50,15 @@ export function MeetingSpeakerLabel({
   className?: string;
   profile?: MeetingSpeakerProfile;
 }) {
+  const isUnknownSpeaker = profile.avatarId === UNKNOWN_MEETING_SPEAKER.avatarId;
   return (
     <div className={cn("flex items-center gap-1.5 text-muted-foreground text-xs", className)}>
       <Blobatar
         alt=""
+        background={isUnknownSpeaker ? "circle" : undefined}
         className="size-5 shrink-0"
         data-meeting-speaker-avatar="true"
+        hue={isUnknownSpeaker ? UNKNOWN_MEETING_SPEAKER_HUE : undefined}
         name={profile.avatarId}
         size={20}
       />

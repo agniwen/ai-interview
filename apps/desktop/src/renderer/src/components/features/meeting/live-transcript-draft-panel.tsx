@@ -122,14 +122,12 @@ export function LiveTranscriptDraftPanel({
   className,
   embedded = false,
   emptyHint = "等待检测到语音…",
-  header,
   playCorrectionSweep = playTranscriptCorrectionSweep,
 }: {
   snapshot: LiveTranscriptDraftSnapshot;
   className?: string;
   embedded?: boolean;
   emptyHint?: string;
-  header?: ReactNode;
   playCorrectionSweep?: typeof playTranscriptCorrectionSweep;
 }) {
   const { status } = snapshot;
@@ -182,7 +180,6 @@ export function LiveTranscriptDraftPanel({
   return (
     <section className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
       <div className="container mx-auto grid max-w-3xl gap-3 px-4 sm:px-6">
-        {header}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">

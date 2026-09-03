@@ -96,7 +96,6 @@ export async function retryHumanInterviewTranscription(input: {
   const job = await getMeetingTranscriptionJobForMeeting({
     meetingId: input.meetingSessionId,
     organizationId: input.organizationId,
-    preferFallback: true,
   });
   if (!job) {
     return "unavailable";

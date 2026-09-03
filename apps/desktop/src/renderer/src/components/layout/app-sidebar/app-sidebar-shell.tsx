@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
+import type { EventListeners, OverlayScrollbars } from "overlayscrollbars";
 import { useAtom } from "jotai";
-import { ContentTitleBar } from "@/components/layout/content-title-bar";
+import { useMemo, useState } from "react";
+import { ContentTitleBar, shouldShowContentTitleBar } from "@/components/layout/content-title-bar";
 import { DesktopChromeBar } from "@/components/layout/desktop-chrome-bar";
 import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
 import { DESKTOP_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/resumes/scroll-element";
@@ -51,6 +53,16 @@ function AuthenticatedSidebarFooter() {
  */
 export function AppSidebarShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useAtom(desktopSidebarOpenAtom);
+  const [showContentTitleBar, setShowContentTitleBar] = useState(false);
+  const scrollEvents = useMemo<EventListeners>(() => {
+    const updateVisibility = (instance: OverlayScrollbars) => {
+      setShowContentTitleBar(shouldShowContentTitleBar(instance.elements().viewport.scrollTop));
+    };
+    return {
+      initialized: (instance) => updateVisibility(instance),
+      scroll: (instance) => updateVisibility(instance),
+    };
+  }, []);
 
   return (
     <SidebarHeaderPortalProvider>
@@ -68,12 +80,13 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
             <SidebarInset>
               <StudioContentOverlayProvider>
                 <div className="relative flex min-h-0 flex-1 flex-col">
+                  <ContentTitleBar visible={showContentTitleBar} />
                   <ScrollArea
                     className="min-h-0 flex-1 [&_[data-overlayscrollbars-viewport]]:z-auto!"
+                    events={scrollEvents}
                     scrollRestorationId={DESKTOP_MAIN_SCROLL_RESTORATION_ID}
                     scrollbars="leave"
                   >
-                    <ContentTitleBar />
                     {children}
                   </ScrollArea>
                   <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />

@@ -38,10 +38,10 @@ export function resolveMeetingTranscriptionProviderModel(
   assets: { status: string; track: string }[],
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const hasReadyMixedAudio = assets.some(
-    (asset) => asset.status === "ready" && asset.track === "mixed",
+  const hasReadyDiarizableAudio = assets.some(
+    (asset) => asset.status === "ready" && (asset.track === "mixed" || asset.track === "system"),
   );
-  if (candidate.id === "qwen" && hasReadyMixedAudio) {
+  if (candidate.id === "qwen" && hasReadyDiarizableAudio) {
     return (
       env.MEETING_TRANSCRIPTION_QWEN_MIXED_MODEL?.trim() || "qwen-audio-3.0-asr-flash-filetrans"
     );

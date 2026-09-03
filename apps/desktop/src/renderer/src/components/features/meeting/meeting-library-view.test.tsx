@@ -6,6 +6,7 @@ import {
   meetingDetailRefetchInterval,
   playbackAuthorizationRefetchInterval,
 } from "./meeting-detail-helpers";
+import { MeetingPlaybackComposer } from "./meeting-audio-player";
 import { MeetingDetailView, MeetingLibraryView } from "./meeting-library-view";
 import { canCreateMeetingNotes } from "./meeting-notes-panel";
 import { canManageMeetingSharing } from "./meeting-share-panel";
@@ -121,9 +122,25 @@ describe("Meeting Library views", () => {
       />,
     );
     expect(ready).toContain('data-slot="meeting-audio-player"');
+    expect(ready).toContain('data-slot="meeting-playback-waveform-row"');
+    expect(ready).toContain('data-slot="meeting-playback-controls"');
     expect(ready).toContain('aria-label="播放"');
+    expect(ready).toContain('aria-label="当前播放时间 0:00，总时长 --:--"');
     expect(ready).toContain('aria-label="录音波形"');
+    expect(ready).toContain('aria-label="播放倍速"');
     expect(ready).not.toContain('controls=""');
+
+    const composer = renderToStaticMarkup(
+      <MeetingPlaybackComposer
+        playback={{
+          expiresAt: "2026-08-09T04:06:00.000Z",
+          url: "https://r2.invalid/playback.webm",
+        }}
+      />,
+    );
+    expect(composer).not.toContain('data-slot="meeting-composer-frame"');
+    expect(composer).toContain("w-[4.8rem] rounded-full");
+    expect(composer).toContain("bg-primary/10 text-primary");
   });
 
   it("offers an explicit retry after automatic processing attempts are exhausted", () => {

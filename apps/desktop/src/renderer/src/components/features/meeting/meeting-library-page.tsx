@@ -23,7 +23,7 @@ import { useMeetingLibrary } from "./use-meeting-library";
 
 function LoadingLibrary() {
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-3 px-6 py-6 md:grid-cols-2">
+    <div className="mx-auto grid w-full max-w-5xl gap-3 px-6 pt-12 pb-6 md:grid-cols-2">
       <Skeleton className="h-36 rounded-2xl" />
       <Skeleton className="h-36 rounded-2xl" />
     </div>
@@ -233,7 +233,11 @@ export function MeetingLibraryPage() {
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<LoadingLibrary />}>
       {workspace ? (
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-8 pb-10 sm:px-6">
+          <div className="space-y-1">
+            <h1 className="font-medium text-xl tracking-tight text-foreground">录制记录</h1>
+            <p className="text-muted-foreground text-sm">浏览和播放你保存的录制</p>
+          </div>
           <Tabs
             className="gap-4"
             onValueChange={(value) => {
@@ -248,7 +252,6 @@ export function MeetingLibraryPage() {
               <TabsTrigger value="archive">归档记录</TabsTrigger>
             </TabsList>
             <TabsContent className="flex flex-col gap-4" value="records">
-              <p className="text-muted-foreground text-sm">浏览和播放你保存的录制</p>
               <ActiveMeetingLibrary
                 dateFilter={dateFilter}
                 isSearching={isSearching}

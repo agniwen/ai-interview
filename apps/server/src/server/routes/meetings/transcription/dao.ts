@@ -19,6 +19,7 @@ export const {
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
   resetMeetingTranscriptionForRetry,
+  restoreMeetingTranscriptionAfterRetryFailure,
   saveMeetingTranscriptionChunkCheckpoint,
   updateMeetingTranscriptionPolicy,
 } = createMeetingTranscriptionDao(db, {

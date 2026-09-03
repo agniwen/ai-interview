@@ -90,7 +90,7 @@ export function MeetingSidebarSlots() {
       toastId: string | number;
     }) => restoreMeeting(slug, meetingId),
     onError: (error) => {
-      showMeetingDeletionError(error instanceof Error ? error.message : "撤回归档失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "撤销删除失败");
     },
     onSuccess: async (_, { slug, toastId }) => {
       await refreshMeetingLists(slug);
@@ -101,7 +101,7 @@ export function MeetingSidebarSlots() {
     mutationFn: ({ meetingId, slug }: { meetingId: string; slug: string }) =>
       trashMeeting(slug, meetingId),
     onError: (error) => {
-      showMeetingDeletionError(error instanceof Error ? error.message : "归档失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "删除录制失败");
     },
     onSuccess: async (_, { meetingId, slug }) => {
       void refreshMeetingLists(slug);
@@ -494,7 +494,7 @@ export function MeetingSidebarSlots() {
                               <Icon icon="ph:pencil-line" />
                             </SidebarMenuAction>
                             <SidebarMenuAction
-                              aria-label={`归档${title}`}
+                              aria-label={`删除${title}`}
                               className="text-muted-foreground hover:bg-transparent hover:text-destructive"
                               disabled={trashMutation.isPending || renameMutation.isPending}
                               onClick={(event) => {
@@ -506,7 +506,7 @@ export function MeetingSidebarSlots() {
                                 });
                               }}
                               showOnHover
-                              title="归档"
+                              title="删除"
                               type="button"
                             >
                               <Icon icon="ph:trash" />

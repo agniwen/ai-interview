@@ -61,7 +61,7 @@ export function ResumeLibraryPage({ isDetailOpen }: { isDetailOpen: boolean }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-8 pb-10 sm:px-6">
       <div className="space-y-1">
         <h1 className="font-medium text-xl tracking-tight text-foreground">招聘台</h1>
         <p className="text-muted-foreground text-sm">点击候选人可发起会议转录</p>

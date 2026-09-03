@@ -110,6 +110,7 @@ export interface MeetingTranscriptionDependencies {
     typeof createMeetingTranscriptionDao
   >["markMeetingTranscriptionChunkFailed"];
   prepareChunks: (input: {
+    chunkDurationMs?: number;
     directory: string;
     sources: PrepareChunkSource[];
   }) => Promise<FinalTranscriptionAudioChunk[]>;
@@ -501,6 +502,9 @@ async function runMeetingTranscriptionProcessingPromise(
         return { chunks };
       }
       const chunks = await dependencies.prepareChunks({
+        chunkDurationMs: input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")
+          ? MAX_DURATION_MS
+          : undefined,
         directory,
         sources: chunkSources,
       });

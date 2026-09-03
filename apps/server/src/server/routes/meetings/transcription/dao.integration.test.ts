@@ -22,6 +22,8 @@ import {
   loadMeetingTranscriptionChunkCheckpoint,
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
+  resetMeetingTranscriptionForRetry,
+  restoreMeetingTranscriptionAfterRetryFailure,
   saveMeetingTranscriptionChunkCheckpoint,
   updateMeetingTranscriptionPolicy,
 } from "./dao";
@@ -1063,7 +1065,7 @@ describe("Meeting transcription publication", () => {
       }),
     ).resolves.toMatchObject({
       meetingId: MEETING_ID,
-      model: "qwen3-asr-flash-filetrans",
+      model: "qwen-audio-3.0-asr-flash-filetrans",
       policyRevision: 1,
       provider: "qwen",
       region: "qwen-cn-beijing",
@@ -1077,6 +1079,82 @@ describe("Meeting transcription publication", () => {
     expect(row?.allowedProviders).toEqual(["qwen"]);
     expect(row?.revision).toBe(1);
   }, 30_000);
+
+  it("resets a ready transcript and removes every cached chunk before regeneration", async () => {
+    const processingRunId = runId("run-regeneration");
+    const chunk = {
+      contentType: "audio/webm",
+      endMs: 10_000,
+      filePath: "/tmp/system-000.webm",
+      index: 0,
+      startMs: 0,
+      track: "system" as const,
+    };
+    const transcript = {
+      language: "zh",
+      turns: [
+        {
+          confidence: null,
+          endMs: 2000,
+          speakerKey: "remote-1",
+          startMs: 1000,
+          text: "旧的完整转录",
+          track: "remote" as const,
+        },
+      ],
+    };
+    await claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId });
+    await claimMeetingTranscriptionChunk({ ...job, processingRunId }, chunk);
+    await saveMeetingTranscriptionChunkCheckpoint({ ...job, processingRunId }, chunk, transcript);
+    await publishMeetingTranscript({ ...job, processingRunId, transcript });
+
+    await expect(
+      resetMeetingTranscriptionForRetry({
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toEqual([{ id: MEETING_ID }]);
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionStatus: "pending" });
+    await expect(
+      db.query.meetingTranscriptionChunk.findMany({ where: { meetingId: MEETING_ID } }),
+    ).resolves.toHaveLength(0);
+    await restoreMeetingTranscriptionAfterRetryFailure({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      transcriptionError: null,
+      transcriptionStatus: "ready",
+    });
+    await restoreMeetingTranscriptionAfterRetryFailure({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      transcriptionError: "不应覆盖 ready 状态",
+      transcriptionStatus: "failed",
+    });
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionError: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionError: null, transcriptionStatus: "ready" });
+    await expect(
+      getMeetingTranscriptionJobForMeeting({
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      getMeetingTranscriptionJobForMeeting({
+        allowTerminalStatus: true,
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toMatchObject({ meetingId: MEETING_ID });
+  });
 
   it("uses a diarization-capable Qwen model for a mixed meeting recording", async () => {
     await db.delete(meetingRecordingAsset).where(eq(meetingRecordingAsset.meetingId, MEETING_ID));

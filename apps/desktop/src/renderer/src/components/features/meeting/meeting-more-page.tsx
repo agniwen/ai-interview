@@ -1,7 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
+import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
+import { meetingDisplayTitle } from "@app/shared/utils/time";
 import { Button } from "@/components/ui/button";
 import { Frame, FramePanel } from "@/components/ui/frame";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
@@ -9,6 +12,7 @@ import {
   desktopMeetingKeys,
   fetchMeetingDetail,
   fetchMeetingPlayback,
+  renameMeeting,
   retryMeetingPlayback,
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
@@ -19,16 +23,14 @@ import {
 } from "./meeting-detail-helpers";
 import { MeetingDetailView } from "./meeting-library-view";
 import { MeetingMorePageSkeleton } from "./meeting-page-skeletons";
-import { MeetingIntelligencePanel } from "./meeting-intelligence-panel";
-import { MeetingLifecyclePanel } from "./meeting-lifecycle-panel";
-import { MeetingNotesPanel } from "./meeting-notes-panel";
-import { MeetingQuestionsPanel } from "./meeting-questions-panel";
+import { MeetingDeleteAction, canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
+import { MeetingDetailTitle } from "./meeting-detail-title";
 import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
 function MeetingMoreStatus({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-4xl px-4 pt-12 pb-6 sm:px-6">
       <Frame>
         <FramePanel className="flex flex-col items-center gap-3 py-12 text-center">
           {children}
@@ -39,7 +41,7 @@ function MeetingMoreStatus({ children }: { children: ReactNode }) {
 }
 
 /**
- * Session「查看更多」页：播放、招聘关联、洞察、提问、笔记、最终转录与生命周期。
+ * Session「查看更多」页：播放、招聘关联、最终转录与删除操作。
  * Share ACL and export stay implemented but unmounted until those features ship.
  */
 export function MeetingMorePage({
@@ -50,6 +52,8 @@ export function MeetingMorePage({
   seekToSeconds?: number;
 }) {
   const queryClient = useQueryClient();
+  const [editingTitle, setEditingTitle] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [seekRequest, requestSeek] = useReducer(
     (current: { id: number; seconds?: number }, seconds: number | undefined) => ({
       id: current.id + 1,
@@ -94,6 +98,27 @@ export function MeetingMorePage({
           queryKey: desktopMeetingKeys.detail(workspace.slug, meetingId),
         }),
       ]);
+    },
+  });
+  const renameMutation = useMutation({
+    mutationFn: (title: string) => renameMeeting(workspaceSlug, meetingId, title),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "修改录制名称失败");
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          exact: true,
+          queryKey: desktopMeetingKeys.all(workspaceSlug),
+        }),
+        queryClient.invalidateQueries({
+          exact: true,
+          queryKey: desktopMeetingKeys.detail(workspaceSlug, meetingId),
+        }),
+        queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.searchRoot(workspaceSlug) }),
+      ]);
+      setIsEditingTitle(false);
+      setEditingTitle("");
     },
   });
 
@@ -141,12 +166,27 @@ export function MeetingMorePage({
   }
 
   const meeting = detailQuery.data;
+  const title = meeting ? meetingDisplayTitle(meeting.title) : "";
 
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingMorePageSkeleton />}>
       {meeting ? (
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-4 pb-10 sm:px-6">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pt-8 pb-10 sm:px-6">
           <MeetingDetailView
+            additionalRows={
+              <>
+                <MeetingRecruitingContextPanel
+                  accessRole={meeting.accessRole}
+                  meetingId={meetingId}
+                  slug={workspaceSlug}
+                />
+                <MeetingDeleteAction
+                  accessRole={meeting.accessRole}
+                  meetingId={meetingId}
+                  slug={workspaceSlug}
+                />
+              </>
+            }
             meeting={meeting}
             onPlaybackError={() => {
               void playbackQuery.refetch();
@@ -160,31 +200,41 @@ export function MeetingMorePage({
             retryProcessing={retryMutation.isPending}
             seekRequestId={seekRequest.id}
             seekToSeconds={seekRequest.seconds}
-          />
-          <MeetingRecruitingContextPanel
-            accessRole={meeting.accessRole}
-            meetingId={meetingId}
-            slug={workspaceSlug}
-          />
-          <MeetingIntelligencePanel
-            accessRole={meeting.accessRole}
-            meetingId={meetingId}
-            onSeek={requestSeek}
-            slug={workspaceSlug}
-          />
-          <MeetingQuestionsPanel meetingId={meetingId} onSeek={requestSeek} slug={workspaceSlug} />
-          <MeetingNotesPanel
-            accessRole={meeting.accessRole}
-            meetingId={meetingId}
-            slug={workspaceSlug}
+            titleContent={
+              <MeetingDetailTitle
+                canRename={canManageMeetingLifecycle(meeting.accessRole)}
+                editingTitle={editingTitle}
+                isEditing={isEditingTitle}
+                isPending={renameMutation.isPending}
+                onCancel={() => {
+                  setIsEditingTitle(false);
+                  setEditingTitle("");
+                }}
+                onChange={setEditingTitle}
+                onEdit={() => {
+                  setEditingTitle(title);
+                  setIsEditingTitle(true);
+                }}
+                onSubmit={() => {
+                  const normalizedTitle = editingTitle.trim();
+                  if (
+                    !normalizedTitle ||
+                    normalizedTitle.length > RECORDING_TITLE_MAX_LENGTH ||
+                    normalizedTitle === title
+                  ) {
+                    if (normalizedTitle === title) {
+                      setIsEditingTitle(false);
+                      setEditingTitle("");
+                    }
+                    return;
+                  }
+                  renameMutation.mutate(normalizedTitle);
+                }}
+                title={title}
+              />
+            }
           />
           <MeetingTranscriptPanel
-            accessRole={meeting.accessRole}
-            meetingId={meetingId}
-            onSeek={requestSeek}
-            slug={workspaceSlug}
-          />
-          <MeetingLifecyclePanel
             accessRole={meeting.accessRole}
             meetingId={meetingId}
             slug={workspaceSlug}

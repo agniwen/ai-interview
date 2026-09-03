@@ -2,15 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import type { MeetingAccessRole } from "@app/shared/meeting-recording";
+import { SettingsRow } from "@/components/settings/settings-ui";
 import { Button } from "@/components/ui/button";
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FrameHeading,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
 import { desktopMeetingKeys, restoreMeeting, trashMeeting } from "@/lib/client/meetings";
 import { showMeetingArchivedToast } from "./meeting-archive-toast";
 import { showMeetingDeletionError } from "./meeting-deletion-toast";
@@ -20,10 +13,9 @@ export function canManageMeetingLifecycle(role: MeetingAccessRole): boolean {
 }
 
 /**
- * Owner/Admin 的生命周期入口。客户端角色判断只控制可见性，服务端仍在事务中重新验证权限。
- * Lifecycle affordance for owners/admins; client role checks control visibility while the server revalidates authority transactionally.
+ * Owner/Admin 的删除入口。客户端角色判断只控制可见性，服务端仍在事务中重新验证权限。
  */
-export function MeetingLifecyclePanel({
+export function MeetingDeleteAction({
   accessRole,
   meetingId,
   slug,
@@ -42,7 +34,7 @@ export function MeetingLifecyclePanel({
   const restoreMutation = useMutation({
     mutationFn: (_toastId: string | number) => restoreMeeting(slug, meetingId),
     onError: (error) => {
-      showMeetingDeletionError(error instanceof Error ? error.message : "撤回归档失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "撤销删除失败");
     },
     onSuccess: async (_, toastId) => {
       await refreshMeetingLists();
@@ -51,6 +43,9 @@ export function MeetingLifecyclePanel({
   });
   const trashMutation = useMutation({
     mutationFn: () => trashMeeting(slug, meetingId),
+    onError: (error) => {
+      showMeetingDeletionError(error instanceof Error ? error.message : "删除录制失败");
+    },
     onSuccess: async () => {
       await refreshMeetingLists();
       showMeetingArchivedToast((toastId) => restoreMutation.mutate(toastId));
@@ -61,32 +56,18 @@ export function MeetingLifecyclePanel({
     return null;
   }
   return (
-    <Frame>
-      <FrameHeader>
-        <FrameHeading>
-          <FrameTitle>会议生命周期</FrameTitle>
-          <FrameDescription>归档后可在七天内恢复。</FrameDescription>
-        </FrameHeading>
-      </FrameHeader>
-      <FramePanel className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-md text-muted-foreground text-sm">
-          从列表中移除这次录制。七天内可在归档记录恢复，之后将永久清除。
-        </p>
+    <SettingsRow description="删除后七天内可以恢复" label="删除录制">
+      <div className="flex justify-end">
         <Button
-          className="shrink-0"
           disabled={trashMutation.isPending}
           onClick={() => trashMutation.mutate()}
+          size="sm"
           type="button"
           variant="destructive"
         >
-          {trashMutation.isPending ? "正在归档…" : "归档"}
+          {trashMutation.isPending ? "正在删除…" : "删除"}
         </Button>
-        {trashMutation.error ? (
-          <p className="w-full text-destructive text-xs">
-            {trashMutation.error instanceof Error ? trashMutation.error.message : "归档失败"}
-          </p>
-        ) : null}
-      </FramePanel>
-    </Frame>
+      </div>
+    </SettingsRow>
   );
 }
