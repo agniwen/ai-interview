@@ -1,6 +1,7 @@
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { uniq } from "lodash-es";
+import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
@@ -519,6 +520,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
       candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
       candidateName: studioInterview.candidateName,
       interviewRecordId: studioHumanInterviewRound.interviewRecordId,
+      jobDescriptionName: jobDescription.name,
       liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
       meetingId: studioHumanInterviewMeeting.id,
       organizationId: studioHumanInterviewMeeting.organizationId,
@@ -527,7 +529,6 @@ export async function resolveHumanInterviewMeetingInviteToken(
       roundLabel: studioHumanInterviewRound.label,
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
       status: studioHumanInterviewMeeting.status,
-      title: studioHumanInterviewMeeting.title,
       validUntil: studioHumanInterviewMeeting.validUntil,
     })
     .from(studioHumanInterviewMeetingRound)
@@ -540,6 +541,13 @@ export async function resolveHumanInterviewMeetingInviteToken(
       eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
     )
     .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(studioInterview.organizationId, jobDescription.organizationId),
+      ),
+    )
     .where(
       and(
         eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
@@ -570,7 +578,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
     status: row.status,
-    title: row.title,
+    title: buildInterviewCalendarTitle([row]),
     validUntil: serializeDate(row.validUntil),
   };
 }
@@ -594,7 +602,6 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
       status: studioHumanInterviewMeeting.status,
-      title: studioHumanInterviewMeeting.title,
       userId: studioHumanInterviewMeetingInterviewer.userId,
       validUntil: studioHumanInterviewMeeting.validUntil,
     })
@@ -617,7 +624,7 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
     return null;
   }
 
-  const [context] = await db
+  const contexts = await db
     .select({
       candidateName: studioInterview.candidateName,
       jobDescriptionDepartmentName: department.name,
@@ -648,8 +655,8 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       ),
     )
     .where(eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId))
-    .orderBy(asc(studioHumanInterviewRound.sortOrder))
-    .limit(1);
+    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+  const [context] = contexts;
   if (!context) {
     return null;
   }
@@ -670,7 +677,7 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
     scheduledAt: serializeDate(row.scheduledAt),
     status: row.status,
     targetRole: context.targetRole,
-    title: row.title,
+    title: buildInterviewCalendarTitle(contexts),
     userId: row.userId,
     validUntil: serializeDate(row.validUntil),
   };

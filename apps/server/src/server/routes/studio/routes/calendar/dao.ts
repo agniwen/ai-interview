@@ -38,6 +38,7 @@ import type {
   HumanInterviewRoundStatus,
 } from "@app/db-schema/studio-interviews";
 import { buildAiCalendarEvents } from "./events";
+import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;
 
@@ -108,10 +109,10 @@ export async function listStudioCalendarEvents({
         endedAt: studioHumanInterviewMeeting.endedAt,
         format: studioHumanInterviewRound.format,
         interviewRecordId: studioInterview.id,
+        jobDescriptionName: jobDescription.name,
         location: studioHumanInterviewRound.location,
         meetingId: studioHumanInterviewMeeting.id,
         meetingStatus: studioHumanInterviewMeeting.status,
-        meetingTitle: studioHumanInterviewMeeting.title,
         meetingUrl: studioHumanInterviewRound.meetingUrl,
         roundId: studioHumanInterviewRound.id,
         roundLabel: studioHumanInterviewRound.label,
@@ -131,6 +132,13 @@ export async function listStudioCalendarEvents({
       .innerJoin(
         studioInterview,
         eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId),
+      )
+      .leftJoin(
+        jobDescription,
+        and(
+          eq(studioInterview.jobDescriptionId, jobDescription.id),
+          eq(studioInterview.organizationId, jobDescription.organizationId),
+        ),
       )
       .where(
         and(
@@ -155,6 +163,7 @@ export async function listStudioCalendarEvents({
       .select({
         candidateName: studioInterview.candidateName,
         interviewRecordId: studioInterview.id,
+        jobDescriptionName: jobDescription.name,
         roundId: studioInterviewSchedule.id,
         roundLabel: studioInterviewSchedule.roundLabel,
         scheduledAt: studioInterviewSchedule.scheduledAt,
@@ -163,6 +172,13 @@ export async function listStudioCalendarEvents({
       })
       .from(studioInterviewSchedule)
       .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+      .leftJoin(
+        jobDescription,
+        and(
+          eq(studioInterview.jobDescriptionId, jobDescription.id),
+          eq(studioInterview.organizationId, jobDescription.organizationId),
+        ),
+      )
       .where(
         and(
           eq(studioInterviewSchedule.organizationId, organizationId),
@@ -180,6 +196,7 @@ export async function listStudioCalendarEvents({
         conversationId: interviewConversation.conversationId,
         endedAt: interviewConversation.endedAt,
         interviewRecordId: studioInterview.id,
+        jobDescriptionName: jobDescription.name,
         roundId: studioInterviewSchedule.id,
         roundLabel: studioInterviewSchedule.roundLabel,
         startedAt: interviewConversation.startedAt,
@@ -190,6 +207,13 @@ export async function listStudioCalendarEvents({
         eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
       )
       .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+      .leftJoin(
+        jobDescription,
+        and(
+          eq(studioInterview.jobDescriptionId, jobDescription.id),
+          eq(studioInterview.organizationId, jobDescription.organizationId),
+        ),
+      )
       .where(
         and(
           eq(interviewConversation.organizationId, organizationId),
@@ -244,6 +268,7 @@ export async function listStudioCalendarEvents({
     candidates.push({
       candidateName: row.candidateName,
       interviewRecordId: row.interviewRecordId,
+      jobDescriptionName: row.jobDescriptionName,
       roundId: row.roundId,
       roundLabel: row.roundLabel,
     });
@@ -282,7 +307,7 @@ export async function listStudioCalendarEvents({
       meetingUrl: row.meetingUrl,
       startAt: startAt.toISOString(),
       status: resolveEventStatus(row.meetingStatus, row.roundStatus),
-      title: row.meetingTitle ?? row.roundLabel,
+      title: buildInterviewCalendarTitle(candidatesByEvent.get(eventId) ?? []),
     });
   }
 

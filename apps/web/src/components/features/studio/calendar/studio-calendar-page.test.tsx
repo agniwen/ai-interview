@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StudioCalendarPage } from "./studio-calendar-page";
+import { CalendarEventTooltip, StudioCalendarPage } from "./studio-calendar-page";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,6 +29,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
             {
               candidateName: "张三",
               interviewRecordId: "interview-1",
+              jobDescriptionName: "前端工程师",
               roundId: "round-1",
               roundLabel: "AI 初面",
             },
@@ -40,13 +41,14 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           source: "result" as const,
           startAt: humanStartAt.toISOString(),
           status: "ended" as const,
-          title: "AI 初面",
+          title: "张三-前端工程师-AI 初面",
         },
         {
           candidates: [
             {
               candidateName: "李四",
               interviewRecordId: "interview-2",
+              jobDescriptionName: "前端技术经理",
               roundId: "round-2",
               roundLabel: "技术复面",
             },
@@ -60,7 +62,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           meetingUrl: null,
           startAt: humanStartAt.toISOString(),
           status: "scheduled" as const,
-          title: "技术复面",
+          title: "李四-前端技术经理-技术复面",
         },
         {
           candidates: [
@@ -78,7 +80,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           source: "scheduled" as const,
           startAt: endedHumanStartAt.toISOString(),
           status: "scheduled" as const,
-          title: "AI 复面",
+          title: "王五-未关联岗位-AI 复面",
         },
         {
           candidates: [
@@ -98,7 +100,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           meetingUrl: null,
           startAt: startAt.toISOString(),
           status: "ended" as const,
-          title: "终面",
+          title: "赵六-未关联岗位-终面",
         },
       ],
     });
@@ -117,6 +119,17 @@ afterEach(() => {
 });
 
 describe("StudioCalendarPage", () => {
+  it("shows the interview job in the human event content", async () => {
+    const { events } = await fetchStudioCalendarMock();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    act(() => root.render(<CalendarEventTooltip event={events[1]} />));
+    expect(host.textContent).toContain("李四-前端技术经理-技术复面");
+    expect(host.textContent).toContain("面试岗位：前端技术经理");
+    expect(host.textContent).toContain("候选人：李四");
+    act(() => root.unmount());
+  });
   it("renders the ReUI calendar without a React hook dispatcher error", async () => {
     const host = document.createElement("div");
     document.body.append(host);
@@ -143,8 +156,8 @@ describe("StudioCalendarPage", () => {
       });
       await vi.advanceTimersByTimeAsync(400);
     });
-    expect(host.textContent).toContain("张三 · AI 初面");
-    expect(host.textContent).toContain("李四 · 技术复面");
+    expect(host.textContent).toContain("张三-前端工程师-AI 初面");
+    expect(host.textContent).toContain("李四-前端技术经理-技术复面");
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(3);
     expect(host.querySelector('[data-slot="event-calendar-event-dot"]')).toBeNull();
     const todayHeader = host.querySelector<HTMLElement>(
@@ -172,16 +185,16 @@ describe("StudioCalendarPage", () => {
     expect(host.querySelector('[data-calendar-event-icon="human"]')).not.toBeNull();
     const aiEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("张三 · AI 初面"));
+    ].find((event) => event.textContent?.includes("张三-前端工程师-AI 初面"));
     const humanEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("李四 · 技术复面"));
+    ].find((event) => event.textContent?.includes("李四-前端技术经理-技术复面"));
     const pendingAiEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("王五 · AI 复面"));
+    ].find((event) => event.textContent?.includes("王五-未关联岗位-AI 复面"));
     const endedHumanEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("赵六 · 终面"));
+    ].find((event) => event.textContent?.includes("赵六-未关联岗位-终面"));
     expect(aiEvent?.className).toContain("bg-(--ec-event-color)/10");
     expect(aiEvent?.className).toContain(
       "[&_.text-muted-foreground]:text-(--ec-event-foreground)/75",

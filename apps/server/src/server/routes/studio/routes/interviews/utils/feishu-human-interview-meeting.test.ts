@@ -1,7 +1,41 @@
 /* oxlint-disable prefer-response-static-json -- explicit response bodies mirror Feishu HTTP fixtures. */
 
 import { describe, expect, it, vi } from "vitest";
-import { createFeishuHumanInterviewClient } from "./feishu-human-interview-meeting";
+import {
+  buildCalendarDescription,
+  createFeishuHumanInterviewClient,
+} from "./feishu-human-interview-meeting";
+
+describe("Feishu interview calendar description", () => {
+  it("includes the bound jobs and keeps candidates, rounds and notes", () => {
+    const description = buildCalendarDescription({
+      candidates: [
+        { candidateName: "张三", jobDescriptionName: "前端技术经理", roundLabel: "业务一面" },
+        { candidateName: "李四", jobDescriptionName: "前端技术经理", roundLabel: "CEO面试" },
+      ],
+      interviewers: [],
+      meetingId: "meeting-1",
+      notes: "请重点关注系统设计能力",
+      validUntil: new Date("2026-09-04T03:00:00Z"),
+    });
+    expect(description).toContain("面试岗位：前端技术经理\n");
+    expect(description).toContain("候选人：张三、李四");
+    expect(description).toContain("面试轮次：业务一面、CEO面试");
+    expect(description).toContain("备注：请重点关注系统设计能力");
+  });
+
+  it("does not invent a job for historical records without one", () => {
+    expect(
+      buildCalendarDescription({
+        candidates: [{ candidateName: "张三", jobDescriptionName: null, roundLabel: "业务一面" }],
+        interviewers: [],
+        meetingId: "meeting-1",
+        notes: null,
+        validUntil: new Date("2026-09-04T03:00:00Z"),
+      }),
+    ).toContain("面试岗位：未关联岗位");
+  });
+});
 
 describe("Feishu human interview HTTP contract", () => {
   it("loads the bot primary calendar", async () => {
@@ -65,11 +99,11 @@ describe("Feishu human interview HTTP contract", () => {
 
     const event = await client.createCalendarEvent({
       calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
-      description: "候选人：张三",
+      description: "候选人：张三\n\n面试岗位：前端工程师",
       endAt: new Date("2026-08-05T10:30:00.000Z"),
       idempotencyKey: "human-interview-meeting-000000000001",
       startAt: new Date("2026-08-05T09:30:00.000Z"),
-      title: "张三 - 真人复面",
+      title: "张三-前端工程师-业务一面",
     });
 
     expect(event).toEqual({
@@ -81,11 +115,11 @@ describe("Feishu human interview HTTP contract", () => {
       "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events?idempotency_key=human-interview-meeting-000000000001&user_id_type=open_id",
     );
     expect(JSON.parse(String(init?.body))).toEqual({
-      description: "候选人：张三",
+      description: "候选人：张三\n\n面试岗位：前端工程师",
       end_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
       free_busy_status: "busy",
       start_time: { timestamp: "1785922200", timezone: "Asia/Shanghai" },
-      summary: "张三 - 真人复面",
+      summary: "张三-前端工程师-业务一面",
     });
   });
 
@@ -107,6 +141,7 @@ describe("Feishu human interview HTTP contract", () => {
       endAt: new Date("2026-08-05T11:30:00.000Z"),
       eventId: "event_1",
       startAt: new Date("2026-08-05T10:30:00.000Z"),
+      title: "张三-前端工程师-业务一面",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -117,6 +152,7 @@ describe("Feishu human interview HTTP contract", () => {
           end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
           need_notification: true,
           start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
+          summary: "张三-前端工程师-业务一面",
         }),
         headers: {
           authorization: "Bearer tenant-token",

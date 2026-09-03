@@ -2,6 +2,38 @@ import { describe, expect, it } from "vitest";
 import { buildAiCalendarEvents } from "./events";
 
 describe("buildAiCalendarEvents", () => {
+  it("includes the bound job in both scheduled and recorded AI events", () => {
+    const candidate = {
+      candidateName: "张三",
+      interviewRecordId: "interview-1",
+      jobDescriptionName: "前端技术经理",
+      roundId: "round-1",
+      roundLabel: "AI 初面",
+    };
+    const events = buildAiCalendarEvents({
+      conversationRows: [
+        {
+          ...candidate,
+          conversationId: "conversation-1",
+          endedAt: new Date("2026-09-03T02:30:00Z"),
+          startedAt: new Date("2026-09-03T02:00:00Z"),
+        },
+      ],
+      scheduledRows: [
+        {
+          ...candidate,
+          scheduledAt: new Date("2026-09-04T02:00:00Z"),
+          scheduledEndAt: new Date("2026-09-04T03:00:00Z"),
+          status: "pending",
+        },
+      ],
+    });
+    expect(events).toHaveLength(2);
+    for (const event of events) {
+      expect(event.title).toBe("张三-前端技术经理-AI 初面");
+      expect(event.candidates[0]?.jobDescriptionName).toBe("前端技术经理");
+    }
+  });
   it("shows every completed interview record and suppresses its duplicate scheduled event", () => {
     const events = buildAiCalendarEvents({
       conversationRows: [
