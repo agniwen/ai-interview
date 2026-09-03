@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, gt, inArray, isNotNull, lte, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, lt, lte, ne, sql } from "drizzle-orm";
+import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import type { Database } from "@app/database";
 import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interviews";
 import {
@@ -62,6 +63,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
             interviewRecordId: studioHumanInterviewRound.interviewRecordId,
             outcome: studioHumanInterviewRound.outcome,
             roundLabel: studioHumanInterviewRound.label,
+            sortOrder: studioHumanInterviewRound.sortOrder,
             submittedAt: studioHumanInterviewEvaluationSnapshot.createdAt,
             submittedBy: user.name,
             submittedOutcome: studioHumanInterviewEvaluationSnapshot.outcome,
@@ -78,6 +80,24 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           .limit(1);
         if (!context) {
           throw new Error("同步任务缺少正式提交评价");
+        }
+        // Editable meeting labels are not template identities. Cancelled rounds
+        // and CEO interviews do not consume a business evaluation slot.
+        let roundLabel = "CEO面试";
+        if (context.roundLabel !== "CEO面试") {
+          const [previous] = await tx
+            .select({ total: count() })
+            .from(studioHumanInterviewRound)
+            .where(
+              and(
+                eq(studioHumanInterviewRound.organizationId, job.organizationId),
+                eq(studioHumanInterviewRound.interviewRecordId, context.interviewRecordId),
+                lt(studioHumanInterviewRound.sortOrder, context.sortOrder),
+                ne(studioHumanInterviewRound.status, "cancelled"),
+                ne(studioHumanInterviewRound.label, "CEO面试"),
+              ),
+            );
+          roundLabel = formatBusinessInterviewLabel(previous.total + 1);
         }
         const decision = documentDecision(context, job.blockId, job.syncedAt);
         let target = {
@@ -178,7 +198,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           leaseOwner,
           ...decision,
           providerId,
-          roundLabel: context.roundLabel,
+          roundLabel,
           submittedAt: context.submittedAt.toISOString(),
           submittedBy: context.submittedBy ?? "面试官",
         };
