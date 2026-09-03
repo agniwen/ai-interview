@@ -82,10 +82,14 @@ export const MEETING_LIVE_TRANSCRIPT_PROVIDERS = ["qwen", "deepgram"] as const;
 export const meetingLiveTranscriptProviderSchema = z.enum(MEETING_LIVE_TRANSCRIPT_PROVIDERS);
 export type MeetingLiveTranscriptProviderId = z.infer<typeof meetingLiveTranscriptProviderSchema>;
 
+export const DEFAULT_DEEPGRAM_ENDPOINTING_MS = 1000;
+export const deepgramEndpointingMsSchema = z.number().int().min(10).max(5000);
+
 export interface MeetingLiveTranscriptProviderCapabilities {
   contextPrompting: boolean;
   liveCorrection: boolean;
   speakerDiarization: boolean;
+  utteranceEndpointing: boolean;
   vocabulary: boolean;
   wordTimestamps: boolean;
 }
@@ -96,6 +100,7 @@ export const MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES = {
     contextPrompting: false,
     liveCorrection: false,
     speakerDiarization: true,
+    utteranceEndpointing: true,
     vocabulary: false,
     wordTimestamps: true,
   },
@@ -103,6 +108,7 @@ export const MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES = {
     contextPrompting: true,
     liveCorrection: true,
     speakerDiarization: false,
+    utteranceEndpointing: false,
     vocabulary: true,
     wordTimestamps: true,
   },
@@ -225,6 +231,8 @@ export interface MeetingLiveTranscriptAuthorization {
   language?: string;
   /** 建连时的领域/会议上下文；由当前 Desktop 会话生成，不写入长期凭证。 */
   context?: string[];
+  /** Deepgram VAD 检测到这段连续静音后，以 speech_final 结束当前话语。 */
+  endpointingMs?: number;
   model: string;
   provider: MeetingTranscriptionProviderId;
   /** 可选 VAD 噪声阈值，仅在管理员经过真实音频评测后配置。 */
@@ -239,6 +247,7 @@ export const meetingLiveTranscriptAuthorizationSchema = z
     baseUrl: z.url().optional(),
     clientSecret: z.string().min(1),
     context: meetingLiveTranscriptContextSchema.optional(),
+    endpointingMs: deepgramEndpointingMsSchema.optional(),
     expiresAt: z.string().datetime({ offset: true }),
     language: z.string().min(1).max(64).optional(),
     model: z.string().min(1).max(128),

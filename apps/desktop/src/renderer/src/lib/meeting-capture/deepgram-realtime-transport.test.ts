@@ -6,6 +6,7 @@ import {
 
 const baseAuthorization = {
   clientSecret: "temporary-jwt",
+  endpointingMs: 1000,
   expiresAt: "2030-01-01T00:00:00.000Z",
   language: "zh-CN",
   model: "nova-3",
@@ -20,7 +21,7 @@ describe("createDeepgramLiveUrl", () => {
     expect(Object.fromEntries(url.searchParams)).toMatchObject({
       diarize_model: "latest",
       encoding: "linear16",
-      endpointing: "300",
+      endpointing: "1000",
       interim_results: "true",
       language: "zh-CN",
       model: "nova-3",

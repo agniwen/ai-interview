@@ -27,6 +27,7 @@ export class MeetingLiveTranscriptProviderAuthorizationError extends Error {
 
 interface AuthorizationInput {
   captureId?: string;
+  endpointingMs?: number;
   language?: string;
   speechNoiseThreshold?: number;
   track: MeetingLiveTranscriptTrack;
@@ -169,7 +170,7 @@ export async function createDeepgramRealtimeTranscriptionAuthorization(
   if (!parsed.success) {
     throw new Error("Deepgram live transcription authorization returned a malformed response");
   }
-  return {
+  const authorization: MeetingLiveTranscriptAuthorization = {
     baseUrl: "wss://api.deepgram.com/v1/listen",
     clientSecret: parsed.data.access_token,
     expiresAt: new Date(Date.now() + parsed.data.expires_in * 1000).toISOString(),
@@ -178,4 +179,8 @@ export async function createDeepgramRealtimeTranscriptionAuthorization(
     provider: "deepgram",
     track: input.track,
   };
+  if (input.endpointingMs !== undefined) {
+    authorization.endpointingMs = input.endpointingMs;
+  }
+  return authorization;
 }

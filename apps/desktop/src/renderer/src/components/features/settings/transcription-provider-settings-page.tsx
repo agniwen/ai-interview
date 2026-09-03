@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  deepgramEndpointingMsSchema,
   MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES,
   meetingLiveTranscriptProviderSchema,
 } from "@app/shared/meeting-transcription";
@@ -29,6 +30,7 @@ const CAPABILITIES = [
   ["contextPrompting", "会议上下文"],
   ["liveCorrection", "实时校正"],
   ["speakerDiarization", "说话人拆分"],
+  ["utteranceEndpointing", "话语端点"],
   ["vocabulary", "热词"],
   ["wordTimestamps", "词级时间戳"],
 ] as const;
@@ -164,6 +166,32 @@ export function TranscriptionProviderSettingsPage(): React.JSX.Element {
               </SelectContent>
             </Select>
           </SettingsRow>
+          {settings.meetingLiveTranscriptProvider === "deepgram" ? (
+            <SettingsRow
+              description="连续静音达到该时长后，Deepgram 才会结束当前话语。下一次开始录制时生效。"
+              label="话语结束静音"
+            >
+              <Select
+                onValueChange={(value) => {
+                  const parsed = deepgramEndpointingMsSchema.safeParse(Number(value));
+                  if (parsed.success) {
+                    void updateSettings({ deepgramEndpointingMs: parsed.data });
+                  }
+                }}
+                value={String(settings.deepgramEndpointingMs)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="500">500 毫秒（响应更快）</SelectItem>
+                  <SelectItem value="1000">1 秒（推荐）</SelectItem>
+                  <SelectItem value="1500">1.5 秒（更少断句）</SelectItem>
+                  <SelectItem value="2000">2 秒（长停顿）</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          ) : null}
           <SettingsRow label="当前能力">
             <div className="flex flex-wrap justify-end gap-1.5">
               {CAPABILITIES.map(([key, label]) => (

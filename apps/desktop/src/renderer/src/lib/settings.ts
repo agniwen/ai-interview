@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { DEFAULT_DEEPGRAM_ENDPOINTING_MS } from "@app/shared/meeting-transcription";
 import { orpc } from "./orpc";
 
 /**
@@ -34,6 +35,7 @@ function cacheTransparentBackground(enabled: boolean): void {
 }
 
 const FALLBACK: DesktopSettings = {
+  deepgramEndpointingMs: DEFAULT_DEEPGRAM_ENDPOINTING_MS,
   meetingLiveTranscriptProvider: "qwen",
   notifyOnFinish: false,
   theme: "system",

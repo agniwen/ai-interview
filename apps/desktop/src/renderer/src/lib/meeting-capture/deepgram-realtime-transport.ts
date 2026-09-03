@@ -1,4 +1,5 @@
 // oxlint-disable promise/avoid-new -- WebSocket connection readiness is exposed as a promise.
+import { DEFAULT_DEEPGRAM_ENDPOINTING_MS } from "@app/shared/meeting-transcription";
 import type {
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptWord,
@@ -8,10 +9,6 @@ import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-trans
 
 const CONNECTION_TIMEOUT_MS = 10_000;
 const MAX_BUFFERED_BYTES = 256 * 1024;
-// 同一句话内部 Deepgram 会多次置 is_final=true；只有 speech_final 才代表一次停顿/一句结束。
-// endpointing 抬高到 300ms，避免默认 10ms 在几乎每个短停顿就判定一句结束导致疯狂换行。
-const DEEPGRAM_ENDPOINTING_MS = 300;
-
 const deepgramResultSchema = z
   .object({
     channel: z.object({
@@ -199,7 +196,10 @@ export function createDeepgramLiveUrl(authorization: MeetingLiveTranscriptAuthor
   url.searchParams.set("channels", "1");
   url.searchParams.set("diarize_model", "latest");
   url.searchParams.set("encoding", "linear16");
-  url.searchParams.set("endpointing", String(DEEPGRAM_ENDPOINTING_MS));
+  url.searchParams.set(
+    "endpointing",
+    String(authorization.endpointingMs ?? DEFAULT_DEEPGRAM_ENDPOINTING_MS),
+  );
   url.searchParams.set("interim_results", "true");
   url.searchParams.set("language", authorization.language ?? "zh-CN");
   url.searchParams.set("model", authorization.model);

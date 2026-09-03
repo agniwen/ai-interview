@@ -1,5 +1,6 @@
 import { oc } from "@orpc/contract";
 import {
+  deepgramEndpointingMsSchema,
   meetingLiveTranscriptAuthorizationSchema,
   meetingLiveTranscriptProviderSchema,
   meetingLiveTranscriptTrackSchema,
@@ -17,6 +18,7 @@ import { z } from "zod";
 export const themeModeSchema = z.enum(["light", "dark", "system"]);
 
 export const desktopSettingsSchema = z.object({
+  deepgramEndpointingMs: deepgramEndpointingMsSchema,
   meetingLiveTranscriptProvider: meetingLiveTranscriptProviderSchema,
   notifyOnFinish: z.boolean(),
   theme: themeModeSchema,

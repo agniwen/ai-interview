@@ -11,7 +11,7 @@ describe("provider authorizations", () => {
     );
 
     const authorization = await createDeepgramRealtimeTranscriptionAuthorization(
-      { track: "microphone" },
+      { endpointingMs: 1000, track: "microphone" },
       { apiKey: "permanent-deepgram-key", fetch },
     );
 
@@ -25,6 +25,7 @@ describe("provider authorizations", () => {
     );
     expect(authorization).toMatchObject({
       clientSecret: "short-jwt",
+      endpointingMs: 1000,
       language: "zh-CN",
       model: "nova-3",
       provider: "deepgram",

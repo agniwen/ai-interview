@@ -8,12 +8,14 @@ describe("desktopSettingsSchema", () => {
   it("carries the persisted transparent background preference", () => {
     expect(
       desktopSettingsSchema.parse({
+        deepgramEndpointingMs: 1500,
         meetingLiveTranscriptProvider: "deepgram",
         notifyOnFinish: false,
         theme: "system",
         transparentBackground: false,
       }),
     ).toEqual({
+      deepgramEndpointingMs: 1500,
       meetingLiveTranscriptProvider: "deepgram",
       notifyOnFinish: false,
       theme: "system",

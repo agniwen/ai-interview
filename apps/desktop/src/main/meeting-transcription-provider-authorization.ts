@@ -8,6 +8,7 @@ import type {
   MeetingLiveTranscriptProviderId,
   MeetingLiveTranscriptTrack,
 } from "@app/shared/meeting-transcription";
+import { readSettings } from "./settings";
 import { readMeetingTranscriptionProviderCredential } from "./meeting-transcription-provider-credentials";
 
 export async function createLocalMeetingLiveTranscriptAuthorization(input: {
@@ -19,10 +20,15 @@ export async function createLocalMeetingLiveTranscriptAuthorization(input: {
     return { state: "credential-missing" as const };
   }
   try {
+    const settings = readSettings();
     const authorization =
       input.provider === "deepgram"
         ? await createDeepgramRealtimeTranscriptionAuthorization(
-            { language: "zh-CN", track: input.track },
+            {
+              endpointingMs: settings.deepgramEndpointingMs,
+              language: "zh-CN",
+              track: input.track,
+            },
             { apiKey },
           )
         : await createQwenRealtimeTranscriptionAuthorization(
