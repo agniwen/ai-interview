@@ -1,11 +1,11 @@
 import { z } from "zod";
-import type { InterviewContextSnapshotInterviewer } from "@arc/db-schema/interview-snapshots";
+import type { InterviewContextSnapshotInterviewer } from "@app/db-schema/interview-snapshots";
 import {
   buildAgentInstructions,
   resolveClosingPrompt,
   resolveOpeningPrompt,
-} from "@arc/shared/interview/agent-instructions";
-import type { AgentInstructionContext } from "@arc/shared/interview/agent-instructions";
+} from "@app/shared/interview/agent-instructions";
+import type { AgentInstructionContext } from "@app/shared/interview/agent-instructions";
 
 export const INTERVIEW_DISPATCH_SCHEMA_VERSION = 2 as const;
 

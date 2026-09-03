@@ -72,8 +72,8 @@
 
 当前重复实现：
 
-- [`cli.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/cli.ts) 的 `argument(name)`。
-- [`report-costs.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/report-costs.ts) 的同名函数。
+- [`cli.ts`](../../apps/server/src/scripts/meeting-transcription-eval/cli.ts) 的 `argument(name)`。
+- [`report-costs.ts`](../../apps/server/src/scripts/meeting-transcription-eval/report-costs.ts) 的同名函数。
 
 手写 `indexOf()` 的具体问题：
 
@@ -96,8 +96,8 @@
 
 当前重复实现：
 
-- [`cli.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/cli.ts) 的 per-chunk `while (attempt < 3)` 与 `1000 * 2 ** (attempt - 1)`。
-- [`runner.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/runner.ts) 还有一层可配置 attempt loop；当前 CLI 实际传 `maxAttempts: 1`。
+- [`cli.ts`](../../apps/server/src/scripts/meeting-transcription-eval/cli.ts) 的 per-chunk `while (attempt < 3)` 与 `1000 * 2 ** (attempt - 1)`。
+- [`runner.ts`](../../apps/server/src/scripts/meeting-transcription-eval/runner.ts) 还有一层可配置 attempt loop；当前 CLI 实际传 `maxAttempts: 1`。
 
 仓库后端已经直接依赖并在 resume parsing 使用 `p-retry@7.1.1`，因此复用不会扩大供应链。`p-retry` 官方支持 `shouldRetry`、`onFailedAttempt`、`maxRetryTime`、`AbortSignal`、指数 factor/min/max timeout，正好覆盖现有语义。[p-retry API](https://github.com/sindresorhus/p-retry#api)
 
@@ -110,15 +110,15 @@
 - `onFailedAttempt` 只记录已实际消费的 retry，不能把业务层恢复次数混入 SDK 内部重试。
 - 不同时在 runner、adapter、SDK 三层启用重试。建议 benchmark 只保留 adapter 的 per-chunk retry；runner 继续 `maxAttempts: 1`。
 
-BullMQ 的 job retries/backoff 已由 [`@arc/meeting-processing-queue`](../../packages/meeting-processing-queue/src/meeting-transcription.ts) 提供，不要再用 `p-retry` 包裹整个 Worker job。
+BullMQ 的 job retries/backoff 已由 [`@app/meeting-processing-queue`](../../packages/meeting-processing-queue/src/meeting-transcription.ts) 提供，不要再用 `p-retry` 包裹整个 Worker job。
 
 ### 3. 并发限制：采用 `p-limit` 的 permit，保留有副作用的批处理边界
 
 审计发现三种并发语义：
 
 - Final Transcription Worker 的 media permit queue 只是通用 FIFO concurrency gate，已用 `p-limit` 替换，并保留 task 内的共享磁盘 reservation。
-- [`local-meeting-multipart.ts`](../../apps/ai-recruitment-copilot-desktop/src/main/meeting-capture/local-meeting-multipart.ts) 用共享 `nextInstruction` + 四个 `uploadNext()` worker 控制并发，同时保证首错后不再领取新 part。
-- [`meeting-purge/processor.ts`](../../apps/ai-recruitment-copilot-worker/src/meeting-purge/processor.ts) 每八项切片，再 `Promise.allSettled()`；某批失败后不会开始下一批删除。
+- [`local-meeting-multipart.ts`](../../apps/desktop/src/main/meeting-capture/local-meeting-multipart.ts) 用共享 `nextInstruction` + 四个 `uploadNext()` worker 控制并发，同时保证首错后不再领取新 part。
+- [`meeting-purge/processor.ts`](../../apps/worker/src/meeting-purge/processor.ts) 每八项切片，再 `Promise.allSettled()`；某批失败后不会开始下一批删除。
 
 `p-map` 官方明确支持控制 concurrency、首错停止和 signal；7.0.6 零直接依赖、7,903 万周下载、2026-07 仍活跃。[p-map 官方 API](https://github.com/sindresorhus/p-map#api)
 
@@ -135,7 +135,7 @@ BullMQ 的 job retries/backoff 已由 [`@arc/meeting-processing-queue`](../../pa
 
 候选 `proper-lockfile` 很流行，也用原子 `mkdir` 并通过 `mtime` heartbeat 判断 stale；但最新 npm 版本仍是 2021 年。更关键的是，它的默认 stale 机制与本项目两个 lock 的语义不同。[proper-lockfile 设计](https://github.com/moxystudio/node-proper-lockfile#design)
 
-Benchmark [`run-lock.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/run-lock.ts) 的目的不是普通进程互斥，而是防止：
+Benchmark [`run-lock.ts`](../../apps/server/src/scripts/meeting-transcription-eval/run-lock.ts) 的目的不是普通进程互斥，而是防止：
 
 - 人为判断“旧锁”后误启动第二轮真实付费调用。
 - lock 被手工替换后旧 owner 在 release 时删除新 owner 的 lock。
@@ -149,7 +149,7 @@ Desktop `active-capture.lock` 则与录制 manifest/recovery 状态协同，不�
 
 ### 5. 原子写：采用库处理 file replace，保留目录耐久 fence
 
-[`local-meeting-recording-store.ts`](../../apps/ai-recruitment-copilot-desktop/src/main/meeting-capture/local-meeting-recording-store.ts) 的 `atomicWrite()` 做了：
+[`local-meeting-recording-store.ts`](../../apps/desktop/src/main/meeting-capture/local-meeting-recording-store.ts) 的 `atomicWrite()` 做了：
 
 1. 随机临时路径与 `wx`；
 2. `0600` 权限；
@@ -167,7 +167,7 @@ Desktop `active-capture.lock` 则与录制 manifest/recovery 状态协同，不�
 
 ### 6. CER / Levenshtein：保留长文本 exact Myers bit-vector
 
-[`metrics.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/metrics.ts) 的 CER 不是普通输入框模糊匹配：
+[`metrics.ts`](../../apps/server/src/scripts/meeting-transcription-eval/metrics.ts) 的 CER 不是普通输入框模糊匹配：
 
 - 输入允许完整长会议中文文本，单份 transcript 有显式资源上限。
 - 现有实现是 BigInt Myers bit-vector exact edit distance，并有长相同串、单错误和空参考回归测试。
@@ -205,8 +205,8 @@ Desktop `active-capture.lock` 则与录制 manifest/recovery 状态协同，不�
 
 潜在替换位置：
 
-- [`providers/openai.ts`](../../apps/ai-recruitment-copilot-backend/src/server/routes/meetings/transcription/providers/openai.ts)
-- [`providers/openai-realtime.ts`](../../apps/ai-recruitment-copilot-backend/src/server/routes/meetings/transcription/providers/openai-realtime.ts)
+- [`providers/openai.ts`](../../apps/server/src/server/routes/meetings/transcription/providers/openai.ts)
+- [`providers/openai-realtime.ts`](../../apps/server/src/server/routes/meetings/transcription/providers/openai-realtime.ts)
 
 迁移前必须满足：
 
@@ -219,11 +219,11 @@ Desktop `active-capture.lock` 则与录制 manifest/recovery 状态协同，不�
 
 OpenAI 官方说明连接错误、408、409、429 和 5xx 默认会重试两次；本项目必须关闭它，避免隐藏付费调用次数。[OpenAI SDK retries/timeouts](https://github.com/openai/openai-node#retries) 官方音频 API 也确认 `gpt-4o-transcribe-diarize` + `diarized_json` 返回 speaker segment。[OpenAI Audio API](https://platform.openai.com/docs/api-reference/audio/createTranscription)
 
-Desktop 的 [`openai-realtime-transport.ts`](../../apps/ai-recruitment-copilot-desktop/src/renderer/src/lib/meeting-capture/openai-realtime-transport.ts) 使用浏览器 WebRTC、RTCDataChannel backpressure 和 ephemeral secret。它不是 OpenAI Node SDK 的目标面，不要为了“全 SDK 化”迁移。
+Desktop 的 [`openai-realtime-transport.ts`](../../apps/desktop/src/renderer/src/lib/meeting-capture/openai-realtime-transport.ts) 使用浏览器 WebRTC、RTCDataChannel backpressure 和 ephemeral secret。它不是 OpenAI Node SDK 的目标面，不要为了“全 SDK 化”迁移。
 
 #### Deepgram：P1 官方 SDK spike
 
-[`providers/deepgram.ts`](../../apps/ai-recruitment-copilot-backend/src/server/routes/meetings/transcription/providers/deepgram.ts) 手写了 multipart/body、query、auth、timeout、status/error 与响应类型。
+[`providers/deepgram.ts`](../../apps/server/src/server/routes/meetings/transcription/providers/deepgram.ts) 手写了 multipart/body、query、auth、timeout、status/error 与响应类型。
 
 `@deepgram/sdk@5.7.0` 由 Deepgram 官方维护，四位 npm maintainer，约 72.8 万周下载；官方提供 `listen.v1.media.transcribeFile()`、导出 response types、custom fetch/base URL、timeout/maxRetries 和 `.withRawResponse()`。[Deepgram SDK README](https://github.com/deepgram/deepgram-js-sdk#file-transcription)
 
@@ -239,7 +239,7 @@ SDK 只替换 transport；说话人 key、双轨语义、时间偏移、Zod 解�
 
 #### Tingwu：当前不因低下载量直接引入；生产化时必须改官方 SDK
 
-[`tingwu-http.ts`](../../apps/ai-recruitment-copilot-backend/src/scripts/meeting-transcription-eval/tingwu-http.ts) 手写 ACS3-HMAC-SHA256 canonical query/signing。这类安全协议通常应该交给供应商 SDK。
+[`tingwu-http.ts`](../../apps/server/src/scripts/meeting-transcription-eval/tingwu-http.ts) 手写 ACS3-HMAC-SHA256 canonical query/signing。这类安全协议通常应该交给供应商 SDK。
 
 但 `@alicloud/tingwu20230930@2.0.24` 虽由 Alibaba Cloud SDK 团队、五位 npm maintainer 持续发布，周下载只有 529，远未达到用户要求的“流行”门槛，而且 npm 元数据没有独立包仓库。阿里云官方 CreateTask 文档明确建议通过 OpenAPI Explorer 生成 SDK 代码并使用内置凭据安全，而非手签。[Alibaba Cloud SDK 官方仓库](https://github.com/aliyun/alibabacloud-typescript-sdk) [Tingwu CreateTask 官方文档](https://help.aliyun.com/en/tingwu/api-tingwu-2023-09-30-createtask)
 
@@ -251,7 +251,7 @@ SDK 只替换 transport；说话人 key、双轨语义、时间偏移、Zod 解�
 
 ### 10. FFmpeg：保留透明的 `execFile(argv)` 薄层
 
-当前 [`audio-pipeline.ts`](../../apps/ai-recruitment-copilot-backend/src/server/routes/meetings/transcription/audio-pipeline.ts) 只运行两个透明、固定 argv 的 FFmpeg 操作，并显式校验 `ffmpeg -version`、timeout、kill signal、codec 和 30 分钟切片。Worker playback mixer 也是同类固定命令。
+当前 [`audio-pipeline.ts`](../../apps/server/src/server/routes/meetings/transcription/audio-pipeline.ts) 只运行两个透明、固定 argv 的 FFmpeg 操作，并显式校验 `ffmpeg -version`、timeout、kill signal、codec 和 30 分钟切片。Worker playback mixer 也是同类固定命令。
 
 候选情况：
 
@@ -264,7 +264,7 @@ SDK 只替换 transport；说话人 key、双轨语义、时间偏移、Zod 解�
 
 ### 11. 虚拟化：已经使用正确的库
 
-[`meeting-transcript-panel.tsx`](../../apps/ai-recruitment-copilot-desktop/src/renderer/src/components/features/meeting/meeting-transcript-panel.tsx) 已经使用 `@tanstack/react-virtual`，包括 stable turn id、dynamic `measureElement` 和 overscan。
+[`meeting-transcript-panel.tsx`](../../apps/desktop/src/renderer/src/components/features/meeting/meeting-transcript-panel.tsx) 已经使用 `@tanstack/react-virtual`，包括 stable turn id、dynamic `measureElement` 和 overscan。
 
 该包由 TanStack 三位 npm maintainer 维护，约 2,108 万周下载、MIT、55 KiB；官方定位正是 headless 大列表与动态测量。[TanStack Virtual 官方仓库](https://github.com/TanStack/virtual) [Virtualizer API](https://tanstack.com/virtual/latest/docs/api/virtualizer)
 

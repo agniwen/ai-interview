@@ -1,4 +1,5 @@
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, PipelineStage } from "@app/db-schema/studio-interviews";
+import { pipelineStageSchema } from "@app/db-schema/studio-interviews";
 import { setup, transition } from "xstate";
 
 export type CandidatePipelineEventType =
@@ -44,7 +45,9 @@ export const candidatePipelineMachine = setup({
       event.type === "REACTIVATE" && event.target === params.target,
   },
   types: {
+    // SAFETY: XState's setup API uses empty runtime sentinels solely to declare compile-time types.
     context: {} as CandidatePipelineContext,
+    // SAFETY: XState's setup API uses empty runtime sentinels solely to declare compile-time types.
     events: {} as CandidatePipelineEvent,
   },
 }).createMachine({
@@ -141,9 +144,13 @@ export function getCandidatePipelineEventResult(
     return null;
   }
 
+  const parsedStage = pipelineStageSchema.safeParse(nextSnapshot.value);
+  if (!parsedStage.success) {
+    return null;
+  }
   return {
     outcome: event.type === "CLOSE" ? event.outcome : "in_pipeline",
-    stage: nextSnapshot.value as PipelineStage,
+    stage: parsedStage.data,
   };
 }
 

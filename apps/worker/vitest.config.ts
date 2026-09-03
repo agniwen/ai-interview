@@ -1,0 +1,20 @@
+import path from "node:path";
+import { config as loadEnv } from "dotenv";
+import { defineConfig } from "vitest/config";
+
+loadEnv({ path: path.resolve(import.meta.dirname, ".env"), quiet: true });
+
+const verbose =
+  process.env.VITEST_VERBOSE === "1" ||
+  process.env.VITEST_VERBOSE === "true" ||
+  process.env.VITEST_REPORTER === "verbose";
+
+export default defineConfig({
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.{ts,tsx}"],
+    // VITEST_VERBOSE=1 → list every test; default hides console from passed tests.
+    reporters: verbose ? ["verbose"] : ["default"],
+    silent: verbose ? false : "passed-only",
+  },
+});

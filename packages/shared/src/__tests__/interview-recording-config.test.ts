@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
+import { resolveInterviewRecordingEnabled } from "@app/shared/interview/recording-config";
 
 describe("interview recording config", () => {
   it("enables interview recording by default", () => {

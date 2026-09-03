@@ -4,6 +4,7 @@ import {
   buildResumeParseQueuePrefix,
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
+  hasResumeParseAttemptsRemaining,
   resolveResumeParseWorkerConcurrency,
   resumeParseJobSchema,
   shouldRemoveCancelledResumeParseJob,
@@ -23,12 +24,17 @@ describe("resume parse queue configuration", () => {
 
   it("uses retry defaults when environment values are absent", () => {
     expect(defaultResumeParseJobOptions({})).toMatchObject({
-      attempts: 3,
+      attempts: 2,
       backoff: {
         delay: 30_000,
         type: "exponential",
       },
     });
+  });
+
+  it("retries exactly once after the initial parse attempt", () => {
+    expect(hasResumeParseAttemptsRemaining(0, 2)).toBe(true);
+    expect(hasResumeParseAttemptsRemaining(1, 2)).toBe(false);
   });
 
   it("defaults resume parsing concurrency to 9", () => {

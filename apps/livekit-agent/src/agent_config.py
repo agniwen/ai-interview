@@ -11,9 +11,7 @@ def resolve_agent_name(env: Mapping[str, str] | None = None) -> str:
 
 def resolve_self_hosted(env: Mapping[str, str] | None = None) -> bool:
     source = os.environ if env is None else env
-    return source.get("INTERVIEW_SELF_HOSTED", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    value = source.get("INTERVIEW_SELF_HOSTED", "").strip().lower()
+    if not value:
+        return True
+    return value not in ("0", "false", "no", "off")

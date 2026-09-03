@@ -14,21 +14,21 @@
 
 1. `runSummaryJob()` 生成 summary 和 evaluation。
 2. 把会话的 `summaryStatus` 更新为 `ready`，同时写入 `transcriptSummary` 与 `evaluationCriteriaResults`。
-3. 随即以 fire-and-forget 方式调用 `notifyInterviewSummaryReady()`。[源码：interview-summary-job.ts 第 121–161 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-summary-job.ts#L121)
-4. 通知函数要求上下文存在、状态为 `ready`、存在创建人和面试轮次；之后为每个飞书收件账号 claim 一条通知，调用文档 ensure 逻辑，再发送卡片。[源码：feishu-interview-notifications.ts 第 656–717 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts#L656)
+3. 随即以 fire-and-forget 方式调用 `notifyInterviewSummaryReady()`。[源码：interview-summary-job.ts 第 121–161 行](../../apps/server/src/server/routes/agent/utils/interview-summary-job.ts#L121)
+4. 通知函数要求上下文存在、状态为 `ready`、存在创建人和面试轮次；之后为每个飞书收件账号 claim 一条通知，调用文档 ensure 逻辑，再发送卡片。[源码：feishu-interview-notifications.ts 第 656–717 行](../../apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts#L656)
 
 这意味着自动生成的精确业务时点是：**AI 报告已落库并变为 `ready`，准备发送飞书 summary-ready 通知时**。
 
-另有一个受 `X-Agent-Secret` 保护的通知恢复接口，它可针对指定会话再次调用同一通知函数，或者批量重试 `failed`/`pending` 通知。[源码：agent/route.ts 第 334–357 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/route.ts#L334) [源码：feishu-interview-notifications.ts 第 733–769 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts#L733)
+另有一个受 `X-Agent-Secret` 保护的通知恢复接口，它可针对指定会话再次调用同一通知函数，或者批量重试 `failed`/`pending` 通知。[源码：agent/route.ts 第 334–357 行](../../apps/server/src/server/routes/agent/route.ts#L334) [源码：feishu-interview-notifications.ts 第 733–769 行](../../apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts#L733)
 
 ## Debugger “重新发送通知”完整链路
 
-1. `/platform/notifications` 页面渲染通知表格。[源码：platform.notifications.tsx 第 63–101 行](../../apps/ai-recruitment-copilot/src/routes/platform.notifications.tsx#L63)
-2. 行操作中的“重新发送通知”调用 React Query mutation。[源码：notifications-grid.tsx 第 313–326 行](../../apps/ai-recruitment-copilot/src/components/features/platform/notifications/notifications-grid.tsx#L313)
-3. mutation 请求 `POST /api/platform/notifications/:id/resend`。[源码：notifications-grid.tsx 第 170–189 行](../../apps/ai-recruitment-copilot/src/components/features/platform/notifications/notifications-grid.tsx#L170)
-4. Platform 路由受 admin middleware 保护，并把该请求交给 `resendInterviewSummaryNotification(id)`。[源码：platform/route.ts 第 628–637 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/platform/route.ts#L628) [源码：notifications/route.ts 第 31–42 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/platform/routes/notifications/route.ts#L31)
-5. 重发服务校验：通知存在、类型为 `summary_ready`、带 conversation、provider 是飞书、报告已经 `ready`、存在面试轮次；不满足时在创建文档前退出。[源码：feishu-interview-notifications.ts 第 498–547 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts#L498)
-6. 服务把通知状态置为 `pending`，调用 `ensureInterviewEvaluationDocument()`，再将返回 URL 写入飞书卡片并发送；成功后更新 message ID、发送时间和 `sent` 状态，失败则标记 `failed`。[源码：feishu-interview-notifications.ts 第 549–586 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts#L549)
+1. `/platform/notifications` 页面渲染通知表格。[源码：platform.notifications.tsx 第 63–101 行](../../apps/web/src/routes/platform.notifications.tsx#L63)
+2. 行操作中的“重新发送通知”调用 React Query mutation。[源码：notifications-grid.tsx 第 313–326 行](../../apps/web/src/components/features/platform/notifications/notifications-grid.tsx#L313)
+3. mutation 请求 `POST /api/platform/notifications/:id/resend`。[源码：notifications-grid.tsx 第 170–189 行](../../apps/web/src/components/features/platform/notifications/notifications-grid.tsx#L170)
+4. Platform 路由受 admin middleware 保护，并把该请求交给 `resendInterviewSummaryNotification(id)`。[源码：platform/route.ts 第 628–637 行](../../apps/server/src/server/routes/platform/route.ts#L628) [源码：notifications/route.ts 第 31–42 行](../../apps/server/src/server/routes/platform/routes/notifications/route.ts#L31)
+5. 重发服务校验：通知存在、类型为 `summary_ready`、带 conversation、provider 是飞书、报告已经 `ready`、存在面试轮次；不满足时在创建文档前退出。[源码：feishu-interview-notifications.ts 第 498–547 行](../../apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts#L498)
+6. 服务把通知状态置为 `pending`，调用 `ensureInterviewEvaluationDocument()`，再将返回 URL 写入飞书卡片并发送；成功后更新 message ID、发送时间和 `sent` 状态，失败则标记 `failed`。[源码：feishu-interview-notifications.ts 第 549–586 行](../../apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts#L549)
 
 ## “有则复用，无则创建”当前如何工作
 
@@ -36,7 +36,7 @@
 
 - 先按 `notificationId` 查询 `interview_notification.feishu_document_url`。
 - URL 非空：立即返回，不调用飞书创建 API。
-- URL 为空：从面试上下文生成评价表 block，创建飞书 Docx、写入 block、把收件人加为编辑协作者，然后把 `documentId` 和 `documentUrl` 保存到该通知记录。[源码：feishu-interview-notifications.ts 第 390–436 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts#L390)
+- URL 为空：从面试上下文生成评价表 block，创建飞书 Docx、写入 block、把收件人加为编辑协作者，然后把 `documentId` 和 `documentUrl` 保存到该通知记录。[源码：feishu-interview-notifications.ts 第 390–436 行](../../apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts#L390)
 
 数据库已经为通知记录提供 `feishu_document_id` 和 `feishu_document_url` 两列，并通过“面试记录 + 会话 + 通知类型 + 收件人 + provider”唯一索引约束通知记录身份。[源码：schema.ts 第 1676–1718 行](../../packages/db-schema/src/schema.ts#L1676)
 
@@ -47,7 +47,7 @@
 1. 使用 `tenant_access_token` 创建新版文档。
 2. 向文档根 block 及各 callout 父 block 分批追加内容。
 3. 以收件人的 Open ID 增加 `edit` 协作者。
-4. 返回 `documentId` 和 URL。[源码：feishu-docx.ts 第 110–175 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/feishu-docx.ts#L110)
+4. 返回 `documentId` 和 URL。[源码：feishu-docx.ts 第 110–175 行](../../apps/server/src/server/routes/feishu/utils/feishu-docx.ts#L110)
 
 飞书官方资料确认：新版文档是一棵 block 树；创建接口支持应用或用户 access token，文档接口存在每应用 5 次/秒的特殊频控；增加协作者接口支持 `tenant_access_token`、`openid` 和 `edit` 权限角色，但要求应用与用户满足可见性且调用身份有添加协作者权限。[飞书：创建文档](https://open.feishu.cn/document/server-docs/docs/docs/docx-v1/document/create) [飞书：新版文档数据结构](https://open.feishu.cn/document/server-docs/docs/docs/docx-v1/docx-structure) [飞书：获取文档基本信息与频控](https://open.feishu.cn/document/server-docs/docs/docs/docx-v1/document/get?lang=zh-CN) [飞书：增加协作者权限](https://open.feishu.cn/document/server-docs/docs/permission/permission-member/create)
 
@@ -63,14 +63,14 @@
 4. 飞书创建/授权/发卡失败：通知变为 `failed` 且错误可在 Debugger 看到。
 5. 已有 URL 的通知即使状态为 `sent`，手动点击重发也复用文档并刷新消息 ID/发送时间。
 
-当前已有测试覆盖 Docx 的“创建、写块、授权”和限频重试，[源码：feishu-docx.test.ts 第 8–101 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/feishu/__tests__/feishu-docx.test.ts#L8)；Platform 路由测试只 mock 了重发服务，尚未覆盖 ensure 的创建/复用分支。[源码：notifications route test 第 53–66 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/platform/routes/notifications/__tests__/route.test.ts#L53)
+当前已有测试覆盖 Docx 的“创建、写块、授权”和限频重试，[源码：feishu-docx.test.ts 第 8–101 行](../../apps/server/src/server/routes/feishu/__tests__/feishu-docx.test.ts#L8)；Platform 路由测试只 mock 了重发服务，尚未覆盖 ensure 的创建/复用分支。[源码：notifications route test 第 53–66 行](../../apps/server/src/server/routes/platform/routes/notifications/__tests__/route.test.ts#L53)
 
 ### 第二阶段：如业务要求“绝不重复”，增加强幂等
 
 基础语义当前已满足，但以下竞态仍可能重复创建：
 
 - 两个管理员从不同标签页/客户端同时重发同一记录，都可能在 URL 为空时通过检查并各自创建文档。前端的 pending 禁用只能保护当前组件实例。
-- 飞书已经创建文档，但写 block、授权或数据库更新失败；由于 ID/URL 只在所有飞书步骤成功后落库，下次重试无法识别已创建的文档，会留下孤儿文档并再建一份。[源码：feishu-docx.ts 第 114–166 行](../../apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/feishu-docx.ts#L114)
+- 飞书已经创建文档，但写 block、授权或数据库更新失败；由于 ID/URL 只在所有飞书步骤成功后落库，下次重试无法识别已创建的文档，会留下孤儿文档并再建一份。[源码：feishu-docx.ts 第 114–166 行](../../apps/server/src/server/routes/feishu/utils/feishu-docx.ts#L114)
 
 建议在 `ensureInterviewEvaluationDocument()` 外围增加数据库级互斥（例如以 notification ID 获取 PostgreSQL advisory transaction lock），锁内重新读取 URL，再决定是否创建。若还要覆盖“飞书创建成功、后续步骤失败”，则将创建过程拆为可恢复状态：
 

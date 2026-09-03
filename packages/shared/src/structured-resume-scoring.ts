@@ -2,9 +2,11 @@ import type {
   JobDescriptionDeductionRules,
   JobDescriptionDimensionWeights,
   StructuredResumeRuleId,
-} from "@arc/db-schema/job-description-structured-config";
-import { DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES } from "@arc/db-schema/job-description-structured-config";
-import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/job-description-structured-config";
+import { DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES } from "@app/db-schema/job-description-structured-config";
+import type { JsonValue } from "@app/db-schema/json";
+import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
+import { z } from "zod";
 
 export const STRUCTURED_RESUME_DIMENSIONS = [
   "skillMatch",
@@ -33,9 +35,12 @@ function normalizedEvidenceText(value: string): string {
   return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase("zh-CN");
 }
 
-function collectEvidenceLeafValues(value: unknown, output: string[]): void {
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    const normalized = normalizedEvidenceText(String(value));
+const evidenceScalarSchema = z.union([z.string(), z.number(), z.boolean()]);
+
+function collectEvidenceLeafValues(value: JsonValue | undefined, output: string[]): void {
+  const scalar = evidenceScalarSchema.safeParse(value);
+  if (scalar.success) {
+    const normalized = normalizedEvidenceText(String(scalar.data));
     if (normalized) {
       output.push(normalized);
     }
@@ -47,16 +52,17 @@ function collectEvidenceLeafValues(value: unknown, output: string[]): void {
     }
     return;
   }
-  if (value && typeof value === "object") {
-    for (const item of Object.values(value)) {
-      collectEvidenceLeafValues(item, output);
-    }
+  if (value === null || value === undefined) {
+    return;
+  }
+  for (const item of Object.values(value)) {
+    collectEvidenceLeafValues(item, output);
   }
 }
 
 export function areStructuredResumeEvidenceSourcesValid(input: {
   evidence: StructuredResumeEvidence[];
-  resumeProfile: unknown;
+  resumeProfile: JsonValue;
   resumeText: string | null;
 }): boolean {
   const profileLeaves: string[] = [];
@@ -164,11 +170,17 @@ interface DeductionRule {
   thresholdRank?: number;
 }
 
-export type { StructuredResumeRuleId } from "@arc/db-schema/job-description-structured-config";
+export type { StructuredResumeRuleId } from "@app/db-schema/job-description-structured-config";
 
 export const STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION = 1;
 
-export const STRUCTURED_RESUME_DEDUCTION_CATALOG: Record<StructuredResumeRuleId, DeductionRule> = {
+function defineDeductionCatalog(
+  catalog: Record<StructuredResumeRuleId, DeductionRule>,
+): Record<StructuredResumeRuleId, DeductionRule> {
+  return catalog;
+}
+
+export const STRUCTURED_RESUME_DEDUCTION_CATALOG = defineDeductionCatalog({
   "education.below_tier": {
     dimension: "educationBackground",
     points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["education.below_tier"].points,
@@ -275,7 +287,7 @@ export const STRUCTURED_RESUME_DEDUCTION_CATALOG: Record<StructuredResumeRuleId,
     thresholdFamily: "stability.job_change_frequency",
     thresholdRank: 1,
   },
-};
+});
 
 const EVIDENCE_CAPPED_DIMENSIONS = new Set<StructuredResumeDimension>([
   "educationBackground",
@@ -339,30 +351,37 @@ function calculateDimension(
     }
   }
   const selected = selectedMatchedJudgments(judgments, deductionRules);
-  const appliedDeductions = selected.map((judgment) => ({
-    ...judgment,
-    appliedPoints: deductionRules[judgment.ruleId].points * (judgment.units ?? 1),
-  }));
-  const deductionTotal = appliedDeductions.reduce(
-    (total, deduction) => total + deduction.appliedPoints,
-    0,
-  );
-  const hasDirectZero = selected.some(
+  const directZeroJudgment = selected.find(
     (judgment) => STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId].directZero,
   );
-  const insufficientEvidenceRuleIds = judgments
-    .filter(
-      (judgment) =>
-        judgment.status === "insufficient_evidence" && deductionRules[judgment.ruleId].enabled,
-    )
-    .map((judgment) => judgment.ruleId);
-  let rawScore = Math.max(100 - deductionTotal, 0);
-  if (insufficientEvidenceRuleIds.length > 0 && EVIDENCE_CAPPED_DIMENSIONS.has(dimension)) {
-    rawScore = Math.min(rawScore, 50);
+  const appliedJudgments = directZeroJudgment ? [directZeroJudgment] : selected;
+  const appliedDeductions: AppliedDeduction[] = [];
+  let remainingScore = 100;
+  for (const judgment of appliedJudgments) {
+    const requestedPoints = STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId].directZero
+      ? 100
+      : deductionRules[judgment.ruleId].points * (judgment.units ?? 1);
+    const appliedPoints = Math.min(requestedPoints, remainingScore);
+    if (appliedPoints > 0) {
+      appliedDeductions.push({ ...judgment, appliedPoints });
+      remainingScore -= appliedPoints;
+    }
   }
-  if (hasDirectZero) {
-    rawScore = 0;
+  const insufficientEvidenceJudgments = judgments.filter(
+    (judgment) =>
+      judgment.status === "insufficient_evidence" && deductionRules[judgment.ruleId].enabled,
+  );
+  const insufficientEvidenceRuleIds = insufficientEvidenceJudgments.map(
+    (judgment) => judgment.ruleId,
+  );
+  const [evidenceCapOwner] = insufficientEvidenceJudgments;
+  if (evidenceCapOwner && remainingScore > 50 && EVIDENCE_CAPPED_DIMENSIONS.has(dimension)) {
+    const appliedPoints = remainingScore - 50;
+    appliedDeductions.push({ ...evidenceCapOwner, appliedPoints });
+    remainingScore = 50;
   }
+  const deductionTotal = 100 - remainingScore;
+  const rawScore = remainingScore;
   return {
     appliedDeductions,
     deductionTotal,
@@ -383,8 +402,8 @@ export function computeStructuredResumeEvaluation(
   if (weightTotal !== 100) {
     throw new Error("Structured resume dimension weights must total 100.");
   }
-  const dimensions = Object.fromEntries(
-    STRUCTURED_RESUME_DIMENSIONS.map((dimension) => [
+  const dimensionEntries = STRUCTURED_RESUME_DIMENSIONS.map(
+    (dimension): [StructuredResumeDimension, StructuredResumeDimensionCalculation] => [
       dimension,
       calculateDimension(
         dimension,
@@ -392,8 +411,13 @@ export function computeStructuredResumeEvaluation(
         input.dimensionRuleJudgments[dimension],
         input.weights[dimension],
       ),
-    ]),
-  ) as Record<StructuredResumeDimension, StructuredResumeDimensionCalculation>;
+    ],
+  );
+  // SAFETY: dimensionEntries is generated from every member of STRUCTURED_RESUME_DIMENSIONS exactly once.
+  const dimensions = Object.fromEntries(dimensionEntries) as Record<
+    StructuredResumeDimension,
+    StructuredResumeDimensionCalculation
+  >;
   const weightedBaseHundredths = STRUCTURED_RESUME_DIMENSIONS.reduce(
     (total, dimension) => total + dimensions[dimension].weightedContributionHundredths,
     0,
@@ -493,11 +517,13 @@ export function applyGateCorrection(
 export function deriveStructuredResumeSummaries(
   evaluation: StructuredResumeCalculation | StructuredResumeEvaluationV1,
 ): StructuredResumeSummaryFields {
-  const gateSortRank = {
-    failed: 2,
-    needs_verification: 1,
-    passed: 0,
-  }[evaluation.gates.effectiveStatus] as 0 | 1 | 2;
+  const gateSortRank = (
+    {
+      failed: 2,
+      needs_verification: 1,
+      passed: 0,
+    } satisfies Record<StructuredResumeGateStatus, 0 | 1 | 2>
+  )[evaluation.gates.effectiveStatus];
   const compositeScore =
     "compositeScore" in evaluation
       ? evaluation.compositeScore

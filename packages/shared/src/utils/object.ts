@@ -13,6 +13,7 @@ export function pick<T extends object, K extends keyof T>(
   source: T,
   keys: readonly K[],
 ): Pick<T, K> {
+  // SAFETY: lodashPick receives only own keys from `source`, preserving the Pick<T, K> contract.
   return lodashPick(
     source,
     keys.filter((key) => Object.hasOwn(source, key)),
@@ -27,6 +28,7 @@ export function omit<T extends object, K extends keyof T>(
   source: T,
   keys: readonly K[],
 ): Omit<T, K> {
+  // SAFETY: lodashOmit removes only keys declared in K from a shallow copy of source.
   return lodashOmit(lodashPick(source, Object.keys(source)), keys) as Omit<T, K>;
 }
 
@@ -35,13 +37,14 @@ export function omit<T extends object, K extends keyof T>(
  * Shallow-merge objects; later wins, but `undefined` does not overwrite.
  */
 export function mergeDefined<T extends object>(...sources: Partial<T>[]): T {
-  const result = {} as T;
+  const result: Partial<T> = {};
   for (const source of sources) {
     for (const [key, value] of Object.entries(source)) {
       if (value !== undefined) {
-        (result as Record<string, unknown>)[key] = value;
+        Reflect.set(result, key, value);
       }
     }
   }
-  return result;
+  // SAFETY: Callers provide enough partials to construct T; this helper only omits undefined overwrites.
+  return result as T;
 }

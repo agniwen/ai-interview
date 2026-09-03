@@ -1,0 +1,126 @@
+"use client";
+
+import { IconUpload } from "@tabler/icons-react";
+import type { ReactNode } from "react";
+
+import { Button } from "@/components/ui/button";
+import { DataField } from "@/components/features/display/data-field";
+import { DataFields } from "@/components/features/display/data-fields";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
+import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
+import { getResumeDocumentKind, resumeDocumentFormats } from "@app/shared/resume-documents";
+
+/**
+ * 招聘台与 AI 面试详情共用的"候选人基础信息卡片"。
+ * 只读展示候选人身份维度的字段，附带可选简历预览按钮与 footer 操作槽。
+ *
+ * Read-only candidate basic-info card shared between the resume library detail
+ * dialog and the AI interview detail/edit dialogs. Exposes an optional footer
+ * slot for callers (e.g. "编辑候选人信息" jump to the resume library).
+ */
+export interface CandidateBasicInfoViewProps {
+  candidateName: string;
+  candidateEmail: string | null;
+  candidatePhone: string | null;
+  targetRole: string | null;
+  jobDescriptionName: string | null;
+  creatorName: string | null;
+  /** 简历文件名（仅展示）。Resume filename, display only. */
+  resumeFileName: string | null;
+  /** 是否存在简历附件（决定预览按钮是否启用）。 */
+  hasResumeFile: boolean;
+  /** 预览简历的 URL；省略则不渲染预览按钮。 */
+  pdfPreviewUrl?: string;
+  /** 替换简历文件的入口；通常打开编辑弹窗。 */
+  onReplaceResumeFile?: () => void;
+  /** 卡片底部的可选操作区（例如「编辑候选人信息」跳转按钮）。 */
+  footer?: ReactNode;
+  className?: string;
+}
+
+function renderText(value: string | null) {
+  return value && value.trim() ? value : "—";
+}
+
+export function CandidateBasicInfoView({
+  candidateName,
+  candidateEmail,
+  candidatePhone,
+  targetRole,
+  jobDescriptionName,
+  creatorName,
+  resumeFileName,
+  hasResumeFile,
+  pdfPreviewUrl,
+  onReplaceResumeFile,
+  footer,
+  className,
+}: CandidateBasicInfoViewProps) {
+  const canPreview = Boolean(pdfPreviewUrl && hasResumeFile);
+  const resumeDocumentKind = getResumeDocumentKind({
+    fileName: resumeFileName ?? undefined,
+  });
+  const resumeDocumentLabel = resumeDocumentKind
+    ? resumeDocumentFormats[resumeDocumentKind].label
+    : "PDF";
+  const resumeMediaType = resumeDocumentKind
+    ? resumeDocumentFormats[resumeDocumentKind].mediaTypes[0]
+    : "application/pdf";
+
+  return (
+    <div className={className}>
+      <DataFields columns={2}>
+        <DataField label="姓名" value={candidateName} />
+        <DataField kind="email" label="邮箱" value={candidateEmail} />
+        <DataField kind="phone" label="电话" value={candidatePhone} />
+        <DataField label="目标岗位" value={targetRole} />
+        <DataField label="关联岗位" value={jobDescriptionName} />
+        <DataField label="创建人" value={creatorName} />
+        <DataField
+          label="简历文件"
+          span="full"
+          value={
+            <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/30 px-3 py-2 border border-muted/60">
+              <ResumeDocumentFileIcon
+                className="size-7 shrink-0"
+                kind={resumeDocumentKind ?? "pdf"}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-sm leading-5">
+                  {renderText(resumeFileName)}
+                </div>
+                <div className="text-muted-foreground text-xs leading-4">
+                  {hasResumeFile ? `${resumeDocumentLabel} 简历附件` : "暂无简历附件"}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {canPreview && pdfPreviewUrl ? (
+                  <ResumeDocumentPreviewButton
+                    className="h-7 px-2 text-xs"
+                    filename={resumeFileName}
+                    mediaType={resumeMediaType}
+                    url={pdfPreviewUrl}
+                  />
+                ) : null}
+                {onReplaceResumeFile ? (
+                  <Button
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={onReplaceResumeFile}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <IconUpload className="size-3.5" />
+                    替换
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          }
+        />
+      </DataFields>
+
+      {footer ? <div className="mt-4 flex items-center justify-end gap-2">{footer}</div> : null}
+    </div>
+  );
+}

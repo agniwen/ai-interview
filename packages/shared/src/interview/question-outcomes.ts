@@ -11,6 +11,7 @@ export const interviewQuestionOutcomeStatusSchema = z.enum([
 export const interviewQuestionOutcomeReasonSchema = z.enum([
   "time_limit",
   "candidate_ended_round",
+  "question_prompt_interrupted",
   "reconnect_grace_expired",
   "system_shutdown",
 ]);
@@ -60,11 +61,45 @@ export const interviewDataCollectionResultsSchema = z
 
 export type InterviewDataCollectionResults = z.infer<typeof interviewDataCollectionResultsSchema>;
 
-export function parseInterviewDataCollectionResults(
-  value: unknown,
+export function parseInterviewDataCollectionResults<const T>(
+  value: T,
 ): InterviewDataCollectionResults | null {
   const parsed = interviewDataCollectionResultsSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
+}
+
+const COMPLETED_QUESTION_OUTCOME_STATUSES = new Set<InterviewQuestionOutcome["status"]>([
+  "answered",
+  "insufficient",
+  "skipped",
+]);
+
+/**
+ * A question set is complete once every recorded question reached a terminal
+ * outcome. Interrupted and unasked questions mean the interview ended before
+ * the configured question flow was finished.
+ */
+export function isInterviewQuestionSetComplete(
+  value: InterviewDataCollectionResults | null | unknown,
+): boolean {
+  const results = parseInterviewDataCollectionResults(value);
+  return Boolean(
+    results &&
+    results.questions.length > 0 &&
+    results.questions.every((question) => COMPLETED_QUESTION_OUTCOME_STATUSES.has(question.status)),
+  );
+}
+
+/** Whether the interview reached at least one candidate-answer outcome. */
+export function hasExistingInterviewAnswers(
+  value: InterviewDataCollectionResults | null | unknown,
+): boolean {
+  const results = parseInterviewDataCollectionResults(value);
+  return Boolean(
+    results?.questions.some(
+      (question) => question.status === "answered" || question.status === "insufficient",
+    ),
+  );
 }
 
 export function mergeInterviewQuestionOutcome(

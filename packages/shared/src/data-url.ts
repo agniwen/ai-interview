@@ -8,6 +8,11 @@
 
 const DATA_URL_REGEX = /^data:([^,]*),([\s\S]*)$/;
 
+export interface DecodedDataUrl {
+  data: Uint8Array;
+  mediaType: string | undefined;
+}
+
 function bytesFromBase64(value: string): Uint8Array {
   const binary = globalThis.atob(value);
   const bytes = new Uint8Array(binary.length);
@@ -26,10 +31,7 @@ function bytesFromBase64(value: string): Uint8Array {
  * @throws 当输入不是合法 `data:` URL 时抛出。
  *         Throws when the input is not a valid `data:` URL.
  */
-export function decodeDataUrl(dataUrl: string): {
-  data: Uint8Array;
-  mediaType: string | undefined;
-} {
+export function decodeDataUrl(dataUrl: string): DecodedDataUrl {
   const match = dataUrl.match(DATA_URL_REGEX);
 
   if (!match) {

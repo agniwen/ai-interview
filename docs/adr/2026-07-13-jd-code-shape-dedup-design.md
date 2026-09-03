@@ -33,16 +33,16 @@ JD「编码」（`job_description.code`）的形状 = **3 位前缀 + 4 位 base
 
 ## 现状：形状知识的四处重复
 
-| 位置                                                                     | 硬编码的形状知识                                                     |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `packages/shared/src/global-config.ts:3,15`                              | `DEFAULT_JOB_CODE_PREFIX = "AUR"`；prefix 正则 `/^[A-Z0-9]{3}$/`     |
-| `apps/…/job-descriptions/utils/job-description-code.ts:1,3,7,12`         | 本地又一份 `"AUR"`；`36 ** 4`；`padStart(4, "0")`；`/^[A-Z0-9]{3}$/` |
-| `apps/ai-recruitment-copilot-worker/src/mail-ingest/message-filter.ts:3` | 抽取正则 `[A-Za-z0-9]{7}`                                            |
-| `packages/db-schema/src/schema.ts:2130`                                  | 列默认值 `"AUR"`（存储默认，**不动**）                               |
+| 位置                                                             | 硬编码的形状知识                                                     |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `packages/shared/src/global-config.ts:3,15`                      | `DEFAULT_JOB_CODE_PREFIX = "AUR"`；prefix 正则 `/^[A-Z0-9]{3}$/`     |
+| `apps/…/job-descriptions/utils/job-description-code.ts:1,3,7,12` | 本地又一份 `"AUR"`；`36 ** 4`；`padStart(4, "0")`；`/^[A-Z0-9]{3}$/` |
+| `apps/worker/src/mail-ingest/message-filter.ts:3`                | 抽取正则 `[A-Za-z0-9]{7}`                                            |
+| `packages/db-schema/src/schema.ts:2130`                          | 列默认值 `"AUR"`（存储默认，**不动**）                               |
 
-`@arc/shared` 的 exports 为 `"./*": "./src/*.ts"` 通配 → 新增 `@arc/shared/job-code` **无需改 package.json**。worker 的 `message-filter.ts` 已 import `@arc/shared/resume-documents`，跨包引用已验证可行。
+`@app/shared` 的 exports 为 `"./*": "./src/*.ts"` 通配 → 新增 `@app/shared/job-code` **无需改 package.json**。worker 的 `message-filter.ts` 已 import `@app/shared/resume-documents`，跨包引用已验证可行。
 
-## 设计：单一真源 `@arc/shared/job-code.ts`
+## 设计：单一真源 `@app/shared/job-code.ts`
 
 新建模块，作为 JD 码形状的唯一真源；其余三处派生自它。
 
@@ -73,8 +73,8 @@ export function buildJobCodeSubjectPattern(): RegExp {
 ### 三处派生改造
 
 - **`message-filter.ts`**：`const JOB_CODE_IN_SUBJECT_PATTERN = buildJobCodeSubjectPattern();`（仍是模块级单例，满足 oxlint「regex 不在循环里」）。字符集由 `[A-Za-z0-9]` 收敛为 `[A-Z0-9]`。
-- **`job-description-code.ts`**：`36 ** 4` → `JOB_CODE_SUFFIX_RANDOM_SPACE`；`padStart(4, "0")` → `padStart(JOB_CODE_SUFFIX_LENGTH, "0")`；`.toString(36)` → `.toString(JOB_CODE_SUFFIX_RADIX)`；`/^[A-Z0-9]{3}$/` → `JOB_CODE_PREFIX_PATTERN`；本地 `DEFAULT_JOB_CODE_PREFIX` 改为 `export { DEFAULT_JOB_CODE_PREFIX } from "@arc/shared/job-code"`（保留既有 importer 的 back-compat）。
-- **`global-config.ts`**：`DEFAULT_JOB_CODE_PREFIX` 改为从 `@arc/shared/job-code` re-export（`@arc/shared/global-config` 的 importer 不受影响，如 `global-config/dao.ts:4`）；`jobCodePrefixSchema` 的正则用 `JOB_CODE_PREFIX_PATTERN`，错误文案 `${JOB_CODE_PREFIX_LENGTH} 位` 模板化。
+- **`job-description-code.ts`**：`36 ** 4` → `JOB_CODE_SUFFIX_RANDOM_SPACE`；`padStart(4, "0")` → `padStart(JOB_CODE_SUFFIX_LENGTH, "0")`；`.toString(36)` → `.toString(JOB_CODE_SUFFIX_RADIX)`；`/^[A-Z0-9]{3}$/` → `JOB_CODE_PREFIX_PATTERN`；本地 `DEFAULT_JOB_CODE_PREFIX` 改为 `export { DEFAULT_JOB_CODE_PREFIX } from "@app/shared/job-code"`（保留既有 importer 的 back-compat）。
+- **`global-config.ts`**：`DEFAULT_JOB_CODE_PREFIX` 改为从 `@app/shared/job-code` re-export（`@app/shared/global-config` 的 importer 不受影响，如 `global-config/dao.ts:4`）；`jobCodePrefixSchema` 的正则用 `JOB_CODE_PREFIX_PATTERN`，错误文案 `${JOB_CODE_PREFIX_LENGTH} 位` 模板化。
 
 ### 行为等价性论证（A = 零行为变更）
 
@@ -94,7 +94,7 @@ export function buildJobCodeSubjectPattern(): RegExp {
 
 ## 测试：以共享真源打通防漂移
 
-生成器在 backend、抽取器在 worker，跨 app 不便同测。防漂移保证靠**两侧测试引用同一份 `@arc/shared/job-code`**：改 `JOB_CODE_SUFFIX_LENGTH`，生成器产更长码、抽取 pattern 认更长码、两侧断言（`toHaveLength(JOB_CODE_LENGTH)` + 用 `buildJobCodeSubjectPattern()` 提取）同时更新，即证同步。
+生成器在 backend、抽取器在 worker，跨 app 不便同测。防漂移保证靠**两侧测试引用同一份 `@app/shared/job-code`**：改 `JOB_CODE_SUFFIX_LENGTH`，生成器产更长码、抽取 pattern 认更长码、两侧断言（`toHaveLength(JOB_CODE_LENGTH)` + 用 `buildJobCodeSubjectPattern()` 提取）同时更新，即证同步。
 
 - **新 `packages/shared/src/job-code.test.ts`**：形状不变式（`JOB_CODE_LENGTH === JOB_CODE_PREFIX_LENGTH + JOB_CODE_SUFFIX_LENGTH === 7`）；`buildJobCodeSubjectPattern()` 命中合成码 `PREFIX + "0".repeat(SUFFIX_LENGTH)`，且拒绝长度 ±1 的 token；`JOB_CODE_PREFIX_PATTERN` 收 3 位、拒 2/4 位与非法字符。
 - **扩 `job-description-code.test.ts`**：`generateJobDescriptionCode(...)` 输出 `length === JOB_CODE_LENGTH` 且被共享 `buildJobCodeSubjectPattern()` 命中（把生成器绑到共享形状）。
@@ -104,18 +104,18 @@ export function buildJobCodeSubjectPattern(): RegExp {
 
 - 新建：`packages/shared/src/job-code.ts`、`packages/shared/src/job-code.test.ts`
 - 修改：`packages/shared/src/global-config.ts`
-- 修改：`apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.ts`
-- 扩测：`apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.test.ts`
-- 修改：`apps/ai-recruitment-copilot-worker/src/mail-ingest/message-filter.ts`
+- 修改：`apps/server/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.ts`
+- 扩测：`apps/server/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.test.ts`
+- 修改：`apps/worker/src/mail-ingest/message-filter.ts`
 
 ## 验证
 
-- `pnpm --filter @arc/shared test && pnpm --filter @arc/shared typecheck`
-- `pnpm --filter @arc/ai-recruitment-copilot-backend test job-description-code && pnpm --filter @arc/ai-recruitment-copilot-backend typecheck`
-- `pnpm --filter @arc/ai-recruitment-copilot-worker test message-filter && pnpm --filter @arc/ai-recruitment-copilot-worker typecheck`
+- `pnpm --filter @app/shared test && pnpm --filter @app/shared typecheck`
+- `pnpm --filter @app/server test job-description-code && pnpm --filter @app/server typecheck`
+- `pnpm --filter @app/worker test message-filter && pnpm --filter @app/worker typecheck`
 - `pnpm fix`（oxlint/oxfmt 门）
 
 ## 风险
 
 - 近乎零行为变更；唯一需守住的等价性是「字符集收敛在 uppercase 之后安全」——由保留 `aurzz99 → AURZZ99` 用例守卫。
-- `@arc/shared/job-code` 新增子路径由通配 export 覆盖，无需改 package.json；若 CI 的 `@arc/shared` 构建对新增文件有额外要求，在实现时确认。
+- `@app/shared/job-code` 新增子路径由通配 export 覆盖，无需改 package.json；若 CI 的 `@app/shared` 构建对新增文件有额外要求，在实现时确认。

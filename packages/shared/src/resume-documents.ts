@@ -9,10 +9,19 @@ export type ResumeDocumentKind =
   | "xlsx"
   | "image";
 
-export const resumeDocumentFormats: Record<
-  ResumeDocumentKind,
-  { extensions: readonly string[]; label: string; mediaTypes: readonly string[] }
-> = {
+export const RESUME_DOCUMENT_KINDS = [
+  "pdf",
+  "doc",
+  "docx",
+  "html",
+  "ppt",
+  "pptx",
+  "xls",
+  "xlsx",
+  "image",
+] as const satisfies readonly ResumeDocumentKind[];
+
+export const resumeDocumentFormats = {
   doc: {
     extensions: ["doc"],
     label: "DOC",
@@ -58,7 +67,10 @@ export const resumeDocumentFormats: Record<
     label: "XLSX",
     mediaTypes: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
   },
-};
+} satisfies Record<
+  ResumeDocumentKind,
+  { extensions: readonly string[]; label: string; mediaTypes: readonly string[] }
+>;
 
 export const supportedResumeDocumentExtensions = Object.values(resumeDocumentFormats).flatMap(
   (format) => format.extensions,
@@ -107,18 +119,20 @@ export function getResumeDocumentKind(input: {
 }): ResumeDocumentKind | null {
   const extension = getExtensionFromFileName(input.fileName);
   if (extension) {
-    for (const [kind, config] of Object.entries(resumeDocumentFormats)) {
+    for (const kind of RESUME_DOCUMENT_KINDS) {
+      const config = resumeDocumentFormats[kind];
       if (config.extensions.includes(extension)) {
-        return kind as ResumeDocumentKind;
+        return kind;
       }
     }
   }
 
   const mediaType = input.mediaType?.trim().toLowerCase();
   if (mediaType) {
-    for (const [kind, config] of Object.entries(resumeDocumentFormats)) {
+    for (const kind of RESUME_DOCUMENT_KINDS) {
+      const config = resumeDocumentFormats[kind];
       if (config.mediaTypes.includes(mediaType)) {
-        return kind as ResumeDocumentKind;
+        return kind;
       }
     }
   }

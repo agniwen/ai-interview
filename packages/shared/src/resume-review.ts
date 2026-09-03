@@ -1,4 +1,3 @@
-import { get } from "lodash-es";
 import type {
   ResumeReviewAction,
   ResumeReviewBiasCategory,
@@ -7,9 +6,9 @@ import type {
   ResumeReviewDimensionKey,
   ResumeReviewLoose,
   ResumeReviewPoint,
-} from "@arc/db-schema/resume-review";
-import { RESUME_REVIEW_DIMENSION_DEFINITIONS } from "@arc/db-schema/resume-review";
-import type { ResumeReviewStatus } from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/resume-review";
+import { RESUME_REVIEW_DIMENSION_DEFINITIONS } from "@app/db-schema/resume-review";
+import type { ResumeReviewStatus } from "@app/db-schema/studio-interviews";
 
 export {
   RESUME_REVIEW_SCHEMA_VERSION,
@@ -21,7 +20,7 @@ export {
   resumeReviewLooseSchema,
   resumeReviewPointSchema,
   resumeReviewSchema,
-} from "@arc/db-schema/resume-review";
+} from "@app/db-schema/resume-review";
 export type {
   ResumeReview,
   ResumeReviewAction,
@@ -31,20 +30,20 @@ export type {
   ResumeReviewDimensionKey,
   ResumeReviewLoose,
   ResumeReviewPoint,
-} from "@arc/db-schema/resume-review";
+} from "@app/db-schema/resume-review";
 
-export const resumeReviewActionLabel: Record<ResumeReviewAction, string> = {
+export const resumeReviewActionLabel = {
   hold: "暂缓",
   interview: "进入面试",
   reject: "淘汰",
-};
+} satisfies Record<ResumeReviewAction, string>;
 
-export const resumeReviewBiasCategoryLabel: Record<ResumeReviewBiasCategory, string> = {
+export const resumeReviewBiasCategoryLabel = {
   credibility_risk: "真实性存疑",
   hard_gap: "硬缺口",
   soft_mismatch: "软错位",
   stability_signal: "稳定性信号",
-};
+} satisfies Record<ResumeReviewBiasCategory, string>;
 
 export const RESUME_REVIEW_DIMENSIONS = RESUME_REVIEW_DIMENSION_DEFINITIONS;
 
@@ -85,25 +84,13 @@ export function getResumeReviewDimension(
   review: ResumeReviewLoose,
   key: ResumeReviewDimensionKey,
 ): ResumeReviewDimension | null {
-  const dim = get(review, ["dimensions", key]);
-  if (!dim || typeof dim.score !== "number" || typeof dim.rationale !== "string") {
-    return null;
-  }
-  return dim;
+  return review.dimensions[key] ?? null;
 }
 
 // 从宽松 review 读取基础分：新版优先 baseScore，v1 兜底 overall.score。
 // Read base score from a loose review: current baseScore first, v1 overall.score fallback.
 export function getResumeReviewBaseScore(review: ResumeReviewLoose): number | null {
-  const v2 = get(review, "overall.baseScore");
-  if (typeof v2 === "number") {
-    return v2;
-  }
-  const v1 = get(review, "overall.score");
-  if (typeof v1 === "number") {
-    return v1;
-  }
-  return null;
+  return review.overall.baseScore ?? review.overall.score ?? null;
 }
 
 // 按产品六维权重计算基础分。
@@ -114,7 +101,7 @@ export function computeResumeReviewBaseScore(
   let total = 0;
   for (const { key, weight } of RESUME_REVIEW_DIMENSIONS) {
     const dim = dimensions[key];
-    if (dim && typeof dim.score === "number") {
+    if (dim) {
       total += dim.score * weight;
     }
   }
@@ -172,6 +159,12 @@ export function formatResumeReviewMarkdown(review: ResumeReviewLoose): string {
 export type ResumeReviewScoreSentiment = "negative" | "neutral" | "positive";
 export type ResumeReviewActionTone = "danger" | "muted" | "success" | "warning";
 
+export interface ResumeLibraryReviewCardDescription {
+  label: string;
+  scoreSentiment: ResumeReviewScoreSentiment | null;
+  tone: ResumeReviewActionTone;
+}
+
 /** Score band for card thumb icons: ≥70 up, 50–69 neutral, <50 down. */
 export function getResumeReviewScoreSentiment(score: number): ResumeReviewScoreSentiment {
   if (score >= 70) {
@@ -207,11 +200,7 @@ export function describeResumeLibraryReviewCard(input: {
   baseScore: number | null;
   nextStepAction: ResumeReviewAction | null;
   status: ResumeReviewStatus;
-}): {
-  label: string;
-  scoreSentiment: ResumeReviewScoreSentiment | null;
-  tone: ResumeReviewActionTone;
-} {
+}): ResumeLibraryReviewCardDescription {
   const { baseScore, nextStepAction, status } = input;
 
   if (status === "queued" || status === "processing") {

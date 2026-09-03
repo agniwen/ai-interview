@@ -372,7 +372,7 @@ describe("describeResumeProgress", () => {
     ).toEqual({ label: "Offer v2 · 已发送 · 等响应", tone: "info" });
   });
 
-  it("offer accepted → 已接受 · 待结案", () => {
+  it("offer accepted → 已接受 · 待结束", () => {
     expect(
       describeResumeProgress({
         outcome: "in_pipeline",
@@ -392,19 +392,19 @@ describe("describeResumeProgress", () => {
           },
         },
       }),
-    ).toEqual({ label: "Offer · 已接受 · 待结案", tone: "success" });
+    ).toEqual({ label: "Offer · 已接受 · 待结束", tone: "success" });
   });
 
   // ── closed ──
 
-  it("closed × hired → 已结案 · 已录用", () => {
+  it("closed × hired → 已结束 · 已录用", () => {
     expect(
       describeResumeProgress({
         outcome: "hired",
         pipelineStage: "closed",
         stageProgress: EMPTY,
       }),
-    ).toEqual({ label: "已结案 · 已录用", tone: "success" });
+    ).toEqual({ label: "已结束 · 已录用", tone: "success" });
   });
 
   it("closed × archived → 已归档", () => {
@@ -417,13 +417,13 @@ describe("describeResumeProgress", () => {
     ).toEqual({ label: "已归档", tone: "outline" });
   });
 
-  it("closed × rejected → 已结案 · 已淘汰", () => {
+  it("closed × rejected → 已结束 · 已淘汰", () => {
     expect(
       describeResumeProgress({
         outcome: "rejected",
         pipelineStage: "closed",
         stageProgress: EMPTY,
       }),
-    ).toEqual({ label: "已结案 · 已淘汰", tone: "outline" });
+    ).toEqual({ label: "已结束 · 已淘汰", tone: "outline" });
   });
 });

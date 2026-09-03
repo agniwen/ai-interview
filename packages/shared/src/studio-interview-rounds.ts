@@ -9,8 +9,10 @@ import type {
   CandidateOutcome,
   PipelineStage,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
-import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
+} from "@app/db-schema/studio-interviews";
+import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
+
+export type FeishuEvaluationDocumentStatus = "generated" | "answers_available" | "unavailable";
 
 /** 列表行（精简投影）/ List row (light projection). */
 export interface StudioInterviewRoundListRecord {
@@ -34,7 +36,10 @@ export interface StudioInterviewRoundListRecord {
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
   conversationId: string | null;
+  candidateInviteExpiresAt: string | null;
   hasReport: boolean;
+  feishuDocumentUrl: string | null;
+  feishuEvaluationDocumentStatus: FeishuEvaluationDocumentStatus;
   /** 完整面试链接相对路径 / Relative interview link path. */
   interviewLink: string;
   createdBy: string | null;
@@ -60,6 +65,7 @@ export interface StudioInterviewRoundDetail {
   allowTextInput: boolean;
   candidateFeedback: CandidateInterviewFeedback | null;
   conversationId: string | null;
+  candidateInviteExpiresAt: string | null;
   sessionStartedAt: string | null;
   disconnectedAt: string | null;
   notes: string | null;

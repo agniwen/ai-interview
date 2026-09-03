@@ -10,9 +10,13 @@ export interface MeetingLiveTranscriptDraftRecord {
     track: "microphone" | "system";
   }[];
   turns: {
+    correctionModel?: string;
+    endMs?: number;
     final: boolean;
     id: string;
+    originalText?: string;
     sectionId: string;
+    startMs?: number;
     text: string;
     track: "microphone" | "system";
   }[];

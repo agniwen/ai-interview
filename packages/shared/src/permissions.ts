@@ -78,6 +78,7 @@ export const statement = {
   offer: ["create", "read", "update", "delete"],
   page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
+  resumeEmailIngest: ["create", "read", "update", "delete"],
   resumeLibrary: ["create", "read", "update", "delete"],
   resumePool: ["create", "read", "publish", "import", "delete"],
   resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
@@ -86,6 +87,12 @@ export const statement = {
 export const ac = createAccessControl(statement);
 
 export const NO_ACCESS_WORKSPACE_ROLE = "noAccess";
+
+export function isWorkspaceAdministratorRole(
+  role: string | null | undefined,
+): role is "admin" | "owner" {
+  return role === "owner" || role === "admin";
+}
 
 export const owner = ac.newRole({
   ...ownerAc.statements,
@@ -102,6 +109,7 @@ export const owner = ac.newRole({
   offer: ["create", "read", "update", "delete"],
   page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
+  resumeEmailIngest: ["create", "read", "update", "delete"],
   resumeLibrary: ["create", "read", "update", "delete"],
   resumePool: ["create", "read", "publish", "import", "delete"],
   resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
@@ -138,6 +146,7 @@ export const admin = ac.newRole({
   offer: ["create", "read", "update", "delete"],
   page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
+  resumeEmailIngest: ["create", "read", "update", "delete"],
   resumeLibrary: ["create", "read", "update", "delete"],
   resumePool: ["create", "read", "publish", "import", "delete"],
   resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
@@ -157,6 +166,7 @@ const recruitingMemberStatements = {
   offer: ["create", "read", "update", "delete"],
   page: memberStudioPagePermissions,
   questionTemplate: ["create", "read", "update", "delete"],
+  resumeEmailIngest: ["create", "read", "update", "delete"],
   resumeLibrary: ["create", "read", "update", "delete"],
   resumePool: ["create", "read", "publish", "import", "delete"],
   resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],

@@ -1,0 +1,401 @@
+// @vitest-environment jsdom
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
+import type { JsonValue } from "@app/db-schema/json";
+import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import { ResumeOverviewPanel } from "../resume-overview-panel";
+
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const dimension = (rawScore: number, weight: number) => ({
+  appliedDeductions: [],
+  deductionTotal: 100 - rawScore,
+  insufficientEvidenceRuleIds: [],
+  rawScore,
+  ruleJudgments: [],
+  weight,
+  weightedContributionHundredths: rawScore * weight,
+});
+
+type DetailFixture = Readonly<Record<string, JsonValue | undefined>>;
+
+function parseDetailFixture(fixture: DetailFixture): ResumeLibraryDetail {
+  // SAFETY: The fixture is authored in this test and matches the rendered detail contract.
+  const partial = { ...({} as Partial<ResumeLibraryDetail>), ...structuredClone(fixture) };
+  // SAFETY: The fixture above supplies the fields exercised by this renderer test.
+  return partial as ResumeLibraryDetail;
+}
+
+function createStructuredDetail(): ResumeLibraryDetail {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  return parseDetailFixture({
+    candidateEmail: null,
+    candidateName: "测试候选人",
+    candidatePhone: null,
+    id: "resume-1",
+    jobDescriptionId: "job-1",
+    jobDescriptionName: "前端技术经理",
+    jobEvaluationMode: "structured",
+    resumeEvaluationArtifactMode: "structured",
+    resumeEvaluationAttemptMode: "structured",
+    resumeEvaluationStatus: null,
+    resumeParseStatus: "ready",
+    resumeProfile: null,
+    resumeReviewRunId: "run-1",
+    resumeReviewStatus: "ready",
+    structuredResumeEvaluation: {
+      adjustments: {
+        exclusionPointTotal: 0,
+        matches: [
+          {
+            appliedPoints: 5,
+            conditionId: "priority-1",
+            evidence: [{ quote: "拥有支付行业经验", source: "resume_text" }],
+            kind: "priority",
+            matched: true,
+            points: 5,
+            reason: "符合优先条件",
+            sourceText: "支付行业经验",
+          },
+        ],
+        priorityPointTotal: 5,
+      },
+      calculations: {
+        adjustedHundredths: 8660,
+        clampedHundredths: 8660,
+        compositeScore: 87,
+        weightedBaseHundredths: 8160,
+      },
+      dimensions: {
+        educationBackground: dimension(80, 10),
+        experienceRelevance: dimension(85, 25),
+        potential: dimension(92, 8),
+        projectMatch: dimension(88, 15),
+        skillMatch: dimension(90, 35),
+        stability: dimension(79, 7),
+      },
+      gates: {
+        effectiveStatus: "failed",
+        judgments: [
+          {
+            aiStatus: "failed",
+            category: "学历",
+            evidence: [{ quote: "最高学历为大专", source: "resume_profile" }],
+            reason: "未达到本科要求",
+            requirementId: "gate-1",
+          },
+        ],
+        rawStatus: "failed",
+      },
+      grade: "recommended",
+      narrative: {
+        dimensionComments: {
+          educationBackground: "学历背景存在一定差距。",
+          experienceRelevance: "相关经验能够支撑岗位职责。",
+          potential: "成长轨迹较为清晰。",
+          projectMatch: "项目经历与岗位场景匹配。",
+          skillMatch: "核心技能覆盖较好。",
+          stability: "任职稳定性存在一定风险。",
+        },
+        overallComment: "候选人的核心技能和项目经验较为匹配，学历背景是当前主要风险。",
+        recommendation: "建议进入下一轮",
+        summary: "技能和经验整体匹配",
+      },
+      runId: "run-1",
+    },
+  });
+}
+
+function createQualitativeDetail(
+  recommendationLevel: "highly_recommended" | "not_recommended" | "recommended" | "undecided",
+): ResumeLibraryDetail {
+  const qualitativeDimension = {
+    basis: "job",
+    evaluation: "维度评价正文。",
+    level: "recommended",
+  } satisfies QualitativeResumeEvaluationV2["dimensions"]["skillMatch"];
+  return {
+    ...createStructuredDetail(),
+    jobEvaluationMode: "qualitative",
+    qualitativeResumeEvaluation: {
+      conciseOverall: "不应继续显示的精简摘要。",
+      detailedOverall: {
+        judgment: "**关键判断**：候选人的核心经验与岗位要求部分匹配，但仍有重要信息需要确认。",
+        matchingEvidence: "1. 核心技能部分匹配。",
+        risks: "1. 关键经验仍需确认。",
+      },
+      dimensions: {
+        educationBackground: qualitativeDimension,
+        experienceRelevance: qualitativeDimension,
+        potential: qualitativeDimension,
+        projectMatch: qualitativeDimension,
+        skillMatch: qualitativeDimension,
+        stability: qualitativeDimension,
+      },
+      recommendationLevel,
+      schemaVersion: 2,
+      seniorityRecommendation: null,
+      teamPositioning: null,
+    },
+    resumeEvaluationArtifactMode: "qualitative",
+    resumeEvaluationAttemptMode: "qualitative",
+    structuredResumeEvaluation: null,
+  } satisfies ResumeLibraryDetail;
+}
+
+function createLegacyDetail(): ResumeLibraryDetail {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  return {
+    ...createStructuredDetail(),
+    jobEvaluationMode: "legacy",
+    resumeEvaluationArtifactMode: "legacy",
+    resumeEvaluationAttemptMode: "legacy",
+    resumeReview: {
+      dimensions: {
+        educationBackground: { rationale: "学历符合要求", score: 80 },
+        experienceRelevance: { rationale: "经验能够支撑岗位职责", score: 86 },
+        potential: { rationale: "成长轨迹清晰", score: 82 },
+        projectMatch: { rationale: "项目复杂度符合预期", score: 85 },
+        skillMatch: { rationale: "核心技能匹配", score: 88 },
+        stability: { rationale: "任职经历较稳定", score: 78 },
+      },
+      nextStep: {
+        action: "interview",
+      },
+      overall: {
+        baseScore: 84,
+        conclusion: "候选人与岗位高度匹配",
+        scoreRationale: "六维度评分依据与详细扣分说明",
+      },
+    },
+    structuredResumeEvaluation: null,
+  } as ResumeLibraryDetail;
+}
+
+function createUpgradedLegacyDetail(): ResumeLibraryDetail {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  return {
+    ...createLegacyDetail(),
+    jobEvaluationMode: "structured",
+    resumeEvaluationArtifactMode: "legacy",
+    resumeEvaluationAttemptMode: "structured",
+    resumeReviewError: "新版评估暂时失败",
+    resumeReviewStatus: "failed",
+  } as ResumeLibraryDetail;
+}
+
+function createCandidateInfoDetail(): ResumeLibraryDetail {
+  return {
+    ...createStructuredDetail(),
+    resumeProfile: {
+      age: 28,
+      educationExperiences: [],
+      email: "candidate@example.com",
+      gender: "女",
+      name: "测试候选人",
+      personalStrengths: [],
+      phone: "13800138000",
+      projectExperiences: [],
+      schools: [],
+      skills: ["TypeScript"],
+      targetRoles: ["前端工程师", "全栈工程师"],
+      workExperiences: [],
+      workYears: 5,
+    },
+    targetRole: "前端工程师",
+  };
+}
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  vi.clearAllMocks();
+});
+
+describe("ResumeOverviewPanel", () => {
+  it("shows job intention as read-only candidate information", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel detail={createCandidateInfoDetail()} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const candidateInfoSection = [...container.querySelectorAll("section")].find((section) =>
+      [...section.querySelectorAll("h3")].some((heading) => heading.textContent === "候选人信息"),
+    );
+    const targetRoleField = [
+      ...(candidateInfoSection?.querySelectorAll("[data-slot=data-field]") ?? []),
+    ].find((field) => field.querySelector("dt")?.textContent === "求职意向");
+
+    expect(targetRoleField?.textContent).toContain("前端工程师、全栈工程师");
+    expect(targetRoleField?.querySelector("input,button")).toBeNull();
+    expect(
+      [...container.querySelectorAll("h4")].some((heading) => heading.textContent === "求职意向"),
+    ).toBe(false);
+
+    act(() => root.unmount());
+  });
+
+  it("retains the legacy result when a structured reassessment fails", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel detail={createUpgradedLegacyDetail()} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const content = container.textContent ?? "";
+    expect(content).toContain("老版本结果");
+    expect(content).toContain("84");
+    expect(content).toContain("新版评估暂时失败");
+  });
+
+  it("shows the structured radar, score and overall evaluation in overview", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onViewAiScore = vi.fn();
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel detail={createStructuredDetail()} onViewAiScore={onViewAiScore} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const content = container.textContent ?? "";
+    expect(content).toContain("AI评分");
+    expect(content).toContain("推荐 · 87 分");
+    expect(content).toContain("未通过门槛");
+    expect(content).toContain("综合评分 87 分，处于“推荐”区间；硬性门槛未通过。");
+    expect(content).toContain("候选人的核心技能和项目经验较为匹配");
+    expect(content).not.toContain("技能和经验整体匹配");
+    expect(content).toContain("查看详情");
+    expect(content).not.toContain("最高学历为大专");
+    expect(content).not.toContain("拥有支付行业经验");
+    const aiScoreHeading = [...container.querySelectorAll("h3")].find(
+      (heading) => heading.textContent === "AI评分",
+    );
+    expect(aiScoreHeading?.parentElement?.className).toContain("min-h-10");
+    expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(
+      "skillMatch,experienceRelevance,stability,educationBackground,potential,projectMatch",
+    );
+
+    const detailButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "查看详情",
+    );
+    expect(detailButton).toBeDefined();
+    act(() => detailButton?.click());
+    expect(onViewAiScore).toHaveBeenCalledOnce();
+
+    act(() => root.unmount());
+  });
+
+  it.each([
+    ["not_recommended", "不推荐", "text-red-700"],
+    ["undecided", "待定", "text-yellow-700"],
+    ["recommended", "推荐", "text-green-700"],
+    ["highly_recommended", "非常推荐", "text-purple-700"],
+  ] as const)(
+    "shows qualitative %s neutrally with its detailed judgment",
+    (level, label, colorClass) => {
+      const container = document.createElement("div");
+      document.body.append(container);
+      const root = createRoot(container);
+      const queryClient = new QueryClient();
+
+      act(() => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <ResumeOverviewPanel detail={createQualitativeDetail(level)} />
+          </QueryClientProvider>,
+        );
+      });
+
+      const recommendation = container.querySelector<HTMLElement>(
+        "[data-qualitative-overview-recommendation]",
+      );
+      const judgment = container.querySelector<HTMLElement>("[data-qualitative-overview-judgment]");
+      expect(recommendation?.textContent).toBe(label);
+      expect(recommendation?.className).not.toContain(colorClass);
+      expect(judgment?.textContent).toContain("关键判断");
+      expect(judgment?.querySelector("strong")?.textContent).toBe("关键判断");
+      expect(judgment?.querySelector(".typeset")?.className).toContain("text-foreground");
+      expect(judgment?.querySelector(".typeset")?.className).not.toContain("text-muted-foreground");
+      expect(judgment?.className).not.toContain("font-semibold");
+      expect(container.textContent).not.toContain("不应继续显示的精简摘要");
+
+      act(() => root.unmount());
+    },
+  );
+
+  it("centers the qualitative detail action on mobile and aligns it left on desktop", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel
+            detail={createQualitativeDetail("undecided")}
+            onViewAiScore={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    const detailButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "查看详情",
+    );
+    expect(detailButton?.className).toContain("self-center");
+    expect(detailButton?.className).toContain("lg:self-start");
+
+    act(() => root.unmount());
+  });
+
+  it("keeps the legacy radar, score and overall evaluation in overview", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel detail={createLegacyDetail()} onViewAiScore={() => {}} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const content = container.textContent ?? "";
+    expect(content).toContain("建议进入面试");
+    expect(content).toContain("综合评分84");
+    expect(content).toContain("候选人与岗位高度匹配");
+    expect(container.querySelector("[data-radar-order]")).not.toBeNull();
+    expect(content).toContain("查看详情");
+    expect(content).toContain("六维度评分依据与详细扣分说明");
+
+    act(() => root.unmount());
+  });
+});

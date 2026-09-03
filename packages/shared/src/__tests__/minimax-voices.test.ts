@@ -2,7 +2,7 @@ import {
   MINIMAX_INTERVIEWER_VOICES,
   MINIMAX_VOICES,
   minimaxVoiceSchema,
-} from "@arc/db-schema/minimax-voices";
+} from "@app/db-schema/minimax-voices";
 import { describe, expect, test } from "vitest";
 
 describe("MINIMAX_INTERVIEWER_VOICES", () => {

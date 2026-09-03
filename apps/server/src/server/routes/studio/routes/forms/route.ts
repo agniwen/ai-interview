@@ -1,0 +1,389 @@
+import { listTextFiltersSchema } from "@app/shared/list-text-filters";
+import { zValidator } from "@hono/zod-validator";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "../../../../../lib/server/db/index";
+import {
+  candidateFormTemplate,
+  candidateFormTemplateJobDescription,
+  candidateFormTemplateQuestion,
+} from "@app/db-schema/schema";
+import { candidateFormTemplateSchema } from "@app/db-schema/candidate-forms";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
+import {
+  listAllCandidateFormTemplates,
+  loadCandidateFormTemplateById,
+  queryPaginatedCandidateFormTemplates,
+} from "./dao/queries";
+import { loadSubmissionsByTemplate } from "./dao/submissions";
+import { loadCandidateFormTemplateVersionById } from "./dao/versions";
+import { listAllJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { refreshEligibleCandidatesForFormTemplate } from "./dao/refresh-eligible";
+import { candidateFormAiRouter } from "./routes/form-ai/route";
+
+function normalizeQuestions(
+  questions: {
+    id?: string;
+    type: "single" | "multi" | "text";
+    displayMode: "radio" | "checkbox" | "select" | "input" | "textarea";
+    label: string;
+    helperText?: string | null;
+    required: boolean;
+    sortOrder: number;
+    options: { value: string; label: string }[];
+  }[],
+  templateId: string,
+  now: Date,
+) {
+  return questions.map((question) => ({
+    createdAt: now,
+    displayMode: question.displayMode,
+    helperText: question.helperText?.trim() || null,
+    id: question.id?.trim() || crypto.randomUUID(),
+    label: question.label.trim(),
+    options: question.type === "text" ? [] : question.options,
+    required: question.required,
+    sortOrder: question.sortOrder,
+    templateId,
+    type: question.type,
+    updatedAt: now,
+  }));
+}
+
+const candidateFormListQuerySchema = z.object({
+  // 三态：active=仅未归档（默认）/ archived=仅已归档 / all=全部。
+  // Tri-state: active=active only (default) / archived=archived only / all=both.
+  archived: z.string().optional(),
+  jobDescriptionId: z.string().optional(),
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  scope: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+  textFilters: listTextFiltersSchema("forms"),
+});
+
+function parseArchivedFilter(value: string | undefined): "active" | "archived" | "all" {
+  if (value === "archived" || value === "all") {
+    return value;
+  }
+  return "active";
+}
+
+export const candidateFormsRouter = factory
+  .createApp()
+  .route("/", candidateFormAiRouter)
+  .get(
+    "/",
+    requirePermission("candidateForm", "read"),
+    zValidator("query", candidateFormListQuerySchema, jsonValidatorError("查询参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const result = await queryPaginatedCandidateFormTemplates(
+        activeOrg.id,
+        {
+          archivedFilter: parseArchivedFilter(q.archived),
+          jobDescriptionId: q.jobDescriptionId,
+          scope: q.scope,
+          search: q.search,
+          textFilters: q.textFilters,
+        },
+        {
+          page: q.page,
+          pageSize: q.pageSize,
+          sortBy: q.sortBy,
+          sortOrder: q.sortOrder,
+        },
+      );
+      return c.json(result, 200);
+    },
+  )
+  .get("/all", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const records = await listAllCandidateFormTemplates(activeOrg.id);
+    return c.json({ records }, 200);
+  })
+  .get("/bootstrap", requirePermission("page", "forms"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+    return c.json({ jobDescriptions }, 200);
+  })
+  .post(
+    "/",
+    requirePermission("candidateForm", "create"),
+    zValidator("json", candidateFormTemplateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const input = c.req.valid("json");
+      const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
+      if (jobDescriptionIds.length > 0) {
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
+        }
+      }
+
+      const now = new Date();
+      const templateId = crypto.randomUUID();
+      const record = {
+        createdAt: now,
+        createdBy: c.var.user?.id ?? null,
+        description: input.description?.trim() || null,
+        id: templateId,
+        organizationId: activeOrg.id,
+        scope: input.scope,
+        title: input.title.trim(),
+        updatedAt: now,
+      } satisfies typeof candidateFormTemplate.$inferInsert;
+
+      const questions = normalizeQuestions(input.questions, templateId, now);
+
+      await db.transaction(async (tx) => {
+        await tx.insert(candidateFormTemplate).values(record);
+        if (questions.length > 0) {
+          await tx.insert(candidateFormTemplateQuestion).values(questions);
+        }
+        if (jobDescriptionIds.length > 0) {
+          await tx
+            .insert(candidateFormTemplateJobDescription)
+            .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId })));
+        }
+      });
+
+      safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
+      const created = await loadCandidateFormTemplateById(activeOrg.id, templateId);
+      return c.json(created, 201);
+    },
+  )
+  .get("/:id", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const record = await loadCandidateFormTemplateById(activeOrg.id, id);
+    if (!record) {
+      return c.json({ error: "面试表单不存在。" }, 404);
+    }
+    return c.json(record, 200);
+  })
+  .patch(
+    "/:id",
+    requirePermission("candidateForm", "update"),
+    zValidator("json", candidateFormTemplateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
+      if (!existing) {
+        return c.json({ error: "面试表单不存在。" }, 404);
+      }
+
+      const input = c.req.valid("json");
+      const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
+      if (jobDescriptionIds.length > 0) {
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
+        }
+      }
+
+      const now = new Date();
+      const questions = normalizeQuestions(input.questions, id, now);
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(candidateFormTemplate)
+          .set({
+            description: input.description?.trim() || null,
+            scope: input.scope,
+            title: input.title.trim(),
+            updatedAt: now,
+          })
+          .where(eq(candidateFormTemplate.id, id));
+
+        // Replace the question set atomically. Since downstream snapshots are
+        // already frozen, we do not need to preserve old question ids.
+        await tx
+          .delete(candidateFormTemplateQuestion)
+          .where(eq(candidateFormTemplateQuestion.templateId, id));
+        if (questions.length > 0) {
+          await tx.insert(candidateFormTemplateQuestion).values(questions);
+        }
+
+        // 重写岗位绑定关系
+        // Replace JD links wholesale.
+        await tx
+          .delete(candidateFormTemplateJobDescription)
+          .where(eq(candidateFormTemplateJobDescription.templateId, id));
+        if (jobDescriptionIds.length > 0) {
+          await tx
+            .insert(candidateFormTemplateJobDescription)
+            .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId: id })));
+        }
+      });
+
+      safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
+      const updated = await loadCandidateFormTemplateById(activeOrg.id, id);
+      return c.json(updated, 200);
+    },
+  )
+  // DELETE 现在是「归档」(软删除)：写 archivedAt = now()。归档后的表单不再向
+  // 候选人推送 / 不再出现在「选择模板」列表，但已经收到的 submission 与 JD
+  // 绑定都保留——避免误删进行中的流程。需要彻底清理直接走数据库。
+  //
+  // DELETE is now a soft-delete: set archivedAt = now(). Archived templates are
+  // hidden from candidate-side rendering and from picker lists, but existing
+  // submissions and JD bindings stay intact so in-flight flows aren't broken.
+  .delete("/:id", requirePermission("candidateForm", "delete"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
+    if (!existing) {
+      return c.json({ error: "面试表单不存在。" }, 404);
+    }
+    if (existing.archivedAt) {
+      return c.json({ error: "该表单已归档。" }, 400);
+    }
+    await db
+      .update(candidateFormTemplate)
+      .set({ archivedAt: new Date() })
+      .where(eq(candidateFormTemplate.id, id));
+    safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
+    return c.json({ success: true }, 200);
+  })
+  .post("/:id/unarchive", requirePermission("candidateForm", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
+    if (!existing) {
+      return c.json({ error: "面试表单不存在。" }, 404);
+    }
+    if (!existing.archivedAt) {
+      return c.json({ error: "该表单未归档。" }, 400);
+    }
+    await db
+      .update(candidateFormTemplate)
+      .set({ archivedAt: null })
+      .where(eq(candidateFormTemplate.id, id));
+    safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
+    return c.json({ success: true }, 200);
+  })
+  // 把本表单最新版本推送到「从未开始 AI 面试且未填写本表单」的适用候选人 runtime 快照。
+  // Push the latest form version into never-started, unsubmitted candidates' snapshots.
+  .post(
+    "/:id/refresh-eligible-candidates",
+    requirePermission("candidateForm", "update"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      try {
+        const result = await refreshEligibleCandidatesForFormTemplate({
+          operatorId: user?.id ?? null,
+          organizationId: activeOrg.id,
+          templateId: id,
+        });
+        safeUpdateTag(cacheTags.interviewConversations);
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(
+          {
+            refreshedCount: result.refreshedCount,
+            scannedCount: result.scannedCount,
+            success: true,
+          },
+          200,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message === "TEMPLATE_NOT_FOUND") {
+          return c.json({ error: "面试表单不存在或已归档。" }, 404);
+        }
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, templateId: id },
+            error,
+            operation: "refresh-eligible-form-template",
+            publicMessage: "刷新未填写候选人表单题失败。",
+          }),
+          500,
+        );
+      }
+    },
+  )
+  .get(
+    "/:id/submissions",
+    requirePermission("candidateForm", "read"),
+    zValidator(
+      "query",
+      z.object({
+        limit: z.string().optional(),
+        offset: z.string().optional(),
+      }),
+      jsonValidatorError("查询参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
+      if (!existing) {
+        return c.json({ error: "面试表单不存在。" }, 404);
+      }
+      const { limit, offset } = c.req.valid("query");
+      // 字符串 → number；NaN 或负值由 DAO 内部 clamp，路由这里只做最浅的解析。
+      // String → number; clamp lives in the DAO so route does minimal coercion.
+      const result = await loadSubmissionsByTemplate(id, {
+        limit: limit ? Number(limit) : undefined,
+        offset: offset ? Number(offset) : undefined,
+      });
+      return c.json(result, 200);
+    },
+  )
+  .get("/:id/versions/:versionId", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const versionId = c.req.param("versionId");
+    // Verify the template belongs to this org before serving the version.
+    const template = await loadCandidateFormTemplateById(activeOrg.id, id);
+    if (!template) {
+      return c.json({ error: "面试表单不存在。" }, 404);
+    }
+    const version = await loadCandidateFormTemplateVersionById(id, versionId);
+    if (!version) {
+      return c.json({ error: "版本不存在。" }, 404);
+    }
+    return c.json(version, 200);
+  });

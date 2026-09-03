@@ -8,6 +8,7 @@
 
 import type { InterviewMessageRole, InterviewRecordingStatus } from "./db-enums";
 import type { InterviewKeyInformation } from "./interview-key-information";
+import type { JsonObject } from "./json";
 
 /**
  * 实时对话中收到的一轮 transcript（来自 Agent webhook / 流）。
@@ -47,17 +48,17 @@ export interface InterviewConversationSnapshot {
   mode: string | null;
   callSuccessful: string | null;
   transcriptSummary: string | null;
-  evaluationCriteriaResults: Record<string, unknown>;
+  evaluationCriteriaResults: JsonObject;
   keyInformation: InterviewKeyInformation | null;
-  dataCollectionResults: Record<string, unknown>;
-  metadata: Record<string, unknown>;
+  dataCollectionResults: JsonObject;
+  metadata: JsonObject;
   // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与 per-speech_id 明细。
   // 结构与 agent.py 中 metrics_state 容器一致；Studio 详情页消费它渲染延迟/用量面板。
   // STT/LLM/TTS/EOU/interruption aggregates from the agent's metrics_collected
   // listener. Shape mirrors the metrics_state container in agent.py; the Studio
   // detail dialog consumes it to render the latency/usage panel.
-  metrics: Record<string, unknown>;
-  dynamicVariables: Record<string, unknown>;
+  metrics: JsonObject;
+  dynamicVariables: JsonObject;
   latestError: string | null;
   startedAt: string | Date | null;
   endedAt: string | Date | null;
@@ -197,17 +198,17 @@ export interface StudioInterviewConversationReport {
   mode: string | null;
   callSuccessful: string | null;
   transcriptSummary: string | null;
-  evaluationCriteriaResults: Record<string, unknown>;
+  evaluationCriteriaResults: JsonObject;
   keyInformation: InterviewKeyInformation | null;
-  dataCollectionResults: Record<string, unknown>;
-  metadata: Record<string, unknown>;
+  dataCollectionResults: JsonObject;
+  metadata: JsonObject;
   // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与 per-speech_id 明细。
   // 结构与 agent.py 中 metrics_state 容器一致；Studio 详情页消费它渲染延迟/用量面板。
   // STT/LLM/TTS/EOU/interruption aggregates from the agent's metrics_collected
   // listener. Shape mirrors the metrics_state container in agent.py; the Studio
   // detail dialog consumes it to render the latency/usage panel.
-  metrics: Record<string, unknown>;
-  dynamicVariables: Record<string, unknown>;
+  metrics: JsonObject;
+  dynamicVariables: JsonObject;
   latestError: string | null;
   startedAt: string | Date | null;
   endedAt: string | Date | null;

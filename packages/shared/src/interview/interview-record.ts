@@ -1,13 +1,13 @@
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
 import type {
   CandidateInterviewFeedback,
   CandidateInterviewFeedbackCategory,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import {
   buildCandidateInterviewFeedback,
   RECONNECT_GRACE_MS,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type { ResumeReviewDimensionKey, ResumeReviewLoose } from "../resume-review";
 import {
   getResumeReviewBaseScore,
@@ -233,7 +233,7 @@ export function buildCandidateInterviewView(
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
     currentRoundRecoverableUntil: computeRecoverableUntil(currentEntry),
-    currentRoundStatus: (currentEntry?.status as ScheduleEntryStatus) ?? null,
+    currentRoundStatus: currentEntry?.status ?? null,
     currentRoundTime: currentEntry?.scheduledAt ?? null,
     id: record.id,
     interviewQuestions: record.interviewQuestions,

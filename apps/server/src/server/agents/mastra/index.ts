@@ -1,0 +1,66 @@
+import { Mastra } from "@mastra/core";
+import { MastraStorageExporter, Observability, SensitiveDataFilter } from "@mastra/observability";
+import {
+  formQuestionAgent,
+  interviewKeyInformationAgent,
+  interviewQuestionAgent,
+  interviewReportEvaluationAgent,
+  interviewReportSummaryAgent,
+  jobDescriptionDraftAgent,
+  jobEvaluationBlueprintAgent,
+  jobDescriptionMatchAgent,
+  resumeEducationBackfillAgent,
+  resumeHardFilterAgent,
+  resumeReviewQualitativeAgent,
+  resumeReviewScoringAgent,
+  resumeStructuredAgent,
+  structuredResumeAdjustmentAgent,
+  structuredResumeDimensionAgent,
+  structuredResumeGateAgent,
+  structuredResumeNarrativeAgent,
+  titleAgent,
+} from "@app/ai-runtime/simple-generators";
+import { recruitmentScorers } from "./scorers";
+import { storage } from "./storage";
+import { recruitmentWorkflows } from "./workflows";
+
+export const recruitmentAgents = {
+  formQuestionAgent,
+  interviewKeyInformationAgent,
+  interviewQuestionAgent,
+  interviewReportEvaluationAgent,
+  interviewReportSummaryAgent,
+  jobDescriptionDraftAgent,
+  jobDescriptionMatchAgent,
+  jobEvaluationBlueprintAgent,
+  resumeEducationBackfillAgent,
+  resumeHardFilterAgent,
+  resumeReviewQualitativeAgent,
+  resumeReviewScoringAgent,
+  resumeStructuredAgent,
+  structuredResumeAdjustmentAgent,
+  structuredResumeDimensionAgent,
+  structuredResumeGateAgent,
+  structuredResumeNarrativeAgent,
+  titleAgent,
+};
+
+export const mastra = new Mastra({
+  agents: recruitmentAgents,
+  observability: new Observability({
+    configs: {
+      default: {
+        exporters: [new MastraStorageExporter()],
+        logging: {
+          enabled: true,
+          level: "info",
+        },
+        serviceName: "arc-ai-recruitment-copilot",
+        spanOutputProcessors: [new SensitiveDataFilter()],
+      },
+    },
+  }),
+  scorers: recruitmentScorers,
+  storage,
+  workflows: recruitmentWorkflows,
+});

@@ -1,17 +1,17 @@
-import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import type { MinimaxVoiceId } from "@app/db-schema/minimax-voices";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationMode,
   JobEvaluationRuleDraft,
   JobLifecycleStatus,
-} from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/job-description-evaluation";
 import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
-} from "@arc/db-schema/job-description-structured-config";
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import { z } from "zod";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
 import {
   createDefaultResumeScreeningPolicy,
   resumeScreeningPolicySchema,
@@ -35,6 +35,14 @@ const operationalAssignmentSchema = z.object({
     .min(1, "请至少选择一位面试官")
     .max(20, "最多只能选择 20 位面试官"),
 });
+
+export const jobDescriptionSaveSchema = operationalAssignmentSchema
+  .extend({
+    code: jobDescriptionCodeSchema,
+    name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
+    prompt: z.string().trim().min(1, "请输入岗位 JD").max(10_000, "岗位 JD 不能超过 10000 字"),
+  })
+  .strict();
 
 const structuredJobOwnedFieldsSchema = z.object({
   code: jobDescriptionCodeSchema,
@@ -60,10 +68,8 @@ export const legacyJobDescriptionUpdateSchema = structuredJobDescriptionCreateSc
   })
   .strict();
 
-/** @deprecated Use the mode-specific request schemas at server boundaries. */
-export const jobDescriptionFormSchema = legacyJobDescriptionUpdateSchema;
-/** @deprecated Use the mode-specific request schemas at server boundaries. */
-export const jobDescriptionUpdateSchema = legacyJobDescriptionUpdateSchema;
+export const jobDescriptionFormSchema = jobDescriptionSaveSchema;
+export const jobDescriptionUpdateSchema = jobDescriptionSaveSchema;
 
 export type JobDescriptionFormValues = z.infer<typeof jobDescriptionFormSchema>;
 export type JobDescriptionUpdateValues = z.infer<typeof jobDescriptionUpdateSchema>;

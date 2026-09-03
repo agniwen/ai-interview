@@ -6,8 +6,8 @@
 // StudioInterviewRecord field set but **omits** scheduleEntries and
 // interviewLink, which now live on the round-side type.
 
-import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { ResumeAnalysisResult } from "@app/db-schema/interview/types";
+import type { CandidateOutcome, PipelineStage } from "@app/db-schema/studio-interviews";
 
 export interface StudioCandidateRecord {
   id: string;

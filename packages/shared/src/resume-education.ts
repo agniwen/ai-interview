@@ -45,14 +45,17 @@ function educationLevelRank(education: ResumeEducationLineInput): number {
   if (!label) {
     return 99;
   }
-  if (label.includes("硕") || label.includes("研究生")) {
+  if (label.includes("博士")) {
     return 0;
   }
-  if (label.includes("本") || label.includes("学士")) {
+  if (label.includes("硕") || label.includes("研究生")) {
     return 1;
   }
-  if (label.includes("大专") || label.includes("专科") || label.includes("高职")) {
+  if (label.includes("本") || label.includes("学士")) {
     return 2;
+  }
+  if (label.includes("大专") || label.includes("专科") || label.includes("高职")) {
+    return 3;
   }
   return 99;
 }

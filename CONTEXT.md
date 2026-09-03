@@ -1,10 +1,10 @@
-# AI Recruitment Copilot
+# AI Hiring Copilot
 
-AI Recruitment Copilot is a Chinese-first recruiting workspace for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
+AI Hiring Copilot is a Chinese-first recruiting workspace for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
 
 ## Frontend Module Boundary
 
-`apps/ai-recruitment-copilot/src/routes/` contains only TanStack Router route modules and thin route composition. Feature components, page sections, hooks, state models, dialogs, and list renderers belong under `src/components/features/<feature>/`; shared client utilities belong under `src/lib/client/`. A `-` filename prefix is not a substitute for moving feature implementation out of `src/routes/`.
+`apps/web/src/routes/` contains only TanStack Router route modules and thin route composition. Feature components, page sections, hooks, state models, dialogs, and list renderers belong under `src/components/features/<feature>/`; shared client utilities belong under `src/lib/client/`. A `-` filename prefix is not a substitute for moving feature implementation out of `src/routes/`.
 
 ## Language
 
@@ -49,24 +49,24 @@ _Avoid_: Invite link
 ### Recruiting Setup
 
 **Job Description**:
-A position definition used to evaluate resumes and drive interview questions; it is either a draft or a published job description.
+A saved position definition used to evaluate resumes and drive interview questions. It becomes available to recruiting workflows on its first save, and each later save creates a new current job evaluation version.
 _Avoid_: JD when writing user-facing copy, role posting
 
 **Draft Job Description**:
-A job description whose recruiting and resume-evaluation configuration is still editable and cannot yet receive, match, or evaluate candidates.
-_Avoid_: Inactive position, unpublished config
+A legacy job lifecycle state from the retired preview-and-publish workflow. New job descriptions do not enter this state.
+_Avoid_: New job, unsaved form
 
 **Published Job Description**:
-A job description available to recruiting workflows. For structured jobs, its name, code, description, prompt, resume gates, evaluation blueprint, scoring weights, scoring adjustments, and scoring-rule-set version are immutable, while operational interview assignments and questions may still change. A legacy job may keep its existing evaluation behavior or create a separate structured-upgrade draft; only publishing that draft atomically changes the job to structured mode and freezes its evaluation configuration.
-_Avoid_: Saved draft, editable active job
+A legacy name for a saved job description that was made available through the retired preview-and-publish workflow. Current product language uses Job Description because every saved job is immediately available.
+_Avoid_: Current job lifecycle state, immutable job
 
 **Job Resume Evaluation Mode**:
-The server-owned evaluation contract currently used for new evaluation attempts: legacy for jobs that have not adopted structured evaluation, or structured for newly published and explicitly upgraded jobs. A published legacy job may switch once to structured mode through the upgrade-publication transition; it cannot switch back or otherwise mutate its mode.
-_Avoid_: Feature flag, scoring version, temporary rollout state
+A legacy job-owned selector that chose between the two historical scored-evaluation contracts. It remains only to interpret historical jobs and results and does not choose the contract for new qualitative evaluation attempts.
+_Avoid_: Current evaluation contract, feature flag, qualitative version
 
 **Job Evaluation Upgrade Draft**:
-A separately stored, discardable structured-evaluation draft for one published legacy job. Creating or editing it does not change the live job, candidate routing, or existing results; publishing it atomically upgrades the same job and deletes the draft.
-_Avoid_: Live job edit, automatic migration, second job
+A legacy artifact from the retired workflow for upgrading one published job to structured scoring. It is not created, edited, or published by the qualitative-evaluation job setup.
+_Avoid_: Current job draft, JD snapshot, qualitative configuration
 
 **Job Code**:
 A workspace-scoped generated identifier for a job description.
@@ -93,8 +93,8 @@ Workspace-wide interview settings such as company context, opening instructions,
 _Avoid_: System config, environment config
 
 **Workspace Recruiting Copilot**:
-A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context.
-_Avoid_: Chat page, resume upload chat, global recruiting bot
+A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context. Its primary navigation label is “智能体”.
+_Avoid_: Agent, Chat page, resume upload chat, global recruiting bot
 
 **Copilot Action Proposal**:
 A recruiter-confirmed action suggested by the workspace recruiting copilot before it changes recruiting records.
@@ -122,9 +122,17 @@ _Avoid_: Applicant when the record is already inside the workspace
 The workspace record that tracks one candidate in the context of one job and its recruiting pipeline. AI interview rounds belong to this record; each interview report and its versions belong to exactly one AI interview round rather than directly to the candidate record.
 _Avoid_: Candidate identity, resume record, interview round
 
+**Candidate Pipeline End**:
+The terminal recruiting stage after a candidate receives a final outcome. User-facing Chinese uses “结束” for the action and “已结束” for the stage.
+_Avoid_: 结案, 已结案
+
 **Resume Library**:
 The workspace roster of resume records that have been accepted into the recruiting workflow.
 _Avoid_: Candidate database, interview list
+
+**Recruiting Desk**:
+The primary workspace page for managing resume records across recruiting stages. Its user-facing Chinese name is “招聘台”.
+_Avoid_: 招聘, Resume library page
 
 **Resume Record**:
 One candidate/resume entry in the resume library.
@@ -213,6 +221,10 @@ _Avoid_: Client-generated preview, published blueprint, live model output
 The recruiter-confirmed immutable interpretation of a structured job's source-backed evaluation inputs, compiled before publication into atomic gates, skill expectations, and normalized job-side scoring expectations without inventing unstated requirements.
 _Avoid_: Runtime JD extraction, mutable prompt output, resume evaluation result
 
+**Job Skill Requirement Group**:
+A source-backed set of core or auxiliary skills in a published job evaluation blueprint, evaluated either as all required or any one sufficient. Explicit conjunction or choice language in the job description is preserved; when the source does not state the relation, the blueprint compiler classifies complementary skills as all required and substitutable same-category skills as any one sufficient.
+_Avoid_: Flat skill list, skill alias group, runtime scoring guess
+
 **Atomic Resume Gate Requirement**:
 One stable requirement compiled from a draft free-text gate into the published evaluation blueprint and independently judged for each resume. Its result retains the raw AI status and evidence; an optional recruiter correction produces the effective gate status without erasing the AI judgment.
 _Avoid_: Entire gate text box, scoring deduction, recruiter decision
@@ -269,20 +281,88 @@ _Avoid_: Invalid result, failed screening
 The generated evaluation of how a resume record matches a job description, including dimensions, strengths, risks, and next-step guidance.
 _Avoid_: Screening result, final candidate outcome, manual feedback note
 
+**AI Evaluation**:
+The user-facing name for a qualitative resume evaluation and its details. “AI scoring” is reserved for historical evaluation versions that actually contain numeric scores.
+_Avoid_: AI score, scoring details, dimension scoring
+
+**AI Candidate Recommendation Level**:
+The AI's advisory judgment of whether a candidate is worth advancing for the bound job description: not recommended, undecided, recommended, or highly recommended. It never changes recruiting status automatically and does not replace the recruiter's final decision.
+_Avoid_: Match score, automatic rejection, recruiter decision
+
+**Highly Recommended**:
+The candidate strongly matches the job's core requirements with multiple direct pieces of resume evidence and no material risk that should block advancement.
+_Avoid_: Perfect match, guaranteed hire
+
+**Recommended**:
+The candidate matches most major job requirements; remaining gaps or uncertainties are suitable for confirmation in the next recruiting stage.
+_Avoid_: Passed, approved
+
+**Undecided Recommendation**:
+The resume lacks decisive evidence, contains conflicting information, or leaves an important issue for human confirmation. Missing information alone cannot justify a negative recommendation.
+_Avoid_: Neutral score, soft rejection
+
+**Not Recommended**:
+The candidate clearly conflicts with a core responsibility or explicit requirement in the job description, supported by both the cited job requirement and resume evidence.
+_Avoid_: Automatic rejection, insufficient-information result
+
+**Six-Dimension Candidate Evaluation**:
+The qualitative evaluation of a candidate across skill match, experience relevance, project match, education/background, potential, and stability. Each dimension has one of the four advisory levels plus an evidence-grounded narrative. Explicit job-description requirements take precedence; where the job is silent, the evaluation applies the general professional evidence standard without turning it into a hidden job gate.
+_Avoid_: Six-dimension score, weighted scorecard, inferred job gate
+
+**Dimension Recommendation Level**:
+The not-recommended, undecided, recommended, or highly-recommended judgment for one resume-evaluation dimension. The six ordered levels may be plotted on a radar chart for comparison, but their radial positions are not numeric scores and are never weighted or summed.
+_Avoid_: Dimension score, percentage, weighted contribution
+
+**General Professional Evidence Standard**:
+The versioned fallback used to make a dense, resume-grounded judgment when a job description does not state a requirement for one evaluation dimension. It covers demonstrated skill depth and transferability, responsibility and outcomes, project ownership and complexity, relevant learning foundations, growth and adaptability, and explainable career continuity without credential, career-gap, or job-change presumptions; it cannot by itself justify a not-recommended result.
+_Avoid_: Universal values, hidden job requirement, generic candidate stereotype
+
+**Dimension Evaluation Basis**:
+The visible provenance of one six-dimension judgment: explicit job requirements, the general professional evidence standard, or both. It explains the standard applied without exposing configurable rules or model reasoning.
+_Avoid_: Dimension weight, scoring rule, hidden prompt source
+
+**Resume Evaluation Contract Version**:
+The immutable interpretation contract under which one AI resume-evaluation result was generated. Results remain attached to their original version and are never converted into a newer contract by relabeling or score mapping.
+_Avoid_: Application release, display version, model name
+
+**Job Evaluation Version**:
+An immutable snapshot of the job description used as the basis for AI evaluation. Editing a published job creates a new current version without changing existing candidate evaluations; new evaluations and explicit reassessments always use the latest version. Results created before job-evaluation versioning may remain explicitly untraceable when their original JD cannot be proven; the current job text must never be retroactively claimed as their source snapshot.
+_Avoid_: Editable job row, evaluation result version, user-selected historical JD
+
+**Qualitative Resume Evaluation**:
+The current job-bound resume-evaluation contract that produces an AI candidate recommendation level, concise and detailed overall evaluations, six dimension levels with dense narratives, and optional evidence-backed seniority and team-positioning guidance from the job description and resume evidence. A candidate without a bound job is not evaluated. The UI includes a qualitative six-dimension radar chart, but the contract has no numeric score, skill checklist, gate result, or scoring adjustment.
+_Avoid_: Structured score, weighted evaluation, screening gate result
+
+**Candidate Seniority Recommendation**:
+An optional, evidence-backed suggestion of the seniority at which the candidate could operate for the job. It is omitted when the job description or resume does not support a defensible judgment.
+_Avoid_: Guaranteed title, required evaluation field
+
+**Candidate Team Positioning**:
+An optional, evidence-backed suggestion of how the candidate could contribute within the team described by the job. It is omitted when the job description lacks enough team context rather than being inferred from generic assumptions.
+_Avoid_: Organization assignment, required evaluation field
+
 **Structured Resume Evaluation**:
-The current structured-job evaluation artifact containing frozen job expectations, six raw dimension scores, gate evidence, deductions, adjustments, deterministic composite score, and AI narrative. It is stored separately from legacy resume-review v4 results.
+A historical scored-evaluation artifact containing frozen job expectations, six raw dimension scores, gate evidence, deductions, adjustments, deterministic composite score, and AI narrative. It remains readable under its original contract version but is never produced by the qualitative contract.
 _Avoid_: Legacy resume review, recruiter decision, resume-pool note
 
 **Current Resume Evaluation**:
-The mode-specific generated artifact currently valid for one resume record and its bound job. Its persisted artifact mode may remain legacy after the bound job has been upgraded to structured, until an explicit structured reassessment succeeds.
-_Avoid_: Any non-null review field, historical evaluation, recruiter decision
+The latest successfully generated evaluation currently valid for one resume record and its bound job. A failed reassessment leaves the previous current evaluation in place.
+_Avoid_: Latest attempt, historical evaluation, recruiter decision
+
+**Resume Evaluation History**:
+The read-only view of evaluation activity for one resume record. Successful results form the version sequence and retain the evaluation contract version, generation time, complete version-specific content, and job evaluation version when that source snapshot is provable. Pre-version results whose original JD cannot be proven are visibly marked untraceable instead of being attached to the job's text at migration time. Failed qualitative attempts are stored as separate failure records with their JD version, time, and error; they never enter the successful version sequence or replace the current result. Historical results cannot be restored as current or used to reassess against an older job description.
+_Avoid_: Editable version, JD version selector, latest-attempt-as-current
+
+**Resume Evaluation Failure Record**:
+A separately persisted failed qualitative attempt containing its contract version, job evaluation version, generation time, run identity, and error. It exists for audit and retry context but is never a resume-evaluation result or current evaluation.
+_Avoid_: Failed evaluation version, empty result artifact, current evaluation
 
 **Resume Evaluation Artifact Mode**:
-The persisted mode of the candidate's current valid generated artifact: legacy, structured, or absent. Rendering and mixed-mode ordering use this value rather than inferring it from the job's current evaluation mode.
+The persisted mode of the candidate's current valid generated artifact: qualitative, legacy, structured, or absent. Rendering and mixed-mode ordering use this value rather than inferring it from the job's current evaluation mode.
 _Avoid_: Job evaluation mode, latest attempt mode
 
 **Resume Evaluation Attempt Mode**:
-The persisted mode targeted by the current or latest evaluation attempt. It may be structured while the current artifact mode is still legacy; a failed replacement attempt does not erase or relabel that legacy artifact.
+The persisted mode targeted by the current or latest evaluation attempt. New attempts target qualitative while the current artifact may still be legacy or structured; a failed replacement attempt does not erase or relabel the last valid artifact.
 _Avoid_: Current valid result, job migration state
 
 **Resume Review Dimension**:
@@ -354,7 +434,7 @@ A human-written assessment of a resume record that captures the recruiter's judg
 _Avoid_: Resume review, screening result, interview report
 
 **Resume Reassessment**:
-The act of clearing and regenerating the current job's AI evaluation after resume evidence or job binding changes, or after an explicit eligible rerun. It does not itself change a recruiter decision; a job rebind separately resets that decision under the binding contract.
+The recruiter-triggered act of generating a new AI evaluation under the current evaluation contract and the latest job evaluation version. A successful reassessment makes the new result current while preserving older versioned results for history; it does not itself change a recruiter decision.
 _Avoid_: Screening-only refresh
 
 ### Meeting Buddy
@@ -489,6 +569,10 @@ _Avoid_: Answer evidence, question score, generated assessment
 The technical completion state of an AI interview call. `success` means the round reached a normal wrap-up, including a time-driven wrap-up; `partial` means a candidate-ended round or exhausted reconnect grace preserved usable partial results; `failed` means an agent, infrastructure, or system-shutdown failure prevented normal completion. It does not replace per-question outcomes.
 _Avoid_: Interview score, hiring recommendation, question outcome
 
+**Interview End Reason**:
+The recorded cause that ended one AI interview call: an explicit candidate interface action, a candidate request during the conversation, expected workflow completion, a time limit, exhausted reconnect grace, or a system failure. It is a business-level terminal fact and remains distinct from Call Completion Status and the transport-level close reason.
+_Avoid_: Call Completion Status, question outcome, raw connection close reason
+
 **Schedule Entry**:
 The round-level scheduling and status record for an AI interview.
 _Avoid_: Calendar event, timeslot
@@ -496,6 +580,18 @@ _Avoid_: Calendar event, timeslot
 **Human Interview**:
 A live interview session involving a human interviewer and a candidate.
 _Avoid_: AI interview, manual round
+
+**Human Interview Evaluation**:
+The single current evaluation for one human interview round. AI may create its draft and a person may revise or submit it, but the user-facing evaluation does not identify itself as AI-authored or human-authored.
+_Avoid_: AI evaluation, human evaluation, parallel final evaluations
+
+**Human Interview Evaluation Snapshot**:
+A historical copy of an AI-generated or person-submitted human interview evaluation retained for later quality analysis; it never competes with the round's single current evaluation in the recruiting interface.
+_Avoid_: Current evaluation, visible evaluation version, second final evaluation
+
+**Interviewer Candidate Materials**:
+A read-only, meeting-scoped view of every candidate attached to one human interview meeting, available through a valid interviewer invite link for hosts, interviewers, and observers without requiring sign-in. It may include candidate details, resume content, AI evaluation, AI-interview information, and recommended questions, but never includes candidates outside that meeting or appears in the candidate-side meeting experience.
+_Avoid_: Workspace-wide candidate access, candidate-facing dossier, interviewer assignment scope, signed-in member access
 
 **Interview Report**:
 The versioned, reviewable evaluation output for one AI interview round, combining evidence from the candidate's resume, submitted forms, and that round's interview. A candidate may have multiple interview reports.
@@ -550,7 +646,7 @@ A workspace member who may decide the business interview entry gate for candidat
 _Avoid_: Feishu document editor, AI evaluator, human interviewer
 
 **Feishu Review Workspace**:
-The editable Feishu document generated for one AI interview round. Each round has its own document, and after creation the system never modifies its body, so human review input cannot be overwritten. Editing the document does not revise a system report version, and gate decisions are submitted in the authenticated system rather than through Feishu callbacks.
+The editable Feishu document generated for one AI interview round. Each round has its own document; an explicit Platform Administrator maintenance action may insert or synchronize the wholly system-owned Resume Evaluation and Recommended Interview Questions callouts from their current source data, replacing edits inside those callouts while leaving reviewer-owned sections and all other blocks untouched. Editing or synchronizing the document does not revise a system report version, and gate decisions are submitted in the authenticated system rather than through Feishu callbacks.
 _Avoid_: Report source of truth, report version, unrestricted report editor
 
 **Human Review Input**:
@@ -572,6 +668,10 @@ _Avoid_: Workspace invitation, reminder email
 **Recruitment Stage**:
 The candidate's business stage in the recruiting pipeline, such as screening, AI interview, human interview, offer, rejected, or hired.
 _Avoid_: Status when the value represents pipeline meaning
+
+**Initial Recruitment Stage**:
+The recruitment stage chosen when creating a Candidate Recruiting Record, allowing already-completed earlier steps to be skipped.
+_Avoid_: Current stage, import status
 
 ### Semantic Matching
 

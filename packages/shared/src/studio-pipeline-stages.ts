@@ -1,19 +1,39 @@
-// 候选人后期 pipeline（真人复面 / Offer / 已结案）的共享 DTO 类型。
+// 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
 // DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
 // Shared DTOs for the late-pipeline stages (human interview / offer / closed).
 // Imported by both DAO and client; single source of truth.
 
+import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
+import type {
+  FinalMeetingTranscriptRevision,
+  MeetingTranscriptState,
+} from "./meeting-transcription";
 import type {
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
+  HumanInterviewEvaluation,
+  HumanInterviewEvaluationRating,
+  HumanInterviewEvaluationStatus,
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingStatus,
+  HumanInterviewRecordingStatus,
+  HumanInterviewerAssignmentStatus,
   HumanInterviewFormat,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
+
+export interface PublicAiInterviewInvitationPreview {
+  candidateName: string;
+  companyName: string;
+  expiresAt: string;
+  jobName: string | null;
+  roundName: string;
+  scheduledAt: string | null;
+  status: CandidateInterviewInvitationStatus;
+}
 
 /**
  * 真人复面单轮 DTO（DAO 返回 + 客户端消费）。
@@ -36,13 +56,33 @@ export interface HumanInterviewRoundRecord {
   outcome: HumanInterviewRoundOutcome | null;
   score: number | null;
   feedback: string | null;
+  evaluation: HumanInterviewEvaluation | null;
+  evaluationOverall: string | null;
+  evaluationRating: HumanInterviewEvaluationRating | null;
+  evaluationError: string | null;
+  evaluationStatus: HumanInterviewEvaluationStatus;
+  evaluationSubmittedAt: string | null;
+  evaluationTranscriptRevisionId: string | null;
+  evaluationUpdatedAt: string | null;
+  evaluationUpdatedBy: string | null;
   notes: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
-  interviewers: { id: string; name: string; image: string | null }[];
+  interviewers: HumanInterviewRoundInterviewerRecord[];
+}
+
+export interface HumanInterviewRoundInterviewerRecord {
+  confirmedAt: string | null;
+  confirmedScheduleVersion: number | null;
+  declineReason: string | null;
+  declinedAt: string | null;
+  id: string;
+  image: string | null;
+  name: string;
+  status: HumanInterviewerAssignmentStatus;
 }
 
 export interface HumanInterviewMeetingRoundRecord {
@@ -53,6 +93,7 @@ export interface HumanInterviewMeetingRoundRecord {
   sortOrder: number;
   status: HumanInterviewRoundStatus;
   candidateInviteExpiresAt: string | null;
+  candidateInviteStatus: CandidateInterviewInvitationStatus;
   hasCandidateInvite: boolean;
   joinedAt: string | null;
   leftAt: string | null;
@@ -89,7 +130,13 @@ export interface HumanInterviewMeetingRecord {
   validUntil: string | null;
   cancelledAt: string | null;
   recordingEgressId: string | null;
+  recordingDurationMs: number | null;
+  recordingError: string | null;
   recordingFileKey: string | null;
+  recordingSizeBytes: number | null;
+  recordingStatus: HumanInterviewRecordingStatus;
+  processingMeetingSessionId: string | null;
+  scheduleVersion: number;
   notes: string | null;
   createdBy: string | null;
   createdAt: string;
@@ -136,8 +183,10 @@ export interface HumanInterviewMeetingTokenResponse {
 }
 
 export interface PublicHumanInterviewMeetingPreview {
+  candidateInviteStatus: CandidateInterviewInvitationStatus;
   candidateName: string;
   meetingId: string;
+  recordingStatus: HumanInterviewRecordingStatus;
   roundLabel: string;
   scheduledAt: string | null;
   validUntil: string | null;
@@ -146,13 +195,36 @@ export interface PublicHumanInterviewMeetingPreview {
 }
 
 export interface PublicHumanInterviewInterviewerPreview {
+  candidateName: string;
   interviewerName: string;
   meetingId: string;
+  recordingStatus: HumanInterviewRecordingStatus;
   role: HumanInterviewMeetingInterviewerRole;
+  roundLabel: string;
   scheduledAt: string | null;
   validUntil: string | null;
   status: HumanInterviewMeetingStatus;
   title: string;
+}
+
+export interface HumanInterviewReviewRecord {
+  documentSync?: {
+    status: "pending" | "syncing" | "waiting_document" | "failed" | "synced";
+    documentUrl: string | null;
+    syncedAt: string | null;
+  } | null;
+  evaluation: HumanInterviewEvaluation | null;
+  evaluationError: string | null;
+  evaluationStatus: HumanInterviewEvaluationStatus;
+  evaluationUpdatedAt: string | null;
+  evaluationUpdatedBy: string | null;
+  meetingSessionId: string | null;
+  outcome: HumanInterviewRoundOutcome | null;
+  roundId: string;
+  roundStatus: HumanInterviewRoundStatus;
+  transcript: FinalMeetingTranscriptRevision | null;
+  transcriptionError: string | null;
+  transcriptionState: MeetingTranscriptState;
 }
 
 /**

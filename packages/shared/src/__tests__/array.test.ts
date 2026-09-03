@@ -9,7 +9,7 @@ import {
   partition,
   unique,
   uniqueBy,
-} from "@arc/shared/utils/array";
+} from "@app/shared/utils/array";
 
 describe("ensureArray", () => {
   it("passes arrays through unchanged (same reference)", () => {

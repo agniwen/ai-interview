@@ -1,13 +1,27 @@
 import { z } from "zod";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
-import type { ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
+import type {
+  ResumePoolScope,
+  ResumePoolStatus,
+  ResumeJobMatchRunStatus,
+  ResumeJobMatchSelectionMethod,
+} from "@app/db-schema/schema";
 import type { ResumeLibraryProfileSnapshot } from "./studio-resumes";
+import type {
+  QualitativeRecommendationLevel,
+  QualitativeResumeEvaluation,
+} from "@app/db-schema/qualitative-resume-evaluation";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
 export const resumePoolStatusSchema = z.enum(["active", "archived"]);
+export const resumePoolInitialRecruitmentStageSchema = z.enum([
+  "screening",
+  "ai_interview",
+  "human_interview",
+]);
 
 export const resumePoolCreateSchema = z.object({
   candidateEmail: z.string().trim().max(200).nullable().optional(),
@@ -21,6 +35,7 @@ export const resumePoolCreateSchema = z.object({
 
 export const resumePoolImportSchema = z.object({
   dedupPolicy: z.enum(["check", "force"]).default("check"),
+  initialRecruitmentStage: resumePoolInitialRecruitmentStageSchema.default("screening"),
   jobDescriptionId: z.string().trim().min(1).nullable().optional(),
   jobDescriptionMode: z.enum(["none", "bind"]).default("none"),
   reimport: z.boolean().optional(),
@@ -28,6 +43,9 @@ export const resumePoolImportSchema = z.object({
 
 export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;
 export type ResumePoolImportInput = z.infer<typeof resumePoolImportSchema>;
+export type ResumePoolInitialRecruitmentStage = z.infer<
+  typeof resumePoolInitialRecruitmentStageSchema
+>;
 
 export interface ResumePoolLatestExperienceDetail {
   period: string | null;
@@ -42,6 +60,7 @@ export interface ResumePoolProfileHighlights {
   latestCompanyDetail: ResumePoolLatestExperienceDetail | null;
   latestProject: string | null;
   latestProjectDetail: ResumePoolLatestExperienceDetail | null;
+  personalStrengths: string[];
   schools: string[];
 }
 
@@ -53,6 +72,7 @@ export interface ResumePoolImportedRecord {
 }
 
 export type ResumePoolSourceChannel = "mail_ingest" | "referral";
+export type ResumePoolJobBindingMode = "automatic" | "manual";
 
 export interface ResumePoolListRecord {
   id: string;
@@ -75,11 +95,16 @@ export interface ResumePoolListRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   notes: string | null;
+  qualitativeRecommendationLevel: QualitativeRecommendationLevel | null;
+  qualitativeResumeSummary: string | null;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;
+  jobBindingMode: ResumePoolJobBindingMode | null;
   resumeFileName: string | null;
   resumeStorageKey: string | null;
   resumeContentHash: string | null;
+  resumeEvaluationContractVersion: string | null;
+  resumeEvaluationGeneratedAt: string | null;
   resumeParseStatus: ResumeParseStatus;
   resumeParseRetryable: boolean;
   resumeParseError: string | null;
@@ -98,7 +123,31 @@ export interface ResumePoolListRecord {
 }
 
 export interface ResumePoolDetail extends ResumePoolListRecord {
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
   resumeProfile: ResumeProfile | null;
+}
+
+export interface ResumePoolJobMatchCandidate {
+  aiRank: number | null;
+  aiReason: string | null;
+  aiScore: number | null;
+  available: boolean;
+  code: string | null;
+  departmentName: string | null;
+  id: string;
+  isCurrent: boolean;
+  name: string;
+  recallRank: number | null;
+  vectorScore: number | null;
+}
+
+export interface ResumePoolJobMatchResult {
+  candidates: ResumePoolJobMatchCandidate[];
+  createdAt: string;
+  id: string;
+  selectedJobDescriptionId: string | null;
+  selectionMethod: ResumeJobMatchSelectionMethod | null;
+  status: ResumeJobMatchRunStatus;
 }
 
 export interface PaginatedResumePoolResult {
@@ -149,7 +198,7 @@ export type ResumePoolImportResult =
   | ResumePoolImportDuplicateResult
   | ResumePoolImportSuccessResult;
 
-export const resumePoolScopeMeta: Record<ResumePoolScope, { label: string }> = {
+export const resumePoolScopeMeta = {
   private: { label: "私有简历池" },
   public: { label: "公共简历池" },
-};
+} satisfies Record<ResumePoolScope, { label: string }>;

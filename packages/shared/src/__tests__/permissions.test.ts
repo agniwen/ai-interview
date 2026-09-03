@@ -3,7 +3,20 @@
 // 权限矩阵的表驱动测试。每加一个角色就追加测试块，确保矩阵不会被无意改坏。
 
 import { describe, expect, it } from "vitest";
-import { roles, STUDIO_PAGE_PERMISSION_ACTIONS } from "@arc/shared/permissions";
+import {
+  isWorkspaceAdministratorRole,
+  roles,
+  STUDIO_PAGE_PERMISSION_ACTIONS,
+} from "@app/shared/permissions";
+
+describe("workspace administrator roles", () => {
+  it("only treats owner and admin as administrators", () => {
+    expect(isWorkspaceAdministratorRole("owner")).toBe(true);
+    expect(isWorkspaceAdministratorRole("admin")).toBe(true);
+    expect(isWorkspaceAdministratorRole("member")).toBe(false);
+    expect(isWorkspaceAdministratorRole("recruiting-lead")).toBe(false);
+  });
+});
 
 describe("permissions matrix", () => {
   describe("owner role", () => {
@@ -34,6 +47,9 @@ describe("permissions matrix", () => {
       const { owner } = roles;
       expect(owner.statements.globalConfig).toEqual(expect.arrayContaining(["read", "update"]));
       expect(owner.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(owner.statements.resumeEmailIngest).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
     });
 
     it("can browse every studio page", () => {
@@ -72,6 +88,9 @@ describe("permissions matrix", () => {
         expect.arrayContaining(["read", "update"]),
       );
       expect(roles.admin.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(roles.admin.statements.resumeEmailIngest).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
     });
 
     it("can browse every studio page", () => {
@@ -110,9 +129,13 @@ describe("permissions matrix", () => {
         expect.arrayContaining(["read", "update"]),
       );
       expect(roles.member.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(roles.member.statements.resumeEmailIngest).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
     });
 
     it("has no member management access", () => {
+      // SAFETY: The permission matrix fixture is owned by this test and exposes string-keyed statements.
       const stmts = roles.member.statements as Record<string, readonly string[] | undefined>;
       expect(stmts.member ?? []).toHaveLength(0);
     });
@@ -139,6 +162,7 @@ describe("permissions matrix", () => {
     });
 
     it("has no business or member-management permissions", () => {
+      // SAFETY: The permission matrix fixture is owned by this test and exposes string-keyed statements.
       const stmts = roles.noAccess.statements as Record<string, readonly string[] | undefined>;
       const resources = [
         "auditLog",
@@ -158,6 +182,7 @@ describe("permissions matrix", () => {
         "resumeLibrary",
         "resumePool",
         "resumeUploadBatch",
+        "resumeEmailIngest",
       ] as const;
       for (const resource of resources) {
         expect(stmts[resource] ?? []).toHaveLength(0);
@@ -188,6 +213,9 @@ describe("permission matrix cross-cut", () => {
     ["admin", "mailIngestAccount", "manage", true],
     ["member", "mailIngestAccount", "manage", false],
     ["member", "mailIngestAccount", "create", false],
+    ["owner", "resumeEmailIngest", "read", true],
+    ["admin", "resumeEmailIngest", "update", true],
+    ["member", "resumeEmailIngest", "create", true],
     // department / interviewer
     ["member", "department", "create", true],
     ["member", "interviewer", "update", true],
@@ -253,6 +281,7 @@ describe("permission matrix cross-cut", () => {
 
   for (const [role, resource, action, expected] of cases) {
     it(`${role} ${expected ? "can" : "cannot"} ${action} ${resource}`, () => {
+      // SAFETY: The table only contains permission resources and actions from the fixture matrix.
       const stmts = roles[role].statements as Record<string, readonly string[] | undefined>;
       const allowed = stmts[resource]?.includes(action) ?? false;
       expect(allowed).toBe(expected);

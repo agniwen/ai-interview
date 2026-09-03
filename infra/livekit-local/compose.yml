@@ -1,0 +1,64 @@
+name: ai-interview-livekit-local
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  livekit:
+    image: livekit/livekit-server:v1.13.6
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:7880:7880/tcp"
+      - "${LIVEKIT_LOCAL_IP:?Set the Mac LAN IPv4 address}:7881:7881/tcp"
+      - "${LIVEKIT_LOCAL_IP:?Set the Mac LAN IPv4 address}:7882:7882/udp"
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        bind_addresses: ["0.0.0.0"]
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          use_external_ip: false
+          node_ip: ${LIVEKIT_LOCAL_IP}
+          advertise_internal_ip: true
+        redis:
+          address: redis:6379
+        keys:
+          ${LIVEKIT_LOCAL_API_KEY:?Set a development API key}: ${LIVEKIT_LOCAL_API_SECRET:?Set a development API secret}
+        webhook:
+          api_key: ${LIVEKIT_LOCAL_API_KEY}
+          urls:
+            - http://host.docker.internal:3000/api/livekit/webhook
+        logging:
+          level: info
+
+  egress:
+    image: livekit/egress:v1.14.1
+    depends_on:
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    cap_add: [SYS_ADMIN]
+    shm_size: 1gb
+    deploy:
+      replicas: 2
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_LOCAL_API_KEY}
+        api_secret: ${LIVEKIT_LOCAL_API_SECRET}
+        ws_url: ws://livekit:7880
+        insecure: true
+        redis:
+          address: redis:6379
+        health_port: 8080
+        enable_chrome_sandbox: true
+        log_level: info

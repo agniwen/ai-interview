@@ -36,7 +36,7 @@
 ## 架构总览
 
 ```
-@arc/shared/answer-keywords.ts        ← 纯函数提取层（同步来源，可测）
+@app/shared/answer-keywords.ts        ← 纯函数提取层（同步来源，可测）
         │  extractAnswerKeywords(text, options) → KeywordSpan[]
         ▼
 web: interview-detail/keyword-highlight/
@@ -53,7 +53,7 @@ web: interview-detail/keyword-highlight/
 
 ## 组件设计
 
-### 1. 提取器 `@arc/shared`
+### 1. 提取器 `@app/shared`
 
 文件：`packages/shared/src/answer-keywords.ts`（词典可拆到同目录 `answer-keywords-dictionary.ts`）。
 

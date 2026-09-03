@@ -3,7 +3,7 @@ import {
   humanInterviewRoundInputSchema,
   studioInterviewClientFormSchema,
   studioInterviewFormSchema,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 
 const scheduleEntry = {
   allowTextInput: false,

@@ -1,6 +1,8 @@
+/* oxlint-disable max-lines -- schema relations remain centralized by repository convention */
 import { defineRelations } from "drizzle-orm";
 import * as schema from "./schema";
 
+/* oxlint-disable max-lines -- the generated-style relation registry keeps all schema links in one auditable graph. */
 export const relations = defineRelations(schema, (r) => ({
   account: {
     user: r.one.user({
@@ -150,9 +152,87 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   interviewNotification: {
+    event: r.one.interviewNotificationEvent({
+      from: r.interviewNotification.eventId,
+      to: r.interviewNotificationEvent.id,
+    }),
+    interviewRecord: r.one.studioInterview({
+      from: r.interviewNotification.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
     organization: r.one.organization({
       from: r.interviewNotification.organizationId,
       to: r.organization.id,
+    }),
+    templateVersion: r.one.interviewNotificationTemplateVersion({
+      from: r.interviewNotification.templateVersionId,
+      to: r.interviewNotificationTemplateVersion.id,
+    }),
+  },
+  interviewNotificationEvent: {
+    actor: r.one.user({
+      from: r.interviewNotificationEvent.actorUserId,
+      to: r.user.id,
+    }),
+    aiRound: r.one.studioInterviewSchedule({
+      from: r.interviewNotificationEvent.scheduleEntryId,
+      to: r.studioInterviewSchedule.id,
+    }),
+    conversation: r.one.interviewConversation({
+      from: r.interviewNotificationEvent.conversationId,
+      to: r.interviewConversation.conversationId,
+    }),
+    deliveries: r.many.interviewNotification({
+      from: r.interviewNotificationEvent.id,
+      to: r.interviewNotification.eventId,
+    }),
+    humanMeeting: r.one.studioHumanInterviewMeeting({
+      from: r.interviewNotificationEvent.humanMeetingId,
+      to: r.studioHumanInterviewMeeting.id,
+    }),
+    humanRound: r.one.studioHumanInterviewRound({
+      from: r.interviewNotificationEvent.humanRoundId,
+      to: r.studioHumanInterviewRound.id,
+    }),
+    interviewRecord: r.one.studioInterview({
+      from: r.interviewNotificationEvent.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.interviewNotificationEvent.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  interviewNotificationTemplate: {
+    activeVersion: r.one.interviewNotificationTemplateVersion({
+      from: r.interviewNotificationTemplate.activeVersionId,
+      to: r.interviewNotificationTemplateVersion.id,
+    }),
+    organization: r.one.organization({
+      from: r.interviewNotificationTemplate.organizationId,
+      to: r.organization.id,
+    }),
+    updatedByUser: r.one.user({
+      from: r.interviewNotificationTemplate.updatedBy,
+      to: r.user.id,
+    }),
+    versions: r.many.interviewNotificationTemplateVersion({
+      from: r.interviewNotificationTemplate.id,
+      to: r.interviewNotificationTemplateVersion.templateId,
+    }),
+  },
+  interviewNotificationTemplateVersion: {
+    createdByUser: r.one.user({
+      from: r.interviewNotificationTemplateVersion.createdBy,
+      to: r.user.id,
+    }),
+    deliveries: r.many.interviewNotification({
+      from: r.interviewNotificationTemplateVersion.id,
+      to: r.interviewNotification.templateVersionId,
+    }),
+    template: r.one.interviewNotificationTemplate({
+      from: r.interviewNotificationTemplateVersion.templateId,
+      to: r.interviewNotificationTemplate.id,
     }),
   },
   interviewQuestionTemplate: {
@@ -217,11 +297,14 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescription.organizationId,
       to: r.organization.id,
     }),
+    resumeJobMatchCandidates: r.many.resumeJobMatchCandidate(),
+    resumeJobMatchRuns: r.many.resumeJobMatchRun(),
     studioInterviews: r.many.studioInterview(),
     user: r.one.user({
       from: r.jobDescription.createdBy,
       to: r.user.id,
     }),
+    versions: r.many.jobDescriptionVersion(),
   },
   jobDescriptionEvaluationUpgradeAudit: {
     jobDescription: r.one.jobDescription({
@@ -255,6 +338,22 @@ export const relations = defineRelations(schema, (r) => ({
     jobDescription: r.one.jobDescription({
       from: r.jobDescriptionInterviewer.jobDescriptionId,
       to: r.jobDescription.id,
+    }),
+  },
+  jobDescriptionVersion: {
+    creator: r.one.user({
+      from: r.jobDescriptionVersion.createdBy,
+      to: r.user.id,
+    }),
+    evaluationFailures: r.many.resumeEvaluationFailure(),
+    evaluations: r.many.resumeEvaluationVersion(),
+    jobDescription: r.one.jobDescription({
+      from: r.jobDescriptionVersion.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.jobDescriptionVersion.organizationId,
+      to: r.organization.id,
     }),
   },
   meetingAccessGrant: {
@@ -476,6 +575,8 @@ export const relations = defineRelations(schema, (r) => ({
     interviewAuditLogs: r.many.interviewAuditLog(),
     interviewConversationTurns: r.many.interviewConversationTurn(),
     interviewConversations: r.many.interviewConversation(),
+    interviewNotificationEvents: r.many.interviewNotificationEvent(),
+    interviewNotificationTemplates: r.many.interviewNotificationTemplate(),
     interviewNotifications: r.many.interviewNotification(),
     interviewQuestionTemplateBindings: r.many.interviewQuestionTemplateBinding(),
     interviewQuestionTemplates: r.many.interviewQuestionTemplate(),
@@ -488,7 +589,10 @@ export const relations = defineRelations(schema, (r) => ({
     meetingTranscriptionPolicies: r.many.meetingTranscriptionPolicy(),
     members: r.many.member(),
     organizationRoles: r.many.organizationRole(),
+    resumeEvaluationFailures: r.many.resumeEvaluationFailure(),
+    resumeEvaluationVersions: r.many.resumeEvaluationVersion(),
     studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),
+    studioInterviewNotificationRecipients: r.many.studioInterviewNotificationRecipient(),
     studioInterviewSchedules: r.many.studioInterviewSchedule(),
     studioInterviews: r.many.studioInterview(),
     studioOrgSkills: r.many.studioOrgSkill(),
@@ -499,6 +603,67 @@ export const relations = defineRelations(schema, (r) => ({
     organization: r.one.organization({
       from: r.organizationRole.organizationId,
       to: r.organization.id,
+    }),
+  },
+  resumeEvaluationFailure: {
+    jobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.resumeEvaluationFailure.jobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumeEvaluationFailure.organizationId,
+      to: r.organization.id,
+    }),
+    resumeRecord: r.one.studioInterview({
+      from: r.resumeEvaluationFailure.resumeRecordId,
+      to: r.studioInterview.id,
+    }),
+  },
+  resumeEvaluationVersion: {
+    jobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.resumeEvaluationVersion.jobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumeEvaluationVersion.organizationId,
+      to: r.organization.id,
+    }),
+    resumeRecord: r.one.studioInterview({
+      from: r.resumeEvaluationVersion.resumeRecordId,
+      to: r.studioInterview.id,
+    }),
+  },
+  resumeJobMatchCandidate: {
+    jobDescription: r.one.jobDescription({
+      from: r.resumeJobMatchCandidate.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    run: r.one.resumeJobMatchRun({
+      from: r.resumeJobMatchCandidate.runId,
+      to: r.resumeJobMatchRun.id,
+    }),
+  },
+  resumeJobMatchRun: {
+    batchItem: r.one.resumeUploadBatchItem({
+      from: r.resumeJobMatchRun.batchItemId,
+      to: r.resumeUploadBatchItem.id,
+    }),
+    candidates: r.many.resumeJobMatchCandidate(),
+    mailMessage: r.one.mailIngestMessage({
+      from: r.resumeJobMatchRun.mailMessageId,
+      to: r.mailIngestMessage.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumeJobMatchRun.organizationId,
+      to: r.organization.id,
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.resumeJobMatchRun.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+    selectedJobDescription: r.one.jobDescription({
+      from: r.resumeJobMatchRun.selectedJobDescriptionId,
+      to: r.jobDescription.id,
     }),
   },
   resumePoolEvent: {
@@ -544,6 +709,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.resumePoolItem.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+    jobMatchRuns: r.many.resumeJobMatchRun(),
     organization: r.one.organization({
       from: r.resumePoolItem.organizationId,
       to: r.organization.id,
@@ -574,6 +740,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     events: r.many.studioHumanInterviewMeetingEvent(),
     interviewers: r.many.studioHumanInterviewMeetingInterviewer(),
+    notificationEvents: r.many.interviewNotificationEvent(),
     organization: r.one.organization({
       from: r.studioHumanInterviewMeeting.organizationId,
       to: r.organization.id,
@@ -613,6 +780,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     interviewers: r.many.studioHumanInterviewRoundInterviewer(),
     meetingLinks: r.many.studioHumanInterviewMeetingRound(),
+    notificationEvents: r.many.interviewNotificationEvent(),
     organization: r.one.organization({
       from: r.studioHumanInterviewRound.organizationId,
       to: r.organization.id,
@@ -632,16 +800,29 @@ export const relations = defineRelations(schema, (r) => ({
     candidateFormSubmissions: r.many.candidateFormSubmission(),
     conversationTurns: r.many.interviewConversationTurn(),
     conversations: r.many.interviewConversation(),
+    evaluationFailures: r.many.resumeEvaluationFailure(),
+    evaluationVersions: r.many.resumeEvaluationVersion(),
     humanInterviewRounds: r.many.studioHumanInterviewRound(),
     jobDescription: r.one.jobDescription({
       from: r.studioInterview.jobDescriptionId,
       to: r.jobDescription.id,
     }),
     meetingContexts: r.many.meetingRecruitingContext(),
+    notificationEvents: r.many.interviewNotificationEvent(),
+    notificationRecipients: r.many.studioInterviewNotificationRecipient(),
+    notifications: r.many.interviewNotification(),
     offerDrafts: r.many.studioOfferDraft(),
     organization: r.one.organization({
       from: r.studioInterview.organizationId,
       to: r.organization.id,
+    }),
+    qualitativeAttemptJobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.studioInterview.qualitativeAttemptJobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
+    }),
+    qualitativeJobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.studioInterview.qualitativeJobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
     }),
     roundEmailLogs: r.many.studioRoundEmailLog(),
     scheduleEntries: r.many.studioInterviewSchedule(),
@@ -655,12 +836,31 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  studioInterviewNotificationRecipient: {
+    createdByUser: r.one.user({
+      from: r.studioInterviewNotificationRecipient.createdBy,
+      to: r.user.id,
+    }),
+    interviewRecord: r.one.studioInterview({
+      from: r.studioInterviewNotificationRecipient.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.studioInterviewNotificationRecipient.organizationId,
+      to: r.organization.id,
+    }),
+    user: r.one.user({
+      from: r.studioInterviewNotificationRecipient.userId,
+      to: r.user.id,
+    }),
+  },
   studioInterviewSchedule: {
     emailLogs: r.many.studioRoundEmailLog(),
     interviewRecord: r.one.studioInterview({
       from: r.studioInterviewSchedule.interviewRecordId,
       to: r.studioInterview.id,
     }),
+    notificationEvents: r.many.interviewNotificationEvent(),
     organization: r.one.organization({
       from: r.studioInterviewSchedule.organizationId,
       to: r.organization.id,
@@ -710,6 +910,22 @@ export const relations = defineRelations(schema, (r) => ({
     chatAttachment: r.many.chatAttachment(),
     chatConversation: r.many.chatConversation(),
     departments: r.many.department(),
+    interviewNotificationEventsActed: r.many.interviewNotificationEvent({
+      from: r.user.id,
+      to: r.interviewNotificationEvent.actorUserId,
+    }),
+    interviewNotificationRecipients: r.many.studioInterviewNotificationRecipient({
+      from: r.user.id,
+      to: r.studioInterviewNotificationRecipient.userId,
+    }),
+    interviewNotificationTemplateVersionsCreated: r.many.interviewNotificationTemplateVersion({
+      from: r.user.id,
+      to: r.interviewNotificationTemplateVersion.createdBy,
+    }),
+    interviewNotificationTemplatesUpdated: r.many.interviewNotificationTemplate({
+      from: r.user.id,
+      to: r.interviewNotificationTemplate.updatedBy,
+    }),
     interviewers: r.many.interviewer(),
     invitationsSent: r.many.invitation(),
     jobDescriptions: r.many.jobDescription(),

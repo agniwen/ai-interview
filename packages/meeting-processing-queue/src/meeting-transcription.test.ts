@@ -9,6 +9,8 @@ import {
 } from "./meeting-transcription";
 import type { MeetingTranscriptionJobData } from "./meeting-transcription";
 
+const NO_JOB = undefined;
+
 const job: MeetingTranscriptionJobData = {
   meetingId: "meeting-76",
   model: "gpt-4o-transcribe-diarize",
@@ -29,6 +31,7 @@ describe("Meeting transcription queue", () => {
     ).not.toBe(first);
     expect(buildMeetingTranscriptionJobId({ ...job, policyRevision: 4 })).not.toBe(first);
     expect(
+      // SAFETY: The test deliberately supplies an invalid future version to verify job-id isolation.
       buildMeetingTranscriptionJobId({ ...job, pipelineVersion: "final-v2" as never }),
     ).not.toBe(first);
   });
@@ -68,7 +71,7 @@ describe("Meeting transcription queue", () => {
   it("replaces a retained failed job during reconciliation", async () => {
     const remove = vi.fn(() => Promise.resolve());
     const queue = {
-      add: vi.fn(() => Promise.resolve()),
+      add: vi.fn(() => Promise.resolve(NO_JOB)),
       getJob: vi.fn(() => Promise.resolve({ getState: () => Promise.resolve("failed"), remove })),
     };
 
@@ -84,7 +87,7 @@ describe("Meeting transcription queue", () => {
 
   it("leaves an active retained job alone during reconciliation", async () => {
     const queue = {
-      add: vi.fn(() => Promise.resolve()),
+      add: vi.fn(() => Promise.resolve(NO_JOB)),
       getJob: vi.fn(() =>
         Promise.resolve({ getState: () => Promise.resolve("active"), remove: vi.fn() }),
       ),

@@ -1,8 +1,8 @@
 {
-  "name": "@arc/resume-parse-queue",
+  "name": "@app/resume-parse-queue",
   "version": "0.0.0",
   "private": true,
-  "description": "Redis/BullMQ queue runtime for async resume parsing",
+  "description": "Redis/BullMQ queue contracts and producers for resume parsing, review generation, semantic indexing, and mail-ingest triggers",
   "type": "module",
   "exports": {
     "./*": "./src/*.ts"

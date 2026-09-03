@@ -1,0 +1,775 @@
+// @vitest-environment jsdom
+
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import type { ResumePoolListRecord } from "@app/shared/resume-pool";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ResumePoolCard, getResumePoolCardHeight } from "../resume-pool-card";
+import {
+  ResumePoolDetailSummaryPanel,
+  ResumePoolQualitativeEvaluationPanel,
+  ResumePoolStructuredInfoPanel,
+  canManageResumePoolJobBinding,
+} from "../resume-pool-details";
+import {
+  canDeletePoolRecord,
+  resumeParseStatusBadge,
+  uploaderMetaLabel,
+} from "../resume-pool-page-model";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
+
+// SAFETY: React's test environment flag is intentionally attached to globalThis.
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  vi.clearAllMocks();
+});
+
+const record = {
+  candidateEmail: "candidate@example.com",
+  candidateName: "测试候选人",
+  candidatePhone: "13800138000",
+  createdAt: "2026-07-31T00:00:00.000Z",
+  createdBy: "user-1",
+  duplicateMatch: null,
+  id: "resume-pool-1",
+  importedAt: null,
+  importedRecords: [],
+  importedResumeRecordId: null,
+  jobBindingMode: null,
+  jobDescriptionId: "jd-product",
+  jobDescriptionName: "AI 产品经理",
+  masteredSkills: Array.from({ length: 12 }, (_, index) => `技能 ${index + 1}`),
+  notes: "具备完整的 AI 招聘产品设计与落地经验。",
+  organizationId: "organization-1",
+  profileHighlights: {
+    educationItems: [],
+    educationLines: [],
+    latestCompany: "极光矩阵",
+    latestCompanyDetail: {
+      period: "2025.02-至今",
+      role: "前端工程师",
+      summary: "负责 AI 招聘产品前端。",
+    },
+    latestProject: "智能招聘看板",
+    latestProjectDetail: {
+      period: "2025.01-2025.05",
+      role: "负责人",
+      summary: "负责候选人数据分析与可视化。",
+    },
+    personalStrengths: ["擅长复杂招聘产品的设计与落地。", "能够推动跨团队协作"],
+    schools: [],
+  },
+  publishedAt: null,
+  publishedBy: null,
+  qualitativeRecommendationLevel: null,
+  qualitativeResumeSummary: null,
+  resumeContentHash: null,
+  resumeEvaluationContractVersion: null,
+  resumeEvaluationGeneratedAt: null,
+  resumeFileName: "测试候选人.pdf",
+  resumeParseError: null,
+  resumeParseRetryable: false,
+  resumeParseStatus: "ready",
+  resumeParsedAt: null,
+  resumeProfileSnapshot: {
+    education: [
+      {
+        period: "2018.09 - 2022.06",
+        primary: "上海交通大学",
+        secondary: "计算机科学",
+      },
+    ],
+    educationHasMore: false,
+    projects: [],
+    projectsHasMore: false,
+    work: [
+      {
+        period: "2025.02 - 至今",
+        primary: "极光矩阵",
+        secondary: "前端工程师",
+      },
+    ],
+    workHasMore: false,
+  },
+  resumeStorageKey: "resumes/test.pdf",
+  scope: "public",
+  skillsNormalized: [],
+  sourceChannel: "mail_ingest",
+  sourceOrganizationId: null,
+  sourcePoolItemId: null,
+  sourceUserId: null,
+  status: "active",
+  targetRole: "AI 产品经理",
+  updatedAt: "2026-07-31T00:00:00.000Z",
+  uploaderEmail: "recruiter@example.com",
+  uploaderImage: "https://example.com/recruiter.png",
+  uploaderName: "王敏",
+  uploaderOrganizationName: null,
+  workYears: 5,
+} satisfies ResumePoolListRecord;
+
+const qualitativeDimension = {
+  basis: "job" as const,
+  evaluation: "候选人事实与岗位要求一致。",
+  level: "recommended" as const,
+};
+const qualitativeEvaluation = {
+  conciseOverall: "候选人的核心经验与岗位要求匹配，建议进入下一轮。",
+  detailedOverall: {
+    judgment: "整体匹配。",
+    matchingEvidence: "有相关项目经验。",
+    risks: "需确认项目规模。",
+  },
+  dimensions: {
+    educationBackground: qualitativeDimension,
+    experienceRelevance: qualitativeDimension,
+    potential: qualitativeDimension,
+    projectMatch: qualitativeDimension,
+    skillMatch: qualitativeDimension,
+    stability: qualitativeDimension,
+  },
+  recommendationLevel: "recommended" as const,
+  schemaVersion: 2 as const,
+  seniorityRecommendation: null,
+  teamPositioning: null,
+};
+
+const defaultRetryProps = {
+  canRetryParse: false,
+  onPreviewResume: () => {},
+  onRetryParse: () => {},
+  retrying: false,
+} as const;
+
+describe("ResumePoolCard", () => {
+  it("shows the recruitment-desk job preview trigger for a bound job", () => {
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkspaceSlugProvider
+          id="organization-1"
+          memberRole="admin"
+          permissions={{}}
+          slug="test-workspace"
+        >
+          <ResumePoolCard
+            {...defaultRetryProps}
+            bindingJobDescription={false}
+            canDelete={false}
+            canEnterRecruiting={true}
+            canRecommend={true}
+            deleting={false}
+            enteringRecruiting={false}
+            onBindJobDescription={() => {}}
+            onDelete={() => {}}
+            onEnterRecruiting={() => {}}
+            onOpenDetail={() => {}}
+            onOpenDuplicateMatches={() => {}}
+            record={record}
+            slug="test-workspace"
+          />
+        </WorkspaceSlugProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(html).toMatch(/hover:underline[^>]*>AI 产品经理<\/button>/u);
+  });
+
+  it("matches the recruitment-desk information rhythm and restores the bound-job action", () => {
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={true}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={record}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(html).toContain("测试候选人");
+    expect(html).not.toContain("AI 产品经理-5年-测试候选人");
+    expect(html).toContain("AI 产品经理");
+    expect(html).toContain("王敏");
+    expect(html).toContain("极光矩阵");
+    expect(html).toContain("上海交通大学");
+    expect(html).toContain("擅长复杂招聘产品的设计与落地；能够推动跨团队协作");
+    expect(html).not.toContain("负责 AI 招聘产品前端。");
+    expect(html).not.toContain("具备完整的 AI 招聘产品设计与落地经验。");
+    expect(html).toContain('data-slot="avatar-fallback"');
+    expect(html).toContain("技能 6");
+    expect(html).not.toContain("技能 7");
+    expect(html).not.toContain("已解析");
+    expect(html).not.toContain("待进入招聘");
+
+    const actionLabels = [...html.matchAll(/data-resume-pool-card-action="([^"]+)"/gu)].map(
+      (match) => match[1],
+    );
+    expect(actionLabels).toEqual(["详情", "进入招聘"]);
+    expect(html.indexOf('aria-label="查看简历"')).toBeLessThan(
+      html.indexOf('aria-label="查看人才详情"'),
+    );
+    expect(html).not.toContain("推荐岗位");
+    expect(html).toContain("更换");
+    expect(html).toContain('aria-label="更换绑定岗位"');
+    expect(html).not.toContain("删除");
+  });
+
+  it("prefers the qualitative short evaluation and clamps the description to three lines", () => {
+    const qualitativeSummary =
+      "候选人的核心产品经验与岗位要求匹配，能够独立推动复杂招聘产品落地，建议进入下一轮。";
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{
+            ...record,
+            qualitativeRecommendationLevel: "recommended",
+            qualitativeResumeSummary: qualitativeSummary,
+            resumeEvaluationContractVersion: "qualitative-v2",
+          }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(html).toContain(qualitativeSummary);
+    expect(html).not.toContain("擅长复杂招聘产品的设计与落地");
+    expect(html).toContain("line-clamp-3");
+    expect(html).not.toContain("line-clamp-2");
+  });
+
+  it("only shows parse failures and the imported recruiting-flow status", () => {
+    const failedHtml = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, resumeParseStatus: "failed" }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+    const importedHtml = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={false}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, importedResumeRecordId: "studio-resume-1" }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(failedHtml).toContain("解析失败");
+    expect(failedHtml).not.toContain("待进入招聘");
+    expect(importedHtml).toContain("已在招聘流程");
+    expect(importedHtml).not.toContain("已进入招聘");
+  });
+
+  it("shows the warning badge while a resume is queued or processing", () => {
+    const queuedHtml = renderToStaticMarkup(
+      resumeParseStatusBadge({ ...record, resumeParseStatus: "queued" }),
+    );
+    const processingHtml = renderToStaticMarkup(
+      resumeParseStatusBadge({ ...record, resumeParseStatus: "processing" }),
+    );
+
+    expect(queuedHtml).toContain('data-variant="warning"');
+    expect(queuedHtml).toContain("解析中");
+    expect(processingHtml).toContain('data-variant="warning"');
+    expect(processingHtml).toContain("解析中");
+  });
+
+  it("shows a recommendation action beside an unbound job", () => {
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={true}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(html).toContain("未绑定岗位");
+    expect(html).toContain("推荐岗位");
+    expect(html).toContain('aria-label="推荐岗位"');
+  });
+
+  it("opens the duplicate-resume comparison from an imported record badge", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenDuplicateMatches = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={onOpenDuplicateMatches}
+          record={{
+            ...record,
+            duplicateMatch: {
+              count: 1,
+              highestLevel: "high",
+              latestMatchedResume: {
+                createdAt: "2026-08-18T04:20:00.000Z",
+                creatorImage: "https://example.com/heye.png",
+                creatorName: "荷叶",
+              },
+            },
+            importedResumeRecordId: "studio-resume-1",
+            jobDescriptionId: null,
+            jobDescriptionName: null,
+          }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    const duplicateLabel = "疑似重复记录已经由荷叶于26年08月18日 12:20加入招聘台";
+    expect(document.body.textContent).toContain(duplicateLabel);
+    act(() => {
+      document.querySelector<HTMLButtonElement>(`[title="${duplicateLabel}"]`)?.click();
+    });
+    expect(onOpenDuplicateMatches).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+
+    act(() => root.unmount());
+  });
+
+  it("binds a cached recommended job from the restored menu", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+    const onBindJobDescription = vi.fn();
+    queryClient.setQueryData(["resume-pool", "job-match", "test-workspace", record.id], null);
+    queryClient.setQueryData(["resume-pool", "jd-recommendations", "test-workspace", record.id], {
+      diagnostics: { aboveThresholdCount: 1, eligibleCount: 1, vectorHitCount: 1 },
+      recommendations: [
+        {
+          departmentName: "产品部",
+          description: "负责招聘产品规划",
+          id: "jd-recommended",
+          name: "招聘产品经理",
+          reasons: ["经历匹配"],
+          score: 92,
+          similarity: {},
+        },
+      ],
+      resume: { id: record.id },
+      status: "ready",
+    });
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumePoolCard
+            {...defaultRetryProps}
+            bindingJobDescription={false}
+            canDelete={false}
+            canEnterRecruiting={true}
+            canRecommend={true}
+            deleting={false}
+            enteringRecruiting={false}
+            onBindJobDescription={onBindJobDescription}
+            onDelete={() => {}}
+            onEnterRecruiting={() => {}}
+            onOpenDetail={() => {}}
+            onOpenDuplicateMatches={() => {}}
+            record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="推荐岗位"]')?.click();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain("招聘产品经理");
+
+    await act(async () => {
+      document.querySelector<HTMLElement>('[data-slot="dropdown-menu-item"]')?.click();
+      await Promise.resolve();
+    });
+    expect(onBindJobDescription).toHaveBeenCalledWith(
+      expect.objectContaining({ id: record.id }),
+      "jd-recommended",
+    );
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
+  it("places the uploader's real avatar immediately before the uploader name", async () => {
+    const cardSource = await readFile(
+      resolve("src/components/features/studio/resume-pool/resume-pool-card.tsx"),
+      "utf-8",
+    );
+
+    expect(cardSource).toContain("<AvatarImage");
+    expect(cardSource).toContain("src={record.uploaderImage}");
+    expect(cardSource.indexOf("<AvatarImage")).toBeLessThan(
+      cardSource.indexOf("{segments.userName}</span>"),
+    );
+  });
+
+  it("offers deletion for an owned record without triggering the card detail", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onDelete = vi.fn();
+    const onOpenDetail = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={true}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={onDelete}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="删除人才记录"]')?.click();
+    });
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+  });
+
+  it("offers manual reparse for every failed record without triggering the card detail", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenDetail = vi.fn();
+    const onRetryParse = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          canRetryParse
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          onRetryParse={onRetryParse}
+          record={{
+            ...record,
+            jobDescriptionId: null,
+            jobDescriptionName: null,
+            resumeParseRetryable: false,
+            resumeParseStatus: "failed",
+          }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    expect(document.body.textContent).toContain("重新解析");
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="重新解析简历"]')?.click();
+    });
+    expect(onRetryParse).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+  });
+
+  it("invokes detail and recruiting actions without triggering the card click twice", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onEnterRecruiting = vi.fn();
+    const onOpenDetail = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={onEnterRecruiting}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="查看人才详情"]')?.click();
+    });
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="进入招聘"]')?.click();
+    });
+    expect(onEnterRecruiting).toHaveBeenCalledTimes(1);
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+  });
+
+  it("opens the resume preview without triggering the card detail", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenDetail = vi.fn();
+    const onPreviewResume = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          onPreviewResume={onPreviewResume}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="查看简历"]')?.click();
+    });
+    expect(onPreviewResume).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+  });
+
+  it("uses fixed virtual-row heights for every responsive breakpoint", () => {
+    expect(getResumePoolCardHeight(390)).toBe(356);
+    expect(getResumePoolCardHeight(640)).toBe(308);
+    expect(getResumePoolCardHeight(768)).toBe(286);
+    expect(getResumePoolCardHeight(1024)).toBe(246);
+    expect(getResumePoolCardHeight(1280)).toBe(220);
+    expect(getResumePoolCardHeight(1536)).toBe(218);
+  });
+
+  it("labels mail-ingested resumes as an email scan", () => {
+    expect(
+      uploaderMetaLabel({
+        ...record,
+        sourceChannel: "mail_ingest",
+      }),
+    ).toBe("26年07月31日:08:00 扫描王敏邮箱录入");
+  });
+
+  it("allows only the owner to delete user-added or mailbox-scanned records", () => {
+    const owner = {
+      currentOrganizationId: "organization-1",
+      currentUserId: "user-1",
+    };
+
+    expect(canDeletePoolRecord({ ...record, sourceChannel: null }, owner)).toBe(true);
+    expect(canDeletePoolRecord({ ...record, sourceChannel: "mail_ingest" }, owner)).toBe(true);
+    expect(
+      canDeletePoolRecord({ ...record, createdBy: "user-2", sourceChannel: "mail_ingest" }, owner),
+    ).toBe(false);
+  });
+
+  it("renders a candidate conclusion as typeset markdown", () => {
+    const html = renderToStaticMarkup(
+      <ResumePoolDetailSummaryPanel
+        detail={{
+          ...record,
+          jobDescriptionId: null,
+          jobDescriptionName: null,
+          notes: "**候选人结论**\n\n- 核心能力匹配岗位",
+        }}
+        isError={false}
+        isLoading={false}
+        resumeProfile={null}
+        slug="default"
+      />,
+    );
+
+    expect(html).toContain("typeset typeset-compact");
+    expect(html).toContain("<strong>候选人结论</strong>");
+    expect(html).toContain("<li>核心能力匹配岗位</li>");
+  });
+
+  it("prefers the qualitative recommendation and renders all six dimensions", () => {
+    const summary = renderToStaticMarkup(
+      <ResumePoolDetailSummaryPanel
+        detail={{
+          ...record,
+          jobDescriptionId: null,
+          jobDescriptionName: null,
+          notes: "旧六维数字评分",
+          qualitativeRecommendationLevel: "recommended",
+          qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
+        }}
+        isError={false}
+        isLoading={false}
+        resumeProfile={null}
+        slug="default"
+      />,
+    );
+    const details = renderToStaticMarkup(
+      <ResumePoolQualitativeEvaluationPanel
+        detail={{
+          ...record,
+          qualitativeRecommendationLevel: "recommended",
+          qualitativeResumeEvaluation: qualitativeEvaluation,
+          qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
+          resumeProfile: null,
+        }}
+      />,
+    );
+
+    expect(summary).toContain('data-qualitative-recommendation="recommended"');
+    expect(summary).toContain(qualitativeEvaluation.conciseOverall);
+    expect(summary).not.toContain("旧六维数字评分");
+    expect(details.match(/data-qualitative-dimension-header/g)).toHaveLength(6);
+  });
+
+  it("keeps the evaluation unseparated and adds one separator above structured details", () => {
+    const evaluation = renderToStaticMarkup(
+      <ResumePoolQualitativeEvaluationPanel
+        detail={{
+          ...record,
+          qualitativeResumeEvaluation: qualitativeEvaluation,
+          resumeProfile: null,
+        }}
+      />,
+    );
+    const structured = renderToStaticMarkup(
+      <ResumePoolStructuredInfoPanel detail={record} isLoading={false} resumeProfile={null} />,
+    );
+
+    expect(evaluation).toMatch(/^<section data-resume-pool-qualitative-evaluation="true">/u);
+    expect(structured).toMatch(/^<section class="space-y-4 border-border\/50 border-t pt-6">/u);
+  });
+
+  it("denies job recommendation actions without permission", () => {
+    expect(
+      canManageResumePoolJobBinding({
+        canRecommend: false,
+        currentUserId: "user-1",
+        detail: record,
+      }),
+    ).toBe(false);
+  });
+
+  it("denies job recommendation actions for another user's private resume", () => {
+    expect(
+      canManageResumePoolJobBinding({
+        canRecommend: true,
+        currentUserId: "user-2",
+        detail: { ...record, scope: "private" },
+      }),
+    ).toBe(false);
+  });
+});

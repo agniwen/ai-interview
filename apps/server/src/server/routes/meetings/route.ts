@@ -1,0 +1,288 @@
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import {
+  completeSmallSavedMeetingSchema,
+  createMultipartSavedMeetingSchema,
+  createSmallSavedMeetingSchema,
+  updateMeetingMetadataSchema,
+} from "@app/shared/meeting-recording";
+import { factory, jsonValidatorError } from "../../factory";
+import {
+  completeSmallSavedMeeting,
+  createMultipartSavedMeeting,
+  createSmallSavedMeeting,
+  getSavedMeetingDetail,
+  heartbeatSavedMeetingUpload,
+  listSavedMeetings,
+  renameSavedMeeting,
+} from "./service";
+import { permanentlyPurgeSavedMeeting } from "./lifecycle-service";
+import { meetingPlaybackRouter } from "./routes/playback/route";
+import { meetingExportsRouter } from "./routes/exports/route";
+import { meetingQuestionsRouter } from "./routes/questions/route";
+import { meetingRecruitingContextRouter } from "./routes/recruiting-context/route";
+import { meetingSearchRouter } from "./routes/search/route";
+import { meetingLiveTranscriptRouter } from "./routes/live-transcript/route";
+import { meetingIntelligenceRouter } from "./routes/intelligence/route";
+import { meetingNotesRouter } from "./routes/notes/route";
+import { meetingShareRouter } from "./routes/share/route";
+import { meetingTranscriptRouter } from "./routes/transcript/route";
+import { meetingTranscriptionPolicyRouter } from "./routes/transcription-policy/route";
+import { meetingRestoreRouter } from "./routes/restore/route";
+import { meetingTrashActionRouter } from "./routes/trash-action/route";
+import { meetingTrashRouter } from "./routes/trash/route";
+import { meetingTitleRouter } from "./routes/title/route";
+
+const purgeMeetingQuerySchema = z.object({
+  localRecoveryCleanup: z.enum(["deleted", "failed", "not-reported"]).default("not-reported"),
+});
+
+const defaultMeetingsRouterDependencies = {
+  completeSmallSavedMeeting,
+  createMultipartSavedMeeting,
+  createSmallSavedMeeting,
+  getSavedMeetingDetail,
+  heartbeatSavedMeetingUpload,
+  listSavedMeetings,
+  meetingExportsRouter,
+  meetingIntelligenceRouter,
+  meetingLiveTranscriptRouter,
+  meetingNotesRouter,
+  meetingPlaybackRouter,
+  meetingQuestionsRouter,
+  meetingRecruitingContextRouter,
+  meetingRestoreRouter,
+  meetingSearchRouter,
+  meetingShareRouter,
+  meetingTitleRouter,
+  meetingTranscriptRouter,
+  meetingTranscriptionPolicyRouter,
+  meetingTrashActionRouter,
+  meetingTrashRouter,
+  permanentlyPurgeSavedMeeting,
+  renameSavedMeeting,
+};
+
+export type MeetingsRouterDependencies = typeof defaultMeetingsRouterDependencies;
+
+export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependencies> = {}) {
+  const dependencies = { ...defaultMeetingsRouterDependencies, ...overrides };
+  const {
+    completeSmallSavedMeeting: completeMeeting,
+    createMultipartSavedMeeting: createMultipartMeeting,
+    createSmallSavedMeeting: createMeeting,
+    getSavedMeetingDetail: getMeetingDetail,
+    heartbeatSavedMeetingUpload: heartbeatMeetingUpload,
+    listSavedMeetings: listMeetings,
+    permanentlyPurgeSavedMeeting: purgeMeeting,
+    renameSavedMeeting: renameMeeting,
+    meetingExportsRouter: exportsRouter,
+    meetingIntelligenceRouter: intelligenceRouter,
+    meetingLiveTranscriptRouter: liveTranscriptRouter,
+    meetingNotesRouter: notesRouter,
+    meetingPlaybackRouter: playbackRouter,
+    meetingQuestionsRouter: questionsRouter,
+    meetingRecruitingContextRouter: recruitingContextRouter,
+    meetingRestoreRouter: restoreRouter,
+    meetingSearchRouter: searchRouter,
+    meetingShareRouter: shareRouter,
+    meetingTitleRouter: titleRouter,
+    meetingTranscriptRouter: transcriptRouter,
+    meetingTranscriptionPolicyRouter: transcriptionPolicyRouter,
+    meetingTrashActionRouter: trashActionRouter,
+    meetingTrashRouter: trashRouter,
+  } = dependencies;
+  return factory
+    .createApp()
+    .route("/live-transcript", liveTranscriptRouter)
+    .route("/transcription-policy", transcriptionPolicyRouter)
+    .route("/search", searchRouter)
+    .route("/trash", trashRouter)
+    .route("/title", titleRouter)
+    .get("/", async (c) => {
+      const { activeOrg, member, user } = c.var;
+      if (!(activeOrg && member && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const records = await listMeetings({
+        memberRole: member.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      return c.json({ records }, 200);
+    })
+    .post(
+      "/",
+      zValidator("json", createSmallSavedMeetingSchema, jsonValidatorError("保存清单无效")),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!(activeOrg && user)) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const result = await createMeeting({
+          input: c.req.valid("json"),
+          organizationId: activeOrg.id,
+          ownerId: user.id,
+        });
+        if ("conflict" in result) {
+          return c.json(
+            { code: result.code, error: result.message },
+            result.code === "meeting-upload-capacity-exhausted" ? 429 : 409,
+          );
+        }
+        return c.json(
+          {
+            meetingId: result.meetingId,
+            recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+            state: result.state,
+            uploads: result.uploads,
+          },
+          result.created ? 201 : 200,
+        );
+      },
+    )
+    .post(
+      "/multipart",
+      zValidator("json", createMultipartSavedMeetingSchema, jsonValidatorError("保存清单无效")),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!(activeOrg && user)) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const result = await createMultipartMeeting({
+          input: c.req.valid("json"),
+          organizationId: activeOrg.id,
+          ownerId: user.id,
+        });
+        if ("conflict" in result) {
+          return c.json(
+            { code: result.code, error: result.message },
+            result.code === "meeting-upload-capacity-exhausted" ? 429 : 409,
+          );
+        }
+        return c.json(
+          {
+            meetingId: result.meetingId,
+            recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+            state: result.state,
+            uploads: result.uploads,
+          },
+          result.created ? 201 : 200,
+        );
+      },
+    )
+    .post("/:id/upload-heartbeat", async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!(activeOrg && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const renewed = await heartbeatMeetingUpload({
+        meetingId: c.req.param("id"),
+        organizationId: activeOrg.id,
+        ownerId: user.id,
+      });
+      if (!renewed) {
+        return c.json({ error: "录音上传租约已失效，本地 Meeting Recording 已保留" }, 409);
+      }
+      return c.body(null, 204);
+    })
+    .post(
+      "/:id/complete",
+      zValidator("json", completeSmallSavedMeetingSchema, jsonValidatorError("完成请求无效")),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!(activeOrg && user)) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const result = await completeMeeting({
+          manifestSha256: c.req.valid("json").manifestSha256,
+          meetingId: c.req.param("id"),
+          organizationId: activeOrg.id,
+          ownerId: user.id,
+        });
+        if ("error" in result) {
+          return c.json({ error: result.error }, result.status);
+        }
+        return c.json(
+          {
+            meetingId: result.meetingId,
+            recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+            state: result.state,
+          },
+          200,
+        );
+      },
+    )
+    .route("/:id/playback", playbackRouter)
+    .route("/:id/exports", exportsRouter)
+    .route("/:id/questions", questionsRouter)
+    .route("/:id/intelligence", intelligenceRouter)
+    .route("/:id/recruiting-context", recruitingContextRouter)
+    .route("/:id/notes", notesRouter)
+    .route("/:id/share", shareRouter)
+    .route("/:id/transcript", transcriptRouter)
+    .route("/:id/trash", trashActionRouter)
+    .route("/:id/restore", restoreRouter)
+    .patch(
+      "/:id",
+      zValidator("json", updateMeetingMetadataSchema, jsonValidatorError("会议名称无效")),
+      async (c) => {
+        const { activeOrg, member, user } = c.var;
+        if (!(activeOrg && member && user)) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const result = await renameMeeting({
+          meetingId: c.req.param("id"),
+          memberRole: member.role,
+          organizationId: activeOrg.id,
+          title: c.req.valid("json").title,
+          userId: user.id,
+        });
+        if (!result) {
+          return c.json({ error: "Meeting Session 不存在" }, 404);
+        }
+        if (result === "forbidden") {
+          return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以修改会议名称" }, 403);
+        }
+        return c.json(result, 200);
+      },
+    )
+    .delete(
+      "/:id",
+      zValidator("query", purgeMeetingQuerySchema, jsonValidatorError("永久清除参数无效")),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!(activeOrg && user)) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const result = await purgeMeeting({
+          actorId: user.id,
+          localRecoveryCleanup: c.req.valid("query").localRecoveryCleanup,
+          meetingId: c.req.param("id"),
+          organizationId: activeOrg.id,
+        });
+        if (result.state === "forbidden") {
+          return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以永久清除会议" }, 403);
+        }
+        return c.body(null, 202);
+      },
+    )
+    .get("/:id", async (c) => {
+      const { activeOrg, member, user } = c.var;
+      if (!(activeOrg && member && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const result = await getMeetingDetail({
+        meetingId: c.req.param("id"),
+        memberRole: member.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      if (!result) {
+        return c.json({ error: "Meeting Session 不存在" }, 404);
+      }
+      return c.json(result, 200);
+    });
+}
+
+export const meetingsRouter = createMeetingsRouter();

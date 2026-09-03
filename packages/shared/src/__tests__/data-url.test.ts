@@ -1,7 +1,7 @@
 // data: URL 解码测试 / decodeDataUrl tests.
 
 import { describe, expect, it } from "vitest";
-import { decodeDataUrl } from "@arc/shared/data-url";
+import { decodeDataUrl } from "@app/shared/data-url";
 
 function bytesToString(data: Uint8Array): string {
   return new TextDecoder().decode(data);

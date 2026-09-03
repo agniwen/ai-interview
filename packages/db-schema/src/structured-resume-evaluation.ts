@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  jobEvaluationSourceRefSchema,
   jobEvaluationBlueprintSchema,
   relevantExperienceScopeSchema,
 } from "./job-description-evaluation";
@@ -33,6 +34,43 @@ export const structuredResumeEvidenceSchema = z
     source: z.enum(["resume_profile", "resume_text"]),
   })
   .strict();
+
+export const structuredResumeSkillAssessmentStatusSchema = z.enum([
+  "applied",
+  "insufficient_evidence",
+  "missing",
+  "shallow",
+]);
+
+export const structuredResumeSkillAssessmentSchema = z
+  .object({
+    evidence: z.array(structuredResumeEvidenceSchema),
+    expectationType: z.enum(["auxiliary", "core"]),
+    normalizedSkill: z.string().trim().min(1),
+    reason: z.string().trim().min(1),
+    requirementGroupId: z.string().trim().min(1),
+    satisfactionMode: z.enum(["all", "any"]),
+    sourceRef: jobEvaluationSourceRefSchema,
+    sourceText: z.string().trim().min(1),
+    status: structuredResumeSkillAssessmentStatusSchema,
+  })
+  .strict()
+  .superRefine((assessment, context) => {
+    if (
+      (assessment.status === "applied" || assessment.status === "shallow") &&
+      assessment.evidence.length === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "已应用或浅层技能判定必须提供简历证据",
+        path: ["evidence"],
+      });
+    }
+  });
+
+function normalizedSkillAssessmentKey(value: string): string {
+  return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase("zh-CN");
+}
 
 const correctionSchema = z
   .object({
@@ -208,6 +246,7 @@ export const structuredResumeEvaluationV1Schema = z
       .nullable(),
     runId: z.string().trim().min(1),
     schemaVersion: z.literal(STRUCTURED_RESUME_EVALUATION_SCHEMA_VERSION),
+    skillAssessments: z.array(structuredResumeSkillAssessmentSchema),
     skillExpectations: z
       .object({
         auxiliary: z.array(z.string().trim().min(1)),
@@ -224,8 +263,92 @@ export const structuredResumeEvaluationV1Schema = z
       .strict(),
     weights: jobDescriptionDimensionWeightsSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((evaluation, context) => {
+    const expectedBySkill = new Map<
+      string,
+      Pick<
+        z.infer<typeof structuredResumeSkillAssessmentSchema>,
+        | "expectationType"
+        | "normalizedSkill"
+        | "requirementGroupId"
+        | "satisfactionMode"
+        | "sourceRef"
+        | "sourceText"
+      >
+    >();
+    for (const skill of evaluation.blueprint.coreSkills) {
+      expectedBySkill.set(normalizedSkillAssessmentKey(skill.normalizedSkill), {
+        expectationType: "core",
+        normalizedSkill: skill.normalizedSkill,
+        requirementGroupId: skill.requirementGroupId,
+        satisfactionMode: skill.satisfactionMode,
+        sourceRef: skill.sourceRef,
+        sourceText: skill.sourceText,
+      });
+    }
+    for (const skill of evaluation.blueprint.auxiliarySkills) {
+      const key = normalizedSkillAssessmentKey(skill.normalizedSkill);
+      if (!expectedBySkill.has(key)) {
+        expectedBySkill.set(key, {
+          expectationType: "auxiliary",
+          normalizedSkill: skill.normalizedSkill,
+          requirementGroupId: skill.requirementGroupId,
+          satisfactionMode: skill.satisfactionMode,
+          sourceRef: skill.sourceRef,
+          sourceText: skill.sourceText,
+        });
+      }
+    }
+    const seen = new Set<string>();
+    for (const [index, assessment] of evaluation.skillAssessments.entries()) {
+      const key = normalizedSkillAssessmentKey(assessment.normalizedSkill);
+      if (seen.has(key)) {
+        context.addIssue({
+          code: "custom",
+          message: "同一岗位技能只能保存一条最终判定",
+          path: ["skillAssessments", index],
+        });
+        continue;
+      }
+      seen.add(key);
+      const expected = expectedBySkill.get(key);
+      if (!expected) {
+        context.addIssue({
+          code: "custom",
+          message: "技能判定必须来自已发布岗位蓝图",
+          path: ["skillAssessments", index],
+        });
+        continue;
+      }
+      if (
+        assessment.expectationType !== expected.expectationType ||
+        assessment.normalizedSkill !== expected.normalizedSkill ||
+        assessment.requirementGroupId !== expected.requirementGroupId ||
+        assessment.satisfactionMode !== expected.satisfactionMode ||
+        assessment.sourceText !== expected.sourceText ||
+        assessment.sourceRef.kind !== expected.sourceRef.kind ||
+        assessment.sourceRef.path !== expected.sourceRef.path
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "技能判定与已发布岗位蓝图的技能元数据不一致",
+          path: ["skillAssessments", index],
+        });
+      }
+    }
+    for (const [key, expected] of expectedBySkill) {
+      if (!seen.has(key)) {
+        context.addIssue({
+          code: "custom",
+          message: `缺少岗位技能“${expected.normalizedSkill}”的最终判定`,
+          path: ["skillAssessments"],
+        });
+      }
+    }
+  });
 
 export type StructuredResumeEvaluationV1 = z.infer<typeof structuredResumeEvaluationV1Schema>;
 export type StructuredResumeGateStatus = z.infer<typeof structuredResumeGateStatusSchema>;
 export type StructuredResumeGrade = z.infer<typeof structuredResumeGradeSchema>;
+export type StructuredResumeSkillAssessment = z.infer<typeof structuredResumeSkillAssessmentSchema>;

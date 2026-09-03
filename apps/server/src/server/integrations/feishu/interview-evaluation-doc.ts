@@ -1,0 +1,396 @@
+import { z } from "zod";
+import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
+import type {
+  QualitativeResumeEvaluation,
+  ResumeEvaluationContractMode,
+} from "@app/db-schema/qualitative-resume-evaluation";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { JsonObject } from "@app/db-schema/json";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
+
+interface FeishuTextRun {
+  text_run: {
+    content: string;
+    text_element_style?: {
+      bold?: boolean;
+      link?: { url: string };
+    };
+  };
+}
+
+const BLOCK_TYPE = {
+  BULLET: 12,
+  CALLOUT: 19,
+  HEADING_2: 4,
+  HEADING_3: 5,
+  ORDERED: 13,
+  TEXT: 2,
+  TODO: 17,
+} as const;
+
+const CALLOUT_COLOR = {
+  BLUE: 5,
+  GREEN: 4,
+  ORANGE: 2,
+  PURPLE: 6,
+  RED: 1,
+  YELLOW: 3,
+} as const;
+
+interface FeishuTextContent {
+  elements: FeishuTextRun[];
+  style?: { done?: boolean };
+}
+
+export interface FeishuDocumentBlock {
+  block_type: number;
+  bullet?: FeishuTextContent;
+  callout?: {
+    background_color: number;
+    border_color: number;
+    emoji_id?: string;
+  };
+  children?: FeishuDocumentBlock[];
+  file?: { token?: string; view_type?: 1 | 2 };
+  heading2?: FeishuTextContent;
+  heading3?: FeishuTextContent;
+  ordered?: FeishuTextContent;
+  text?: FeishuTextContent;
+  todo?: FeishuTextContent;
+}
+
+const hrEvaluationSchema = z.object({
+  availability: z.string().optional(),
+  careerProgression: z.string().optional(),
+  compensationExpectations: z.string().optional(),
+  jobMotivation: z.string().optional(),
+  overseasTravel: z.string().optional(),
+  projectHighlights: z.string().optional(),
+  recentWork: z.string().optional(),
+});
+
+export interface HrInterviewEvaluationInput {
+  candidateName: string;
+  evaluation: JsonObject;
+}
+
+export interface InterviewEvaluationDocumentInput extends HrInterviewEvaluationInput {
+  communicationQuestionResults?: InterviewDataCollectionResults | null;
+  includeResumeLink?: boolean;
+  recommendedQuestions?: InterviewQuestion[];
+  resumeEvaluation?: Pick<QualitativeResumeEvaluation, "detailedOverall"> | null;
+  resumeUrl: string;
+}
+
+export interface InterviewEvaluationStructureSource {
+  interviewQuestions: InterviewQuestion[];
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
+  resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
+}
+
+export interface InterviewEvaluationStructureSections {
+  recommendedQuestionsBlock?: FeishuDocumentBlock;
+  resumeEvaluationBlock?: FeishuDocumentBlock;
+}
+
+export interface HrInterviewEvaluationPreview {
+  block: FeishuDocumentBlock;
+  title: string;
+}
+
+export interface InterviewEvaluationDocument {
+  blocks: FeishuDocumentBlock[];
+  title: string;
+}
+
+function textContent(
+  content: string,
+  options: { bold?: boolean; link?: string } = {},
+): FeishuTextContent {
+  return {
+    elements: [
+      {
+        text_run: {
+          content,
+          text_element_style:
+            options.bold || options.link
+              ? {
+                  bold: options.bold,
+                  link: options.link ? { url: options.link } : undefined,
+                }
+              : undefined,
+        },
+      },
+    ],
+  };
+}
+
+function textBlock(content: string, bold = false): FeishuDocumentBlock {
+  return { block_type: BLOCK_TYPE.TEXT, text: textContent(content, { bold }) };
+}
+
+function heading2Block(content: string): FeishuDocumentBlock {
+  return { block_type: BLOCK_TYPE.HEADING_2, heading2: textContent(content) };
+}
+
+function calloutBlock(
+  backgroundColor: number,
+  borderColor: number,
+  emojiId: string,
+  children: FeishuDocumentBlock[],
+): FeishuDocumentBlock {
+  return {
+    block_type: BLOCK_TYPE.CALLOUT,
+    callout: {
+      background_color: backgroundColor,
+      border_color: borderColor,
+      emoji_id: emojiId,
+    },
+    children,
+  };
+}
+
+function buildCommunicationQuestionBlocks(
+  results: InterviewDataCollectionResults | null | undefined,
+): FeishuDocumentBlock[] {
+  if (!results || results.questions.length === 0) {
+    return [];
+  }
+  const statusText = {
+    answered: "已回答",
+    insufficient: "信息不足",
+    interrupted: "回答中断",
+    skipped: "候选人跳过",
+    unasked: "未提问",
+  } as const;
+  return [
+    calloutBlock(CALLOUT_COLOR.BLUE, CALLOUT_COLOR.BLUE, "speech_balloon", [
+      textBlock("沟通题回答", true),
+      ...results.questions.flatMap((question, index) => [
+        textBlock(`${index + 1}. ${question.question}`, true),
+        textBlock(question.answerSummary?.trim() || `本题状态：${statusText[question.status]}`),
+        ...(index === results.questions.length - 1 ? [] : [textBlock("")]),
+      ]),
+    ]),
+  ];
+}
+
+function todoBlock(content: string): FeishuDocumentBlock {
+  return {
+    block_type: BLOCK_TYPE.TODO,
+    todo: { ...textContent(content), style: { done: false } },
+  };
+}
+
+export const INTERVIEW_STAGE_PLACEHOLDER_FIELDS = [
+  "评级（A,B,C,D）：",
+  "职级定位：业务负责人/小组主管/执行员工",
+  "角色定位：主导决策者/辅助执行者",
+  "专业技能：优/良/中/差",
+  "优势特点：",
+  "劣势风险：",
+  "薪资建议：月薪",
+] as const;
+
+function interviewStageCallout(
+  emojiId: string,
+  title: string,
+  backgroundColor: number,
+  borderColor = backgroundColor,
+): FeishuDocumentBlock {
+  return calloutBlock(backgroundColor, borderColor, emojiId, [
+    textBlock(title, true),
+    ...INTERVIEW_STAGE_PLACEHOLDER_FIELDS.map((field) => textBlock(field)),
+  ]);
+}
+
+function stringValue(value: string | undefined, fallback: string): string {
+  return value?.trim() || fallback;
+}
+
+function restrictedMarkdownText(value: string): string {
+  return value
+    .trim()
+    .replaceAll(/\*\*(.+?)\*\*/g, "$1")
+    .replaceAll(/\*(.+?)\*/g, "$1");
+}
+
+const INLINE_UNORDERED_LIST_MARKER_RE = /([。！？；])[ \t]*-[ \t]+/g;
+const INLINE_ORDERED_LIST_MARKER_RE = /([。！？；])[ \t]*(\d{1,2}[.)])[ \t]+/g;
+const UNORDERED_LIST_ITEM_RE = /^\s*[-*+]\s+(.+)$/;
+const ORDERED_LIST_ITEM_RE = /^\s*\d{1,2}[.)]\s+(.+)$/;
+
+function restrictedMarkdownBlocks(value: string): FeishuDocumentBlock[] {
+  const normalized = value
+    .replace(INLINE_UNORDERED_LIST_MARKER_RE, "$1\n- ")
+    .replace(INLINE_ORDERED_LIST_MARKER_RE, "$1\n$2 ");
+  return normalized.split(/\r?\n/).flatMap((line) => {
+    const unorderedItem = line.match(UNORDERED_LIST_ITEM_RE)?.[1];
+    if (unorderedItem) {
+      return [
+        {
+          block_type: BLOCK_TYPE.BULLET,
+          bullet: textContent(restrictedMarkdownText(unorderedItem)),
+        },
+      ];
+    }
+    const orderedItem = line.match(ORDERED_LIST_ITEM_RE)?.[1];
+    if (orderedItem) {
+      return [
+        {
+          block_type: BLOCK_TYPE.ORDERED,
+          ordered: textContent(restrictedMarkdownText(orderedItem)),
+        },
+      ];
+    }
+    const content = restrictedMarkdownText(line);
+    return content ? [textBlock(content)] : [];
+  });
+}
+
+function buildResumeEvaluationBlocks(
+  evaluation: InterviewEvaluationDocumentInput["resumeEvaluation"],
+): FeishuDocumentBlock[] {
+  if (!evaluation) {
+    return [];
+  }
+  const { detailedOverall } = evaluation;
+  return [
+    calloutBlock(CALLOUT_COLOR.BLUE, CALLOUT_COLOR.BLUE, "books", [
+      textBlock("简历AI简历评价", true),
+      ...restrictedMarkdownBlocks(detailedOverall.judgment),
+      textBlock("匹配依据", true),
+      ...restrictedMarkdownBlocks(detailedOverall.matchingEvidence),
+      textBlock("风险与待确认项", true),
+      ...restrictedMarkdownBlocks(detailedOverall.risks),
+    ]),
+  ];
+}
+
+function buildRecommendedQuestionBlocks(
+  questions: InterviewEvaluationDocumentInput["recommendedQuestions"],
+): FeishuDocumentBlock[] {
+  const orderedQuestions = (questions ?? [])
+    .filter((question) => question.question.trim())
+    .toSorted((left, right) => left.order - right.order);
+  if (orderedQuestions.length === 0) {
+    return [];
+  }
+  return [
+    calloutBlock(CALLOUT_COLOR.PURPLE, CALLOUT_COLOR.PURPLE, "technologist", [
+      textBlock("推荐面试题", true),
+      ...orderedQuestions.flatMap((question, index) => [
+        textBlock(`${index + 1}. ${question.question.trim()}`, true),
+        textBlock(
+          `考核点(${INTERVIEW_QUESTION_DIMENSION_LABEL[question.dimension ?? "business"]}维度)`,
+          true,
+        ),
+        textBlock(stringValue(question.evaluationFocus ?? undefined, "未提供")),
+        textBlock("追问方向", true),
+        textBlock(stringValue(question.followUpDirections ?? undefined, "未提供")),
+        ...(index === orderedQuestions.length - 1 ? [] : [textBlock("")]),
+      ]),
+    ]),
+  ];
+}
+
+export function buildInterviewEvaluationStructureSections(
+  source: InterviewEvaluationStructureSource,
+): InterviewEvaluationStructureSections {
+  const parsedEvaluation = qualitativeResumeEvaluationSchema.safeParse(
+    source.qualitativeResumeEvaluation,
+  );
+  const resumeEvaluation =
+    source.resumeEvaluationArtifactMode === "qualitative" && parsedEvaluation.success
+      ? parsedEvaluation.data
+      : null;
+  const parsedQuestions = studioInterviewQuestionClientSchema
+    .array()
+    .safeParse(source.interviewQuestions);
+  return {
+    recommendedQuestionsBlock: buildRecommendedQuestionBlocks(
+      parsedQuestions.success ? parsedQuestions.data : [],
+    )[0],
+    resumeEvaluationBlock: buildResumeEvaluationBlocks(resumeEvaluation)[0],
+  };
+}
+
+function hrQuestionBlocks(
+  questionNumber: number,
+  question: string,
+  answer: string | undefined,
+  fallback = "未收集到",
+): FeishuDocumentBlock[] {
+  return [
+    textBlock(`${questionNumber}. ${question}`, true),
+    textBlock(stringValue(answer, fallback)),
+    textBlock(""),
+  ];
+}
+
+export function buildHrInterviewEvaluationBlock(
+  input: HrInterviewEvaluationInput,
+): HrInterviewEvaluationPreview {
+  const parsedHrEvaluation = hrEvaluationSchema.safeParse(input.evaluation.hrEvaluation);
+  const hrEvaluation = parsedHrEvaluation.success ? parsedHrEvaluation.data : {};
+  const hrChildren = [
+    textBlock("HR面试评价", true),
+    ...hrQuestionBlocks(1, "求职动机：", hrEvaluation.jobMotivation),
+    ...hrQuestionBlocks(2, "最快到岗时间：", hrEvaluation.availability),
+    ...hrQuestionBlocks(3, "伦敦出差情况：", hrEvaluation.overseasTravel),
+    ...hrQuestionBlocks(4, "薪酬预期沟通：", hrEvaluation.compensationExpectations),
+    ...hrQuestionBlocks(5, "加薪晋升情况：", hrEvaluation.careerProgression, ""),
+    ...hrQuestionBlocks(6, "目前两份工作：", hrEvaluation.recentWork),
+    ...hrQuestionBlocks(7, "亮点项目分享", hrEvaluation.projectHighlights),
+  ];
+
+  return {
+    block: calloutBlock(CALLOUT_COLOR.ORANGE, CALLOUT_COLOR.ORANGE, "books", hrChildren),
+    title: `${input.candidateName} - HR面试评价预览`,
+  };
+}
+
+export function buildInterviewEvaluationDocument(
+  input: InterviewEvaluationDocumentInput,
+): InterviewEvaluationDocument {
+  const hrEvaluationBlock = buildHrInterviewEvaluationBlock(input);
+  const resumeLinkBlocks =
+    input.includeResumeLink === false
+      ? []
+      : [
+          heading2Block("简历"),
+          {
+            block_type: BLOCK_TYPE.TEXT,
+            text: textContent("查看候选人简历", { link: input.resumeUrl }),
+          },
+        ];
+
+  return {
+    blocks: [
+      ...resumeLinkBlocks,
+      ...buildResumeEvaluationBlocks(input.resumeEvaluation),
+      hrEvaluationBlock.block,
+      ...buildCommunicationQuestionBlocks(input.communicationQuestionResults),
+      ...buildRecommendedQuestionBlocks(input.recommendedQuestions),
+      heading2Block("评级等级确定"),
+      todoBlock("A-超出预期 薪资110%~130%"),
+      todoBlock("B-完全匹配 薪资100%~120%"),
+      todoBlock("C-基本匹配 薪资90%~110%"),
+      todoBlock("D-勉强接受 薪资80%~100%"),
+      interviewStageCallout("technologist", "业务一面评价", CALLOUT_COLOR.GREEN),
+      interviewStageCallout("man_technologist", "业务二面评价", CALLOUT_COLOR.GREEN),
+      interviewStageCallout(
+        "office_worker",
+        "HRD面试评价",
+        CALLOUT_COLOR.YELLOW,
+        CALLOUT_COLOR.ORANGE,
+      ),
+      calloutBlock(CALLOUT_COLOR.RED, CALLOUT_COLOR.RED, "man_office_worker", [
+        textBlock("CEO面试评价", true),
+      ]),
+    ],
+    title: `${input.candidateName} - 面试评价表`,
+  };
+}

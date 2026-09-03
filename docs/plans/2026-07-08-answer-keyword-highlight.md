@@ -4,14 +4,14 @@
 
 **Goal:** 在面试报告与问答记录中，用纯前端规则/词典自动识别并高亮候选人相关文本里的技能、数字/绩效、风险词三类关键词，两处结果一致，可按类别开关。
 
-**Architecture:** 一个纯函数提取层 `@arc/shared/answer-keywords`（同步、可测）产出关键词片段；web 侧 `HighlightedText` 渲染 `<mark>`，`KeywordHighlightProvider` + `KeywordHighlightLegend` 提供共享的分类开关状态；在 `studio-person-detail-panel.tsx` 的报告 Tab 内接入。无 LLM、不改数据库、不动后端。
+**Architecture:** 一个纯函数提取层 `@app/shared/answer-keywords`（同步、可测）产出关键词片段；web 侧 `HighlightedText` 渲染 `<mark>`，`KeywordHighlightProvider` + `KeywordHighlightLegend` 提供共享的分类开关状态；在 `studio-person-detail-panel.tsx` 的报告 Tab 内接入。无 LLM、不改数据库、不动后端。
 
-**Tech Stack:** TypeScript、React 19、Vitest、Tailwind CSS v4、`@arc/shared` 工作区包。
+**Tech Stack:** TypeScript、React 19、Vitest、Tailwind CSS v4、`@app/shared` 工作区包。
 
 ## Global Constraints
 
-- 提取器放 `@arc/shared`，纯/同构，不引入 `node:*`、web 运行时或 `@/` 本地模块。
-- `@arc/shared` 的 `package.json` 已有 `"exports": { "./*": "./src/*.ts" }`，故 `@arc/shared/answer-keywords` 直接解析到 `src/answer-keywords.ts`——**无需**新增 barrel 或改 `exports`。
+- 提取器放 `@app/shared`，纯/同构，不引入 `node:*`、web 运行时或 `@/` 本地模块。
+- `@app/shared` 的 `package.json` 已有 `"exports": { "./*": "./src/*.ts" }`，故 `@app/shared/answer-keywords` 直接解析到 `src/answer-keywords.ts`——**无需**新增 barrel 或改 `exports`。
 - `KeywordSpan.start/end` 为 JS 字符串下标（UTF-16 code unit），与 `String.prototype.slice(start, end)` 一致。
 - 类别固定三类：`"skill" | "metric" | "risk"`；优先级 `risk > skill > metric`。
 - metric 只匹配紧跟单位/百分号的数字；裸数字（年份/题号/年龄/版本号）不命中。
@@ -23,7 +23,7 @@
 
 ## File Structure
 
-**新建（提取层，`@arc/shared`）：**
+**新建（提取层，`@app/shared`）：**
 
 - `packages/shared/src/answer-keywords-dictionary.ts` — 内置技能词典、风险词表、metric 正则。
 - `packages/shared/src/answer-keywords.ts` — 类型 + `extractAnswerKeywords`。
@@ -39,13 +39,13 @@
 
 **修改：**
 
-- `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/conversation-transcript.tsx` — 候选人气泡接入。
-- `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx` — 评价/证据接入 + 集成测试 `evaluation-results.highlight.test.tsx`（新建）。
-- `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx` — 报告 Tab 内包 Provider + 渲染 Legend。
+- `apps/web/src/components/features/studio/interviews/interview-detail/conversation-transcript.tsx` — 候选人气泡接入。
+- `apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx` — 评价/证据接入 + 集成测试 `evaluation-results.highlight.test.tsx`（新建）。
+- `apps/web/src/components/features/studio/studio-person-detail-panel.tsx` — 报告 Tab 内包 Provider + 渲染 Legend。
 
 ---
 
-## Task 1: 关键词提取器 `@arc/shared/answer-keywords`
+## Task 1: 关键词提取器 `@app/shared/answer-keywords`
 
 **Files:**
 
@@ -129,7 +129,7 @@ describe("extractAnswerKeywords", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/shared exec vitest run src/answer-keywords.test.ts`
+Run: `pnpm --filter @app/shared exec vitest run src/answer-keywords.test.ts`
 Expected: FAIL —「Cannot find module './answer-keywords'」。
 
 - [ ] **Step 3: 写词典模块**
@@ -387,7 +387,7 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 
 - [ ] **Step 5: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/shared exec vitest run src/answer-keywords.test.ts`
+Run: `pnpm --filter @app/shared exec vitest run src/answer-keywords.test.ts`
 Expected: PASS（9 个用例全绿）。
 
 - [ ] **Step 6: 提交**
@@ -403,9 +403,9 @@ git commit -m "feat(shared): 候选人回答关键词提取器（技能/数字/�
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/context.tsx`
-- Create: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.tsx`
-- Test: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx`
+- Create: `apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/context.tsx`
+- Create: `apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.tsx`
+- Test: `apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx`
 
 **Interfaces:**
 
@@ -423,7 +423,7 @@ git commit -m "feat(shared): 候选人回答关键词提取器（技能/数字/�
 ```tsx
 "use client";
 
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 export const ALL_KEYWORD_CATEGORIES: readonly KeywordCategory[] = ["skill", "metric", "risk"];
@@ -481,8 +481,8 @@ export function useKeywordHighlight(): KeywordHighlightContextValue {
 ```tsx
 "use client";
 
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
-import { cn } from "@arc/shared/utils";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
+import { cn } from "@app/shared/utils";
 import { useKeywordHighlight } from "./context";
 
 const CATEGORY_META: { category: KeywordCategory; label: string; dotClass: string }[] = [
@@ -550,13 +550,13 @@ describe("KeywordHighlightLegend", () => {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx`
+Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx`
 Expected: PASS。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/context.tsx apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.tsx apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx
+git add apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/context.tsx apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.tsx apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx
 git commit -m "feat(studio): 关键词高亮分类开关状态与图例"
 ```
 
@@ -566,8 +566,8 @@ git commit -m "feat(studio): 关键词高亮分类开关状态与图例"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.tsx`
-- Test: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
+- Create: `apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.tsx`
+- Test: `apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
 
 **Interfaces:**
 
@@ -579,7 +579,7 @@ git commit -m "feat(studio): 关键词高亮分类开关状态与图例"
 创建 `.../keyword-highlight/highlighted-text.test.tsx`：
 
 ```tsx
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HighlightedText } from "./highlighted-text";
@@ -610,7 +610,7 @@ describe("HighlightedText", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
+Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
 Expected: FAIL —「Cannot find module './highlighted-text'」。
 
 - [ ] **Step 3: 写组件实现**
@@ -620,8 +620,8 @@ Expected: FAIL —「Cannot find module './highlighted-text'」。
 ```tsx
 "use client";
 
-import { extractAnswerKeywords, type KeywordCategory } from "@arc/shared/answer-keywords";
-import { cn } from "@arc/shared/utils";
+import { extractAnswerKeywords, type KeywordCategory } from "@app/shared/answer-keywords";
+import { cn } from "@app/shared/utils";
 import { useMemo } from "react";
 import { ALL_KEYWORD_CATEGORIES } from "./context";
 
@@ -697,13 +697,13 @@ export function HighlightedText({
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
+Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
 Expected: PASS。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.tsx apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx
+git add apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.tsx apps/web/src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx
 git commit -m "feat(studio): HighlightedText 关键词高亮渲染组件"
 ```
 
@@ -713,9 +713,9 @@ git commit -m "feat(studio): HighlightedText 关键词高亮渲染组件"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/conversation-transcript.tsx`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx`
-- Test: `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`（新建）
+- Modify: `apps/web/src/components/features/studio/interviews/interview-detail/conversation-transcript.tsx`
+- Modify: `apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx`
+- Test: `apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`（新建）
 
 **Interfaces:**
 
@@ -777,7 +777,7 @@ describe("EvaluationResults highlighting", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
+Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
 Expected: FAIL（`data-category` 不存在，评价文本仍是纯文本）。
 
 - [ ] **Step 3: 改 `evaluation-results.tsx` — 加 client 指令 + 顶部导入**
@@ -836,7 +836,7 @@ function EvidenceList({
 ```tsx
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
 import { useKeywordHighlight } from "./keyword-highlight/context";
-import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import type { KeywordCategory } from "@app/shared/answer-keywords";
 ```
 
 再把 `EvidenceList` 内的 quote 渲染，从：
@@ -937,7 +937,7 @@ const { enabledCategories } = useKeywordHighlight();
 
 - [ ] **Step 6: 跑集成测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
+Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
 Expected: PASS。
 
 - [ ] **Step 7: 改 `conversation-transcript.tsx` — 候选人气泡接入**
@@ -982,7 +982,7 @@ const { enabledCategories } = useKeywordHighlight();
 - [ ] **Step 8: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/conversation-transcript.tsx apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx
+git add apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx apps/web/src/components/features/studio/interviews/interview-detail/conversation-transcript.tsx apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx
 git commit -m "feat(studio): 问答记录与评估报告接入关键词高亮"
 ```
 
@@ -992,7 +992,7 @@ git commit -m "feat(studio): 问答记录与评估报告接入关键词高亮"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx`
+- Modify: `apps/web/src/components/features/studio/studio-person-detail-panel.tsx`
 
 **Interfaces:**
 
@@ -1076,9 +1076,9 @@ Run:
 
 ```bash
 pnpm fix
-pnpm --filter @arc/ai-recruitment-copilot typecheck
-pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail
-pnpm --filter @arc/shared test
+pnpm --filter @app/web typecheck
+pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail
+pnpm --filter @app/shared test
 ```
 
 Expected: `pnpm fix` 无报错并把 Step 2 的缩进补齐；typecheck 通过；两处 vitest 全绿。
@@ -1094,7 +1094,7 @@ git commit -m "feat(studio): 报告 Tab 挂载关键词高亮 Provider 与图例
 
 ## 手动验证（可选，全部任务后）
 
-启动 web（`pnpm --filter @arc/ai-recruitment-copilot dev`），进候选人详情 →「面试报告」Tab：
+启动 web（`pnpm --filter @app/web dev`），进候选人详情 →「面试报告」Tab：
 
 - 顶部出现「关键词高亮」图例三枚 chip；
 - 问答记录里候选人气泡的技能/数字/风险词着色，面试官气泡不着色；

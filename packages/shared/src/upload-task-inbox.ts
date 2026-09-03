@@ -1,4 +1,4 @@
-import type { ResumeUploadBatchItemStatus, ResumeUploadBatchTarget } from "@arc/db-schema/schema";
+import type { ResumeUploadBatchItemStatus, ResumeUploadBatchTarget } from "@app/db-schema/schema";
 
 export const UPLOAD_TASK_INBOX_PAGE_SIZE = 20;
 

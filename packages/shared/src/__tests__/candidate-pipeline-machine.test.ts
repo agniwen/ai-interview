@@ -7,7 +7,7 @@ import {
   candidatePipelineMachine,
   getCandidateActivityStatus,
   getCandidatePipelineEventResult,
-} from "@arc/shared/candidate-pipeline-machine";
+} from "@app/shared/candidate-pipeline-machine";
 
 describe("candidate pipeline machine", () => {
   it("derives semantic activity only from the terminal pipeline stage", () => {

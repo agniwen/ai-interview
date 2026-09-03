@@ -48,7 +48,7 @@
 
 ## 前端组件
 
-页面：`apps/ai-recruitment-copilot/src/routes/w.$slug.studio.mail-ingest-accounts.tsx` 及其下账号列表组件。
+页面：`apps/web/src/routes/w.$slug.studio.mail-ingest-accounts.tsx` 及其下账号列表组件。
 
 ### 1. 邮件数徽章（账号行）
 

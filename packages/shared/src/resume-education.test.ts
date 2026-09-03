@@ -74,7 +74,7 @@ describe("formatResumeEducationLine", () => {
     ).toBeNull();
   });
 
-  it("sorts display items and lines by education level from master to bachelor to junior college", () => {
+  it("sorts display items and lines from doctorate to master to bachelor to junior college", () => {
     const educationExperiences = [
       {
         degree: null,
@@ -94,14 +94,22 @@ describe("formatResumeEducationLine", () => {
         major: "软件工程",
         school: "硕士大学",
       },
+      {
+        degree: "博士",
+        educationLevel: "博士研究生",
+        major: "人工智能",
+        school: "博士大学",
+      },
     ];
 
     expect(formatResumeEducationItems(educationExperiences).map((item) => item.level)).toEqual([
+      "博士研究生",
       "硕士",
       "本科",
       "大专",
     ]);
     expect(formatResumeEducationLines(educationExperiences)).toEqual([
+      "博士研究生 博士大学 · 人工智能",
       "硕士 硕士大学 · 软件工程",
       "本科 本科大学 · 计算机科学与技术",
       "大专 大专学院 · 软件技术",

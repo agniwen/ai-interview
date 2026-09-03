@@ -12,7 +12,7 @@
 
 首版不建议自建“Bot 进入 Zoom / Meet / Teams”集群，也不建议另做 Chrome Extension。理由是：
 
-1. **与现有产品形态最匹配。** Meeting Buddy 已经是 Electron 39 桌面应用，已有“选择招聘记录 → 开始录制”的入口；当前确认按钮仍只关闭对话框，录制链路尚未接线。[仓库：新建会议录制对话框](../../apps/ai-recruitment-copilot-desktop/src/renderer/src/components/features/meeting/new-meeting-recording-dialog.tsx)
+1. **与现有产品形态最匹配。** Meeting Buddy 已经是 Electron 39 桌面应用，已有“选择招聘记录 → 开始录制”的入口；当前确认按钮仍只关闭对话框，录制链路尚未接线。[仓库：新建会议录制对话框](../../apps/desktop/src/renderer/src/components/features/meeting/new-meeting-recording-dialog.tsx)
 2. **社区成熟产品已经验证这条路线。** Granola 明确没有会议 Bot，桌面端直接使用系统音频和麦克风；tl;dv、Fireflies 也都提供无 Bot 的桌面系统音频模式。它覆盖 Zoom、Teams、Google Meet、飞书、Slack、FaceTime 等任何从本机输出声音的平台，不依赖某个平台的 DOM 或会议协议。[Granola 官方：转录原理](https://docs.granola.ai/help-center/taking-notes/transcription) [tl;dv 官方：无 Bot 录制](https://intercom.help/tldv/en/articles/14433337-recording-without-a-bot) [Fireflies 官方：桌面无 Bot 录制](https://guide.fireflies.ai/articles/6666374717-how-to-record-meetings-without-a-bot-on-the-fireflies-desktop-app)
 3. **把“录下来”和“实时字幕”解耦，先保证数据不丢。** 录制音频分片是事实源；实时字幕是低延迟预览，允许修订；会议结束后再基于完整音频产出最终 transcript。开源 Meetily 也把 recording path 和 VAD-filtered transcription path 分开，而不是让实时 STT 的结果反过来决定录音内容。[Meetily 官方仓库：音频双路径架构](https://github.com/Zackriya-Solutions/meetily/blob/main/CLAUDE.md#high-level-architecture)
 4. **说话人首选通道确定性，不先依赖 diarization 猜测。** 麦克风轨稳定标记为 `local`，系统音频轨标记为 `remote`。一对一面试可直接映射成“面试官 / 候选人”；只有远端轨里存在多人时，才对该轨做 diarization。Granola 桌面端同样只显示 `Me` / `Them`，并明确其实时桌面转录暂不支持远端多人 diarization。[Granola 官方：说话人识别限制](https://docs.granola.ai/help-center/taking-notes/transcription)
@@ -30,17 +30,17 @@
 
 ### 已有基础
 
-- Meeting Buddy 是 `electron-vite + React 19 + TypeScript` 的 Electron 应用，并使用 TanStack Router / Query 与工作区、招聘台数据相连。[桌面应用 README](../../apps/ai-recruitment-copilot-desktop/README.md) [桌面依赖](../../apps/ai-recruitment-copilot-desktop/package.json)
-- macOS 构建配置已经声明 `NSMicrophoneUsageDescription` 和 `NSAudioCaptureUsageDescription`，说明产品方向已经包含麦克风与系统音频采集。[桌面构建配置](../../apps/ai-recruitment-copilot-desktop/electron-builder.yml)
-- 后端已有独立 Hono runtime、PostgreSQL、R2/S3 兼容录制存储，以及读取录制文件的预签名 URL。[后端独立入口](../../apps/ai-recruitment-copilot-backend/src/index.ts) [录制存储](../../apps/ai-recruitment-copilot-backend/src/lib/server/s3.ts) [Studio 录制读取路由](../../apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/routes/recordings/route.ts)
-- 仓库已有 BullMQ 异步任务基础，以及 `pending → running → ready/failed`、条件抢占、失败恢复、重试次数等 LLM 摘要生命周期经验。[简历解析队列包](../../packages/resume-parse-queue/src/resume-parse.ts) [现有面试摘要任务](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-summary-job.ts)
-- 后端已有 Mastra agent、结构化生成与模型 provider 抽象，不需要为 Meeting Buddy 再引入第二套 LLM 编排框架。[简单生成 agents](../../apps/ai-recruitment-copilot-backend/src/server/agents/mastra/agents/simple-generators.ts) [模型 provider](../../apps/ai-recruitment-copilot-backend/src/server/agents/provider.ts)
+- Meeting Buddy 是 `electron-vite + React 19 + TypeScript` 的 Electron 应用，并使用 TanStack Router / Query 与工作区、招聘台数据相连。[桌面应用 README](../../apps/desktop/README.md) [桌面依赖](../../apps/desktop/package.json)
+- macOS 构建配置已经声明 `NSMicrophoneUsageDescription` 和 `NSAudioCaptureUsageDescription`，说明产品方向已经包含麦克风与系统音频采集。[桌面构建配置](../../apps/desktop/electron-builder.yml)
+- 后端已有独立 Hono runtime、PostgreSQL、R2/S3 兼容录制存储，以及读取录制文件的预签名 URL。[后端独立入口](../../apps/server/src/index.ts) [录制存储](../../apps/server/src/lib/server/s3.ts) [Studio 录制读取路由](../../apps/server/src/server/routes/studio/routes/interviews/routes/recordings/route.ts)
+- 仓库已有 BullMQ 异步任务基础，以及 `pending → running → ready/failed`、条件抢占、失败恢复、重试次数等 LLM 摘要生命周期经验。[简历解析队列包](../../packages/resume-parse-queue/src/resume-parse.ts) [现有面试摘要任务](../../apps/server/src/server/routes/agent/utils/interview-summary-job.ts)
+- 后端已有 Mastra agent、结构化生成与模型 provider 抽象，不需要为 Meeting Buddy 再引入第二套 LLM 编排框架。[简单生成 agents](../../apps/server/src/server/agents/mastra/agents/simple-generators.ts) [模型 provider](../../apps/server/src/server/agents/provider.ts)
 - LiveKit agent 已经处理实时 STT、转录回传和房间录制。这些经验与测试样本可以复用，但 Meeting Buddy 的本地外部会议不等于现有 AI 面试房间，不应直接塞入同一会话表或同一个 agent 状态机。[Agent 入口](../../apps/livekit-agent/src/agent.py) [会话类型](../../packages/db-schema/src/interview-session.ts)
 
 ### 当前缺口
 
 - `开始录制` 目前没有启动采集，只在选择了招聘记录后关闭弹窗。
-- main / preload 尚未暴露音频权限、采集、文件分片、设备枚举或恢复接口；当前启动流程只注册设置、窗口、认证和 oRPC IPC。[桌面 main 入口](../../apps/ai-recruitment-copilot-desktop/src/main/index.ts) [preload 入口](../../apps/ai-recruitment-copilot-desktop/src/preload/index.ts)
+- main / preload 尚未暴露音频权限、采集、文件分片、设备枚举或恢复接口；当前启动流程只注册设置、窗口、认证和 oRPC IPC。[桌面 main 入口](../../apps/desktop/src/main/index.ts) [preload 入口](../../apps/desktop/src/preload/index.ts)
 - 后端没有 Meeting Buddy 专属的会话、音频分片、转录修订、纪要或同意记录；现有 `interviewConversation` 是 AI 面试运行时产物，语义不等同于真人会议记录。
 - 当前录制存储只实现服务器端对象操作与读取预签名 URL，没有桌面大文件分片直传、上传清单、校验和及断点恢复协议。
 - 当前独立 Hono 服务没有 Meeting Buddy 实时音频 WebSocket gateway。TanStack Start 内嵌的 `/api` 适配器也不应未经部署验证就假定能承接小时级 WebSocket。
@@ -507,7 +507,7 @@ interface MeetingIntelligence {
 - 存 `model`, `provider`, `prompt/template version`, `transcript revision`, `generatedAt`。
 - 用户重新转写或修改 transcript 后，旧纪要标记 stale，而不是静默保持“ready”。
 
-现有 `runSummaryJob` 已经展示了条件抢占、running 超时回收、失败状态与可重试模式，可复用这种生命周期，但 Meeting Buddy 应使用自己的 job 与表。[仓库：现有摘要任务](../../apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-summary-job.ts)
+现有 `runSummaryJob` 已经展示了条件抢占、running 超时回收、失败状态与可重试模式，可复用这种生命周期，但 Meeting Buddy 应使用自己的 job 与表。[仓库：现有摘要任务](../../apps/server/src/server/routes/agent/utils/interview-summary-job.ts)
 
 ## 九、隐私、安全与同意
 

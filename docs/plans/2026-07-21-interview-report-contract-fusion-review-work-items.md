@@ -40,7 +40,7 @@
 3. 每条实质性结论至少引用一条可定位的原始证据；综合建议只能引用结论；冲突双方均保留证据。
 4. `schemaVersion` 表示契约版本，`reportVersion` 表示同一轮次内的不可变生成版本。
 5. 飞书文档由 HR 明确提交时创建。完成首次正文配置并进入 `created` 后，系统不再修改正文、不重新生成该轮报告、不重置或删除该轮；飞书人工内容不回写系统。
-6. 普通 HR 可以对可见候选人作出二选一决定：进入业务一面，或不进入并结案淘汰。飞书编辑权限不等同于系统审核权限。
+6. 普通 HR 可以对可见候选人作出二选一决定：进入业务一面，或不进入并结束淘汰。飞书编辑权限不等同于系统审核权限。
 7. 只有候选人的最终有效 AI 面试轮次可以作出准入决定：该轮为 `completed`、`sortOrder` 最大，且候选人现存所有 AI 轮次均已 `completed`；较早轮次不能在后续轮次待开始或进行中时结束候选人流程。
 8. 提交人必须从自己已关联的飞书账号中选择一个 provider。`roundId -> feishuProviderId` 在外部调用前持久化；其他 provider 不参与该报告的文档创建、授权或飞书链接通知，也不能为同一轮创建或拥有第二份文档。
 9. 每个不可变 report version 使用 `contentKind=v1/legacy` 区分内容契约。恰好关联一份历史文档的 legacy version 进入 `submitted`，可按最终轮规则决定；同轮多文档进入 legacy 专用 `migration_conflict`，经审计的人工主文档映射后才能转 `submitted`。
@@ -64,7 +64,7 @@
 ### 2. 现状摸底
 
 - 当前报告生成由 `interview-summary-job.ts` 在单个 conversation 上运行。证据快照已经冻结简历上下文、表单和 transcript，但 workflow 实际只接收格式化表单、问题和 transcript，简历没有进入评估输入。
-- `evaluationCriteriaResults` 在数据库、`@arc/db-schema/interview-session`、DAO、API、前端和飞书模板之间以 `Record<string, unknown>` 传播；前端和通知层各自做不完整的运行时判断。
+- `evaluationCriteriaResults` 在数据库、`@app/db-schema/interview-session`、DAO、API、前端和飞书模板之间以 `Record<string, unknown>` 传播；前端和通知层各自做不完整的运行时判断。
 - `GET /:roundId/reports` 已按 `scheduleEntryId` 查询，但返回该轮全部 conversations；轮次重置会清空 schedule 上的当前 `conversationId`，历史 conversation 仍可能保留。
 - 当前摘要成功后会异步自动通知。通知唯一键包含 conversation 和接收人，文档 ID 也存于通知行，因此同一轮的不同 conversation 或不同飞书账号可能产生多份文档。
 - 当前支持 `feishu` 与 `feishu-jiguang-hr` 两个 provider，它们使用不同应用凭证和目录；一个用户可能同时关联多个 provider，现有逻辑会逐个账号发送并由各自通知行持有文档。
@@ -110,7 +110,7 @@
 
 | ID  | 工作项                                                                                                                                                                                                                                                                                                                     | 估时 | 交付物                                                                         |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---: | ------------------------------------------------------------------------------ |
-| A1  | 在 `packages/shared/src/interview/report.ts` 定义 `InterviewReportV1`：轮次/会话/快照身份、`schemaVersion`、`reportVersion`、三类 `sourceCoverage`、可判别 `evidenceRef`、`conclusions`、`conflicts`、综合建议和生成元数据；所有对象使用严格 Zod 结构。API 报告 DTO 归 `@arc/shared`，`@arc/db-schema` 不反向依赖 shared。 |   1d | 共享 Schema、推导类型和公开导出；一份经过评审的合法 JSON 样例。                |
+| A1  | 在 `packages/shared/src/interview/report.ts` 定义 `InterviewReportV1`：轮次/会话/快照身份、`schemaVersion`、`reportVersion`、三类 `sourceCoverage`、可判别 `evidenceRef`、`conclusions`、`conflicts`、综合建议和生成元数据；所有对象使用严格 Zod 结构。API 报告 DTO 归 `@app/shared`，`@app/db-schema` 不反向依赖 shared。 |   1d | 共享 Schema、推导类型和公开导出；一份经过评审的合法 JSON 样例。                |
 | A2  | 为契约补正反例和 legacy 解析器：拒绝未知来源、悬空字段形状、无证据结论和错误版本；把当前已知 evaluation 结构解析为显式 `LegacyInterviewEvaluation`，无效数据返回类型化错误而非原始 JSON。                                                                                                                                  | 0.5d | `report.test.ts`、legacy fixtures、类型检查通过；报告 API 不需要本地类型守卫。 |
 
 #### 阶段 B：轮次报告持久化与历史闸门
@@ -118,8 +118,8 @@
 | ID  | 工作项                                                                                                                                                                                                                                                                                                                                                                                                      | 估时 | 交付物                                                                                                 |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---: | ------------------------------------------------------------------------------------------------------ |
 | B1  | 编写只读审计脚本，按 `scheduleEntryId` 统计 conversation、ready evaluation、通知、provider 和不同飞书文档 ID；同时用 legacy Schema 统计可解析率，并按 conversation/round/context snapshot 的可校验关系输出 `verified_original` 或 `legacy_unverified`。                                                                                                                                                     |   1d | `.eval/` 下无 PII JSON/Markdown 报告；重复文档 round、provider 分布、证据可信度和迁移决策输入。        |
-| B2  | 在 `@arc/db-schema` 增加 round-owned `interview_report` 与不可变 `interview_report_version`；`contentKind=v1/legacy` 属于 version，report 保存正常生命周期及 legacy-only `migration_conflict`、文档创建状态、`feishuProviderId`、文档和提交/决定元数据。report→round 外键使用 restrict 防止绕过服务层级联删除；JSONB 保持 `unknown`，不反向依赖 `@arc/shared`；用 `pnpm db:generate` 生成迁移和 relations。 |   1d | Drizzle schema、生成迁移、状态/check 约束、restrict 外键、唯一索引和 DB 类型检查；不修改历史飞书正文。 |
-| B3  | 在 reports 路由目录内新增 DAO，TDD 实现创建首个草稿、内容变化才递增版本、读取当前版本、提交 compare-and-set、按 candidate→rounds→report 加锁、进入 `submitting` 后冻结版本/provider/round、分阶段记录文档 ID 与状态、文档配置确认后转 `submitted`、提交后禁止重生成。原始 JSONB 只在 DAO 内以 `unknown` 接收并立即用 `@arc/shared` Zod Schema 解析；提供显式删除 draft report 的事务内方法。                |   1d | DAO + 数据库测试；状态转换表和锁协议可执行，API/前端永不接触未解析 JSON。                              |
+| B2  | 在 `@app/db-schema` 增加 round-owned `interview_report` 与不可变 `interview_report_version`；`contentKind=v1/legacy` 属于 version，report 保存正常生命周期及 legacy-only `migration_conflict`、文档创建状态、`feishuProviderId`、文档和提交/决定元数据。report→round 外键使用 restrict 防止绕过服务层级联删除；JSONB 保持 `unknown`，不反向依赖 `@app/shared`；用 `pnpm db:generate` 生成迁移和 relations。 |   1d | Drizzle schema、生成迁移、状态/check 约束、restrict 外键、唯一索引和 DB 类型检查；不修改历史飞书正文。 |
+| B3  | 在 reports 路由目录内新增 DAO，TDD 实现创建首个草稿、内容变化才递增版本、读取当前版本、提交 compare-and-set、按 candidate→rounds→report 加锁、进入 `submitting` 后冻结版本/provider/round、分阶段记录文档 ID 与状态、文档配置确认后转 `submitted`、提交后禁止重生成。原始 JSONB 只在 DAO 内以 `unknown` 接收并立即用 `@app/shared` Zod Schema 解析；提供显式删除 draft report 的事务内方法。                |   1d | DAO + 数据库测试；状态转换表和锁协议可执行，API/前端永不接触未解析 JSON。                              |
 
 #### 阶段 C：真正的三路融合
 
@@ -133,7 +133,7 @@
 
 | ID  | 工作项                                                                                                                                                                                                                                                                                                                    | 估时 | 交付物                                                                     |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---: | -------------------------------------------------------------------------- |
-| D1  | 在 `routes/interviews/routes/reports/` 增加当前报告查询、草稿重生成、提交接口；使用 `zValidator`、显式状态码、typed Hono RPC 和现有 visibility scope。报告 API DTO/客户端导入迁到 `@arc/shared`；保留 transcript/attempt 查询，但其 legacy evaluation 通过 typed adapter 返回，不再复用 `@arc/db-schema` 的宽松报告 DTO。 |   1d | 类型化 route/DAO tests、RPC 推断通过、409/404/403 契约明确，无包循环依赖。 |
+| D1  | 在 `routes/interviews/routes/reports/` 增加当前报告查询、草稿重生成、提交接口；使用 `zValidator`、显式状态码、typed Hono RPC 和现有 visibility scope。报告 API DTO/客户端导入迁到 `@app/shared`；保留 transcript/attempt 查询，但其 legacy evaluation 通过 typed adapter 返回，不再复用 `@app/db-schema` 的宽松报告 DTO。 |   1d | 类型化 route/DAO tests、RPC 推断通过、409/404/403 契约明确，无包循环依赖。 |
 | D2  | 报告详情改用共享类型，展示来源覆盖、逐条结论、三类证据、冲突和综合建议；证据点击继续定位 transcript/录音，简历与表单证据打开对应上下文。删除报告相关类型断言和宽松 guard。                                                                                                                                                |   1d | 类型化报告 UI、来源标签与证据跳转测试；现有关键词高亮不回归。              |
 | D3  | 增加“重新生成草稿 / 提交审核”交互：提交前显示版本和来源完整性确认；进入 `submitting` 后隐藏重生成、重置和删除入口，显示飞书创建状态、已有链接或锁定原因。                                                                                                                                                                 |   1d | 前端状态流、mutation cache 更新、错误提示和组件测试。                      |
 
@@ -194,17 +194,17 @@
 - `packages/db-schema/src/interview-session.ts`：当前报告 DTO 与 `Record<string, unknown>` 来源。
 - `packages/db-schema/src/schema.ts`：conversation、snapshot、notification、audit 与候选人阶段表。
 - `packages/shared/src/interview/`：新共享报告 Schema 的目标目录。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-report.ts`：当前评估 Schema 与 prompt。
-- `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/interview-report-workflow.ts`：当前报告 workflow。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-summary-job.ts`：当前报告持久化和自动通知触发点。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/evidence-snapshot.ts`：三路冻结输入的现有基础。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/routes/reports/`：轮次报告 API 与新 DAO 的归属目录。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts`：当前 per-conversation/per-recipient 文档所有权与通知逻辑。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/interview-evaluation-doc.ts`：飞书报告模板。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/feishu-docx.ts`：飞书文档创建、授权和移动。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/detail-route.ts` 与 `routes/studio/routes/interviews/route.ts`：轮次 PATCH、reset、单删和批删保护。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/route.ts`：候选人单删和批删保护。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/utils/candidate-stage-transition.ts`：候选人阶段规则和事务入口。
-- `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx`：当前宽松报告渲染。
-- `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-controller.tsx`：当前报告选择和 unknown 类型断言。
+- `apps/server/src/server/routes/agent/utils/interview-report.ts`：当前评估 Schema 与 prompt。
+- `apps/server/src/server/agents/mastra/workflows/interview-report-workflow.ts`：当前报告 workflow。
+- `apps/server/src/server/routes/agent/utils/interview-summary-job.ts`：当前报告持久化和自动通知触发点。
+- `apps/server/src/server/routes/agent/utils/evidence-snapshot.ts`：三路冻结输入的现有基础。
+- `apps/server/src/server/routes/studio/routes/interviews/routes/reports/`：轮次报告 API 与新 DAO 的归属目录。
+- `apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts`：当前 per-conversation/per-recipient 文档所有权与通知逻辑。
+- `apps/server/src/server/routes/feishu/utils/interview-evaluation-doc.ts`：飞书报告模板。
+- `apps/server/src/server/routes/feishu/utils/feishu-docx.ts`：飞书文档创建、授权和移动。
+- `apps/server/src/server/routes/studio/routes/interviews/detail-route.ts` 与 `routes/studio/routes/interviews/route.ts`：轮次 PATCH、reset、单删和批删保护。
+- `apps/server/src/server/routes/studio/routes/resumes/route.ts`：候选人单删和批删保护。
+- `apps/server/src/server/routes/studio/routes/interviews/utils/candidate-stage-transition.ts`：候选人阶段规则和事务入口。
+- `apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx`：当前宽松报告渲染。
+- `apps/web/src/components/features/studio/studio-person-detail-controller.tsx`：当前报告选择和 unknown 类型断言。
 - `CONTEXT.md`：本轮确认后的领域词汇。

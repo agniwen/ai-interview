@@ -140,7 +140,8 @@ describe("getResumeReviewDimension", () => {
     const v1Dimensions = {
       roleFit: { rationale: "...", score: 80 },
     };
-    const v1Like = { ...REVIEW, dimensions: v1Dimensions } as unknown as typeof REVIEW;
+    // SAFETY: This fixture deliberately models a legacy persisted v1 payload against the current reader.
+    const v1Like = { ...REVIEW, dimensions: v1Dimensions } as typeof REVIEW;
     expect(getResumeReviewDimension(v1Like, "skillMatch")).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildResumeReviewGenerationJobId,
+  defaultResumeReviewGenerationJobOptions,
   getResumeReviewGenerationQueueOverview,
   resolveResumeReviewGenerationWorkerConcurrency,
   resumeReviewGenerationJobSchema,
@@ -90,6 +91,17 @@ describe("resume review generation queue", () => {
       poolItemId: "pool-1",
       source: "resume_pool_upload",
     });
+    expect(
+      resumeReviewGenerationJobSchema.parse({
+        organizationId: "org-1",
+        resumeRecordId: "resume-1",
+        source: "resume_pool_import_questions",
+      }),
+    ).toEqual({
+      organizationId: "org-1",
+      resumeRecordId: "resume-1",
+      source: "resume_pool_import_questions",
+    });
   });
 
   it("builds stable BullMQ-compatible job ids", () => {
@@ -106,6 +118,12 @@ describe("resume review generation queue", () => {
         resumeRecordId: "resume:1",
       }),
     ).toBe("resume-review-resume-1-jd-1");
+    expect(
+      buildResumeReviewGenerationJobId({
+        resumeRecordId: "resume:1",
+        source: "resume_pool_import_questions",
+      }),
+    ).toBe("resume-questions-resume-1");
   });
 
   it("builds one stable upload job id per parsed target", () => {
@@ -155,19 +173,31 @@ describe("resume review generation queue", () => {
     ).toBe("resume-review-resume-1-jd-1-reassess-token-1");
   });
 
-  it("defaults review concurrency to 9 unless explicitly configured", () => {
-    expect(resolveResumeReviewGenerationWorkerConcurrency({})).toBe(9);
+  it("defaults review concurrency to 12 unless explicitly configured", () => {
+    expect(resolveResumeReviewGenerationWorkerConcurrency({})).toBe(12);
     expect(
       resolveResumeReviewGenerationWorkerConcurrency({
         RESUME_PARSE_WORKER_CONCURRENCY: "4",
       }),
-    ).toBe(9);
+    ).toBe(12);
     expect(
       resolveResumeReviewGenerationWorkerConcurrency({
         RESUME_PARSE_WORKER_CONCURRENCY: "4",
         RESUME_REVIEW_GENERATION_WORKER_CONCURRENCY: "3",
       }),
     ).toBe(3);
+  });
+
+  it("limits whole-workflow retries after stage-local AI retries", () => {
+    expect(defaultResumeReviewGenerationJobOptions({})).toMatchObject({
+      attempts: 2,
+      backoff: { delay: 30_000, type: "exponential" },
+    });
+    expect(
+      defaultResumeReviewGenerationJobOptions({
+        RESUME_REVIEW_GENERATION_QUEUE_ATTEMPTS: "1",
+      }),
+    ).toMatchObject({ attempts: 1 });
   });
 
   it("returns an empty overview when Redis is not configured", async () => {

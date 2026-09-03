@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { resumeScoringFactsSchema } from "./resume-scoring-facts";
+
+const emptyResumeScoringFacts = {
+  additionalEvidence: [],
+  employmentEpisodes: [],
+  projects: [],
+  skillFacts: [],
+  version: 1 as const,
+};
 
 const workExperienceSchema = z.object({
   company: z.string().nullable(),
@@ -40,7 +49,9 @@ export const structuredSchema = z.object({
   phone: z.string().nullable(),
   projectExperiences: z.array(projectExperienceSchema),
   schools: z.array(z.string()),
+  scoringFacts: resumeScoringFactsSchema.optional(),
   skills: z.array(z.string()),
+  sourceFileName: z.string().optional(),
   targetRoles: z.array(z.string()),
   timelineSummary: z.object({
     currentStatus: z.string().nullable(),
@@ -49,7 +60,27 @@ export const structuredSchema = z.object({
     riskSignals: z.array(z.string()),
   }),
   workExperiences: z.array(workExperienceSchema),
-  workYears: z.number().nullable(),
+  // oxlint-disable-next-line promise/prefer-await-to-then -- Zod catch supplies a synchronous schema fallback.
+  workYears: z.number().nullable().catch(null),
+});
+
+export const resumeParserGenerationSchema = structuredSchema.omit({ sourceFileName: true }).extend({
+  // 评分事实是解析后的增强信息，不应因为模型漏填枚举或索引而丢弃整份简历。
+  // 下游 normalizeResumeScoringFacts 会基于核心简历字段补齐这些默认值。
+  // oxlint-disable-next-line promise/prefer-await-to-then -- Zod catch supplies a synchronous schema fallback.
+  scoringFacts: resumeScoringFactsSchema.catch(emptyResumeScoringFacts),
 });
 
 export type ResumeParserStructured = z.infer<typeof structuredSchema>;
+
+export function normalizeResumeStructuredSourceFileName(fileName: string): string {
+  return fileName.slice(0, 255);
+}
+
+export function isResumeStructuredSourceFileNameCompatible(
+  structured: ResumeParserStructured,
+  fileName: string,
+): boolean {
+  const normalized = normalizeResumeStructuredSourceFileName(fileName);
+  return Boolean(normalized) && structured.sourceFileName === normalized;
+}

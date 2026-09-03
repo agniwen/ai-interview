@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm fix"
+            "command": "bun run fix"
           }
         ]
       }

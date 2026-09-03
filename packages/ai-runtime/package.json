@@ -1,0 +1,23 @@
+{
+  "name": "@app/ai-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider-neutral server-side AI model selection, JSON generation, and simple text generation primitives",
+  "type": "module",
+  "exports": {
+    "./json-output": "./src/json-output.ts",
+    "./models": "./src/models.ts",
+    "./simple-generators": "./src/simple-generators.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.50.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "typescript": "catalog:"
+  }
+}

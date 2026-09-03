@@ -1,4 +1,5 @@
 import type { ArcMessage } from "./ai-message";
+import { z } from "zod";
 
 /** Snapshot of a recruiting action card decision persisted in tool JSON. */
 export interface RecruitingActionConfirmationSnapshot {
@@ -26,6 +27,13 @@ export interface RecruitingContextJobBindingMeta {
   recordId: string;
 }
 
+const recruitingContextJobBindingMetaSchema = z.object({
+  jobDescriptionId: z.string().min(1),
+  jobDescriptionName: z.string().nullable().optional(),
+  kind: z.enum(["resume_pool_item", "resume_record"]),
+  recordId: z.string().min(1),
+});
+
 export function buildContextJobBindingMessageId(
   kind: RecruitingContextJobBindingMeta["kind"],
   recordId: string,
@@ -37,25 +45,15 @@ export function readRecruitingContextJobBinding(
   message: ArcMessage,
 ): RecruitingContextJobBindingMeta | null {
   const raw = message.metadata?.[RECRUITING_CONTEXT_JOB_BINDING_META_KEY];
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-  const value = raw as Partial<RecruitingContextJobBindingMeta>;
-  if (
-    (value.kind !== "resume_pool_item" && value.kind !== "resume_record") ||
-    typeof value.recordId !== "string" ||
-    value.recordId.length === 0 ||
-    typeof value.jobDescriptionId !== "string" ||
-    value.jobDescriptionId.length === 0
-  ) {
+  const parsed = recruitingContextJobBindingMetaSchema.safeParse(raw);
+  if (!parsed.success) {
     return null;
   }
   return {
-    jobDescriptionId: value.jobDescriptionId,
-    jobDescriptionName:
-      typeof value.jobDescriptionName === "string" ? value.jobDescriptionName : null,
-    kind: value.kind,
-    recordId: value.recordId,
+    jobDescriptionId: parsed.data.jobDescriptionId,
+    jobDescriptionName: parsed.data.jobDescriptionName ?? null,
+    kind: parsed.data.kind,
+    recordId: parsed.data.recordId,
   };
 }
 

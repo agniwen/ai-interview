@@ -1,0 +1,54 @@
+{
+  "name": "@app/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Background runtime for resume parsing, meeting processing, interview notifications, and operational health endpoints",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "bun --watch src/index.ts",
+    "load:meeting-capacity": "bun src/scripts/meeting-capacity-load.ts",
+    "start": "bun dist/index.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/ai-runtime": "workspace:*",
+    "@app/database": "workspace:*",
+    "@app/db-schema": "workspace:*",
+    "@app/meeting-media": "workspace:*",
+    "@app/meeting-processing": "workspace:*",
+    "@app/meeting-processing-queue": "workspace:*",
+    "@app/object-storage": "workspace:*",
+    "@app/resume-parse-queue": "workspace:*",
+    "@app/resume-processing": "workspace:*",
+    "@app/server": "workspace:*",
+    "@app/shared": "workspace:*",
+    "@hono/node-server": "^1.19.14",
+    "@sentry/hono": "10.71.0",
+    "@t3-oss/env-core": "^0.13.11",
+    "chat": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "hono": "^4.12.18",
+    "imapflow": "^1.4.1",
+    "mailparser": "^3.9.10",
+    "p-limit": "^7.3.1",
+    "postgres": "^3.4.9",
+    "resend": "^6.12.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "24.11.2",
+    "dotenv": "^17.4.2",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.21.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

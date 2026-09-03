@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
-} from "@arc/db-schema/job-description-structured-config";
+} from "@app/db-schema/job-description-structured-config";
 import {
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
-} from "@arc/db-schema/job-description-evaluation";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+} from "@app/db-schema/job-description-evaluation";
+import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
+  STRUCTURED_RESUME_DIMENSIONS,
   applyGateCorrection,
   computeRelevantExperience,
   computeStructuredResumeEvaluation,
@@ -97,6 +98,90 @@ describe("structured job configuration", () => {
 });
 
 describe("computeStructuredResumeEvaluation", () => {
+  it("records a direct-zero rule as a full deduction from the 100-point baseline", () => {
+    const input = baseInput();
+    input.dimensionRuleJudgments.projectMatch = [
+      {
+        evidence: [],
+        reason: "没有相关项目",
+        ruleId: "project.no_relevant_project",
+        status: "matched",
+      },
+    ];
+
+    const result = computeStructuredResumeEvaluation(input);
+
+    expect(result.dimensions.projectMatch).toMatchObject({
+      appliedDeductions: [
+        expect.objectContaining({
+          appliedPoints: 100,
+          ruleId: "project.no_relevant_project",
+        }),
+      ],
+      deductionTotal: 100,
+      rawScore: 0,
+    });
+  });
+
+  it("keeps every dimension as an evidence-backed deduction from a 100-point baseline", () => {
+    const input = baseInput();
+    input.deductionRules["stability.short_tenure"].points = 80;
+    input.deductionRules["stability.frequent_unrelated_industries"].points = 80;
+    input.dimensionRuleJudgments.educationBackground = [
+      {
+        evidence: [],
+        reason: "学历专业信息不足",
+        ruleId: "education.major_unrelated",
+        status: "insufficient_evidence",
+      },
+    ];
+    input.dimensionRuleJudgments.stability = [
+      {
+        evidence,
+        reason: "存在极短任职",
+        ruleId: "stability.short_tenure",
+        status: "matched",
+      },
+      {
+        evidence,
+        reason: "频繁切换无关行业",
+        ruleId: "stability.frequent_unrelated_industries",
+        status: "matched",
+      },
+    ];
+
+    const result = computeStructuredResumeEvaluation(input);
+
+    for (const dimension of STRUCTURED_RESUME_DIMENSIONS) {
+      const calculation = result.dimensions[dimension];
+      expect(calculation.rawScore + calculation.deductionTotal).toBe(100);
+      expect(
+        calculation.appliedDeductions.reduce(
+          (total, deduction) => total + deduction.appliedPoints,
+          0,
+        ),
+      ).toBe(calculation.deductionTotal);
+    }
+    expect(result.dimensions.educationBackground).toMatchObject({
+      appliedDeductions: [
+        expect.objectContaining({
+          appliedPoints: 50,
+          ruleId: "education.major_unrelated",
+          status: "insufficient_evidence",
+        }),
+      ],
+      deductionTotal: 50,
+      rawScore: 50,
+    });
+    expect(result.dimensions.stability.appliedDeductions).toEqual([
+      expect.objectContaining({ appliedPoints: 80, ruleId: "stability.short_tenure" }),
+      expect.objectContaining({
+        appliedPoints: 20,
+        ruleId: "stability.frequent_unrelated_industries",
+      }),
+    ]);
+  });
+
   it("keeps all six raw scores while a zero-weight dimension contributes zero", () => {
     const input = baseInput();
     input.weights = {
@@ -177,7 +262,13 @@ describe("computeStructuredResumeEvaluation", () => {
     expect(result.dimensions.stability.rawScore).toBe(36);
     expect(result.dimensions.educationBackground.rawScore).toBe(50);
     expect(result.dimensions.projectMatch.rawScore).toBe(0);
-    expect(result.dimensions.projectMatch.deductionTotal).toBe(23);
+    expect(result.dimensions.projectMatch.deductionTotal).toBe(100);
+    expect(result.dimensions.projectMatch.appliedDeductions).toEqual([
+      expect.objectContaining({
+        appliedPoints: 100,
+        ruleId: "project.no_relevant_project",
+      }),
+    ]);
   });
 
   it("uses the job-owned enabled state and deduction points", () => {
@@ -603,6 +694,8 @@ describe("structured evaluation schemas", () => {
       coreSkills: [
         {
           normalizedSkill: "TypeScript",
+          requirementGroupId: "skill-group-typescript",
+          satisfactionMode: "all",
           sourceRef: { kind: "job_description", path: "description" },
           sourceText: "熟练掌握 TypeScript",
         },
@@ -624,6 +717,12 @@ describe("structured evaluation schemas", () => {
     };
 
     expect(jobEvaluationBlueprintSchema.safeParse(blueprint).success).toBe(true);
+    expect(
+      jobEvaluationBlueprintSchema.safeParse({
+        ...blueprint,
+        coreSkills: [{ ...blueprint.coreSkills[0], satisfactionMode: "any" }],
+      }).success,
+    ).toBe(false);
     expect(
       jobEvaluationBlueprintSchema.safeParse({
         ...blueprint,

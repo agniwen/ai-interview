@@ -414,12 +414,13 @@ export const MINIMAX_VOICES = [
 
 export type MinimaxVoiceId = (typeof MINIMAX_VOICES)[number]["id"];
 
-export const MINIMAX_VOICE_IDS = MINIMAX_VOICES.map((voice) => voice.id) as unknown as readonly [
-  MinimaxVoiceId,
-  ...MinimaxVoiceId[],
-];
+export const MINIMAX_VOICE_IDS = MINIMAX_VOICES.map((voice) => voice.id);
+const MINIMAX_VOICE_ID_SET = new Set<string>(MINIMAX_VOICE_IDS);
 
-export const minimaxVoiceSchema = z.enum(MINIMAX_VOICE_IDS);
+export const minimaxVoiceSchema = z.custom<MinimaxVoiceId>((value) => {
+  const parsed = z.string().safeParse(value);
+  return parsed.success && MINIMAX_VOICE_ID_SET.has(parsed.data);
+}, "Unknown MiniMax voice id");
 
 export const DEFAULT_MINIMAX_VOICE_ID: MinimaxVoiceId = "voice_agent_Male_Phone_1";
 
@@ -456,4 +457,4 @@ export const MINIMAX_INTERVIEWER_VOICES = FORMAL_INTERVIEWER_VOICE_IDS.map((id) 
     throw new Error(`Unknown MiniMax interviewer voice: ${id}`);
   }
   return voice;
-}) as readonly MinimaxVoicePreset[];
+});

@@ -1,13 +1,13 @@
 import { z } from "zod";
-import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview, ResumeReviewAction } from "@arc/db-schema/resume-review";
+import type { ResumeAnalysisResult, ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeReview, ResumeReviewAction } from "@app/db-schema/resume-review";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   resumeEvaluationStatusMeta,
   resumeEvaluationStatusSchema,
   resumeParseStatusMeta,
   resumeReviewStatusMeta,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -21,14 +21,19 @@ import type {
   ResumeReviewStatus,
   ResumeScreeningStatus,
   ScheduleEntryStatus,
-} from "@arc/db-schema/studio-interviews";
+} from "@app/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "./resume-screening";
 import type {
   StructuredResumeEvaluationV1,
   StructuredResumeGateStatus,
   StructuredResumeGrade,
-} from "@arc/db-schema/structured-resume-evaluation";
-import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
+} from "@app/db-schema/structured-resume-evaluation";
+import type { JobEvaluationMode } from "@app/db-schema/job-description-evaluation";
+import type {
+  QualitativeResumeEvaluation,
+  QualitativeRecommendationLevel,
+  ResumeEvaluationContractMode,
+} from "@app/db-schema/qualitative-resume-evaluation";
 
 /**
  * AI 面试阶段的派生进度：从 studio_interview_schedule 聚合。
@@ -155,8 +160,10 @@ export interface ResumeLibraryListRecord {
   resumeReviewQueuedAt: string | null;
   resumeReviewRunId: string | null;
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
-  resumeEvaluationArtifactMode: JobEvaluationMode | null;
-  resumeEvaluationAttemptMode: JobEvaluationMode | null;
+  qualitativeRecommendationLevel: QualitativeRecommendationLevel | null;
+  qualitativeResumeSummary: string | null;
+  resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
+  resumeEvaluationAttemptMode: ResumeEvaluationContractMode | null;
   structuredCompositeScore: number | null;
   structuredGateSortRank: number | null;
   structuredGateStatus: StructuredResumeGateStatus | null;
@@ -168,6 +175,7 @@ export interface ResumeLibraryListRecord {
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;
   duplicateMatch: ResumeDuplicateMatchSummary | null;
+  feishuDocumentUrl: string | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
   // Whether this candidate already has at least one AI interview round.
   hasInterviewRounds: boolean;
@@ -217,6 +225,8 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   resumeReviewError: string | null;
   resumeReviewGeneratedAt: string | null;
   resumeReviewQueuedAt: string | null;
+  qualitativeJobDescriptionVersionId: string | null;
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
   structuredResumeEvaluation: StructuredResumeEvaluationV1 | null;
   resumeScreeningError: string | null;
   resumeScreeningEvaluatedAt: string | null;
@@ -230,12 +240,51 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 
+export interface ResumeEvaluationHistoryRecord {
+  artifact: unknown;
+  contractVersion: string;
+  createdAt: string;
+  id: string;
+  isCurrent: boolean;
+  jobDescriptionVersionId: string | null;
+  jobDescriptionVersion: number | null;
+  numericScore: number | null;
+  recommendationLevel: QualitativeRecommendationLevel | null;
+}
+
+export interface ResumeEvaluationFailureRecord {
+  contractVersion: string;
+  createdAt: string;
+  errorMessage: string;
+  id: string;
+  jobDescriptionVersionId: string | null;
+  jobDescriptionVersion: number | null;
+}
+
+export interface ResumeEvaluationHistoryResponse {
+  failures: ResumeEvaluationFailureRecord[];
+  records: ResumeEvaluationHistoryRecord[];
+}
+
 // ── 阶段子描述函数：每段独立逻辑，方便单测 ──
 // Per-stage sub-describers; pure functions, easy to unit-test.
 
 interface Description {
   label: string;
   tone: "success" | "warning" | "info" | "outline";
+}
+
+interface ResumeProgressInput {
+  pipelineStage: PipelineStage;
+  outcome: CandidateOutcome;
+  resumeParseStatus?: ResumeParseStatus;
+  resumeReviewStatus?: ResumeReviewStatus;
+  stageProgress: ResumeStageProgress;
+}
+
+interface ResumeEvaluationStatusDescription {
+  label: string;
+  tone: "outline" | "success" | "danger";
 }
 
 function describeAiInterview(p: AiInterviewProgress | null): Description {
@@ -300,7 +349,7 @@ function describeOffer(p: OfferProgress | null): Description {
       return { label: `Offer${versionSuffix} · 已发送 · 等响应`, tone: "info" };
     }
     case "accepted": {
-      return { label: `Offer${versionSuffix} · 已接受 · 待结案`, tone: "success" };
+      return { label: `Offer${versionSuffix} · 已接受 · 待结束`, tone: "success" };
     }
     case "declined": {
       return { label: `Offer${versionSuffix} · 已拒绝`, tone: "outline" };
@@ -321,13 +370,7 @@ function describeOffer(p: OfferProgress | null): Description {
  * Reduce (pipelineStage, outcome, stageProgress) to a single display string +
  * tone for the resume library "面试进度" cell, detail panel, and elsewhere.
  */
-export function describeResumeProgress(record: {
-  pipelineStage: PipelineStage;
-  outcome: CandidateOutcome;
-  resumeParseStatus?: ResumeParseStatus;
-  resumeReviewStatus?: ResumeReviewStatus;
-  stageProgress: ResumeStageProgress;
-}): { label: string; tone: "success" | "warning" | "info" | "outline" } {
+export function describeResumeProgress(record: ResumeProgressInput): Description {
   const { pipelineStage, outcome, resumeParseStatus, resumeReviewStatus, stageProgress } = record;
 
   if (resumeParseStatus && resumeParseStatus !== "ready") {
@@ -345,19 +388,19 @@ export function describeResumeProgress(record: {
   if (pipelineStage === "closed") {
     switch (outcome) {
       case "hired": {
-        return { label: "已结案 · 已录用", tone: "success" };
+        return { label: "已结束 · 已录用", tone: "success" };
       }
       case "rejected": {
-        return { label: "已结案 · 已淘汰", tone: "outline" };
+        return { label: "已结束 · 已淘汰", tone: "outline" };
       }
       case "withdrawn": {
-        return { label: "已结案 · 已撤回", tone: "outline" };
+        return { label: "已结束 · 已撤回", tone: "outline" };
       }
       case "archived": {
         return { label: "已归档", tone: "outline" };
       }
       default: {
-        return { label: "已结案", tone: "outline" };
+        return { label: "已结束", tone: "outline" };
       }
     }
   }
@@ -437,10 +480,9 @@ export { resumeEvaluationStatusSchema };
 export type { ResumeEvaluationStatus };
 export type ResumeEvaluationStatusFormValue = z.infer<typeof resumeEvaluationStatusFormValueSchema>;
 
-export function describeResumeEvaluationStatus(status: ResumeEvaluationStatus | null): {
-  label: string;
-  tone: "outline" | "success" | "danger";
-} {
+export function describeResumeEvaluationStatus(
+  status: ResumeEvaluationStatus | null,
+): ResumeEvaluationStatusDescription {
   if (!status) {
     return { label: "未评估", tone: "outline" };
   }
@@ -580,22 +622,22 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 /**
  * 招聘台页头部 chart 的聚合数据。
  * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
- * - dailyAdded：近一年（365 天）每日新增；服务端只返回有数据的日期，零填充由客户端补。
- *   每日附带 byUser 拆分，供 GitHub 风格日历热力图 hover 展示各上传者数量。
+ * - dailyAdded：近一年（365 天）每日新增；每日附带 byUser 拆分，供客户端聚合
+ *   今日、昨日、本周和本月的入库成员排行。
  * - conversion：是否已发起 AI 面试的对比（archived 排除）。
  *
  * Aggregations for the charts shown above the resume-library table.
  * - byPipeline: candidate count grouped by (pipelineStage, outcome). Archived
  *   outcomes are excluded so the funnel reflects the live pool.
- * - dailyAdded: daily new rows over the last 365 days; only non-empty days are
- *   returned, the client zero-fills the year calendar grid. Each day may include
- *   byUser for contribution-style tooltips (who uploaded how many that day).
+ * - dailyAdded: daily new rows over the last 365 days. Each day includes a
+ *   byUser split so the client can aggregate uploader rankings by date range.
  * - conversion: how many candidates have already launched an AI interview
  *   round vs not (archived excluded).
  */
 export interface ResumeLibraryDailyAddedUserCount {
   count: number;
   userId: string;
+  userImage: string | null;
   userName: string;
 }
 

@@ -10,7 +10,7 @@ describe("Meeting purge queue", () => {
   it("isolates queues by database and uses one stable job per meeting", () => {
     const env = {
       DATABASE_URL: "postgres://arc@example.test:5432/meeting_purge",
-    } as NodeJS.ProcessEnv;
+    } satisfies NodeJS.ProcessEnv;
     expect(buildMeetingPurgeQueuePrefix(env)).toMatch(/^arc:meeting-purge:/);
     expect(buildMeetingPurgeJobId({ meetingId: "meeting:84", organizationId: "org-84" })).toBe(
       "meeting-purge-meeting-84",

@@ -58,7 +58,7 @@ mail_ingest_account 上轮小结计数（含「标题不符跳过 N 封」）
 
 **关于 `already_processed`**：不设该 skipReason。message 行按**复合唯一键 `(accountId, mailbox, uidValidity, uid)`**（现有 `mail_ingest_message_account_mail_uid_uq`）**只创建一次**，其 `status` 反映真实终态（`queued`/`skipped`/`failed`）；后续轮询再遇到同键（`claimMailIngestMessageForProcessing` 命中现有终态行）**直接 no-op、不覆盖**——重复处理不是一个独立结局，无需记录。
 
-### 2. 采集点改造（`apps/ai-recruitment-copilot-worker/src/mail-ingest/processor.ts`）
+### 2. 采集点改造（`apps/worker/src/mail-ingest/processor.ts`）
 
 命中标题关键词、通过 `listenStart`、被 `claimMailIngestMessageForProcessing` **首次**认领的邮件 —— 建行，按路径写**入库前段终态**（注：`queued` 只表示「已交接解析队列」，不代表解析/入池完成；每份附件的最终 `ready/failed` 是**下游**状态，由 §4 的 JOIN 展开显示）：
 

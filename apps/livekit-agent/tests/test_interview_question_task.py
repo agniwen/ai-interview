@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -105,6 +106,55 @@ def test_task_group_uses_stable_ids_and_disables_context_summarization():
 
     assert group.summarizes_chat_context is False
     assert group.task_ids == ("question-1", "question-2")
+
+
+@pytest.mark.asyncio
+async def test_question_rejects_trailing_turn_until_prompt_finishes_playing():
+    task = InterviewQuestionTask(_question())
+    prompt_started = asyncio.Event()
+    release_prompt = asyncio.Event()
+    spoken: list[tuple[str, bool | None]] = []
+
+    class SpeechHandle:
+        async def wait_for_playout(self) -> None:
+            await release_prompt.wait()
+
+    class Session:
+        def update_options(self, **_options) -> None:
+            return None
+
+        def say(self, text: str, *, allow_interruptions: bool | None = None):
+            spoken.append((text, allow_interruptions))
+            prompt_started.set()
+            return SpeechHandle()
+
+    task._get_activity_or_raise = lambda: SimpleNamespace(  # type: ignore[method-assign]
+        session=Session()
+    )
+
+    enter_task = asyncio.create_task(task.on_enter())
+    await prompt_started.wait()
+    await asyncio.sleep(0)
+
+    assert not enter_task.done()
+    assert spoken == [(_question().content, False)]
+
+    await task.submit_question_decision(
+        _run_context("trailing-previous-answer"),
+        action=QuestionTurnAction.ANSWERED,
+        answer_summary="上一题的尾句",
+    )
+    assert not task.done()
+
+    release_prompt.set()
+    await enter_task
+    await task.submit_question_decision(
+        _run_context("current-question-answer"),
+        action=QuestionTurnAction.ANSWERED,
+        answer_summary="当前题真实回答",
+    )
+
+    assert _task_result(task).answer_summary == "当前题真实回答"
 
 
 def test_question_rejects_an_unknown_difficulty():
@@ -1284,12 +1334,18 @@ async def test_question_task_on_enter_uses_deterministic_candidate_visible_text(
     task = InterviewQuestionTask(_question())
     captured: list[str] = []
 
+    class SpeechHandle:
+        async def wait_for_playout(self) -> None:
+            return None
+
     class Session:
         def update_options(self, **_kwargs):
             return None
 
-        def say(self, text: str):
+        def say(self, text: str, *, allow_interruptions: bool):
+            assert allow_interruptions is False
             captured.append(text)
+            return SpeechHandle()
 
         def generate_reply(self, **_kwargs):
             raise AssertionError("question entry must not call the LLM")
@@ -1311,12 +1367,18 @@ async def test_reopened_question_does_not_repeat_question_or_answer():
     task = InterviewQuestionTask(_question(), previous_outcome=previous)
     captured: list[str] = []
 
+    class SpeechHandle:
+        async def wait_for_playout(self) -> None:
+            return None
+
     class Session:
         def update_options(self, **_kwargs):
             return None
 
-        def say(self, text: str):
+        def say(self, text: str, *, allow_interruptions: bool):
+            assert allow_interruptions is False
             captured.append(text)
+            return SpeechHandle()
 
         def generate_reply(self, **_kwargs):
             raise AssertionError("reopened question must not call the LLM")

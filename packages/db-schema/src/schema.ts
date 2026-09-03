@@ -9,7 +9,6 @@ import type {
   CandidateFormTemplateSnapshot,
 } from "./candidate-forms";
 import type {
-  AgentNotificationStatus,
   AgentNotificationType,
   AttachmentParseStatus,
   AttachmentTextSource,
@@ -29,7 +28,20 @@ import type {
   InterviewSnapshotStatus,
 } from "./interview-snapshots";
 import type { InterviewKeyInformation } from "./interview-key-information";
+import type {
+  CandidateInterviewInvitationStatus,
+  InterviewNotificationAudienceType,
+  InterviewNotificationChannel,
+  InterviewNotificationDeliveryStatus,
+  InterviewNotificationEventStatus,
+  InterviewNotificationEventType,
+  InterviewNotificationPayloadSnapshot,
+  InterviewNotificationScopeType,
+  InterviewNotificationTemplateStatus,
+  InterviewNotificationTemplateVariable,
+} from "./interview-notifications";
 import type { InterviewTranscriptTurn } from "./interview-session";
+import type { JsonObject, JsonValue } from "./json";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
 import type {
@@ -47,11 +59,16 @@ import type {
   ClosedMeta,
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
+  HumanInterviewEvaluation,
+  HumanInterviewEvaluationSnapshotSource,
+  HumanInterviewEvaluationStatus,
   HumanInterviewFormat,
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingProvider,
   HumanInterviewMeetingStatus,
+  HumanInterviewRecordingStatus,
+  HumanInterviewerAssignmentStatus,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
@@ -69,6 +86,11 @@ import type {
   StructuredResumeGateStatus,
   StructuredResumeGrade,
 } from "./structured-resume-evaluation";
+import type {
+  QualitativeResumeEvaluation,
+  QualitativeRecommendationLevel,
+  ResumeEvaluationContractMode,
+} from "./qualitative-resume-evaluation";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
@@ -229,6 +251,7 @@ export const account = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     idToken: text("id_token"),
+    issuer: text("issuer").notNull(),
     password: text("password"),
     providerId: text("provider_id").notNull(),
     refreshToken: text("refresh_token"),
@@ -243,7 +266,7 @@ export const account = pgTable(
   },
   (table) => [
     index("account_userId_idx").on(table.userId),
-    uniqueIndex("account_provider_account_uq").on(table.providerId, table.accountId),
+    uniqueIndex("account_issuer_account_uq").on(table.issuer, table.accountId),
   ],
 );
 
@@ -662,7 +685,7 @@ export const meetingTranscriptRevision = pgTable(
     check(
       "meeting_transcript_revision_source_check",
       sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null)
-        or (${table.kind} = 'human' and ${table.basedOnRevisionId} is not null and ${table.processingRunId} is null)`,
+        or (${table.kind} = 'human' and ${table.processingRunId} is null)`,
     ),
     check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
     uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
@@ -972,7 +995,7 @@ export const meetingTranscriptionChunk = pgTable(
     check("meeting_transcription_chunk_time_check", sql`${table.endMs} > ${table.startMs}`),
     check(
       "meeting_transcription_chunk_track_check",
-      sql`${table.track} in ('microphone', 'system')`,
+      sql`${table.track} in ('microphone', 'system', 'candidate', 'mixed')`,
     ),
     check(
       "meeting_transcription_chunk_status_check",
@@ -1022,6 +1045,7 @@ export const meetingRecordingAsset = pgTable(
       jsonb("segments").$type<{ durationMs: number; offsetBytes: number; sizeBytes: number }[]>(),
     sha256: text("sha256").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
+    speakerDisplayName: text("speaker_display_name"),
     status: text("status").default("uploading").notNull(),
     storageKey: text("storage_key").notNull().unique(),
     track: text("track").notNull(),
@@ -1120,7 +1144,7 @@ export const meetingAuditLog = pgTable(
     action: text("action").notNull(),
     actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    detail: jsonb("detail").$type<JsonObject>().notNull().default({}),
     id: text("id").primaryKey(),
     meetingId: text("meeting_id").references(() => meetingSession.id, { onDelete: "set null" }),
     organizationId: text("organization_id")
@@ -1238,7 +1262,7 @@ export const invitation = pgTable(
   "invitation",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    email: text("email").notNull(),
+    email: text("email"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
     inviterId: text("inviter_id")
@@ -1269,7 +1293,7 @@ export const studioInterview = pgTable(
     candidateName: text("candidate_name").notNull(),
     candidatePhone: text("candidate_phone"),
     closedAt: timestamp("closed_at", { withTimezone: true }),
-    // 结案元数据：分类、内部备注、对外反馈话术、录用细节、淘汰细节、previousStage。
+    // 结束元数据：分类、内部备注、对外反馈话术、录用细节、淘汰细节、previousStage。
     // 结构见 closedMetaSchema；reactivate 时读 previousStage 恢复阶段。
     // Closed-stage JSON metadata; previousStage drives reactivation restore.
     closedMeta: jsonb("closed_meta").$type<ClosedMeta | null>(),
@@ -1319,11 +1343,28 @@ export const studioInterview = pgTable(
     // default 让 prod 旧 INSERT 路径不传值时也能写入。
     // Stage axis; default lets pre-migration INSERTs succeed.
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
+    qualitativeAttemptJobDescriptionVersionId: text(
+      "qualitative_attempt_job_description_version_id",
+      // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+    ).references(() => jobDescriptionVersion.id, { onDelete: "set null" }),
+    qualitativeJobDescriptionVersionId: text("qualitative_job_description_version_id").references(
+      // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    qualitativeRecommendationLevel: text(
+      "qualitative_recommendation_level",
+    ).$type<QualitativeRecommendationLevel>(),
+    qualitativeResumeEvaluation: jsonb(
+      "qualitative_resume_evaluation",
+    ).$type<QualitativeResumeEvaluation | null>(),
     resumeContentHash: text("resume_content_hash"),
     resumeEvaluationArtifactMode: text(
       "resume_evaluation_artifact_mode",
-    ).$type<JobEvaluationMode>(),
-    resumeEvaluationAttemptMode: text("resume_evaluation_attempt_mode").$type<JobEvaluationMode>(),
+    ).$type<ResumeEvaluationContractMode>(),
+    resumeEvaluationAttemptMode: text(
+      "resume_evaluation_attempt_mode",
+    ).$type<ResumeEvaluationContractMode>(),
     resumeEvaluationStatus: text("resume_evaluation_status").$type<ResumeEvaluationStatus>(),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
@@ -1344,7 +1385,7 @@ export const studioInterview = pgTable(
       .default("idle"),
     resumeScreeningError: text("resume_screening_error"),
     resumeScreeningEvaluatedAt: timestamp("resume_screening_evaluated_at", { withTimezone: true }),
-    resumeScreeningResult: jsonb("resume_screening_result").$type<Record<string, unknown> | null>(),
+    resumeScreeningResult: jsonb("resume_screening_result").$type<JsonObject | null>(),
     resumeScreeningStatus: text("resume_screening_status")
       .$type<ResumeScreeningStatus>()
       .notNull()
@@ -1363,6 +1404,9 @@ export const studioInterview = pgTable(
     resumeSourceType: text("resume_source_type").$type<StudioInterviewResumeSourceType>(),
     resumeStorageKey: text("resume_storage_key"),
     resumeText: text("resume_text"),
+    // Database-maintained keyword projection. NULL means historical backfill is pending.
+    searchCjkBigrams: text("search_cjk_bigrams").array(),
+    searchText: text("search_text"),
     // 派生自 resume_profile->'skills'：trim + 连续空白折叠为单空格 + lowercase 后的数组。
     // GIN 索引支持 `@>` 包含匹配。display 形态保存在 studioOrgSkill 表里，每 org 一份。
     // Derived from resume_profile->'skills': trim + collapse whitespace + lowercase.
@@ -1390,6 +1434,12 @@ export const studioInterview = pgTable(
     writtenTestScore: text("written_test_score"),
   },
   (table) => [
+    // Created concurrently by the resume-search maintenance script after backfill.
+    index("studio_interview_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.asc().op("gin_trgm_ops"),
+    ),
+    index("studio_interview_search_cjk_bigrams_idx").using("gin", table.searchCjkBigrams),
     // 新模型的索引：tabs 通常 WHERE pipeline_stage = ? AND outcome = ?。
     index("studio_interview_pipeline_stage_idx").on(table.pipelineStage),
     index("studio_interview_outcome_idx").on(table.outcome),
@@ -1417,11 +1467,11 @@ export const studioInterview = pgTable(
     ),
     check(
       "studio_interview_resume_evaluation_artifact_mode_check",
-      sql`${table.resumeEvaluationArtifactMode} IS NULL OR ${table.resumeEvaluationArtifactMode} IN ('legacy', 'structured')`,
+      sql`${table.resumeEvaluationArtifactMode} IS NULL OR ${table.resumeEvaluationArtifactMode} IN ('legacy', 'structured', 'qualitative')`,
     ),
     check(
       "studio_interview_resume_evaluation_attempt_mode_check",
-      sql`${table.resumeEvaluationAttemptMode} IS NULL OR ${table.resumeEvaluationAttemptMode} IN ('legacy', 'structured')`,
+      sql`${table.resumeEvaluationAttemptMode} IS NULL OR ${table.resumeEvaluationAttemptMode} IN ('legacy', 'structured', 'qualitative')`,
     ),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
@@ -1461,6 +1511,24 @@ export const studioInterview = pgTable(
       table.jobDescriptionId,
       table.structuredGateSortRank.asc(),
       table.structuredCompositeScore.desc(),
+    ),
+    check(
+      "studio_interview_qualitative_evaluation_complete_check",
+      sql`(
+        ${table.qualitativeResumeEvaluation} IS NULL
+        AND ${table.qualitativeRecommendationLevel} IS NULL
+        AND ${table.qualitativeJobDescriptionVersionId} IS NULL
+      ) OR (
+        ${table.qualitativeResumeEvaluation} IS NOT NULL
+        AND ${table.qualitativeRecommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')
+        AND ${table.qualitativeJobDescriptionVersionId} IS NOT NULL
+      )`,
+    ),
+    index("studio_interview_qualitative_job_order_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.qualitativeRecommendationLevel,
+      table.resumeReviewGeneratedAt.desc(),
     ),
   ],
 );
@@ -1645,7 +1713,7 @@ export const jobDescription = pgTable(
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
-    resumeScreeningPolicy: jsonb("resume_screening_policy").$type<Record<string, unknown> | null>(),
+    resumeScreeningPolicy: jsonb("resume_screening_policy").$type<JsonObject | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
     structuredConfig: jsonb("structured_config")
@@ -1667,7 +1735,7 @@ export const jobDescription = pgTable(
       .where(sql`${table.code} IS NOT NULL`),
     check(
       "job_description_evaluation_mode_check",
-      sql`${table.evaluationMode} IN ('legacy', 'structured')`,
+      sql`${table.evaluationMode} IN ('legacy', 'structured', 'qualitative')`,
     ),
     check(
       "job_description_lifecycle_status_check",
@@ -1720,7 +1788,110 @@ export const jobDescription = pgTable(
         AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
         AND ${table.evaluationBlueprintPreviewHash} IS NULL
         AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+      ) OR (
+        ${table.evaluationMode} = 'qualitative'
+        AND ${table.lifecycleStatus} = 'published'
+        AND ${table.publishedAt} IS NOT NULL
       )`,
+    ),
+  ],
+);
+
+export const jobDescriptionVersion = pgTable(
+  "job_description_version",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    jobDescriptionName: text("job_description_name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    index("job_description_version_job_idx").on(table.jobDescriptionId, table.version),
+    index("job_description_version_org_idx").on(table.organizationId),
+    uniqueIndex("job_description_version_job_version_uq")
+      .on(table.jobDescriptionId, table.version)
+      .where(sql`${table.jobDescriptionId} IS NOT NULL`),
+  ],
+);
+
+export const resumeEvaluationVersion = pgTable(
+  "resume_evaluation_version",
+  {
+    artifact: jsonb("artifact").$type<JsonValue>().notNull(),
+    contractVersion: text("contract_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    jobDescriptionVersionId: text("job_description_version_id").references(
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    numericScore: integer("numeric_score"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    recommendationLevel: text("recommendation_level").$type<QualitativeRecommendationLevel>(),
+    resumeRecordId: text("resume_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    runId: text("run_id"),
+  },
+  (table) => [
+    index("resume_evaluation_version_record_created_idx").on(
+      table.resumeRecordId,
+      table.createdAt.desc(),
+    ),
+    index("resume_evaluation_version_org_idx").on(table.organizationId),
+    uniqueIndex("resume_evaluation_version_record_contract_run_uq")
+      .on(table.resumeRecordId, table.contractVersion, table.runId)
+      .where(sql`${table.runId} IS NOT NULL`),
+    check(
+      "resume_evaluation_version_numeric_score_check",
+      sql`${table.numericScore} IS NULL OR ${table.numericScore} BETWEEN 0 AND 100`,
+    ),
+    check(
+      "resume_evaluation_version_recommendation_check",
+      sql`${table.recommendationLevel} IS NULL OR ${table.recommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')`,
+    ),
+  ],
+);
+
+export const resumeEvaluationFailure = pgTable(
+  "resume_evaluation_failure",
+  {
+    contractVersion: text("contract_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message").notNull(),
+    id: text("id").primaryKey(),
+    jobDescriptionVersionId: text("job_description_version_id").references(
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    resumeRecordId: text("resume_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    runId: text("run_id").notNull(),
+  },
+  (table) => [
+    index("resume_evaluation_failure_record_created_idx").on(
+      table.resumeRecordId,
+      table.createdAt.desc(),
+    ),
+    index("resume_evaluation_failure_org_idx").on(table.organizationId),
+    uniqueIndex("resume_evaluation_failure_record_contract_run_uq").on(
+      table.resumeRecordId,
+      table.contractVersion,
+      table.runId,
     ),
   ],
 );
@@ -1786,7 +1957,7 @@ export const jobDescriptionEvaluationUpgradeAudit = pgTable(
     jobDescriptionId: text("job_description_id")
       .notNull()
       .references(() => jobDescription.id, { onDelete: "cascade" }),
-    legacySnapshot: jsonb("legacy_snapshot").$type<Record<string, unknown>>().notNull(),
+    legacySnapshot: jsonb("legacy_snapshot").$type<JsonObject>().notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -1824,6 +1995,7 @@ export const studioInterviewSchedule = pgTable(
   "studio_interview_schedule",
   {
     allowTextInput: boolean("allow_text_input").notNull().default(false),
+    candidateDeclineReason: text("candidate_decline_reason"),
     candidateFeedbackCategories: jsonb("candidate_feedback_categories").$type<
       CandidateInterviewFeedbackCategory[] | null
     >(),
@@ -1831,6 +2003,13 @@ export const studioInterviewSchedule = pgTable(
     candidateFeedbackSubmittedAt: timestamp("candidate_feedback_submitted_at", {
       withTimezone: true,
     }),
+    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
+    candidateInviteStatus: text("candidate_invite_status")
+      .$type<CandidateInterviewInvitationStatus>()
+      .notNull()
+      .default("pending"),
+    candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -1845,6 +2024,7 @@ export const studioInterviewSchedule = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    invitationVersion: integer("invitation_version").notNull().default(1),
     liveKitParticipantIdentity: text("livekit_participant_identity"),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
@@ -1880,6 +2060,17 @@ export const studioInterviewSchedule = pgTable(
       table.status,
       table.createdAt,
     ),
+    uniqueIndex("studio_interview_schedule_invite_token_uq")
+      .on(table.candidateInviteTokenHash)
+      .where(sql`${table.candidateInviteTokenHash} IS NOT NULL`),
+    check(
+      "studio_interview_schedule_invite_status_check",
+      sql`${table.candidateInviteStatus} IN ('pending', 'sent', 'accepted', 'declined', 'expired')`,
+    ),
+    check(
+      "studio_interview_schedule_invitation_version_check",
+      sql`${table.invitationVersion} > 0`,
+    ),
   ],
 );
 
@@ -1897,6 +2088,21 @@ export const studioHumanInterviewRound = pgTable(
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>(),
+    evaluationError: text("evaluation_error"),
+    evaluationStatus: text("evaluation_status")
+      .$type<HumanInterviewEvaluationStatus>()
+      .notNull()
+      .default("not_started"),
+    evaluationSubmittedAt: timestamp("evaluation_submitted_at", { withTimezone: true }),
+    evaluationTranscriptRevisionId: text("evaluation_transcript_revision_id").references(
+      () => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
+    evaluationUpdatedAt: timestamp("evaluation_updated_at", { withTimezone: true }),
+    evaluationUpdatedBy: text("evaluation_updated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     feedback: text("feedback"),
     format: text("format").$type<HumanInterviewFormat>().notNull(),
     id: text("id").primaryKey(),
@@ -1925,19 +2131,112 @@ export const studioHumanInterviewRound = pgTable(
     index("studio_human_interview_round_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_human_interview_round_org_idx").on(table.organizationId),
     index("studio_human_interview_round_status_idx").on(table.status),
+    index("studio_human_interview_round_evaluation_status_idx").on(table.evaluationStatus),
+    check(
+      "studio_human_interview_round_evaluation_status_check",
+      sql`${table.evaluationStatus} in ('not_started', 'generating', 'draft', 'submitted', 'failed')`,
+    ),
   ],
 );
 
-// 真人复面会议：一场会议对应一个 LiveKit room，可包含多个候选人的 round 和多个面试官。
-// 评价结果仍然写在 studioHumanInterviewRound；这里仅保存会议级生命周期/录制信息。
+// AI 生成结果与面试官最终提交结果的不可变快照，用于后续评价效果分析。
+// 当前业务状态仍由 studioHumanInterviewRound.evaluation 承载并直接覆盖。
+export const studioHumanInterviewEvaluationSnapshot = pgTable(
+  "studio_human_interview_evaluation_snapshot",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>().notNull(),
+    id: text("id").primaryKey(),
+    meetingSessionId: text("meeting_session_id").references(() => meetingSession.id, {
+      onDelete: "set null",
+    }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    roundId: text("round_id")
+      .notNull()
+      .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    source: text("source").$type<HumanInterviewEvaluationSnapshotSource>().notNull(),
+    transcriptRevisionId: text("transcript_revision_id").references(
+      () => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (table) => [
+    index("studio_human_interview_evaluation_snapshot_round_created_idx").on(
+      table.roundId,
+      table.createdAt,
+    ),
+    index("studio_human_interview_evaluation_snapshot_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    check(
+      "studio_human_interview_evaluation_snapshot_source_check",
+      sql`${table.source} in ('ai_generated', 'human_submitted')`,
+    ),
+  ],
+);
+
+// Transactional outbox for confirmed human evaluations, independent of message delivery.
+export const humanInterviewDocumentSync = pgTable(
+  "human_interview_document_sync",
+  {
+    attemptCount: integer("attempt_count").notNull().default(0),
+    blockId: text("block_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    documentId: text("document_id"),
+    documentUrl: text("document_url"),
+    error: text("error"),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    providerId: text("provider_id"),
+    roundId: text("round_id")
+      .notNull()
+      .unique()
+      .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    snapshotId: text("snapshot_id")
+      .primaryKey()
+      .references(() => studioHumanInterviewEvaluationSnapshot.id, { onDelete: "cascade" }),
+    status: text("status")
+      .$type<"pending" | "syncing" | "waiting_document" | "failed" | "synced">()
+      .notNull()
+      .default("pending"),
+    syncedAt: timestamp("synced_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("human_interview_document_sync_due_idx").on(table.status, table.nextAttemptAt),
+    check(
+      "human_interview_document_sync_status_check",
+      sql`${table.status} in ('pending', 'syncing', 'waiting_document', 'failed', 'synced')`,
+    ),
+  ],
+);
+
+// 真人复面会议：一场会议对应一个 LiveKit room、一个候选人 round 和多个面试官。
+// 评价结果仍然写在 studioHumanInterviewRound；这里保存会议级生命周期和录音处理状态。
 //
-// Human-interview meeting. One meeting maps to one LiveKit room and can include
-// multiple candidate rounds plus multiple interviewers. Per-candidate verdicts
-// remain on studioHumanInterviewRound.
+// Human-interview meeting. One meeting maps to one LiveKit room, one candidate
+// round, and multiple interviewers. Per-round verdicts remain on
+// studioHumanInterviewRound.
 export const studioHumanInterviewMeeting = pgTable(
   "studio_human_interview_meeting",
   {
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    candidateRecordingDurationMs: integer("candidate_recording_duration_ms"),
+    candidateRecordingEgressId: text("candidate_recording_egress_id"),
+    candidateRecordingError: text("candidate_recording_error"),
+    candidateRecordingFileKey: text("candidate_recording_file_key"),
+    candidateRecordingSizeBytes: integer("candidate_recording_size_bytes"),
+    candidateRecordingStatus: text("candidate_recording_status")
+      .$type<HumanInterviewRecordingStatus>()
+      .notNull()
+      .default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
@@ -1963,8 +2262,19 @@ export const studioHumanInterviewMeeting = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    processingMeetingSessionId: text("processing_meeting_session_id")
+      .references(() => meetingSession.id, { onDelete: "set null" })
+      .unique(),
+    recordingDurationMs: integer("recording_duration_ms"),
     recordingEgressId: text("recording_egress_id"),
+    recordingError: text("recording_error"),
     recordingFileKey: text("recording_file_key"),
+    recordingSizeBytes: integer("recording_size_bytes"),
+    recordingStatus: text("recording_status")
+      .$type<HumanInterviewRecordingStatus>()
+      .notNull()
+      .default("pending"),
+    scheduleVersion: integer("schedule_version").notNull().default(1),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
@@ -1982,10 +2292,27 @@ export const studioHumanInterviewMeeting = pgTable(
       table.scheduledAt,
     ),
     index("studio_human_interview_meeting_status_idx").on(table.organizationId, table.status),
+    index("studio_human_interview_meeting_recording_status_idx").on(
+      table.organizationId,
+      table.recordingStatus,
+    ),
+    uniqueIndex("studio_human_interview_meeting_id_org_uq").on(table.id, table.organizationId),
     uniqueIndex("studio_human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
     index("studio_human_interview_meeting_feishu_meeting_idx").on(
       table.feishuProviderId,
       table.feishuMeetingId,
+    ),
+    check(
+      "studio_human_interview_meeting_schedule_version_check",
+      sql`${table.scheduleVersion} > 0`,
+    ),
+    check(
+      "studio_human_interview_meeting_recording_status_check",
+      sql`${table.recordingStatus} in ('pending', 'starting', 'active', 'completed', 'failed')`,
+    ),
+    check(
+      "studio_human_interview_meeting_candidate_recording_status_check",
+      sql`${table.candidateRecordingStatus} in ('pending', 'starting', 'active', 'completed', 'failed')`,
     ),
   ],
 );
@@ -2021,8 +2348,15 @@ export const studioHumanInterviewMeetingEvent = pgTable(
 export const studioHumanInterviewMeetingRound = pgTable(
   "studio_human_interview_meeting_round",
   {
+    candidateDeclineReason: text("candidate_decline_reason"),
     candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
+    candidateInviteStatus: text("candidate_invite_status")
+      .$type<CandidateInterviewInvitationStatus>()
+      .notNull()
+      .default("pending"),
     candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
+    invitationVersion: integer("invitation_version").notNull().default(1),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),
     meetingId: text("meeting_id")
@@ -2038,6 +2372,14 @@ export const studioHumanInterviewMeetingRound = pgTable(
     uniqueIndex("studio_human_interview_meeting_round_invite_token_idx").on(
       table.candidateInviteTokenHash,
     ),
+    check(
+      "studio_human_interview_meeting_round_invite_status_check",
+      sql`${table.candidateInviteStatus} IN ('pending', 'sent', 'accepted', 'declined', 'expired')`,
+    ),
+    check(
+      "studio_human_interview_meeting_round_invitation_version_check",
+      sql`${table.invitationVersion} > 0`,
+    ),
   ],
 );
 
@@ -2049,6 +2391,8 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
     feishuOpenId: text("feishu_open_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),
+    liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
+    liveTranscriptDraftVersion: integer("live_transcript_draft_version").notNull().default(0),
     meetingId: text("meeting_id")
       .notNull()
       .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
@@ -2063,6 +2407,10 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
   (table) => [
     primaryKey({ columns: [table.meetingId, table.userId] }),
     index("studio_human_interview_meeting_interviewer_user_idx").on(table.userId),
+    check(
+      "studio_human_interview_meeting_interviewer_draft_version_check",
+      sql`${table.liveTranscriptDraftVersion} >= 0`,
+    ),
   ],
 );
 
@@ -2073,9 +2421,14 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
 export const studioHumanInterviewRoundInterviewer = pgTable(
   "studio_human_interview_round_interviewer",
   {
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedScheduleVersion: integer("confirmed_schedule_version"),
+    declineReason: text("decline_reason"),
+    declinedAt: timestamp("declined_at", { withTimezone: true }),
     roundId: text("round_id")
       .notNull()
       .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    status: text("status").$type<HumanInterviewerAssignmentStatus>().notNull().default("pending"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -2083,6 +2436,14 @@ export const studioHumanInterviewRoundInterviewer = pgTable(
   (table) => [
     primaryKey({ columns: [table.roundId, table.userId] }),
     index("studio_human_interview_round_interviewer_user_idx").on(table.userId),
+    check(
+      "studio_human_interview_round_interviewer_status_check",
+      sql`${table.status} IN ('pending', 'confirmed', 'declined')`,
+    ),
+    check(
+      "studio_human_interview_round_interviewer_confirmed_version_check",
+      sql`${table.confirmedScheduleVersion} IS NULL OR ${table.confirmedScheduleVersion} > 0`,
+    ),
   ],
 );
 
@@ -2147,6 +2508,7 @@ export type ResumePoolEventType =
 
 export const resumePoolItem = pgTable(
   "resume_pool_item",
+  // oxlint-disable-next-line sort-keys -- columns stay grouped by the resume-pool domain lifecycle.
   {
     candidateEmail: text("candidate_email"),
     candidateName: text("candidate_name").notNull(),
@@ -2157,6 +2519,17 @@ export const resumePoolItem = pgTable(
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
+    qualitativeJobDescriptionVersionId: text("qualitative_job_description_version_id").references(
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    qualitativeRecommendationLevel: text(
+      "qualitative_recommendation_level",
+    ).$type<QualitativeRecommendationLevel>(),
+    qualitativeResumeEvaluation: jsonb(
+      "qualitative_resume_evaluation",
+    ).$type<QualitativeResumeEvaluation | null>(),
+    qualitativeResumeSummary: text("qualitative_resume_summary"),
     notes: text("notes"),
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "set null",
@@ -2164,6 +2537,11 @@ export const resumePoolItem = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
     resumeContentHash: text("resume_content_hash"),
+    resumeEvaluationContractVersion: text("resume_evaluation_contract_version"),
+    resumeEvaluationGeneratedAt: timestamp("resume_evaluation_generated_at", {
+      withTimezone: true,
+    }),
+    resumeEvaluationInputHash: text("resume_evaluation_input_hash"),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
     resumeParseStatus: text("resume_parse_status")
@@ -2175,6 +2553,9 @@ export const resumePoolItem = pgTable(
     resumeStorageKey: text("resume_storage_key"),
     resumeText: text("resume_text"),
     scope: text("scope").$type<ResumePoolScope>().notNull(),
+    // Database-maintained keyword projection. NULL means historical backfill is pending.
+    searchCjkBigrams: text("search_cjk_bigrams").array(),
+    searchText: text("search_text"),
     skillsNormalized: text("skills_normalized")
       .array()
       .notNull()
@@ -2194,6 +2575,12 @@ export const resumePoolItem = pgTable(
   },
   (table) => [
     index("resume_pool_item_scope_created_idx").on(table.scope, table.createdAt),
+    // Created concurrently by the resume-search maintenance script after backfill.
+    index("resume_pool_item_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.asc().op("gin_trgm_ops"),
+    ),
+    index("resume_pool_item_search_cjk_bigrams_idx").using("gin", table.searchCjkBigrams),
     index("resume_pool_item_org_user_scope_created_idx").on(
       table.organizationId,
       table.createdBy,
@@ -2202,6 +2589,32 @@ export const resumePoolItem = pgTable(
     ),
     index("resume_pool_item_resume_content_hash_idx").on(table.resumeContentHash),
     index("resume_pool_item_resume_parse_status_idx").on(table.resumeParseStatus),
+    index("resume_pool_item_qualitative_job_order_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.qualitativeRecommendationLevel,
+      table.resumeEvaluationGeneratedAt,
+    ),
+    check(
+      "resume_pool_item_qualitative_evaluation_complete_check",
+      sql`(
+        ${table.qualitativeResumeEvaluation} IS NULL
+        AND ${table.qualitativeRecommendationLevel} IS NULL
+        AND ${table.qualitativeResumeSummary} IS NULL
+        AND ${table.qualitativeJobDescriptionVersionId} IS NULL
+        AND ${table.resumeEvaluationContractVersion} IS NULL
+        AND ${table.resumeEvaluationGeneratedAt} IS NULL
+        AND ${table.resumeEvaluationInputHash} IS NULL
+      ) OR (
+        ${table.qualitativeResumeEvaluation} IS NOT NULL
+        AND ${table.qualitativeRecommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')
+        AND ${table.qualitativeResumeSummary} IS NOT NULL
+        AND ${table.qualitativeJobDescriptionVersionId} IS NOT NULL
+        AND ${table.resumeEvaluationContractVersion} = 'qualitative-v2'
+        AND ${table.resumeEvaluationGeneratedAt} IS NOT NULL
+        AND ${table.resumeEvaluationInputHash} IS NOT NULL
+      )`,
+    ),
     check(
       "resume_pool_item_source_channel_check",
       sql`${table.sourceChannel} IS NULL OR ${table.sourceChannel} IN ('mail_ingest', 'referral')`,
@@ -2280,7 +2693,7 @@ export const resumePoolEvent = pgTable(
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "set null",
     }),
-    payload: jsonb("payload"),
+    payload: jsonb("payload").$type<JsonObject | null>(),
     poolItemId: text("pool_item_id")
       .notNull()
       .references(() => resumePoolItem.id, { onDelete: "cascade" }),
@@ -2320,6 +2733,9 @@ export const resumeUploadBatch = pgTable(
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
+    // Only newly-created mail batches opt into automatic job binding.
+    // Existing batches stay null and are never matched retroactively.
+    jobMatchRequestedAt: timestamp("job_match_requested_at", { withTimezone: true }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -2388,8 +2804,46 @@ export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "fai
 export type MailIngestSkipReason = "no_supported_attachment";
 export type MailIngestJdBindStatus = "bound" | "unmatched" | "ambiguous" | "fallback";
 
+export type ResumeJobMatchRunStatus =
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "no_candidates"
+  | "superseded";
+export type ResumeJobMatchSelectionMethod =
+  | "mail_subject_code_exact"
+  | "account_fixed"
+  | "filename_exact"
+  | "ai_rerank"
+  | "strong_signal_fallback"
+  | "vector_fallback"
+  | "ai_full_list";
+export type ResumeJobMatchRecallSource =
+  | "subject_code"
+  | "account_fixed"
+  | "target_role"
+  | "target_role_exact"
+  | "target_role_core"
+  | "filename"
+  | "vector"
+  | "ai_full_list";
+
+export interface ResumeJobMatchJobSnapshot {
+  code: string | null;
+  contentHash: string;
+  departmentName: string | null;
+  id: string;
+  name: string;
+}
+
 export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview" | "job_description";
-export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
+export type ResumeSemanticIndexStatus =
+  | "deleted"
+  | "failed"
+  | "indexed"
+  | "pending"
+  | "skipped"
+  | "stale";
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
 export type ResumeDuplicateMatchStatus = "active" | "confirmed" | "dismissed";
 
@@ -2500,7 +2954,7 @@ export const mailIngestAccount = pgTable(
     imapHost: text("imap_host").notNull().default("imap.qiye.aliyun.com"),
     imapPort: integer("imap_port").notNull().default(993),
     imapSecure: boolean("imap_secure").default(true).notNull(),
-    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull().default("none"),
+    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull().default("auto"),
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
@@ -2589,6 +3043,91 @@ export const mailIngestMessage = pgTable(
   ],
 );
 
+export const resumeJobMatchRun = pgTable(
+  "resume_job_match_run",
+  {
+    batchItemId: text("batch_item_id").references(() => resumeUploadBatchItem.id, {
+      onDelete: "set null",
+    }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    mailMessageId: text("mail_message_id").references(() => mailIngestMessage.id, {
+      onDelete: "set null",
+    }),
+    matcherVersion: text("matcher_version").notNull(),
+    model: text("model"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    poolItemId: text("pool_item_id")
+      .notNull()
+      .references(() => resumePoolItem.id, { onDelete: "cascade" }),
+    promptVersion: text("prompt_version"),
+    resumeInputHash: text("resume_input_hash").notNull(),
+    selectedJobDescriptionId: text("selected_job_description_id").references(
+      () => jobDescription.id,
+      { onDelete: "set null" },
+    ),
+    selectionMethod: text("selection_method").$type<ResumeJobMatchSelectionMethod>(),
+    status: text("status").$type<ResumeJobMatchRunStatus>().notNull(),
+  },
+  (table) => [
+    uniqueIndex("resume_job_match_run_pool_batch_version_uq").on(
+      table.poolItemId,
+      table.batchItemId,
+      table.matcherVersion,
+    ),
+    index("resume_job_match_run_org_pool_created_idx").on(
+      table.organizationId,
+      table.poolItemId,
+      table.createdAt,
+    ),
+    index("resume_job_match_run_selected_job_idx").on(table.selectedJobDescriptionId),
+  ],
+);
+
+export const resumeJobMatchCandidate = pgTable(
+  "resume_job_match_candidate",
+  {
+    aiRank: integer("ai_rank"),
+    aiReason: text("ai_reason"),
+    aiScore: integer("ai_score"),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    jobSnapshot: jsonb("job_snapshot").$type<ResumeJobMatchJobSnapshot>().notNull(),
+    overviewScore: doublePrecision("overview_score"),
+    recallRank: integer("recall_rank"),
+    recallSource: text("recall_source").$type<ResumeJobMatchRecallSource>().notNull(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => resumeJobMatchRun.id, { onDelete: "cascade" }),
+    skillRoleScore: doublePrecision("skill_role_score"),
+    vectorScore: integer("vector_score"),
+    workProjectScore: doublePrecision("work_project_score"),
+  },
+  (table) => [
+    uniqueIndex("resume_job_match_candidate_run_job_uq").on(table.runId, table.jobDescriptionId),
+    uniqueIndex("resume_job_match_candidate_run_ai_rank_uq").on(table.runId, table.aiRank),
+    index("resume_job_match_candidate_job_idx").on(table.jobDescriptionId),
+    check(
+      "resume_job_match_candidate_ai_score_check",
+      sql`${table.aiScore} IS NULL OR (${table.aiScore} >= 0 AND ${table.aiScore} <= 100)`,
+    ),
+    check(
+      "resume_job_match_candidate_ai_rank_check",
+      sql`${table.aiRank} IS NULL OR ${table.aiRank} > 0`,
+    ),
+    check(
+      "resume_job_match_candidate_recall_rank_check",
+      sql`${table.recallRank} IS NULL OR ${table.recallRank} > 0`,
+    ),
+  ],
+);
+
 export const interviewConversation = pgTable(
   "interview_conversation",
   {
@@ -2597,16 +3136,13 @@ export const interviewConversation = pgTable(
     conversationId: text("conversation_id").primaryKey(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     dataCollectionResults: jsonb("data_collection_results")
-      .$type<Record<string, unknown>>()
+      .$type<JsonObject>()
       .notNull()
       .default({}),
-    dynamicVariables: jsonb("dynamic_variables")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    dynamicVariables: jsonb("dynamic_variables").$type<JsonObject>().notNull().default({}),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     evaluationCriteriaResults: jsonb("evaluation_criteria_results")
-      .$type<Record<string, unknown>>()
+      .$type<JsonObject>()
       .notNull()
       .default({}),
     interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
@@ -2622,8 +3158,8 @@ export const interviewConversation = pgTable(
       .default("pending"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
     latestError: text("latest_error"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
-    metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
+    metadata: jsonb("metadata").$type<JsonObject>().notNull().default({}),
+    metrics: jsonb("metrics").$type<JsonObject>().notNull().default({}),
     mode: text("mode"),
     organizationId: text("organization_id")
       .notNull()
@@ -2795,7 +3331,7 @@ export const interviewAuditLog = pgTable(
   {
     action: text("action").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    detail: jsonb("detail").$type<JsonObject>().notNull().default({}),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
       .notNull()
@@ -2817,14 +3353,210 @@ export const interviewAuditLog = pgTable(
   ],
 );
 
+export const studioInterviewNotificationRecipient = pgTable(
+  "studio_interview_notification_recipient",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.interviewRecordId, table.userId] }),
+    foreignKey({
+      columns: [table.interviewRecordId, table.organizationId],
+      foreignColumns: [studioInterview.id, studioInterview.organizationId],
+      name: "studio_interview_notification_recipient_record_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "studio_interview_notification_recipient_member_org_fk",
+    }).onDelete("cascade"),
+    index("studio_interview_notification_recipient_user_idx").on(
+      table.organizationId,
+      table.userId,
+    ),
+  ],
+);
+
+export const interviewNotificationTemplate = pgTable(
+  "interview_notification_template",
+  {
+    activeVersionId: text("active_version_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => interviewNotificationTemplateVersion.id,
+      { onDelete: "set null" },
+    ),
+    audienceType: text("audience_type").$type<InterviewNotificationAudienceType>().notNull(),
+    channel: text("channel").$type<InterviewNotificationChannel>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    eventType: text("event_type").$type<InterviewNotificationEventType>().notNull(),
+    id: text("id").primaryKey(),
+    locale: text("locale").default("zh-CN").notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    uniqueIndex("interview_notification_template_workspace_uq")
+      .on(table.organizationId, table.eventType, table.audienceType, table.channel, table.locale)
+      .where(sql`${table.organizationId} IS NOT NULL`),
+    uniqueIndex("interview_notification_template_system_uq")
+      .on(table.eventType, table.audienceType, table.channel, table.locale)
+      .where(sql`${table.organizationId} IS NULL`),
+    index("interview_notification_template_org_enabled_idx").on(
+      table.organizationId,
+      table.enabled,
+    ),
+    check(
+      "interview_notification_template_audience_check",
+      sql`${table.audienceType} IN ('candidate', 'selected_hr_user', 'initiator_fallback', 'meeting_interviewer')`,
+    ),
+    check(
+      "interview_notification_template_channel_check",
+      sql`${table.channel} IN ('feishu', 'email', 'sms')`,
+    ),
+  ],
+);
+
+export const interviewNotificationTemplateVersion = pgTable(
+  "interview_notification_template_version",
+  {
+    contentTemplate: text("content_template").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    status: text("status").$type<InterviewNotificationTemplateStatus>().notNull().default("draft"),
+    subjectTemplate: text("subject_template"),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewNotificationTemplate.id, { onDelete: "cascade" }),
+    variables: jsonb("variables")
+      .$type<InterviewNotificationTemplateVariable[]>()
+      .notNull()
+      .default([]),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("interview_notification_template_version_uq").on(table.templateId, table.version),
+    index("interview_notification_template_version_status_idx").on(table.templateId, table.status),
+    check(
+      "interview_notification_template_version_status_check",
+      sql`${table.status} IN ('draft', 'published', 'archived')`,
+    ),
+    check("interview_notification_template_version_positive_check", sql`${table.version} > 0`),
+  ],
+);
+
+export const interviewNotificationEvent = pgTable(
+  "interview_notification_event",
+  {
+    actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    availableAt: timestamp("available_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    conversationId: text("conversation_id").references(() => interviewConversation.conversationId, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    humanMeetingId: text("human_meeting_id").references(() => studioHumanInterviewMeeting.id, {
+      onDelete: "cascade",
+    }),
+    humanRoundId: text("human_round_id").references(() => studioHumanInterviewRound.id, {
+      onDelete: "cascade",
+    }),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
+      onDelete: "cascade",
+    }),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    payloadSnapshot: jsonb("payload_snapshot")
+      .$type<InterviewNotificationPayloadSnapshot>()
+      .notNull(),
+    scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
+      onDelete: "cascade",
+    }),
+    scopeType: text("scope_type").$type<InterviewNotificationScopeType>().notNull(),
+    status: text("status").$type<InterviewNotificationEventStatus>().notNull().default("pending"),
+    type: text("type").$type<InterviewNotificationEventType>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("interview_notification_event_dedupe_uq").on(table.dedupeKey),
+    index("interview_notification_event_claim_idx").on(
+      table.status,
+      table.nextAttemptAt,
+      table.availableAt,
+    ),
+    index("interview_notification_event_org_created_idx").on(table.organizationId, table.createdAt),
+    index("interview_notification_event_record_created_idx").on(
+      table.interviewRecordId,
+      table.createdAt,
+    ),
+    index("interview_notification_event_meeting_created_idx").on(
+      table.humanMeetingId,
+      table.createdAt,
+    ),
+    check(
+      "interview_notification_event_status_check",
+      sql`${table.status} IN ('pending', 'processing', 'completed', 'failed', 'dead', 'cancelled')`,
+    ),
+    check(
+      "interview_notification_event_scope_check",
+      sql`(
+        (${table.scopeType} = 'interview_record' AND ${table.interviewRecordId} IS NOT NULL)
+        OR (${table.scopeType} = 'ai_round' AND ${table.scheduleEntryId} IS NOT NULL)
+        OR (${table.scopeType} = 'human_meeting' AND ${table.humanMeetingId} IS NOT NULL)
+      )`,
+    ),
+    check("interview_notification_event_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "interview_notification_event_lease_pair_check",
+      sql`(${table.leaseOwner} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
+    ),
+  ],
+);
+
 export const interviewNotification = pgTable(
   "interview_notification",
   {
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    audienceType: text("audience_type").$type<InterviewNotificationAudienceType>(),
+    channel: text("channel").$type<InterviewNotificationChannel>(),
     conversationId: text("conversation_id").references(() => interviewConversation.conversationId, {
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     error: text("error"),
+    eventId: text("event_id").references(() => interviewNotificationEvent.id, {
+      onDelete: "set null",
+    }),
     feishuDocumentId: text("feishu_document_id"),
     feishuDocumentUrl: text("feishu_document_url"),
     feishuMessageId: text("feishu_message_id"),
@@ -2832,17 +3564,35 @@ export const interviewNotification = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    lastErrorCode: text("last_error_code"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
     providerId: text("provider_id").notNull(),
+    providerMessageId: text("provider_message_id"),
+    providerRequestKey: text("provider_request_key"),
+    recipientAddress: text("recipient_address"),
+    recipientDisplayName: text("recipient_display_name"),
     recipientOpenId: text("recipient_open_id").notNull(),
     recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
+    renderedContent: text("rendered_content"),
+    renderedSubject: text("rendered_subject"),
+    resultUnknownAt: timestamp("result_unknown_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
-    status: text("status").$type<AgentNotificationStatus>().notNull().default("pending"),
-    type: text("type").$type<AgentNotificationType>().notNull(),
+    status: text("status")
+      .$type<InterviewNotificationDeliveryStatus>()
+      .notNull()
+      .default("pending"),
+    templateVersionId: text("template_version_id").references(
+      () => interviewNotificationTemplateVersion.id,
+      { onDelete: "set null" },
+    ),
+    type: text("type").$type<AgentNotificationType | InterviewNotificationEventType>().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -2851,6 +3601,16 @@ export const interviewNotification = pgTable(
   (table) => [
     index("interview_notification_record_idx").on(table.interviewRecordId),
     index("interview_notification_recipient_idx").on(table.recipientUserId),
+    index("interview_notification_event_idx").on(table.eventId),
+    index("interview_notification_delivery_claim_idx").on(table.status, table.nextAttemptAt),
+    uniqueIndex("interview_notification_event_channel_recipient_uq")
+      .on(table.eventId, table.channel, table.recipientAddress)
+      .where(
+        sql`${table.eventId} IS NOT NULL AND ${table.channel} IS NOT NULL AND ${table.recipientAddress} IS NOT NULL`,
+      ),
+    uniqueIndex("interview_notification_provider_request_uq")
+      .on(table.providerRequestKey)
+      .where(sql`${table.providerRequestKey} IS NOT NULL`),
     uniqueIndex("interview_notification_once_uq").on(
       table.interviewRecordId,
       table.conversationId,
@@ -2859,6 +3619,15 @@ export const interviewNotification = pgTable(
       table.providerId,
     ),
     index("interview_notification_organization_idx").on(table.organizationId),
+    check(
+      "interview_notification_delivery_status_check",
+      sql`${table.status} IN ('pending', 'sending', 'sent', 'failed', 'dead', 'unknown', 'cancelled')`,
+    ),
+    check("interview_notification_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "interview_notification_lease_pair_check",
+      sql`(${table.leaseOwner} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
+    ),
   ],
 );
 

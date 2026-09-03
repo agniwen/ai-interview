@@ -1,0 +1,31 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "tabler",
+  "rtl": false,
+  "aliases": {
+    "components": "@/components",
+    "utils": "@app/shared/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "registries": {
+    "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json",
+    "@react-bits": "https://reactbits.dev/r/{name}.json",
+    "@extend": "https://ui.extend.ai/r/{name}.json",
+    "@ogimagecn": "https://ogimagecn.vercel.app/r/{name}.json",
+    "@coss": "https://coss.com/ui/r/{name}.json",
+    "@reui": "https://reui.io/r/base-nova/{name}.json",
+    "@ncdai": "https://chanhdai.com/r/{name}.json"
+  }
+}

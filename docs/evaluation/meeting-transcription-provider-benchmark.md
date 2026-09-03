@@ -44,7 +44,7 @@ written to the final report.
 Set credentials only in the process environment, then run:
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:meeting-transcription -- \
+pnpm --filter @app/server eval:meeting-transcription -- \
   --dataset /private/path/corpus.json \
   --tingwu-urls /private/path/tingwu-source-urls.json \
   --costs /private/path/actual-cost-usd.json \
@@ -74,7 +74,7 @@ Without `--costs`, the run is still useful for collecting provider billing, but 
 Once invoices or provider usage exports are available, add actual costs without rerunning audio:
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:meeting-transcription:costs -- \
+pnpm --filter @app/server eval:meeting-transcription:costs -- \
   --run .eval/meeting-transcription/run-YYYYMMDD.json \
   --costs /private/path/actual-cost-usd.json \
   --out .eval/meeting-transcription/run-YYYYMMDD-costed.json

@@ -1,0 +1,22 @@
+{
+  "name": "@app/meeting-media",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider-independent meeting recording normalization and transcription-ready audio preparation",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

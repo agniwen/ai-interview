@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-starter-python"
 version = "1.0.0"
-description = "Simple voice AI assistant built with LiveKit Agents for Python"
+description = "LiveKit voice-interview worker for AI Hiring Copilot, including conversation orchestration, recording, and server callbacks"
 requires-python = ">=3.10, <3.15"
 dependencies = [
   "httpx[socks]>=0.28.1",
@@ -14,6 +14,7 @@ dependencies = [
   "livekit-plugins-minimax-ai~=1.6.7",
   "livekit-plugins-noise-cancellation~=0.2",
   "python-dotenv",
+  "sentry-sdk==2.68.1",
 ]
 
 [dependency-groups]

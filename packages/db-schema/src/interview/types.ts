@@ -12,6 +12,7 @@
  */
 
 import { z } from "zod";
+import { resumeScoringFactsSchema } from "../resume-scoring-facts";
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const nullableStringSchema = z.string().trim().nullable();
@@ -82,6 +83,9 @@ export const resumeProfileSchema = z.object({
     .array(resumeProjectExperienceSchema)
     .describe("项目经历列表，没有则返回空数组"),
   schools: z.array(nonEmptyStringSchema).describe("毕业院校列表，可能为多个，未知时返回空数组"),
+  scoringFacts: resumeScoringFactsSchema
+    .optional()
+    .describe("首次解析生成的岗位无关评分事实；历史简历可能没有该字段"),
   skills: z.array(nonEmptyStringSchema).describe("掌握技能列表，未知时返回空数组"),
   targetRoles: z.array(nonEmptyStringSchema).describe("求职岗位列表，可能为多个，未知时返回空数组"),
   workExperiences: z.array(resumeWorkExperienceSchema).describe("工作经历列表，没有则返回空数组"),
@@ -92,11 +96,43 @@ export const resumeProfileSchema = z.object({
  * LLM 生成的单道面试题。
  * A single interview question produced by the LLM.
  */
+export const interviewQuestionDimensionSchema = z.enum([
+  "business",
+  "ai_application",
+  "project_management",
+  "soft_skills",
+  "team_management",
+]);
+
+export type InterviewQuestionDimension = z.infer<typeof interviewQuestionDimensionSchema>;
+
+export const INTERVIEW_QUESTION_DIMENSION_LABEL = {
+  ai_application: "AI应用",
+  business: "业务水平",
+  project_management: "项目管理",
+  soft_skills: "软实力",
+  team_management: "团队管理",
+} as const satisfies Record<InterviewQuestionDimension, string>;
+
+export const INTERVIEW_QUESTION_DIMENSION_OPTIONS = [
+  { label: INTERVIEW_QUESTION_DIMENSION_LABEL.business, value: "business" },
+  { label: INTERVIEW_QUESTION_DIMENSION_LABEL.ai_application, value: "ai_application" },
+  {
+    label: INTERVIEW_QUESTION_DIMENSION_LABEL.project_management,
+    value: "project_management",
+  },
+  { label: INTERVIEW_QUESTION_DIMENSION_LABEL.soft_skills, value: "soft_skills" },
+  { label: INTERVIEW_QUESTION_DIMENSION_LABEL.team_management, value: "team_management" },
+] as const satisfies readonly { label: string; value: InterviewQuestionDimension }[];
+
 export const generatedInterviewQuestionSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).describe("题目难度分层"),
+  dimension: interviewQuestionDimensionSchema
+    .optional()
+    .describe("题目考核维度；历史数据缺失时按业务水平处理"),
   evaluationFocus: nonEmptyStringSchema
     .max(500)
-    .describe("本题要考核的核心意图或能力点，例如项目真实性、技术深度、沟通表达")
+    .describe("本题要考核的核心意图或能力点，例如项目真实性、专业深度、沟通表达")
     .nullable()
     .optional(),
   followUpDirections: nonEmptyStringSchema
@@ -134,6 +170,7 @@ export type GeneratedInterviewQuestion = z.infer<typeof generatedInterviewQuesti
 export interface InterviewQuestion {
   order: number;
   difficulty: GeneratedInterviewQuestion["difficulty"];
+  dimension?: InterviewQuestionDimension;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
   question: string;

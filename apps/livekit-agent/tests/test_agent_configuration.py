@@ -58,9 +58,10 @@ def test_agent_name_uses_trimmed_environment_override():
     )
 
 
-def test_self_hosted_mode_is_opt_in():
-    assert resolve_self_hosted({}) is False
+def test_self_hosted_mode_defaults_on_for_private_deployments():
+    assert resolve_self_hosted({}) is True
     assert resolve_self_hosted({"INTERVIEW_SELF_HOSTED": "1"}) is True
+    assert resolve_self_hosted({"INTERVIEW_SELF_HOSTED": "0"}) is False
 
 
 async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatch):

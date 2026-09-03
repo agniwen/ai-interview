@@ -1,0 +1,205 @@
+import "./instrument.server";
+
+import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
+import type { ServerEntry } from "@tanstack/react-start/server-entry";
+import { applyServerEnv } from "./env/server";
+import { paraglideMiddleware } from "./paraglide/server";
+
+// Some Node-oriented dependencies still probe `__dirname` after ESM bundling.
+// Define a process-wide fallback before any lazy backend chunks are imported.
+globalThis.__dirname ??= import.meta.dirname;
+
+interface HonoApp {
+  fetch(request: Request): Response | Promise<Response>;
+}
+
+type StartFetch = ServerEntry["fetch"];
+type StartHandlerOptions = Parameters<StartFetch>[1];
+
+type ResumeParseQueueStats = Record<string, number>;
+
+export interface ServerEntryDependencies {
+  applyServerEnv: () => void;
+  createHonoApp: () => Promise<HonoApp>;
+  createOgImageResponse: () => Response | Promise<Response>;
+  getEnv: (name: string) => string | undefined;
+  getResumeParseQueueStats: () => Promise<ResumeParseQueueStats>;
+  initializeFeishuBots: () => Promise<void>;
+  isResumeParseQueueConfigured: () => boolean | Promise<boolean>;
+  pingDatabase: () => Promise<void>;
+  startFetch: (request: Request, options?: StartHandlerOptions) => Response | Promise<Response>;
+}
+
+async function createHonoApp(): Promise<HonoApp> {
+  const { createServerApp } = await import("@app/server/web/runtime");
+  return createServerApp();
+}
+
+async function createOgImageResponse() {
+  const { createOgImageResponse: createResponse } = await import("./lib/server/og-image");
+  return createResponse();
+}
+
+let startFetchPromise: Promise<StartFetch> | undefined;
+
+async function loadStartFetch(): Promise<StartFetch> {
+  const { createStartHandler, defaultStreamHandler } = await import("@tanstack/react-start/server");
+  return createStartHandler(defaultStreamHandler);
+}
+
+function getStartFetch(): Promise<StartFetch> {
+  startFetchPromise ??= loadStartFetch();
+  return startFetchPromise;
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    startFetchPromise = undefined;
+  });
+}
+
+function isApiRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
+function isHealthRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/api/health";
+}
+
+function isReadinessRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/api/ready";
+}
+
+function isAppVersionRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/api/app-version";
+}
+
+function isOgImageRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/og.png";
+}
+
+export function createServerEntryHandler(dependencies: ServerEntryDependencies) {
+  let honoAppPromise: Promise<HonoApp> | undefined;
+  let feishuBotStartPromise: Promise<void> | undefined;
+
+  const getHonoApp = () => {
+    honoAppPromise ??= dependencies.createHonoApp();
+    return honoAppPromise;
+  };
+
+  const createReadinessResponse = async () => {
+    try {
+      await getHonoApp();
+      await dependencies.pingDatabase();
+      if (await dependencies.isResumeParseQueueConfigured()) {
+        await dependencies.getResumeParseQueueStats();
+      }
+
+      return Response.json({ ok: true });
+    } catch (error) {
+      console.error("[web] readiness check failed", error);
+      return Response.json({ ok: false }, { status: 503 });
+    }
+  };
+
+  const startFeishuBotsIfEnabled = () => {
+    if (
+      (dependencies.getEnv("FEISHU_BOT_ENABLED") !== "true" &&
+        dependencies.getEnv("FEISHU_HUMAN_INTERVIEW_ENABLED") !== "true") ||
+      dependencies.getEnv("TSS_PRERENDERING") === "true"
+    ) {
+      return;
+    }
+
+    feishuBotStartPromise ??= (async () => {
+      try {
+        await dependencies.initializeFeishuBots();
+        console.info("[web] Feishu bot websocket connections initialized");
+      } catch (error) {
+        feishuBotStartPromise = undefined;
+        console.error("[web] failed to initialize Feishu bot websocket connections", error);
+      }
+    })();
+  };
+
+  return {
+    async fetch(request: Request, options?: StartHandlerOptions) {
+      dependencies.applyServerEnv();
+      const startFetch = () =>
+        options === undefined
+          ? dependencies.startFetch(request)
+          : dependencies.startFetch(request, options);
+
+      if (isHealthRequest(request)) {
+        return Response.json({ ok: true });
+      }
+
+      if (isReadinessRequest(request)) {
+        return createReadinessResponse();
+      }
+
+      if (isOgImageRequest(request)) {
+        return dependencies.createOgImageResponse();
+      }
+
+      if (isAppVersionRequest(request)) {
+        return startFetch();
+      }
+
+      startFeishuBotsIfEnabled();
+
+      if (isApiRequest(request)) {
+        const honoApp = await getHonoApp();
+        return honoApp.fetch(request);
+      }
+
+      return paraglideMiddleware(request, () => startFetch());
+    },
+  };
+}
+
+const defaultDependencies: ServerEntryDependencies = {
+  applyServerEnv,
+  createHonoApp,
+  createOgImageResponse,
+  getEnv: (name) => process.env[name],
+  getResumeParseQueueStats: async () => {
+    const { getResumeParseQueueStats } = await import("@app/resume-parse-queue/resume-parse");
+    return getResumeParseQueueStats();
+  },
+  initializeFeishuBots: async () => {
+    const { initializeFeishuBots } = await import("@app/server/web/runtime");
+    await initializeFeishuBots();
+  },
+  isResumeParseQueueConfigured: async () => {
+    const { isResumeParseQueueConfigured } = await import("@app/resume-parse-queue/resume-parse");
+    return isResumeParseQueueConfigured();
+  },
+  pingDatabase: async () => {
+    const { pingDatabase } = await import("@app/server/web/runtime");
+    await pingDatabase();
+  },
+  startFetch: async (request, options) => {
+    const startFetch = await getStartFetch();
+    return options === undefined ? startFetch(request) : startFetch(request, options);
+  },
+};
+
+const defaultHandler = createServerEntryHandler(defaultDependencies);
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Sentry's ServerEntry contract intentionally exposes adapter options as opaque unknown.
+function forwardSentryFetch(request: Request, options?: unknown) {
+  // SAFETY: Sentry forwards TanStack's original opaque server-entry options unchanged.
+  return defaultHandler.fetch(request, options as StartHandlerOptions | undefined);
+}
+
+const sentryHandler: ServerEntry = wrapFetchWithSentry({
+  fetch: forwardSentryFetch,
+});
+
+export default sentryHandler;

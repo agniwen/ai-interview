@@ -3,6 +3,13 @@ import { z } from "zod";
 export const MEETING_TRANSCRIPTION_PROVIDERS = ["tingwu", "deepgram", "openai", "qwen"] as const;
 export const meetingTranscriptionProviderSchema = z.enum(MEETING_TRANSCRIPTION_PROVIDERS);
 export type MeetingTranscriptionProviderId = z.infer<typeof meetingTranscriptionProviderSchema>;
+export const meetingTranscriptRevisionProviderSchema = z.union([
+  meetingTranscriptionProviderSchema,
+  z.literal("manual"),
+]);
+export type MeetingTranscriptRevisionProvider = z.infer<
+  typeof meetingTranscriptRevisionProviderSchema
+>;
 
 export const updateMeetingTranscriptionPolicySchema = z
   .object({
@@ -80,15 +87,37 @@ const meetingLiveTranscriptDraftSectionSchema = z
   })
   .strict();
 
+export const meetingLiveTranscriptWordSchema = z
+  .object({
+    endMs: z.number().int().nonnegative(),
+    punctuation: z.string().max(16),
+    startMs: z.number().int().nonnegative(),
+    text: z.string().min(1).max(256),
+  })
+  .strict()
+  .refine((word) => word.endMs >= word.startMs, "词结束时间不能早于开始时间");
+
+export type MeetingLiveTranscriptWord = z.infer<typeof meetingLiveTranscriptWordSchema>;
+
 const meetingLiveTranscriptDraftTurnSchema = z
   .object({
+    correctionModel: z.string().min(1).max(128).optional(),
+    endMs: z.number().int().nonnegative().optional(),
     final: z.boolean(),
     id: z.string().min(1).max(512),
+    originalText: z.string().min(1).max(10_000).optional(),
     sectionId: z.string().min(1).max(256),
+    startMs: z.number().int().nonnegative().optional(),
     text: z.string().trim().min(1).max(10_000),
     track: meetingLiveTranscriptTrackSchema,
+    words: z.array(meetingLiveTranscriptWordSchema).max(2000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((turn, context) => {
+    if (turn.startMs !== undefined && turn.endMs !== undefined && turn.endMs < turn.startMs) {
+      context.addIssue({ code: "custom", message: "字幕结束时间不能早于开始时间" });
+    }
+  });
 
 /** A durable, non-authoritative snapshot captured when local recording stops. */
 export const meetingLiveTranscriptDraftSchema = z
@@ -134,6 +163,24 @@ export type CreateMeetingLiveTranscriptAuthorizationInput = z.infer<
   typeof createMeetingLiveTranscriptAuthorizationSchema
 >;
 
+export const meetingLiveTranscriptContextSchema = z.array(z.string().trim().min(1).max(400)).max(5);
+
+export const meetingLiveTranscriptVocabularySchema = z
+  .record(
+    z.string().trim().min(1).max(128),
+    z.union([z.number().int().min(1).max(5), z.literal(50)]),
+  )
+  .refine((value) => Object.keys(value).length <= 2000, "实时热词不能超过 2000 个");
+
+export const meetingLiveTranscriptHintsSchema = z
+  .object({
+    context: meetingLiveTranscriptContextSchema,
+    vocabulary: meetingLiveTranscriptVocabularySchema,
+  })
+  .strict();
+
+export type MeetingLiveTranscriptHints = z.infer<typeof meetingLiveTranscriptHintsSchema>;
+
 export interface MeetingLiveTranscriptAuthorization {
   /** wss 端点（仅 relay 型 provider 使用，如 DashScope 实时 ASR）。 */
   baseUrl?: string;
@@ -141,15 +188,22 @@ export interface MeetingLiveTranscriptAuthorization {
   expiresAt: string;
   /** provider 识别语言提示（如 qwen realtime 的 session language）。 */
   language?: string;
+  /** 建连时的领域/会议上下文；由当前 Desktop 会话生成，不写入长期凭证。 */
+  context?: string[];
   model: string;
   provider: MeetingTranscriptionProviderId;
+  /** 可选 VAD 噪声阈值，仅在管理员经过真实音频评测后配置。 */
+  speechNoiseThreshold?: number;
   track: MeetingLiveTranscriptTrack;
+  /** 当前会议的即时热词；普通权重优先，避免超级热词造成近音误召回。 */
+  vocabulary?: Record<string, number>;
 }
 
 const canonicalTranscriptTurnBaseSchema = z
   .object({
     confidence: z.number().min(0).max(1).nullable(),
     endMs: z.number().int().nonnegative(),
+    speakerDisplayName: z.string().trim().min(1).max(128).nullable().optional(),
     speakerKey: z.string().min(1).max(128),
     startMs: z.number().int().nonnegative(),
     text: z.string().trim().min(1).max(100_000),
@@ -290,7 +344,7 @@ export interface FinalMeetingTranscriptRevision {
   kind: "final" | "human";
   language: string | null;
   model: string;
-  provider: MeetingTranscriptionProviderId;
+  provider: MeetingTranscriptRevisionProvider;
   region: string;
   revision: number;
   turns: FinalMeetingTranscriptTurn[];

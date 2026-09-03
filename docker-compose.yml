@@ -2,7 +2,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/ai-recruitment-copilot/Dockerfile
+      dockerfile: apps/web/Dockerfile
       args:
         BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required at build time}
         NEXT_PUBLIC_AGENT_NAME: ${NEXT_PUBLIC_AGENT_NAME:-giaogiao}
@@ -19,7 +19,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - node -e "fetch('http://127.0.0.1:3000/api/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        - bun -e "fetch('http://127.0.0.1:3000/api/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 30s
       timeout: 5s
       retries: 3
@@ -30,7 +30,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/ai-recruitment-copilot-worker/Dockerfile
+      dockerfile: apps/worker/Dockerfile
     env_file:
       - path: .env
         required: false
@@ -39,7 +39,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - node -e "fetch('http://127.0.0.1:8790/readyz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        - bun -e "fetch('http://127.0.0.1:8790/readyz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 30s
       timeout: 5s
       retries: 3

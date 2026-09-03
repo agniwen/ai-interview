@@ -1,0 +1,152 @@
+"use client";
+
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
+import * as React from "react";
+
+import { cn } from "@app/shared/utils";
+
+export type TabsVariant = "default" | "underline";
+type TabsListVariant = TabsVariant | "line";
+type TabsActivationMode = "automatic" | "manual";
+
+const TabsContext = React.createContext<{ activationMode: TabsActivationMode }>({
+  activationMode: "automatic",
+});
+
+export function Tabs({
+  activationMode = "automatic",
+  className,
+  ...props
+}: TabsPrimitive.Root.Props & {
+  activationMode?: TabsActivationMode;
+}): React.ReactElement {
+  return (
+    <TabsContext.Provider value={{ activationMode }}>
+      <TabsPrimitive.Root
+        className={cn("flex flex-col gap-2 data-[orientation=vertical]:flex-row", className)}
+        data-slot="tabs"
+        {...props}
+      />
+    </TabsContext.Provider>
+  );
+}
+
+export function TabsList({
+  activateOnFocus,
+  className,
+  children,
+  variant = "default",
+  ...props
+}: TabsPrimitive.List.Props & {
+  variant?: TabsListVariant;
+}): React.ReactElement {
+  const { activationMode } = React.useContext(TabsContext);
+  const resolvedVariant: TabsVariant = variant === "line" ? "underline" : variant;
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+
+    const scrollActiveTabIntoView = () => {
+      const activeTab = list.querySelector<HTMLElement>('[data-slot="tabs-tab"][data-active]');
+      if (!activeTab || list.scrollWidth <= list.clientWidth) {
+        return;
+      }
+
+      const edgePadding = 12;
+      const tabStart = activeTab.offsetLeft;
+      const tabEnd = tabStart + activeTab.offsetWidth;
+      const visibleStart = list.scrollLeft;
+      const visibleEnd = visibleStart + list.clientWidth;
+
+      if (tabStart < visibleStart) {
+        list.scrollTo({ behavior: "smooth", left: Math.max(0, tabStart - edgePadding) });
+      } else if (tabEnd > visibleEnd) {
+        list.scrollTo({
+          behavior: "smooth",
+          left: tabEnd - list.clientWidth + edgePadding,
+        });
+      }
+    };
+
+    scrollActiveTabIntoView();
+    const observer = new MutationObserver(scrollActiveTabIntoView);
+    observer.observe(list, {
+      attributes: true,
+      attributeFilter: ["data-active"],
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <TabsPrimitive.List
+      ref={listRef}
+      activateOnFocus={activateOnFocus ?? activationMode === "automatic"}
+      className={cn(
+        "relative z-0 flex w-fit min-w-0 max-w-full flex-nowrap items-center justify-start gap-x-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "data-[orientation=vertical]:flex-col",
+        resolvedVariant === "default"
+          ? "rounded-lg bg-muted p-0.5 text-muted-foreground/72"
+          : "data-[orientation=vertical]:px-1 data-[orientation=horizontal]:pt-1 *:data-[slot=tabs-tab]:hover:bg-accent",
+        className,
+      )}
+      data-slot="tabs-list"
+      data-variant={resolvedVariant}
+      {...props}
+    >
+      {children}
+      <TabsPrimitive.Indicator
+        className={cn(
+          "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
+          resolvedVariant === "underline"
+            ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px data-[orientation=horizontal]:translate-y-px"
+            : "-z-1 rounded-md bg-background dark:bg-input",
+        )}
+        data-slot="tab-indicator"
+      />
+    </TabsPrimitive.List>
+  );
+}
+
+export function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props): React.ReactElement {
+  return (
+    <TabsPrimitive.Tab
+      className={cn(
+        "relative flex h-9 shrink-0 grow cursor-default items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-transparent px-[calc(--spacing(2.5)-1px)] font-medium text-base outline-none transition-[color,background-color,box-shadow] hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring data-disabled:pointer-events-none data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start data-active:text-foreground data-disabled:opacity-64 in-data-[variant=underline]:data-[orientation=horizontal]:h-auto in-data-[variant=underline]:data-[orientation=horizontal]:py-2 in-data-[variant=underline]:rounded-t-[10px] in-data-[variant=underline]:rounded-b-none sm:h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
+        className,
+      )}
+      data-slot="tabs-tab"
+      {...props}
+    />
+  );
+}
+
+export function TabsPanel({
+  className,
+  forceMount,
+  keepMounted,
+  motion,
+  ...props
+}: TabsPrimitive.Panel.Props & { forceMount?: boolean; motion?: "page" }): React.ReactElement {
+  return (
+    <TabsPrimitive.Panel
+      className={cn(
+        "flex-1 outline-none",
+        motion === "page" &&
+          "transition-[opacity,translate,filter] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-ending-style:absolute data-ending-style:inset-0 data-ending-style:pointer-events-none data-[activation-direction=left]:data-ending-style:translate-x-(--distance-base) data-[activation-direction=right]:data-ending-style:-translate-x-(--distance-base) data-ending-style:opacity-0 data-ending-style:blur-(--blur-medium) data-[activation-direction=left]:data-starting-style:-translate-x-(--distance-base) data-[activation-direction=right]:data-starting-style:translate-x-(--distance-base) data-starting-style:opacity-0 data-starting-style:blur-(--blur-medium) motion-reduce:transition-none motion-reduce:data-ending-style:translate-x-0 motion-reduce:data-starting-style:translate-x-0 motion-reduce:data-ending-style:blur-none motion-reduce:data-starting-style:blur-none",
+        className,
+      )}
+      data-slot="tabs-content"
+      keepMounted={keepMounted ?? forceMount}
+      {...props}
+    />
+  );
+}
+
+export { TabsPrimitive, TabsPanel as TabsContent, TabsTab as TabsTrigger };

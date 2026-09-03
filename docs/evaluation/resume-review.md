@@ -7,7 +7,7 @@
 ## 运行
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews -- --org org_default
+pnpm --filter @app/server eval:resume-reviews -- --org org_default
 ```
 
 加 `--strict` 后，以下任一条件会返回非零退出码：
@@ -43,7 +43,7 @@ pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews -- --org o
 真实结果数据成熟前，使用 24 个合成边界案例守住规则正确性：学历和年限边界、信息缺失、技能全量/至少项匹配、语义证据、规则严重级别和空策略。运行：
 
 ```bash
-pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
+pnpm --filter @app/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
 ```
 
 合成案例只验证结构和规则契约：信息不足必须进入人工核实，明确 blocking 失败只能暂缓推进，不能用来拟合六维权重、业务阈值或证明真实误拒率。
@@ -51,13 +51,13 @@ pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthet
 评分 Prompt 另有 6 个合成简历/JD 场景。默认命令只列出案例，不调用模型：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic
+pnpm --filter @app/server eval:resume-reviews:synthetic
 ```
 
 显式运行会产生模型调用。建议每个案例重复 3 次，以检查结构成功率、允许行动、人工分数锚点、理由证据和重复运行波动：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic -- \
+pnpm --filter @app/server eval:resume-reviews:synthetic -- \
   --execute --runs 3 --strict
 ```
 

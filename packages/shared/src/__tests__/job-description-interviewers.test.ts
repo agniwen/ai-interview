@@ -4,7 +4,7 @@ import {
   getDepartmentSyncedInterviewerSelection,
   getInterviewersForDepartment,
   validateJobDescriptionInterviewerDepartments,
-} from "@arc/shared/job-description-interviewers";
+} from "@app/shared/job-description-interviewers";
 import { describe, expect, test } from "vitest";
 
 const interviewers = [

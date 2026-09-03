@@ -19,7 +19,7 @@
 - 技术栈是 pnpm/Turborepo monorepo：React 19 + TanStack Start/Router/Query 前端，Hono 后端，PostgreSQL + Drizzle 数据层，Better Auth 登录与组织权限，Python LiveKit Agents 语音面试，以及 Mastra 驱动的面试总结/结构化评价工作流。
 - 后端是 Hono，认证使用 Better Auth `genericOAuth`；飞书 OAuth 使用 v2 token 端点 `https://open.feishu.cn/open-apis/authen/v2/oauth/token`。
 - 当前两个飞书 provider 的用户登录 scope 仍只申请 `contact:user.base:readonly` 和 `contact:user.email:readonly`；文档生成使用应用身份的 `tenant_access_token`，因此不需要把 Docx 权限加入用户登录 scope。飞书开发者后台仍须为应用身份开通并发布相应权限。
-- OAuth 返回的 `access_token`、`refresh_token`、各自过期时间与 `scope` 已映射给 Better Auth；数据库 `account` 表也有对应列。见 `apps/ai-recruitment-copilot-backend/src/lib/server/auth.ts` 与 `packages/db-schema/src/schema.ts`。
+- OAuth 返回的 `access_token`、`refresh_token`、各自过期时间与 `scope` 已映射给 Better Auth；数据库 `account` 表也有对应列。见 `apps/server/src/lib/server/auth.ts` 与 `packages/db-schema/src/schema.ts`。
 - 项目已将自建应用 `tenant_access_token` 的获取和内存缓存提取为共享服务，并实现 Docx 创建、块写入、协作者授权及限频重试。
 - 项目已有明确的最佳接入点：`runSummaryJob()` 在 Mastra 工作流生成 `transcriptSummary` 和 `evaluationCriteriaResults` 后，把 `interviewConversation.summaryStatus` 更新为 `ready`，随后调用 `notifyInterviewSummaryReady()` 发送现有飞书卡片。Docx 导出应从这个“报告 ready”事件分支触发，而不是从 LiveKit 断开或 `/api/agent/report` 刚收到原始转写时触发，否则文档内容可能尚未生成。
 - 现成报告字段已经覆盖候选人、岗位、开始/结束时间、面试摘要、总分、整体评价、推荐结论、逐题评分、逐题评价、候选人原话证据，以及可选完整转写，足够组成一份结构化飞书文档。

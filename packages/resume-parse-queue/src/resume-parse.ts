@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
 import type { ConnectionOptions, JobsOptions, JobState, JobType } from "bullmq";
 import { z } from "zod";
+import { loadNewestQueueJobsPage, sortQueueJobsNewestFirst } from "./queue-order";
 
 export const RESUME_PARSE_QUEUE_NAME = "resume-parse";
 export const RESUME_PARSE_QUEUE_DISPLAY_NAME = "简历解析";
@@ -30,7 +31,13 @@ export const resumeParseJobSchema = z.object({
 });
 
 export type ResumeParseJobData = z.infer<typeof resumeParseJobSchema>;
-export type ResumeParseJobProcessor = (payload: ResumeParseJobData) => Promise<void>;
+export interface ResumeParseJobContext {
+  hasAttemptsRemaining: boolean;
+}
+export type ResumeParseJobProcessor = (
+  payload: ResumeParseJobData,
+  context: ResumeParseJobContext,
+) => Promise<void>;
 type ResumeParseCountState = (typeof RESUME_PARSE_COUNT_TYPES)[number];
 export type ResumeParseJobListState = "all" | ResumeParseCountState;
 
@@ -89,7 +96,7 @@ export interface ResumeParseQueueJobsResult {
   totalPages: number;
 }
 
-const DEFAULT_ATTEMPTS = 3;
+const DEFAULT_ATTEMPTS = 2;
 const DEFAULT_BACKOFF_MS = 30_000;
 const DEFAULT_CONCURRENCY = 9;
 
@@ -200,6 +207,13 @@ export function defaultResumeParseJobOptions(env: NodeJS.ProcessEnv = process.en
   };
 }
 
+export function hasResumeParseAttemptsRemaining(
+  attemptsMade: number,
+  maxAttempts: number | undefined,
+): boolean {
+  return attemptsMade + 1 < (maxAttempts ?? 1);
+}
+
 export function buildResumeParseJobId(itemId: string): string {
   return itemId.replaceAll(":", "-");
 }
@@ -294,7 +308,7 @@ export function getResumeParseQueueStats() {
   return q.getJobCounts("waiting", "active", "delayed", "failed", "completed", "paused");
 }
 
-function emptyCounts(): ResumeParseQueueCounts {
+function emptyCounts() {
   return {
     active: 0,
     completed: 0,
@@ -441,9 +455,12 @@ export async function listResumeParseQueueJobs({
   }
 
   const total = getCountTotal(counts, state);
-  const start = (normalizedPage - 1) * normalizedPageSize;
-  const end = start + normalizedPageSize - 1;
-  const jobs = await q.getJobs(stateToJobTypes(state), start, end, false);
+  const jobs = await loadNewestQueueJobsPage(
+    q,
+    stateToJobTypes(state),
+    normalizedPage,
+    normalizedPageSize,
+  );
   const serializedJobs = await Promise.all(jobs.map((job) => serializeJob(job)));
   const records = serializedJobs.filter((job): job is ResumeParseQueueJobRecord => job !== null);
 
@@ -455,6 +472,35 @@ export async function listResumeParseQueueJobs({
     total,
     totalPages: Math.max(1, Math.ceil(total / normalizedPageSize)),
   };
+}
+
+export async function listAllResumeParseQueueJobs({
+  search,
+  state,
+}: {
+  search?: string;
+  state: ResumeParseJobListState;
+}): Promise<ResumeParseQueueJobRecord[]> {
+  if (!isResumeParseQueueConfigured()) {
+    return [];
+  }
+
+  const q = getResumeParseQueue();
+  if (search?.trim()) {
+    const job = await q.getJob(buildResumeParseJobId(search.trim()));
+    const record = await serializeJob(job);
+    return record && (state === "all" || record.state === state) ? [record] : [];
+  }
+
+  const jobs = sortQueueJobsNewestFirst(await q.getJobs(stateToJobTypes(state), 0, -1, false));
+  const records: ResumeParseQueueJobRecord[] = [];
+  for (let offset = 0; offset < jobs.length; offset += 100) {
+    const batch = await Promise.all(
+      jobs.slice(offset, offset + 100).map((job) => serializeJob(job)),
+    );
+    records.push(...batch.filter((record): record is ResumeParseQueueJobRecord => record !== null));
+  }
+  return records;
 }
 
 export async function getResumeParseQueueJobsByItemIds(
@@ -485,7 +531,9 @@ export function createResumeParseWorker(
     RESUME_PARSE_QUEUE_NAME,
     async (job) => {
       const payload = resumeParseJobSchema.parse(job.data);
-      await processJob(payload);
+      await processJob(payload, {
+        hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+      });
     },
     {
       concurrency: resolveResumeParseWorkerConcurrency(),

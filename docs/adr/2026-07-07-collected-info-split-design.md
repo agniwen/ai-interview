@@ -23,8 +23,8 @@ AI 面试详情结果页(`overview` tab)有一个「候选人收集信息」区�
 
 全部集中在**单个组件文件 + 其守卫测试**,无 schema、无后端、无其他文件:
 
-- `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx`
-- `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.test.ts`
+- `apps/web/src/components/features/studio/studio-person-detail-panel.tsx`
+- `apps/web/src/components/features/studio/studio-person-detail-panel.test.ts`
 
 所有相关符号(`getCollectedCandidateInfoItems`、`collectedCandidateInfoItems`、`CollectedCandidateInfoList`)的引用均锁在该组件文件内,无跨文件消费。
 
@@ -117,8 +117,8 @@ const { formItems, interviewItems } = getCollectedCandidateInfoItems({
 
 ## 验证标准
 
-1. `pnpm --filter @arc/ai-recruitment-copilot test` 通过(更新后的守卫测试)
-2. `pnpm --filter @arc/ai-recruitment-copilot typecheck` 通过
+1. `pnpm --filter @app/web test` 通过(更新后的守卫测试)
+2. `pnpm --filter @app/web typecheck` 通过
 3. 手工验证:
    - 桌面端两栏左右并排,移动端上下堆叠
    - 每栏序号各自从 1 开始

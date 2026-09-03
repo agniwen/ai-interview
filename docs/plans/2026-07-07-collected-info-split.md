@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 改动仅限 `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx` 与同目录 `studio-person-detail-panel.test.ts`,不碰其他文件。
+- 改动仅限 `apps/web/src/components/features/studio/studio-person-detail-panel.tsx` 与同目录 `studio-person-detail-panel.test.ts`,不碰其他文件。
 - `<h3 className="font-medium text-sm">候选人收集信息</h3>` 的 className **保持逐字不变**(守卫测试 `:66` 依赖精确字符串)。
 - section 外层 `xl:col-span-2` 保留(守卫测试 `:68` 依赖)。
 - 栏内顺序沿用现状:表单栏按 `formSubmissions` → 每份 `snapshot.questions`;面试栏按 `evaluation.questions` 数组顺序。不引入新排序。
@@ -23,13 +23,13 @@
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx`
+- Modify: `apps/web/src/components/features/studio/studio-person-detail-panel.tsx`
   - 接口 `CollectedCandidateInfoItem`(约 `:254-263`)
   - builder `getCollectedCandidateInfoItems`(约 `:306-369`)
   - 展示组件 `CollectedCandidateInfoList`(约 `:371-447`)
   - 调用处(约 `:1602-1605`)
   - section JSX(约 `:2037-2054`)
-- Test: `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.test.ts`(断言 `:72`、`:91`、`:97`)
+- Test: `apps/web/src/components/features/studio/studio-person-detail-panel.test.ts`(断言 `:72`、`:91`、`:97`)
 
 **Interfaces:**
 
@@ -112,7 +112,7 @@ expect(collectedSource).toContain('emptyLabel="暂无面试题"');
 
 - [ ] **Step 2: 运行测试,确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot test studio-person-detail-panel`
+Run: `pnpm --filter @app/web test studio-person-detail-panel`
 Expected: FAIL — 新断言在旧源码里找不到(如 `items={formItems}`、`sequence: formItems.length + 1`、`emptyLabel` 均不存在),原 `.tsx` 仍是旧的合并列表结构。
 
 - [ ] **Step 3: 移除接口的 `sourceLabel` 字段**
@@ -329,7 +329,7 @@ section(约 `:2037-2054`)原:
 
 - [ ] **Step 8: 定向运行守卫测试,确认转绿**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot test studio-person-detail-panel`
+Run: `pnpm --filter @app/web test studio-person-detail-panel`
 Expected: PASS — Step 1 的新断言全部命中(`items={formItems}`、`items={interviewItems}`、两个 `sequence:` 表达式、`emptyLabel`,以及四条负向断言),且保留的断言(`xl:col-span-2`、`<CollectedCandidateInfoList`、`{item.sequence}.`、`问题`/`AI 分析` 顺序、tooltip/clamp、`function getCollectedCandidateInfoItems` 等)仍绿。此定向跑仅为快速反馈。
 
 - [ ] **Step 9: 格式化(仅限本次改动的两个文件)**
@@ -338,24 +338,24 @@ Expected: PASS — Step 1 的新断言全部命中(`items={formItems}`、`items=
 
 用仓库已安装的锁定版本(`pnpm exec`,非 `dlx` 临时下载,避免与 CI/团队版本漂移):
 
-Run: `pnpm exec ultracite fix apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.test.ts`
+Run: `pnpm exec ultracite fix apps/web/src/components/features/studio/studio-person-detail-panel.tsx apps/web/src/components/features/studio/studio-person-detail-panel.test.ts`
 Expected: 两个文件通过格式化(无报错;如有自动改动,后续步骤会重跑验证闭环)。
 
 - [ ] **Step 10: 运行完整包测试(对齐 spec 验证标准)**
 
 格式化后重跑完整测试套件,确保未被格式化破坏、且不遗漏同包内受影响的用例:
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot test`
+Run: `pnpm --filter @app/web test`
 Expected: PASS — 全部用例通过(spec 验证标准 1)。
 
 - [ ] **Step 11: 类型检查**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot typecheck`
+Run: `pnpm --filter @app/web typecheck`
 Expected: PASS — builder 新返回类型与调用处解构一致;`CollectedCandidateInfoList` 的 `emptyLabel` 必填 prop 在两处调用均已提供;移除 `sourceLabel` 后无残留引用(spec 验证标准 2)。
 
 - [ ] **Step 12: 手工验证(spec 验证标准 3)**
 
-启动 dev 服务器(`pnpm --filter @arc/ai-recruitment-copilot dev`),按终端打印的本地 URL 打开(TanStack Start dev 默认 `http://localhost:3000`),进入某候选人 AI 面试详情的 `overview` tab;验证完成后在该终端 `Ctrl-C` 结束进程。
+启动 dev 服务器(`pnpm --filter @app/web dev`),按终端打印的本地 URL 打开(TanStack Start dev 默认 `http://localhost:3000`),进入某候选人 AI 面试详情的 `overview` tab;验证完成后在该终端 `Ctrl-C` 结束进程。
 
 如何构造四种数据状态(用现有候选人数据挑选,不改库):
 
@@ -381,7 +381,7 @@ Expected: PASS — builder 新返回类型与调用处解构一致;`CollectedCan
 
 ```bash
 git status --short
-git add apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.test.ts
+git add apps/web/src/components/features/studio/studio-person-detail-panel.tsx apps/web/src/components/features/studio/studio-person-detail-panel.test.ts
 git commit -m "feat(studio): 候选人收集信息按表单/面试题分区展示"
 ```
 
