@@ -34,6 +34,7 @@ import {
 import { generateInterviewQuestionTemplateFromPrompt } from "./utils/ai-interview-questions-generate";
 import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "./dao/refresh-eligible";
 import { compileFollowUpContractsWithDefaults } from "./application/default-compile-follow-up-contracts";
+import { questionsRequiringFollowUpContracts } from "./application/compile-follow-up-contracts";
 
 const generateTemplateQuestionsBodySchema = z.object({
   interviewRecordId: z.string().trim().min(1).optional(),
@@ -105,7 +106,9 @@ async function resolveQuestionContracts(
 ): Promise<Map<string, InterviewQuestionFollowUpContract>> {
   const previousById = new Map(previousQuestions.map((question) => [question.id, question]));
   const contracts = new Map<string, InterviewQuestionFollowUpContract>();
-  const changedQuestions = toSnapshotQuestions(questions).filter((question) => {
+  const changedQuestions = questionsRequiringFollowUpContracts(
+    toSnapshotQuestions(questions),
+  ).filter((question) => {
     const previous = previousById.get(question.id);
     if (!previous || !questionContractCanBeReused(previous, question)) {
       return true;

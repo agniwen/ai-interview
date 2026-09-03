@@ -41,6 +41,15 @@ const PROMPT = `你是可配置 AI 面试题的追问契约编译器。请把每
 输入 JSON：
 {questions}`;
 
+export function questionsRequiringFollowUpContracts<
+  TQuestion extends InterviewQuestionTemplateSnapshotQuestion,
+>(questions: TQuestion[]): TQuestion[] {
+  return questions.filter(
+    (question) =>
+      Boolean(question.evaluationFocus?.trim()) || Boolean(question.followUpDirections?.trim()),
+  );
+}
+
 function sourceValue(
   question: InterviewQuestionTemplateSnapshotQuestion,
   field: z.infer<typeof compiledFacetSchema>["sourceField"],

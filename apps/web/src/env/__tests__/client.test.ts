@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createClientEnv } from "../client.schema";
+import { createClientEnv, withClientDevelopmentDefaults } from "../client.schema";
 import { expectEnvValidationToThrow } from "./expect-env-validation-throw";
 
 const configuredEnv = {
@@ -51,6 +51,22 @@ describe("client env", () => {
     });
 
     expect(env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS).toBe(true);
+  });
+
+  it("enables interview developer details by default during development", () => {
+    const developmentEnv = createClientEnv(withClientDevelopmentDefaults(configuredEnv, true));
+    const explicitlyDisabledEnv = createClientEnv(
+      withClientDevelopmentDefaults(
+        {
+          ...configuredEnv,
+          NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS: "false",
+        },
+        true,
+      ),
+    );
+
+    expect(developmentEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS).toBe(true);
+    expect(explicitlyDisabledEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS).toBe(false);
   });
 
   it("allows disabling the app watermark from public env", () => {

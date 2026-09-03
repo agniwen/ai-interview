@@ -8,6 +8,7 @@ import {
 import { loadInterviewQuestionTemplateById } from "../server/routes/studio/routes/interview-questions/dao/queries";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "../server/routes/studio/routes/interview-questions/dao/versions";
 import { compileFollowUpContractsWithDefaults } from "../server/routes/studio/routes/interview-questions/application/default-compile-follow-up-contracts";
+import { questionsRequiringFollowUpContracts } from "../server/routes/studio/routes/interview-questions/application/compile-follow-up-contracts";
 import { hashTemplateSourceSnapshot } from "../lib/server/interview-question-templates-hash";
 import type {
   InterviewQuestionTemplateSnapshot,
@@ -63,24 +64,31 @@ async function main() {
       id: question.id,
       sortOrder: question.sortOrder,
     }));
+    const eligibleQuestions = questionsRequiringFollowUpContracts(questions);
+    const eligibleQuestionIds = new Set(eligibleQuestions.map((question) => question.id));
     const reusableContracts = new Map(
       record.questions.flatMap((question) =>
-        question.followUpContract ? [[question.id, question.followUpContract] as const] : [],
+        question.followUpContract && eligibleQuestionIds.has(question.id)
+          ? [[question.id, question.followUpContract] as const]
+          : [],
       ),
     );
     const needsCompilation = force
-      ? questions
-      : questions.filter((question) => !reusableContracts.has(question.id));
+      ? eligibleQuestions
+      : eligibleQuestions.filter((question) => !reusableContracts.has(question.id));
+    const hasIneligibleContract = record.questions.some(
+      (question) => question.followUpContract && !eligibleQuestionIds.has(question.id),
+    );
     if (force) {
       reusableContracts.clear();
     }
-    if (needsCompilation.length === 0) {
+    if (needsCompilation.length === 0 && !hasIneligibleContract && !force) {
       console.log(`skip ${template.id} ${template.title}: ${questions.length} questions ready`);
       continue;
     }
 
     console.log(
-      `${apply ? "apply" : "dry-run"} ${template.id} ${template.title}: compile ${needsCompilation.length}/${questions.length}`,
+      `${apply ? "apply" : "dry-run"} ${template.id} ${template.title}: compile ${needsCompilation.length}/${eligibleQuestions.length}`,
     );
     if (!apply) {
       compiledTemplates += 1;

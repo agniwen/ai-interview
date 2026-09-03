@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   compileFollowUpContracts,
   normalizeCompiledFollowUpContracts,
+  questionsRequiringFollowUpContracts,
 } from "./compile-follow-up-contracts";
 
 const questions = [
@@ -16,6 +17,26 @@ const questions = [
 ];
 
 describe("compileFollowUpContracts", () => {
+  it("selects questions that configure evaluation focus or follow-up directions", () => {
+    expect(
+      questionsRequiringFollowUpContracts([
+        questions[0],
+        {
+          ...questions[0],
+          evaluationFocus: "只配置考核点",
+          followUpDirections: "   ",
+          id: "question-with-evaluation-focus",
+        },
+        {
+          ...questions[0],
+          evaluationFocus: null,
+          followUpDirections: null,
+          id: "question-without-contract-config",
+        },
+      ]).map((question) => question.id),
+    ).toEqual(["question-1", "question-with-evaluation-focus"]);
+  });
+
   it("compiles configurable question text into grounded dynamic facets", async () => {
     const generate = vi.fn().mockResolvedValue({
       contracts: [

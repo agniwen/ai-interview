@@ -30,7 +30,7 @@ export function FollowUpContractHoverCard({
             type="button"
             variant="ghost"
           >
-            <IconInfoCircle />
+            <IconInfoCircle data-icon="icon-only" />
           </Button>
         }
       />

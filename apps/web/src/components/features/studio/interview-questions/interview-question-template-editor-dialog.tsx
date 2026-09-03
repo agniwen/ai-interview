@@ -84,6 +84,7 @@ export function InterviewQuestionTemplateEditorDialog({
   record,
   jobDescriptions,
   onSaved,
+  showDeveloperDetails = env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
   slug,
 }: {
   initialDraft?: InterviewQuestionTemplateInput | null;
@@ -92,6 +93,7 @@ export function InterviewQuestionTemplateEditorDialog({
   record: InterviewQuestionTemplateRecord | null;
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
+  showDeveloperDetails?: boolean;
   slug: string;
 }) {
   const isEdit = record !== null;
@@ -334,16 +336,18 @@ export function InterviewQuestionTemplateEditorDialog({
               })}
               form={form}
               renderHeaderAccessory={(question, index) => {
+                const savedQuestion = record?.questions.find(
+                  (recordQuestion) => recordQuestion.id === question.id,
+                );
                 if (
-                  !env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ||
-                  !record ||
-                  !question.id
+                  !showDeveloperDetails ||
+                  !question.id ||
+                  (!savedQuestion?.evaluationFocus?.trim() &&
+                    !savedQuestion?.followUpDirections?.trim())
                 ) {
                   return null;
                 }
-                const contract = record.questions.find(
-                  (recordQuestion) => recordQuestion.id === question.id,
-                )?.followUpContract;
+                const contract = savedQuestion.followUpContract;
                 return contract ? (
                   <FollowUpContractHoverCard contract={contract} questionNumber={index + 1} />
                 ) : null;
