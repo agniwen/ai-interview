@@ -130,6 +130,19 @@ describe("InterviewQuestionTemplateEditorDialog", () => {
     roots.push(root);
 
     expect(document.body.textContent).toContain("创建沟通题");
+    const questionTextareas = [
+      document.querySelector('textarea[placeholder="请输入一道必问题目…"]'),
+      document.querySelector("#questions-0-evaluationFocus"),
+      document.querySelector("#questions-0-followUpDirections"),
+    ];
+    for (const textarea of questionTextareas) {
+      expect(textarea).toBeInstanceOf(HTMLTextAreaElement);
+      if (!(textarea instanceof HTMLTextAreaElement)) {
+        throw new Error("expected question textarea");
+      }
+      expect(textarea.parentElement?.className).toContain("has-focus-visible:shadow-");
+      expect(textarea.parentElement?.className).not.toContain("focus-within:border-ring");
+    }
   });
 
   it("shows a visible validation message when all questions are removed", async () => {

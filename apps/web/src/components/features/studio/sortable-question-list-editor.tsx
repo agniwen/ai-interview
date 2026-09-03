@@ -2,6 +2,7 @@
 
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { cossFieldFocusClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
 import {
   Select,
@@ -301,8 +302,9 @@ function QuestionListBody({
                         <div data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}>
                           <div
                             className={cn(
-                              "relative rounded-md border border-transparent transition-colors",
-                              "group-hover:border-border hover:border-border focus-within:border-ring",
+                              "relative rounded-md border border-transparent transition-[border-color,box-shadow]",
+                              "group-hover:border-border hover:border-border",
+                              cossFieldFocusClass,
                               "has-[textarea:disabled]:hover:border-transparent",
                               errors?.length && "border-destructive hover:border-destructive",
                             )}
@@ -348,9 +350,9 @@ function QuestionListBody({
                             </label>
                             <div
                               className={cn(
-                                "relative rounded-md border border-border bg-background/50 transition-colors focus-within:border-ring",
-                                errors?.length &&
-                                  "border-destructive focus-within:border-destructive",
+                                "relative rounded-md border border-border bg-background/50 transition-[border-color,box-shadow]",
+                                cossFieldFocusClass,
+                                errors?.length && "border-destructive",
                               )}
                             >
                               <TextareaControl
@@ -392,9 +394,9 @@ function QuestionListBody({
                             </label>
                             <div
                               className={cn(
-                                "relative rounded-md border border-border bg-background/50 transition-colors focus-within:border-ring",
-                                errors?.length &&
-                                  "border-destructive focus-within:border-destructive",
+                                "relative rounded-md border border-border bg-background/50 transition-[border-color,box-shadow]",
+                                cossFieldFocusClass,
+                                errors?.length && "border-destructive",
                               )}
                             >
                               <TextareaControl
