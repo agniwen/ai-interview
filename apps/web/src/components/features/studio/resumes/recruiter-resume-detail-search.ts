@@ -24,14 +24,31 @@ function firstSearchValue(value: RecruiterResumeDetailSearch[string]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+export function resolveHumanInterviewReviewRoundId(
+  search: Partial<RecruiterResumeDetailSearch>,
+): string | null {
+  const result = z.object({ reviewRoundId: z.uuid() }).safeParse(search);
+  return result.success ? result.data.reviewRoundId : null;
+}
+
 export function resolveResumeDetailDefaultTab(
   search: RecruiterResumeDetailSearch,
 ): StudioPersonDetailTab {
+  if (resolveHumanInterviewReviewRoundId(search)) {
+    return "human-interview";
+  }
   const parsedTab = resumeDetailTabSchema.safeParse(firstSearchValue(search.tab));
   return parsedTab.success ? parsedTab.data : "overview";
 }
 
 export function listSearchFromDetailSearch(search: RecruiterResumeDetailSearch) {
-  const { tab: _tab, ...listSearch } = search;
+  const { tab: _tab, reviewRoundId: _reviewRoundId, ...listSearch } = search;
   return listSearch;
+}
+
+export function withoutHumanInterviewReviewSearch<T extends Partial<RecruiterResumeDetailSearch>>(
+  search: T,
+) {
+  const { reviewRoundId: _reviewRoundId, ...rest } = search;
+  return rest;
 }

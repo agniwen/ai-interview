@@ -583,14 +583,13 @@ export async function resolveHumanInterviewMeetingInviteToken(
   };
 }
 
-export async function resolveHumanInterviewMeetingInterviewerInviteToken(
-  inviteToken: string,
-): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
-  const payload = verifyInterviewerInviteToken(inviteToken);
-  if (!payload) {
-    return null;
-  }
-
+export async function loadHumanInterviewMeetingInterviewerScope(payload: {
+  meetingId: string;
+  userId: string;
+  role?: HumanInterviewMeetingInterviewerInviteScope["role"];
+  organizationId?: string;
+  roundId?: string;
+}): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
   const [row] = await db
     .select({
       interviewerName: user.name,
@@ -615,7 +614,10 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       and(
         eq(studioHumanInterviewMeetingInterviewer.meetingId, payload.meetingId),
         eq(studioHumanInterviewMeetingInterviewer.userId, payload.userId),
-        eq(studioHumanInterviewMeetingInterviewer.role, payload.role),
+        payload.role ? eq(studioHumanInterviewMeetingInterviewer.role, payload.role) : undefined,
+        payload.organizationId
+          ? eq(studioHumanInterviewMeeting.organizationId, payload.organizationId)
+          : undefined,
       ),
     )
     .limit(1);
@@ -654,7 +656,13 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
         eq(studioInterview.organizationId, department.organizationId),
       ),
     )
-    .where(eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId))
+    .where(
+      and(
+        eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId),
+        payload.roundId ? eq(studioHumanInterviewRound.id, payload.roundId) : undefined,
+        eq(studioHumanInterviewRound.organizationId, row.organizationId),
+      ),
+    )
     .orderBy(asc(studioHumanInterviewRound.sortOrder));
   const [context] = contexts;
   if (!context) {
@@ -681,6 +689,13 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
     userId: row.userId,
     validUntil: serializeDate(row.validUntil),
   };
+}
+
+export function resolveHumanInterviewMeetingInterviewerInviteToken(
+  inviteToken: string,
+): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
+  const payload = verifyInterviewerInviteToken(inviteToken);
+  return payload ? loadHumanInterviewMeetingInterviewerScope(payload) : Promise.resolve(null);
 }
 
 async function loadMeetingIdByRoomName(roomName: string): Promise<string | null> {

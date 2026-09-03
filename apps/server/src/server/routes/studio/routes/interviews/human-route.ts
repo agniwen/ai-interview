@@ -33,6 +33,7 @@ import {
   ResolveHumanInterviewOutcomeError,
 } from "./application/resolve-human-interview-outcome";
 import { createResolveHumanInterviewOutcomeDao } from "./dao/resolve-human-interview-outcome";
+import { studioHumanInterviewReviewRouter } from "./review-route";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
@@ -56,6 +57,7 @@ const cancelHumanRoundSchema = z.object({
 
 export const studioInterviewHumanRouter = factory
   .createApp()
+  .route("/:id/human-interview-rounds/review", studioHumanInterviewReviewRouter)
   .get("/:id/human-interview-rounds", requirePermission("humanInterview", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

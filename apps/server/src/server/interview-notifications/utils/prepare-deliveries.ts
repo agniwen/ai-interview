@@ -405,6 +405,12 @@ async function loadTargets(
   );
 }
 
+export function usesInterviewerMeetingLink(
+  type: InterviewNotificationEventRecord["type"],
+): boolean {
+  return type !== "human_evaluation_summary_ready";
+}
+
 async function payloadForTarget(
   database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
@@ -412,7 +418,10 @@ async function payloadForTarget(
   audienceType: InterviewNotificationAudienceType,
 ): Promise<InterviewNotificationPayloadSnapshot> {
   const interviewerLink =
-    audienceType === "meeting_interviewer" && event.humanMeetingId && target.userId
+    audienceType === "meeting_interviewer" &&
+    usesInterviewerMeetingLink(event.type) &&
+    event.humanMeetingId &&
+    target.userId
       ? await loadInterviewerMeetingLink(database, event.humanMeetingId, target.userId)
       : undefined;
   return {

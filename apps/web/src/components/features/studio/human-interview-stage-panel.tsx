@@ -4,6 +4,7 @@
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useReducer } from "react";
 import { toast } from "sonner";
@@ -15,7 +16,6 @@ import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
   isApiError,
-  issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   listHumanInterviewRounds,
 } from "@/lib/client/api";
@@ -25,8 +25,11 @@ import {
   invalidateHumanInterviewWorkspaceQueries,
 } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/client/auth-client";
-import { toAbsoluteUrl } from "@/lib/client/clipboard";
+import {
+  resolveHumanInterviewReviewRoundId,
+  withoutHumanInterviewReviewSearch,
+} from "./resumes/recruiter-resume-detail-search";
+import { HumanInterviewReviewDialog } from "./human-interview-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -116,7 +119,8 @@ export function HumanInterviewStagePanel({
   disabled,
 }: PanelProps) {
   const slug = useWorkspaceSlug();
-  const { data: session } = authClient.useSession();
+  const navigate = useNavigate();
+  const reviewRoundId = useSearch({ select: resolveHumanInterviewReviewRoundId, strict: false });
   const queryClient = useQueryClient();
   const { data: rounds = [], isLoading } = useQuery({
     queryFn: () => listHumanInterviewRounds(slug, candidateId),
@@ -188,29 +192,6 @@ export function HumanInterviewStagePanel({
       invalidateRounds();
     },
   });
-  const reviewMeetingMutation = useMutation({
-    mutationFn: async (meetingId: string) => {
-      const userId = session?.user.id;
-      if (!userId) {
-        throw new Error("登录状态已失效，请刷新后重试");
-      }
-      const links = await issueHumanInterviewMeetingLinks(slug, meetingId);
-      const reviewerLink = links.interviewerLinks.find(
-        (link) => link.userId === userId && link.role !== "observer",
-      );
-      if (!reviewerLink) {
-        throw new Error("当前账号不是本轮面试官，无法提交会议评价");
-      }
-      return reviewerLink.url;
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "进入会议评价失败");
-    },
-    onSuccess: (url) => {
-      window.location.assign(toAbsoluteUrl(url));
-    },
-  });
-
   let roundsContent: ReactNode;
   if (isLoading) {
     roundsContent = (
@@ -260,7 +241,18 @@ export function HumanInterviewStagePanel({
               onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
               onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
               onRescheduled={invalidateRescheduledMeeting}
-              onReview={(item) => reviewMeetingMutation.mutate(item.id)}
+              onReview={() =>
+                navigate({
+                  replace: true,
+                  resetScroll: false,
+                  search: (previous) => ({
+                    ...previous,
+                    reviewRoundId: round.id,
+                    tab: "human-interview",
+                  }),
+                  to: ".",
+                })
+              }
               round={round}
               roundNumber={businessRoundNumbers.get(round.id) ?? 2}
               slug={slug}
@@ -299,6 +291,25 @@ export function HumanInterviewStagePanel({
         </div>
       )}
 
+      {reviewRoundId ? (
+        <HumanInterviewReviewDialog
+          key={`${candidateId}:${reviewRoundId}`}
+          slug={slug}
+          candidateId={candidateId}
+          candidateName={candidateName}
+          roundId={reviewRoundId}
+          roundLabel={rounds.find((round) => round.id === reviewRoundId)?.label}
+          onSaved={invalidateRounds}
+          onClose={() =>
+            navigate({
+              replace: true,
+              resetScroll: false,
+              search: withoutHumanInterviewReviewSearch,
+              to: ".",
+            })
+          }
+        />
+      ) : null}
       <ScheduleRoundDialog
         candidateId={candidateId}
         candidateName={candidateName}

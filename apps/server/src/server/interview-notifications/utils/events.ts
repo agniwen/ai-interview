@@ -1,5 +1,6 @@
 /* oxlint-disable max-lines -- Notification event builders share one audited transactional boundary. */
 import type { Transaction } from "../dao";
+import { humanInterviewReviewPath } from "@app/shared/human-interview-review-link";
 import { enqueueInterviewNotificationEvent } from "../dao";
 import { prepareInterviewNotificationDeliveries } from "./prepare-deliveries";
 import {
@@ -553,6 +554,15 @@ export function resolveHumanMeetingEventInterviewLink(input: {
   organizationSlug: string;
   type: HumanMeetingEventInput["type"];
 }): string | undefined {
+  if (input.type === "human_evaluation_summary_ready") {
+    return absoluteAppUrl(
+      humanInterviewReviewPath({
+        candidateId: input.interviewRecordId,
+        roundId: input.humanRoundId,
+        slug: input.organizationSlug,
+      }),
+    );
+  }
   if (input.type === "human_interview_completed") {
     return humanInterviewRecordUrl(input.interviewRecordId, input.organizationSlug);
   }
