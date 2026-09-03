@@ -66,6 +66,31 @@ describe("compileFollowUpContracts", () => {
     expect(generate).toHaveBeenCalledOnce();
   });
 
+  it("gives the model adapter semantic validation for retry feedback", async () => {
+    const validOutput = {
+      contracts: [
+        {
+          coverageMode: "all_required" as const,
+          facets: [{ label: "岗位", sourceField: "question" as const, sourceText: "岗位" }],
+          questionId: "question-1",
+        },
+      ],
+    };
+    const generate = vi.fn().mockImplementation((input) => {
+      expect(input.validate).toBeTypeOf("function");
+      expect(() =>
+        input.validate?.({
+          ...validOutput,
+          contracts: [{ ...validOutput.contracts[0], questionId: "unknown-question" }],
+        }),
+      ).toThrow("未知或重复题目");
+      expect(() => input.validate?.(validOutput)).not.toThrow();
+      return Promise.resolve(validOutput);
+    });
+
+    await expect(compileFollowUpContracts(questions, generate)).resolves.toHaveProperty("size", 1);
+  });
+
   it("keeps semantic decomposition with the compiler instead of parsing Chinese in code", () => {
     const result = normalizeCompiledFollowUpContracts(
       [

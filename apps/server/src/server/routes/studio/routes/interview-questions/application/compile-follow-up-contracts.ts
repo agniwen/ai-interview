@@ -25,6 +25,7 @@ type CompilerOutput = z.infer<typeof compilerOutputSchema>;
 export type FollowUpContractGenerator = (input: {
   prompt: string;
   schema: typeof compilerOutputSchema;
+  validate?: (value: CompilerOutput) => void;
 }) => Promise<CompilerOutput>;
 
 const PROMPT = `你是可配置 AI 面试题的追问契约编译器。请把每道题编译成简短、可核验的信息项，供语音 Agent 判断候选人还缺少哪些信息。
@@ -126,6 +127,9 @@ export async function compileFollowUpContracts(
   const output = await generate({
     prompt: PROMPT.replace("{questions}", JSON.stringify(compilerInput)),
     schema: compilerOutputSchema,
+    validate: (value) => {
+      normalizeCompiledFollowUpContracts(questions, value);
+    },
   });
   return normalizeCompiledFollowUpContracts(questions, output);
 }
