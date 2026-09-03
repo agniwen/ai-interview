@@ -16,6 +16,7 @@ import { MeetingRecordingProvider } from "@/components/features/meeting/meeting-
 import { AppearanceSettingsPage } from "@/components/features/settings/appearance-settings-page";
 import { GeneralSettingsPage } from "@/components/features/settings/general-settings-page";
 import { SettingsLayout } from "@/components/features/settings/settings-layout";
+import { TranscriptionProviderSettingsPage } from "@/components/features/settings/transcription-provider-settings-page";
 import { AppErrorFallback } from "@/components/layout/app-error-fallback";
 import { AppShell } from "@/components/layout/app-shell";
 import { hardReloadToHome } from "@/lib/client/hard-reload-home";
@@ -214,6 +215,18 @@ const settingsAppearanceRoute = createRoute({
   path: "/settings/appearance",
 });
 
+const settingsTranscriptionRoute = createRoute({
+  component: function TranscriptionSettingsRoutePage() {
+    return (
+      <SettingsLayout>
+        <TranscriptionProviderSettingsPage />
+      </SettingsLayout>
+    );
+  },
+  getParentRoute: () => appRoute,
+  path: "/settings/transcription",
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   authCallbackRoute,
@@ -228,6 +241,7 @@ const routeTree = rootRoute.addChildren([
     settingsRoute,
     settingsGeneralRoute,
     settingsAppearanceRoute,
+    settingsTranscriptionRoute,
   ]),
 ]);
 

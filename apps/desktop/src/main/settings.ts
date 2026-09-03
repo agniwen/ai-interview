@@ -5,6 +5,7 @@ import { desktopSettingsSchema } from "../preload/orpc-contract";
 import type { DesktopSettings, ThemeMode } from "../preload/orpc-contract";
 
 const DEFAULTS: DesktopSettings = {
+  meetingLiveTranscriptProvider: "qwen",
   notifyOnFinish: false,
   theme: "system",
   transparentBackground: true,
@@ -32,6 +33,8 @@ interface SettingsStartupDependencies {
 
 export function resolveDesktopSettings(settings: Partial<DesktopSettings>): DesktopSettings {
   return {
+    meetingLiveTranscriptProvider:
+      settings.meetingLiveTranscriptProvider ?? DEFAULTS.meetingLiveTranscriptProvider,
     notifyOnFinish: settings.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
     theme: settings.theme ?? DEFAULTS.theme,
     transparentBackground: settings.transparentBackground ?? DEFAULTS.transparentBackground,

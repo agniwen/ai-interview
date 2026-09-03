@@ -60,6 +60,8 @@ export interface LiveTranscriptEvent {
   endMs?: number;
   itemId: string;
   originalText?: string;
+  speakerDisplayName?: string | null;
+  speakerKey?: string;
   startMs?: number;
   text: string;
   type:
@@ -80,6 +82,7 @@ export interface LiveTranscriptDraftDependencies<
   Authorization = MeetingLiveTranscriptAuthorization,
 > {
   authorizationFailureReason?: (error: Error) => "authorization" | "capacity";
+  authorizationFailureMessage?: (error: Error) => string | null;
   authorize: (input: {
     captureId: string;
     hints?: MeetingLiveTranscriptHints;
@@ -631,7 +634,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       sections: [...snapshot.sections, section].slice(-MAX_DRAFT_SECTIONS),
     });
 
-    const interrupt = (reason: string, reconnect = true) => {
+    const interrupt = (reason: string, reconnect = true, errorMessage?: string) => {
       if (runtime.generation !== generation || snapshot.captureId !== captureId) {
         return;
       }
@@ -639,7 +642,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       closeConnection(runtime);
       runtime.queue.clear();
       runtime.status = "interrupted";
-      publish({ error: publicError(reason) });
+      publish({ error: errorMessage ?? publicError(reason) });
       if (reconnect && !runtime.cancelReconnect) {
         runtime.cancelReconnect = scheduleTrackReconnect(runtime, async () => {
           await connectTrack(track, true);
@@ -711,6 +714,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       interrupt(
         dependencies.authorizationFailureReason?.(connectionError) ?? "authorization",
         dependencies.shouldReconnect?.(connectionError) ?? true,
+        dependencies.authorizationFailureMessage?.(connectionError) ?? undefined,
       );
     }
   };

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +9,8 @@ import type {
 } from "@/lib/meeting-capture/live-transcript-draft";
 import { cn } from "@app/shared/utils";
 import { playTranscriptCorrectionSweep } from "./live-transcript-correction-sweep";
-import { MeetingSpeakerLabel } from "./meeting-speaker";
+import { createMeetingSpeakerProfiles, MeetingSpeakerLabel } from "./meeting-speaker";
+import type { MeetingSpeakerProfile } from "./meeting-speaker";
 
 const STATUS_LABEL = {
   buffering: "延迟",
@@ -45,9 +46,11 @@ function statusIcon(status: Exclude<LiveTranscriptDraftStatus, "idle">): string 
 function TranscriptTurn({
   turn,
   playCorrectionSweep,
+  speakerProfile,
 }: {
   turn: LiveTranscriptDraftTurn;
   playCorrectionSweep: typeof playTranscriptCorrectionSweep;
+  speakerProfile?: MeetingSpeakerProfile;
 }) {
   const blockRef = useRef<HTMLElement>(null);
   const gradientId = useId();
@@ -73,7 +76,7 @@ function TranscriptTurn({
       data-live-transcript-turn={turn.id}
       ref={blockRef}
     >
-      <MeetingSpeakerLabel className="not-italic" />
+      <MeetingSpeakerLabel className="not-italic" profile={speakerProfile} />
       <div className="flex items-start gap-2 text-sm leading-relaxed">
         {turn.correcting ? (
           <output
@@ -131,6 +134,10 @@ export function LiveTranscriptDraftPanel({
   playCorrectionSweep?: typeof playTranscriptCorrectionSweep;
 }) {
   const { status } = snapshot;
+  const speakerProfiles = useMemo(
+    () => createMeetingSpeakerProfiles(snapshot.turns, snapshot.captureId ?? "live-transcript"),
+    [snapshot.captureId, snapshot.turns],
+  );
   const viewportRef = useRef<HTMLDivElement>(null);
   const shouldFollowRef = useRef(true);
 
@@ -170,7 +177,12 @@ export function LiveTranscriptDraftPanel({
     return (
       <div aria-live="polite" className={cn("grid select-text", className)}>
         {snapshot.turns.map((turn) => (
-          <TranscriptTurn key={turn.id} playCorrectionSweep={playCorrectionSweep} turn={turn} />
+          <TranscriptTurn
+            key={turn.id}
+            playCorrectionSweep={playCorrectionSweep}
+            speakerProfile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
+            turn={turn}
+          />
         ))}
         {droppedWarning}
       </div>
@@ -241,7 +253,12 @@ export function LiveTranscriptDraftPanel({
         {snapshot.turns.length > 0 ? (
           <LiveTranscriptScrollContent className="grid select-text" aria-live="polite">
             {snapshot.turns.map((turn) => (
-              <TranscriptTurn key={turn.id} playCorrectionSweep={playCorrectionSweep} turn={turn} />
+              <TranscriptTurn
+                key={turn.id}
+                playCorrectionSweep={playCorrectionSweep}
+                speakerProfile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
+                turn={turn}
+              />
             ))}
             {droppedWarning}
           </LiveTranscriptScrollContent>

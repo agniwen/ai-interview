@@ -8,6 +8,7 @@
     "./browser": "./src/browser.ts",
     "./draft": "./src/live-transcript-draft.ts",
     "./hints": "./src/meeting-live-transcript-hints.ts",
+    "./provider-authorizations": "./src/provider-authorizations.ts",
     "./qwen-events": "./src/qwen-events.ts",
     "./server": "./src/server.ts"
   },

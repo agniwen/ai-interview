@@ -17,7 +17,7 @@ import {
 const settingsSections: {
   icon: AppIconName;
   title: string;
-  to: "/settings/appearance" | "/settings/general";
+  to: "/settings/appearance" | "/settings/general" | "/settings/transcription";
 }[] = [
   {
     icon: "ph:gear",
@@ -28,6 +28,11 @@ const settingsSections: {
     icon: "ph:monitor",
     title: "外观",
     to: "/settings/appearance",
+  },
+  {
+    icon: "ph:waveform",
+    title: "实时转录",
+    to: "/settings/transcription",
   },
 ];
 

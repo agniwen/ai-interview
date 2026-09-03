@@ -749,8 +749,10 @@ describe("Live Transcript Draft", () => {
 
   it("does not retry terminal authorization failures", async () => {
     const scheduled: (() => void)[] = [];
+    const providerMessage = "Deepgram API Key 权限不足；临时 JWT 需要 Member 或更高权限";
     const draft = createLiveTranscriptDraft({
-      authorize: () => Promise.reject(new Error("provider disabled")),
+      authorizationFailureMessage: (error) => error.message,
+      authorize: () => Promise.reject(new Error(providerMessage)),
       connect: vi.fn(),
       createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
       scheduleReconnect: (callback) => {
@@ -767,6 +769,7 @@ describe("Live Transcript Draft", () => {
     });
 
     expect(draft.getSnapshot().status).toBe("interrupted");
+    expect(draft.getSnapshot().error).toBe(providerMessage);
     expect(scheduled).toHaveLength(0);
   });
 

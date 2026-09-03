@@ -4,17 +4,17 @@
 
 ## 1. 当前部署
 
-| 项目                   | 当前值                                  |
-| ---------------------- | --------------------------------------- |
-| Web 域名               | `https://interview.chainthink.cn`       |
-| LiveKit 域名           | `wss://interview-livekit.chainthink.cn` |
-| Web 容器               | `ai-tool-demo`，宿主机端口 `3000`       |
-| Worker 容器            | `ai-tool-worker`                        |
-| LiveKit 容器           | `livekit-server`，使用 host 网络        |
-| LiveKit 宿主机配置文件 | `/app/livekit/config.yaml`              |
-| LiveKit 容器内配置文件 | `/etc/livekit/config.yaml`              |
-| 现有 Compose 文件      | `/app/livekit/docker-compose.yaml`      |
-| LiveKit Redis          | `127.0.0.1:6379`，与 LiveKit 同机       |
+| 项目                   | 当前值                                                 |
+| ---------------------- | ------------------------------------------------------ |
+| Web 域名               | `https://interview.chainthink.cn`                      |
+| LiveKit 域名           | `wss://interview-livekit.chainthink.cn`                |
+| Web 容器               | `ai-tool-demo`，宿主机端口 `3000`                      |
+| Worker 容器            | `ai-tool-worker`                                       |
+| LiveKit 容器           | `livekit-server`，使用 host 网络                       |
+| LiveKit 宿主机配置文件 | `/app/livekit/config.yaml`                             |
+| LiveKit 容器内配置文件 | `/etc/livekit/config.yaml`                             |
+| 现有 Compose 文件      | `/app/livekit/docker-compose.yaml`                     |
+| LiveKit Redis          | `127.0.0.1:6379`，与 LiveKit 同机                      |
 | Egress 容器            | `livekit-egress-1`、`livekit-egress-2`，版本 `v1.14.1` |
 
 首次检查时，LiveKit 没有加载 `webhook`，主机也没有 Egress 容器。2026-09-03 17:45 已重启 LiveKit，确认新配置加载成功，真实事件回调返回 200；18:23 两个 Egress 实例启动，录音与存储验证通过。本文时间均为北京时间。
@@ -210,9 +210,9 @@ docker logs --since 10m livekit-server
 
 已在独立测试房间发布两路合成音频，未采集真实麦克风。整场混音与两路独立音轨共 3 个任务同时进入 `EGRESS_ACTIVE`，停止后全部进入 `EGRESS_COMPLETE`，没有录音任务错误。
 
-| 文件 | 时长 | 大小 |
-| --- | --- | --- |
-| 混音 | 8.26 秒 | 135,227 字节 |
+| 文件       | 时长    | 大小         |
+| ---------- | ------- | ------------ |
+| 混音       | 8.26 秒 | 135,227 字节 |
 | 独立音轨 1 | 9.08 秒 | 148,579 字节 |
 | 独立音轨 2 | 9.06 秒 | 148,135 字节 |
 

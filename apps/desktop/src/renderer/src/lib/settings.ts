@@ -34,6 +34,7 @@ function cacheTransparentBackground(enabled: boolean): void {
 }
 
 const FALLBACK: DesktopSettings = {
+  meetingLiveTranscriptProvider: "qwen",
   notifyOnFinish: false,
   theme: "system",
   transparentBackground: readCachedTransparentBackground(),

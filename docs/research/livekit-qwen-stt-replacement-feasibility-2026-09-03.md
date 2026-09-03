@@ -142,11 +142,11 @@ Qwen 自定义 STT 是 Agent 进程到 DashScope 的出站连接，**与 LiveKit
 
 但两者的网络拓扑和凭证运维不同：
 
-| 方案 | Agent 到 Qwen 的路径 | 凭证 | 对国内延迟的判断 |
-| --- | --- | --- | --- |
-| LiveKit Cloud Agent | LiveKit Cloud Agent region → 北京/新加坡 DashScope | `DASHSCOPE_API_KEY` 作为 LiveKit Cloud secret 注入 | 兼容，但当前官方 Agent deployment regions 只有美国东部、德国和印度，没有中国大陆或新加坡；连接北京要跨境，不能仅凭更换 provider 保证低延迟 |
-| 自托管 Agent + LiveKit Cloud SFU | 自选 Agent 机房 → DashScope；媒体仍由 LiveKit Cloud SFU 送到 Agent | 自己的 secret/Kubernetes 管理 | 若 Agent 部署在中国大陆并使用北京专属域名，最有机会缩短 Agent→STT 路径；仍需测量 participant→LiveKit→Agent 的媒体路径 |
-| 自托管 Agent + 自托管 LiveKit | 完全自选媒体和 Agent 地域 → DashScope | 全部自管 | 网络控制最大，但运维成本也最高；不是完成本次 STT 替换的必要条件 |
+| 方案                             | Agent 到 Qwen 的路径                                               | 凭证                                               | 对国内延迟的判断                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| LiveKit Cloud Agent              | LiveKit Cloud Agent region → 北京/新加坡 DashScope                 | `DASHSCOPE_API_KEY` 作为 LiveKit Cloud secret 注入 | 兼容，但当前官方 Agent deployment regions 只有美国东部、德国和印度，没有中国大陆或新加坡；连接北京要跨境，不能仅凭更换 provider 保证低延迟 |
+| 自托管 Agent + LiveKit Cloud SFU | 自选 Agent 机房 → DashScope；媒体仍由 LiveKit Cloud SFU 送到 Agent | 自己的 secret/Kubernetes 管理                      | 若 Agent 部署在中国大陆并使用北京专属域名，最有机会缩短 Agent→STT 路径；仍需测量 participant→LiveKit→Agent 的媒体路径                      |
+| 自托管 Agent + 自托管 LiveKit    | 完全自选媒体和 Agent 地域 → DashScope                              | 全部自管                                           | 网络控制最大，但运维成本也最高；不是完成本次 STT 替换的必要条件                                                                            |
 
 LiveKit 当前列出的 Cloud Agent regions 是 `us-east`、`eu-central`、`ap-south`；实时媒体的 Asia region group 是日本和新加坡，也不包含中国大陆。[LiveKit regions](https://docs.livekit.io/deploy/admin/regions/endpoints/#agent-deployment-regions)。LiveKit Cloud secret 会加密存储并在容器运行时以环境变量注入。[LiveKit secret management](https://docs.livekit.io/deploy/agents/secrets/)
 

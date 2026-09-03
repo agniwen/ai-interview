@@ -78,6 +78,39 @@ export type UpdateMeetingTranscriptionPolicyInput = z.infer<
 export const meetingLiveTranscriptTrackSchema = z.enum(["microphone", "system"]);
 export type MeetingLiveTranscriptTrack = z.infer<typeof meetingLiveTranscriptTrackSchema>;
 
+export const MEETING_LIVE_TRANSCRIPT_PROVIDERS = ["qwen", "deepgram"] as const;
+export const meetingLiveTranscriptProviderSchema = z.enum(MEETING_LIVE_TRANSCRIPT_PROVIDERS);
+export type MeetingLiveTranscriptProviderId = z.infer<typeof meetingLiveTranscriptProviderSchema>;
+
+export interface MeetingLiveTranscriptProviderCapabilities {
+  contextPrompting: boolean;
+  liveCorrection: boolean;
+  speakerDiarization: boolean;
+  vocabulary: boolean;
+  wordTimestamps: boolean;
+}
+
+/** Capabilities currently implemented by Desktop, not every feature sold by each vendor. */
+export const MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES = {
+  deepgram: {
+    contextPrompting: false,
+    liveCorrection: false,
+    speakerDiarization: true,
+    vocabulary: false,
+    wordTimestamps: true,
+  },
+  qwen: {
+    contextPrompting: true,
+    liveCorrection: true,
+    speakerDiarization: false,
+    vocabulary: true,
+    wordTimestamps: true,
+  },
+} as const satisfies Record<
+  MeetingLiveTranscriptProviderId,
+  MeetingLiveTranscriptProviderCapabilities
+>;
+
 const meetingLiveTranscriptDraftSectionSchema = z
   .object({
     id: z.string().min(1).max(256),
@@ -107,6 +140,8 @@ const meetingLiveTranscriptDraftTurnSchema = z
     id: z.string().min(1).max(512),
     originalText: z.string().min(1).max(10_000).optional(),
     sectionId: z.string().min(1).max(256),
+    speakerDisplayName: z.string().trim().min(1).max(128).nullable().optional(),
+    speakerKey: z.string().min(1).max(128).optional(),
     startMs: z.number().int().nonnegative().optional(),
     text: z.string().trim().min(1).max(10_000),
     track: meetingLiveTranscriptTrackSchema,
@@ -198,6 +233,21 @@ export interface MeetingLiveTranscriptAuthorization {
   /** 当前会议的即时热词；普通权重优先，避免超级热词造成近音误召回。 */
   vocabulary?: Record<string, number>;
 }
+
+export const meetingLiveTranscriptAuthorizationSchema = z
+  .object({
+    baseUrl: z.url().optional(),
+    clientSecret: z.string().min(1),
+    context: meetingLiveTranscriptContextSchema.optional(),
+    expiresAt: z.string().datetime({ offset: true }),
+    language: z.string().min(1).max(64).optional(),
+    model: z.string().min(1).max(128),
+    provider: meetingTranscriptionProviderSchema,
+    speechNoiseThreshold: z.number().min(-1).max(1).optional(),
+    track: meetingLiveTranscriptTrackSchema,
+    vocabulary: meetingLiveTranscriptVocabularySchema.optional(),
+  })
+  .strict();
 
 const canonicalTranscriptTurnBaseSchema = z
   .object({
