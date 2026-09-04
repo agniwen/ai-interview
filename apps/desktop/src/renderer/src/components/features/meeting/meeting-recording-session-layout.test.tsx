@@ -18,7 +18,7 @@ describe("MeetingRecordingSessionLayout", () => {
     expect(html).toContain("relative flex h-dvh");
     expect(html).toContain("shrink-0 bg-background");
     expect(html).not.toContain("pb-40");
-    expect(html).toContain("pt-8");
+    expect(html).toContain("padding-top:72px");
     expect(html).not.toContain("calc(100dvh");
     expect(html).not.toContain("pointer-events-none absolute inset-x-0 bottom-0");
     expect(html.indexOf("meeting-session-header")).toBeLessThan(
@@ -27,5 +27,13 @@ describe("MeetingRecordingSessionLayout", () => {
     expect(html.indexOf('data-slot="scroll-area"')).toBeLessThan(
       html.indexOf("meeting-session-action"),
     );
+  });
+
+  it("uses the same top inset before recording when there is no header", () => {
+    const html = renderToStaticMarkup(
+      <MeetingRecordingSessionLayout main={<div>录制前内容</div>} />,
+    );
+
+    expect(html).toContain("padding-top:72px");
   });
 });

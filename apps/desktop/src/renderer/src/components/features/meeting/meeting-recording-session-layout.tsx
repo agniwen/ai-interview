@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
+import { TITLE_BAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@app/shared/utils";
+
+export const MEETING_SESSION_TOP_INSET_PX = TITLE_BAR_HEIGHT_PX + 32;
 
 /**
  * Recording shell: the main stage owns scrolling while the bottom composer stays in normal flow.
@@ -31,16 +34,18 @@ export function MeetingRecordingSessionLayout({
       {overlay}
       {header ? (
         <div
-          className="container mx-auto w-full max-w-3xl shrink-0 px-4 pt-8 pb-3 sm:px-6"
+          className="container mx-auto w-full max-w-3xl shrink-0 px-4 pb-3 sm:px-6"
           data-slot="meeting-session-header"
+          style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
         >
           {header}
         </div>
       ) : null}
       <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade={scrollFade}>
         <div
-          className={cn("box-border h-full min-h-full", !header && "pt-8")}
+          className="box-border h-full min-h-full"
           data-slot="meeting-session-scroll-content"
+          style={{ paddingTop: header ? undefined : MEETING_SESSION_TOP_INSET_PX }}
         >
           {main}
         </div>
