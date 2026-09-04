@@ -18,6 +18,7 @@ import { LaunchInterviewDialog } from "@/components/features/studio/resumes/laun
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
 import { resolveResumeDetailDefaultTab } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
+import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -214,11 +215,13 @@ function RecruiterResumeDetailHeaderText({
 export function RecruiterResumeDetailPage({
   onBack,
   onShowAiInterview,
+  onTabChange,
   recordId,
   routeSearch,
 }: {
   onBack: () => void;
   onShowAiInterview: () => void;
+  onTabChange: (tab: StudioPersonDetailTab) => void;
   recordId: string;
   routeSearch: RecruiterResumeDetailSearch;
 }) {
@@ -329,6 +332,7 @@ export function RecruiterResumeDetailPage({
                   })
               : undefined
           }
+          onTabChange={onTabChange}
           onUpdated={invalidateAll}
           recordId={recordId}
           shell={({ body, description, headerExtra, title }) => (

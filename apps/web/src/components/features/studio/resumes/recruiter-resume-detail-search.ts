@@ -4,6 +4,7 @@ import type { StudioPersonDetailTab } from "@/components/features/studio/studio-
 
 const RESUME_DETAIL_TABS = [
   "overview",
+  "ai-analysis",
   "rounds",
   "human-interview",
   "offer",
@@ -51,4 +52,11 @@ export function withoutHumanInterviewReviewSearch<T extends Partial<RecruiterRes
 ) {
   const { reviewRoundId: _reviewRoundId, ...rest } = search;
   return rest;
+}
+
+export function buildResumeDetailTabSearch(
+  search: RecruiterResumeDetailSearch,
+  tab: StudioPersonDetailTab,
+): RecruiterResumeDetailSearch {
+  return { ...withoutHumanInterviewReviewSearch(search), tab };
 }

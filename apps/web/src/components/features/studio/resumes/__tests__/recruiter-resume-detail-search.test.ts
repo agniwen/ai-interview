@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildResumeDetailTabSearch,
   listSearchFromDetailSearch,
   resolveResumeDetailDefaultTab,
   resumeDetailPageSearchSchema,
@@ -9,6 +10,21 @@ import {
 } from "../recruiter-resume-detail-search";
 
 describe("recruiter resume detail search", () => {
+  it("persists tab changes while preserving list state and closing review state", () => {
+    const roundId = "00000000-0000-4000-8000-000000000002";
+
+    expect(
+      buildResumeDetailTabSearch(
+        { page: 3, reviewRoundId: roundId, search: "候选人", tab: "human-interview" },
+        "offer",
+      ),
+    ).toEqual({ page: 3, search: "候选人", tab: "offer" });
+    expect(buildResumeDetailTabSearch({ page: 3, tab: "rounds" }, "overview")).toEqual({
+      page: 3,
+      tab: "overview",
+    });
+  });
+
   it("opens a valid review round on the human interview tab and clears only its modal state", () => {
     const roundId = "00000000-0000-4000-8000-000000000002";
     const search = { page: 3, reviewRoundId: roundId, tab: "human-interview" };
@@ -27,6 +43,7 @@ describe("recruiter resume detail search", () => {
     });
 
     expect(resolveResumeDetailDefaultTab(search)).toBe("rounds");
+    expect(resolveResumeDetailDefaultTab({ tab: "ai-analysis" })).toBe("ai-analysis");
     expect(resolveResumeDetailDefaultTab({ tab: ["offer", "overview"] })).toBe("offer");
   });
 

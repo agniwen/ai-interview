@@ -11,9 +11,11 @@ import {
   RecruiterResumeDetailSkeleton,
 } from "@/components/features/studio/resumes/recruiter-resume-detail-page";
 import {
+  buildResumeDetailTabSearch,
   listSearchFromDetailSearch,
   resumeDetailPageSearchSchema,
 } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
+import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioContentRouteOverlay } from "@/components/features/studio/studio-content-route-overlay";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 
@@ -40,15 +42,27 @@ function RecruiterResumeDetailOverlayRoute() {
   const showAiInterview = useCallback(() => {
     void navigate({
       resetScroll: false,
-      search: (previous) => ({ ...previous, tab: "rounds" }),
+      search: (previous) => buildResumeDetailTabSearch(previous, "rounds"),
     });
   }, [navigate]);
+
+  const changeTab = useCallback(
+    (tab: StudioPersonDetailTab) => {
+      void navigate({
+        replace: true,
+        resetScroll: false,
+        search: (previous) => buildResumeDetailTabSearch(previous, tab),
+      });
+    },
+    [navigate],
+  );
 
   return (
     <StudioContentRouteOverlay>
       <RecruiterResumeDetailPage
         onBack={navigateBackToList}
         onShowAiInterview={showAiInterview}
+        onTabChange={changeTab}
         recordId={recordId}
         routeSearch={routeSearch}
       />

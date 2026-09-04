@@ -21,16 +21,6 @@ import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { importResumePoolItem, isApiError } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { StudioPersonDetailDialog } from "../studio-person-detail-dialog";
@@ -372,34 +362,46 @@ export function ImportResumePoolDialog({
           ) : null}
         </div>
       </Modal>
-      <AlertDialog
-        onOpenChange={(open) => !open && updateDialogState({ duplicates: null })}
-        open={duplicates !== null}
-      >
-        <AlertDialogContent className="sm:max-w-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>招聘台中可能已有相同候选人</AlertDialogTitle>
-            <AlertDialogDescription>
-              系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
-              请根据判断依据确认是否为同一候选人。确认后会继续创建一条新的招聘台记录。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <ResumeDedupMatchList matches={toResumeDedupMatches(duplicates)} />
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>取消</AlertDialogCancel>
-            <AlertDialogAction
+      <Modal
+        description={
+          <>
+            系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
+            请根据判断依据确认是否为同一候选人。确认后会继续创建一条新的招聘台记录。
+          </>
+        }
+        dismissible={!isPending}
+        footer={
+          <>
+            <Button
               disabled={isPending}
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => updateDialogState({ duplicates: null })}
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button
+              disabled={isPending}
+              onClick={() => {
                 updateDialogState({ duplicates: null });
                 mutation.mutate("force");
               }}
             >
               仍然入库
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </>
+        }
+        onOpenChange={(open) => {
+          if (!open && !isPending) {
+            updateDialogState({ duplicates: null });
+          }
+        }}
+        open={duplicates !== null}
+        showCloseButton={false}
+        size="lg"
+        title="招聘台中可能已有相同候选人"
+      >
+        <ResumeDedupMatchList matches={toResumeDedupMatches(duplicates)} />
+      </Modal>
       {detailRecordId
         ? dependencies.renderStudioPersonDetail({
             onOpenChange: (open) => {

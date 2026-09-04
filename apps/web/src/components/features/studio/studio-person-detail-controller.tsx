@@ -7,7 +7,7 @@ import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useReducedMotion } from "motion/react";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import { buildStudioPersonDetailHeader } from "./studio-person-detail-header";
 import {
@@ -45,6 +45,7 @@ export function useStudioPersonDetailController({
   onClose,
   onRequestClose,
   onRequestReactivate,
+  onTabChange,
   shell,
 }: StudioPersonDetailControllerProps) {
   const reduceMotion = useReducedMotion();
@@ -72,7 +73,7 @@ export function useStudioPersonDetailController({
   }
   const slug = optionalSlug ?? "";
   const [uiState, dispatchUi] = useReducer(detailPanelUiReducer, initialDetailPanelUiState);
-  const [activeTab, setActiveTab] = useState<StudioPersonDetailTab>(defaultTab ?? "overview");
+  const [activeTab, setActiveTabState] = useState<StudioPersonDetailTab>(defaultTab ?? "overview");
   const [metadataReport, setMetadataReport] = useState<StudioInterviewConversationReport | null>(
     null,
   );
@@ -93,10 +94,17 @@ export function useStudioPersonDetailController({
   } = uiState;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const setActiveTab = useCallback(
+    (tab: StudioPersonDetailTab) => {
+      setActiveTabState(tab);
+      onTabChange?.(tab);
+    },
+    [onTabChange],
+  );
 
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-    setActiveTab(defaultTab ?? "overview");
+    setActiveTabState(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
     setHumanInterviewQuestionDialogOpen(false);
@@ -229,7 +237,7 @@ export function useStudioPersonDetailController({
       // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setActiveTab("overview");
     }
-  }, [activeTab, availableTabs, record]);
+  }, [activeTab, availableTabs, record, setActiveTab]);
 
   const selectedResultEvaluationSummary = getEvaluationSummary(
     selectedResultReport?.evaluationCriteriaResults,
