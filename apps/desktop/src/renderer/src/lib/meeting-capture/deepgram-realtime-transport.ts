@@ -178,8 +178,8 @@ function resolveSpeakerRuns(input: {
     let run: DeepgramSpeakerRun;
     if (index === 0 && previousRun && previousRun.speaker === group.speaker) {
       run = previousRun;
-    } else if (previewRun && previewRun.speaker === group.speaker) {
-      run = previewRun;
+    } else if (previewRun && previewRun.key !== input.activeRun?.key) {
+      run = { key: previewRun.key, speaker: group.speaker };
     } else {
       run = { key: nextSegmentKey, speaker: group.speaker };
       nextSegmentKey += 1;
@@ -278,6 +278,8 @@ function completeDeepgramRun(
  * 相邻窗口的尾部词可能重叠/重复（甚至被改判到另一个说话人），但多人插话时合法词也可能在时间上重叠。
  * 因此这里只对“文本相同且时间区间高度重叠”的已定型词去重，并以连续 speaker run 作为 turn；同一说话人
  * 被别人打断后再次说话会获得新的 turn id，同一 speaker run 跨多个 is_final 窗口则继续累计。
+ * Interim 的说话人标签仍会随上下文回修，因此只维护一个可替换的临时 run；收到 is_final 后才按词级 speaker
+ * 拆分。这样临时的 speaker 0→1→2 改判会覆盖同一个 turn，而不会泄漏成多个“幽灵说话人”。
  */
 export function createDeepgramResultEventMapper() {
   let utteranceKey = 0;
@@ -327,7 +329,16 @@ export function createDeepgramResultEventMapper() {
     const words = alternative.words.filter(
       (word) => !isDuplicateFinalizedWord(word, finalizedWords),
     );
-    const groups = groupWordsBySpeaker(words);
+    const finalGroups = groupWordsBySpeaker(words);
+    const groups =
+      isFinal || words.length === 0
+        ? finalGroups
+        : [
+            {
+              speaker: activeRun?.speaker ?? finalGroups[0]?.speaker,
+              words,
+            },
+          ];
     const { nextSegmentKey: resolvedNextSegmentKey, runs } = resolveSpeakerRuns({
       activeRun,
       groups,
@@ -338,12 +349,12 @@ export function createDeepgramResultEventMapper() {
     const events: LiveTranscriptEvent[] = [];
     const [firstGroup] = groups;
     if (isFinal && activeRun && firstGroup && activeRun.speaker !== firstGroup.speaker) {
-      const completed = completeDeepgramRun(
-        activeRun,
-        speech.get(activeRun.key),
-        track,
-        utteranceKey,
-      );
+      const activeState = speech.get(activeRun.key);
+      if (activeState) {
+        activeState.window = "";
+        activeState.windowWords = [];
+      }
+      const completed = completeDeepgramRun(activeRun, activeState, track, utteranceKey);
       if (completed) {
         events.push(completed);
       }

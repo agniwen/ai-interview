@@ -117,6 +117,108 @@ describe("createDeepgramLiveUrl", () => {
 });
 
 describe("createDeepgramResultEventMapper", () => {
+  it("replaces interim speaker re-attributions instead of leaking phantom speakers", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    let turns: NonNullable<ReturnType<typeof appendLiveTranscriptTurn>> = [];
+    const apply = (event: ReturnType<typeof toEvents>[number]) => {
+      turns = appendLiveTranscriptTurn(turns, "system", "section", event) ?? turns;
+    };
+    const frame = (
+      speaker: number,
+      text: string,
+      end: number,
+      isFinal = false,
+      speechFinal = false,
+    ) =>
+      toEvents(
+        {
+          channel: {
+            alternatives: [
+              {
+                transcript: text,
+                words: [{ end, speaker, start: 34.02, word: text }],
+              },
+            ],
+          },
+          is_final: isFinal,
+          speech_final: speechFinal,
+          start: 34.02,
+          type: "Results",
+        },
+        "system",
+      );
+
+    for (const event of frame(0, "那就长这样", 36.1)) {
+      apply(event);
+    }
+    for (const event of frame(1, "那就长这样反正我也不是坏人", 39.3)) {
+      apply(event);
+    }
+    for (const event of frame(2, "那就长这样反正我也不是坏人", 39.3)) {
+      apply(event);
+    }
+    for (const event of frame(0, "那就长这样反正我也不是坏人", 39.3, true, true)) {
+      apply(event);
+    }
+
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toMatchObject({
+      final: true,
+      speakerKey: "system:deepgram-speaker-0",
+      text: "那就长这样反正我也不是坏人",
+    });
+  });
+
+  it("moves an interim tail to the newly confirmed speaker without duplicating it", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    let turns: NonNullable<ReturnType<typeof appendLiveTranscriptTurn>> = [];
+    const apply = (events: ReturnType<typeof toEvents>) => {
+      for (const event of events) {
+        turns = appendLiveTranscriptTurn(turns, "system", "section", event) ?? turns;
+      }
+    };
+    const frame = (input: {
+      isFinal: boolean;
+      speaker: number;
+      speechFinal: boolean;
+      start: number;
+      text: string;
+    }) =>
+      toEvents(
+        {
+          channel: {
+            alternatives: [
+              {
+                transcript: input.text,
+                words: [
+                  {
+                    end: input.start + 0.4,
+                    speaker: input.speaker,
+                    start: input.start,
+                    word: input.text,
+                  },
+                ],
+              },
+            ],
+          },
+          is_final: input.isFinal,
+          speech_final: input.speechFinal,
+          start: input.start,
+          type: "Results",
+        },
+        "system",
+      );
+
+    apply(frame({ isFinal: true, speaker: 0, speechFinal: false, start: 0.1, text: "我先说" }));
+    apply(frame({ isFinal: false, speaker: 1, speechFinal: false, start: 0.6, text: "等一下" }));
+    apply(frame({ isFinal: true, speaker: 1, speechFinal: true, start: 0.6, text: "等一下" }));
+
+    expect(turns.map((turn) => [turn.speakerKey, turn.text, turn.final])).toEqual([
+      ["system:deepgram-speaker-0", "我先说", true],
+      ["system:deepgram-speaker-1", "等一下", true],
+    ]);
+  });
+
   it("keeps punctuation-only Deepgram results inside the durable draft contract", () => {
     const toEvents = createDeepgramResultEventMapper();
     const [event] = toEvents(
@@ -214,30 +316,28 @@ describe("createDeepgramResultEventMapper", () => {
 
   it("starts a new turn when a speaker resumes after another speaker interrupts", () => {
     const toEvents = createDeepgramResultEventMapper();
-    const events = toEvents(
-      {
-        channel: {
-          alternatives: [
-            {
-              transcript: "我先说 等一下 我继续",
-              words: [
-                { end: 0.4, speaker: 0, start: 0.1, word: "我先说" },
-                { end: 0.8, speaker: 1, start: 0.5, word: "等一下" },
-                { end: 1.2, speaker: 0, start: 0.9, word: "我继续" },
-              ],
-            },
-          ],
-        },
-        is_final: true,
-        speech_final: true,
-        start: 0.1,
-        type: "Results",
+    const raw = {
+      channel: {
+        alternatives: [
+          {
+            transcript: "我先说 等一下 我继续",
+            words: [
+              { end: 0.4, speaker: 0, start: 0.1, word: "我先说" },
+              { end: 0.8, speaker: 1, start: 0.5, word: "等一下" },
+              { end: 1.2, speaker: 0, start: 0.9, word: "我继续" },
+            ],
+          },
+        ],
       },
-      "microphone",
-    );
+      start: 0.1,
+      type: "Results" as const,
+    };
+    const interimEvents = toEvents({ ...raw, is_final: false, speech_final: false }, "microphone");
+    expect(interimEvents).toHaveLength(1);
+    const events = toEvents({ ...raw, is_final: true, speech_final: true }, "microphone");
 
     let turns: NonNullable<ReturnType<typeof appendLiveTranscriptTurn>> = [];
-    for (const event of events) {
+    for (const event of [...interimEvents, ...events]) {
       turns = appendLiveTranscriptTurn(turns, "microphone", "section", event) ?? turns;
     }
 
