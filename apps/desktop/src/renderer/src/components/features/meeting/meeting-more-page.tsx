@@ -32,7 +32,7 @@ import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 function MeetingMoreStatus({ children }: { children: ReactNode }) {
   return (
     <div
-      className="mx-auto w-full max-w-4xl px-4 pb-6 sm:px-6"
+      className="mx-auto w-full max-w-3xl px-4 pb-6 sm:px-6"
       style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
     >
       <Frame>
@@ -176,7 +176,7 @@ export function MeetingMorePage({
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingMorePageSkeleton />}>
       {meeting ? (
         <div
-          className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pb-10 sm:px-6"
+          className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-10 sm:px-6"
           style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
         >
           <MeetingDetailView

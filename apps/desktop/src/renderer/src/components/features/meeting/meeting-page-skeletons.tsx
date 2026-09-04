@@ -110,7 +110,7 @@ export function MeetingMorePageSkeleton() {
     <div
       aria-busy="true"
       aria-label="正在加载录制详情"
-      className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pb-10 sm:px-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-10 sm:px-6"
       data-slot="meeting-more-skeleton"
       style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
     >
