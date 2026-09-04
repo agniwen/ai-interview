@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, lazy, Suspense, useState } from "react";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
-import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
@@ -49,6 +48,7 @@ import {
   getHumanInterviewCandidateResumeUrl,
 } from "@/lib/client/api";
 import { resolveEffectiveCandidateId } from "./human-meeting-materials-model";
+import { CandidateInterviewHistory } from "./candidate-interview-history";
 
 const InlinePdfViewer = lazy(async () => {
   const mod = await import("@/components/ui/pdf-viewer");
@@ -108,16 +108,6 @@ const DIMENSION_ENTRIES = [
   ["educationBackground", "教育与背景"],
   ["potential", "潜力"],
   ["stability", "稳定性"],
-] as const;
-
-const HR_INFORMATION_ENTRIES = [
-  ["jobMotivation", "求职动机"],
-  ["availability", "当前状态与到岗"],
-  ["overseasTravel", "个人情况与海外出差"],
-  ["compensationExpectations", "薪酬情况与期望"],
-  ["careerProgression", "绩效、加薪与晋升"],
-  ["recentWork", "近期工作经历"],
-  ["projectHighlights", "亮点项目"],
 ] as const;
 
 const DIFFICULTY_LABEL = {
@@ -234,32 +224,9 @@ function CandidateHrInformation({ query }: { query: ReturnType<typeof useHrInfor
     return <LoadingBlock />;
   }
   if (query.isError) {
-    return <ErrorBlock error={query.error} title="HR 初面信息加载失败" />;
+    return <ErrorBlock error={query.error} title="历史评价加载失败" />;
   }
-  const information = query.data.hrInitialInformation;
-  if (!information) {
-    return <EmptyBlock title="暂无 HR 初面信息" />;
-  }
-  return (
-    <div className="flex flex-col px-4">
-      <p className="py-4 text-muted-foreground text-xs leading-5">
-        {information.roundLabel ?? "AI 初面"} ·{" "}
-        <LocalDateTimeText value={information.generatedAt} />
-      </p>
-      <Separator />
-      {HR_INFORMATION_ENTRIES.map(([key, label], index) => (
-        <Fragment key={key}>
-          <section className="py-4">
-            <h3 className="font-medium text-sm">{label}</h3>
-            <p className="mt-2 whitespace-pre-wrap text-muted-foreground text-xs leading-5">
-              {information.values[key] ?? "未收集到相关信息"}
-            </p>
-          </section>
-          {index < HR_INFORMATION_ENTRIES.length - 1 ? <Separator /> : null}
-        </Fragment>
-      ))}
-    </div>
-  );
+  return <CandidateInterviewHistory data={query.data} />;
 }
 
 function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQuery> }) {
@@ -494,7 +461,7 @@ function useHrInformationQuery(active: boolean, inviteToken: string, candidateId
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active && Boolean(candidateId),
     queryFn: () => fetchHumanInterviewCandidateHrInformation(inviteToken, candidateId ?? ""),
-    queryKey: ["human-interview-candidate-materials", inviteToken, candidateId, "hr-information"],
+    queryKey: ["human-interview-candidate-materials", inviteToken, candidateId, "history"],
   });
 }
 
@@ -588,7 +555,7 @@ export function InterviewerCandidateMaterials({
               AI 评价
             </TabsTrigger>
             <TabsTrigger className="h-10! w-full px-3" value="hr">
-              HR 初面
+              历史评价
             </TabsTrigger>
             <TabsTrigger className="h-10! w-full px-3" value="questions">
               面试题
@@ -601,7 +568,7 @@ export function InterviewerCandidateMaterials({
           </TabsContent>
           <TabsContent className="min-h-0 overflow-hidden" value="hr">
             <ScrollArea className="h-full" viewportClassName="h-full">
-              <CandidateHrInformation query={hrQuery} />
+              <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
             </ScrollArea>
           </TabsContent>
           <TabsContent className="min-h-0 overflow-hidden" value="questions">

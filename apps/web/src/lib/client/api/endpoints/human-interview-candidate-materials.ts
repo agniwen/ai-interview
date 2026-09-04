@@ -51,7 +51,7 @@ export function fetchHumanInterviewCandidateHrInformation(
     rpc.api.public["human-interview-candidate-materials"][":inviteToken"][":candidateId"][
       "hr-initial-information"
     ].$get({ param: { candidateId, inviteToken } }),
-    "加载 HR 初面信息失败",
+    "加载历史评价失败",
   );
 }
 
