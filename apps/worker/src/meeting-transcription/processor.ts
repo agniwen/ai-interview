@@ -536,13 +536,21 @@ async function runMeetingTranscriptionProcessingPromise(
         failedRanges.push({ endMs: chunk.endMs, startMs: chunk.startMs });
       }
     }
+    let hasUnrecoveredAudio = false;
     if (identityRecording) {
       const ranges = [
         ...roomMixes.flatMap((source) => source.recordingIdentity?.recoveryRanges ?? []),
         ...failedRanges,
       ];
       if (primaryChunks.length === 0) {
-        ranges.push({ endMs: MAX_DURATION_MS, startMs: 0 });
+        ranges.push({
+          endMs: Math.max(
+            ...sources.map(
+              (source) => (source.recordingIdentity?.offsetMs ?? 0) + source.durationMs,
+            ),
+          ),
+          startMs: 0,
+        });
       }
       for (const chunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
         if (!ranges.some((range) => range.startMs < chunk.endMs && range.endMs > chunk.startMs)) {
@@ -576,6 +584,22 @@ async function runMeetingTranscriptionProcessingPromise(
       if (chunkResults.length === 0) {
         throw new Error("录音转录与全场补救均失败，可手动提交评价");
       }
+      // A requested recovery range is not a loss if successful room ASR covered it,
+      // including silence. Keep warnings for ranges that no successful recovery covered.
+      const recoveredChunks = chunkResults
+        .filter(({ chunk }) => isMixedMeetingRecordingSource(chunk))
+        .map(({ chunk }) => chunk)
+        .toSorted((left, right) => left.startMs - right.startMs);
+      hasUnrecoveredAudio = ranges.some((range) => {
+        let coveredUntil = range.startMs;
+        for (const chunk of recoveredChunks) {
+          if (chunk.startMs > coveredUntil) {
+            break;
+          }
+          coveredUntil = Math.max(coveredUntil, chunk.endMs);
+        }
+        return coveredUntil < range.endMs;
+      });
     }
     const exclusions = candidateExclusionRanges(
       sources.flatMap((source) =>
@@ -595,9 +619,7 @@ async function runMeetingTranscriptionProcessingPromise(
     let warning: string | undefined;
     if (
       identityRecording &&
-      (failedRanges.length > 0 ||
-        roomMixes.some((source) => source.recordingIdentity?.recoveryRanges?.length) ||
-        transcript.turns.some((turn) => turn.attribution?.role === "unknown"))
+      (hasUnrecoveredAudio || transcript.turns.some((turn) => turn.attribution?.role === "unknown"))
     ) {
       warning =
         "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；待确认发言不作为候选人能力证据。";

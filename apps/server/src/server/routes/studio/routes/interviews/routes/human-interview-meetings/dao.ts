@@ -66,7 +66,18 @@ async function loadVisibleMeetingCandidate(input: MeetingDetailInput) {
   return candidate;
 }
 
-function recordingNotice(meeting: typeof studioHumanInterviewMeeting.$inferSelect) {
+function recordingNotice(
+  meeting: typeof studioHumanInterviewMeeting.$inferSelect,
+  finalTranscriptReady: boolean,
+) {
+  // Final transcription carries unresolved loss or attribution warnings.
+  if (
+    finalTranscriptReady &&
+    meeting.recordingStatus === "completed" &&
+    !meeting.recordingTracks?.some((track) => track.status === "failed")
+  ) {
+    return null;
+  }
   if (meeting.recordingError) {
     return "录音处理未完成，当前展示已保存的内容，可能存在遗漏。";
   }
@@ -177,6 +188,10 @@ export async function loadHumanInterviewMeetingDetail(
       .innerJoin(user, eq(user.id, studioHumanInterviewMeetingInterviewer.userId))
       .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId)),
   ]);
+  const transcriptionNotice =
+    row.transcriptionState === "ready"
+      ? "转录已完成，部分内容可能缺失或发言人身份待确认。"
+      : "转录处理遇到问题，已保存的内容仍可查看。";
   return {
     candidateId: candidate.candidateId,
     candidateName: candidate.candidateName,
@@ -189,7 +204,9 @@ export async function loadHumanInterviewMeetingDetail(
     interviewers,
     meetingId: meeting.id,
     outcome: round.outcome,
-    recordingNotice: recordingNotice(meeting),
+    recordingNotice: row.transcriptionError
+      ? null
+      : recordingNotice(meeting, row.transcriptionState === "ready" && Boolean(transcript)),
     roundId: round.id,
     roundLabel: round.label,
     roundStatus: round.status,
@@ -204,7 +221,7 @@ export async function loadHumanInterviewMeetingDetail(
       row.activeRevisionId,
       round.evaluationStatus,
     ),
-    transcriptionError: row.transcriptionError ? "转录处理遇到问题，已保存的内容仍可查看。" : null,
+    transcriptionError: row.transcriptionError ? transcriptionNotice : null,
     transcriptionState: z
       .enum(["pending", "processing", "ready", "failed", "unavailable"])
       .parse(row.transcriptionState ?? transcriptionStateBeforeProcessing(meeting)),

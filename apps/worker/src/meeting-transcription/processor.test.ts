@@ -109,6 +109,74 @@ function createDependencies() {
 }
 
 describe("Meeting final transcription processor", () => {
+  it.each(["succeeded", "failed", "unavailable"] as const)(
+    "reports only unresolved opening recovery (%s)",
+    async (recovery) => {
+      const deps = createDependencies();
+      const assets = (["candidate", "interviewer", "unknown"] as const).map((role, index) => ({
+        contentType: "audio/ogg",
+        durationMs: 60_000,
+        recordingIdentity: {
+          offsetMs: role === "interviewer" ? 280 : 0,
+          participantIdentity: role === "unknown" ? null : `${index}`,
+          recoveryRanges: role === "unknown" ? [{ endMs: 280, startMs: 0 }] : [],
+          role,
+          sourceId: `${index}`,
+        },
+        sizeBytes: 100,
+        status: role === "unknown" && recovery === "unavailable" ? "failed" : "ready",
+        storageKey: `${index}.ogg`,
+        track: role === "unknown" ? "mixed" : `participant-${index}`,
+      }));
+      await runMeetingTranscriptionProcessing(
+        job,
+        { attempt: 3, maxAttempts: 3 },
+        {
+          ...deps,
+          loadSource: () =>
+            Promise.resolve({
+              assets,
+              id: job.meetingId,
+              manifestSha256: job.sourceManifestSha256,
+              organizationId: job.organizationId,
+            }),
+          prepareChunks: ({ sources }) =>
+            Promise.resolve(
+              sources.map((source) => ({
+                ...source,
+                contentType: "audio/webm",
+                endMs: source.durationMs + (source.recordingIdentity?.offsetMs ?? 0),
+                index: 0,
+                startMs: source.recordingIdentity?.offsetMs ?? 0,
+              })),
+            ),
+          provider: {
+            transcribeFinal: (input) =>
+              input.chunks[0]?.track === "mixed" && recovery === "failed"
+                ? Promise.reject(new Error("Recovery ASR failed"))
+                : deps.provider.transcribeFinal(),
+          },
+        },
+      );
+      expect(deps.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transcript: expect.objectContaining({
+            turns: [
+              expect.objectContaining({
+                attribution: expect.objectContaining({ role: "candidate" }),
+              }),
+              expect.objectContaining({
+                attribution: expect.objectContaining({ role: "interviewer" }),
+              }),
+            ],
+          }),
+          warning: recovery === "succeeded" ? undefined : expect.stringContaining("部分录音"),
+        }),
+      );
+      expect(deps.provider.transcribeFinal).toHaveBeenCalledTimes(recovery === "succeeded" ? 3 : 2);
+    },
+  );
+
   it("recovers missing interviewer speech from a retried room recording when the playback mix fails", async () => {
     const deps = createDependencies();
     const assets = (["candidate", "unknown", "unknown"] as const).map((role, index) => ({
@@ -263,7 +331,11 @@ describe("Meeting final transcription processor", () => {
         method: verifiedSilence ? "candidate-excluded" : "unconfirmed",
         role: verifiedSilence ? "interviewer" : "unknown",
       });
-      expect(deps.publish.mock.calls[0]?.[0].warning).toContain("部分录音");
+      if (verifiedSilence) {
+        expect(deps.publish.mock.calls[0]?.[0].warning).toBeUndefined();
+      } else {
+        expect(deps.publish.mock.calls[0]?.[0].warning).toContain("部分录音");
+      }
       expect(deps.requestHumanEvaluation).toHaveBeenCalledOnce();
     },
   );

@@ -162,6 +162,67 @@ beforeAll(async () => {
 afterAll(cleanup);
 
 describe("meeting detail database boundary", () => {
+  it("does not show an ingest recovery warning after final transcription succeeds", async () => {
+    await db
+      .update(studioHumanInterviewMeeting)
+      .set({
+        recordingError: "部分录音不完整，已保留可用音轨；全场补救中的身份不明内容需要人工确认。",
+        recordingStatus: "completed",
+      })
+      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    try {
+      const detail = await loadHumanInterviewMeetingDetail(input);
+      expect(detail).toMatchObject({
+        recordingNotice: null,
+        transcript: { id: sourceId },
+        transcriptionError: null,
+        transcriptionState: "ready",
+      });
+    } finally {
+      await db
+        .update(studioHumanInterviewMeeting)
+        .set({
+          recordingError: null,
+          recordingStatus: "pending",
+        })
+        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    }
+  });
+
+  it.each([
+    ["ready", "转录已完成，部分内容可能缺失或发言人身份待确认。"],
+    ["failed", "转录处理遇到问题，已保存的内容仍可查看。"],
+  ] as const)(
+    "shows one accurate notice when transcription is %s",
+    async (transcriptionStatus, notice) => {
+      await db
+        .update(studioHumanInterviewMeeting)
+        .set({ recordingError: "录音补救提示" })
+        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      await db
+        .update(meetingSession)
+        .set({ transcriptionError: "内部处理详情", transcriptionStatus })
+        .where(eq(meetingSession.id, sessionId));
+      try {
+        expect(await loadHumanInterviewMeetingDetail(input)).toMatchObject({
+          recordingNotice: null,
+          transcript: { id: sourceId },
+          transcriptionError: notice,
+          transcriptionState: transcriptionStatus,
+        });
+      } finally {
+        await db
+          .update(studioHumanInterviewMeeting)
+          .set({ recordingError: null })
+          .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        await db
+          .update(meetingSession)
+          .set({ transcriptionError: null, transcriptionStatus: "ready" })
+          .where(eq(meetingSession.id, sessionId));
+      }
+    },
+  );
+
   it("reads an ended meeting for an authorized HR reader even after the candidate closes", async () => {
     // No meeting interviewer membership is inserted for either user.
     const detail = await loadHumanInterviewMeetingDetail({
@@ -177,6 +238,31 @@ describe("meeting detail database boundary", () => {
     });
     expect(detail).not.toHaveProperty("recordingFileKey");
     expect(detail).not.toHaveProperty("liveKitRoomName");
+  });
+
+  it("keeps a recording failure visible when a saved transcript is available", async () => {
+    await db
+      .update(studioHumanInterviewMeeting)
+      .set({
+        recordingError: "录音文件丢失",
+        recordingStatus: "failed",
+      })
+      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    try {
+      expect(await loadHumanInterviewMeetingDetail(input)).toMatchObject({
+        recordingNotice: "录音处理未完成，当前展示已保存的内容，可能存在遗漏。",
+        transcript: { id: sourceId },
+        transcriptionState: "ready",
+      });
+    } finally {
+      await db
+        .update(studioHumanInterviewMeeting)
+        .set({
+          recordingError: null,
+          recordingStatus: "pending",
+        })
+        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    }
   });
   it("uses the evaluation's transcript in sequence order, including unknown voices", async () => {
     const detail = await loadHumanInterviewMeetingDetail(input);
