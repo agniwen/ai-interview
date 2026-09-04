@@ -1,16 +1,21 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
 import {
   meetingAccessGrant,
   meetingAuditLog,
   meetingRecordingAsset,
+  meetingProcessingRun,
   meetingRecruitingContext,
   meetingSession,
+  meetingTranscriptRevision,
+  meetingTranscriptTurn,
   member,
   user,
 } from "@app/db-schema/schema";
 import type { MeetingGrantRole, UpdateMeetingShareInput } from "@app/shared/meeting-recording";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import { canonicalizeDeepgramLiveTranscriptDraft } from "@app/meeting-processing/transcription";
 import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 export {
@@ -26,6 +31,8 @@ const LIBRARY_MEETING_STATUSES = [
   "ready",
 ] as const;
 const MEETING_GRANT_ROLES = new Set<string>(["editor", "viewer"]);
+const DEEPGRAM_LIVE_PIPELINE_VERSION = "deepgram-live-v1";
+const DEEPGRAM_LIVE_REGION = "global";
 
 function isMeetingGrantRole(role: string): role is MeetingGrantRole {
   return MEETING_GRANT_ROLES.has(role);
@@ -92,20 +99,143 @@ export async function markMeetingSessionVerified(input: {
   const verifiedAt = new Date();
   const recoveryCopyDeleteAfter = new Date(verifiedAt.getTime() + 24 * 60 * 60 * 1000);
   const persistedDeadline = await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({
+        activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+        liveTranscriptDraft: meetingSession.liveTranscriptDraft,
+        manifestSha256: meetingSession.manifestSha256,
+        startedAt: meetingSession.startedAt,
+      })
+      .from(meetingSession)
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+          eq(meetingSession.ownerId, input.ownerId),
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!meeting) {
+      return null;
+    }
     await tx
       .update(meetingRecordingAsset)
       .set({ status: "ready", verifiedAt })
       .where(eq(meetingRecordingAsset.meetingId, input.meetingId));
+    let promotedRevisionId: string | null = null;
+    const draft = meetingLiveTranscriptDraftSchema.safeParse(meeting.liveTranscriptDraft);
+    let unusableDeepgramDraft = false;
+    if (draft.success && draft.data.provider === "deepgram" && draft.data.model) {
+      const [existing] = await tx
+        .select({ id: meetingTranscriptRevision.id })
+        .from(meetingTranscriptRevision)
+        .where(
+          and(
+            eq(meetingTranscriptRevision.meetingId, input.meetingId),
+            eq(meetingTranscriptRevision.kind, "final"),
+            eq(meetingTranscriptRevision.sourceManifestSha256, meeting.manifestSha256),
+            eq(meetingTranscriptRevision.provider, "deepgram"),
+            eq(meetingTranscriptRevision.model, draft.data.model),
+            eq(meetingTranscriptRevision.region, DEEPGRAM_LIVE_REGION),
+            eq(meetingTranscriptRevision.pipelineVersion, DEEPGRAM_LIVE_PIPELINE_VERSION),
+          ),
+        )
+        .limit(1);
+      promotedRevisionId = existing?.id ?? null;
+      if (!promotedRevisionId) {
+        const transcript = canonicalizeDeepgramLiveTranscriptDraft(draft.data, meeting.startedAt);
+        if (transcript.turns.length === 0) {
+          unusableDeepgramDraft = true;
+        } else {
+          const processingRunId = crypto.randomUUID();
+          promotedRevisionId = crypto.randomUUID();
+          const [latest] = await tx
+            .select({ revision: max(meetingTranscriptRevision.revision) })
+            .from(meetingTranscriptRevision)
+            .where(eq(meetingTranscriptRevision.meetingId, input.meetingId));
+          await tx.insert(meetingProcessingRun).values({
+            attempt: 1,
+            finishedAt: verifiedAt,
+            id: processingRunId,
+            idempotencyKey: [
+              input.meetingId,
+              meeting.manifestSha256,
+              "deepgram",
+              draft.data.model,
+              DEEPGRAM_LIVE_REGION,
+              DEEPGRAM_LIVE_PIPELINE_VERSION,
+            ].join(":"),
+            meetingId: input.meetingId,
+            model: draft.data.model,
+            organizationId: input.organizationId,
+            pipelineVersion: DEEPGRAM_LIVE_PIPELINE_VERSION,
+            provider: "deepgram",
+            region: DEEPGRAM_LIVE_REGION,
+            stage: "final-transcription",
+            status: "succeeded",
+          });
+          await tx.insert(meetingTranscriptRevision).values({
+            id: promotedRevisionId,
+            kind: "final",
+            language: transcript.language,
+            meetingId: input.meetingId,
+            model: draft.data.model,
+            organizationId: input.organizationId,
+            pipelineVersion: DEEPGRAM_LIVE_PIPELINE_VERSION,
+            processingRunId,
+            provider: "deepgram",
+            region: DEEPGRAM_LIVE_REGION,
+            revision: Number(latest?.revision ?? 0) + 1,
+            sourceManifestSha256: meeting.manifestSha256,
+          });
+          if (transcript.turns.length > 0) {
+            const revisionId = promotedRevisionId;
+            await tx.insert(meetingTranscriptTurn).values(
+              transcript.turns.map((turn, sequence) => ({
+                ...turn,
+                id: crypto.randomUUID(),
+                revisionId,
+                sequence,
+              })),
+            );
+          }
+        }
+      }
+    }
+    const baseMeetingUpdate = {
+      processingError: null,
+      processingRunId: null,
+      recoveryCopyDeleteAfter: sql`coalesce(${meetingSession.recoveryCopyDeleteAfter}, ${recoveryCopyDeleteAfter.toISOString()}::timestamptz)`,
+      status: "processing",
+      uploadLeaseExpiresAt: null,
+      verifiedAt,
+    };
+    let meetingUpdate: typeof baseMeetingUpdate & {
+      activeTranscriptRevisionId?: string;
+      transcriptionError?: string | null;
+      transcriptionRunId?: string | null;
+      transcriptionStatus?: string;
+    } = baseMeetingUpdate;
+    if (promotedRevisionId) {
+      meetingUpdate = {
+        ...baseMeetingUpdate,
+        activeTranscriptRevisionId: meeting.activeTranscriptRevisionId ?? promotedRevisionId,
+        transcriptionError: null,
+        transcriptionRunId: null,
+        transcriptionStatus: "ready",
+      };
+    } else if (unusableDeepgramDraft) {
+      meetingUpdate = {
+        ...baseMeetingUpdate,
+        transcriptionError: "Deepgram 实时转录没有产生可用的完整片段。",
+        transcriptionRunId: null,
+        transcriptionStatus: "failed",
+      };
+    }
     const [updated] = await tx
       .update(meetingSession)
-      .set({
-        processingError: null,
-        processingRunId: null,
-        recoveryCopyDeleteAfter: sql`coalesce(${meetingSession.recoveryCopyDeleteAfter}, ${recoveryCopyDeleteAfter.toISOString()}::timestamptz)`,
-        status: "processing",
-        uploadLeaseExpiresAt: null,
-        verifiedAt,
-      })
+      .set(meetingUpdate)
       .where(
         and(
           eq(meetingSession.id, input.meetingId),
@@ -114,6 +244,9 @@ export async function markMeetingSessionVerified(input: {
         ),
       )
       .returning({ recoveryCopyDeleteAfter: meetingSession.recoveryCopyDeleteAfter });
+    if (promotedRevisionId) {
+      await rebuildMeetingSearchProjection(tx, input);
+    }
     return updated?.recoveryCopyDeleteAfter;
   });
   if (!persistedDeadline) {

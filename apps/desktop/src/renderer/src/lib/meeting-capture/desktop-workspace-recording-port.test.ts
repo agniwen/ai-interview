@@ -131,6 +131,8 @@ describe("DesktopWorkspaceRecordingPort", () => {
           droppedAudioMs: 0,
           droppedPcmFrames: 0,
           error: null,
+          model: "nova-3",
+          provider: "deepgram",
           sections: [
             {
               id: "section-1",
@@ -147,6 +149,8 @@ describe("DesktopWorkspaceRecordingPort", () => {
               id: "turn-1",
               originalText: "我们开始把。",
               sectionId: "section-1",
+              speakerDisplayName: "说话人 1",
+              speakerKey: "deepgram-speaker-0",
               startMs: 170,
               text: "我们开始吧。",
               track: "microphone",
@@ -181,12 +185,17 @@ describe("DesktopWorkspaceRecordingPort", () => {
     const body = JSON.parse(String(apiJsonMock.mock.calls[0]?.[2]?.body));
     expect(body.liveTranscriptDraft.turns[0]).toEqual({
       correctionModel: "qwen-plus",
+      endMs: 920,
       final: true,
       id: "turn-1",
       originalText: "我们开始把。",
       sectionId: "section-1",
+      speakerDisplayName: "说话人 1",
+      speakerKey: "deepgram-speaker-0",
+      startMs: 170,
       text: "我们开始吧。",
       track: "microphone",
     });
+    expect(body.liveTranscriptDraft).toMatchObject({ model: "nova-3", provider: "deepgram" });
   });
 });

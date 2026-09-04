@@ -1,5 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestRecordingTitle } from "./meetings";
+import { fetchMeetingTranscript, requestRecordingTitle } from "./meetings";
+
+describe("fetchMeetingTranscript", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("bypasses the HTTP cache while polling for a regenerated revision", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        error: null,
+        revision: null,
+        state: "processing",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchMeetingTranscript("workspace", "meeting-76");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/transcript"),
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+});
 
 describe("requestRecordingTitle", () => {
   afterEach(() => {

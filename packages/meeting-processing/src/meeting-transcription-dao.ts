@@ -261,7 +261,13 @@ export function createMeetingTranscriptionDao(
     }
     const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
     if (
-      !(meeting && policy && policyAllows(policy, provider) && sourceAssetsReady(meeting.assets))
+      !(
+        meeting &&
+        meeting.liveTranscriptDraft?.provider !== "deepgram" &&
+        policy &&
+        policyAllows(policy, provider) &&
+        sourceAssetsReady(meeting.assets)
+      )
     ) {
       return null;
     }
@@ -279,6 +285,21 @@ export function createMeetingTranscriptionDao(
       region: candidate.region,
       sourceManifestSha256: meeting.manifestSha256,
     };
+  }
+
+  async function isMeetingTranscriptionReady(input: {
+    meetingId: string;
+    organizationId: string;
+  }): Promise<boolean> {
+    const meeting = await db.query.meetingSession.findFirst({
+      columns: { activeTranscriptRevisionId: true },
+      where: {
+        id: input.meetingId,
+        organizationId: input.organizationId,
+        transcriptionStatus: "ready",
+      },
+    });
+    return Boolean(meeting?.activeTranscriptRevisionId);
   }
 
   async function listRecoverableMeetingTranscriptionJobs(): Promise<MeetingTranscriptionJobData[]> {
@@ -310,7 +331,13 @@ export function createMeetingTranscriptionDao(
       const policy = policyByOrganization.get(meeting.organizationId);
       const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
       if (
-        !(policy && provider && policyAllows(policy, provider) && sourceAssetsReady(meeting.assets))
+        !(
+          meeting.liveTranscriptDraft?.provider !== "deepgram" &&
+          policy &&
+          provider &&
+          policyAllows(policy, provider) &&
+          sourceAssetsReady(meeting.assets)
+        )
       ) {
         continue;
       }
@@ -859,6 +886,7 @@ export function createMeetingTranscriptionDao(
     claimMeetingTranscriptionRun,
     ensureDefaultMeetingTranscriptionPolicy,
     getMeetingTranscriptionJobForMeeting,
+    isMeetingTranscriptionReady,
     listMeetingProcessingRuns,
     listRecoverableMeetingTranscriptionJobs,
     loadMeetingTranscriptionChunkCheckpoint,

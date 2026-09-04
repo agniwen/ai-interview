@@ -174,7 +174,7 @@ export function createDurableLiveTranscriptDraft(
   }
   const turns = snapshot.turns.filter((turn) => turn.text.trim().length > 0);
   const referencedSectionIds = new Set(turns.map((turn) => turn.sectionId));
-  return {
+  const durable: MeetingLiveTranscriptDraft = {
     capturedAt: new Date().toISOString(),
     droppedAudioMs: snapshot.droppedAudioMs,
     droppedPcmFrames: snapshot.droppedPcmFrames,
@@ -186,6 +186,16 @@ export function createDurableLiveTranscriptDraft(
       text: turn.text.trim(),
     })),
   };
+  if (snapshot.language) {
+    durable.language = snapshot.language;
+  }
+  if (snapshot.model) {
+    durable.model = snapshot.model;
+  }
+  if (snapshot.provider) {
+    durable.provider = snapshot.provider;
+  }
+  return durable;
 }
 
 export function applyLiveTranscriptCorrection(

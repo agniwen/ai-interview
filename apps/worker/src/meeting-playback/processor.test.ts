@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { runMeetingPlaybackProcessing } from "./processor";
+import { continueAfterMeetingPlayback, runMeetingPlaybackProcessing } from "./processor";
 
 function createDependencies() {
   return {
@@ -255,5 +255,81 @@ describe("Meeting playback processor", () => {
 
     expect(deps.createWorkingDirectory).not.toHaveBeenCalled();
     expect(deps.downloadSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("continueAfterMeetingPlayback", () => {
+  it("enqueues final ASR when a transcription job is available", async () => {
+    const job = {
+      meetingId: "meeting-74",
+      model: "qwen-audio-3.0-asr-flash-filetrans",
+      organizationId: "org-74",
+      pipelineVersion: "final-v2" as const,
+      policyRevision: 1,
+      provider: "qwen" as const,
+      region: "qwen-cn-beijing",
+      sourceManifestSha256: "a".repeat(64),
+    };
+    const dependencies = {
+      enqueueJobs: vi.fn(() => Promise.resolve()),
+      getJob: vi.fn(() => Promise.resolve(job)),
+      isTranscriptReady: vi.fn(() => Promise.resolve(false)),
+      requestHumanEvaluation: vi.fn(() => Promise.resolve()),
+      requestIntelligence: vi.fn(() => Promise.resolve()),
+    };
+
+    await continueAfterMeetingPlayback(
+      { meetingId: "meeting-74", organizationId: "org-74" },
+      dependencies,
+    );
+
+    expect(dependencies.enqueueJobs).toHaveBeenCalledWith([job]);
+    expect(dependencies.isTranscriptReady).not.toHaveBeenCalled();
+    expect(dependencies.requestIntelligence).not.toHaveBeenCalled();
+    expect(dependencies.requestHumanEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("requests both downstream products for an already-promoted Deepgram revision", async () => {
+    const dependencies = {
+      enqueueJobs: vi.fn(() => Promise.resolve()),
+      getJob: vi.fn(() => Promise.resolve(null)),
+      isTranscriptReady: vi.fn(() => Promise.resolve(true)),
+      requestHumanEvaluation: vi.fn(() => Promise.resolve()),
+      requestIntelligence: vi.fn(() => Promise.resolve()),
+    };
+
+    await continueAfterMeetingPlayback(
+      { meetingId: "meeting-74", organizationId: "org-74" },
+      dependencies,
+    );
+
+    expect(dependencies.enqueueJobs).not.toHaveBeenCalled();
+    expect(dependencies.requestIntelligence).toHaveBeenCalledWith({
+      meetingId: "meeting-74",
+      organizationId: "org-74",
+    });
+    expect(dependencies.requestHumanEvaluation).toHaveBeenCalledWith({
+      meetingSessionId: "meeting-74",
+      organizationId: "org-74",
+    });
+  });
+
+  it("does nothing when no job or authoritative revision exists", async () => {
+    const dependencies = {
+      enqueueJobs: vi.fn(() => Promise.resolve()),
+      getJob: vi.fn(() => Promise.resolve(null)),
+      isTranscriptReady: vi.fn(() => Promise.resolve(false)),
+      requestHumanEvaluation: vi.fn(() => Promise.resolve()),
+      requestIntelligence: vi.fn(() => Promise.resolve()),
+    };
+
+    await continueAfterMeetingPlayback(
+      { meetingId: "meeting-74", organizationId: "org-74" },
+      dependencies,
+    );
+
+    expect(dependencies.enqueueJobs).not.toHaveBeenCalled();
+    expect(dependencies.requestIntelligence).not.toHaveBeenCalled();
+    expect(dependencies.requestHumanEvaluation).not.toHaveBeenCalled();
   });
 });

@@ -84,6 +84,32 @@ function fallbackTurn(text: string, startMs: number) {
 }
 
 describe("mergeMeetingTranscriptionChunkResults", () => {
+  it("preserves ASR speaker clusters across turns from a mixed recording", () => {
+    const result = mergeMeetingTranscriptionChunkResults([
+      {
+        chunk: {
+          contentType: "audio/webm",
+          endMs: 5000,
+          filePath: "/tmp/room.webm",
+          index: 0,
+          startMs: 0,
+          track: "mixed",
+        },
+        transcript: {
+          language: "zh",
+          turns: [
+            fallbackTurn("第一句话", 0),
+            fallbackTurn("同一个人的第二句话", 1500),
+            { ...fallbackTurn("另一个人", 3000), speakerKey: "remote-2" },
+          ],
+        },
+      },
+    ]);
+
+    expect(result.turns[0]?.speakerKey).toBe(result.turns[1]?.speakerKey);
+    expect(result.turns[2]?.speakerKey).not.toBe(result.turns[0]?.speakerKey);
+  });
+
   it("does not deduplicate overlapping speakers within the same room source", () => {
     const result = mergeMeetingTranscriptionChunkResults([
       {

@@ -16,7 +16,7 @@ const job = {
   meetingId: "meeting-76",
   model: "qwen-audio-3.0-asr-flash-filetrans",
   organizationId: "org-76",
-  pipelineVersion: "final-v1" as const,
+  pipelineVersion: "final-v2" as const,
   policyRevision: 1,
   provider: "qwen" as const,
   region: "qwen-cn-beijing",

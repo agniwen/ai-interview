@@ -79,6 +79,36 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("disabled");
   });
 
+  it("hides retranscription for a promoted Deepgram live transcript", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+    });
+    queryClient.setQueryData(desktopMeetingKeys.transcript("workspace", "meeting-deepgram"), {
+      ...readyTranscript,
+      draft: {
+        capturedAt: "2026-09-04T03:00:10.000Z",
+        droppedAudioMs: 0,
+        droppedPcmFrames: 0,
+        error: null,
+        model: "nova-3",
+        provider: "deepgram",
+        sections: [],
+        turns: [],
+      },
+      revision: readyTranscript.revision
+        ? { ...readyTranscript.revision, model: "nova-3", provider: "deepgram" }
+        : null,
+    } satisfies MeetingTranscriptResult);
+
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <MeetingTranscriptPanel accessRole="owner" meetingId="meeting-deepgram" slug="workspace" />
+      </QueryClientProvider>,
+    );
+
+    expect(html).not.toContain(">重新转录</button>");
+  });
+
   it("distinguishes pending, processing and failed states", () => {
     const pending = renderToStaticMarkup(
       <MeetingTranscriptView result={{ error: null, revision: null, state: "pending" }} />,
@@ -190,6 +220,26 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("说话人2");
     expect(html).toContain("你好，我们开始吧。");
     expect(html).not.toContain("不应优先展示的实时草稿");
+  });
+
+  it("numbers unconfirmed speakers consistently on the recording page", () => {
+    const result: MeetingTranscriptResult = {
+      ...readyTranscript,
+      revision: readyTranscript.revision
+        ? {
+            ...readyTranscript.revision,
+            turns: readyTranscript.revision.turns.map((turn) => ({
+              ...turn,
+              speakerDisplayName: "待确认",
+            })),
+          }
+        : null,
+    };
+    const html = renderToStaticMarkup(<MeetingTranscriptStage result={result} />);
+
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html).not.toContain("待确认");
   });
 
   it("matches the live transcript spacing without hover treatment on the completed page", () => {

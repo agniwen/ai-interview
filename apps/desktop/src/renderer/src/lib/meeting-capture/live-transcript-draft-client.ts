@@ -31,6 +31,16 @@ export const meetingLiveTranscriptDraft = createLiveTranscriptDraft({
     }
     return "authorization";
   },
+  authorizationMetadata: (authorization) => {
+    if (authorization.provider !== "deepgram" && authorization.provider !== "qwen") {
+      return null;
+    }
+    const metadata = { model: authorization.model, provider: authorization.provider };
+    if (authorization.language) {
+      return { ...metadata, language: authorization.language };
+    }
+    return metadata;
+  },
   authorize: async (input) => {
     const provider = getSettings().meetingLiveTranscriptProvider;
     const localAuthorization = await orpc.transcriptionProviders.authorize({

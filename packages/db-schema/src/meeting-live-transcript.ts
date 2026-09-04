@@ -3,6 +3,9 @@ export interface MeetingLiveTranscriptDraftRecord {
   droppedAudioMs: number;
   droppedPcmFrames: number;
   error: string | null;
+  language?: string;
+  model?: string;
+  provider?: "deepgram" | "qwen";
   sections: {
     id: string;
     sequence: number;
@@ -16,8 +19,16 @@ export interface MeetingLiveTranscriptDraftRecord {
     id: string;
     originalText?: string;
     sectionId: string;
+    speakerDisplayName?: string | null;
+    speakerKey?: string;
     startMs?: number;
     text: string;
     track: "microphone" | "system";
+    words?: {
+      endMs: number;
+      punctuation: string;
+      startMs: number;
+      text: string;
+    }[];
   }[];
 }

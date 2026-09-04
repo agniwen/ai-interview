@@ -164,6 +164,13 @@ export function canCorrectMeetingTranscript(role: MeetingAccessRole): boolean {
   return role !== "viewer";
 }
 
+function canRetryMeetingTranscript(
+  role: MeetingAccessRole,
+  result: MeetingTranscriptResult | undefined,
+): boolean {
+  return (role === "administrator" || role === "owner") && result?.draft?.provider !== "deepgram";
+}
+
 export function isTranscriptCorrectionConflict(error: Error): boolean {
   return isApiError(error) && error.status === 409;
 }
@@ -614,7 +621,7 @@ export function MeetingTranscriptPanel({
       ]);
     },
   });
-  const canRetry = accessRole === "administrator" || accessRole === "owner";
+  const canRetry = canRetryMeetingTranscript(accessRole, transcriptQuery.data);
   const canCorrect = canCorrectMeetingTranscript(accessRole);
   const historyRevisionNumbers = useMemo(
     () =>

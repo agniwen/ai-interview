@@ -23,6 +23,10 @@ const job: MeetingTranscriptionJobData = {
 };
 
 describe("Meeting transcription queue", () => {
+  it("uses the speaker-cluster-preserving pipeline revision", () => {
+    expect(MEETING_TRANSCRIPTION_PIPELINE_VERSION).toBe("final-v2");
+  });
+
   it("uses the source and explicit provider snapshot in the idempotent job id", () => {
     const first = buildMeetingTranscriptionJobId(job);
     expect(first).toBe(buildMeetingTranscriptionJobId(job));
@@ -32,7 +36,7 @@ describe("Meeting transcription queue", () => {
     expect(buildMeetingTranscriptionJobId({ ...job, policyRevision: 4 })).not.toBe(first);
     expect(
       // SAFETY: The test deliberately supplies an invalid future version to verify job-id isolation.
-      buildMeetingTranscriptionJobId({ ...job, pipelineVersion: "final-v2" as never }),
+      buildMeetingTranscriptionJobId({ ...job, pipelineVersion: "final-v3" as never }),
     ).not.toBe(first);
   });
 

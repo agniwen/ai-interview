@@ -4,6 +4,7 @@ import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptHints,
+  MeetingLiveTranscriptProviderId,
   MeetingLiveTranscriptTrack,
   MeetingLiveTranscriptWord,
 } from "@app/shared/meeting-transcription";
@@ -37,6 +38,9 @@ export interface LiveTranscriptDraftSnapshot {
   droppedAudioMs: number;
   droppedPcmFrames: number;
   error: string | null;
+  language?: string | null;
+  model?: string | null;
+  provider?: MeetingLiveTranscriptProviderId | null;
   queuedAudioMs: number;
   queuedPcmBytes: number;
   queuePeakAudioMs: number;
@@ -78,9 +82,18 @@ export interface LiveTranscriptPcmTap {
   stop: () => void;
 }
 
+export interface LiveTranscriptAuthorizationMetadata {
+  language?: string;
+  model: string;
+  provider: MeetingLiveTranscriptProviderId;
+}
+
 export interface LiveTranscriptDraftDependencies<
   Authorization = MeetingLiveTranscriptAuthorization,
 > {
+  authorizationMetadata?: (
+    authorization: Authorization,
+  ) => LiveTranscriptAuthorizationMetadata | null;
   authorizationFailureReason?: (error: Error) => "authorization" | "capacity";
   authorizationFailureMessage?: (error: Error) => string | null;
   authorize: (input: {
@@ -138,7 +151,7 @@ interface DroppedPcmSummary {
 const DEFAULT_MAX_QUEUED_PCM_BYTES = 512 * 1024;
 const DEFAULT_MAX_QUEUED_AUDIO_MS = 5000;
 const BUFFERING_NOTICE_MS = 2000;
-const DEFAULT_MAX_DRAFT_TURNS = 500;
+const DEFAULT_MAX_DRAFT_TURNS = 10_000;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
@@ -220,6 +233,9 @@ const initialSnapshot = (): LiveTranscriptDraftSnapshot => ({
   droppedAudioMs: 0,
   droppedPcmFrames: 0,
   error: null,
+  language: null,
+  model: null,
+  provider: null,
   queuePeakAudioMs: 0,
   queuedAudioMs: 0,
   queuedPcmBytes: 0,
@@ -249,8 +265,8 @@ function publicError(reason: string): string {
 }
 
 /**
- * 管理双轨实时字幕草稿、独立重连和服务端容量租约。Draft 永远不是最终权威转录。
- * Manages dual-track live drafts, independent reconnects, and the server capacity lease; drafts are never authoritative.
+ * 管理双轨实时字幕草稿、独立重连和服务端容量租约。草稿本身非权威，Deepgram 草稿可在保存时固化为正式版本。
+ * Manages dual-track live drafts, reconnects, and leases. A draft is non-authoritative until promoted on save.
  */
 export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptAuthorization>(
   dependencies: LiveTranscriptDraftDependencies<Authorization>,
@@ -579,6 +595,25 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     }
   };
 
+  const applyAuthorizationMetadata = (
+    metadata: LiveTranscriptAuthorizationMetadata | null,
+  ): void => {
+    if (!metadata) {
+      return;
+    }
+    if (
+      snapshot.provider &&
+      (snapshot.provider !== metadata.provider || snapshot.model !== metadata.model)
+    ) {
+      throw new Error("同一录制会话不能混用实时转录 Provider 或模型");
+    }
+    publish({
+      language: metadata.language ?? snapshot.language,
+      model: metadata.model,
+      provider: metadata.provider,
+    });
+  };
+
   const flush = (track: MeetingLiveTranscriptTrack): boolean => {
     const runtime = runtimes[track];
     while (runtime.connection) {
@@ -683,6 +718,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
         return;
       }
       releasedLeaseCaptureId = null;
+      applyAuthorizationMetadata(dependencies.authorizationMetadata?.(authorization) ?? null);
       scheduleLeaseHeartbeat(captureId);
       const connection = await dependencies.connect({
         authorization,
@@ -782,6 +818,9 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       droppedAudioMs: input.initialDraft?.droppedAudioMs ?? 0,
       droppedPcmFrames: input.initialDraft?.droppedPcmFrames ?? 0,
       error: input.initialDraft?.error ?? null,
+      language: input.initialDraft?.language ?? null,
+      model: input.initialDraft?.model ?? null,
+      provider: input.initialDraft?.provider ?? null,
       sections: seededSections,
       turns: input.initialDraft?.turns ?? [],
     };

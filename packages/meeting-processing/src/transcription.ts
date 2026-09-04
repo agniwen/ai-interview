@@ -1,4 +1,5 @@
 export { createMeetingTranscriptionDao } from "./meeting-transcription-dao";
+export { canonicalizeDeepgramLiveTranscriptDraft } from "./deepgram-live-transcript";
 export type { MeetingTranscriptionPolicySnapshot } from "./meeting-transcription-dao";
 export { rebuildMeetingSearchProjection } from "./meeting-search-projection";
 export {

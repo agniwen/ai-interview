@@ -160,7 +160,7 @@ describe("runHumanInterviewRecordingProcessing", () => {
             meetingId: "session-1",
             model: "qwen3-asr-flash-filetrans",
             organizationId: "org-1",
-            pipelineVersion: "final-v1" as const,
+            pipelineVersion: "final-v2" as const,
             policyRevision: 1,
             provider: "qwen" as const,
             region: "cn-beijing",

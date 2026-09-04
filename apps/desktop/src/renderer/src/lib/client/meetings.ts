@@ -293,6 +293,7 @@ export function fetchMeetingTranscript(
   return apiJson(
     apiUrl(meetingSubresourcePath(slug, meetingId, "transcript")),
     "加载最终会议转录失败",
+    { cache: "no-store" },
   );
 }
 

@@ -363,6 +363,9 @@ export async function retrySavedMeetingTranscription(
   if (!meetingAccessCapabilities(meeting.role).canRetryProcessing) {
     return "forbidden";
   }
+  if (meeting.liveTranscriptDraft?.provider === "deepgram") {
+    return { state: meeting.transcriptionStatus === "ready" ? "ready" : "unavailable" };
+  }
   if (meeting.transcriptionStatus !== "failed" && meeting.transcriptionStatus !== "ready") {
     return { state: "processing" };
   }

@@ -52,7 +52,7 @@ const job = {
   meetingId: MEETING_ID,
   model: "qwen3-asr-flash-filetrans",
   organizationId: ORGANIZATION_ID,
-  pipelineVersion: "final-v1" as const,
+  pipelineVersion: "final-v2" as const,
   policyRevision: 1,
   provider: "qwen" as const,
   region: "qwen-cn-beijing",
@@ -254,6 +254,70 @@ describe("Meeting transcription publication", () => {
         { attempt: 2, status: "succeeded" },
       ]),
     );
+  });
+
+  it("publishes a new immutable revision after the transcription pipeline changes", async () => {
+    const historicalJob = {
+      ...job,
+      // SAFETY: The fixture deliberately reconstructs a persisted revision from the retired pipeline.
+      pipelineVersion: "final-v1" as never,
+    };
+    const historicalTranscript = {
+      language: "zh",
+      turns: [
+        {
+          confidence: null,
+          endMs: 1000,
+          speakerKey: "remote-1",
+          startMs: 0,
+          text: "旧的说话人分组",
+          track: "remote" as const,
+        },
+      ],
+    };
+    await claimMeetingTranscriptionRun({
+      ...historicalJob,
+      attempt: 1,
+      processingRunId: runId("run-final-v1"),
+    });
+    await publishMeetingTranscript({
+      ...historicalJob,
+      processingRunId: runId("run-final-v1"),
+      transcript: historicalTranscript,
+    });
+    await resetMeetingTranscriptionForRetry({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+    });
+
+    await expect(
+      claimMeetingTranscriptionRun({
+        ...job,
+        attempt: 1,
+        processingRunId: runId("run-final-v2"),
+      }),
+    ).resolves.toBe("claimed");
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-final-v2"),
+        transcript: {
+          ...historicalTranscript,
+          turns: [{ ...historicalTranscript.turns[0], text: "新的说话人分组" }],
+        },
+      }),
+    ).resolves.toBe(true);
+
+    await expect(
+      db.query.meetingTranscriptRevision.findMany({
+        columns: { pipelineVersion: true, revision: true },
+        orderBy: (revision, { asc }) => [asc(revision.revision)],
+        where: { meetingId: MEETING_ID },
+      }),
+    ).resolves.toEqual([
+      { pipelineVersion: "final-v1", revision: 1 },
+      { pipelineVersion: "final-v2", revision: 2 },
+    ]);
   });
 
   it("preserves recording provenance and changes roles only through server-owned confirmation", async () => {

@@ -204,7 +204,7 @@ describe("Meeting transcription service", () => {
         meetingId: "meeting-76",
         model: "gpt-4o-transcribe-diarize",
         organizationId: "org-76",
-        pipelineVersion: "final-v1",
+        pipelineVersion: "final-v2",
         policyRevision: 2,
         provider: "openai",
         region: "openai-default",
@@ -303,7 +303,7 @@ describe("Meeting transcription service", () => {
       meetingId: "meeting-76",
       model: "qwen3-asr-flash-filetrans",
       organizationId: "org-76",
-      pipelineVersion: "final-v1",
+      pipelineVersion: "final-v2",
       policyRevision: 1,
       provider: "qwen",
       region: "qwen-cn-beijing",
@@ -345,7 +345,7 @@ describe("Meeting transcription service", () => {
       meetingId: "meeting-76",
       model: "qwen-audio-3.0-asr-flash-filetrans",
       organizationId: "org-76",
-      pipelineVersion: "final-v1",
+      pipelineVersion: "final-v2",
       policyRevision: 1,
       provider: "qwen",
       region: "qwen-cn-beijing",
@@ -401,6 +401,41 @@ describe("Meeting transcription service", () => {
     expect(mocks.resetMeetingTranscriptionForRetry).not.toHaveBeenCalled();
   });
 
+  it("does not enqueue final ASR for a Deepgram live transcript", async () => {
+    mocks.loadTranscriptionMeeting.mockResolvedValue(
+      meetingAccess({
+        activeTranscriptRevisionId: "revision-deepgram-76",
+        liveTranscriptDraft: {
+          capturedAt: "2026-08-12T08:00:00.000Z",
+          droppedAudioMs: 0,
+          droppedPcmFrames: 0,
+          error: null,
+          model: "nova-3",
+          provider: "deepgram",
+          sections: [],
+          turns: [],
+        },
+        role: "owner",
+        transcriptionStatus: "ready",
+      }),
+    );
+
+    await expect(
+      retrySavedMeetingTranscription(
+        {
+          meetingId: "meeting-76",
+          memberRole: "member",
+          organizationId: "org-76",
+          userId: "owner-76",
+        },
+        mocks,
+      ),
+    ).resolves.toEqual({ state: "ready" });
+    expect(mocks.getMeetingTranscriptionJobForMeeting).not.toHaveBeenCalled();
+    expect(mocks.resetMeetingTranscriptionForRetry).not.toHaveBeenCalled();
+    expect(mocks.retryMeetingTranscriptionJob).not.toHaveBeenCalled();
+  });
+
   it("restores the ready transcript when regeneration enqueue fails", async () => {
     mocks.loadTranscriptionMeeting.mockResolvedValue(
       meetingAccess({
@@ -414,7 +449,7 @@ describe("Meeting transcription service", () => {
       meetingId: "meeting-76",
       model: "qwen-audio-3.0-asr-flash-filetrans",
       organizationId: "org-76",
-      pipelineVersion: "final-v1",
+      pipelineVersion: "final-v2",
       policyRevision: 1,
       provider: "qwen",
       region: "qwen-cn-beijing",

@@ -273,9 +273,6 @@ function chunkSpeakerIdentity(
   if (source && source.role !== "unknown") {
     return `${source.role}:${source.participantIdentity ?? source.sourceId}`;
   }
-  if (isMixedMeetingRecordingSource(chunk)) {
-    return `${chunk.track}:${chunk.index}:${turn.startMs}:${turn.endMs}`;
-  }
   return `${chunk.track}:${chunk.index}:${turn.speakerKey}`;
 }
 

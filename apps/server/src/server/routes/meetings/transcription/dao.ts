@@ -10,6 +10,7 @@ export const {
   claimMeetingTranscriptionRun,
   ensureDefaultMeetingTranscriptionPolicy,
   getMeetingTranscriptionJobForMeeting,
+  isMeetingTranscriptionReady,
   listMeetingProcessingRuns,
   listRecoverableMeetingTranscriptionJobs,
   loadMeetingTranscriptionChunkCheckpoint,

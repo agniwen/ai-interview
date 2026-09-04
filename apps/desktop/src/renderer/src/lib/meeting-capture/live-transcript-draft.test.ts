@@ -255,6 +255,10 @@ describe("Live Transcript Draft", () => {
   it("replaces only an unchanged completed turn, persists its original, and ignores late events", async () => {
     const events = new Map<string, (event: LiveTranscriptEvent) => void>();
     const draft = createLiveTranscriptDraft({
+      authorizationMetadata: (authorization) => ({
+        model: authorization.model,
+        provider: authorization.provider === "deepgram" ? "deepgram" : "qwen",
+      }),
       authorize: ({ track }) =>
         Promise.resolve({
           clientSecret: "temp",
@@ -324,6 +328,10 @@ describe("Live Transcript Draft", () => {
     const durable = meetingLiveTranscriptDraftSchema.parse(
       createDurableLiveTranscriptDraft(draft.getSnapshot()),
     );
+    expect(durable).toMatchObject({
+      model: "qwen-audio-3.0-asr-flash-streaming",
+      provider: "qwen",
+    });
     expect(durable.turns[0]).toMatchObject({
       correctionModel: "qwen-audio-3.0-asr-flash",
       originalText: "库伯内提斯",

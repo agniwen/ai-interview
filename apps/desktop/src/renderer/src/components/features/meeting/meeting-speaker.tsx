@@ -27,16 +27,17 @@ export function createMeetingSpeakerProfiles(
       continue;
     }
     const displayName = turn.speakerDisplayName?.trim();
+    const confirmedDisplayName = displayName === "待确认" ? null : displayName;
     const existing = profiles.get(turn.speakerKey);
     if (existing) {
-      if (displayName && existing.label !== displayName) {
-        profiles.set(turn.speakerKey, { ...existing, label: displayName });
+      if (confirmedDisplayName && existing.label !== confirmedDisplayName) {
+        profiles.set(turn.speakerKey, { ...existing, label: confirmedDisplayName });
       }
       continue;
     }
     profiles.set(turn.speakerKey, {
       avatarId: `${scopeId}:${turn.speakerKey}`,
-      label: displayName || `说话人${profiles.size + 1}`,
+      label: confirmedDisplayName || `说话人${profiles.size + 1}`,
     });
   }
   return profiles;

@@ -167,8 +167,11 @@ export const meetingLiveTranscriptDraftSchema = z
     droppedAudioMs: z.number().finite().nonnegative(),
     droppedPcmFrames: z.number().int().nonnegative(),
     error: z.string().max(2000).nullable(),
+    language: z.string().min(1).max(64).optional(),
+    model: z.string().min(1).max(128).optional(),
+    provider: meetingLiveTranscriptProviderSchema.optional(),
     sections: z.array(meetingLiveTranscriptDraftSectionSchema).max(200),
-    turns: z.array(meetingLiveTranscriptDraftTurnSchema).max(500),
+    turns: z.array(meetingLiveTranscriptDraftTurnSchema).max(10_000),
   })
   .strict()
   .superRefine((draft, context) => {
