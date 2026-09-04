@@ -20,6 +20,7 @@ describe("MeetingLiveSessionStage", () => {
     expect(html).toContain("录制草稿");
     expect(html).toContain("测试会议");
     expect(html).toContain("录制控制");
+    expect(html).toContain("padding-top:56px");
     expect(html).toContain("实时总结");
     expect(html).toContain("调整实时字幕和实时总结宽度");
     expect(html).toContain("思维导图形式");

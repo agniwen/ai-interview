@@ -4,6 +4,7 @@ import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-tra
 import type { MeetingLiveSummaryControllerSnapshot } from "@/lib/meeting-capture/live-summary-controller";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Icon } from "@/components/ui/icon";
+import { TITLE_BAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -60,7 +61,12 @@ export function MeetingLiveSessionStage({
     <ResizablePanelGroup className="h-dvh min-h-[36rem] overflow-hidden" orientation="horizontal">
       <ResizablePanel defaultSize="42%" minSize="320px">
         <section className="flex h-full min-w-0 flex-col overflow-hidden">
-          <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-8 pb-3 sm:px-6">{header}</div>
+          <div
+            className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-3 sm:px-6"
+            style={{ paddingTop: TITLE_BAR_HEIGHT_PX + 16 }}
+          >
+            {header}
+          </div>
           <div className="min-h-0 flex-1 overflow-hidden">
             <LiveTranscriptDraftPanel highlightedTurnId={highlightedTurnId} snapshot={transcript} />
           </div>
