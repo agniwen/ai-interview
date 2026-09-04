@@ -186,6 +186,16 @@ RECORDING_R2_KEY_PREFIX=<保持当前录音前缀>
 
 当前检查已确认两个容器都设置了录音桶、访问密钥和 endpoint；不必重新生成或更换现有密钥。修改环境变量后需通过原部署流程重建应用容器，单纯 `docker restart` 不会更新容器创建时注入的环境变量。
 
+### 会后转录的面试术语提示
+
+Worker 会从本场会议关联的岗位 JD（`prompt`）、候选人简历和面试问题提取最多 50 个原文术语，供 `qwen-audio-3.0-asr-flash-filetrans` 会后识别使用。适用于各行业岗位，无需招聘人员维护词表；不会读取旧岗位 `description` 或评分配置，也不会将完整简历作为候选人发言提供给 ASR。
+
+- 沿用 Worker 的 `ALIBABA_API_KEY`、`MASTRA_FAST_MODEL` 等现有模型配置，不新增环境变量。提取失败或超时（20 秒）时继续普通识别；没有材料时不调用提取模型。
+- 每次处理任务仅提取一次，供未完成的音轨分片和补救录音共用；已完成的分片检查点继续复用。旧版 `qwen3-asr-flash-filetrans` 不发送该参数。
+- 参数使用 `parameters.vocabulary`（权重 2）和 `input.context`（最多 400 字符，只包含完整术语）。热词含非 ASCII 字符时最多 15 字符，纯 ASCII 词组最多 7 个空白分段；超限术语仅保留在上下文中。参见[阿里云录音文件识别接口](https://help.aliyun.com/en/model-studio/fun-asr-recorded-speech-recognition-http-api)和[热词规范](https://help.aliyun.com/zh/model-studio/improve-asr-accuracy)。术语提取的输出格式依据实际快速模型选择，不受独立结构化模型配置影响。
+- 发布这项修改需要重新构建并更新 Worker。无需调整 LiveKit、Egress 或数据库；实时字幕暂不受此项修改影响，已有转录也不会自动覆盖。
+- 验证时用同一段录音比较带提示和不带提示的结果。2026-09-04 的单段真实录音对照中，“IM 的项目”恢复正确，但句首仍有误识别；该样例不代表整体准确率或所有岗位的提升幅度。
+
 ## 5. 新建测试会议验收
 
 配置完成后新建一场真人面试，由测试人员主动开启麦克风验证：

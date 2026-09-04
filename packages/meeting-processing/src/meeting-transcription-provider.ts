@@ -14,11 +14,16 @@ export class MeetingProviderQuotaError extends Error {
 
 export type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 
+export interface MeetingRecognitionHints {
+  terms: string[];
+}
+
 export interface FinalTranscriptionInput {
   chunks: FinalTranscriptionAudioChunk[];
   languageHint: string | null;
   model: string;
   region: string;
+  recognitionHints?: MeetingRecognitionHints;
   signal?: AbortSignal;
 }
 

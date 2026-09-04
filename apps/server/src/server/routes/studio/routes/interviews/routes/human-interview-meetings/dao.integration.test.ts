@@ -1,6 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { loadHumanInterviewRecognitionDocuments } from "@app/meeting-processing/human-interview";
 import {
+  department,
+  jobDescription,
   organization,
   user,
   studioInterview,
@@ -160,6 +163,65 @@ beforeAll(async () => {
   await db.insert(studioHumanInterviewMeetingRound).values({ meetingId, roundId });
 });
 afterAll(cleanup);
+
+describe("human interview recognition context", () => {
+  it("uses only the linked candidate and canonical JD within the job scope", async () => {
+    const departmentId = `${prefix}department`;
+    const jobId = `${prefix}job`;
+    await db.insert(department).values({ id: departmentId, name: "业务", organizationId: orgId });
+    await db.insert(jobDescription).values({
+      departmentId,
+      description: "不得使用的旧描述",
+      id: jobId,
+      name: "运营经理",
+      organizationId: orgId,
+      prompt: "负责投放归因与留存",
+    });
+    await db
+      .update(studioInterview)
+      .set({
+        interviewQuestions: [{ difficulty: "medium", order: 1, question: "如何衡量转化率？" }],
+        jobDescriptionId: jobId,
+        resumeText: "做过 IM 即时通信项目",
+      })
+      .where(eq(studioInterview.id, candidateId));
+    await db.insert(studioInterview).values({
+      candidateName: "其他候选人",
+      id: `${prefix}unlinked`,
+      interviewQuestions: [],
+      organizationId: orgId,
+      resumeText: "无关材料不能进入当前会议",
+    });
+    const scope = { meetingId: sessionId, organizationId: orgId, sourceManifestSha256: "test" };
+    try {
+      expect(await loadHumanInterviewRecognitionDocuments(db, scope)).toEqual([
+        "运营经理\n负责投放归因与留存",
+        "做过 IM 即时通信项目",
+        "如何衡量转化率？",
+      ]);
+      for (const mismatch of [
+        { organizationId: "other-org" },
+        { meetingId: "other-session" },
+        { sourceManifestSha256: "obsolete" },
+      ]) {
+        expect(await loadHumanInterviewRecognitionDocuments(db, { ...scope, ...mismatch })).toEqual(
+          [],
+        );
+      }
+      await db.update(jobDescription).set({ prompt: "" }).where(eq(jobDescription.id, jobId));
+      const documents = await loadHumanInterviewRecognitionDocuments(db, scope);
+      expect(documents.join("\n")).not.toContain("不得使用的旧描述");
+    } finally {
+      await db
+        .update(studioInterview)
+        .set({ interviewQuestions: [], jobDescriptionId: null, resumeText: null })
+        .where(eq(studioInterview.id, candidateId));
+      await db.delete(studioInterview).where(eq(studioInterview.id, `${prefix}unlinked`));
+      await db.delete(jobDescription).where(eq(jobDescription.id, jobId));
+      await db.delete(department).where(eq(department.id, departmentId));
+    }
+  });
+});
 
 describe("meeting detail database boundary", () => {
   it("does not show an ingest recovery warning after final transcription succeeds", async () => {

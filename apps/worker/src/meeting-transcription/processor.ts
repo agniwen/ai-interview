@@ -16,6 +16,7 @@ import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type {
   createMeetingTranscriptionDao,
   MeetingTranscriptionProvider,
+  MeetingRecognitionHints,
 } from "@app/meeting-processing/transcription";
 import {
   assertMeetingTranscriptionJobEndpoint,
@@ -116,6 +117,7 @@ export interface MeetingTranscriptionDependencies {
   }) => Promise<FinalTranscriptionAudioChunk[]>;
   provider: MeetingTranscriptionProvider;
   providerForJob?: (input: MeetingTranscriptionJobData) => MeetingTranscriptionProvider;
+  recognitionHintsForJob?: (input: MeetingTranscriptionJobData) => Promise<MeetingRecognitionHints>;
   publish: ReturnType<typeof createMeetingTranscriptionDao>["publishMeetingTranscript"];
   requestIntelligence: ReturnType<typeof createRequestAutomaticMeetingIntelligence>;
   requestHumanEvaluation: ReturnType<typeof createRequestAutomaticHumanInterviewEvaluation>;
@@ -209,6 +211,7 @@ type MeetingTranscriptionRuntimeAdapters = Pick<
   | "markChunkFailed"
   | "markFailed"
   | "publish"
+  | "recognitionHintsForJob"
   | "requestIntelligence"
   | "requestHumanEvaluation"
   | "saveChunkCheckpoint"
@@ -283,6 +286,7 @@ async function transcribeChunk(input: {
   dependencies: MeetingTranscriptionDependencies;
   job: MeetingTranscriptionJobData;
   processingRunId: string;
+  loadRecognitionHints: () => Promise<MeetingRecognitionHints | undefined>;
 }): Promise<CanonicalMeetingTranscript | null> {
   const chunkClaim = await input.dependencies.claimChunk(
     { ...input.job, processingRunId: input.processingRunId },
@@ -304,6 +308,7 @@ async function transcribeChunk(input: {
       chunks: [input.chunk],
       languageHint: null,
       model: input.job.model,
+      recognitionHints: await input.loadRecognitionHints(),
       region: input.job.region,
     });
   } catch (error) {
@@ -402,6 +407,26 @@ async function runMeetingTranscriptionProcessingPromise(
   let workingDirectory: string | null = null;
   let primaryCause: unknown;
   let hasPrimaryFailure = false;
+  let recognitionHintsPromise: Promise<MeetingRecognitionHints | undefined> | undefined;
+  const loadRecognitionHints = () => {
+    recognitionHintsPromise ??= (async () => {
+      if (!input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")) {
+        return;
+      }
+      try {
+        return await dependencies.recognitionHintsForJob?.(input);
+      } catch (error) {
+        console.warn(
+          "[meeting-transcription-worker] recognition hints unavailable; continuing without hints",
+          {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+            meetingId: input.meetingId,
+          },
+        );
+      }
+    })();
+    return recognitionHintsPromise;
+  };
   try {
     if (meeting.manifestSha256 !== input.sourceManifestSha256) {
       throw new Error("Meeting Recording 清单已变化");
@@ -523,6 +548,7 @@ async function runMeetingTranscriptionProcessingPromise(
           chunk,
           dependencies,
           job: input,
+          loadRecognitionHints,
           processingRunId,
         });
         if (!transcript) {
@@ -561,6 +587,7 @@ async function runMeetingTranscriptionProcessingPromise(
             chunk,
             dependencies,
             job: input,
+            loadRecognitionHints,
             processingRunId,
           });
           if (!recovered) {

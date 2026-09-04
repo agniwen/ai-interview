@@ -10,3 +10,4 @@ export {
 } from "./human-interview-evaluation-state";
 export { createHumanInterviewRecordingDao } from "./human-interview-recording-dao";
 export { createMeetingTranscriptLoader } from "./meeting-transcript-loader";
+export { loadHumanInterviewRecognitionDocuments } from "./human-interview-recognition-context";

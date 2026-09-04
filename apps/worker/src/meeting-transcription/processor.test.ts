@@ -83,7 +83,7 @@ function createDependencies() {
       ]),
     ),
     provider: {
-      transcribeFinal: vi.fn(() =>
+      transcribeFinal: vi.fn<MeetingTranscriptionDependencies["provider"]["transcribeFinal"]>(() =>
         Promise.resolve({
           language: "zh",
           turns: [
@@ -109,6 +109,60 @@ function createDependencies() {
 }
 
 describe("Meeting final transcription processor", () => {
+  it("does not generate hints when every chunk is already checkpointed", async () => {
+    const deps = createDependencies();
+    deps.claimChunk.mockResolvedValue({
+      status: "ready",
+      transcript: { language: "zh", turns: [] },
+    });
+    const recognitionHintsForJob = vi.fn();
+    await runMeetingTranscriptionProcessing(
+      job,
+      { attempt: 2, maxAttempts: 3 },
+      {
+        ...deps,
+        recognitionHintsForJob,
+      },
+    );
+    expect(recognitionHintsForJob).not.toHaveBeenCalled();
+    expect(deps.provider.transcribeFinal).not.toHaveBeenCalled();
+  });
+
+  it("does not generate hints for a legacy ASR model", async () => {
+    const recognitionHintsForJob = vi.fn();
+    await runMeetingTranscriptionProcessing(
+      { ...job, model: "qwen3-asr-flash-filetrans" },
+      { attempt: 1, maxAttempts: 3 },
+      { ...createDependencies(), recognitionHintsForJob },
+    );
+    expect(recognitionHintsForJob).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    "shares recognition hints across chunks and tolerates hint failure (%s)",
+    async (fails) => {
+      const deps = createDependencies();
+      const hints = { terms: ["商机", "应收账款"] };
+      const recognitionHintsForJob = vi.fn(() =>
+        fails ? Promise.reject(new Error("hint provider unavailable")) : Promise.resolve(hints),
+      );
+      await runMeetingTranscriptionProcessing(
+        job,
+        { attempt: 1, maxAttempts: 3 },
+        {
+          ...deps,
+          recognitionHintsForJob,
+        },
+      );
+      expect(recognitionHintsForJob).toHaveBeenCalledOnce();
+      expect(recognitionHintsForJob).toHaveBeenCalledWith(job);
+      for (const [request] of deps.provider.transcribeFinal.mock.calls) {
+        expect(request).toMatchObject({ recognitionHints: fails ? undefined : hints });
+      }
+      expect(deps.publish).toHaveBeenCalledOnce();
+    },
+  );
+
   it.each(["succeeded", "failed", "unavailable"] as const)(
     "reports only unresolved opening recovery (%s)",
     async (recovery) => {
@@ -154,7 +208,7 @@ describe("Meeting final transcription processor", () => {
             transcribeFinal: (input) =>
               input.chunks[0]?.track === "mixed" && recovery === "failed"
                 ? Promise.reject(new Error("Recovery ASR failed"))
-                : deps.provider.transcribeFinal(),
+                : deps.provider.transcribeFinal(input),
           },
         },
       );

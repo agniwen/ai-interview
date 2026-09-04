@@ -12,6 +12,7 @@ import {
 } from "./meeting-transcription-provider";
 import type {
   FinalTranscriptionAudioChunk,
+  MeetingRecognitionHints,
   MeetingTranscriptionProvider,
 } from "./meeting-transcription-provider";
 
@@ -100,6 +101,12 @@ interface QwenAsrTaskParameters {
   channel_id: number[];
   diarization_enabled?: boolean;
   enable_itn: boolean;
+  vocabulary?: Record<string, number>;
+}
+
+interface QwenAsrTaskInput {
+  file_url: string;
+  context?: { role: "user"; content: { type: "input_text"; text: string }[] }[];
 }
 
 interface QwenAsrMeetingTranscriptionDependencies {
@@ -162,6 +169,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
     audioUrl: string;
     chunk: FinalTranscriptionAudioChunk;
     signal: AbortSignal;
+    recognitionHints?: MeetingRecognitionHints;
   }): Promise<string> {
     const parameters: QwenAsrTaskParameters = {
       channel_id: [0],
@@ -173,9 +181,32 @@ export function createQwenAsrMeetingTranscriptionProvider(
     ) {
       parameters.diarization_enabled = true;
     }
+    const terms = dependencies.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")
+      ? [...new Set(input.recognitionHints?.terms.map((term) => term.trim()))]
+          .filter((term) => term.length >= 2 && term.length <= 40)
+          .slice(0, 50)
+      : [];
+    const taskInput: QwenAsrTaskInput = { file_url: input.audioUrl };
+    // Vocabulary has stricter per-term limits than the conversation context.
+    const hotwords = terms.filter((term) =>
+      /\P{ASCII}/u.test(term) ? [...term].length <= 15 : term.split(/\s+/u).length <= 7,
+    );
+    if (hotwords.length) {
+      parameters.vocabulary = Object.fromEntries(hotwords.map((term) => [term, 2]));
+    }
+    if (terms.length) {
+      let contextText = "";
+      for (const term of terms) {
+        const next = contextText ? `${contextText}、${term}` : term;
+        if (next.length <= 400) {
+          contextText = next;
+        }
+      }
+      taskInput.context = [{ content: [{ text: contextText, type: "input_text" }], role: "user" }];
+    }
     const response = await fetch(`${origin}/api/v1/services/audio/asr/transcription`, {
       body: JSON.stringify({
-        input: { file_url: input.audioUrl },
+        input: taskInput,
         model: dependencies.model,
         parameters,
       }),
@@ -283,7 +314,12 @@ export function createQwenAsrMeetingTranscriptionProvider(
           : AbortSignal.timeout(pollTimeoutMs);
         const audioUrl = await dependencies.createAudioUrl(chunk, signal);
         try {
-          const taskId = await submitTask({ audioUrl, chunk, signal });
+          const taskId = await submitTask({
+            audioUrl,
+            chunk,
+            recognitionHints: input.recognitionHints,
+            signal,
+          });
           const resultUrl = await pollTask({ signal, taskId });
           if (!resultUrl) {
             continue;

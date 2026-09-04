@@ -21,3 +21,5 @@ export {
   resolveMeetingTranscriptionProviderModel,
 } from "./meeting-transcription-provider-registry";
 export { createQwenAsrMeetingTranscriptionProvider } from "./qwen-asr-meeting-transcription-provider";
+export type { MeetingRecognitionHints } from "./meeting-transcription-provider";
+export { generateMeetingRecognitionHints } from "./meeting-recognition-hints";
