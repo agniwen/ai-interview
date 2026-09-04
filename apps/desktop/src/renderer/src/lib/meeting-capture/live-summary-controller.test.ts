@@ -70,6 +70,30 @@ function transcriptSnapshot(): LiveTranscriptDraftSnapshot {
   };
 }
 
+const restoredSummary = {
+  captureId,
+  coveredThroughMs: 2000,
+  coveredThroughTurnId: "turn-1",
+  generatedAt: "2026-09-04T03:00:10.000Z",
+  model: "test-model",
+  provider: "test-provider",
+  revision: 2,
+  summary: "已经保存的实时总结。",
+  template: "general" as const,
+  topics: [
+    {
+      endMs: 2000,
+      evidenceTurnIds: ["turn-1"],
+      id: "topic-restored",
+      points: [],
+      startMs: 1000,
+      status: "active" as const,
+      summary: "保存的主题",
+      title: "恢复主题",
+    },
+  ],
+};
+
 describe("meeting live summary controller", () => {
   it("normalizes final turns onto the meeting timeline", () => {
     expect(buildMeetingLiveSummaryTurns(transcriptSnapshot(), "2026-09-04T03:00:00.000Z")).toEqual([
@@ -86,6 +110,80 @@ describe("meeting live summary controller", () => {
         startMs: 62_000,
       }),
     ]);
+  });
+
+  it("restores a persisted summary and only sends uncovered Qwen turns", async () => {
+    const scheduled: (() => void)[] = [];
+    const request = vi.fn().mockResolvedValue({
+      ...restoredSummary,
+      coveredThroughMs: 64_000,
+      coveredThroughTurnId: "turn-2",
+      revision: 3,
+      summary: "恢复后继续更新。",
+    });
+    const controller = createMeetingLiveSummaryController({
+      initialDelayMs: 0,
+      minCharacters: 1,
+      provider: { summarize: request },
+      // oxlint-disable-next-line promise/prefer-await-to-callbacks -- The fake scheduler captures callbacks for deterministic control.
+      schedule: (callback) => {
+        scheduled.push(callback);
+        return () => {};
+      },
+    });
+    controller.update({
+      captureId,
+      initialSummary: restoredSummary,
+      meetingStartedAt: "2026-09-04T03:00:00.000Z",
+      template: "general",
+      transcript: { ...transcriptSnapshot(), model: "qwen3-asr-flash-realtime", provider: "qwen" },
+    });
+
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", summary: restoredSummary });
+    scheduled.shift()?.();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(request.mock.calls[0]?.[0]).toMatchObject({
+      baseSnapshot: restoredSummary,
+      turns: [expect.objectContaining({ id: "turn-2" })],
+    });
+    controller.dispose();
+  });
+
+  it("adopts a persisted summary that hydrates after the active capture", async () => {
+    const scheduled: (() => void)[] = [];
+    const request = vi.fn().mockResolvedValue({
+      ...restoredSummary,
+      coveredThroughMs: 64_000,
+      coveredThroughTurnId: "turn-2",
+      revision: 3,
+    });
+    const controller = createMeetingLiveSummaryController({
+      initialDelayMs: 0,
+      minCharacters: 1,
+      provider: { summarize: request },
+      // oxlint-disable-next-line promise/prefer-await-to-callbacks -- The fake scheduler captures callbacks for deterministic control.
+      schedule: (callback) => {
+        scheduled.push(callback);
+        return () => {};
+      },
+    });
+    const source = {
+      captureId,
+      meetingStartedAt: "2026-09-04T03:00:00.000Z",
+      template: "general" as const,
+      transcript: transcriptSnapshot(),
+    };
+    controller.update(source);
+    controller.update({ ...source, initialSummary: restoredSummary });
+
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", summary: restoredSummary });
+    scheduled.at(-1)?.();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(request.mock.calls[0]?.[0]).toMatchObject({
+      baseSnapshot: restoredSummary,
+      turns: [expect.objectContaining({ id: "turn-2" })],
+    });
+    controller.dispose();
   });
 
   it("coalesces updates, keeps the last good tree on failure, and ignores a stale capture", async () => {
@@ -116,7 +214,7 @@ describe("meeting live summary controller", () => {
     const controller = createMeetingLiveSummaryController({
       initialDelayMs: 0,
       minCharacters: 1,
-      request,
+      provider: { summarize: request },
       retryDelayMs: 0,
       // oxlint-disable-next-line promise/prefer-await-to-callbacks -- The fake scheduler intentionally captures callbacks for deterministic control.
       schedule: (callback) => {

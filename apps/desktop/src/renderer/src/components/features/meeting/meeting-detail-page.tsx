@@ -43,6 +43,7 @@ import type { MeetingPostSaveStep } from "./meeting-detail-helpers";
 import { canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
 import { MeetingLiveSessionStage } from "./meeting-live-session-stage";
+import { MeetingCompletedContentStage } from "./meeting-completed-content-stage";
 import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
 import {
   useMeetingCaptureSnapshot,
@@ -540,6 +541,10 @@ export function MeetingDetailPage({
   const localDraft = localSession
     ? storedDraftSnapshot(meetingId, localSession.liveTranscriptDraft, localSession.state)
     : null;
+  const remoteLiveDraft = transcriptQuery.data?.draft
+    ? storedDraftSnapshot(meetingId, transcriptQuery.data.draft, "saved-local")
+    : null;
+  const completedSummary = meeting?.liveSummary ?? localSession?.liveSummary ?? null;
   const isCompletedSession = Boolean(
     meeting ||
     (localSession && !["recording", "paused", "interrupted"].includes(localSession.state)),
@@ -559,6 +564,18 @@ export function MeetingDetailPage({
     uploadFailed: workspaceSave?.state === "action-required",
     uploadLabel,
   });
+  let completedTranscript: ReactNode = <MeetingLocalTranscriptStage localDraft={localDraft} />;
+  if (remoteLiveDraft) {
+    completedTranscript = <LiveTranscriptDraftPanel snapshot={remoteLiveDraft} />;
+  } else if (meeting) {
+    completedTranscript = (
+      <MeetingTranscriptStage
+        error={transcriptQuery.error}
+        result={transcriptQuery.data}
+        speakerScopeId={meetingId}
+      />
+    );
+  }
 
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
@@ -586,17 +603,10 @@ export function MeetingDetailPage({
             isInterruptedSession && localDraft ? (
               <LiveTranscriptDraftPanel snapshot={localDraft} />
             ) : (
-              <div className="container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6">
-                {meeting ? (
-                  <MeetingTranscriptStage
-                    error={transcriptQuery.error}
-                    result={transcriptQuery.data}
-                    speakerScopeId={meetingId}
-                  />
-                ) : (
-                  <MeetingLocalTranscriptStage localDraft={localDraft} />
-                )}
-              </div>
+              <MeetingCompletedContentStage
+                summary={completedSummary}
+                transcript={completedTranscript}
+              />
             )
           }
           scrollFade={isCompletedSession}

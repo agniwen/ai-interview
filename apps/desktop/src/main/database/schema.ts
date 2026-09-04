@@ -5,6 +5,7 @@ export const localMeetingSession = sqliteTable(
   {
     endedAt: text("ended_at"),
     id: text().primaryKey(),
+    liveSummary: text("live_summary"),
     liveTranscriptDraft: text("live_transcript_draft"),
     recruitingRecordId: text("recruiting_record_id"),
     segmentCount: integer("segment_count").notNull().default(1),

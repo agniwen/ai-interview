@@ -88,6 +88,7 @@ export const deepgramEndpointingMsSchema = z.number().int().min(10).max(5000);
 export interface MeetingLiveTranscriptProviderCapabilities {
   contextPrompting: boolean;
   liveCorrection: boolean;
+  liveSummary: boolean;
   speakerDiarization: boolean;
   utteranceEndpointing: boolean;
   vocabulary: boolean;
@@ -99,6 +100,7 @@ export const MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES = {
   deepgram: {
     contextPrompting: false,
     liveCorrection: false,
+    liveSummary: true,
     speakerDiarization: true,
     utteranceEndpointing: true,
     vocabulary: false,
@@ -107,6 +109,7 @@ export const MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES = {
   qwen: {
     contextPrompting: true,
     liveCorrection: true,
+    liveSummary: true,
     speakerDiarization: false,
     utteranceEndpointing: false,
     vocabulary: true,

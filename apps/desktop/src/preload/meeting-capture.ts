@@ -3,6 +3,7 @@ import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptHints,
 } from "@app/shared/meeting-transcription";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import type { LocalMeetingSession } from "./local-meeting-session";
 
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;
@@ -183,13 +184,14 @@ export interface MeetingRecordingStore {
   save: (
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+    liveSummary?: MeetingLiveSummarySnapshot | null,
   ) => Promise<LocalSavedMeeting>;
   updateLocalSession?: (
     captureId: string,
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
       >
     >,
   ) => LocalMeetingSession | Promise<LocalMeetingSession>;
@@ -208,6 +210,7 @@ export interface DiscardMeetingCaptureInput {
 
 export interface SaveMeetingCaptureInput {
   captureId?: string;
+  liveSummary?: MeetingLiveSummarySnapshot | null;
   liveTranscriptDraft?: MeetingLiveTranscriptDraft | null;
 }
 
@@ -1024,7 +1027,7 @@ export function createMeetingCapture({
         console.info("[meeting-capture-renderer] save: fragments settled", {
           elapsedMs: Date.now() - saveStartedAt,
         });
-        const saved = await store.save(captureId, liveTranscriptDraft);
+        const saved = await store.save(captureId, liveTranscriptDraft, input.liveSummary);
         await refreshLocalSessions();
         console.info("[meeting-capture-renderer] save: local saved", {
           elapsedMs: Date.now() - saveStartedAt,

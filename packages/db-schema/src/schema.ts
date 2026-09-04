@@ -346,6 +346,7 @@ export const meetingSession = pgTable(
       { onDelete: "set null" },
     ),
     intelligenceStatus: text("intelligence_status").default("pending").notNull(),
+    liveSummary: jsonb("live_summary").$type<unknown>(),
     liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
     manifestSha256: text("manifest_sha256").notNull(),
     organizationId: text("organization_id")

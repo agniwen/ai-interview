@@ -59,8 +59,8 @@ const meetingCaptureApi: MeetingCaptureApi = {
     ipcRenderer.invoke("meeting-capture:resume-interrupted", captureId, trackContentTypes),
   rollbackInterruptedResume: (captureId) =>
     ipcRenderer.invoke("meeting-capture:rollback-interrupted-resume", captureId),
-  save: (captureId, liveTranscriptDraft) =>
-    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft),
+  save: (captureId, liveTranscriptDraft, liveSummary) =>
+    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft, liveSummary),
   updateLocalSession: (captureId, patch) =>
     ipcRenderer.invoke("meeting-capture:update-local-session", captureId, patch),
   uploadMultipart: (captureId, instructions) =>

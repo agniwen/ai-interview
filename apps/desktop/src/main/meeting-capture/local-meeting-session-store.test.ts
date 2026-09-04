@@ -30,6 +30,29 @@ describe("LocalMeetingSessionStore", () => {
       title: "本地录音",
     });
     store.update(SESSION_ID, {
+      liveSummary: {
+        captureId: SESSION_ID,
+        coveredThroughMs: 1000,
+        coveredThroughTurnId: "turn-1",
+        generatedAt: "2026-08-12T10:00:00.000Z",
+        model: "summary-model",
+        provider: "summary-provider",
+        revision: 1,
+        summary: "讨论了产品发布计划。",
+        template: "general",
+        topics: [
+          {
+            endMs: 1000,
+            evidenceTurnIds: ["turn-1"],
+            id: "topic-1",
+            points: [],
+            startMs: 0,
+            status: "active",
+            summary: "产品发布安排",
+            title: "发布计划",
+          },
+        ],
+      },
       liveTranscriptDraft: {
         capturedAt: "2026-08-12T10:00:00.000Z",
         droppedAudioMs: 0,
@@ -71,6 +94,7 @@ describe("LocalMeetingSessionStore", () => {
       title: "产品发布计划",
     });
     expect(reopened.get(SESSION_ID)?.liveTranscriptDraft?.turns[0]?.text).toBe("讨论产品发布计划");
+    expect(reopened.get(SESSION_ID)?.liveSummary?.summary).toBe("讨论了产品发布计划。");
     reopened.close();
   });
 

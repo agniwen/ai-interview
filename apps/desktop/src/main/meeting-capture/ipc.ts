@@ -13,6 +13,7 @@ import type {
 } from "@app/shared/meeting-recording";
 import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import { getMainWindowWebContents } from "../window";
 import { registerMeetingCaptureMediaSessionHandlers } from "./media-session";
 
@@ -77,6 +78,7 @@ const trackContentTypesSchema = z.object({
 const localMeetingSessionPatchSchema = z
   .object({
     endedAt: z.string().datetime({ offset: true }).nullable().optional(),
+    liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     segmentCount: z.number().int().positive().optional(),
     state: z
@@ -183,18 +185,23 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     console.info("[meeting-capture] begin", { captureId: input.captureId });
     return logCaptureOperation("begin", () => store.begin(input));
   });
-  ipcMain.handle("meeting-capture:save", (event, captureId, liveTranscriptDraft) => {
+  ipcMain.handle("meeting-capture:save", (event, captureId, liveTranscriptDraft, liveSummary) => {
     if (
       !isTrustedMainFrame(event) ||
       !isCaptureId(captureId) ||
       (liveTranscriptDraft !== undefined &&
         liveTranscriptDraft !== null &&
-        !meetingLiveTranscriptDraftSchema.safeParse(liveTranscriptDraft).success)
+        !meetingLiveTranscriptDraftSchema.safeParse(liveTranscriptDraft).success) ||
+      (liveSummary !== undefined &&
+        liveSummary !== null &&
+        !meetingLiveSummarySnapshotSchema.safeParse(liveSummary).success)
     ) {
       throw new Error("不受信任的录制请求");
     }
     console.info("[meeting-capture] save", { captureId });
-    return logCaptureOperation("save", () => store.save(captureId, liveTranscriptDraft));
+    return logCaptureOperation("save", () =>
+      store.save(captureId, liveTranscriptDraft, liveSummary),
+    );
   });
   ipcMain.handle("meeting-capture:describe-workspace-save", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {

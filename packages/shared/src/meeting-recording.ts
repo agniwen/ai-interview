@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import { makePaginationSchema } from "@app/shared/pagination";
 import type { PaginatedResult } from "@app/shared/pagination";
 export type {
@@ -59,6 +61,7 @@ export const createSmallSavedMeetingSchema = z
   .object({
     assets: z.array(meetingSourceAssetSchema).length(2),
     id: z.string().uuid(),
+    liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
@@ -130,6 +133,7 @@ export const createMultipartSavedMeetingSchema = z
   .object({
     assets: z.array(multipartMeetingSourceAssetSchema).length(2),
     id: z.string().uuid(),
+    liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
@@ -289,6 +293,7 @@ export interface MeetingLibraryItem {
 
 export interface MeetingDetail extends MeetingLibraryItem {
   archived: boolean;
+  liveSummary: MeetingLiveSummarySnapshot | null;
   startedAt: string;
   verifiedAt: string | null;
 }

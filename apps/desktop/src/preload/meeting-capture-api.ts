@@ -11,6 +11,7 @@ import type {
   SmallMeetingUploadInstruction,
 } from "@app/shared/meeting-recording";
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import type { LocalMeetingSession } from "./local-meeting-session";
 
 export interface MeetingCaptureApi {
@@ -31,6 +32,7 @@ export interface MeetingCaptureApi {
   save: (
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+    liveSummary?: MeetingLiveSummarySnapshot | null,
   ) => Promise<LocalSavedMeeting>;
   uploadSmall: (captureId: string, instructions: SmallMeetingUploadInstruction[]) => Promise<void>;
   uploadMultipart: (
@@ -42,7 +44,7 @@ export interface MeetingCaptureApi {
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
       >
     >,
   ) => Promise<LocalMeetingSession>;

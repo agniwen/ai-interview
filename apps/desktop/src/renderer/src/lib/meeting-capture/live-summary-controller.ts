@@ -9,6 +9,7 @@ import type {
   MeetingLiveSummaryTemplate,
   MeetingLiveSummaryTurn,
 } from "@app/shared/meeting-live-summary";
+import { MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES } from "@app/shared/meeting-transcription";
 import type { LiveTranscriptDraftSnapshot } from "./live-transcript-draft";
 
 export type MeetingLiveSummaryStatus =
@@ -29,19 +30,24 @@ export interface MeetingLiveSummaryControllerSnapshot {
 
 export interface MeetingLiveSummarySource {
   captureId: string;
+  initialSummary?: MeetingLiveSummarySnapshot | null;
   meetingStartedAt: string;
   template: MeetingLiveSummaryTemplate;
   transcript: LiveTranscriptDraftSnapshot;
+}
+
+export interface MeetingLiveSummaryProvider {
+  summarize: (
+    request: MeetingLiveSummaryRequest,
+    signal: AbortSignal,
+  ) => Promise<MeetingLiveSummarySnapshot>;
 }
 
 interface MeetingLiveSummaryControllerDependencies {
   immediateCharacters?: number;
   initialDelayMs?: number;
   minCharacters?: number;
-  request: (
-    request: MeetingLiveSummaryRequest,
-    signal: AbortSignal,
-  ) => Promise<MeetingLiveSummarySnapshot>;
+  provider: MeetingLiveSummaryProvider;
   retryDelayMs?: number;
   schedule?: (callback: () => void, delayMs: number) => () => void;
   updateDelayMs?: number;
@@ -204,6 +210,18 @@ export function createMeetingLiveSummaryController(
     return !(controller.signal.aborted || disposed || source?.captureId !== captureId);
   }
 
+  const acknowledgeCoveredTurns = (
+    next: MeetingLiveSummarySource,
+    summary: MeetingLiveSummarySnapshot,
+  ) => {
+    const turns = buildMeetingLiveSummaryTurns(next.transcript, next.meetingStartedAt);
+    for (const turn of turns) {
+      if (turn.endMs <= summary.coveredThroughMs || turn.id === summary.coveredThroughTurnId) {
+        acknowledgedTurns.set(turn.id, turnFingerprint(turn));
+      }
+    }
+  };
+
   runRequest = async () => {
     if (disposed || requestAbort || !source) {
       return;
@@ -220,7 +238,7 @@ export function createMeetingLiveSummaryController(
     publish({ error: null, status: "updating" });
     try {
       const result = meetingLiveSummarySnapshotSchema.parse(
-        await dependencies.request(
+        await dependencies.provider.summarize(
           {
             baseSnapshot,
             captureId: requestSource.captureId,
@@ -269,11 +287,21 @@ export function createMeetingLiveSummaryController(
     requestAbort = null;
     acknowledgedTurns.clear();
     source = next;
+    const restoredSummary =
+      next && next.initialSummary?.captureId === next.captureId ? next.initialSummary : null;
+    let status: MeetingLiveSummaryStatus = "idle";
+    if (next) {
+      status = restoredSummary ? "ready" : "waiting";
+    }
     state = {
       ...initialSnapshot(),
       captureId: next?.captureId ?? null,
-      status: next ? "waiting" : "idle",
+      status,
+      summary: restoredSummary,
     };
+    if (next && restoredSummary) {
+      acknowledgeCoveredTurns(next, restoredSummary);
+    }
     for (const listener of listeners) {
       listener(state);
     }
@@ -300,10 +328,20 @@ export function createMeetingLiveSummaryController(
       }
       if (next.captureId === source?.captureId) {
         source = next;
+        if (!state.summary && next.initialSummary?.captureId === next.captureId) {
+          cancelTimer();
+          requestAbort?.abort();
+          requestAbort = null;
+          acknowledgeCoveredTurns(next, next.initialSummary);
+          publish({ error: null, status: "ready", summary: next.initialSummary });
+        }
       } else {
         resetForSource(next);
       }
-      if (next.transcript.provider && next.transcript.provider !== "deepgram") {
+      if (
+        next.transcript.provider &&
+        !MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES[next.transcript.provider].liveSummary
+      ) {
         cancelTimer();
         publish({ error: null, pendingCharacters: 0, status: "disabled", summary: null });
         return;

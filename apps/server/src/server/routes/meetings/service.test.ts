@@ -210,6 +210,29 @@ describe("small Saved Meeting service", () => {
           }),
         ),
         id: "meeting",
+        liveSummary: {
+          captureId: "00000000-0000-4000-8000-000000000077",
+          coveredThroughMs: 1000,
+          coveredThroughTurnId: "turn-1",
+          generatedAt: "2026-08-09T03:01:00.000Z",
+          model: "summary-model",
+          provider: "summary-provider",
+          revision: 1,
+          summary: "候选人介绍了项目经验。",
+          template: "recruiting-interview",
+          topics: [
+            {
+              endMs: 1000,
+              evidenceTurnIds: ["turn-1"],
+              id: "topic-1",
+              points: [],
+              startMs: 0,
+              status: "active",
+              summary: "项目经验",
+              title: "候选人经历",
+            },
+          ],
+        },
         manifestSha256: MANIFEST_SHA,
         savedAt: "2026-08-09T03:01:00.000Z",
         startedAt: "2026-08-09T03:00:00.000Z",
@@ -221,7 +244,10 @@ describe("small Saved Meeting service", () => {
 
     expect(mocks.createOrLoadMeetingSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        meeting: expect.objectContaining({ title: "候选人项目经验沟通" }),
+        meeting: expect.objectContaining({
+          liveSummary: expect.objectContaining({ summary: "候选人介绍了项目经验。" }),
+          title: "候选人项目经验沟通",
+        }),
       }),
     );
   });

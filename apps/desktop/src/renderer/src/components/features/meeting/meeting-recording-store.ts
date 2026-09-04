@@ -80,10 +80,15 @@ export function createMeetingRecordingStateBridge(
   let latestTranscript = INITIAL_LIVE_DRAFT_SNAPSHOT;
   const updateSummarySource = () => {
     const { active } = latestCapture;
+    const localSummary = active
+      ? (latestCapture.localSessions.find((session) => session.id === active.captureId)
+          ?.liveSummary ?? null)
+      : null;
     sources.summary.update(
       active && latestTranscript.captureId === active.captureId
         ? {
             captureId: active.captureId,
+            initialSummary: localSummary,
             meetingStartedAt: active.startedAt,
             template: active.recruitingRecordId ? "recruiting-interview" : "general",
             transcript: latestTranscript,

@@ -7,6 +7,7 @@ import type {
   RecoverableMeetingCapture,
 } from "../../../../preload/meeting-capture";
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import type { LocalMeetingSession } from "../../../../preload/local-meeting-session";
 
 const WRITE_TIMEOUT_MS = 30_000;
@@ -78,8 +79,9 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
   save(
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+    liveSummary?: MeetingLiveSummarySnapshot | null,
   ): Promise<LocalSavedMeeting> {
-    return window.api.meetingCapture.save(captureId, liveTranscriptDraft);
+    return window.api.meetingCapture.save(captureId, liveTranscriptDraft, liveSummary);
   }
 
   discard(captureId: string): Promise<void> {
@@ -114,7 +116,7 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
       >
     >,
   ): Promise<LocalMeetingSession> {

@@ -62,6 +62,7 @@ describe("Meeting Library views", () => {
       meetingDetailRefetchInterval({
         ...item,
         archived: false,
+        liveSummary: null,
         processingState: "failed",
         startedAt: "2026-08-09T03:59:00.000Z",
         verifiedAt: null,
@@ -95,6 +96,7 @@ describe("Meeting Library views", () => {
         meeting={{
           ...item,
           archived: false,
+          liveSummary: null,
           startedAt: "2026-08-09T03:59:00.000Z",
           verifiedAt: null,
         }}
@@ -109,6 +111,7 @@ describe("Meeting Library views", () => {
         meeting={{
           ...item,
           archived: false,
+          liveSummary: null,
           processingState: "ready",
           recordingAvailable: true,
           startedAt: "2026-08-09T03:59:00.000Z",
@@ -149,6 +152,7 @@ describe("Meeting Library views", () => {
         meeting={{
           ...item,
           archived: false,
+          liveSummary: null,
           processingState: "failed",
           startedAt: "2026-08-09T03:59:00.000Z",
           verifiedAt: null,
