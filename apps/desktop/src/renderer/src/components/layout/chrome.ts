@@ -20,10 +20,24 @@ export const CHROME_EDGE_PAD_PX = 12;
 /** Hit target size for a chrome icon button (matches ChromeIconButton size-6). */
 export const CHROME_BTN_PX = 24;
 
-export function handleTitleBarDoubleClick(): void {
-  void window.api.window.maximize();
-}
+/** Gap between the inbox and native Win/Linux window controls. */
+export const CHROME_RIGHT_GAP_PX = 6;
 
 export function isMacPlatform(): boolean {
   return window.api.window.platform === "darwin";
+}
+
+/** Width reserved by the fixed right-side chrome controls. */
+export function desktopChromeRightControlsWidthPx(): number {
+  const windowControlsPx = isMacPlatform() ? 0 : 44 * 3;
+  return (
+    CHROME_EDGE_PAD_PX +
+    CHROME_BTN_PX +
+    (windowControlsPx > 0 ? CHROME_RIGHT_GAP_PX : 0) +
+    windowControlsPx
+  );
+}
+
+export function handleTitleBarDoubleClick(): void {
+  void window.api.window.maximize();
 }

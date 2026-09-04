@@ -193,7 +193,7 @@ export function MeetingLiveSummaryPanel({
   return (
     <div className="h-full min-h-[32rem]">
       {graph ? (
-        <div className="h-full overflow-hidden bg-background">
+        <div className="h-full overflow-hidden bg-transparent">
           <ReactFlow
             edges={edges}
             fitView

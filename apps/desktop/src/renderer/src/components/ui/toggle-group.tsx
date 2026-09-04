@@ -16,7 +16,7 @@ export function ToggleGroup({
   return (
     <ToggleGroupContext.Provider value={{ size }}>
       <ToggleGroupPrimitive
-        className={cn("inline-flex items-center rounded-lg bg-muted p-0.5", className)}
+        className={cn("inline-flex items-center gap-0.5 rounded-[8px]", className)}
         data-slot="toggle-group"
         {...props}
       />
@@ -29,8 +29,8 @@ export function ToggleGroupItem({ className, ...props }: ComponentProps<typeof T
   return (
     <Toggle
       className={cn(
-        "inline-flex items-center justify-center rounded-md text-muted-foreground outline-none transition-[background-color,color,box-shadow] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[pressed]:bg-background data-[pressed]:text-foreground data-[pressed]:shadow-sm disabled:pointer-events-none disabled:opacity-50",
-        size === "sm" ? "size-7" : "size-8",
+        "inline-flex items-center justify-center rounded-[8px] text-muted-foreground outline-none transition-colors hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[pressed]:bg-foreground/8 data-[pressed]:text-foreground disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-foreground/12 dark:data-[pressed]:bg-foreground/12",
+        size === "sm" ? "size-6" : "size-8",
         className,
       )}
       data-slot="toggle-group-item"

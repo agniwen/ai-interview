@@ -6,6 +6,7 @@ import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
 import {
   CHROME_BTN_PX,
   CHROME_EDGE_PAD_PX,
+  desktopChromeRightControlsWidthPx,
   CHROME_TRAFFIC_LIGHT_INSET_PX,
   TITLE_BAR_HEIGHT_PX,
   handleTitleBarDoubleClick,
@@ -33,14 +34,6 @@ const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
 };
-
-/** gap-1.5 between right-cluster controls. */
-const CHROME_RIGHT_GAP_PX = 6;
-
-/** Approx. Win/Linux window-control cluster (3 × 44px). macOS is 0. */
-function windowControlsWidthPx(): number {
-  return window.api.window.platform === "darwin" ? 0 : 44 * 3;
-}
 
 /**
  * Single fixed top chrome for the whole window.
@@ -70,12 +63,7 @@ export function DesktopChromeBar(): React.JSX.Element {
   const toggleEnd = leftInset + CHROME_BTN_PX;
   const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 2 : 0;
   // Right cluster: inbox + optional native window controls + edge pad.
-  const windowControlsPx = windowControlsWidthPx();
-  const rightClusterPx =
-    CHROME_EDGE_PAD_PX +
-    CHROME_BTN_PX +
-    (windowControlsPx > 0 ? CHROME_RIGHT_GAP_PX : 0) +
-    windowControlsPx;
+  const rightClusterPx = desktopChromeRightControlsWidthPx();
 
   // Expanded: history ends at sidebar right pad.
   // Collapsed: history starts just after the toggle.

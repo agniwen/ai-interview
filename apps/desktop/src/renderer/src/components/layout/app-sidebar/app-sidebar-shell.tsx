@@ -4,6 +4,7 @@ import { useAtom } from "jotai";
 import { useMemo, useState } from "react";
 import { ContentTitleBar, shouldShowContentTitleBar } from "@/components/layout/content-title-bar";
 import { DesktopChromeBar } from "@/components/layout/desktop-chrome-bar";
+import { desktopChromeRightControlsWidthPx } from "@/components/layout/chrome";
 import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
 import { DESKTOP_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/resumes/scroll-element";
 import {
@@ -22,14 +23,10 @@ import {
 } from "./portals";
 
 interface SidebarStyle extends CSSProperties {
+  "--desktop-chrome-right-controls-width": string;
   "--sidebar-width": string;
   "--sidebar-width-icon": string;
 }
-
-const sidebarStyle: SidebarStyle = {
-  "--sidebar-width": "17rem",
-  "--sidebar-width-icon": "3rem",
-};
 
 /**
  * Always-on sidebar footer (user chip). Lives under SidebarProvider so
@@ -63,6 +60,11 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
       scroll: (instance) => updateVisibility(instance),
     };
   }, []);
+  const sidebarStyle: SidebarStyle = {
+    "--desktop-chrome-right-controls-width": `${desktopChromeRightControlsWidthPx()}px`,
+    "--sidebar-width": "17rem",
+    "--sidebar-width-icon": "3rem",
+  };
 
   return (
     <SidebarHeaderPortalProvider>

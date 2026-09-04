@@ -61,8 +61,8 @@ export function MeetingLiveSessionStage({
       </ResizablePanel>
       <ResizableHandle aria-label="调整实时字幕和实时总结宽度" />
       <ResizablePanel defaultSize="58%" minSize="400px">
-        <section className="flex h-full min-w-0 flex-col overflow-hidden">
-          <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 px-5">
+        <section className="flex h-full min-w-0 flex-col overflow-hidden bg-sidebar/70">
+          <header className="flex h-10 shrink-0 items-center justify-between gap-3 pl-5 pr-[calc(var(--desktop-chrome-right-controls-width,2.25rem)+1.25rem)]">
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="font-semibold text-sm">实时总结</h2>
               <span aria-live="polite" className="text-muted-foreground text-[11px]">
