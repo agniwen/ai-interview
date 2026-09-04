@@ -63,7 +63,7 @@ export function MeetingLiveSessionStage({
         <section className="flex h-full min-w-0 flex-col overflow-hidden">
           <div
             className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-3 sm:px-6"
-            style={{ paddingTop: TITLE_BAR_HEIGHT_PX + 16 }}
+            style={{ paddingTop: TITLE_BAR_HEIGHT_PX + 32 }}
           >
             {header}
           </div>
