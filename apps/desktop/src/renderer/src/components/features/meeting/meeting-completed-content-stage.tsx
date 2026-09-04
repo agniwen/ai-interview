@@ -10,6 +10,12 @@ import { MeetingLiveSummaryPanel } from "./meeting-live-summary-panel";
 
 type CompletedContentView = "document" | "mind-map" | "transcript";
 
+const completedContentViewTitles = {
+  document: "Markdown 总结",
+  "mind-map": "思维导图",
+  transcript: "实时字幕",
+} satisfies Record<CompletedContentView, string>;
+
 const noDragStyle: CSSProperties & { WebkitAppRegion: "no-drag" } = {
   WebkitAppRegion: "no-drag",
 };
@@ -39,9 +45,17 @@ export function MeetingCompletedContentStage({
   const showTranscriptEvidence = () => setSelectedView("transcript");
 
   return (
-    <section className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 pb-10 sm:px-6">
-      <header className="flex h-11 shrink-0 items-center justify-between gap-3">
-        <h2 className="font-semibold text-sm">会议内容</h2>
+    <section
+      className="flex min-h-full w-full flex-col pb-10"
+      data-slot="meeting-completed-content-stage"
+    >
+      <header
+        className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-between gap-3 px-4 sm:px-6"
+        data-slot="meeting-completed-content-header"
+      >
+        <h2 className="font-semibold text-sm" data-slot="meeting-completed-content-title">
+          {completedContentViewTitles[view]}
+        </h2>
         <TooltipProvider delay={200}>
           <ToggleGroup
             aria-label="会议内容显示方式"
@@ -94,11 +108,21 @@ export function MeetingCompletedContentStage({
           <MeetingLiveSummaryDocument onEvidence={showTranscriptEvidence} snapshot={snapshot} />
         ) : null}
         {view === "mind-map" ? (
-          <div className="h-[min(42rem,70vh)] min-h-[32rem]">
+          <div
+            className="h-[min(42rem,70vh)] min-h-[32rem] w-full"
+            data-slot="meeting-completed-mind-map"
+          >
             <MeetingLiveSummaryPanel onEvidence={showTranscriptEvidence} snapshot={snapshot} />
           </div>
         ) : null}
-        {view === "transcript" ? transcript : null}
+        {view === "transcript" ? (
+          <div
+            className="mx-auto w-full max-w-3xl px-4 sm:px-6"
+            data-slot="meeting-completed-transcript"
+          >
+            {transcript}
+          </div>
+        ) : null}
       </div>
     </section>
   );

@@ -98,14 +98,6 @@ function storedDraftSnapshot(
   };
 }
 
-function SessionDraftBadge() {
-  return (
-    <span className="w-fit rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
-      录制草稿
-    </span>
-  );
-}
-
 function sessionComposer(input: {
   interrupted: boolean;
   onContinueInterrupted: () => void;
@@ -212,7 +204,6 @@ function MeetingMoreEntryButton({ meetingId }: { meetingId: string }) {
 
 function MeetingDetailHeader({
   canRename,
-  draftBadge,
   editingTitle,
   isEditingTitle,
   meeting,
@@ -231,7 +222,6 @@ function MeetingDetailHeader({
   title,
 }: {
   canRename: boolean;
-  draftBadge?: ReactNode;
   editingTitle: string;
   isEditingTitle: boolean;
   meeting: MeetingDetail | undefined;
@@ -313,7 +303,6 @@ function MeetingDetailHeader({
       {status && !status.failed ? (
         <p className="text-muted-foreground text-xs">{status.label}</p>
       ) : null}
-      {draftBadge}
     </header>
   );
 }
@@ -441,13 +430,9 @@ export function MeetingDetailPage({
   const canRename = Boolean(
     localSession || (meeting && canManageMeetingLifecycle(meeting.accessRole)),
   );
-  const renderDetailHeader = (
-    status: MeetingPostSaveStep | null,
-    draftBadge?: ReactNode,
-  ): ReactNode => (
+  const renderDetailHeader = (status: MeetingPostSaveStep | null): ReactNode => (
     <MeetingDetailHeader
       canRename={canRename}
-      draftBadge={draftBadge}
       editingTitle={editingTitle}
       isEditingTitle={isEditingTitle}
       meeting={meeting ?? undefined}
@@ -554,8 +539,6 @@ export function MeetingDetailPage({
     workspaceSave && workspaceSave.state !== "workspace-verified"
       ? (workspaceSave.error ?? localWorkspaceSaveLabel(workspaceSave.state))
       : undefined;
-  const showDraftBadge =
-    (transcriptQuery.data?.draft?.turns.length ?? 0) > 0 || (localDraft?.turns.length ?? 0) > 0;
   const playback = playbackQuery.data;
   const isInterruptedSession = localSession?.state === "interrupted";
   const status = sessionDetailStatus({
@@ -566,7 +549,7 @@ export function MeetingDetailPage({
   });
   let completedTranscript: ReactNode = <MeetingLocalTranscriptStage localDraft={localDraft} />;
   if (remoteLiveDraft) {
-    completedTranscript = <LiveTranscriptDraftPanel snapshot={remoteLiveDraft} />;
+    completedTranscript = <LiveTranscriptDraftPanel embedded snapshot={remoteLiveDraft} />;
   } else if (meeting) {
     completedTranscript = (
       <MeetingTranscriptStage
@@ -594,10 +577,7 @@ export function MeetingDetailPage({
             playback,
             seekToSeconds,
           })}
-          header={renderDetailHeader(
-            status,
-            showDraftBadge && !isInterruptedSession ? <SessionDraftBadge /> : undefined,
-          )}
+          header={renderDetailHeader(status)}
           overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
           main={
             isInterruptedSession && localDraft ? (

@@ -180,7 +180,10 @@ describe("LiveTranscriptDraftPanel", () => {
       expect(html).not.toContain("我的麦克风");
       expect(html).not.toContain("系统音频");
       expect(html).not.toContain("草稿区段");
-      if (!embedded) {
+      if (embedded) {
+        expect(html).not.toContain("录制草稿");
+        expect(html).not.toContain('data-slot="live-transcript-scroll-content"');
+      } else {
         expect(html).toContain('aria-label="实时字幕状态：实时"');
         expect(html).toContain('data-slot="live-transcript-scroll-content"');
         expect(html).toMatch(

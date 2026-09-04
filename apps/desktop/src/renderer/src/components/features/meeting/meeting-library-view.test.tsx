@@ -144,6 +144,9 @@ describe("Meeting Library views", () => {
     expect(composer).not.toContain('data-slot="meeting-composer-frame"');
     expect(composer).toContain("w-[4.8rem] rounded-full");
     expect(composer).toContain("bg-primary/10 text-primary");
+    expect(composer).toContain("hover:border-transparent");
+    expect(composer).toContain("focus-visible:border-transparent");
+    expect(composer).toContain("dark:hover:bg-primary/15");
   });
 
   it("offers an explicit retry after automatic processing attempts are exhausted", () => {

@@ -177,7 +177,7 @@ function MeetingAudioPlayerControls({
       >
         <AudioPlayerElapsedDuration className="min-w-0 truncate pl-1 text-xs leading-none" />
         <AudioPlayerButton
-          className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary"
+          className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:border-transparent hover:bg-primary/15 hover:text-primary focus-visible:border-transparent focus-visible:ring-0 dark:hover:bg-primary/15"
           item={item}
           size="icon"
           variant="ghost"

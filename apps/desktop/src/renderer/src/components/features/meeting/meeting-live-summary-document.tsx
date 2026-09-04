@@ -24,7 +24,7 @@ export function MeetingLiveSummaryDocument({
 
   return (
     <ScrollArea className="h-full min-h-0" orientation="vertical" scrollFade>
-      <article className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-5 select-text">
+      <article className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-5 select-text sm:px-6">
         <p className="text-sm leading-7">{snapshot.summary.summary}</p>
         <ul className="flex flex-col gap-5">
           {snapshot.summary.topics.map((topic) => (

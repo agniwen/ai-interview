@@ -195,6 +195,7 @@ export function MeetingLiveSummaryPanel({
       {graph ? (
         <div className="h-full overflow-hidden bg-transparent">
           <ReactFlow
+            data-slot="meeting-summary-flow"
             edges={edges}
             fitView
             fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
