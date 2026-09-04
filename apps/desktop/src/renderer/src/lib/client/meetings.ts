@@ -2,6 +2,11 @@ import type {
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
 } from "@app/shared/meeting-intelligence";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import type {
+  MeetingLiveSummaryRequest,
+  MeetingLiveSummarySnapshot,
+} from "@app/shared/meeting-live-summary";
 import type {
   CreateMeetingQuestion,
   MeetingQuestionExchange,
@@ -110,6 +115,22 @@ export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   return apiJson<{ records: MeetingLibraryItem[] }>(apiUrl(path), "加载录制记录失败").then(
     (payload) => payload.records,
   );
+}
+
+export async function requestMeetingLiveSummary(
+  slug: string,
+  request: MeetingLiveSummaryRequest,
+  signal?: AbortSignal,
+): Promise<MeetingLiveSummarySnapshot> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/live-summary`;
+  const payload = await apiJson<unknown>(apiUrl(path), "生成 AI 实时总结失败", {
+    body: JSON.stringify(request),
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+    signal,
+  });
+  return meetingLiveSummarySnapshotSchema.parse(payload);
 }
 
 export async function requestRecordingTitle(

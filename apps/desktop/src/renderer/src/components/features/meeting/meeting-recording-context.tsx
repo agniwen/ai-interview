@@ -24,6 +24,7 @@ import { MeetingActiveRecordingIndicator } from "./meeting-capture-status";
 import {
   captureSnapshotAtom,
   liveTranscriptDraftAtom,
+  meetingLiveSummaryAtom,
   pendingMeetingDiscardAtom,
   preselectedResumeRecordAtom,
 } from "./meeting-recording-store";
@@ -468,6 +469,10 @@ export function useMeetingCaptureSnapshot() {
 
 export function useMeetingLiveTranscriptDraft() {
   return useAtomValue(liveTranscriptDraftAtom);
+}
+
+export function useMeetingLiveSummary() {
+  return useAtomValue(meetingLiveSummaryAtom);
 }
 
 /** 预选简历由录制入口写入，初始化页读取；search 参数仍是刷新后的事实来源。 */

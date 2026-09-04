@@ -5,7 +5,12 @@ import {
   captureSnapshotAtom,
   createMeetingRecordingStateBridge,
   liveTranscriptDraftAtom,
+  meetingLiveSummaryAtom,
 } from "./meeting-recording-store";
+import type {
+  MeetingLiveSummaryControllerSnapshot,
+  MeetingLiveSummarySource,
+} from "@/lib/meeting-capture/live-summary-controller";
 
 function observable<Value>(initial: Value) {
   let value = initial;
@@ -57,8 +62,22 @@ describe("meeting recording global store", () => {
   it("keeps recording and transcript updates while page consumers are unmounted", () => {
     const captureSource = observable(capture);
     const transcriptSource = observable(draft);
+    const summaryUpdates: (MeetingLiveSummarySource | null)[] = [];
+    const summarySource = {
+      ...observable<MeetingLiveSummaryControllerSnapshot>({
+        captureId: null,
+        error: null,
+        pendingCharacters: 0,
+        status: "idle",
+        summary: null,
+      }),
+      update(source: MeetingLiveSummarySource | null) {
+        summaryUpdates.push(source);
+      },
+    };
     const bridge = createMeetingRecordingStateBridge({
       capture: captureSource,
+      summary: summarySource,
       transcript: transcriptSource,
     });
 
@@ -117,6 +136,18 @@ describe("meeting recording global store", () => {
       "切换页面期间仍然收到",
     ]);
     expect(bridge.store.get(captureSnapshotAtom).phase).toBe("active");
+    expect(summaryUpdates.at(-1)).toMatchObject({
+      captureId: "00000000-0000-4000-8000-000000000077",
+      template: "general",
+    });
+    summarySource.publish({
+      captureId: "00000000-0000-4000-8000-000000000077",
+      error: null,
+      pendingCharacters: 0,
+      status: "ready",
+      summary: null,
+    });
+    expect(bridge.store.get(meetingLiveSummaryAtom).status).toBe("ready");
     expect(pageSeen).toEqual(["离开页面前"]);
     bridge.dispose();
   });

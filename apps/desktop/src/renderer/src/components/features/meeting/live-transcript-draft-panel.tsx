@@ -44,10 +44,12 @@ function statusIcon(status: Exclude<LiveTranscriptDraftStatus, "idle">): string 
 }
 
 function TranscriptTurn({
+  highlightedTurnId,
   turn,
   playCorrectionSweep,
   speakerProfile,
 }: {
+  highlightedTurnId?: string | null;
   turn: LiveTranscriptDraftTurn;
   playCorrectionSweep: typeof playTranscriptCorrectionSweep;
   speakerProfile?: MeetingSpeakerProfile;
@@ -72,6 +74,8 @@ function TranscriptTurn({
       className={cn(
         "relative isolate grid w-full cursor-text gap-1 px-px py-1 text-left select-text",
         !turn.final && "text-muted-foreground italic",
+        turn.id === highlightedTurnId &&
+          "rounded-md bg-primary/8 ring-2 ring-primary/30 ring-offset-2 ring-offset-background",
       )}
       data-live-transcript-turn={turn.id}
       ref={blockRef}
@@ -125,12 +129,14 @@ export function LiveTranscriptDraftPanel({
   className,
   embedded = false,
   emptyHint = "等待检测到语音…",
+  highlightedTurnId,
   playCorrectionSweep = playTranscriptCorrectionSweep,
 }: {
   snapshot: LiveTranscriptDraftSnapshot;
   className?: string;
   embedded?: boolean;
   emptyHint?: string;
+  highlightedTurnId?: string | null;
   playCorrectionSweep?: typeof playTranscriptCorrectionSweep;
 }) {
   const { status } = snapshot;
@@ -178,6 +184,7 @@ export function LiveTranscriptDraftPanel({
       <div aria-live="polite" className={cn("grid select-text", className)}>
         {snapshot.turns.map((turn) => (
           <TranscriptTurn
+            highlightedTurnId={highlightedTurnId}
             key={turn.id}
             playCorrectionSweep={playCorrectionSweep}
             speakerProfile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
@@ -254,6 +261,7 @@ export function LiveTranscriptDraftPanel({
           <LiveTranscriptScrollContent className="grid select-text" aria-live="polite">
             {snapshot.turns.map((turn) => (
               <TranscriptTurn
+                highlightedTurnId={highlightedTurnId}
                 key={turn.id}
                 playCorrectionSweep={playCorrectionSweep}
                 speakerProfile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}

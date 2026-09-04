@@ -1,5 +1,6 @@
 import { meetingCapture } from "@/lib/meeting-capture";
 import { meetingLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft-client";
+import { meetingLiveSummary } from "@/lib/meeting-capture/live-summary-client";
 import {
   createMeetingRecordingStateBridge,
   meetingRecordingStore,
@@ -10,7 +11,11 @@ let productionBridge: ReturnType<typeof createMeetingRecordingStateBridge> | nul
 /** Connect the process-long capture services before any routed page mounts. */
 export function initializeMeetingRecordingStore(): void {
   productionBridge ??= createMeetingRecordingStateBridge(
-    { capture: meetingCapture, transcript: meetingLiveTranscriptDraft },
+    {
+      capture: meetingCapture,
+      summary: meetingLiveSummary,
+      transcript: meetingLiveTranscriptDraft,
+    },
     meetingRecordingStore,
   );
 }

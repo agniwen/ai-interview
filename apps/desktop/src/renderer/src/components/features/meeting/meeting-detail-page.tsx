@@ -42,9 +42,11 @@ import {
 import type { MeetingPostSaveStep } from "./meeting-detail-helpers";
 import { canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
+import { MeetingLiveSessionStage } from "./meeting-live-session-stage";
 import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
 import {
   useMeetingCaptureSnapshot,
+  useMeetingLiveSummary,
   useMeetingLiveTranscriptDraft,
   useMeetingRecordingActions,
 } from "./meeting-recording-context";
@@ -332,6 +334,7 @@ export function MeetingDetailPage({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const captureSnapshot = useMeetingCaptureSnapshot();
   const liveDraft = useMeetingLiveTranscriptDraft();
+  const liveSummary = useMeetingLiveSummary();
   const { continueInterruptedRecording, pauseRecording, resumeRecording, saveRecording } =
     useMeetingRecordingActions();
 
@@ -501,8 +504,7 @@ export function MeetingDetailPage({
 
   if (isActiveCapture) {
     return (
-      <MeetingRecordingSessionLayout
-        composerClassName="max-w-2xl"
+      <MeetingLiveSessionStage
         composer={
           <MeetingCaptureComposer
             onPause={pauseRecording}
@@ -512,7 +514,8 @@ export function MeetingDetailPage({
           />
         }
         header={renderDetailHeader(null)}
-        main={<LiveTranscriptDraftPanel snapshot={liveDraft} />}
+        summary={liveSummary}
+        transcript={liveDraft}
       />
     );
   }
