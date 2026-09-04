@@ -39,7 +39,9 @@ export function resolveMeetingTranscriptionProviderModel(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   const hasReadyDiarizableAudio = assets.some(
-    (asset) => asset.status === "ready" && (asset.track === "mixed" || asset.track === "system"),
+    (asset) =>
+      asset.status === "ready" &&
+      (asset.track === "mixed" || asset.track === "playback" || asset.track === "system"),
   );
   if (candidate.id === "qwen" && hasReadyDiarizableAudio) {
     return (

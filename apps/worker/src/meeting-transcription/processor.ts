@@ -85,6 +85,11 @@ interface PrepareChunkSource {
   track: MeetingTranscriptionSourceTrack;
 }
 
+// Playback is the persisted Desktop mix; downstream transcription calls the same concept `mixed`.
+function asMixedTranscriptionSource(source: SourceAsset): SourceAsset {
+  return { ...source, track: "mixed" };
+}
+
 function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscriptionSourceTrack {
   if (/^participant-[a-zA-Z0-9-]+$/.test(track)) {
     // SAFETY: the anchored pattern establishes the participant source-track contract.
@@ -432,6 +437,7 @@ async function runMeetingTranscriptionProcessingPromise(
       throw new Error("Meeting Recording 清单已变化");
     }
     const mixed = meeting.assets.find((asset) => asset.track === "mixed");
+    const playback = meeting.assets.find((asset) => asset.track === "playback");
     const candidate = meeting.assets.find((asset) => asset.track === "candidate");
     const microphone = meeting.assets.find((asset) => asset.track === "microphone");
     const system = meeting.assets.find((asset) => asset.track === "system");
@@ -445,7 +451,9 @@ async function runMeetingTranscriptionProcessingPromise(
           (asset.track === "mixed" || asset.track.startsWith("participant-")),
       );
     }
-    if (!identityRecording && sources.length > 0 && candidate?.status === "ready") {
+    if (!identityRecording && playback?.status === "ready") {
+      sources = [asMixedTranscriptionSource(playback)];
+    } else if (!identityRecording && sources.length > 0 && candidate?.status === "ready") {
       sources.push(candidate);
     }
     if (sources.length === 0 && microphone?.status === "ready" && system?.status === "ready") {

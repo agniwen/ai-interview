@@ -33,7 +33,7 @@ function createDependencies() {
     createWorkingDirectory: vi.fn(() => Promise.resolve("/tmp/meeting-76")),
     downloadSource: vi.fn(() => Promise.resolve()),
     ensureDiskCapacity: vi.fn(() => Promise.resolve()),
-    loadSource: vi.fn(() =>
+    loadSource: vi.fn<MeetingTranscriptionDependencies["loadSource"]>(() =>
       Promise.resolve({
         assets: [
           {
@@ -52,6 +52,14 @@ function createDependencies() {
             storageKey: "system.webm",
             track: "system" as const,
           },
+          {
+            contentType: "audio/webm",
+            durationMs: 62_000,
+            sizeBytes: 150,
+            status: "failed",
+            storageKey: "playback.webm",
+            track: "playback" as const,
+          },
         ],
         id: "meeting-76",
         manifestSha256: "a".repeat(64),
@@ -62,7 +70,7 @@ function createDependencies() {
       Promise.resolve(),
     ),
     markFailed: vi.fn<MeetingTranscriptionDependencies["markFailed"]>(() => Promise.resolve(true)),
-    prepareChunks: vi.fn(() =>
+    prepareChunks: vi.fn<MeetingTranscriptionDependencies["prepareChunks"]>(() =>
       Promise.resolve([
         {
           contentType: "audio/webm",
@@ -572,6 +580,94 @@ describe("Meeting final transcription processor", () => {
     expect(dependencies.requestHumanEvaluation).toHaveBeenCalledWith({
       meetingSessionId: job.meetingId,
       organizationId: job.organizationId,
+    });
+  });
+
+  it("uses the verified playback mix as the only source for a desktop meeting", async () => {
+    const dependencies = createDependencies();
+    dependencies.loadSource.mockResolvedValueOnce({
+      assets: [
+        {
+          contentType: "audio/webm;codecs=opus",
+          durationMs: 62_000,
+          sizeBytes: 100,
+          status: "ready",
+          storageKey: "microphone.webm",
+          track: "microphone",
+        },
+        {
+          contentType: "audio/webm;codecs=opus",
+          durationMs: 62_000,
+          sizeBytes: 100,
+          status: "ready",
+          storageKey: "system.webm",
+          track: "system",
+        },
+        {
+          contentType: "audio/webm",
+          durationMs: 62_000,
+          sizeBytes: 150,
+          status: "ready",
+          storageKey: "playback.webm",
+          track: "playback",
+        },
+        {
+          contentType: "audio/webm",
+          durationMs: 62_000,
+          sizeBytes: 140,
+          status: "ready",
+          storageKey: "mixed.webm",
+          track: "mixed",
+        },
+        {
+          contentType: "audio/webm",
+          durationMs: 62_000,
+          sizeBytes: 120,
+          status: "ready",
+          storageKey: "candidate.webm",
+          track: "candidate",
+        },
+      ],
+      id: job.meetingId,
+      manifestSha256: job.sourceManifestSha256,
+      organizationId: job.organizationId,
+    });
+    dependencies.prepareChunks.mockImplementationOnce(({ sources }) => {
+      expect(sources).toEqual([
+        expect.objectContaining({
+          filePath: "/tmp/meeting-76/mixed-source.media",
+          track: "mixed",
+        }),
+      ]);
+      return Promise.resolve([
+        {
+          contentType: "audio/webm",
+          endMs: 62_000,
+          filePath: "/tmp/meeting-76/mixed-000.webm",
+          index: 0,
+          startMs: 0,
+          track: "mixed",
+        },
+      ]);
+    });
+
+    await runMeetingTranscriptionProcessing(job, { attempt: 1, maxAttempts: 5 }, dependencies);
+
+    expect(dependencies.downloadSource).toHaveBeenCalledOnce();
+    expect(dependencies.downloadSource).toHaveBeenCalledWith({
+      filePath: "/tmp/meeting-76/mixed-source.media",
+      storageKey: "playback.webm",
+    });
+    expect(dependencies.ensureDiskCapacity).toHaveBeenCalledWith({
+      directory: "/tmp/meeting-76",
+      requiredBytes: 300,
+    });
+    expect(dependencies.provider.transcribeFinal).toHaveBeenCalledOnce();
+    expect(dependencies.provider.transcribeFinal).toHaveBeenCalledWith({
+      chunks: [expect.objectContaining({ track: "mixed" })],
+      languageHint: null,
+      model: job.model,
+      region: job.region,
     });
   });
 

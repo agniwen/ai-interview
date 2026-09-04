@@ -10,7 +10,7 @@ const qwenCandidate: MeetingTranscriptionProviderCandidate = {
 };
 
 describe("resolveMeetingTranscriptionProviderModel", () => {
-  it.each(["mixed", "system"] as const)(
+  it.each(["mixed", "playback", "system"] as const)(
     "uses Qwen Audio 3 speaker diarization for a ready %s track",
     (track) => {
       expect(
