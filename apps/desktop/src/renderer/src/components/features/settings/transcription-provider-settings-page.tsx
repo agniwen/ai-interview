@@ -22,8 +22,8 @@ import { updateSettings, useSettings } from "@/lib/settings";
 type CredentialStatus = Awaited<ReturnType<typeof orpc.transcriptionProviders.getCredentialStatus>>;
 
 const PROVIDER_LABELS = {
-  deepgram: "Deepgram Nova-3",
-  qwen: "Qwen 实时语音识别",
+  deepgram: "Deepgram",
+  qwen: "DashScope",
 } satisfies Record<MeetingLiveTranscriptProviderId, string>;
 
 const CAPABILITIES = [
@@ -49,8 +49,7 @@ function CredentialRow({
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const save = async () => {
     if (!apiKey.trim()) {
       return;
     }
@@ -67,37 +66,42 @@ function CredentialRow({
   };
 
   return (
-    <SettingsRow
-      description={
-        provider === "qwen"
-          ? "可选。未配置时继续使用当前 Workspace 提供的短期授权。"
-          : "必填。主进程用它换取短期 JWT，永久 Key 不会进入渲染进程。"
-      }
-      label={`${PROVIDER_LABELS[provider]} API Key`}
-    >
-      <form className="flex items-center gap-2" onSubmit={save}>
+    <SettingsRow label={`${PROVIDER_LABELS[provider]} API Key`}>
+      <div className="flex items-center gap-2">
         <Input
           aria-label={`${PROVIDER_LABELS[provider]} API Key`}
           autoComplete="off"
           disabled={!secureStorageAvailable || saving}
+          onBlur={(event) => {
+            const nextElement = event.relatedTarget;
+            if (
+              nextElement instanceof HTMLElement &&
+              nextElement.dataset.credentialRemove === provider
+            ) {
+              return;
+            }
+            void save();
+          }}
           onChange={(event) => setApiKey(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
           placeholder={configured ? "已配置，输入新 Key 可替换" : "输入 API Key"}
           type="password"
           value={apiKey}
         />
-        <Button
-          disabled={!apiKey.trim() || !secureStorageAvailable || saving}
-          size="sm"
-          type="submit"
-        >
-          保存
-        </Button>
-        {configured ? (
+        {configured && provider === "qwen" ? (
           <Button
+            data-credential-remove={provider}
+            disabled={saving}
             onClick={async () => {
               setSaving(true);
               try {
                 onStatusChange(await orpc.transcriptionProviders.clearCredential({ provider }));
+                setApiKey("");
                 toast.success(`${PROVIDER_LABELS[provider]} API Key 已移除`);
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "API Key 移除失败");
@@ -112,7 +116,7 @@ function CredentialRow({
             移除
           </Button>
         ) : null}
-      </form>
+      </div>
     </SettingsRow>
   );
 }
@@ -211,10 +215,7 @@ export function TranscriptionProviderSettingsPage(): React.JSX.Element {
         </SettingsGroup>
       </SettingsSection>
 
-      <SettingsSection
-        description="永久 Key 使用 Electron 系统安全存储加密；界面只能读取是否已配置，不能读回 Key。"
-        title="凭证"
-      >
+      <SettingsSection title="凭证">
         {status?.secureStorageAvailable === false ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-xs dark:text-amber-300">
             当前系统安全存储不可用，暂不能保存新的 API Key。

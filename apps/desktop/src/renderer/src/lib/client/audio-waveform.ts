@@ -10,17 +10,9 @@ export function waveformCacheKey(url: string): string {
   }
 }
 
-export function placeholderWaveform(bars = WAVEFORM_BARS, seed = 17): number[] {
-  return Array.from({ length: bars }, (_, index) => {
-    const wave = Math.sin((index + seed) * 0.35) * 0.25;
-    const burst = Math.abs(Math.sin((index + seed) * 0.11)) ** 3 * 0.55;
-    return Math.min(1, Math.max(0.08, 0.18 + wave + burst));
-  });
-}
-
 export function peaksFromChannelData(channel: ArrayLike<number>, bars = WAVEFORM_BARS): number[] {
   if (channel.length === 0) {
-    return placeholderWaveform(bars);
+    return [];
   }
   const samplesPerBar = Math.max(1, Math.floor(channel.length / bars));
   const peaks: number[] = [];
@@ -47,11 +39,7 @@ export async function extractWaveformPeaks(url: string, bars = WAVEFORM_BARS): P
   if (cached) {
     return cached;
   }
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`加载录音波形失败（${response.status}）`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
+  const arrayBuffer = await window.api.meetingPlayback.readAudioBytes(url);
   const audioContext = new AudioContext();
   try {
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
@@ -60,5 +48,21 @@ export async function extractWaveformPeaks(url: string, bars = WAVEFORM_BARS): P
     return peaks;
   } finally {
     await audioContext.close();
+  }
+}
+
+export type WaveformLoadResult =
+  | { peaks: number[]; status: "ready" }
+  | { peaks: []; status: "unavailable" };
+
+export async function loadWaveformPeaks(
+  url: string,
+  extract: (source: string) => Promise<number[]> = extractWaveformPeaks,
+): Promise<WaveformLoadResult> {
+  try {
+    const peaks = await extract(url);
+    return peaks.length > 0 ? { peaks, status: "ready" } : { peaks: [], status: "unavailable" };
+  } catch {
+    return { peaks: [], status: "unavailable" };
   }
 }

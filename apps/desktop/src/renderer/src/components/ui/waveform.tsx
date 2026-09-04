@@ -162,7 +162,7 @@ export function AudioScrubber({
   const [isDragging, setIsDragging] = useState(false);
   const [localProgress, setLocalProgress] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const waveformData = data.length > 0 ? data : Array.from({ length: 80 }, () => 0.12);
+  const waveformData = data;
 
   useEffect(() => {
     if (!isDragging && duration > 0) {
@@ -228,7 +228,7 @@ export function AudioScrubber({
         barHeight={barHeight}
         barRadius={barRadius}
         barWidth={barWidth}
-        className="opacity-35"
+        className="opacity-60"
         data={waveformData}
         fadeEdges={fadeEdges}
         fadeWidth={fadeWidth}

@@ -10,7 +10,8 @@ import {
   useAudioPlayerTime,
 } from "@/components/ui/audio-player";
 import { AudioScrubber } from "@/components/ui/waveform";
-import { extractWaveformPeaks, placeholderWaveform } from "@/lib/client/audio-waveform";
+import { loadWaveformPeaks } from "@/lib/client/audio-waveform";
+import type { WaveformLoadResult } from "@/lib/client/audio-waveform";
 
 const PLAYBACK_ITEM_ID = "meeting-playback";
 const WAVEFORM_HEIGHT = 48;
@@ -31,20 +32,19 @@ async function resumeAudio(audio: HTMLAudioElement, onAbort: () => void): Promis
   }
 }
 
-function useMeetingWaveform(url: string): number[] {
-  const [peaks, setPeaks] = useState(() => placeholderWaveform());
+type MeetingWaveformState = WaveformLoadResult | { peaks: []; status: "loading" };
+
+const LOADING_WAVEFORM: MeetingWaveformState = { peaks: [], status: "loading" };
+
+function useMeetingWaveform(url: string): MeetingWaveformState {
+  const [waveform, setWaveform] = useState<MeetingWaveformState>(LOADING_WAVEFORM);
   useEffect(() => {
     let cancelled = false;
     const loadPeaks = async () => {
-      try {
-        const nextPeaks = await extractWaveformPeaks(url);
-        if (!cancelled) {
-          setPeaks(nextPeaks);
-        }
-      } catch {
-        if (!cancelled) {
-          setPeaks(placeholderWaveform());
-        }
+      setWaveform(LOADING_WAVEFORM);
+      const nextWaveform = await loadWaveformPeaks(url);
+      if (!cancelled) {
+        setWaveform(nextWaveform);
       }
     };
     void loadPeaks();
@@ -52,7 +52,7 @@ function useMeetingWaveform(url: string): number[] {
       cancelled = true;
     };
   }, [url]);
-  return peaks;
+  return waveform;
 }
 
 function MeetingAudioPlayerControls({
@@ -151,14 +151,19 @@ function MeetingAudioPlayerControls({
 
   return (
     <div className={cn("grid min-w-0 gap-3 px-3 pb-1", className)} data-slot="meeting-audio-player">
-      <div className="flex min-w-0 items-center" data-slot="meeting-playback-waveform-row">
+      <div
+        className="flex min-w-0 items-center"
+        data-slot="meeting-playback-waveform-row"
+        data-waveform-state={waveform.status}
+      >
         <AudioScrubber
+          aria-label={waveform.status === "ready" ? "录音波形" : "录音进度"}
           barGap={5}
           barRadius={2}
           barWidth={2}
           className="w-full min-w-0"
           currentTime={currentTime}
-          data={waveform}
+          data={waveform.peaks}
           duration={player.duration ?? 0}
           fadeEdges
           height={WAVEFORM_HEIGHT}

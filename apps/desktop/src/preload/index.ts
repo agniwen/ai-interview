@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { AuthApi } from "./auth-api";
 import type { DownloadApi } from "./download-api";
 import type { MeetingCaptureApi } from "./meeting-capture-api";
+import type { MeetingPlaybackApi } from "./meeting-playback-api";
 import { createMessagePortHandoff } from "./message-port-handoff";
 import type { WindowApi } from "./window-api";
 
@@ -68,10 +69,15 @@ const meetingCaptureApi: MeetingCaptureApi = {
     ipcRenderer.invoke("meeting-capture:upload-small", captureId, instructions),
 };
 
+const meetingPlaybackApi: MeetingPlaybackApi = {
+  readAudioBytes: (url) => ipcRenderer.invoke("meeting-playback:read-audio-bytes", url),
+};
+
 const api = {
   auth: authApi,
   download: downloadApi,
   meetingCapture: meetingCaptureApi,
+  meetingPlayback: meetingPlaybackApi,
   window: windowApi,
 };
 

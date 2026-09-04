@@ -264,8 +264,9 @@ export function MeetingInboxMenu() {
             setCaptureHidden(captureId, false);
             toast.dismiss(toastId);
           }}
-          size="sm"
+          size="xs"
           type="button"
+          variant="secondary"
         >
           撤销
         </Button>

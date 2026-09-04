@@ -126,7 +126,7 @@ describe("Meeting Library views", () => {
     expect(ready).toContain('data-slot="meeting-playback-controls"');
     expect(ready).toContain('aria-label="播放"');
     expect(ready).toContain('aria-label="当前播放时间 0:00，总时长 --:--"');
-    expect(ready).toContain('aria-label="录音波形"');
+    expect(ready).toContain('aria-label="录音进度"');
     expect(ready).toContain('aria-label="播放倍速"');
     expect(ready).not.toContain('controls=""');
 

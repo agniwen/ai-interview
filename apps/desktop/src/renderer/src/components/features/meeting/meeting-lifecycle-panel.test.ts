@@ -22,12 +22,14 @@ describe("Meeting deletion", () => {
       throw new Error("Expected a deletion toast with a restore action");
     }
     expect(notification.title).toBe("已删除");
-    expect(notification.style).toEqual({ paddingBlock: "8px" });
+    expect(notification.style).toBeUndefined();
     const { action } = notification;
     if (!isValidElement<{ onClick: () => void }>(action)) {
       throw new Error("Expected a restore button");
     }
     const html = renderToStaticMarkup(action);
+    expect(html).toContain('data-size="xs"');
+    expect(html).toContain('data-variant="secondary"');
     expect(html).toContain("ml-auto");
     expect(html).toContain("撤销");
     action.props.onClick();
