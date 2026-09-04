@@ -23,6 +23,12 @@ export const CHROME_BTN_PX = 24;
 /** Gap between the inbox and native Win/Linux window controls. */
 export const CHROME_RIGHT_GAP_PX = 6;
 
+/** Gap between page-owned title-bar actions and fixed desktop chrome. */
+export const CHROME_PAGE_ACTIONS_GAP_PX = 20;
+
+/** Reserved width for two compact page-owned title-bar actions. */
+export const CHROME_PAGE_ACTIONS_WIDTH_PX = CHROME_BTN_PX * 2 + 2;
+
 export function isMacPlatform(): boolean {
   return window.api.window.platform === "darwin";
 }

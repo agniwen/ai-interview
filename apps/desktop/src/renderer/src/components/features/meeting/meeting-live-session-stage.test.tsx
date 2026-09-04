@@ -24,6 +24,8 @@ describe("MeetingLiveSessionStage", () => {
     expect(html).toContain("调整实时字幕和实时总结宽度");
     expect(html).toContain("思维导图形式");
     expect(html).toContain("文档形式");
+    expect(html).toContain("app-no-drag");
+    expect(html).toContain("app-region:no-drag");
     expect(html).not.toContain('role="tablist"');
   });
 });

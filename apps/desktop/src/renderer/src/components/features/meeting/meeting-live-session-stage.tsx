@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
 import type { MeetingLiveSummaryControllerSnapshot } from "@/lib/meeting-capture/live-summary-controller";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -12,6 +12,16 @@ import { MeetingLiveSummaryDocument } from "./meeting-live-summary-document";
 import { MeetingLiveSummaryPanel } from "./meeting-live-summary-panel";
 
 type SummaryView = "document" | "mind-map";
+
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const noDragStyle: ElectronNoDragStyle = {
+  WebkitAppRegion: "no-drag",
+  appRegion: "no-drag",
+};
 
 function summaryStatus(snapshot: MeetingLiveSummaryControllerSnapshot): string | null {
   if (snapshot.status === "updating") {
@@ -72,6 +82,8 @@ export function MeetingLiveSessionStage({
             <TooltipProvider delay={200}>
               <ToggleGroup
                 aria-label="实时总结显示方式"
+                className="app-no-drag relative"
+                onDoubleClick={(event) => event.stopPropagation()}
                 onValueChange={(value) => {
                   const [next] = value;
                   if (next === "document" || next === "mind-map") {
@@ -79,6 +91,7 @@ export function MeetingLiveSessionStage({
                   }
                 }}
                 size="sm"
+                style={noDragStyle}
                 value={[summaryView]}
               >
                 <Tooltip>

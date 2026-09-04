@@ -6,6 +6,8 @@ import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
 import {
   CHROME_BTN_PX,
   CHROME_EDGE_PAD_PX,
+  CHROME_PAGE_ACTIONS_GAP_PX,
+  CHROME_PAGE_ACTIONS_WIDTH_PX,
   desktopChromeRightControlsWidthPx,
   CHROME_TRAFFIC_LIGHT_INSET_PX,
   TITLE_BAR_HEIGHT_PX,
@@ -64,6 +66,8 @@ export function DesktopChromeBar(): React.JSX.Element {
   const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 2 : 0;
   // Right cluster: inbox + optional native window controls + edge pad.
   const rightClusterPx = desktopChromeRightControlsWidthPx();
+  const pageActionsRightInsetPx =
+    rightClusterPx + CHROME_PAGE_ACTIONS_GAP_PX + CHROME_PAGE_ACTIONS_WIDTH_PX;
 
   // Expanded: history ends at sidebar right pad.
   // Collapsed: history starts just after the toggle.
@@ -81,7 +85,7 @@ export function DesktopChromeBar(): React.JSX.Element {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 z-[200]"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[200]"
       onDoubleClick={handleTitleBarDoubleClick}
       style={{
         ...noDragStyle,
@@ -91,18 +95,18 @@ export function DesktopChromeBar(): React.JSX.Element {
       {/* ── Drag only on empty strips (never under controls) ── */}
       {collapsed ? (
         <div
-          className="app-drag absolute inset-y-0"
+          className="app-drag pointer-events-auto absolute inset-y-0"
           style={{
             ...dragStyle,
             left: collapsedLeftEnd,
-            right: rightClusterPx,
+            right: pageActionsRightInsetPx,
           }}
         />
       ) : (
         <>
           {/* Sidebar middle (between toggle and history) */}
           <div
-            className="app-drag absolute inset-y-0"
+            className="app-drag pointer-events-auto absolute inset-y-0"
             style={{
               ...dragStyle,
               left: toggleEnd,
@@ -111,11 +115,11 @@ export function DesktopChromeBar(): React.JSX.Element {
           />
           {/* Content middle (between sidebar edge and right-side controls) */}
           <div
-            className="app-drag absolute inset-y-0"
+            className="app-drag pointer-events-auto absolute inset-y-0"
             style={{
               ...dragStyle,
               left: "var(--sidebar-width)",
-              right: rightClusterPx,
+              right: pageActionsRightInsetPx,
             }}
           />
         </>
@@ -123,7 +127,7 @@ export function DesktopChromeBar(): React.JSX.Element {
 
       {/* ── Controls: always mounted, always no-drag ── */}
       <div
-        className="app-no-drag absolute inset-y-0 z-10 flex items-center"
+        className="app-no-drag pointer-events-auto absolute inset-y-0 z-10 flex items-center"
         style={{ ...noDragStyle, left: leftInset }}
       >
         <SidebarToggle />
@@ -131,7 +135,7 @@ export function DesktopChromeBar(): React.JSX.Element {
 
       {showHistoryNav ? (
         <div
-          className="app-no-drag absolute inset-y-0 z-10 flex items-center transition-[left,transform] duration-200 ease-[ease] motion-reduce:transition-none"
+          className="app-no-drag pointer-events-auto absolute inset-y-0 z-10 flex items-center transition-[left,transform] duration-200 ease-[ease] motion-reduce:transition-none"
           style={{
             ...noDragStyle,
             left: historyLeft,
@@ -143,7 +147,7 @@ export function DesktopChromeBar(): React.JSX.Element {
       ) : null}
 
       <div
-        className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
+        className="app-no-drag pointer-events-auto absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
         style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
       >
         <MeetingInboxMenu />
