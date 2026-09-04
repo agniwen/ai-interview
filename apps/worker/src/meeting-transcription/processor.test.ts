@@ -661,21 +661,41 @@ describe("Meeting final transcription processor", () => {
 
   it("records a failed processing run without publishing a partial transcript", async () => {
     const dependencies = createDependencies();
-    dependencies.provider.transcribeFinal.mockRejectedValueOnce(new Error("provider unavailable"));
+    const providerError = new MeetingProviderResponseError(
+      "partial-result",
+      "Qwen ASR",
+      "ASR_RESPONSE_HAVE_NO_WORDS",
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    dependencies.provider.transcribeFinal.mockRejectedValueOnce(providerError);
 
     await expect(
       runMeetingTranscriptionProcessing(job, { attempt: 1, maxAttempts: 5 }, dependencies),
-    ).rejects.toThrow("provider unavailable");
+    ).rejects.toBe(providerError);
 
     expect(dependencies.publish).not.toHaveBeenCalled();
     expect(dependencies.markFailed).toHaveBeenCalledWith({
       ...job,
       errorCode: "provider-error",
-      errorMessage: "provider unavailable",
+      errorMessage:
+        "Qwen ASR returned an incomplete Meeting transcription result: ASR_RESPONSE_HAVE_NO_WORDS",
       processingRunId: "run-76",
-      terminal: false,
+      terminal: true,
     });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[meeting-transcription-worker] processing failed",
+      {
+        attempt: 1,
+        errorMessage:
+          "Qwen ASR returned an incomplete Meeting transcription result: ASR_RESPONSE_HAVE_NO_WORDS",
+        errorName: "MeetingProviderResponseError",
+        meetingId: job.meetingId,
+        processingRunId: "run-76",
+      },
+      providerError,
+    );
     expect(dependencies.markChunkFailed).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 
   it("records provider quota exhaustion separately while preserving the saved meeting", async () => {

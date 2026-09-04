@@ -694,6 +694,17 @@ async function runMeetingTranscriptionProcessingPromise(
     hasPrimaryFailure = true;
     const errorMessage =
       error instanceof Error ? error.message : "Meeting transcription processing failed";
+    console.error(
+      "[meeting-transcription-worker] processing failed",
+      {
+        attempt: context.attempt,
+        errorMessage,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        meetingId: input.meetingId,
+        processingRunId,
+      },
+      error,
+    );
     try {
       await dependencies.markFailed({
         ...input,
