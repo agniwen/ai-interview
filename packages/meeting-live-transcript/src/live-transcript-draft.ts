@@ -56,6 +56,7 @@ export interface LiveTranscriptDraftSnapshot {
 export interface LiveTranscriptConnection {
   close: () => void;
   correct?: (batch: LiveCorrectionBatch) => boolean;
+  finalize?: () => Promise<void>;
   sendPcm: (frame: Int16Array) => boolean;
 }
 
@@ -157,6 +158,7 @@ const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
 const DEFAULT_CORRECTION_LOOKAHEAD_MS = 4000;
 const DEFAULT_CORRECTION_FLUSH_TIMEOUT_MS = 5000;
+const DEFAULT_PCM_FINALIZE_DRAIN_TIMEOUT_MS = 1500;
 const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
 const PCM_SAMPLE_RATE = 24_000;
@@ -303,6 +305,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
   let leaseHeartbeatFailures = 0;
   let liveTranscriptHints: MeetingLiveTranscriptHints | undefined;
   let releasedLeaseCaptureId: string | null = null;
+  let finalizing = false;
   let paused = false;
   const correctionIdleWaiters = new Set<() => void>();
 
@@ -439,7 +442,92 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     }, dependencies.correctionLookaheadMs ?? DEFAULT_CORRECTION_LOOKAHEAD_MS);
   };
 
+  const flush = (track: MeetingLiveTranscriptTrack): boolean => {
+    const runtime = runtimes[track];
+    while (runtime.connection) {
+      const frame = runtime.queue.peek();
+      if (!frame) {
+        break;
+      }
+      if (!runtime.connection.sendPcm(frame)) {
+        return false;
+      }
+      runtime.queue.shift();
+    }
+    return true;
+  };
+
+  const drainPcmQueues = async (): Promise<void> => {
+    const deadline = Date.now() + DEFAULT_PCM_FINALIZE_DRAIN_TIMEOUT_MS;
+    while (true) {
+      let drained = true;
+      for (const track of TRACKS) {
+        if (!flush(track)) {
+          drained = false;
+        }
+      }
+      if (drained && TRACKS.every((track) => runtimes[track].queue.bytes === 0)) {
+        publish();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        break;
+      }
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 25);
+      });
+    }
+
+    let droppedFrames = 0;
+    for (const track of TRACKS) {
+      const runtime = runtimes[track];
+      let trackDroppedAudioMs = 0;
+      let trackDroppedFrames = 0;
+      while (runtime.queue.peek()) {
+        trackDroppedAudioMs += runtime.queue.shift();
+        trackDroppedFrames += 1;
+      }
+      if (trackDroppedFrames === 0) {
+        continue;
+      }
+      droppedFrames += trackDroppedFrames;
+      runtime.status = "degraded";
+      snapshot = {
+        ...snapshot,
+        droppedAudioMs: snapshot.droppedAudioMs + trackDroppedAudioMs,
+        droppedPcmFrames: snapshot.droppedPcmFrames + trackDroppedFrames,
+        trackDroppedAudioMs: {
+          ...snapshot.trackDroppedAudioMs,
+          [track]: snapshot.trackDroppedAudioMs[track] + trackDroppedAudioMs,
+        },
+      };
+    }
+    publish({ error: droppedFrames > 0 ? publicError("degraded") : snapshot.error });
+  };
+
   const flushCorrections = async (): Promise<void> => {
+    finalizing = true;
+    for (const track of TRACKS) {
+      const runtime = runtimes[track];
+      runtime.pcmTap?.stop();
+      runtime.pcmTap = null;
+    }
+    if (TRACKS.some((track) => runtimes[track].queue.bytes > 0)) {
+      await drainPcmQueues();
+    }
+    const finalizations = TRACKS.flatMap((track) => {
+      const finalize = runtimes[track].connection?.finalize;
+      return finalize
+        ? [
+            (async () => {
+              await finalize();
+            })(),
+          ]
+        : [];
+    });
+    if (finalizations.length > 0) {
+      await Promise.allSettled(finalizations);
+    }
     cancelCorrectionLookahead?.();
     cancelCorrectionLookahead = null;
     requestCorrections(true);
@@ -469,6 +557,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     cancelCorrectionLookahead = null;
     leaseHeartbeatFailures = 0;
     liveTranscriptHints = undefined;
+    finalizing = false;
     paused = false;
     for (const track of TRACKS) {
       const runtime = runtimes[track];
@@ -612,21 +701,6 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       model: metadata.model,
       provider: metadata.provider,
     });
-  };
-
-  const flush = (track: MeetingLiveTranscriptTrack): boolean => {
-    const runtime = runtimes[track];
-    while (runtime.connection) {
-      const frame = runtime.queue.peek();
-      if (!frame) {
-        break;
-      }
-      if (!runtime.connection.sendPcm(frame)) {
-        return false;
-      }
-      runtime.queue.shift();
-    }
-    return true;
   };
 
   const scheduleTrackReconnect = (
@@ -775,6 +849,9 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
   };
 
   const onFrame = (track: MeetingLiveTranscriptTrack, frame: Int16Array) => {
+    if (finalizing || paused) {
+      return;
+    }
     const runtime = runtimes[track];
     if (runtime.connection && runtime.queue.bytes === 0 && runtime.connection.sendPcm(frame)) {
       return;
@@ -806,6 +883,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     tracks: Record<MeetingLiveTranscriptTrack, MediaStreamTrack>;
   }): Promise<void> => {
     stop();
+    finalizing = false;
     paused = false;
     releasedLeaseCaptureId = null;
     const { liveTranscriptHints: hints } = input;
@@ -896,6 +974,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       return;
     }
     paused = false;
+    finalizing = false;
     releasedLeaseCaptureId = null;
     for (const track of TRACKS) {
       runtimes[track].status = "starting";

@@ -82,7 +82,7 @@ export const MEETING_LIVE_TRANSCRIPT_PROVIDERS = ["qwen", "deepgram"] as const;
 export const meetingLiveTranscriptProviderSchema = z.enum(MEETING_LIVE_TRANSCRIPT_PROVIDERS);
 export type MeetingLiveTranscriptProviderId = z.infer<typeof meetingLiveTranscriptProviderSchema>;
 
-export const DEFAULT_DEEPGRAM_ENDPOINTING_MS = 1000;
+export const DEFAULT_DEEPGRAM_ENDPOINTING_MS = 500;
 export const deepgramEndpointingMsSchema = z.number().int().min(10).max(5000);
 
 export interface MeetingLiveTranscriptProviderCapabilities {

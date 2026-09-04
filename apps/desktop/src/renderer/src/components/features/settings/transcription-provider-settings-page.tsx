@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -165,14 +166,16 @@ export function TranscriptionProviderSettingsPage(): React.JSX.Element {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="qwen">Qwen 实时语音识别</SelectItem>
-                <SelectItem value="deepgram">Deepgram Nova-3</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="qwen">Qwen 实时语音识别</SelectItem>
+                  <SelectItem value="deepgram">Deepgram Nova-3</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </SettingsRow>
           {settings.meetingLiveTranscriptProvider === "deepgram" ? (
             <SettingsRow
-              description="连续静音达到该时长后，Deepgram 才会结束当前话语。下一次开始录制时生效。"
+              description="连续静音达到该时长后结束当前话语；背景噪声下会以 1 秒词间隔兜底。下一次开始录制时生效。"
               label="话语结束静音"
             >
               <Select
@@ -188,10 +191,12 @@ export function TranscriptionProviderSettingsPage(): React.JSX.Element {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="500">500 毫秒（响应更快）</SelectItem>
-                  <SelectItem value="1000">1 秒（推荐）</SelectItem>
-                  <SelectItem value="1500">1.5 秒（更少断句）</SelectItem>
-                  <SelectItem value="2000">2 秒（长停顿）</SelectItem>
+                  <SelectGroup>
+                    <SelectItem value="500">500 毫秒（推荐）</SelectItem>
+                    <SelectItem value="1000">1 秒（更稳健）</SelectItem>
+                    <SelectItem value="1500">1.5 秒（更少断句）</SelectItem>
+                    <SelectItem value="2000">2 秒（长停顿）</SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </SettingsRow>

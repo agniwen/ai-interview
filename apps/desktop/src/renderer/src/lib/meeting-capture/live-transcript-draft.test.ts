@@ -70,6 +70,145 @@ describe("Live Transcript Draft", () => {
     expect(stopTap).toHaveBeenCalledTimes(2);
   });
 
+  it("finalizes each provider connection before flushing the durable draft", async () => {
+    const taps: { stop: ReturnType<typeof vi.fn> }[] = [];
+    const finalize = vi.fn((emit: () => void) => {
+      emit();
+      return Promise.resolve();
+    });
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2099-01-01T00:00:00Z",
+          model: "nova-3",
+          provider: "deepgram",
+          track,
+        }),
+      connect: ({ authorization, onTranscript }) =>
+        Promise.resolve({
+          close: vi.fn(),
+          finalize: () =>
+            finalize(() => {
+              onTranscript({
+                itemId: `tail-${authorization.track}`,
+                text: `${authorization.track} 尾句`,
+                type: "completed",
+              });
+            }),
+          sendPcm: () => true,
+        }),
+      createPcmTap: () => {
+        const tap = { stop: vi.fn() };
+        taps.push(tap);
+        return Promise.resolve(tap);
+      },
+    });
+    // SAFETY: This test never accesses media track properties.
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+
+    await draft.flushCorrections();
+
+    expect(finalize).toHaveBeenCalledTimes(2);
+    expect(taps.every((tap) => vi.mocked(tap.stop).mock.calls.length === 1)).toBe(true);
+    expect(
+      Math.max(...taps.map((tap) => vi.mocked(tap.stop).mock.invocationCallOrder[0] ?? 0)),
+    ).toBeLessThan(Math.min(...finalize.mock.invocationCallOrder));
+    expect(draft.getSnapshot().turns.map((turn) => turn.text)).toEqual([
+      "microphone 尾句",
+      "system 尾句",
+    ]);
+    draft.stop();
+  });
+
+  it("keeps provider finalization best effort when one connection throws synchronously", async () => {
+    const systemFinalize = vi.fn((): Promise<void> => Promise.resolve());
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2099-01-01T00:00:00Z",
+          model: "nova-3",
+          provider: "deepgram",
+          track,
+        }),
+      connect: ({ authorization }) =>
+        Promise.resolve({
+          close: vi.fn(),
+          finalize:
+            authorization.track === "microphone"
+              ? () => {
+                  throw new Error("socket closed");
+                }
+              : systemFinalize,
+          sendPcm: () => true,
+        }),
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+    });
+    // SAFETY: This test never accesses media track properties.
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+
+    await expect(draft.flushCorrections()).resolves.toBeUndefined();
+    expect(systemFinalize).toHaveBeenCalledOnce();
+    draft.stop();
+  });
+
+  it("drains queued PCM before finalizing provider connections", async () => {
+    const frames = new Map<string, (frame: Int16Array) => void>();
+    const writableCallbacks = new Map<string, () => void>();
+    let microphoneWritable = false;
+    const microphoneSend = vi.fn(() => microphoneWritable);
+    const finalize = vi.fn((): Promise<void> => Promise.resolve());
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2099-01-01T00:00:00Z",
+          model: "nova-3",
+          provider: "deepgram",
+          track,
+        }),
+      connect: ({ authorization, onWritable }) => {
+        writableCallbacks.set(authorization.track, onWritable);
+        return Promise.resolve({
+          close: vi.fn(),
+          finalize,
+          sendPcm: authorization.track === "microphone" ? microphoneSend : () => true,
+        });
+      },
+      createPcmTap: ({ onFrame, track }) => {
+        frames.set(track, onFrame);
+        return Promise.resolve({ stop: vi.fn() });
+      },
+    });
+    // SAFETY: This test never accesses media track properties.
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    frames.get("microphone")?.(new Int16Array([1, 2, 3]));
+    expect(microphoneSend).toHaveBeenCalledOnce();
+
+    const flushPromise = draft.flushCorrections();
+    await Promise.resolve();
+    expect(finalize).not.toHaveBeenCalled();
+
+    microphoneWritable = true;
+    writableCallbacks.get("microphone")?.();
+    await flushPromise;
+
+    expect(microphoneSend).toHaveBeenCalledTimes(3);
+    expect(finalize).toHaveBeenCalledTimes(2);
+    expect(draft.getSnapshot().queuedPcmBytes).toBe(0);
+    draft.stop();
+  });
+
   it("waits for transcript-wide idle before forcing a trailing block", async () => {
     vi.useFakeTimers();
     const events = new Map<string, (event: LiveTranscriptEvent) => void>();

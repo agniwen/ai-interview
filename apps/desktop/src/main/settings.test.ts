@@ -4,7 +4,7 @@ import { applySettingsAtStartup, resolveDesktopSettings } from "./settings";
 describe("resolveDesktopSettings", () => {
   it("keeps transparent backgrounds enabled for settings saved before the preference existed", () => {
     expect(resolveDesktopSettings({ notifyOnFinish: false, theme: "system" })).toEqual({
-      deepgramEndpointingMs: 1000,
+      deepgramEndpointingMs: 500,
       meetingLiveTranscriptProvider: "qwen",
       notifyOnFinish: false,
       theme: "system",

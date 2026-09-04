@@ -1,8 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 import {
+  connectDeepgramRealtimeTranscription,
   createDeepgramLiveUrl,
   createDeepgramResultEventMapper,
 } from "./deepgram-realtime-transport";
+import {
+  appendLiveTranscriptTurn,
+  createDurableLiveTranscriptDraft,
+} from "./live-transcript-draft";
 
 const baseAuthorization = {
   clientSecret: "temporary-jwt",
@@ -13,6 +19,77 @@ const baseAuthorization = {
   provider: "deepgram",
   track: "microphone",
 } as const;
+
+interface FakeDeepgramMessage {
+  channel: {
+    alternatives: {
+      transcript: string;
+      words: {
+        end: number;
+        speaker?: number;
+        start: number;
+        word: string;
+      }[];
+    }[];
+  };
+  from_finalize?: boolean;
+  is_final: boolean;
+  speech_final?: boolean;
+  start: number;
+  type: "Results";
+}
+
+class FakeDeepgramWebSocket extends EventTarget {
+  static readonly CLOSED = 3;
+  static readonly CLOSING = 2;
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly instances: FakeDeepgramWebSocket[] = [];
+
+  readonly sent: (ArrayBufferLike | ArrayBufferView | Blob | string)[] = [];
+  bufferedAmount = 0;
+  closeCalls = 0;
+  readyState = FakeDeepgramWebSocket.CONNECTING;
+
+  constructor() {
+    super();
+    FakeDeepgramWebSocket.instances.push(this);
+    queueMicrotask(() => {
+      this.readyState = FakeDeepgramWebSocket.OPEN;
+      this.dispatchEvent(new Event("open"));
+    });
+  }
+
+  close(): void {
+    this.closeCalls += 1;
+    this.readyState = FakeDeepgramWebSocket.CLOSED;
+  }
+
+  emitMessage(message: FakeDeepgramMessage): void {
+    const event = new Event("message");
+    Object.defineProperty(event, "data", { value: JSON.stringify(message) });
+    this.dispatchEvent(event);
+  }
+
+  emitClose(): void {
+    this.readyState = FakeDeepgramWebSocket.CLOSED;
+    const event = new Event("close");
+    Object.defineProperties(event, {
+      code: { value: 1000 },
+      reason: { value: "" },
+    });
+    this.dispatchEvent(event);
+  }
+
+  send(data: ArrayBufferLike | ArrayBufferView | Blob | string): void {
+    this.sent.push(data);
+  }
+}
+
+afterEach(() => {
+  FakeDeepgramWebSocket.instances.length = 0;
+  vi.unstubAllGlobals();
+});
 
 describe("createDeepgramLiveUrl", () => {
   it("enables Nova-3 streaming diarization with conversational endpointing for 24 kHz PCM", () => {
@@ -26,11 +103,78 @@ describe("createDeepgramLiveUrl", () => {
       language: "zh-CN",
       model: "nova-3",
       sample_rate: "24000",
+      utterance_end_ms: "1000",
+      vad_events: "true",
     });
+  });
+
+  it("uses the meeting-oriented endpointing default", () => {
+    const { endpointingMs: _endpointingMs, ...authorization } = baseAuthorization;
+    const url = new URL(createDeepgramLiveUrl(authorization));
+
+    expect(url.searchParams.get("endpointing")).toBe("500");
   });
 });
 
 describe("createDeepgramResultEventMapper", () => {
+  it("keeps punctuation-only Deepgram results inside the durable draft contract", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    const [event] = toEvents(
+      {
+        channel: {
+          alternatives: [
+            {
+              transcript: "。",
+              words: [
+                {
+                  end: 0.12,
+                  punctuated_word: "。",
+                  start: 0.1,
+                  word: "",
+                },
+              ],
+            },
+          ],
+        },
+        is_final: true,
+        speech_final: true,
+        start: 0.1,
+        type: "Results",
+      },
+      "system",
+    );
+
+    expect(event).toMatchObject({ text: "。", type: "completed", words: [] });
+    const section = {
+      id: "capture:system:0",
+      sequence: 0,
+      startedAt: "2026-09-04T06:32:52.766Z",
+      track: "system" as const,
+    };
+    const turns = appendLiveTranscriptTurn([], "system", section.id, event) ?? [];
+    const durable = createDurableLiveTranscriptDraft({
+      captureId: "capture",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      language: "zh-CN",
+      model: "nova-3",
+      provider: "deepgram",
+      queuePeakAudioMs: 0,
+      queuedAudioMs: 0,
+      queuedPcmBytes: 0,
+      sections: [section],
+      status: "live",
+      trackDroppedAudioMs: { microphone: 0, system: 0 },
+      trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+      trackQueuedAudioMs: { microphone: 0, system: 0 },
+      trackStatus: { microphone: "live", system: "live" },
+      turns,
+    });
+
+    expect(meetingLiveTranscriptDraftSchema.safeParse(durable).success).toBe(true);
+  });
+
   it("splits one live result when Deepgram changes speakers", () => {
     const toEvents = createDeepgramResultEventMapper();
     const events = toEvents(
@@ -66,6 +210,99 @@ describe("createDeepgramResultEventMapper", () => {
         type: "completed",
       }),
     ]);
+  });
+
+  it("starts a new turn when a speaker resumes after another speaker interrupts", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    const events = toEvents(
+      {
+        channel: {
+          alternatives: [
+            {
+              transcript: "我先说 等一下 我继续",
+              words: [
+                { end: 0.4, speaker: 0, start: 0.1, word: "我先说" },
+                { end: 0.8, speaker: 1, start: 0.5, word: "等一下" },
+                { end: 1.2, speaker: 0, start: 0.9, word: "我继续" },
+              ],
+            },
+          ],
+        },
+        is_final: true,
+        speech_final: true,
+        start: 0.1,
+        type: "Results",
+      },
+      "microphone",
+    );
+
+    let turns: NonNullable<ReturnType<typeof appendLiveTranscriptTurn>> = [];
+    for (const event of events) {
+      turns = appendLiveTranscriptTurn(turns, "microphone", "section", event) ?? turns;
+    }
+
+    expect(turns.map((turn) => [turn.speakerKey, turn.text])).toEqual([
+      ["microphone:deepgram-speaker-0", "我先说"],
+      ["microphone:deepgram-speaker-1", "等一下"],
+      ["microphone:deepgram-speaker-0", "我继续"],
+    ]);
+  });
+
+  it("preserves overlapping words from an interrupting speaker", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    const events = toEvents(
+      {
+        channel: {
+          alternatives: [
+            {
+              transcript: "我正在说 等一下",
+              words: [
+                { end: 1, speaker: 0, start: 0.1, word: "我正在说" },
+                { end: 0.8, speaker: 1, start: 0.5, word: "等一下" },
+              ],
+            },
+          ],
+        },
+        is_final: true,
+        speech_final: true,
+        start: 0.1,
+        type: "Results",
+      },
+      "microphone",
+    );
+
+    expect(events.map((event) => [event.speakerKey, event.text])).toEqual([
+      ["microphone:deepgram-speaker-0", "我正在说"],
+      ["microphone:deepgram-speaker-1", "等一下"],
+    ]);
+  });
+
+  it("completes the previous turn when a finalized window starts with another speaker", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    const frame = (speaker: number, start: number, end: number, word: string) =>
+      toEvents(
+        {
+          channel: {
+            alternatives: [{ transcript: word, words: [{ end, speaker, start, word }] }],
+          },
+          is_final: true,
+          speech_final: false,
+          start,
+          type: "Results",
+        },
+        "microphone",
+      );
+
+    const [first] = frame(0, 0.1, 0.5, "我先说");
+    const [completedFirst, second] = frame(1, 0.6, 1, "我插话");
+
+    expect(first).toMatchObject({ text: "我先说", type: "snapshot" });
+    expect(completedFirst).toMatchObject({
+      itemId: first.itemId,
+      text: "我先说",
+      type: "completed",
+    });
+    expect(second).toMatchObject({ text: "我插话", type: "snapshot" });
   });
 
   it("merges is_final windows into one turn, buffers text, and only completes on speech_final", () => {
@@ -113,6 +350,15 @@ describe("createDeepgramResultEventMapper", () => {
     expect(finalA.text).toBe("我要");
     expect(finalB.text).toBe("我要吃饭");
     expect(finalC.text).toBe("我要吃饭了。");
+    expect(finalC).toMatchObject({
+      endMs: 1400,
+      startMs: 100,
+      words: [
+        expect.objectContaining({ text: "我要" }),
+        expect.objectContaining({ text: "吃饭" }),
+        expect.objectContaining({ text: "了。" }),
+      ],
+    });
 
     // A new utterance after speech_final gets a fresh turn id and clear buffer.
     const next = result(1.6, 2, "再见", true, true);
@@ -186,5 +432,125 @@ describe("createDeepgramResultEventMapper", () => {
 
     // Deepgram re-attributes the same audio to speaker 1; the word is already emitted.
     expect(frame(1)).toEqual([]);
+  });
+
+  it("completes the active turn when speech_final only repeats finalized words", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    const frame = (speechFinal: boolean) =>
+      toEvents(
+        {
+          channel: {
+            alternatives: [
+              {
+                transcript: "好的",
+                words: [{ end: 1, speaker: 0, start: 0.2, word: "好的" }],
+              },
+            ],
+          },
+          is_final: true,
+          speech_final: speechFinal,
+          start: 0.2,
+          type: "Results",
+        },
+        "microphone",
+      );
+
+    const [snapshot] = frame(false);
+    const [completed] = frame(true);
+
+    expect(snapshot).toMatchObject({ text: "好的", type: "snapshot" });
+    expect(completed).toMatchObject({
+      itemId: snapshot.itemId,
+      text: "好的",
+      type: "completed",
+    });
+  });
+
+  it("completes the active turn on UtteranceEnd when endpointing did not fire", () => {
+    const toEvents = createDeepgramResultEventMapper();
+    const [snapshot] = toEvents(
+      {
+        channel: {
+          alternatives: [
+            {
+              transcript: "背景音乐里继续说",
+              words: [{ end: 1, speaker: 0, start: 0.2, word: "背景音乐里继续说" }],
+            },
+          ],
+        },
+        is_final: true,
+        speech_final: false,
+        start: 0.2,
+        type: "Results",
+      },
+      "system",
+    );
+    const [completed] = toEvents(
+      { channel: [0, 1], last_word_end: 1, type: "UtteranceEnd" },
+      "system",
+    );
+
+    expect(snapshot).toMatchObject({ text: "背景音乐里继续说", type: "snapshot" });
+    expect(completed).toMatchObject({
+      itemId: snapshot.itemId,
+      text: "背景音乐里继续说",
+      type: "completed",
+    });
+    expect(toEvents({ channel: [0, 1], last_word_end: 1, type: "UtteranceEnd" }, "system")).toEqual(
+      [],
+    );
+  });
+});
+
+describe("connectDeepgramRealtimeTranscription", () => {
+  it("finalizes buffered audio before requesting a graceful stream close", async () => {
+    vi.stubGlobal("WebSocket", FakeDeepgramWebSocket);
+    const onTranscript = vi.fn();
+    const connection = await connectDeepgramRealtimeTranscription({
+      authorization: baseAuthorization,
+      onDisconnect: vi.fn(),
+      onTranscript,
+      onWritable: vi.fn(),
+    });
+    const [socket] = FakeDeepgramWebSocket.instances;
+    if (!socket) {
+      throw new Error("Deepgram WebSocket was not created");
+    }
+
+    const finalizePromise = connection.finalize?.();
+    expect(socket.sent).toContain(JSON.stringify({ type: "Finalize" }));
+    expect(connection.finalize?.()).toBe(finalizePromise);
+    expect(
+      socket.sent.filter((frame) => frame === JSON.stringify({ type: "Finalize" })),
+    ).toHaveLength(1);
+    expect(connection.sendPcm(new Int16Array([1]))).toBe(false);
+    socket.emitMessage({
+      channel: {
+        alternatives: [
+          {
+            transcript: "最后一句",
+            words: [{ end: 1, speaker: 0, start: 0.2, word: "最后一句" }],
+          },
+        ],
+      },
+      from_finalize: true,
+      is_final: true,
+      speech_final: false,
+      start: 0.2,
+      type: "Results",
+    });
+    await finalizePromise;
+
+    expect(onTranscript).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "最后一句", type: "completed" }),
+    );
+    await connection.finalize?.();
+    expect(
+      socket.sent.filter((frame) => frame === JSON.stringify({ type: "Finalize" })),
+    ).toHaveLength(1);
+    connection.close();
+    expect(socket.sent).toContain(JSON.stringify({ type: "CloseStream" }));
+    expect(socket.closeCalls).toBe(0);
+    socket.emitClose();
   });
 });
