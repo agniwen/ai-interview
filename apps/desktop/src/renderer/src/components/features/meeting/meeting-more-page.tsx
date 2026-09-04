@@ -25,12 +25,16 @@ import { MeetingDetailView } from "./meeting-library-view";
 import { MeetingMorePageSkeleton } from "./meeting-page-skeletons";
 import { MeetingDeleteAction, canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { MeetingDetailTitle } from "./meeting-detail-title";
+import { MEETING_SESSION_TOP_INSET_PX } from "./meeting-recording-session-layout";
 import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
 function MeetingMoreStatus({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 pt-12 pb-6 sm:px-6">
+    <div
+      className="mx-auto w-full max-w-4xl px-4 pb-6 sm:px-6"
+      style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
+    >
       <Frame>
         <FramePanel className="flex flex-col items-center gap-3 py-12 text-center">
           {children}
@@ -171,7 +175,10 @@ export function MeetingMorePage({
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingMorePageSkeleton />}>
       {meeting ? (
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pt-8 pb-10 sm:px-6">
+        <div
+          className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pb-10 sm:px-6"
+          style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
+        >
           <MeetingDetailView
             additionalRows={
               <>

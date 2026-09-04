@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import { SettingsGroup } from "@/components/settings/settings-ui";
 import { Frame, FrameHeader, FrameHeading, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
+import {
+  MEETING_SESSION_TOP_INSET_PX,
+  MeetingRecordingSessionLayout,
+} from "./meeting-recording-session-layout";
 
 function TranscriptTurnSkeleton({ wide = true }: { wide?: boolean }) {
   return (
@@ -107,8 +110,9 @@ export function MeetingMorePageSkeleton() {
     <div
       aria-busy="true"
       aria-label="正在加载录制详情"
-      className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pt-8 pb-10 sm:px-6"
+      className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pb-10 sm:px-6"
       data-slot="meeting-more-skeleton"
+      style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
     >
       <Skeleton className="h-7 w-40" />
       <SettingsGroup>
