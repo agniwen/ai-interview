@@ -8,6 +8,21 @@ afterEach(() => {
 });
 
 describe("meeting recognition terminology", () => {
+  it("keeps the first 50 valid source-backed terms when the model exceeds the limit", async () => {
+    const terms = Array.from({ length: 60 }, (_, index) => `业务术语${index}`);
+    const generate = vi.fn(() =>
+      Promise.resolve({
+        text: JSON.stringify({ terms: ["", "甲", "长".repeat(41), "编造", ...terms, ...terms] }),
+      }),
+    );
+    await expect(generateMeetingRecognitionHints([terms.join(" ")], { generate })).resolves.toEqual(
+      {
+        terms: terms.slice(0, 50),
+      },
+    );
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
   it.each([
     ["deepseek-v4-flash-0731", "qwen-plus", false],
     ["qwen-plus", "deepseek-v4-flash-0731", true],

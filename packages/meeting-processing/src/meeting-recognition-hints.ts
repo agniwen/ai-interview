@@ -7,7 +7,8 @@ import {
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 import type { MeetingRecognitionHints } from "./meeting-transcription-provider";
 
-const hintsSchema = z.object({ terms: z.array(z.string().trim().min(2).max(40)).max(50) });
+// Normalize model over-generation after parsing so one bad term cannot discard valid hints.
+const hintsSchema = z.object({ terms: z.array(z.string().trim()) });
 
 export async function generateMeetingRecognitionHints(
   documents: string[],
@@ -39,8 +40,14 @@ ${JSON.stringify(source)}`,
     timeoutMs: 20_000,
   });
   return {
-    terms: [...new Set(result.terms)].filter(
-      (term) => source.includes(term) && !/@|https?:|^\+?[\d\s()-]+$/u.test(term),
-    ),
+    terms: [...new Set(result.terms)]
+      .filter(
+        (term) =>
+          term.length >= 2 &&
+          term.length <= 40 &&
+          source.includes(term) &&
+          !/@|https?:|^\+?[\d\s()-]+$/u.test(term),
+      )
+      .slice(0, 50),
   };
 }

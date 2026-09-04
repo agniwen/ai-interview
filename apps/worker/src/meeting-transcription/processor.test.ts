@@ -109,6 +109,57 @@ function createDependencies() {
 }
 
 describe("Meeting final transcription processor", () => {
+  it.each([190, 1500])(
+    "distinguishes a brief track startup offset from missing audio (%s ms)",
+    async (openingMs) => {
+      const deps = createDependencies();
+      const assets = (["candidate", "interviewer", "unknown"] as const).map((role, index) => ({
+        contentType: "audio/ogg",
+        durationMs: 60_000,
+        recordingIdentity: {
+          offsetMs: { candidate: 0, interviewer: openingMs, unknown: openingMs + 638 }[role],
+          participantIdentity: role === "unknown" ? null : `${index}`,
+          recoveryRanges: role === "unknown" ? [{ endMs: openingMs, startMs: 0 }] : [],
+          role,
+          sourceId: `${index}`,
+        },
+        sizeBytes: 100,
+        status: "ready",
+        storageKey: `${index}.ogg`,
+        track: role === "unknown" ? "mixed" : `participant-${index}`,
+      }));
+      await runMeetingTranscriptionProcessing(
+        job,
+        { attempt: 1, maxAttempts: 3 },
+        {
+          ...deps,
+          loadSource: () =>
+            Promise.resolve({
+              assets,
+              id: job.meetingId,
+              manifestSha256: job.sourceManifestSha256,
+              organizationId: job.organizationId,
+            }),
+          prepareChunks: ({ sources }) =>
+            Promise.resolve(
+              sources.map((source) => ({
+                ...source,
+                contentType: "audio/webm",
+                endMs: source.durationMs + (source.recordingIdentity?.offsetMs ?? 0),
+                index: 0,
+                startMs: source.recordingIdentity?.offsetMs ?? 0,
+              })),
+            ),
+        },
+      );
+      expect(deps.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          warning: openingMs <= 1000 ? undefined : expect.stringContaining("部分录音"),
+        }),
+      );
+    },
+  );
+
   it("does not generate hints when every chunk is already checkpointed", async () => {
     const deps = createDependencies();
     deps.claimChunk.mockResolvedValue({

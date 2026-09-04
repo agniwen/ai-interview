@@ -618,6 +618,26 @@ async function runMeetingTranscriptionProcessingPromise(
         .map(({ chunk }) => chunk)
         .toSorted((left, right) => left.startMs - right.startMs);
       hasUnrecoveredAudio = ranges.some((range) => {
+        // Separate egress tracks can start a fraction of a second apart. A subsecond
+        // opening offset before the room mix starts is not a failed recording/ASR job.
+        const briefStartupOffset =
+          range.startMs === 0 &&
+          range.endMs <= 1000 &&
+          failedRanges.length === 0 &&
+          prepared.chunks.some(
+            (chunk) => isMixedMeetingRecordingSource(chunk) && chunk.startMs > range.endMs,
+          ) &&
+          ["candidate", "interviewer"].every((role) =>
+            chunkResults.some(
+              ({ chunk }) =>
+                chunk.recordingIdentity?.role === role &&
+                chunk.startMs <= range.endMs &&
+                chunk.endMs > range.endMs,
+            ),
+          );
+        if (briefStartupOffset) {
+          return false;
+        }
         let coveredUntil = range.startMs;
         for (const chunk of recoveredChunks) {
           if (chunk.startMs > coveredUntil) {

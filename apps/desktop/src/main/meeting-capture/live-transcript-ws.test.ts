@@ -132,6 +132,42 @@ function createConnection(overrides: Partial<DashScopeRealtimeWsDependencies> = 
 }
 
 describe("connectDashScopeRealtimeWs", () => {
+  it("classifies provider capacity failures without exposing raw provider messages", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { dependencies, instance } = createConnection({
+      model: "qwen-audio-3.0-asr-flash-streaming",
+    });
+    try {
+      instance.onopen?.();
+      const run = JSON.parse(String(instance.sent[0]));
+      instance.onmessage?.(
+        JSON.stringify({
+          header: {
+            error_code: "ServiceUnavailable",
+            error_message:
+              "Too many requests. Your requests are being throttled due to system capacity limits. Bearer private-token",
+            event: "task-failed",
+            task_id: run.header.task_id,
+          },
+        }),
+        false,
+      );
+      expect(dependencies.onClose).toHaveBeenCalledWith("provider-busy");
+      expect(warning).toHaveBeenCalledWith(
+        "[live-transcript] provider task failed",
+        expect.objectContaining({
+          errorCode: "ServiceUnavailable",
+          reason: "provider-busy",
+          taskId: run.header.task_id,
+        }),
+      );
+      expect(JSON.stringify(warning.mock.calls)).not.toContain("private-token");
+      expect(instance.terminate).toHaveBeenCalled();
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.instances.length = 0;

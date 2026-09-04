@@ -10,11 +10,66 @@ import type {
   LiveTranscriptConnection,
   LiveTranscriptEvent,
   LiveTranscriptPcmTap,
+  LiveTranscriptDraftDependencies,
 } from "./live-transcript-draft";
 
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
 describe("Live Transcript Draft", () => {
+  it("retries provider saturation slowly while recording remains active, and cancels on stop", async () => {
+    let disconnect = (_reason: string) => {};
+    const scheduled: { callback: () => void; delayMs: number }[] = [];
+    const cancel = vi.fn();
+    const stopTap = vi.fn();
+    const connect = vi.fn<LiveTranscriptDraftDependencies["connect"]>(
+      ({ authorization, onDisconnect }) => {
+        if (authorization.track === "microphone") {
+          disconnect = onDisconnect;
+        }
+        return Promise.resolve({ close: vi.fn(), sendPcm: () => true });
+      },
+    );
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2099-01-01T00:00:00Z",
+          model: "qwen-audio-3.0-asr-flash-streaming",
+          provider: "qwen",
+          track,
+        }),
+      connect,
+      createPcmTap: () => Promise.resolve({ stop: stopTap }),
+      maxReconnectAttempts: 1,
+      random: () => 0.5,
+      scheduleReconnect: (callback, delayMs) => {
+        scheduled.push({ callback, delayMs });
+        return cancel;
+      },
+    });
+    try {
+      // SAFETY: This test never accesses media track properties.
+      await draft.start({
+        captureId: CAPTURE_ID,
+        tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+      });
+      disconnect("provider-busy");
+      expect(draft.getSnapshot().error).toContain("服务暂时繁忙");
+      expect(draft.getSnapshot().status).toBe("reconnecting");
+      expect(scheduled[0]?.delayMs).toBeGreaterThanOrEqual(15_000);
+      scheduled[0]?.callback();
+      await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(3));
+      disconnect("provider-busy");
+      expect(scheduled).toHaveLength(2);
+      expect(scheduled[1]?.delayMs).toBeLessThanOrEqual(60_000);
+      expect(stopTap).not.toHaveBeenCalled();
+    } finally {
+      draft.stop();
+    }
+    expect(cancel).toHaveBeenCalled();
+    expect(stopTap).toHaveBeenCalledTimes(2);
+  });
+
   it("waits for transcript-wide idle before forcing a trailing block", async () => {
     vi.useFakeTimers();
     const events = new Map<string, (event: LiveTranscriptEvent) => void>();

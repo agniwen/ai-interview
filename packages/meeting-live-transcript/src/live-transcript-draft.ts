@@ -233,6 +233,9 @@ const initialSnapshot = (): LiveTranscriptDraftSnapshot => ({
 });
 
 function publicError(reason: string): string {
+  if (reason === "provider-busy") {
+    return "实时字幕服务暂时繁忙，正在自动重试，录音仍在继续";
+  }
   if (reason === "degraded") {
     return "实时字幕可能有遗漏，录音仍在继续";
   }
@@ -594,13 +597,21 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
   const scheduleTrackReconnect = (
     runtime: TrackRuntime,
     callback: () => void,
+    reason: string,
   ): (() => void) | null => {
+    const providerBusy = reason === "provider-busy";
     const maxAttempts = dependencies.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
-    if (runtime.reconnectAttempts >= maxAttempts) {
+    if (!providerBusy && runtime.reconnectAttempts >= maxAttempts) {
       return null;
     }
-    const baseDelay = dependencies.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS;
-    const maxDelay = dependencies.maxReconnectDelayMs ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
+    // Provider saturation is temporary. Keep a slow retry alive until capture stops,
+    // instead of exhausting the network retry budget while the service is busy.
+    const baseDelay = providerBusy
+      ? 20_000
+      : (dependencies.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS);
+    const maxDelay = providerBusy
+      ? 50_000
+      : (dependencies.maxReconnectDelayMs ?? DEFAULT_MAX_RECONNECT_DELAY_MS);
     const exponentialDelay = Math.min(baseDelay * 2 ** runtime.reconnectAttempts, maxDelay);
     const jitter = 0.8 + (dependencies.random?.() ?? Math.random()) * 0.4;
     runtime.reconnectAttempts += 1;
@@ -644,9 +655,17 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       runtime.status = "interrupted";
       publish({ error: errorMessage ?? publicError(reason) });
       if (reconnect && !runtime.cancelReconnect) {
-        runtime.cancelReconnect = scheduleTrackReconnect(runtime, async () => {
-          await connectTrack(track, true);
-        });
+        runtime.cancelReconnect = scheduleTrackReconnect(
+          runtime,
+          async () => {
+            await connectTrack(track, true);
+          },
+          reason,
+        );
+        if (runtime.cancelReconnect && reason === "provider-busy") {
+          runtime.status = "reconnecting";
+          publish({ error: publicError(reason) });
+        }
       }
       releaseLeaseWhenAllTracksTerminal(captureId);
     };
