@@ -35,9 +35,11 @@ export function createMeetingSpeakerProfiles(
       }
       continue;
     }
+    const speakerNumber = profiles.size + 1;
     profiles.set(turn.speakerKey, {
-      avatarId: `${scopeId}:${turn.speakerKey}`,
-      label: confirmedDisplayName || `说话人${profiles.size + 1}`,
+      // Provider keys are canonicalized after upload; the meeting-local ordinal stays stable.
+      avatarId: `${scopeId}:speaker-${speakerNumber}`,
+      label: confirmedDisplayName || `说话人${speakerNumber}`,
     });
   }
   return profiles;

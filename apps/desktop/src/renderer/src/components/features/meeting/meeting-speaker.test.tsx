@@ -24,17 +24,38 @@ describe("meeting speaker presentation", () => {
     );
 
     expect(initial.get("local")).toEqual({
-      avatarId: "meeting-42:local",
+      avatarId: "meeting-42:speaker-1",
       label: "说话人1",
     });
     expect(initial.get("remote-1")).toEqual({
-      avatarId: "meeting-42:remote-1",
+      avatarId: "meeting-42:speaker-2",
       label: "说话人2",
     });
     expect(resumed.get("local")).toEqual(initial.get("local"));
     expect(resumed.get("remote-1")).toEqual(initial.get("remote-1"));
     expect(resumed.get("remote-2")?.label).toBe("说话人3");
     expect([...reopened]).toEqual([...resumed]);
+  });
+
+  it("keeps avatars stable when a Deepgram draft is promoted to canonical speakers", () => {
+    const live = createMeetingSpeakerProfiles(
+      [
+        { speakerKey: "microphone:deepgram-speaker-0" },
+        { speakerKey: "microphone:deepgram-speaker-1" },
+      ],
+      "meeting-42",
+    );
+    const completed = createMeetingSpeakerProfiles(
+      [{ speakerKey: "local" }, { speakerKey: "remote-1" }],
+      "meeting-42",
+    );
+
+    expect(live.get("microphone:deepgram-speaker-0")?.avatarId).toBe(
+      completed.get("local")?.avatarId,
+    );
+    expect(live.get("microphone:deepgram-speaker-1")?.avatarId).toBe(
+      completed.get("remote-1")?.avatarId,
+    );
   });
 
   it("renders the unknown speaker with the fixed animated alain00 blobatar without a background", () => {

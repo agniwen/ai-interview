@@ -50,19 +50,37 @@ export function canonicalizeDeepgramLiveTranscriptDraft(
       left.source.id.localeCompare(right.source.id),
   );
 
-  const remoteSpeakers = new Map<string, string>();
+  const speakers = new Map<
+    string,
+    { attributionMethod: "track" | "unconfirmed"; speakerKey: string; track: "local" | "remote" }
+  >();
+  let localSpeakerIdentity: string | null = null;
+  let remoteSpeakerCount = 0;
   const turns: CanonicalMeetingTranscriptTurn[] = positioned.map((turn) => {
-    const local = turn.source.track === "microphone";
-    const rawSpeakerKey = turn.source.speakerKey ?? `${turn.source.sectionId}:unknown`;
-    let speakerKey = "local";
-    if (!local) {
-      const existing = remoteSpeakers.get(rawSpeakerKey);
-      speakerKey = existing ?? `remote-${remoteSpeakers.size + 1}`;
-      remoteSpeakers.set(rawSpeakerKey, speakerKey);
+    const sourceTrack = turn.source.track;
+    const rawSpeakerKey = turn.source.speakerKey ?? `${sourceTrack}:unknown`;
+    const speakerIdentity = `${sourceTrack}:${rawSpeakerKey}`;
+    let speaker = speakers.get(speakerIdentity);
+    if (!speaker) {
+      // Canonical transcripts reserve `local` for one local identity. Deepgram can still diarize
+      // several voices on the microphone input, so retain every additional identity as unconfirmed
+      // instead of collapsing all microphone speakers into `local`.
+      if (sourceTrack === "microphone" && localSpeakerIdentity === null) {
+        localSpeakerIdentity = speakerIdentity;
+        speaker = { attributionMethod: "track", speakerKey: "local", track: "local" };
+      } else {
+        remoteSpeakerCount += 1;
+        speaker = {
+          attributionMethod: "unconfirmed",
+          speakerKey: `remote-${remoteSpeakerCount}`,
+          track: "remote",
+        };
+      }
+      speakers.set(speakerIdentity, speaker);
     }
     return {
       attribution: {
-        method: local ? "track" : "unconfirmed",
+        method: speaker.attributionMethod,
         participantIdentity: null,
         role: "unknown",
         sourceId: turn.source.id,
@@ -70,10 +88,10 @@ export function canonicalizeDeepgramLiveTranscriptDraft(
       confidence: null,
       endMs: turn.endMs,
       speakerDisplayName: turn.source.speakerDisplayName ?? null,
-      speakerKey,
+      speakerKey: speaker.speakerKey,
       startMs: turn.startMs,
       text: turn.source.text,
-      track: local ? "local" : "remote",
+      track: speaker.track,
     };
   });
   return canonicalMeetingTranscriptSchema.parse({ language: draft.language ?? null, turns });

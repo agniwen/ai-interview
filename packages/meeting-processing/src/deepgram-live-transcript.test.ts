@@ -96,6 +96,70 @@ describe("canonicalizeDeepgramLiveTranscriptDraft", () => {
     });
   });
 
+  it("preserves distinct Deepgram speakers captured on the microphone track", () => {
+    const transcript = canonicalizeDeepgramLiveTranscriptDraft(
+      {
+        capturedAt: "2026-09-04T03:00:10.000Z",
+        droppedAudioMs: 0,
+        droppedPcmFrames: 0,
+        error: null,
+        model: "nova-3",
+        provider: "deepgram",
+        sections: [
+          {
+            id: "mic-1",
+            sequence: 0,
+            startedAt: "2026-09-04T03:00:00.000Z",
+            track: "microphone",
+          },
+        ],
+        turns: [
+          {
+            endMs: 900,
+            final: true,
+            id: "mic-1:first",
+            sectionId: "mic-1",
+            speakerKey: "microphone:deepgram-speaker-0",
+            startMs: 100,
+            text: "第一位说话人",
+            track: "microphone",
+          },
+          {
+            endMs: 1800,
+            final: true,
+            id: "mic-1:second",
+            sectionId: "mic-1",
+            speakerKey: "microphone:deepgram-speaker-1",
+            startMs: 1000,
+            text: "第二位说话人插话",
+            track: "microphone",
+          },
+          {
+            endMs: 2600,
+            final: true,
+            id: "mic-1:third",
+            sectionId: "mic-1",
+            speakerKey: "microphone:deepgram-speaker-0",
+            startMs: 1900,
+            text: "第一位继续说",
+            track: "microphone",
+          },
+        ],
+      },
+      new Date("2026-09-04T03:00:00.000Z"),
+    );
+
+    expect(transcript.turns.map((turn) => [turn.speakerKey, turn.text])).toEqual([
+      ["local", "第一位说话人"],
+      ["remote-1", "第二位说话人插话"],
+      ["local", "第一位继续说"],
+    ]);
+    expect(transcript.turns[1]).toMatchObject({
+      attribution: { method: "unconfirmed", role: "unknown" },
+      track: "remote",
+    });
+  });
+
   it("creates a valid empty transcript when Deepgram produced no final turns", () => {
     const transcript = canonicalizeDeepgramLiveTranscriptDraft(
       {
