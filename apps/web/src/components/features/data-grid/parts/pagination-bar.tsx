@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@app/shared/utils";
 
 export interface PaginationBarProps {
   page: number;
@@ -60,7 +61,7 @@ export function PaginationBarSkeleton() {
   return (
     <output
       aria-label="正在加载分页信息"
-      className="flex flex-col items-stretch justify-between gap-3 px-2 sm:flex-row sm:items-center sm:gap-4"
+      className="flex flex-col items-stretch justify-between gap-3 border-t px-3 py-2 text-sm sm:min-h-11 sm:flex-row sm:items-center sm:gap-4 sm:py-0.5"
       data-slot="pagination-bar-skeleton"
     >
       <Skeleton className="h-5 w-56 max-w-full self-center sm:self-auto" />
@@ -72,8 +73,9 @@ export function PaginationBarSkeleton() {
         <div className="flex w-full justify-center sm:w-auto">
           <div className="flex flex-row items-center gap-1">
             <Skeleton className="h-9 w-9 sm:w-20" />
+            <Skeleton className="h-5 w-16 sm:hidden" data-slot="pagination-mobile-info-skeleton" />
             {Array.from({ length: PAGINATION_SKELETON_PAGES }, (_, index) => (
-              <Skeleton className="size-9" key={index} />
+              <Skeleton className="hidden size-9 sm:block" key={index} />
             ))}
             <Skeleton className="h-9 w-9 sm:w-20" />
           </div>
@@ -140,22 +142,34 @@ export function PaginationBar(props: PaginationBarProps) {
                 render={<Button disabled={page <= 1 || loading} variant="ghost" />}
               />
             </PaginationItem>
+            <PaginationItem className="sm:hidden">
+              <span
+                className="flex min-w-16 justify-center text-muted-foreground text-sm tabular-nums"
+                data-slot="pagination-mobile-info"
+              >
+                {page} / {totalPages}
+              </span>
+            </PaginationItem>
             {visiblePages.map((visiblePage) =>
               visiblePage === "ellipsis-start" || visiblePage === "ellipsis-end" ? (
-                <PaginationItem key={visiblePage}>
+                <PaginationItem className="max-sm:hidden" key={visiblePage}>
                   <PaginationEllipsis />
                 </PaginationItem>
               ) : (
-                <PaginationItem key={visiblePage}>
+                <PaginationItem className="max-sm:hidden" key={visiblePage}>
                   <PaginationLink
                     aria-label={`第 ${visiblePage} 页`}
                     isActive={visiblePage === page}
                     onClick={() => onPageChange(visiblePage)}
                     render={
                       <Button
+                        className={cn("hover:border-transparent", {
+                          "border-border/80 bg-accent text-accent-foreground hover:border-border/80":
+                            visiblePage === page,
+                        })}
                         disabled={loading}
                         size="icon"
-                        variant={visiblePage === page ? "outline" : "ghost"}
+                        variant="ghost"
                       />
                     }
                   >

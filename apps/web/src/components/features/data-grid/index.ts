@@ -37,5 +37,10 @@ export {
   type DataGridColumnDef,
   type DataGridProps,
 } from "./data-grid";
+export type {
+  DataGridCellEditRequest,
+  DataGridCellsChangeDetails,
+  DataGridColumnCellEdit,
+} from "@/components/reui/data-grid/data-grid";
 export { dataGridFeatures, type DataGridFeatures } from "./table-features";
 export { type ToolbarFilterConfig } from "./parts/toolbar";

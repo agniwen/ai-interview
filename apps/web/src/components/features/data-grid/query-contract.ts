@@ -1,6 +1,7 @@
 import type { SortingState } from "@tanstack/react-table";
+import type { SortOrder } from "@app/shared/pagination";
 
-export type DataGridSortOrder = "asc" | "desc";
+export type DataGridSortOrder = SortOrder;
 
 export interface DataGridQueryState<F extends Record<string, string>> {
   page: number;

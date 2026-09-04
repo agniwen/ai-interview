@@ -6,6 +6,8 @@ import type { DataGridFeatures } from "../table-features";
 export interface TextColumnOptions<TData> {
   key: keyof TData & string;
   title: string;
+  cellClassName?: string;
+  headerClassName?: string;
   primary?: boolean;
   secondary?: (row: TData) => ReactNode;
   fallback?: string;
@@ -59,6 +61,13 @@ export function textColumn<TData extends RowData>(
     enableSorting: false,
     header: opts.title,
     id: opts.key,
+    meta:
+      opts.cellClassName || opts.headerClassName
+        ? {
+            cellClassName: opts.cellClassName,
+            headerClassName: opts.headerClassName,
+          }
+        : undefined,
     size: opts.size,
   };
 }

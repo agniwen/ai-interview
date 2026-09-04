@@ -3,6 +3,7 @@
 import { functionalUpdate } from "@tanstack/react-table";
 import type { OnChangeFn, RowSelectionState, SortingState } from "@tanstack/react-table";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { PaginatedResult, SortOrder } from "@app/shared/pagination";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -18,14 +19,13 @@ export interface DataGridFetchParams<F extends Record<string, string>> {
   search: string;
   filters: F;
   sortBy: string | undefined;
-  sortOrder: "asc" | "desc" | undefined;
+  sortOrder: SortOrder | undefined;
 }
 
-export interface DataGridFetchResult<TData> {
-  records: TData[];
-  total: number;
-  totalPages: number;
-}
+export type DataGridFetchResult<TData> = Pick<
+  PaginatedResult<TData>,
+  "records" | "total" | "totalPages"
+>;
 
 export interface UseDataGridStateOptions<TData, F extends Record<string, string>> {
   queryKeyBase: readonly unknown[];
@@ -245,18 +245,21 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     return [{ desc: queryParams.sortOrder === "desc", id: queryParams.sortBy }];
   }, [queryParams.sortBy, queryParams.sortOrder]);
 
-  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
-    const next = functionalUpdate(updater, sorting);
-    const [head] = next;
-    let nextOrder = "";
-    if (head) {
-      nextOrder = head.desc === true ? "desc" : "asc";
-    }
-    updateRouteSearchAndResetPage({
-      sortBy: head?.id || undefined,
-      sortOrder: nextOrder || undefined,
-    });
-  };
+  const onSortingChange: OnChangeFn<SortingState> = useCallback(
+    (updater) => {
+      const next = functionalUpdate(updater, sorting);
+      const [head] = next;
+      let nextOrder = "";
+      if (head) {
+        nextOrder = head.desc === true ? "desc" : "asc";
+      }
+      updateRouteSearchAndResetPage({
+        sortBy: head?.id || undefined,
+        sortOrder: nextOrder || undefined,
+      });
+    },
+    [sorting, updateRouteSearchAndResetPage],
+  );
 
   const queryKey = useMemo(
     () => buildDataGridQueryKey(opts.queryKeyBase, queryParams),
@@ -345,6 +348,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     pagination,
     refetching,
     rowSelection,
+    sortableColumnIds: opts.allowedSortIds,
     sorting,
     total: data.total,
     totalPages: data.totalPages,

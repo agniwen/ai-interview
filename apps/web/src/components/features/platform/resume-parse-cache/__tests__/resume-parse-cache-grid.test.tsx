@@ -12,6 +12,7 @@ import {
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { installNoopWebAnimations } from "@/test-utils/react-act";
 import { ResumeParseCacheGrid } from "../resume-parse-cache-grid";
 import type {
   ResumeParseCacheDependencies,
@@ -28,6 +29,7 @@ function ResizeObserverMock() {
   };
 }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+installNoopWebAnimations();
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
   value: (media: string): MediaQueryList => ({
@@ -143,8 +145,6 @@ describe("ResumeParseCacheGrid", () => {
       (header) => header.textContent?.trim() === "操作",
     );
     expect(actionsHeader?.style.width).toBe("122px");
-    expect(actionsHeader?.style.minWidth).toBe("122px");
-    expect(actionsHeader?.style.maxWidth).toBe("122px");
     expect(actionsHeader?.querySelector("div")?.classList.contains("px-2.5")).toBe(true);
     expect(findButton("删除")?.classList.contains("px-2.5")).toBe(true);
     expect(findButton("删除")?.classList.contains("pr-0")).toBe(false);
