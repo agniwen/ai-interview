@@ -19,7 +19,10 @@ function StudioResumesRoute() {
     select: (routerState) => routerState.matches.at(-1)?.routeId,
   });
   const isListRoute = activeRouteId === "/w/$slug/studio/resumes";
-  const isOverlayRoute = activeRouteId === "/w/$slug/studio/resumes/overlay/$recordId";
+  const isOverlayRoute =
+    activeRouteId === "/w/$slug/studio/resumes/overlay/$recordId" ||
+    activeRouteId ===
+      "/w/$slug/studio/resumes/overlay/$recordId_/human-interviews/$roundId/meetings/$meetingId";
 
   if (state.status !== "ready") {
     return null;

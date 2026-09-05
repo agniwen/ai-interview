@@ -1,15 +1,33 @@
-import { IconArrowLeft, IconRefresh } from "@tabler/icons-react";
+import { cn } from "@app/shared/utils";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import { Message, MessageContent } from "@/components/ai-elements/message-primitives";
+import { IconArrowLeft, IconRefresh, IconInfoCircle, IconMessage } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
+import { useStudioHeaderOverride } from "./studio-header-context";
 import type { HumanInterviewMeetingDetail } from "@app/shared/human-interview-meeting-detail";
 import { fetchHumanInterviewMeetingDetail } from "@/lib/client/api/endpoints/human-interview-meeting-detail";
 import { humanInterviewKeys } from "@/lib/client/api/query-keys";
 import { isApiError } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { RoundEvaluation } from "./human-interview-evaluation-summary";
@@ -18,9 +36,10 @@ const returnStateSchema = z.object({ fromHumanInterviewCandidate: z.string().opt
 
 function Notice({ children }: { children: string }) {
   return (
-    <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm leading-6">
-      {children}
-    </p>
+    <Alert>
+      <IconInfoCircle />
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -47,53 +66,95 @@ function MeetingTranscript({ detail }: { detail: HumanInterviewMeetingDetail }) 
       {detail.recordingNotice ? <Notice>{detail.recordingNotice}</Notice> : null}
       {detail.transcriptNotice ? <Notice>{detail.transcriptNotice}</Notice> : null}
       {detail.transcript ? (
-        <>
-          <p className="text-sm text-muted-foreground">
-            共 {detail.transcript.turns.length} 段发言
-            {detail.transcriptBasis === "evaluation" ? " · 评价对应转录" : ""}
-          </p>
-          {detail.transcript.turns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无可展示的发言。</p>
-          ) : (
-            <ol className="space-y-3" aria-label="转录对话">
-              {detail.transcript.turns.map((turn) => (
-                <li
-                  key={turn.id}
-                  className="space-y-2 rounded-lg border p-4 [content-visibility:auto] [contain-intrinsic-size:auto_100px]"
-                >
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-medium">
-                      {turn.speakerDisplayName?.replace(/^候选人\s*·\s*/, "") || "未命名发言人"}
-                    </span>
-                    <Badge variant="outline">
-                      {
-                        { candidate: "候选人", interviewer: "面试官", unknown: "身份未确认" }[
-                          turn.attribution?.role ?? "unknown"
-                        ]
-                      }
-                    </Badge>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {formatTranscriptTime(turn.startMs)} – {formatTranscriptTime(turn.endMs)}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap break-words text-sm leading-7">{turn.text}</p>
-                </li>
-              ))}
-            </ol>
-          )}
-        </>
+        <Frame>
+          <FrameHeader className="h-auto min-h-11 flex-wrap justify-between gap-2 py-2">
+            <FrameTitle>对话记录</FrameTitle>
+            <span className="text-xs text-muted-foreground">
+              共 {detail.transcript.turns.length} 段发言
+              {detail.transcriptBasis === "evaluation" ? " · 评价对应转录" : ""}
+            </span>
+          </FrameHeader>
+          <FramePanel className="overflow-hidden p-0">
+            {detail.transcript.turns.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyDescription>暂无可展示的发言。</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Conversation
+                className="h-[min(65dvh,44rem)] min-h-64"
+                initial={false}
+                aria-label="转录对话"
+              >
+                <ConversationContent className="gap-6 px-4 py-5">
+                  {detail.transcript.turns.map((turn) => {
+                    const isCandidate = turn.attribution?.role === "candidate";
+                    const speakerName =
+                      turn.speakerDisplayName?.replace(/^候选人\s*·\s*/, "") || "未命名发言人";
+                    const roleLabel = {
+                      candidate: "候选人",
+                      interviewer: "面试官",
+                      unknown: "身份未确认",
+                    }[turn.attribution?.role ?? "unknown"];
+                    return (
+                      <Message from={isCandidate ? "user" : "assistant"} key={turn.id}>
+                        <div
+                          className={cn(
+                            "flex flex-wrap items-center gap-2 text-muted-foreground text-xs",
+                            isCandidate ? "justify-end" : "justify-start",
+                          )}
+                        >
+                          <span className="font-medium text-foreground">{speakerName}</span>
+                          {speakerName === roleLabel ? null : <span>· {roleLabel}</span>}
+                          <span className="tabular-nums">
+                            {formatTranscriptTime(turn.startMs)} –{" "}
+                            {formatTranscriptTime(turn.endMs)}
+                          </span>
+                        </div>
+                        <MessageContent
+                          className={cn(
+                            !isCandidate &&
+                              "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-muted/60 group-[.is-assistant]:bg-muted/30 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
+                          )}
+                        >
+                          <p className="whitespace-pre-wrap wrap-anywhere">{turn.text}</p>
+                        </MessageContent>
+                      </Message>
+                    );
+                  })}
+                </ConversationContent>
+                <ConversationScrollButton aria-label="滚动到最新发言" />
+              </Conversation>
+            )}
+          </FramePanel>
+        </Frame>
       ) : (
-        <output className="block rounded-lg border p-6 text-sm text-muted-foreground">
-          {
-            {
-              failed: "转录未能生成，已有评价仍可查看。",
-              pending: "转录尚未就绪，生成后会自动更新。",
-              processing: "正在整理转录，完成后会自动更新。",
-              ready: "暂无可用转录。",
-              unavailable: "暂无可用转录。",
-            }[detail.transcriptionState]
-          }
-        </output>
+        <Frame>
+          <FramePanel>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconMessage />
+                </EmptyMedia>
+                <EmptyTitle>转录暂不可用</EmptyTitle>
+                <EmptyDescription>
+                  <output>
+                    {
+                      {
+                        failed: "转录未能生成，已有评价仍可查看。",
+                        pending: "转录尚未就绪，生成后会自动更新。",
+                        processing: "正在整理转录，完成后会自动更新。",
+                        ready: "暂无可用转录。",
+                        unavailable: "暂无可用转录。",
+                      }[detail.transcriptionState]
+                    }
+                  </output>
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </FramePanel>
+        </Frame>
       )}
       {detail.transcriptionError && detail.transcriptionError !== detail.recordingNotice ? (
         <Notice>{detail.transcriptionError}</Notice>
@@ -109,45 +170,75 @@ export function HumanInterviewMeetingDetailContent({
 }) {
   return (
     <>
-      <header className="space-y-3 border-b pb-5">
+      <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold">会议详情 · {detail.candidateName}</h1>
-          <Badge variant="secondary">会议已结束</Badge>
-          {detail.outcome ? (
-            <Badge variant="outline">
-              {{ fail: "未通过", inconclusive: "待定", pass: "通过" }[detail.outcome]}
-            </Badge>
-          ) : null}
+          <h1 className="text-xl font-semibold wrap-anywhere">面试详情 · {detail.candidateName}</h1>
+          <span className="text-muted-foreground text-xs">会议已结束</span>
         </div>
-        <p className="font-medium">{detail.roundLabel}</p>
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          <span>
-            面试官：{detail.interviewers.map((person) => person.name).join("、") || "未记录"}
-          </span>
-          <span>
-            {detail.startedAt ? "开始" : "计划时间"}：
-            <TimeDisplay value={detail.startedAt ?? detail.scheduledAt} />
-          </span>
-          <span>
-            结束：
-            <TimeDisplay value={detail.endedAt} />
-          </span>
-        </div>
+        <Frame>
+          <FrameHeader className="h-auto min-h-11 flex-wrap justify-between gap-2 py-2">
+            <FrameTitle>{detail.roundLabel}</FrameTitle>
+            {detail.outcome ? (
+              <Badge
+                variant={
+                  ({ fail: "danger", inconclusive: "warning", pass: "success" } as const)[
+                    detail.outcome
+                  ]
+                }
+              >
+                {{ fail: "未通过", inconclusive: "待定", pass: "通过" }[detail.outcome]}
+              </Badge>
+            ) : null}
+          </FrameHeader>
+          <FramePanel>
+            <dl className="grid gap-4 text-sm sm:grid-cols-3">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <dt className="text-xs text-muted-foreground">面试官</dt>
+                <dd className="wrap-anywhere">
+                  {detail.interviewers.map((person) => person.name).join("、") || "未记录"}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-xs text-muted-foreground">
+                  {detail.startedAt ? "开始时间" : "计划时间"}
+                </dt>
+                <dd>
+                  <TimeDisplay value={detail.startedAt ?? detail.scheduledAt} />
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-xs text-muted-foreground">结束时间</dt>
+                <dd>
+                  <TimeDisplay value={detail.endedAt} />
+                </dd>
+              </div>
+            </dl>
+          </FramePanel>
+        </Frame>
       </header>
-      <Tabs defaultValue="transcript">
-        <TabsList variant="underline" aria-label="会议详情内容">
+      <Tabs defaultValue="transcript" className="gap-4">
+        <TabsList aria-label="面试详情内容">
           <TabsTrigger value="transcript">完整转录</TabsTrigger>
           <TabsTrigger value="evaluation">面试评价</TabsTrigger>
         </TabsList>
-        <TabsContent value="transcript" className="space-y-4 pt-3">
+        <TabsContent value="transcript" className="flex flex-col gap-4">
           <MeetingTranscript detail={detail} />
         </TabsContent>
-        <TabsContent value="evaluation" className="space-y-4 pt-3">
+        <TabsContent value="evaluation" className="flex flex-col gap-4">
           {detail.transcriptBasis === "unlinked" && detail.transcriptNotice ? (
             <Notice>{detail.transcriptNotice}</Notice>
           ) : null}
-          <Card>
-            <CardContent>
+          <Frame>
+            <FrameHeader className="h-auto min-h-11 flex-wrap justify-between gap-2 py-2">
+              <FrameTitle>评价结果</FrameTitle>
+              {detail.evaluationSubmittedAt ? (
+                <span className="text-xs text-muted-foreground">
+                  提交时间：
+                  <TimeDisplay value={detail.evaluationSubmittedAt} />
+                </span>
+              ) : null}
+            </FrameHeader>
+            <FramePanel>
               {detail.evaluation ? (
                 <RoundEvaluation
                   evaluation={detail.evaluation}
@@ -162,14 +253,8 @@ export function HumanInterviewMeetingDetailContent({
               {!detail.evaluation && detail.feedback ? (
                 <p className="mt-4 whitespace-pre-wrap text-sm leading-7">{detail.feedback}</p>
               ) : null}
-              {detail.evaluationSubmittedAt ? (
-                <p className="mt-4 text-xs text-muted-foreground">
-                  提交时间：
-                  <TimeDisplay value={detail.evaluationSubmittedAt} />
-                </p>
-              ) : null}
-            </CardContent>
-          </Card>
+            </FramePanel>
+          </Frame>
           {detail.evaluationError ? <Notice>{detail.evaluationError}</Notice> : null}
         </TabsContent>
       </Tabs>
@@ -208,22 +293,12 @@ export function HumanInterviewMeetingDetailPage(input: {
     retry: (failureCount, error) =>
       failureCount < 2 && !(isApiError(error) && error.status >= 400 && error.status < 500),
   });
-  let content: ReactNode = (
-    <output className="block p-6 text-muted-foreground text-sm">正在加载会议详情…</output>
-  );
-  if (query.isError) {
-    content = (
-      <p role="alert" className="rounded-lg border p-6 text-sm">
-        {query.error.message}
-      </p>
-    );
-  } else if (query.data) {
-    content = <HumanInterviewMeetingDetailContent detail={query.data} />;
-  }
-  return (
-    <main className="mx-auto w-full max-w-6xl space-y-5">
-      <div className="flex items-center justify-between gap-3">
+  const header = useMemo(
+    () => (
+      <div className="flex min-w-0 items-center gap-2">
         <Button
+          aria-label="返回真人面试"
+          className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
           variant="ghost"
           size="sm"
           nativeButton={false}
@@ -252,8 +327,33 @@ export function HumanInterviewMeetingDetailPage(input: {
           }
         >
           <IconArrowLeft className="size-4" />
-          返回真人复面
+          <span className="hidden sm:inline">返回真人面试</span>
         </Button>
+      </div>
+    ),
+    [input.candidateId, input.slug, router],
+  );
+  useStudioHeaderOverride(header);
+  let content: ReactNode = (
+    <output aria-label="正在加载面试详情" className="flex flex-col gap-4">
+      <Skeleton className="h-8 w-60" />
+      <Skeleton className="h-36 rounded-2xl" />
+      <Skeleton className="h-80 rounded-2xl" />
+    </output>
+  );
+  if (query.isError) {
+    content = (
+      <Alert variant="destructive">
+        <IconInfoCircle />
+        <AlertDescription>{query.error.message}</AlertDescription>
+      </Alert>
+    );
+  } else if (query.data) {
+    content = <HumanInterviewMeetingDetailContent detail={query.data} />;
+  }
+  return (
+    <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 pb-6">
+      <div className="flex items-center justify-end gap-3">
         <Button
           size="sm"
           variant="outline"

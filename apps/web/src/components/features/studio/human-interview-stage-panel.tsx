@@ -32,7 +32,7 @@ import {
 } from "./resumes/recruiter-resume-detail-search";
 import { HumanInterviewReviewDialog } from "./human-interview-review-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Empty,
   EmptyDescription,
@@ -193,14 +193,20 @@ export function HumanInterviewStagePanel({
       invalidateRounds();
     },
   });
+  const roundGroups = [
+    { label: "待处理", rounds: rounds.filter((round) => round.status === "pending") },
+    {
+      label: "历史面试",
+      rounds: rounds.filter((round) => round.status !== "pending").toReversed(),
+    },
+  ].filter((group) => group.rounds.length > 0);
   let roundsContent: ReactNode;
   if (isLoading) {
     roundsContent = (
-      <Card className="gap-0 rounded-lg py-0">
-        <CardContent className="bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-          加载中…
-        </CardContent>
-      </Card>
+      <output aria-label="加载真人复面" className="flex flex-col gap-3">
+        <Skeleton className="h-40 rounded-xl" />
+        <Skeleton className="h-40 rounded-xl" />
+      </output>
     );
   } else if (rounds.length === 0) {
     let emptyDescription = "你可以查看真人复面记录，但不能创建复面。";
@@ -222,98 +228,112 @@ export function HumanInterviewStagePanel({
     );
   } else {
     roundsContent = (
-      <div className="space-y-3">
-        {rounds.map((round) => {
-          const meeting = findHumanInterviewRoundMeeting(meetings, round.id);
-          return (
-            <RoundCard
-              canCreate={canCreate}
-              canDelete={canDelete}
-              canUpdate={canUpdate}
-              disabled={disabled}
-              key={round.id}
-              meeting={meeting}
-              meetingDetailLink={
-                meeting?.status === "ended" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId"
-                        params={{
-                          meetingId: meeting.id,
-                          recordId: candidateId,
-                          roundId: round.id,
-                          slug,
-                        }}
-                        state={(previous) => ({
-                          ...previous,
-                          fromHumanInterviewCandidate: candidateId,
-                        })}
-                      />
-                    }
-                  >
-                    会议详情
-                  </Button>
-                ) : null
-              }
-              onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
-              onComplete={() => dispatchDialog({ target: round, type: "completeTargetChanged" })}
-              onCreateMeeting={() => createMeetingMutation.mutate(round)}
-              onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
-              onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
-              onRescheduled={invalidateRescheduledMeeting}
-              onReview={() =>
-                navigate({
-                  replace: true,
-                  resetScroll: false,
-                  search: (previous) => ({
-                    ...previous,
-                    reviewRoundId: round.id,
-                    tab: "human-interview",
-                  }),
-                  to: ".",
-                })
-              }
-              round={round}
-              roundNumber={businessRoundNumbers.get(round.id) ?? 2}
-              slug={slug}
-            />
-          );
-        })}
+      <div className="flex flex-col gap-6">
+        {roundGroups.map((group) => (
+          <section className="flex flex-col gap-3" key={group.label} aria-label={group.label}>
+            <h4 className="flex items-center gap-2 font-medium text-sm">
+              {group.label}
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {group.rounds.length}
+              </span>
+            </h4>
+            {group.rounds.map((round) => {
+              const meeting = findHumanInterviewRoundMeeting(meetings, round.id);
+              return (
+                <RoundCard
+                  canCreate={canCreate}
+                  canDelete={canDelete}
+                  canUpdate={canUpdate}
+                  disabled={disabled}
+                  key={round.id}
+                  meeting={meeting}
+                  meetingDetailLink={
+                    meeting?.status === "ended" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to="/w/$slug/studio/resumes/overlay/$recordId/human-interviews/$roundId/meetings/$meetingId"
+                            params={{
+                              meetingId: meeting.id,
+                              recordId: candidateId,
+                              roundId: round.id,
+                              slug,
+                            }}
+                            state={(previous) => ({
+                              ...previous,
+                              fromHumanInterviewCandidate: candidateId,
+                            })}
+                          />
+                        }
+                      >
+                        面试详情
+                      </Button>
+                    ) : null
+                  }
+                  onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
+                  onComplete={() =>
+                    dispatchDialog({ target: round, type: "completeTargetChanged" })
+                  }
+                  onCreateMeeting={() => createMeetingMutation.mutate(round)}
+                  onEndMeeting={(item) =>
+                    dispatchDialog({ target: item, type: "endTargetChanged" })
+                  }
+                  onOpenLinks={(item) =>
+                    dispatchDialog({ target: item, type: "linksTargetChanged" })
+                  }
+                  onRescheduled={invalidateRescheduledMeeting}
+                  onReview={() =>
+                    navigate({
+                      replace: true,
+                      resetScroll: false,
+                      search: (previous) => ({
+                        ...previous,
+                        reviewRoundId: round.id,
+                        tab: "human-interview",
+                      }),
+                      to: ".",
+                    })
+                  }
+                  round={round}
+                  roundNumber={businessRoundNumbers.get(round.id) ?? 2}
+                  slug={slug}
+                />
+              );
+            })}
+          </section>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="font-medium text-sm">真人复面进度</h3>
-        <p className="text-muted-foreground text-xs">
-          管理 {candidateName} 的真人复面：安排时间 / 录入面试官 / 标记结果。
-        </p>
+    <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h3 className="font-medium text-sm">真人复面进度</h3>
+            <p className="text-muted-foreground text-xs">查看面试安排、轮次结果与面试评价。</p>
+          </div>
+          {disabled || !canCreate ? null : (
+            <Button
+              disabled={scheduleBlockReason !== null}
+              onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
+              size="sm"
+            >
+              <IconPlus data-icon="inline-start" />
+              安排真人复面
+            </Button>
+          )}
+        </div>
+        {!disabled && canCreate && scheduleBlockReason ? (
+          <p className="text-muted-foreground text-xs leading-relaxed">{scheduleBlockReason}</p>
+        ) : null}
       </div>
 
       {roundsContent}
-
-      {disabled || !canCreate ? null : (
-        <div className="w-full space-y-2">
-          <Button
-            disabled={scheduleBlockReason !== null}
-            onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
-            size="lg"
-            className="w-full"
-          >
-            <IconPlus className="size-4" />
-            安排真人复面
-          </Button>
-          {scheduleBlockReason ? (
-            <p className="text-center text-muted-foreground text-xs">{scheduleBlockReason}</p>
-          ) : null}
-        </div>
-      )}
 
       {reviewRoundId ? (
         <HumanInterviewReviewDialog

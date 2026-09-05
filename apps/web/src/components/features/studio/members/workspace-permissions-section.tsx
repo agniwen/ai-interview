@@ -1,5 +1,7 @@
 "use client";
 
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { PermissionsContentSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { IconCopy, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -490,7 +492,11 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
   return (
     <div className="flex flex-col gap-6">
       {header}
-      <section className="flex flex-col gap-4">
+      <SkeletonReveal
+        loading={isPending}
+        skeleton={<PermissionsContentSkeleton />}
+        contentClassName="flex flex-col gap-4"
+      >
         <div className="overflow-hidden rounded-lg border">
           <div className="overflow-x-auto">
             <table className="min-w-max border-collapse text-sm">
@@ -650,13 +656,6 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
           </div>
         </div>
 
-        {isPending ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Spinner data-icon="inline-start" />
-            加载自定义角色
-          </div>
-        ) : null}
-
         {dynamicRoles.length === 0 && !isPending ? (
           <Empty>
             <EmptyContent>
@@ -667,7 +666,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
             </EmptyContent>
           </Empty>
         ) : null}
-      </section>
+      </SkeletonReveal>
 
       <RoleFormDialog
         onOpenChange={(open) => {

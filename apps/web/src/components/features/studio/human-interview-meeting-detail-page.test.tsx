@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryHistory,
@@ -9,12 +9,28 @@ import {
   createRoute,
   createRouter,
   RouterProvider,
+  Outlet,
 } from "@tanstack/react-router";
 import type { HumanInterviewMeetingDetail } from "@app/shared/human-interview-meeting-detail";
 import {
   HumanInterviewMeetingDetailContent,
   HumanInterviewMeetingDetailPage,
 } from "./human-interview-meeting-detail-page";
+
+import { StudioHeaderProvider, useStudioHeaderOverrideValue } from "./studio-header-context";
+
+function TestContentHeader() {
+  return <header data-testid="content-header">{useStudioHeaderOverrideValue()}</header>;
+}
+
+function TestStudioLayout() {
+  return (
+    <StudioHeaderProvider>
+      <TestContentHeader />
+      <Outlet />
+    </StudioHeaderProvider>
+  );
+}
 
 // SAFETY: React's test-only act flag enables deterministic rendering assertions.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -91,7 +107,18 @@ const detail: HumanInterviewMeetingDetail = {
   transcriptionError: null,
   transcriptionState: "ready",
 };
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    },
+  );
+});
 afterEach(() => {
+  vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
 
@@ -106,12 +133,43 @@ function renderDetail(value: HumanInterviewMeetingDetail) {
 describe("read-only human meeting detail", () => {
   it("shows every turn with time and unknown attribution, without editing controls", () => {
     const view = renderDetail(detail);
+    expect(view.host.textContent).toContain("面试详情 · 张三");
+    expect(view.host.querySelector('[role="tablist"] svg')).toBeNull();
     expect(view.host.textContent).toContain("共 2 段发言");
     expect(view.host.textContent).toContain("请介绍最近的项目。");
     expect(view.host.textContent).toContain("身份尚不确定的完整回答。");
     expect(view.host.textContent).toContain("身份未确认");
     expect(view.host.textContent).toContain("00:01 – 00:03");
     expect(view.host.querySelector("textarea, input, audio, video")).toBeNull();
+    view.unmount();
+  });
+  it("aligns confirmed candidate bubbles right while preserving unknown speakers", () => {
+    if (!detail.transcript) {
+      throw new Error("Missing transcript fixture");
+    }
+    const view = renderDetail({
+      ...detail,
+      transcript: {
+        ...detail.transcript,
+        turns: detail.transcript.turns.map((turn, index) => ({
+          ...turn,
+          attribution:
+            index === 0
+              ? {
+                  method: "manual",
+                  participantIdentity: null,
+                  role: "candidate",
+                  sourceId: "confirmed-candidate",
+                }
+              : null,
+        })),
+      },
+    });
+    expect(view.host.querySelector(".is-user")?.textContent).toContain("请介绍最近的项目。");
+    expect(view.host.querySelector(".is-assistant")?.textContent).toContain("身份未确认");
+    expect(view.host.querySelector(".is-assistant")?.textContent).toContain(
+      "身份尚不确定的完整回答。",
+    );
     view.unmount();
   });
   it("switches to the complete submitted evaluation", () => {
@@ -203,7 +261,7 @@ describe("read-only human meeting detail", () => {
       const host = document.createElement("div");
       document.body.append(host);
       const root = createRoot(host);
-      const rootRoute = createRootRoute();
+      const rootRoute = createRootRoute({ component: TestStudioLayout });
       const pageRoute = createRoute({
         component: () => (
           <HumanInterviewMeetingDetailPage
@@ -238,6 +296,10 @@ describe("read-only human meeting detail", () => {
         if (transcriptionState === "unavailable") {
           expect(host.textContent).not.toContain("会自动更新");
         }
+        expect(host.querySelector('[data-testid="content-header"]')?.textContent).toContain(
+          "返回真人面试",
+        );
+        expect(host.querySelector("main")?.textContent).not.toContain("返回真人面试");
         expect(fetchMock).toHaveBeenCalledTimes(1);
         await act(async () => {
           await vi.advanceTimersByTimeAsync(15_000);

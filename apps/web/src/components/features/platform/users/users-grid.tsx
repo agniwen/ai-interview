@@ -2,14 +2,7 @@
 
 import { listTextQuery } from "@app/shared/list-text-filters";
 
-import {
-  IconBan,
-  IconBuilding,
-  IconCircleCheck,
-  IconCircleX,
-  IconShieldCheck,
-  IconUsers,
-} from "@tabler/icons-react";
+import { IconBan, IconBuilding, IconShieldCheck, IconUsers } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -438,15 +431,9 @@ export function UsersGrid() {
     customColumn<UserRecord>({
       cell: (r) =>
         r.emailVerified ? (
-          <Badge variant="success">
-            <IconCircleCheck className="mr-1 size-3" />
-            已验证
-          </Badge>
+          <span className="text-muted-foreground text-xs">已验证</span>
         ) : (
-          <Badge variant="outline" className="text-muted-foreground">
-            <IconCircleX className="mr-1 size-3" />
-            未验证
-          </Badge>
+          <span className="text-muted-foreground text-xs">未验证</span>
         ),
       key: "emailVerified",
       title: "邮箱验证",
@@ -458,9 +445,9 @@ export function UsersGrid() {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <Badge variant="outline" className="max-w-[200px] truncate">
+                  <span className="inline-block max-w-[200px] truncate text-sm">
                     {r.feishuTenantName}
-                  </Badge>
+                  </span>
                 }
               />
               <TooltipContent>{r.feishuTenantName}</TooltipContent>
@@ -495,7 +482,7 @@ export function UsersGrid() {
             </Tooltip>
           </TooltipProvider>
         ) : (
-          <Badge variant="success">正常</Badge>
+          <span className="text-muted-foreground text-xs">正常</span>
         ),
       key: "banned",
       title: "状态",

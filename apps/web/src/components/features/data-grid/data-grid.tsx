@@ -27,6 +27,7 @@ import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagina
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area";
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
 import { Button } from "@/components/ui/button";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@app/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
@@ -398,6 +399,39 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     rowCount: rows.length,
   });
 
+  const renderTable = (showSkeleton: boolean) => (
+    <ReuiDataGrid
+      onCellEditRequest={onCellEditRequest}
+      onCellsChange={onCellsChange}
+      i18n={DATA_GRID_I18N}
+      isLoading={showSkeleton}
+      recordCount={total}
+      table={table}
+      tableLayout={{
+        cellBorder: true,
+        cellEditEnterAdvance,
+        cellEditMode,
+        cellSelection,
+        columnsPinnable: hasPinning,
+        headerBackground: false,
+        headerSticky: Boolean(maxHeight),
+        rowBorder: true,
+        width: "auto",
+      }}
+      tableClassNames={{
+        bodyRow: DATA_GRID_ROW_CLASS,
+        headerSticky: "sticky top-0 z-40 bg-background",
+      }}
+    >
+      <ReuiDataGridContainer className="rounded-lg border shadow-none">
+        <DataGridScrollArea style={maxHeight ? { maxHeight } : undefined}>
+          <DataGridTable />
+        </DataGridScrollArea>
+        <DataGridPagination sizes={[...pageSizeOptions]} />
+      </ReuiDataGridContainer>
+    </ReuiDataGrid>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       {headerExtra ? <div>{headerExtra}</div> : null}
@@ -421,41 +455,8 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         <ListLoadError compact error={error} onRetry={onRetry ?? onRefresh} />
       ) : null}
 
-      <div className="min-w-0">
-        {rows.length > 0 || isInitialLoading ? (
-          <ReuiDataGrid
-            onCellEditRequest={onCellEditRequest}
-            onCellsChange={onCellsChange}
-            i18n={DATA_GRID_I18N}
-            isLoading={isInitialLoading}
-            recordCount={total}
-            table={table}
-            tableLayout={{
-              cellBorder: true,
-              cellEditEnterAdvance,
-              cellEditMode,
-              cellSelection,
-              columnsPinnable: hasPinning,
-              headerBackground: false,
-              headerSticky: Boolean(maxHeight),
-              rowBorder: true,
-              width: "auto",
-            }}
-            tableClassNames={{
-              bodyRow: DATA_GRID_ROW_CLASS,
-              headerSticky: "sticky top-0 z-40 bg-background",
-            }}
-          >
-            <ReuiDataGridContainer className="rounded-lg border shadow-none">
-              <DataGridScrollArea style={maxHeight ? { maxHeight } : undefined}>
-                <DataGridTable />
-              </DataGridScrollArea>
-              <DataGridPagination sizes={[...pageSizeOptions]} />
-            </ReuiDataGridContainer>
-          </ReuiDataGrid>
-        ) : (
-          emptyContent
-        )}
+      <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
+        {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
 
         {rows.length === 0 && !isInitialLoading ? (
           <PaginationBar
@@ -469,7 +470,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
             totalPages={totalPages}
           />
         ) : null}
-      </div>
+      </SkeletonReveal>
     </div>
   );
 }

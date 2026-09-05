@@ -129,7 +129,9 @@ function BiasScanSection({
             key={`${item.category}-${item.description}-${item.impact}`}
           >
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{resumeReviewBiasCategoryLabel[item.category]}</Badge>
+              <span className="text-muted-foreground text-xs">
+                {resumeReviewBiasCategoryLabel[item.category]}
+              </span>
               <span className="font-medium">{item.description}</span>
             </div>
             <p className="text-muted-foreground">{item.impact}</p>
@@ -145,10 +147,16 @@ function BiasScanSection({
         action={
           review ? (
             <>
-              <Badge variant="outline">硬缺口 {biasCounts.hardGap}</Badge>
-              <Badge variant="outline">软错位 {biasCounts.softMismatch}</Badge>
-              <Badge variant="outline">真实性存疑 {biasCounts.credibilityRisk}</Badge>
-              <Badge variant="outline">稳定性信号 {biasCounts.stabilitySignal}</Badge>
+              <span className="text-muted-foreground text-xs">硬缺口 {biasCounts.hardGap}</span>
+              <span className="text-muted-foreground text-xs">
+                软错位 {biasCounts.softMismatch}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                真实性存疑 {biasCounts.credibilityRisk}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                稳定性信号 {biasCounts.stabilitySignal}
+              </span>
             </>
           ) : undefined
         }
@@ -185,7 +193,9 @@ function ReviewSummaryHero({
                   <Badge variant={actionVariant(review.nextStep.action)}>
                     {resumeReviewActionLabel[review.nextStep.action]}
                   </Badge>
-                  <Badge variant="outline">{review.levelRecommendation.level}</Badge>
+                  <span className="text-muted-foreground text-xs">
+                    {review.levelRecommendation.level}
+                  </span>
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold text-base leading-7">{review.overall.conclusion}</h3>
@@ -323,7 +333,9 @@ export function ResumeReviewStructuredView({
           <FramePanel className="flex flex-1 items-center">
             {review ? (
               <div className="space-y-2 text-sm leading-6">
-                <Badge variant="outline">{review.levelRecommendation.level}</Badge>
+                <span className="text-muted-foreground text-xs">
+                  {review.levelRecommendation.level}
+                </span>
                 <p className="text-muted-foreground">{review.levelRecommendation.rationale}</p>
               </div>
             ) : (

@@ -314,14 +314,14 @@ function StructuredSkillAssessmentPanel({
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-sm">{assessment.normalizedSkill}</span>
-                <Badge variant="outline">
+                <span className="text-muted-foreground text-xs">
                   {assessment.expectationType === "core" ? "核心技能" : "辅助技能"}
-                </Badge>
+                </span>
                 {assessment.satisfactionMode === "any" ||
                 (groupSizes.get(assessment.requirementGroupId) ?? 0) > 1 ? (
-                  <Badge variant="secondary">
+                  <span className="text-muted-foreground text-xs">
                     {assessment.satisfactionMode === "any" ? "任一满足" : "全部满足"}
-                  </Badge>
+                  </span>
                 ) : null}
                 <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
               </div>
@@ -485,7 +485,9 @@ function StructuredGateJudgmentItem({
     <div className="space-y-3 p-4">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-structured-gate-heading>
         <Badge variant={statusVariant(effectiveStatus)}>{GATE_LABELS[effectiveStatus]}</Badge>
-        {judgment.correction ? <Badge variant="outline">HR 已核实</Badge> : null}
+        {judgment.correction ? (
+          <span className="text-muted-foreground text-xs">HR 已核实</span>
+        ) : null}
         <p className="min-w-0 flex-1 text-sm leading-6">
           <span className="font-medium">{categoryLabel}：</span>
           {requirement?.sourceText ?? "当前评估未记录具体要求"}
@@ -657,7 +659,9 @@ export function StructuredResumeEvaluationPanel({
             <div className="min-w-0 space-y-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground text-xs">推荐建议</span>
-                <Badge variant="outline">{GRADE_LABELS[evaluation.grade]}</Badge>
+                <span className="text-muted-foreground text-xs">
+                  {GRADE_LABELS[evaluation.grade]}
+                </span>
                 <Badge variant={statusVariant(evaluation.gates.effectiveStatus)}>
                   {GATE_LABELS[evaluation.gates.effectiveStatus]}
                 </Badge>

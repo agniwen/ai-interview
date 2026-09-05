@@ -4,13 +4,14 @@ import {
   normalizeHumanInterviewProfessionalSkill,
 } from "@app/shared/human-interview-evaluation";
 import { cn } from "@app/shared/utils";
+import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 import { Badge } from "@/components/ui/badge";
 
 function EvaluationField({ label, value }: { label: string; value: string }) {
   const displayValue = normalizeHumanInterviewEvaluationText(value);
   return (
-    <div className="space-y-1">
-      <span className="font-medium text-muted-foreground">{label}</span>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-muted-foreground text-xs">{label}</span>
       <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">{displayValue}</p>
     </div>
   );
@@ -20,10 +21,12 @@ export function RoundEvaluation({
   evaluation,
   round,
   className,
+  compact = false,
 }: {
   evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
   round: Pick<HumanInterviewRoundRecord, "evaluationStatus">;
   className?: string;
+  compact?: boolean;
 }) {
   const submitted = round.evaluationStatus === "submitted";
   const statusLabel = {
@@ -33,11 +36,8 @@ export function RoundEvaluation({
     not_started: "待提交",
     submitted: "已提交",
   }[round.evaluationStatus];
-  return (
-    <div className={cn("space-y-3 border-border/40 border-t pt-3 text-xs", className)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={submitted ? "success" : "warning"}>评价 · {statusLabel}</Badge>
-      </div>
+  const details = (
+    <div className="flex flex-col gap-4">
       <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
         <EvaluationField label="评级" value={evaluation.rating} />
         <EvaluationField
@@ -50,8 +50,33 @@ export function RoundEvaluation({
         <EvaluationField label="劣势风险" value={evaluation.risks} />
         <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
       </div>
-      <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />
       <EvaluationField label="完整详细分析" value={evaluation.detailedAnalysis} />
+    </div>
+  );
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-4 border-border/40 border-t pt-4 text-sm wrap-anywhere",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-sm">面试评价</span>
+        {submitted ? (
+          <span className="text-muted-foreground text-xs">评价 · {statusLabel}</span>
+        ) : (
+          <Badge variant="warning">评价 · {statusLabel}</Badge>
+        )}
+        {compact ? (
+          <span className="text-muted-foreground text-xs">评级 · {evaluation.rating}</span>
+        ) : null}
+      </div>
+      <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />
+      {compact ? (
+        <InterviewReportDetailsDisclosure>{details}</InterviewReportDetailsDisclosure>
+      ) : (
+        details
+      )}
     </div>
   );
 }

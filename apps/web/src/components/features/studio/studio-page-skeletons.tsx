@@ -196,42 +196,48 @@ export function MembersPageSkeleton() {
   );
 }
 
+export function PermissionsContentSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border/70">
+      <div className="min-w-[72rem]">
+        <div className="grid grid-cols-[17rem_repeat(10,5rem)] border-b bg-muted/40">
+          <div className="row-span-2 border-r p-3">
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <Skeleton className="col-span-10 m-3 h-4 w-28 justify-self-center" />
+          {Array.from({ length: 10 }).map((_, index) => (
+            <Skeleton className="m-3 h-3 w-12" key={index} />
+          ))}
+        </div>
+        {Array.from({ length: 4 }).map((_, rowIndex) => (
+          <div
+            className="grid grid-cols-[17rem_repeat(10,5rem)] border-b last:border-b-0"
+            key={rowIndex}
+          >
+            <div className="space-y-2 border-r p-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            {Array.from({ length: 10 }).map((__, cellIndex) => (
+              <div
+                className="flex items-center justify-center border-r last:border-r-0"
+                key={cellIndex}
+              >
+                <Skeleton className="size-4" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PermissionsPageSkeleton() {
   return (
     <PageShell label="权限管理">
       <HeaderSkeleton action actionFullWidth />
-      <div className="overflow-hidden rounded-lg border border-border/70">
-        <div className="min-w-[72rem]">
-          <div className="grid grid-cols-[17rem_repeat(10,5rem)] border-b bg-muted/40">
-            <div className="row-span-2 border-r p-3">
-              <Skeleton className="h-4 w-16" />
-            </div>
-            <Skeleton className="col-span-10 m-3 h-4 w-28 justify-self-center" />
-            {Array.from({ length: 10 }).map((_, index) => (
-              <Skeleton className="m-3 h-3 w-12" key={index} />
-            ))}
-          </div>
-          {Array.from({ length: 4 }).map((_, rowIndex) => (
-            <div
-              className="grid grid-cols-[17rem_repeat(10,5rem)] border-b last:border-b-0"
-              key={rowIndex}
-            >
-              <div className="space-y-2 border-r p-3">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-16" />
-              </div>
-              {Array.from({ length: 10 }).map((__, cellIndex) => (
-                <div
-                  className="flex items-center justify-center border-r last:border-r-0"
-                  key={cellIndex}
-                >
-                  <Skeleton className="size-4" />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+      <PermissionsContentSkeleton />
     </PageShell>
   );
 }

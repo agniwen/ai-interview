@@ -27,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -292,9 +291,9 @@ function MeetingLinkRow({
     <Card className="gap-0 rounded-lg py-0">
       <CardContent className="grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-sm">{label}</span>
-            <Badge variant="outline">{description}</Badge>
+            <span className="text-muted-foreground text-xs wrap-anywhere">{description}</span>
           </div>
           <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
         </div>

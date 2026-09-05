@@ -13,17 +13,12 @@ const badgeVariants = cva(
     },
     variants: {
       variant: {
-        // 所有 variant 共用同一套 "tinted-soft" 视觉语言：低 alpha 填充 + 同色边框 + 高饱和文字。
-        // chrome 系（default/secondary/outline）走中性色，semantic 系（success/info/warning/danger）按状态语义着色，整体节奏与 status badge 完全一致。
-        // All variants share one "tinted-soft" visual language: low-alpha fill +
-        // matching border + saturated text. Chrome variants stay neutral; semantic
-        // variants carry meaning. Both groups now look consistent with status badges.
-        default:
-          "border-primary/25 bg-primary/10 text-primary dark:border-primary/35 dark:bg-primary/15 [a&]:hover:bg-primary/15",
+        // Reserve badges for scan-worthy states and selectable tags; names, counts, and dates use text.
+        // Neutral variants group labels; semantic variants reserve color for actionable states.
+        default: "border-transparent bg-muted text-muted-foreground [a&]:hover:bg-accent",
         secondary:
           "border-foreground/15 bg-foreground/[0.06] text-foreground dark:border-foreground/20 dark:bg-foreground/10 [a&]:hover:bg-foreground/10",
-        outline:
-          "border-border bg-muted/40 text-foreground dark:bg-muted/30 [a&]:hover:bg-muted/60",
+        outline: "border-border bg-transparent text-muted-foreground [a&]:hover:bg-accent",
         destructive:
           "border-destructive/30 bg-destructive/10 text-destructive dark:border-destructive/40 dark:bg-destructive/15 [a&]:hover:bg-destructive/15",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",

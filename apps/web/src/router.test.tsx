@@ -10,8 +10,8 @@ describe("router candidate detail navigation", () => {
     expect(routerSource).toContain('from: "/w/$slug/studio/resume-pool/overlay/$recordId"');
     expect(routerSource).toContain('to: "/w/$slug/studio/resume-pool/$recordId"');
     expect(routerSource).toContain("unmaskOnReload: true");
-    expect(routerSource).toContain(
-      "routeMasks: [recruiterResumeOverlayMask, resumePoolOverlayMask]",
+    expect(routerSource).toMatch(
+      /routeMasks:\s*\[\s*recruiterResumeOverlayMask,\s*resumePoolOverlayMask,\s*humanInterviewDetailOverlayMask,?\s*\]/,
     );
   });
 

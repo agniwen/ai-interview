@@ -103,6 +103,48 @@ describe("DataGrid initial loading", () => {
     expect(container.querySelector('[data-slot="data-grid"]')).toBeNull();
   });
 
+  it("reveals loaded content once and keeps it visible during refresh", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const render = (loading: boolean, data: Row[]) => {
+      act(() =>
+        root.render(
+          <DataGrid
+            columns={columns}
+            data={data}
+            empty={<p>暂无记录</p>}
+            getRowId={(row) => row.id}
+            loading={loading}
+            pagination={{ onPageChange: vi.fn(), onPageSizeChange: vi.fn(), page: 1, pageSize: 20 }}
+            total={data.length}
+            totalPages={1}
+          />,
+        ),
+      );
+    };
+    render(true, []);
+    const reveal = container.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]');
+    expect(reveal?.dataset.state).toBe("loading");
+    expect(
+      container.querySelector('[data-slot="skeleton-reveal-content"]')?.hasAttribute("inert"),
+    ).toBe(true);
+    const data = [{ email: "zhangsan@example.com", id: "1", name: "张三" }];
+    render(false, data);
+    expect(container.querySelector('[data-slot="skeleton-reveal"]')).toBe(reveal);
+    expect(reveal?.dataset.state).toBe("revealed");
+    expect(container.querySelector('[data-slot="skeleton-reveal-placeholder"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="skeleton-reveal-content"]')?.textContent).toContain(
+      "张三",
+    );
+    render(true, data);
+    expect(reveal?.dataset.state).toBe("revealed");
+    expect(
+      container.querySelector('[data-slot="skeleton-reveal-content"]')?.hasAttribute("inert"),
+    ).toBe(false);
+    act(() => root.unmount());
+  });
+
   it("uses the same grid shell for route-level skeletons", () => {
     const container = document.createElement("div");
     document.body.append(container);

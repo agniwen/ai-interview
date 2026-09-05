@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { GROUP_ROLE_BADGE_VARIANT, GROUP_ROLE_LABELS } from "./members-page-model";
+import { GROUP_ROLE_LABELS } from "./members-page-model";
 import type {
   MemberRow,
   RecruitingGroupMemberRow,
@@ -244,7 +244,7 @@ export function RecruitingGroupsPanel({
         <div className="min-w-0 rounded-lg border bg-background p-3">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-sm">成员池</p>
-            <Badge variant="outline">{allRows.length} 人</Badge>
+            <span className="text-muted-foreground text-xs">{allRows.length} 人</span>
           </div>
           <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {allRows.map((row) => (
@@ -482,7 +482,7 @@ function GroupMemberCard({
   };
   let roleControl = null;
   if (isVirtualGroup) {
-    roleControl = <Badge variant="outline">未加入招聘组</Badge>;
+    roleControl = <span className="text-muted-foreground text-xs">未加入招聘组</span>;
   } else if (canUpdate && member.role) {
     roleControl = (
       <Select
@@ -509,9 +509,7 @@ function GroupMemberCard({
     );
   } else if (member.role) {
     roleControl = (
-      <Badge variant={GROUP_ROLE_BADGE_VARIANT[member.role]}>
-        {GROUP_ROLE_LABELS[member.role]}
-      </Badge>
+      <span className="text-muted-foreground text-xs">{GROUP_ROLE_LABELS[member.role]}</span>
     );
   }
 

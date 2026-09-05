@@ -241,9 +241,9 @@ export function JobDescriptionManagementPage({
       customColumn<JobDescriptionListRecord>({
         cell: (record) =>
           record.lifecycleStatus === "draft" ? (
-            <Badge variant="secondary">迁移待处理</Badge>
+            <Badge variant="warning">迁移待处理</Badge>
           ) : (
-            <Badge variant="success">已保存</Badge>
+            <span className="text-muted-foreground text-xs">已保存</span>
           ),
         key: "lifecycleStatus",
         title: "状态",
@@ -259,26 +259,20 @@ export function JobDescriptionManagementPage({
         title: "编码",
       }),
       customColumn<JobDescriptionListRecord>({
-        cell: (r) => r.departmentName ?? <Badge variant="outline">未知</Badge>,
+        cell: (r) =>
+          r.departmentName ?? <span className="text-muted-foreground text-xs">未知</span>,
         key: "departmentName",
         title: "部门",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {
           if (r.interviewers.length === 0) {
-            return <Badge variant="outline">未配置</Badge>;
+            return <span className="text-muted-foreground text-xs">未配置</span>;
           }
           return (
-            <div className="flex flex-wrap gap-1">
-              {r.interviewers.slice(0, 3).map((item) => (
-                <Badge key={item.id} variant="secondary">
-                  {item.name}
-                </Badge>
-              ))}
-              {r.interviewers.length > 3 ? (
-                <Badge variant="outline">+{r.interviewers.length - 3}</Badge>
-              ) : null}
-            </div>
+            <span className="text-sm wrap-anywhere">
+              {r.interviewers.map((item) => item.name).join("、")}
+            </span>
           );
         },
         key: "interviewers",
