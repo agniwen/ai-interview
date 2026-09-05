@@ -410,7 +410,6 @@ async function runMeetingTranscriptionProcessingPromise(
     return;
   }
   let workingDirectory: string | null = null;
-  let primaryCause: unknown;
   let hasPrimaryFailure = false;
   let recognitionHintsPromise: Promise<MeetingRecognitionHints | undefined> | undefined;
   const loadRecognitionHints = () => {
@@ -698,7 +697,6 @@ async function runMeetingTranscriptionProcessingPromise(
       });
     }
   } catch (error) {
-    primaryCause = error;
     hasPrimaryFailure = true;
     const errorMessage =
       error instanceof Error ? error.message : "Meeting transcription processing failed";
@@ -747,7 +745,6 @@ async function runMeetingTranscriptionProcessingPromise(
             processingRunId,
           });
         },
-        primaryCause,
       });
     }
   }

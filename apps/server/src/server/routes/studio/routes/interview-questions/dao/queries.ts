@@ -458,20 +458,6 @@ export async function queryPaginatedInterviewQuestionTemplates(
   };
 }
 
-export function listInterviewQuestionTemplates(
-  organizationId: string,
-  filters?: {
-    textFilters?: string;
-    search?: string | null;
-    scope?: string | null;
-    jobDescriptionId?: string | null;
-    archivedFilter?: ArchivedFilter;
-  },
-  pagination?: InterviewQuestionTemplatePaginationInput,
-) {
-  return queryPaginatedInterviewQuestionTemplates(organizationId, filters, pagination);
-}
-
 export async function listAllInterviewQuestionTemplates(
   organizationId: string,
 ): Promise<InterviewQuestionTemplateListRecord[]> {

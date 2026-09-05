@@ -75,6 +75,7 @@ beforeAll(async () => {
     id: candidateId,
     interviewQuestions: [],
     organizationId: orgId,
+    outcome: "archived",
     pipelineStage: "closed",
   });
   await db.insert(meetingSession).values({

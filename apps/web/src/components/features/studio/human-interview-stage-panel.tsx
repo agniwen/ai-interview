@@ -1,9 +1,8 @@
 "use client";
 
 /* oxlint-disable no-use-before-define -- helper components are kept below the container for readability */
-import { IconPlus, IconUsers } from "@tabler/icons-react";
-import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconUsers } from "@tabler/icons-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { findHumanInterviewRoundMeeting } from "@app/shared/human-interview-meeting-detail";
 import type { ReactNode } from "react";
@@ -17,11 +16,8 @@ import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
   isApiError,
-  listHumanInterviewMeetings,
-  listHumanInterviewRounds,
 } from "@/lib/client/api";
 import {
-  humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
   invalidateHumanInterviewWorkspaceQueries,
 } from "@/lib/client/api/query-keys";
@@ -32,7 +28,7 @@ import {
 } from "./resumes/recruiter-resume-detail-search";
 import { HumanInterviewReviewDialog } from "./human-interview-review-dialog";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { HumanInterviewStageSkeleton } from "./human-interview-stage-skeleton";
 import {
   Empty,
   EmptyDescription,
@@ -40,18 +36,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  CancelRoundDialog,
-  CompleteRoundDialog,
-  ScheduleRoundDialog,
-} from "./human-interview-stage-dialogs";
+import { CancelRoundDialog, CompleteRoundDialog } from "./human-interview-stage-dialogs";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { EndMeetingDialog, MeetingLinksDialog } from "./human-interview-stage-meetings";
+import { ListLoadError } from "@/components/features/data-grid/list-load-error";
+import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
+import { useHumanInterviewStageQueries } from "./use-human-interview-stage-queries";
 import { RoundCard } from "./human-interview-stage-rounds";
 import {
   buildHumanInterviewMeetingTitle,
   getHumanInterviewBusinessRoundNumbers,
-  getHumanInterviewScheduleBlockReason,
 } from "./human-interview-stage-utils";
 
 interface PanelProps {
@@ -70,11 +64,9 @@ interface DialogState {
   completeTarget: HumanInterviewRoundRecord | null;
   endTarget: HumanInterviewMeetingRecord | null;
   linksTarget: HumanInterviewMeetingRecord | null;
-  scheduleOpen: boolean;
 }
 
 type DialogAction =
-  | { open: boolean; type: "scheduleOpenChanged" }
   | { target: HumanInterviewRoundRecord | null; type: "cancelTargetChanged" }
   | { target: HumanInterviewRoundRecord | null; type: "completeTargetChanged" }
   | { target: HumanInterviewMeetingRecord | null; type: "endTargetChanged" }
@@ -85,7 +77,6 @@ const initialDialogState: DialogState = {
   completeTarget: null,
   endTarget: null,
   linksTarget: null,
-  scheduleOpen: false,
 };
 
 function dialogReducer(state: DialogState, action: DialogAction): DialogState {
@@ -102,9 +93,6 @@ function dialogReducer(state: DialogState, action: DialogAction): DialogState {
     case "linksTargetChanged": {
       return { ...state, linksTarget: action.target };
     }
-    case "scheduleOpenChanged": {
-      return { ...state, scheduleOpen: action.open };
-    }
     default: {
       return state;
     }
@@ -119,31 +107,14 @@ export function HumanInterviewStagePanel({
   canUpdate = true,
   disabled,
 }: PanelProps) {
+  const canScheduleRounds = canCreate && !disabled;
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const reviewRoundId = useSearch({ select: resolveHumanInterviewReviewRoundId, strict: false });
   const queryClient = useQueryClient();
-  const { data: rounds = [], isLoading } = useQuery({
-    queryFn: () => listHumanInterviewRounds(slug, candidateId),
-    queryKey: humanInterviewKeys.rounds(slug, candidateId),
-  });
-  const { data: meetings = [] } = useQuery({
-    queryFn: () => listHumanInterviewMeetings(slug, { interviewRecordId: candidateId }),
-    queryKey: humanInterviewKeys.meetings(slug, candidateId),
-    refetchInterval: (query) =>
-      query.state.data?.some(
-        (meeting) => meeting.status === "scheduled" || meeting.status === "in_progress",
-      )
-        ? 10_000
-        : false,
-    refetchIntervalInBackground: false,
-  });
-  const passedRoundCount = rounds.filter(
-    (round) =>
-      round.status === "completed" && round.outcome === "pass" && round.label !== "CEO面试",
-  ).length;
+  const { rounds, meetings, roundsQuery, meetingsQuery, initialError, hasData } =
+    useHumanInterviewStageQueries(slug, candidateId, true);
   const businessRoundNumbers = getHumanInterviewBusinessRoundNumbers(rounds);
-  const scheduleBlockReason = getHumanInterviewScheduleBlockReason(rounds);
 
   function invalidateRounds() {
     void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
@@ -154,7 +125,7 @@ export function HumanInterviewStagePanel({
   }
 
   const [dialogState, dispatchDialog] = useReducer(dialogReducer, initialDialogState);
-  const { cancelTarget, completeTarget, endTarget, linksTarget, scheduleOpen } = dialogState;
+  const { cancelTarget, completeTarget, endTarget, linksTarget } = dialogState;
   const endMeetingMutation = useMutation({
     mutationFn: (meetingId: string) => endHumanInterviewMeeting(slug, meetingId),
     onError: (e) => toast.error(e instanceof Error ? e.message : "结束会议失败"),
@@ -201,13 +172,18 @@ export function HumanInterviewStagePanel({
     },
   ].filter((group) => group.rounds.length > 0);
   let roundsContent: ReactNode;
-  if (isLoading) {
+  if (initialError) {
     roundsContent = (
-      <output aria-label="加载真人复面" className="flex flex-col gap-3">
-        <Skeleton className="h-40 rounded-xl" />
-        <Skeleton className="h-40 rounded-xl" />
-      </output>
+      <ListLoadError
+        error={initialError}
+        onRetry={() => {
+          void roundsQuery.refetch();
+          void meetingsQuery.refetch();
+        }}
+      />
     );
+  } else if (!hasData) {
+    roundsContent = <HumanInterviewStageSkeleton />;
   } else if (rounds.length === 0) {
     let emptyDescription = "你可以查看真人复面记录，但不能创建复面。";
     if (disabled) {
@@ -317,20 +293,10 @@ export function HumanInterviewStagePanel({
             <h3 className="font-medium text-sm">真人复面进度</h3>
             <p className="text-muted-foreground text-xs">查看面试安排、轮次结果与面试评价。</p>
           </div>
-          {disabled || !canCreate ? null : (
-            <Button
-              disabled={scheduleBlockReason !== null}
-              onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
-              size="sm"
-            >
-              <IconPlus data-icon="inline-start" />
-              安排真人复面
-            </Button>
-          )}
+          {canScheduleRounds ? (
+            <ScheduleHumanInterviewButton candidateId={candidateId} candidateName={candidateName} />
+          ) : null}
         </div>
-        {!disabled && canCreate && scheduleBlockReason ? (
-          <p className="text-muted-foreground text-xs leading-relaxed">{scheduleBlockReason}</p>
-        ) : null}
       </div>
 
       {roundsContent}
@@ -354,15 +320,6 @@ export function HumanInterviewStagePanel({
           }
         />
       ) : null}
-      <ScheduleRoundDialog
-        candidateId={candidateId}
-        candidateName={candidateName}
-        defaultLabel={getNextBusinessInterviewLabel(rounds)}
-        passedRoundCount={passedRoundCount}
-        onOpenChange={(open) => dispatchDialog({ open, type: "scheduleOpenChanged" })}
-        onScheduled={invalidateRounds}
-        open={scheduleOpen}
-      />
       <CompleteRoundDialog
         candidateId={candidateId}
         onCompleted={invalidateRounds}

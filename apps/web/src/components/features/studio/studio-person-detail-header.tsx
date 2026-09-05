@@ -20,6 +20,7 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
+import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import {
@@ -267,7 +268,18 @@ export function buildStudioPersonDetailHeader({
         }
         onViewCurrentStage={onViewCurrentStage}
         pipelineStage={actionBarPipelineStage}
-        primaryAction={launchResumeModeButton}
+        primaryAction={
+          actionBarPipelineStage === "human_interview" &&
+          canCreateHumanInterview &&
+          canReadHumanInterview ? (
+            <ScheduleHumanInterviewButton
+              candidateId={record.id}
+              candidateName={record.candidateName}
+            />
+          ) : (
+            launchResumeModeButton
+          )
+        }
       />
     ) : null;
 

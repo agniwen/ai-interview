@@ -82,5 +82,3 @@ export function createMeetingQuestionMessagesRouter(
     },
   );
 }
-
-export const meetingQuestionMessagesRouter = createMeetingQuestionMessagesRouter();

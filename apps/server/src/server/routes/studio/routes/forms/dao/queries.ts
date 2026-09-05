@@ -440,20 +440,6 @@ export async function queryPaginatedCandidateFormTemplates(
   };
 }
 
-export function listCandidateFormTemplates(
-  organizationId: string,
-  filters?: {
-    textFilters?: string;
-    search?: string | null;
-    scope?: string | null;
-    jobDescriptionId?: string | null;
-    archivedFilter?: ArchivedFilter;
-  },
-  pagination?: CandidateFormTemplatePaginationInput,
-) {
-  return queryPaginatedCandidateFormTemplates(organizationId, filters, pagination);
-}
-
 export async function listAllCandidateFormTemplates(
   organizationId: string,
 ): Promise<CandidateFormTemplateListRecord[]> {

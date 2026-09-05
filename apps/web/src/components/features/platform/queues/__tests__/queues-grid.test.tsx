@@ -13,7 +13,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { installNoopResizeObserver } from "@/test-utils/react-act";
+import { installNoopResizeObserver, installNoopWebAnimations } from "@/test-utils/react-act";
 import {
   QueueJobDetailDialog,
   QueueOverview,
@@ -25,6 +25,7 @@ import type { QueuesGridDependencies } from "../queues-grid";
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 installNoopResizeObserver();
+installNoopWebAnimations();
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
   value: (media: string): MediaQueryList => ({

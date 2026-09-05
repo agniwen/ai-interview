@@ -165,8 +165,10 @@ function MeetingTranscript({ detail }: { detail: HumanInterviewMeetingDetail }) 
 
 export function HumanInterviewMeetingDetailContent({
   detail,
+  refreshAction,
 }: {
   detail: HumanInterviewMeetingDetail;
+  refreshAction?: ReactNode;
 }) {
   return (
     <>
@@ -178,20 +180,10 @@ export function HumanInterviewMeetingDetailContent({
         <Frame>
           <FrameHeader className="h-auto min-h-11 flex-wrap justify-between gap-2 py-2">
             <FrameTitle>{detail.roundLabel}</FrameTitle>
-            {detail.outcome ? (
-              <Badge
-                variant={
-                  ({ fail: "danger", inconclusive: "warning", pass: "success" } as const)[
-                    detail.outcome
-                  ]
-                }
-              >
-                {{ fail: "未通过", inconclusive: "待定", pass: "通过" }[detail.outcome]}
-              </Badge>
-            ) : null}
+            {refreshAction}
           </FrameHeader>
           <FramePanel>
-            <dl className="grid gap-4 text-sm sm:grid-cols-3">
+            <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div className="flex min-w-0 flex-col gap-1.5">
                 <dt className="text-xs text-muted-foreground">面试官</dt>
                 <dd className="wrap-anywhere">
@@ -212,18 +204,33 @@ export function HumanInterviewMeetingDetailContent({
                   <TimeDisplay value={detail.endedAt} />
                 </dd>
               </div>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-xs text-muted-foreground">面试结果</dt>
+                <dd>
+                  {detail.outcome ? (
+                    <Badge
+                      variant={
+                        ({ fail: "danger", inconclusive: "warning", pass: "success" } as const)[
+                          detail.outcome
+                        ]
+                      }
+                    >
+                      {{ fail: "未通过", inconclusive: "待定", pass: "通过" }[detail.outcome]}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">未记录</span>
+                  )}
+                </dd>
+              </div>
             </dl>
           </FramePanel>
         </Frame>
       </header>
-      <Tabs defaultValue="transcript" className="gap-4">
+      <Tabs defaultValue="evaluation" className="gap-4">
         <TabsList aria-label="面试详情内容">
-          <TabsTrigger value="transcript">完整转录</TabsTrigger>
           <TabsTrigger value="evaluation">面试评价</TabsTrigger>
+          <TabsTrigger value="transcript">完整转录</TabsTrigger>
         </TabsList>
-        <TabsContent value="transcript" className="flex flex-col gap-4">
-          <MeetingTranscript detail={detail} />
-        </TabsContent>
         <TabsContent value="evaluation" className="flex flex-col gap-4">
           {detail.transcriptBasis === "unlinked" && detail.transcriptNotice ? (
             <Notice>{detail.transcriptNotice}</Notice>
@@ -256,6 +263,9 @@ export function HumanInterviewMeetingDetailContent({
             </FramePanel>
           </Frame>
           {detail.evaluationError ? <Notice>{detail.evaluationError}</Notice> : null}
+        </TabsContent>
+        <TabsContent value="transcript" className="flex flex-col gap-4">
+          <MeetingTranscript detail={detail} />
         </TabsContent>
       </Tabs>
     </>
@@ -334,6 +344,19 @@ export function HumanInterviewMeetingDetailPage(input: {
     [input.candidateId, input.slug, router],
   );
   useStudioHeaderOverride(header);
+  const refreshAction = (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={query.isFetching}
+      onClick={() => {
+        query.refetch();
+      }}
+    >
+      <IconRefresh className="size-4" />
+      刷新
+    </Button>
+  );
   let content: ReactNode = (
     <output aria-label="正在加载面试详情" className="flex flex-col gap-4">
       <Skeleton className="h-8 w-60" />
@@ -345,28 +368,18 @@ export function HumanInterviewMeetingDetailPage(input: {
     content = (
       <Alert variant="destructive">
         <IconInfoCircle />
-        <AlertDescription>{query.error.message}</AlertDescription>
+        <AlertDescription>
+          {query.error.message}
+          {refreshAction}
+        </AlertDescription>
       </Alert>
     );
   } else if (query.data) {
-    content = <HumanInterviewMeetingDetailContent detail={query.data} />;
+    content = (
+      <HumanInterviewMeetingDetailContent detail={query.data} refreshAction={refreshAction} />
+    );
   }
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 pb-6">
-      <div className="flex items-center justify-end gap-3">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={query.isFetching}
-          onClick={() => {
-            query.refetch();
-          }}
-        >
-          <IconRefresh className="size-4" />
-          刷新
-        </Button>
-      </div>
-      {content}
-    </main>
+    <main className="mx-auto flex w-full min-w-0 max-w-[96rem] flex-col gap-6 pb-6">{content}</main>
   );
 }

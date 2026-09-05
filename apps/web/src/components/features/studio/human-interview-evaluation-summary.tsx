@@ -38,7 +38,7 @@ export function RoundEvaluation({
   }[round.evaluationStatus];
   const details = (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-5">
         <EvaluationField label="评级" value={evaluation.rating} />
         <EvaluationField
           label="专业技能"
@@ -46,10 +46,11 @@ export function RoundEvaluation({
         />
         <EvaluationField label="职级定位" value={evaluation.seniorityPosition} />
         <EvaluationField label="角色定位" value={evaluation.rolePosition} />
-        <EvaluationField label="优势特点" value={evaluation.strengths} />
-        <EvaluationField label="劣势风险" value={evaluation.risks} />
         <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
       </div>
+      {compact ? null : <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />}
+      <EvaluationField label="优势特点" value={evaluation.strengths} />
+      <EvaluationField label="劣势风险" value={evaluation.risks} />
       <EvaluationField label="完整详细分析" value={evaluation.detailedAnalysis} />
     </div>
   );
@@ -71,7 +72,7 @@ export function RoundEvaluation({
           <span className="text-muted-foreground text-xs">评级 · {evaluation.rating}</span>
         ) : null}
       </div>
-      <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />
+      {compact ? <EvaluationField label="整体评价" value={evaluation.overallEvaluation} /> : null}
       {compact ? (
         <InterviewReportDetailsDisclosure>{details}</InterviewReportDetailsDisclosure>
       ) : (

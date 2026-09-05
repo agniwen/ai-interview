@@ -274,7 +274,6 @@ async function runMeetingPlaybackProcessingPromise(
   let cleanupPlayback = false;
   let playbackStorageKey: string | null = null;
   let workingDirectory: string | null = null;
-  let primaryCause: unknown;
   let hasPrimaryFailure = false;
   try {
     const claimed = await dependencies.markProcessing({ ...input, processingRunId });
@@ -379,7 +378,6 @@ async function runMeetingPlaybackProcessingPromise(
       cleanupPlayback = true;
     }
   } catch (error) {
-    primaryCause = error;
     hasPrimaryFailure = true;
     const errorMessage = describeMeetingPlaybackError(error);
     console.error("[meeting-playback-worker] processing failed", {
@@ -430,7 +428,6 @@ async function runMeetingPlaybackProcessingPromise(
             processingRunId,
           });
         },
-        primaryCause,
       });
     }
   }

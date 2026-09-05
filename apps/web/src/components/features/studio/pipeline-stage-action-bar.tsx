@@ -516,7 +516,6 @@ function getStageActions(props: {
           node: (
             <OfferAdvanceButton
               disabledReason={disabledReason}
-              humanInterviewDone={humanInterviewDone}
               isAdvancing={isAdvancing}
               isBusy={isBusy}
               key="to-offer"
@@ -638,13 +637,11 @@ function HumanInterviewAdvanceButton({
 
 function OfferAdvanceButton({
   disabledReason,
-  humanInterviewDone,
   isAdvancing,
   isBusy,
   onAdvance,
 }: {
   disabledReason: string | null;
-  humanInterviewDone?: boolean;
   isAdvancing: boolean;
   isBusy: boolean;
   onAdvance: (target: PipelineStage) => void | Promise<void>;
@@ -664,7 +661,7 @@ function OfferAdvanceButton({
         void onAdvance(targetStage);
       }}
       size="sm"
-      variant={humanInterviewDone ? "default" : "outline"}
+      variant="default"
     >
       <IconArrowRight className="size-4" />
       {isAdvancing ? "推进中..." : "推进到 Offer"}

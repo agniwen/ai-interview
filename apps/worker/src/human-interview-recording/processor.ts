@@ -72,7 +72,6 @@ async function runHumanInterviewRecordingProcessingPromise(
   const directory = await mkdtemp(join(tmpdir(), "human-interview-recording-"));
   const roomFilePath = join(directory, "room-audio.ogg");
   const candidateFilePath = join(directory, "candidate-audio.ogg");
-  let primaryCause: unknown;
   let hasPrimaryFailure = false;
   try {
     if ("tracks" in input) {
@@ -159,7 +158,6 @@ async function runHumanInterviewRecordingProcessingPromise(
           organizationId: result.organizationId,
         }));
   } catch (error) {
-    primaryCause = error;
     hasPrimaryFailure = true;
     const message = error instanceof Error ? error.message : "真人复面录音处理失败";
     await dependencies.markError({
@@ -181,7 +179,6 @@ async function runHumanInterviewRecordingProcessingPromise(
           meetingId: input.meetingId,
         });
       },
-      primaryCause,
     });
   }
 }

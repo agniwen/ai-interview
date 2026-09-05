@@ -1077,8 +1077,8 @@ describe("Meeting transcription publication", () => {
     ).resolves.toBeNull();
     await expect(
       loadMeetingTranscriptionChunkCheckpoint(
-        // SAFETY: This test constructs the value with the asserted contract before this boundary.
-        { ...job, pipelineVersion: "final-v2" as never },
+        // SAFETY: Reconstruct a retired pipeline input to verify checkpoint isolation.
+        { ...job, pipelineVersion: "final-v1" as never },
         chunk,
       ),
     ).resolves.toBeNull();

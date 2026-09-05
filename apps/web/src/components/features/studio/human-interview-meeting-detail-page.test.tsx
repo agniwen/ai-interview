@@ -130,11 +130,20 @@ function renderDetail(value: HumanInterviewMeetingDetail) {
   return { host, unmount: () => act(() => root.unmount()) };
 }
 
+function selectTranscript(host: HTMLElement) {
+  const tab = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+    (item) => item.textContent === "完整转录",
+  );
+  expect(tab).toBeDefined();
+  act(() => tab?.click());
+}
+
 describe("read-only human meeting detail", () => {
   it("shows every turn with time and unknown attribution, without editing controls", () => {
     const view = renderDetail(detail);
     expect(view.host.textContent).toContain("面试详情 · 张三");
     expect(view.host.querySelector('[role="tablist"] svg')).toBeNull();
+    selectTranscript(view.host);
     expect(view.host.textContent).toContain("共 2 段发言");
     expect(view.host.textContent).toContain("请介绍最近的项目。");
     expect(view.host.textContent).toContain("身份尚不确定的完整回答。");
@@ -165,6 +174,7 @@ describe("read-only human meeting detail", () => {
         })),
       },
     });
+    selectTranscript(view.host);
     expect(view.host.querySelector(".is-user")?.textContent).toContain("请介绍最近的项目。");
     expect(view.host.querySelector(".is-assistant")?.textContent).toContain("身份未确认");
     expect(view.host.querySelector(".is-assistant")?.textContent).toContain(
@@ -172,13 +182,14 @@ describe("read-only human meeting detail", () => {
     );
     view.unmount();
   });
-  it("switches to the complete submitted evaluation", () => {
+  it("opens with evaluation first and selected by default", () => {
     const view = renderDetail(detail);
     const tab = [...view.host.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
       (item) => item.textContent === "面试评价",
     );
     expect(tab).toBeDefined();
-    act(() => tab?.click());
+    expect(view.host.querySelector('[role="tab"]')).toBe(tab);
+    expect(tab?.getAttribute("aria-selected")).toBe("true");
     expect(view.host.textContent).toContain("已提交");
     expect(view.host.textContent).toContain("本轮完整详细分析");
     expect(view.host.querySelector("textarea, input")).toBeNull();
@@ -216,6 +227,7 @@ describe("read-only human meeting detail", () => {
       transcriptNotice: "评价所依据的转录暂不可用",
       transcriptionState: "failed",
     });
+    selectTranscript(view.host);
     expect(view.host.textContent).toContain("部分录音缺失");
     expect(view.host.textContent).toContain("评价所依据的转录暂不可用");
     expect(view.host.textContent).toContain("已有评价仍可查看");
@@ -238,6 +250,7 @@ describe("read-only human meeting detail", () => {
         />,
       ),
     );
+    selectTranscript(host);
     expect(host.textContent).toContain("正在整理转录");
     act(() => root.render(<HumanInterviewMeetingDetailContent detail={detail} />));
     expect(host.textContent).toContain("请介绍最近的项目。");
@@ -290,6 +303,7 @@ describe("read-only human meeting detail", () => {
         await act(async () => {
           await vi.advanceTimersByTimeAsync(50);
         });
+        selectTranscript(host);
         expect(host.textContent).toContain(
           transcriptionState === "unavailable" ? "暂无可用转录" : "转录尚未就绪",
         );

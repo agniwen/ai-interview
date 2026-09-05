@@ -164,16 +164,6 @@ export function RoundCard({
               第 {roundNumber} 轮 · {round.label}
             </h4>
           </FrameTitle>
-          <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
-          {canUpdate &&
-          canWrite &&
-          round.status === "completed" &&
-          round.outcome === "inconclusive" ? (
-            <Button size="sm" variant="outline" onClick={() => setOutcomeDialogOpen(true)}>
-              <IconPencil className="size-3" />
-              修改
-            </Button>
-          ) : null}
         </div>
         {meeting?.status === "ended" ? meetingDetailLink : null}
       </FrameHeader>
@@ -190,7 +180,24 @@ export function RoundCard({
           />
           <span>{humanInterviewFormatMeta[round.format].label}</span>
         </div>
-        <InterviewerAssignmentList meeting={meeting} round={round} />
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <InterviewerAssignmentList meeting={meeting} round={round} />
+          <dl className="flex items-center gap-2 text-xs">
+            <dt className="text-muted-foreground">状态</dt>
+            <dd className="flex flex-wrap items-center gap-2">
+              <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
+              {canUpdate &&
+              canWrite &&
+              round.status === "completed" &&
+              round.outcome === "inconclusive" ? (
+                <Button size="sm" variant="outline" onClick={() => setOutcomeDialogOpen(true)}>
+                  <IconPencil className="size-3" />
+                  修改
+                </Button>
+              ) : null}
+            </dd>
+          </dl>
+        </div>
         {round.evaluation ? (
           <RoundEvaluation evaluation={round.evaluation} round={round} compact />
         ) : null}
@@ -241,31 +248,6 @@ export function RoundCard({
   );
 }
 
-interface InterviewerAssignmentDescription {
-  label: string;
-  tone: "danger" | "outline" | "success" | "warning";
-}
-
-function describeInterviewerAssignment(
-  interviewer: HumanInterviewRoundRecord["interviewers"][number],
-  meeting: HumanInterviewMeetingRecord | null,
-): InterviewerAssignmentDescription {
-  if (interviewer.status === "declined") {
-    return { label: "需联系 HR", tone: "danger" };
-  }
-  if (
-    interviewer.status === "confirmed" &&
-    meeting &&
-    interviewer.confirmedScheduleVersion === meeting.scheduleVersion
-  ) {
-    return { label: "已安排", tone: "success" };
-  }
-  if (interviewer.status === "confirmed") {
-    return { label: "安排已更新", tone: "warning" };
-  }
-  return { label: "已安排", tone: "success" };
-}
-
 function InterviewerAssignmentList({
   meeting,
   round,
@@ -282,15 +264,16 @@ function InterviewerAssignmentList({
       {round.interviewers.length === 0 ? (
         <span className="text-muted-foreground">未指派面试官</span>
       ) : null}
-      {round.interviewers.map((interviewer) => {
-        const status = describeInterviewerAssignment(interviewer, meeting);
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs" key={interviewer.id}>
-            <span>{interviewer.name}</span>
-            {status.tone === "success" ? null : <Badge variant={status.tone}>{status.label}</Badge>}
-          </span>
-        );
-      })}
+      {round.interviewers.map((interviewer) => (
+        <span className="inline-flex items-center gap-1.5 text-xs" key={interviewer.id}>
+          <span>{interviewer.name}</span>
+          {interviewer.status === "declined" ? <Badge variant="danger">需联系 HR</Badge> : null}
+          {interviewer.status === "confirmed" &&
+          (!meeting || interviewer.confirmedScheduleVersion !== meeting.scheduleVersion) ? (
+            <Badge variant="warning">安排已更新</Badge>
+          ) : null}
+        </span>
+      ))}
     </div>
   );
 }

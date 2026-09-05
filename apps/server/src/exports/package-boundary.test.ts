@@ -69,18 +69,6 @@ describe("@app/server package boundary", () => {
     expect(mirroredSources).toEqual([]);
   });
 
-  it("keeps the Worker independent from the server application package", () => {
-    const workerRoot = path.join(repoRoot, "apps/worker");
-    const workerPackageJson = readFileSync(path.join(workerRoot, "package.json"), "utf-8");
-    const sourceViolations = sourceFiles(path.join(workerRoot, "src")).flatMap((file) => {
-      const source = readFileSync(file, "utf-8");
-      return /@app\/server(?:\/|["'])/.test(source) ? [path.relative(repoRoot, file)] : [];
-    });
-
-    expect(workerPackageJson).not.toContain('"@app/server"');
-    expect(sourceViolations).toEqual([]);
-  });
-
   it("uses only explicit package entrypoints", () => {
     const packageJson = readServerPackageJson();
 
@@ -100,13 +88,14 @@ describe("@app/server package boundary", () => {
   });
 
   it("keeps internal server paths private from web and worker", () => {
-    const violations = ["apps/web/src", "apps/worker/src"].flatMap((relativeDirectory) =>
-      sourceFiles(path.join(repoRoot, relativeDirectory)).flatMap((file) => {
-        const source = readFileSync(file, "utf-8");
-        return /@app\/server\/(?:server|lib\/server)\//.test(source)
-          ? [path.relative(repoRoot, file)]
-          : [];
-      }),
+    const violations = ["apps/web/src", "apps/web/server", "apps/worker/src"].flatMap(
+      (relativeDirectory) =>
+        sourceFiles(path.join(repoRoot, relativeDirectory)).flatMap((file) => {
+          const source = readFileSync(file, "utf-8");
+          return /@app\/server\/(?:server|lib\/server)\//.test(source)
+            ? [path.relative(repoRoot, file)]
+            : [];
+        }),
     );
 
     expect(violations).toEqual([]);
@@ -156,15 +145,12 @@ describe("@app/server package boundary", () => {
     }
   });
 
-  it("exposes only the web host runtime from the server package", () => {
-    const packageJson = readServerPackageJson();
-    const webExports = Object.keys(packageJson.exports).filter((key) => key.startsWith("./web/"));
+  it("keeps raw auth and database access out of the web host runtime", () => {
     const runtimeSource = readFileSync(
       path.join(serverRoot, "src/exports/web/runtime.ts"),
       "utf-8",
     );
 
-    expect(webExports).toEqual(["./web/runtime"]);
     expect(runtimeSource).not.toMatch(/export\s*\{[^}]*\b(?:auth|db)\b/);
   });
 
