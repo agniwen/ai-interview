@@ -44,11 +44,16 @@ def test_prewarm_balances_interview_pauses_with_response_latency(monkeypatch):
     ]
 
 
-def test_agent_session_uses_scribe_v2_batch_stt(monkeypatch):
+def test_agent_session_uses_qwen_audio_streaming_stt(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setenv("DASHSCOPE_STT_MODEL", "qwen-audio-test-streaming")
+    monkeypatch.setenv("DASHSCOPE_STT_MAX_SENTENCE_SILENCE_MS", "1200")
+    monkeypatch.setenv("DASHSCOPE_STT_VOCABULARY_ID", "vocabulary-id")
+    monkeypatch.setenv("DASHSCOPE_STT_BASE_URL", "wss://workspace.example/inference")
+    monkeypatch.setenv("DASHSCOPE_WORKSPACE_ID", "workspace-id")
     monkeypatch.setattr(
         agent_module.inference,
         "TurnDetector",
@@ -63,16 +68,39 @@ def test_agent_session_uses_scribe_v2_batch_stt(monkeypatch):
 
     stt = session.kwargs["stt"]
 
-    assert stt.kwargs["model_id"] == "scribe_v2"
-    assert stt.kwargs["language_code"] == "zh"
-    assert stt.kwargs["tag_audio_events"] is False
-    assert "server_vad" not in stt.kwargs
+    assert stt.kwargs["model"] == "qwen-audio-test-streaming"
+    assert stt.kwargs["language"] == "zh"
+    assert stt.kwargs["max_sentence_silence"] == 1200
+    assert stt.kwargs["vocabulary_id"] == "vocabulary-id"
+    assert stt.kwargs["base_url"] == "wss://workspace.example/inference"
+    assert stt.kwargs["workspace"] == "workspace-id"
     assert "api_key" not in stt.kwargs
+
+
+def test_agent_session_defaults_qwen_sentence_silence_to_1300ms(monkeypatch):
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
+    )
+    monkeypatch.delenv("DASHSCOPE_STT_MAX_SENTENCE_SILENCE_MS", raising=False)
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    assert session.kwargs["stt"].kwargs["max_sentence_silence"] == 1300
 
 
 def test_agent_session_disables_parallel_llm_tool_calls(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
@@ -101,7 +129,7 @@ def test_reconnect_message_never_repeats_the_active_question():
 
 def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
@@ -125,7 +153,7 @@ def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeyp
 
 def test_agent_session_preemptively_starts_llm_generation(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
@@ -149,7 +177,7 @@ def test_agent_session_preemptively_starts_llm_generation(monkeypatch):
 
 def test_agent_session_uses_audio_turn_detector_and_user_turn_limit(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
@@ -182,7 +210,7 @@ def test_cloud_session_keeps_adaptive_interruption(monkeypatch):
 
     monkeypatch.setattr(agent_module, "_SELF_HOSTED", False)
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(agent_module.inference, "TurnDetector", fake_turn_detector)
@@ -208,7 +236,7 @@ def test_self_hosted_session_uses_local_turn_detection_and_vad_interruption(
 
     monkeypatch.setattr(agent_module, "_SELF_HOSTED", True)
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(agent_module.inference, "TurnDetector", fake_turn_detector)
@@ -226,7 +254,7 @@ def test_self_hosted_session_uses_local_turn_detection_and_vad_interruption(
 
 def test_agent_session_uses_pcm_for_minimax_streaming_audio(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
-    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.aliyun_stt, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(

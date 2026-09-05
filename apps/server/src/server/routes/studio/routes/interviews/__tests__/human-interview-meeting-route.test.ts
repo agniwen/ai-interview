@@ -639,6 +639,7 @@ describe("POST /human-interview-meetings", () => {
       end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
       need_notification: true,
       start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
+      summary: "张三-未关联岗位-真人复面",
     });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/reserves/apply"))).toBe(
       false,

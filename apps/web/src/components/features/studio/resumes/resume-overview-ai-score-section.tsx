@@ -93,7 +93,7 @@ export function ResumeOverviewAiScoreSection({
       建议{resumeReviewActionLabel[review.nextStep.action]}
     </Badge>
   ) : (
-    <Badge variant="outline">未生成</Badge>
+    <span className="text-muted-foreground text-xs">未生成</span>
   );
 
   if (detail.resumeEvaluationArtifactMode === "structured") {
@@ -112,13 +112,13 @@ export function ResumeOverviewAiScoreSection({
         <Badge variant={structuredGateVariant(structuredEvaluation.gates.effectiveStatus)}>
           {STRUCTURED_GATE_LABELS[structuredEvaluation.gates.effectiveStatus]}
         </Badge>
-        <Badge variant="outline">
+        <span className="text-muted-foreground text-xs">
           {STRUCTURED_GRADE_LABELS[structuredEvaluation.grade]} ·{" "}
           {structuredEvaluation.calculations.compositeScore} 分
-        </Badge>
+        </span>
       </>
     ) : (
-      <Badge variant="outline">未生成</Badge>
+      <span className="text-muted-foreground text-xs">未生成</span>
     );
     if (!structuredEvaluation && detail.resumeReviewStatus === "failed") {
       conclusion = detail.resumeReviewError || "评估失败";
@@ -128,7 +128,7 @@ export function ResumeOverviewAiScoreSection({
   if (detail.resumeEvaluationArtifactMode === "legacy" && review) {
     statusBadges = (
       <>
-        <Badge variant="outline">老版本结果</Badge>
+        <span className="text-muted-foreground text-xs">老版本结果</span>
         {statusBadges}
       </>
     );

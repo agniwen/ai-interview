@@ -1,8 +1,10 @@
 import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
 import type { StudioAiCalendarEvent } from "@app/shared/studio-calendar";
+import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 
 export interface AiCalendarScheduledRow {
   candidateName: string;
+  jobDescriptionName?: string | null;
   interviewRecordId: string;
   roundId: string;
   roundLabel: string;
@@ -13,6 +15,7 @@ export interface AiCalendarScheduledRow {
 
 export interface AiCalendarConversationRow {
   candidateName: string;
+  jobDescriptionName?: string | null;
   conversationId: string;
   endedAt: Date | null;
   interviewRecordId: string;
@@ -52,6 +55,7 @@ export function buildAiCalendarEvents({
           {
             candidateName: row.candidateName,
             interviewRecordId: row.interviewRecordId,
+            jobDescriptionName: row.jobDescriptionName ?? null,
             roundId: row.roundId,
             roundLabel: row.roundLabel,
           },
@@ -63,7 +67,7 @@ export function buildAiCalendarEvents({
         source: "result",
         startAt: row.startedAt.toISOString(),
         status: "ended",
-        title: row.roundLabel,
+        title: buildInterviewCalendarTitle([row]),
       },
     ];
   });
@@ -81,6 +85,7 @@ export function buildAiCalendarEvents({
           {
             candidateName: row.candidateName,
             interviewRecordId: row.interviewRecordId,
+            jobDescriptionName: row.jobDescriptionName ?? null,
             roundId: row.roundId,
             roundLabel: row.roundLabel,
           },
@@ -92,7 +97,7 @@ export function buildAiCalendarEvents({
         source: "scheduled",
         startAt: row.scheduledAt.toISOString(),
         status: resolveAiEventStatus(row.status),
-        title: row.roundLabel,
+        title: buildInterviewCalendarTitle([row]),
       },
     ];
   });

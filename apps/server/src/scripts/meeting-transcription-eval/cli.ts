@@ -394,7 +394,7 @@ async function runBenchmark(outputPath: string) {
         ),
       });
       for (const chunk of chunks) {
-        if (chunk.track === "mixed" || chunk.track === "candidate") {
+        if (chunk.track !== "microphone" && chunk.track !== "system") {
           throw new Error("The dual-track transcription benchmark does not accept mixed audio");
         }
         const identity = await inspectLocalBenchmarkAsset(chunk.filePath);
@@ -448,7 +448,7 @@ async function runBenchmark(outputPath: string) {
           });
           provider = createTingwuMeetingTranscriptionProvider({
             createAudioUrl: (chunk) => {
-              if (chunk.track === "mixed" || chunk.track === "candidate") {
+              if (chunk.track !== "microphone" && chunk.track !== "system") {
                 return Promise.reject(
                   new Error("The dual-track transcription benchmark does not accept mixed audio"),
                 );

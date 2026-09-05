@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { AuthApi } from "./auth-api";
 import type { DownloadApi } from "./download-api";
 import type { MeetingCaptureApi } from "./meeting-capture-api";
+import type { MeetingPlaybackApi } from "./meeting-playback-api";
 import { createMessagePortHandoff } from "./message-port-handoff";
 import type { WindowApi } from "./window-api";
 
@@ -58,8 +59,8 @@ const meetingCaptureApi: MeetingCaptureApi = {
     ipcRenderer.invoke("meeting-capture:resume-interrupted", captureId, trackContentTypes),
   rollbackInterruptedResume: (captureId) =>
     ipcRenderer.invoke("meeting-capture:rollback-interrupted-resume", captureId),
-  save: (captureId, liveTranscriptDraft) =>
-    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft),
+  save: (captureId, liveTranscriptDraft, liveSummary) =>
+    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft, liveSummary),
   updateLocalSession: (captureId, patch) =>
     ipcRenderer.invoke("meeting-capture:update-local-session", captureId, patch),
   uploadMultipart: (captureId, instructions) =>
@@ -68,10 +69,15 @@ const meetingCaptureApi: MeetingCaptureApi = {
     ipcRenderer.invoke("meeting-capture:upload-small", captureId, instructions),
 };
 
+const meetingPlaybackApi: MeetingPlaybackApi = {
+  readAudioBytes: (url) => ipcRenderer.invoke("meeting-playback:read-audio-bytes", url),
+};
+
 const api = {
   auth: authApi,
   download: downloadApi,
   meetingCapture: meetingCaptureApi,
+  meetingPlayback: meetingPlaybackApi,
   window: windowApi,
 };
 

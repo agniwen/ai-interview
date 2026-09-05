@@ -15,6 +15,18 @@ const defaultFalseBooleanStringSchema = z
   .default("false")
   .transform((value) => value === "true");
 
+export function withClientDevelopmentDefaults(
+  runtimeEnv: Record<string, string | boolean | number | undefined>,
+  isDevelopment: boolean,
+) {
+  return {
+    ...runtimeEnv,
+    NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS:
+      runtimeEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ??
+      (isDevelopment ? "true" : undefined),
+  };
+}
+
 export function createClientEnv(runtimeEnv: Record<string, string | boolean | number | undefined>) {
   return createEnv({
     client: {

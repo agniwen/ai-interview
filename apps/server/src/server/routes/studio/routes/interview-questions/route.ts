@@ -8,6 +8,10 @@ import {
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
 } from "@app/db-schema/schema";
+import type {
+  InterviewQuestionFollowUpContract,
+  InterviewQuestionTemplateQuestionRecord,
+} from "@app/db-schema/interview-question-templates";
 import { interviewQuestionTemplateSchema } from "@app/db-schema/interview-question-templates";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
@@ -17,7 +21,10 @@ import {
   loadInterviewQuestionTemplateById,
   queryPaginatedInterviewQuestionTemplates,
 } from "./dao/queries";
-import { loadInterviewQuestionTemplateVersionById } from "./dao/versions";
+import {
+  loadInterviewQuestionTemplateVersionById,
+  resolveOrCreateInterviewQuestionTemplateVersion,
+} from "./dao/versions";
 import { listAllJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import {
@@ -26,6 +33,8 @@ import {
 } from "../forms/utils/resolve-ai-generate-context";
 import { generateInterviewQuestionTemplateFromPrompt } from "./utils/ai-interview-questions-generate";
 import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "./dao/refresh-eligible";
+import { compileFollowUpContractsWithDefaults } from "./application/default-compile-follow-up-contracts";
+import { questionsRequiringFollowUpContracts } from "./application/compile-follow-up-contracts";
 
 const generateTemplateQuestionsBodySchema = z.object({
   interviewRecordId: z.string().trim().min(1).optional(),
@@ -60,6 +69,58 @@ function normalizeQuestions(
     templateId,
     updatedAt: now,
   }));
+}
+
+function toSnapshotQuestions(questions: ReturnType<typeof normalizeQuestions>) {
+  return questions.map((question) => ({
+    content: question.content,
+    difficulty: question.difficulty,
+    evaluationFocus: question.evaluationFocus,
+    followUpDirections: question.followUpDirections,
+    id: question.id,
+    sortOrder: question.sortOrder,
+  }));
+}
+
+function questionContractCanBeReused(
+  previous: InterviewQuestionTemplateQuestionRecord,
+  next: Pick<
+    ReturnType<typeof normalizeQuestions>[number],
+    "content" | "evaluationFocus" | "followUpDirections"
+  >,
+): previous is InterviewQuestionTemplateQuestionRecord & {
+  followUpContract: InterviewQuestionFollowUpContract;
+} {
+  return (
+    previous.followUpContract !== null &&
+    previous.followUpContract !== undefined &&
+    previous.content === next.content &&
+    previous.evaluationFocus === next.evaluationFocus &&
+    previous.followUpDirections === next.followUpDirections
+  );
+}
+
+async function resolveQuestionContracts(
+  questions: ReturnType<typeof normalizeQuestions>,
+  previousQuestions: InterviewQuestionTemplateQuestionRecord[] = [],
+): Promise<Map<string, InterviewQuestionFollowUpContract>> {
+  const previousById = new Map(previousQuestions.map((question) => [question.id, question]));
+  const contracts = new Map<string, InterviewQuestionFollowUpContract>();
+  const changedQuestions = questionsRequiringFollowUpContracts(
+    toSnapshotQuestions(questions),
+  ).filter((question) => {
+    const previous = previousById.get(question.id);
+    if (!previous || !questionContractCanBeReused(previous, question)) {
+      return true;
+    }
+    contracts.set(question.id, previous.followUpContract);
+    return false;
+  });
+  const compiled = await compileFollowUpContractsWithDefaults(changedQuestions);
+  for (const [questionId, contract] of compiled) {
+    contracts.set(questionId, contract);
+  }
+  return contracts;
 }
 
 const interviewQuestionListQuerySchema = z.object({
@@ -210,6 +271,21 @@ export const interviewQuestionTemplatesRouter = factory
 
       const questions = normalizeQuestions(input.questions, templateId, now);
 
+      let followUpContracts: Map<string, InterviewQuestionFollowUpContract>;
+      try {
+        followUpContracts = await resolveQuestionContracts(questions);
+      } catch (error) {
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id },
+            error,
+            operation: "compile-interview-question-follow-up-contracts",
+            publicMessage: "生成追问契约失败，请重试。",
+          }),
+          500,
+        );
+      }
+
       await db.transaction(async (tx) => {
         await tx.insert(interviewQuestionTemplate).values(record);
         if (questions.length > 0) {
@@ -220,6 +296,7 @@ export const interviewQuestionTemplatesRouter = factory
             .insert(interviewQuestionTemplateJobDescription)
             .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId })));
         }
+        await resolveOrCreateInterviewQuestionTemplateVersion(tx, templateId, followUpContracts);
       });
 
       safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
@@ -266,6 +343,21 @@ export const interviewQuestionTemplatesRouter = factory
       const now = new Date();
       const questions = normalizeQuestions(input.questions, id, now);
 
+      let followUpContracts: Map<string, InterviewQuestionFollowUpContract>;
+      try {
+        followUpContracts = await resolveQuestionContracts(questions, existing.questions);
+      } catch (error) {
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, templateId: id },
+            error,
+            operation: "compile-interview-question-follow-up-contracts",
+            publicMessage: "生成追问契约失败，请重试。",
+          }),
+          500,
+        );
+      }
+
       await db.transaction(async (tx) => {
         await tx
           .update(interviewQuestionTemplate)
@@ -296,6 +388,7 @@ export const interviewQuestionTemplatesRouter = factory
             .insert(interviewQuestionTemplateJobDescription)
             .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId: id })));
         }
+        await resolveOrCreateInterviewQuestionTemplateVersion(tx, id, followUpContracts);
       });
 
       safeUpdateTag(`interview-question-templates:${activeOrg.id}`);

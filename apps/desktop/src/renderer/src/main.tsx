@@ -1,5 +1,6 @@
 import "@/lib/sentry";
 import "overlayscrollbars/overlayscrollbars.css";
+import "@xyflow/react/dist/style.css";
 import "./assets/main.css";
 
 import { QueryClientProvider } from "@tanstack/react-query";

@@ -4,6 +4,7 @@ import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptHints,
+  MeetingLiveTranscriptProviderId,
   MeetingLiveTranscriptTrack,
   MeetingLiveTranscriptWord,
 } from "@app/shared/meeting-transcription";
@@ -37,6 +38,9 @@ export interface LiveTranscriptDraftSnapshot {
   droppedAudioMs: number;
   droppedPcmFrames: number;
   error: string | null;
+  language?: string | null;
+  model?: string | null;
+  provider?: MeetingLiveTranscriptProviderId | null;
   queuedAudioMs: number;
   queuedPcmBytes: number;
   queuePeakAudioMs: number;
@@ -52,6 +56,7 @@ export interface LiveTranscriptDraftSnapshot {
 export interface LiveTranscriptConnection {
   close: () => void;
   correct?: (batch: LiveCorrectionBatch) => boolean;
+  finalize?: () => Promise<void>;
   sendPcm: (frame: Int16Array) => boolean;
 }
 
@@ -60,6 +65,8 @@ export interface LiveTranscriptEvent {
   endMs?: number;
   itemId: string;
   originalText?: string;
+  speakerDisplayName?: string | null;
+  speakerKey?: string;
   startMs?: number;
   text: string;
   type:
@@ -76,10 +83,20 @@ export interface LiveTranscriptPcmTap {
   stop: () => void;
 }
 
+export interface LiveTranscriptAuthorizationMetadata {
+  language?: string;
+  model: string;
+  provider: MeetingLiveTranscriptProviderId;
+}
+
 export interface LiveTranscriptDraftDependencies<
   Authorization = MeetingLiveTranscriptAuthorization,
 > {
+  authorizationMetadata?: (
+    authorization: Authorization,
+  ) => LiveTranscriptAuthorizationMetadata | null;
   authorizationFailureReason?: (error: Error) => "authorization" | "capacity";
+  authorizationFailureMessage?: (error: Error) => string | null;
   authorize: (input: {
     captureId: string;
     hints?: MeetingLiveTranscriptHints;
@@ -135,12 +152,13 @@ interface DroppedPcmSummary {
 const DEFAULT_MAX_QUEUED_PCM_BYTES = 512 * 1024;
 const DEFAULT_MAX_QUEUED_AUDIO_MS = 5000;
 const BUFFERING_NOTICE_MS = 2000;
-const DEFAULT_MAX_DRAFT_TURNS = 500;
+const DEFAULT_MAX_DRAFT_TURNS = 10_000;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
 const DEFAULT_CORRECTION_LOOKAHEAD_MS = 4000;
 const DEFAULT_CORRECTION_FLUSH_TIMEOUT_MS = 5000;
+const DEFAULT_PCM_FINALIZE_DRAIN_TIMEOUT_MS = 1500;
 const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
 const PCM_SAMPLE_RATE = 24_000;
@@ -217,6 +235,9 @@ const initialSnapshot = (): LiveTranscriptDraftSnapshot => ({
   droppedAudioMs: 0,
   droppedPcmFrames: 0,
   error: null,
+  language: null,
+  model: null,
+  provider: null,
   queuePeakAudioMs: 0,
   queuedAudioMs: 0,
   queuedPcmBytes: 0,
@@ -230,6 +251,9 @@ const initialSnapshot = (): LiveTranscriptDraftSnapshot => ({
 });
 
 function publicError(reason: string): string {
+  if (reason === "provider-busy") {
+    return "实时字幕服务暂时繁忙，正在自动重试，录音仍在继续";
+  }
   if (reason === "degraded") {
     return "实时字幕可能有遗漏，录音仍在继续";
   }
@@ -243,8 +267,8 @@ function publicError(reason: string): string {
 }
 
 /**
- * 管理双轨实时字幕草稿、独立重连和服务端容量租约。Draft 永远不是最终权威转录。
- * Manages dual-track live drafts, independent reconnects, and the server capacity lease; drafts are never authoritative.
+ * 管理双轨实时字幕草稿、独立重连和服务端容量租约。草稿本身非权威，Deepgram 草稿可在保存时固化为正式版本。
+ * Manages dual-track live drafts, reconnects, and leases. A draft is non-authoritative until promoted on save.
  */
 export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptAuthorization>(
   dependencies: LiveTranscriptDraftDependencies<Authorization>,
@@ -281,6 +305,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
   let leaseHeartbeatFailures = 0;
   let liveTranscriptHints: MeetingLiveTranscriptHints | undefined;
   let releasedLeaseCaptureId: string | null = null;
+  let finalizing = false;
   let paused = false;
   const correctionIdleWaiters = new Set<() => void>();
 
@@ -417,7 +442,92 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     }, dependencies.correctionLookaheadMs ?? DEFAULT_CORRECTION_LOOKAHEAD_MS);
   };
 
+  const flush = (track: MeetingLiveTranscriptTrack): boolean => {
+    const runtime = runtimes[track];
+    while (runtime.connection) {
+      const frame = runtime.queue.peek();
+      if (!frame) {
+        break;
+      }
+      if (!runtime.connection.sendPcm(frame)) {
+        return false;
+      }
+      runtime.queue.shift();
+    }
+    return true;
+  };
+
+  const drainPcmQueues = async (): Promise<void> => {
+    const deadline = Date.now() + DEFAULT_PCM_FINALIZE_DRAIN_TIMEOUT_MS;
+    while (true) {
+      let drained = true;
+      for (const track of TRACKS) {
+        if (!flush(track)) {
+          drained = false;
+        }
+      }
+      if (drained && TRACKS.every((track) => runtimes[track].queue.bytes === 0)) {
+        publish();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        break;
+      }
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 25);
+      });
+    }
+
+    let droppedFrames = 0;
+    for (const track of TRACKS) {
+      const runtime = runtimes[track];
+      let trackDroppedAudioMs = 0;
+      let trackDroppedFrames = 0;
+      while (runtime.queue.peek()) {
+        trackDroppedAudioMs += runtime.queue.shift();
+        trackDroppedFrames += 1;
+      }
+      if (trackDroppedFrames === 0) {
+        continue;
+      }
+      droppedFrames += trackDroppedFrames;
+      runtime.status = "degraded";
+      snapshot = {
+        ...snapshot,
+        droppedAudioMs: snapshot.droppedAudioMs + trackDroppedAudioMs,
+        droppedPcmFrames: snapshot.droppedPcmFrames + trackDroppedFrames,
+        trackDroppedAudioMs: {
+          ...snapshot.trackDroppedAudioMs,
+          [track]: snapshot.trackDroppedAudioMs[track] + trackDroppedAudioMs,
+        },
+      };
+    }
+    publish({ error: droppedFrames > 0 ? publicError("degraded") : snapshot.error });
+  };
+
   const flushCorrections = async (): Promise<void> => {
+    finalizing = true;
+    for (const track of TRACKS) {
+      const runtime = runtimes[track];
+      runtime.pcmTap?.stop();
+      runtime.pcmTap = null;
+    }
+    if (TRACKS.some((track) => runtimes[track].queue.bytes > 0)) {
+      await drainPcmQueues();
+    }
+    const finalizations = TRACKS.flatMap((track) => {
+      const finalize = runtimes[track].connection?.finalize;
+      return finalize
+        ? [
+            (async () => {
+              await finalize();
+            })(),
+          ]
+        : [];
+    });
+    if (finalizations.length > 0) {
+      await Promise.allSettled(finalizations);
+    }
     cancelCorrectionLookahead?.();
     cancelCorrectionLookahead = null;
     requestCorrections(true);
@@ -447,6 +557,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     cancelCorrectionLookahead = null;
     leaseHeartbeatFailures = 0;
     liveTranscriptHints = undefined;
+    finalizing = false;
     paused = false;
     for (const track of TRACKS) {
       const runtime = runtimes[track];
@@ -573,31 +684,43 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     }
   };
 
-  const flush = (track: MeetingLiveTranscriptTrack): boolean => {
-    const runtime = runtimes[track];
-    while (runtime.connection) {
-      const frame = runtime.queue.peek();
-      if (!frame) {
-        break;
-      }
-      if (!runtime.connection.sendPcm(frame)) {
-        return false;
-      }
-      runtime.queue.shift();
+  const applyAuthorizationMetadata = (
+    metadata: LiveTranscriptAuthorizationMetadata | null,
+  ): void => {
+    if (!metadata) {
+      return;
     }
-    return true;
+    if (
+      snapshot.provider &&
+      (snapshot.provider !== metadata.provider || snapshot.model !== metadata.model)
+    ) {
+      throw new Error("同一录制会话不能混用实时转录 Provider 或模型");
+    }
+    publish({
+      language: metadata.language ?? snapshot.language,
+      model: metadata.model,
+      provider: metadata.provider,
+    });
   };
 
   const scheduleTrackReconnect = (
     runtime: TrackRuntime,
     callback: () => void,
+    reason: string,
   ): (() => void) | null => {
+    const providerBusy = reason === "provider-busy";
     const maxAttempts = dependencies.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
-    if (runtime.reconnectAttempts >= maxAttempts) {
+    if (!providerBusy && runtime.reconnectAttempts >= maxAttempts) {
       return null;
     }
-    const baseDelay = dependencies.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS;
-    const maxDelay = dependencies.maxReconnectDelayMs ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
+    // Provider saturation is temporary. Keep a slow retry alive until capture stops,
+    // instead of exhausting the network retry budget while the service is busy.
+    const baseDelay = providerBusy
+      ? 20_000
+      : (dependencies.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS);
+    const maxDelay = providerBusy
+      ? 50_000
+      : (dependencies.maxReconnectDelayMs ?? DEFAULT_MAX_RECONNECT_DELAY_MS);
     const exponentialDelay = Math.min(baseDelay * 2 ** runtime.reconnectAttempts, maxDelay);
     const jitter = 0.8 + (dependencies.random?.() ?? Math.random()) * 0.4;
     runtime.reconnectAttempts += 1;
@@ -631,7 +754,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       sections: [...snapshot.sections, section].slice(-MAX_DRAFT_SECTIONS),
     });
 
-    const interrupt = (reason: string, reconnect = true) => {
+    const interrupt = (reason: string, reconnect = true, errorMessage?: string) => {
       if (runtime.generation !== generation || snapshot.captureId !== captureId) {
         return;
       }
@@ -639,11 +762,19 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       closeConnection(runtime);
       runtime.queue.clear();
       runtime.status = "interrupted";
-      publish({ error: publicError(reason) });
+      publish({ error: errorMessage ?? publicError(reason) });
       if (reconnect && !runtime.cancelReconnect) {
-        runtime.cancelReconnect = scheduleTrackReconnect(runtime, async () => {
-          await connectTrack(track, true);
-        });
+        runtime.cancelReconnect = scheduleTrackReconnect(
+          runtime,
+          async () => {
+            await connectTrack(track, true);
+          },
+          reason,
+        );
+        if (runtime.cancelReconnect && reason === "provider-busy") {
+          runtime.status = "reconnecting";
+          publish({ error: publicError(reason) });
+        }
       }
       releaseLeaseWhenAllTracksTerminal(captureId);
     };
@@ -661,6 +792,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
         return;
       }
       releasedLeaseCaptureId = null;
+      applyAuthorizationMetadata(dependencies.authorizationMetadata?.(authorization) ?? null);
       scheduleLeaseHeartbeat(captureId);
       const connection = await dependencies.connect({
         authorization,
@@ -711,11 +843,15 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       interrupt(
         dependencies.authorizationFailureReason?.(connectionError) ?? "authorization",
         dependencies.shouldReconnect?.(connectionError) ?? true,
+        dependencies.authorizationFailureMessage?.(connectionError) ?? undefined,
       );
     }
   };
 
   const onFrame = (track: MeetingLiveTranscriptTrack, frame: Int16Array) => {
+    if (finalizing || paused) {
+      return;
+    }
     const runtime = runtimes[track];
     if (runtime.connection && runtime.queue.bytes === 0 && runtime.connection.sendPcm(frame)) {
       return;
@@ -747,6 +883,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
     tracks: Record<MeetingLiveTranscriptTrack, MediaStreamTrack>;
   }): Promise<void> => {
     stop();
+    finalizing = false;
     paused = false;
     releasedLeaseCaptureId = null;
     const { liveTranscriptHints: hints } = input;
@@ -759,6 +896,9 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       droppedAudioMs: input.initialDraft?.droppedAudioMs ?? 0,
       droppedPcmFrames: input.initialDraft?.droppedPcmFrames ?? 0,
       error: input.initialDraft?.error ?? null,
+      language: input.initialDraft?.language ?? null,
+      model: input.initialDraft?.model ?? null,
+      provider: input.initialDraft?.provider ?? null,
       sections: seededSections,
       turns: input.initialDraft?.turns ?? [],
     };
@@ -834,6 +974,7 @@ export function createLiveTranscriptDraft<Authorization = MeetingLiveTranscriptA
       return;
     }
     paused = false;
+    finalizing = false;
     releasedLeaseCaptureId = null;
     for (const track of TRACKS) {
       runtimes[track].status = "starting";

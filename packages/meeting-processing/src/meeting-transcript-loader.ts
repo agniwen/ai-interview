@@ -14,6 +14,7 @@ export function createMeetingTranscriptLoader(db: Database) {
       }),
       db
         .select({
+          attribution: meetingTranscriptTurn.attribution,
           id: meetingTranscriptTurn.id,
           speakerDisplayName: meetingTranscriptTurn.speakerDisplayName,
           speakerKey: meetingTranscriptTurn.speakerKey,

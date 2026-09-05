@@ -1,10 +1,9 @@
 import type {
-  InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateQuestionRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@app/db-schema/interview-question-templates";
-import { and, asc, count, desc, eq, exists, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNull, or } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
@@ -310,38 +309,6 @@ export async function ensureApplicableBindings(interviewRecordId: string): Promi
 }
 
 /**
- * Drop all bindings for the given interview where the template's scope is
- * `job_description`. Called when the interview's `jobDescriptionId` is being
- * changed — old JD-specific bindings should disappear before
- * `autoBindApplicableTemplates` adds the new ones. Global bindings (and their
- * `disabledByUser` state) are left untouched.
- */
-export async function dropJobDescriptionBindings(tx: Tx, interviewRecordId: string): Promise<void> {
-  const targets = await tx
-    .select({ id: interviewQuestionTemplateBinding.id })
-    .from(interviewQuestionTemplateBinding)
-    .innerJoin(
-      interviewQuestionTemplate,
-      eq(interviewQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
-    )
-    .where(
-      and(
-        eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId),
-        eq(interviewQuestionTemplate.scope, "job_description"),
-      ),
-    );
-  if (targets.length === 0) {
-    return;
-  }
-  await tx.delete(interviewQuestionTemplateBinding).where(
-    inArray(
-      interviewQuestionTemplateBinding.id,
-      targets.map((t) => t.id),
-    ),
-  );
-}
-
-/**
  * Reconcile bindings to match the user's "enabled set" choice from the
  * interview detail page. Toggles `disabledByUser` rather than deleting rows
  * so the same template's state survives subsequent JD changes / re-binds.
@@ -427,132 +394,6 @@ export async function refreshInterviewBindingsToLatest(
 }
 
 /**
- * Single-join read used by the LiveKit-token + agent-instructions paths.
- * Returns the flattened list of question content the agent must ask, in
- * binding sortOrder × question sortOrder order. Disabled bindings are
- * filtered out.
- */
-export interface InterviewPresetQuestion {
-  content: string;
-  difficulty: InterviewQuestionTemplateDifficulty;
-  evaluationFocus?: string | null;
-  followUpDirections?: string | null;
-}
-
-export async function loadInterviewPresetQuestions(
-  interviewRecordId: string,
-): Promise<InterviewPresetQuestion[]> {
-  const rows = await db
-    .select({
-      bindingSortOrder: interviewQuestionTemplateBinding.sortOrder,
-      snapshot: interviewQuestionTemplateVersion.snapshot,
-    })
-    .from(interviewQuestionTemplateBinding)
-    .innerJoin(
-      interviewQuestionTemplateVersion,
-      eq(interviewQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
-    )
-    .where(
-      and(
-        eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId),
-        eq(interviewQuestionTemplateBinding.disabledByUser, false),
-      ),
-    )
-    .orderBy(asc(interviewQuestionTemplateBinding.sortOrder));
-
-  const out: InterviewPresetQuestion[] = [];
-  for (const row of rows) {
-    const snapshotQuestions = [...row.snapshot.questions].toSorted(
-      (a, b) => a.sortOrder - b.sortOrder,
-    );
-    for (const q of snapshotQuestions) {
-      const trimmed = q.content?.trim();
-      if (trimmed) {
-        out.push({
-          content: trimmed,
-          difficulty: q.difficulty,
-          evaluationFocus: q.evaluationFocus ?? null,
-          followUpDirections: q.followUpDirections ?? null,
-        });
-      }
-    }
-  }
-  return out;
-}
-
-/**
- * 带 scope 的预设题读取：用于面试报告评估，按源（岗位 / 全局）分别标注。
- * Preset questions tagged with template scope — used by the interview report
- * evaluator so each question carries its source (job-bound vs global).
- */
-export interface InterviewPresetQuestionWithScope extends InterviewPresetQuestion {
-  scope: InterviewQuestionTemplateScope;
-}
-
-export async function loadInterviewPresetQuestionsWithScope(
-  interviewRecordId: string,
-): Promise<InterviewPresetQuestionWithScope[]> {
-  // 与 loadInterviewPresetQuestions 相比多 join 一次 interviewQuestionTemplate,
-  // 是为了拿到每个 binding 背后的模板 scope (global vs job_description). 评估
-  // 报告需要按源给题加前缀, 用了 disabledByUser=false 过滤跟旧函数一致, 保证
-  // "面试期间实际会被问到的题" 才进打分.
-  // Adds an extra join against interviewQuestionTemplate (compared to
-  // loadInterviewPresetQuestions) so we can carry each binding's template
-  // scope through to the evaluator. The disabledByUser filter matches the
-  // sibling query so only questions that were actually live during the
-  // interview reach scoring.
-  const rows = await db
-    .select({
-      bindingSortOrder: interviewQuestionTemplateBinding.sortOrder,
-      scope: interviewQuestionTemplate.scope,
-      snapshot: interviewQuestionTemplateVersion.snapshot,
-    })
-    .from(interviewQuestionTemplateBinding)
-    .innerJoin(
-      interviewQuestionTemplateVersion,
-      eq(interviewQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
-    )
-    .innerJoin(
-      interviewQuestionTemplate,
-      eq(interviewQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
-    )
-    .where(
-      and(
-        eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId),
-        eq(interviewQuestionTemplateBinding.disabledByUser, false),
-      ),
-    )
-    .orderBy(asc(interviewQuestionTemplateBinding.sortOrder));
-
-  // 展平 snapshot: 每个 binding 对应一份 template 快照, 内部还有自己的
-  // 题目排序 sortOrder. 外层按 binding sortOrder 排, 内层按 snapshot question
-  // sortOrder 排, 保证 agent 提问顺序与评估表里题目顺序一致.
-  // Flatten snapshots: each binding holds a versioned template snapshot
-  // with its own per-question sortOrder. Outer loop respects binding order;
-  // inner loop respects intra-template order — matches the order the agent
-  // actually asked the questions during the call.
-  const out: InterviewPresetQuestionWithScope[] = [];
-  for (const row of rows) {
-    const snapshotQuestions = [...row.snapshot.questions].toSorted(
-      (a, b) => a.sortOrder - b.sortOrder,
-    );
-    for (const q of snapshotQuestions) {
-      const trimmed = q.content?.trim();
-      if (trimmed) {
-        out.push({
-          content: trimmed,
-          difficulty: q.difficulty,
-          evaluationFocus: q.evaluationFocus ?? null,
-          followUpDirections: q.followUpDirections ?? null,
-          scope: row.scope,
-        });
-      }
-    }
-  }
-  return out;
-}
-
-/**
  * Read the binding state surfaced to the interview detail page UI.
  * Returns the full `applicable` set (global + JD-bound) and a map of
  * which are currently bound + their disabled state.
@@ -584,12 +425,4 @@ export async function loadInterviewQuestionTemplateBindings(interviewRecordId: s
     .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId));
 
   return { applicable, bindings: bindingRows };
-}
-
-export async function countBindingsByTemplate(templateId: string): Promise<number> {
-  const [row] = await db
-    .select({ value: count() })
-    .from(interviewQuestionTemplateBinding)
-    .where(eq(interviewQuestionTemplateBinding.templateId, templateId));
-  return row?.value ?? 0;
 }

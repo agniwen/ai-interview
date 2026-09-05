@@ -174,7 +174,7 @@ export function createDurableLiveTranscriptDraft(
   }
   const turns = snapshot.turns.filter((turn) => turn.text.trim().length > 0);
   const referencedSectionIds = new Set(turns.map((turn) => turn.sectionId));
-  return {
+  const durable: MeetingLiveTranscriptDraft = {
     capturedAt: new Date().toISOString(),
     droppedAudioMs: snapshot.droppedAudioMs,
     droppedPcmFrames: snapshot.droppedPcmFrames,
@@ -186,6 +186,16 @@ export function createDurableLiveTranscriptDraft(
       text: turn.text.trim(),
     })),
   };
+  if (snapshot.language) {
+    durable.language = snapshot.language;
+  }
+  if (snapshot.model) {
+    durable.model = snapshot.model;
+  }
+  if (snapshot.provider) {
+    durable.provider = snapshot.provider;
+  }
+  return durable;
 }
 
 export function applyLiveTranscriptCorrection(
@@ -243,6 +253,12 @@ export function appendLiveTranscriptTurn(
     if (event.startMs !== undefined) {
       turn.startMs = event.startMs;
     }
+    if (event.speakerDisplayName !== undefined) {
+      turn.speakerDisplayName = event.speakerDisplayName;
+    }
+    if (event.speakerKey) {
+      turn.speakerKey = event.speakerKey;
+    }
     if (event.words) {
       turn.words = event.words;
     }
@@ -265,6 +281,12 @@ export function appendLiveTranscriptTurn(
     }
     if (event.startMs !== undefined) {
       updated.startMs = event.startMs;
+    }
+    if (event.speakerDisplayName !== undefined) {
+      updated.speakerDisplayName = event.speakerDisplayName;
+    }
+    if (event.speakerKey) {
+      updated.speakerKey = event.speakerKey;
     }
     if (event.words) {
       updated.words = event.words;

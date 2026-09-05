@@ -1,7 +1,33 @@
 // oxlint-disable unicorn/consistent-function-scoping -- Keeping the target factory beside these focused batch tests makes the fixtures easier to scan.
 import type { LiveCorrectionBatch } from "@app/shared/meeting-live-correction";
 import { describe, expect, it } from "vitest";
-import { createLiveTranscriptCorrectionBatches } from "./live-transcript-draft-turns";
+import {
+  appendLiveTranscriptTurn,
+  createLiveTranscriptCorrectionBatches,
+} from "./live-transcript-draft-turns";
+
+describe("appendLiveTranscriptTurn", () => {
+  it("retains provider speaker attribution on live and final snapshots", () => {
+    const initial = appendLiveTranscriptTurn([], "microphone", "section", {
+      itemId: "result:0",
+      speakerKey: "microphone:deepgram-speaker-0",
+      text: "你好",
+      type: "snapshot",
+    });
+    const completed = appendLiveTranscriptTurn(initial ?? [], "microphone", "section", {
+      itemId: "result:0",
+      speakerKey: "microphone:deepgram-speaker-0",
+      text: "你好。",
+      type: "completed",
+    });
+
+    expect(completed?.[0]).toMatchObject({
+      final: true,
+      speakerKey: "microphone:deepgram-speaker-0",
+      text: "你好。",
+    });
+  });
+});
 
 describe("live transcript correction batches", () => {
   const targets = (onBatch: (batch: LiveCorrectionBatch) => boolean) => ({

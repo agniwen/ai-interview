@@ -57,8 +57,10 @@ export function PaginationLink({
       : cn(
           buttonVariants({
             size,
-            variant: isActive ? "outline" : "ghost",
+            variant: "ghost",
           }),
+          "hover:border-transparent",
+          isActive && "border-border/80 bg-accent text-accent-foreground hover:border-border/80",
           className,
         ),
     "data-active": isActive,

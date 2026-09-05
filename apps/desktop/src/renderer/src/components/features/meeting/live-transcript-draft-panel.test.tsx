@@ -25,33 +25,6 @@ const glimm = {
 const playCorrectionSweep = (block: HTMLElement) => playTranscriptCorrectionSweep(block, glimm);
 
 describe("LiveTranscriptDraftPanel", () => {
-  it("places the recording title above the shared draft badge", () => {
-    const html = renderToStaticMarkup(
-      <LiveTranscriptDraftPanel
-        header={<h1>回忆裂缝中未曾消失的你</h1>}
-        snapshot={{
-          captureId: "00000000-0000-4000-8000-000000000077",
-          droppedAudioMs: 0,
-          droppedPcmFrames: 0,
-          error: null,
-          queuePeakAudioMs: 0,
-          queuedAudioMs: 0,
-          queuedPcmBytes: 0,
-          sections: [],
-          status: "live",
-          trackDroppedAudioMs: { microphone: 0, system: 0 },
-          trackQueuePeakAudioMs: { microphone: 0, system: 0 },
-          trackQueuedAudioMs: { microphone: 0, system: 0 },
-          trackStatus: { microphone: "live", system: "live" },
-          turns: [],
-        }}
-      />,
-    );
-
-    expect(html.indexOf("回忆裂缝中未曾消失的你")).toBeLessThan(html.indexOf("录制草稿"));
-    expect(html.match(/录制草稿/g)).toHaveLength(1);
-  });
-
   it("follows new transcript content only while the viewport is within 80px of the bottom", () => {
     expect(
       shouldFollowLiveTranscript({ clientHeight: 400, scrollHeight: 1000, scrollTop: 521 }),
@@ -207,7 +180,10 @@ describe("LiveTranscriptDraftPanel", () => {
       expect(html).not.toContain("我的麦克风");
       expect(html).not.toContain("系统音频");
       expect(html).not.toContain("草稿区段");
-      if (!embedded) {
+      if (embedded) {
+        expect(html).not.toContain("录制草稿");
+        expect(html).not.toContain('data-slot="live-transcript-scroll-content"');
+      } else {
         expect(html).toContain('aria-label="实时字幕状态：实时"');
         expect(html).toContain('data-slot="live-transcript-scroll-content"');
         expect(html).toMatch(

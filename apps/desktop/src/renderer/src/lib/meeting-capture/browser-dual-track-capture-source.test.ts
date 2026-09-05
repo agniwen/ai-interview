@@ -162,6 +162,10 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
 
       stop() {
         this.state = "inactive";
+        for (const listener of this.listeners.get("stop") ?? []) {
+          // SAFETY: The production listener only observes the event occurrence.
+          listener(new Event("stop") as BlobEvent);
+        }
       }
     }
     const createAudioTrack = (): FakeMediaTrack => ({
@@ -208,7 +212,8 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     );
     vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValue(15_000);
     let resolveCorrectionFlush!: () => void;
-    // The unresolved gate proves that local pause completion does not await transcript correction.
+    // The unresolved gate proves that local audio pauses immediately while transcript finalization
+    // completes before the provider connection is closed.
     // oxlint-disable-next-line promise/avoid-new -- A directly controlled pending promise is the assertion boundary.
     const correctionFlush = new Promise<void>((resolve) => {
       resolveCorrectionFlush = resolve;
@@ -247,12 +252,13 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     });
     await Promise.resolve();
     await Promise.resolve();
-    expect(pauseResolved).toBe(true);
+    expect(pauseResolved).toBe(false);
     expect(recorders.map((recorder) => recorder.state)).toEqual(["paused", "paused"]);
     expect(sidecar.flushCorrections).toHaveBeenCalledOnce();
-    expect(sidecar.pause).toHaveBeenCalledOnce();
+    expect(sidecar.pause).not.toHaveBeenCalled();
     resolveCorrectionFlush();
     await pausePromise;
+    expect(sidecar.pause).toHaveBeenCalledOnce();
 
     await prepared.resume();
     expect(recorders.map((recorder) => recorder.state)).toEqual(["recording", "recording"]);
@@ -272,5 +278,9 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
       );
     });
     expect(sidecar.start).toHaveBeenCalledOnce();
+
+    await prepared.stop();
+    expect(sidecar.flushCorrections).toHaveBeenCalledTimes(2);
+    expect(sidecar.stop).toHaveBeenCalledOnce();
   });
 });

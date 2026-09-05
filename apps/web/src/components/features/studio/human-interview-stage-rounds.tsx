@@ -23,10 +23,7 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@app/shared/studio-pipeline-stages";
-import {
-  normalizeHumanInterviewEvaluationText,
-  normalizeHumanInterviewProfessionalSkill,
-} from "@app/shared/human-interview-evaluation";
+import { RoundEvaluation } from "./human-interview-evaluation-summary";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   isApiError,
@@ -39,7 +36,7 @@ import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/di
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,7 +48,6 @@ import {
   canOpenMeetingLinks,
   canRescheduleHumanInterviewRound,
   describeRoundSummaryStatus,
-  hasRoundDetails,
   toDateTimeLocalInputValue,
 } from "./human-interview-stage-utils";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
@@ -114,6 +110,7 @@ export function RoundCard({
   canUpdate,
   disabled,
   meeting,
+  meetingDetailLink,
   onComplete,
   onCancel,
   onCreateMeeting,
@@ -131,6 +128,7 @@ export function RoundCard({
   canUpdate: boolean;
   disabled?: boolean;
   meeting: HumanInterviewMeetingRecord | null;
+  meetingDetailLink?: ReactNode;
   onComplete: () => void;
   onCancel: () => void;
   onCreateMeeting: () => void;
@@ -158,14 +156,35 @@ export function RoundCard({
   );
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">
-                第 {roundNumber} 轮 · {round.label}
-              </span>
+    <Frame>
+      <FrameHeader className="h-auto min-h-10 flex-wrap justify-between gap-3 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <FrameTitle>
+            <h4 className="wrap-anywhere">
+              第 {roundNumber} 轮 · {round.label}
+            </h4>
+          </FrameTitle>
+        </div>
+        {meeting?.status === "ended" ? meetingDetailLink : null}
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
+          <RoundScheduledAtControl
+            canUpdate={canUpdate}
+            dependencies={dependencies}
+            disabled={disabled}
+            meeting={meeting}
+            onRescheduled={onRescheduled}
+            round={round}
+            slug={slug}
+          />
+          <span>{humanInterviewFormatMeta[round.format].label}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <InterviewerAssignmentList meeting={meeting} round={round} />
+          <dl className="flex items-center gap-2 text-xs">
+            <dt className="text-muted-foreground">状态</dt>
+            <dd className="flex flex-wrap items-center gap-2">
               <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
               {canUpdate &&
               canWrite &&
@@ -176,35 +195,14 @@ export function RoundCard({
                   修改
                 </Button>
               ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
-              <RoundScheduledAtControl
-                canUpdate={canUpdate}
-                dependencies={dependencies}
-                disabled={disabled}
-                meeting={meeting}
-                onRescheduled={onRescheduled}
-                round={round}
-                slug={slug}
-              />
-              <span className="inline-flex items-center gap-1">
-                {humanInterviewFormatMeta[round.format].label}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <IconUsers className="size-3" />
-                {round.interviewers.map((i) => i.name).join("、") || "未指派面试官"}
-              </span>
-            </div>
-          </div>
+            </dd>
+          </dl>
         </div>
-
-        {round.interviewers.length > 0 ? (
-          <InterviewerAssignmentList meeting={meeting} round={round} />
+        {round.evaluation ? (
+          <RoundEvaluation evaluation={round.evaluation} round={round} compact />
         ) : null}
 
-        {round.evaluation ? <RoundEvaluation evaluation={round.evaluation} round={round} /> : null}
-
-        {hasRoundDetails(round) ? (
+        {round.score !== null || round.cancelReason || (!round.evaluation && round.feedback) ? (
           <div className="space-y-1 border-border/40 border-t pt-3 text-sm">
             {round.score === null ? null : (
               <div className="text-muted-foreground text-xs">
@@ -238,7 +236,7 @@ export function RoundCard({
           onReview={onReview}
           slug={slug}
         />
-      </CardContent>
+      </FramePanel>
       {outcomeDialogOpen ? (
         <HumanInterviewOutcomeDialog
           round={round}
@@ -246,76 +244,8 @@ export function RoundCard({
           onClose={() => setOutcomeDialogOpen(false)}
         />
       ) : null}
-    </Card>
+    </Frame>
   );
-}
-
-function RoundEvaluation({
-  evaluation,
-  round,
-}: {
-  evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
-  round: HumanInterviewRoundRecord;
-}) {
-  const submitted = round.evaluationStatus === "submitted";
-  return (
-    <div className="space-y-3 border-border/40 border-t pt-3 text-xs">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={submitted ? "success" : "warning"}>
-          评价 · {submitted ? "已提交" : "待提交"}
-        </Badge>
-      </div>
-      <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-        <EvaluationField label="评级" value={evaluation.rating} />
-        <EvaluationField
-          label="专业技能"
-          value={normalizeHumanInterviewProfessionalSkill(evaluation.professionalSkill)}
-        />
-        <EvaluationField label="职级定位" value={evaluation.seniorityPosition} />
-        <EvaluationField label="角色定位" value={evaluation.rolePosition} />
-        <EvaluationField label="优势特点" value={evaluation.strengths} />
-        <EvaluationField label="劣势风险" value={evaluation.risks} />
-        <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
-      </div>
-      <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />
-      <EvaluationField label="完整详细分析" value={evaluation.detailedAnalysis} />
-    </div>
-  );
-}
-
-function EvaluationField({ label, value }: { label: string; value: string }) {
-  const displayValue = normalizeHumanInterviewEvaluationText(value);
-  return (
-    <div className="space-y-1">
-      <span className="font-medium text-muted-foreground">{label}</span>
-      <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">{displayValue}</p>
-    </div>
-  );
-}
-
-interface InterviewerAssignmentDescription {
-  label: string;
-  tone: "danger" | "outline" | "success" | "warning";
-}
-
-function describeInterviewerAssignment(
-  interviewer: HumanInterviewRoundRecord["interviewers"][number],
-  meeting: HumanInterviewMeetingRecord | null,
-): InterviewerAssignmentDescription {
-  if (interviewer.status === "declined") {
-    return { label: "需联系 HR", tone: "danger" };
-  }
-  if (
-    interviewer.status === "confirmed" &&
-    meeting &&
-    interviewer.confirmedScheduleVersion === meeting.scheduleVersion
-  ) {
-    return { label: "已安排", tone: "success" };
-  }
-  if (interviewer.status === "confirmed") {
-    return { label: "安排已更新", tone: "warning" };
-  }
-  return { label: "已安排", tone: "success" };
 }
 
 function InterviewerAssignmentList({
@@ -326,16 +256,24 @@ function InterviewerAssignmentList({
   round: HumanInterviewRoundRecord;
 }) {
   return (
-    <div className="flex flex-wrap gap-2 border-border/40 border-t pt-3">
-      {round.interviewers.map((interviewer) => {
-        const status = describeInterviewerAssignment(interviewer, meeting);
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs" key={interviewer.id}>
-            <span>{interviewer.name}</span>
-            <Badge variant={status.tone}>{status.label}</Badge>
-          </span>
-        );
-      })}
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+        <IconUsers className="size-3.5" />
+        面试官
+      </span>
+      {round.interviewers.length === 0 ? (
+        <span className="text-muted-foreground">未指派面试官</span>
+      ) : null}
+      {round.interviewers.map((interviewer) => (
+        <span className="inline-flex items-center gap-1.5 text-xs" key={interviewer.id}>
+          <span>{interviewer.name}</span>
+          {interviewer.status === "declined" ? <Badge variant="danger">需联系 HR</Badge> : null}
+          {interviewer.status === "confirmed" &&
+          (!meeting || interviewer.confirmedScheduleVersion !== meeting.scheduleVersion) ? (
+            <Badge variant="warning">安排已更新</Badge>
+          ) : null}
+        </span>
+      ))}
     </div>
   );
 }
@@ -583,6 +521,12 @@ function RoundCardActions({
 
   return (
     <div className="flex flex-wrap justify-end gap-2 border-border/40 border-t pt-3">
+      {canCancelRound ? (
+        <Button className="sm:mr-auto" onClick={onCancel} size="sm" variant="ghost">
+          <IconBan className="size-4" />
+          取消轮次
+        </Button>
+      ) : null}
       {canCreateMeeting ? (
         <Button onClick={onCreateMeeting} size="sm" variant="outline">
           <IconVideo className="size-4" />
@@ -612,12 +556,6 @@ function RoundCardActions({
         <Button onClick={onComplete} size="sm" variant="outline">
           <IconCircleCheck className="size-4" />
           标记完成
-        </Button>
-      ) : null}
-      {canCancelRound ? (
-        <Button onClick={onCancel} size="sm" variant="outline">
-          <IconBan className="size-4" />
-          取消轮次
         </Button>
       ) : null}
     </div>

@@ -3,25 +3,18 @@ import type { MeetingPlaybackAuthorization } from "@app/shared/meeting-recording
 import { cn } from "@app/shared/utils";
 import {
   AudioPlayerButton,
-  AudioPlayerDuration,
+  AudioPlayerElapsedDuration,
   AudioPlayerProvider,
   AudioPlayerSpeed,
-  AudioPlayerTime,
   useAudioPlayer,
   useAudioPlayerTime,
 } from "@/components/ui/audio-player";
 import { AudioScrubber } from "@/components/ui/waveform";
-import { extractWaveformPeaks, placeholderWaveform } from "@/lib/client/audio-waveform";
-import {
-  MEETING_COMPOSER_RADIUS,
-  MeetingComposerFrame,
-  MeetingComposerRow,
-} from "./meeting-recording-session-layout";
+import { loadWaveformPeaks } from "@/lib/client/audio-waveform";
+import type { WaveformLoadResult } from "@/lib/client/audio-waveform";
 
 const PLAYBACK_ITEM_ID = "meeting-playback";
-const CONTROL_CLASS = cn("size-8 shrink-0", MEETING_COMPOSER_RADIUS);
-const TIME_CLASS = "w-10 shrink-0 text-center text-xs leading-none";
-const WAVEFORM_HEIGHT = 32;
+const WAVEFORM_HEIGHT = 48;
 
 export interface MeetingAudioPlayerProps {
   className?: string;
@@ -39,20 +32,19 @@ async function resumeAudio(audio: HTMLAudioElement, onAbort: () => void): Promis
   }
 }
 
-function useMeetingWaveform(url: string): number[] {
-  const [peaks, setPeaks] = useState(() => placeholderWaveform());
+type MeetingWaveformState = WaveformLoadResult | { peaks: []; status: "loading" };
+
+const LOADING_WAVEFORM: MeetingWaveformState = { peaks: [], status: "loading" };
+
+function useMeetingWaveform(url: string): MeetingWaveformState {
+  const [waveform, setWaveform] = useState<MeetingWaveformState>(LOADING_WAVEFORM);
   useEffect(() => {
     let cancelled = false;
     const loadPeaks = async () => {
-      try {
-        const nextPeaks = await extractWaveformPeaks(url);
-        if (!cancelled) {
-          setPeaks(nextPeaks);
-        }
-      } catch {
-        if (!cancelled) {
-          setPeaks(placeholderWaveform());
-        }
+      setWaveform(LOADING_WAVEFORM);
+      const nextWaveform = await loadWaveformPeaks(url);
+      if (!cancelled) {
+        setWaveform(nextWaveform);
       }
     };
     void loadPeaks();
@@ -60,7 +52,7 @@ function useMeetingWaveform(url: string): number[] {
       cancelled = true;
     };
   }, [url]);
-  return peaks;
+  return waveform;
 }
 
 function MeetingAudioPlayerControls({
@@ -158,20 +150,41 @@ function MeetingAudioPlayerControls({
   }, [onPlaybackError, player.ref]);
 
   return (
-    <MeetingComposerRow className={className} slot="meeting-audio-player">
-      <AudioPlayerButton className={CONTROL_CLASS} item={item} size="icon-sm" variant="outline" />
-      <AudioPlayerTime className={TIME_CLASS} />
-      <AudioScrubber
-        className="min-w-0 flex-1"
-        currentTime={currentTime}
-        data={waveform}
-        duration={player.duration ?? 0}
-        height={WAVEFORM_HEIGHT}
-        onSeek={(time) => player.seek(time)}
-      />
-      <AudioPlayerDuration className={TIME_CLASS} />
-      <AudioPlayerSpeed className={cn(CONTROL_CLASS, "min-w-8 px-1")} />
-    </MeetingComposerRow>
+    <div className={cn("grid min-w-0 gap-3 px-3 pb-1", className)} data-slot="meeting-audio-player">
+      <div
+        className="flex min-w-0 items-center"
+        data-slot="meeting-playback-waveform-row"
+        data-waveform-state={waveform.status}
+      >
+        <AudioScrubber
+          aria-label={waveform.status === "ready" ? "录音波形" : "录音进度"}
+          barGap={5}
+          barRadius={2}
+          barWidth={2}
+          className="w-full min-w-0"
+          currentTime={currentTime}
+          data={waveform.peaks}
+          duration={player.duration ?? 0}
+          fadeEdges
+          height={WAVEFORM_HEIGHT}
+          onSeek={(time) => player.seek(time)}
+          showHandle={false}
+        />
+      </div>
+      <div
+        className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3"
+        data-slot="meeting-playback-controls"
+      >
+        <AudioPlayerElapsedDuration className="min-w-0 truncate pl-1 text-xs leading-none" />
+        <AudioPlayerButton
+          className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:border-transparent hover:bg-primary/15 hover:text-primary focus-visible:border-transparent focus-visible:ring-0 dark:hover:bg-primary/15"
+          item={item}
+          size="icon"
+          variant="ghost"
+        />
+        <AudioPlayerSpeed className="h-10 w-[3.2rem] min-w-0 justify-self-end rounded-full border-transparent bg-muted px-0 text-foreground shadow-none hover:bg-muted/80 hover:text-foreground" />
+      </div>
+    </div>
   );
 }
 
@@ -187,11 +200,7 @@ export function MeetingAudioPlayer(props: MeetingAudioPlayerProps) {
   );
 }
 
-/** 已结束 session 底部的回放条，外壳与录制中 floating bar 相同。 */
+/** 已结束 session 底部的回放区，与录制中 composer 使用同一开放式布局。 */
 export function MeetingPlaybackComposer(props: MeetingAudioPlayerProps) {
-  return (
-    <MeetingComposerFrame>
-      <MeetingAudioPlayer {...props} />
-    </MeetingComposerFrame>
-  );
+  return <MeetingAudioPlayer {...props} />;
 }

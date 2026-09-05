@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { humanInterviewFormatMeta } from "@app/db-schema/studio-interviews";
 import type { StudioCalendarEvent } from "@app/shared/studio-calendar";
+import { interviewCalendarJobNames } from "@app/shared/interview-calendar";
 import { PageHeader } from "@/components/features/studio/page-header";
 import {
   EventCalendar,
@@ -74,11 +75,6 @@ function initialRange(): EventCalendarDateRange {
   };
 }
 
-function calendarTitle(event: StudioCalendarEvent): string {
-  const candidateNames = event.candidates.map((candidate) => candidate.candidateName).join("、");
-  return candidateNames ? `${candidateNames} · ${event.title}` : event.title;
-}
-
 function calendarEventColor(event: StudioCalendarEvent): string {
   return event.kind === "human"
     ? "var(--calendar-human-interview)"
@@ -106,7 +102,7 @@ function calendarEventTypeLabel(event: StudioCalendarEvent): string {
 }
 
 function toCalendarEvent(event: StudioCalendarEvent): CalendarEvent<StudioCalendarEvent> {
-  const title = calendarTitle(event);
+  const { title } = event;
   return {
     ariaLabel: `${calendarEventTypeLabel(event)}，${title}，${format(new Date(event.startAt), "yyyy年M月d日 HH:mm")} 至 ${format(new Date(event.endAt), "yyyy年M月d日 HH:mm")}`,
     className: calendarEventSurfaceClassName(event),
@@ -133,7 +129,7 @@ function CalendarEventIcon({ occurrence }: EventCalendarRenderEventProps<StudioC
   );
 }
 
-function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | undefined }) {
+export function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | undefined }) {
   if (!event) {
     return null;
   }
@@ -148,6 +144,7 @@ function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | undefine
       <div className="font-medium">{event.title}</div>
       <div>类型：{calendarEventTypeLabel(event)}</div>
       {candidates ? <div>候选人：{candidates}</div> : null}
+      <div>面试岗位：{interviewCalendarJobNames(event.candidates) || "未关联岗位"}</div>
       {interviewers ? <div>面试官：{interviewers}</div> : null}
       {event.kind === "human" ? (
         <div>形式：{humanInterviewFormatMeta[event.format].label}</div>

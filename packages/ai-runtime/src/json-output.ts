@@ -1,8 +1,35 @@
-import type { z } from "zod";
+import { z } from "zod";
 
 // Shared by backend runtimes that need to validate structured model output.
 
 const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
+const diagnosticScalarSchema = z.union([
+  z.string().transform((value) => value.slice(0, 80)),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+function summarizeValidationIssue(issue: z.core.$ZodIssue) {
+  const summary = {
+    code: issue.code,
+    message: issue.message.slice(0, 400),
+    path: issue.path,
+  };
+  if (issue.code === "unrecognized_keys") {
+    return { ...summary, keys: issue.keys.slice(0, 20).map((key) => key.slice(0, 80)) };
+  }
+  if (issue.code === "invalid_value") {
+    // Include only a bounded scalar, never the surrounding model response.
+    const received = diagnosticScalarSchema.safeParse(issue.input);
+    return {
+      ...summary,
+      received: received.success ? received.data : "[non-scalar or missing]",
+      values: issue.values.slice(0, 20).map((value) => String(value).slice(0, 80)),
+    };
+  }
+  return summary;
+}
 
 function extractJsonObjects(text: string): string[] {
   const objects: string[] = [];
@@ -75,23 +102,22 @@ export function parseJsonOutput<TSchema extends z.ZodType>(
   const candidates = [...new Set(sources.flatMap(extractJsonObjects))];
 
   let lastJsonError: unknown;
+  let lastSchemaError: string | undefined;
   for (const candidate of candidates) {
     if (!candidate) {
       continue;
     }
     try {
       const raw = JSON.parse(candidate);
-      const parsed = schema.safeParse(options.normalizeInvalid?.(raw) ?? raw);
+      const parsed = schema.safeParse(options.normalizeInvalid?.(raw) ?? raw, {
+        reportInput: true,
+      });
       if (parsed.success) {
         return parsed.data;
       }
-      console.error(
-        `[${label}] Schema validation failed:`,
-        parsed.error.issues.slice(0, 3).map((issue) => ({
-          code: issue.code,
-          path: issue.path,
-        })),
-      );
+      const issues = parsed.error.issues.slice(0, 20).map(summarizeValidationIssue);
+      lastSchemaError = JSON.stringify({ issueCount: parsed.error.issues.length, issues });
+      console.error(`[${label}] Schema validation failed:`, issues);
     } catch (error) {
       // 记下 JSON.parse 失败原因，便于区分"截断"vs"schema 不匹配"vs"格式异常"。
       // Capture parse failures so we can distinguish truncation vs schema vs format issues.
@@ -99,6 +125,11 @@ export function parseJsonOutput<TSchema extends z.ZodType>(
     }
   }
 
+  if (lastSchemaError) {
+    throw new Error(
+      `Failed to parse structured output from model response. Schema validation failed: ${lastSchemaError}`,
+    );
+  }
   console.error(`[${label}] Failed to parse JSON from model response.`, {
     candidateCount: candidates.length,
     hasJsonParseError: lastJsonError !== undefined,

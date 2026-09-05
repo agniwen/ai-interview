@@ -43,11 +43,13 @@ function transcriptionResult() {
 }
 
 function createProvider(options: {
+  recognitionHints?: { terms: string[] };
   deleteAudioUrl?: (url: string, signal: AbortSignal) => Promise<void>;
   fetch?: typeof globalThis.fetch;
   model?: string;
+  recordingIdentity?: FinalTranscriptionAudioChunk["recordingIdentity"];
   speakerDisplayName?: string;
-  track?: "candidate" | "microphone" | "system";
+  track?: FinalTranscriptionAudioChunk["track"];
   urlHost?: string;
 }) {
   const chunk: FinalTranscriptionAudioChunk = {
@@ -55,6 +57,7 @@ function createProvider(options: {
     endMs: 10_000,
     filePath: "/private/system.webm",
     index: 0,
+    recordingIdentity: options.recordingIdentity,
     speakerDisplayName: options.speakerDisplayName,
     startMs: 0,
     track: options.track ?? "system",
@@ -92,10 +95,115 @@ function createProvider(options: {
     model: options.model ?? "qwen3-asr-flash-filetrans",
     pollIntervalMs: 1,
     pollTimeoutMs: 10_000,
-  }).transcribeFinal({ ...input, chunks: [chunk] });
+  }).transcribeFinal({ ...input, chunks: [chunk], recognitionHints: options.recognitionHints });
 }
 
 describe("Qwen ASR Meeting transcription provider", () => {
+  it("bounds vocabulary and keeps context terms whole", async () => {
+    const terms = Array.from({ length: 60 }, (_, i) => `术语${i}${"业".repeat(10)}`);
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(jsonResponse({ output: { task_id: "task-bounded" } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          output: {
+            result: { transcription_url: "https://result.aliyuncs.com/result.json" },
+            task_status: "SUCCEEDED",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(transcriptionResult()));
+    await createProvider({
+      fetch,
+      model: "qwen-audio-3.0-asr-flash-filetrans",
+      recognitionHints: { terms: ["", "x", "业".repeat(41), ...terms, terms[0] ?? ""] },
+    });
+    const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    expect(Object.keys(body.parameters.vocabulary)).toEqual(terms.slice(0, 50));
+    const text: string = body.input.context[0].content[0].text;
+    expect(text.length).toBeLessThanOrEqual(400);
+    for (const term of text.split("、")) {
+      expect(terms).toContain(term);
+    }
+  });
+
+  it.each([
+    ["业".repeat(15), true],
+    ["新能源汽车动力电池热管理系统研发", false],
+    [`IM${"业".repeat(13)}`, true],
+    [`IM${"业".repeat(14)}`, false],
+    ["𠮷".repeat(15), true],
+    ["one two three four five six seven", true],
+    ["one two three four five six seven eight", false],
+  ] as const)("validates hotword limits independently from context (%s)", async (term, valid) => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(jsonResponse({ output: { task_id: "task-limits" } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          output: {
+            result: { transcription_url: "https://result.aliyuncs.com/result.json" },
+            task_status: "SUCCEEDED",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(transcriptionResult()));
+    await createProvider({
+      fetch,
+      model: "qwen-audio-3.0-asr-flash-filetrans",
+      recognitionHints: { terms: [term] },
+    });
+    const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    if (valid) {
+      expect(body.parameters.vocabulary).toEqual({ [term]: 2 });
+    } else {
+      expect(body.parameters).not.toHaveProperty("vocabulary");
+    }
+    expect(body.input.context[0].content[0].text).toBe(term);
+  });
+
+  it.each(["qwen-audio-3.0-asr-flash-filetrans", "qwen3-asr-flash-filetrans"])(
+    "sends meeting terminology only to supported models (%s)",
+    async (model) => {
+      const fetch = vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValueOnce(jsonResponse({ output: { task_id: "task-terms" } }))
+        .mockResolvedValueOnce(
+          jsonResponse({
+            output: {
+              result: { transcription_url: "https://result.aliyuncs.com/result.json" },
+              task_status: "SUCCEEDED",
+            },
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse(transcriptionResult()));
+      const transcript = await createProvider({
+        fetch,
+        model,
+        recognitionHints: { terms: ["渠道回款", "核销", "IM"] },
+      });
+      const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+      if (model === "qwen-audio-3.0-asr-flash-filetrans") {
+        expect(body.parameters.vocabulary).toEqual({ IM: 2, 核销: 2, 渠道回款: 2 });
+        expect(body.input.context).toEqual([
+          {
+            content: [
+              {
+                text: "渠道回款、核销、IM",
+                type: "input_text",
+              },
+            ],
+            role: "user",
+          },
+        ]);
+      } else {
+        expect(body.parameters).not.toHaveProperty("vocabulary");
+        expect(body.input).not.toHaveProperty("context");
+      }
+      expect(transcript.turns[0]?.text).toBe("你好");
+    },
+  );
+
   it("submits a DashScope task, polls, and maps sentences into canonical remote turns", async () => {
     const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
       const path = String(url);
@@ -234,43 +342,55 @@ describe("Qwen ASR Meeting transcription provider", () => {
     ]);
   });
 
-  it("enables supported speaker diarization only for the remote system track on Qwen Audio 3", async () => {
-    const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
-      if (String(url).includes("/services/audio/asr/transcription")) {
-        return Promise.resolve(
-          jsonResponse({ output: { task_id: "task-audio-3", task_status: "PENDING" } }),
-        );
-      }
-      if (String(url).includes("/api/v1/tasks/")) {
-        return Promise.resolve(
-          jsonResponse({
-            output: {
-              result: {
-                transcription_url:
-                  "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
+  it.each(["system", "mixed", "participant-room-retry"] as const)(
+    "enables supported speaker diarization for %s on Qwen Audio 3",
+    async (track) => {
+      const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
+        if (String(url).includes("/services/audio/asr/transcription")) {
+          return Promise.resolve(
+            jsonResponse({ output: { task_id: "task-audio-3", task_status: "PENDING" } }),
+          );
+        }
+        if (String(url).includes("/api/v1/tasks/")) {
+          return Promise.resolve(
+            jsonResponse({
+              output: {
+                result: {
+                  transcription_url:
+                    "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
+                },
+                task_status: "SUCCEEDED",
               },
-              task_status: "SUCCEEDED",
-            },
-          }),
-        );
-      }
-      return Promise.resolve(jsonResponse(transcriptionResult()));
-    });
+            }),
+          );
+        }
+        return Promise.resolve(jsonResponse(transcriptionResult()));
+      });
 
-    await createProvider({
-      fetch: submit,
-      model: "qwen-audio-3.0-asr-flash-filetrans",
-      track: "system",
-    });
+      await createProvider({
+        fetch: submit,
+        model: "qwen-audio-3.0-asr-flash-filetrans",
+        recordingIdentity:
+          track === "participant-room-retry"
+            ? {
+                offsetMs: 0,
+                participantIdentity: null,
+                role: "unknown",
+                sourceId: "room-retry",
+              }
+            : undefined,
+        track,
+      });
 
-    const [submitCall] = submit.mock.calls;
-    const submitBody = JSON.parse(String(submitCall?.[1]?.body));
-    expect(submitBody.parameters).toMatchObject({
-      channel_id: [0],
-      diarization_enabled: true,
-      enable_itn: true,
-    });
-  });
+      const [submitCall] = submit.mock.calls;
+      const submitBody = JSON.parse(String(submitCall?.[1]?.body));
+      expect(submitBody.parameters).toMatchObject({
+        channel_id: [0],
+        diarization_enabled: true,
+        enable_itn: true,
+      });
+    },
+  );
 
   it("surfaces provider quota exhaustion", async () => {
     const fetch = vi.fn(() => Promise.resolve(jsonResponse({}, 429)));

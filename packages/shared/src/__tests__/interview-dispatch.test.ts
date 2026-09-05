@@ -19,6 +19,18 @@ const baseInput = {
       content: "请介绍一次故障排查经历。",
       difficulty: "medium" as const,
       evaluationFocus: "确认候选人能够定位并复盘线上故障",
+      followUpContract: {
+        coverageMode: "sufficient_for_evaluation" as const,
+        facets: [
+          {
+            id: "facet-root-cause",
+            label: "故障根因",
+            sourceField: "follow_up_directions" as const,
+            sourceText: "根因",
+          },
+        ],
+        schemaVersion: 1 as const,
+      },
       followUpDirections: "追问定位信号、根因与预防措施",
       id: "question-1",
     },
@@ -32,7 +44,7 @@ const baseInput = {
   targetRole: "后端工程师",
 };
 
-describe("interview dispatch V2 contract", () => {
+describe("interview dispatch V3 contract", () => {
   it("selects one interviewer and builds the final prompts in TypeScript", () => {
     const interviewers = [
       { name: "面试官甲", prompt: "保持友好", voice: "voice-a" },
@@ -60,6 +72,7 @@ describe("interview dispatch V2 contract", () => {
         content: "请介绍一次故障排查经历。",
         difficulty: "medium",
         evaluationFocus: "确认候选人能够定位并复盘线上故障",
+        followUpContract: baseInput.jobDescriptionPresetQuestions[0]?.followUpContract ?? null,
         followUpDirections: "追问定位信号、根因与预防措施",
         id: "question-1",
       },

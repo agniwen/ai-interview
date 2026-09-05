@@ -197,7 +197,11 @@ export function createMeetingTranscriptionDao(
     const readyTracks = new Set(
       assets.filter((asset) => asset.status === "ready").map((asset) => asset.track),
     );
-    return readyTracks.has("mixed") || (readyTracks.has("microphone") && readyTracks.has("system"));
+    return (
+      readyTracks.has("mixed") ||
+      [...readyTracks].some((track) => track.startsWith("participant-")) ||
+      (readyTracks.has("microphone") && readyTracks.has("system"))
+    );
   }
 
   const DEFAULT_MEETING_TRANSCRIPTION_PROVIDER = "qwen" as const;
@@ -231,16 +235,20 @@ export function createMeetingTranscriptionDao(
   }
 
   async function getMeetingTranscriptionJobForMeeting(input: {
+    allowTerminalStatus?: boolean;
     meetingId: string;
     organizationId: string;
-    preferFallback?: boolean;
   }): Promise<MeetingTranscriptionJobData | null> {
     const meeting = await db.query.meetingSession.findFirst({
       where: {
         id: input.meetingId,
         organizationId: input.organizationId,
         status: "ready",
-        transcriptionStatus: { in: ["pending", "processing"] },
+        transcriptionStatus: {
+          in: input.allowTerminalStatus
+            ? ["failed", "pending", "processing", "ready"]
+            : ["pending", "processing"],
+        },
       },
       with: { assets: true },
     });
@@ -253,7 +261,13 @@ export function createMeetingTranscriptionDao(
     }
     const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
     if (
-      !(meeting && policy && policyAllows(policy, provider) && sourceAssetsReady(meeting.assets))
+      !(
+        meeting &&
+        meeting.liveTranscriptDraft?.provider !== "deepgram" &&
+        policy &&
+        policyAllows(policy, provider) &&
+        sourceAssetsReady(meeting.assets)
+      )
     ) {
       return null;
     }
@@ -271,6 +285,21 @@ export function createMeetingTranscriptionDao(
       region: candidate.region,
       sourceManifestSha256: meeting.manifestSha256,
     };
+  }
+
+  async function isMeetingTranscriptionReady(input: {
+    meetingId: string;
+    organizationId: string;
+  }): Promise<boolean> {
+    const meeting = await db.query.meetingSession.findFirst({
+      columns: { activeTranscriptRevisionId: true },
+      where: {
+        id: input.meetingId,
+        organizationId: input.organizationId,
+        transcriptionStatus: "ready",
+      },
+    });
+    return Boolean(meeting?.activeTranscriptRevisionId);
   }
 
   async function listRecoverableMeetingTranscriptionJobs(): Promise<MeetingTranscriptionJobData[]> {
@@ -302,7 +331,13 @@ export function createMeetingTranscriptionDao(
       const policy = policyByOrganization.get(meeting.organizationId);
       const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
       if (
-        !(policy && provider && policyAllows(policy, provider) && sourceAssetsReady(meeting.assets))
+        !(
+          meeting.liveTranscriptDraft?.provider !== "deepgram" &&
+          policy &&
+          provider &&
+          policyAllows(policy, provider) &&
+          sourceAssetsReady(meeting.assets)
+        )
       ) {
         continue;
       }
@@ -689,6 +724,7 @@ export function createMeetingTranscriptionDao(
     input: MeetingTranscriptionJobData & {
       processingRunId: string;
       transcript: CanonicalMeetingTranscript;
+      warning?: string;
     },
   ): Promise<boolean> {
     return await db.transaction(async (tx) => {
@@ -769,7 +805,7 @@ export function createMeetingTranscriptionDao(
         .update(meetingSession)
         .set({
           activeTranscriptRevisionId: revisionId,
-          transcriptionError: null,
+          transcriptionError: input.warning ?? null,
           transcriptionRunId: null,
           transcriptionStatus: "ready",
         })
@@ -791,7 +827,7 @@ export function createMeetingTranscriptionDao(
           and(
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
-            eq(meetingSession.transcriptionStatus, "failed"),
+            inArray(meetingSession.transcriptionStatus, ["failed", "ready"]),
           ),
         )
         .returning({ id: meetingSession.id });
@@ -802,12 +838,32 @@ export function createMeetingTranscriptionDao(
             and(
               eq(meetingTranscriptionChunk.meetingId, input.meetingId),
               eq(meetingTranscriptionChunk.organizationId, input.organizationId),
-              ne(meetingTranscriptionChunk.status, "succeeded"),
             ),
           );
       }
       return reset;
     });
+  }
+
+  function restoreMeetingTranscriptionAfterRetryFailure(input: {
+    meetingId: string;
+    organizationId: string;
+    transcriptionError: string | null;
+    transcriptionStatus: "failed" | "ready";
+  }) {
+    return db
+      .update(meetingSession)
+      .set({
+        transcriptionError: input.transcriptionError,
+        transcriptionStatus: input.transcriptionStatus,
+      })
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+          eq(meetingSession.transcriptionStatus, "pending"),
+        ),
+      );
   }
 
   function listMeetingProcessingRuns(input: { meetingId: string; organizationId: string }) {
@@ -830,6 +886,7 @@ export function createMeetingTranscriptionDao(
     claimMeetingTranscriptionRun,
     ensureDefaultMeetingTranscriptionPolicy,
     getMeetingTranscriptionJobForMeeting,
+    isMeetingTranscriptionReady,
     listMeetingProcessingRuns,
     listRecoverableMeetingTranscriptionJobs,
     loadMeetingTranscriptionChunkCheckpoint,
@@ -839,6 +896,7 @@ export function createMeetingTranscriptionDao(
     markMeetingTranscriptionFailed,
     publishMeetingTranscript,
     resetMeetingTranscriptionForRetry,
+    restoreMeetingTranscriptionAfterRetryFailure,
     saveMeetingTranscriptionChunkCheckpoint,
     updateMeetingTranscriptionPolicy,
   };

@@ -1,10 +1,13 @@
 import { app, nativeTheme } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { DEFAULT_DEEPGRAM_ENDPOINTING_MS } from "@app/shared/meeting-transcription";
 import { desktopSettingsSchema } from "../preload/orpc-contract";
 import type { DesktopSettings, ThemeMode } from "../preload/orpc-contract";
 
 const DEFAULTS: DesktopSettings = {
+  deepgramEndpointingMs: DEFAULT_DEEPGRAM_ENDPOINTING_MS,
+  meetingLiveTranscriptProvider: "qwen",
   notifyOnFinish: false,
   theme: "system",
   transparentBackground: true,
@@ -32,6 +35,9 @@ interface SettingsStartupDependencies {
 
 export function resolveDesktopSettings(settings: Partial<DesktopSettings>): DesktopSettings {
   return {
+    deepgramEndpointingMs: settings.deepgramEndpointingMs ?? DEFAULTS.deepgramEndpointingMs,
+    meetingLiveTranscriptProvider:
+      settings.meetingLiveTranscriptProvider ?? DEFAULTS.meetingLiveTranscriptProvider,
     notifyOnFinish: settings.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
     theme: settings.theme ?? DEFAULTS.theme,
     transparentBackground: settings.transparentBackground ?? DEFAULTS.transparentBackground,

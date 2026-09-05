@@ -32,6 +32,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
+import { env } from "@/env/client";
+import { FollowUpContractHoverCard } from "./follow-up-contract-hover-card";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -82,6 +84,7 @@ export function InterviewQuestionTemplateEditorDialog({
   record,
   jobDescriptions,
   onSaved,
+  showDeveloperDetails = env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
   slug,
 }: {
   initialDraft?: InterviewQuestionTemplateInput | null;
@@ -90,6 +93,7 @@ export function InterviewQuestionTemplateEditorDialog({
   record: InterviewQuestionTemplateRecord | null;
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
+  showDeveloperDetails?: boolean;
   slug: string;
 }) {
   const isEdit = record !== null;
@@ -331,6 +335,23 @@ export function InterviewQuestionTemplateEditorDialog({
                 sortOrder: sortIndex,
               })}
               form={form}
+              renderHeaderAccessory={(question, index) => {
+                const savedQuestion = record?.questions.find(
+                  (recordQuestion) => recordQuestion.id === question.id,
+                );
+                if (
+                  !showDeveloperDetails ||
+                  !question.id ||
+                  (!savedQuestion?.evaluationFocus?.trim() &&
+                    !savedQuestion?.followUpDirections?.trim())
+                ) {
+                  return null;
+                }
+                const contract = savedQuestion.followUpContract;
+                return contract ? (
+                  <FollowUpContractHoverCard contract={contract} questionNumber={index + 1} />
+                ) : null;
+              }}
               resetKey={record?.id ?? "new"}
             />
             <FieldError errors={questionListErrors} />

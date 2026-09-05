@@ -7,6 +7,80 @@ afterEach(() => {
 });
 
 describe("Meeting Intelligence generator", () => {
+  it("supplies the recruiting JSON contract in text mode and repairs the production field errors", async () => {
+    vi.stubEnv("MASTRA_STRUCTURED_MODEL", "deepseek-v4-flash-0731");
+    const valid = {
+      candidateStatements: [
+        {
+          attribution: "candidate",
+          evidenceTurnIds: ["turn-1"],
+          statement: "做过 IM 项目",
+          verification: "stated",
+        },
+      ],
+      followUpActions: [],
+      keyExperience: [],
+      summary: "讨论项目经验。",
+      template: "recruiting-interview",
+      verificationItems: [],
+    };
+    const invalid = {
+      ...valid,
+      candidateStatements: [
+        { attribution: "候选人 · 刘夏江", evidenceTurnIds: ["turn-1"], statement: "做过 IM 项目" },
+      ],
+    };
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ text: JSON.stringify(invalid) })
+      .mockResolvedValueOnce({ text: JSON.stringify(valid) });
+    const classify = vi
+      .fn()
+      .mockResolvedValue({ text: '{"classification":"allowed","reason":"Only facts"}' });
+    const result = await generateMeetingIntelligence(
+      {
+        template: "recruiting-interview",
+        turns: [
+          {
+            endMs: 1000,
+            id: "turn-1",
+            speakerDisplayName: "候选人 · 刘夏江",
+            speakerKey: "candidate",
+            startMs: 0,
+            text: "做过 IM 项目",
+          },
+        ],
+      },
+      { generate },
+      { generate: classify },
+    );
+    expect(result).toEqual(valid);
+    const prompt = String(generate.mock.calls[0]?.[0]);
+    const schemaLine = prompt.split("\n").find((line) => line.startsWith('{"$schema":'));
+    expect(JSON.parse(schemaLine ?? "null")).toMatchObject({
+      properties: {
+        candidateStatements: {
+          items: {
+            properties: {
+              attribution: { enum: ["candidate", "interviewer", "unknown"] },
+              verification: { enum: ["stated", "needs-verification"] },
+            },
+            required: expect.arrayContaining(["verification", "attribution"]),
+          },
+        },
+      },
+    });
+    expect(String(generate.mock.calls[1]?.[0])).toContain('"verification"');
+    expect(generate).toHaveBeenCalledTimes(2);
+    const policySchema = String(classify.mock.calls[0]?.[0])
+      .split("\n")
+      .find((line) => line.startsWith('{"$schema":'));
+    expect(JSON.parse(policySchema ?? "null")).toMatchObject({
+      properties: { classification: { enum: ["allowed", "hiring-decision"] } },
+      required: ["classification", "reason"],
+    });
+  });
+
   it("asks the product-owned recruiting template for evidence without a hiring decision", async () => {
     const generate = vi.fn(() =>
       Promise.resolve({

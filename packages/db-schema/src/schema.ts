@@ -42,6 +42,11 @@ import type {
 } from "./interview-notifications";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { JsonObject, JsonValue } from "./json";
+import type {
+  HumanInterviewRecordingTrack,
+  RecordingIdentity,
+  TranscriptAttribution,
+} from "./human-interview-recording";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
 import type {
@@ -341,6 +346,7 @@ export const meetingSession = pgTable(
       { onDelete: "set null" },
     ),
     intelligenceStatus: text("intelligence_status").default("pending").notNull(),
+    liveSummary: jsonb("live_summary").$type<unknown>(),
     liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
     manifestSha256: text("manifest_sha256").notNull(),
     organizationId: text("organization_id")
@@ -715,6 +721,7 @@ export const meetingTranscriptRevision = pgTable(
 export const meetingTranscriptTurn = pgTable(
   "meeting_transcript_turn",
   {
+    attribution: jsonb("attribution").$type<TranscriptAttribution>(),
     confidence: doublePrecision("confidence"),
     endMs: integer("end_ms").notNull(),
     id: text("id").primaryKey(),
@@ -995,7 +1002,7 @@ export const meetingTranscriptionChunk = pgTable(
     check("meeting_transcription_chunk_time_check", sql`${table.endMs} > ${table.startMs}`),
     check(
       "meeting_transcription_chunk_track_check",
-      sql`${table.track} in ('microphone', 'system', 'candidate', 'mixed')`,
+      sql`${table.track} in ('microphone', 'system', 'candidate', 'mixed') OR ${table.track} ~ '^participant-[a-zA-Z0-9-]+$'`,
     ),
     check(
       "meeting_transcription_chunk_status_check",
@@ -1041,6 +1048,7 @@ export const meetingRecordingAsset = pgTable(
       }[]
     >(),
     multipartUploadId: text("multipart_upload_id"),
+    recordingIdentity: jsonb("recording_identity").$type<RecordingIdentity>(),
     segments:
       jsonb("segments").$type<{ durationMs: number; offsetBytes: number; sizeBytes: number }[]>(),
     sha256: text("sha256").notNull(),
@@ -2274,6 +2282,7 @@ export const studioHumanInterviewMeeting = pgTable(
       .$type<HumanInterviewRecordingStatus>()
       .notNull()
       .default("pending"),
+    recordingTracks: jsonb("recording_tracks").$type<HumanInterviewRecordingTrack[]>(),
     scheduleVersion: integer("schedule_version").notNull().default(1),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),

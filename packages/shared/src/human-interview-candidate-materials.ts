@@ -1,6 +1,10 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
-import type { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
+import type {
+  studioInterviewQuestionClientSchema,
+  HumanInterviewEvaluation,
+  HumanInterviewRoundOutcome,
+} from "@app/db-schema/studio-interviews";
 import { z } from "zod";
 
 export const humanInterviewCandidateHrEvaluationSchema = z
@@ -70,6 +74,23 @@ export interface HumanInterviewCandidateHrInformationResponse {
     roundLabel: string | null;
     values: HumanInterviewCandidateHrEvaluation;
   } | null;
+  previousEvaluations: {
+    roundId: string;
+    roundLabel: string;
+    outcome: HumanInterviewRoundOutcome | null;
+    submittedAt: string | null;
+    submittedBy: string | null;
+    values: Pick<
+      HumanInterviewEvaluation,
+      | "rating"
+      | "seniorityPosition"
+      | "rolePosition"
+      | "professionalSkill"
+      | "strengths"
+      | "risks"
+      | "salaryRecommendation"
+    >;
+  }[];
 }
 
 export interface HumanInterviewCandidateQuestionsResponse {

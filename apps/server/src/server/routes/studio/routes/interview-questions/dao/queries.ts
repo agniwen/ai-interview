@@ -7,8 +7,21 @@ import type {
   InterviewQuestionTemplateScope,
   JobDescriptionRef,
 } from "@app/db-schema/interview-question-templates";
+import { buildTemplateSnapshot } from "@app/db-schema/interview-question-templates";
 import type { SQL } from "drizzle-orm";
-import { and, asc, count, eq, exists, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+} from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../lib/server/db/index";
 import {
@@ -18,11 +31,13 @@ import {
 } from "../../../../../../lib/server/db/pagination";
 import type { PaginatedResult, PaginationParams } from "../../../../../../lib/server/db/pagination";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import { hashTemplateSourceSnapshot } from "../../../../../../lib/server/interview-question-templates-hash";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateBinding,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
+  interviewQuestionTemplateVersion,
   jobDescription,
 } from "@app/db-schema/schema";
 
@@ -443,20 +458,6 @@ export async function queryPaginatedInterviewQuestionTemplates(
   };
 }
 
-export function listInterviewQuestionTemplates(
-  organizationId: string,
-  filters?: {
-    textFilters?: string;
-    search?: string | null;
-    scope?: string | null;
-    jobDescriptionId?: string | null;
-    archivedFilter?: ArchivedFilter;
-  },
-  pagination?: InterviewQuestionTemplatePaginationInput,
-) {
-  return queryPaginatedInterviewQuestionTemplates(organizationId, filters, pagination);
-}
-
 export async function listAllInterviewQuestionTemplates(
   organizationId: string,
 ): Promise<InterviewQuestionTemplateListRecord[]> {
@@ -510,14 +511,34 @@ export async function loadInterviewQuestionTemplateById(
   if (!row) {
     return null;
   }
-  const [questions, jds] = await Promise.all([
+  const [questions, jds, versionRows] = await Promise.all([
     db
       .select()
       .from(interviewQuestionTemplateQuestion)
       .where(eq(interviewQuestionTemplateQuestion.templateId, id))
       .orderBy(asc(interviewQuestionTemplateQuestion.sortOrder)),
     loadJobDescriptionRefs(id),
+    db
+      .select({ snapshot: interviewQuestionTemplateVersion.snapshot })
+      .from(interviewQuestionTemplateVersion)
+      .where(eq(interviewQuestionTemplateVersion.templateId, id))
+      .orderBy(desc(interviewQuestionTemplateVersion.version)),
   ]);
+  const sourceSnapshot = buildTemplateSnapshot({
+    description: row.description,
+    jobDescriptionIds: jds.map((jd) => jd.id),
+    questions: questions.map(mapQuestionRow),
+    scope: row.scope,
+    templateId: row.id,
+    title: row.title,
+  });
+  const sourceHash = hashTemplateSourceSnapshot(sourceSnapshot);
+  const currentVersion = versionRows.find(
+    (version) => hashTemplateSourceSnapshot(version.snapshot) === sourceHash,
+  );
+  const latestQuestionById = new Map(
+    (currentVersion?.snapshot.questions ?? []).map((question) => [question.id, question]),
+  );
   return {
     archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
     createdAt: serializeDate(row.createdAt),
@@ -526,7 +547,18 @@ export async function loadInterviewQuestionTemplateById(
     id: row.id,
     jobDescriptionIds: jds.map((jd) => jd.id),
     jobDescriptions: jds,
-    questions: questions.map(mapQuestionRow),
+    questions: questions.map((question) => ({
+      ...mapQuestionRow(question),
+      followUpContract: (() => {
+        const snapshotQuestion = latestQuestionById.get(question.id);
+        return snapshotQuestion &&
+          snapshotQuestion.content === question.content &&
+          (snapshotQuestion.evaluationFocus ?? null) === question.evaluationFocus &&
+          (snapshotQuestion.followUpDirections ?? null) === question.followUpDirections
+          ? (snapshotQuestion.followUpContract ?? null)
+          : null;
+      })(),
+    })),
     scope: row.scope,
     title: row.title,
     updatedAt: serializeDate(row.updatedAt),

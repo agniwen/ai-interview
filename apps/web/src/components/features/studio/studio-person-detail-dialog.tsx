@@ -8,7 +8,10 @@
 // component's external API is unchanged for existing call sites.
 
 import { Modal } from "@/components/ui/modal";
-import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "./lazy-studio-person-detail-panel";
+import {
+  LazyStudioPersonDetailPanel as StudioPersonDetailPanel,
+  StudioPersonDetailPanelFallback,
+} from "./lazy-studio-person-detail-panel";
 import type { StudioPersonDetailMode, StudioPersonDetailTab } from "./studio-person-detail-panel";
 
 export function StudioPersonDetailDialog({
@@ -71,6 +74,19 @@ export function StudioPersonDetailDialog({
     <StudioPersonDetailPanel
       defaultTab={defaultTab}
       enabled={open}
+      fallback={
+        open ? (
+          <Modal
+            onOpenChange={onOpenChange}
+            onOpenChangeComplete={onOpenChangeComplete}
+            open
+            size={mode === "resume" ? "2xl" : "full"}
+            title={mode === "resume" ? "候选人详情" : "AI 面试详情"}
+          >
+            <StudioPersonDetailPanelFallback />
+          </Modal>
+        ) : null
+      }
       mode={mode}
       onClose={() => onOpenChange(false)}
       onEdit={onEdit}

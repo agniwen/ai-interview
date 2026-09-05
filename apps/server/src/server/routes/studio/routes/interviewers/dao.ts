@@ -252,14 +252,6 @@ export async function queryPaginatedInterviewers(
   };
 }
 
-export function listInterviewers(
-  organizationId: string,
-  filters?: { textFilters?: string; search?: string | null; departmentId?: string | null },
-  pagination?: InterviewerPaginationInput,
-) {
-  return queryPaginatedInterviewers(organizationId, filters, pagination);
-}
-
 export async function listAllInterviewers(
   organizationId: string,
 ): Promise<InterviewerListRecord[]> {

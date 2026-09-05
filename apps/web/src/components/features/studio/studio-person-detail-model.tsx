@@ -182,6 +182,7 @@ export interface StudioPersonDetailControllerProps {
     initialOutcome?: "hired" | "rejected" | "withdrawn" | "archived";
   }) => void;
   onRequestReactivate?: (input: { id: string; candidateName: string | null }) => void;
+  onTabChange?: (tab: StudioPersonDetailTab) => void;
   onUpdated?: () => void;
   recordId?: string | null;
   roundId?: string | null;

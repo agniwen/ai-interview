@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +9,8 @@ import type {
 } from "@/lib/meeting-capture/live-transcript-draft";
 import { cn } from "@app/shared/utils";
 import { playTranscriptCorrectionSweep } from "./live-transcript-correction-sweep";
-import { MeetingSpeakerLabel } from "./meeting-speaker";
+import { createMeetingSpeakerProfiles, MeetingSpeakerLabel } from "./meeting-speaker";
+import type { MeetingSpeakerProfile } from "./meeting-speaker";
 
 const STATUS_LABEL = {
   buffering: "延迟",
@@ -43,11 +44,15 @@ function statusIcon(status: Exclude<LiveTranscriptDraftStatus, "idle">): string 
 }
 
 function TranscriptTurn({
+  highlightedTurnId,
   turn,
   playCorrectionSweep,
+  speakerProfile,
 }: {
+  highlightedTurnId?: string | null;
   turn: LiveTranscriptDraftTurn;
   playCorrectionSweep: typeof playTranscriptCorrectionSweep;
+  speakerProfile?: MeetingSpeakerProfile;
 }) {
   const blockRef = useRef<HTMLElement>(null);
   const gradientId = useId();
@@ -69,11 +74,13 @@ function TranscriptTurn({
       className={cn(
         "relative isolate grid w-full cursor-text gap-1 px-px py-1 text-left select-text",
         !turn.final && "text-muted-foreground italic",
+        turn.id === highlightedTurnId &&
+          "rounded-md bg-primary/8 ring-2 ring-primary/30 ring-offset-2 ring-offset-background",
       )}
       data-live-transcript-turn={turn.id}
       ref={blockRef}
     >
-      <MeetingSpeakerLabel className="not-italic" />
+      <MeetingSpeakerLabel className="not-italic" profile={speakerProfile} />
       <div className="flex items-start gap-2 text-sm leading-relaxed">
         {turn.correcting ? (
           <output
@@ -122,17 +129,21 @@ export function LiveTranscriptDraftPanel({
   className,
   embedded = false,
   emptyHint = "等待检测到语音…",
-  header,
+  highlightedTurnId,
   playCorrectionSweep = playTranscriptCorrectionSweep,
 }: {
   snapshot: LiveTranscriptDraftSnapshot;
   className?: string;
   embedded?: boolean;
   emptyHint?: string;
-  header?: ReactNode;
+  highlightedTurnId?: string | null;
   playCorrectionSweep?: typeof playTranscriptCorrectionSweep;
 }) {
   const { status } = snapshot;
+  const speakerProfiles = useMemo(
+    () => createMeetingSpeakerProfiles(snapshot.turns, snapshot.captureId ?? "live-transcript"),
+    [snapshot.captureId, snapshot.turns],
+  );
   const viewportRef = useRef<HTMLDivElement>(null);
   const shouldFollowRef = useRef(true);
 
@@ -172,7 +183,13 @@ export function LiveTranscriptDraftPanel({
     return (
       <div aria-live="polite" className={cn("grid select-text", className)}>
         {snapshot.turns.map((turn) => (
-          <TranscriptTurn key={turn.id} playCorrectionSweep={playCorrectionSweep} turn={turn} />
+          <TranscriptTurn
+            highlightedTurnId={highlightedTurnId}
+            key={turn.id}
+            playCorrectionSweep={playCorrectionSweep}
+            speakerProfile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
+            turn={turn}
+          />
         ))}
         {droppedWarning}
       </div>
@@ -182,7 +199,6 @@ export function LiveTranscriptDraftPanel({
   return (
     <section className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
       <div className="container mx-auto grid max-w-3xl gap-3 px-4 sm:px-6">
-        {header}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
@@ -244,7 +260,13 @@ export function LiveTranscriptDraftPanel({
         {snapshot.turns.length > 0 ? (
           <LiveTranscriptScrollContent className="grid select-text" aria-live="polite">
             {snapshot.turns.map((turn) => (
-              <TranscriptTurn key={turn.id} playCorrectionSweep={playCorrectionSweep} turn={turn} />
+              <TranscriptTurn
+                highlightedTurnId={highlightedTurnId}
+                key={turn.id}
+                playCorrectionSweep={playCorrectionSweep}
+                speakerProfile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
+                turn={turn}
+              />
             ))}
             {droppedWarning}
           </LiveTranscriptScrollContent>

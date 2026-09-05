@@ -273,6 +273,45 @@ describe("RoundCard rescheduling", () => {
 });
 
 describe("RoundCard interviewer arrangement", () => {
+  it.each(["ended", "scheduled", "in_progress", "cancelled"] as const)(
+    "exposes read-only meeting details only after ending (%s)",
+    (status) => {
+      const queryClient = new QueryClient();
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RoundCard
+              canCreate={false}
+              canDelete={false}
+              canUpdate={false}
+              disabled
+              dependencies={dependencies}
+              meeting={{ ...meeting, status }}
+              meetingDetailLink={<a href="https://example.test/meeting-detail">会议详情</a>}
+              round={{ ...round, outcome: "fail", status: "completed" }}
+              roundNumber={2}
+              slug="light"
+              onCancel={vi.fn()}
+              onComplete={vi.fn()}
+              onCreateMeeting={vi.fn()}
+              onEndMeeting={vi.fn()}
+              onOpenLinks={vi.fn()}
+              onRescheduled={vi.fn()}
+              onReview={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      expect(host.querySelector('a[href="https://example.test/meeting-detail"]') !== null).toBe(
+        status === "ended",
+      );
+      act(() => root.unmount());
+      queryClient.clear();
+    },
+  );
   it.each([
     ["inconclusive", true, false, true],
     ["inconclusive", false, false, false],
@@ -317,11 +356,12 @@ describe("RoundCard interviewer arrangement", () => {
       queryClient.clear();
     },
   );
-  it("shows one complete unified evaluation with submission status", () => {
+  it("shows the evaluation summary first and reveals complete details on demand", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
+    host.dataset.slot = "animated-height";
     const evaluation: HumanInterviewEvaluation = {
       detailedAnalysis: "完整详细分析内容",
       evidenceTurnIds: ["turn-1"],
@@ -370,6 +410,13 @@ describe("RoundCard interviewer arrangement", () => {
 
     expect(host.textContent).toContain("评价 · 已提交");
     expect(host.textContent).not.toContain("AI 评价");
+    expect(host.textContent).toContain("评级 · A");
+    expect(host.textContent).toContain("整体评价唯一整体评价内容");
+    expect(host.textContent).not.toContain("完整详细分析内容");
+    const disclosure = host.querySelector<HTMLButtonElement>("button[aria-expanded]");
+    expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
+    act(() => disclosure?.click());
+    expect(disclosure?.getAttribute("aria-expanded")).toBe("true");
     expect(host.textContent).toContain("评级A");
     expect(host.textContent).toContain("专业技能优");
     expect(host.textContent).not.toContain("具备完整的系统架构与前端工程化能力");
@@ -381,6 +428,10 @@ describe("RoundCard interviewer arrangement", () => {
     expect(host.textContent).toContain("整体评价唯一整体评价内容");
     expect(host.textContent).toContain("完整详细分析完整详细分析内容");
     expect(host.textContent?.match(/唯一整体评价内容/g)).toHaveLength(1);
+    act(() => disclosure?.click());
+    expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
+    expect(host.textContent).not.toContain("完整详细分析内容");
+    expect(host.textContent).toContain("整体评价唯一整体评价内容");
 
     act(() => root.unmount());
     queryClient.clear();
@@ -493,8 +544,9 @@ describe("RoundCard interviewer arrangement", () => {
       );
     });
 
-    expect(host.textContent).toContain("待确认人员已安排");
-    expect(host.textContent).toContain("已确认人员已安排");
+    expect(host.textContent).toContain("待确认人员");
+    expect(host.textContent).toContain("已确认人员");
+    expect(host.textContent).not.toContain("已安排");
     expect(host.textContent).toContain("旧时间人员安排已更新");
     expect(host.textContent).toContain("拒绝人员需联系 HR");
 

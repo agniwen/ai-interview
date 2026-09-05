@@ -359,7 +359,6 @@ async function processAccountGroup(
   });
 
   let releaseLock: (() => void) | undefined;
-  let primaryCause: unknown;
   let hasPrimaryFailure = false;
   try {
     await client.connect();
@@ -411,7 +410,6 @@ async function processAccountGroup(
     }
     return { result, tallies };
   } catch (error) {
-    primaryCause = error;
     hasPrimaryFailure = true;
     throw error;
   } finally {
@@ -442,7 +440,6 @@ async function processAccountGroup(
           errorName: error instanceof Error ? error.name : "UnknownError",
         });
       },
-      primaryCause,
     });
   }
 }

@@ -6,6 +6,8 @@ import { join } from "node:path";
 import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import {
   assertMeetingTranscriptionFfmpegAvailable,
+  candidateExclusionRanges,
+  isMixedMeetingRecordingSource,
   mergeMeetingTranscriptionChunkResults,
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
@@ -14,6 +16,7 @@ import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type {
   createMeetingTranscriptionDao,
   MeetingTranscriptionProvider,
+  MeetingRecognitionHints,
 } from "@app/meeting-processing/transcription";
 import {
   assertMeetingTranscriptionJobEndpoint,
@@ -27,7 +30,10 @@ import type { createRequestAutomaticMeetingIntelligence } from "@app/meeting-pro
 import type { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
 import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
-import type { MeetingTranscriptionSourceTrack } from "@app/shared/meeting-recording";
+import type {
+  MeetingTranscriptionSourceTrack,
+  RecordingIdentity,
+} from "@app/shared/meeting-recording";
 import pLimit from "p-limit";
 import { Context, Data, Effect, Layer } from "effect";
 import { retryTransientPromise } from "../effect/retry";
@@ -52,6 +58,7 @@ const MIN_DISK_HEADROOM_BYTES = 512 * 1024 * 1024;
 const STALE_DIRECTORY_AGE_MS = 24 * 60 * 60 * 1000;
 
 interface SourceAsset {
+  recordingIdentity?: RecordingIdentity | null;
   contentType: string;
   durationMs: number;
   sizeBytes: number;
@@ -70,6 +77,7 @@ interface TranscriptionSource {
 }
 
 interface PrepareChunkSource {
+  recordingIdentity?: RecordingIdentity;
   durationMs: number;
   filePath: string;
   segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
@@ -77,7 +85,16 @@ interface PrepareChunkSource {
   track: MeetingTranscriptionSourceTrack;
 }
 
+// Playback is the persisted Desktop mix; downstream transcription calls the same concept `mixed`.
+function asMixedTranscriptionSource(source: SourceAsset): SourceAsset {
+  return { ...source, track: "mixed" };
+}
+
 function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscriptionSourceTrack {
+  if (/^participant-[a-zA-Z0-9-]+$/.test(track)) {
+    // SAFETY: the anchored pattern establishes the participant source-track contract.
+    return track as `participant-${string}`;
+  }
   if (track === "microphone" || track === "mixed" || track === "system" || track === "candidate") {
     return track;
   }
@@ -99,11 +116,13 @@ export interface MeetingTranscriptionDependencies {
     typeof createMeetingTranscriptionDao
   >["markMeetingTranscriptionChunkFailed"];
   prepareChunks: (input: {
+    chunkDurationMs?: number;
     directory: string;
     sources: PrepareChunkSource[];
   }) => Promise<FinalTranscriptionAudioChunk[]>;
   provider: MeetingTranscriptionProvider;
   providerForJob?: (input: MeetingTranscriptionJobData) => MeetingTranscriptionProvider;
+  recognitionHintsForJob?: (input: MeetingTranscriptionJobData) => Promise<MeetingRecognitionHints>;
   publish: ReturnType<typeof createMeetingTranscriptionDao>["publishMeetingTranscript"];
   requestIntelligence: ReturnType<typeof createRequestAutomaticMeetingIntelligence>;
   requestHumanEvaluation: ReturnType<typeof createRequestAutomaticHumanInterviewEvaluation>;
@@ -197,6 +216,7 @@ type MeetingTranscriptionRuntimeAdapters = Pick<
   | "markChunkFailed"
   | "markFailed"
   | "publish"
+  | "recognitionHintsForJob"
   | "requestIntelligence"
   | "requestHumanEvaluation"
   | "saveChunkCheckpoint"
@@ -271,6 +291,7 @@ async function transcribeChunk(input: {
   dependencies: MeetingTranscriptionDependencies;
   job: MeetingTranscriptionJobData;
   processingRunId: string;
+  loadRecognitionHints: () => Promise<MeetingRecognitionHints | undefined>;
 }): Promise<CanonicalMeetingTranscript | null> {
   const chunkClaim = await input.dependencies.claimChunk(
     { ...input.job, processingRunId: input.processingRunId },
@@ -292,6 +313,7 @@ async function transcribeChunk(input: {
       chunks: [input.chunk],
       languageHint: null,
       model: input.job.model,
+      recognitionHints: await input.loadRecognitionHints(),
       region: input.job.region,
     });
   } catch (error) {
@@ -388,18 +410,49 @@ async function runMeetingTranscriptionProcessingPromise(
     return;
   }
   let workingDirectory: string | null = null;
-  let primaryCause: unknown;
   let hasPrimaryFailure = false;
+  let recognitionHintsPromise: Promise<MeetingRecognitionHints | undefined> | undefined;
+  const loadRecognitionHints = () => {
+    recognitionHintsPromise ??= (async () => {
+      if (!input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")) {
+        return;
+      }
+      try {
+        return await dependencies.recognitionHintsForJob?.(input);
+      } catch (error) {
+        console.warn(
+          "[meeting-transcription-worker] recognition hints unavailable; continuing without hints",
+          {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+            meetingId: input.meetingId,
+          },
+        );
+      }
+    })();
+    return recognitionHintsPromise;
+  };
   try {
     if (meeting.manifestSha256 !== input.sourceManifestSha256) {
       throw new Error("Meeting Recording 清单已变化");
     }
     const mixed = meeting.assets.find((asset) => asset.track === "mixed");
+    const playback = meeting.assets.find((asset) => asset.track === "playback");
     const candidate = meeting.assets.find((asset) => asset.track === "candidate");
     const microphone = meeting.assets.find((asset) => asset.track === "microphone");
     const system = meeting.assets.find((asset) => asset.track === "system");
-    const sources = mixed?.status === "ready" ? [mixed] : [];
-    if (sources.length > 0 && candidate?.status === "ready") {
+    const identityRecording = meeting.assets.some((asset) => asset.recordingIdentity);
+    const roomMixes = meeting.assets.filter(isMixedMeetingRecordingSource);
+    let sources = mixed?.status === "ready" ? [mixed] : [];
+    if (identityRecording) {
+      sources = meeting.assets.filter(
+        (asset) =>
+          asset.status === "ready" &&
+          (asset.track === "mixed" || asset.track.startsWith("participant-")),
+      );
+    }
+    if (!identityRecording && playback?.status === "ready") {
+      sources = [asMixedTranscriptionSource(playback)];
+    } else if (!identityRecording && sources.length > 0 && candidate?.status === "ready") {
       sources.push(candidate);
     }
     if (sources.length === 0 && microphone?.status === "ready" && system?.status === "ready") {
@@ -418,6 +471,7 @@ async function runMeetingTranscriptionProcessingPromise(
     ) {
       throw new Error("Meeting Recording 超出最终转录的资源预算");
     }
+    const failedRanges: { startMs: number; endMs: number }[] = [];
     const prepared = await dependencies.withMediaPermit(sourceBytes * 2, async (reservedBytes) => {
       const directory = await dependencies.createWorkingDirectory();
       workingDirectory = directory;
@@ -425,30 +479,66 @@ async function runMeetingTranscriptionProcessingPromise(
       const preparedSources = sources.map((source) => ({
         durationMs: source.durationMs,
         filePath: join(directory, `${source.track}-source.media`),
+        recordingIdentity: source.recordingIdentity ?? undefined,
         segments: source.segments,
         speakerDisplayName: source.speakerDisplayName ?? undefined,
         storageKey: source.storageKey,
         track: parseMeetingTranscriptionSourceTrack(source.track),
       }));
-      await settleAllOrThrow(
+      const downloaded = await settleAllOrThrow(
         preparedSources.map(async (source) => {
-          await retryTransientPromise(() =>
-            dependencies.downloadSource({
-              filePath: source.filePath,
-              storageKey: source.storageKey,
-            }),
-          );
+          try {
+            await retryTransientPromise(() =>
+              dependencies.downloadSource({
+                filePath: source.filePath,
+                storageKey: source.storageKey,
+              }),
+            );
+            return source;
+          } catch (error) {
+            if (!identityRecording || context.attempt < context.maxAttempts) {
+              throw error;
+            }
+            failedRanges.push({
+              endMs: (source.recordingIdentity?.offsetMs ?? 0) + source.durationMs,
+              startMs: source.recordingIdentity?.offsetMs ?? 0,
+            });
+            return null;
+          }
         }),
       );
+      const available = downloaded.filter((source) => source !== null);
+      const chunkSources = available.map((source) => ({
+        durationMs: source.durationMs,
+        filePath: source.filePath,
+        recordingIdentity: source.recordingIdentity,
+        segments: source.segments,
+        speakerDisplayName: source.speakerDisplayName,
+        track: source.track,
+      }));
+      if (identityRecording) {
+        const chunks: FinalTranscriptionAudioChunk[] = [];
+        for (const source of chunkSources) {
+          try {
+            chunks.push(...(await dependencies.prepareChunks({ directory, sources: [source] })));
+          } catch (error) {
+            if (context.attempt < context.maxAttempts) {
+              throw error;
+            }
+            failedRanges.push({
+              endMs: (source.recordingIdentity?.offsetMs ?? 0) + source.durationMs,
+              startMs: source.recordingIdentity?.offsetMs ?? 0,
+            });
+          }
+        }
+        return { chunks };
+      }
       const chunks = await dependencies.prepareChunks({
+        chunkDurationMs: input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")
+          ? MAX_DURATION_MS
+          : undefined,
         directory,
-        sources: preparedSources.map((source) => ({
-          durationMs: source.durationMs,
-          filePath: source.filePath,
-          segments: source.segments,
-          speakerDisplayName: source.speakerDisplayName,
-          track: source.track,
-        })),
+        sources: chunkSources,
       });
       return { chunks };
     });
@@ -456,23 +546,143 @@ async function runMeetingTranscriptionProcessingPromise(
       chunk: FinalTranscriptionAudioChunk;
       transcript: CanonicalMeetingTranscript;
     }[] = [];
-    for (const chunk of prepared.chunks) {
-      const transcript = await transcribeChunk({
-        chunk,
-        dependencies,
-        job: input,
-        processingRunId,
-      });
-      if (!transcript) {
-        return;
+    const primaryChunks = identityRecording
+      ? prepared.chunks.filter((chunk) => !isMixedMeetingRecordingSource(chunk))
+      : prepared.chunks;
+    for (const chunk of primaryChunks) {
+      try {
+        const transcript = await transcribeChunk({
+          chunk,
+          dependencies,
+          job: input,
+          loadRecognitionHints,
+          processingRunId,
+        });
+        if (!transcript) {
+          return;
+        }
+        chunkResults.push({ chunk, transcript });
+      } catch (error) {
+        if (!identityRecording || context.attempt < context.maxAttempts) {
+          throw error;
+        }
+        failedRanges.push({ endMs: chunk.endMs, startMs: chunk.startMs });
       }
-      chunkResults.push({ chunk, transcript });
     }
-    const transcript = mergeMeetingTranscriptionChunkResults(chunkResults);
+    let hasUnrecoveredAudio = false;
+    if (identityRecording) {
+      const ranges = [
+        ...roomMixes.flatMap((source) => source.recordingIdentity?.recoveryRanges ?? []),
+        ...failedRanges,
+      ];
+      if (primaryChunks.length === 0) {
+        ranges.push({
+          endMs: Math.max(
+            ...sources.map(
+              (source) => (source.recordingIdentity?.offsetMs ?? 0) + source.durationMs,
+            ),
+          ),
+          startMs: 0,
+        });
+      }
+      for (const chunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
+        if (!ranges.some((range) => range.startMs < chunk.endMs && range.endMs > chunk.startMs)) {
+          continue;
+        }
+        try {
+          const recovered = await transcribeChunk({
+            chunk,
+            dependencies,
+            job: input,
+            loadRecognitionHints,
+            processingRunId,
+          });
+          if (!recovered) {
+            return;
+          }
+          chunkResults.push({
+            chunk,
+            transcript: {
+              ...recovered,
+              turns: recovered.turns.filter((turn) =>
+                ranges.some((range) => turn.startMs < range.endMs && turn.endMs > range.startMs),
+              ),
+            },
+          });
+        } catch (error) {
+          if (context.attempt < context.maxAttempts || chunkResults.length === 0) {
+            throw error;
+          }
+        }
+      }
+      if (chunkResults.length === 0) {
+        throw new Error("录音转录与全场补救均失败，可手动提交评价");
+      }
+      // A requested recovery range is not a loss if successful room ASR covered it,
+      // including silence. Keep warnings for ranges that no successful recovery covered.
+      const recoveredChunks = chunkResults
+        .filter(({ chunk }) => isMixedMeetingRecordingSource(chunk))
+        .map(({ chunk }) => chunk)
+        .toSorted((left, right) => left.startMs - right.startMs);
+      hasUnrecoveredAudio = ranges.some((range) => {
+        // Separate egress tracks can start a fraction of a second apart. A subsecond
+        // opening offset before the room mix starts is not a failed recording/ASR job.
+        const briefStartupOffset =
+          range.startMs === 0 &&
+          range.endMs <= 1000 &&
+          failedRanges.length === 0 &&
+          prepared.chunks.some(
+            (chunk) => isMixedMeetingRecordingSource(chunk) && chunk.startMs > range.endMs,
+          ) &&
+          ["candidate", "interviewer"].every((role) =>
+            chunkResults.some(
+              ({ chunk }) =>
+                chunk.recordingIdentity?.role === role &&
+                chunk.startMs <= range.endMs &&
+                chunk.endMs > range.endMs,
+            ),
+          );
+        if (briefStartupOffset) {
+          return false;
+        }
+        let coveredUntil = range.startMs;
+        for (const chunk of recoveredChunks) {
+          if (chunk.startMs > coveredUntil) {
+            break;
+          }
+          coveredUntil = Math.max(coveredUntil, chunk.endMs);
+        }
+        return coveredUntil < range.endMs;
+      });
+    }
+    const exclusions = candidateExclusionRanges(
+      sources.flatMap((source) =>
+        source.recordingIdentity?.role === "candidate"
+          ? [
+              {
+                endMs: source.recordingIdentity.offsetMs + source.durationMs,
+                silenceRanges: source.recordingIdentity.silenceRanges ?? [],
+                sourceId: source.recordingIdentity.sourceId,
+                startMs: source.recordingIdentity.offsetMs,
+              },
+            ]
+          : [],
+      ),
+    );
+    const transcript = mergeMeetingTranscriptionChunkResults(chunkResults, exclusions);
+    let warning: string | undefined;
+    if (
+      identityRecording &&
+      (hasUnrecoveredAudio || transcript.turns.some((turn) => turn.attribution?.role === "unknown"))
+    ) {
+      warning =
+        "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；待确认发言不作为候选人能力证据。";
+    }
     const published = await dependencies.publish({
       ...input,
       processingRunId,
       transcript,
+      warning,
     });
     if (published) {
       await requestAutomaticIntelligenceBestEffort({
@@ -487,10 +697,20 @@ async function runMeetingTranscriptionProcessingPromise(
       });
     }
   } catch (error) {
-    primaryCause = error;
     hasPrimaryFailure = true;
     const errorMessage =
       error instanceof Error ? error.message : "Meeting transcription processing failed";
+    console.error(
+      "[meeting-transcription-worker] processing failed",
+      {
+        attempt: context.attempt,
+        errorMessage,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        meetingId: input.meetingId,
+        processingRunId,
+      },
+      error,
+    );
     try {
       await dependencies.markFailed({
         ...input,
@@ -525,7 +745,6 @@ async function runMeetingTranscriptionProcessingPromise(
             processingRunId,
           });
         },
-        primaryCause,
       });
     }
   }

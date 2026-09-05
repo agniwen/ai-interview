@@ -874,7 +874,7 @@ describe("human interview meetings DAO", () => {
         evaluation,
         meetingSessionId: null,
         organizationId: ORG,
-        outcome: "inconclusive",
+        outcome: "pass",
         roundId: round.id,
         transcriptRevisionId: null,
       }),
@@ -908,7 +908,7 @@ describe("human interview meetings DAO", () => {
       evaluation,
       evaluationStatus: "submitted",
       evaluationTranscriptRevisionId: null,
-      outcome: "inconclusive",
+      outcome: "pass",
       status: "completed",
     });
     const snapshots = await listHumanInterviewEvaluationSnapshotsForAnalysis({

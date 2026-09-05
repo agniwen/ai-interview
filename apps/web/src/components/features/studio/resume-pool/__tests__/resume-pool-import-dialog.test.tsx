@@ -69,6 +69,68 @@ afterEach(() => {
 });
 
 describe("ImportResumePoolDialog", () => {
+  it("uses the standard modal body and footer for duplicate confirmation", async () => {
+    importResumePoolItemMock.mockResolvedValue({
+      matches: [
+        {
+          candidateEmail: "duplicate@example.com",
+          candidateName: "疑似候选人",
+          candidatePhone: "13800138000",
+          createdAt: "2026-08-11T03:15:00.000Z",
+          id: "duplicate-resume-1",
+          jobDescriptionName: "内容运营经理",
+          status: "active",
+          targetRole: "内容运营经理",
+        },
+      ],
+      status: "duplicate_found",
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ImportResumePoolDialog
+            dependencies={dependencies}
+            item={{ ...importedItem, importedRecords: [], importedResumeRecordId: null }}
+            onImported={vi.fn()}
+            onOpenChange={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const confirmButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("确认创建"),
+    );
+    await act(async () => {
+      confirmButton?.click();
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("招聘台中可能已有相同候选人");
+    });
+    expect(document.querySelector('[data-slot="alert-dialog-content"]')).toBeNull();
+    const modalBodies = document.querySelectorAll<HTMLElement>('[data-slot="modal-body"]');
+    const duplicateModalBody = modalBodies.item(modalBodies.length - 1);
+    const forceImportButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("仍然入库"),
+    );
+    expect(duplicateModalBody.textContent).toContain("疑似候选人");
+    expect(duplicateModalBody.contains(forceImportButton ?? null)).toBe(false);
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
+  });
+
   it("preserves user choices when the source job option arrives later", async () => {
     importResumePoolItemMock.mockResolvedValue({
       resumeRecordId: "resume-record-new",

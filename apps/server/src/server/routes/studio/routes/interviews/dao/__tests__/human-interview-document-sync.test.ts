@@ -92,6 +92,76 @@ afterAll(async () => {
   await db.delete(user).where(eq(user.id, actor));
 });
 describe("human interview document outbox", () => {
+  it("maps custom round labels by business order, excluding cancelled rounds and CEO interviews", async () => {
+    const id = await seed();
+    const previous = [
+      { label: "业务一面", status: "completed" as const },
+      { label: "已取消的二面", status: "cancelled" as const },
+      { label: "CEO面试", status: "completed" as const },
+    ].map((round, sortOrder) => ({
+      ...round,
+      format: "online" as const,
+      id: `${id}-previous-${sortOrder}`,
+      interviewRecordId: candidate,
+      organizationId: org,
+      sortOrder,
+    }));
+    try {
+      await db.insert(studioHumanInterviewRound).values(previous);
+      await db
+        .update(studioHumanInterviewRound)
+        .set({ label: "业务一面后面的二面", sortOrder: 3 })
+        .where(eq(studioHumanInterviewRound.id, id));
+      await db
+        .update(humanInterviewDocumentSync)
+        .set({
+          documentId: "ordinal-document",
+          documentUrl: "https://feishu.cn/docx/ordinal-document",
+          providerId: "feishu",
+        })
+        .where(eq(humanInterviewDocumentSync.snapshotId, id));
+      const job = await dao.claim();
+      expect(job).toMatchObject({ roundLabel: "业务二面", snapshotId: id });
+      if (!job || job === "deferred") {
+        throw new Error("missing job");
+      }
+      await dao.saveBlock(job, "existing-business-two");
+      await dao.finish(job, { error: "retry", status: "failed" });
+      await dao.retry({ organizationId: org, roundId: id });
+      const retry = await dao.claim();
+      expect(retry).toMatchObject({ blockId: "existing-business-two", roundLabel: "业务二面" });
+      if (!retry || retry === "deferred") {
+        throw new Error("missing retry");
+      }
+      await dao.finish(retry, { error: null, status: "synced" });
+    } finally {
+      await db
+        .delete(studioHumanInterviewRound)
+        .where(inArray(studioHumanInterviewRound.id, [id, ...previous.map((round) => round.id)]));
+    }
+  });
+
+  it("preserves the dedicated CEO template identity", async () => {
+    const id = await seed();
+    try {
+      await db
+        .update(studioHumanInterviewRound)
+        .set({ label: "CEO面试", sortOrder: 4 })
+        .where(eq(studioHumanInterviewRound.id, id));
+      await db
+        .update(humanInterviewDocumentSync)
+        .set({
+          documentId: "ceo-document",
+          documentUrl: "https://feishu.cn/docx/ceo-document",
+          providerId: "feishu",
+        })
+        .where(eq(humanInterviewDocumentSync.snapshotId, id));
+      expect(await dao.claim()).toMatchObject({ roundLabel: "CEO面试", snapshotId: id });
+    } finally {
+      await db.delete(studioHumanInterviewRound).where(eq(studioHumanInterviewRound.id, id));
+    }
+  });
+
   it("processes a ready task in the same poll after postponing a task without a document", async () => {
     const waitingId = await seed();
     const readyId = await seed();

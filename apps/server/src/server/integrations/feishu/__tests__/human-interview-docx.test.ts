@@ -150,23 +150,32 @@ describe("human interview document block sync", () => {
     expect(JSON.parse(String(creation?.[1]?.body))).toMatchObject({ index });
   });
 
-  it.each(["业务一面", "CEO面试"])("does not overwrite a filled %s section", async (roundLabel) => {
-    const fetcher = vi.fn(() =>
+  it("keeps a new business section before HRD even with a legacy misplaced section", async () => {
+    const fetcher = vi.fn((_url: RequestInfo | URL, init?: RequestInit) =>
       Promise.resolve(
-        Response.json({
-          code: 0,
-          data: {
-            items: [
-              { block_id: "doc", block_type: 1, children: ["manual"] },
-              { block_id: "manual", block_type: 19, children: ["title", "body"] },
-              { block_id: "title", ...text(`${roundLabel}评价`) },
-              { block_id: "body", ...text("面试官在飞书填写的内容") },
-            ],
-          },
-        }),
+        init?.method === "GET"
+          ? Response.json({
+              code: 0,
+              data: {
+                items: [
+                  { block_id: "doc", block_type: 1, children: ["one", "hrd", "ceo", "two"] },
+                  ...["业务一面评价", "HRD面试评价", "CEO面试评价", "业务二面评价"].flatMap(
+                    (title, i) => [
+                      {
+                        block_id: ["one", "hrd", "ceo", "two"][i],
+                        block_type: 19,
+                        children: [`title-${i}`],
+                      },
+                      { block_id: `title-${i}`, ...text(title) },
+                    ],
+                  ),
+                ],
+              },
+            })
+          : Response.json({ code: 0, data: { children: [{ block_id: "created" }] } }),
       ),
     );
-    const checkpoint = vi.fn();
+    // Stop at the durable checkpoint; assert the external insertion request.
     await expect(
       updateFeishuDocxHumanInterviewEvaluation(
         {
@@ -174,18 +183,58 @@ describe("human interview document block sync", () => {
           block,
           blockId: null,
           documentId: "doc",
-          onBlockCreated: checkpoint,
-          roundLabel,
+          onBlockCreated: () => {
+            throw new Error("checkpoint");
+          },
+          roundLabel: "业务三面",
           snapshotId: "snapshot",
         },
-        { fetcher, sleep: () => Promise.resolve() },
+        { fetcher, sleep: async () => {} },
       ),
-    ).rejects.toThrow("已有内容");
-    expect(checkpoint).not.toHaveBeenCalled();
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow("checkpoint");
+    const creation = fetcher.mock.calls.find(([, init]) => init?.method === "POST");
+    expect(JSON.parse(String(creation?.[1]?.body))).toMatchObject({ index: 1 });
   });
 
-  it.each(["业务一面", "CEO面试"])(
+  it.each(["业务一面", "业务二面", "CEO面试"])(
+    "does not overwrite a filled %s section",
+    async (roundLabel) => {
+      const fetcher = vi.fn(() =>
+        Promise.resolve(
+          Response.json({
+            code: 0,
+            data: {
+              items: [
+                { block_id: "doc", block_type: 1, children: ["manual"] },
+                { block_id: "manual", block_type: 19, children: ["title", "body"] },
+                { block_id: "title", ...text(`${roundLabel}评价`) },
+                { block_id: "body", ...text("面试官在飞书填写的内容") },
+              ],
+            },
+          }),
+        ),
+      );
+      const checkpoint = vi.fn();
+      await expect(
+        updateFeishuDocxHumanInterviewEvaluation(
+          {
+            accessToken: "token",
+            block,
+            blockId: null,
+            documentId: "doc",
+            onBlockCreated: checkpoint,
+            roundLabel,
+            snapshotId: "snapshot",
+          },
+          { fetcher, sleep: () => Promise.resolve() },
+        ),
+      ).rejects.toThrow("已有内容");
+      expect(checkpoint).not.toHaveBeenCalled();
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(["业务一面", "业务二面", "CEO面试"])(
     "links %s to its untouched template without a duplicate",
     async (roundLabel) => {
       const fields = roundLabel === "CEO面试" ? [] : INTERVIEW_STAGE_PLACEHOLDER_FIELDS;

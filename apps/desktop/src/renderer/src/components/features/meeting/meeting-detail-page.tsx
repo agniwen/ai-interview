@@ -42,9 +42,12 @@ import {
 import type { MeetingPostSaveStep } from "./meeting-detail-helpers";
 import { canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
+import { MeetingLiveSessionStage } from "./meeting-live-session-stage";
+import { MeetingCompletedContentStage } from "./meeting-completed-content-stage";
 import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
 import {
   useMeetingCaptureSnapshot,
+  useMeetingLiveSummary,
   useMeetingLiveTranscriptDraft,
   useMeetingRecordingActions,
 } from "./meeting-recording-context";
@@ -95,14 +98,6 @@ function storedDraftSnapshot(
   };
 }
 
-function SessionDraftBadge() {
-  return (
-    <span className="w-fit rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
-      录制草稿
-    </span>
-  );
-}
-
 function sessionComposer(input: {
   interrupted: boolean;
   onContinueInterrupted: () => void;
@@ -151,13 +146,6 @@ export function MeetingLocalTranscriptStage({
 
 const MORE_LABEL_MIN_WIDTH_PX = 62 * 16;
 
-function meetingDetailContentClassName(showPlaybackBar: boolean): string {
-  if (showPlaybackBar) {
-    return "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-24 sm:px-6";
-  }
-  return "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6";
-}
-
 function sessionStatusAlertTitle(id: MeetingPostSaveStep["id"]): string {
   if (id === "upload") {
     return "上传失败";
@@ -191,7 +179,7 @@ function MeetingMoreEntryButton({ meetingId }: { meetingId: string }) {
           render={
             <Button
               aria-label="查看更多"
-              className="absolute top-4 right-4 z-20 inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 font-normal text-[13px] leading-none text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:bg-background dark:hover:bg-sidebar-accent @[62rem]:border-transparent @[62rem]:px-2.5 [&_svg]:block"
+              className="absolute top-12 right-4 z-20 inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 font-normal text-[13px] leading-none text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:bg-background dark:hover:bg-sidebar-accent @[62rem]:border-transparent @[62rem]:px-2.5 [&_svg]:block"
               nativeButton={false}
               ref={setTrigger}
               render={<Link params={{ meetingId }} to="/meetings/$meetingId/more" />}
@@ -216,7 +204,6 @@ function MeetingMoreEntryButton({ meetingId }: { meetingId: string }) {
 
 function MeetingDetailHeader({
   canRename,
-  draftBadge,
   editingTitle,
   isEditingTitle,
   meeting,
@@ -235,7 +222,6 @@ function MeetingDetailHeader({
   title,
 }: {
   canRename: boolean;
-  draftBadge?: ReactNode;
   editingTitle: string;
   isEditingTitle: boolean;
   meeting: MeetingDetail | undefined;
@@ -317,7 +303,6 @@ function MeetingDetailHeader({
       {status && !status.failed ? (
         <p className="text-muted-foreground text-xs">{status.label}</p>
       ) : null}
-      {draftBadge}
     </header>
   );
 }
@@ -339,6 +324,7 @@ export function MeetingDetailPage({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const captureSnapshot = useMeetingCaptureSnapshot();
   const liveDraft = useMeetingLiveTranscriptDraft();
+  const liveSummary = useMeetingLiveSummary();
   const { continueInterruptedRecording, pauseRecording, resumeRecording, saveRecording } =
     useMeetingRecordingActions();
 
@@ -444,13 +430,9 @@ export function MeetingDetailPage({
   const canRename = Boolean(
     localSession || (meeting && canManageMeetingLifecycle(meeting.accessRole)),
   );
-  const renderDetailHeader = (
-    status: MeetingPostSaveStep | null,
-    draftBadge?: ReactNode,
-  ): ReactNode => (
+  const renderDetailHeader = (status: MeetingPostSaveStep | null): ReactNode => (
     <MeetingDetailHeader
       canRename={canRename}
-      draftBadge={draftBadge}
       editingTitle={editingTitle}
       isEditingTitle={isEditingTitle}
       meeting={meeting ?? undefined}
@@ -508,8 +490,7 @@ export function MeetingDetailPage({
 
   if (isActiveCapture) {
     return (
-      <MeetingRecordingSessionLayout
-        composerClassName="max-w-2xl"
+      <MeetingLiveSessionStage
         composer={
           <MeetingCaptureComposer
             onPause={pauseRecording}
@@ -518,7 +499,9 @@ export function MeetingDetailPage({
             snapshot={captureSnapshot}
           />
         }
-        main={<LiveTranscriptDraftPanel header={renderDetailHeader(null)} snapshot={liveDraft} />}
+        header={renderDetailHeader(null)}
+        summary={liveSummary}
+        transcript={liveDraft}
       />
     );
   }
@@ -543,6 +526,10 @@ export function MeetingDetailPage({
   const localDraft = localSession
     ? storedDraftSnapshot(meetingId, localSession.liveTranscriptDraft, localSession.state)
     : null;
+  const remoteLiveDraft = transcriptQuery.data?.draft
+    ? storedDraftSnapshot(meetingId, transcriptQuery.data.draft, "saved-local")
+    : null;
+  const completedSummary = meeting?.liveSummary ?? localSession?.liveSummary ?? null;
   const isCompletedSession = Boolean(
     meeting ||
     (localSession && !["recording", "paused", "interrupted"].includes(localSession.state)),
@@ -552,23 +539,32 @@ export function MeetingDetailPage({
     workspaceSave && workspaceSave.state !== "workspace-verified"
       ? (workspaceSave.error ?? localWorkspaceSaveLabel(workspaceSave.state))
       : undefined;
-  const showDraftBadge =
-    (transcriptQuery.data?.draft?.turns.length ?? 0) > 0 || (localDraft?.turns.length ?? 0) > 0;
   const playback = playbackQuery.data;
   const isInterruptedSession = localSession?.state === "interrupted";
-  const showPlaybackBar = Boolean(playback) && !isInterruptedSession;
   const status = sessionDetailStatus({
     playbackState: meeting?.processingState,
     transcript: transcriptQuery.data,
     uploadFailed: workspaceSave?.state === "action-required",
     uploadLabel,
   });
+  let completedTranscript: ReactNode = <MeetingLocalTranscriptStage localDraft={localDraft} />;
+  if (remoteLiveDraft) {
+    completedTranscript = <LiveTranscriptDraftPanel embedded snapshot={remoteLiveDraft} />;
+  } else if (meeting) {
+    completedTranscript = (
+      <MeetingTranscriptStage
+        error={transcriptQuery.error}
+        result={transcriptQuery.data}
+        speakerScopeId={meetingId}
+      />
+    );
+  }
 
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
       {isInitialLoading ? null : (
         <MeetingRecordingSessionLayout
-          composerClassName={isInterruptedSession ? "max-w-2xl" : undefined}
+          composerClassName="max-w-2xl"
           composer={sessionComposer({
             interrupted: isInterruptedSession,
             onContinueInterrupted: () => {
@@ -581,23 +577,16 @@ export function MeetingDetailPage({
             playback,
             seekToSeconds,
           })}
+          header={renderDetailHeader(status)}
           overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
           main={
             isInterruptedSession && localDraft ? (
-              <LiveTranscriptDraftPanel header={renderDetailHeader(status)} snapshot={localDraft} />
+              <LiveTranscriptDraftPanel snapshot={localDraft} />
             ) : (
-              <div className={meetingDetailContentClassName(showPlaybackBar)}>
-                {renderDetailHeader(status, showDraftBadge ? <SessionDraftBadge /> : null)}
-                {meeting ? (
-                  <MeetingTranscriptStage
-                    error={transcriptQuery.error}
-                    result={transcriptQuery.data}
-                    speakerScopeId={meetingId}
-                  />
-                ) : (
-                  <MeetingLocalTranscriptStage localDraft={localDraft} />
-                )}
-              </div>
+              <MeetingCompletedContentStage
+                summary={completedSummary}
+                transcript={completedTranscript}
+              />
             )
           }
           scrollFade={isCompletedSession}

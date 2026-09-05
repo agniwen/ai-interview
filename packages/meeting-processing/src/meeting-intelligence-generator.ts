@@ -10,7 +10,9 @@ import {
   MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION,
   MeetingIntelligenceTerminalError,
   createMeetingIntelligenceLeaseLostError,
+  generalMeetingIntelligenceSchema,
   meetingIntelligencePayloadSchema,
+  recruitingMeetingIntelligenceSchema,
   validateMeetingIntelligenceEvidence,
 } from "@app/shared/meeting-intelligence";
 import type {
@@ -60,6 +62,8 @@ const GENERAL_TEMPLATE_INSTRUCTIONS = `使用 General Meeting 模板：
 const RECRUITING_TEMPLATE_INSTRUCTIONS = `使用 Recruiting Interview 模板：
 - summary：面试内容摘要；
 - candidateStatements：候选人或面试官陈述，明确 attribution，并区分 stated 与 needs-verification；
+- attribution 只能是 candidate、interviewer 或 unknown，不得填写展示名；verification 必须填写 stated 或 needs-verification。stated 仅表示当事人自述，不表示已经核实；
+- 自动转录的术语、项目名或数字可能识别有误，不得据此推断候选人的沟通或专业能力；有歧义时放入 verificationItems 待核验，不得擅自改写为事实；
 - keyExperience：与候选人经验有关的原文事实；
 - verificationItems：仍需核验的信息；
 - followUpActions：后续行动，未明确负责人或截止时间时填 null；
@@ -203,7 +207,11 @@ async function generatePayload(input: {
   return await generateStructuredWithMastraAgent({
     agent: input.agent,
     maxOutputTokens: input.maxOutputTokens,
-    prompt: input.prompt,
+    observabilityLabel: "meeting-intelligence",
+    prompt: `输出必须是下面 JSON Schema 定义的单个对象，包含全部必填字段，不得增加字段。没有条目的列表返回 []，未明确的负责人和截止时间返回 null。不要返回 Schema 本身：
+${JSON.stringify(z.toJSONSchema(input.template === "general" ? generalMeetingIntelligenceSchema : recruitingMeetingIntelligenceSchema, { io: "input" }))}
+
+${input.prompt}`,
     retryOnInvalid: true,
     schema: meetingIntelligencePayloadSchema,
     temperature: 0.1,
@@ -358,9 +366,13 @@ async function assertRecruitingDecisionPolicy(
   const decision = await generateStructuredWithMastraAgent({
     agent,
     maxOutputTokens: 500,
+    observabilityLabel: "meeting-intelligence-decision-policy",
     prompt: `判断下面的 Recruiting Interview intelligence 是否包含系统对候选人的招聘决定或建议。
 
 以下都必须分类为 hiring-decision：录用/拒绝/淘汰/通过/不通过；建议、推荐或决定推进候选人；move forward、advance、proceed、进入下一轮或下一阶段。仅复述候选人过去的事实或资格时分类为 allowed。
+
+必须返回下面 JSON Schema 定义的对象，包含 classification 和 reason，不要返回 Schema 本身：
+${JSON.stringify(z.toJSONSchema(decisionPolicyResultSchema, { io: "input" }))}
 
 Intelligence JSON：
 ${JSON.stringify(content)}`,

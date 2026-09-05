@@ -16,6 +16,8 @@ import type {
 import { MEETING_MULTIPART_PART_BYTES } from "@app/shared/meeting-recording";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import { formatDefaultMeetingTitle } from "@app/shared/utils/time";
 import {
   describeLocalMeetingMultipart,
@@ -112,6 +114,7 @@ const storedManifestSchema = z.object({
   }),
   endedAt: isoDateSchema.nullable(),
   fragments: z.array(storedFragmentSchema),
+  liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
   liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
   manifestSha256: z
     .string()
@@ -335,6 +338,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       },
       endedAt: null,
       fragments: [],
+      liveSummary: null,
       liveTranscriptDraft: null,
       manifestVersion: MANIFEST_VERSION,
       possibleTailGap: false,
@@ -461,6 +465,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   save(
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+    liveSummary?: MeetingLiveSummarySnapshot | null,
   ): Promise<LocalSavedMeeting> {
     return this.enqueue(captureId, async () => {
       let manifest = await this.readManifest(captureId);
@@ -483,7 +488,15 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         manifest.liveTranscriptDraft ??
         this.sessionStore.get(captureId)?.liveTranscriptDraft ??
         null;
-      manifest = parseStoredManifest({ ...manifest, liveTranscriptDraft: durableDraft }, captureId);
+      const durableSummary =
+        liveSummary ??
+        manifest.liveSummary ??
+        this.sessionStore.get(captureId)?.liveSummary ??
+        null;
+      manifest = parseStoredManifest(
+        { ...manifest, liveSummary: durableSummary, liveTranscriptDraft: durableDraft },
+        captureId,
+      );
       manifest.possibleTailGap = manifest.status === "interrupted";
       manifest.savedAt = savedAt;
       manifest.status = "saved-local";
@@ -501,6 +514,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       await this.releaseActiveLock(captureId);
       this.sessionStore.update(captureId, {
         endedAt: savedAt,
+        liveSummary: manifest.liveSummary ?? null,
         liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
         state: "saved-local",
       });
@@ -552,6 +566,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     return {
       assets,
       id: manifest.captureId,
+      liveSummary: manifest.liveSummary ?? null,
       liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
       manifestSha256: manifest.manifestSha256,
       savedAt: manifest.savedAt,
@@ -923,6 +938,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
             }
             this.sessionStore.update(manifest.captureId, {
               endedAt: manifest.endedAt,
+              liveSummary: manifest.liveSummary ?? null,
               liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
               state: intent.status === "workspace-verified" ? "workspace-verified" : "saved-local",
             });
@@ -946,6 +962,9 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
             };
             if (manifest.liveTranscriptDraft) {
               sessionPatch.liveTranscriptDraft = manifest.liveTranscriptDraft;
+            }
+            if (manifest.liveSummary) {
+              sessionPatch.liveSummary = manifest.liveSummary;
             }
             this.sessionStore.update(manifest.captureId, sessionPatch);
             recoverable.push({

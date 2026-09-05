@@ -46,8 +46,10 @@ export function Waveform({
       }
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
-      const computedBarColor =
-        barColor || getComputedStyle(canvas).getPropertyValue("--foreground") || "#000";
+      const computedStyle = getComputedStyle(canvas);
+      const computedBarColor = barColor?.startsWith("--")
+        ? computedStyle.getPropertyValue(barColor)
+        : barColor || computedStyle.getPropertyValue("--foreground") || "#000";
       const barCount = Math.floor(rect.width / (barWidth + barGap));
       const centerY = rect.height / 2;
       for (let index = 0; index < barCount; index += 1) {
@@ -135,6 +137,7 @@ export type AudioScrubberProps = WaveformProps & {
   currentTime?: number;
   duration?: number;
   onSeek?: (time: number) => void;
+  progressBarColor?: string;
   showHandle?: boolean;
 };
 
@@ -148,15 +151,18 @@ export function AudioScrubber({
   currentTime = 0,
   data = [],
   duration = 0,
+  fadeEdges = false,
+  fadeWidth,
   height = 48,
   onSeek,
+  progressBarColor = "--primary",
   showHandle = true,
   ...props
 }: AudioScrubberProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [localProgress, setLocalProgress] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const waveformData = data.length > 0 ? data : Array.from({ length: 80 }, () => 0.12);
+  const waveformData = data;
 
   useEffect(() => {
     if (!isDragging && duration > 0) {
@@ -222,23 +228,39 @@ export function AudioScrubber({
         barHeight={barHeight}
         barRadius={barRadius}
         barWidth={barWidth}
+        className="opacity-60"
         data={waveformData}
-        fadeEdges={false}
+        fadeEdges={fadeEdges}
+        fadeWidth={fadeWidth}
         height="100%"
       />
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20"
-        style={{ width: `${localProgress * 100}%` }}
-      />
-      <div
-        className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary"
-        style={{ left: `${localProgress * 100}%` }}
-      />
-      {showHandle ? (
-        <div
-          className="pointer-events-none absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow-sm"
-          style={{ left: `${localProgress * 100}%` }}
+        className="pointer-events-none absolute inset-0"
+        style={{ clipPath: `inset(0 ${(1 - localProgress) * 100}% 0 0)` }}
+      >
+        <Waveform
+          barColor={progressBarColor}
+          barGap={barGap}
+          barHeight={barHeight}
+          barRadius={barRadius}
+          barWidth={barWidth}
+          data={waveformData}
+          fadeEdges={fadeEdges}
+          fadeWidth={fadeWidth}
+          height="100%"
         />
+      </div>
+      {showHandle ? (
+        <>
+          <div
+            className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary"
+            style={{ left: `${localProgress * 100}%` }}
+          />
+          <div
+            className="pointer-events-none absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow-sm"
+            style={{ left: `${localProgress * 100}%` }}
+          />
+        </>
       ) : null}
     </div>
   );

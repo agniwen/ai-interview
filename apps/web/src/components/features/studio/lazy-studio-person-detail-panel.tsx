@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { StudioPersonDetailPanel as StudioPersonDetailPanelType } from "./studio-person-detail-controller";
 
@@ -12,7 +12,7 @@ const StudioPersonDetailPanel = lazy(async () => {
   return { default: detailModule.StudioPersonDetailPanel };
 });
 
-function StudioPersonDetailPanelFallback() {
+export function StudioPersonDetailPanelFallback() {
   return (
     <output aria-busy="true" aria-label="候选人详情正在加载" className="block space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -31,9 +31,12 @@ function StudioPersonDetailPanelFallback() {
   );
 }
 
-export function LazyStudioPersonDetailPanel(props: StudioPersonDetailPanelProps) {
+export function LazyStudioPersonDetailPanel({
+  fallback = <StudioPersonDetailPanelFallback />,
+  ...props
+}: StudioPersonDetailPanelProps & { fallback?: ReactNode }) {
   return (
-    <Suspense fallback={<StudioPersonDetailPanelFallback />}>
+    <Suspense fallback={fallback}>
       <StudioPersonDetailPanel {...props} />
     </Suspense>
   );

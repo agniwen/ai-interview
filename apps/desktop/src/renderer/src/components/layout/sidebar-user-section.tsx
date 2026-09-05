@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useTheme } from "next-themes";
 import { useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
+import type { AppIconName } from "@/components/ui/icon";
 import { authClient } from "@/lib/auth-client";
 import {
   desktopWorkspaceKeys,
@@ -26,12 +28,20 @@ import {
   setActiveWorkspace,
 } from "@/lib/client/workspace";
 import type { WorkspaceOrg } from "@/lib/client/workspace";
+import type { ThemeMode } from "@/lib/settings";
 import { cn } from "@app/shared/utils";
+import { themeModeSchema } from "../../../../preload/orpc-contract";
 
 const WHITESPACE_REGEX = /\s+/;
 
+const THEME_OPTIONS = [
+  { icon: "ph:sun", label: "浅色", value: "light" },
+  { icon: "ph:moon", label: "深色", value: "dark" },
+  { icon: "ph:monitor", label: "跟随系统", value: "system" },
+] satisfies { icon: AppIconName; label: string; value: ThemeMode }[];
+
 const sidebarFooterTriggerInteractionClassName =
-  "transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none";
+  "border-transparent transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-transparent hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:border-transparent active:scale-100 active:bg-sidebar-accent-active active:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-accent-foreground dark:active:bg-sidebar-accent-active motion-reduce:transition-none";
 
 const userTriggerClassName = cn(
   "h-10 w-full justify-start gap-2 rounded-lg px-2",
@@ -69,7 +79,7 @@ function SidebarSettingsButton() {
       className={cn("shrink-0 rounded-lg", sidebarFooterTriggerInteractionClassName)}
       nativeButton={false}
       render={<Link to="/settings" />}
-      size="icon"
+      size="icon-lg"
       title="设置"
       variant="ghost"
     >
@@ -82,14 +92,18 @@ export function UserMenuDropdown({
   activeWorkspace,
   onSignOut,
   onSwitchWorkspace,
+  onThemeChange,
   switchingWorkspace,
+  theme,
   user,
   workspaces,
 }: {
   activeWorkspace: WorkspaceOrg | null;
   onSignOut: () => void;
   onSwitchWorkspace: (workspaceId: string) => void;
+  onThemeChange: (theme: ThemeMode) => void;
   switchingWorkspace: boolean;
+  theme: ThemeMode;
   user: SessionUser;
   workspaces: WorkspaceOrg[];
 }) {
@@ -160,6 +174,27 @@ export function UserMenuDropdown({
               </DropdownMenuGroup>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger openOnHover>主题</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              <DropdownMenuRadioGroup
+                onValueChange={(value) => {
+                  const parsedTheme = themeModeSchema.safeParse(value);
+                  if (parsedTheme.success) {
+                    onThemeChange(parsedTheme.data);
+                  }
+                }}
+                value={theme}
+              >
+                {THEME_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    <Icon className="size-4" icon={option.icon} />
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onSignOut} variant="destructive">
@@ -178,7 +213,9 @@ export function UserMenuDropdown({
 export function SidebarUserSection() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { setTheme, theme } = useTheme();
   const { data: session, isPending } = authClient.useSession();
+  const activeTheme = themeModeSchema.safeParse(theme).data ?? "system";
   const orgsQuery = useQuery({
     queryFn: listWorkspaces,
     queryKey: desktopWorkspaceKeys.list,
@@ -228,7 +265,9 @@ export function SidebarUserSection() {
               void handleSignOut();
             }}
             onSwitchWorkspace={(workspaceId) => switchMutation.mutate(workspaceId)}
+            onThemeChange={setTheme}
             switchingWorkspace={switchMutation.isPending}
+            theme={activeTheme}
             user={session.user}
             workspaces={orgsQuery.data ?? []}
           />

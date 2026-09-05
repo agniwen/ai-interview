@@ -252,10 +252,10 @@ export function MeetingInboxMenu() {
       commit: () => meetingCapture.discard({ captureId, includeSaved }),
       onError: (error) => {
         setCaptureHidden(captureId, false);
-        showMeetingDeletionError(error instanceof Error ? error.message : "清理本地录音失败");
+        showMeetingDeletionError(error instanceof Error ? error.message : "删除本地录音失败");
       },
     });
-    const toastId = showMeetingDeletionSuccess("已移除本地录音", {
+    const toastId = showMeetingDeletionSuccess("已删除本地录音", {
       action: (
         <Button
           className="ml-auto"
@@ -264,8 +264,9 @@ export function MeetingInboxMenu() {
             setCaptureHidden(captureId, false);
             toast.dismiss(toastId);
           }}
-          size="sm"
+          size="xs"
           type="button"
+          variant="secondary"
         >
           撤销
         </Button>

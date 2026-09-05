@@ -1,9 +1,11 @@
 /* oxlint-disable max-lines -- Notification event builders share one audited transactional boundary. */
 import type { Transaction } from "../dao";
+import { humanInterviewReviewPath } from "@app/shared/human-interview-review-link";
 import { enqueueInterviewNotificationEvent } from "../dao";
 import { prepareInterviewNotificationDeliveries } from "./prepare-deliveries";
 import {
   interviewConversation,
+  jobDescription,
   globalConfig,
   interviewNotification,
   interviewNotificationEvent,
@@ -33,7 +35,7 @@ import type {
   HumanInterviewEvaluation,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
-import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import {
   buildCandidateInviteToken,
   hashInviteToken,
@@ -204,7 +206,7 @@ export async function enqueueAiInterviewInvitedEvents(
       initiatorName: user.name,
       interviewRecordId: studioInterview.id,
       invitationVersion: studioInterviewSchedule.invitationVersion,
-      jobName: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       organizationId: studioInterview.organizationId,
       roundLabel: studioInterviewSchedule.roundLabel,
       scheduleCreatedAt: studioInterviewSchedule.createdAt,
@@ -214,6 +216,13 @@ export async function enqueueAiInterviewInvitedEvents(
     })
     .from(studioInterviewSchedule)
     .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
     .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
     .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
@@ -308,7 +317,7 @@ export async function enqueueAiInvitationResponseEvent(
       initiatorEmail: user.email,
       initiatorName: user.name,
       interviewRecordId: studioInterview.id,
-      jobName: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       organizationId: studioInterview.organizationId,
       roundLabel: studioInterviewSchedule.roundLabel,
       scheduledAt: studioInterviewSchedule.scheduledAt,
@@ -316,6 +325,13 @@ export async function enqueueAiInvitationResponseEvent(
     })
     .from(studioInterviewSchedule)
     .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
     .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
     .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
@@ -390,13 +406,20 @@ export async function enqueueAiInvitationExceptionEvent(
       initiatorName: user.name,
       interviewRecordId: studioInterview.id,
       invitationVersion: studioInterviewSchedule.invitationVersion,
-      jobName: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       organizationId: studioInterview.organizationId,
       roundLabel: studioInterviewSchedule.roundLabel,
       workspaceName: organization.name,
     })
     .from(studioInterviewSchedule)
     .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
     .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
     .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
@@ -451,7 +474,7 @@ export async function enqueueAiInterviewCompletedEvent(
       conversationId: studioInterviewSchedule.conversationId,
       createdBy: studioInterviewSchedule.createdBy,
       interviewRecordId: studioInterview.id,
-      jobName: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       organizationId: studioInterview.organizationId,
       organizationSlug: organization.slug,
       roundLabel: studioInterviewSchedule.roundLabel,
@@ -459,6 +482,13 @@ export async function enqueueAiInterviewCompletedEvent(
     })
     .from(studioInterviewSchedule)
     .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
     .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
     .where(eq(studioInterviewSchedule.id, input.scheduleEntryId))
@@ -553,6 +583,15 @@ export function resolveHumanMeetingEventInterviewLink(input: {
   organizationSlug: string;
   type: HumanMeetingEventInput["type"];
 }): string | undefined {
+  if (input.type === "human_evaluation_summary_ready") {
+    return absoluteAppUrl(
+      humanInterviewReviewPath({
+        candidateId: input.interviewRecordId,
+        roundId: input.humanRoundId,
+        slug: input.organizationSlug,
+      }),
+    );
+  }
   if (input.type === "human_interview_completed") {
     return humanInterviewRecordUrl(input.interviewRecordId, input.organizationSlug);
   }
@@ -641,7 +680,7 @@ export async function enqueueHumanMeetingEvents(
       initiatorEmail: user.email,
       initiatorName: user.name,
       interviewRecordId: studioInterview.id,
-      jobName: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       organizationId: studioHumanInterviewMeeting.organizationId,
       organizationSlug: organization.slug,
       roundName: studioHumanInterviewRound.label,
@@ -660,6 +699,13 @@ export async function enqueueHumanMeetingEvents(
       eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
     )
     .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(organization, eq(organization.id, studioHumanInterviewMeeting.organizationId))
     .leftJoin(
       globalConfig,
@@ -843,7 +889,7 @@ export async function enqueueAiReportReadyEvent(
       configuredCompanyName: globalConfig.companyName,
       createdBy: studioInterviewSchedule.createdBy,
       initiatorName: user.name,
-      jobName: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       organizationId: studioInterview.organizationId,
       organizationSlug: organization.slug,
       roundLabel: studioInterviewSchedule.roundLabel,
@@ -852,6 +898,13 @@ export async function enqueueAiReportReadyEvent(
     })
     .from(interviewConversation)
     .innerJoin(studioInterview, eq(studioInterview.id, interviewConversation.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(
       studioInterviewSchedule,
       eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),

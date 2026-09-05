@@ -227,13 +227,6 @@ export async function queryPaginatedDepartments(
   };
 }
 
-export function listDepartments(
-  filters: { organizationId: string; textFilters?: string; search?: string | null },
-  pagination?: DepartmentPaginationInput,
-) {
-  return queryPaginatedDepartments(filters, pagination);
-}
-
 /** Load all departments (small list, used for selects). */
 export async function listAllDepartments(organizationId: string): Promise<DepartmentRecord[]> {
   const rows = await db

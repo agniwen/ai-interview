@@ -1,4 +1,5 @@
 import { Blobatar } from "@blobatar/react";
+import "blobatar/motion.css";
 import { cn } from "@app/shared/utils";
 
 export interface MeetingSpeakerProfile {
@@ -26,16 +27,19 @@ export function createMeetingSpeakerProfiles(
       continue;
     }
     const displayName = turn.speakerDisplayName?.trim();
+    const confirmedDisplayName = displayName === "待确认" ? null : displayName;
     const existing = profiles.get(turn.speakerKey);
     if (existing) {
-      if (displayName && existing.label !== displayName) {
-        profiles.set(turn.speakerKey, { ...existing, label: displayName });
+      if (confirmedDisplayName && existing.label !== confirmedDisplayName) {
+        profiles.set(turn.speakerKey, { ...existing, label: confirmedDisplayName });
       }
       continue;
     }
+    const speakerNumber = profiles.size + 1;
     profiles.set(turn.speakerKey, {
-      avatarId: `${scopeId}:${turn.speakerKey}`,
-      label: displayName || `说话人${profiles.size + 1}`,
+      // Provider keys are canonicalized after upload; the meeting-local ordinal stays stable.
+      avatarId: `${scopeId}:speaker-${speakerNumber}`,
+      label: confirmedDisplayName || `说话人${speakerNumber}`,
     });
   }
   return profiles;
@@ -48,15 +52,31 @@ export function MeetingSpeakerLabel({
   className?: string;
   profile?: MeetingSpeakerProfile;
 }) {
+  const isUnknownSpeaker = profile.avatarId === UNKNOWN_MEETING_SPEAKER.avatarId;
   return (
     <div className={cn("flex items-center gap-1.5 text-muted-foreground text-xs", className)}>
-      <Blobatar
-        alt=""
-        className="size-5 shrink-0"
-        data-meeting-speaker-avatar="true"
-        name={profile.avatarId}
-        size={20}
-      />
+      {isUnknownSpeaker ? (
+        <Blobatar
+          animate="hover"
+          aria-hidden="true"
+          background={false}
+          className="size-5 shrink-0"
+          data-meeting-speaker-avatar="true"
+          name="alain00"
+          size={20}
+          // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Blobatar names its silhouette-selection trait "shape".
+          traits={{ shape: 0.11 }}
+        />
+      ) : (
+        <Blobatar
+          alt=""
+          background={false}
+          className="size-5 shrink-0"
+          data-meeting-speaker-avatar="true"
+          name={profile.avatarId}
+          size={20}
+        />
+      )}
       <span>{profile.label}</span>
     </div>
   );

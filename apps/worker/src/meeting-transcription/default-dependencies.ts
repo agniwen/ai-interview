@@ -1,4 +1,7 @@
 import { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
+import { loadHumanInterviewRecognitionDocuments } from "@app/meeting-processing/human-interview";
+import { generateMeetingRecognitionHints } from "@app/meeting-processing/transcription";
+import { db } from "../db";
 import {
   meetingTranscriptionDao as transcriptionDao,
   requestAutomaticHumanInterviewEvaluation,
@@ -15,6 +18,8 @@ export const defaultMeetingTranscriptionDependencies =
     markChunkFailed: transcriptionDao.markMeetingTranscriptionChunkFailed,
     markFailed: transcriptionDao.markMeetingTranscriptionFailed,
     publish: transcriptionDao.publishMeetingTranscript,
+    recognitionHintsForJob: async (job) =>
+      generateMeetingRecognitionHints(await loadHumanInterviewRecognitionDocuments(db, job)),
     requestHumanEvaluation: requestAutomaticHumanInterviewEvaluation,
     requestIntelligence: requestAutomaticMeetingIntelligence,
     saveChunkCheckpoint: transcriptionDao.saveMeetingTranscriptionChunkCheckpoint,

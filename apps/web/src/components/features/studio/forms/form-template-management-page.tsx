@@ -296,17 +296,13 @@ export function CandidateFormTemplateManagementPage({
           r.archivedAt ? (
             <Badge variant="outline">已归档</Badge>
           ) : (
-            <Badge variant="success">使用中</Badge>
+            <span className="text-muted-foreground text-xs">使用中</span>
           ),
         key: "archivedAt",
         title: "状态",
       }),
       customColumn<CandidateFormTemplateListRecord>({
-        cell: (r) => (
-          <Badge variant={r.scope === "global" ? "default" : "secondary"}>
-            {scopeLabel(r.scope)}
-          </Badge>
-        ),
+        cell: (r) => <span className="text-muted-foreground text-sm">{scopeLabel(r.scope)}</span>,
         key: "scope",
         title: "作用范围",
       }),
@@ -318,27 +314,24 @@ export function CandidateFormTemplateManagementPage({
           if (r.jobDescriptions.length === 0) {
             return <Badge variant="outline">岗位已删除</Badge>;
           }
-          // 最多展示 12 个 badge，多余的折叠成 "+N"。
-          // 12 是经验值：DataGrid 行高有限，再多挤进来会换 4-5 行视觉太重；
-          // hover 在尾部 badge 上能看到全名提示，要看完整列表可以点编辑进表单详情。
-          // Cap at 12 badges; the rest collapses into a "+N" pill. 12 keeps the
-          // row height bounded — more would push the table into 4-5 lines per
-          // row, which crushes the rhythm. The full list is still reachable
-          // through the edit dialog.
-          const VISIBLE_LIMIT = 12;
-          const visible = r.jobDescriptions.slice(0, VISIBLE_LIMIT);
-          const overflow = r.jobDescriptions.length - VISIBLE_LIMIT;
+          const visible = r.jobDescriptions.slice(0, 2);
+          const overflow = r.jobDescriptions.length - visible.length;
           return (
-            <div className="flex flex-wrap gap-1">
-              {visible.map((jd) => (
-                <Badge key={jd.id} variant="secondary">
-                  {jd.name}
-                </Badge>
-              ))}
+            <div className="flex min-w-0 flex-col gap-1 text-sm">
+              <span className="wrap-anywhere">{visible.map((jd) => jd.name).join("、")}</span>
               {overflow > 0 ? (
-                <Badge title={`还有 ${overflow} 个岗位未展示`} variant="outline">
-                  +{overflow}
-                </Badge>
+                <details>
+                  <summary className="cursor-pointer text-muted-foreground text-xs focus-visible:outline-auto">
+                    另 {overflow} 个岗位
+                  </summary>
+                  <ul className="mt-2 flex flex-col gap-1">
+                    {r.jobDescriptions.slice(2).map((jd) => (
+                      <li key={jd.id} className="wrap-anywhere">
+                        {jd.name}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ) : null}
             </div>
           );

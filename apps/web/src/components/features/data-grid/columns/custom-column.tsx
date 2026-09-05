@@ -10,6 +10,8 @@ export interface CustomColumnOptions<TData extends RowData> {
   cell: (row: TData) => ReactNode;
   size?: number;
   enableSorting?: boolean;
+  /** Keep false for layout-pinned columns that users must not pin or unpin. */
+  enablePinning?: boolean;
   /** When set, this column also reads `row[accessorKey]` (used by sort + filter) */
   accessorKey?: keyof TData & string;
 }
@@ -19,6 +21,7 @@ export function customColumn<TData extends RowData>(
 ): ColumnDef<DataGridFeatures, TData> {
   const base = {
     cell: ({ row }) => opts.cell(row.original),
+    enablePinning: opts.enablePinning,
     enableSorting: opts.enableSorting ?? false,
     header: opts.title,
     id: opts.key,

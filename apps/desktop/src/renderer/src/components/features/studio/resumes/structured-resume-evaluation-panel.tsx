@@ -328,7 +328,9 @@ export function StructuredResumeEvaluationPanel({
             <div className="min-w-0 space-y-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground text-xs">推荐建议</span>
-                <Badge variant="outline">{GRADE_LABELS[evaluation.grade]}</Badge>
+                <span className="text-muted-foreground text-xs">
+                  {GRADE_LABELS[evaluation.grade]}
+                </span>
                 <Badge variant={statusVariant(evaluation.gates.effectiveStatus)}>
                   {GATE_LABELS[evaluation.gates.effectiveStatus]}
                 </Badge>
@@ -413,7 +415,9 @@ export function StructuredResumeEvaluationPanel({
                   <Badge variant={statusVariant(effectiveStatus)}>
                     {GATE_LABELS[effectiveStatus]}
                   </Badge>
-                  {judgment.correction ? <Badge variant="outline">HR 已核实</Badge> : null}
+                  {judgment.correction ? (
+                    <span className="text-muted-foreground text-xs">HR 已核实</span>
+                  ) : null}
                 </div>
                 <p className="text-muted-foreground text-sm leading-6">{judgment.reason}</p>
                 {uniqueEvidence(judgment.evidence).map((evidence) => (

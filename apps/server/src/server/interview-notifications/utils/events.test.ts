@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AI_INTERVIEW_COMPLETION_NOTICES,
   buildHumanInterviewEvaluationSummary,
@@ -181,6 +181,23 @@ describe("interview notification company name", () => {
 });
 
 describe("human meeting event links", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("opens the exact system review round even without a candidate invite", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "https://app.test");
+    const link = resolveHumanMeetingEventInterviewLink({
+      candidateInviteExpiresAt: null,
+      candidateInviteTokenHash: null,
+      humanRoundId: "round-2",
+      interviewRecordId: "candidate-1",
+      meetingId: "meeting-1",
+      organizationSlug: "team",
+      type: "human_evaluation_summary_ready",
+    });
+    const url = new URL(link ?? "", "https://app.test");
+    expect(url.pathname).toBe("/w/team/studio/resumes/candidate-1");
+    expect(url.searchParams.get("tab")).toBe("human-interview");
+    expect(url.searchParams.get("reviewRoundId")).toBe("round-2");
+  });
   it("links completion summaries to the recruiting record without signing a candidate invite", () => {
     const previousAuthSecret = process.env.BETTER_AUTH_SECRET;
     const previousBaseUrl = process.env.BETTER_AUTH_URL;

@@ -60,6 +60,7 @@ export interface MeetingServiceUser {
 export interface MeetingServiceSession {
   assets: MeetingServiceAsset[];
   id: string;
+  liveSummary?: unknown;
   manifestSha256: string;
   organizationId: string;
   ownerId: string;
@@ -85,6 +86,7 @@ export interface MeetingAuthorizedSession {
   custodian?: MeetingServiceUser | null;
   custodianId?: string | null;
   id: string;
+  liveSummary?: unknown;
   manifestSha256?: string;
   organizationId?: string;
   owner?: MeetingServiceUser | null;

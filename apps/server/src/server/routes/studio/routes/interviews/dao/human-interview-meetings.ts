@@ -1,6 +1,7 @@
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { uniq } from "lodash-es";
+import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
@@ -519,6 +520,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
       candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
       candidateName: studioInterview.candidateName,
       interviewRecordId: studioHumanInterviewRound.interviewRecordId,
+      jobDescriptionName: jobDescription.name,
       liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
       meetingId: studioHumanInterviewMeeting.id,
       organizationId: studioHumanInterviewMeeting.organizationId,
@@ -527,7 +529,6 @@ export async function resolveHumanInterviewMeetingInviteToken(
       roundLabel: studioHumanInterviewRound.label,
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
       status: studioHumanInterviewMeeting.status,
-      title: studioHumanInterviewMeeting.title,
       validUntil: studioHumanInterviewMeeting.validUntil,
     })
     .from(studioHumanInterviewMeetingRound)
@@ -540,6 +541,13 @@ export async function resolveHumanInterviewMeetingInviteToken(
       eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
     )
     .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(studioInterview.organizationId, jobDescription.organizationId),
+      ),
+    )
     .where(
       and(
         eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
@@ -570,19 +578,18 @@ export async function resolveHumanInterviewMeetingInviteToken(
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
     status: row.status,
-    title: row.title,
+    title: buildInterviewCalendarTitle([row]),
     validUntil: serializeDate(row.validUntil),
   };
 }
 
-export async function resolveHumanInterviewMeetingInterviewerInviteToken(
-  inviteToken: string,
-): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
-  const payload = verifyInterviewerInviteToken(inviteToken);
-  if (!payload) {
-    return null;
-  }
-
+export async function loadHumanInterviewMeetingInterviewerScope(payload: {
+  meetingId: string;
+  userId: string;
+  role?: HumanInterviewMeetingInterviewerInviteScope["role"];
+  organizationId?: string;
+  roundId?: string;
+}): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
   const [row] = await db
     .select({
       interviewerName: user.name,
@@ -594,7 +601,6 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
       status: studioHumanInterviewMeeting.status,
-      title: studioHumanInterviewMeeting.title,
       userId: studioHumanInterviewMeetingInterviewer.userId,
       validUntil: studioHumanInterviewMeeting.validUntil,
     })
@@ -608,7 +614,10 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       and(
         eq(studioHumanInterviewMeetingInterviewer.meetingId, payload.meetingId),
         eq(studioHumanInterviewMeetingInterviewer.userId, payload.userId),
-        eq(studioHumanInterviewMeetingInterviewer.role, payload.role),
+        payload.role ? eq(studioHumanInterviewMeetingInterviewer.role, payload.role) : undefined,
+        payload.organizationId
+          ? eq(studioHumanInterviewMeeting.organizationId, payload.organizationId)
+          : undefined,
       ),
     )
     .limit(1);
@@ -617,7 +626,7 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
     return null;
   }
 
-  const [context] = await db
+  const contexts = await db
     .select({
       candidateName: studioInterview.candidateName,
       jobDescriptionDepartmentName: department.name,
@@ -647,9 +656,15 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
         eq(studioInterview.organizationId, department.organizationId),
       ),
     )
-    .where(eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId))
-    .orderBy(asc(studioHumanInterviewRound.sortOrder))
-    .limit(1);
+    .where(
+      and(
+        eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId),
+        payload.roundId ? eq(studioHumanInterviewRound.id, payload.roundId) : undefined,
+        eq(studioHumanInterviewRound.organizationId, row.organizationId),
+      ),
+    )
+    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+  const [context] = contexts;
   if (!context) {
     return null;
   }
@@ -670,10 +685,17 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
     scheduledAt: serializeDate(row.scheduledAt),
     status: row.status,
     targetRole: context.targetRole,
-    title: row.title,
+    title: buildInterviewCalendarTitle(contexts),
     userId: row.userId,
     validUntil: serializeDate(row.validUntil),
   };
+}
+
+export function resolveHumanInterviewMeetingInterviewerInviteToken(
+  inviteToken: string,
+): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
+  const payload = verifyInterviewerInviteToken(inviteToken);
+  return payload ? loadHumanInterviewMeetingInterviewerScope(payload) : Promise.resolve(null);
 }
 
 async function loadMeetingIdByRoomName(roomName: string): Promise<string | null> {
@@ -987,15 +1009,16 @@ export async function loadActiveHumanInterviewRecordingEgressId(
     .select({
       candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
       egressId: studioHumanInterviewMeeting.recordingEgressId,
+      tracks: studioHumanInterviewMeeting.recordingTracks,
     })
     .from(studioHumanInterviewMeeting)
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.recordingStatus, "active"),
-      ),
-    )
+    .where(and(eq(studioHumanInterviewMeeting.id, meetingId)))
     .limit(1);
+  if (meeting?.tracks) {
+    return meeting.tracks.flatMap((track) =>
+      track.egressId && ["starting", "active"].includes(track.status) ? [track.egressId] : [],
+    );
+  }
   return meeting
     ? [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
         Boolean(value),
@@ -1011,22 +1034,22 @@ export async function loadActiveHumanInterviewRecordingByRoomName(
       candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
       egressId: studioHumanInterviewMeeting.recordingEgressId,
       meetingId: studioHumanInterviewMeeting.id,
+      tracks: studioHumanInterviewMeeting.recordingTracks,
     })
     .from(studioHumanInterviewMeeting)
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.liveKitRoomName, roomName),
-        eq(studioHumanInterviewMeeting.recordingStatus, "active"),
-      ),
-    )
+    .where(and(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName)))
     .limit(1);
   if (!meeting) {
     return null;
   }
   return {
-    egressIds: [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
-      Boolean(value),
-    ),
+    egressIds: meeting.tracks
+      ? meeting.tracks.flatMap((track) =>
+          track.egressId && ["starting", "active"].includes(track.status) ? [track.egressId] : [],
+        )
+      : [meeting.egressId, meeting.candidateEgressId].filter((value): value is string =>
+          Boolean(value),
+        ),
     meetingId: meeting.meetingId,
   };
 }

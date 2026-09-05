@@ -13,7 +13,8 @@ export function shouldStartHumanInterviewRecording(event: {
   return Boolean(
     (event.event === "participant_joined" && event.participant?.identity) ||
     (event.event === "track_published" &&
-      event.participant?.identity.startsWith("candidate_") &&
+      (event.participant?.identity.startsWith("candidate_") ||
+        event.participant?.identity.startsWith("interviewer_")) &&
       event.track?.source === TrackSource.MICROPHONE &&
       event.track.type === TrackType.AUDIO),
   );

@@ -6,7 +6,12 @@ import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
+  buildInterviewCalendarTitle,
+  interviewCalendarJobNames,
+} from "@app/shared/interview-calendar";
+import {
   account,
+  jobDescription,
   member,
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingInterviewer,
@@ -41,14 +46,14 @@ function absoluteAppUrl(path: string): string {
   return `${baseUrl.replace(/\/$/, "")}${path}`;
 }
 
-function buildCalendarDescription({
+export function buildCalendarDescription({
   candidates,
   interviewers,
   meetingId,
   notes,
   validUntil,
 }: {
-  candidates: { candidateName: string; roundLabel: string }[];
+  candidates: { candidateName: string; jobDescriptionName?: string | null; roundLabel: string }[];
   interviewers: {
     id: string;
     name: string;
@@ -77,6 +82,7 @@ function buildCalendarDescription({
   const sections = [
     "真人复面安排",
     `候选人：${candidateNames.join("、")}`,
+    `面试岗位：${interviewCalendarJobNames(candidates) || "未关联岗位"}`,
     `面试轮次：${roundLabels.join("、")}`,
     `面试官：${interviewerNames.join("、")}`,
     `在线面试入口（请点击本人对应的链接）\n${interviewerLinks.join("\n")}`,
@@ -144,6 +150,7 @@ interface UpdateCalendarEventTimeInput {
   endAt: Date;
   eventId: string;
   startAt: Date;
+  title: string;
 }
 
 interface FeishuPartialAttendeeError extends Error {
@@ -371,6 +378,7 @@ export function createFeishuHumanInterviewClient({
               timestamp: String(Math.floor(input.startAt.getTime() / 1000)),
               timezone: "Asia/Shanghai",
             },
+            summary: input.title,
           }),
           headers: {
             authorization: `Bearer ${accessToken}`,
@@ -555,6 +563,7 @@ export async function syncHumanInterviewMeetingToFeishu({
   const candidateRows = await db
     .select({
       candidateName: studioInterview.candidateName,
+      jobDescriptionName: jobDescription.name,
       roundLabel: studioHumanInterviewRound.label,
     })
     .from(studioHumanInterviewMeetingRound)
@@ -563,6 +572,13 @@ export async function syncHumanInterviewMeetingToFeishu({
       eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
     )
     .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(studioInterview.organizationId, jobDescription.organizationId),
+      ),
+    )
     .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId));
   const description = buildCalendarDescription({
     candidates: candidateRows,
@@ -592,6 +608,7 @@ export async function syncHumanInterviewMeetingToFeishu({
       endAt,
       eventId,
       startAt: scheduledAt,
+      title: buildInterviewCalendarTitle(candidateRows),
     });
   } else {
     const event = await client.createCalendarEvent({
@@ -600,7 +617,7 @@ export async function syncHumanInterviewMeetingToFeishu({
       endAt,
       idempotencyKey: `human-interview-meeting-${meeting.id}`,
       startAt: scheduledAt,
-      title: meeting.title,
+      title: buildInterviewCalendarTitle(candidateRows),
     });
     ({ eventId } = event);
     await db

@@ -212,6 +212,15 @@
   --shadow-lg: 0 4px 24px 0 rgb(0 0 0 / 0.05);
   --shadow-xl: 0 8px 32px 0 rgb(0 0 0 / 0.06);
   --shadow-2xl: 0 12px 40px 0 rgb(0 0 0 / 0.06);
+  --color-invert-foreground: var(--invert-foreground);
+  --color-invert: var(--invert);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-destructive-foreground: var(--destructive-foreground);
 }
 
 :root {
@@ -315,7 +324,16 @@
   --sidebar-accent: oklch(0.95 0 0);
   --sidebar-accent-foreground: oklch(0.24 0 0);
   --sidebar-border: oklch(0.88 0 0);
-  --sidebar-ring: oklch(0.55 0 0);
+  --sidebar-ring: var(--primary);
+  --destructive-foreground: var(--color-red-800);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-900);
+  --info: var(--color-violet-500);
+  --info-foreground: var(--color-violet-900);
+  --warning: var(--color-yellow-500);
+  --warning-foreground: var(--color-yellow-900);
+  --invert: var(--color-zinc-900);
+  --invert-foreground: var(--color-zinc-50);
 }
 
 .dark {
@@ -372,7 +390,16 @@
   --sidebar-accent: oklch(0.255 0.02 254);
   --sidebar-accent-foreground: oklch(0.97 0.006 254);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #4f70d2;
+  --sidebar-ring: var(--primary);
+  --destructive-foreground: var(--color-red-600);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-600);
+  --info: var(--color-violet-500);
+  --info-foreground: var(--color-violet-600);
+  --warning: var(--color-yellow-500);
+  --warning-foreground: var(--color-yellow-600);
+  --invert: var(--color-zinc-700);
+  --invert-foreground: var(--color-zinc-50);
 }
 
 /* 真人面试沿用 LiveKit 舞台的中性黑灰色系。类放在 body 上，使 Select、
@@ -711,6 +738,28 @@
 
 /* transitions.dev skeleton-loader-and-reveal. Both layers share one slot and
    one timing curve, so loading completion reads as a single state change. */
+/* Loader-backed pages mount with data already available. */
+.t-content-enter {
+  animation: content-enter var(--reveal-dur) var(--reveal-ease) both;
+}
+
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-content-enter {
+    animation: none;
+  }
+}
+
 .t-skel {
   position: relative;
 }

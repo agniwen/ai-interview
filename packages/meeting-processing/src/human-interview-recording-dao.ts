@@ -12,6 +12,18 @@ import {
 import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
 
 import type { Database } from "@app/database";
+import type { RecordingIdentity } from "@app/db-schema/human-interview-recording";
+
+export interface VerifiedHumanRecordingAsset {
+  assetSha256: string;
+  contentType: string;
+  durationMs: number;
+  fileKey: string;
+  sizeBytes: number;
+  track: string;
+  speakerDisplayName: string | null;
+  recordingIdentity?: RecordingIdentity;
+}
 
 export function createHumanInterviewRecordingDao(db: Database) {
   const TERMINAL_RECORDING_PROCESSING_ERROR_PREFIX = "录音处理失败：";
@@ -19,6 +31,37 @@ export function createHumanInterviewRecordingDao(db: Database) {
   async function listRecoverableHumanInterviewRecordingJobs(): Promise<
     HumanInterviewRecordingJobData[]
   > {
+    const trackedMeetings = await db
+      .select()
+      .from(studioHumanInterviewMeeting)
+      .where(
+        and(
+          isNotNull(studioHumanInterviewMeeting.recordingTracks),
+          eq(studioHumanInterviewMeeting.status, "ended"),
+          isNull(studioHumanInterviewMeeting.processingMeetingSessionId),
+          or(
+            isNull(studioHumanInterviewMeeting.recordingError),
+            notLike(
+              studioHumanInterviewMeeting.recordingError,
+              `${TERMINAL_RECORDING_PROCESSING_ERROR_PREFIX}%`,
+            ),
+          ),
+        ),
+      );
+    const trackedJobs: HumanInterviewRecordingJobData[] = trackedMeetings.flatMap((meeting) => {
+      const tracks = meeting.recordingTracks ?? [];
+      return tracks.length &&
+        tracks.every((track) => track.status === "completed" || track.status === "failed")
+        ? [
+            {
+              meetingId: meeting.id,
+              organizationId: meeting.organizationId,
+              tracks,
+              version: 2 as const,
+            },
+          ]
+        : [];
+    });
     const rows = await db
       .select({
         candidateDurationMs: studioHumanInterviewMeeting.candidateRecordingDurationMs,
@@ -35,6 +78,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
       .from(studioHumanInterviewMeeting)
       .where(
         and(
+          isNull(studioHumanInterviewMeeting.recordingTracks),
           eq(studioHumanInterviewMeeting.recordingStatus, "completed"),
           eq(studioHumanInterviewMeeting.candidateRecordingStatus, "completed"),
           isNull(studioHumanInterviewMeeting.processingMeetingSessionId),
@@ -55,31 +99,34 @@ export function createHumanInterviewRecordingDao(db: Database) {
           isNotNull(studioHumanInterviewMeeting.candidateRecordingSizeBytes),
         ),
       );
-    return rows.flatMap((row) =>
-      row.durationMs &&
-      row.egressId &&
-      row.fileKey &&
-      row.sizeBytes &&
-      row.candidateDurationMs &&
-      row.candidateEgressId &&
-      row.candidateFileKey &&
-      row.candidateSizeBytes
-        ? [
-            {
-              candidateDurationMs: row.candidateDurationMs,
-              candidateEgressId: row.candidateEgressId,
-              candidateFileKey: row.candidateFileKey,
-              candidateSizeBytes: row.candidateSizeBytes,
-              durationMs: row.durationMs,
-              egressId: row.egressId,
-              fileKey: row.fileKey,
-              meetingId: row.meetingId,
-              organizationId: row.organizationId,
-              sizeBytes: row.sizeBytes,
-            },
-          ]
-        : [],
-    );
+    return [
+      ...trackedJobs,
+      ...rows.flatMap((row) =>
+        row.durationMs &&
+        row.egressId &&
+        row.fileKey &&
+        row.sizeBytes &&
+        row.candidateDurationMs &&
+        row.candidateEgressId &&
+        row.candidateFileKey &&
+        row.candidateSizeBytes
+          ? [
+              {
+                candidateDurationMs: row.candidateDurationMs,
+                candidateEgressId: row.candidateEgressId,
+                candidateFileKey: row.candidateFileKey,
+                candidateSizeBytes: row.candidateSizeBytes,
+                durationMs: row.durationMs,
+                egressId: row.egressId,
+                fileKey: row.fileKey,
+                meetingId: row.meetingId,
+                organizationId: row.organizationId,
+                sizeBytes: row.sizeBytes,
+              },
+            ]
+          : [],
+      ),
+    ];
   }
 
   async function saveHumanInterviewRecordingProcessingError(input: {
@@ -118,7 +165,10 @@ export function createHumanInterviewRecordingDao(db: Database) {
   }
 
   async function ingestHumanInterviewRecording(input: {
-    candidate: {
+    assets?: VerifiedHumanRecordingAsset[];
+    startedAtMs?: number;
+    warning?: string | null;
+    candidate?: {
       assetSha256: string;
       contentType: string;
       durationMs: number;
@@ -128,7 +178,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
     manifestSha256: string;
     meetingId: string;
     organizationId: string;
-    room: {
+    room?: {
       assetSha256: string;
       contentType: string;
       durationMs: number;
@@ -136,6 +186,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
       sizeBytes: number;
     };
   }): Promise<{ meetingSessionId: string; organizationId: string }> {
+    // oxlint-disable-next-line complexity -- legacy and identity-aware admission share one atomic meeting creation boundary.
     return await db.transaction(async (tx) => {
       const [meeting] = await tx
         .select({
@@ -147,6 +198,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
           processingMeetingSessionId: studioHumanInterviewMeeting.processingMeetingSessionId,
           recordingFileKey: studioHumanInterviewMeeting.recordingFileKey,
           recordingStatus: studioHumanInterviewMeeting.recordingStatus,
+          recordingTracks: studioHumanInterviewMeeting.recordingTracks,
           scheduledAt: studioHumanInterviewMeeting.scheduledAt,
           startedAt: studioHumanInterviewMeeting.startedAt,
           title: studioHumanInterviewMeeting.title,
@@ -170,12 +222,26 @@ export function createHumanInterviewRecordingDao(db: Database) {
         };
       }
       if (
-        meeting.recordingStatus !== "completed" ||
-        meeting.recordingFileKey !== input.room.fileKey ||
-        meeting.candidateRecordingStatus !== "completed" ||
-        meeting.candidateRecordingFileKey !== input.candidate.fileKey
+        !input.assets &&
+        (meeting.recordingStatus !== "completed" ||
+          meeting.recordingFileKey !== input.room?.fileKey ||
+          meeting.candidateRecordingStatus !== "completed" ||
+          meeting.candidateRecordingFileKey !== input.candidate?.fileKey)
       ) {
         throw new Error("真人复面录音尚未完成或文件已变化");
+      }
+      if (
+        input.assets?.some(
+          (asset) =>
+            !meeting.recordingTracks?.some(
+              (track) =>
+                track.status === "completed" &&
+                track.fileKey === asset.fileKey &&
+                track.sizeBytes === asset.sizeBytes,
+            ),
+        )
+      ) {
+        throw new Error("真人复面分轨清单已变化");
       }
       const [round, interviewers] = await Promise.all([
         tx
@@ -228,45 +294,48 @@ export function createHumanInterviewRecordingDao(db: Database) {
         organizationId: input.organizationId,
         ownerId,
         savedAt: meeting.endedAt ?? now,
-        startedAt: meeting.startedAt ?? meeting.scheduledAt ?? meeting.createdAt,
+        startedAt: input.startedAtMs
+          ? new Date(input.startedAtMs)
+          : (meeting.startedAt ?? meeting.scheduledAt ?? meeting.createdAt),
         status: "ready",
         title: meeting.title,
         transcriptionStatus: "pending",
         verifiedAt: now,
         visibility: "restricted",
       });
-      await tx.insert(meetingRecordingAsset).values([
-        {
-          contentType: input.room.contentType,
-          durationMs: input.room.durationMs,
+      const assets = input.assets ?? [
+        ...(input.room ? [{ ...input.room, speakerDisplayName: null, track: "mixed" }] : []),
+        ...(input.candidate
+          ? [
+              {
+                ...input.candidate,
+                speakerDisplayName: `候选人 · ${round[0].candidateName}`,
+                track: "candidate",
+              },
+            ]
+          : []),
+      ];
+      if (!assets.length) {
+        throw new Error("没有可用录音，可手动提交评价");
+      }
+      await tx.insert(meetingRecordingAsset).values(
+        assets.map((asset: VerifiedHumanRecordingAsset) => ({
+          contentType: asset.contentType,
+          durationMs: asset.durationMs,
           fragmentCount: 1,
           id: crypto.randomUUID(),
           meetingId: meetingSessionId,
-          sha256: input.room.assetSha256,
-          sizeBytes: input.room.sizeBytes,
-          speakerDisplayName: null,
+          recordingIdentity: asset.recordingIdentity,
+          sha256: asset.assetSha256,
+          sizeBytes: asset.sizeBytes,
+          speakerDisplayName: asset.speakerDisplayName,
           status: "ready",
-          storageKey: input.room.fileKey,
-          track: "mixed",
+          storageKey: asset.fileKey,
+          track: asset.track,
           uploadMode: "single",
           verifiedAt: now,
-        },
-        {
-          contentType: input.candidate.contentType,
-          durationMs: input.candidate.durationMs,
-          fragmentCount: 1,
-          id: crypto.randomUUID(),
-          meetingId: meetingSessionId,
-          sha256: input.candidate.assetSha256,
-          sizeBytes: input.candidate.sizeBytes,
-          speakerDisplayName: `候选人 · ${round[0].candidateName}`,
-          status: "ready",
-          storageKey: input.candidate.fileKey,
-          track: "candidate",
-          uploadMode: "single",
-          verifiedAt: now,
-        },
-      ]);
+        })),
+      );
       await tx.insert(meetingRecruitingContext).values({
         linkedAt: now,
         linkedBy: ownerId,
@@ -278,7 +347,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
         .update(studioHumanInterviewMeeting)
         .set({
           processingMeetingSessionId: meetingSessionId,
-          recordingError: null,
+          recordingError: input.warning ?? null,
           updatedAt: now,
         })
         .where(eq(studioHumanInterviewMeeting.id, input.meetingId));

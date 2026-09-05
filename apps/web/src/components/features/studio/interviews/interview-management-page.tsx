@@ -68,7 +68,7 @@ import {
 import { resolveAiInterviewLinkState } from "@/components/features/studio/interviews/ai-interview-link-state";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
-import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
+import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
@@ -82,6 +82,13 @@ interface FetchParams {
   sortBy: string | undefined;
   sortOrder: "asc" | "desc" | undefined;
 }
+
+const AI_INTERVIEW_SORTABLE_COLUMN_IDS = [
+  "scheduledAt",
+  "createdAt",
+  "candidateName",
+  "roundLabel",
+] as const;
 
 // AI 阶段锁：候选人推进到真人复面/Offer/已结束后，AI 面试相关写动作禁用。
 // AI-stage lock: once the candidate moves past ai_interview, AI round write actions are disabled.
@@ -139,7 +146,7 @@ export function InterviewManagementPage() {
     StudioInterviewRoundListRecord,
     { creatorIds: string; status: string }
   >({
-    allowedSortIds: ["scheduledAt", "createdAt", "candidateName", "roundLabel"],
+    allowedSortIds: AI_INTERVIEW_SORTABLE_COLUMN_IDS,
     // 默认按创建时间倒序。/ Default: createdAt descending.
     defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: { creatorIds: "", status: "" },
@@ -195,7 +202,6 @@ export function InterviewManagementPage() {
   }
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewRoundListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<StudioInterviewRoundListRecord | null>(null);
-  const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
@@ -253,7 +259,11 @@ export function InterviewManagementPage() {
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
   }
 
-  const generateEvaluationDocument = useMutation({
+  const {
+    isPending: isGeneratingEvaluationDocument,
+    mutate: generateEvaluationDocument,
+    variables: generatingEvaluationDocumentRoundId,
+  } = useMutation({
     mutationFn: (roundId: string) =>
       rpcFetch(
         rpc.api.w[":slug"].studio.interviews[":id"]["evaluation-document"].$post({
@@ -333,6 +343,7 @@ export function InterviewManagementPage() {
             </div>
           );
         },
+        enablePinning: false,
         key: "candidateName",
         size: 240,
         title: "候选人",
@@ -350,13 +361,11 @@ export function InterviewManagementPage() {
             return <span className="truncate text-left">{label}</span>;
           }
           return (
-            <button
-              className="truncate text-left underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
-              onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
-              type="button"
-            >
-              {label}
-            </button>
+            <JobDescriptionHoverCard
+              className="block max-w-full truncate decoration-foreground/20 hover:decoration-foreground/60"
+              jobDescriptionId={r.jobDescriptionId}
+              name={label}
+            />
           );
         },
         key: "jobDescriptionName",
@@ -364,7 +373,10 @@ export function InterviewManagementPage() {
       }),
       textColumn<StudioInterviewRoundListRecord>({
         cell: (r) => r.roundLabel,
+        cellClassName: "min-w-28",
+        headerClassName: "min-w-28",
         key: "roundLabel",
+        size: 112,
         title: "轮次",
       }),
       customColumn<StudioInterviewRoundListRecord>({
@@ -402,9 +414,9 @@ export function InterviewManagementPage() {
           <CandidateEvaluationDocumentCell
             canGenerate={canUpdateInterview}
             generating={
-              generateEvaluationDocument.isPending && generateEvaluationDocument.variables === r.id
+              isGeneratingEvaluationDocument && generatingEvaluationDocumentRoundId === r.id
             }
-            onGenerate={(roundId) => generateEvaluationDocument.mutate(roundId)}
+            onGenerate={generateEvaluationDocument}
             row={r}
           />
         ),
@@ -461,7 +473,14 @@ export function InterviewManagementPage() {
         ],
       }),
     ],
-    [canDeleteInterview, canReadJobDescriptions, canUpdateInterview, generateEvaluationDocument],
+    [
+      canDeleteInterview,
+      canReadJobDescriptions,
+      canUpdateInterview,
+      generateEvaluationDocument,
+      generatingEvaluationDocumentRoundId,
+      isGeneratingEvaluationDocument,
+    ],
   );
 
   // 状态过滤选项：对应 round 级状态枚举。
@@ -731,11 +750,6 @@ export function InterviewManagementPage() {
             ) : null;
           })()
         : null}
-
-      <JobDescriptionViewDialog
-        jobDescriptionId={canReadJobDescriptions ? viewJobDescriptionId : null}
-        onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
-      />
     </>
   );
 }

@@ -22,6 +22,8 @@ import {
   loadMeetingTranscriptionChunkCheckpoint,
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
+  resetMeetingTranscriptionForRetry,
+  restoreMeetingTranscriptionAfterRetryFailure,
   saveMeetingTranscriptionChunkCheckpoint,
   updateMeetingTranscriptionPolicy,
 } from "./dao";
@@ -50,7 +52,7 @@ const job = {
   meetingId: MEETING_ID,
   model: "qwen3-asr-flash-filetrans",
   organizationId: ORGANIZATION_ID,
-  pipelineVersion: "final-v1" as const,
+  pipelineVersion: "final-v2" as const,
   policyRevision: 1,
   provider: "qwen" as const,
   region: "qwen-cn-beijing",
@@ -252,6 +254,156 @@ describe("Meeting transcription publication", () => {
         { attempt: 2, status: "succeeded" },
       ]),
     );
+  });
+
+  it("publishes a new immutable revision after the transcription pipeline changes", async () => {
+    const historicalJob = {
+      ...job,
+      // SAFETY: The fixture deliberately reconstructs a persisted revision from the retired pipeline.
+      pipelineVersion: "final-v1" as never,
+    };
+    const historicalTranscript = {
+      language: "zh",
+      turns: [
+        {
+          confidence: null,
+          endMs: 1000,
+          speakerKey: "remote-1",
+          startMs: 0,
+          text: "旧的说话人分组",
+          track: "remote" as const,
+        },
+      ],
+    };
+    await claimMeetingTranscriptionRun({
+      ...historicalJob,
+      attempt: 1,
+      processingRunId: runId("run-final-v1"),
+    });
+    await publishMeetingTranscript({
+      ...historicalJob,
+      processingRunId: runId("run-final-v1"),
+      transcript: historicalTranscript,
+    });
+    await resetMeetingTranscriptionForRetry({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+    });
+
+    await expect(
+      claimMeetingTranscriptionRun({
+        ...job,
+        attempt: 1,
+        processingRunId: runId("run-final-v2"),
+      }),
+    ).resolves.toBe("claimed");
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-final-v2"),
+        transcript: {
+          ...historicalTranscript,
+          turns: [{ ...historicalTranscript.turns[0], text: "新的说话人分组" }],
+        },
+      }),
+    ).resolves.toBe(true);
+
+    await expect(
+      db.query.meetingTranscriptRevision.findMany({
+        columns: { pipelineVersion: true, revision: true },
+        orderBy: (revision, { asc }) => [asc(revision.revision)],
+        where: { meetingId: MEETING_ID },
+      }),
+    ).resolves.toEqual([
+      { pipelineVersion: "final-v1", revision: 1 },
+      { pipelineVersion: "final-v2", revision: 2 },
+    ]);
+  });
+
+  it("preserves recording provenance and changes roles only through server-owned confirmation", async () => {
+    const processingRunId = runId("attribution");
+    await claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId });
+    await publishMeetingTranscript({
+      ...job,
+      processingRunId,
+      transcript: {
+        language: "zh",
+        turns: [
+          {
+            attribution: {
+              method: "unconfirmed",
+              participantIdentity: null,
+              role: "unknown",
+              sourceId: "mixed-file",
+            },
+            confidence: null,
+            endMs: 2000,
+            speakerKey: "remote-1",
+            startMs: 1000,
+            text: "待确认原文",
+            track: "remote",
+          },
+        ],
+      },
+    });
+    const source = await db.query.meetingTranscriptRevision.findFirst({
+      where: { meetingId: MEETING_ID },
+      with: { turns: true },
+    });
+    const original = source?.turns[0];
+    if (!source || !original) {
+      throw new Error("missing transcript fixture");
+    }
+    const correction = {
+      actorId: USER_ID,
+      correction: {
+        language: "zh",
+        sourceRevisionId: source.id,
+        turns: [
+          {
+            attribution: {
+              method: "manual" as const,
+              participantIdentity: "forged",
+              role: "candidate" as const,
+              sourceId: "forged-file",
+            },
+            confidence: null,
+            endMs: 2000,
+            speakerDisplayName: "候选人",
+            speakerKey: "remote-1",
+            startMs: 1000,
+            text: "人工修改文字",
+            track: "remote" as const,
+          },
+        ],
+      },
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+    };
+    const edited = await createHumanMeetingTranscriptRevision(correction);
+    if (!isHumanRevision(edited) || !edited.turns[0]) {
+      throw new Error("missing edited revision");
+    }
+    expect(edited.turns[0].attribution).toEqual(original.attribution);
+    const confirmed = await createHumanMeetingTranscriptRevision({
+      ...correction,
+      confirmedRoles: { [edited.turns[0].id]: "candidate" },
+      correction: { ...correction.correction, sourceRevisionId: edited.id },
+    });
+    if (!isHumanRevision(confirmed)) {
+      throw new Error("missing confirmed revision");
+    }
+    expect(confirmed.turns[0]?.attribution).toEqual({
+      method: "manual",
+      participantIdentity: null,
+      role: "candidate",
+      sourceId: "mixed-file",
+    });
+    const preserved = await db.query.meetingTranscriptTurn.findFirst({
+      where: { id: original.id },
+    });
+    expect(preserved?.attribution).toEqual(original.attribution);
+    expect(preserved?.text).toBe("待确认原文");
   });
 
   it("keeps the machine revision immutable and detects concurrent human corrections", async () => {
@@ -925,8 +1077,8 @@ describe("Meeting transcription publication", () => {
     ).resolves.toBeNull();
     await expect(
       loadMeetingTranscriptionChunkCheckpoint(
-        // SAFETY: This test constructs the value with the asserted contract before this boundary.
-        { ...job, pipelineVersion: "final-v2" as never },
+        // SAFETY: Reconstruct a retired pipeline input to verify checkpoint isolation.
+        { ...job, pipelineVersion: "final-v1" as never },
         chunk,
       ),
     ).resolves.toBeNull();
@@ -977,7 +1129,7 @@ describe("Meeting transcription publication", () => {
       }),
     ).resolves.toMatchObject({
       meetingId: MEETING_ID,
-      model: "qwen3-asr-flash-filetrans",
+      model: "qwen-audio-3.0-asr-flash-filetrans",
       policyRevision: 1,
       provider: "qwen",
       region: "qwen-cn-beijing",
@@ -991,6 +1143,82 @@ describe("Meeting transcription publication", () => {
     expect(row?.allowedProviders).toEqual(["qwen"]);
     expect(row?.revision).toBe(1);
   }, 30_000);
+
+  it("resets a ready transcript and removes every cached chunk before regeneration", async () => {
+    const processingRunId = runId("run-regeneration");
+    const chunk = {
+      contentType: "audio/webm",
+      endMs: 10_000,
+      filePath: "/tmp/system-000.webm",
+      index: 0,
+      startMs: 0,
+      track: "system" as const,
+    };
+    const transcript = {
+      language: "zh",
+      turns: [
+        {
+          confidence: null,
+          endMs: 2000,
+          speakerKey: "remote-1",
+          startMs: 1000,
+          text: "旧的完整转录",
+          track: "remote" as const,
+        },
+      ],
+    };
+    await claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId });
+    await claimMeetingTranscriptionChunk({ ...job, processingRunId }, chunk);
+    await saveMeetingTranscriptionChunkCheckpoint({ ...job, processingRunId }, chunk, transcript);
+    await publishMeetingTranscript({ ...job, processingRunId, transcript });
+
+    await expect(
+      resetMeetingTranscriptionForRetry({
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toEqual([{ id: MEETING_ID }]);
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionStatus: "pending" });
+    await expect(
+      db.query.meetingTranscriptionChunk.findMany({ where: { meetingId: MEETING_ID } }),
+    ).resolves.toHaveLength(0);
+    await restoreMeetingTranscriptionAfterRetryFailure({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      transcriptionError: null,
+      transcriptionStatus: "ready",
+    });
+    await restoreMeetingTranscriptionAfterRetryFailure({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      transcriptionError: "不应覆盖 ready 状态",
+      transcriptionStatus: "failed",
+    });
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionError: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionError: null, transcriptionStatus: "ready" });
+    await expect(
+      getMeetingTranscriptionJobForMeeting({
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      getMeetingTranscriptionJobForMeeting({
+        allowTerminalStatus: true,
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toMatchObject({ meetingId: MEETING_ID });
+  });
 
   it("uses a diarization-capable Qwen model for a mixed meeting recording", async () => {
     await db.delete(meetingRecordingAsset).where(eq(meetingRecordingAsset.meetingId, MEETING_ID));

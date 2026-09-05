@@ -89,18 +89,18 @@ export async function retryHumanInterviewTranscription(input: {
   if (!isMeetingTranscriptionQueueConfigured()) {
     return "unavailable";
   }
-  await resetMeetingTranscriptionForRetry({
-    meetingId: input.meetingSessionId,
-    organizationId: input.organizationId,
-  });
   const job = await getMeetingTranscriptionJobForMeeting({
+    allowTerminalStatus: true,
     meetingId: input.meetingSessionId,
     organizationId: input.organizationId,
-    preferFallback: true,
   });
   if (!job) {
     return "unavailable";
   }
+  await resetMeetingTranscriptionForRetry({
+    meetingId: input.meetingSessionId,
+    organizationId: input.organizationId,
+  });
   await retryMeetingTranscriptionJob(job);
   return "processing";
 }

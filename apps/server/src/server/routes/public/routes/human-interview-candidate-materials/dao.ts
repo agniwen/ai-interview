@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../../../../lib/server/db/index";
 import { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
@@ -205,6 +205,71 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
   candidateId: string;
   scope: HumanInterviewCandidateMaterialsScope;
 }): Promise<HumanInterviewCandidateHrInformationResponse | null> {
+  // Anchor history to the linked round, not the candidate's latest round. For legacy
+  // meetings with multiple rounds, the earliest linked round is the safe boundary.
+  const [currentRound] = await db
+    .select({ sortOrder: studioHumanInterviewRound.sortOrder })
+    .from(studioHumanInterviewMeetingRound)
+    .innerJoin(
+      studioHumanInterviewRound,
+      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+    )
+    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
+    .where(
+      and(
+        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(studioHumanInterviewRound.organizationId, input.scope.organizationId),
+        eq(studioInterview.organizationId, input.scope.organizationId),
+        eq(studioInterview.id, input.candidateId),
+      ),
+    )
+    .orderBy(asc(studioHumanInterviewRound.sortOrder))
+    .limit(1);
+  if (!currentRound) {
+    return null;
+  }
+
+  const rounds = await db
+    .select({
+      evaluation: studioHumanInterviewRound.evaluation,
+      outcome: studioHumanInterviewRound.outcome,
+      roundId: studioHumanInterviewRound.id,
+      roundLabel: studioHumanInterviewRound.label,
+      submittedAt: studioHumanInterviewRound.evaluationSubmittedAt,
+      submittedBy: user.name,
+    })
+    .from(studioHumanInterviewRound)
+    .leftJoin(user, eq(studioHumanInterviewRound.evaluationUpdatedBy, user.id))
+    .where(
+      and(
+        eq(studioHumanInterviewRound.organizationId, input.scope.organizationId),
+        eq(studioHumanInterviewRound.interviewRecordId, input.candidateId),
+        lt(studioHumanInterviewRound.sortOrder, currentRound.sortOrder),
+        eq(studioHumanInterviewRound.status, "completed"),
+        eq(studioHumanInterviewRound.evaluationStatus, "submitted"),
+      ),
+    )
+    .orderBy(asc(studioHumanInterviewRound.sortOrder), asc(studioHumanInterviewRound.id));
+  const previousEvaluations = rounds.flatMap(({ evaluation, submittedAt, ...round }) => {
+    if (!evaluation) {
+      return [];
+    }
+    return [
+      {
+        ...round,
+        submittedAt: submittedAt?.toISOString() ?? null,
+        values: {
+          professionalSkill: evaluation.professionalSkill,
+          rating: evaluation.rating,
+          risks: evaluation.risks,
+          rolePosition: evaluation.rolePosition,
+          salaryRecommendation: evaluation.salaryRecommendation,
+          seniorityPosition: evaluation.seniorityPosition,
+          strengths: evaluation.strengths,
+        },
+      },
+    ];
+  });
   const conversations = await db
     .select({
       conversationId: interviewConversation.conversationId,
@@ -236,12 +301,6 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
       ),
     )
     .orderBy(desc(interviewConversation.updatedAt));
-  if (conversations.length === 0) {
-    const candidates = await listHumanInterviewMeetingCandidates(input.scope);
-    return candidates.some((candidate) => candidate.id === input.candidateId)
-      ? { hrInitialInformation: null }
-      : null;
-  }
   const [hrInitialInformation] = conversations.flatMap((conversation) => {
     const parsed = humanInterviewCandidateHrEvaluationSchema.safeParse(
       conversation.evaluationCriteriaResults.hrEvaluation,
@@ -257,7 +316,7 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
         ]
       : [];
   });
-  return { hrInitialInformation: hrInitialInformation ?? null };
+  return { hrInitialInformation: hrInitialInformation ?? null, previousEvaluations };
 }
 
 export async function loadHumanInterviewCandidateQuestions(input: {

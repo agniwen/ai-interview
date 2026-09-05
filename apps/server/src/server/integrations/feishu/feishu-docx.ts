@@ -1117,7 +1117,8 @@ function humanInterviewEvaluationPlacement(
   const next = sections.find((section) => section.number !== null && section.number > roundNumber);
   const last = sections.findLast((section) => section.number !== null);
   const executive = sections.find((section) => /^(?:HRD|CEO)面试评价$/.test(section.title));
-  return { index: next?.index ?? (last ? last.index + 1 : executive?.index) };
+  const index = next?.index ?? (last ? last.index + 1 : executive?.index);
+  return { index: executive ? Math.min(index ?? executive.index, executive.index) : index };
 }
 
 async function syncHumanInterviewRating(

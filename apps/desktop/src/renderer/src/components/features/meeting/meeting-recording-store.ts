@@ -2,6 +2,10 @@ import { atom, createStore } from "jotai/vanilla";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import type { MeetingCaptureSnapshot } from "../../../../../preload/meeting-capture";
 import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
+import type {
+  MeetingLiveSummaryControllerSnapshot,
+  MeetingLiveSummarySource,
+} from "@/lib/meeting-capture/live-summary-controller";
 
 type MeetingRecordingStore = ReturnType<typeof createStore>;
 
@@ -33,6 +37,14 @@ export const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
   turns: [],
 };
 
+export const INITIAL_LIVE_SUMMARY_SNAPSHOT: MeetingLiveSummaryControllerSnapshot = {
+  captureId: null,
+  error: null,
+  pendingCharacters: 0,
+  status: "idle",
+  summary: null,
+};
+
 export interface PendingMeetingDiscard {
   captureId?: string;
   includeSaved: boolean;
@@ -40,6 +52,7 @@ export interface PendingMeetingDiscard {
 
 export const captureSnapshotAtom = atom(INITIAL_CAPTURE_SNAPSHOT);
 export const liveTranscriptDraftAtom = atom(INITIAL_LIVE_DRAFT_SNAPSHOT);
+export const meetingLiveSummaryAtom = atom(INITIAL_LIVE_SUMMARY_SNAPSHOT);
 export const pendingMeetingDiscardAtom = atom<PendingMeetingDiscard | null>(null);
 export const preselectedResumeRecordAtom = atom<ResumeLibraryListRecord | null>(null);
 
@@ -49,6 +62,9 @@ interface ObservableSource<Value> {
 
 interface MeetingRecordingStateSources {
   capture: ObservableSource<MeetingCaptureSnapshot>;
+  summary: ObservableSource<MeetingLiveSummaryControllerSnapshot> & {
+    update: (source: MeetingLiveSummarySource | null) => void;
+  };
   transcript: ObservableSource<LiveTranscriptDraftSnapshot>;
 }
 
@@ -60,16 +76,44 @@ export function createMeetingRecordingStateBridge(
   sources: MeetingRecordingStateSources,
   store: MeetingRecordingStore = createStore(),
 ) {
+  let latestCapture = INITIAL_CAPTURE_SNAPSHOT;
+  let latestTranscript = INITIAL_LIVE_DRAFT_SNAPSHOT;
+  const updateSummarySource = () => {
+    const { active } = latestCapture;
+    const localSummary = active
+      ? (latestCapture.localSessions.find((session) => session.id === active.captureId)
+          ?.liveSummary ?? null)
+      : null;
+    sources.summary.update(
+      active && latestTranscript.captureId === active.captureId
+        ? {
+            captureId: active.captureId,
+            initialSummary: localSummary,
+            meetingStartedAt: active.startedAt,
+            template: active.recruitingRecordId ? "recruiting-interview" : "general",
+            transcript: latestTranscript,
+          }
+        : null,
+    );
+  };
   const unsubscribeCapture = sources.capture.observe((snapshot) => {
+    latestCapture = snapshot;
     store.set(captureSnapshotAtom, snapshot);
+    updateSummarySource();
   });
   const unsubscribeTranscript = sources.transcript.observe((snapshot) => {
+    latestTranscript = snapshot;
     store.set(liveTranscriptDraftAtom, snapshot);
+    updateSummarySource();
+  });
+  const unsubscribeSummary = sources.summary.observe((snapshot) => {
+    store.set(meetingLiveSummaryAtom, snapshot);
   });
   return {
     dispose: () => {
       unsubscribeCapture();
       unsubscribeTranscript();
+      unsubscribeSummary();
     },
     store,
   };

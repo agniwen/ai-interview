@@ -10,6 +10,7 @@ export const {
   claimMeetingTranscriptionRun,
   ensureDefaultMeetingTranscriptionPolicy,
   getMeetingTranscriptionJobForMeeting,
+  isMeetingTranscriptionReady,
   listMeetingProcessingRuns,
   listRecoverableMeetingTranscriptionJobs,
   loadMeetingTranscriptionChunkCheckpoint,
@@ -19,6 +20,7 @@ export const {
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
   resetMeetingTranscriptionForRetry,
+  restoreMeetingTranscriptionAfterRetryFailure,
   saveMeetingTranscriptionChunkCheckpoint,
   updateMeetingTranscriptionPolicy,
 } = createMeetingTranscriptionDao(db, {

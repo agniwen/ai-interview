@@ -1,4 +1,6 @@
-import { createClientEnv } from "./client.schema";
+import { createClientEnv, withClientDevelopmentDefaults } from "./client.schema";
 
-export const env = createClientEnv(import.meta.env);
+const runtimeEnv = withClientDevelopmentDefaults(import.meta.env, import.meta.env.DEV);
+
+export const env = createClientEnv(runtimeEnv);
 export { createClientEnv } from "./client.schema";

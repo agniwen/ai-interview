@@ -11,13 +11,17 @@
  */
 
 import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
-import type { InterviewQuestionTemplateDifficulty } from "@app/db-schema/interview-question-templates";
+import type {
+  InterviewQuestionFollowUpContract,
+  InterviewQuestionTemplateDifficulty,
+} from "@app/db-schema/interview-question-templates";
 
 export interface AgentInstructionPresetQuestion {
   content: string;
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
+  followUpContract?: InterviewQuestionFollowUpContract | null;
   id?: string;
 }
 

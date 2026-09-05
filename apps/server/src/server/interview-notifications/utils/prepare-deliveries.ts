@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   account,
   globalConfig,
+  jobDescription,
   interviewNotificationTemplate,
   interviewNotificationTemplateVersion,
   organization,
@@ -19,7 +20,7 @@ import type {
   InterviewNotificationChannel,
   InterviewNotificationPayloadSnapshot,
 } from "@app/db-schema/interview-notifications";
-import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { createInterviewNotificationDelivery } from "../dao";
 import type { InterviewNotificationEventRecord, NotificationDatabase } from "../dao";
 import { renderInterviewNotificationTemplateContent } from "./templates";
@@ -55,7 +56,7 @@ interface RecordContext {
   companyName: string;
   createdBy: string | null;
   id: string;
-  targetRole: string | null;
+  jobName: string | null;
 }
 
 interface RecipientTarget {
@@ -174,10 +175,17 @@ async function loadRecordContexts(
       configuredCompanyName: globalConfig.companyName,
       createdBy: studioInterview.createdBy,
       id: studioInterview.id,
-      targetRole: studioInterview.targetRole,
+      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
       workspaceName: organization.name,
     })
     .from(studioInterview)
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
     .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
     .where(
@@ -405,6 +413,12 @@ async function loadTargets(
   );
 }
 
+export function usesInterviewerMeetingLink(
+  type: InterviewNotificationEventRecord["type"],
+): boolean {
+  return type !== "human_evaluation_summary_ready";
+}
+
 async function payloadForTarget(
   database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
@@ -412,7 +426,10 @@ async function payloadForTarget(
   audienceType: InterviewNotificationAudienceType,
 ): Promise<InterviewNotificationPayloadSnapshot> {
   const interviewerLink =
-    audienceType === "meeting_interviewer" && event.humanMeetingId && target.userId
+    audienceType === "meeting_interviewer" &&
+    usesInterviewerMeetingLink(event.type) &&
+    event.humanMeetingId &&
+    target.userId
       ? await loadInterviewerMeetingLink(database, event.humanMeetingId, target.userId)
       : undefined;
   return {
@@ -420,7 +437,7 @@ async function payloadForTarget(
     candidateName: target.record.candidateName,
     companyName: target.record.companyName,
     interviewLink: interviewerLink ?? event.payloadSnapshot.interviewLink,
-    jobName: event.payloadSnapshot.jobName ?? target.record.targetRole ?? undefined,
+    jobName: event.payloadSnapshot.jobName ?? target.record.jobName ?? undefined,
   };
 }
 

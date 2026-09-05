@@ -2,6 +2,7 @@
 
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { cossFieldFocusClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
 import {
   Select,
@@ -28,6 +29,7 @@ import type { InterviewQuestionDimension } from "@app/db-schema/interview/types"
 import { DIFFICULTY_PILL_CLASS } from "@app/shared/interview-question-difficulty";
 import { cn } from "@app/shared/utils";
 import { z } from "zod";
+import type { ReactNode } from "react";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 
 const DIFFICULTY_PILL = {
@@ -51,6 +53,7 @@ interface SortableQuestionListItem {
 const sortableQuestionListItemStateSchema = z.object({
   difficulty: interviewQuestionTemplateDifficultySchema.optional(),
   dimension: interviewQuestionDimensionSchema.optional(),
+  id: z.string().optional(),
 });
 
 interface SortableQuestionListEditorProps {
@@ -78,6 +81,7 @@ interface SortableQuestionListEditorProps {
   emptyTitle?: string;
   emptyDescription?: string;
   disabled?: boolean;
+  renderHeaderAccessory?: (item: { id?: string }, index: number) => ReactNode;
 }
 
 export function SortableQuestionListEditor(props: SortableQuestionListEditorProps) {
@@ -107,6 +111,7 @@ function QuestionListBody({
   emptyTitle = "暂无面试题",
   emptyDescription = "添加面试官在面试中按顺序必问的题目，可单独标注难度。",
   disabled,
+  renderHeaderAccessory,
 }: SortableQuestionListEditorProps & {
   // oxlint-disable-next-line no-explicit-any
   field: any;
@@ -186,6 +191,7 @@ function QuestionListBody({
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className="ml-auto flex items-center gap-1">
+                      {renderHeaderAccessory?.(items[index] ?? {}, index)}
                       {dimensionFieldName ? (
                         <form.Field name={`${arrayFieldName}[${index}].${dimensionFieldName}`}>
                           {/* oxlint-disable-next-line no-explicit-any */}
@@ -296,8 +302,9 @@ function QuestionListBody({
                         <div data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}>
                           <div
                             className={cn(
-                              "relative rounded-md border border-transparent transition-colors",
-                              "group-hover:border-border hover:border-border focus-within:border-ring",
+                              "relative rounded-md border border-transparent transition-[border-color,box-shadow]",
+                              "group-hover:border-border hover:border-border",
+                              cossFieldFocusClass,
                               "has-[textarea:disabled]:hover:border-transparent",
                               errors?.length && "border-destructive hover:border-destructive",
                             )}
@@ -343,9 +350,9 @@ function QuestionListBody({
                             </label>
                             <div
                               className={cn(
-                                "relative rounded-md border border-border bg-background/50 transition-colors focus-within:border-ring",
-                                errors?.length &&
-                                  "border-destructive focus-within:border-destructive",
+                                "relative rounded-md border border-border bg-background/50 transition-[border-color,box-shadow]",
+                                cossFieldFocusClass,
+                                errors?.length && "border-destructive",
                               )}
                             >
                               <TextareaControl
@@ -387,9 +394,9 @@ function QuestionListBody({
                             </label>
                             <div
                               className={cn(
-                                "relative rounded-md border border-border bg-background/50 transition-colors focus-within:border-ring",
-                                errors?.length &&
-                                  "border-destructive focus-within:border-destructive",
+                                "relative rounded-md border border-border bg-background/50 transition-[border-color,box-shadow]",
+                                cossFieldFocusClass,
+                                errors?.length && "border-destructive",
                               )}
                             >
                               <TextareaControl

@@ -39,7 +39,7 @@ function makeApp(userId: string | null) {
 
 describe("human interview candidate materials routes", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mocks.authorize.mockResolvedValue({ scope, status: "authorized" });
     mocks.recordView.mockResolvedValue();
   });
@@ -52,6 +52,29 @@ describe("human interview candidate materials routes", () => {
     expect(response.status).toBe(200);
     expect(mocks.authorize).toHaveBeenCalledWith({ inviteToken: "token" });
   });
+
+  it("returns HR and submitted history through the existing meeting-scoped endpoint", async () => {
+    const history = { hrInitialInformation: null, previousEvaluations: [] };
+    mocks.loadHrInformation.mockResolvedValue(history);
+    const response = await makeApp(null).request(
+      "/human-interview-meetings/token/candidate-1/hr-initial-information",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(history);
+    expect(mocks.loadHrInformation).toHaveBeenCalledWith({ candidateId: "candidate-1", scope });
+  });
+
+  it.each(["not_found", "unavailable"] as const)(
+    "does not load history when the link is %s",
+    async (status) => {
+      mocks.authorize.mockResolvedValue({ status });
+      const response = await makeApp(null).request(
+        "/human-interview-meetings/token/candidate-1/hr-initial-information",
+      );
+      expect(response.status).toBe(status === "not_found" ? 404 : 410);
+      expect(mocks.loadHrInformation).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not bind candidate-material access to an unrelated signed-in account", async () => {
     mocks.listCandidates.mockResolvedValue([]);

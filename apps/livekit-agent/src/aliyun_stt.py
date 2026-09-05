@@ -16,8 +16,10 @@ import aiohttp
 from livekit import rtc
 from livekit.agents import (
     DEFAULT_API_CONNECT_OPTIONS,
+    APIConnectionError,
     APIConnectOptions,
     APIStatusError,
+    APITimeoutError,
     stt,
     utils,
 )
@@ -25,6 +27,9 @@ from livekit.agents.language import LanguageCode
 from livekit.agents.types import NOT_GIVEN, NotGivenOr, TimedString
 
 logger = logging.getLogger("aliyun-stt")
+
+DEFAULT_MODEL = "qwen-audio-3.0-asr-flash-streaming"
+DEFAULT_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
 
 
 def _milliseconds_to_seconds(value: int | float | None, *, default: float = 0.0):
@@ -50,12 +55,13 @@ def _to_timed_word(word: dict) -> TimedString:
 @dataclass
 class STTOptions:
     api_key: str | None
+    base_url: str
     language: str | None
     detect_language: bool
     interim_results: bool
     punctuate: bool
     model: str
-    max_sentence_silence: int = 1000
+    max_sentence_silence: int = 1300
     sample_rate: int = 16000
     workspace: str | None = None
     vocabulary_id: str | None = None
@@ -65,7 +71,7 @@ class STTOptions:
     inverse_text_normalization_enabled: bool = True
 
     def get_ws_url(self):
-        return "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
+        return self.base_url
 
     def get_header(self):
         header = {
@@ -134,9 +140,10 @@ class STT(stt.STT):
         detect_language: bool = False,
         interim_results: bool = True,
         punctuate: bool = True,
-        model: str = "qwen-audio-3.0-asr-flash-streaming",
+        model: str = DEFAULT_MODEL,
         api_key: str | None = None,
-        max_sentence_silence: int = 1000,
+        base_url: str | None = None,
+        max_sentence_silence: int = 1300,
         disfluency_removal_enabled: bool = False,
         semantic_punctuation_enabled: bool = False,
         punctuation_prediction_enabled: bool = True,
@@ -158,6 +165,7 @@ class STT(stt.STT):
             raise ValueError("DASHSCOPE_API_KEY is required")
         self._opts = STTOptions(
             api_key=api_key,
+            base_url=base_url or DEFAULT_BASE_URL,
             language=language,
             detect_language=detect_language,
             interim_results=interim_results,
@@ -172,6 +180,14 @@ class STT(stt.STT):
             workspace=workspace,
         )
         self._session = http_session
+
+    @property
+    def model(self) -> str:
+        return self._opts.model
+
+    @property
+    def provider(self) -> str:
+        return "aliyun"
 
     def _ensure_session(self) -> aiohttp.ClientSession:
         if not self._session:
@@ -228,26 +244,41 @@ class SpeechStream(stt.SpeechStream):
         self._language: LanguageCode = LanguageCode(opts.language)
         self._speaking = False
         self._request_id = utils.shortuuid()
-        self._reconnect_event = asyncio.Event()
         self._session = http_session
 
     async def _connect_ws(self) -> aiohttp.ClientWebSocketResponse:
-        ws = await asyncio.wait_for(
-            self._session.ws_connect(
-                self._opts.get_ws_url(), headers=self._opts.get_header()
-            ),
-            self._conn_options.timeout,
-        )
+        try:
+            ws = await asyncio.wait_for(
+                self._session.ws_connect(
+                    self._opts.get_ws_url(), headers=self._opts.get_header()
+                ),
+                self._conn_options.timeout,
+            )
+        except TimeoutError as error:
+            raise APITimeoutError("DashScope STT connection timed out") from error
+        except aiohttp.ClientError as error:
+            raise APIConnectionError(
+                f"DashScope STT connection failed: {type(error).__name__}"
+            ) from error
         logger.info("connected to DashScope STT websocket")
         return ws
 
     async def _run(self) -> None:
-        closing_ws = False
         task_id = utils.shortuuid()
+        task_started = asyncio.Event()
 
         @utils.log_exceptions(logger=logger)
         async def send_task(ws: aiohttp.ClientWebSocketResponse):
-            nonlocal closing_ws
+            try:
+                await asyncio.wait_for(
+                    task_started.wait(),
+                    timeout=self._conn_options.timeout,
+                )
+            except TimeoutError as error:
+                raise APITimeoutError(
+                    "DashScope STT did not acknowledge task start"
+                ) from error
+
             samples_100ms = self._opts.sample_rate // 10
             audio_bstream = utils.audio.AudioByteStream(
                 sample_rate=self._opts.sample_rate,
@@ -273,7 +304,6 @@ class SpeechStream(stt.SpeechStream):
 
         @utils.log_exceptions(logger=logger)
         async def recv_task(ws: aiohttp.ClientWebSocketResponse):
-            nonlocal closing_ws
             while True:
                 msg = await ws.receive()
                 if msg.type in (
@@ -281,47 +311,75 @@ class SpeechStream(stt.SpeechStream):
                     aiohttp.WSMsgType.CLOSE,
                     aiohttp.WSMsgType.CLOSING,
                 ):
-                    if closing_ws:
-                        return
-                    raise APIStatusError(message="connection closed unexpectedly")
+                    raise APIConnectionError(
+                        "DashScope STT connection closed unexpectedly"
+                    )
+                if msg.type == aiohttp.WSMsgType.ERROR:
+                    raise APIConnectionError("DashScope STT WebSocket failed")
+                if msg.type != aiohttp.WSMsgType.TEXT:
+                    continue
 
                 try:
-                    self._process_stream_event(json.loads(msg.data))
-                except Exception:
+                    finished = self._process_stream_event(
+                        json.loads(msg.data),
+                        task_id=task_id,
+                        task_started=task_started,
+                    )
+                except APIStatusError:
+                    raise
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                     logger.exception("failed to process STT message")
+                    continue
+                if finished:
+                    return
 
         ws: aiohttp.ClientWebSocketResponse | None = None
+        tasks: list[asyncio.Task] = []
+        try:
+            ws = await self._connect_ws()
+            await ws.send_json(self._opts.get_run_task_params(task_id=task_id))
+            tasks = [
+                asyncio.create_task(send_task(ws)),
+                asyncio.create_task(recv_task(ws)),
+            ]
+            await asyncio.gather(*tasks)
+        except aiohttp.ClientError as error:
+            raise APIConnectionError(
+                f"DashScope STT WebSocket failed: {type(error).__name__}"
+            ) from error
+        finally:
+            await utils.aio.gracefully_cancel(*tasks)
+            if ws is not None:
+                await ws.close()
 
-        while True:
-            try:
-                ws = await self._connect_ws()
-                await ws.send_json(self._opts.get_run_task_params(task_id=task_id))
-                tasks = [
-                    asyncio.create_task(send_task(ws)),
-                    asyncio.create_task(recv_task(ws)),
-                ]
-                wait_reconnect_task = asyncio.create_task(self._reconnect_event.wait())
-                try:
-                    done, _ = await asyncio.wait(
-                        [asyncio.gather(*tasks), wait_reconnect_task],
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-                    for task in done:
-                        if task != wait_reconnect_task:
-                            task.result()
-                    if wait_reconnect_task not in done:
-                        break
-                    self._reconnect_event.clear()
-                finally:
-                    await utils.aio.gracefully_cancel(*tasks, wait_reconnect_task)
-            finally:
-                if ws is not None:
-                    await ws.close()
+    def _process_stream_event(
+        self,
+        data: dict,
+        *,
+        task_id: str | None = None,
+        task_started: asyncio.Event | None = None,
+    ) -> bool:
+        header = data["header"]
+        if task_id is not None and header.get("task_id") != task_id:
+            return False
 
-    def _process_stream_event(self, data: dict) -> None:
-        event_type = data["header"]["event"]
+        event_type = header["event"]
+        if event_type == "task-started":
+            if task_started is not None:
+                task_started.set()
+            return False
+        if event_type == "task-failed":
+            error_code = header.get("error_code", "UNKNOWN")
+            error_message = header.get("error_message", "DashScope STT task failed")
+            raise APIStatusError(
+                message=f"DashScope STT task failed: {error_message}",
+                request_id=header.get("task_id"),
+                body={"error_code": error_code, "error_message": error_message},
+            )
+        if event_type == "task-finished":
+            return True
         if event_type != "result-generated":
-            return
+            return False
 
         output = data["payload"]["output"]
 
@@ -396,3 +454,5 @@ class SpeechStream(stt.SpeechStream):
             )
             self._speaking = False
             logger.info("transcription: %s", text)
+
+        return False

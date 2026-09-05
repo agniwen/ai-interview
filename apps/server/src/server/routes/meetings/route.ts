@@ -23,6 +23,7 @@ import { meetingQuestionsRouter } from "./routes/questions/route";
 import { meetingRecruitingContextRouter } from "./routes/recruiting-context/route";
 import { meetingSearchRouter } from "./routes/search/route";
 import { meetingLiveTranscriptRouter } from "./routes/live-transcript/route";
+import { meetingLiveSummaryRouter } from "./routes/live-summary/route";
 import { meetingIntelligenceRouter } from "./routes/intelligence/route";
 import { meetingNotesRouter } from "./routes/notes/route";
 import { meetingShareRouter } from "./routes/share/route";
@@ -46,6 +47,7 @@ const defaultMeetingsRouterDependencies = {
   listSavedMeetings,
   meetingExportsRouter,
   meetingIntelligenceRouter,
+  meetingLiveSummaryRouter,
   meetingLiveTranscriptRouter,
   meetingNotesRouter,
   meetingPlaybackRouter,
@@ -79,6 +81,7 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
     meetingExportsRouter: exportsRouter,
     meetingIntelligenceRouter: intelligenceRouter,
     meetingLiveTranscriptRouter: liveTranscriptRouter,
+    meetingLiveSummaryRouter: liveSummaryRouter,
     meetingNotesRouter: notesRouter,
     meetingPlaybackRouter: playbackRouter,
     meetingQuestionsRouter: questionsRouter,
@@ -95,6 +98,7 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
   return factory
     .createApp()
     .route("/live-transcript", liveTranscriptRouter)
+    .route("/live-summary", liveSummaryRouter)
     .route("/transcription-policy", transcriptionPolicyRouter)
     .route("/search", searchRouter)
     .route("/trash", trashRouter)

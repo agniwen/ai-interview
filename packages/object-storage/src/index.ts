@@ -270,7 +270,7 @@ export async function buildMeetingTranscriptionStagingKey(input: {
   meetingId: string;
   organizationId: string;
   stagingToken: string;
-  track: "candidate" | "microphone" | "mixed" | "system";
+  track: "candidate" | "microphone" | "mixed" | "system" | `participant-${string}`;
 }): Promise<string> {
   const { config } = await getRecordingClient();
   const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";

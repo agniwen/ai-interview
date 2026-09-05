@@ -37,8 +37,11 @@ export function TimeDisplay({
 
   return (
     <span className={cn(!date && "opacity-60", className)}>
-      <span className="inline-flex items-center gap-1 whitespace-nowrap align-baseline">
-        <IconCalendar aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="inline-flex items-baseline gap-1 whitespace-nowrap align-baseline">
+        <IconCalendar
+          aria-hidden="true"
+          className="size-[1em] shrink-0 self-center text-muted-foreground"
+        />
         {as === "span" ? (
           <span className="whitespace-nowrap">{text}</span>
         ) : (

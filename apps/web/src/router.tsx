@@ -24,6 +24,15 @@ const resumePoolOverlayMask = createRouteMask({
   unmaskOnReload: true,
 });
 
+const humanInterviewDetailOverlayMask = createRouteMask({
+  from: "/w/$slug/studio/resumes/overlay/$recordId/human-interviews/$roundId/meetings/$meetingId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId",
+  unmaskOnReload: true,
+});
+
 function DefaultNotFoundComponent() {
   return <NotFoundPage />;
 }
@@ -42,7 +51,11 @@ export function getRouter() {
     defaultPendingMs: 350,
     defaultPreload: "intent",
     notFoundMode: "root",
-    routeMasks: [recruiterResumeOverlayMask, resumePoolOverlayMask],
+    routeMasks: [
+      recruiterResumeOverlayMask,
+      resumePoolOverlayMask,
+      humanInterviewDetailOverlayMask,
+    ],
     routeTree,
     scrollRestoration: true,
     scrollToTopSelectors: [getStudioCandidateDetailScrollToTopElement],

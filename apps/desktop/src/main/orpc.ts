@@ -3,6 +3,12 @@ import { RPCHandler } from "@orpc/server/message-port";
 import { ipcMain } from "electron";
 import { orpcContract } from "../preload/orpc-contract";
 import { readSettings, updateSettings } from "./settings";
+import { createLocalMeetingLiveTranscriptAuthorization } from "./meeting-transcription-provider-authorization";
+import {
+  clearMeetingTranscriptionProviderCredential,
+  getMeetingTranscriptionProviderCredentialStatus,
+  setMeetingTranscriptionProviderCredential,
+} from "./meeting-transcription-provider-credentials";
 
 /**
  * oRPC router implementing the shared contract. The renderer reaches it over
@@ -13,6 +19,20 @@ const orpcRouter = implement(orpcContract).router({
   settings: {
     get: implement(orpcContract.settings.get).handler(() => readSettings()),
     set: implement(orpcContract.settings.set).handler(({ input }) => updateSettings(input)),
+  },
+  transcriptionProviders: {
+    authorize: implement(orpcContract.transcriptionProviders.authorize).handler(({ input }) =>
+      createLocalMeetingLiveTranscriptAuthorization(input),
+    ),
+    clearCredential: implement(orpcContract.transcriptionProviders.clearCredential).handler(
+      ({ input }) => clearMeetingTranscriptionProviderCredential(input.provider),
+    ),
+    getCredentialStatus: implement(orpcContract.transcriptionProviders.getCredentialStatus).handler(
+      () => getMeetingTranscriptionProviderCredentialStatus(),
+    ),
+    setCredential: implement(orpcContract.transcriptionProviders.setCredential).handler(
+      ({ input }) => setMeetingTranscriptionProviderCredential(input.provider, input.apiKey),
+    ),
   },
 });
 

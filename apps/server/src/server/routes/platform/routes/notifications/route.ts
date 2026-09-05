@@ -149,5 +149,3 @@ export function createPlatformNotificationsRouter(
       }
     });
 }
-
-export const platformNotificationsRouter = createPlatformNotificationsRouter();

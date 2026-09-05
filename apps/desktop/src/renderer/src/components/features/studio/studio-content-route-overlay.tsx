@@ -3,7 +3,6 @@
 import { createContext, useContext, useState } from "react";
 import type { HTMLAttributes, PropsWithChildren } from "react";
 import { createPortal } from "react-dom";
-import { TITLE_BAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const StudioContentOverlayTargetContext = createContext<HTMLElement | null>(null);
@@ -41,9 +40,7 @@ export function StudioContentRouteOverlay({ children }: PropsWithChildren) {
 
   return createPortal(
     <div className="pointer-events-auto size-full bg-background">
-      <ScrollArea className="size-full">
-        <div style={{ paddingTop: TITLE_BAR_HEIGHT_PX }}>{children}</div>
-      </ScrollArea>
+      <ScrollArea className="size-full">{children}</ScrollArea>
     </div>,
     target,
   );

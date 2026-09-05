@@ -20,7 +20,7 @@ type DetailTab = "overview" | "ai-analysis";
 
 function ResumeDetailSkeleton() {
   return (
-    <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 py-4 sm:px-6">
+    <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 pt-8 pb-4 sm:px-6">
       <div className="flex min-w-0 flex-col gap-5">
         <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
           <div className="min-w-0">
@@ -192,7 +192,7 @@ export function ResumeDetailPage({ recordId }: { recordId: string }) {
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<ResumeDetailSkeleton />}>
       {detail && slug ? (
-        <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 py-4 sm:px-6">
+        <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 pt-8 pb-4 sm:px-6">
           <Tabs
             onValueChange={(value) => {
               if (value === "overview" || value === "ai-analysis") {

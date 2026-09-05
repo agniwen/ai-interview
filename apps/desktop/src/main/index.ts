@@ -9,8 +9,10 @@ import { registerOrpcIpc } from "./orpc";
 import { applySettingsAtStartup } from "./settings";
 import { registerAuthIpc } from "./ipc/auth";
 import { registerDownloadIpc } from "./ipc/download";
+import { registerMeetingPlaybackIpc } from "./ipc/meeting-playback";
 import { registerWindowIpc } from "./ipc/window";
 import {
+  isTrustedMainFrame,
   registerMeetingCaptureIpc,
   registerMeetingCaptureMediaSession,
 } from "./meeting-capture/ipc";
@@ -83,6 +85,7 @@ async function bootstrap(): Promise<void> {
   registerWindowIpc();
   registerAuthIpc();
   registerDownloadIpc();
+  registerMeetingPlaybackIpc(import.meta.env.VITE_RECORDING_R2_UPLOAD_ORIGIN, isTrustedMainFrame);
   createMainWindow();
   app.on("activate", handleActivate);
 }

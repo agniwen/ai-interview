@@ -17,9 +17,9 @@ export interface HumanInterviewLiveTranscriptContext extends Record<string, unkn
 
 interface Dependencies {
   authorize: (input: {
+    apiOrigin: string;
     captureId: string;
     inviteToken: string;
-    request: Request;
     track: "microphone" | "system";
   }) => Promise<MeetingLiveTranscriptAuthorization>;
 }
@@ -29,16 +29,16 @@ function reject(status: number, message: string): never {
 }
 
 async function authorizeThroughServerApi(input: {
+  apiOrigin: string;
   captureId: string;
   inviteToken: string;
-  request: Request;
   track: "microphone" | "system";
 }): Promise<MeetingLiveTranscriptAuthorization> {
   const url = new URL(
     `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(
       input.inviteToken,
     )}/live-transcript`,
-    input.request.url,
+    input.apiOrigin,
   );
   const response = await fetch(url, {
     body: JSON.stringify({ captureId: input.captureId, track: input.track }),
@@ -81,18 +81,24 @@ function decodeInviteToken(encoded: string): string {
   }
 }
 
-function validateOrigin(request: Request): void {
+function validateOrigin(request: Request): string {
+  // TLS terminates at the proxy in production; use the configured public origin
+  // for both browser validation and subsequent authorization/lease requests.
+  const apiOrigin = new URL(
+    process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim() || request.url,
+  ).origin;
   const origin = request.headers.get("origin");
-  if (!origin || origin !== new URL(request.url).origin) {
+  if (!origin || origin !== apiOrigin) {
     reject(403, "实时字幕连接来源无效。");
   }
+  return apiOrigin;
 }
 
 export async function authorizeHumanInterviewLiveTranscriptUpgrade(
   request: Request,
   dependencies: Partial<Dependencies> = {},
 ): Promise<HumanInterviewLiveTranscriptContext> {
-  validateOrigin(request);
+  const apiOrigin = validateOrigin(request);
   const deps = { ...defaultDependencies, ...dependencies };
   const protocols = (request.headers.get("sec-websocket-protocol") ?? "")
     .split(",")
@@ -113,13 +119,13 @@ export async function authorizeHumanInterviewLiveTranscriptUpgrade(
     reject(400, "实时字幕连接参数无效。");
   }
   const authorization = await deps.authorize({
+    apiOrigin,
     captureId: captureId.data,
     inviteToken,
-    request,
     track: track.data,
   });
   return {
-    apiOrigin: new URL(request.url).origin,
+    apiOrigin,
     authorization,
     captureId: captureId.data,
     inviteToken,

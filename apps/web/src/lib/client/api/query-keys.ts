@@ -6,6 +6,8 @@ export const chatConversationKeys = {
 };
 
 export const humanInterviewKeys = {
+  meetingDetail: (slug: string, candidateId: string, roundId: string, meetingId: string) =>
+    ["human-interview-meeting-detail", slug, candidateId, roundId, meetingId] as const,
   meetings: (slug: string, candidateId: string) =>
     ["human-interview-meetings", slug, candidateId] as const,
   meetingsByWorkspace: (slug: string) => ["human-interview-meetings", slug] as const,

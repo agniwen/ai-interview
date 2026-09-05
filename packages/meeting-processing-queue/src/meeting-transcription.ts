@@ -6,7 +6,7 @@ import { meetingTranscriptionProviderSchema } from "@app/shared/meeting-transcri
 
 export const MEETING_TRANSCRIPTION_QUEUE_NAME = "meeting-transcription";
 export const MEETING_TRANSCRIPTION_JOB_NAME = "transcribe-final-meeting";
-export const MEETING_TRANSCRIPTION_PIPELINE_VERSION = "final-v1";
+export const MEETING_TRANSCRIPTION_PIPELINE_VERSION = "final-v2";
 
 export const meetingTranscriptionJobSchema = z.object({
   meetingId: z.string().min(1),

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MeetingTranscriptResult } from "@app/shared/meeting-transcription";
@@ -6,11 +7,12 @@ import {
   isTranscriptCorrectionConflict,
   MeetingTranscriptStage,
   MeetingTranscriptStageTurns,
+  MeetingTranscriptPanel,
   MeetingTranscriptView,
   splitTranscriptTurn,
-  transcriptSeekSeconds,
 } from "./meeting-transcript-panel";
 import { ApiError } from "@/lib/client/api-error";
+import { desktopMeetingKeys } from "@/lib/client/meetings";
 
 const readyTranscript: MeetingTranscriptResult = {
   error: null,
@@ -54,44 +56,81 @@ const readyTranscript: MeetingTranscriptResult = {
 };
 
 describe("Final Meeting Transcript panel", () => {
+  it("keeps the retranscription action visible in the panel header", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+    });
+    queryClient.setQueryData(desktopMeetingKeys.transcript("workspace", "meeting-76"), {
+      error: null,
+      revision: null,
+      state: "pending",
+    } satisfies MeetingTranscriptResult);
+
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <MeetingTranscriptPanel accessRole="owner" meetingId="meeting-76" slug="workspace" />
+      </QueryClientProvider>,
+    );
+    const actionIndex = html.indexOf(">重新转录</button>");
+    const panelIndex = html.indexOf('data-slot="frame-panel"');
+
+    expect(actionIndex).toBeGreaterThan(-1);
+    expect(actionIndex).toBeLessThan(panelIndex);
+    expect(html).toContain("disabled");
+  });
+
+  it("hides retranscription for a promoted Deepgram live transcript", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+    });
+    queryClient.setQueryData(desktopMeetingKeys.transcript("workspace", "meeting-deepgram"), {
+      ...readyTranscript,
+      draft: {
+        capturedAt: "2026-09-04T03:00:10.000Z",
+        droppedAudioMs: 0,
+        droppedPcmFrames: 0,
+        error: null,
+        model: "nova-3",
+        provider: "deepgram",
+        sections: [],
+        turns: [],
+      },
+      revision: readyTranscript.revision
+        ? { ...readyTranscript.revision, model: "nova-3", provider: "deepgram" }
+        : null,
+    } satisfies MeetingTranscriptResult);
+
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <MeetingTranscriptPanel accessRole="owner" meetingId="meeting-deepgram" slug="workspace" />
+      </QueryClientProvider>,
+    );
+
+    expect(html).not.toContain(">重新转录</button>");
+  });
+
   it("distinguishes pending, processing and failed states", () => {
     const pending = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        onSeek={() => {}}
-        result={{ error: null, revision: null, state: "pending" }}
-      />,
+      <MeetingTranscriptView result={{ error: null, revision: null, state: "pending" }} />,
     );
     expect(pending).toContain("等待 Workspace 管理员配置并选择转录服务");
 
     const processing = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        onSeek={() => {}}
-        result={{ error: null, revision: null, state: "processing" }}
-      />,
+      <MeetingTranscriptView result={{ error: null, revision: null, state: "processing" }} />,
     );
     expect(processing).toContain("正在生成最终转录");
 
     const failed = renderToStaticMarkup(
       <MeetingTranscriptView
-        canRetry
-        onRetry={() => {}}
-        onSeek={() => {}}
         result={{ error: "provider unavailable", revision: null, state: "failed" }}
       />,
     );
     expect(failed).toContain("provider unavailable");
-    expect(failed).toContain("重试最终转录");
   });
 
   it("renders the durable live draft while final transcription is pending", () => {
     const html = renderToStaticMarkup(
       <MeetingTranscriptView
-        canRetry={false}
-        onSeek={() => {}}
         result={{
           draft: {
             capturedAt: "2026-08-12T08:00:00.000Z",
@@ -129,17 +168,9 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("候选人的实时回答");
   });
 
-  it("renders provider-neutral final turns and maps timestamps to playback seconds", () => {
-    const html = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        onSeek={() => {}}
-        result={readyTranscript}
-      />,
-    );
+  it("renders final turns like the recording view with numbered speaker avatars", () => {
+    const html = renderToStaticMarkup(<MeetingTranscriptView result={readyTranscript} />);
 
-    expect(html).toContain("00:01");
     expect(html).toContain("说话人1");
     expect(html).toContain("说话人2");
     expect(html.match(/data-meeting-speaker-avatar=/g)).toHaveLength(2);
@@ -147,7 +178,17 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).not.toContain("本机");
     expect(html).not.toContain("远端 1");
     expect(html).toContain("你好，我们开始吧。");
-    expect(transcriptSeekSeconds(1250)).toBe(1.25);
+    expect(html).not.toContain("跳转到");
+  });
+
+  it("keeps the current final transcript visible while regeneration is processing", () => {
+    const html = renderToStaticMarkup(
+      <MeetingTranscriptView result={{ ...readyTranscript, state: "processing" }} />,
+    );
+
+    expect(html).toContain("正在重新转录，完成前继续展示当前最终版本");
+    expect(html).toContain("你好，我们开始吧。");
+    expect(html).not.toContain(">重新转录<");
   });
 
   it("prefers analyzed speaker identities over the unknown live draft", () => {
@@ -179,6 +220,26 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("说话人2");
     expect(html).toContain("你好，我们开始吧。");
     expect(html).not.toContain("不应优先展示的实时草稿");
+  });
+
+  it("numbers unconfirmed speakers consistently on the recording page", () => {
+    const result: MeetingTranscriptResult = {
+      ...readyTranscript,
+      revision: readyTranscript.revision
+        ? {
+            ...readyTranscript.revision,
+            turns: readyTranscript.revision.turns.map((turn) => ({
+              ...turn,
+              speakerDisplayName: "待确认",
+            })),
+          }
+        : null,
+    };
+    const html = renderToStaticMarkup(<MeetingTranscriptStage result={result} />);
+
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html).not.toContain("待确认");
   });
 
   it("matches the live transcript spacing without hover treatment on the completed page", () => {
@@ -217,18 +278,13 @@ describe("Final Meeting Transcript panel", () => {
           }
         : null,
     };
-    const html = renderToStaticMarkup(
-      <MeetingTranscriptView
-        canRetry={false}
-        onRetry={() => {}}
-        onSeek={() => {}}
-        result={corrected}
-      />,
-    );
+    const html = renderToStaticMarkup(<MeetingTranscriptView result={corrected} />);
 
     expect(html).toContain("人工修订 revision 2");
-    expect(html).toContain("面试官");
-    expect(html).toContain("候选人");
+    expect(html).toContain("说话人1");
+    expect(html).toContain("说话人2");
+    expect(html).not.toContain("面试官");
+    expect(html).not.toContain("候选人");
   });
 
   it("allows editors to split transcript structure while viewers remain read-only", () => {

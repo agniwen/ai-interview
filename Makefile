@@ -1,5 +1,6 @@
 AGENT_DIR := apps/livekit-agent
 WEB_DIR   := apps/web
+WORKER_DIR := apps/worker
 WORKER_PACKAGE := @app/worker
 DESKTOP_PACKAGE := @app/desktop
 VENV      := $(AGENT_DIR)/.venv
@@ -72,10 +73,10 @@ web-dev-fresh: ## 清理依赖缓存后启动 TanStack Start dev server
 	bun run --filter @app/web dev:fresh
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
-	bun run --filter $(WORKER_PACKAGE) dev
+	cd $(WORKER_DIR) && bun run dev
 
 worker-start: ## 启动简历异步解析 worker (生产模式，不热重载)
-	bun run --filter $(WORKER_PACKAGE) start
+	cd $(WORKER_DIR) && bun run start
 
 worker-typecheck: ## 检查简历异步解析 worker TypeScript 类型
 	bun run --filter $(WORKER_PACKAGE) typecheck

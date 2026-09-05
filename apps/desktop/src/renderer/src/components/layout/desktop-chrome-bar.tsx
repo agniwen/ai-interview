@@ -1,19 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
 import { MeetingInboxMenu } from "@/components/features/meeting/meeting-inbox-menu";
-import { useMeetingCaptureSnapshot } from "@/components/features/meeting/meeting-recording-context";
-import { useMeetingLibrary } from "@/components/features/meeting/use-meeting-library";
-import {
-  contentHeaderTitle,
-  parseMeetingSessionId,
-} from "@/components/layout/content-header-title";
-import { desktopMeetingKeys, fetchMeetingDetail } from "@/lib/client/meetings";
 import { HistoryNav } from "@/components/history-nav";
 import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
 import {
   CHROME_BTN_PX,
   CHROME_EDGE_PAD_PX,
+  CHROME_PAGE_ACTIONS_GAP_PX,
+  CHROME_PAGE_ACTIONS_WIDTH_PX,
+  desktopChromeRightControlsWidthPx,
   CHROME_TRAFFIC_LIGHT_INSET_PX,
   TITLE_BAR_HEIGHT_PX,
   handleTitleBarDoubleClick,
@@ -42,14 +37,6 @@ const noDragStyle: ElectronNoDragStyle = {
   appRegion: "no-drag",
 };
 
-/** gap-1.5 between right-cluster controls. */
-const CHROME_RIGHT_GAP_PX = 6;
-
-/** Approx. Win/Linux window-control cluster (3 × 44px). macOS is 0. */
-function windowControlsWidthPx(): number {
-  return window.api.window.platform === "darwin" ? 0 : 44 * 3;
-}
-
 /**
  * Single fixed top chrome for the whole window.
  *
@@ -59,47 +46,9 @@ function windowControlsWidthPx(): number {
  *   sidebar-right (expanded) and next-to-toggle (collapsed).
  * - Inbox and native window controls stay on the right of this same bar.
  */
-function isLocalMeetingSession(
-  meetingId: string | null,
-  snapshot: ReturnType<typeof useMeetingCaptureSnapshot>,
-): boolean {
-  if (!meetingId) {
-    return false;
-  }
-  return (
-    snapshot.active?.captureId === meetingId ||
-    snapshot.saved?.captureId === meetingId ||
-    snapshot.localSessions.some((session) => session.id === meetingId)
-  );
-}
-
-function useContentHeaderLabel(): string {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const meetingId = parseMeetingSessionId(pathname);
-  const captureSnapshot = useMeetingCaptureSnapshot();
-  const { meetingsQuery, workspace } = useMeetingLibrary();
-  const localTitle = captureSnapshot.localSessions.find(
-    (session) => session.id === meetingId,
-  )?.title;
-  const workspaceSlug = workspace?.slug ?? "";
-  const detailQuery = useQuery({
-    enabled: Boolean(workspace && meetingId && !isLocalMeetingSession(meetingId, captureSnapshot)),
-    queryFn: () => fetchMeetingDetail(workspaceSlug, meetingId ?? ""),
-    queryKey: desktopMeetingKeys.detail(workspaceSlug, meetingId ?? ""),
-    staleTime: 5000,
-  });
-  const remoteTitle = meetingsQuery.data?.find((meeting) => meeting.id === meetingId)?.title;
-  return contentHeaderTitle({
-    pathname,
-    sessionArchived: detailQuery.data?.archived === true,
-    sessionTitle: localTitle ?? remoteTitle ?? detailQuery.data?.title ?? null,
-  });
-}
-
 export function DesktopChromeBar(): React.JSX.Element {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const headerTitle = useContentHeaderLabel();
   const showHistoryNav = useRouterState({
     select: (routerState) => {
       const path = routerState.location.pathname;
@@ -116,12 +65,9 @@ export function DesktopChromeBar(): React.JSX.Element {
   const toggleEnd = leftInset + CHROME_BTN_PX;
   const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 2 : 0;
   // Right cluster: inbox + optional native window controls + edge pad.
-  const windowControlsPx = windowControlsWidthPx();
-  const rightClusterPx =
-    CHROME_EDGE_PAD_PX +
-    CHROME_BTN_PX +
-    (windowControlsPx > 0 ? CHROME_RIGHT_GAP_PX : 0) +
-    windowControlsPx;
+  const rightClusterPx = desktopChromeRightControlsWidthPx();
+  const pageActionsRightInsetPx =
+    rightClusterPx + CHROME_PAGE_ACTIONS_GAP_PX + CHROME_PAGE_ACTIONS_WIDTH_PX;
 
   // Expanded: history ends at sidebar right pad.
   // Collapsed: history starts just after the toggle.
@@ -137,15 +83,9 @@ export function DesktopChromeBar(): React.JSX.Element {
   //       = 100% - sidebar-width + pad + historyWidth
   const expandedSidebarDragRight = `calc(100% - var(--sidebar-width) + ${CHROME_EDGE_PAD_PX + historyClusterPx}px)`;
 
-  // Product name sits at the left of the content header (after sidebar when
-  // expanded; after toggle/history when collapsed).
-  const appTitleLeft = collapsed
-    ? collapsedLeftEnd + 8
-    : `calc(var(--sidebar-width) + ${CHROME_EDGE_PAD_PX}px)`;
-
   return (
     <div
-      className="fixed inset-x-0 top-0 z-[200]"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[200]"
       onDoubleClick={handleTitleBarDoubleClick}
       style={{
         ...noDragStyle,
@@ -155,18 +95,18 @@ export function DesktopChromeBar(): React.JSX.Element {
       {/* ── Drag only on empty strips (never under controls) ── */}
       {collapsed ? (
         <div
-          className="app-drag absolute inset-y-0"
+          className="app-drag pointer-events-auto absolute inset-y-0"
           style={{
             ...dragStyle,
             left: collapsedLeftEnd,
-            right: rightClusterPx,
+            right: pageActionsRightInsetPx,
           }}
         />
       ) : (
         <>
           {/* Sidebar middle (between toggle and history) */}
           <div
-            className="app-drag absolute inset-y-0"
+            className="app-drag pointer-events-auto absolute inset-y-0"
             style={{
               ...dragStyle,
               left: toggleEnd,
@@ -175,11 +115,11 @@ export function DesktopChromeBar(): React.JSX.Element {
           />
           {/* Content middle (between sidebar edge and right-side controls) */}
           <div
-            className="app-drag absolute inset-y-0"
+            className="app-drag pointer-events-auto absolute inset-y-0"
             style={{
               ...dragStyle,
               left: "var(--sidebar-width)",
-              right: rightClusterPx,
+              right: pageActionsRightInsetPx,
             }}
           />
         </>
@@ -187,7 +127,7 @@ export function DesktopChromeBar(): React.JSX.Element {
 
       {/* ── Controls: always mounted, always no-drag ── */}
       <div
-        className="app-no-drag absolute inset-y-0 z-10 flex items-center"
+        className="app-no-drag pointer-events-auto absolute inset-y-0 z-10 flex items-center"
         style={{ ...noDragStyle, left: leftInset }}
       >
         <SidebarToggle />
@@ -195,7 +135,7 @@ export function DesktopChromeBar(): React.JSX.Element {
 
       {showHistoryNav ? (
         <div
-          className="app-no-drag absolute inset-y-0 z-10 flex items-center transition-[left,transform] duration-200 ease-[ease] motion-reduce:transition-none"
+          className="app-no-drag pointer-events-auto absolute inset-y-0 z-10 flex items-center transition-[left,transform] duration-200 ease-[ease] motion-reduce:transition-none"
           style={{
             ...noDragStyle,
             left: historyLeft,
@@ -206,22 +146,8 @@ export function DesktopChromeBar(): React.JSX.Element {
         </div>
       ) : null}
 
-      {/* Content-header product name (visual only — drag strip sits above). */}
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 z-10 flex min-w-0 items-center transition-[left] duration-200 ease-[ease] motion-reduce:transition-none"
-        style={{
-          left: appTitleLeft,
-          right: rightClusterPx,
-        }}
-      >
-        <span className="truncate select-none font-medium text-foreground text-sm tracking-tight">
-          {headerTitle}
-        </span>
-      </div>
-
-      <div
-        className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
+        className="app-no-drag pointer-events-auto absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
         style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
       >
         <MeetingInboxMenu />

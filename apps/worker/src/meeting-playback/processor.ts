@@ -21,6 +21,7 @@ import type {
   removeMeetingPlaybackCleanupKey,
 } from "./dao";
 import type { MeetingPlaybackJobData } from "@app/meeting-processing-queue/meeting-playback";
+import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
 import { Context, Data, Effect, Layer } from "effect";
 import { retryTransientPromise } from "../effect/retry";
 import { cleanupPreservingPrimary } from "../effect/cleanup";
@@ -185,6 +186,38 @@ type MeetingPlaybackRuntimeAdapters = Pick<
   | "verifyPlayback"
 >;
 
+interface ContinueAfterPlaybackDependencies {
+  enqueueJobs: (jobs: MeetingTranscriptionJobData[]) => Promise<void>;
+  getJob: (input: MeetingPlaybackJobData) => Promise<MeetingTranscriptionJobData | null>;
+  isTranscriptReady: (input: MeetingPlaybackJobData) => Promise<boolean>;
+  requestHumanEvaluation: (input: {
+    meetingSessionId: string;
+    organizationId: string;
+  }) => Promise<void>;
+  requestIntelligence: (input: MeetingPlaybackJobData) => Promise<void>;
+}
+
+export async function continueAfterMeetingPlayback(
+  input: MeetingPlaybackJobData,
+  dependencies: ContinueAfterPlaybackDependencies,
+): Promise<void> {
+  const job = await dependencies.getJob(input);
+  if (job) {
+    await dependencies.enqueueJobs([job]);
+    return;
+  }
+  if (!(await dependencies.isTranscriptReady(input))) {
+    return;
+  }
+  await Promise.all([
+    dependencies.requestIntelligence(input),
+    dependencies.requestHumanEvaluation({
+      meetingSessionId: input.meetingId,
+      organizationId: input.organizationId,
+    }),
+  ]);
+}
+
 // 在 DAO/存储适配器之外补齐临时目录、ffmpeg、哈希与下游转写入队等进程级能力。 / Adds process-level temp-directory, ffmpeg, hashing, and downstream transcription enqueue behavior around DAO/storage adapters.
 export function createDefaultMeetingPlaybackDependencies(
   adapters: MeetingPlaybackRuntimeAdapters,
@@ -194,14 +227,28 @@ export function createDefaultMeetingPlaybackDependencies(
     createRunId: randomUUID,
     createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-playback-")),
     enqueueTranscription: async (input) => {
-      const [{ meetingTranscriptionDao }, { enqueueMeetingTranscriptionJobs }] = await Promise.all([
+      const [
+        {
+          meetingTranscriptionDao,
+          requestAutomaticHumanInterviewEvaluation,
+          requestAutomaticMeetingIntelligence,
+        },
+        { enqueueMeetingTranscriptionJobs },
+      ] = await Promise.all([
         import("../meeting-processing-daos"),
         import("@app/meeting-processing-queue/meeting-transcription"),
       ]);
-      const job = await meetingTranscriptionDao.getMeetingTranscriptionJobForMeeting(input);
-      if (job) {
-        await enqueueMeetingTranscriptionJobs([job]);
-      }
+      await continueAfterMeetingPlayback(input, {
+        enqueueJobs: enqueueMeetingTranscriptionJobs,
+        getJob: meetingTranscriptionDao.getMeetingTranscriptionJobForMeeting,
+        isTranscriptReady: meetingTranscriptionDao.isMeetingTranscriptionReady,
+        requestHumanEvaluation: async (request) => {
+          await requestAutomaticHumanInterviewEvaluation(request);
+        },
+        requestIntelligence: async (request) => {
+          await requestAutomaticMeetingIntelligence(request);
+        },
+      });
     },
     inspectOutput: inspectFile,
     mixSources: runFfmpeg,
@@ -227,7 +274,6 @@ async function runMeetingPlaybackProcessingPromise(
   let cleanupPlayback = false;
   let playbackStorageKey: string | null = null;
   let workingDirectory: string | null = null;
-  let primaryCause: unknown;
   let hasPrimaryFailure = false;
   try {
     const claimed = await dependencies.markProcessing({ ...input, processingRunId });
@@ -332,7 +378,6 @@ async function runMeetingPlaybackProcessingPromise(
       cleanupPlayback = true;
     }
   } catch (error) {
-    primaryCause = error;
     hasPrimaryFailure = true;
     const errorMessage = describeMeetingPlaybackError(error);
     console.error("[meeting-playback-worker] processing failed", {
@@ -383,7 +428,6 @@ async function runMeetingPlaybackProcessingPromise(
             processingRunId,
           });
         },
-        primaryCause,
       });
     }
   }

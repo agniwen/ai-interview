@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { peaksFromChannelData, placeholderWaveform, waveformCacheKey } from "./audio-waveform";
+import { loadWaveformPeaks, peaksFromChannelData, waveformCacheKey } from "./audio-waveform";
+
+const rejectExtraction = (): Promise<number[]> => Promise.reject(new Error("CORS blocked"));
 
 describe("audio waveform", () => {
   it("strips signed-url query noise so refreshed playback URLs reuse one cache key", () => {
@@ -22,9 +24,16 @@ describe("audio waveform", () => {
     expect(peaks[9]).toBeLessThan(0.2);
   });
 
-  it("keeps placeholder bars in a speech-like range", () => {
-    const bars = placeholderWaveform(12);
-    expect(bars).toHaveLength(12);
-    expect(bars.every((value) => value >= 0.08 && value <= 1)).toBe(true);
+  it("does not fabricate speech peaks when the audio has no samples", () => {
+    expect(peaksFromChannelData(new Float32Array(), 12)).toEqual([]);
+  });
+
+  it("returns an unavailable state without fake peaks when extraction fails", async () => {
+    await expect(
+      loadWaveformPeaks("https://recordings.example/meeting.webm", rejectExtraction),
+    ).resolves.toEqual({
+      peaks: [],
+      status: "unavailable",
+    });
   });
 });

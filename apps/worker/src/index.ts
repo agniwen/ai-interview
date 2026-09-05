@@ -233,6 +233,9 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 
 // 防止定时器重叠时同一恢复查询并发入队。 / Prevents overlapping timers from enqueueing the same recovery class concurrently.
 async function recoverIncompleteHumanInterviewRecordingJobs(): Promise<void> {
+  const { reconcileHumanInterviewTrackRecordings } =
+    await import("@app/server/human-interview-recording");
+  await reconcileHumanInterviewTrackRecordings();
   const { humanInterviewRecordingDao } = await import("./meeting-processing-daos");
   const jobs = await humanInterviewRecordingDao.listRecoverableHumanInterviewRecordingJobs();
   if (jobs.length === 0) {

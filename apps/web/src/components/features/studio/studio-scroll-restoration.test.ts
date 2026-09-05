@@ -47,4 +47,19 @@ describe("getStudioCandidateDetailScrollToTopElement", () => {
 
     expect(getStudioCandidateDetailScrollToTopElement()).toBeUndefined();
   });
+
+  it("includes meeting details in the scroll-to-top targets after leaving a scrolled candidate", () => {
+    const viewport = document.createElement("div");
+    viewport.dataset.scrollRestorationId = STUDIO_MAIN_SCROLL_RESTORATION_ID;
+    document.body.append(viewport);
+    viewport.scrollTop = 900;
+    window.history.replaceState({}, "", "/w/acme/studio/resumes/candidate-1");
+    window.history.pushState(
+      {},
+      "",
+      "/w/acme/studio/resumes/candidate-1/human-interviews/round-1/meetings/meeting-1",
+    );
+
+    expect(getStudioCandidateDetailScrollToTopElement()).toBe(viewport);
+  });
 });

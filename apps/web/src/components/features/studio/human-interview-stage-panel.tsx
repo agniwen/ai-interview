@@ -1,9 +1,10 @@
 "use client";
 
 /* oxlint-disable no-use-before-define -- helper components are kept below the container for readability */
-import { IconPlus, IconUsers } from "@tabler/icons-react";
-import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconUsers } from "@tabler/icons-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { findHumanInterviewRoundMeeting } from "@app/shared/human-interview-meeting-detail";
 import type { ReactNode } from "react";
 import { useReducer } from "react";
 import { toast } from "sonner";
@@ -15,20 +16,19 @@ import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
   isApiError,
-  issueHumanInterviewMeetingLinks,
-  listHumanInterviewMeetings,
-  listHumanInterviewRounds,
 } from "@/lib/client/api";
 import {
-  humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
   invalidateHumanInterviewWorkspaceQueries,
 } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/client/auth-client";
-import { toAbsoluteUrl } from "@/lib/client/clipboard";
+import {
+  resolveHumanInterviewReviewRoundId,
+  withoutHumanInterviewReviewSearch,
+} from "./resumes/recruiter-resume-detail-search";
+import { HumanInterviewReviewDialog } from "./human-interview-review-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { HumanInterviewStageSkeleton } from "./human-interview-stage-skeleton";
 import {
   Empty,
   EmptyDescription,
@@ -36,18 +36,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  CancelRoundDialog,
-  CompleteRoundDialog,
-  ScheduleRoundDialog,
-} from "./human-interview-stage-dialogs";
+import { CancelRoundDialog, CompleteRoundDialog } from "./human-interview-stage-dialogs";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { EndMeetingDialog, MeetingLinksDialog } from "./human-interview-stage-meetings";
+import { ListLoadError } from "@/components/features/data-grid/list-load-error";
+import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
+import { useHumanInterviewStageQueries } from "./use-human-interview-stage-queries";
 import { RoundCard } from "./human-interview-stage-rounds";
 import {
   buildHumanInterviewMeetingTitle,
   getHumanInterviewBusinessRoundNumbers,
-  getHumanInterviewScheduleBlockReason,
 } from "./human-interview-stage-utils";
 
 interface PanelProps {
@@ -66,11 +64,9 @@ interface DialogState {
   completeTarget: HumanInterviewRoundRecord | null;
   endTarget: HumanInterviewMeetingRecord | null;
   linksTarget: HumanInterviewMeetingRecord | null;
-  scheduleOpen: boolean;
 }
 
 type DialogAction =
-  | { open: boolean; type: "scheduleOpenChanged" }
   | { target: HumanInterviewRoundRecord | null; type: "cancelTargetChanged" }
   | { target: HumanInterviewRoundRecord | null; type: "completeTargetChanged" }
   | { target: HumanInterviewMeetingRecord | null; type: "endTargetChanged" }
@@ -81,7 +77,6 @@ const initialDialogState: DialogState = {
   completeTarget: null,
   endTarget: null,
   linksTarget: null,
-  scheduleOpen: false,
 };
 
 function dialogReducer(state: DialogState, action: DialogAction): DialogState {
@@ -98,9 +93,6 @@ function dialogReducer(state: DialogState, action: DialogAction): DialogState {
     case "linksTargetChanged": {
       return { ...state, linksTarget: action.target };
     }
-    case "scheduleOpenChanged": {
-      return { ...state, scheduleOpen: action.open };
-    }
     default: {
       return state;
     }
@@ -115,30 +107,14 @@ export function HumanInterviewStagePanel({
   canUpdate = true,
   disabled,
 }: PanelProps) {
+  const canScheduleRounds = canCreate && !disabled;
   const slug = useWorkspaceSlug();
-  const { data: session } = authClient.useSession();
+  const navigate = useNavigate();
+  const reviewRoundId = useSearch({ select: resolveHumanInterviewReviewRoundId, strict: false });
   const queryClient = useQueryClient();
-  const { data: rounds = [], isLoading } = useQuery({
-    queryFn: () => listHumanInterviewRounds(slug, candidateId),
-    queryKey: humanInterviewKeys.rounds(slug, candidateId),
-  });
-  const { data: meetings = [] } = useQuery({
-    queryFn: () => listHumanInterviewMeetings(slug, { interviewRecordId: candidateId }),
-    queryKey: humanInterviewKeys.meetings(slug, candidateId),
-    refetchInterval: (query) =>
-      query.state.data?.some(
-        (meeting) => meeting.status === "scheduled" || meeting.status === "in_progress",
-      )
-        ? 10_000
-        : false,
-    refetchIntervalInBackground: false,
-  });
-  const passedRoundCount = rounds.filter(
-    (round) =>
-      round.status === "completed" && round.outcome === "pass" && round.label !== "CEO面试",
-  ).length;
+  const { rounds, meetings, roundsQuery, meetingsQuery, initialError, hasData } =
+    useHumanInterviewStageQueries(slug, candidateId, true);
   const businessRoundNumbers = getHumanInterviewBusinessRoundNumbers(rounds);
-  const scheduleBlockReason = getHumanInterviewScheduleBlockReason(rounds);
 
   function invalidateRounds() {
     void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
@@ -149,7 +125,7 @@ export function HumanInterviewStagePanel({
   }
 
   const [dialogState, dispatchDialog] = useReducer(dialogReducer, initialDialogState);
-  const { cancelTarget, completeTarget, endTarget, linksTarget, scheduleOpen } = dialogState;
+  const { cancelTarget, completeTarget, endTarget, linksTarget } = dialogState;
   const endMeetingMutation = useMutation({
     mutationFn: (meetingId: string) => endHumanInterviewMeeting(slug, meetingId),
     onError: (e) => toast.error(e instanceof Error ? e.message : "结束会议失败"),
@@ -188,38 +164,26 @@ export function HumanInterviewStagePanel({
       invalidateRounds();
     },
   });
-  const reviewMeetingMutation = useMutation({
-    mutationFn: async (meetingId: string) => {
-      const userId = session?.user.id;
-      if (!userId) {
-        throw new Error("登录状态已失效，请刷新后重试");
-      }
-      const links = await issueHumanInterviewMeetingLinks(slug, meetingId);
-      const reviewerLink = links.interviewerLinks.find(
-        (link) => link.userId === userId && link.role !== "observer",
-      );
-      if (!reviewerLink) {
-        throw new Error("当前账号不是本轮面试官，无法提交会议评价");
-      }
-      return reviewerLink.url;
+  const roundGroups = [
+    { label: "待处理", rounds: rounds.filter((round) => round.status === "pending") },
+    {
+      label: "历史面试",
+      rounds: rounds.filter((round) => round.status !== "pending").toReversed(),
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "进入会议评价失败");
-    },
-    onSuccess: (url) => {
-      window.location.assign(toAbsoluteUrl(url));
-    },
-  });
-
+  ].filter((group) => group.rounds.length > 0);
   let roundsContent: ReactNode;
-  if (isLoading) {
+  if (initialError) {
     roundsContent = (
-      <Card className="gap-0 rounded-lg py-0">
-        <CardContent className="bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-          加载中…
-        </CardContent>
-      </Card>
+      <ListLoadError
+        error={initialError}
+        onRetry={() => {
+          void roundsQuery.refetch();
+          void meetingsQuery.refetch();
+        }}
+      />
     );
+  } else if (!hasData) {
+    roundsContent = <HumanInterviewStageSkeleton />;
   } else if (rounds.length === 0) {
     let emptyDescription = "你可以查看真人复面记录，但不能创建复面。";
     if (disabled) {
@@ -240,74 +204,122 @@ export function HumanInterviewStagePanel({
     );
   } else {
     roundsContent = (
-      <div className="space-y-3">
-        {rounds.map((round) => {
-          const meeting =
-            meetings.find((item) =>
-              item.rounds.some((meetingRound) => meetingRound.roundId === round.id),
-            ) ?? null;
-          return (
-            <RoundCard
-              canCreate={canCreate}
-              canDelete={canDelete}
-              canUpdate={canUpdate}
-              disabled={disabled}
-              key={round.id}
-              meeting={meeting}
-              onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
-              onComplete={() => dispatchDialog({ target: round, type: "completeTargetChanged" })}
-              onCreateMeeting={() => createMeetingMutation.mutate(round)}
-              onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
-              onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
-              onRescheduled={invalidateRescheduledMeeting}
-              onReview={(item) => reviewMeetingMutation.mutate(item.id)}
-              round={round}
-              roundNumber={businessRoundNumbers.get(round.id) ?? 2}
-              slug={slug}
-            />
-          );
-        })}
+      <div className="flex flex-col gap-6">
+        {roundGroups.map((group) => (
+          <section className="flex flex-col gap-3" key={group.label} aria-label={group.label}>
+            <h4 className="flex items-center gap-2 font-medium text-sm">
+              {group.label}
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {group.rounds.length}
+              </span>
+            </h4>
+            {group.rounds.map((round) => {
+              const meeting = findHumanInterviewRoundMeeting(meetings, round.id);
+              return (
+                <RoundCard
+                  canCreate={canCreate}
+                  canDelete={canDelete}
+                  canUpdate={canUpdate}
+                  disabled={disabled}
+                  key={round.id}
+                  meeting={meeting}
+                  meetingDetailLink={
+                    meeting?.status === "ended" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to="/w/$slug/studio/resumes/overlay/$recordId/human-interviews/$roundId/meetings/$meetingId"
+                            params={{
+                              meetingId: meeting.id,
+                              recordId: candidateId,
+                              roundId: round.id,
+                              slug,
+                            }}
+                            state={(previous) => ({
+                              ...previous,
+                              fromHumanInterviewCandidate: candidateId,
+                            })}
+                          />
+                        }
+                      >
+                        面试详情
+                      </Button>
+                    ) : null
+                  }
+                  onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
+                  onComplete={() =>
+                    dispatchDialog({ target: round, type: "completeTargetChanged" })
+                  }
+                  onCreateMeeting={() => createMeetingMutation.mutate(round)}
+                  onEndMeeting={(item) =>
+                    dispatchDialog({ target: item, type: "endTargetChanged" })
+                  }
+                  onOpenLinks={(item) =>
+                    dispatchDialog({ target: item, type: "linksTargetChanged" })
+                  }
+                  onRescheduled={invalidateRescheduledMeeting}
+                  onReview={() =>
+                    navigate({
+                      replace: true,
+                      resetScroll: false,
+                      search: (previous) => ({
+                        ...previous,
+                        reviewRoundId: round.id,
+                        tab: "human-interview",
+                      }),
+                      to: ".",
+                    })
+                  }
+                  round={round}
+                  roundNumber={businessRoundNumbers.get(round.id) ?? 2}
+                  slug={slug}
+                />
+              );
+            })}
+          </section>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="font-medium text-sm">真人复面进度</h3>
-        <p className="text-muted-foreground text-xs">
-          管理 {candidateName} 的真人复面：安排时间 / 录入面试官 / 标记结果。
-        </p>
+    <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h3 className="font-medium text-sm">真人复面进度</h3>
+            <p className="text-muted-foreground text-xs">查看面试安排、轮次结果与面试评价。</p>
+          </div>
+          {canScheduleRounds ? (
+            <ScheduleHumanInterviewButton candidateId={candidateId} candidateName={candidateName} />
+          ) : null}
+        </div>
       </div>
 
       {roundsContent}
 
-      {disabled || !canCreate ? null : (
-        <div className="w-full space-y-2">
-          <Button
-            disabled={scheduleBlockReason !== null}
-            onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
-            size="lg"
-            className="w-full"
-          >
-            <IconPlus className="size-4" />
-            安排真人复面
-          </Button>
-          {scheduleBlockReason ? (
-            <p className="text-center text-muted-foreground text-xs">{scheduleBlockReason}</p>
-          ) : null}
-        </div>
-      )}
-
-      <ScheduleRoundDialog
-        candidateId={candidateId}
-        candidateName={candidateName}
-        defaultLabel={getNextBusinessInterviewLabel(rounds)}
-        passedRoundCount={passedRoundCount}
-        onOpenChange={(open) => dispatchDialog({ open, type: "scheduleOpenChanged" })}
-        onScheduled={invalidateRounds}
-        open={scheduleOpen}
-      />
+      {reviewRoundId ? (
+        <HumanInterviewReviewDialog
+          key={`${candidateId}:${reviewRoundId}`}
+          slug={slug}
+          candidateId={candidateId}
+          candidateName={candidateName}
+          roundId={reviewRoundId}
+          roundLabel={rounds.find((round) => round.id === reviewRoundId)?.label}
+          onSaved={invalidateRounds}
+          onClose={() =>
+            navigate({
+              replace: true,
+              resetScroll: false,
+              search: withoutHumanInterviewReviewSearch,
+              to: ".",
+            })
+          }
+        />
+      ) : null}
       <CompleteRoundDialog
         candidateId={candidateId}
         onCompleted={invalidateRounds}

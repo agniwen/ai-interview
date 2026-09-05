@@ -2,37 +2,35 @@
 
 import type {
   ColumnDef,
+  HeaderContext,
   OnChangeFn,
+  PaginationState,
   RowData,
   RowSelectionState,
   SortingState,
 } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { IconArrowsUpDown } from "@tabler/icons-react";
-import { flexRender, useTable } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flexRender, functionalUpdate, useTable } from "@tanstack/react-table";
+import { useMemo } from "react";
+import { z } from "zod";
+import {
+  DataGrid as ReuiDataGrid,
+  DataGridContainer as ReuiDataGridContainer,
+} from "@/components/reui/data-grid/data-grid";
+import type {
+  DataGridCellEditRequest,
+  DataGridCellsChangeDetails,
+} from "@/components/reui/data-grid/data-grid";
+import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header";
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination";
+import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area";
+import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@app/shared/utils";
-import { PaginationBar, PaginationBarSkeleton } from "./parts/pagination-bar";
-import {
-  getPinnedEdgeClassName,
-  getPinnedEdgeSides,
-  getPinningStyles,
-  PINNED_CELL_CLASS,
-  PINNED_HEADER_CLASS,
-  readHorizontalScrollOverflow,
-  STICKY_HEADER_CLASS,
-} from "./parts/pinned-cell";
+import { PaginationBar } from "./parts/pagination-bar";
 import { Toolbar } from "./parts/toolbar";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
 import { ListLoadError } from "./list-load-error";
@@ -42,8 +40,24 @@ import type { DataGridFeatures } from "./table-features";
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
 const DEFAULT_END_COLUMN_PINNING = ["actions"];
 const EMPTY_COLUMN_PINNING: string[] = [];
+const EMPTY_SORTING: SortingState = [];
 const DATA_GRID_ROW_CLASS = "h-[53px]";
 const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
+const EMPTY_SKELETON_ROWS: Record<string, never>[] = [];
+const DATA_GRID_I18N = {
+  labels: {
+    empty: "暂无数据",
+    nextPage: "下一页",
+    paginationInfo: ({ count, from, to }: { count: number; from: number; to: number }) =>
+      `${from} - ${to} / ${count}`,
+    previousPage: "上一页",
+    rowsPerPage: "每页行数",
+    selectAll: "全选当前页",
+    selectRow: "选择此行",
+    sortAscending: "升序",
+    sortDescending: "降序",
+  },
+} as const;
 
 function isColdLoading({
   error,
@@ -58,48 +72,58 @@ function isColdLoading({
 }
 
 function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowCount: number }) {
-  const columnIndexes = Array.from({ length: Math.max(columnCount, 1) }, (_, index) => index);
-  const rowIndexes = Array.from({ length: rowCount }, (_, index) => index);
+  const columns = useMemo<DataGridColumnDef<Record<string, never>>[]>(
+    () =>
+      Array.from({ length: Math.max(columnCount, 1) }, (_, columnIndex) => ({
+        accessorKey: `skeleton-${columnIndex}`,
+        header: () => (
+          <Skeleton
+            className={cn("h-4", SKELETON_CELL_WIDTHS[columnIndex % SKELETON_CELL_WIDTHS.length])}
+          />
+        ),
+        id: `skeleton-${columnIndex}`,
+        meta: {
+          skeleton: (
+            <Skeleton
+              className={cn("h-4", SKELETON_CELL_WIDTHS[columnIndex % SKELETON_CELL_WIDTHS.length])}
+            />
+          ),
+        },
+      })),
+    [columnCount],
+  );
+  const table = useTable({
+    columns,
+    data: EMPTY_SKELETON_ROWS,
+    features: dataGridFeatures,
+    getRowId: (_, index) => String(index),
+    manualPagination: true,
+    rowCount: 0,
+    state: { pagination: { pageIndex: 0, pageSize: rowCount } },
+  });
 
   return (
     <div
-      aria-label="正在加载表格"
       aria-busy="true"
-      className="w-full overflow-hidden rounded-lg border"
+      aria-label="正在加载表格"
+      className="min-w-0"
       data-slot="data-grid-skeleton"
     >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columnIndexes.map((columnIndex) => (
-              <TableHead className="bg-background" key={`header-${columnIndex}`}>
-                <Skeleton
-                  className={cn(
-                    "h-4",
-                    SKELETON_CELL_WIDTHS[columnIndex % SKELETON_CELL_WIDTHS.length],
-                  )}
-                />
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rowIndexes.map((rowIndex) => (
-            <TableRow className={DATA_GRID_ROW_CLASS} key={`row-${rowIndex}`}>
-              {columnIndexes.map((columnIndex) => (
-                <TableCell key={`cell-${rowIndex}-${columnIndex}`}>
-                  <Skeleton
-                    className={cn(
-                      "h-4",
-                      SKELETON_CELL_WIDTHS[(rowIndex + columnIndex) % SKELETON_CELL_WIDTHS.length],
-                    )}
-                  />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <ReuiDataGrid
+        i18n={DATA_GRID_I18N}
+        isLoading
+        recordCount={0}
+        table={table}
+        tableClassNames={{ bodyRow: DATA_GRID_ROW_CLASS }}
+        tableLayout={{ cellBorder: true, headerBackground: false, rowBorder: true, width: "auto" }}
+      >
+        <ReuiDataGridContainer className="rounded-lg border shadow-none">
+          <DataGridScrollArea>
+            <DataGridTable />
+          </DataGridScrollArea>
+          <DataGridPagination />
+        </ReuiDataGridContainer>
+      </ReuiDataGrid>
     </div>
   );
 }
@@ -111,12 +135,7 @@ export function DataGridContentSkeleton({
   columnCount?: number;
   rowCount?: number;
 }) {
-  return (
-    <div className="flex flex-col gap-4" data-slot="data-grid-content-skeleton">
-      <DataGridSkeleton columnCount={columnCount} rowCount={rowCount} />
-      <PaginationBarSkeleton />
-    </div>
-  );
+  return <DataGridSkeleton columnCount={columnCount} rowCount={rowCount} />;
 }
 
 export interface BulkActionContext<TData> {
@@ -152,6 +171,8 @@ export interface DataGridProps<TData extends RowData> {
 
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
+  /** Only these server-backed column ids expose ascending/descending controls. */
+  sortableColumnIds?: readonly string[];
 
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
@@ -180,12 +201,22 @@ export interface DataGridProps<TData extends RowData> {
    * Max height for the table scroll viewport.
    */
   maxHeight?: string | null;
+
+  /** REUI spreadsheet editing stays opt-in so existing interactive cells keep their behavior. */
+  cellSelection?: boolean;
+  cellEditMode?: "click" | "dblclick";
+  cellEditEnterAdvance?: boolean;
+  onCellsChange?: (details: DataGridCellsChangeDetails<TData>) => void;
+  onCellEditRequest?: (request: DataGridCellEditRequest<TData>) => void;
 }
 
 export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
   const {
     bulkActions,
     canResetFilters,
+    cellEditEnterAdvance,
+    cellEditMode,
+    cellSelection,
     columnPinning,
     columns,
     data,
@@ -200,6 +231,8 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     loading,
     maxHeight = null,
     onFilterChange,
+    onCellEditRequest,
+    onCellsChange,
     onRefresh,
     onRetry,
     onResetFilters,
@@ -210,6 +243,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     refetching,
     rowSelection,
     sorting,
+    sortableColumnIds,
     toolbarRight,
     total,
     totalPages,
@@ -227,22 +261,115 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     [columnPinning, columns],
   );
   const hasPinning = normalizedPinning.start.length > 0 || normalizedPinning.end.length > 0;
+  const sortingEnabled = onSortingChange !== undefined;
+
+  const renderedColumns = useMemo(() => {
+    const sortableIds = sortableColumnIds ? new Set(sortableColumnIds) : null;
+    return columns.map((column, columnIndex) => {
+      // SAFETY: the clone preserves the original ColumnDef discriminator and only augments shared meta.
+      const columnWithSkeleton = {
+        ...column,
+        meta: {
+          ...column.meta,
+          skeleton:
+            column.meta?.skeleton ??
+            (column.id === "select" ? (
+              <Skeleton className="size-4 rounded-sm" />
+            ) : (
+              <Skeleton
+                className={cn(
+                  "h-4 max-w-full",
+                  SKELETON_CELL_WIDTHS[columnIndex % SKELETON_CELL_WIDTHS.length],
+                )}
+              />
+            )),
+        },
+      } as DataGridColumnDef<TData>;
+      const parsedAccessorKey =
+        "accessorKey" in columnWithSkeleton
+          ? z.string().safeParse(columnWithSkeleton.accessorKey)
+          : null;
+      const columnId =
+        columnWithSkeleton.id ?? (parsedAccessorKey?.success ? parsedAccessorKey.data : null);
+      const canSort = Boolean(
+        sortingEnabled &&
+        columnId &&
+        (sortableIds ? sortableIds.has(columnId) : columnWithSkeleton.enableSorting === true),
+      );
+      if (!canSort) {
+        return columnWithSkeleton;
+      }
+
+      const originalHeader = columnWithSkeleton.header;
+      const parsedHeader = z.string().safeParse(originalHeader);
+      const hasAccessor = "accessorFn" in column || "accessorKey" in column;
+      // ColumnDef is a discriminated union whose string-header arm cannot express
+      // replacing that same header with a renderer, although TanStack accepts it.
+      // SAFETY: the clone preserves the original column discriminator and only replaces shared fields.
+      const nextColumn = {
+        ...columnWithSkeleton,
+        enableSorting: true,
+        header: (context: HeaderContext<DataGridFeatures, TData, unknown>) =>
+          parsedHeader.success ? (
+            <DataGridColumnHeader column={context.column} title={parsedHeader.data} />
+          ) : (
+            <div className="flex items-center gap-0.5">
+              {flexRender(originalHeader, context)}
+              <Button
+                aria-label="切换排序"
+                onClick={() => context.column.toggleSorting(context.column.getIsSorted() === "asc")}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
+              >
+                <IconArrowsUpDown />
+              </Button>
+            </div>
+          ),
+      } as DataGridColumnDef<TData> & { accessorFn?: () => null };
+      if (!hasAccessor) {
+        nextColumn.accessorFn = () => null;
+      }
+      return nextColumn;
+    });
+  }, [columns, sortableColumnIds, sortingEnabled]);
+
+  const paginationState = useMemo<PaginationState>(
+    () => ({ pageIndex: pagination.page - 1, pageSize: pagination.pageSize }),
+    [pagination.page, pagination.pageSize],
+  );
+
+  const onPaginationChange: OnChangeFn<PaginationState> = (updater) => {
+    const next = functionalUpdate(updater, paginationState);
+    if (next.pageSize !== paginationState.pageSize) {
+      pagination.onPageSizeChange(next.pageSize);
+      return;
+    }
+    if (next.pageIndex !== paginationState.pageIndex) {
+      pagination.onPageChange(next.pageIndex + 1);
+    }
+  };
 
   const table = useTable({
-    columns,
+    columns: renderedColumns,
     data,
     // Preserve V8 non-range checkbox behavior (V9 enables Shift range by default).
     enableRowRangeSelection: false,
     enableRowSelection: rowSelection !== undefined,
+    enableSortingRemoval: false,
     features: dataGridFeatures,
     getRowId,
+    manualPagination: true,
     manualSorting: true,
+    onPaginationChange,
     onRowSelectionChange,
     onSortingChange,
+    rowCount: total,
     state: {
       columnPinning: normalizedPinning,
+      pagination: paginationState,
       rowSelection: rowSelection ?? {},
-      sorting: sorting ?? [],
+      sorting: sorting ?? EMPTY_SORTING,
     },
   });
 
@@ -272,55 +399,38 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     rowCount: rows.length,
   });
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [scrollOverflow, setScrollOverflow] = useState({
-    canScrollEnd: false,
-    canScrollStart: false,
-  });
-
-  const updateScrollOverflow = useCallback(() => {
-    const element = scrollRef.current;
-    if (!element) {
-      return;
-    }
-    setScrollOverflow(readHorizontalScrollOverflow(element));
-  }, []);
-
-  const setScrollNode = useCallback(
-    (node: HTMLDivElement | null) => {
-      scrollRef.current = node;
-      if (!(node && hasPinning)) {
-        return;
-      }
-      setScrollOverflow(readHorizontalScrollOverflow(node));
-    },
-    [hasPinning],
+  const renderTable = (showSkeleton: boolean) => (
+    <ReuiDataGrid
+      onCellEditRequest={onCellEditRequest}
+      onCellsChange={onCellsChange}
+      i18n={DATA_GRID_I18N}
+      isLoading={showSkeleton}
+      recordCount={total}
+      table={table}
+      tableLayout={{
+        cellBorder: true,
+        cellEditEnterAdvance,
+        cellEditMode,
+        cellSelection,
+        columnsPinnable: hasPinning,
+        headerBackground: false,
+        headerSticky: Boolean(maxHeight),
+        rowBorder: true,
+        width: "auto",
+      }}
+      tableClassNames={{
+        bodyRow: DATA_GRID_ROW_CLASS,
+        headerSticky: "sticky top-0 z-40 bg-background",
+      }}
+    >
+      <ReuiDataGridContainer className="rounded-lg border shadow-none">
+        <DataGridScrollArea style={maxHeight ? { maxHeight } : undefined}>
+          <DataGridTable />
+        </DataGridScrollArea>
+        <DataGridPagination sizes={[...pageSizeOptions]} />
+      </ReuiDataGridContainer>
+    </ReuiDataGrid>
   );
-
-  useEffect(() => {
-    if (!hasPinning) {
-      return;
-    }
-
-    const element = scrollRef.current;
-    if (!element) {
-      return;
-    }
-
-    updateScrollOverflow();
-    const resizeObserver = new ResizeObserver(() => {
-      updateScrollOverflow();
-    });
-    resizeObserver.observe(element);
-    const tableElement = element.querySelector("table");
-    if (tableElement) {
-      resizeObserver.observe(tableElement);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [hasPinning, rows.length, columns, updateScrollOverflow]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -345,128 +455,10 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         <ListLoadError compact error={error} onRetry={onRetry ?? onRefresh} />
       ) : null}
 
-      <SkeletonReveal
-        className="min-w-0 grid-cols-[minmax(0,1fr)]"
-        contentClassName="min-w-0"
-        loading={isInitialLoading}
-        skeleton={
-          <DataGridContentSkeleton
-            columnCount={table.getAllLeafColumns().length}
-            rowCount={pagination.pageSize}
-          />
-        }
-        skeletonClassName="min-w-0"
-      >
-        <div className="flex flex-col gap-4">
-          {rows.length > 0 ? (
-            <div className="w-full overflow-hidden rounded-lg border">
-              <Table
-                render={
-                  <div
-                    className={cn(maxHeight ? "overflow-auto" : "overflow-x-auto")}
-                    onScroll={hasPinning ? updateScrollOverflow : undefined}
-                    ref={setScrollNode}
-                    style={maxHeight ? { maxHeight } : undefined}
-                  />
-                }
-              >
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => {
-                        const pin = header.column.getIsPinned();
-                        const edge = getPinnedEdgeSides(header.column);
-                        // Manual server sorting only needs a stable column id; TanStack's check requires an accessor.
-                        const canSort = Boolean(
-                          onSortingChange &&
-                          (header.column.getCanSort() ||
-                            header.column.columnDef.enableSorting === true),
-                        );
-                        const headerContent = header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext());
-                        return (
-                          <TableHead
-                            className={cn(
-                              "bg-background",
-                              maxHeight && STICKY_HEADER_CLASS,
-                              pin && PINNED_HEADER_CLASS,
-                              getPinnedEdgeClassName({
-                                isEndEdge: edge.isEndEdge,
-                                isStartEdge: edge.isStartEdge,
-                                showEndEdge: scrollOverflow.canScrollEnd,
-                                showStartEdge: scrollOverflow.canScrollStart,
-                              }),
-                            )}
-                            key={header.id}
-                            style={getPinningStyles(header.column, {
-                              isHeader: true,
-                              stickToTop: !!maxHeight,
-                            })}
-                          >
-                            {canSort && headerContent ? (
-                              <div className="flex items-center gap-0.5">
-                                <span>{headerContent}</span>
-                                <Button
-                                  aria-label="切换排序"
-                                  onClick={() =>
-                                    header.column.toggleSorting(
-                                      header.column.getIsSorted() === "asc",
-                                    )
-                                  }
-                                  size="icon-xs"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  <IconArrowsUpDown />
-                                </Button>
-                              </div>
-                            ) : (
-                              headerContent
-                            )}
-                          </TableHead>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow
-                      className={DATA_GRID_ROW_CLASS}
-                      data-state={row.getIsSelected() ? "selected" : undefined}
-                      key={row.id}
-                    >
-                      {row.getAllCells().map((cell) => {
-                        const pin = cell.column.getIsPinned();
-                        const edge = getPinnedEdgeSides(cell.column);
-                        return (
-                          <TableCell
-                            className={cn(
-                              pin && PINNED_CELL_CLASS,
-                              getPinnedEdgeClassName({
-                                isEndEdge: edge.isEndEdge,
-                                isStartEdge: edge.isStartEdge,
-                                showEndEdge: scrollOverflow.canScrollEnd,
-                                showStartEdge: scrollOverflow.canScrollStart,
-                              }),
-                            )}
-                            key={cell.id}
-                            style={getPinningStyles(cell.column)}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            emptyContent
-          )}
+      <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
+        {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
 
+        {rows.length === 0 && !isInitialLoading ? (
           <PaginationBar
             loading={loading || refetching}
             onPageChange={pagination.onPageChange}
@@ -477,7 +469,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
             total={total}
             totalPages={totalPages}
           />
-        </div>
+        ) : null}
       </SkeletonReveal>
     </div>
   );

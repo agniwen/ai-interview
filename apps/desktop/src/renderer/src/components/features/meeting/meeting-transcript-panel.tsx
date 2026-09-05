@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import type {
@@ -10,14 +9,7 @@ import type {
   MeetingTranscriptResult,
 } from "@app/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FrameHeading,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
+import { Frame, FrameHeader, FrameHeading, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isApiError } from "@/lib/client/api-error";
@@ -31,20 +23,6 @@ import {
 } from "@/lib/client/meetings";
 import { formatAppDateTime } from "@/lib/client/datetime";
 import { createMeetingSpeakerProfiles, MeetingSpeakerLabel } from "./meeting-speaker";
-
-export function transcriptSeekSeconds(startMs: number): number {
-  return Math.max(0, startMs / 1000);
-}
-
-function formatTranscriptTime(timeMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return (hours > 0 ? [hours, minutes, seconds] : [minutes, seconds])
-    .map((value) => String(value).padStart(2, "0"))
-    .join(":");
-}
 
 function SavedLiveTranscriptDraft({
   draft,
@@ -79,8 +57,118 @@ function SavedLiveTranscriptDraft({
   );
 }
 
+type MeetingTranscriptStageTurn = Pick<FinalMeetingTranscriptTurn, "id" | "text"> &
+  Partial<Pick<FinalMeetingTranscriptTurn, "speakerDisplayName" | "speakerKey">>;
+
+export function MeetingTranscriptStageTurns({
+  numberedSpeakers = false,
+  speakerScopeId = "meeting-transcript",
+  turns,
+}: {
+  numberedSpeakers?: boolean;
+  speakerScopeId?: string;
+  turns: MeetingTranscriptStageTurn[];
+}) {
+  const speakerProfiles = useMemo(
+    () =>
+      createMeetingSpeakerProfiles(
+        numberedSpeakers ? turns.map(({ speakerKey }) => ({ speakerKey })) : turns,
+        speakerScopeId,
+      ),
+    [numberedSpeakers, speakerScopeId, turns],
+  );
+  return (
+    <div className="grid select-text" aria-live="polite">
+      {turns.map((turn) => (
+        <article className="grid cursor-text gap-1 rounded-sm px-px py-1" key={turn.id}>
+          <MeetingSpeakerLabel
+            profile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
+          />
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function MeetingTranscriptRetryButton({
+  disabled,
+  onRetry,
+  retrying,
+}: {
+  disabled: boolean;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <Button
+      disabled={disabled || retrying}
+      onClick={onRetry}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {retrying ? "正在重新转录…" : "重新转录"}
+    </Button>
+  );
+}
+
+function TranscriptErrorMessage({ error, fallback }: { error: unknown; fallback: string }) {
+  if (!error) {
+    return null;
+  }
+  return (
+    <p className="text-destructive text-sm">{error instanceof Error ? error.message : fallback}</p>
+  );
+}
+
+function ReadyMeetingTranscript({
+  canCorrect,
+  onEdit,
+  revision,
+  speakerScopeId,
+}: {
+  canCorrect: boolean;
+  onEdit?: () => void;
+  revision: FinalMeetingTranscriptRevision;
+  speakerScopeId: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-muted-foreground text-xs">
+          {revision.kind === "human" ? "人工修订" : "机器生成"} revision {revision.revision} ·{" "}
+          {revision.provider} · {revision.model}
+          {revision.createdBy ? ` · ${revision.createdBy.name}` : ""}
+        </p>
+        {canCorrect && onEdit ? (
+          <Button onClick={onEdit} size="sm" type="button" variant="outline">
+            修正转录
+          </Button>
+        ) : null}
+      </div>
+      {revision.turns.length === 0 ? (
+        <p className="text-muted-foreground text-sm">此录音没有识别到语音。</p>
+      ) : (
+        <MeetingTranscriptStageTurns
+          numberedSpeakers
+          speakerScopeId={speakerScopeId}
+          turns={revision.turns}
+        />
+      )}
+    </div>
+  );
+}
+
 export function canCorrectMeetingTranscript(role: MeetingAccessRole): boolean {
   return role !== "viewer";
+}
+
+function canRetryMeetingTranscript(
+  role: MeetingAccessRole,
+  result: MeetingTranscriptResult | undefined,
+): boolean {
+  return (role === "administrator" || role === "owner") && result?.draft?.provider !== "deepgram";
 }
 
 export function isTranscriptCorrectionConflict(error: Error): boolean {
@@ -105,69 +193,6 @@ export function splitTranscriptTurn(
     { ...turn, endMs: midpointMs, id: crypto.randomUUID(), text: firstText },
     { ...turn, id: crypto.randomUUID(), startMs: midpointMs, text: secondText },
   ];
-}
-
-/**
- * 虚拟化权威转录列表，避免最长会议的全部 turn 同时进入 Electron DOM。
- * Virtualizes authoritative turns so long meetings do not mount the entire transcript in Electron's DOM.
- */
-function VirtualTranscriptTurns({
-  onSeek,
-  speakerScopeId,
-  turns,
-}: {
-  onSeek: (seconds: number) => void;
-  speakerScopeId: string;
-  turns: FinalMeetingTranscriptTurn[];
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const speakerProfiles = useMemo(
-    () => createMeetingSpeakerProfiles(turns, speakerScopeId),
-    [speakerScopeId, turns],
-  );
-  const virtualizer = useVirtualizer({
-    count: turns.length,
-    estimateSize: () => 96,
-    getItemKey: (index) => turns[index]?.id ?? index,
-    getScrollElement: () => scrollRef.current,
-    initialRect: { height: 448, width: 720 },
-    overscan: 6,
-  });
-  return (
-    <div className="max-h-[28rem] overflow-y-auto" ref={scrollRef}>
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((virtualItem) => {
-          const turn = turns[virtualItem.index];
-          return turn ? (
-            <article
-              className="absolute left-0 top-0 grid w-full grid-cols-[auto_1fr] gap-3 border-b p-3"
-              data-index={virtualItem.index}
-              key={turn.id}
-              ref={virtualizer.measureElement}
-              style={{ transform: `translateY(${virtualItem.start}px)` }}
-            >
-              <Button
-                aria-label={`跳转到 ${formatTranscriptTime(turn.startMs)}`}
-                onClick={() => onSeek(transcriptSeekSeconds(turn.startMs))}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                {formatTranscriptTime(turn.startMs)}
-              </Button>
-              <div className="min-w-0">
-                <MeetingSpeakerLabel
-                  className="mb-1"
-                  profile={speakerProfiles.get(turn.speakerKey)}
-                />
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
-              </div>
-            </article>
-          ) : null;
-        })}
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -405,51 +430,56 @@ function MeetingTranscriptCorrectionEditor({
 
 export function MeetingTranscriptView({
   canCorrect = false,
-  canRetry,
   onEdit,
-  onRetry,
-  onSeek,
   result,
-  retrying = false,
   speakerScopeId,
 }: {
   canCorrect?: boolean;
-  canRetry: boolean;
   onEdit?: () => void;
-  onRetry?: () => void;
-  onSeek: (seconds: number) => void;
   result: MeetingTranscriptResult;
-  retrying?: boolean;
   speakerScopeId?: string;
 }) {
   const savedDraft = result.draft ? <SavedLiveTranscriptDraft draft={result.draft} /> : null;
   if (result.state === "pending") {
     return (
-      <>
+      <div className="flex flex-col gap-3">
         <p className="text-muted-foreground text-sm">
           等待 Workspace 管理员配置并选择转录服务，或等待进入处理队列。
         </p>
-        {savedDraft}
-      </>
+        {result.revision ? (
+          <ReadyMeetingTranscript
+            canCorrect={false}
+            revision={result.revision}
+            speakerScopeId={speakerScopeId ?? result.revision.id}
+          />
+        ) : (
+          savedDraft
+        )}
+      </div>
     );
   }
   if (result.state === "processing") {
     return (
-      <>
-        <p className="text-muted-foreground text-sm">正在生成最终转录…</p>
-        {savedDraft}
-      </>
+      <div className="flex flex-col gap-3">
+        <p className="text-muted-foreground text-sm">
+          {result.revision ? "正在重新转录，完成前继续展示当前最终版本。" : "正在生成最终转录…"}
+        </p>
+        {result.revision ? (
+          <ReadyMeetingTranscript
+            canCorrect={false}
+            revision={result.revision}
+            speakerScopeId={speakerScopeId ?? result.revision.id}
+          />
+        ) : (
+          savedDraft
+        )}
+      </div>
     );
   }
   if (result.state === "failed") {
     return (
       <div className="flex flex-col items-start gap-3">
         <p className="text-destructive text-sm">{result.error ?? "最终会议转录失败"}</p>
-        {canRetry && onRetry ? (
-          <Button disabled={retrying} onClick={onRetry} type="button">
-            {retrying ? "正在重试…" : "重试最终转录"}
-          </Button>
-        ) : null}
         {savedDraft}
       </div>
     );
@@ -458,30 +488,12 @@ export function MeetingTranscriptView({
     return <p className="text-muted-foreground text-sm">最终转录暂不可用。</p>;
   }
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-muted-foreground text-xs">
-          {result.revision.kind === "human" ? "人工修订" : "机器生成"} revision{" "}
-          {result.revision.revision} · {result.revision.provider} · {result.revision.model}
-          {result.revision.createdBy ? ` · ${result.revision.createdBy.name}` : ""}
-        </p>
-        {canCorrect && onEdit ? (
-          <Button onClick={onEdit} size="sm" type="button" variant="outline">
-            修正转录
-          </Button>
-        ) : null}
-      </div>
-      {savedDraft}
-      {result.revision.turns.length === 0 ? (
-        <p className="text-muted-foreground text-sm">此录音没有识别到语音。</p>
-      ) : (
-        <VirtualTranscriptTurns
-          onSeek={onSeek}
-          speakerScopeId={speakerScopeId ?? result.revision.id}
-          turns={result.revision.turns}
-        />
-      )}
-    </div>
+    <ReadyMeetingTranscript
+      canCorrect={canCorrect}
+      onEdit={onEdit}
+      revision={result.revision}
+      speakerScopeId={speakerScopeId ?? result.revision.id}
+    />
   );
 }
 
@@ -507,34 +519,6 @@ function transcriptStageEmptyHint(
     return "这次录制没有识别到文字";
   }
   return "正在加载字幕…";
-}
-
-type MeetingTranscriptStageTurn = Pick<FinalMeetingTranscriptTurn, "id" | "text"> &
-  Partial<Pick<FinalMeetingTranscriptTurn, "speakerDisplayName" | "speakerKey">>;
-
-export function MeetingTranscriptStageTurns({
-  speakerScopeId = "meeting-transcript",
-  turns,
-}: {
-  speakerScopeId?: string;
-  turns: MeetingTranscriptStageTurn[];
-}) {
-  const speakerProfiles = useMemo(
-    () => createMeetingSpeakerProfiles(turns, speakerScopeId),
-    [speakerScopeId, turns],
-  );
-  return (
-    <div className="grid select-text" aria-live="polite">
-      {turns.map((turn) => (
-        <article className="grid cursor-text gap-1 rounded-sm px-px py-1" key={turn.id}>
-          <MeetingSpeakerLabel
-            profile={turn.speakerKey ? speakerProfiles.get(turn.speakerKey) : undefined}
-          />
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
-        </article>
-      ))}
-    </div>
-  );
 }
 
 /** Read-only transcript stage used by the session landing page. */
@@ -572,12 +556,10 @@ export function MeetingTranscriptStage({
 export function MeetingTranscriptPanel({
   accessRole,
   meetingId,
-  onSeek,
   slug,
 }: {
   accessRole: MeetingAccessRole;
   meetingId: string;
-  onSeek: (seconds: number) => void;
   slug: string;
 }) {
   const queryClient = useQueryClient();
@@ -595,7 +577,13 @@ export function MeetingTranscriptPanel({
   });
   const retryMutation = useMutation({
     mutationFn: () => retryMeetingTranscript(slug, meetingId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transcriptKey }),
+    onSuccess: async () => {
+      setEditing(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: transcriptKey }),
+        queryClient.invalidateQueries({ queryKey: historyKey }),
+      ]);
+    },
   });
   const historyQuery = useQuery({
     enabled: historyOpen,
@@ -633,7 +621,7 @@ export function MeetingTranscriptPanel({
       ]);
     },
   });
-  const canRetry = accessRole === "administrator" || accessRole === "owner";
+  const canRetry = canRetryMeetingTranscript(accessRole, transcriptQuery.data);
   const canCorrect = canCorrectMeetingTranscript(accessRole);
   const historyRevisionNumbers = useMemo(
     () =>
@@ -661,16 +649,12 @@ export function MeetingTranscriptPanel({
       ) : (
         <MeetingTranscriptView
           canCorrect={canCorrect}
-          canRetry={canRetry}
           onEdit={() => {
             setConflictNotice(null);
             correctionMutation.reset();
             setEditing(true);
           }}
-          onRetry={() => retryMutation.mutate()}
-          onSeek={onSeek}
           result={transcriptQuery.data}
-          retrying={retryMutation.isPending}
           speakerScopeId={meetingId}
         />
       );
@@ -680,23 +664,27 @@ export function MeetingTranscriptPanel({
       <FrameHeader>
         <FrameHeading>
           <FrameTitle>最终转录</FrameTitle>
-          <FrameDescription>
-            实时字幕草稿会单独保留；最终版本仍由已验证的双轨录音生成。
-          </FrameDescription>
         </FrameHeading>
+        {canRetry ? (
+          <MeetingTranscriptRetryButton
+            disabled={
+              transcriptQuery.isPending ||
+              !transcriptQuery.data ||
+              transcriptQuery.data.state === "pending" ||
+              transcriptQuery.data.state === "processing"
+            }
+            onRetry={() => retryMutation.mutate()}
+            retrying={retryMutation.isPending}
+          />
+        ) : null}
       </FrameHeader>
       <FramePanel className="flex flex-col gap-3">
         {transcriptQuery.isPending ? (
           <p className="text-muted-foreground text-sm">正在加载最终转录…</p>
         ) : null}
-        {transcriptQuery.error ? (
-          <p className="text-destructive text-sm">
-            {transcriptQuery.error instanceof Error
-              ? transcriptQuery.error.message
-              : "加载最终会议转录失败"}
-          </p>
-        ) : null}
+        <TranscriptErrorMessage error={transcriptQuery.error} fallback="加载最终会议转录失败" />
         {conflictNotice ? <p className="text-destructive text-sm">{conflictNotice}</p> : null}
+        <TranscriptErrorMessage error={retryMutation.error} fallback="重新生成最终会议转录失败" />
         {transcriptContent}
       </FramePanel>
       {transcriptQuery.data?.state === "ready" ? (
@@ -714,13 +702,7 @@ export function MeetingTranscriptPanel({
               {historyQuery.isPending ? (
                 <p className="text-muted-foreground text-sm">正在加载修订历史…</p>
               ) : null}
-              {historyQuery.error ? (
-                <p className="text-destructive text-sm">
-                  {historyQuery.error instanceof Error
-                    ? historyQuery.error.message
-                    : "加载修订历史失败"}
-                </p>
-              ) : null}
+              <TranscriptErrorMessage error={historyQuery.error} fallback="加载修订历史失败" />
               {historyQuery.data?.records.map((revision) => (
                 <article className="rounded-lg bg-muted/40 px-3 py-3 text-sm" key={revision.id}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -757,17 +739,12 @@ export function MeetingTranscriptPanel({
                       {historicalRevisionQuery.isPending ? (
                         <p className="text-muted-foreground text-sm">正在加载版本…</p>
                       ) : null}
-                      {historicalRevisionQuery.error ? (
-                        <p className="text-destructive text-sm">
-                          {historicalRevisionQuery.error instanceof Error
-                            ? historicalRevisionQuery.error.message
-                            : "加载版本失败"}
-                        </p>
-                      ) : null}
+                      <TranscriptErrorMessage
+                        error={historicalRevisionQuery.error}
+                        fallback="加载版本失败"
+                      />
                       {historicalRevisionQuery.data ? (
                         <MeetingTranscriptView
-                          canRetry={false}
-                          onSeek={onSeek}
                           result={{
                             error: null,
                             revision: historicalRevisionQuery.data,

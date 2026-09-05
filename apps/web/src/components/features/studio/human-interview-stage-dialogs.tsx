@@ -288,15 +288,13 @@ export function ScheduleRoundDialogView({
               selectedPreviewLimit={2}
               value={interviewerIds}
             />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-muted-foreground text-xs">
-                找不到面试官时，请先邀请对方加入工作区，加入后刷新列表。
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <p className="text-muted-foreground text-xs">找不到面试官？</p>
               <div className="flex items-center gap-1">
                 <InviteDialog
                   assignableRoles={["member"]}
                   trigger={
-                    <Button size="sm" type="button" variant="ghost">
+                    <Button size="xs" type="button" variant="ghost">
                       <IconUserPlus data-icon="inline-start" />
                       邀请成员
                     </Button>
@@ -307,7 +305,7 @@ export function ScheduleRoundDialogView({
                   aria-label="刷新面试官列表"
                   disabled={membersQuery.isFetching}
                   onClick={refreshWorkspaceMembers}
-                  size="sm"
+                  size="xs"
                   type="button"
                   variant="ghost"
                 >
@@ -316,7 +314,7 @@ export function ScheduleRoundDialogView({
                   ) : (
                     <IconRefresh data-icon="inline-start" />
                   )}
-                  {membersQuery.isFetching ? "刷新中…" : "刷新"}
+                  刷新
                 </Button>
               </div>
             </div>

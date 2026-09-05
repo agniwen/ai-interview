@@ -4,7 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+SUPPORTED_SCHEMA_VERSIONS = {2, SCHEMA_VERSION}
 
 _CONTRACT_ROOT_KEYS = {
     "candidate",
@@ -60,6 +61,19 @@ class DispatchQuestion:
     difficulty: str
     evaluation_focus: str | None
     follow_up_directions: str | None
+    follow_up_contract: DispatchFollowUpContract | None = None
+
+
+@dataclass(frozen=True)
+class DispatchFollowUpFacet:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class DispatchFollowUpContract:
+    coverage_mode: str
+    facets: tuple[DispatchFollowUpFacet, ...]
 
 
 @dataclass(frozen=True)
@@ -117,20 +131,61 @@ def _questions(value: Any) -> tuple[DispatchQuestion, ...]:
     questions: list[DispatchQuestion] = []
     for index, raw_question in enumerate(value):
         path = f"questions[{index}]"
-        question = _object(
-            raw_question,
-            path,
-            {
+        expected_keys = {
                 "content",
                 "difficulty",
                 "evaluationFocus",
                 "followUpDirections",
                 "id",
-            },
-        )
+        }
+        if isinstance(raw_question, dict) and "followUpContract" in raw_question:
+            expected_keys.add("followUpContract")
+        question = _object(raw_question, path, expected_keys)
         difficulty = _string(question["difficulty"], f"{path}.difficulty")
         if difficulty not in {"easy", "medium", "hard"}:
             raise DispatchContextError(f"{path}.difficulty is invalid")
+        follow_up_contract = None
+        if "followUpContract" in question and question["followUpContract"] is not None:
+            raw_contract = _object(
+                question["followUpContract"],
+                f"{path}.followUpContract",
+                {"coverageMode", "facets", "schemaVersion"},
+            )
+            if raw_contract["schemaVersion"] != 1:
+                raise DispatchContextError(
+                    f"{path}.followUpContract.schemaVersion is invalid"
+                )
+            coverage_mode = _string(
+                raw_contract["coverageMode"],
+                f"{path}.followUpContract.coverageMode",
+            )
+            if coverage_mode not in {"all_required", "sufficient_for_evaluation"}:
+                raise DispatchContextError(
+                    f"{path}.followUpContract.coverageMode is invalid"
+                )
+            raw_facets = raw_contract["facets"]
+            if not isinstance(raw_facets, list) or not raw_facets:
+                raise DispatchContextError(
+                    f"{path}.followUpContract.facets must not be empty"
+                )
+            facets: list[DispatchFollowUpFacet] = []
+            for facet_index, raw_facet in enumerate(raw_facets):
+                facet_path = f"{path}.followUpContract.facets[{facet_index}]"
+                facet = _object(
+                    raw_facet,
+                    facet_path,
+                    {"id", "label", "sourceField", "sourceText"},
+                )
+                facets.append(
+                    DispatchFollowUpFacet(
+                        id=_string(facet["id"], f"{facet_path}.id"),
+                        label=_string(facet["label"], f"{facet_path}.label"),
+                    )
+                )
+            follow_up_contract = DispatchFollowUpContract(
+                coverage_mode=coverage_mode,
+                facets=tuple(facets),
+            )
         questions.append(
             DispatchQuestion(
                 id=_string(question["id"], f"{path}.id"),
@@ -142,6 +197,7 @@ def _questions(value: Any) -> tuple[DispatchQuestion, ...]:
                 follow_up_directions=_nullable_string(
                     question["followUpDirections"], f"{path}.followUpDirections"
                 ),
+                follow_up_contract=follow_up_contract,
             )
         )
     return tuple(questions)
@@ -155,7 +211,7 @@ def parse_dispatch_context(raw_metadata: str) -> InterviewDispatchContext:
 
     root = _dispatch_root(decoded)
     schema_version = root["schemaVersion"]
-    if type(schema_version) is not int or schema_version != SCHEMA_VERSION:
+    if type(schema_version) is not int or schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise DispatchContextError("unsupported schemaVersion")
 
     session = _object(

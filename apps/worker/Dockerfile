@@ -11,9 +11,11 @@ FROM base AS deps
 COPY .bun-version bun.lock bunfig.toml package.json ./
 COPY patches patches
 COPY apps/worker/package.json apps/worker/
+COPY apps/server/package.json apps/server/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
 COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/meeting-live-transcript/package.json packages/meeting-live-transcript/
 COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing/package.json packages/meeting-processing/
 COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
@@ -27,6 +29,7 @@ RUN bun install --frozen-lockfile --filter @app/worker
 FROM deps AS builder
 COPY tsconfig.base.json ./
 COPY apps/worker apps/worker
+COPY apps/server apps/server
 COPY packages packages
 
 RUN bun run --filter @app/worker build
@@ -37,9 +40,11 @@ FROM base AS prod-deps
 COPY .bun-version bun.lock bunfig.toml package.json ./
 COPY patches patches
 COPY apps/worker/package.json apps/worker/
+COPY apps/server/package.json apps/server/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
 COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/meeting-live-transcript/package.json packages/meeting-live-transcript/
 COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing/package.json packages/meeting-processing/
 COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/

@@ -76,6 +76,7 @@ export async function createSmallSavedMeeting(
       assets,
       meeting: {
         id: input.input.id,
+        liveSummary: input.input.liveSummary ?? null,
         liveTranscriptDraft: input.input.liveTranscriptDraft ?? null,
         manifestSha256: input.input.manifestSha256,
         organizationId: input.organizationId,

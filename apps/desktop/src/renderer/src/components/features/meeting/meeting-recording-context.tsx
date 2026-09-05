@@ -24,6 +24,7 @@ import { MeetingActiveRecordingIndicator } from "./meeting-capture-status";
 import {
   captureSnapshotAtom,
   liveTranscriptDraftAtom,
+  meetingLiveSummaryAtom,
   pendingMeetingDiscardAtom,
   preselectedResumeRecordAtom,
 } from "./meeting-recording-store";
@@ -83,6 +84,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const queryClient = useQueryClient();
   const captureSnapshot = useAtomValue(captureSnapshotAtom);
   const liveTranscriptDraft = useAtomValue(liveTranscriptDraftAtom);
+  const liveSummary = useAtomValue(meetingLiveSummaryAtom);
   const [pendingDiscard, setPendingDiscard] = useAtom(pendingMeetingDiscardAtom);
   const setPreselectedResumeRecord = useSetAtom(preselectedResumeRecordAtom);
   const titledCaptureIds = useRef(new Set<string>());
@@ -92,8 +94,10 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const localSessionTitles = useRef(new Map<string, string>());
   const captureSnapshotRef = useRef(captureSnapshot);
   const liveTranscriptDraftRef = useRef(liveTranscriptDraft);
+  const liveSummaryRef = useRef(liveSummary);
   captureSnapshotRef.current = captureSnapshot;
   liveTranscriptDraftRef.current = liveTranscriptDraft;
+  liveSummaryRef.current = liveSummary;
   localSessionTitles.current = new Map(
     captureSnapshot.localSessions.map((session) => [session.id, session.title]),
   );
@@ -117,6 +121,15 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     }, 1500);
     return () => clearTimeout(timer);
   }, [activeCaptureId, activeStartedAt, liveTranscriptDraft]);
+
+  useEffect(() => {
+    if (!(activeCaptureId && liveSummary.captureId === activeCaptureId && liveSummary.summary)) {
+      return;
+    }
+    void meetingCapture.updateLocalSession(activeCaptureId, {
+      liveSummary: liveSummary.summary,
+    });
+  }, [activeCaptureId, liveSummary.captureId, liveSummary.summary]);
 
   const attemptTitleGenerationRef = useRef<(captureId: string) => Promise<void>>(() =>
     Promise.resolve(),
@@ -316,7 +329,14 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const saveRecording = useCallback(async (captureId?: string) => {
     try {
-      await meetingCapture.save({ captureId });
+      const summary = liveSummaryRef.current;
+      await meetingCapture.save({
+        captureId,
+        liveSummary:
+          summary.captureId && (!captureId || summary.captureId === captureId)
+            ? summary.summary
+            : undefined,
+      });
       toast.success("双轨录音已安全保存到本地");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存本地录音失败");
@@ -357,7 +377,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     try {
       await meetingCapture.discard(pendingDiscard);
       setPendingDiscard(null);
-      showMeetingDeletionSuccess("本地录音已放弃并清理");
+      showMeetingDeletionSuccess("已删除本地录音");
       if (
         discardedId &&
         (pathname === `/meetings/${discardedId}` ||
@@ -366,7 +386,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         void navigate({ to: "/meetings" });
       }
     } catch (error) {
-      showMeetingDeletionError(error instanceof Error ? error.message : "清理本地录音失败");
+      showMeetingDeletionError(error instanceof Error ? error.message : "删除本地录音失败");
     }
   }, [
     captureSnapshot.active?.captureId,
@@ -468,6 +488,10 @@ export function useMeetingCaptureSnapshot() {
 
 export function useMeetingLiveTranscriptDraft() {
   return useAtomValue(liveTranscriptDraftAtom);
+}
+
+export function useMeetingLiveSummary() {
+  return useAtomValue(meetingLiveSummaryAtom);
 }
 
 /** 预选简历由录制入口写入，初始化页读取；search 参数仍是刷新后的事实来源。 */

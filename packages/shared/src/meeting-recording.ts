@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import { makePaginationSchema } from "@app/shared/pagination";
 import type { PaginatedResult } from "@app/shared/pagination";
+export type {
+  RecordingIdentity,
+  TranscriptAttribution,
+} from "@app/db-schema/human-interview-recording";
 
 export const MEETING_SOURCE_TRACKS = ["microphone", "system"] as const;
 export const MEETING_MULTIPART_PART_BYTES = 8 * 1024 * 1024;
@@ -55,6 +61,7 @@ export const createSmallSavedMeetingSchema = z
   .object({
     assets: z.array(meetingSourceAssetSchema).length(2),
     id: z.string().uuid(),
+    liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
@@ -126,6 +133,7 @@ export const createMultipartSavedMeetingSchema = z
   .object({
     assets: z.array(multipartMeetingSourceAssetSchema).length(2),
     id: z.string().uuid(),
+    liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
@@ -150,7 +158,11 @@ export type CreateMultipartSavedMeetingInput = z.infer<typeof createMultipartSav
 export type MeetingSourceAssetInput = z.infer<typeof meetingSourceAssetSchema>;
 export type MeetingSourceSegmentInput = z.infer<typeof meetingSourceSegmentSchema>;
 export type MeetingSourceTrack = (typeof MEETING_SOURCE_TRACKS)[number];
-export type MeetingTranscriptionSourceTrack = MeetingSourceTrack | "candidate" | "mixed";
+export type MeetingTranscriptionSourceTrack =
+  | MeetingSourceTrack
+  | "candidate"
+  | "mixed"
+  | `participant-${string}`;
 
 export interface SmallMeetingUploadInstruction {
   contentType: string;
@@ -281,6 +293,7 @@ export interface MeetingLibraryItem {
 
 export interface MeetingDetail extends MeetingLibraryItem {
   archived: boolean;
+  liveSummary: MeetingLiveSummarySnapshot | null;
   startedAt: string;
   verifiedAt: string | null;
 }

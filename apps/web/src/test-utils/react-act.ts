@@ -85,3 +85,11 @@ export function installNoopResizeObserver(): void {
   }
   globalThis.ResizeObserver = TestResizeObserver;
 }
+
+/** Base UI waits for active viewport animations, which jsdom does not implement. */
+export function installNoopWebAnimations(): void {
+  Object.defineProperty(Element.prototype, "getAnimations", {
+    configurable: true,
+    value: () => [],
+  });
+}

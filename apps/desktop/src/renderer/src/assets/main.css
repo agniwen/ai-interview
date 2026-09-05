@@ -692,6 +692,65 @@ html[data-transparent-background="false"] [data-slot="sidebar"][data-variant="gl
   backdrop-filter: none;
 }
 
+/* XYFlow's controls do not inherit the app's class-based dark theme. */
+.dark [data-slot="meeting-summary-flow"] {
+  --xy-controls-button-background-color: var(--secondary);
+  --xy-controls-button-background-color-hover: var(--accent);
+  --xy-controls-button-border-color: var(--border);
+  --xy-controls-button-color: var(--muted-foreground);
+  --xy-controls-button-color-hover: var(--foreground);
+  --xy-controls-box-shadow: 0 0 0 1px var(--border);
+}
+
+.dark [data-slot="meeting-summary-flow"] .react-flow__controls {
+  overflow: hidden;
+  border-radius: 0.5rem;
+}
+
+/*
+ * A pannable graph has no scroll position for ScrollArea's edge mask to follow.
+ * Fade only the movable canvas layers so nodes leave the viewport softly while
+ * React Flow's zoom controls stay fully opaque and interactive above the mask.
+ */
+[data-slot="meeting-summary-flow"] :is(.react-flow__renderer, .react-flow__background) {
+  --meeting-summary-flow-fade-size: min(12%, 2.5rem);
+
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--meeting-summary-flow-fade-size),
+      #000 calc(100% - var(--meeting-summary-flow-fade-size)),
+      transparent 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--meeting-summary-flow-fade-size),
+      #000 calc(100% - var(--meeting-summary-flow-fade-size)),
+      transparent 100%
+    );
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--meeting-summary-flow-fade-size),
+      #000 calc(100% - var(--meeting-summary-flow-fade-size)),
+      transparent 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--meeting-summary-flow-fade-size),
+      #000 calc(100% - var(--meeting-summary-flow-fade-size)),
+      transparent 100%
+    );
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
 /*
  * Debug aid: temporarily force a vivid transparent wash so you can tell
  * “vibrancy working” vs “still covered by opaque layer”. Leave off in prod.

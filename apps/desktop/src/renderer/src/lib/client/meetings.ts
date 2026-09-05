@@ -2,6 +2,11 @@ import type {
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
 } from "@app/shared/meeting-intelligence";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import type {
+  MeetingLiveSummaryRequest,
+  MeetingLiveSummarySnapshot,
+} from "@app/shared/meeting-live-summary";
 import type {
   CreateMeetingQuestion,
   MeetingQuestionExchange,
@@ -112,6 +117,22 @@ export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   );
 }
 
+export async function requestMeetingLiveSummary(
+  slug: string,
+  request: MeetingLiveSummaryRequest,
+  signal?: AbortSignal,
+): Promise<MeetingLiveSummarySnapshot> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/live-summary`;
+  const payload = await apiJson<unknown>(apiUrl(path), "生成 AI 实时总结失败", {
+    body: JSON.stringify(request),
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+    signal,
+  });
+  return meetingLiveSummarySnapshotSchema.parse(payload);
+}
+
 export async function requestRecordingTitle(
   slug: string,
   transcript: string,
@@ -164,7 +185,7 @@ export function trashMeeting(
   slug: string,
   meetingId: string,
 ): Promise<{ purgeAfter: string; state: "already-trashed" | "trashed" }> {
-  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "归档失败", {
+  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "删除录制失败", {
     method: "POST",
   });
 }
@@ -293,6 +314,7 @@ export function fetchMeetingTranscript(
   return apiJson(
     apiUrl(meetingSubresourcePath(slug, meetingId, "transcript")),
     "加载最终会议转录失败",
+    { cache: "no-store" },
   );
 }
 
@@ -386,7 +408,7 @@ export function retryMeetingTranscript(
 ): Promise<{ state: "processing" | "ready" }> {
   return apiJson(
     apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/retry`),
-    "重试最终会议转录失败",
+    "重新生成最终会议转录失败",
     { method: "POST" },
   );
 }

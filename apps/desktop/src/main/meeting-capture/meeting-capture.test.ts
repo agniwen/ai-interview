@@ -471,10 +471,34 @@ describe("MeetingCapture", () => {
         },
       ],
     };
-    const saved = await capture.save({ liveTranscriptDraft });
+    const liveSummary = {
+      captureId: "00000000-0000-4000-8000-000000000014",
+      coveredThroughMs: 1000,
+      coveredThroughTurnId: "microphone-1:turn-1",
+      generatedAt: "2026-08-12T08:00:00.000Z",
+      model: "summary-model",
+      provider: "summary-provider",
+      revision: 1,
+      summary: "这段实时总结必须保留",
+      template: "general" as const,
+      topics: [
+        {
+          endMs: 1000,
+          evidenceTurnIds: ["microphone-1:turn-1"],
+          id: "topic-1",
+          points: [],
+          startMs: 0,
+          status: "active" as const,
+          summary: "持久化测试",
+          title: "录制内容",
+        },
+      ],
+    };
+    const saved = await capture.save({ liveSummary, liveTranscriptDraft });
     const descriptor = await store.describeWorkspaceSave(saved.captureId);
 
     expect(descriptor.liveTranscriptDraft).toEqual(liveTranscriptDraft);
+    expect(descriptor.liveSummary).toEqual(liveSummary);
 
     await store.uploadSmall(
       saved.captureId,

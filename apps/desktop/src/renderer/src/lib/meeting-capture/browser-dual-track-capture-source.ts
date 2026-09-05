@@ -211,18 +211,19 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           const snapshot = this.liveTranscriptSidecar?.getSnapshot?.();
           return snapshot ? createDurableLiveTranscriptDraft(snapshot) : null;
         },
-        pause: () => {
+        pause: async () => {
           for (const { recorder } of recorders) {
             if (recorder.state === "recording") {
               recorder.pause();
             }
           }
-          const correctionFlush = this.liveTranscriptSidecar?.flushCorrections?.();
-          this.liveTranscriptSidecar?.pause?.();
-          void correctionFlush?.catch(() => {
-            // Live corrections stay best effort and never delay the authoritative local pause.
-          });
-          return Promise.resolve();
+          try {
+            await this.liveTranscriptSidecar?.flushCorrections?.();
+          } catch {
+            // Live transcript finalization is best effort; the authoritative local tracks are paused.
+          } finally {
+            this.liveTranscriptSidecar?.pause?.();
+          }
         },
         resume: () => {
           for (const { recorder } of recorders) {
@@ -379,12 +380,18 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         },
         stop: async () => {
           clearCapturePreviewStreams();
-          stopSidecar();
           const stopped = recorders.map(({ recorder }) => waitForStop(recorder));
           for (const { recorder } of recorders) {
             if (recorder.state !== "inactive") {
               recorder.stop();
             }
+          }
+          try {
+            await this.liveTranscriptSidecar?.flushCorrections?.();
+          } catch {
+            // Live transcript finalization is best effort; the authoritative local tracks are stopped.
+          } finally {
+            stopSidecar();
           }
           if (transcriptMicrophoneTrack !== microphoneTrack) {
             transcriptMicrophoneTrack.stop();

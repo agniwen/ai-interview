@@ -81,6 +81,32 @@ describe("parseJsonOutput", () => {
     expect(() => parseJsonOutput(text, SCHEMA, LABEL)).toThrow(/Failed to parse structured output/);
   });
 
+  it("reports invalid enum values and unexpected keys without exposing narrative fields", () => {
+    const schema = z
+      .object({ detailedAnalysis: z.string(), rating: z.enum(["S", "A", "B", "C"]) })
+      .strict();
+    const text = JSON.stringify({
+      detailedAnalysis: "候选人的私人经历，不应出现在诊断日志中",
+      rating: "-",
+      score: 80,
+    });
+
+    expect(() => parseJsonOutput(text, schema, LABEL)).toThrow(/rating/);
+    expect(console.error).toHaveBeenCalledWith(
+      `[${LABEL}] Schema validation failed:`,
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_value",
+          path: ["rating"],
+          received: "-",
+          values: ["S", "A", "B", "C"],
+        }),
+        expect.objectContaining({ code: "unrecognized_keys", keys: ["score"], path: [] }),
+      ]),
+    );
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("候选人的私人经历");
+  });
+
   it("throws when the input contains no JSON object braces at all", () => {
     expect(() => parseJsonOutput("just some prose", SCHEMA, LABEL)).toThrow(
       /Failed to parse structured output/,

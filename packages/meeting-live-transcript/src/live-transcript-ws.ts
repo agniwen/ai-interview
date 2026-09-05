@@ -85,7 +85,12 @@ function pcmBytesToBase64(bytes: Uint8Array): string {
 }
 
 const streamingEventSchema = z.object({
-  header: z.object({ event: z.string(), task_id: z.string() }),
+  header: z.object({
+    error_code: z.string().optional(),
+    error_message: z.string().optional(),
+    event: z.string(),
+    task_id: z.string(),
+  }),
   payload: z
     .object({
       output: z
@@ -322,7 +327,21 @@ export function connectDashScopeRealtimeWs(
       dependencies.onEvent?.({ type: "session.created" });
       dependencies.onDrain?.();
     } else if (header.event === "task-failed") {
-      notifyClose("provider-error:task-failed");
+      const errorCode = /^[\w.-]{1,100}$/u.test(header.error_code ?? "")
+        ? header.error_code
+        : "unknown";
+      const busy =
+        /ServiceUnavailable|Throttling|TooManyRequests/iu.test(errorCode ?? "") ||
+        /system capacity limits|requests are being throttled/iu.test(header.error_message ?? "");
+      const reason = busy ? "provider-busy" : "provider-error:task-failed";
+      // Do not log raw provider messages: they can echo tokens, URLs or input text.
+      console.warn("[live-transcript] provider task failed", {
+        errorCode,
+        model: dependencies.model,
+        reason,
+        taskId,
+      });
+      notifyClose(reason);
     } else if (header.event === "task-finished") {
       notifyClose("provider-disconnected:task-finished");
     } else if (header.event === "result-generated") {

@@ -34,7 +34,9 @@ describe("sidebar user menu", () => {
           activeWorkspace={{ id: "workspace-1", name: "产品团队", slug: "product" }}
           onSignOut={vi.fn()}
           onSwitchWorkspace={onSwitchWorkspace}
+          onThemeChange={vi.fn()}
           switchingWorkspace={false}
+          theme="system"
           user={{ email: "user@example.com", id: "user-1", name: "测试用户" }}
           workspaces={[
             { id: "workspace-1", name: "产品团队", slug: "product" },
@@ -46,6 +48,11 @@ describe("sidebar user menu", () => {
 
     const userMenuTrigger = container.querySelector<HTMLButtonElement>("button");
     expect(userMenuTrigger).not.toBeNull();
+    expect(userMenuTrigger?.classList).toContain("h-10");
+    expect(userMenuTrigger?.classList).toContain("border-transparent");
+    expect(userMenuTrigger?.classList).toContain("hover:border-transparent");
+    expect(userMenuTrigger?.classList).toContain("focus-visible:border-transparent");
+    expect(userMenuTrigger?.classList).toContain("dark:hover:bg-sidebar-accent");
     act(() => userMenuTrigger?.click());
 
     const workspaceSubmenuTrigger = document.body.querySelector<HTMLElement>(
@@ -72,5 +79,43 @@ describe("sidebar user menu", () => {
     expect(workspaceItems).toHaveLength(2);
     act(() => workspaceItems?.[1]?.click());
     expect(onSwitchWorkspace).toHaveBeenCalledWith("workspace-2");
+  });
+
+  it("switches theme from a hoverable submenu", () => {
+    const onThemeChange = vi.fn();
+    act(() => {
+      root.render(
+        <UserMenuDropdown
+          activeWorkspace={{ id: "workspace-1", name: "产品团队", slug: "product" }}
+          onSignOut={vi.fn()}
+          onSwitchWorkspace={vi.fn()}
+          onThemeChange={onThemeChange}
+          switchingWorkspace={false}
+          theme="system"
+          user={{ email: "user@example.com", id: "user-1", name: "测试用户" }}
+          workspaces={[]}
+        />,
+      );
+    });
+
+    const userMenuTrigger = container.querySelector<HTMLButtonElement>("button");
+    act(() => userMenuTrigger?.click());
+    const themeSubmenuTrigger = [
+      ...document.body.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-sub-trigger"]'),
+    ].find((element) => element.textContent?.includes("主题"));
+
+    vi.useFakeTimers();
+    act(() => {
+      themeSubmenuTrigger?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      themeSubmenuTrigger?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      vi.advanceTimersByTime(100);
+    });
+
+    const darkThemeItem = [
+      ...document.body.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-radio-item"]'),
+    ].find((element) => element.textContent?.includes("深色"));
+    act(() => darkThemeItem?.click());
+
+    expect(onThemeChange).toHaveBeenCalledWith("dark");
   });
 });

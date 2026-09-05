@@ -8,6 +8,7 @@ import type { InterviewSummaryStatus } from "@app/db-schema/db-enums";
 export interface StudioCalendarCandidate {
   candidateName: string;
   interviewRecordId: string;
+  jobDescriptionName?: string | null;
   roundId: string;
   roundLabel: string;
 }

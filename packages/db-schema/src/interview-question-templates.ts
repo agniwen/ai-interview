@@ -65,6 +65,28 @@ export const interviewQuestionTemplateSchema = z
 
 export type InterviewQuestionTemplateInput = z.infer<typeof interviewQuestionTemplateSchema>;
 
+export const interviewQuestionFollowUpCoverageModeSchema = z.enum([
+  "all_required",
+  "sufficient_for_evaluation",
+]);
+
+export const interviewQuestionFollowUpFacetSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(80),
+  sourceField: z.enum(["question", "evaluation_focus", "follow_up_directions"]),
+  sourceText: z.string().trim().min(1).max(300),
+});
+
+export const interviewQuestionFollowUpContractSchema = z.object({
+  coverageMode: interviewQuestionFollowUpCoverageModeSchema,
+  facets: z.array(interviewQuestionFollowUpFacetSchema).min(1).max(16),
+  schemaVersion: z.literal(1),
+});
+
+export type InterviewQuestionFollowUpContract = z.infer<
+  typeof interviewQuestionFollowUpContractSchema
+>;
+
 export interface InterviewQuestionTemplateQuestionRecord {
   id: string;
   templateId: string;
@@ -72,6 +94,7 @@ export interface InterviewQuestionTemplateQuestionRecord {
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus: string | null;
   followUpDirections: string | null;
+  followUpContract?: InterviewQuestionFollowUpContract | null;
   sortOrder: number;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -117,6 +140,7 @@ export interface InterviewQuestionTemplateSnapshotQuestion {
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
+  followUpContract?: InterviewQuestionFollowUpContract | null;
   sortOrder: number;
 }
 

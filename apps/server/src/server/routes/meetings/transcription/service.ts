@@ -25,6 +25,7 @@ import {
   listRecoverableMeetingTranscriptionJobs,
   loadMeetingTranscriptionPolicy,
   resetMeetingTranscriptionForRetry,
+  restoreMeetingTranscriptionAfterRetryFailure,
   updateMeetingTranscriptionPolicy,
 } from "./dao";
 import { listMeetingTranscriptionProviderCandidates } from "./provider-registry";
@@ -76,6 +77,7 @@ export interface MeetingTranscriptionDependencies {
   recordMeetingAudit: typeof recordMeetingAudit;
   requestAutomaticMeetingIntelligence: typeof requestAutomaticMeetingIntelligence;
   resetMeetingTranscriptionForRetry: typeof resetMeetingTranscriptionForRetry;
+  restoreMeetingTranscriptionAfterRetryFailure: typeof restoreMeetingTranscriptionAfterRetryFailure;
   retryMeetingTranscriptionJob: typeof retryMeetingTranscriptionJob;
   updateMeetingTranscriptionPolicy: typeof updateMeetingTranscriptionPolicy;
 }
@@ -95,6 +97,7 @@ const defaultDependencies: MeetingTranscriptionDependencies = {
   recordMeetingAudit,
   requestAutomaticMeetingIntelligence,
   resetMeetingTranscriptionForRetry,
+  restoreMeetingTranscriptionAfterRetryFailure,
   retryMeetingTranscriptionJob,
   updateMeetingTranscriptionPolicy,
 };
@@ -223,13 +226,12 @@ export async function getSavedMeetingTranscript(
       organizationId: input.organizationId,
     });
   }
-  const revision =
-    meeting.transcriptionStatus === "ready"
-      ? await dependencies.loadActiveMeetingTranscript({
-          meetingId: input.meetingId,
-          organizationId: input.organizationId,
-        })
-      : null;
+  const revision = meeting.activeTranscriptRevisionId
+    ? await dependencies.loadActiveMeetingTranscript({
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      })
+    : null;
   return {
     draft: meeting.liveTranscriptDraft,
     error: meeting.transcriptionError,
@@ -361,13 +363,21 @@ export async function retrySavedMeetingTranscription(
   if (!meetingAccessCapabilities(meeting.role).canRetryProcessing) {
     return "forbidden";
   }
-  if (meeting.transcriptionStatus === "ready") {
-    return { state: "ready" };
+  if (meeting.liveTranscriptDraft?.provider === "deepgram") {
+    return { state: meeting.transcriptionStatus === "ready" ? "ready" : "unavailable" };
   }
-  if (meeting.transcriptionStatus !== "failed") {
+  if (meeting.transcriptionStatus !== "failed" && meeting.transcriptionStatus !== "ready") {
     return { state: "processing" };
   }
   if (!dependencies.isMeetingTranscriptionQueueConfigured()) {
+    return { state: "unavailable" };
+  }
+  const job = await dependencies.getMeetingTranscriptionJobForMeeting({
+    allowTerminalStatus: true,
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+  });
+  if (!job) {
     return { state: "unavailable" };
   }
   const reset = await dependencies.resetMeetingTranscriptionForRetry({
@@ -377,17 +387,19 @@ export async function retrySavedMeetingTranscription(
   if (reset.length === 0) {
     return { state: "processing" };
   }
-  const job = await dependencies.getMeetingTranscriptionJobForMeeting({
-    meetingId: input.meetingId,
-    organizationId: input.organizationId,
-    preferFallback: true,
-  });
-  if (!job) {
-    return { state: "unavailable" };
+  try {
+    await dependencies.retryMeetingTranscriptionJob(job);
+  } catch (error) {
+    await dependencies.restoreMeetingTranscriptionAfterRetryFailure({
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+      transcriptionError: meeting.transcriptionError,
+      transcriptionStatus: meeting.transcriptionStatus,
+    });
+    throw error;
   }
-  await dependencies.retryMeetingTranscriptionJob(job);
   await dependencies.recordMeetingAudit({
-    action: "meeting.transcription_retried",
+    action: "meeting.transcription_regenerated",
     actorId: input.userId,
     detail: { provider: job.provider },
     meetingId: input.meetingId,

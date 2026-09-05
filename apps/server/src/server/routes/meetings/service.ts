@@ -17,6 +17,7 @@ import type {
   MeetingSourceTrack,
   MultipartSavedMeetingResponse,
 } from "@app/shared/meeting-recording";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import {
   isWorkspaceAdministrator,
   meetingAccessCapabilities,
@@ -248,6 +249,7 @@ export async function createMultipartSavedMeeting(
     assets,
     meeting: {
       id: input.input.id,
+      liveSummary: input.input.liveSummary ?? null,
       liveTranscriptDraft: input.input.liveTranscriptDraft ?? null,
       manifestSha256: input.input.manifestSha256,
       organizationId: input.organizationId,
@@ -614,6 +616,7 @@ export async function getSavedMeetingDetail(
     (asset) => asset.track === "playback" && asset.status === "ready",
   );
   const accessRole = meetingRole(meeting, input);
+  const liveSummary = meetingLiveSummarySnapshotSchema.safeParse(meeting.liveSummary);
   if (accessRole === "administrator") {
     await dependencies.recordMeetingAudit({
       action: "meeting.detail_accessed",
@@ -633,6 +636,7 @@ export async function getSavedMeetingDetail(
     },
     durationMs: Math.max(0, ...sources.map((asset) => asset.durationMs ?? 0)),
     id: meeting.id,
+    liveSummary: liveSummary.success ? liveSummary.data : null,
     processingState: processingState(
       meeting.status === "trashed" ? (meeting.trashedFromStatus ?? "ready") : meeting.status,
     ),

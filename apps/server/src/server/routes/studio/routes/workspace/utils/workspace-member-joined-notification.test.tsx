@@ -15,12 +15,15 @@ const context = {
 };
 
 describe("workspace member joined notification", () => {
-  it("renders the member name and refresh guidance in the Feishu card", () => {
+  it("renders only the workspace join confirmation in the Feishu card", () => {
     const card = toCardElement(WorkspaceMemberJoinedCard(context));
     expect(card).not.toBeNull();
-    expect(JSON.stringify(card)).toContain("伊森");
-    expect(JSON.stringify(card)).toContain("刷新面试官列表");
-    expect(JSON.stringify(card)).toContain("查看工作区成员");
+    const renderedCard = JSON.stringify(card);
+    expect(renderedCard).toContain("伊森");
+    expect(renderedCard).toContain("该成员已完成飞书登录并加入工作区。");
+    expect(renderedCard).not.toContain("真人复面安排");
+    expect(renderedCard).not.toContain("刷新面试官列表");
+    expect(renderedCard).toContain("查看工作区成员");
   });
 
   it("sends to the invitation creator's Feishu account", async () => {

@@ -9,9 +9,12 @@ const cossWhisperShadowClass =
 /** @deprecated Kept for call-site compatibility; Yohaku resting surfaces use border only. */
 const cossControlOverlayClass = "";
 
+const cossFieldFocusClass =
+  "has-focus-visible:shadow-[0_1px_1px_0_--theme(--color-foreground/16%)]";
+
 const cossFieldSurfaceClass =
   "relative rounded-md border border-input bg-background bg-clip-padding text-foreground transition-[border-color,box-shadow] dark:bg-input/30 " +
-  "has-focus-visible:shadow-[0_1px_1px_0_--theme(--color-foreground/16%)] has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50 has-[select:disabled]:opacity-50 has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40";
+  `${cossFieldFocusClass} has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50 has-[select:disabled]:opacity-50 has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40`;
 
 const cossTriggerSurfaceClass =
   "relative rounded-md border border-input bg-background bg-clip-padding text-foreground outline-none transition-[border-color,box-shadow] dark:bg-input/30 " +
@@ -47,6 +50,7 @@ const cossMenuItemClass =
 export {
   cossAnchoredPopupMotionClass,
   cossControlOverlayClass,
+  cossFieldFocusClass,
   cossFieldSurfaceClass,
   cossMenuItemClass,
   cossModalMotionClass,

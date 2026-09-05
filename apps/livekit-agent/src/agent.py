@@ -47,12 +47,12 @@ from livekit.agents import (
 )
 from livekit.plugins import (
     ai_coustics,  # LiveKit Cloud only, disabled for self-hosted
-    elevenlabs,
     minimax,
     noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
     openai,
 )
 
+import aliyun_stt
 from agent_config import resolve_agent_name, resolve_self_hosted
 from dispatch_context import (
     DispatchContextError,
@@ -301,10 +301,15 @@ def _build_session(
     参数若要调整, 务必参考 https://docs.livekit.io/agents/ 的最新签名.
     """
     return AgentSession(
-        stt=elevenlabs.STT(
-            language_code="zh",
-            model_id="scribe_v2",
-            tag_audio_events=False,
+        stt=aliyun_stt.STT(
+            language="zh",
+            model=os.environ.get("DASHSCOPE_STT_MODEL") or aliyun_stt.DEFAULT_MODEL,
+            max_sentence_silence=int(
+                os.environ.get("DASHSCOPE_STT_MAX_SENTENCE_SILENCE_MS") or "1300"
+            ),
+            vocabulary_id=os.environ.get("DASHSCOPE_STT_VOCABULARY_ID") or None,
+            workspace=os.environ.get("DASHSCOPE_WORKSPACE_ID") or None,
+            base_url=os.environ.get("DASHSCOPE_STT_BASE_URL") or None,
         ),
         llm=openai.LLM(
             # 通过 DashScope OpenAI 兼容端点调通义系模型, 走 base_url 覆盖即可
