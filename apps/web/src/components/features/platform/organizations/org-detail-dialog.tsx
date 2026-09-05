@@ -1,7 +1,9 @@
 "use client";
 
 import { IconBuilding, IconUsers } from "@tabler/icons-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ListLoadError } from "@/components/features/data-grid/list-load-error";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
-import { withCleanup } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
 import { formatDateOnly } from "@app/shared/utils/time";
 
@@ -138,117 +139,134 @@ function MemberContent({ loading, data }: { loading: boolean; data: OrgDetail | 
   return null;
 }
 
-export function OrgDetailDialog({
+function fetchOrgDetail(orgId: string, page: number): Promise<OrgDetail> {
+  return rpcFetch(
+    rpc.api.platform.organizations[":orgId"].$get({
+      param: { orgId },
+      query: { page: String(page), pageSize: "10" },
+    }),
+    "加载工作区详情失败",
+  );
+}
+
+function OrgDetailBody({
   orgId,
-  open,
-  onOpenChange,
+  loadDetail,
 }: {
   orgId: string | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  loadDetail: typeof fetchOrgDetail;
 }) {
-  const [data, setData] = useState<OrgDetail | null>(null);
-  const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const fetchDetail = useCallback(
-    async (p: number) => {
+  const query = useQuery({
+    enabled: orgId !== null,
+    placeholderData: keepPreviousData,
+    queryFn: () => {
       if (!orgId) {
-        return;
+        throw new Error("缺少工作区");
       }
-      setLoading(true);
-      await withCleanup(
-        async () => {
-          const result = await rpcFetch(
-            rpc.api.platform.organizations[":orgId"].$get({
-              param: { orgId },
-              query: { page: String(p), pageSize: String(pageSize) },
-            }),
-            "加载工作区详情失败",
-          );
-          setData(result);
-          setPage(p);
-        },
-        () => setLoading(false),
-      );
+      return loadDetail(orgId, page);
     },
-    [orgId],
-  );
-
-  useEffect(() => {
-    if (open && orgId) {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      void fetchDetail(1);
-    }
-    if (!open) {
-      setData(null);
-      setPage(1);
-    }
-  }, [open, orgId, fetchDetail]);
+    queryKey: ["platform-organization-detail", orgId, page],
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const data = query.data ?? null;
+  const loading = query.isFetching;
 
   const org = data?.organization;
   const members = data?.members;
 
   return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <IconBuilding className="size-5" />
+          {org?.name ?? "加载中..."}
+        </DialogTitle>
+        <DialogDescription>
+          {org ? <span className="font-mono text-xs">/{org.slug}</span> : "工作区详情"}
+        </DialogDescription>
+      </DialogHeader>
+
+      {org && (
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>创建于 {formatDateOnly(org.createdAt)}</span>
+          <Separator orientation="vertical" className="h-4" />
+          <span className="flex items-center gap-1">
+            <IconUsers className="size-4" />
+            {members?.total ?? 0} 成员
+          </span>
+        </div>
+      )}
+
+      <Separator />
+
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+        {query.isError ? (
+          <ListLoadError
+            compact
+            error={query.error}
+            onRetry={() => {
+              void query.refetch();
+            }}
+          />
+        ) : null}
+        <MemberContent data={data} loading={loading} />
+      </div>
+
+      {members && members.totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="text-muted-foreground text-xs">
+            第 {members.page} / {members.totalPages} 页，共 {members.total} 人
+          </span>
+          <div className="flex gap-2">
+            <Button
+              disabled={page <= 1 || loading}
+              onClick={() => {
+                setPage(page - 1);
+              }}
+              size="sm"
+              variant="outline"
+            >
+              上一页
+            </Button>
+            <Button
+              disabled={page >= members.totalPages || loading}
+              onClick={() => {
+                setPage(page + 1);
+              }}
+              size="sm"
+              variant="outline"
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export function OrgDetailDialog({
+  orgId,
+  open,
+  onOpenChange,
+  loadDetail = fetchOrgDetail,
+}: {
+  orgId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  loadDetail?: typeof fetchOrgDetail;
+}) {
+  return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <IconBuilding className="size-5" />
-            {org?.name ?? "加载中..."}
-          </DialogTitle>
-          <DialogDescription>
-            {org ? <span className="font-mono text-xs">/{org.slug}</span> : "工作区详情"}
-          </DialogDescription>
-        </DialogHeader>
-
-        {org && (
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>创建于 {formatDateOnly(org.createdAt)}</span>
-            <Separator orientation="vertical" className="h-4" />
-            <span className="flex items-center gap-1">
-              <IconUsers className="size-4" />
-              {members?.total ?? 0} 成员
-            </span>
-          </div>
-        )}
-
-        <Separator />
-
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-          <MemberContent data={data} loading={loading} />
-        </div>
-
-        {members && members.totalPages > 1 && (
-          <div className="flex items-center justify-between pt-2 border-t">
-            <span className="text-muted-foreground text-xs">
-              第 {members.page} / {members.totalPages} 页，共 {members.total} 人
-            </span>
-            <div className="flex gap-2">
-              <Button
-                disabled={page <= 1 || loading}
-                onClick={() => {
-                  fetchDetail(page - 1);
-                }}
-                size="sm"
-                variant="outline"
-              >
-                上一页
-              </Button>
-              <Button
-                disabled={page >= members.totalPages || loading}
-                onClick={() => {
-                  fetchDetail(page + 1);
-                }}
-                size="sm"
-                variant="outline"
-              >
-                下一页
-              </Button>
-            </div>
-          </div>
-        )}
+        <OrgDetailBody
+          key={`${orgId}:${open}`}
+          orgId={open ? orgId : null}
+          loadDetail={loadDetail}
+        />
       </DialogContent>
     </Dialog>
   );

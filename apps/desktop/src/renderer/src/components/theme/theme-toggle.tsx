@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import type { AppIconName } from "@/components/ui/icon";
 import { Icon } from "@/components/ui/icon";
@@ -37,13 +36,7 @@ const noDragStyle: ElectronNoDragStyle = {
  */
 export function ThemeToggle({ className }: { className?: string }): React.JSX.Element {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const activeTheme = themeModeSchema.safeParse(mounted ? theme : "system").data ?? "system";
+  const activeTheme = themeModeSchema.safeParse(theme).data ?? "system";
   const current = THEME_OPTIONS.find((option) => option.value === activeTheme) ?? THEME_OPTIONS[2];
 
   return (

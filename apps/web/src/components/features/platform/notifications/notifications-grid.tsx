@@ -7,7 +7,7 @@ import type { InterviewNotificationEventType } from "@app/db-schema/interview-no
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -252,34 +252,43 @@ function FeishuPreviewLine({ block }: { block: FeishuPreviewBlock }) {
   );
 }
 
-function FeishuNotificationPreviewDialog({
-  onOpenChange,
-  record,
-}: {
-  onOpenChange: (open: boolean) => void;
-  record: PlatformNotificationRecord | null;
-}) {
-  const previewMutation = useMutation({
-    mutationFn: (notificationId: string) =>
-      rpcFetch(
-        rpc.api.platform.notifications[":id"]["debug-preview"].$post({
-          param: { id: notificationId },
-        }),
-        "生成飞书通知预览失败",
-      ),
-    retry: false,
-  });
-  const { mutate: generatePreview, reset: resetPreview } = previewMutation;
+function generateFeishuPreview(notificationId: string) {
+  return rpcFetch(
+    rpc.api.platform.notifications[":id"]["debug-preview"].$post({
+      param: { id: notificationId },
+    }),
+    "生成飞书通知预览失败",
+  );
+}
 
-  useEffect(() => {
-    resetPreview();
-    if (record?.id) {
-      generatePreview(record.id);
+export function useFeishuNotificationPreview(generate = generateFeishuPreview) {
+  const [open, setOpen] = useState(false);
+  const mutation = useMutation({ mutationFn: generate, retry: false });
+
+  function show(notificationId: string) {
+    setOpen(true);
+    mutation.mutate(notificationId);
+  }
+
+  function onOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      mutation.reset();
     }
-  }, [generatePreview, record?.id, resetPreview]);
+  }
+
+  return { mutation, onOpenChange, open, show };
+}
+
+function FeishuNotificationPreviewDialog({
+  preview,
+}: {
+  preview: ReturnType<typeof useFeishuNotificationPreview>;
+}) {
+  const { mutation: previewMutation, onOpenChange, open } = preview;
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={Boolean(record)}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{previewMutation.data?.title ?? "调试飞书通知"}</DialogTitle>
@@ -457,7 +466,7 @@ function FeishuNotificationResendDialog({
 
 export function NotificationsGrid() {
   const queryClient = useQueryClient();
-  const [previewRecord, setPreviewRecord] = useState<PlatformNotificationRecord | null>(null);
+  const preview = useFeishuNotificationPreview();
   const [resendRecord, setResendRecord] = useState<PlatformNotificationRecord | null>(null);
   const [updatingStructureId, setUpdatingStructureId] = useState<string | null>(null);
 
@@ -667,7 +676,7 @@ export function NotificationsGrid() {
       menu: [
         {
           label: "调试飞书通知",
-          onClick: (record) => setPreviewRecord(record),
+          onClick: (record) => preview.show(record.id),
         },
         {
           disabled: (record) => !record.feishuDocumentUrl,
@@ -753,14 +762,7 @@ export function NotificationsGrid() {
         ]}
         getRowId={(record) => record.id}
       />
-      <FeishuNotificationPreviewDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreviewRecord(null);
-          }
-        }}
-        record={previewRecord}
-      />
+      <FeishuNotificationPreviewDialog preview={preview} />
       <FeishuNotificationResendDialog
         key={resendRecord?.id ?? "closed"}
         onOpenChange={(open) => {

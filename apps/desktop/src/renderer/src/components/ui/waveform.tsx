@@ -160,15 +160,11 @@ export function AudioScrubber({
   ...props
 }: AudioScrubberProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [localProgress, setLocalProgress] = useState(0);
+  const [dragProgress, setDragProgress] = useState(0);
+  const playbackProgress = duration > 0 ? currentTime / duration : 0;
+  const localProgress = isDragging ? dragProgress : playbackProgress;
   const containerRef = useRef<HTMLDivElement>(null);
   const waveformData = data;
-
-  useEffect(() => {
-    if (!isDragging && duration > 0) {
-      setLocalProgress(currentTime / duration);
-    }
-  }, [currentTime, duration, isDragging]);
 
   const handleScrub = useCallback(
     (clientX: number) => {
@@ -178,7 +174,7 @@ export function AudioScrubber({
       }
       const rect = container.getBoundingClientRect();
       const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      setLocalProgress(progress);
+      setDragProgress(progress);
       onSeek?.(progress * duration);
     },
     [duration, onSeek],

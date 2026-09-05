@@ -16,11 +16,13 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useSequenceStepper<T>(sequence: T[], interval: number, fallback: T): T {
   const [index, setIndex] = useState(0);
+  const [previousSequence, setPreviousSequence] = useState(sequence);
   const animationFrameId = useRef<number | null>(null);
 
-  useEffect(() => {
+  if (sequence !== previousSequence) {
+    setPreviousSequence(sequence);
     setIndex(0);
-  }, [sequence]);
+  }
 
   useEffect(() => {
     let startTime = performance.now();

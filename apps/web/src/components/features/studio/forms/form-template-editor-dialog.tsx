@@ -224,9 +224,6 @@ export function CandidateFormTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
-  const questionIds = useStore(form.store, (state) =>
-    (state.values.questions ?? []).map((question) => question.id),
-  );
 
   useEffect(() => {
     if (!open) {
@@ -236,20 +233,6 @@ export function CandidateFormTemplateEditorDialog({
     // oxlint-disable-next-line react/set-state-in-effect -- Opening a different template resets dialog-local selection without remounting the animated root.
     setSelectedQuestionId(resolvedInitialValues.questions[0]?.id ?? null);
   }, [form, open, resolvedInitialValues]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    if (questionIds.length === 0) {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      setSelectedQuestionId(null);
-      return;
-    }
-    if (!selectedQuestionId || !questionIds.includes(selectedQuestionId)) {
-      setSelectedQuestionId(questionIds[0] ?? null);
-    }
-  }, [open, questionIds, selectedQuestionId]);
 
   return (
     <Modal

@@ -1,7 +1,7 @@
 "use client";
 
 import { IconLoader2, IconSearch } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Input } from "@/components/ui/input";
 
@@ -45,11 +45,6 @@ export function DebouncedSearchInput({
   const draftRef = useRef(value);
   const composingRef = useRef(false);
   const lastCommittedRef = useRef(value);
-  const onValueChangeRef = useRef(onValueChange);
-
-  useEffect(() => {
-    onValueChangeRef.current = onValueChange;
-  }, [onValueChange]);
 
   const setDraftValue = (next: string) => {
     draftRef.current = next;
@@ -72,25 +67,6 @@ export function DebouncedSearchInput({
     }
   }, [value, composing]);
 
-  // Debounced commit of local draft → parent.
-  useEffect(() => {
-    if (composing) {
-      return;
-    }
-    if (draft === lastCommittedRef.current) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      const next = draftRef.current;
-      if (composingRef.current || next === lastCommittedRef.current) {
-        return;
-      }
-      lastCommittedRef.current = next;
-      onValueChangeRef.current(next);
-    }, debounceMs);
-    return () => window.clearTimeout(timer);
-  }, [draft, composing, debounceMs]);
-
   const flush = () => {
     if (composingRef.current) {
       return;
@@ -100,8 +76,23 @@ export function DebouncedSearchInput({
       return;
     }
     lastCommittedRef.current = next;
-    onValueChangeRef.current(next);
+    onValueChange(next);
   };
+  const commitDraft = useEffectEvent(flush);
+
+  // Debounced commit of local draft → parent.
+  useEffect(() => {
+    if (composing) {
+      return;
+    }
+    if (draft === lastCommittedRef.current) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      commitDraft();
+    }, debounceMs);
+    return () => window.clearTimeout(timer);
+  }, [draft, composing, debounceMs]);
 
   return (
     <div className={className} data-slot={dataSlot} style={style}>

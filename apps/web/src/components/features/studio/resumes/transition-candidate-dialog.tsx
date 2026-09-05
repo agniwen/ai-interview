@@ -148,14 +148,6 @@ function CloseDialog({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
-  // 拉详情用于 prefill hiredDetails（如果 Offer 已 accept 把 finalBaseSalary 等带进来）。
-  // Fetch detail to prefill hiredDetails (e.g., final salary copied from accepted offer).
-  const { data: resume } = useQuery({
-    enabled: open && !!candidate?.id,
-    queryFn: () => fetchStudioResume(slug, candidate?.id ?? ""),
-    queryKey: ["studio-resumes", slug, "detail", candidate?.id],
-  });
-
   const [outcome, setOutcome] = useState<Exclude<CandidateOutcome, "in_pipeline">>(
     initialOutcome ?? "rejected",
   );
@@ -190,21 +182,6 @@ function CloseDialog({
     setRevisitAfter("");
     setFinalBaseSalary("");
   }, [open, initialOutcome]);
-
-  // outcome=hired 时把当前最新的 Offer base 带进来（HR 改完一键确认）。
-  // When outcome=hired, prefill finalBaseSalary from accepted offer if any.
-  useEffect(() => {
-    if (!open || outcome !== "hired" || !resume) {
-      return;
-    }
-    if (!finalBaseSalary) {
-      // 不直接依赖 stageProgress.offer.latestDraft——它没有 baseSalary 字段，
-      // 真正想要的是「最新的 accepted offer」，但 list 端只 list 了精简字段。
-      // 短期方案：让 HR 自己填；后续如果觉得不爽再做一次 detail fetch。
-      // No-op for now; HR types it. We could fetch the full offer list to fill
-      // in the latest accepted base, but that's a separate enhancement.
-    }
-  }, [open, outcome, resume, finalBaseSalary]);
 
   async function handleConfirm() {
     if (!candidate) {
