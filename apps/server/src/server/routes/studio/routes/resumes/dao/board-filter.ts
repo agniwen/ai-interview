@@ -1,6 +1,7 @@
 import { recruitingRecordReadModel as record } from "@app/database/recruiting-read-model";
 import { recruitingEvent } from "@app/db-schema/schema";
-import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import { resolveRecruitingBoardFilterView } from "@app/shared/recruiting-board";
+import type { RecruitingBoardStageView, RecruitingBoardView } from "@app/shared/recruiting-board";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
@@ -65,8 +66,9 @@ const views = {
   ),
   "screening:pass": and(eq(originNode, "screening"), eq(record.result, "pass")),
   "screening:pending": and(eq(record.pipelineStage, "screening"), isNull(record.result)),
-} satisfies Record<RecruitingBoardView, SQL | undefined>;
+} satisfies Record<RecruitingBoardStageView, SQL | undefined>;
 
 export function buildRecruitingBoardFilter(view?: RecruitingBoardView): SQL | null {
-  return view ? (views[view] ?? null) : null;
+  const stageView = view ? resolveRecruitingBoardFilterView(view) : undefined;
+  return stageView ? (views[stageView] ?? null) : null;
 }

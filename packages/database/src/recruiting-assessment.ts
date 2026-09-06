@@ -1,23 +1,22 @@
 import { eq } from "drizzle-orm";
 import { recruitingRecord, recruitingResumeEvaluation } from "@app/db-schema/schema";
-import type { studioInterview } from "@app/db-schema/schema";
+import type { RecruitingRecordFields } from "./recruiting-record-fields";
 import type { JsonValue } from "@app/db-schema/json";
 import { QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION } from "@app/db-schema/qualitative-resume-evaluation";
 import type { RecruitingRecordValues, RecruitingTransaction } from "./recruiting-records";
 
-type LegacyFields = Omit<typeof studioInterview.$inferSelect, "pipelineStage">;
 type RecordRow = typeof recruitingRecord.$inferSelect;
 type AssessmentRow = typeof recruitingResumeEvaluation.$inferSelect;
 type AssessmentArtifact = NonNullable<
-  | LegacyFields["resumeReview"]
-  | LegacyFields["qualitativeResumeEvaluation"]
-  | LegacyFields["structuredResumeEvaluation"]
+  | RecruitingRecordFields["resumeReview"]
+  | RecruitingRecordFields["qualitativeResumeEvaluation"]
+  | RecruitingRecordFields["structuredResumeEvaluation"]
 >;
-type AssessmentMode = NonNullable<LegacyFields["resumeEvaluationArtifactMode"]>;
+type AssessmentMode = NonNullable<RecruitingRecordFields["resumeEvaluationArtifactMode"]>;
 type PersistedJsonInput =
   | AssessmentArtifact
-  | NonNullable<LegacyFields["closedMeta"]>
-  | NonNullable<LegacyFields["resumeScreeningResult"]>;
+  | NonNullable<RecruitingRecordFields["closedMeta"]>
+  | NonNullable<RecruitingRecordFields["resumeScreeningResult"]>;
 
 /** JSON 序列化会把日期转成 ISO 字符串并删除 undefined；不能用保留 Date 的 structuredClone。 */
 function json(value: PersistedJsonInput): JsonValue {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** 招聘台展示分组，不替代 recruiting_record 的实际流程节点。 */
-export const recruitingBoardViewValues = [
+const recruitingBoardStageViewValues = [
   "screening:all",
   "screening:pending",
   "screening:fail",
@@ -25,6 +25,19 @@ export const recruitingBoardViewValues = [
   "closed:hired",
   "closed:archived",
 ] as const;
+const recruitingBoardStageViewSchema = z.enum(recruitingBoardStageViewValues);
+export type RecruitingBoardStageView = z.infer<typeof recruitingBoardStageViewSchema>;
+type SpecificBoardView = Exclude<RecruitingBoardStageView, `${string}:all`>;
+const specificBoardViews = recruitingBoardStageViewValues.filter(
+  (view): view is SpecificBoardView => !view.endsWith(":all"),
+);
+
+/** 全部主标签保留独立 URL 前缀，刷新后不会跳回单个主阶段。 */
+export const recruitingBoardViewValues = [
+  "all",
+  ...recruitingBoardStageViewValues,
+  ...specificBoardViews.map((view) => `all:${view}` as const),
+] as const;
 export const recruitingBoardViewSchema = z.enum(recruitingBoardViewValues);
 export type RecruitingBoardView = z.infer<typeof recruitingBoardViewSchema>;
 interface BoardGroup {
@@ -32,7 +45,7 @@ interface BoardGroup {
   label: string;
   tabs: { value: RecruitingBoardView; label: string }[];
 }
-export const recruitingBoardGroups = [
+const stageBoardGroups = [
   {
     id: "screening",
     label: "简历筛选",
@@ -87,13 +100,47 @@ export const recruitingBoardGroups = [
   },
 ] satisfies BoardGroup[];
 
-/** 原节点 URL 继续定位到对应子标签；无筛选时默认简历筛选。 */
+/** 汇总具体子流程；不重复收录各主阶段自己的“全部”。 */
+export const recruitingBoardAllTabs: BoardGroup["tabs"] = [
+  { label: "全部", value: "all" },
+  ...stageBoardGroups.flatMap((group) =>
+    group.tabs.flatMap((tab) =>
+      tab.value.endsWith(":all")
+        ? []
+        : [
+            {
+              label: `${group.label} · ${tab.label}`,
+              value: recruitingBoardViewSchema.parse(`all:${tab.value}`),
+            },
+          ],
+    ),
+  ),
+];
+export const recruitingBoardGroups = [
+  { id: "all", label: "全部", tabs: recruitingBoardAllTabs },
+  ...stageBoardGroups,
+] satisfies BoardGroup[];
+
+/** 视图的父标签只影响导航，实际数据库筛选复用原阶段条件。 */
+export function resolveRecruitingBoardFilterView(
+  view: RecruitingBoardView,
+): RecruitingBoardStageView | undefined {
+  if (view === "all") {
+    return undefined;
+  }
+  return recruitingBoardStageViewSchema.parse(view.startsWith("all:") ? view.slice(4) : view);
+}
+
+/** 原节点 URL 继续定位到对应子标签；无筛选时默认全部。 */
 export function resolveRecruitingBoardView(value: string | undefined): RecruitingBoardView {
   const parsed = recruitingBoardViewSchema.safeParse(value);
   if (parsed.success) {
     return parsed.data;
   }
   switch (value) {
+    case "screening": {
+      return "screening:all";
+    }
     case "ai_interview": {
       return "interview:ai";
     }
@@ -119,7 +166,7 @@ export function resolveRecruitingBoardView(value: string | undefined): Recruitin
       return "closed:all";
     }
     default: {
-      return "screening:all";
+      return "all";
     }
   }
 }
@@ -136,5 +183,8 @@ export function getRecruitingBoardViewLabel(value: string | undefined): string {
   const view = resolveRecruitingBoardView(value);
   const group = getRecruitingBoardGroup(view);
   const tab = group.tabs.find((entry) => entry.value === view);
+  if (group.id === "all") {
+    return tab?.label ?? group.label;
+  }
   return view.endsWith(":all") || !tab ? group.label : `${group.label} · ${tab.label}`;
 }

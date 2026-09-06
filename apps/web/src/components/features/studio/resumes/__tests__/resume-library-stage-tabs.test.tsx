@@ -24,6 +24,13 @@ import { coerceSearchParams, useResumeLibrarySearchState } from "../resume-libra
 import type { ResumeLibraryGridState, SearchParamsRecord } from "../resume-library-page-model";
 
 enableReactActEnvironment();
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe = vi.fn();
+    disconnect = vi.fn();
+  },
+);
 const roots: Root[] = [];
 let currentGrid: ResumeLibraryGridState;
 let currentSearch: SearchParamsRecord;
@@ -83,10 +90,12 @@ async function renderPage(search: SearchParamsRecord) {
   roots.push(root);
 }
 
-function tab(label: string) {
-  const element = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
-    (button) => button.textContent === label,
-  );
+function tab(label: string, listLabel?: string) {
+  const element = [
+    ...document.querySelectorAll<HTMLButtonElement>(
+      listLabel ? `[role="tablist"][aria-label="${listLabel}"] [role="tab"]` : '[role="tab"]',
+    ),
+  ].find((button) => button.textContent === label);
   if (!element) {
     throw new Error(`Missing tab: ${label}`);
   }
@@ -142,7 +151,7 @@ describe("recruitment stage tabs", () => {
       [...document.querySelectorAll('[role="tablist"][aria-label="招聘阶段"] [role="tab"]')].map(
         (item) => item.textContent,
       ),
-    ).toEqual(["简历筛选", "面试", "Offer协商", "入职办理", "已结束"]);
+    ).toEqual(["全部", "简历筛选", "面试", "Offer协商", "入职办理", "已结束"]);
     expect(
       [...document.querySelectorAll('[role="tablist"][aria-label="面试子流程"] [role="tab"]')].map(
         (item) => item.textContent,
@@ -183,10 +192,21 @@ describe("recruitment stage tabs", () => {
         sortOrder: "desc",
       }),
     ).not.toEqual(previousKey);
-    act(() => tab("全部")?.click());
+    act(() => tab("全部", "面试子流程")?.click());
     await flushReactUpdates();
     expect(currentSearch.stage).toBe("interview:all");
     expect(currentGrid.filters.skills).toBe("Docker");
+  });
+
+  it("restores an aggregate child URL with every stage still visible", async () => {
+    await renderPage({ page: 2, stage: "all:interview:final" });
+    expect(tab("全部", "招聘阶段").getAttribute("aria-selected")).toBe("true");
+    expect(tab("面试 · 终试").getAttribute("aria-selected")).toBe("true");
+    expect(tab("已结束 · 已归档")).toBeDefined();
+    act(() => tab("全部", "全部子流程").click());
+    await flushReactUpdates();
+    expect(currentSearch.stage).toBe("all");
+    expect(currentSearch.page).toBe(1);
   });
 
   it("clears filter values without changing the stage or sorting", async () => {
@@ -215,16 +235,18 @@ describe("recruitment stage tabs", () => {
     expect(currentGrid.bind.canResetFilters).toBe(false);
     expect(currentGrid.rowSelection).toEqual({});
   });
-  it("defaults to screening and resets the child when switching the main group", async () => {
+  it("defaults to all and preserves the aggregate group in child URLs", async () => {
     await renderPage({});
-    expect(tab("简历筛选").getAttribute("aria-selected")).toBe("true");
-    act(() => tab("合格").click());
+    expect(tab("全部", "招聘阶段").getAttribute("aria-selected")).toBe("true");
+    expect(tab("全部", "全部子流程").getAttribute("aria-selected")).toBe("true");
+    act(() => tab("简历筛选 · 合格").click());
     await flushReactUpdates();
-    expect(currentSearch.stage).toBe("screening:pass");
+    expect(currentSearch.stage).toBe("all:screening:pass");
+    expect(tab("全部", "招聘阶段").getAttribute("aria-selected")).toBe("true");
     act(() => tab("Offer协商").click());
     await flushReactUpdates();
     expect(currentSearch.stage).toBe("offer:all");
-    expect(tab("全部").getAttribute("aria-selected")).toBe("true");
+    expect(tab("全部", "Offer协商子流程").getAttribute("aria-selected")).toBe("true");
     expect(tab("谈薪")).toBeDefined();
     expect(tab("发 Offer")).toBeDefined();
     act(() => tab("发 Offer").click());

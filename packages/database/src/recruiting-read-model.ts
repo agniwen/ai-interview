@@ -12,17 +12,16 @@ import {
   recruitingRecord,
   recruitingResumeEvaluation,
 } from "@app/db-schema/schema";
-import type { studioInterview } from "@app/db-schema/schema";
-
-/** 仅用旧列的值类型维持传输契约；查询从不访问旧表。 */
-type PreviousRecord = typeof studioInterview.$inferSelect;
+import type { RecruitingRecordFields } from "./recruiting-record-fields";
 
 // 每个表达式都拥有稳定的输出列名，避免不同实体的 id / name 在子查询中冲突。
-const value = <K extends keyof PreviousRecord>(name: K, expression: SQL<PreviousRecord[K]>) =>
-  expression.as(name);
+const value = <K extends keyof RecruitingRecordFields>(
+  name: K,
+  expression: SQL<RecruitingRecordFields[K]>,
+) => expression.as(name);
 const mode = (contract: SQLWrapper) =>
   sql<
-    PreviousRecord["resumeEvaluationArtifactMode"]
+    RecruitingRecordFields["resumeEvaluationArtifactMode"]
   >`CASE WHEN ${contract} LIKE 'qualitative-%' THEN 'qualitative' WHEN ${contract} LIKE 'structured-%' THEN 'structured' WHEN ${contract} LIKE 'legacy-%' THEN 'legacy' ELSE NULL END`;
 
 /**
@@ -175,7 +174,7 @@ export function createRecruitingReadModel(aliasName = "recruiting_record_read") 
         "resumeParseStatus",
         sql`COALESCE(${resume.parseStatus}, 'unparsed')`,
       ),
-      resumeParsedAt: sql<PreviousRecord["resumeParsedAt"]>`${resume.parsedAt}`
+      resumeParsedAt: sql<RecruitingRecordFields["resumeParsedAt"]>`${resume.parsedAt}`
         .mapWith((rawDate: string | null) => (rawDate === null ? null : new Date(rawDate)))
         .as("resumeParsedAt"),
       resumeProfile: value("resumeProfile", sql`${resume.profile}`),
@@ -185,11 +184,11 @@ export function createRecruitingReadModel(aliasName = "recruiting_record_read") 
       ),
       resumeReviewError: value("resumeReviewError", sql`${active.errorMessage}`),
       resumeReviewGeneratedAt: sql<
-        PreviousRecord["resumeReviewGeneratedAt"]
+        RecruitingRecordFields["resumeReviewGeneratedAt"]
       >`${current.completedAt}`
         .mapWith((rawDate: string | null) => (rawDate === null ? null : new Date(rawDate)))
         .as("resumeReviewGeneratedAt"),
-      resumeReviewQueuedAt: sql<PreviousRecord["resumeReviewQueuedAt"]>`${active.startedAt}`
+      resumeReviewQueuedAt: sql<RecruitingRecordFields["resumeReviewQueuedAt"]>`${active.startedAt}`
         .mapWith((rawDate: string | null) => (rawDate === null ? null : new Date(rawDate)))
         .as("resumeReviewQueuedAt"),
       resumeReviewRunId: value(
@@ -202,7 +201,7 @@ export function createRecruitingReadModel(aliasName = "recruiting_record_read") 
       ),
       resumeScreeningError: value("resumeScreeningError", sql`${latestScreening.errorMessage}`),
       resumeScreeningEvaluatedAt: sql<
-        PreviousRecord["resumeScreeningEvaluatedAt"]
+        RecruitingRecordFields["resumeScreeningEvaluatedAt"]
       >`${latestScreeningSuccess.completedAt}`
         .mapWith((rawDate: string | null) => (rawDate === null ? null : new Date(rawDate)))
         .as("resumeScreeningEvaluatedAt"),
@@ -215,7 +214,7 @@ export function createRecruitingReadModel(aliasName = "recruiting_record_read") 
         sql`CASE WHEN ${latestScreening.status} = 'succeeded' THEN 'ready' WHEN ${latestScreening.status} = 'queued' THEN 'processing' ELSE COALESCE(${latestScreening.status}, 'idle') END`,
       ),
       resumeSourceImportedAt: sql<
-        PreviousRecord["resumeSourceImportedAt"]
+        RecruitingRecordFields["resumeSourceImportedAt"]
       >`${record.sourceImportedAt}`
         .mapWith((rawDate: string | null) => (rawDate === null ? null : new Date(rawDate)))
         .as("resumeSourceImportedAt"),

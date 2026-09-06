@@ -23,7 +23,9 @@ describe("招聘台空状态的阶段名称", () => {
     for (const tab of group.tabs) {
       it(`${tab.value} 使用与标签一致的中文名称`, () => {
         const text = emptyText(tab.value);
-        expect(text).toContain(group.label);
+        if (group.id !== "all") {
+          expect(text).toContain(group.label);
+        }
         if (!tab.value.endsWith(":all")) {
           expect(text).toContain(tab.label);
         }
@@ -35,7 +37,7 @@ describe("招聘台空状态的阶段名称", () => {
     expect(emptyText("final_interview")).toContain("终试");
   });
   it.each(["", "unknown:value"])("默认或无效选择 %s 不误报全库为空", (value) => {
-    expect(emptyText(value)).toContain("简历筛选");
+    expect(emptyText(value)).toContain("全部");
     expect(emptyText(value)).not.toContain("还没有任何候选人");
     expect(emptyText(value)).not.toContain("unknown:value");
   });

@@ -1,0 +1,157 @@
+{
+  "mode": "applied",
+  "archived": 25,
+  "sourceTablesAndSkillCountsUnchanged": {
+    "studio_interview": {
+      "count": 1802,
+      "hash": "ec97706786efe938fac1fb9f3b9d1f38"
+    },
+    "resume_evaluation_version": {
+      "count": 1855,
+      "hash": "b0930754af612ea10fd9c33780f5abd4"
+    },
+    "resume_evaluation_failure": {
+      "count": 10,
+      "hash": "c320f25ab2f5db007d62368d90293748"
+    },
+    "candidate_form_submission": {
+      "count": 130,
+      "hash": "64dfa29cac96c92b1ee66edb89e4c146"
+    },
+    "human_interview_document_sync": {
+      "count": 10,
+      "hash": "2a2b05ca801ed7c2a29888a8ff2d1113"
+    },
+    "interview_audit_log": {
+      "count": 3272,
+      "hash": "46a3ac3d6f9f9987f2a4119543cce5ee"
+    },
+    "interview_context_snapshot": {
+      "count": 3656,
+      "hash": "6b95f0bcb0f3b47665b954fa177ce944"
+    },
+    "interview_conversation": {
+      "count": 422,
+      "hash": "f234bd4e600de0cf78f081076657ff7a"
+    },
+    "interview_conversation_turn": {
+      "count": 6456,
+      "hash": "7b19ea1dba86d1ea9e42598bc8a986db"
+    },
+    "interview_evidence_snapshot": {
+      "count": 293,
+      "hash": "9331ad691c55f6a410f90f08148b37a0"
+    },
+    "interview_notification": {
+      "count": 336,
+      "hash": "e442d83c22a7f68e600623ba7c81050c"
+    },
+    "interview_notification_event": {
+      "count": 59,
+      "hash": "57d7950351ad4e7e257effaa0507dc5b"
+    },
+    "interview_question_template_binding": {
+      "count": 1347,
+      "hash": "10a46bd88e8cd5d1c4cc482f070c43f7"
+    },
+    "mail_ingest_message": {
+      "count": 2547,
+      "hash": "10c7a4d98f6d004947a5461091e2b6e3"
+    },
+    "meeting_recruiting_context": {
+      "count": 11,
+      "hash": "2759edce57188e65641c6de966aaa009"
+    },
+    "resume_duplicate_match": {
+      "count": 1177,
+      "hash": "39112637fe33a9276dff064ea5911dad"
+    },
+    "resume_job_match_candidate": {
+      "count": 3573,
+      "hash": "b5368c577ea79f7a858fbb1d61a7317a"
+    },
+    "resume_job_match_run": {
+      "count": 587,
+      "hash": "69f6d8c0591a9f9af9c7c40aa83e4127"
+    },
+    "resume_pool_import": {
+      "count": 73,
+      "hash": "0590ddf9f3dc569c52f4140124c0f206"
+    },
+    "resume_semantic_index": {
+      "count": 4540,
+      "hash": "171114b1d739b858671c6da0f571e06b"
+    },
+    "resume_upload_batch": {
+      "count": 3532,
+      "hash": "c3ec6fc0c360a745e23bd92ea974bf35"
+    },
+    "resume_upload_batch_item": {
+      "count": 5212,
+      "hash": "30297fbb75ad3cca5f99e0fefbcc8d8e"
+    },
+    "studio_human_interview_evaluation_snapshot": {
+      "count": 24,
+      "hash": "9886fe72f2617de13c93ef8b0cf817dc"
+    },
+    "studio_human_interview_meeting": {
+      "count": 60,
+      "hash": "c61b77e0411be702f2bca1238565050d"
+    },
+    "studio_human_interview_meeting_event": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "studio_human_interview_meeting_interviewer": {
+      "count": 63,
+      "hash": "02a766616349931533083db153df091a"
+    },
+    "studio_human_interview_meeting_round": {
+      "count": 56,
+      "hash": "dc2ded1c7cd4a111730a7dee90f9b0bd"
+    },
+    "studio_human_interview_round": {
+      "count": 65,
+      "hash": "9ff71210511f35aca0070cc913780069"
+    },
+    "studio_human_interview_round_interviewer": {
+      "count": 66,
+      "hash": "3ffe76f2687b8011f01151a143843dc1"
+    },
+    "studio_interview_notification_recipient": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "studio_interview_schedule": {
+      "count": 199,
+      "hash": "e3d3f093bf34609142d7a8b97fcc9fdd"
+    },
+    "studio_offer_draft": {
+      "count": 7,
+      "hash": "9872d1f2f79f7b0930e48a803120c97f"
+    },
+    "studio_round_email_log": {
+      "count": 3,
+      "hash": "13f8d16cabb6804969dae5a071e73aec"
+    },
+    "interview_report": {
+      "count": 12,
+      "hash": "5cae94a6fc6c1a29b00efbb3885dc250"
+    },
+    "interview_report_version": {
+      "count": 13,
+      "hash": "27ef8a23a2cbce26c984cfc80b50cf56"
+    },
+    "studio_human_interview_interviewer_invitation": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "studio_org_skill": {
+      "count": 15395,
+      "hash": "d3123441a884677416d7e4df1d9e7c63"
+    }
+  },
+  "remainingExtraForeignKeys": 0,
+  "remainingArchiveTriggers": 0,
+  "idempotent": true
+}

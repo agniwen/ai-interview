@@ -104,6 +104,23 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
     const result = await queryPaginatedResumeRecords(org, { boardView }, { pageSize: 100 });
     return result.records.map((record) => record.candidateName).toSorted();
   }
+  it("全部取消阶段约束但保留租户隔离，聚合子标签复用原过滤和分页", async () => {
+    const unfiltered = await queryPaginatedResumeRecords(org, {}, { pageSize: 100 });
+    expect(await names("all")).toEqual(
+      unfiltered.records.map((row) => row.candidateName).toSorted(),
+    );
+    expect(await names("all")).not.toContain("foreign-screen");
+    expect(await names("all:screening:pending")).toEqual(await names("screening:pending"));
+    expect(await names("all:offer:negotiating")).toEqual(await names("offer:negotiating"));
+    expect(await names("all:closed:hired")).toEqual(await names("closed:hired"));
+    const page = await queryPaginatedResumeRecords(
+      org,
+      { boardView: "all:offer:send" },
+      { page: 2, pageSize: 1, sortBy: "candidateName", sortOrder: "asc" },
+    );
+    expect(page.total).toBe(3);
+    expect(page.records[0]?.candidateName).toBe("offer-awaiting-send");
+  });
   it("结束的淘汰归原筛选，合格只含未推进的筛选节点", async () => {
     expect(await names("screening:all")).toEqual(["screen-fail", "screen-pass", "screen-pending"]);
     expect(await names("screening:pending")).toEqual(["screen-pending"]);

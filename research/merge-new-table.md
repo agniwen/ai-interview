@@ -15,20 +15,20 @@
 
 ## 2. 新模型的职责
 
-| 目标表 | 保存什么 | 主要来源 |
-| --- | --- | --- |
-| `candidate` | 工作区内人才身份、联系方式 | 旧主表人才字段 |
-| `candidate_resume` | 简历版本、文件、正文、结构化资料与解析状态 | 旧主表简历字段 |
-| `recruiting_record` | 人才、简历、岗位关联；当前节点、最终结果、版本 | 旧主表招聘字段 |
-| `recruiting_node_state` | 每个节点的有效状态、结论、当前业务依据 | 旧进度、轮次、Offer 及上下文推断 |
-| `recruiting_resume_evaluation` | 历史评估版本、成功结果、失败与排队尝试 | 旧主表、评估版本及失败表 |
-| `recruiting_interview_preparation` | 面试准备信息 | 旧主表相关字段 |
-| `recruiting_fulfillment` | 流水、背调、入职信息与选定 Offer | 旧主表履约字段 |
-| `recruiting_material` | 材料元数据与对象存储引用 | 无源数据时保持空表 |
-| `ai_interview_round` | AI 面试轮次、邀请、执行状态、人工评价 | `studio_interview_schedule` |
-| `human_interview_round` | 真人轮次、复试或终试类型、评价 | 旧真人轮次表 |
-| `recruiting_offer` | Offer 版本、发送、接受或拒绝 | 旧 Offer 草稿表 |
-| `recruiting_event` | 审计、流程变更及迁移来源快照 | 旧审计日志及新事件 |
+| 目标表                             | 保存什么                                       | 主要来源                         |
+| ---------------------------------- | ---------------------------------------------- | -------------------------------- |
+| `candidate`                        | 工作区内人才身份、联系方式                     | 旧主表人才字段                   |
+| `candidate_resume`                 | 简历版本、文件、正文、结构化资料与解析状态     | 旧主表简历字段                   |
+| `recruiting_record`                | 人才、简历、岗位关联；当前节点、最终结果、版本 | 旧主表招聘字段                   |
+| `recruiting_node_state`            | 每个节点的有效状态、结论、当前业务依据         | 旧进度、轮次、Offer 及上下文推断 |
+| `recruiting_resume_evaluation`     | 历史评估版本、成功结果、失败与排队尝试         | 旧主表、评估版本及失败表         |
+| `recruiting_interview_preparation` | 面试准备信息                                   | 旧主表相关字段                   |
+| `recruiting_fulfillment`           | 流水、背调、入职信息与选定 Offer               | 旧主表履约字段                   |
+| `recruiting_material`              | 材料元数据与对象存储引用                       | 无源数据时保持空表               |
+| `ai_interview_round`               | AI 面试轮次、邀请、执行状态、人工评价          | `studio_interview_schedule`      |
+| `human_interview_round`            | 真人轮次、复试或终试类型、评价                 | 旧真人轮次表                     |
+| `recruiting_offer`                 | Offer 版本、发送、接受或拒绝                   | 旧 Offer 草稿表                  |
+| `recruiting_event`                 | 审计、流程变更及迁移来源快照                   | 旧审计日志及新事件               |
 
 主表保存具体节点，大阶段由共享规则计算。节点唯一键为 `(recruiting_record_id, node)`；“面试报告中曾经通过”不等于“当前节点有效通过”。
 
@@ -40,38 +40,38 @@
 
 以下使用 Drizzle 导出名，完整可执行映射以 [model.ts 的 tableCopies](../apps/server/src/scripts/recruiting-migration/model.ts) 为准：
 
-| 旧表导出名 | 新表导出名 |
-| --- | --- |
-| `candidateFormSubmission` | `recruitingFormSubmission` |
-| `humanInterviewDocumentSync` | `humanInterviewEvaluationDocumentSync` |
-| `interviewAuditLog` | `recruitingEvent` |
-| `interviewContextSnapshot` | `recruitingContextSnapshot` |
-| `interviewConversation` | `aiInterviewConversation` |
-| `interviewConversationTurn` | `aiInterviewConversationTurn` |
-| `interviewEvidenceSnapshot` | `recruitingEvidenceSnapshot` |
-| `interviewNotification` | `recruitingNotificationDelivery` |
-| `interviewNotificationEvent` | `recruitingNotificationEvent` |
-| `interviewQuestionTemplateBinding` | `recruitingQuestionTemplateBinding` |
-| `mailIngestMessage` | `recruitingMailMessage` |
-| `meetingRecruitingContext` | `recruitingMeetingContext` |
-| `resumeDuplicateMatch` | `recruitingDuplicateMatch` |
-| `resumeJobMatchCandidate` | `recruitingJobMatchCandidate` |
-| `resumeJobMatchRun` | `recruitingJobMatchRun` |
-| `resumePoolImport` | `recruitingPoolImport` |
-| `resumeSemanticIndex` | `recruitingSearchIndex` |
-| `resumeUploadBatch` | `recruitingUploadBatch` |
-| `resumeUploadBatchItem` | `recruitingUploadBatchItem` |
-| `studioHumanInterviewEvaluationSnapshot` | `humanInterviewEvaluationSnapshot` |
-| `studioHumanInterviewMeeting` | `humanInterviewMeeting` |
-| `studioHumanInterviewMeetingEvent` | `humanInterviewMeetingEvent` |
-| `studioHumanInterviewMeetingInterviewer` | `humanInterviewMeetingInterviewer` |
-| `studioHumanInterviewMeetingRound` | `humanInterviewMeetingRound` |
-| `studioHumanInterviewRound` | `humanInterviewRound` |
-| `studioHumanInterviewRoundInterviewer` | `humanInterviewRoundInterviewer` |
-| `studioInterviewNotificationRecipient` | `recruitingNotificationRecipient` |
-| `studioInterviewSchedule` | `aiInterviewRound` |
-| `studioOfferDraft` | `recruitingOffer` |
-| `studioRoundEmailLog` | `recruitingRoundEmailLog` |
+| 旧表导出名                               | 新表导出名                             |
+| ---------------------------------------- | -------------------------------------- |
+| `candidateFormSubmission`                | `recruitingFormSubmission`             |
+| `humanInterviewDocumentSync`             | `humanInterviewEvaluationDocumentSync` |
+| `interviewAuditLog`                      | `recruitingEvent`                      |
+| `interviewContextSnapshot`               | `recruitingContextSnapshot`            |
+| `interviewConversation`                  | `aiInterviewConversation`              |
+| `interviewConversationTurn`              | `aiInterviewConversationTurn`          |
+| `interviewEvidenceSnapshot`              | `recruitingEvidenceSnapshot`           |
+| `interviewNotification`                  | `recruitingNotificationDelivery`       |
+| `interviewNotificationEvent`             | `recruitingNotificationEvent`          |
+| `interviewQuestionTemplateBinding`       | `recruitingQuestionTemplateBinding`    |
+| `mailIngestMessage`                      | `recruitingMailMessage`                |
+| `meetingRecruitingContext`               | `recruitingMeetingContext`             |
+| `resumeDuplicateMatch`                   | `recruitingDuplicateMatch`             |
+| `resumeJobMatchCandidate`                | `recruitingJobMatchCandidate`          |
+| `resumeJobMatchRun`                      | `recruitingJobMatchRun`                |
+| `resumePoolImport`                       | `recruitingPoolImport`                 |
+| `resumeSemanticIndex`                    | `recruitingSearchIndex`                |
+| `resumeUploadBatch`                      | `recruitingUploadBatch`                |
+| `resumeUploadBatchItem`                  | `recruitingUploadBatchItem`            |
+| `studioHumanInterviewEvaluationSnapshot` | `humanInterviewEvaluationSnapshot`     |
+| `studioHumanInterviewMeeting`            | `humanInterviewMeeting`                |
+| `studioHumanInterviewMeetingEvent`       | `humanInterviewMeetingEvent`           |
+| `studioHumanInterviewMeetingInterviewer` | `humanInterviewMeetingInterviewer`     |
+| `studioHumanInterviewMeetingRound`       | `humanInterviewMeetingRound`           |
+| `studioHumanInterviewRound`              | `humanInterviewRound`                  |
+| `studioHumanInterviewRoundInterviewer`   | `humanInterviewRoundInterviewer`       |
+| `studioInterviewNotificationRecipient`   | `recruitingNotificationRecipient`      |
+| `studioInterviewSchedule`                | `aiInterviewRound`                     |
+| `studioOfferDraft`                       | `recruitingOffer`                      |
+| `studioRoundEmailLog`                    | `recruitingRoundEmailLog`              |
 
 ## 3. 身份、关系与外键
 
@@ -106,17 +106,17 @@
 
 以下数字是 2026-09-05 切换时的历史验收结果，不是当前实时表计数。之后的新业务及 E2E 操作已改变目标数据。
 
-| 项目 | 当时结果 |
-| --- | --- |
-| 目标数据库 | `ainterview-dev` |
-| 新表 | 39 张，其中 38 张业务表、1 张迁移台账 |
-| 新表外键 | 144 条 |
-| 旧招聘记录 | 1,802 条，不合并人才 |
-| 节点状态 | 14,416 条 |
-| 评估 | 1,888 条 |
-| AI / 真人轮次 / Offer | 199 / 65 / 7 条 |
-| 目标业务行 / 台账行 | 各 64,892 条 |
-| 切换前幂等重跑 | 新增 0、修改 0 |
+| 项目                  | 当时结果                              |
+| --------------------- | ------------------------------------- |
+| 目标数据库            | `ainterview-dev`                      |
+| 新表                  | 39 张，其中 38 张业务表、1 张迁移台账 |
+| 新表外键              | 144 条                                |
+| 旧招聘记录            | 1,802 条，不合并人才                  |
+| 节点状态              | 14,416 条                             |
+| 评估                  | 1,888 条                              |
+| AI / 真人轮次 / Offer | 199 / 65 / 7 条                       |
+| 目标业务行 / 台账行   | 各 64,892 条                          |
+| 切换前幂等重跑        | 新增 0、修改 0                        |
 
 对 33 张招聘源表及独立邮箱账号查阅表保存数据库端计数与 SHA-256，迁移前后相同。大 JSON 经数据库内部 `INSERT SELECT` 复制，避免跨驱动的大参数问题，不截断内容。1 条缺少正向轮次引用的 AI 会话根据同组织、同记录的唯一反向指针补齐；1 条排队评估保留原 runId 和状态，没有重发任务。
 
@@ -124,6 +124,8 @@
 
 1. [split_recruiting_tables](../apps/web/drizzle/20260905072558_split_recruiting_tables/migration.sql)：仅新增目标 schema。
 2. [detach_recruiting_archive](../apps/web/drizzle/20260905095000_detach_recruiting_archive/migration.sql)：后续授权解除 33 张档案表指向在线资源的 72 条外键；档案内部约束和行数据保留。
+
+3. [retire_recruiting_archive_dependencies](../apps/web/drizzle/20260907023000_retire_recruiting_archive_dependencies/migration.sql)：补充归档 25 条旧报告/版本并解除遗漏依赖，见第 9 节。
 
 历史计数与摘要见[脱敏回填报告](../docs/plans/2026-09-05-recruiting-backfill-report.json)。含候选人资料的源缓存不进入仓库。
 
@@ -180,3 +182,29 @@ apps/server/node_modules/.bin/tsx apps/server/src/scripts/migrate-recruiting-dat
 切换前校验失败：回滚复制事务，继续使用旧系统。切换后新表已有业务写入：先保护新数据，优先修复新体系；不能直接回退旧代码并丢弃新表增量。保留的旧表是历史档案，不是新系统的实时备份。
 
 分支交付使用 `next-version`；`dev` 保留拆分前提交 `8d6b83338853f91a710df3c433d304923c43f6e5`。推送代码不执行数据库迁移、不部署服务。
+
+## 9. 旧表观察期前的遗留清理（2026-09-07 已在开发库执行）
+
+本次以实际数据库目录补查迁移清单，发现原 33 张旧表之外还有 `interview_report`（12 行）、`interview_report_version`（13 行）、`studio_human_interview_interviewer_invitation`（0 行）。三表未在当前 schema 声明，仍有 7 条外键指向旧招聘表；它们对用户、组织等在线资源也有外键。另有旧主表的两个触发器未被前一次外键解耦覆盖。
+
+已新增并执行 [retire_recruiting_archive_dependencies](../apps/web/drizzle/20260907023000_retire_recruiting_archive_dependencies/migration.sql)，保留全部旧表和旧行：
+
+- 12 条旧报告和 13 条版本完整复制到 `recruiting_event`，action 为 `migration.report_archived`。`detail.sourceTable/sourceId/legacySource` 保留全部源字段、报告内容、文档链接和原版本/提交/冲突状态。所有旧报告均匹配同组织的新招聘记录。
+- 这批历史报告包含不同旧契约，以及 `migration_conflict`、`creation_uncertain` 等状态，因此只作历史审计档案，不覆盖新会话、当前评分、人工确认结果，也不重放提交、创建文档或发送通知。
+- 使用源表名和源 ID 生成确定性事件 ID。重复执行校验完整 JSON 相等；冲突拒绝覆盖。目标招聘缺失/跨组织、两张旧报告表不成对存在、其他环境旧邀请表非空都会中止事务，要求先完成对应数据映射，不静默丢弃。
+- 解除三张额外档案表的全部 18 条外键（其中 7 条指向原招聘旧表），消除指向旧表及在线资源的引用。旧行中的历史 ID 仍原样保存，但不再作为数据库外键。
+- 移除 `studio_interview_skill_count_decrement` 和 `studio_interview_sync_search` 两个触发器。前者会在删除旧行时修改在线技能计数；移除后旧档案不再通过这两个触发器影响在线数据。共享函数保留，未改其他表的触发器。
+- `recruiting-read-model.ts`、`recruiting-records.ts`、`recruiting-assessment.ts` 的旧表类型依赖已解除，改用 [recruiting-record-fields.ts](../packages/database/src/recruiting-record-fields.ts) 的新实体/领域 DTO 契约。已验证字段集合、可空性和字段类型与原接口完全一致。
+- 在线旧表边界测试新增检查纯类型 import，并将三张额外物理表纳入禁止直接 SQL 访问的范围。
+
+执行证据：[脱敏校验报告](../docs/reports/2026-09-07-recruiting-archive-retirement/verification.json)。先运行事务回滚演练，再正式提交；两次均校验 36 张旧表及 `studio_org_skill` 的行数/完整行哈希相同。25 条归档事件重跑无新增或覆盖。正式执行后再次查询数据库：跨原 33 张旧表的外键为 0、依赖视图为 0、旧主表自定义触发器为 0；额外三表外键为 0。49 条旧表内部外键仍保留，属于观察期档案内部结构。
+
+本次更新了 Drizzle 迁移记录；未部署其他环境。迁移文件对缺少额外旧表的环境可跳过归档，但非空旧邀请或未迁移招聘记录需要先处理，不能直接把开发库验收结果用于生产。
+
+### 观察一个月后如何删除
+
+- 观察期从实际环境全部 Web/Server/Worker/Agent 切换到新版本、旧消费者停用之后计算。本次没有配置定时监控，也没有执行任何删表。
+- 旧 schema、旧表之间的 relations、原回填工具和历史 SQL 暂留作观察与取证。现在在线编译和查询均不再依赖旧表定义；最终退役时应同步移除这些旧 schema/relations 和回填执行入口，并追加正式 DROP 迁移。历史迁移文件保留，保证新环境可重放迁移链。
+- 删除范围需包含这次发现的三张额外档案表，共 36 张；按依赖顺序或明确的同一批 DROP 清单处理内部外键，不用泛化 CASCADE 隐藏未知依赖。先备份并在目标环境复查访问日志、外键、视图和触发器。
+- Qdrant/队列里的 `studio_interview` 仍是兼容协议值，数据库侧映射到 `recruiting_record`，不构成对旧物理表的查询。删物理表不要求修改它；若后续统一协议命名，应独立迁移向量 payload/ID 与任务去重键，不能直接全局替换。
+- 原始旧表不是新系统的实时备份；新增招聘、评价和面试都只写新模型。25 条报告归档事件随新招聘记录按既有删除规则管理，不替代独立备份。

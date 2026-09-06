@@ -5,7 +5,12 @@ import { sourceNames, sqlName } from "./model";
 
 const root = resolve(import.meta.dirname, "../../../../..");
 const deprecated = new Set(sourceNames);
-const oldSql = sourceNames.map(sqlName).join("|");
+const oldSql = [
+  ...sourceNames.map(sqlName),
+  "interview_report",
+  "interview_report_version",
+  "studio_human_interview_interviewer_invitation",
+].join("|");
 const rawQuery = new RegExp(
   `\\b(?:FROM|JOIN|UPDATE|INTO|DELETE\\s+FROM)\\s+["\\x60]?(?:${oldSql})\\b`,
   "i",
@@ -28,17 +33,20 @@ function files(directory: string): string[] {
   });
 }
 
-it("keeps deprecated recruitment tables outside runtime imports and raw SQL", () => {
+it("keeps deprecated recruitment tables outside runtime and type imports and raw SQL", () => {
   const violations: string[] = [];
   for (const file of [...files(join(root, "apps")), ...files(join(root, "packages"))]) {
     const source = readFileSync(file, "utf-8")
       .replaceAll(/\/\*[\s\S]*?\*\//g, "")
       .replaceAll(/^\s*\/\/.*$/gm, "");
     for (const match of source.matchAll(
-      /import\s+(?!type\b)\{([^}]+)\}\s+from\s+["']@app\/db-schema[^"']*["']/g,
+      /import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']@app\/db-schema[^"']*["']/g,
     )) {
       for (const entry of match[1].split(",")) {
-        const [name] = entry.trim().split(/\s+/);
+        const [name] = entry
+          .trim()
+          .replace(/^type\s+/, "")
+          .split(/\s+/);
         if (name && deprecated.has(name)) {
           violations.push(`${relative(root, file)} imports ${name}`);
         }

@@ -773,12 +773,15 @@
 /* Flow slots adapt the same transition to content whose height is not fixed. */
 .t-skel.t-skel-flow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .t-skel.t-skel-flow > .t-skel-skeleton,
 .t-skel.t-skel-flow > .t-skel-content {
   position: relative;
   inset: auto;
+  /* Let nested tables scroll inside their viewport instead of widening the grid. */
+  min-width: 0;
   grid-area: 1 / 1;
 }
 

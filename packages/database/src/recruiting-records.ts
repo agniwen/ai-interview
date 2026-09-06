@@ -18,13 +18,9 @@ import {
   recruitingUploadBatchItem,
   recruitingNodeValues,
 } from "@app/db-schema";
-import type {
-  RecruitingStage,
-  RecruitingNode,
-  RecruitingNodeStatus,
-  studioInterview,
-} from "@app/db-schema";
+import type { RecruitingStage, RecruitingNode, RecruitingNodeStatus } from "@app/db-schema";
 import type { Database } from "./index";
+import type { RecruitingRecordFields } from "./recruiting-record-fields";
 import { persistAssessment } from "./recruiting-assessment";
 import { updateRecruitingNodeTx } from "./recruiting-pipeline";
 import { recruitingRecordReadModel } from "./recruiting-read-model";
@@ -32,9 +28,8 @@ import type { RecruitingRecordRead } from "./recruiting-read-model";
 
 export type RecruitingTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type RecruitingExecutor = Database | RecruitingTransaction;
-type LegacyFields = Omit<typeof studioInterview.$inferSelect, "pipelineStage">;
 /** 保留现有传输字段名；每组字段显式写入其所属新表，不把投影当成可写表。 */
-export type RecruitingRecordValues = Partial<LegacyFields> & {
+export type RecruitingRecordValues = Partial<RecruitingRecordFields> & {
   pipelineStage?: RecruitingStage | "human_interview" | "written_test";
 };
 export type RecruitingRecordPatch = {
