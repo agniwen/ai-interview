@@ -3,10 +3,10 @@ import { uniq } from "lodash-es";
 import type { ResumeStageProgress } from "@app/shared/studio-resumes";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  interviewConversation,
-  studioHumanInterviewRound,
-  studioInterviewSchedule,
-  studioOfferDraft,
+  aiInterviewConversation,
+  humanInterviewRound,
+  aiInterviewRound,
+  recruitingOffer,
 } from "@app/db-schema/schema";
 
 // 兜底默认值：候选人完全没有任何子表数据时返回（虽然聚合 SQL 总会返回一个对象，
@@ -57,62 +57,56 @@ export async function loadResumeStageProgress(
   const [aiRows, humanRows, offerRows, lastInterviewRows] = await Promise.all([
     db
       .select({
-        interviewRecordId: studioInterviewSchedule.interviewRecordId,
-        roundLabel: studioInterviewSchedule.roundLabel,
-        sortOrder: studioInterviewSchedule.sortOrder,
-        status: studioInterviewSchedule.status,
+        interviewRecordId: aiInterviewRound.recruitingRecordId,
+        roundLabel: aiInterviewRound.roundLabel,
+        sortOrder: aiInterviewRound.sortOrder,
+        status: aiInterviewRound.status,
       })
-      .from(studioInterviewSchedule)
-      .where(inArray(studioInterviewSchedule.interviewRecordId, ids))
-      .orderBy(
-        asc(studioInterviewSchedule.interviewRecordId),
-        asc(studioInterviewSchedule.sortOrder),
-      ),
+      .from(aiInterviewRound)
+      .where(inArray(aiInterviewRound.recruitingRecordId, ids))
+      .orderBy(asc(aiInterviewRound.recruitingRecordId), asc(aiInterviewRound.sortOrder)),
     db
       .select({
-        feedback: studioHumanInterviewRound.feedback,
-        id: studioHumanInterviewRound.id,
-        interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-        label: studioHumanInterviewRound.label,
-        outcome: studioHumanInterviewRound.outcome,
-        scheduledAt: studioHumanInterviewRound.scheduledAt,
-        sortOrder: studioHumanInterviewRound.sortOrder,
-        status: studioHumanInterviewRound.status,
+        feedback: humanInterviewRound.feedback,
+        id: humanInterviewRound.id,
+        interviewRecordId: humanInterviewRound.recruitingRecordId,
+        label: humanInterviewRound.label,
+        outcome: humanInterviewRound.outcome,
+        scheduledAt: humanInterviewRound.scheduledAt,
+        sortOrder: humanInterviewRound.sortOrder,
+        status: humanInterviewRound.status,
       })
-      .from(studioHumanInterviewRound)
-      .where(inArray(studioHumanInterviewRound.interviewRecordId, ids))
-      .orderBy(
-        asc(studioHumanInterviewRound.interviewRecordId),
-        asc(studioHumanInterviewRound.sortOrder),
-      ),
+      .from(humanInterviewRound)
+      .where(inArray(humanInterviewRound.recruitingRecordId, ids))
+      .orderBy(asc(humanInterviewRound.recruitingRecordId), asc(humanInterviewRound.sortOrder)),
     db
       .select({
-        id: studioOfferDraft.id,
-        interviewRecordId: studioOfferDraft.interviewRecordId,
-        responseAt: studioOfferDraft.responseAt,
-        sentAt: studioOfferDraft.sentAt,
-        status: studioOfferDraft.status,
-        version: studioOfferDraft.version,
+        id: recruitingOffer.id,
+        interviewRecordId: recruitingOffer.recruitingRecordId,
+        responseAt: recruitingOffer.responseAt,
+        sentAt: recruitingOffer.sentAt,
+        status: recruitingOffer.status,
+        version: recruitingOffer.version,
       })
-      .from(studioOfferDraft)
-      .where(inArray(studioOfferDraft.interviewRecordId, ids))
-      .orderBy(asc(studioOfferDraft.interviewRecordId), asc(studioOfferDraft.version)),
+      .from(recruitingOffer)
+      .where(inArray(recruitingOffer.recruitingRecordId, ids))
+      .orderBy(asc(recruitingOffer.recruitingRecordId), asc(recruitingOffer.version)),
     db
       .select({
-        interviewRecordId: interviewConversation.interviewRecordId,
+        interviewRecordId: aiInterviewConversation.recruitingRecordId,
         lastInterviewAt:
-          sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt}))`.as(
+          sql<Date | null>`MAX(COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}))`.as(
             "last_interview_at",
           ),
       })
-      .from(interviewConversation)
+      .from(aiInterviewConversation)
       .where(
         and(
-          inArray(interviewConversation.interviewRecordId, ids),
-          inArray(interviewConversation.status, ["completed", "done"]),
+          inArray(aiInterviewConversation.recruitingRecordId, ids),
+          inArray(aiInterviewConversation.status, ["completed", "done"]),
         ),
       )
-      .groupBy(interviewConversation.interviewRecordId),
+      .groupBy(aiInterviewConversation.recruitingRecordId),
   ]);
 
   const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();

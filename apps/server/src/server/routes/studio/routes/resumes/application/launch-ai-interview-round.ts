@@ -56,6 +56,7 @@ export type LaunchAiInterviewRoundResult =
         | "closed_candidate"
         | "not_found"
         | "resume_not_ready"
+        | "screening_not_passed"
         | "round_not_created"
         | "stage_conflict"
         | "structured_evaluation_confirmation_required";

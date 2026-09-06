@@ -1,3 +1,6 @@
+import { updateRecruitingRecords, deleteRecruitingRecords } from "@app/database/recruiting-records";
+import type { RecruitingRecordValues } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- resume collection commands and mounted child-resource routers remain co-located at the route boundary. */
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
@@ -5,7 +8,7 @@ import { resumeLibraryReadRouter as defaultResumeLibraryReadRouter } from "./rea
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db as defaultDb } from "../../../../../lib/server/db/index";
-import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@app/db-schema/schema";
+import { recruitingEvent } from "@app/db-schema/schema";
 import { resumeReviewSchema } from "@app/shared/resume-review";
 import type { ResumeReview } from "@app/shared/resume-review";
 import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
@@ -62,7 +65,6 @@ import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
 } from "./utils/resume-assessment-invalidation";
-import { buildPreQualitativeEvaluationArchive } from "./utils/resume-evaluation-history";
 import { structuredResumeEvaluationRouter as defaultStructuredResumeEvaluationRouter } from "./routes/structured-evaluation/route";
 import { recruitingRecordMeetingsRouter as defaultRecruitingRecordMeetingsRouter } from "./routes/meetings/route";
 import { resumeEvaluationHistoryRouter as defaultResumeEvaluationHistoryRouter } from "./routes/evaluation-history/route";
@@ -102,8 +104,6 @@ function parseResumeLibraryFormData(
     hrResumeAssessment: toNullableString(formData.get("hrResumeAssessment")) ?? "",
     jobDescriptionId: toNullableString(formData.get("jobDescriptionId")) ?? "",
     notes: toNullableString(formData.get("notes")) ?? "",
-    resumeEvaluationStatus:
-      toNullableString(formData.get("resumeEvaluationStatus")) ?? "unreviewed",
     targetRole: toNullableString(formData.get("targetRole")) ?? "",
   });
 }
@@ -662,7 +662,7 @@ export function createResumeLibraryRouter(
           } else if (resumeEvidenceChanged) {
             invalidatedAssessment = INVALIDATED_AI_RESUME_ASSESSMENT;
           }
-          const update: Partial<typeof studioInterview.$inferInsert> = {
+          const update: Partial<RecruitingRecordValues> = {
             candidateEmail: input.candidateEmail || null,
             candidateName: input.candidateName,
             candidatePhone: input.candidatePhone || null,
@@ -677,24 +677,16 @@ export function createResumeLibraryRouter(
           }
 
           await db.transaction(async (tx) => {
-            if (jobDescriptionChanged || resumeEvidenceChanged) {
-              const archive = buildPreQualitativeEvaluationArchive({
-                organizationId: activeOrg.id,
-                record: existing,
-                resumeRecordId: id,
-              });
-              if (archive) {
-                await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
-              }
-            }
-            await tx
-              .update(studioInterview)
-              .set(update)
-              .where(
-                and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)),
-              );
+            await updateRecruitingRecords(
+              tx,
+              and(
+                eq(recruitingRecordReadModel.id, id),
+                eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+              ),
+              update,
+            );
             if (jobDescriptionChanged) {
-              await tx.insert(interviewAuditLog).values({
+              await tx.insert(recruitingEvent).values({
                 action: "job_description_changed",
                 createdAt: now,
                 detail: {
@@ -704,9 +696,9 @@ export function createResumeLibraryRouter(
                   toJobDescriptionName: nextJobDescription?.name ?? null,
                 },
                 id: crypto.randomUUID(),
-                interviewRecordId: id,
                 operatorId: c.var.user?.id ?? null,
                 organizationId: activeOrg.id,
+                recruitingRecordId: id,
               });
             }
           });
@@ -720,17 +712,6 @@ export function createResumeLibraryRouter(
               previousJobDescriptionId: existing.jobDescriptionId,
               previousStatus: existing.resumeEvaluationStatus,
             });
-          } else {
-            const nextEvaluationStatus =
-              input.resumeEvaluationStatus === "unreviewed" ? null : input.resumeEvaluationStatus;
-            if (nextEvaluationStatus !== existing.resumeEvaluationStatus) {
-              await updateResumeEvaluationStatus({
-                id,
-                operatorId: c.var.user?.id ?? null,
-                organizationId: activeOrg.id,
-                status: nextEvaluationStatus,
-              });
-            }
           }
 
           if (
@@ -821,7 +802,7 @@ export function createResumeLibraryRouter(
                 resumeText: null,
               }),
           );
-          const resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = resumeProfile
+          const resumeProfileUpdate: Partial<RecruitingRecordValues> = resumeProfile
             ? { resumeProfile }
             : {};
 
@@ -839,7 +820,7 @@ export function createResumeLibraryRouter(
           }
           const nextHrResumeAssessment = input.data.hrResumeAssessment || null;
           const hrAssessmentChanged = existing.hrResumeAssessment !== nextHrResumeAssessment;
-          const update: Partial<typeof studioInterview.$inferInsert> = {
+          const update: Partial<RecruitingRecordValues> = {
             candidateEmail: input.data.candidateEmail || null,
             candidateName:
               input.data.candidateName || resumeProfile?.name || existing.candidateName,
@@ -857,24 +838,16 @@ export function createResumeLibraryRouter(
           }
 
           await db.transaction(async (tx) => {
-            if (jobDescriptionChanged || resumeEvidenceChanged) {
-              const archive = buildPreQualitativeEvaluationArchive({
-                organizationId: activeOrg.id,
-                record: existing,
-                resumeRecordId: id,
-              });
-              if (archive) {
-                await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
-              }
-            }
-            await tx
-              .update(studioInterview)
-              .set(update)
-              .where(
-                and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)),
-              );
+            await updateRecruitingRecords(
+              tx,
+              and(
+                eq(recruitingRecordReadModel.id, id),
+                eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+              ),
+              update,
+            );
             if (jobDescriptionChanged) {
-              await tx.insert(interviewAuditLog).values({
+              await tx.insert(recruitingEvent).values({
                 action: "job_description_changed",
                 createdAt: now,
                 detail: {
@@ -884,16 +857,12 @@ export function createResumeLibraryRouter(
                   toJobDescriptionName: nextJobDescription?.name ?? null,
                 },
                 id: crypto.randomUUID(),
-                interviewRecordId: id,
                 operatorId: c.var.user?.id ?? null,
                 organizationId: activeOrg.id,
+                recruitingRecordId: id,
               });
             }
           });
-          const nextResumeEvaluationStatus =
-            jobDescriptionChanged || input.data.resumeEvaluationStatus === "unreviewed"
-              ? null
-              : input.data.resumeEvaluationStatus;
           if (jobDescriptionChanged && existing.resumeEvaluationStatus) {
             await resetResumeEvaluationForJobChange({
               id,
@@ -902,13 +871,6 @@ export function createResumeLibraryRouter(
               organizationId: activeOrg.id,
               previousJobDescriptionId: existing.jobDescriptionId,
               previousStatus: existing.resumeEvaluationStatus,
-            });
-          } else if (nextResumeEvaluationStatus !== existing.resumeEvaluationStatus) {
-            await updateResumeEvaluationStatus({
-              id,
-              operatorId: c.var.user?.id ?? null,
-              organizationId: activeOrg.id,
-              status: nextResumeEvaluationStatus,
             });
           }
 
@@ -962,10 +924,13 @@ export function createResumeLibraryRouter(
         if (!canDeleteResumeRecord(record.resumeParseStatus)) {
           return c.json({ error: "简历解析排队或处理中，暂不能删除。" }, 409);
         }
-        const result = await db
-          .delete(studioInterview)
-          .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
-          .returning({ id: studioInterview.id });
+        const result = await deleteRecruitingRecords(
+          db,
+          and(
+            eq(recruitingRecordReadModel.id, id),
+            eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+          ),
+        );
         if (result.length === 0) {
           return c.json({ error: "记录不存在。" }, 404);
         }
@@ -1014,18 +979,18 @@ export function createResumeLibraryRouter(
           }
           const visibilityCondition =
             visibilityScope.kind === "restricted"
-              ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+              ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
               : undefined;
           const rows = await db
             .select({
-              id: studioInterview.id,
-              resumeParseStatus: studioInterview.resumeParseStatus,
+              id: recruitingRecordReadModel.id,
+              resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
             })
-            .from(studioInterview)
+            .from(recruitingRecordReadModel)
             .where(
               and(
-                inArray(studioInterview.id, ids),
-                eq(studioInterview.organizationId, activeOrg.id),
+                inArray(recruitingRecordReadModel.id, ids),
+                eq(recruitingRecordReadModel.organizationId, activeOrg.id),
                 visibilityCondition,
               ),
             );
@@ -1033,16 +998,14 @@ export function createResumeLibraryRouter(
             return c.json({ error: "所选记录包含解析排队或处理中的简历，暂不能删除。" }, 409);
           }
 
-          const result = await db
-            .delete(studioInterview)
-            .where(
-              and(
-                inArray(studioInterview.id, ids),
-                eq(studioInterview.organizationId, activeOrg.id),
-                visibilityCondition,
-              ),
-            )
-            .returning({ id: studioInterview.id });
+          const result = await deleteRecruitingRecords(
+            db,
+            and(
+              inArray(recruitingRecordReadModel.id, ids),
+              eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+              visibilityCondition,
+            ),
+          );
 
           invalidateStudioInterviewCaches(activeOrg.id);
           // 跟单删一样：清掉所有 chat conversation 里指向这批 interview 的「已入库」

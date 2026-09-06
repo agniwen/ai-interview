@@ -1,11 +1,14 @@
 /* oxlint-disable max-lines -- lifecycle commands and the two-phase purge state machine share transactional invariants. */
 import { and, asc, count, desc, eq, ilike, isNotNull, sql } from "drizzle-orm";
-import { createMeetingPurgeDao } from "@app/meeting-processing/purge";
+import {
+  assertMeetingRecruitingReferences,
+  createMeetingPurgeDao,
+} from "@app/meeting-processing/purge";
 import { buildOrderBy } from "../../../lib/server/db/pagination";
 import { db } from "../../../lib/server/db/index";
 import {
   meetingAuditLog,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSearchProjection,
   meetingSession,
   member,
@@ -120,8 +123,8 @@ export async function trashMeetingSession(input: {
       .where(eq(meetingSession.id, input.meetingId));
     await Promise.all([
       tx
-        .delete(meetingRecruitingContext)
-        .where(eq(meetingRecruitingContext.meetingId, input.meetingId)),
+        .delete(recruitingMeetingContext)
+        .where(eq(recruitingMeetingContext.meetingId, input.meetingId)),
       tx
         .delete(meetingSearchProjection)
         .where(eq(meetingSearchProjection.meetingId, input.meetingId)),
@@ -312,6 +315,7 @@ export async function requestMeetingPurge(input: {
     if (lifecycleAuthorization(meeting, currentMember, input.actorId) === "forbidden") {
       return { state: "forbidden" } as const;
     }
+    await assertMeetingRecruitingReferences(tx, input.meetingId);
     if (meeting.status === "purging") {
       return { state: "purging" } as const;
     }
@@ -337,8 +341,8 @@ export async function requestMeetingPurge(input: {
       .where(eq(meetingSession.id, input.meetingId));
     await Promise.all([
       tx
-        .delete(meetingRecruitingContext)
-        .where(eq(meetingRecruitingContext.meetingId, input.meetingId)),
+        .delete(recruitingMeetingContext)
+        .where(eq(recruitingMeetingContext.meetingId, input.meetingId)),
       tx
         .delete(meetingSearchProjection)
         .where(eq(meetingSearchProjection.meetingId, input.meetingId)),

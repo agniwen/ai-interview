@@ -1,6 +1,7 @@
+import { toRecruitingSearchSource } from "./db-source";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db";
-import { resumeSemanticIndex } from "@app/db-schema/schema";
+import { recruitingSearchIndex } from "@app/db-schema/schema";
 import type {
   ResumeSemanticSourceType,
   ResumeVectorStore,
@@ -29,12 +30,12 @@ async function deleteSemanticIndexState(input: {
   sourceType: ResumeSemanticSourceType;
 }): Promise<void> {
   await db
-    .delete(resumeSemanticIndex)
+    .delete(recruitingSearchIndex)
     .where(
       and(
-        eq(resumeSemanticIndex.sourceType, input.sourceType),
-        eq(resumeSemanticIndex.sourceId, input.sourceId),
-        eq(resumeSemanticIndex.embeddingVersion, input.embeddingVersion),
+        eq(recruitingSearchIndex.sourceType, toRecruitingSearchSource(input.sourceType)),
+        eq(recruitingSearchIndex.sourceId, input.sourceId),
+        eq(recruitingSearchIndex.embeddingVersion, input.embeddingVersion),
       ),
     );
 }

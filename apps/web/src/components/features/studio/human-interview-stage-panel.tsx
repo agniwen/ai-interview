@@ -49,6 +49,7 @@ import {
 } from "./human-interview-stage-utils";
 
 interface PanelProps {
+  targetStage?: "second_interview" | "final_interview";
   candidateId: string;
   candidateName: string;
   canCreate?: boolean;
@@ -100,6 +101,7 @@ function dialogReducer(state: DialogState, action: DialogAction): DialogState {
 }
 
 export function HumanInterviewStagePanel({
+  targetStage = "second_interview",
   candidateId,
   candidateName,
   canCreate = true,
@@ -294,7 +296,11 @@ export function HumanInterviewStagePanel({
             <p className="text-muted-foreground text-xs">查看面试安排、轮次结果与面试评价。</p>
           </div>
           {canScheduleRounds ? (
-            <ScheduleHumanInterviewButton candidateId={candidateId} candidateName={candidateName} />
+            <ScheduleHumanInterviewButton
+              candidateId={candidateId}
+              candidateName={candidateName}
+              targetStage={targetStage}
+            />
           ) : null}
         </div>
       </div>

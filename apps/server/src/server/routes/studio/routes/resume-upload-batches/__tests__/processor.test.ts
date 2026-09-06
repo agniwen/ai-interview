@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 批量简历上传 processor 集成测试 —— 真实 PG，mock S3 和简历解析器。
 // Integration tests for the bulk-upload processor — real Postgres, mocked S3 + parser.
 
@@ -10,9 +12,8 @@ import {
   jobDescription,
   organization,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import { cancelBatch, insertBatchWithItems } from "../dao/batches";
@@ -20,7 +21,6 @@ import { getClaimMissRetryError, createResumeUploadBatchProcessor } from "../uti
 import type { ResumeUploadBatchProcessorDependencies } from "../utils/processor";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
-// Real DB round-trips routinely exceed the default 5s under parallel suite load.
 vi.setConfig({ testTimeout: 30_000 });
 
 const dependencies = {
@@ -51,7 +51,6 @@ const dependencies = {
 const { processBatchItem, processNextItem } = createResumeUploadBatchProcessor(dependencies);
 
 // ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
-// Fixed prefix to avoid collisions with other test runs.
 const ORG_A = "bulk_proc_org_a";
 const USER_A = "bulk_proc_user_a";
 /** Suite-unique storage prefix so cleanup never leaves null-org pool orphans. */
@@ -68,7 +67,6 @@ const GENERATED_QUESTIONS = Array.from({ length: 10 }, (_, index) => ({
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
 // 返回一个有效的 ReadableStream 响应体，模拟 S3 成功返回。
-// Returns a valid ReadableStream body to simulate a successful S3 fetch.
 function mockS3OK() {
   const stream = new Blob(["fake bytes"]).stream();
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -80,7 +78,6 @@ function mockS3OK() {
 }
 
 // 模拟解析器成功返回指定 profile。
-// Mocks the parser returning the given profile.
 function mockParseOK(profile: {
   email: string | null;
   name: string;
@@ -100,7 +97,6 @@ function mockParseOK(profile: {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // 构造最小化 files 入参。
-// Build a minimal files array for insertBatchWithItems.
 function makeFiles(n: number) {
   return Array.from({ length: n }, (_, i) => ({
     contentHash: `${String(i + 1).repeat(64)}`,
@@ -133,12 +129,15 @@ async function createQueuedSingleItemBatch() {
 
   const [item] = await db
     .select()
-    .from(resumeUploadBatchItem)
-    .where(eq(resumeUploadBatchItem.batchId, batchId));
-  expect(item?.resumeRecordId).toBeTruthy();
+    .from(recruitingUploadBatchItem)
+    .where(eq(recruitingUploadBatchItem.batchId, batchId));
+  expect(item?.recruitingRecordId).toBeTruthy();
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
-  const recordId = item?.resumeRecordId as string;
-  const [record] = await db.select().from(studioInterview).where(eq(studioInterview.id, recordId));
+  const recordId = item?.recruitingRecordId as string;
+  const [record] = await db
+    .select()
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, recordId));
 
   return { batchId, item, record, recordId };
 }
@@ -151,28 +150,28 @@ async function cleanup() {
   // studio_interview FK refs resumeUploadBatchItem.resume_record_id → delete interview first.
   // 按 FK 顺序清理: interview → batch（items cascade）→ member → org → user
   const batches = await db
-    .select({ id: resumeUploadBatch.id })
-    .from(resumeUploadBatch)
-    .where(eq(resumeUploadBatch.organizationId, ORG_A));
+    .select({ id: recruitingUploadBatch.id })
+    .from(recruitingUploadBatch)
+    .where(eq(recruitingUploadBatch.organizationId, ORG_A));
 
   // 先找所有 item 的 resumeRecordId，再删对应的 studio_interview。
   // Find all interview IDs created by these batches before deleting.
   for (const batch of batches) {
     const items = await db
-      .select({ resumeRecordId: resumeUploadBatchItem.resumeRecordId })
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batch.id));
+      .select({ resumeRecordId: recruitingUploadBatchItem.recruitingRecordId })
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batch.id));
 
     for (const item of items) {
       if (item.resumeRecordId) {
-        await db.delete(studioInterview).where(eq(studioInterview.id, item.resumeRecordId));
+        await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, item.resumeRecordId));
       }
     }
   }
 
   // 直接清理 org 下的 studio_interview（含 dedup 测试中手动插入的行）。
   // Also clean any studio_interview rows directly under the org (e.g. pre-inserted dedup rows).
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
   // Match pool rows by org/user/storage before deleting parents (SET NULL FKs).
   await deleteFixtureResumePoolItems({
     organizationIds: [ORG_A],
@@ -180,7 +179,7 @@ async function cleanup() {
     userIds: [USER_A],
   });
 
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_A));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -327,9 +326,9 @@ describe("processNextItem — happy path", () => {
     });
     dependencies.generateInterviewQuestionsForProfile.mockImplementationOnce(async () => {
       const [recordDuringGeneration] = await db
-        .select({ resumeParseStatus: studioInterview.resumeParseStatus })
-        .from(studioInterview)
-        .where(eq(studioInterview.id, recordId));
+        .select({ resumeParseStatus: recruitingRecordReadModel.resumeParseStatus })
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, recordId));
       expect(recordDuringGeneration?.resumeParseStatus).toBe("processing");
       return GENERATED_QUESTIONS;
     });
@@ -347,8 +346,8 @@ describe("processNextItem — happy path", () => {
     // Verify the placeholder studio_interview row was updated instead of creating a second row.
     const [interview] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, recordId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, recordId));
     expect(interview).toBeDefined();
     if (!interview) {
       throw new Error("expected studio_interview row to exist");
@@ -411,11 +410,11 @@ describe("processNextItem — happy path", () => {
     expect(result?.item?.status).toBe("succeeded");
     const [interview] = await db
       .select({
-        interviewQuestions: studioInterview.interviewQuestions,
-        resumeParseStatus: studioInterview.resumeParseStatus,
+        interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+        resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, recordId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, recordId));
     expect(interview?.resumeParseStatus).toBe("ready");
     expect(interview?.interviewQuestions).toEqual([]);
   });
@@ -439,10 +438,9 @@ describe("processNextItem — happy path", () => {
       targetRoles: ["Engineer"],
     });
     dependencies.generateInterviewQuestionsForProfile.mockImplementationOnce(async () => {
-      await db
-        .update(studioInterview)
-        .set({ interviewQuestions: manuallySavedQuestions })
-        .where(eq(studioInterview.id, recordId));
+      await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, recordId), {
+        interviewQuestions: manuallySavedQuestions,
+      });
       return GENERATED_QUESTIONS;
     });
 
@@ -450,14 +448,37 @@ describe("processNextItem — happy path", () => {
 
     expect(result?.item?.status).toBe("succeeded");
     const [interview] = await db
-      .select({ interviewQuestions: studioInterview.interviewQuestions })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, recordId));
+      .select({ interviewQuestions: recruitingRecordReadModel.interviewQuestions })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, recordId));
     expect(interview?.interviewQuestions).toEqual(manuallySavedQuestions);
   });
 });
 
 describe("processNextItem — cancellation race", () => {
+  it("删除招聘记录后迟到的排队解析不会创建另一条记录", async () => {
+    const { item, recordId } = await createQueuedSingleItemBatch();
+    await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, recordId));
+    const [cancelled] = await db
+      .select()
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.id, item.id));
+    expect(cancelled?.status).toBe("cancelled");
+    expect(cancelled?.recruitingRecordId).toBeNull();
+    const before = await db
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.organizationId, ORG_A));
+    await processBatchItem(item.id);
+    const after = await db
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.organizationId, ORG_A));
+    expect(after).toEqual(before);
+    expect(dependencies.parseResumeBytesToProfile).not.toHaveBeenCalled();
+    expect(dependencies.enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+  });
+
   it("解析中被取消后不再写入 succeeded 或触发 embedding", async () => {
     const { batchId, item, recordId } = await createQueuedSingleItemBatch();
 
@@ -491,7 +512,10 @@ describe("processNextItem — cancellation race", () => {
     expect(result?.item?.resumeRecordId).toBeNull();
     expect(dependencies.enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
 
-    const records = await db.select().from(studioInterview).where(eq(studioInterview.id, recordId));
+    const records = await db
+      .select()
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, recordId));
     expect(records).toHaveLength(0);
   });
 });
@@ -532,8 +556,8 @@ describe("processNextItem — resume pool target", () => {
 
     const [beforeItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     await expectQueuedPoolItem(beforeItem?.poolItemId);
 
     mockS3OK();
@@ -575,8 +599,8 @@ describe("processNextItem — resume pool target", () => {
     });
     const [beforeItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     mockS3OK();
     mockParseOK({
       email: "auto-jd@example.com",
@@ -590,8 +614,8 @@ describe("processNextItem — resume pool target", () => {
     expect(result?.item?.status).toBe("succeeded");
     const [record] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, beforeItem?.resumeRecordId ?? ""));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, beforeItem?.recruitingRecordId ?? ""));
     expect(record?.resumeParseStatus).toBe("ready");
     expect(record?.jobDescriptionId).toBeNull();
     expect(dependencies.enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalledWith({
@@ -599,7 +623,7 @@ describe("processNextItem — resume pool target", () => {
       generationToken: beforeItem?.id,
       jobDescriptionId: null,
       organizationId: ORG_A,
-      resumeRecordId: beforeItem?.resumeRecordId,
+      resumeRecordId: beforeItem?.recruitingRecordId,
       source: "resume_upload",
     });
   });
@@ -618,14 +642,14 @@ describe("processNextItem — resume pool target", () => {
 
     const [beforeItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
-    expect(beforeItem?.resumeRecordId).toBeNull();
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
+    expect(beforeItem?.recruitingRecordId).toBeNull();
     await expectQueuedPoolItem(beforeItem?.poolItemId);
     const recordsBefore = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.organizationId, ORG_A));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.organizationId, ORG_A));
 
     mockS3OK();
     mockParseOK({
@@ -644,8 +668,8 @@ describe("processNextItem — resume pool target", () => {
 
     const records = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.organizationId, ORG_A));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.organizationId, ORG_A));
     expect(records).toHaveLength(recordsBefore.length);
 
     const poolItems = await db
@@ -681,8 +705,8 @@ describe("processNextItem — resume pool target", () => {
 
     const [beforeItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     await expectQueuedPoolItem(beforeItem?.poolItemId);
 
     mockS3OK();
@@ -748,8 +772,8 @@ describe("processNextItem — parse failure", () => {
     expect(result1?.item?.resumeRecordId).toBeTruthy();
     const [failedRecord] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, result1?.item?.resumeRecordId ?? ""));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, result1?.item?.resumeRecordId ?? ""));
     expect(failedRecord?.resumeParseStatus).toBe("failed");
     expect(failedRecord?.resumeParseError).toBe("parse failed");
 

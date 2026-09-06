@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 中文：公开访问入口路由族。挂在 /api/public 下，不依赖 workspace
 // auth；对 roundId/candidateId/邀请 token 做一次反查拿到 organizationId，然后复用
 // studio 路由族里既有的 DAO 返回完整数据（候选人姓名、简历 PDF、面试报告、
@@ -15,7 +16,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { db } from "../../../lib/server/db/index";
 import { getObjectBytes, getObjectStream, presignRecordingGetObjectUrl } from "@app/object-storage";
-import { interviewConversation, minimaxVoicePreview, studioInterview } from "@app/db-schema/schema";
+import { aiInterviewConversation, minimaxVoicePreview } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
 import {
@@ -513,15 +514,15 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
 
       const [conversation] = await db
         .select({
-          recordingFileKey: interviewConversation.recordingFileKey,
-          recordingStatus: interviewConversation.recordingStatus,
-          scheduleEntryId: interviewConversation.scheduleEntryId,
+          recordingFileKey: aiInterviewConversation.recordingFileKey,
+          recordingStatus: aiInterviewConversation.recordingStatus,
+          scheduleEntryId: aiInterviewConversation.aiRoundId,
         })
-        .from(interviewConversation)
+        .from(aiInterviewConversation)
         .where(
           and(
-            eq(interviewConversation.conversationId, conversationId),
-            eq(interviewConversation.organizationId, scope.organizationId),
+            eq(aiInterviewConversation.conversationId, conversationId),
+            eq(aiInterviewConversation.organizationId, scope.organizationId),
           ),
         )
         .limit(1);
@@ -567,14 +568,14 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       const [row] = await db
         .select({
-          resumeFileName: studioInterview.resumeFileName,
-          resumeStorageKey: studioInterview.resumeStorageKey,
+          resumeFileName: recruitingRecordReadModel.resumeFileName,
+          resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
         })
-        .from(studioInterview)
+        .from(recruitingRecordReadModel)
         .where(
           and(
-            eq(studioInterview.id, scope.candidateId),
-            eq(studioInterview.organizationId, scope.organizationId),
+            eq(recruitingRecordReadModel.id, scope.candidateId),
+            eq(recruitingRecordReadModel.organizationId, scope.organizationId),
           ),
         )
         .limit(1);
@@ -605,14 +606,14 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       const [row] = await db
         .select({
-          resumeFileName: studioInterview.resumeFileName,
-          resumeStorageKey: studioInterview.resumeStorageKey,
+          resumeFileName: recruitingRecordReadModel.resumeFileName,
+          resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
         })
-        .from(studioInterview)
+        .from(recruitingRecordReadModel)
         .where(
           and(
-            eq(studioInterview.id, scope.candidateId),
-            eq(studioInterview.organizationId, scope.organizationId),
+            eq(recruitingRecordReadModel.id, scope.candidateId),
+            eq(recruitingRecordReadModel.organizationId, scope.organizationId),
           ),
         )
         .limit(1);

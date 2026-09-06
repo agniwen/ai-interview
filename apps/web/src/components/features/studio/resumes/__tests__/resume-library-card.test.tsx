@@ -31,6 +31,8 @@ const record: ResumeLibraryListRecord = {
   jobDescriptionName: null,
   jobEvaluationMode: "structured",
   lastInterviewAt: null,
+  nodeResult: null,
+  nodeStatus: "pending",
   notes: null,
   outcome: "in_pipeline",
   pipelineStage: "screening",
@@ -63,6 +65,7 @@ const record: ResumeLibraryListRecord = {
   structuredScoreGrade: "unmatched",
   targetRole: null,
   updatedAt: "2026-08-04T00:00:00.000Z",
+  version: 0,
 };
 
 describe("ResumeLibraryCard", () => {
@@ -84,6 +87,45 @@ describe("ResumeLibraryCard", () => {
     expect(content).not.toContain('data-slot="badge"');
     expect(content).toContain("block w-full line-clamp-3");
   });
+
+  it.each([null, "fail", "pass"] as const)(
+    "only exposes AI launch after manual screening passes (%s)",
+    (resumeEvaluationStatus) => {
+      const noop = vi.fn();
+      const content = renderWithQueryClient(
+        <ResumeLibraryCard
+          canCreateInterview
+          canDeleteResumeLibrary={false}
+          canForceReparse={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary
+          currentMemberRole="member"
+          currentUserId="user-1"
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onForceReparse={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{
+            ...record,
+            hasInterviewRounds: false,
+            pipelineStage: "screening",
+            resumeEvaluationStatus,
+            resumeParseStatus: "ready",
+          }}
+          retrying={false}
+          selected={false}
+        />,
+      );
+      expect(content.includes(">AI面</span>")).toBe(resumeEvaluationStatus === "pass");
+    },
+  );
 
   it("shows reparse for every failed record regardless of legacy retry eligibility", () => {
     const noop = vi.fn();

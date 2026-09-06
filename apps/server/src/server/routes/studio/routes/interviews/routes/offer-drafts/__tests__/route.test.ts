@@ -107,8 +107,8 @@ describe("offerDraftsRouter", () => {
     expect(mocks.listOfferDrafts).toHaveBeenCalledWith(RECORD_ID, ORG_ID);
   });
 
-  it("blocks offer creation until human interview rounds are ready", async () => {
-    mocks.loadOfferCandidate.mockResolvedValue({ id: RECORD_ID, pipelineStage: "human_interview" });
+  it("blocks offer creation before the offer node", async () => {
+    mocks.loadOfferCandidate.mockResolvedValue({ id: RECORD_ID, pipelineStage: "income_proof" });
     mocks.getHumanInterviewOfferReadinessError.mockReturnValue("请先补全面试评价");
 
     const response = await makeApp().request(`/${RECORD_ID}/offer-drafts`, {
@@ -118,12 +118,12 @@ describe("offerDraftsRouter", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "请先补全面试评价" });
+    expect(await response.json()).toEqual({ error: "请先完成流水提供并进入 Offer 节点。" });
     expect(mocks.createOfferDraft).not.toHaveBeenCalled();
   });
 
   it("preserves audit and cache side effects across offer mutations", async () => {
-    mocks.loadOfferCandidate.mockResolvedValue({ id: RECORD_ID, pipelineStage: "human_interview" });
+    mocks.loadOfferCandidate.mockResolvedValue({ id: RECORD_ID, pipelineStage: "offer" });
     mocks.createOfferDraft.mockResolvedValue(offer);
     mocks.editOfferDraft.mockResolvedValue(offer);
     mocks.sendOfferDraft.mockResolvedValue(offer);

@@ -69,6 +69,47 @@ afterEach(() => {
 });
 
 describe("ImportResumePoolDialog", () => {
+  it("closes and refreshes after import while explaining a recoverable AI launch failure", async () => {
+    const launchError = "已加入招聘台，但未创建面试轮次，请在招聘台重试。";
+    importResumePoolItemMock.mockResolvedValue({
+      aiInterviewLaunchError: launchError,
+      resumeRecordId: "resume-record-ai-retry",
+      status: "imported",
+    });
+    const onImported = vi.fn();
+    const onOpenChange = vi.fn();
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ImportResumePoolDialog
+            dependencies={dependencies}
+            item={importedItem}
+            onImported={onImported}
+            onOpenChange={onOpenChange}
+          />
+        </QueryClientProvider>,
+      );
+    });
+    const confirmButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("确认再次创建"),
+    );
+    expect(confirmButton).toBeTruthy();
+    act(() => {
+      confirmButton?.click();
+    });
+    await vi.waitFor(() => expect(onImported).toHaveBeenCalledOnce());
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(dependencies.notifySuccess).toHaveBeenCalledWith("已再次创建招聘记录");
+    expect(dependencies.notifyError).toHaveBeenCalledWith(launchError);
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
+  });
+
   it("uses the standard modal body and footer for duplicate confirmation", async () => {
     importResumePoolItemMock.mockResolvedValue({
       matches: [

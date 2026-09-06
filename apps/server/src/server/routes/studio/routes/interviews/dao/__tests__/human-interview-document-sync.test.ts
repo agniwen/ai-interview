@@ -1,15 +1,15 @@
+import { createRecruitingRecords } from "@app/database/recruiting-records";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startHumanInterviewDocumentSyncScheduler } from "../../adapters/document-sync-scheduler";
 import { syncHumanInterviewDocument } from "../../application/sync-human-interview-document";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
-  humanInterviewDocumentSync,
-  interviewNotification,
+  humanInterviewEvaluationDocumentSync,
+  recruitingNotificationDelivery,
   organization,
-  studioHumanInterviewEvaluationSnapshot,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewEvaluationSnapshot,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { createHumanInterviewDocumentSyncDao } from "../human-interview-document-sync";
@@ -33,17 +33,18 @@ let serial = 0;
 async function seed() {
   serial += 1;
   const id = `${org}-${serial}`;
-  await db.insert(studioHumanInterviewRound).values({
+  await db.insert(humanInterviewRound).values({
     evaluation,
     evaluationStatus: "submitted",
     format: "online",
     id,
-    interviewRecordId: candidate,
     label: `轮次${serial}`,
     organizationId: org,
+    recruitingRecordId: candidate,
+    roundKind: "second_interview",
     status: "completed",
   });
-  await db.insert(studioHumanInterviewEvaluationSnapshot).values({
+  await db.insert(humanInterviewEvaluationSnapshot).values({
     createdBy: actor,
     evaluation,
     id,
@@ -53,20 +54,20 @@ async function seed() {
     source: "human_submitted",
   });
   await db
-    .insert(humanInterviewDocumentSync)
+    .insert(humanInterviewEvaluationDocumentSync)
     .values({ nextAttemptAt: new Date(0), organizationId: org, roundId: id, snapshotId: id });
   return id;
 }
 async function notification(suffix: string, providerId: string, date: string) {
-  await db.insert(interviewNotification).values({
+  await db.insert(recruitingNotificationDelivery).values({
     feishuDocumentId: suffix,
     feishuDocumentUrl: `https://feishu.cn/docx/${suffix}`,
     id: `${org}-${suffix}`,
-    interviewRecordId: candidate,
     organizationId: org,
     providerId,
     recipientOpenId: "open",
     recipientUserId: actor,
+    recruitingRecordId: candidate,
     status: "sent",
     type: "summary_ready",
     updatedAt: new Date(date),
@@ -79,7 +80,7 @@ beforeAll(async () => {
   await db
     .insert(organization)
     .values({ createdAt: new Date(), id: org, name: "文档同步测试", slug: org });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "测试候选人",
     createdBy: actor,
     id: candidate,
@@ -102,24 +103,25 @@ describe("human interview document outbox", () => {
       ...round,
       format: "online" as const,
       id: `${id}-previous-${sortOrder}`,
-      interviewRecordId: candidate,
       organizationId: org,
+      recruitingRecordId: candidate,
+      roundKind: "second_interview" as const,
       sortOrder,
     }));
     try {
-      await db.insert(studioHumanInterviewRound).values(previous);
+      await db.insert(humanInterviewRound).values(previous);
       await db
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({ label: "业务一面后面的二面", sortOrder: 3 })
-        .where(eq(studioHumanInterviewRound.id, id));
+        .where(eq(humanInterviewRound.id, id));
       await db
-        .update(humanInterviewDocumentSync)
+        .update(humanInterviewEvaluationDocumentSync)
         .set({
           documentId: "ordinal-document",
           documentUrl: "https://feishu.cn/docx/ordinal-document",
           providerId: "feishu",
         })
-        .where(eq(humanInterviewDocumentSync.snapshotId, id));
+        .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, id));
       const job = await dao.claim();
       expect(job).toMatchObject({ roundLabel: "业务二面", snapshotId: id });
       if (!job || job === "deferred") {
@@ -136,8 +138,8 @@ describe("human interview document outbox", () => {
       await dao.finish(retry, { error: null, status: "synced" });
     } finally {
       await db
-        .delete(studioHumanInterviewRound)
-        .where(inArray(studioHumanInterviewRound.id, [id, ...previous.map((round) => round.id)]));
+        .delete(humanInterviewRound)
+        .where(inArray(humanInterviewRound.id, [id, ...previous.map((round) => round.id)]));
     }
   });
 
@@ -145,20 +147,20 @@ describe("human interview document outbox", () => {
     const id = await seed();
     try {
       await db
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({ label: "CEO面试", sortOrder: 4 })
-        .where(eq(studioHumanInterviewRound.id, id));
+        .where(eq(humanInterviewRound.id, id));
       await db
-        .update(humanInterviewDocumentSync)
+        .update(humanInterviewEvaluationDocumentSync)
         .set({
           documentId: "ceo-document",
           documentUrl: "https://feishu.cn/docx/ceo-document",
           providerId: "feishu",
         })
-        .where(eq(humanInterviewDocumentSync.snapshotId, id));
+        .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, id));
       expect(await dao.claim()).toMatchObject({ roundLabel: "CEO面试", snapshotId: id });
     } finally {
-      await db.delete(studioHumanInterviewRound).where(eq(studioHumanInterviewRound.id, id));
+      await db.delete(humanInterviewRound).where(eq(humanInterviewRound.id, id));
     }
   });
 
@@ -166,18 +168,18 @@ describe("human interview document outbox", () => {
     const waitingId = await seed();
     const readyId = await seed();
     await db
-      .update(humanInterviewDocumentSync)
+      .update(humanInterviewEvaluationDocumentSync)
       .set({ nextAttemptAt: new Date(0) })
-      .where(eq(humanInterviewDocumentSync.snapshotId, waitingId));
+      .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, waitingId));
     await db
-      .update(humanInterviewDocumentSync)
+      .update(humanInterviewEvaluationDocumentSync)
       .set({
         documentId: "ready-document",
         documentUrl: "https://feishu.cn/docx/ready-document",
         nextAttemptAt: new Date(1),
         providerId: "feishu",
       })
-      .where(eq(humanInterviewDocumentSync.snapshotId, readyId));
+      .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, readyId));
     const updateDocument = vi.fn(async () => {});
     const scheduler = startHumanInterviewDocumentSyncScheduler(() =>
       syncHumanInterviewDocument({ ...dao, updateDocument }),
@@ -194,8 +196,8 @@ describe("human interview document outbox", () => {
     } finally {
       await scheduler.close();
       await db
-        .delete(studioHumanInterviewRound)
-        .where(inArray(studioHumanInterviewRound.id, [waitingId, readyId]));
+        .delete(humanInterviewRound)
+        .where(inArray(humanInterviewRound.id, [waitingId, readyId]));
     }
   });
 
@@ -252,12 +254,12 @@ describe("human interview document outbox", () => {
       throw new Error("missing job");
     }
     await db
-      .update(humanInterviewDocumentSync)
+      .update(humanInterviewEvaluationDocumentSync)
       .set({ nextAttemptAt: new Date(0) })
       .where(
         and(
-          eq(humanInterviewDocumentSync.snapshotId, id),
-          eq(humanInterviewDocumentSync.organizationId, org),
+          eq(humanInterviewEvaluationDocumentSync.snapshotId, id),
+          eq(humanInterviewEvaluationDocumentSync.organizationId, org),
         ),
       );
     const recovered = await dao.claim();
@@ -281,12 +283,12 @@ describe("human interview document outbox", () => {
     }
     await dao.finish(first, { error: null, status: "synced" });
     await db
-      .update(humanInterviewDocumentSync)
+      .update(humanInterviewEvaluationDocumentSync)
       .set({ nextAttemptAt: new Date(0) })
       .where(
         and(
-          eq(humanInterviewDocumentSync.organizationId, org),
-          eq(humanInterviewDocumentSync.status, "pending"),
+          eq(humanInterviewEvaluationDocumentSync.organizationId, org),
+          eq(humanInterviewEvaluationDocumentSync.status, "pending"),
         ),
       );
     const second = await dao.claim();

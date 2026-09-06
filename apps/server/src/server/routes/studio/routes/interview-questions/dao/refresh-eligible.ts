@@ -1,12 +1,12 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq, exists, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  interviewAuditLog,
+  recruitingEvent,
   interviewQuestionTemplate,
-  interviewQuestionTemplateBinding,
+  recruitingQuestionTemplateBinding,
   interviewQuestionTemplateJobDescription,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import {
   loadActiveInterviewContextSnapshot,
@@ -24,11 +24,11 @@ function neverStartedInterviewCondition() {
   return notExists(
     db
       .select({ one: sql`1` })
-      .from(studioInterviewSchedule)
+      .from(aiInterviewRound)
       .where(
         and(
-          eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
-          sql`${studioInterviewSchedule.status} <> 'pending'`,
+          eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+          sql`${aiInterviewRound.status} <> 'pending'`,
         ),
       ),
   );
@@ -42,17 +42,17 @@ async function listEligibleInterviewRecordIds(
   // Prefer candidates that already carry a binding for this template — they are
   // the ones frozen to an older version when the template was later edited.
   const bound = await db
-    .selectDistinct({ interviewRecordId: interviewQuestionTemplateBinding.interviewRecordId })
-    .from(interviewQuestionTemplateBinding)
+    .selectDistinct({ interviewRecordId: recruitingQuestionTemplateBinding.recruitingRecordId })
+    .from(recruitingQuestionTemplateBinding)
     .innerJoin(
-      studioInterview,
-      eq(interviewQuestionTemplateBinding.interviewRecordId, studioInterview.id),
+      recruitingRecordReadModel,
+      eq(recruitingQuestionTemplateBinding.recruitingRecordId, recruitingRecordReadModel.id),
     )
     .where(
       and(
-        eq(interviewQuestionTemplateBinding.templateId, templateId),
-        eq(studioInterview.organizationId, organizationId),
-        sql`${studioInterview.pipelineStage} <> 'closed'`,
+        eq(recruitingQuestionTemplateBinding.templateId, templateId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        sql`${recruitingRecordReadModel.pipelineStage} <> 'closed'`,
         neverStartedInterviewCondition(),
       ),
     );
@@ -61,8 +61,8 @@ async function listEligibleInterviewRecordIds(
 
   // Also pick up never-started candidates that are in scope but not yet bound.
   const applicableFilters = [
-    eq(studioInterview.organizationId, organizationId),
-    sql`${studioInterview.pipelineStage} <> 'closed'`,
+    eq(recruitingRecordReadModel.organizationId, organizationId),
+    sql`${recruitingRecordReadModel.pipelineStage} <> 'closed'`,
     neverStartedInterviewCondition(),
   ];
   if (scope === "job_description") {
@@ -76,7 +76,7 @@ async function listEligibleInterviewRecordIds(
               eq(interviewQuestionTemplateJobDescription.templateId, templateId),
               eq(
                 interviewQuestionTemplateJobDescription.jobDescriptionId,
-                studioInterview.jobDescriptionId,
+                recruitingRecordReadModel.jobDescriptionId,
               ),
             ),
           ),
@@ -85,8 +85,8 @@ async function listEligibleInterviewRecordIds(
   }
 
   const applicable = await db
-    .select({ id: studioInterview.id })
-    .from(studioInterview)
+    .select({ id: recruitingRecordReadModel.id })
+    .from(recruitingRecordReadModel)
     .where(and(...applicableFilters));
 
   for (const row of applicable) {
@@ -110,14 +110,14 @@ async function refreshOneCandidate(
 
   const [binding] = await tx
     .select({
-      id: interviewQuestionTemplateBinding.id,
-      versionId: interviewQuestionTemplateBinding.versionId,
+      id: recruitingQuestionTemplateBinding.id,
+      versionId: recruitingQuestionTemplateBinding.versionId,
     })
-    .from(interviewQuestionTemplateBinding)
+    .from(recruitingQuestionTemplateBinding)
     .where(
       and(
-        eq(interviewQuestionTemplateBinding.interviewRecordId, options.interviewRecordId),
-        eq(interviewQuestionTemplateBinding.templateId, options.templateId),
+        eq(recruitingQuestionTemplateBinding.recruitingRecordId, options.interviewRecordId),
+        eq(recruitingQuestionTemplateBinding.templateId, options.templateId),
       ),
     )
     .limit(1);
@@ -126,24 +126,24 @@ async function refreshOneCandidate(
   if (binding) {
     if (binding.versionId !== latest.id) {
       await tx
-        .update(interviewQuestionTemplateBinding)
+        .update(recruitingQuestionTemplateBinding)
         .set({ versionId: latest.id })
-        .where(eq(interviewQuestionTemplateBinding.id, binding.id));
+        .where(eq(recruitingQuestionTemplateBinding.id, binding.id));
       bindingChanged = true;
     }
   } else {
     const [maxRow] = await tx
-      .select({ maxOrder: interviewQuestionTemplateBinding.sortOrder })
-      .from(interviewQuestionTemplateBinding)
-      .where(eq(interviewQuestionTemplateBinding.interviewRecordId, options.interviewRecordId))
-      .orderBy(desc(interviewQuestionTemplateBinding.sortOrder))
+      .select({ maxOrder: recruitingQuestionTemplateBinding.sortOrder })
+      .from(recruitingQuestionTemplateBinding)
+      .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, options.interviewRecordId))
+      .orderBy(desc(recruitingQuestionTemplateBinding.sortOrder))
       .limit(1);
-    await tx.insert(interviewQuestionTemplateBinding).values({
+    await tx.insert(recruitingQuestionTemplateBinding).values({
       createdAt: options.now,
       disabledByUser: false,
       id: crypto.randomUUID(),
-      interviewRecordId: options.interviewRecordId,
       organizationId: options.organizationId,
+      recruitingRecordId: options.interviewRecordId,
       sortOrder: (maxRow?.maxOrder ?? -1) + 1,
       templateId: options.templateId,
       versionId: latest.id,
@@ -166,8 +166,9 @@ async function refreshOneCandidate(
     scheduleEntryId: active.scheduleEntryId,
   });
 
-  await tx.insert(interviewAuditLog).values({
+  await tx.insert(recruitingEvent).values({
     action: "context_snapshot_refresh",
+    aiRoundId: active.scheduleEntryId,
     createdAt: options.now,
     detail: {
       reason: "interview_question_template_bulk_refresh",
@@ -176,10 +177,9 @@ async function refreshOneCandidate(
       templateId: options.templateId,
     },
     id: crypto.randomUUID(),
-    interviewRecordId: options.interviewRecordId,
     operatorId: options.operatorId,
     organizationId: options.organizationId,
-    scheduleEntryId: active.scheduleEntryId,
+    recruitingRecordId: options.interviewRecordId,
   });
 
   return "refreshed";

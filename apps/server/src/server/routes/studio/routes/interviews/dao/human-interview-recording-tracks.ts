@@ -1,10 +1,10 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 import type { HumanInterviewRecordingTrack } from "@app/db-schema/human-interview-recording";
 import { db } from "../../../../../../lib/server/db/index";
@@ -12,8 +12,8 @@ import { db } from "../../../../../../lib/server/db/index";
 export async function loadTrackRecordingScope(roomName: string) {
   const [meeting] = await db
     .select()
-    .from(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
+    .from(humanInterviewMeeting)
+    .where(eq(humanInterviewMeeting.liveKitRoomName, roomName))
     .limit(1);
   if (!meeting) {
     return null;
@@ -21,26 +21,26 @@ export async function loadTrackRecordingScope(roomName: string) {
   const [rounds, interviewers] = await Promise.all([
     db
       .select({
-        name: studioInterview.candidateName,
-        roundId: studioHumanInterviewMeetingRound.roundId,
+        name: recruitingRecordReadModel.candidateName,
+        roundId: humanInterviewMeetingRound.roundId,
       })
-      .from(studioHumanInterviewMeetingRound)
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewRound,
-        eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+        humanInterviewRound,
+        eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
       )
       .innerJoin(
-        studioInterview,
-        eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId),
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
       )
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, meeting.id)),
+      .where(eq(humanInterviewMeetingRound.meetingId, meeting.id)),
     db
       .select({
-        role: studioHumanInterviewMeetingInterviewer.role,
-        userId: studioHumanInterviewMeetingInterviewer.userId,
+        role: humanInterviewMeetingInterviewer.role,
+        userId: humanInterviewMeetingInterviewer.userId,
       })
-      .from(studioHumanInterviewMeetingInterviewer)
-      .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, meeting.id)),
+      .from(humanInterviewMeetingInterviewer)
+      .where(eq(humanInterviewMeetingInterviewer.meetingId, meeting.id)),
   ]);
   return {
     meeting,
@@ -69,11 +69,11 @@ export async function claimTrackRecordings(input: {
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, input.meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
+          eq(humanInterviewMeeting.id, input.meetingId),
+          eq(humanInterviewMeeting.organizationId, input.organizationId),
         ),
       )
       .for("update")
@@ -92,13 +92,13 @@ export async function claimTrackRecordings(input: {
     });
     if (claimed.length > 0) {
       await tx
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({
           recordingStatus: existing.length ? meeting.recordingStatus : "starting",
           recordingTracks: [...existing, ...claimed],
           updatedAt: new Date(),
         })
-        .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+        .where(eq(humanInterviewMeeting.id, meeting.id));
     }
     return claimed;
   });
@@ -112,8 +112,8 @@ export async function updateTrackRecording(input: {
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select()
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, input.meetingId))
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, input.meetingId))
       .for("update")
       .limit(1);
     if (!meeting?.recordingTracks) {
@@ -136,7 +136,7 @@ export async function updateTrackRecording(input: {
     });
     const room = tracks.findLast((track) => track.role === "mixed");
     const candidate = tracks.findLast((track) => track.role === "candidate");
-    const patch: Partial<typeof studioHumanInterviewMeeting.$inferInsert> = {
+    const patch: Partial<typeof humanInterviewMeeting.$inferInsert> = {
       recordingTracks: tracks,
       updatedAt: new Date(),
     };
@@ -161,22 +161,22 @@ export async function updateTrackRecording(input: {
       });
     }
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set(patch)
-      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+      .where(eq(humanInterviewMeeting.id, meeting.id));
     return ["scheduled", "in_progress"].includes(meeting.status);
   });
 }
 
 export async function listTrackRecordingMeetings() {
   return await db
-    .select({ roomName: studioHumanInterviewMeeting.liveKitRoomName })
-    .from(studioHumanInterviewMeeting)
+    .select({ roomName: humanInterviewMeeting.liveKitRoomName })
+    .from(humanInterviewMeeting)
     .where(
       and(
-        isNotNull(studioHumanInterviewMeeting.recordingTracks),
-        isNull(studioHumanInterviewMeeting.processingMeetingSessionId),
-        inArray(studioHumanInterviewMeeting.status, ["in_progress", "ended"]),
+        isNotNull(humanInterviewMeeting.recordingTracks),
+        isNull(humanInterviewMeeting.processingMeetingSessionId),
+        inArray(humanInterviewMeeting.status, ["in_progress", "ended"]),
       ),
     );
 }

@@ -2,15 +2,7 @@
 
 import { IconHeartHandshake, IconPlus } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
-// Offer 阶段的详情面板内容：
-//   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
-//   - 下方：Offer 草稿版本时间线（version desc）
-//   - 新建 Offer / 编辑 draft / 记录响应 / 撤回
-//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结束 hired」流程
-//
-// Offer-stage panel: candidate expectations inline form + offer draft
-// timeline. Draft → sent → respond / cancel flows; on "accepted" we prompt
-// the caller to launch the close flow.
+// Offer 接受后完成协商，后续继续背调与入职。
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -27,11 +19,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { CandidateExpectationsBlock, OfferCard } from "./offer-stage-cards";
-import {
-  AcceptedConfirmDialog,
-  CreateOrEditOfferDialog,
-  RespondOfferDialog,
-} from "./offer-stage-dialogs";
+import { CreateOrEditOfferDialog, RespondOfferDialog } from "./offer-stage-dialogs";
 
 interface PanelProps {
   candidateId: string;
@@ -41,9 +29,6 @@ interface PanelProps {
   canDelete?: boolean;
   canUpdate?: boolean;
   disabled?: boolean;
-  // 父级在「候选人接受 Offer」二次确认后，开「标记结束 + outcome=hired」dialog。
-  // Parent opens the close dialog with outcome=hired after this fires.
-  onRequestCloseAsHired?: () => void;
 }
 
 export function OfferStagePanel({
@@ -54,7 +39,6 @@ export function OfferStagePanel({
   canDelete = true,
   canUpdate = true,
   disabled,
-  onRequestCloseAsHired,
 }: PanelProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
@@ -70,7 +54,6 @@ export function OfferStagePanel({
 
   const [createOpen, setCreateOpen] = useState(false);
   const [respondTarget, setRespondTarget] = useState<OfferDraftRecord | null>(null);
-  const [acceptedConfirm, setAcceptedConfirm] = useState<OfferDraftRecord | null>(null);
 
   function renderDraftsContent() {
     if (isLoading) {
@@ -158,19 +141,8 @@ export function OfferStagePanel({
       <RespondOfferDialog
         candidateId={candidateId}
         draft={respondTarget}
-        onAccepted={(accepted) => {
-          setAcceptedConfirm(accepted);
-        }}
         onOpenChange={(open) => !open && setRespondTarget(null)}
         onResponded={invalidateDrafts}
-      />
-      <AcceptedConfirmDialog
-        draft={acceptedConfirm}
-        onOpenChange={(open) => !open && setAcceptedConfirm(null)}
-        onProceed={() => {
-          setAcceptedConfirm(null);
-          onRequestCloseAsHired?.();
-        }}
       />
     </div>
   );

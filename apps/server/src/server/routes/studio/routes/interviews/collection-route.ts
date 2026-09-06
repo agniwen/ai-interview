@@ -1,29 +1,14 @@
 /* oxlint-disable complexity, max-lines -- collection router coordinates validation, persistence, and access policy. */
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { db } from "../../../../../lib/server/db/index";
-import { studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
   humanInterviewMeetingInputSchema,
   humanInterviewMeetingScheduleUpdateSchema,
-  parseResumePayloadInput,
-  parseScheduleEntriesInput,
-  studioInterviewQuestionClientSchema,
-  studioInterviewFormSchema,
-  toNullableString,
 } from "@app/db-schema/studio-interviews";
-import {
-  analyzeResumeFile,
-  generateInterviewQuestionsForProfile,
-  parseResumeFastToProfile,
-} from "../../../../agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
-import { resolveCandidateQuestionGenerationEnabled } from "@app/shared/interview/candidate-question-generation-config";
-import { autoBindApplicableTemplates } from "../interview-questions/dao/bindings";
-import { createInterviewContextSnapshot } from "./dao/context-snapshots";
 import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
@@ -54,31 +39,11 @@ import {
   syncHumanInterviewMeetingToFeishu,
 } from "./utils/feishu-human-interview-meeting";
 import { recordCandidateActivity } from "./utils/candidate-activity";
-import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
-import { recruitingJobDescriptionIdsExist } from "../job-descriptions/dao";
-import { syncResumeSkills } from "../resumes/dao/skills";
-import {
-  loadInterviewRoundDetail,
-  resolveCandidateIdForRound,
-  resolveRoundIdFromRecordId,
-} from "./dao/interview-rounds";
-import {
-  buildTokenErrorResponse,
-  buildScheduleRows,
-  normalizeResumeFile,
-  resolveResumeUploadStorage,
-  toBadRequest,
-} from "../../../interview/utils";
+import { resolveCandidateIdForRound, resolveRoundIdFromRecordId } from "./dao/interview-rounds";
+import { buildTokenErrorResponse } from "../../../interview/utils";
 import { requirePermission } from "../../../../middlewares/permission";
 import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
-import {
-  parseResumeCreateDedupPolicy,
-  resolveResumeCreateDedupConflict,
-} from "../resumes/utils/dedup";
-import { enqueueAiInterviewInvitedEvents } from "../../../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../../../interview-notifications/utils/feature-flags";
 import { requireHumanMeetingUpdateAccess } from "./utils/human-meeting-update-access";
-import { addAiInterviewInvitationToSchedule } from "./dao/ai-interview-invitation-access";
 import { loadHumanInterviewMeetingInterviewerIds } from "./dao/human-interview-meeting-input";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
@@ -119,186 +84,12 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
   return (
     factory
       .createApp()
-      .post("/", permission("interview", "create"), async (c) => {
-        const { activeOrg } = c.var;
-        if (!activeOrg) {
+      .post("/", permission("interview", "create"), (c) => {
+        if (!c.var.activeOrg) {
           return c.json({ message: "Unauthorized" }, 401);
         }
-        try {
-          const formData = await c.req.formData();
-          const resume = normalizeResumeFile(formData.get("resume"));
-          const parsedScheduleEntries = parseScheduleEntriesInput(formData.get("scheduleEntries"));
-          const parsedResumePayload = parseResumePayloadInput(formData.get("resumePayload"));
-          const manualQuestionsRaw = toNullableString(formData.get("manualInterviewQuestions"));
-          const manualInterviewQuestions = manualQuestionsRaw
-            ? z.array(studioInterviewQuestionClientSchema).parse(JSON.parse(manualQuestionsRaw))
-            : null;
-
-          const input = studioInterviewFormSchema.safeParse({
-            candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
-            candidateName: toNullableString(formData.get("candidateName")) ?? "",
-            candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
-            jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
-            notes: toNullableString(formData.get("notes")) ?? "",
-            scheduleEntries: parsedScheduleEntries,
-            targetRole: toNullableString(formData.get("targetRole")) ?? "",
-          });
-
-          if (!input.success) {
-            return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-          }
-
-          if (resume && !c.var.user) {
-            return c.json({ error: "Unauthorized" }, 401);
-          }
-          if (input.data.jobDescriptionId) {
-            const ok = await recruitingJobDescriptionIdsExist(
-              [input.data.jobDescriptionId],
-              activeOrg.id,
-            );
-            if (!ok) {
-              return c.json({ error: "所选在招岗位不存在。" }, 400);
-            }
-          }
-
-          const now = new Date();
-          const candidateQuestionGenerationEnabled = resolveCandidateQuestionGenerationEnabled(
-            process.env,
-          );
-          const interviewRecordId = crypto.randomUUID();
-          const uploadResult = await resolveResumeUploadStorage({
-            interviewRecordId,
-            organizationId: activeOrg.id,
-            parsedResumePayload,
-            resume,
-            userId: c.var.user?.id,
-          });
-          const resumeStorageKey = uploadResult?.storageKey ?? null;
-          const resumeContentHash = uploadResult?.contentHash ?? null;
-          let resumeText = parsedResumePayload?.resumeText ?? uploadResult?.resumeText ?? null;
-
-          // 解析复用顺序：客户端预解析 > 注册表缓存命中 > 现场跑完整 analyzeResumeFile。
-          // Reuse order: client-prebaked → registry cache → server full analysis.
-          let analysis = parsedResumePayload;
-          if (!analysis && resume) {
-            if (uploadResult?.cachedResumeProfile) {
-              const interviewQuestions = candidateQuestionGenerationEnabled
-                ? await generateInterviewQuestionsForProfile(uploadResult.cachedResumeProfile)
-                : [];
-              analysis = {
-                fileName: resume.name,
-                interviewQuestions,
-                resumeProfile: uploadResult.cachedResumeProfile,
-                resumeText: uploadResult.resumeText,
-              };
-            } else if (candidateQuestionGenerationEnabled) {
-              analysis = await analyzeResumeFile(resume);
-              ({ resumeText } = analysis);
-            } else {
-              const parsed = await parseResumeFastToProfile(resume);
-              resumeText = parsed.parsedText;
-              analysis = {
-                fileName: resume.name,
-                interviewQuestions: [],
-                resumeProfile: parsed.resumeProfile,
-                resumeText,
-              };
-            }
-          }
-          const dedupConflict = await resolveResumeCreateDedupConflict({
-            candidateEmail: input.data.candidateEmail || null,
-            candidateName: input.data.candidateName || null,
-            candidatePhone: input.data.candidatePhone || null,
-            dedupPolicy: parseResumeCreateDedupPolicy(formData.get("dedupPolicy")),
-            organizationId: activeOrg.id,
-            resumeProfile: analysis?.resumeProfile ?? null,
-          });
-          if (dedupConflict) {
-            return c.json(dedupConflict, 409);
-          }
-          const record = {
-            candidateEmail: input.data.candidateEmail || null,
-            candidateName:
-              input.data.candidateName || analysis?.resumeProfile.name || "未命名候选人",
-            candidatePhone: input.data.candidatePhone || analysis?.resumeProfile.phone || null,
-            createdAt: now,
-            createdBy: c.var.user?.id ?? null,
-            id: interviewRecordId,
-            interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
-            jobDescriptionId: input.data.jobDescriptionId || null,
-            notes: input.data.notes || null,
-            organizationId: activeOrg.id,
-            // 从 AI 面试页面直接创建：起步就在 ai_interview 阶段。
-            // Created from the AI interview page → record starts at ai_interview.
-            pipelineStage: "ai_interview" as const,
-            resumeContentHash,
-            resumeFileName: analysis?.fileName ?? resume?.name ?? null,
-            resumeProfile: analysis?.resumeProfile ?? null,
-            resumeStorageKey,
-            resumeText,
-            targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
-            updatedAt: now,
-          } satisfies typeof studioInterview.$inferInsert;
-          const notificationFlowEnabled = isInterviewNotificationFlowEnabled();
-          const baseScheduleRows = buildScheduleRows(
-            activeOrg.id,
-            interviewRecordId,
-            input.data.scheduleEntries,
-            now,
-            undefined,
-            c.var.user?.id ?? null,
-          );
-          const scheduleRows = notificationFlowEnabled
-            ? baseScheduleRows.map((schedule) => addAiInterviewInvitationToSchedule(schedule, now))
-            : baseScheduleRows;
-
-          await db.transaction(async (tx) => {
-            await tx.insert(studioInterview).values(record);
-            await tx.insert(studioInterviewSchedule).values(scheduleRows);
-            if (notificationFlowEnabled) {
-              for (const schedule of scheduleRows) {
-                await enqueueAiInterviewInvitedEvents(tx, {
-                  actorUserId: c.var.user?.id ?? null,
-                  now,
-                  scheduleEntryId: schedule.id,
-                });
-              }
-            }
-            await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
-            await createInterviewContextSnapshot(tx, {
-              createdAt: now,
-              createdBy: c.var.user?.id ?? null,
-              interviewRecordId,
-              reason: "create",
-              scheduleEntryId: scheduleRows[0]?.id ?? null,
-            });
-            await syncResumeSkills(tx, {
-              interviewId: interviewRecordId,
-              organizationId: activeOrg.id,
-              skills: analysis?.resumeProfile.skills,
-            });
-          });
-
-          invalidateStudioInterviewCaches(activeOrg.id);
-          if (analysis?.resumeProfile) {
-            await enqueueResumeSemanticIndexJobBestEffort({
-              organizationId: activeOrg.id,
-              sourceId: interviewRecordId,
-              sourceType: "studio_interview",
-            });
-          }
-          // POST / 返回新建轮次的完整 detail，供招聘台 onCreated 直接使用。
-          // Return the first round's full detail so the resume library onCreated can use it directly.
-          const firstRoundId = scheduleRows[0]?.id;
-          if (!firstRoundId) {
-            return c.json({ error: "未生成面试轮次。" }, 400);
-          }
-          const detail = await loadInterviewRoundDetail(firstRoundId, activeOrg.id);
-          return c.json(detail, 201);
-        } catch (error) {
-          const result = toBadRequest(error);
-          return c.json({ error: result.error }, result.status);
-        }
+        // 新面试必须基于已经人工筛选通过的招聘记录，不能通过新建候选人绕过筛选。
+        return c.json({ error: "请先在招聘台添加简历并筛选通过，再发起 AI 面试。" }, 409);
       })
       .get(
         "/resolve",

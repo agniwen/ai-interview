@@ -1,7 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { VISIBLE_PIPELINE_STAGES } from "./resume-library-page-model";
+import { RecruitingBoardTabs } from "./recruiting-board-tabs";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -78,24 +76,10 @@ export function ResumeLibraryPageShell({
         onRefresh={handleMetricsRetry}
         onRetry={onMetricsRetry}
       />
-      <Tabs
-        onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}
-        value={grid.filters.stage || "all"}
-      >
-        <TabsList
-          aria-label="招聘阶段"
-          className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap"
-        >
-          <TabsTrigger className="h-10! w-full px-3 sm:w-auto sm:px-8" value="all">
-            全部
-          </TabsTrigger>
-          {VISIBLE_PIPELINE_STAGES.map((stage) => (
-            <TabsTrigger className="h-10! w-full px-3 sm:w-auto sm:px-8" key={stage} value={stage}>
-              {stage === "offer" ? "Offer 协商" : pipelineStageMeta[stage].label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <RecruitingBoardTabs
+        value={grid.filters.stage}
+        onChange={(value) => grid.setFilter("stage", value)}
+      />
       {children}
     </div>
   );

@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HumanMeetingTranscriptRecovery } from "./human-meeting-transcript-recovery";
 
@@ -394,13 +394,14 @@ function HumanMeetingReviewForm({
               label={label}
               wide={key === "detailedAnalysis" || key === "overallEvaluation"}
             >
-              <Textarea
+              <MarkdownEditor
+                aria-label={label}
                 id={`${fieldId}-${key}`}
-                className={cn(key === "detailedAnalysis" && "min-h-56")}
+                minHeight={key === "detailedAnalysis" ? 280 : 160}
                 disabled={isSubmitted || Boolean(busy)}
-                onChange={(event) => {
+                onChange={(value) => {
                   evaluationDirtyRef.current = true;
-                  setEvaluation((current) => ({ ...current, [key]: event.target.value }));
+                  setEvaluation((current) => ({ ...current, [key]: value }));
                 }}
                 value={evaluation[key]}
               />

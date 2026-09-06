@@ -43,11 +43,25 @@ describe("getHumanInterviewOfferReadinessError", () => {
     );
   });
 
-  it("allows an offer after every round is completed with feedback", () => {
+  it("rejects completed rounds without effective passed conclusions", () => {
     expect(
       getHumanInterviewOfferReadinessError({
         completedRoundsMissingFeedback: 0,
+        finalInterviewPassed: false,
         pendingRounds: 0,
+        secondInterviewPassed: true,
+        totalRounds: 2,
+      }),
+    ).toBe(HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE);
+  });
+
+  it("allows income proof only when both effective human rounds passed with feedback", () => {
+    expect(
+      getHumanInterviewOfferReadinessError({
+        completedRoundsMissingFeedback: 0,
+        finalInterviewPassed: true,
+        pendingRounds: 0,
+        secondInterviewPassed: true,
         totalRounds: 2,
       }),
     ).toBeNull();

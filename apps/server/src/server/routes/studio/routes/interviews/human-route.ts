@@ -1,8 +1,11 @@
+import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
+import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
-import { studioInterview } from "@app/db-schema/schema";
+
 import {
   humanInterviewRoundInputSchema,
   nullableInstantDateTimeInputSchema,
@@ -16,7 +19,6 @@ import {
   editHumanInterviewRound,
   EditRoundError,
   listHumanInterviewRounds,
-  maybeAdvanceToHumanInterview,
 } from "./dao/human-interview-rounds";
 import {
   deleteHumanInterviewLiveKitRoom,
@@ -87,10 +89,16 @@ export const studioInterviewHumanRouter = factory
       // 候选人必须存在、归属当前组织、且未结束（已结束需先重新激活）。
       // Candidate must exist, belong to active org, and not be closed.
       const [candidate] = await db
-        .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
-        .from(studioInterview)
+        .select({
+          id: recruitingRecordReadModel.id,
+          pipelineStage: recruitingRecordReadModel.pipelineStage,
+        })
+        .from(recruitingRecordReadModel)
         .where(
-          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
+          and(
+            eq(recruitingRecordReadModel.id, recordId),
+            eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+          ),
         )
         .limit(1);
       if (!candidate) {
@@ -99,13 +107,14 @@ export const studioInterviewHumanRouter = factory
       if (candidate.pipelineStage === "closed") {
         return c.json({ error: "已结束的候选人请先重新激活。" }, 400);
       }
-      if (candidate.pipelineStage === "offer") {
+      if (isOfferStage(candidate.pipelineStage) || candidate.pipelineStage === "onboarding") {
         return c.json({ error: "候选人已进入 Offer 阶段，不能再创建真人面试轮次。" }, 400);
       }
 
       try {
         const input = c.req.valid("json");
         const created = await createHumanInterviewRound({
+          actorUserId: c.var.user?.id ?? null,
           input: {
             ...input,
             format: "online",
@@ -115,9 +124,6 @@ export const studioInterviewHumanRouter = factory
           interviewRecordId: recordId,
           organizationId: activeOrg.id,
         });
-        // 创建第一轮时自动把 pipelineStage 推进到 human_interview（screening/ai_interview 等才推）。
-        // Auto-advance pipelineStage when the first round goes in.
-        await maybeAdvanceToHumanInterview(recordId, activeOrg.id);
         await recordCandidateActivity({
           action: "human_interview_round_created",
           detail: {
@@ -132,6 +138,9 @@ export const studioInterviewHumanRouter = factory
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(created, 200);
       } catch (error) {
+        if (error instanceof RecruitingPipelineError) {
+          return c.json({ error: error.message }, error.code === "conflict" ? 409 : 400);
+        }
         if (error instanceof EditRoundError) {
           return c.json({ error: error.message }, error.status);
         }
@@ -176,6 +185,9 @@ export const studioInterviewHumanRouter = factory
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
       } catch (error) {
+        if (error instanceof RecruitingPipelineError) {
+          return c.json({ error: error.message }, error.code === "conflict" ? 409 : 400);
+        }
         if (error instanceof EditRoundError) {
           return c.json({ error: error.message }, error.status);
         }
@@ -210,6 +222,9 @@ export const studioInterviewHumanRouter = factory
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json({ ok: true }, 200);
       } catch (error) {
+        if (error instanceof RecruitingPipelineError) {
+          return c.json({ error: error.message }, error.code === "conflict" ? 409 : 400);
+        }
         if (error instanceof ResolveHumanInterviewOutcomeError) {
           return c.json({ error: error.message }, error.status);
         }
@@ -266,11 +281,17 @@ export const studioInterviewHumanRouter = factory
           try {
             await stopActiveHumanInterviewRecordingByRoomName(roomName);
           } catch (error) {
+            if (error instanceof RecruitingPipelineError) {
+              return c.json({ error: error.message }, error.code === "conflict" ? 409 : 400);
+            }
             console.warn("failed to stop livekit human interview recording", error);
           }
           try {
             await deleteHumanInterviewLiveKitRoom(roomName);
           } catch (error) {
+            if (error instanceof RecruitingPipelineError) {
+              return c.json({ error: error.message }, error.code === "conflict" ? 409 : 400);
+            }
             if (!(error instanceof HumanInterviewLiveKitConfigError)) {
               console.warn("failed to delete livekit human interview room", error);
             }
@@ -279,6 +300,9 @@ export const studioInterviewHumanRouter = factory
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
       } catch (error) {
+        if (error instanceof RecruitingPipelineError) {
+          return c.json({ error: error.message }, error.code === "conflict" ? 409 : 400);
+        }
         if (error instanceof EditRoundError) {
           return c.json({ error: error.message }, error.status);
         }

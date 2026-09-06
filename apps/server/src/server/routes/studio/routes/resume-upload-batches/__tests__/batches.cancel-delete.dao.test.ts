@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 批量简历上传 DAO 集成测试（直接连接真实 PG 数据库，不 mock）。
 // Integration tests for the bulk-resume-upload batch DAO — hit the real Postgres
 // dev database; no mocking per project convention.
@@ -10,11 +12,10 @@ import {
   jobDescription,
   member,
   organization,
-  resumeDuplicateMatch,
+  recruitingDuplicateMatch,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import { cancelBatch, deleteBatch, insertBatchWithItems } from "../dao/batches";
@@ -49,12 +50,16 @@ function makeFiles(n: number) {
 async function cleanup() {
   // FK-ordered: batches/interviews/matches first, then pool rows by every ownership
   // key (org/user/storage) before deleting orgs/users — pool FKs are SET NULL.
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_A));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_B));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await deleteFixtureResumePoolItems({
     organizationIds: [ORG_A, ORG_B],
     storageKeyPrefixes: [STORAGE_KEY_PREFIX],
@@ -154,24 +159,24 @@ describe("cancelBatch", () => {
     try {
       const items = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       const [succeededItem] = items;
       expect(succeededItem).toBeDefined();
 
       // 手动把第一个 item 设为 succeeded（模拟已处理完的情况）。
       // Manually mark the first item as succeeded to simulate a processed item.
       await db
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({ finishedAt: new Date(), status: "succeeded" })
-        .where(eq(resumeUploadBatchItem.id, succeededItem?.id ?? ""));
+        .where(eq(recruitingUploadBatchItem.id, succeededItem?.id ?? ""));
       const cancellableItem = items.find((item) => item.id !== succeededItem?.id);
       const cancellablePoolItem = items.find(
         (item) => item.id !== succeededItem?.id && item.id !== cancellableItem?.id,
       );
       const recordId = `bulk_cancel_duplicate_${crypto.randomUUID()}`;
       const poolItemId = `bulk_cancel_pool_duplicate_${crypto.randomUUID()}`;
-      await db.insert(studioInterview).values({
+      await createRecruitingRecords(db, {
         candidateEmail: "bulk-cancel@example.com",
         candidateName: "批量取消候选人",
         createdAt: NOW,
@@ -185,9 +190,9 @@ describe("cancelBatch", () => {
         updatedAt: NOW,
       });
       await db
-        .update(resumeUploadBatchItem)
-        .set({ resumeRecordId: recordId, status: "processing" })
-        .where(eq(resumeUploadBatchItem.id, cancellableItem?.id ?? ""));
+        .update(recruitingUploadBatchItem)
+        .set({ recruitingRecordId: recordId, status: "processing" })
+        .where(eq(recruitingUploadBatchItem.id, cancellableItem?.id ?? ""));
       await db.insert(resumePoolItem).values({
         candidateEmail: "bulk-cancel-pool@example.com",
         candidateName: "批量取消广场候选人",
@@ -205,21 +210,21 @@ describe("cancelBatch", () => {
         updatedAt: NOW,
       });
       await db
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({ poolItemId, status: "processing" })
-        .where(eq(resumeUploadBatchItem.id, cancellablePoolItem?.id ?? ""));
-      await db.insert(resumeDuplicateMatch).values([
+        .where(eq(recruitingUploadBatchItem.id, cancellablePoolItem?.id ?? ""));
+      await db.insert(recruitingDuplicateMatch).values([
         {
           embeddingVersion: "test-v1",
           id: `bulk_cancel_duplicate_source_${crypto.randomUUID()}`,
           level: "medium",
           matchedSourceId: "existing_resume_record",
-          matchedSourceType: "studio_interview",
+          matchedSourceType: "recruiting_record",
           organizationId: ORG_A,
           reasons: ["批量取消前已写入疑似重复"],
           score: 86,
           sourceId: recordId,
-          sourceType: "studio_interview",
+          sourceType: "recruiting_record",
           status: "active",
         },
         {
@@ -227,12 +232,12 @@ describe("cancelBatch", () => {
           id: `bulk_cancel_duplicate_target_${crypto.randomUUID()}`,
           level: "high",
           matchedSourceId: recordId,
-          matchedSourceType: "studio_interview",
+          matchedSourceType: "recruiting_record",
           organizationId: ORG_A,
           reasons: ["批量取消前被其他简历命中"],
           score: 94,
           sourceId: "existing_resume_record",
-          sourceType: "studio_interview",
+          sourceType: "recruiting_record",
           status: "active",
         },
         {
@@ -240,7 +245,7 @@ describe("cancelBatch", () => {
           id: `bulk_cancel_pool_duplicate_source_${crypto.randomUUID()}`,
           level: "medium",
           matchedSourceId: "existing_resume_record",
-          matchedSourceType: "studio_interview",
+          matchedSourceType: "recruiting_record",
           organizationId: ORG_A,
           reasons: ["批量取消前广场记录已写入疑似重复"],
           score: 87,
@@ -258,7 +263,7 @@ describe("cancelBatch", () => {
           reasons: ["批量取消前广场记录被其他简历命中"],
           score: 95,
           sourceId: "existing_resume_record",
-          sourceType: "studio_interview",
+          sourceType: "recruiting_record",
           status: "active",
         },
       ]);
@@ -268,8 +273,8 @@ describe("cancelBatch", () => {
 
       const afterItems = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
 
       const succeededAfter = afterItems.find((r) => r.id === succeededItem?.id);
       expect(succeededAfter?.status).toBe("succeeded");
@@ -279,17 +284,17 @@ describe("cancelBatch", () => {
 
       const [batch] = await db
         .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
+        .from(recruitingUploadBatch)
+        .where(eq(recruitingUploadBatch.id, batchId));
       expect(batch?.status).toBe("cancelled");
       expect(batch?.completedAt).not.toBeNull();
       const duplicateRows = await db
         .select({
-          matchedSourceId: resumeDuplicateMatch.matchedSourceId,
-          sourceId: resumeDuplicateMatch.sourceId,
+          matchedSourceId: recruitingDuplicateMatch.matchedSourceId,
+          sourceId: recruitingDuplicateMatch.sourceId,
         })
-        .from(resumeDuplicateMatch)
-        .where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+        .from(recruitingDuplicateMatch)
+        .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
       expect(
         duplicateRows.filter(
           (row) =>
@@ -300,8 +305,10 @@ describe("cancelBatch", () => {
         ),
       ).toHaveLength(0);
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-      await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
+      await db
+        .delete(recruitingDuplicateMatch)
+        .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
     }
   });
 
@@ -321,9 +328,9 @@ describe("cancelBatch", () => {
     try {
       // 手动完成批次。
       await db
-        .update(resumeUploadBatch)
+        .update(recruitingUploadBatch)
         .set({ completedAt: new Date(), status: "completed" })
-        .where(eq(resumeUploadBatch.id, batchId));
+        .where(eq(recruitingUploadBatch.id, batchId));
 
       const result = await cancelBatch(batchId, ORG_A, USER_A);
       expect(result).toBe(false);
@@ -331,11 +338,11 @@ describe("cancelBatch", () => {
       // 验证 batch 状态未改变。
       const [batch] = await db
         .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
+        .from(recruitingUploadBatch)
+        .where(eq(recruitingUploadBatch.id, batchId));
       expect(batch?.status).toBe("completed");
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 
@@ -355,7 +362,7 @@ describe("cancelBatch", () => {
       const secondResult = await cancelBatch(batchId, ORG_A, USER_A);
       expect(secondResult).toBe(false);
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -382,14 +389,14 @@ describe("deleteBatch", () => {
     // batch 和 items 依然存在。
     const [batchAfterRefuse] = await db
       .select()
-      .from(resumeUploadBatch)
-      .where(eq(resumeUploadBatch.id, batchId));
+      .from(recruitingUploadBatch)
+      .where(eq(recruitingUploadBatch.id, batchId));
     expect(batchAfterRefuse).toBeDefined();
 
     const itemsAfterRefuse = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     expect(itemsAfterRefuse).toHaveLength(2);
 
     // 取消后可删除。
@@ -400,14 +407,14 @@ describe("deleteBatch", () => {
     // batch 和 items 均已删除（items 通过 cascade 删除）。
     const [batchAfterDelete] = await db
       .select()
-      .from(resumeUploadBatch)
-      .where(eq(resumeUploadBatch.id, batchId));
+      .from(recruitingUploadBatch)
+      .where(eq(recruitingUploadBatch.id, batchId));
     expect(batchAfterDelete).toBeUndefined();
 
     const itemsAfterDelete = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     expect(itemsAfterDelete).toHaveLength(0);
   });
 });

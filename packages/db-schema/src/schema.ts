@@ -77,7 +77,7 @@ import type {
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
-  PipelineStage,
+  LegacyPipelineStage,
   ResumeEvaluationStatus,
   ResumeParseStatus,
   ResumeReviewStatus,
@@ -98,9 +98,11 @@ import type {
 } from "./qualitative-resume-evaluation";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   check,
+  date,
   doublePrecision,
   foreignKey,
   index,
@@ -112,7 +114,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import type { AnyPgColumn, PgTableExtraConfigValue } from "drizzle-orm/pg-core";
 import type { MeetingLiveTranscriptDraftRecord } from "./meeting-live-transcript";
 
 // --- Tables managed by @chat-adapter/state-pg ---
@@ -503,17 +505,14 @@ export const meetingStorageCleanupKey = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingMeetingContext 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const meetingRecruitingContext = pgTable(
   "meeting_recruiting_context",
   {
     linkedAt: timestamp("linked_at", { withTimezone: true }).defaultNow().notNull(),
-    linkedBy: text("linked_by").references(() => user.id, { onDelete: "set null" }),
-    meetingId: text("meeting_id")
-      .primaryKey()
-      .references(() => meetingSession.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    linkedBy: text("linked_by"),
+    meetingId: text("meeting_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
     recruitingRecordId: text("recruiting_record_id")
       .notNull()
       .references(
@@ -523,11 +522,6 @@ export const meetingRecruitingContext = pgTable(
       ),
   },
   (table) => [
-    foreignKey({
-      columns: [table.meetingId, table.organizationId],
-      foreignColumns: [meetingSession.id, meetingSession.organizationId],
-      name: "meeting_recruiting_context_meeting_org_fk",
-    }).onDelete("cascade"),
     foreignKey({
       columns: [table.recruitingRecordId, table.organizationId],
       foreignColumns: [
@@ -1288,6 +1282,7 @@ export const invitation = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingRecord 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioInterview = pgTable(
   "studio_interview",
   {
@@ -1309,40 +1304,30 @@ export const studioInterview = pgTable(
     // Superseded by closedMeta; kept for backwards compat.
     closedReason: text("closed_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by"),
     hrResumeAssessment: text("hr_resume_assessment"),
     hrResumeAssessmentUpdatedAt: timestamp("hr_resume_assessment_updated_at", {
       withTimezone: true,
     }),
-    hrResumeAssessmentUpdatedBy: text("hr_resume_assessment_updated_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    hrResumeAssessmentUpdatedBy: text("hr_resume_assessment_updated_by"),
     // ⚠️ DEPRECATED — 真人复面信息现在落到 studioHumanInterviewRound 子表（多轮 + 多面试官）。
     // 这两列留着兜底但应用层不再写入。
     // Superseded by studioHumanInterviewRound subtable; not written anymore.
     humanInterviewScheduledAt: timestamp("human_interview_scheduled_at", { withTimezone: true }),
-    humanInterviewerId: text("human_interviewer_id").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    humanInterviewerId: text("human_interviewer_id"),
     id: text("id").primaryKey(),
     interviewQuestions: jsonb("interview_questions")
       .$type<InterviewQuestion[]>()
       .notNull()
       .default([]),
     // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
-    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
-      onDelete: "set null",
-    }),
+    jobDescriptionId: text("job_description_id"),
     notes: text("notes"),
     // ⚠️ DEPRECATED — Offer 信息现在落到 studioOfferDraft 子表（多版本 + 议价历史）。
     // Superseded by studioOfferDraft subtable; not written anymore.
     offerAcceptedAt: timestamp("offer_accepted_at", { withTimezone: true }),
     offerSentAt: timestamp("offer_sent_at", { withTimezone: true }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     // 新模型：候选人最终结论（默认 in_pipeline）。
     // outcome != 'in_pipeline' ⇔ pipelineStage = 'closed'（DB CHECK 强制）。
     // Verdict axis; CHECK constraint pairs non-'in_pipeline' with stage='closed'.
@@ -1350,16 +1335,15 @@ export const studioInterview = pgTable(
     // 新模型：候选人所在 pipeline 阶段（默认 screening）。
     // default 让 prod 旧 INSERT 路径不传值时也能写入。
     // Stage axis; default lets pre-migration INSERTs succeed.
-    pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
+    pipelineStage: text("pipeline_stage")
+      .$type<LegacyPipelineStage>()
+      .notNull()
+      .default("screening"),
     qualitativeAttemptJobDescriptionVersionId: text(
       "qualitative_attempt_job_description_version_id",
       // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
-    ).references(() => jobDescriptionVersion.id, { onDelete: "set null" }),
-    qualitativeJobDescriptionVersionId: text("qualitative_job_description_version_id").references(
-      // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
-      () => jobDescriptionVersion.id,
-      { onDelete: "set null" },
     ),
+    qualitativeJobDescriptionVersionId: text("qualitative_job_description_version_id"),
     qualitativeRecommendationLevel: text(
       "qualitative_recommendation_level",
     ).$type<QualitativeRecommendationLevel>(),
@@ -1402,13 +1386,9 @@ export const studioInterview = pgTable(
     // Source metadata for resume-library rows; keeps the existing workflow
     // intact while preserving provenance for pool imports.
     resumeSourceImportedAt: timestamp("resume_source_imported_at", { withTimezone: true }),
-    resumeSourceImportedBy: text("resume_source_imported_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    resumeSourceImportedBy: text("resume_source_imported_by"),
     // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
-    resumeSourcePoolItemId: text("resume_source_pool_item_id").references(() => resumePoolItem.id, {
-      onDelete: "set null",
-    }),
+    resumeSourcePoolItemId: text("resume_source_pool_item_id"),
     resumeSourceType: text("resume_source_type").$type<StudioInterviewResumeSourceType>(),
     resumeStorageKey: text("resume_storage_key"),
     resumeText: text("resume_text"),
@@ -1830,6 +1810,7 @@ export const jobDescriptionVersion = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingResumeEvaluation 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeEvaluationVersion = pgTable(
   "resume_evaluation_version",
   {
@@ -1837,14 +1818,9 @@ export const resumeEvaluationVersion = pgTable(
     contractVersion: text("contract_version").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
-    jobDescriptionVersionId: text("job_description_version_id").references(
-      () => jobDescriptionVersion.id,
-      { onDelete: "set null" },
-    ),
+    jobDescriptionVersionId: text("job_description_version_id"),
     numericScore: integer("numeric_score"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     recommendationLevel: text("recommendation_level").$type<QualitativeRecommendationLevel>(),
     resumeRecordId: text("resume_record_id")
       .notNull()
@@ -1871,6 +1847,7 @@ export const resumeEvaluationVersion = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingResumeEvaluation 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeEvaluationFailure = pgTable(
   "resume_evaluation_failure",
   {
@@ -1878,13 +1855,8 @@ export const resumeEvaluationFailure = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     errorMessage: text("error_message").notNull(),
     id: text("id").primaryKey(),
-    jobDescriptionVersionId: text("job_description_version_id").references(
-      () => jobDescriptionVersion.id,
-      { onDelete: "set null" },
-    ),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    jobDescriptionVersionId: text("job_description_version_id"),
+    organizationId: text("organization_id").notNull(),
     resumeRecordId: text("resume_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
@@ -1999,6 +1971,7 @@ export const jobDescriptionInterviewer = pgTable(
   ],
 );
 
+/** @deprecated 已由 aiInterviewRound 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioInterviewSchedule = pgTable(
   "studio_interview_schedule",
   {
@@ -2020,7 +1993,7 @@ export const studioInterviewSchedule = pgTable(
     candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by"),
     // 热重连锚点：轮次首次开始时持久化 LiveKit 房间名、参与者 identity、
     // 会话起始时间。断连超过 LiveKit 自动重连窗口时记录 disconnectedAt，
     // 给候选人 3 分钟内回到同一房间继续对话。
@@ -2036,11 +2009,7 @@ export const studioInterviewSchedule = pgTable(
     liveKitParticipantIdentity: text("livekit_participant_identity"),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
@@ -2089,6 +2058,7 @@ export const studioInterviewSchedule = pgTable(
 // Per-round human interview record. Each candidate can have multiple rounds.
 // Status: pending → completed/cancelled. Outcome/score/feedback captured on
 // completion. Many-to-many interviewers via the junction table below.
+/** @deprecated 已由 humanInterviewRound 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewRound = pgTable(
   "studio_human_interview_round",
   {
@@ -2103,14 +2073,9 @@ export const studioHumanInterviewRound = pgTable(
       .notNull()
       .default("not_started"),
     evaluationSubmittedAt: timestamp("evaluation_submitted_at", { withTimezone: true }),
-    evaluationTranscriptRevisionId: text("evaluation_transcript_revision_id").references(
-      () => meetingTranscriptRevision.id,
-      { onDelete: "set null" },
-    ),
+    evaluationTranscriptRevisionId: text("evaluation_transcript_revision_id"),
     evaluationUpdatedAt: timestamp("evaluation_updated_at", { withTimezone: true }),
-    evaluationUpdatedBy: text("evaluation_updated_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    evaluationUpdatedBy: text("evaluation_updated_by"),
     feedback: text("feedback"),
     format: text("format").$type<HumanInterviewFormat>().notNull(),
     id: text("id").primaryKey(),
@@ -2121,9 +2086,7 @@ export const studioHumanInterviewRound = pgTable(
     location: text("location"),
     meetingUrl: text("meeting_url"),
     notes: text("notes"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     score: integer("score"),
@@ -2149,28 +2112,22 @@ export const studioHumanInterviewRound = pgTable(
 
 // AI 生成结果与面试官最终提交结果的不可变快照，用于后续评价效果分析。
 // 当前业务状态仍由 studioHumanInterviewRound.evaluation 承载并直接覆盖。
+/** @deprecated 已由 humanInterviewEvaluationSnapshot 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewEvaluationSnapshot = pgTable(
   "studio_human_interview_evaluation_snapshot",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by"),
     evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>().notNull(),
     id: text("id").primaryKey(),
-    meetingSessionId: text("meeting_session_id").references(() => meetingSession.id, {
-      onDelete: "set null",
-    }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    meetingSessionId: text("meeting_session_id"),
+    organizationId: text("organization_id").notNull(),
     outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
     roundId: text("round_id")
       .notNull()
       .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
     source: text("source").$type<HumanInterviewEvaluationSnapshotSource>().notNull(),
-    transcriptRevisionId: text("transcript_revision_id").references(
-      () => meetingTranscriptRevision.id,
-      { onDelete: "set null" },
-    ),
+    transcriptRevisionId: text("transcript_revision_id"),
   },
   (table) => [
     index("studio_human_interview_evaluation_snapshot_round_created_idx").on(
@@ -2189,6 +2146,7 @@ export const studioHumanInterviewEvaluationSnapshot = pgTable(
 );
 
 // Transactional outbox for confirmed human evaluations, independent of message delivery.
+/** @deprecated 已由 humanInterviewEvaluationDocumentSync 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const humanInterviewDocumentSync = pgTable(
   "human_interview_document_sync",
   {
@@ -2200,9 +2158,7 @@ export const humanInterviewDocumentSync = pgTable(
     error: text("error"),
     leaseOwner: text("lease_owner"),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     providerId: text("provider_id"),
     roundId: text("round_id")
       .notNull()
@@ -2232,6 +2188,7 @@ export const humanInterviewDocumentSync = pgTable(
 // Human-interview meeting. One meeting maps to one LiveKit room, one candidate
 // round, and multiple interviewers. Per-round verdicts remain on
 // studioHumanInterviewRound.
+/** @deprecated 已由 humanInterviewMeeting 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewMeeting = pgTable(
   "studio_human_interview_meeting",
   {
@@ -2246,7 +2203,7 @@ export const studioHumanInterviewMeeting = pgTable(
       .notNull()
       .default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by"),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     feishuAppLink: text("feishu_app_link"),
     feishuAttendeeOpenIds: jsonb("feishu_attendee_open_ids").$type<string[]>(),
@@ -2267,12 +2224,8 @@ export const studioHumanInterviewMeeting = pgTable(
     lifecycleSource: text("lifecycle_source").$type<HumanInterviewMeetingLifecycleSource>(),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
-    processingMeetingSessionId: text("processing_meeting_session_id")
-      .references(() => meetingSession.id, { onDelete: "set null" })
-      .unique(),
+    organizationId: text("organization_id").notNull(),
+    processingMeetingSessionId: text("processing_meeting_session_id").unique(),
     recordingDurationMs: integer("recording_duration_ms"),
     recordingEgressId: text("recording_egress_id"),
     recordingError: text("recording_error"),
@@ -2328,6 +2281,7 @@ export const studioHumanInterviewMeeting = pgTable(
 
 // Provider webhook deliveries are at-least-once. Keep a compact receipt so a
 // duplicate or delayed delivery cannot regress the persisted lifecycle.
+/** @deprecated 已由 humanInterviewMeetingEvent 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewMeetingEvent = pgTable(
   "studio_human_interview_meeting_event",
   {
@@ -2354,6 +2308,7 @@ export const studioHumanInterviewMeetingEvent = pgTable(
 //
 // Meeting ↔ candidate-round junction. The round itself links back to the resume
 // record; this table stores candidate-specific invite/join metadata for the meeting.
+/** @deprecated 已由 humanInterviewMeetingRound 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewMeetingRound = pgTable(
   "studio_human_interview_meeting_round",
   {
@@ -2394,6 +2349,7 @@ export const studioHumanInterviewMeetingRound = pgTable(
 
 // 会议 ↔ 面试官 junction。保留 role 以支持主持人/旁听者等会议级权限。
 // Meeting ↔ interviewer junction. role leaves room for host/observer permissions.
+/** @deprecated 已由 humanInterviewMeetingInterviewer 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewMeetingInterviewer = pgTable(
   "studio_human_interview_meeting_interviewer",
   {
@@ -2409,9 +2365,7 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
       .$type<HumanInterviewMeetingInterviewerRole>()
       .notNull()
       .default("interviewer"),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.meetingId, table.userId] }),
@@ -2427,6 +2381,7 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
 // 单独索引 userId 让「查询某面试官面过的所有候选人」走索引。
 // Junction for (round, interviewer) many-to-many. userId index supports the
 // "all rounds interviewed by user X" query.
+/** @deprecated 已由 humanInterviewRoundInterviewer 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioHumanInterviewRoundInterviewer = pgTable(
   "studio_human_interview_round_interviewer",
   {
@@ -2438,9 +2393,7 @@ export const studioHumanInterviewRoundInterviewer = pgTable(
       .notNull()
       .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
     status: text("status").$type<HumanInterviewerAssignmentStatus>().notNull().default("pending"),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.roundId, table.userId] }),
@@ -2463,6 +2416,7 @@ export const studioHumanInterviewRoundInterviewer = pgTable(
 // Versioned offer drafts. Version is monotonically increasing per candidate;
 // new versions supersede earlier ones. Status: draft → sent → terminal.
 // Candidate counter-offers recorded as free text on the draft they respond to.
+/** @deprecated 已由 recruitingOffer 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioOfferDraft = pgTable(
   "studio_offer_draft",
   {
@@ -2479,9 +2433,7 @@ export const studioOfferDraft = pgTable(
       .references(() => studioInterview.id, { onDelete: "cascade" }),
     joiningDate: timestamp("joining_date", { withTimezone: true }),
     notes: text("notes"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     position: text("position").notNull(),
     responseAt: timestamp("response_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -2666,21 +2618,18 @@ export const referralLink = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingPoolImport 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumePoolImport = pgTable(
   "resume_pool_import",
   {
     id: text("id").primaryKey(),
     importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
-    importedBy: text("imported_by").references(() => user.id, { onDelete: "set null" }),
+    importedBy: text("imported_by"),
     importedResumeRecordId: text("imported_resume_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
-    poolItemId: text("pool_item_id")
-      .notNull()
-      .references(() => resumePoolItem.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
+    poolItemId: text("pool_item_id").notNull(),
   },
   (table) => [
     uniqueIndex("resume_pool_import_pool_org_record_uq").on(
@@ -2726,28 +2675,23 @@ export type ResumeUploadBatchItemStatus =
   | "duplicate_skipped"
   | "cancelled";
 
+/** @deprecated 已由 recruitingUploadBatch 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeUploadBatch = pgTable(
   "resume_upload_batch",
   {
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").notNull(),
     dedupPolicy: text("dedup_policy").$type<ResumeUploadBatchDedupPolicy>().notNull(),
     failedCount: integer("failed_count").notNull().default(0),
     id: text("id").primaryKey(),
     jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull(),
     // oxlint-disable-next-line no-use-before-define
-    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
-      onDelete: "set null",
-    }),
+    jobDescriptionId: text("job_description_id"),
     // Only newly-created mail batches opt into automatic job binding.
     // Existing batches stay null and are never matched retroactively.
     jobMatchRequestedAt: timestamp("job_match_requested_at", { withTimezone: true }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     processedCount: integer("processed_count").notNull().default(0),
     resumePoolScope: text("resume_pool_scope").$type<ResumePoolScope>(),
     skippedCount: integer("skipped_count").notNull().default(0),
@@ -2774,6 +2718,7 @@ export const resumeUploadBatch = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingUploadBatchItem 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeUploadBatchItem = pgTable(
   "resume_upload_batch_item",
   {
@@ -2790,9 +2735,7 @@ export const resumeUploadBatchItem = pgTable(
     orderIndex: integer("order_index").notNull(),
     organizationId: text("organization_id").notNull(),
     originalFileName: text("original_file_name").notNull(),
-    poolItemId: text("pool_item_id").references(() => resumePoolItem.id, {
-      onDelete: "set null",
-    }),
+    poolItemId: text("pool_item_id"),
     queueJobId: text("queue_job_id"),
     queuedAt: timestamp("queued_at", { withTimezone: true }),
     resumeRecordId: text("resume_record_id").references(() => studioInterview.id, {
@@ -2856,6 +2799,7 @@ export type ResumeSemanticIndexStatus =
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
 export type ResumeDuplicateMatchStatus = "active" | "confirmed" | "dismissed";
 
+/** @deprecated 已由 recruitingSearchIndex 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeSemanticIndex = pgTable(
   "resume_semantic_index",
   {
@@ -2866,9 +2810,7 @@ export const resumeSemanticIndex = pgTable(
     errorMessage: text("error_message"),
     id: text("id").primaryKey(),
     lastIndexedAt: timestamp("last_indexed_at", { withTimezone: true }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     profileHash: text("profile_hash").notNull(),
     sourceId: text("source_id").notNull(),
     sourceType: text("source_type").$type<ResumeSemanticSourceType>().notNull(),
@@ -2893,6 +2835,7 @@ export const resumeSemanticIndex = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingDuplicateMatch 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeDuplicateMatch = pgTable(
   "resume_duplicate_match",
   {
@@ -2902,9 +2845,7 @@ export const resumeDuplicateMatch = pgTable(
     level: text("level").$type<ResumeSemanticDuplicateLevel>().notNull(),
     matchedSourceId: text("matched_source_id").notNull(),
     matchedSourceType: text("matched_source_type").$type<ResumeSemanticSourceType>().notNull(),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     reasons: jsonb("reasons")
       .$type<string[]>()
       .notNull()
@@ -3007,17 +2948,14 @@ export const mailIngestAccount = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingMailMessage 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const mailIngestMessage = pgTable(
   "mail_ingest_message",
   {
-    accountId: text("account_id")
-      .notNull()
-      .references(() => mailIngestAccount.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
     attachmentCount: integer("attachment_count"),
     batchId: text("batch_id").references(() => resumeUploadBatch.id, { onDelete: "set null" }),
-    boundJobDescriptionId: text("bound_job_description_id").references(() => jobDescription.id, {
-      onDelete: "set null",
-    }),
+    boundJobDescriptionId: text("bound_job_description_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     errorMessage: text("error_message"),
     extractedJobCodes: jsonb("extracted_job_codes").$type<string[]>(),
@@ -3052,6 +2990,7 @@ export const mailIngestMessage = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingJobMatchRun 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeJobMatchRun = pgTable(
   "resume_job_match_run",
   {
@@ -3067,18 +3006,11 @@ export const resumeJobMatchRun = pgTable(
     }),
     matcherVersion: text("matcher_version").notNull(),
     model: text("model"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
-    poolItemId: text("pool_item_id")
-      .notNull()
-      .references(() => resumePoolItem.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
+    poolItemId: text("pool_item_id").notNull(),
     promptVersion: text("prompt_version"),
     resumeInputHash: text("resume_input_hash").notNull(),
-    selectedJobDescriptionId: text("selected_job_description_id").references(
-      () => jobDescription.id,
-      { onDelete: "set null" },
-    ),
+    selectedJobDescriptionId: text("selected_job_description_id"),
     selectionMethod: text("selection_method").$type<ResumeJobMatchSelectionMethod>(),
     status: text("status").$type<ResumeJobMatchRunStatus>().notNull(),
   },
@@ -3097,6 +3029,7 @@ export const resumeJobMatchRun = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingJobMatchCandidate 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const resumeJobMatchCandidate = pgTable(
   "resume_job_match_candidate",
   {
@@ -3104,9 +3037,7 @@ export const resumeJobMatchCandidate = pgTable(
     aiReason: text("ai_reason"),
     aiScore: integer("ai_score"),
     id: text("id").primaryKey(),
-    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
-      onDelete: "set null",
-    }),
+    jobDescriptionId: text("job_description_id"),
     jobSnapshot: jsonb("job_snapshot").$type<ResumeJobMatchJobSnapshot>().notNull(),
     overviewScore: doublePrecision("overview_score"),
     recallRank: integer("recall_rank"),
@@ -3137,6 +3068,7 @@ export const resumeJobMatchCandidate = pgTable(
   ],
 );
 
+/** @deprecated 已由 aiInterviewConversation 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewConversation = pgTable(
   "interview_conversation",
   {
@@ -3170,11 +3102,7 @@ export const interviewConversation = pgTable(
     metadata: jsonb("metadata").$type<JsonObject>().notNull().default({}),
     metrics: jsonb("metrics").$type<JsonObject>().notNull().default({}),
     mode: text("mode"),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     // 录像相关：通过 LiveKit RoomCompositeEgress 直传 S3 后写回
     // Recording fields populated after LiveKit RoomCompositeEgress finishes uploading to S3
     recordingDurationSecs: integer("recording_duration_secs"),
@@ -3217,6 +3145,7 @@ export const interviewConversation = pgTable(
   ],
 );
 
+/** @deprecated 已由 aiInterviewConversationTurn 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewConversationTurn = pgTable(
   "interview_conversation_turn",
   {
@@ -3229,11 +3158,7 @@ export const interviewConversationTurn = pgTable(
       onDelete: "set null",
     }),
     message: text("message").notNull(),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
     role: text("role").$type<InterviewMessageRole>().notNull(),
     source: text("source").notNull().default("client_event"),
@@ -3335,6 +3260,7 @@ export const chatAttachment = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingEvent 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewAuditLog = pgTable(
   "interview_audit_log",
   {
@@ -3345,12 +3271,8 @@ export const interviewAuditLog = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    operatorId: text("operator_id").references(() => user.id, { onDelete: "set null" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    operatorId: text("operator_id"),
+    organizationId: text("organization_id").notNull(),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
     }),
@@ -3362,20 +3284,17 @@ export const interviewAuditLog = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingNotificationRecipient 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioInterviewNotificationRecipient = pgTable(
   "studio_interview_notification_recipient",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by"),
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
+    userId: text("user_id").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.interviewRecordId, table.userId] }),
@@ -3384,11 +3303,7 @@ export const studioInterviewNotificationRecipient = pgTable(
       foreignColumns: [studioInterview.id, studioInterview.organizationId],
       name: "studio_interview_notification_recipient_record_org_fk",
     }).onDelete("cascade"),
-    foreignKey({
-      columns: [table.userId, table.organizationId],
-      foreignColumns: [member.userId, member.organizationId],
-      name: "studio_interview_notification_recipient_member_org_fk",
-    }).onDelete("cascade"),
+
     index("studio_interview_notification_recipient_user_idx").on(
       table.organizationId,
       table.userId,
@@ -3472,10 +3387,11 @@ export const interviewNotificationTemplateVersion = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingNotificationEvent 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewNotificationEvent = pgTable(
   "interview_notification_event",
   {
-    actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+    actorUserId: text("actor_user_id"),
     attemptCount: integer("attempt_count").default(0).notNull(),
     availableAt: timestamp("available_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -3499,9 +3415,7 @@ export const interviewNotificationEvent = pgTable(
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     leaseOwner: text("lease_owner"),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     payloadSnapshot: jsonb("payload_snapshot")
       .$type<InterviewNotificationPayloadSnapshot>()
       .notNull(),
@@ -3552,6 +3466,7 @@ export const interviewNotificationEvent = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingNotificationDelivery 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewNotification = pgTable(
   "interview_notification",
   {
@@ -3577,18 +3492,14 @@ export const interviewNotification = pgTable(
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     leaseOwner: text("lease_owner"),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     providerId: text("provider_id").notNull(),
     providerMessageId: text("provider_message_id"),
     providerRequestKey: text("provider_request_key"),
     recipientAddress: text("recipient_address"),
     recipientDisplayName: text("recipient_display_name"),
     recipientOpenId: text("recipient_open_id").notNull(),
-    recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
+    recipientUserId: text("recipient_user_id"),
     renderedContent: text("rendered_content"),
     renderedSubject: text("rendered_subject"),
     resultUnknownAt: timestamp("result_unknown_at", { withTimezone: true }),
@@ -3597,10 +3508,7 @@ export const interviewNotification = pgTable(
       .$type<InterviewNotificationDeliveryStatus>()
       .notNull()
       .default("pending"),
-    templateVersionId: text("template_version_id").references(
-      () => interviewNotificationTemplateVersion.id,
-      { onDelete: "set null" },
-    ),
+    templateVersionId: text("template_version_id"),
     type: text("type").$type<AgentNotificationType | InterviewNotificationEventType>().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -3740,6 +3648,7 @@ export const candidateFormTemplateVersion = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingFormSubmission 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const candidateFormSubmission = pgTable(
   "candidate_form_submission",
   {
@@ -3748,18 +3657,10 @@ export const candidateFormSubmission = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
-    templateId: text("template_id")
-      .notNull()
-      .references(() => candidateFormTemplate.id, { onDelete: "restrict" }),
-    versionId: text("version_id")
-      .notNull()
-      .references(() => candidateFormTemplateVersion.id, { onDelete: "restrict" }),
+    templateId: text("template_id").notNull(),
+    versionId: text("version_id").notNull(),
   },
   (table) => [
     uniqueIndex("candidate_form_submission_template_interview_uq").on(
@@ -3885,6 +3786,7 @@ export const interviewQuestionTemplateVersion = pgTable(
 // disabledByUser lets the operator opt out of a template on the interview
 // detail page without deleting the row — this preserves the manual override
 // across JD changes and across template content updates.
+/** @deprecated 已由 recruitingQuestionTemplateBinding 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewQuestionTemplateBinding = pgTable(
   "interview_question_template_binding",
   {
@@ -3894,18 +3796,10 @@ export const interviewQuestionTemplateBinding = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: text("organization_id").notNull(),
     sortOrder: integer("sort_order").notNull(),
-    templateId: text("template_id")
-      .notNull()
-      .references(() => interviewQuestionTemplate.id, { onDelete: "restrict" }),
-    versionId: text("version_id")
-      .notNull()
-      .references(() => interviewQuestionTemplateVersion.id, { onDelete: "restrict" }),
+    templateId: text("template_id").notNull(),
+    versionId: text("version_id").notNull(),
   },
   (table) => [
     uniqueIndex("interview_question_template_binding_interview_template_uq").on(
@@ -3919,19 +3813,18 @@ export const interviewQuestionTemplateBinding = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingContextSnapshot 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewContextSnapshot = pgTable(
   "interview_context_snapshot",
   {
     contentHash: text("content_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by"),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     payload: jsonb("payload").$type<InterviewContextSnapshotPayload>().notNull(),
     reason: text("reason").$type<InterviewContextSnapshotReason>().notNull(),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
@@ -3952,6 +3845,7 @@ export const interviewContextSnapshot = pgTable(
   ],
 );
 
+/** @deprecated 已由 recruitingEvidenceSnapshot 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewEvidenceSnapshot = pgTable(
   "interview_evidence_snapshot",
   {
@@ -3967,9 +3861,7 @@ export const interviewEvidenceSnapshot = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     payload: jsonb("payload").$type<InterviewEvidenceSnapshotPayload>().notNull(),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
@@ -4017,6 +3909,7 @@ export const feishuThreadState = pgTable(
 
 export type StudioRoundEmailLogStatus = "sent" | "failed";
 
+/** @deprecated 已由 recruitingRoundEmailLog 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const studioRoundEmailLog = pgTable(
   "studio_round_email_log",
   {
@@ -4026,14 +3919,12 @@ export const studioRoundEmailLog = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     resendMessageId: text("resend_message_id"),
     roundId: text("round_id")
       .notNull()
       .references(() => studioInterviewSchedule.id, { onDelete: "cascade" }),
-    sentBy: text("sent_by").references(() => user.id, { onDelete: "set null" }),
+    sentBy: text("sent_by"),
     status: text("status").$type<StudioRoundEmailLogStatus>().notNull(),
     subject: text("subject").notNull(),
     templateKey: text("template_key").notNull().default("round_invite"),
@@ -4065,3 +3956,2525 @@ export const globalConfig = pgTable("global_config", {
     .notNull(),
   updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
 });
+
+// =====================================================================
+/* oxlint-disable no-use-before-define -- 新表外键在 Drizzle 读取表配置时延迟求值，支持当前评估等双向引用。 */
+// 招聘新模型：仅新增目标表。旧 studioInterview 及附属表保留供核对与后续复制回填。
+// 当前业务尚未切换；这里的定义不会自行创建数据库表或触发数据迁移。
+// 外键原则：归属复合外键已覆盖单列引用时只保留一条，所属子项沿用级联删除。
+// 可选历史引用统一由复合外键保护；物理删除前须在事务内显式解除引用。
+// 不叠加单列 SET NULL，以免与复合校验冲突；也不对非空工作区列执行 SET NULL。
+// 结束、淘汰和重新打开只更新流程状态，不能通过删除轮次或记录实现。
+// 可空招聘 ID 会使三列外键跳过校验，因此部分表仍需保留“轮次 + 工作区”外键。
+// 含主键的复合唯一索引仅用于外键目标；筛选索引按工作区、节点、状态和结果保留。
+// =====================================================================
+
+/** 招聘具体节点；面试和 Offer 的大阶段由节点分组得出，不另存重复状态。 */
+export const recruitingNodeValues = [
+  "screening",
+  "ai_interview",
+  "second_interview",
+  "final_interview",
+  "income_proof",
+  "offer",
+  "background_check",
+  "onboarding",
+] as const;
+export type RecruitingNode = (typeof recruitingNodeValues)[number];
+export type RecruitingStage = RecruitingNode | "closed";
+/** 节点内进度；inactive 表示尚未到达或回退后已失效，skipped 表示明确跳过。 */
+export type RecruitingNodeStatus =
+  | "inactive"
+  | "pending"
+  | "scheduled"
+  | "in_progress"
+  | "awaiting_review"
+  | "negotiating"
+  | "awaiting_send"
+  | "awaiting_response"
+  | "completed"
+  | "skipped";
+export type RecruitingNodeResult = "pass" | "fail" | "withdrawn";
+export type RecruitingCloseReason =
+  | "resume_rejected"
+  | "interview_failed"
+  | "salary_disagreement"
+  | "offer_declined"
+  | "background_check_failed"
+  | "candidate_withdrew"
+  | "onboarding_no_show"
+  | "position_closed"
+  | "onboarded"
+  | "other";
+/** 新招聘检索使用自己的来源标识，不更改旧语义索引的来源契约。 */
+export type RecruitingSearchSource = "resume_pool_item" | "recruiting_record" | "job_description";
+
+// 人才身份：不以姓名、电话或邮箱建立唯一约束，迁移时不自动合并疑似同一人。
+export const candidate = pgTable(
+  "candidate",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by"),
+    email: text("email"),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    organizationId: text("organization_id").notNull(),
+    phone: text("phone"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "candidate_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "candidate_created_by_fk",
+    }).onDelete("set null"),
+    uniqueIndex("candidate_id_org_uq").on(table.id, table.organizationId),
+    index("candidate_org_created_idx").on(table.organizationId, table.createdAt),
+    index("candidate_org_email_idx").on(table.organizationId, table.email),
+    index("candidate_org_phone_idx").on(table.organizationId, table.phone),
+  ],
+);
+
+// 简历版本：只保存候选人提供的材料及解析结果，不保存针对某岗位的筛选决定。
+// 替换简历时创建新版本，旧招聘和评估仍可引用其原始依据；文件保留对象存储键。
+export const candidateResume = pgTable(
+  "candidate_resume",
+  {
+    candidateId: text("candidate_id").notNull(),
+    contentHash: text("content_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by"),
+    fileName: text("file_name"),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    parseError: text("parse_error"),
+    parseStatus: text("parse_status").$type<ResumeParseStatus>().notNull().default("unparsed"),
+    parsedAt: timestamp("parsed_at", { withTimezone: true }),
+    profile: jsonb("profile").$type<ResumeProfile>(),
+    searchCjkBigrams: text("search_cjk_bigrams").array(),
+    // 搜索字段是解析资料的投影，未来由写入链路维护，不允许作为第二套人工资料编辑。
+    searchText: text("search_text"),
+    skillsNormalized: text("skills_normalized")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    storageKey: text("storage_key"),
+    text: text("text"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    version: integer("version").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "candidate_resume_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "candidate_resume_created_by_fk",
+    }).onDelete("set null"),
+    uniqueIndex("candidate_resume_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.candidateId, table.organizationId],
+      foreignColumns: [candidate.id, candidate.organizationId],
+      name: "candidate_resume_candidate_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("candidate_resume_id_candidate_org_uq").on(
+      table.id,
+      table.candidateId,
+      table.organizationId,
+    ),
+    uniqueIndex("candidate_resume_candidate_version_uq").on(table.candidateId, table.version),
+    index("candidate_resume_org_hash_idx").on(table.organizationId, table.contentHash),
+    index("candidate_resume_search_text_idx").using(
+      "gin",
+      table.searchText.asc().op("gin_trgm_ops"),
+    ),
+    index("candidate_resume_bigrams_idx").using("gin", table.searchCjkBigrams),
+    index("candidate_resume_skills_idx").using("gin", table.skillsNormalized),
+    check("candidate_resume_version_check", sql`${table.version} > 0`),
+    check(
+      "candidate_resume_parse_status_check",
+      sql`${table.parseStatus} IN ('unparsed', 'queued', 'processing', 'ready', 'failed')`,
+    ),
+  ],
+);
+
+// 招聘记录：一名人才针对一个岗位的招聘过程。重新打开修改本记录，不产生招聘周期。
+// ID 可沿用旧招聘记录 ID；不能把它同时用作人才 ID 或简历 ID。
+export const recruitingRecord = pgTable(
+  "recruiting_record",
+  {
+    activeEvaluationId: text("active_evaluation_id"),
+    candidateId: text("candidate_id").notNull(),
+    // 仅保存结束备注等非筛选详情，结束节点和原因以独立列为准。
+    closeDetails: jsonb("close_details").$type<JsonObject>(),
+    closeReason: text("close_reason").$type<RecruitingCloseReason>(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedFromNode: text("closed_from_node").$type<RecruitingNode>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by"),
+    // 当前成功结果和正在生成的尝试分别引用；失败重评不得抹掉当前有效结果。
+    currentEvaluationId: text("current_evaluation_id"),
+    currentStage: text("current_stage").$type<RecruitingStage>().notNull().default("screening"),
+    // 人工简历评语与节点筛选结论分开；AI 推荐不能自动代替筛选决定。
+    hrResumeAssessment: text("hr_resume_assessment"),
+    hrResumeAssessmentUpdatedAt: timestamp("hr_resume_assessment_updated_at", {
+      withTimezone: true,
+    }),
+    hrResumeAssessmentUpdatedBy: text("hr_resume_assessment_updated_by"),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id"),
+    notes: text("notes"),
+    organizationId: text("organization_id").notNull(),
+    outcome: text("outcome").$type<CandidateOutcome>().notNull().default("in_pipeline"),
+    ownerId: text("owner_id"),
+    // 直接创建 AI 面试可以尚无简历；一旦选定，必须属于同一人才和工作区。
+    resumeId: text("resume_id"),
+    sourceImportedAt: timestamp("source_imported_at", { withTimezone: true }),
+    sourceImportedBy: text("source_imported_by"),
+    sourcePoolItemId: text("source_pool_item_id"),
+    sourceType: text("source_type").$type<StudioInterviewResumeSourceType>(),
+    // 历史进入时间不可证明时保持空值，不以回填时间冒充历史进入时间。
+    stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }),
+    targetRole: text("target_role"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    version: integer("version").notNull().default(0),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_record_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.jobDescriptionId],
+      foreignColumns: [jobDescription.id],
+      name: "recruiting_record_job_description_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.hrResumeAssessmentUpdatedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_record_hr_resume_assessment_updated_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.sourcePoolItemId],
+      foreignColumns: [resumePoolItem.id],
+      name: "recruiting_record_source_pool_item_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.sourceImportedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_record_source_imported_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_record_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.ownerId],
+      foreignColumns: [user.id],
+      name: "recruiting_record_owner_id_fk",
+    }).onDelete("set null"),
+    uniqueIndex("recruiting_record_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.candidateId, table.organizationId],
+      foreignColumns: [candidate.id, candidate.organizationId],
+      name: "recruiting_record_candidate_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.resumeId, table.candidateId, table.organizationId],
+      foreignColumns: [
+        candidateResume.id,
+        candidateResume.candidateId,
+        candidateResume.organizationId,
+      ],
+      name: "recruiting_record_resume_owner_fk",
+    }),
+    foreignKey({
+      columns: [table.currentEvaluationId, table.id, table.organizationId],
+      foreignColumns: [
+        recruitingResumeEvaluation.id,
+        recruitingResumeEvaluation.recruitingRecordId,
+        recruitingResumeEvaluation.organizationId,
+      ],
+      name: "recruiting_record_current_evaluation_fk",
+    }),
+    foreignKey({
+      columns: [table.activeEvaluationId, table.id, table.organizationId],
+      foreignColumns: [
+        recruitingResumeEvaluation.id,
+        recruitingResumeEvaluation.recruitingRecordId,
+        recruitingResumeEvaluation.organizationId,
+      ],
+      name: "recruiting_record_active_evaluation_fk",
+    }),
+    index("recruiting_record_org_stage_time_idx").on(
+      table.organizationId,
+      table.currentStage,
+      table.stageEnteredAt,
+    ),
+    index("recruiting_record_org_outcome_reason_idx").on(
+      table.organizationId,
+      table.outcome,
+      table.closeReason,
+    ),
+    index("recruiting_record_org_creator_created_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+    index("recruiting_record_org_owner_stage_idx").on(
+      table.organizationId,
+      table.ownerId,
+      table.currentStage,
+    ),
+    index("recruiting_record_org_job_idx").on(table.organizationId, table.jobDescriptionId),
+    index("recruiting_record_candidate_idx").on(table.candidateId),
+    check(
+      "recruiting_record_stage_check",
+      sql`${table.currentStage} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'offer', 'background_check', 'onboarding', 'closed')`,
+    ),
+    check(
+      "recruiting_record_outcome_check",
+      sql`${table.outcome} IN ('in_pipeline', 'hired', 'rejected', 'withdrawn', 'archived')`,
+    ),
+    check(
+      "recruiting_record_end_check",
+      sql`(${table.currentStage} = 'closed' AND ${table.outcome} <> 'in_pipeline' AND ${table.closedAt} IS NOT NULL) OR (${table.currentStage} <> 'closed' AND ${table.outcome} = 'in_pipeline' AND ${table.closedAt} IS NULL AND ${table.closedFromNode} IS NULL AND ${table.closeReason} IS NULL AND ${table.closeDetails} IS NULL)`,
+    ),
+    check(
+      "recruiting_record_closed_node_check",
+      sql`${table.closedFromNode} IS NULL OR ${table.closedFromNode} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'offer', 'background_check', 'onboarding')`,
+    ),
+    check(
+      "recruiting_record_reason_check",
+      sql`${table.closeReason} IS NULL OR ${table.closeReason} IN ('resume_rejected', 'interview_failed', 'salary_disagreement', 'offer_declined', 'background_check_failed', 'candidate_withdrew', 'onboarding_no_show', 'position_closed', 'onboarded', 'other')`,
+    ),
+    check("recruiting_record_version_check", sql`${table.version} >= 0`),
+  ],
+);
+
+// 岗位相关评估：容纳成功版本与生成尝试，不把旧数字评分转换成定性等级。
+// contractVersion 和 artifact 保留原契约；kind 区分简历评估与历史规则筛选。
+export const recruitingResumeEvaluation = pgTable(
+  "recruiting_resume_evaluation",
+  {
+    artifact: jsonb("artifact").$type<JsonValue>(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    contractVersion: text("contract_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    inputHash: text("input_hash"),
+    jobDescriptionVersionId: text("job_description_version_id"),
+    kind: text("kind")
+      .$type<"resume_review" | "resume_screening">()
+      .notNull()
+      .default("resume_review"),
+    numericScore: integer("numeric_score"),
+    organizationId: text("organization_id").notNull(),
+    recommendationLevel: text("recommendation_level").$type<QualitativeRecommendationLevel>(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    resumeId: text("resume_id"),
+    runId: text("run_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    status: text("status").$type<"queued" | "processing" | "succeeded" | "failed">().notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_resume_evaluation_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.jobDescriptionVersionId],
+      foreignColumns: [jobDescriptionVersion.id],
+      name: "recruiting_resume_evaluation_job_description_version_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.resumeId, table.organizationId],
+      foreignColumns: [candidateResume.id, candidateResume.organizationId],
+      name: "recruiting_resume_evaluation_resume_id_org_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_evaluation_record_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_evaluation_id_record_org_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    uniqueIndex("recruiting_evaluation_run_uq")
+      .on(table.recruitingRecordId, table.kind, table.contractVersion, table.runId)
+      .where(sql`${table.runId} IS NOT NULL`),
+    index("recruiting_evaluation_org_level_idx").on(
+      table.organizationId,
+      table.recommendationLevel,
+    ),
+    index("recruiting_evaluation_record_created_idx").on(table.recruitingRecordId, table.createdAt),
+    check(
+      "recruiting_evaluation_kind_check",
+      sql`${table.kind} IN ('resume_review', 'resume_screening')`,
+    ),
+    check(
+      "recruiting_evaluation_status_check",
+      sql`${table.status} IN ('queued', 'processing', 'succeeded', 'failed')`,
+    ),
+    check(
+      "recruiting_evaluation_artifact_check",
+      sql`${table.status} <> 'succeeded' OR ${table.artifact} IS NOT NULL`,
+    ),
+    check(
+      "recruiting_evaluation_error_check",
+      sql`${table.status} <> 'failed' OR ${table.errorMessage} IS NOT NULL`,
+    ),
+    check(
+      "recruiting_evaluation_score_check",
+      sql`${table.numericScore} IS NULL OR ${table.numericScore} BETWEEN 0 AND 100`,
+    ),
+    check(
+      "recruiting_evaluation_level_check",
+      sql`${table.recommendationLevel} IS NULL OR ${table.recommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')`,
+    ),
+  ],
+);
+
+// 面试准备资料独立于流程主表，保留原人工确认的问题；模板绑定另有版本化关联表。
+export const recruitingInterviewPreparation = pgTable(
+  "recruiting_interview_preparation",
+  {
+    organizationId: text("organization_id").notNull(),
+    questions: jsonb("questions").$type<InterviewQuestion[]>().notNull().default([]),
+    recruitingRecordId: text("recruiting_record_id").primaryKey(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_preparation_record_org_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+// 录用办理详情：节点进度与最终结论以 recruitingNodeState 为准，避免双重状态来源。
+// 薪资条款只保存在选定的 Offer 版本；重新打开不创建第二套办理记录。
+export const recruitingFulfillment = pgTable(
+  "recruiting_fulfillment",
+  {
+    actualJoiningDate: date("actual_joining_date"),
+    backgroundCheckCompletedAt: timestamp("background_check_completed_at", { withTimezone: true }),
+    backgroundCheckNotes: text("background_check_notes"),
+    backgroundCheckStartedAt: timestamp("background_check_started_at", { withTimezone: true }),
+    candidateExpectations: jsonb("candidate_expectations").$type<CandidateExpectationsMeta>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // 入职是日期，不是瞬时时间；确认动作另外保留带时区的时间。
+    expectedJoiningDate: date("expected_joining_date"),
+    incomeProofNotes: text("income_proof_notes"),
+    negotiationNotes: text("negotiation_notes"),
+    onboardingConfirmedAt: timestamp("onboarding_confirmed_at", { withTimezone: true }),
+    onboardingConfirmedBy: text("onboarding_confirmed_by"),
+    onboardingContact: text("onboarding_contact"),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").primaryKey(),
+    selectedOfferId: text("selected_offer_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.onboardingConfirmedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_fulfillment_onboarding_confirmed_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_fulfillment_record_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.selectedOfferId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        recruitingOffer.id,
+        recruitingOffer.recruitingRecordId,
+        recruitingOffer.organizationId,
+      ],
+      name: "recruiting_fulfillment_offer_owner_fk",
+    }),
+    index("recruiting_fulfillment_org_joining_idx").on(
+      table.organizationId,
+      table.expectedJoiningDate,
+    ),
+  ],
+);
+
+// 流程材料只存元数据；上传和下载权限必须按招聘记录检查，不能复用公开面试链接权限。
+export const recruitingMaterial = pgTable(
+  "recruiting_material",
+  {
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    fileName: text("file_name").notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind").$type<"income_proof" | "background_report" | "offer_document">().notNull(),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    storageKey: text("storage_key").notNull(),
+    uploadedBy: text("uploaded_by"),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.uploadedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_material_uploaded_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_material_record_org_fk",
+    }).onDelete("cascade"),
+    index("recruiting_material_record_kind_idx").on(
+      table.organizationId,
+      table.recruitingRecordId,
+      table.kind,
+    ),
+    check(
+      "recruiting_material_kind_check",
+      sql`${table.kind} IN ('income_proof', 'background_report', 'offer_document')`,
+    ),
+    check(
+      "recruiting_material_size_check",
+      sql`${table.sizeBytes} >= 0 AND ${table.sizeBytes} <= 9007199254740991`,
+    ),
+  ],
+);
+
+// 每个节点仅一条当前有效状态。回退将下游状态置 inactive，原依据先写入 recruitingEvent。
+// 业务轮次的原始评价继续保留；筛选只读取这里明确选定的有效结果。
+export const recruitingNodeState = pgTable(
+  "recruiting_node_state",
+  {
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedBy: text("decided_by"),
+    effectiveAiRoundId: text("effective_ai_round_id"),
+    effectiveHumanRoundId: text("effective_human_round_id"),
+    effectiveOfferId: text("effective_offer_id"),
+    enteredAt: timestamp("entered_at", { withTimezone: true }),
+    node: text("node").$type<RecruitingNode>().notNull(),
+    organizationId: text("organization_id").notNull(),
+    reason: text("reason"),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    result: text("result").$type<RecruitingNodeResult>(),
+    status: text("status").$type<RecruitingNodeStatus>().notNull().default("inactive"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.decidedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_node_state_decided_by_fk",
+    }).onDelete("set null"),
+    primaryKey({ columns: [table.recruitingRecordId, table.node] }),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_node_record_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.effectiveAiRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "recruiting_node_ai_owner_fk",
+    }),
+    foreignKey({
+      columns: [
+        table.effectiveHumanRoundId,
+        table.recruitingRecordId,
+        table.organizationId,
+        table.node,
+      ],
+      foreignColumns: [
+        humanInterviewRound.id,
+        humanInterviewRound.recruitingRecordId,
+        humanInterviewRound.organizationId,
+        humanInterviewRound.roundKind,
+      ],
+      name: "recruiting_node_human_owner_fk",
+    }),
+    foreignKey({
+      columns: [table.effectiveOfferId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        recruitingOffer.id,
+        recruitingOffer.recruitingRecordId,
+        recruitingOffer.organizationId,
+      ],
+      name: "recruiting_node_offer_owner_fk",
+    }),
+    index("recruiting_node_org_node_status_idx").on(
+      table.organizationId,
+      table.node,
+      table.status,
+      table.recruitingRecordId,
+    ),
+    index("recruiting_node_org_node_result_idx").on(
+      table.organizationId,
+      table.node,
+      table.result,
+      table.recruitingRecordId,
+    ),
+    check(
+      "recruiting_node_kind_check",
+      sql`${table.node} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'offer', 'background_check', 'onboarding')`,
+    ),
+    check(
+      "recruiting_node_status_check",
+      sql`${table.status} IN ('inactive', 'pending', 'scheduled', 'in_progress', 'awaiting_review', 'negotiating', 'awaiting_send', 'awaiting_response', 'completed', 'skipped')`,
+    ),
+    check(
+      "recruiting_node_result_check",
+      sql`${table.result} IS NULL OR ${table.result} IN ('pass', 'fail', 'withdrawn')`,
+    ),
+    check(
+      "recruiting_node_result_status_check",
+      sql`(${table.status} = 'completed' AND ${table.result} IS NOT NULL) OR (${table.status} <> 'completed' AND ${table.result} IS NULL)`,
+    ),
+    check(
+      "recruiting_node_progress_check",
+      sql`(${table.status} IN ('inactive', 'pending', 'completed', 'skipped')) OR (${table.node} IN ('ai_interview', 'second_interview', 'final_interview') AND ${table.status} IN ('scheduled', 'in_progress', 'awaiting_review')) OR (${table.node} IN ('income_proof', 'background_check') AND ${table.status} IN ('in_progress', 'awaiting_review')) OR (${table.node} = 'offer' AND ${table.status} IN ('negotiating', 'awaiting_send', 'awaiting_response'))`,
+    ),
+    check(
+      "recruiting_node_evidence_check",
+      sql`(${table.effectiveAiRoundId} IS NULL OR ${table.node} = 'ai_interview') AND (${table.effectiveHumanRoundId} IS NULL OR ${table.node} IN ('second_interview', 'final_interview')) AND (${table.effectiveOfferId} IS NULL OR ${table.node} = 'offer')`,
+    ),
+    check(
+      "recruiting_node_inactive_check",
+      sql`${table.status} NOT IN ('inactive', 'skipped') OR (${table.effectiveAiRoundId} IS NULL AND ${table.effectiveHumanRoundId} IS NULL AND ${table.effectiveOfferId} IS NULL)`,
+    ),
+  ],
+);
+
+// 复制回填的身份台账。仅保存源身份与目标身份，不以外键依赖旧表，不执行复制操作。
+// 同一源行可能拆成多种目标实体，因此唯一键包含目标表；重跑使用已记录的目标 ID。
+export const recruitingMigrationMap = pgTable(
+  "recruiting_migration_map",
+  {
+    copiedAt: timestamp("copied_at", { withTimezone: true }).notNull().defaultNow(),
+    sourceHash: text("source_hash").notNull(),
+    sourceKey: text("source_key").notNull(),
+    sourceTable: text("source_table").notNull(),
+    targetKey: text("target_key").notNull(),
+    targetTable: text("target_table").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    primaryKey({ columns: [table.sourceTable, table.sourceKey, table.targetTable] }),
+    uniqueIndex("recruiting_migration_target_uq").on(table.targetTable, table.targetKey),
+  ],
+);
+
+// AI 面试轮次：保留邀请 token、有效期、会话和断线重连锚点；面试执行完成不等于人工确认通过。
+export const aiInterviewRound = pgTable(
+  "ai_interview_round",
+  {
+    allowTextInput: boolean("allow_text_input").notNull().default(false),
+    candidateDeclineReason: text("candidate_decline_reason"),
+    candidateFeedbackCategories: jsonb("candidate_feedback_categories").$type<
+      CandidateInterviewFeedbackCategory[] | null
+    >(),
+    candidateFeedbackDetail: text("candidate_feedback_detail"),
+    candidateFeedbackSubmittedAt: timestamp("candidate_feedback_submitted_at", {
+      withTimezone: true,
+    }),
+    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
+    candidateInviteStatus: text("candidate_invite_status")
+      .$type<CandidateInterviewInvitationStatus>()
+      .notNull()
+      .default("pending"),
+    candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
+    conversationId: text("conversation_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    invitationVersion: integer("invitation_version").notNull().default(1),
+    liveKitParticipantIdentity: text("livekit_participant_identity"),
+    liveKitRoomName: text("livekit_room_name"),
+    notes: text("notes"),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    reviewNotes: text("review_notes"),
+    // 人工决定；原 AI 执行状态和报告内容不自动写入此结论。
+    reviewOutcome: text("review_outcome").$type<"pass" | "fail">(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: text("reviewed_by"),
+    roundLabel: text("round_label").notNull(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
+    sessionStartedAt: timestamp("session_started_at", { withTimezone: true }),
+    sortOrder: integer("sort_order").notNull(),
+    status: text("status").$type<ScheduleEntryStatus>().notNull().default("pending"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    // 当前会话必须属于本轮次和工作区，不能误指向另一位候选人的会话。
+    foreignKey({
+      columns: [table.conversationId, table.id, table.organizationId],
+      foreignColumns: [
+        aiInterviewConversation.conversationId,
+        aiInterviewConversation.aiRoundId,
+        aiInterviewConversation.organizationId,
+      ],
+      name: "ai_round_current_conversation_fk",
+    }),
+    check(
+      "ai_round_status_check",
+      sql`${table.status} IN ('pending','in_progress','interrupted','completed')`,
+    ),
+    foreignKey({
+      columns: [table.reviewedBy],
+      foreignColumns: [user.id],
+      name: "ai_interview_round_reviewed_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "ai_interview_round_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "ai_interview_round_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("ai_interview_round_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "ai_interview_round_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("ai_interview_round_id_record_org_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    check(
+      "ai_round_review_check",
+      sql`${table.reviewOutcome} IS NULL OR ${table.reviewOutcome} IN ('pass', 'fail')`,
+    ),
+    index("ai_interview_round_sort_idx").on(table.recruitingRecordId, table.sortOrder),
+    index("ai_interview_round_created_by_idx").on(table.createdBy),
+    index("ai_interview_round_org_created_at_idx").on(table.organizationId, table.createdAt),
+    index("ai_interview_round_org_created_by_created_at_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+    index("ai_interview_round_org_status_created_at_idx").on(
+      table.organizationId,
+      table.status,
+      table.createdAt,
+    ),
+    uniqueIndex("ai_interview_round_invite_token_uq")
+      .on(table.candidateInviteTokenHash)
+      .where(sql`${table.candidateInviteTokenHash} IS NOT NULL`),
+    check(
+      "ai_interview_round_invite_status_check",
+      sql`${table.candidateInviteStatus} IN ('pending', 'sent', 'accepted', 'declined', 'expired')`,
+    ),
+    check("ai_interview_round_invitation_version_check", sql`${table.invitationVersion} > 0`),
+  ],
+);
+
+// 真人面试轮次：明确区分复试和终面，取消重排仍保留原轮次。原始评价与流程采用的结果分开。
+export const humanInterviewRound = pgTable(
+  "human_interview_round",
+  {
+    cancelReason: text("cancel_reason"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>(),
+    evaluationError: text("evaluation_error"),
+    evaluationStatus: text("evaluation_status")
+      .$type<HumanInterviewEvaluationStatus>()
+      .notNull()
+      .default("not_started"),
+    evaluationSubmittedAt: timestamp("evaluation_submitted_at", { withTimezone: true }),
+    evaluationTranscriptRevisionId: text("evaluation_transcript_revision_id"),
+    evaluationUpdatedAt: timestamp("evaluation_updated_at", { withTimezone: true }),
+    evaluationUpdatedBy: text("evaluation_updated_by"),
+    feedback: text("feedback"),
+    format: text("format").$type<HumanInterviewFormat>().notNull(),
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    location: text("location"),
+    meetingUrl: text("meeting_url"),
+    notes: text("notes"),
+    organizationId: text("organization_id").notNull(),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    // 名称可自定义，流转只按轮次类型判定；历史无法归类的记录须在回填前明确映射。
+    roundKind: text("round_kind").$type<"second_interview" | "final_interview">().notNull(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    score: integer("score"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: text("status").$type<HumanInterviewRoundStatus>().notNull().default("pending"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    check("human_round_status_check", sql`${table.status} IN ('pending','completed','cancelled')`),
+    check(
+      "human_round_outcome_check",
+      sql`${table.outcome} IS NULL OR ${table.outcome} IN ('pass','fail','inconclusive')`,
+    ),
+    foreignKey({
+      columns: [table.evaluationTranscriptRevisionId],
+      foreignColumns: [meetingTranscriptRevision.id],
+      name: "human_interview_round_evaluation_transcript_revision_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.evaluationUpdatedBy],
+      foreignColumns: [user.id],
+      name: "human_interview_round_evaluation_updated_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_round_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("human_interview_round_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "human_interview_round_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("human_interview_round_id_record_org_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    uniqueIndex("human_round_id_record_org_kind_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+      table.roundKind,
+    ),
+    check(
+      "human_round_kind_check",
+      sql`${table.roundKind} IN ('second_interview', 'final_interview')`,
+    ),
+    index("human_round_org_kind_result_idx").on(
+      table.organizationId,
+      table.roundKind,
+      table.outcome,
+    ),
+    index("human_interview_round_sort_idx").on(table.recruitingRecordId, table.sortOrder),
+    index("human_interview_round_status_idx").on(table.status),
+    index("human_interview_round_evaluation_status_idx").on(table.evaluationStatus),
+    check(
+      "human_interview_round_evaluation_status_check",
+      sql`${table.evaluationStatus} in ('not_started', 'generating', 'draft', 'submitted', 'failed')`,
+    ),
+  ],
+);
+
+// 真人评价快照：保留 AI 草稿及人工提交的原始评价，回退不覆盖历史。
+export const humanInterviewEvaluationSnapshot = pgTable(
+  "human_interview_evaluation_snapshot",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>().notNull(),
+    id: text("id").primaryKey(),
+    meetingSessionId: text("meeting_session_id"),
+    organizationId: text("organization_id").notNull(),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    roundId: text("round_id").notNull(),
+    source: text("source").$type<HumanInterviewEvaluationSnapshotSource>().notNull(),
+    transcriptRevisionId: text("transcript_revision_id"),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "human_interview_evaluation_snapshot_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.meetingSessionId],
+      foreignColumns: [meetingSession.id],
+      name: "human_interview_evaluation_snapshot_meeting_session_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_evaluation_snapshot_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.transcriptRevisionId],
+      foreignColumns: [meetingTranscriptRevision.id],
+      name: "human_interview_evaluation_snapshot_transcript_revision_id_fk",
+    }).onDelete("set null"),
+    uniqueIndex("human_interview_evaluation_snapshot_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.roundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "human_interview_evaluation_snapshot_round_id_org_fk",
+    }).onDelete("cascade"),
+    index("human_interview_evaluation_snapshot_round_created_idx").on(
+      table.roundId,
+      table.createdAt,
+    ),
+    index("human_interview_evaluation_snapshot_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    check(
+      "human_interview_evaluation_snapshot_source_check",
+      sql`${table.source} in ('ai_generated', 'human_submitted')`,
+    ),
+  ],
+);
+
+// 真人评价文档同步任务：保留原外部文档、重试与租约状态，后续复制不得重新触发已完成同步。
+export const humanInterviewEvaluationDocumentSync = pgTable(
+  "human_interview_evaluation_document_sync",
+  {
+    attemptCount: integer("attempt_count").notNull().default(0),
+    blockId: text("block_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    documentId: text("document_id"),
+    documentUrl: text("document_url"),
+    error: text("error"),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    organizationId: text("organization_id").notNull(),
+    providerId: text("provider_id"),
+    roundId: text("round_id").notNull().unique(),
+    snapshotId: text("snapshot_id").primaryKey(),
+    status: text("status")
+      .$type<"pending" | "syncing" | "waiting_document" | "failed" | "synced">()
+      .notNull()
+      .default("pending"),
+    syncedAt: timestamp("synced_at", { withTimezone: true }),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_evaluation_document_sync_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.roundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "human_interview_evaluation_document_sync_round_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.snapshotId, table.organizationId],
+      foreignColumns: [
+        humanInterviewEvaluationSnapshot.id,
+        humanInterviewEvaluationSnapshot.organizationId,
+      ],
+      name: "human_interview_evaluation_document_sync_snapshot_id_org_fk",
+    }).onDelete("cascade"),
+    index("human_interview_evaluation_document_sync_due_idx").on(table.status, table.nextAttemptAt),
+    check(
+      "human_interview_evaluation_document_sync_status_check",
+      sql`${table.status} in ('pending', 'syncing', 'waiting_document', 'failed', 'synced')`,
+    ),
+  ],
+);
+
+// 真人面试会议：管理排期、房间、录音及外部会议身份，通用会议处理仍引用独立 meetingSession。
+export const humanInterviewMeeting = pgTable(
+  "human_interview_meeting",
+  {
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    candidateRecordingDurationMs: integer("candidate_recording_duration_ms"),
+    candidateRecordingEgressId: text("candidate_recording_egress_id"),
+    candidateRecordingError: text("candidate_recording_error"),
+    candidateRecordingFileKey: text("candidate_recording_file_key"),
+    candidateRecordingSizeBytes: integer("candidate_recording_size_bytes"),
+    candidateRecordingStatus: text("candidate_recording_status")
+      .$type<HumanInterviewRecordingStatus>()
+      .notNull()
+      .default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    feishuAppLink: text("feishu_app_link"),
+    feishuAttendeeOpenIds: jsonb("feishu_attendee_open_ids").$type<string[]>(),
+    feishuCalendarEventId: text("feishu_calendar_event_id"),
+    feishuCalendarEventUrl: text("feishu_calendar_event_url"),
+    feishuCalendarId: text("feishu_calendar_id"),
+    feishuLastError: text("feishu_last_error"),
+    feishuMeetingId: text("feishu_meeting_id"),
+    feishuMeetingNo: text("feishu_meeting_no"),
+    feishuMeetingUrl: text("feishu_meeting_url"),
+    feishuOwnerOpenId: text("feishu_owner_open_id"),
+    feishuProviderId: text("feishu_provider_id").$type<FeishuHumanInterviewProviderId>(),
+    feishuReserveId: text("feishu_reserve_id"),
+    feishuSyncStatus: text("feishu_sync_status").$type<FeishuHumanInterviewSyncStatus>(),
+    feishuSyncedAt: timestamp("feishu_synced_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    lifecycleOccurredAt: timestamp("lifecycle_occurred_at", { withTimezone: true }),
+    lifecycleSource: text("lifecycle_source").$type<HumanInterviewMeetingLifecycleSource>(),
+    liveKitRoomName: text("livekit_room_name"),
+    notes: text("notes"),
+    organizationId: text("organization_id").notNull(),
+    processingMeetingSessionId: text("processing_meeting_session_id").unique(),
+    recordingDurationMs: integer("recording_duration_ms"),
+    recordingEgressId: text("recording_egress_id"),
+    recordingError: text("recording_error"),
+    recordingFileKey: text("recording_file_key"),
+    recordingSizeBytes: integer("recording_size_bytes"),
+    recordingStatus: text("recording_status")
+      .$type<HumanInterviewRecordingStatus>()
+      .notNull()
+      .default("pending"),
+    recordingTracks: jsonb("recording_tracks").$type<HumanInterviewRecordingTrack[]>(),
+    scheduleVersion: integer("schedule_version").notNull().default(1),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "human_interview_meeting_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_meeting_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.processingMeetingSessionId],
+      foreignColumns: [meetingSession.id],
+      name: "human_interview_meeting_processing_meeting_session_id_fk",
+    }).onDelete("set null"),
+    index("human_interview_meeting_schedule_idx").on(table.organizationId, table.scheduledAt),
+    index("human_interview_meeting_status_idx").on(table.organizationId, table.status),
+    index("human_interview_meeting_recording_status_idx").on(
+      table.organizationId,
+      table.recordingStatus,
+    ),
+    uniqueIndex("human_interview_meeting_id_org_uq").on(table.id, table.organizationId),
+    uniqueIndex("human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
+    index("human_interview_meeting_feishu_meeting_idx").on(
+      table.feishuProviderId,
+      table.feishuMeetingId,
+    ),
+    check("human_interview_meeting_schedule_version_check", sql`${table.scheduleVersion} > 0`),
+    check(
+      "human_interview_meeting_recording_status_check",
+      sql`${table.recordingStatus} in ('pending', 'starting', 'active', 'completed', 'failed')`,
+    ),
+    check(
+      "human_interview_meeting_candidate_recording_status_check",
+      sql`${table.candidateRecordingStatus} in ('pending', 'starting', 'active', 'completed', 'failed')`,
+    ),
+  ],
+);
+
+// 真人会议回调收据：以提供方事件身份去重，防止重复或迟到回调回退会议状态。
+export const humanInterviewMeetingEvent = pgTable(
+  "human_interview_meeting_event",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id").notNull(),
+    // 复制时由所属会议、轮次或任务回填，数据库禁止跨工作区拼接关联。
+    organizationId: text("organization_id").notNull(),
+    provider: text("provider").$type<HumanInterviewMeetingProvider>().notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    type: text("type").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_interview_meeting_event_meeting_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_meeting_event_organization_id_fk",
+    }).onDelete("cascade"),
+    index("human_interview_meeting_event_meeting_idx").on(table.meetingId),
+    uniqueIndex("human_interview_meeting_event_provider_event_idx").on(
+      table.provider,
+      table.providerEventId,
+    ),
+  ],
+);
+
+// 真人会议与轮次关联：保留每位候选人的邀请 token、响应和入离会时间。
+export const humanInterviewMeetingRound = pgTable(
+  "human_interview_meeting_round",
+  {
+    candidateDeclineReason: text("candidate_decline_reason"),
+    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
+    candidateInviteStatus: text("candidate_invite_status")
+      .$type<CandidateInterviewInvitationStatus>()
+      .notNull()
+      .default("pending"),
+    candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
+    invitationVersion: integer("invitation_version").notNull().default(1),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    meetingId: text("meeting_id").notNull(),
+    // 复制时由所属会议、轮次或任务回填，数据库禁止跨工作区拼接关联。
+    organizationId: text("organization_id").notNull(),
+    roundId: text("round_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_interview_meeting_round_meeting_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.roundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "human_interview_meeting_round_round_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_meeting_round_organization_id_fk",
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.meetingId, table.roundId] }),
+    index("human_interview_meeting_round_round_idx").on(table.roundId),
+    uniqueIndex("human_interview_meeting_round_invite_token_idx").on(
+      table.candidateInviteTokenHash,
+    ),
+    check(
+      "human_interview_meeting_round_invite_status_check",
+      sql`${table.candidateInviteStatus} IN ('pending', 'sent', 'accepted', 'declined', 'expired')`,
+    ),
+    check(
+      "human_interview_meeting_round_invitation_version_check",
+      sql`${table.invitationVersion} > 0`,
+    ),
+  ],
+);
+
+// 真人会议面试官：保留会议角色、邀请身份与现场转写草稿。
+export const humanInterviewMeetingInterviewer = pgTable(
+  "human_interview_meeting_interviewer",
+  {
+    feishuOpenId: text("feishu_open_id"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
+    liveTranscriptDraftVersion: integer("live_transcript_draft_version").notNull().default(0),
+    meetingId: text("meeting_id").notNull(),
+    // 复制时由所属会议、轮次或任务回填，数据库禁止跨工作区拼接关联。
+    organizationId: text("organization_id").notNull(),
+    role: text("role")
+      .$type<HumanInterviewMeetingInterviewerRole>()
+      .notNull()
+      .default("interviewer"),
+    userId: text("user_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [user.id],
+      name: "human_interview_meeting_interviewer_user_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_interview_meeting_interviewer_meeting_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_meeting_interviewer_organization_id_fk",
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.meetingId, table.userId] }),
+    index("human_interview_meeting_interviewer_user_idx").on(table.userId),
+    check(
+      "human_interview_meeting_interviewer_draft_version_check",
+      sql`${table.liveTranscriptDraftVersion} >= 0`,
+    ),
+  ],
+);
+
+// 真人轮次面试官：保留分配状态与确认的排期版本，不与会议角色混用。
+export const humanInterviewRoundInterviewer = pgTable(
+  "human_interview_round_interviewer",
+  {
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedScheduleVersion: integer("confirmed_schedule_version"),
+    declineReason: text("decline_reason"),
+    declinedAt: timestamp("declined_at", { withTimezone: true }),
+    // 复制时由所属会议、轮次或任务回填，数据库禁止跨工作区拼接关联。
+    organizationId: text("organization_id").notNull(),
+    roundId: text("round_id").notNull(),
+    status: text("status").$type<HumanInterviewerAssignmentStatus>().notNull().default("pending"),
+    userId: text("user_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [user.id],
+      name: "human_interview_round_interviewer_user_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.roundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "human_interview_round_interviewer_round_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "human_interview_round_interviewer_organization_id_fk",
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.roundId, table.userId] }),
+    index("human_interview_round_interviewer_user_idx").on(table.userId),
+    check(
+      "human_interview_round_interviewer_status_check",
+      sql`${table.status} IN ('pending', 'confirmed', 'declined')`,
+    ),
+    check(
+      "human_interview_round_interviewer_confirmed_version_check",
+      sql`${table.confirmedScheduleVersion} IS NULL OR ${table.confirmedScheduleVersion} > 0`,
+    ),
+  ],
+);
+
+// 薪资和 Offer 版本：同一招聘可有多版，接受 Offer 只代表进入后续办理，不能直接标记入职。
+export const recruitingOffer = pgTable(
+  "recruiting_offer",
+  {
+    baseSalary: integer("base_salary").notNull(),
+    bonus: integer("bonus"),
+    candidateCounter: text("candidate_counter"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    currency: text("currency").notNull().default("CNY"),
+    equity: text("equity"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    joiningDate: timestamp("joining_date", { withTimezone: true }),
+    notes: text("notes"),
+    organizationId: text("organization_id").notNull(),
+    position: text("position").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    responseAt: timestamp("response_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    status: text("status").$type<OfferDraftStatus>().notNull().default("draft"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    version: integer("version").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    check(
+      "recruiting_offer_status_check",
+      sql`${table.status} IN ('draft','sent','accepted','declined','expired','superseded')`,
+    ),
+    check(
+      "recruiting_offer_salary_check",
+      sql`${table.baseSalary} >= 0 AND (${table.bonus} IS NULL OR ${table.bonus} >= 0)`,
+    ),
+    check("recruiting_offer_version_check", sql`${table.version} > 0`),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_offer_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_offer_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_offer_id_record_org_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    uniqueIndex("recruiting_offer_record_version_uniq").on(table.recruitingRecordId, table.version),
+    index("recruiting_offer_org_idx").on(table.organizationId),
+    index("recruiting_offer_status_idx").on(table.status),
+  ],
+);
+
+// 人才池导入关系：普通导入复用由业务锁保证；显式重新导入允许另一条招聘记录。
+export const recruitingPoolImport = pgTable(
+  "recruiting_pool_import",
+  {
+    id: text("id").primaryKey(),
+    importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
+    importedBy: text("imported_by"),
+    organizationId: text("organization_id").notNull(),
+    poolItemId: text("pool_item_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.importedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_pool_import_imported_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_pool_import_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.poolItemId],
+      foreignColumns: [resumePoolItem.id],
+      name: "recruiting_pool_import_pool_item_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_pool_import_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_pool_import_pool_org_record_uq").on(
+      table.poolItemId,
+      table.organizationId,
+      table.recruitingRecordId,
+    ),
+    index("recruiting_pool_import_pool_org_idx").on(table.poolItemId, table.organizationId),
+    index("recruiting_pool_import_record_idx").on(table.recruitingRecordId),
+  ],
+);
+
+// 招聘上传批次：与旧批次独立保存处理计数和状态，避免新 Worker 回写旧批次。
+export const recruitingUploadBatch = pgTable(
+  "recruiting_upload_batch",
+  {
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").notNull(),
+    dedupPolicy: text("dedup_policy").$type<ResumeUploadBatchDedupPolicy>().notNull(),
+    failedCount: integer("failed_count").notNull().default(0),
+    id: text("id").primaryKey(),
+    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull(),
+    jobDescriptionId: text("job_description_id"),
+    jobMatchRequestedAt: timestamp("job_match_requested_at", { withTimezone: true }),
+    organizationId: text("organization_id").notNull(),
+    processedCount: integer("processed_count").notNull().default(0),
+    resumePoolScope: text("resume_pool_scope").$type<ResumePoolScope>(),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    status: text("status").$type<ResumeUploadBatchStatus>().notNull(),
+    succeededCount: integer("succeeded_count").notNull().default(0),
+    target: text("target").$type<ResumeUploadBatchTarget>().notNull().default("resume_library"),
+    totalCount: integer("total_count").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_upload_batch_created_by_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.jobDescriptionId],
+      foreignColumns: [jobDescription.id],
+      name: "recruiting_upload_batch_job_description_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_upload_batch_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_upload_batch_id_org_uq").on(table.id, table.organizationId),
+    index("recruiting_upload_batch_org_user_status_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.status,
+    ),
+    index("recruiting_upload_batch_org_user_created_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+  ],
+);
+
+// 招聘上传明细：可先关联待解析的新招聘记录，再由 Worker 填充简历；保留原队列任务身份。
+export const recruitingUploadBatchItem = pgTable(
+  "recruiting_upload_batch_item",
+  {
+    attemptCount: integer("attempt_count").notNull().default(0),
+    batchId: text("batch_id").notNull(),
+    contentHash: text("content_hash"),
+    dedupMatchSnapshot: jsonb("dedup_match_snapshot"),
+    errorMessage: text("error_message"),
+    fileSize: integer("file_size").notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    orderIndex: integer("order_index").notNull(),
+    organizationId: text("organization_id").notNull(),
+    originalFileName: text("original_file_name").notNull(),
+    poolItemId: text("pool_item_id"),
+    queueJobId: text("queue_job_id"),
+    queuedAt: timestamp("queued_at", { withTimezone: true }),
+    recruitingRecordId: text("recruiting_record_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    status: text("status").$type<ResumeUploadBatchItemStatus>().notNull(),
+    storageKey: text("storage_key").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.poolItemId],
+      foreignColumns: [resumePoolItem.id],
+      name: "recruiting_upload_batch_item_pool_item_id_fk",
+    }).onDelete("set null"),
+    uniqueIndex("recruiting_upload_batch_item_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.batchId, table.organizationId],
+      foreignColumns: [recruitingUploadBatch.id, recruitingUploadBatch.organizationId],
+      name: "recruiting_upload_batch_item_batch_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_upload_batch_item_recruiting_record_id_org_fk",
+    }).onDelete("no action"),
+    index("recruiting_upload_batch_item_batch_order_idx").on(table.batchId, table.orderIndex),
+    index("recruiting_upload_batch_item_batch_status_idx").on(table.batchId, table.status),
+  ],
+);
+
+// 招聘邮件收件记录：连接新上传批次，复用独立邮箱配置，保留邮件去重身份。
+export const recruitingMailMessage = pgTable(
+  "recruiting_mail_message",
+  {
+    accountId: text("account_id").notNull(),
+    attachmentCount: integer("attachment_count"),
+    batchId: text("batch_id"),
+    boundJobDescriptionId: text("bound_job_description_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    extractedJobCodes: jsonb("extracted_job_codes").$type<string[]>(),
+    fromAddress: text("from_address"),
+    id: text("id").primaryKey(),
+    jdBindStatus: text("jd_bind_status").$type<MailIngestJdBindStatus>(),
+    mailbox: text("mailbox").notNull(),
+    messageId: text("message_id"),
+    // 复制时由所属会议、轮次或任务回填，数据库禁止跨工作区拼接关联。
+    organizationId: text("organization_id").notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    resumeAttachmentCount: integer("resume_attachment_count"),
+    skipReason: text("skip_reason").$type<MailIngestSkipReason>(),
+    status: text("status").$type<MailIngestMessageStatus>().notNull(),
+    subject: text("subject"),
+    uid: text("uid").notNull(),
+    uidValidity: text("uid_validity").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.accountId],
+      foreignColumns: [mailIngestAccount.id],
+      name: "recruiting_mail_message_account_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.boundJobDescriptionId],
+      foreignColumns: [jobDescription.id],
+      name: "recruiting_mail_message_bound_job_description_id_fk",
+    }).onDelete("set null"),
+    uniqueIndex("recruiting_mail_message_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.batchId, table.organizationId],
+      foreignColumns: [recruitingUploadBatch.id, recruitingUploadBatch.organizationId],
+      name: "recruiting_mail_message_batch_id_org_fk",
+    }).onDelete("no action"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_mail_message_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_mail_message_account_mail_uid_uq").on(
+      table.accountId,
+      table.mailbox,
+      table.uidValidity,
+      table.uid,
+    ),
+    index("recruiting_mail_message_account_status_created_idx").on(
+      table.accountId,
+      table.status,
+      table.createdAt,
+    ),
+    index("recruiting_mail_message_batch_idx").on(table.batchId),
+    index("recruiting_mail_message_account_received_idx").on(
+      table.accountId,
+      table.receivedAt.desc(),
+    ),
+  ],
+);
+
+// 招聘岗位匹配尝试：关联新上传明细及邮件，保留输入版本与最终选岗依据。
+export const recruitingJobMatchRun = pgTable(
+  "recruiting_job_match_run",
+  {
+    batchItemId: text("batch_item_id"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    mailMessageId: text("mail_message_id"),
+    matcherVersion: text("matcher_version").notNull(),
+    model: text("model"),
+    organizationId: text("organization_id").notNull(),
+    poolItemId: text("pool_item_id").notNull(),
+    promptVersion: text("prompt_version"),
+    resumeInputHash: text("resume_input_hash").notNull(),
+    selectedJobDescriptionId: text("selected_job_description_id"),
+    selectionMethod: text("selection_method").$type<ResumeJobMatchSelectionMethod>(),
+    status: text("status").$type<ResumeJobMatchRunStatus>().notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_job_match_run_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.poolItemId],
+      foreignColumns: [resumePoolItem.id],
+      name: "recruiting_job_match_run_pool_item_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.selectedJobDescriptionId],
+      foreignColumns: [jobDescription.id],
+      name: "recruiting_job_match_run_selected_job_description_id_fk",
+    }).onDelete("set null"),
+    uniqueIndex("recruiting_job_match_run_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.batchItemId, table.organizationId],
+      foreignColumns: [recruitingUploadBatchItem.id, recruitingUploadBatchItem.organizationId],
+      name: "recruiting_job_match_run_batch_item_id_org_fk",
+    }).onDelete("no action"),
+    foreignKey({
+      columns: [table.mailMessageId, table.organizationId],
+      foreignColumns: [recruitingMailMessage.id, recruitingMailMessage.organizationId],
+      name: "recruiting_job_match_run_mail_message_id_org_fk",
+    }).onDelete("no action"),
+    uniqueIndex("recruiting_job_match_run_pool_batch_version_uq").on(
+      table.poolItemId,
+      table.batchItemId,
+      table.matcherVersion,
+    ),
+    index("recruiting_job_match_run_org_pool_created_idx").on(
+      table.organizationId,
+      table.poolItemId,
+      table.createdAt,
+    ),
+    index("recruiting_job_match_run_selected_job_idx").on(table.selectedJobDescriptionId),
+  ],
+);
+
+// 岗位匹配候选结果：这是推荐岗位的证据，不是人才身份，也不决定简历合格与否。
+export const recruitingJobMatchCandidate = pgTable(
+  "recruiting_job_match_candidate",
+  {
+    aiRank: integer("ai_rank"),
+    aiReason: text("ai_reason"),
+    aiScore: integer("ai_score"),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id"),
+    jobSnapshot: jsonb("job_snapshot").$type<ResumeJobMatchJobSnapshot>().notNull(),
+    // 复制时由所属会议、轮次或任务回填，数据库禁止跨工作区拼接关联。
+    organizationId: text("organization_id").notNull(),
+    overviewScore: doublePrecision("overview_score"),
+    recallRank: integer("recall_rank"),
+    recallSource: text("recall_source").$type<ResumeJobMatchRecallSource>().notNull(),
+    runId: text("run_id").notNull(),
+    skillRoleScore: doublePrecision("skill_role_score"),
+    vectorScore: integer("vector_score"),
+    workProjectScore: doublePrecision("work_project_score"),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.jobDescriptionId],
+      foreignColumns: [jobDescription.id],
+      name: "recruiting_job_match_candidate_job_description_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.runId, table.organizationId],
+      foreignColumns: [recruitingJobMatchRun.id, recruitingJobMatchRun.organizationId],
+      name: "recruiting_job_match_candidate_run_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_job_match_candidate_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_job_match_candidate_run_job_uq").on(
+      table.runId,
+      table.jobDescriptionId,
+    ),
+    uniqueIndex("recruiting_job_match_candidate_run_ai_rank_uq").on(table.runId, table.aiRank),
+    index("recruiting_job_match_candidate_job_idx").on(table.jobDescriptionId),
+    check(
+      "recruiting_job_match_candidate_ai_score_check",
+      sql`${table.aiScore} IS NULL OR (${table.aiScore} >= 0 AND ${table.aiScore} <= 100)`,
+    ),
+    check(
+      "recruiting_job_match_candidate_ai_rank_check",
+      sql`${table.aiRank} IS NULL OR ${table.aiRank} > 0`,
+    ),
+    check(
+      "recruiting_job_match_candidate_recall_rank_check",
+      sql`${table.recallRank} IS NULL OR ${table.recallRank} > 0`,
+    ),
+  ],
+);
+
+// AI 面试会话：保留转写、录音、报告和重试状态，关联新招聘及新 AI 轮次。
+export const aiInterviewConversation = pgTable(
+  "ai_interview_conversation",
+  {
+    agentId: text("agent_id"),
+    aiRoundId: text("ai_round_id"),
+    callSuccessful: text("call_successful"),
+    conversationId: text("conversation_id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    dataCollectionResults: jsonb("data_collection_results")
+      .$type<JsonObject>()
+      .notNull()
+      .default({}),
+    dynamicVariables: jsonb("dynamic_variables").$type<JsonObject>().notNull().default({}),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    evaluationCriteriaResults: jsonb("evaluation_criteria_results")
+      .$type<JsonObject>()
+      .notNull()
+      .default({}),
+    keyInformation: jsonb("key_information").$type<InterviewKeyInformation>(),
+    keyInformationAttempts: integer("key_information_attempts").notNull().default(0),
+    keyInformationError: text("key_information_error"),
+    keyInformationStartedAt: timestamp("key_information_started_at", { withTimezone: true }),
+    keyInformationStatus: text("key_information_status")
+      .$type<InterviewSummaryStatus>()
+      .notNull()
+      .default("pending"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
+    latestError: text("latest_error"),
+    metadata: jsonb("metadata").$type<JsonObject>().notNull().default({}),
+    metrics: jsonb("metrics").$type<JsonObject>().notNull().default({}),
+    mode: text("mode"),
+    organizationId: text("organization_id").notNull(),
+    recordingDurationSecs: integer("recording_duration_secs"),
+    recordingEgressId: text("recording_egress_id"),
+    recordingFileKey: text("recording_file_key"),
+    recordingStatus: text("recording_status").$type<InterviewRecordingStatus>(),
+    recruitingRecordId: text("recruiting_record_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    status: text("status").notNull().default("initiated"),
+    summaryAttempts: integer("summary_attempts").notNull().default(0),
+    summaryError: text("summary_error"),
+    summaryStartedAt: timestamp("summary_started_at", { withTimezone: true }),
+    summaryStatus: text("summary_status")
+      .$type<InterviewSummaryStatus>()
+      .notNull()
+      .default("pending"),
+    transcript: jsonb("transcript").$type<InterviewTranscriptTurn[]>().notNull().default([]),
+    transcriptSummary: text("transcript_summary"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    webhookReceivedAt: timestamp("webhook_received_at", { withTimezone: true }),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    uniqueIndex("ai_conversation_round_org_uq").on(
+      table.conversationId,
+      table.aiRoundId,
+      table.organizationId,
+    ),
+    // 轮次、快照等依据必须属于本招聘，不能只检查同工作区。
+    foreignKey({
+      columns: [table.aiRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "ai_interview_conversation_ai_round_id_owner_fk",
+    }),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "ai_interview_conversation_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("ai_interview_conversation_conversation_id_org_uq").on(
+      table.conversationId,
+      table.organizationId,
+    ),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "ai_interview_conversation_recruiting_record_id_org_fk",
+    }).onDelete("no action"),
+    foreignKey({
+      columns: [table.aiRoundId, table.organizationId],
+      foreignColumns: [aiInterviewRound.id, aiInterviewRound.organizationId],
+      name: "ai_interview_conversation_ai_round_id_org_fk",
+    }).onDelete("no action"),
+    index("ai_interview_conversation_record_idx").on(table.recruitingRecordId),
+    index("ai_interview_conversation_key_information_status_idx").on(table.keyInformationStatus),
+    index("ai_interview_conversation_ai_round_idx").on(table.aiRoundId),
+    index("ai_interview_conversation_status_idx").on(table.status),
+    index("ai_interview_conversation_summary_status_idx").on(table.summaryStatus),
+    index("ai_interview_conversation_updated_at_idx").on(table.updatedAt),
+    index("ai_interview_conversation_org_ended_started_idx").on(
+      table.organizationId,
+      table.endedAt,
+      table.startedAt,
+    ),
+  ],
+);
+
+// AI 面试逐条会话内容：保留原会话归属和消息时间，避免合并不同面试轮次。
+export const aiInterviewConversationTurn = pgTable(
+  "ai_interview_conversation_turn",
+  {
+    conversationId: text("conversation_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    id: text("id").primaryKey(),
+    message: text("message").notNull(),
+    organizationId: text("organization_id").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    recruitingRecordId: text("recruiting_record_id"),
+    role: text("role").$type<InterviewMessageRole>().notNull(),
+    source: text("source").notNull().default("client_event"),
+    timeInCallSecs: integer("time_in_call_secs"),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "ai_interview_conversation_turn_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.conversationId, table.organizationId],
+      foreignColumns: [
+        aiInterviewConversation.conversationId,
+        aiInterviewConversation.organizationId,
+      ],
+      name: "ai_interview_conversation_turn_conversation_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "ai_interview_conversation_turn_recruiting_record_id_org_fk",
+    }).onDelete("no action"),
+    index("ai_interview_conversation_turn_conversation_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
+    index("ai_interview_conversation_turn_record_idx").on(
+      table.recruitingRecordId,
+      table.createdAt,
+    ),
+    index("ai_interview_conversation_turn_organization_idx").on(table.organizationId),
+  ],
+);
+
+// 招聘操作历史：保存旧审计及新状态变化；重新打开前将失效的下游节点依据写入 detail。
+export const recruitingEvent = pgTable(
+  "recruiting_event",
+  {
+    action: text("action").notNull(),
+    aiRoundId: text("ai_round_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    detail: jsonb("detail").$type<JsonObject>().notNull().default({}),
+    fromOutcome: text("from_outcome").$type<CandidateOutcome>(),
+    // 普通历史审计可为空；流程事件使用结构化字段支持时间线和转化统计。
+    fromStage: text("from_stage").$type<RecruitingStage>(),
+    id: text("id").primaryKey(),
+    operatorId: text("operator_id"),
+    organizationId: text("organization_id").notNull(),
+    pipelineVersion: integer("pipeline_version"),
+    reasonCode: text("reason_code").$type<RecruitingCloseReason>(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    toOutcome: text("to_outcome").$type<CandidateOutcome>(),
+    toStage: text("to_stage").$type<RecruitingStage>(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    // 轮次、快照等依据必须属于本招聘，不能只检查同工作区。
+    foreignKey({
+      columns: [table.aiRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "recruiting_event_ai_round_id_owner_fk",
+    }),
+    check(
+      "recruiting_event_stage_pair_check",
+      sql`(${table.fromStage} IS NULL) = (${table.toStage} IS NULL)`,
+    ),
+    check(
+      "recruiting_event_outcome_pair_check",
+      sql`(${table.fromOutcome} IS NULL) = (${table.toOutcome} IS NULL)`,
+    ),
+    foreignKey({
+      columns: [table.operatorId],
+      foreignColumns: [user.id],
+      name: "recruiting_event_operator_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_event_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_event_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_event_record_version_uq")
+      .on(table.recruitingRecordId, table.pipelineVersion)
+      .where(sql`${table.pipelineVersion} IS NOT NULL`),
+    check(
+      "recruiting_event_version_check",
+      sql`${table.pipelineVersion} IS NULL OR ${table.pipelineVersion} >= 0`,
+    ),
+    index("recruiting_event_record_idx").on(table.recruitingRecordId),
+    index("recruiting_event_created_at_idx").on(table.createdAt),
+    index("recruiting_event_organization_idx").on(table.organizationId),
+  ],
+);
+
+// 招聘通知接收人：保留工作区成员约束，新招聘不再依赖旧主表占位行。
+export const recruitingNotificationRecipient = pgTable(
+  "recruiting_notification_recipient",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_notification_recipient_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_notification_recipient_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [user.id],
+      name: "recruiting_notification_recipient_user_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_notification_recipient_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.recruitingRecordId, table.userId] }),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "recruiting_notification_recipient_member_org_fk",
+    }).onDelete("cascade"),
+    index("recruiting_notification_recipient_user_idx").on(table.organizationId, table.userId),
+  ],
+);
+
+// 招聘通知事件：保持事件去重键、快照及租约语义；复制历史数据本身不能发送通知。
+export const recruitingNotificationEvent = pgTable(
+  "recruiting_notification_event",
+  {
+    actorUserId: text("actor_user_id"),
+    aiRoundId: text("ai_round_id"),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    availableAt: timestamp("available_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    conversationId: text("conversation_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    humanMeetingId: text("human_meeting_id"),
+    humanRoundId: text("human_round_id"),
+    id: text("id").primaryKey(),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id").notNull(),
+    payloadSnapshot: jsonb("payload_snapshot")
+      .$type<InterviewNotificationPayloadSnapshot>()
+      .notNull(),
+    recruitingRecordId: text("recruiting_record_id"),
+    scopeType: text("scope_type").$type<InterviewNotificationScopeType>().notNull(),
+    status: text("status").$type<InterviewNotificationEventStatus>().notNull().default("pending"),
+    type: text("type").$type<InterviewNotificationEventType>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    // 轮次、快照等依据必须属于本招聘，不能只检查同工作区。
+    foreignKey({
+      columns: [table.humanRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        humanInterviewRound.id,
+        humanInterviewRound.recruitingRecordId,
+        humanInterviewRound.organizationId,
+      ],
+      name: "recruiting_notification_event_human_round_id_owner_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.aiRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "recruiting_notification_event_ai_round_id_owner_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.actorUserId],
+      foreignColumns: [user.id],
+      name: "recruiting_notification_event_actor_user_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_notification_event_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_notification_event_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.conversationId, table.organizationId],
+      foreignColumns: [
+        aiInterviewConversation.conversationId,
+        aiInterviewConversation.organizationId,
+      ],
+      name: "recruiting_notification_event_conversation_id_org_fk",
+    }).onDelete("no action"),
+    foreignKey({
+      columns: [table.humanMeetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "recruiting_notification_event_human_meeting_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.humanRoundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "recruiting_notification_event_human_round_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_notification_event_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.aiRoundId, table.organizationId],
+      foreignColumns: [aiInterviewRound.id, aiInterviewRound.organizationId],
+      name: "recruiting_notification_event_ai_round_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_notification_event_dedupe_uq").on(table.dedupeKey),
+    index("recruiting_notification_event_claim_idx").on(
+      table.status,
+      table.nextAttemptAt,
+      table.availableAt,
+    ),
+    index("recruiting_notification_event_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("recruiting_notification_event_record_created_idx").on(
+      table.recruitingRecordId,
+      table.createdAt,
+    ),
+    index("recruiting_notification_event_meeting_created_idx").on(
+      table.humanMeetingId,
+      table.createdAt,
+    ),
+    check(
+      "recruiting_notification_event_status_check",
+      sql`${table.status} IN ('pending', 'processing', 'completed', 'failed', 'dead', 'cancelled')`,
+    ),
+    check(
+      "recruiting_notification_event_scope_check",
+      sql`(
+        (${table.scopeType} = 'interview_record' AND ${table.recruitingRecordId} IS NOT NULL)
+        OR (${table.scopeType} = 'ai_round' AND ${table.aiRoundId} IS NOT NULL)
+        OR (${table.scopeType} = 'human_meeting' AND ${table.humanMeetingId} IS NOT NULL)
+      )`,
+    ),
+    check("recruiting_notification_event_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "recruiting_notification_event_lease_pair_check",
+      sql`(${table.leaseOwner} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
+    ),
+  ],
+);
+
+// 招聘通知投递：保留外部消息身份、发送结果及未知结果状态，防止历史通知重复投递。
+export const recruitingNotificationDelivery = pgTable(
+  "recruiting_notification_delivery",
+  {
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    audienceType: text("audience_type").$type<InterviewNotificationAudienceType>(),
+    channel: text("channel").$type<InterviewNotificationChannel>(),
+    conversationId: text("conversation_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    error: text("error"),
+    eventId: text("event_id"),
+    feishuDocumentId: text("feishu_document_id"),
+    feishuDocumentUrl: text("feishu_document_url"),
+    feishuMessageId: text("feishu_message_id"),
+    id: text("id").primaryKey(),
+    lastErrorCode: text("last_error_code"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    organizationId: text("organization_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    providerMessageId: text("provider_message_id"),
+    providerRequestKey: text("provider_request_key"),
+    recipientAddress: text("recipient_address"),
+    recipientDisplayName: text("recipient_display_name"),
+    recipientOpenId: text("recipient_open_id").notNull(),
+    recipientUserId: text("recipient_user_id"),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    renderedContent: text("rendered_content"),
+    renderedSubject: text("rendered_subject"),
+    resultUnknownAt: timestamp("result_unknown_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    status: text("status")
+      .$type<InterviewNotificationDeliveryStatus>()
+      .notNull()
+      .default("pending"),
+    templateVersionId: text("template_version_id"),
+    type: text("type").$type<AgentNotificationType | InterviewNotificationEventType>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_notification_delivery_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recipientUserId],
+      foreignColumns: [user.id],
+      name: "recruiting_notification_delivery_recipient_user_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.templateVersionId],
+      foreignColumns: [interviewNotificationTemplateVersion.id],
+      name: "recruiting_notification_delivery_template_version_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.conversationId, table.organizationId],
+      foreignColumns: [
+        aiInterviewConversation.conversationId,
+        aiInterviewConversation.organizationId,
+      ],
+      name: "recruiting_notification_delivery_conversation_id_org_fk",
+    }).onDelete("no action"),
+    foreignKey({
+      columns: [table.eventId, table.organizationId],
+      foreignColumns: [recruitingNotificationEvent.id, recruitingNotificationEvent.organizationId],
+      name: "recruiting_notification_delivery_event_id_org_fk",
+    }).onDelete("no action"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_notification_delivery_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    index("recruiting_notification_delivery_recipient_idx").on(table.recipientUserId),
+    index("recruiting_notification_event_idx").on(table.eventId),
+    index("recruiting_notification_delivery_delivery_claim_idx").on(
+      table.status,
+      table.nextAttemptAt,
+    ),
+    uniqueIndex("recruiting_notification_event_channel_recipient_uq")
+      .on(table.eventId, table.channel, table.recipientAddress)
+      .where(
+        sql`${table.eventId} IS NOT NULL AND ${table.channel} IS NOT NULL AND ${table.recipientAddress} IS NOT NULL`,
+      ),
+    uniqueIndex("recruiting_notification_delivery_provider_request_uq")
+      .on(table.providerRequestKey)
+      .where(sql`${table.providerRequestKey} IS NOT NULL`),
+    uniqueIndex("recruiting_notification_delivery_once_uq").on(
+      table.recruitingRecordId,
+      table.conversationId,
+      table.type,
+      table.recipientUserId,
+      table.providerId,
+    ),
+    index("recruiting_notification_delivery_organization_idx").on(table.organizationId),
+    check(
+      "recruiting_notification_delivery_delivery_status_check",
+      sql`${table.status} IN ('pending', 'sending', 'sent', 'failed', 'dead', 'unknown', 'cancelled')`,
+    ),
+    check("recruiting_notification_delivery_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "recruiting_notification_delivery_lease_pair_check",
+      sql`(${table.leaseOwner} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
+    ),
+  ],
+);
+
+// 招聘候选人表单回答：关联新招聘，仍引用原独立表单模板和不可变版本。
+export const recruitingFormSubmission = pgTable(
+  "recruiting_form_submission",
+  {
+    answers: jsonb("answers").$type<Record<string, string | string[]>>().notNull().default({}),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+    templateId: text("template_id").notNull(),
+    versionId: text("version_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_form_submission_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.templateId],
+      foreignColumns: [candidateFormTemplate.id],
+      name: "recruiting_form_submission_template_id_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.versionId],
+      foreignColumns: [candidateFormTemplateVersion.id],
+      name: "recruiting_form_submission_version_id_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_form_submission_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_form_submission_template_interview_uq").on(
+      table.templateId,
+      table.recruitingRecordId,
+    ),
+    index("recruiting_form_submission_version_idx").on(table.versionId),
+    index("recruiting_form_submission_interview_idx").on(table.recruitingRecordId),
+    index("recruiting_form_submission_organization_idx").on(table.organizationId),
+  ],
+);
+
+// 招聘问题模板绑定：保留人工禁用和排序设置，模板定义继续复用独立资源。
+export const recruitingQuestionTemplateBinding = pgTable(
+  "recruiting_question_template_binding",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    disabledByUser: boolean("disabled_by_user").default(false).notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    templateId: text("template_id").notNull(),
+    versionId: text("version_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_question_template_binding_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.templateId],
+      foreignColumns: [interviewQuestionTemplate.id],
+      name: "recruiting_question_template_binding_template_id_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.versionId],
+      foreignColumns: [interviewQuestionTemplateVersion.id],
+      name: "recruiting_question_template_binding_version_id_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_question_template_binding_recruiting_rec_bc995636",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_question_template_binding_interview_template_uq").on(
+      table.recruitingRecordId,
+      table.templateId,
+    ),
+    index("recruiting_question_template_binding_template_idx").on(table.templateId),
+    index("recruiting_question_template_binding_version_idx").on(table.versionId),
+    index("recruiting_question_template_binding_organization_idx").on(table.organizationId),
+  ],
+);
+
+// 招聘面试上下文快照：保留当时的问题与配置依据，不用当前配置覆盖历史。
+export const recruitingContextSnapshot = pgTable(
+  "recruiting_context_snapshot",
+  {
+    aiRoundId: text("ai_round_id"),
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    payload: jsonb("payload").$type<InterviewContextSnapshotPayload>().notNull(),
+    reason: text("reason").$type<InterviewContextSnapshotReason>().notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    status: text("status").$type<InterviewSnapshotStatus>().notNull().default("active"),
+    supersededAt: timestamp("superseded_at", { withTimezone: true }),
+    version: integer("version").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    // 轮次、快照等依据必须属于本招聘，不能只检查同工作区。
+    foreignKey({
+      columns: [table.aiRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "recruiting_context_snapshot_ai_round_id_owner_fk",
+    }),
+    uniqueIndex("recruiting_context_snapshot_owner_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_context_snapshot_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_context_snapshot_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_context_snapshot_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_context_snapshot_record_version_uq").on(
+      table.recruitingRecordId,
+      table.version,
+    ),
+    index("recruiting_context_snapshot_record_status_idx").on(
+      table.recruitingRecordId,
+      table.status,
+    ),
+    index("recruiting_context_snapshot_round_idx").on(table.aiRoundId),
+    index("recruiting_context_snapshot_organization_idx").on(table.organizationId),
+  ],
+);
+
+// 招聘面试证据快照：关联新上下文、轮次和会话，保留原报告依据。
+export const recruitingEvidenceSnapshot = pgTable(
+  "recruiting_evidence_snapshot",
+  {
+    aiRoundId: text("ai_round_id"),
+    contentHash: text("content_hash").notNull(),
+    contextSnapshotId: text("context_snapshot_id").notNull(),
+    conversationId: text("conversation_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    payload: jsonb("payload").$type<InterviewEvidenceSnapshotPayload>().notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    // 轮次、快照等依据必须属于本招聘，不能只检查同工作区。
+    foreignKey({
+      columns: [table.contextSnapshotId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        recruitingContextSnapshot.id,
+        recruitingContextSnapshot.recruitingRecordId,
+        recruitingContextSnapshot.organizationId,
+      ],
+      name: "recruiting_evidence_snapshot_context_snapshot_id_owner_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.aiRoundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "recruiting_evidence_snapshot_ai_round_id_owner_fk",
+    }),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_evidence_snapshot_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.conversationId, table.organizationId],
+      foreignColumns: [
+        aiInterviewConversation.conversationId,
+        aiInterviewConversation.organizationId,
+      ],
+      name: "recruiting_evidence_snapshot_conversation_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_evidence_snapshot_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_evidence_snapshot_conversation_hash_uq").on(
+      table.conversationId,
+      table.contentHash,
+    ),
+    index("recruiting_evidence_snapshot_record_idx").on(table.recruitingRecordId),
+    index("recruiting_evidence_snapshot_round_idx").on(table.aiRoundId),
+    index("recruiting_evidence_snapshot_context_idx").on(table.contextSnapshotId),
+    index("recruiting_evidence_snapshot_organization_idx").on(table.organizationId),
+  ],
+);
+
+// AI 轮次邮件日志：保留原发送时间与提供方消息 ID，不因复制重新发送邀请。
+export const recruitingRoundEmailLog = pgTable(
+  "recruiting_round_email_log",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    resendMessageId: text("resend_message_id"),
+    roundId: text("round_id").notNull(),
+    sentBy: text("sent_by"),
+    status: text("status").$type<StudioRoundEmailLogStatus>().notNull(),
+    subject: text("subject").notNull(),
+    templateKey: text("template_key").notNull().default("round_invite"),
+    toEmail: text("to_email").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    // 轮次、快照等依据必须属于本招聘，不能只检查同工作区。
+    foreignKey({
+      columns: [table.roundId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        aiInterviewRound.id,
+        aiInterviewRound.recruitingRecordId,
+        aiInterviewRound.organizationId,
+      ],
+      name: "recruiting_round_email_log_round_id_owner_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_round_email_log_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.sentBy],
+      foreignColumns: [user.id],
+      name: "recruiting_round_email_log_sent_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_round_email_log_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    index("recruiting_round_email_log_organization_idx").on(table.organizationId),
+    index("recruiting_round_email_log_round_created_idx").on(table.roundId, table.createdAt),
+  ],
+);
+
+// 会议招聘关联：Desktop 会议指向新招聘记录，同一工作区复合外键保持权限隔离。
+export const recruitingMeetingContext = pgTable(
+  "recruiting_meeting_context",
+  {
+    linkedAt: timestamp("linked_at", { withTimezone: true }).defaultNow().notNull(),
+    linkedBy: text("linked_by"),
+    meetingId: text("meeting_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.linkedBy],
+      foreignColumns: [user.id],
+      name: "recruiting_meeting_context_linked_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_meeting_context_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_meeting_context_recruiting_record_id_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "recruiting_meeting_context_meeting_org_fk",
+    }).onDelete("cascade"),
+    index("recruiting_meeting_context_org_record_idx").on(
+      table.organizationId,
+      table.recruitingRecordId,
+    ),
+  ],
+);
+
+// 招聘语义索引台账：与旧索引状态分离，多态来源 ID 由索引业务校验，不充当身份合并规则。
+export const recruitingSearchIndex = pgTable(
+  "recruiting_search_index",
+  {
+    contentHash: text("content_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    embeddingModel: text("embedding_model").notNull(),
+    embeddingVersion: text("embedding_version").notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    lastIndexedAt: timestamp("last_indexed_at", { withTimezone: true }),
+    organizationId: text("organization_id").notNull(),
+    profileHash: text("profile_hash").notNull(),
+    sourceId: text("source_id").notNull(),
+    sourceType: text("source_type").$type<RecruitingSearchSource>().notNull(),
+    status: text("status").$type<ResumeSemanticIndexStatus>().notNull().default("pending"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    check(
+      "recruiting_search_source_check",
+      sql`${table.sourceType} IN ('resume_pool_item','recruiting_record','job_description')`,
+    ),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_search_index_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_search_index_source_version_uq").on(
+      table.sourceType,
+      table.sourceId,
+      table.embeddingVersion,
+    ),
+    index("recruiting_search_index_org_status_idx").on(table.organizationId, table.status),
+    index("recruiting_search_index_org_source_idx").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+    ),
+  ],
+);
+
+// 招聘疑似重复提示：只记录相似性，不自动合并人才或改变招聘记录。
+export const recruitingDuplicateMatch = pgTable(
+  "recruiting_duplicate_match",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    embeddingVersion: text("embedding_version").notNull(),
+    id: text("id").primaryKey(),
+    level: text("level").$type<ResumeSemanticDuplicateLevel>().notNull(),
+    matchedSourceId: text("matched_source_id").notNull(),
+    matchedSourceType: text("matched_source_type").$type<RecruitingSearchSource>().notNull(),
+    organizationId: text("organization_id").notNull(),
+    reasons: jsonb("reasons")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    score: integer("score").notNull(),
+    signals: jsonb("signals")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    similarity: jsonb("similarity").$type<{
+      resumeOverview?: number;
+      skillRole?: number;
+      workProject?: number;
+    }>(),
+    sourceId: text("source_id").notNull(),
+    sourceType: text("source_type").$type<RecruitingSearchSource>().notNull(),
+    status: text("status").$type<ResumeDuplicateMatchStatus>().notNull().default("active"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    check(
+      "recruiting_duplicate_source_check",
+      sql`${table.sourceType} IN ('resume_pool_item','recruiting_record','job_description') AND ${table.matchedSourceType} IN ('resume_pool_item','recruiting_record','job_description')`,
+    ),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_duplicate_match_organization_id_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_duplicate_match_source_target_version_uq").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+      table.matchedSourceType,
+      table.matchedSourceId,
+      table.embeddingVersion,
+    ),
+    index("recruiting_duplicate_match_org_source_idx").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+      table.createdAt,
+    ),
+    index("recruiting_duplicate_match_org_level_idx").on(table.organizationId, table.level),
+    index("recruiting_duplicate_match_org_status_idx").on(table.organizationId, table.status),
+  ],
+);

@@ -1,15 +1,17 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  interviewNotificationEvent,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -29,15 +31,14 @@ const START_TIME = new Date("2026-09-30T06:00:00.000Z");
 
 async function cleanup() {
   await db
-    .delete(interviewNotificationEvent)
-    .where(eq(interviewNotificationEvent.organizationId, ORG_ID));
+    .delete(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.organizationId, ORG_ID));
   await db
-    .delete(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
-  await db
-    .delete(studioHumanInterviewRound)
-    .where(eq(studioHumanInterviewRound.organizationId, ORG_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_ID));
+    .delete(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.organizationId, ORG_ID));
+  await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.organizationId, ORG_ID));
+  await db.delete(humanInterviewRound).where(eq(humanInterviewRound.organizationId, ORG_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
   await db.delete(user).where(eq(user.id, INTERVIEWER_A_ID));
   await db.delete(user).where(eq(user.id, INTERVIEWER_B_ID));
@@ -59,41 +60,48 @@ async function seedScenario() {
     },
   ]);
   await db.insert(organization).values({ id: ORG_ID, name: "指派状态测试", slug: ORG_ID });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "assignment-candidate@example.com",
     candidateName: "候选人",
     id: CANDIDATE_ID,
     organizationId: ORG_ID,
   });
-  await db.insert(studioHumanInterviewRound).values({
+  await db.insert(humanInterviewRound).values({
     format: "online",
     id: ROUND_ID,
-    interviewRecordId: CANDIDATE_ID,
     label: "技术复面",
     organizationId: ORG_ID,
+    recruitingRecordId: CANDIDATE_ID,
+    roundKind: "second_interview",
     scheduledAt: START_TIME,
   });
-  await db.insert(studioHumanInterviewMeeting).values({
+  await db.insert(humanInterviewMeeting).values({
     id: MEETING_ID,
     organizationId: ORG_ID,
     scheduledAt: START_TIME,
     title: "候选人 - 技术复面",
     validUntil: new Date("2026-09-30T07:00:00.000Z"),
   });
-  await db.insert(studioHumanInterviewMeetingRound).values({
+  await db.insert(humanInterviewMeetingRound).values({
     candidateInviteStatus: "accepted",
     candidateRespondedAt: new Date("2026-08-24T06:00:00.000Z"),
     invitationVersion: 1,
     meetingId: MEETING_ID,
+    organizationId: ORG_ID,
     roundId: ROUND_ID,
   });
-  await db.insert(studioHumanInterviewMeetingInterviewer).values([
-    { meetingId: MEETING_ID, role: "host", userId: INTERVIEWER_A_ID },
-    { meetingId: MEETING_ID, role: "interviewer", userId: INTERVIEWER_B_ID },
+  await db.insert(humanInterviewMeetingInterviewer).values([
+    { meetingId: MEETING_ID, organizationId: ORG_ID, role: "host", userId: INTERVIEWER_A_ID },
+    {
+      meetingId: MEETING_ID,
+      organizationId: ORG_ID,
+      role: "interviewer",
+      userId: INTERVIEWER_B_ID,
+    },
   ]);
-  await db.insert(studioHumanInterviewRoundInterviewer).values([
-    { roundId: ROUND_ID, userId: INTERVIEWER_A_ID },
-    { roundId: ROUND_ID, userId: INTERVIEWER_B_ID },
+  await db.insert(humanInterviewRoundInterviewer).values([
+    { organizationId: ORG_ID, roundId: ROUND_ID, userId: INTERVIEWER_A_ID },
+    { organizationId: ORG_ID, roundId: ROUND_ID, userId: INTERVIEWER_B_ID },
   ]);
 }
 
@@ -139,20 +147,20 @@ describe("human interviewer assignment state", () => {
       roundId: ROUND_ID,
     });
     await db
-      .update(studioHumanInterviewMeetingRound)
+      .update(humanInterviewMeetingRound)
       .set({
         candidateInviteExpiresAt: expiresAt,
         candidateInviteStatus: "sent",
         candidateInviteTokenHash: hashInviteToken(inviteToken),
         candidateRespondedAt: null,
       })
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, MEETING_ID));
+      .where(eq(humanInterviewMeetingRound.meetingId, MEETING_ID));
 
     await respondHumanInterviewCandidateInvitation({ action: "accept", inviteToken });
     const events = await db
-      .select({ type: interviewNotificationEvent.type })
-      .from(interviewNotificationEvent)
-      .where(eq(interviewNotificationEvent.humanMeetingId, MEETING_ID));
+      .select({ type: recruitingNotificationEvent.type })
+      .from(recruitingNotificationEvent)
+      .where(eq(recruitingNotificationEvent.humanMeetingId, MEETING_ID));
 
     expect(events).toEqual(
       expect.arrayContaining([
@@ -165,9 +173,7 @@ describe("human interviewer assignment state", () => {
   });
 
   it("notifies only the candidate when HR first creates the meeting", async () => {
-    await db
-      .delete(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, MEETING_ID));
+    await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.id, MEETING_ID));
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "true";
 
     const created = await createHumanInterviewMeeting({
@@ -183,17 +189,17 @@ describe("human interviewer assignment state", () => {
     });
 
     const events = await db
-      .select({ type: interviewNotificationEvent.type })
-      .from(interviewNotificationEvent)
-      .where(eq(interviewNotificationEvent.humanMeetingId, created.id));
+      .select({ type: recruitingNotificationEvent.type })
+      .from(recruitingNotificationEvent)
+      .where(eq(recruitingNotificationEvent.humanMeetingId, created.id));
     expect(events).toEqual([{ type: "human_candidate_invitation_requested" }]);
     const assignments = await db
       .select({
-        confirmedScheduleVersion: studioHumanInterviewRoundInterviewer.confirmedScheduleVersion,
-        status: studioHumanInterviewRoundInterviewer.status,
+        confirmedScheduleVersion: humanInterviewRoundInterviewer.confirmedScheduleVersion,
+        status: humanInterviewRoundInterviewer.status,
       })
-      .from(studioHumanInterviewRoundInterviewer)
-      .where(eq(studioHumanInterviewRoundInterviewer.roundId, ROUND_ID));
+      .from(humanInterviewRoundInterviewer)
+      .where(eq(humanInterviewRoundInterviewer.roundId, ROUND_ID));
     expect(assignments).toEqual([
       { confirmedScheduleVersion: 1, status: "confirmed" },
       { confirmedScheduleVersion: 1, status: "confirmed" },
@@ -209,45 +215,45 @@ describe("human interviewer assignment state", () => {
       roundId: ROUND_ID,
     });
     await db
-      .update(studioHumanInterviewMeetingRound)
+      .update(humanInterviewMeetingRound)
       .set({
         candidateInviteExpiresAt: expiresAt,
         candidateInviteStatus: "sent",
         candidateInviteTokenHash: hashInviteToken(inviteToken),
         candidateRespondedAt: null,
       })
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, MEETING_ID));
+      .where(eq(humanInterviewMeetingRound.meetingId, MEETING_ID));
 
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "true";
     await respondHumanInterviewCandidateInvitation({ action: "accept", inviteToken });
 
     const formalEvents = await db
-      .select({ type: interviewNotificationEvent.type })
-      .from(interviewNotificationEvent)
+      .select({ type: recruitingNotificationEvent.type })
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.humanMeetingId, MEETING_ID),
-          eq(interviewNotificationEvent.type, "human_interview_confirmed"),
+          eq(recruitingNotificationEvent.humanMeetingId, MEETING_ID),
+          eq(recruitingNotificationEvent.type, "human_interview_confirmed"),
         ),
       );
     expect(formalEvents).toHaveLength(1);
     const interviewerConfirmationEvents = await db
-      .select({ type: interviewNotificationEvent.type })
-      .from(interviewNotificationEvent)
+      .select({ type: recruitingNotificationEvent.type })
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.humanMeetingId, MEETING_ID),
-          eq(interviewNotificationEvent.type, "human_interviewer_confirmation_requested"),
+          eq(recruitingNotificationEvent.humanMeetingId, MEETING_ID),
+          eq(recruitingNotificationEvent.type, "human_interviewer_confirmation_requested"),
         ),
       );
     expect(interviewerConfirmationEvents).toHaveLength(0);
     const reminderEvents = await db
-      .select({ type: interviewNotificationEvent.type })
-      .from(interviewNotificationEvent)
+      .select({ type: recruitingNotificationEvent.type })
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.humanMeetingId, MEETING_ID),
-          eq(interviewNotificationEvent.type, "human_interview_reminder"),
+          eq(recruitingNotificationEvent.humanMeetingId, MEETING_ID),
+          eq(recruitingNotificationEvent.type, "human_interview_reminder"),
         ),
       );
     expect(reminderEvents).toHaveLength(2);
@@ -263,14 +269,14 @@ describe("human interviewer assignment state", () => {
       roundId: ROUND_ID,
     });
     await db
-      .update(studioHumanInterviewMeetingRound)
+      .update(humanInterviewMeetingRound)
       .set({
         candidateInviteExpiresAt: expiresAt,
         candidateInviteStatus: "sent",
         candidateInviteTokenHash: hashInviteToken(inviteToken),
         candidateRespondedAt: null,
       })
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, MEETING_ID));
+      .where(eq(humanInterviewMeetingRound.meetingId, MEETING_ID));
 
     await expect(
       respondHumanInterviewCandidateInvitation({ action: "accept", inviteToken }),
@@ -283,12 +289,12 @@ describe("human interviewer assignment state", () => {
     ).resolves.toBe(true);
 
     const [event] = await db
-      .select({ payload: interviewNotificationEvent.payloadSnapshot })
-      .from(interviewNotificationEvent)
+      .select({ payload: recruitingNotificationEvent.payloadSnapshot })
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.humanMeetingId, MEETING_ID),
-          eq(interviewNotificationEvent.type, "human_invitation_exception"),
+          eq(recruitingNotificationEvent.humanMeetingId, MEETING_ID),
+          eq(recruitingNotificationEvent.type, "human_invitation_exception"),
         ),
       );
     expect(event?.payload).toMatchObject({
@@ -313,12 +319,12 @@ describe("human interviewer assignment state", () => {
     ).resolves.toBe(false);
 
     const events = await db
-      .select({ id: interviewNotificationEvent.id })
-      .from(interviewNotificationEvent)
+      .select({ id: recruitingNotificationEvent.id })
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.humanMeetingId, MEETING_ID),
-          eq(interviewNotificationEvent.type, "human_invitation_exception"),
+          eq(recruitingNotificationEvent.humanMeetingId, MEETING_ID),
+          eq(recruitingNotificationEvent.type, "human_invitation_exception"),
         ),
       );
     expect(events).toHaveLength(0);

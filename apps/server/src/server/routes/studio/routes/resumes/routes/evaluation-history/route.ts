@@ -2,8 +2,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   jobDescriptionVersion,
-  resumeEvaluationFailure,
-  resumeEvaluationVersion,
+  recruitingResumeEvaluation,
+  recruitingRecord,
 } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import type { ResumeEvaluationHistoryResponse } from "@app/shared/studio-resumes";
@@ -37,61 +37,66 @@ export const resumeEvaluationHistoryRouter = factory
     const [rows, failureRows] = await Promise.all([
       db
         .select({
-          artifact: resumeEvaluationVersion.artifact,
-          contractVersion: resumeEvaluationVersion.contractVersion,
-          createdAt: resumeEvaluationVersion.createdAt,
-          id: resumeEvaluationVersion.id,
+          artifact: recruitingResumeEvaluation.artifact,
+          contractVersion: recruitingResumeEvaluation.contractVersion,
+          createdAt: recruitingResumeEvaluation.createdAt,
+          id: recruitingResumeEvaluation.id,
           jobDescriptionVersion: jobDescriptionVersion.version,
-          jobDescriptionVersionId: resumeEvaluationVersion.jobDescriptionVersionId,
-          numericScore: resumeEvaluationVersion.numericScore,
-          recommendationLevel: resumeEvaluationVersion.recommendationLevel,
+          jobDescriptionVersionId: recruitingResumeEvaluation.jobDescriptionVersionId,
+          numericScore: recruitingResumeEvaluation.numericScore,
+          recommendationLevel: recruitingResumeEvaluation.recommendationLevel,
         })
-        .from(resumeEvaluationVersion)
+        .from(recruitingResumeEvaluation)
         .leftJoin(
           jobDescriptionVersion,
-          eq(resumeEvaluationVersion.jobDescriptionVersionId, jobDescriptionVersion.id),
+          eq(recruitingResumeEvaluation.jobDescriptionVersionId, jobDescriptionVersion.id),
         )
         .where(
           and(
-            eq(resumeEvaluationVersion.resumeRecordId, id),
-            eq(resumeEvaluationVersion.organizationId, activeOrg.id),
+            eq(recruitingResumeEvaluation.recruitingRecordId, id),
+            eq(recruitingResumeEvaluation.organizationId, activeOrg.id),
+            eq(recruitingResumeEvaluation.kind, "resume_review"),
+            eq(recruitingResumeEvaluation.status, "succeeded"),
           ),
         )
-        .orderBy(desc(resumeEvaluationVersion.createdAt)),
+        .orderBy(desc(recruitingResumeEvaluation.createdAt)),
       db
         .select({
-          contractVersion: resumeEvaluationFailure.contractVersion,
-          createdAt: resumeEvaluationFailure.createdAt,
-          errorMessage: resumeEvaluationFailure.errorMessage,
-          id: resumeEvaluationFailure.id,
+          contractVersion: recruitingResumeEvaluation.contractVersion,
+          createdAt: recruitingResumeEvaluation.createdAt,
+          errorMessage: recruitingResumeEvaluation.errorMessage,
+          id: recruitingResumeEvaluation.id,
           jobDescriptionVersion: jobDescriptionVersion.version,
-          jobDescriptionVersionId: resumeEvaluationFailure.jobDescriptionVersionId,
+          jobDescriptionVersionId: recruitingResumeEvaluation.jobDescriptionVersionId,
         })
-        .from(resumeEvaluationFailure)
+        .from(recruitingResumeEvaluation)
         .leftJoin(
           jobDescriptionVersion,
-          eq(resumeEvaluationFailure.jobDescriptionVersionId, jobDescriptionVersion.id),
+          eq(recruitingResumeEvaluation.jobDescriptionVersionId, jobDescriptionVersion.id),
         )
         .where(
           and(
-            eq(resumeEvaluationFailure.resumeRecordId, id),
-            eq(resumeEvaluationFailure.organizationId, activeOrg.id),
+            eq(recruitingResumeEvaluation.recruitingRecordId, id),
+            eq(recruitingResumeEvaluation.organizationId, activeOrg.id),
+            eq(recruitingResumeEvaluation.kind, "resume_review"),
+            eq(recruitingResumeEvaluation.status, "failed"),
           ),
         )
-        .orderBy(desc(resumeEvaluationFailure.createdAt)),
+        .orderBy(desc(recruitingResumeEvaluation.createdAt)),
     ]);
-    let markedCurrent = false;
+    const [pointer] = await db
+      .select({ currentId: recruitingRecord.currentEvaluationId })
+      .from(recruitingRecord)
+      .where(and(eq(recruitingRecord.id, id), eq(recruitingRecord.organizationId, activeOrg.id)))
+      .limit(1);
     const response: ResumeEvaluationHistoryResponse = {
       failures: failureRows.map((row) => ({
         ...row,
         createdAt: row.createdAt.toISOString(),
+        errorMessage: row.errorMessage ?? "AI 分析失败",
       })),
       records: rows.map((row) => {
-        const isCurrent =
-          !markedCurrent &&
-          row.contractVersion.startsWith("qualitative-v") &&
-          row.jobDescriptionVersionId === current.qualitativeJobDescriptionVersionId;
-        markedCurrent ||= isCurrent;
+        const isCurrent = row.id === pointer?.currentId;
         return {
           ...row,
           createdAt: row.createdAt.toISOString(),

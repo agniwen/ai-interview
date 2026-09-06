@@ -1,9 +1,6 @@
 import { and, eq, or } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingEvent,
-} from "@app/db-schema/schema";
+import { humanInterviewMeeting, humanInterviewMeetingEvent } from "@app/db-schema/schema";
 import type {
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingProvider,
@@ -43,8 +40,8 @@ export function applyHumanInterviewMeetingLifecycleEvent(
   return db.transaction(async (tx) => {
     const [meeting] = await tx
       .select()
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, event.meetingId))
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, event.meetingId))
       .limit(1);
 
     if (!meeting) {
@@ -53,16 +50,17 @@ export function applyHumanInterviewMeetingLifecycleEvent(
 
     if (event.providerEventId) {
       const receipts = await tx
-        .insert(studioHumanInterviewMeetingEvent)
+        .insert(humanInterviewMeetingEvent)
         .values({
           id: crypto.randomUUID(),
           meetingId: meeting.id,
+          organizationId: meeting.organizationId,
           provider: event.provider,
           providerEventId: event.providerEventId,
           type: event.type,
         })
         .onConflictDoNothing()
-        .returning({ id: studioHumanInterviewMeetingEvent.id });
+        .returning({ id: humanInterviewMeetingEvent.id });
       if (receipts.length === 0) {
         return "duplicate";
       }
@@ -85,7 +83,7 @@ export function applyHumanInterviewMeetingLifecycleEvent(
     }
 
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         endedAt: event.status === "ended" ? event.occurredAt : meeting.endedAt,
         lifecycleOccurredAt: event.occurredAt,
@@ -94,7 +92,7 @@ export function applyHumanInterviewMeetingLifecycleEvent(
         status: event.status,
         updatedAt: new Date(),
       })
-      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+      .where(eq(humanInterviewMeeting.id, meeting.id));
     if (event.status === "ended") {
       await cancelPendingHumanMeetingReminders(tx, meeting.id);
     }
@@ -109,19 +107,19 @@ export function forceEndHumanInterviewMeeting({
   meetingId: string;
   organizationId?: string;
 }): Promise<string | null> {
-  const conditions = [eq(studioHumanInterviewMeeting.id, meetingId)];
+  const conditions = [eq(humanInterviewMeeting.id, meetingId)];
   if (organizationId) {
-    conditions.push(eq(studioHumanInterviewMeeting.organizationId, organizationId));
+    conditions.push(eq(humanInterviewMeeting.organizationId, organizationId));
   }
   return db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
-        id: studioHumanInterviewMeeting.id,
-        liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
-        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-        status: studioHumanInterviewMeeting.status,
+        id: humanInterviewMeeting.id,
+        liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
+        scheduleVersion: humanInterviewMeeting.scheduleVersion,
+        status: humanInterviewMeeting.status,
       })
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(and(...conditions))
       .limit(1)
       .for("update");
@@ -134,7 +132,7 @@ export function forceEndHumanInterviewMeeting({
 
     const now = new Date();
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         endedAt: now,
         lifecycleOccurredAt: now,
@@ -158,16 +156,16 @@ export async function resolveHumanInterviewMeetingByFeishuMeeting({
   providerId: FeishuMeetingProviderId;
 }): Promise<string | null> {
   const identifiers = [
-    meetingId ? eq(studioHumanInterviewMeeting.feishuMeetingId, meetingId) : undefined,
-    meetingNo ? eq(studioHumanInterviewMeeting.feishuMeetingNo, meetingNo) : undefined,
+    meetingId ? eq(humanInterviewMeeting.feishuMeetingId, meetingId) : undefined,
+    meetingNo ? eq(humanInterviewMeeting.feishuMeetingNo, meetingNo) : undefined,
   ].filter((condition): condition is NonNullable<typeof condition> => condition !== undefined);
   if (identifiers.length === 0) {
     return null;
   }
   const [meeting] = await db
-    .select({ id: studioHumanInterviewMeeting.id })
-    .from(studioHumanInterviewMeeting)
-    .where(and(eq(studioHumanInterviewMeeting.feishuProviderId, providerId), or(...identifiers)))
+    .select({ id: humanInterviewMeeting.id })
+    .from(humanInterviewMeeting)
+    .where(and(eq(humanInterviewMeeting.feishuProviderId, providerId), or(...identifiers)))
     .limit(1);
   return meeting?.id ?? null;
 }
@@ -180,7 +178,7 @@ export async function recordHumanInterviewFeishuMeetingId({
   meetingId: string;
 }): Promise<void> {
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({ feishuMeetingId, updatedAt: new Date() })
-    .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    .where(eq(humanInterviewMeeting.id, meetingId));
 }

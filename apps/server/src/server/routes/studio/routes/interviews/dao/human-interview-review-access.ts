@@ -1,9 +1,9 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 import { db } from "../../../../../../lib/server/db/index";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
@@ -24,35 +24,38 @@ export async function loadStudioHumanInterviewReviewScope(input: {
   }
   const [row] = await db
     .select({
-      meetingId: studioHumanInterviewMeeting.id,
-      pipelineStage: studioInterview.pipelineStage,
+      meetingId: humanInterviewMeeting.id,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
     })
-    .from(studioHumanInterviewRound)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
+    .from(humanInterviewRound)
     .innerJoin(
-      studioHumanInterviewMeetingRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
     )
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+      humanInterviewMeetingRound,
+      eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
+    )
+    .innerJoin(
+      humanInterviewMeeting,
+      eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
     )
     .where(
       and(
-        eq(studioInterview.id, input.candidateId),
-        eq(studioInterview.organizationId, input.organizationId),
-        eq(studioHumanInterviewRound.id, input.roundId),
-        eq(studioHumanInterviewRound.organizationId, input.organizationId),
-        eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        eq(humanInterviewRound.id, input.roundId),
+        eq(humanInterviewRound.organizationId, input.organizationId),
+        eq(humanInterviewMeeting.organizationId, input.organizationId),
         input.visibility.kind === "restricted"
-          ? inArray(studioInterview.createdBy, input.visibility.userIds)
+          ? inArray(recruitingRecordReadModel.createdBy, input.visibility.userIds)
           : undefined,
       ),
     )
     .orderBy(
-      sql`${studioHumanInterviewMeeting.status} = 'cancelled'`,
-      desc(studioHumanInterviewMeeting.createdAt),
-      desc(studioHumanInterviewMeeting.id),
+      sql`${humanInterviewMeeting.status} = 'cancelled'`,
+      desc(humanInterviewMeeting.createdAt),
+      desc(humanInterviewMeeting.id),
     )
     .limit(1);
   if (!row) {

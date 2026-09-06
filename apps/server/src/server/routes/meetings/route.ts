@@ -265,6 +265,9 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
           meetingId: c.req.param("id"),
           organizationId: activeOrg.id,
         });
+        if (result.state === "recruiting-referenced") {
+          return c.json({ error: "会议仍被招聘数据引用，请先解除关联再永久清除。" }, 409);
+        }
         if (result.state === "forbidden") {
           return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以永久清除会议" }, 403);
         }

@@ -1,3 +1,4 @@
+import { RecruitingReferenceRetentionError } from "@app/database/recruiting-reference-retention";
 import { zValidator } from "@hono/zod-validator";
 import {
   enqueueMailIngestTrigger,
@@ -364,11 +365,19 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const deleted = await dependencies.deleteMailIngestAccount({
-        id: c.req.param("id"),
-        organizationId: activeOrg.id,
-        userId: user.id,
-      });
+      let deleted: boolean;
+      try {
+        deleted = await dependencies.deleteMailIngestAccount({
+          id: c.req.param("id"),
+          organizationId: activeOrg.id,
+          userId: user.id,
+        });
+      } catch (error) {
+        if (error instanceof RecruitingReferenceRetentionError) {
+          return c.json({ error: error.message }, 409);
+        }
+        throw error;
+      }
       if (!deleted) {
         return c.json({ error: "邮箱配置不存在。" }, 404);
       }

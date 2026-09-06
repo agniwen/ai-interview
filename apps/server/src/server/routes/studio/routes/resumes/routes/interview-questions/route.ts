@@ -1,8 +1,10 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db as defaultDb } from "../../../../../../../lib/server/db/index";
-import { studioInterview } from "@app/db-schema/schema";
+
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import { invalidateStudioInterviewCaches as defaultInvalidateStudioInterviewCaches } from "../../../../../../cache-tags";
@@ -60,12 +62,14 @@ export function createInterviewQuestionsRouter(
           ...question,
           dimension: question.dimension ?? "business",
         }));
-        await dependencies.db
-          .update(studioInterview)
-          .set({ interviewQuestions, updatedAt: new Date() })
-          .where(
-            and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
-          );
+        await updateRecruitingRecords(
+          dependencies.db,
+          and(
+            eq(recruitingRecordReadModel.id, recordId),
+            eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+          ),
+          { interviewQuestions, updatedAt: new Date() },
+        );
         dependencies.invalidateStudioInterviewCaches(activeOrg.id);
         return c.json({ interviewQuestions }, 200);
       },

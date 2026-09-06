@@ -1,12 +1,12 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import type { ResumeParseQueueJobsResult } from "@app/resume-parse-queue/resume-parse";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
   organization,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 
@@ -184,63 +184,66 @@ export async function loadResumeQueueDetailsByItemIds(
   const { db } = await import("../../../lib/server/db/index");
   const rows = await db
     .select({
-      attemptCount: resumeUploadBatchItem.attemptCount,
-      batchFailedCount: resumeUploadBatch.failedCount,
-      batchId: resumeUploadBatchItem.batchId,
-      batchProcessedCount: resumeUploadBatch.processedCount,
-      batchStatus: resumeUploadBatch.status,
-      batchSucceededCount: resumeUploadBatch.succeededCount,
-      batchTarget: resumeUploadBatch.target,
-      batchTotalCount: resumeUploadBatch.totalCount,
-      errorMessage: resumeUploadBatchItem.errorMessage,
-      fileSize: resumeUploadBatchItem.fileSize,
-      finishedAt: resumeUploadBatchItem.finishedAt,
-      itemId: resumeUploadBatchItem.id,
-      itemStatus: resumeUploadBatchItem.status,
+      attemptCount: recruitingUploadBatchItem.attemptCount,
+      batchFailedCount: recruitingUploadBatch.failedCount,
+      batchId: recruitingUploadBatchItem.batchId,
+      batchProcessedCount: recruitingUploadBatch.processedCount,
+      batchStatus: recruitingUploadBatch.status,
+      batchSucceededCount: recruitingUploadBatch.succeededCount,
+      batchTarget: recruitingUploadBatch.target,
+      batchTotalCount: recruitingUploadBatch.totalCount,
+      errorMessage: recruitingUploadBatchItem.errorMessage,
+      fileSize: recruitingUploadBatchItem.fileSize,
+      finishedAt: recruitingUploadBatchItem.finishedAt,
+      itemId: recruitingUploadBatchItem.id,
+      itemStatus: recruitingUploadBatchItem.status,
       organizationId: organization.id,
       organizationName: organization.name,
       organizationSlug: organization.slug,
-      originalFileName: resumeUploadBatchItem.originalFileName,
+      originalFileName: recruitingUploadBatchItem.originalFileName,
       poolCandidateEmail: resumePoolItem.candidateEmail,
       poolCandidateName: resumePoolItem.candidateName,
-      poolItemId: resumeUploadBatchItem.poolItemId,
+      poolItemId: recruitingUploadBatchItem.poolItemId,
       poolResumeParseError: resumePoolItem.resumeParseError,
       poolResumeParseStatus: resumePoolItem.resumeParseStatus,
       poolScope: resumePoolItem.scope,
       poolStatus: resumePoolItem.status,
       poolTargetRole: resumePoolItem.targetRole,
-      queuedAt: resumeUploadBatchItem.queuedAt,
-      resumeRecordId: resumeUploadBatchItem.resumeRecordId,
-      startedAt: resumeUploadBatchItem.startedAt,
-      studioCandidateEmail: studioInterview.candidateEmail,
-      studioCandidateName: studioInterview.candidateName,
-      studioResumeParseError: studioInterview.resumeParseError,
-      studioResumeParseStatus: studioInterview.resumeParseStatus,
-      studioTargetRole: studioInterview.targetRole,
+      queuedAt: recruitingUploadBatchItem.queuedAt,
+      resumeRecordId: recruitingUploadBatchItem.recruitingRecordId,
+      startedAt: recruitingUploadBatchItem.startedAt,
+      studioCandidateEmail: recruitingRecordReadModel.candidateEmail,
+      studioCandidateName: recruitingRecordReadModel.candidateName,
+      studioResumeParseError: recruitingRecordReadModel.resumeParseError,
+      studioResumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+      studioTargetRole: recruitingRecordReadModel.targetRole,
       userEmail: user.email,
       userId: user.id,
       userImage: user.image,
       userName: user.name,
     })
-    .from(resumeUploadBatchItem)
-    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
-    .innerJoin(organization, eq(organization.id, resumeUploadBatch.organizationId))
-    .innerJoin(user, eq(user.id, resumeUploadBatch.createdBy))
+    .from(recruitingUploadBatchItem)
+    .innerJoin(
+      recruitingUploadBatch,
+      eq(recruitingUploadBatch.id, recruitingUploadBatchItem.batchId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingUploadBatch.organizationId))
+    .innerJoin(user, eq(user.id, recruitingUploadBatch.createdBy))
     .leftJoin(
-      studioInterview,
+      recruitingRecordReadModel,
       and(
-        eq(studioInterview.id, resumeUploadBatchItem.resumeRecordId),
-        eq(studioInterview.organizationId, resumeUploadBatch.organizationId),
+        eq(recruitingRecordReadModel.id, recruitingUploadBatchItem.recruitingRecordId),
+        eq(recruitingRecordReadModel.organizationId, recruitingUploadBatch.organizationId),
       ),
     )
     .leftJoin(
       resumePoolItem,
       and(
-        eq(resumePoolItem.id, resumeUploadBatchItem.poolItemId),
-        eq(resumePoolItem.organizationId, resumeUploadBatch.organizationId),
+        eq(resumePoolItem.id, recruitingUploadBatchItem.poolItemId),
+        eq(resumePoolItem.organizationId, recruitingUploadBatch.organizationId),
       ),
     )
-    .where(inArray(resumeUploadBatchItem.id, itemIds));
+    .where(inArray(recruitingUploadBatchItem.id, itemIds));
 
   return rows.map((row) => ({
     attemptCount: row.attemptCount,

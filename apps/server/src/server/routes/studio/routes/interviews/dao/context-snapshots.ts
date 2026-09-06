@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, exists, isNull, or } from "drizzle-orm";
 import type {
@@ -17,14 +18,13 @@ import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   globalConfig,
-  interviewContextSnapshot,
+  recruitingContextSnapshot,
   interviewer,
   interviewQuestionTemplate,
-  interviewQuestionTemplateBinding,
+  recruitingQuestionTemplateBinding,
   interviewQuestionTemplateVersion,
   jobDescription,
   jobDescriptionInterviewer,
-  studioInterview,
 } from "@app/db-schema/schema";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { resolveOrCreateTemplateVersion } from "../../forms/dao/versions";
@@ -87,18 +87,18 @@ export function hashSnapshotPayload(payload: JsonValue): string {
 }
 
 function serializeSnapshotRow(
-  row: typeof interviewContextSnapshot.$inferSelect,
+  row: typeof recruitingContextSnapshot.$inferSelect,
 ): InterviewContextSnapshotRecord {
   return {
     contentHash: row.contentHash,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     id: row.id,
-    interviewRecordId: row.interviewRecordId,
+    interviewRecordId: row.recruitingRecordId,
     organizationId: row.organizationId,
     payload: row.payload,
     reason: row.reason,
-    scheduleEntryId: row.scheduleEntryId,
+    scheduleEntryId: row.aiRoundId,
     status: row.status,
     supersededAt: row.supersededAt ? serializeDate(row.supersededAt) : null,
     version: row.version,
@@ -167,8 +167,8 @@ async function buildSnapshotPayloadFromDatabase(
 ): Promise<{ organizationId: string; payload: InterviewContextSnapshotPayload }> {
   const [candidate] = await tx
     .select()
-    .from(studioInterview)
-    .where(eq(studioInterview.id, options.interviewRecordId))
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, options.interviewRecordId))
     .limit(1);
   if (!candidate) {
     throw new Error(`studio_interview ${options.interviewRecordId} not found`);
@@ -237,26 +237,26 @@ async function buildSnapshotPayloadFromDatabase(
 
   const questionRows = await tx
     .select({
-      bindingId: interviewQuestionTemplateBinding.id,
-      disabledByUser: interviewQuestionTemplateBinding.disabledByUser,
+      bindingId: recruitingQuestionTemplateBinding.id,
+      disabledByUser: recruitingQuestionTemplateBinding.disabledByUser,
       scope: interviewQuestionTemplate.scope,
       snapshot: interviewQuestionTemplateVersion.snapshot,
-      sortOrder: interviewQuestionTemplateBinding.sortOrder,
-      templateId: interviewQuestionTemplateBinding.templateId,
+      sortOrder: recruitingQuestionTemplateBinding.sortOrder,
+      templateId: recruitingQuestionTemplateBinding.templateId,
       version: interviewQuestionTemplateVersion.version,
-      versionId: interviewQuestionTemplateBinding.versionId,
+      versionId: recruitingQuestionTemplateBinding.versionId,
     })
-    .from(interviewQuestionTemplateBinding)
+    .from(recruitingQuestionTemplateBinding)
     .innerJoin(
       interviewQuestionTemplateVersion,
-      eq(interviewQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
+      eq(recruitingQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
     )
     .innerJoin(
       interviewQuestionTemplate,
-      eq(interviewQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
+      eq(recruitingQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
     )
-    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, options.interviewRecordId))
-    .orderBy(asc(interviewQuestionTemplateBinding.sortOrder));
+    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, options.interviewRecordId))
+    .orderBy(asc(recruitingQuestionTemplateBinding.sortOrder));
 
   const payload = buildInterviewContextSnapshotPayload({
     candidate: {
@@ -313,25 +313,25 @@ export async function createInterviewContextSnapshot(
     createdAt: now,
   });
   const [latest] = await tx
-    .select({ version: interviewContextSnapshot.version })
-    .from(interviewContextSnapshot)
-    .where(eq(interviewContextSnapshot.interviewRecordId, options.interviewRecordId))
-    .orderBy(desc(interviewContextSnapshot.version))
+    .select({ version: recruitingContextSnapshot.version })
+    .from(recruitingContextSnapshot)
+    .where(eq(recruitingContextSnapshot.recruitingRecordId, options.interviewRecordId))
+    .orderBy(desc(recruitingContextSnapshot.version))
     .limit(1);
   const nextVersion = (latest?.version ?? 0) + 1;
 
   const [inserted] = await tx
-    .insert(interviewContextSnapshot)
+    .insert(recruitingContextSnapshot)
     .values({
+      aiRoundId: options.scheduleEntryId,
       contentHash: hashSnapshotPayload(jsonValueSchema.parse(payload)),
       createdAt: now,
       createdBy: options.createdBy,
       id: crypto.randomUUID(),
-      interviewRecordId: options.interviewRecordId,
       organizationId,
       payload,
       reason: options.reason,
-      scheduleEntryId: options.scheduleEntryId,
+      recruitingRecordId: options.interviewRecordId,
       status: "active",
       version: nextVersion,
     })
@@ -348,12 +348,12 @@ export async function refreshInterviewContextSnapshot(
 ): Promise<InterviewContextSnapshotRecord> {
   const now = options.createdAt ?? new Date();
   await tx
-    .update(interviewContextSnapshot)
+    .update(recruitingContextSnapshot)
     .set({ status: "superseded", supersededAt: now })
     .where(
       and(
-        eq(interviewContextSnapshot.interviewRecordId, options.interviewRecordId),
-        eq(interviewContextSnapshot.status, "active"),
+        eq(recruitingContextSnapshot.recruitingRecordId, options.interviewRecordId),
+        eq(recruitingContextSnapshot.status, "active"),
       ),
     );
   return createInterviewContextSnapshot(tx, { ...options, createdAt: now });
@@ -364,14 +364,14 @@ export async function loadActiveInterviewContextSnapshot(
 ): Promise<InterviewContextSnapshotRecord | null> {
   const [row] = await db
     .select()
-    .from(interviewContextSnapshot)
+    .from(recruitingContextSnapshot)
     .where(
       and(
-        eq(interviewContextSnapshot.interviewRecordId, interviewRecordId),
-        eq(interviewContextSnapshot.status, "active"),
+        eq(recruitingContextSnapshot.recruitingRecordId, interviewRecordId),
+        eq(recruitingContextSnapshot.status, "active"),
       ),
     )
-    .orderBy(desc(interviewContextSnapshot.version))
+    .orderBy(desc(recruitingContextSnapshot.version))
     .limit(1);
   return row ? serializeSnapshotRow(row) : null;
 }

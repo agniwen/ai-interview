@@ -6,6 +6,8 @@ import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { matchesDetailRefresh } from "./detail-refresh";
 import { useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -84,7 +86,9 @@ export function useStudioPersonDetailController({
     null,
   );
   const [humanInterviewQuestionDialogOpen, setHumanInterviewQuestionDialogOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const tabContentRootRef = useRef<HTMLDivElement>(null);
+  const previousStageRef = useRef<{ id: string; stage: PipelineStage } | null>(null);
   const {
     pendingResetSubmissionId,
     resettingRoundId,
@@ -233,11 +237,24 @@ export function useStudioPersonDetailController({
   })();
 
   useEffect(() => {
+    if (mode === "resume" && record?.pipelineStage) {
+      const previous = previousStageRef.current;
+      previousStageRef.current = { id: record.id, stage: record.pipelineStage };
+      if (previous?.id === record.id && previous.stage !== record.pipelineStage) {
+        const targetTab = tabForPipelineStage(record.pipelineStage);
+        if (availableTabs.has(targetTab) && activeTab !== targetTab) {
+          // 同步确认、回退等操作刷新后的真实节点；初次打开仍尊重 URL 指定的 tab。
+          // oxlint-disable-next-line react/set-state-in-effect -- 同步服务端节点变化到受控 tab 与 URL。
+          setActiveTab(targetTab);
+          return;
+        }
+      }
+    }
     if (record && !availableTabs.has(activeTab)) {
       // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setActiveTab("overview");
     }
-  }, [activeTab, availableTabs, record, setActiveTab]);
+  }, [activeTab, availableTabs, mode, record, setActiveTab]);
 
   const selectedResultEvaluationSummary = getEvaluationSummary(
     selectedResultReport?.evaluationCriteriaResults,
@@ -265,7 +282,7 @@ export function useStudioPersonDetailController({
 
   const actionBarPipelineStage = visiblePipelineStage ?? record?.pipelineStage;
   async function requestPipelineStageAdvance(target: PipelineStage): Promise<void> {
-    if (target === "human_interview") {
+    if (target === "second_interview") {
       setHumanInterviewQuestionDialogOpen(true);
       return;
     }
@@ -275,7 +292,32 @@ export function useStudioPersonDetailController({
   function confirmHumanInterviewQuestions(
     interviewQuestions: InterviewQuestion[],
   ): Promise<boolean> {
-    return handleAdvancePipelineStage("human_interview", interviewQuestions);
+    return handleAdvancePipelineStage("second_interview", interviewQuestions);
+  }
+  async function refreshCurrentTab() {
+    if (!effectiveRecordId || isRefreshing) {
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      await queryClient.refetchQueries(
+        {
+          predicate: (query) =>
+            matchesDetailRefresh(query.queryKey, {
+              recordId: effectiveRecordId,
+              roundIds: candidateRounds.map((candidateRound) => candidateRound.id),
+              slug,
+              tab: activeTab,
+            }),
+          type: "active",
+        },
+        { throwOnError: true },
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "刷新失败，请重试");
+    } finally {
+      setIsRefreshing(false);
+    }
   }
   const header = buildStudioPersonDetailHeader({
     actionBarPipelineStage,
@@ -290,15 +332,23 @@ export function useStudioPersonDetailController({
     effectiveRecordId,
     isLoading,
     isPublic,
+    isRefreshing,
     isReview,
     isRoundsLoading,
     layoutMode,
     mode,
     onAdvancePipelineStage: requestPipelineStageAdvance,
     onClose,
+    onInterviewStageReady: (target) => {
+      setOptimisticPipelineStage(target);
+      setActiveTab(tabForPipelineStage(target));
+    },
     onLaunchInterview,
     onNavigateToInterviews: () => {
       void navigate({ params: { slug }, to: "/w/$slug/studio/interviews" });
+    },
+    onRefresh: () => {
+      void refreshCurrentTab();
     },
     onRequestClose,
     onRequestReactivate,

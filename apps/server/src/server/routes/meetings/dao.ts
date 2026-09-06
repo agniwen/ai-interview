@@ -6,7 +6,7 @@ import {
   meetingAuditLog,
   meetingRecordingAsset,
   meetingProcessingRun,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSession,
   meetingTranscriptRevision,
   meetingTranscriptTurn,
@@ -308,10 +308,10 @@ export async function listMeetingSessionsForAccess(input: {
       ),
     )
     .leftJoin(
-      meetingRecruitingContext,
+      recruitingMeetingContext,
       and(
-        eq(meetingRecruitingContext.meetingId, meetingSession.id),
-        eq(meetingRecruitingContext.organizationId, input.organizationId),
+        eq(recruitingMeetingContext.meetingId, meetingSession.id),
+        eq(recruitingMeetingContext.organizationId, input.organizationId),
       ),
     )
     .where(
@@ -319,7 +319,7 @@ export async function listMeetingSessionsForAccess(input: {
         access,
         inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
         input.recruitingRecordId
-          ? eq(meetingRecruitingContext.recruitingRecordId, input.recruitingRecordId)
+          ? eq(recruitingMeetingContext.recruitingRecordId, input.recruitingRecordId)
           : undefined,
       ),
     )

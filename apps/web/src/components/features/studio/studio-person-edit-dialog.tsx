@@ -119,7 +119,6 @@ function getFirstResumeEditErrorMessage(meta: Partial<Record<string, { errors?: 
     "candidatePhone",
     "targetRole",
     "jobDescriptionId",
-    "resumeEvaluationStatus",
     "hrResumeAssessment",
   ];
   for (const field of fieldOrder) {
@@ -145,7 +144,6 @@ export function createResumeEditFormValues(
     hrResumeAssessment: detail.hrResumeAssessment ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
     notes: detail.notes ?? "",
-    resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
     targetRole: detail.targetRole ?? "",
   };
 }
@@ -231,7 +229,6 @@ function ResumeEditBody({
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
       formData.append("hrResumeAssessment", value.hrResumeAssessment);
-      formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
 
       try {
         await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes/${recordId}`, {
@@ -329,7 +326,6 @@ function ResumeEditBody({
             }}
             requireCandidateName
             resumeFile={null}
-            showResumeEvaluationStatus
             showResumeFile={false}
             showSystemNotes={false}
           />

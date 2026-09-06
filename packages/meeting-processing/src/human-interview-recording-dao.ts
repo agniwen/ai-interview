@@ -1,13 +1,13 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, asc, eq, isNotNull, isNull, notLike, or } from "drizzle-orm";
 import {
   meetingRecordingAsset,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSession,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
 
@@ -33,16 +33,16 @@ export function createHumanInterviewRecordingDao(db: Database) {
   > {
     const trackedMeetings = await db
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          isNotNull(studioHumanInterviewMeeting.recordingTracks),
-          eq(studioHumanInterviewMeeting.status, "ended"),
-          isNull(studioHumanInterviewMeeting.processingMeetingSessionId),
+          isNotNull(humanInterviewMeeting.recordingTracks),
+          eq(humanInterviewMeeting.status, "ended"),
+          isNull(humanInterviewMeeting.processingMeetingSessionId),
           or(
-            isNull(studioHumanInterviewMeeting.recordingError),
+            isNull(humanInterviewMeeting.recordingError),
             notLike(
-              studioHumanInterviewMeeting.recordingError,
+              humanInterviewMeeting.recordingError,
               `${TERMINAL_RECORDING_PROCESSING_ERROR_PREFIX}%`,
             ),
           ),
@@ -64,39 +64,39 @@ export function createHumanInterviewRecordingDao(db: Database) {
     });
     const rows = await db
       .select({
-        candidateDurationMs: studioHumanInterviewMeeting.candidateRecordingDurationMs,
-        candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
-        candidateFileKey: studioHumanInterviewMeeting.candidateRecordingFileKey,
-        candidateSizeBytes: studioHumanInterviewMeeting.candidateRecordingSizeBytes,
-        durationMs: studioHumanInterviewMeeting.recordingDurationMs,
-        egressId: studioHumanInterviewMeeting.recordingEgressId,
-        fileKey: studioHumanInterviewMeeting.recordingFileKey,
-        meetingId: studioHumanInterviewMeeting.id,
-        organizationId: studioHumanInterviewMeeting.organizationId,
-        sizeBytes: studioHumanInterviewMeeting.recordingSizeBytes,
+        candidateDurationMs: humanInterviewMeeting.candidateRecordingDurationMs,
+        candidateEgressId: humanInterviewMeeting.candidateRecordingEgressId,
+        candidateFileKey: humanInterviewMeeting.candidateRecordingFileKey,
+        candidateSizeBytes: humanInterviewMeeting.candidateRecordingSizeBytes,
+        durationMs: humanInterviewMeeting.recordingDurationMs,
+        egressId: humanInterviewMeeting.recordingEgressId,
+        fileKey: humanInterviewMeeting.recordingFileKey,
+        meetingId: humanInterviewMeeting.id,
+        organizationId: humanInterviewMeeting.organizationId,
+        sizeBytes: humanInterviewMeeting.recordingSizeBytes,
       })
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          isNull(studioHumanInterviewMeeting.recordingTracks),
-          eq(studioHumanInterviewMeeting.recordingStatus, "completed"),
-          eq(studioHumanInterviewMeeting.candidateRecordingStatus, "completed"),
-          isNull(studioHumanInterviewMeeting.processingMeetingSessionId),
+          isNull(humanInterviewMeeting.recordingTracks),
+          eq(humanInterviewMeeting.recordingStatus, "completed"),
+          eq(humanInterviewMeeting.candidateRecordingStatus, "completed"),
+          isNull(humanInterviewMeeting.processingMeetingSessionId),
           or(
-            isNull(studioHumanInterviewMeeting.recordingError),
+            isNull(humanInterviewMeeting.recordingError),
             notLike(
-              studioHumanInterviewMeeting.recordingError,
+              humanInterviewMeeting.recordingError,
               `${TERMINAL_RECORDING_PROCESSING_ERROR_PREFIX}%`,
             ),
           ),
-          isNotNull(studioHumanInterviewMeeting.recordingDurationMs),
-          isNotNull(studioHumanInterviewMeeting.recordingEgressId),
-          isNotNull(studioHumanInterviewMeeting.recordingFileKey),
-          isNotNull(studioHumanInterviewMeeting.recordingSizeBytes),
-          isNotNull(studioHumanInterviewMeeting.candidateRecordingDurationMs),
-          isNotNull(studioHumanInterviewMeeting.candidateRecordingEgressId),
-          isNotNull(studioHumanInterviewMeeting.candidateRecordingFileKey),
-          isNotNull(studioHumanInterviewMeeting.candidateRecordingSizeBytes),
+          isNotNull(humanInterviewMeeting.recordingDurationMs),
+          isNotNull(humanInterviewMeeting.recordingEgressId),
+          isNotNull(humanInterviewMeeting.recordingFileKey),
+          isNotNull(humanInterviewMeeting.recordingSizeBytes),
+          isNotNull(humanInterviewMeeting.candidateRecordingDurationMs),
+          isNotNull(humanInterviewMeeting.candidateRecordingEgressId),
+          isNotNull(humanInterviewMeeting.candidateRecordingFileKey),
+          isNotNull(humanInterviewMeeting.candidateRecordingSizeBytes),
         ),
       );
     return [
@@ -135,14 +135,14 @@ export function createHumanInterviewRecordingDao(db: Database) {
     terminal: boolean;
   }): Promise<void> {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         recordingError: input.terminal
           ? `${TERMINAL_RECORDING_PROCESSING_ERROR_PREFIX}${input.error}`
           : `录音处理中断，等待重试：${input.error}`,
         updatedAt: new Date(),
       })
-      .where(eq(studioHumanInterviewMeeting.id, input.meetingId));
+      .where(eq(humanInterviewMeeting.id, input.meetingId));
   }
 
   async function markHumanInterviewTranscriptionUnavailable(input: {
@@ -190,24 +190,24 @@ export function createHumanInterviewRecordingDao(db: Database) {
     return await db.transaction(async (tx) => {
       const [meeting] = await tx
         .select({
-          candidateRecordingFileKey: studioHumanInterviewMeeting.candidateRecordingFileKey,
-          candidateRecordingStatus: studioHumanInterviewMeeting.candidateRecordingStatus,
-          createdAt: studioHumanInterviewMeeting.createdAt,
-          createdBy: studioHumanInterviewMeeting.createdBy,
-          endedAt: studioHumanInterviewMeeting.endedAt,
-          processingMeetingSessionId: studioHumanInterviewMeeting.processingMeetingSessionId,
-          recordingFileKey: studioHumanInterviewMeeting.recordingFileKey,
-          recordingStatus: studioHumanInterviewMeeting.recordingStatus,
-          recordingTracks: studioHumanInterviewMeeting.recordingTracks,
-          scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-          startedAt: studioHumanInterviewMeeting.startedAt,
-          title: studioHumanInterviewMeeting.title,
+          candidateRecordingFileKey: humanInterviewMeeting.candidateRecordingFileKey,
+          candidateRecordingStatus: humanInterviewMeeting.candidateRecordingStatus,
+          createdAt: humanInterviewMeeting.createdAt,
+          createdBy: humanInterviewMeeting.createdBy,
+          endedAt: humanInterviewMeeting.endedAt,
+          processingMeetingSessionId: humanInterviewMeeting.processingMeetingSessionId,
+          recordingFileKey: humanInterviewMeeting.recordingFileKey,
+          recordingStatus: humanInterviewMeeting.recordingStatus,
+          recordingTracks: humanInterviewMeeting.recordingTracks,
+          scheduledAt: humanInterviewMeeting.scheduledAt,
+          startedAt: humanInterviewMeeting.startedAt,
+          title: humanInterviewMeeting.title,
         })
-        .from(studioHumanInterviewMeeting)
+        .from(humanInterviewMeeting)
         .where(
           and(
-            eq(studioHumanInterviewMeeting.id, input.meetingId),
-            eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
+            eq(humanInterviewMeeting.id, input.meetingId),
+            eq(humanInterviewMeeting.organizationId, input.organizationId),
           ),
         )
         .for("update")
@@ -246,29 +246,29 @@ export function createHumanInterviewRecordingDao(db: Database) {
       const [round, interviewers] = await Promise.all([
         tx
           .select({
-            candidateName: studioInterview.candidateName,
-            interviewRecordId: studioHumanInterviewRound.interviewRecordId,
+            candidateName: recruitingRecordReadModel.candidateName,
+            interviewRecordId: humanInterviewRound.recruitingRecordId,
           })
-          .from(studioHumanInterviewMeetingRound)
+          .from(humanInterviewMeetingRound)
           .innerJoin(
-            studioHumanInterviewRound,
-            eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+            humanInterviewRound,
+            eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
           )
           .innerJoin(
-            studioInterview,
-            eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id),
+            recruitingRecordReadModel,
+            eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
           )
-          .where(eq(studioHumanInterviewMeetingRound.meetingId, input.meetingId))
+          .where(eq(humanInterviewMeetingRound.meetingId, input.meetingId))
           .limit(1),
         tx
           .select({
-            liveTranscriptDraft: studioHumanInterviewMeetingInterviewer.liveTranscriptDraft,
-            role: studioHumanInterviewMeetingInterviewer.role,
-            userId: studioHumanInterviewMeetingInterviewer.userId,
+            liveTranscriptDraft: humanInterviewMeetingInterviewer.liveTranscriptDraft,
+            role: humanInterviewMeetingInterviewer.role,
+            userId: humanInterviewMeetingInterviewer.userId,
           })
-          .from(studioHumanInterviewMeetingInterviewer)
-          .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId))
-          .orderBy(asc(studioHumanInterviewMeetingInterviewer.role)),
+          .from(humanInterviewMeetingInterviewer)
+          .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId))
+          .orderBy(asc(humanInterviewMeetingInterviewer.role)),
       ]);
       const ownerId =
         meeting.createdBy ??
@@ -336,7 +336,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
           verifiedAt: now,
         })),
       );
-      await tx.insert(meetingRecruitingContext).values({
+      await tx.insert(recruitingMeetingContext).values({
         linkedAt: now,
         linkedBy: ownerId,
         meetingId: meetingSessionId,
@@ -344,13 +344,13 @@ export function createHumanInterviewRecordingDao(db: Database) {
         recruitingRecordId: round[0].interviewRecordId,
       });
       await tx
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({
           processingMeetingSessionId: meetingSessionId,
           recordingError: input.warning ?? null,
           updatedAt: now,
         })
-        .where(eq(studioHumanInterviewMeeting.id, input.meetingId));
+        .where(eq(humanInterviewMeeting.id, input.meetingId));
       return { meetingSessionId, organizationId: input.organizationId };
     });
   }

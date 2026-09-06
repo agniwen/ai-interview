@@ -9,16 +9,16 @@ import { z } from "zod";
 import { formatCandidateFormAnswer } from "@app/shared/candidate-form-answer";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  interviewContextSnapshot,
-  interviewConversation,
-  interviewConversationTurn,
-  interviewEvidenceSnapshot,
+  recruitingContextSnapshot,
+  aiInterviewConversation,
+  aiInterviewConversationTurn,
+  recruitingEvidenceSnapshot,
 } from "@app/db-schema/schema";
 
-type InterviewConversationRow = typeof interviewConversation.$inferSelect;
-type InterviewConversationTurnRow = typeof interviewConversationTurn.$inferSelect;
-type InterviewContextSnapshotRow = typeof interviewContextSnapshot.$inferSelect;
-type InterviewEvidenceSnapshotRow = typeof interviewEvidenceSnapshot.$inferSelect;
+type InterviewConversationRow = typeof aiInterviewConversation.$inferSelect;
+type InterviewConversationTurnRow = typeof aiInterviewConversationTurn.$inferSelect;
+type InterviewContextSnapshotRow = typeof recruitingContextSnapshot.$inferSelect;
+type InterviewEvidenceSnapshotRow = typeof recruitingEvidenceSnapshot.$inferSelect;
 type ReportConversationRow = Pick<
   InterviewConversationRow,
   | "agentId"
@@ -29,7 +29,6 @@ type ReportConversationRow = Pick<
   | "dynamicVariables"
   | "endedAt"
   | "evaluationCriteriaResults"
-  | "interviewRecordId"
   | "lastSyncedAt"
   | "latestError"
   | "metadata"
@@ -38,7 +37,6 @@ type ReportConversationRow = Pick<
   | "organizationId"
   | "recordingDurationSecs"
   | "recordingStatus"
-  | "scheduleEntryId"
   | "startedAt"
   | "status"
   | "transcript"
@@ -46,34 +44,36 @@ type ReportConversationRow = Pick<
   | "updatedAt"
   | "webhookReceivedAt"
 > & {
+  interviewRecordId: InterviewConversationRow["recruitingRecordId"];
+  scheduleEntryId: InterviewConversationRow["aiRoundId"];
   keyInformation: InterviewConversationRow["keyInformation"];
 };
 
 const reportConversationColumns = {
-  agentId: interviewConversation.agentId,
-  callSuccessful: interviewConversation.callSuccessful,
-  conversationId: interviewConversation.conversationId,
-  createdAt: interviewConversation.createdAt,
-  dataCollectionResults: interviewConversation.dataCollectionResults,
-  dynamicVariables: interviewConversation.dynamicVariables,
-  endedAt: interviewConversation.endedAt,
-  evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
-  interviewRecordId: interviewConversation.interviewRecordId,
-  lastSyncedAt: interviewConversation.lastSyncedAt,
-  latestError: interviewConversation.latestError,
-  metadata: interviewConversation.metadata,
-  metrics: interviewConversation.metrics,
-  mode: interviewConversation.mode,
-  organizationId: interviewConversation.organizationId,
-  recordingDurationSecs: interviewConversation.recordingDurationSecs,
-  recordingStatus: interviewConversation.recordingStatus,
-  scheduleEntryId: interviewConversation.scheduleEntryId,
-  startedAt: interviewConversation.startedAt,
-  status: interviewConversation.status,
-  transcript: interviewConversation.transcript,
-  transcriptSummary: interviewConversation.transcriptSummary,
-  updatedAt: interviewConversation.updatedAt,
-  webhookReceivedAt: interviewConversation.webhookReceivedAt,
+  agentId: aiInterviewConversation.agentId,
+  callSuccessful: aiInterviewConversation.callSuccessful,
+  conversationId: aiInterviewConversation.conversationId,
+  createdAt: aiInterviewConversation.createdAt,
+  dataCollectionResults: aiInterviewConversation.dataCollectionResults,
+  dynamicVariables: aiInterviewConversation.dynamicVariables,
+  endedAt: aiInterviewConversation.endedAt,
+  evaluationCriteriaResults: aiInterviewConversation.evaluationCriteriaResults,
+  interviewRecordId: aiInterviewConversation.recruitingRecordId,
+  lastSyncedAt: aiInterviewConversation.lastSyncedAt,
+  latestError: aiInterviewConversation.latestError,
+  metadata: aiInterviewConversation.metadata,
+  metrics: aiInterviewConversation.metrics,
+  mode: aiInterviewConversation.mode,
+  organizationId: aiInterviewConversation.organizationId,
+  recordingDurationSecs: aiInterviewConversation.recordingDurationSecs,
+  recordingStatus: aiInterviewConversation.recordingStatus,
+  scheduleEntryId: aiInterviewConversation.aiRoundId,
+  startedAt: aiInterviewConversation.startedAt,
+  status: aiInterviewConversation.status,
+  transcript: aiInterviewConversation.transcript,
+  transcriptSummary: aiInterviewConversation.transcriptSummary,
+  updatedAt: aiInterviewConversation.updatedAt,
+  webhookReceivedAt: aiInterviewConversation.webhookReceivedAt,
 };
 
 export interface QueryInterviewConversationReportsOptions {
@@ -95,10 +95,10 @@ function buildFallbackTurns(conversation: ReportConversationRow): InterviewConve
     conversationId: conversation.conversationId,
     createdAt: fallbackCreatedAt,
     id: `${conversation.conversationId}:webhook:${index}`,
-    interviewRecordId: conversation.interviewRecordId,
     message: turn.message,
     organizationId: conversation.organizationId,
     receivedAt: fallbackReceivedAt,
+    recruitingRecordId: conversation.interviewRecordId,
     role: turn.role,
     source: "post_call_transcription",
     timeInCallSecs: turn.timeInCallSecs ?? null,
@@ -235,7 +235,7 @@ function buildSnapshotMetadata(
           createdAt: context.createdAt,
           id: context.id,
           reason: context.reason,
-          scheduleEntryId: context.scheduleEntryId,
+          scheduleEntryId: context.aiRoundId,
           schemaVersion: context.payload.schemaVersion,
           status: context.status,
           version: context.version,
@@ -248,7 +248,7 @@ function buildSnapshotMetadata(
           createdAt: evidence.createdAt,
           generatedAt: evidence.payload.generatedAt ?? null,
           id: evidence.id,
-          scheduleEntryId: evidence.scheduleEntryId,
+          scheduleEntryId: evidence.aiRoundId,
           schemaVersion: evidence.payload.schemaVersion,
         }
       : null,
@@ -297,7 +297,10 @@ function serializeConversationReport(
     status: conversation.status,
     transcriptSummary: conversation.transcriptSummary,
     turnCount: turns.length,
-    turns,
+    turns: turns.map(({ recruitingRecordId, ...turn }) => ({
+      ...turn,
+      interviewRecordId: recruitingRecordId,
+    })),
     updatedAt: conversation.updatedAt,
     userTurnCount: turns.filter((turn) => turn.role === "user").length,
     webhookReceivedAt: conversation.webhookReceivedAt,
@@ -337,11 +340,11 @@ async function loadKeyInformationByConversationIds(
   try {
     const rows = await db
       .select({
-        conversationId: interviewConversation.conversationId,
-        keyInformation: interviewConversation.keyInformation,
+        conversationId: aiInterviewConversation.conversationId,
+        keyInformation: aiInterviewConversation.keyInformation,
       })
-      .from(interviewConversation)
-      .where(inArray(interviewConversation.conversationId, conversationIds));
+      .from(aiInterviewConversation)
+      .where(inArray(aiInterviewConversation.conversationId, conversationIds));
 
     return new Map(rows.map((row) => [row.conversationId, row.keyInformation]));
   } catch (error) {
@@ -361,9 +364,9 @@ async function loadSnapshotRowsByConversationIds(conversationIds: string[]) {
 
   const evidenceRows = await db
     .select()
-    .from(interviewEvidenceSnapshot)
-    .where(inArray(interviewEvidenceSnapshot.conversationId, conversationIds))
-    .orderBy(desc(interviewEvidenceSnapshot.createdAt));
+    .from(recruitingEvidenceSnapshot)
+    .where(inArray(recruitingEvidenceSnapshot.conversationId, conversationIds))
+    .orderBy(desc(recruitingEvidenceSnapshot.createdAt));
 
   const evidenceByConversationId = new Map<string, InterviewEvidenceSnapshotRow>();
   for (const evidence of evidenceRows) {
@@ -377,8 +380,8 @@ async function loadSnapshotRowsByConversationIds(conversationIds: string[]) {
     contextIds.length > 0
       ? await db
           .select()
-          .from(interviewContextSnapshot)
-          .where(inArray(interviewContextSnapshot.id, contextIds))
+          .from(recruitingContextSnapshot)
+          .where(inArray(recruitingContextSnapshot.id, contextIds))
       : [];
   const contextById = new Map(contextRows.map((context) => [context.id, context]));
   const rowsByConversationId = new Map<string, SnapshotRows>();
@@ -398,9 +401,9 @@ export async function queryInterviewConversationReports(
 ) {
   const conversations = await db
     .select(reportConversationColumns)
-    .from(interviewConversation)
-    .where(eq(interviewConversation.interviewRecordId, interviewRecordId))
-    .orderBy(desc(interviewConversation.updatedAt));
+    .from(aiInterviewConversation)
+    .where(eq(aiInterviewConversation.recruitingRecordId, interviewRecordId))
+    .orderBy(desc(aiInterviewConversation.updatedAt));
 
   if (conversations.length === 0) {
     return [];
@@ -413,9 +416,12 @@ export async function queryInterviewConversationReports(
   );
   const turnRows = await db
     .select()
-    .from(interviewConversationTurn)
-    .where(inArray(interviewConversationTurn.conversationId, conversationIds))
-    .orderBy(asc(interviewConversationTurn.createdAt), asc(interviewConversationTurn.receivedAt));
+    .from(aiInterviewConversationTurn)
+    .where(inArray(aiInterviewConversationTurn.conversationId, conversationIds))
+    .orderBy(
+      asc(aiInterviewConversationTurn.createdAt),
+      asc(aiInterviewConversationTurn.receivedAt),
+    );
   const snapshotRowsByConversationId = options.includeSnapshotMetadata
     ? await loadSnapshotRowsByConversationIds(conversationIds)
     : null;
@@ -447,9 +453,9 @@ export async function queryInterviewConversationReportsByRound(
 ): Promise<StudioInterviewConversationReport[]> {
   const conversations = await db
     .select(reportConversationColumns)
-    .from(interviewConversation)
-    .where(eq(interviewConversation.scheduleEntryId, scheduleEntryId))
-    .orderBy(desc(interviewConversation.updatedAt));
+    .from(aiInterviewConversation)
+    .where(eq(aiInterviewConversation.aiRoundId, scheduleEntryId))
+    .orderBy(desc(aiInterviewConversation.updatedAt));
 
   if (conversations.length === 0) {
     return [];
@@ -462,9 +468,12 @@ export async function queryInterviewConversationReportsByRound(
   );
   const turnRows = await db
     .select()
-    .from(interviewConversationTurn)
-    .where(inArray(interviewConversationTurn.conversationId, conversationIds))
-    .orderBy(asc(interviewConversationTurn.createdAt), asc(interviewConversationTurn.receivedAt));
+    .from(aiInterviewConversationTurn)
+    .where(inArray(aiInterviewConversationTurn.conversationId, conversationIds))
+    .orderBy(
+      asc(aiInterviewConversationTurn.createdAt),
+      asc(aiInterviewConversationTurn.receivedAt),
+    );
   const snapshotRowsByConversationId = options.includeSnapshotMetadata
     ? await loadSnapshotRowsByConversationIds(conversationIds)
     : null;
@@ -495,11 +504,11 @@ export async function queryInterviewConversationReportByRound(
 ): Promise<StudioInterviewConversationReport | null> {
   const [conversation] = await db
     .select(reportConversationColumns)
-    .from(interviewConversation)
+    .from(aiInterviewConversation)
     .where(
       and(
-        eq(interviewConversation.scheduleEntryId, scheduleEntryId),
-        eq(interviewConversation.conversationId, conversationId),
+        eq(aiInterviewConversation.aiRoundId, scheduleEntryId),
+        eq(aiInterviewConversation.conversationId, conversationId),
       ),
     )
     .limit(1);
@@ -514,9 +523,12 @@ export async function queryInterviewConversationReportByRound(
   );
   const turnRows = await db
     .select()
-    .from(interviewConversationTurn)
-    .where(eq(interviewConversationTurn.conversationId, conversationId))
-    .orderBy(asc(interviewConversationTurn.createdAt), asc(interviewConversationTurn.receivedAt));
+    .from(aiInterviewConversationTurn)
+    .where(eq(aiInterviewConversationTurn.conversationId, conversationId))
+    .orderBy(
+      asc(aiInterviewConversationTurn.createdAt),
+      asc(aiInterviewConversationTurn.receivedAt),
+    );
   const snapshotRowsByConversationId = options.includeSnapshotMetadata
     ? await loadSnapshotRowsByConversationIds([conversationId])
     : null;

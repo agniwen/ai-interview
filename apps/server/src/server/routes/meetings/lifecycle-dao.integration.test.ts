@@ -1,8 +1,13 @@
+import { RecruitingReferenceRetentionError } from "@app/database/recruiting-reference-retention";
+import { createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- lifecycle integration scenarios share one expensive database fixture. */
 import { and, eq, inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../lib/server/db/index";
 import {
+  meetingRecruitingContext,
+  studioInterview,
   meetingAccessGrant,
   meetingAuditLog,
   meetingIntelligenceRevision,
@@ -10,7 +15,7 @@ import {
   meetingProcessingRun,
   meetingQuestionExchange,
   meetingQuestionThread,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingRecordingAsset,
   meetingSearchProjection,
   meetingSession,
@@ -20,7 +25,6 @@ import {
   meetingTranscriptionPolicy,
   member,
   organization,
-  studioInterview,
   user,
 } from "@app/db-schema/schema";
 import { createOrLoadMeetingSession, loadMeetingSessionForAccess } from "./dao";
@@ -54,6 +58,11 @@ const TEST_EPOCH_MS = Date.now() + 24 * 60 * 60 * 1000;
 const testTime = (offsetMs = 0) => new Date(TEST_EPOCH_MS + offsetMs);
 
 async function clean() {
+  // 隔离库合成的旧档案由测试显式清理；已脱离共享父表级联。
+  await db
+    .delete(meetingRecruitingContext)
+    .where(eq(meetingRecruitingContext.meetingId, MEETING_ID));
+  await db.delete(studioInterview).where(eq(studioInterview.id, `${CANDIDATE_ID}_legacy`));
   await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
   await db.delete(user).where(inArray(user.id, [OWNER_ID, EDITOR_ID]));
 }
@@ -143,19 +152,13 @@ describe("Meeting lifecycle DAO", () => {
       organizationId: ORGANIZATION_ID,
       searchText: "private lifecycle transcript",
     });
-    await db.insert(studioInterview).values({
+    await createRecruitingRecords(db, {
       candidateName: "Lifecycle Candidate",
       createdAt: now,
       createdBy: OWNER_ID,
       id: CANDIDATE_ID,
       organizationId: ORGANIZATION_ID,
       updatedAt: now,
-    });
-    await db.insert(meetingRecruitingContext).values({
-      linkedBy: OWNER_ID,
-      meetingId: MEETING_ID,
-      organizationId: ORGANIZATION_ID,
-      recruitingRecordId: CANDIDATE_ID,
     });
     await db.insert(meetingProcessingRun).values({
       attempt: 1,
@@ -272,6 +275,77 @@ describe("Meeting lifecycle DAO", () => {
     await clean();
   }, 30_000);
 
+  it("新招聘关联在存储清理前阻止永久删除", async () => {
+    await db.insert(recruitingMeetingContext).values({
+      linkedBy: OWNER_ID,
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      recruitingRecordId: CANDIDATE_ID,
+    });
+    await expect(
+      requestMeetingPurge({
+        actorId: OWNER_ID,
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).rejects.toBeInstanceOf(RecruitingReferenceRetentionError);
+    await db
+      .update(meetingSession)
+      .set({
+        purgeAfter: testTime(),
+        status: "purging",
+        trashedAt: testTime(),
+        trashedFromStatus: "ready",
+      })
+      .where(eq(meetingSession.id, MEETING_ID));
+    await expect(
+      claimMeetingPurge({
+        meetingId: MEETING_ID,
+        now: testTime(60_000),
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).rejects.toBeInstanceOf(RecruitingReferenceRetentionError);
+    expect(
+      await db
+        .select()
+        .from(meetingRecordingAsset)
+        .where(eq(meetingRecordingAsset.meetingId, MEETING_ID)),
+    ).toHaveLength(3);
+  });
+
+  it("仅旧档案关联不阻止进入清理流程", async () => {
+    const testUrl = process.env.RECRUITING_TEST_DATABASE_URL;
+    if (
+      !testUrl ||
+      testUrl !== process.env.DATABASE_URL ||
+      !new URL(testUrl).pathname.includes("_test_")
+    ) {
+      throw new Error("旧档案测试仅可在隔离测试库执行");
+    }
+    const legacyId = `${CANDIDATE_ID}_legacy`;
+    await db
+      .insert(studioInterview)
+      .values({ candidateName: "旧档案", id: legacyId, organizationId: ORGANIZATION_ID });
+    await db.insert(meetingRecruitingContext).values({
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      recruitingRecordId: legacyId,
+    });
+    await expect(
+      requestMeetingPurge({
+        actorId: OWNER_ID,
+        meetingId: MEETING_ID,
+        organizationId: ORGANIZATION_ID,
+      }),
+    ).resolves.toEqual({ state: "purging" });
+    expect(
+      await db
+        .select()
+        .from(meetingRecruitingContext)
+        .where(eq(meetingRecruitingContext.meetingId, MEETING_ID)),
+    ).toHaveLength(1);
+  });
+
   it("re-admits an uploading meeting before restoring it from trash", async () => {
     await withDatabaseAdvisoryTestLock("meeting-direct-capacity-integration", async () => {
       const now = testTime(60 * 60 * 1000);
@@ -349,6 +423,13 @@ describe("Meeting lifecycle DAO", () => {
   });
 
   it("atomically hides a meeting, unlinks recruiting context and restores before the deadline", async () => {
+    await db.insert(recruitingMeetingContext).values({
+      linkedBy: OWNER_ID,
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+      recruitingRecordId: CANDIDATE_ID,
+    });
+
     const now = testTime(60 * 60 * 1000);
     await expect(
       trashMeetingSession({
@@ -403,10 +484,15 @@ describe("Meeting lifecycle DAO", () => {
       }),
     ).resolves.toBeNull();
     await expect(
-      db.query.meetingRecruitingContext.findFirst({ where: { meetingId: MEETING_ID } }),
+      db.query.recruitingMeetingContext.findFirst({ where: { meetingId: MEETING_ID } }),
     ).resolves.toBeUndefined();
     await expect(
-      db.query.studioInterview.findFirst({ where: { id: CANDIDATE_ID } }),
+      db
+        .select()
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, CANDIDATE_ID))
+        .limit(1)
+        .then((rows) => rows[0]),
     ).resolves.toBeDefined();
     await expect(
       db.query.meetingSearchProjection.findFirst({ where: { meetingId: MEETING_ID } }),
@@ -696,7 +782,12 @@ describe("Meeting lifecycle DAO", () => {
       db.query.meetingQuestionThread.findMany({ where: { meetingId: MEETING_ID } }),
     ).resolves.toEqual([]);
     await expect(
-      db.query.studioInterview.findFirst({ where: { id: CANDIDATE_ID } }),
+      db
+        .select()
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, CANDIDATE_ID))
+        .limit(1)
+        .then((rows) => rows[0]),
     ).resolves.toBeDefined();
     await expect(
       db

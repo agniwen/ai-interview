@@ -27,6 +27,36 @@ export function buildResumeLibraryFiltersConfig({
   return [
     { key: "textFilters" as const, resource: "resumes" as const, type: "text-filters" as const },
     {
+      key: "nodeStatuses",
+      label: "节点状态",
+      options: [
+        { label: "待处理", value: "pending" },
+        { label: "已安排", value: "scheduled" },
+        { label: "进行中", value: "in_progress" },
+        { label: "待评价", value: "awaiting_review" },
+        { label: "谈薪中", value: "negotiating" },
+        { label: "待发 Offer", value: "awaiting_send" },
+        { label: "待回复", value: "awaiting_response" },
+        { label: "已完成", value: "completed" },
+        { label: "已跳过", value: "skipped" },
+      ],
+      placeholder: "按当前节点状态筛选",
+      selectedFormat: (count: number) => `已选 ${count} 个状态`,
+      type: "multi-select",
+    },
+    {
+      key: "nodeResults",
+      label: "节点结果",
+      options: [
+        { label: "合格 / 通过", value: "pass" },
+        { label: "淘汰 / 未通过", value: "fail" },
+        { label: "放弃", value: "withdrawn" },
+      ],
+      placeholder: "按当前节点结果筛选",
+      selectedFormat: (count: number) => `已选 ${count} 个结果`,
+      type: "multi-select",
+    },
+    {
       editor: DateRangeFilterEditor,
       formatValue: (value) => dateRangeFilterLabel(value, "创建时间"),
       key: "createdAtRange",

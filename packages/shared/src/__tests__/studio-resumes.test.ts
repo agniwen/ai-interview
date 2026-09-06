@@ -4,6 +4,8 @@
 import { describe, expect, it } from "vitest";
 import {
   canDeleteResumeRecord,
+  canLaunchInterviewFromResume,
+  canReopenRecruitingNode,
   createResumeLibraryFormValues,
   describeResumeEvaluationStatus,
   describeResumeProgress,
@@ -216,23 +218,23 @@ describe("describeResumeProgress", () => {
     ).toEqual({ label: "AI 面试 · 第 1/1 轮 · 进行中", tone: "warning" });
   });
 
-  // ── human_interview ──
+  // ── second_interview ──
 
-  it("human_interview 未安排 → 未安排", () => {
+  it("second_interview 未安排 → 未安排", () => {
     expect(
       describeResumeProgress({
         outcome: "in_pipeline",
-        pipelineStage: "human_interview",
+        pipelineStage: "second_interview",
         stageProgress: EMPTY,
       }),
-    ).toEqual({ label: "真人复面 · 未安排", tone: "outline" });
+    ).toEqual({ label: "复试 · 未安排", tone: "outline" });
   });
 
-  it("human_interview 第 1 轮 pending 已定时间 → 已安排", () => {
+  it("second_interview 第 1 轮 pending 已定时间 → 已安排", () => {
     expect(
       describeResumeProgress({
         outcome: "in_pipeline",
-        pipelineStage: "human_interview",
+        pipelineStage: "second_interview",
         stageProgress: {
           aiInterview: null,
           humanInterview: {
@@ -254,16 +256,16 @@ describe("describeResumeProgress", () => {
         },
       }),
     ).toEqual({
-      label: "真人复面 · 第 1/2 轮（技术复面）· 已安排",
+      label: "复试 · 第 1/2 轮（技术复面）· 已安排",
       tone: "info",
     });
   });
 
-  it("human_interview 第 1 轮 pending 未定时间 → 待安排", () => {
+  it("second_interview 第 1 轮 pending 未定时间 → 待安排", () => {
     expect(
       describeResumeProgress({
         outcome: "in_pipeline",
-        pipelineStage: "human_interview",
+        pipelineStage: "second_interview",
         stageProgress: {
           aiInterview: null,
           humanInterview: {
@@ -285,16 +287,16 @@ describe("describeResumeProgress", () => {
         },
       }),
     ).toEqual({
-      label: "真人复面 · 第 1/1 轮（HR 复面）· 待安排",
+      label: "复试 · 第 1/1 轮（HR 复面）· 待安排",
       tone: "info",
     });
   });
 
-  it("human_interview 全部完成 → 显示通过/总数 + 待决策", () => {
+  it("second_interview 全部完成 → 显示通过/总数 + 待决策", () => {
     expect(
       describeResumeProgress({
         outcome: "in_pipeline",
-        pipelineStage: "human_interview",
+        pipelineStage: "second_interview",
         stageProgress: {
           aiInterview: null,
           humanInterview: {
@@ -309,7 +311,7 @@ describe("describeResumeProgress", () => {
         },
       }),
     ).toEqual({
-      label: "真人复面 · 全部完成 (2/2 通过) · 待决策",
+      label: "复试 · 全部完成 (2/2 通过) · 待决策",
       tone: "success",
     });
   });
@@ -397,14 +399,14 @@ describe("describeResumeProgress", () => {
 
   // ── closed ──
 
-  it("closed × hired → 已结束 · 已录用", () => {
+  it("closed × hired → 已结束 · 已入职", () => {
     expect(
       describeResumeProgress({
         outcome: "hired",
         pipelineStage: "closed",
         stageProgress: EMPTY,
       }),
-    ).toEqual({ label: "已结束 · 已录用", tone: "success" });
+    ).toEqual({ label: "已结束 · 已入职", tone: "success" });
   });
 
   it("closed × archived → 已归档", () => {
@@ -425,5 +427,63 @@ describe("describeResumeProgress", () => {
         stageProgress: EMPTY,
       }),
     ).toEqual({ label: "已结束 · 已淘汰", tone: "outline" });
+  });
+});
+
+describe("canLaunchInterviewFromResume", () => {
+  it.each(["screening", "ai_interview"] as const)(
+    "筛选通过、解析完成且位于 %s 时允许发起 AI 面试",
+    (stage) => {
+      expect(canLaunchInterviewFromResume("ready", stage, "pass")).toBe(true);
+      expect(canLaunchInterviewFromResume("processing", stage)).toBe(false);
+      expect(canLaunchInterviewFromResume("failed", stage)).toBe(false);
+    },
+  );
+  it.each([
+    "second_interview",
+    "final_interview",
+    "income_proof",
+    "offer",
+    "background_check",
+    "onboarding",
+    "closed",
+  ] as const)("%s 必须先回退，不能直接发起 AI 面试", (stage) => {
+    expect(canLaunchInterviewFromResume("ready", stage)).toBe(false);
+  });
+});
+
+describe("迁移历史节点的回退资格", () => {
+  const record = {
+    closedFromNode: null,
+    nodeStates: [
+      { enteredAt: null, node: "screening" as const, status: "completed" as const },
+      { enteredAt: null, node: "ai_interview" as const, status: "skipped" as const },
+      { enteredAt: null, node: "second_interview" as const, status: "pending" as const },
+      { enteredAt: null, node: "final_interview" as const, status: "inactive" as const },
+    ],
+    pipelineStage: "second_interview" as const,
+  };
+  it("进入时间未知仍允许当前复试及已走过/跳过的前序节点", () => {
+    expect(canReopenRecruitingNode(record, "screening")).toBe(true);
+    expect(canReopenRecruitingNode(record, "ai_interview")).toBe(true);
+    expect(canReopenRecruitingNode(record, "second_interview")).toBe(true);
+    expect(canReopenRecruitingNode(record, "final_interview")).toBe(false);
+  });
+  it("已结束时以closedFromNode为界，未来节点即使存在历史状态也不可越过", () => {
+    const closed = {
+      ...record,
+      closedFromNode: "ai_interview" as const,
+      pipelineStage: "closed" as const,
+    };
+    expect(canReopenRecruitingNode(closed, "ai_interview")).toBe(true);
+    expect(canReopenRecruitingNode(closed, "second_interview")).toBe(false);
+  });
+  it("没有时间且从未到达的前序节点仍不可选", () => {
+    expect(
+      canReopenRecruitingNode(
+        { ...record, nodeStates: [{ enteredAt: null, node: "screening", status: "inactive" }] },
+        "screening",
+      ),
+    ).toBe(false);
   });
 });

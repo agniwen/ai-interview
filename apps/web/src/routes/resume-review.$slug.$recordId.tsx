@@ -19,6 +19,7 @@ import { fetchStudioResumeReview, submitResumeReviewEvaluation } from "@/lib/cli
 import { WorkspaceSlugProvider, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getWorkspaceAccessState } from "@/lib/start/auth-session";
 import { toast } from "sonner";
+import { useHasPermission } from "@/hooks/use-has-permission";
 
 function resumeReviewDetailQueryKey(slug: string, recordId: string) {
   return ["studio-resumes", slug, "detail", recordId, "review"] as const;
@@ -28,12 +29,15 @@ function ResumeReviewEvaluationBar({
   isLoading,
   recordId,
   status,
+  pipelineStage,
 }: {
   isLoading: boolean;
+  pipelineStage: string | undefined;
   recordId: string;
   status: ResumeEvaluationStatus | null | undefined;
 }) {
   const slug = useWorkspaceSlug();
+  const canUpdateResumeLibrary = useHasPermission("resumeLibrary", "update");
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (nextStatus: ResumeEvaluationStatus) =>
@@ -65,21 +69,20 @@ function ResumeReviewEvaluationBar({
     );
   }
 
+  if (pipelineStage !== "screening" || !canUpdateResumeLibrary) {
+    return null;
+  }
+
   return (
     <div className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2">
         <Button disabled={disabled} onClick={() => mutation.mutate("pass")} type="button">
           <IconCircleCheck className="size-4" />
-          评估通过
+          通过
         </Button>
-        <Button
-          disabled={disabled}
-          onClick={() => mutation.mutate("fail")}
-          type="button"
-          variant="outline"
-        >
+        <Button disabled={disabled} onClick={() => mutation.mutate("fail")} type="button">
           <IconAlertOctagon className="size-4" />
-          评估不通过
+          不通过
         </Button>
       </div>
     </div>
@@ -119,6 +122,7 @@ function ResumeReviewDetailContent({ recordId }: { recordId: string }) {
         isLoading={detailQuery.isLoading}
         recordId={recordId}
         status={detail?.resumeEvaluationStatus}
+        pipelineStage={detail?.pipelineStage}
       />
     </>
   );

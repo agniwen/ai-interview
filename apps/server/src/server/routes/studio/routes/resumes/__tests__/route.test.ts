@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // Smoke test for the resume library route. We bypass the Hono pipeline (auth
 // middleware needs a session cookie which is heavyweight to fake) and assert
 // the DAO + handler glue directly via the same code paths that the live
@@ -12,7 +14,6 @@ import type { db as database } from "../../../../../../lib/server/db/index";
 import type {
   member as memberTable,
   organization as organizationTable,
-  studioInterview as studioInterviewTable,
   user as userTable,
 } from "@app/db-schema/schema";
 import type { loadResumeDetail as loadResumeDetailFn } from "../dao/resumes";
@@ -50,11 +51,10 @@ describeWithDatabase("resume detail route database behavior", () => {
   let member: typeof memberTable;
   let organization: typeof organizationTable;
   let parseResumeLibraryEditFormInput: typeof parseResumeLibraryEditFormInputFn;
-  let studioInterview: typeof studioInterviewTable;
   let user: typeof userTable;
 
   async function cleanup() {
-    await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
+    await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
     await db.delete(member).where(eq(member.userId, USER_ID));
     await db.delete(organization).where(eq(organization.id, ORG));
     await db.delete(user).where(eq(user.id, USER_ID));
@@ -62,7 +62,7 @@ describeWithDatabase("resume detail route database behavior", () => {
 
   beforeAll(async () => {
     ({ db } = await import("../../../../../../lib/server/db/index"));
-    ({ member, organization, studioInterview, user } = await import("@app/db-schema/schema"));
+    ({ member, organization, user } = await import("@app/db-schema/schema"));
     ({ loadResumeDetail } = await import("../dao/resumes"));
     ({ parseResumeLibraryEditFormInput } = await import("../route"));
 
@@ -96,7 +96,7 @@ describeWithDatabase("resume detail route database behavior", () => {
 
   describe("resume detail DTO", () => {
     it("hides interview-only fields from the detail shape", async () => {
-      await db.insert(studioInterview).values({
+      await createRecruitingRecords(db, {
         candidateName: "测试",
         createdAt: NOW,
         createdBy: USER_ID,

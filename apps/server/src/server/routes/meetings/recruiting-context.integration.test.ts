@@ -1,16 +1,17 @@
+import { createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../lib/server/db/index";
 import {
   meetingAuditLog,
   meetingNote,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSession,
   member,
   organization,
   recruitingGroup,
   recruitingGroupMember,
-  studioInterview,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -99,7 +100,7 @@ describe("Meeting Recruiting Context Link", () => {
       meetingTimeMs: 1000,
       organizationId: ORG_A,
     });
-    await db.insert(studioInterview).values([
+    await createRecruitingRecords(db, [
       {
         candidateName: "Visible Candidate",
         createdAt: now,
@@ -156,9 +157,9 @@ describe("Meeting Recruiting Context Link", () => {
     ).resolves.toMatchObject({ record: { id: CANDIDATE_A2 } });
     await expect(
       db
-        .select({ meetingId: meetingRecruitingContext.meetingId })
-        .from(meetingRecruitingContext)
-        .where(eq(meetingRecruitingContext.meetingId, MEETING_ID)),
+        .select({ meetingId: recruitingMeetingContext.meetingId })
+        .from(recruitingMeetingContext)
+        .where(eq(recruitingMeetingContext.meetingId, MEETING_ID)),
     ).resolves.toHaveLength(1);
     await expect(
       db.query.meetingNote.findFirst({ where: { meetingId: MEETING_ID } }),
@@ -208,7 +209,7 @@ describe("Meeting Recruiting Context Link", () => {
 
   it("rejects cross-workspace links at the database boundary", async () => {
     await expect(
-      db.insert(meetingRecruitingContext).values({
+      db.insert(recruitingMeetingContext).values({
         linkedBy: OWNER_ID,
         meetingId: MEETING_ID,
         organizationId: ORG_A,
@@ -338,13 +339,18 @@ describe("Meeting Recruiting Context Link", () => {
       }),
     ).resolves.toBe("updated");
     await expect(
-      db.query.meetingRecruitingContext.findFirst({ where: { meetingId: MEETING_ID } }),
+      db.query.recruitingMeetingContext.findFirst({ where: { meetingId: MEETING_ID } }),
     ).resolves.toBeUndefined();
     await expect(
       db.query.meetingSession.findFirst({ where: { id: MEETING_ID } }),
     ).resolves.toMatchObject({ id: MEETING_ID });
     await expect(
-      db.query.studioInterview.findFirst({ where: { id: CANDIDATE_A } }),
+      db
+        .select()
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, CANDIDATE_A))
+        .limit(1)
+        .then((rows) => rows[0]),
     ).resolves.toMatchObject({ id: CANDIDATE_A });
   });
 

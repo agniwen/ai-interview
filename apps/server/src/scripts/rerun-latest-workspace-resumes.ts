@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -219,36 +220,35 @@ function getReportMode(options: Options): ExecutionReport["mode"] {
 }
 
 async function loadRecordSnapshots(ids: string[]) {
-  const [{ db }, { studioInterview }, { inArray }] = await Promise.all([
+  const [{ db }, { inArray }] = await Promise.all([
     import("../lib/server/db"),
-    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   const rows = await db
     .select({
-      candidateName: studioInterview.candidateName,
-      createdAt: studioInterview.createdAt,
-      createdBy: studioInterview.createdBy,
-      id: studioInterview.id,
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      resumeContentHash: studioInterview.resumeContentHash,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeParseError: studioInterview.resumeParseError,
-      resumeParseStatus: studioInterview.resumeParseStatus,
-      resumeParsedAt: studioInterview.resumeParsedAt,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReviewError: studioInterview.resumeReviewError,
-      resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      resumeText: studioInterview.resumeText,
-      structuredCompositeScore: studioInterview.structuredCompositeScore,
-      structuredGateStatus: studioInterview.structuredGateStatus,
-      structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
-      structuredScoreGrade: studioInterview.structuredScoreGrade,
+      candidateName: recruitingRecordReadModel.candidateName,
+      createdAt: recruitingRecordReadModel.createdAt,
+      createdBy: recruitingRecordReadModel.createdBy,
+      id: recruitingRecordReadModel.id,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeParseError: recruitingRecordReadModel.resumeParseError,
+      resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+      resumeParsedAt: recruitingRecordReadModel.resumeParsedAt,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeReviewError: recruitingRecordReadModel.resumeReviewError,
+      resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
+      resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      resumeText: recruitingRecordReadModel.resumeText,
+      structuredCompositeScore: recruitingRecordReadModel.structuredCompositeScore,
+      structuredGateStatus: recruitingRecordReadModel.structuredGateStatus,
+      structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
+      structuredScoreGrade: recruitingRecordReadModel.structuredScoreGrade,
     })
-    .from(studioInterview)
-    .where(inArray(studioInterview.id, ids));
+    .from(recruitingRecordReadModel)
+    .where(inArray(recruitingRecordReadModel.id, ids));
   const byId = new Map(rows.map((row) => [row.id, row]));
   return ids.map((id) => byId.get(id) ?? null);
 }

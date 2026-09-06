@@ -1,3 +1,11 @@
+import type {
+  RecruitingPipelineAction,
+  HumanInterviewMeetingLinkBundle,
+  HumanInterviewMeetingRecord,
+  HumanInterviewMeetingTokenResponse,
+  HumanInterviewRoundRecord,
+  OfferDraftRecord,
+} from "@app/shared/studio-pipeline-stages";
 /**
  * Studio 后台「面试管理」相关 API。
  * Studio admin "interview management" API.
@@ -14,7 +22,7 @@
  */
 
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
-import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -22,8 +30,6 @@ import type {
 } from "@app/shared/studio-interview-rounds";
 import type {
   CandidateExpectationsMeta,
-  CandidateOutcome,
-  ClosedMeta,
   HumanInterviewMeetingInput,
   HumanInterviewMeetingScheduleUpdate,
   HumanInterviewRoundInput,
@@ -34,13 +40,6 @@ import type {
   ScheduleEntryStatus,
 } from "@app/db-schema/studio-interviews";
 import type { ResumeSemanticSourceType } from "@app/db-schema/schema";
-import type {
-  HumanInterviewMeetingLinkBundle,
-  HumanInterviewMeetingRecord,
-  HumanInterviewMeetingTokenResponse,
-  HumanInterviewRoundRecord,
-  OfferDraftRecord,
-} from "@app/shared/studio-pipeline-stages";
 import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
 import { rpc, studioInterviewsRpc } from "@/lib/client/rpc";
 import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
@@ -364,16 +363,7 @@ export function updateStudioInterviewRound(
  * enforces the (pipelineStage, outcome) invariant and maintains closedAt +
  * closedReason on entering / leaving the closed stage.
  */
-export interface TransitionInterviewInput {
-  pipelineStage: PipelineStage;
-  interviewQuestions?: InterviewQuestion[];
-  outcome?: CandidateOutcome;
-  closedReason?: string | null;
-  // closedMeta partial：仅在 pipelineStage='closed' 时允许传；previousStage 由服务端写。
-  // Partial closedMeta; previousStage is server-controlled.
-  closedMeta?: Omit<Partial<ClosedMeta>, "previousStage">;
-  reactivationReason?: string;
-}
+export type TransitionInterviewInput = RecruitingPipelineAction;
 
 export async function transitionInterviewRecord(
   slug: string,

@@ -1,13 +1,14 @@
+import { createRecruitingRecords, deleteRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   organization,
   user,
-  studioInterview,
-  studioHumanInterviewRound,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewMeetingInterviewer,
+  humanInterviewRound,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewMeetingInterviewer,
 } from "@app/db-schema/schema";
 import { db } from "../../../../../../../lib/server/db";
 import { loadStudioHumanInterviewReviewScope } from "../human-interview-review-access";
@@ -28,6 +29,7 @@ const input = {
 };
 
 async function cleanup() {
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, orgId));
   await db.delete(organization).where(eq(organization.id, orgId));
   await db.delete(user).where(inArray(user.id, [creatorId, reviewerId]));
 }
@@ -45,27 +47,29 @@ beforeAll(async () => {
     })),
   );
   await db.insert(organization).values({ createdAt: now, id: orgId, name: orgId, slug: orgId });
-  await db.insert(studioInterview).values(
+  await createRecruitingRecords(
+    db,
     candidates.map((id) => ({
       candidateName: id,
       createdBy: creatorId,
       id,
       interviewQuestions: [],
       organizationId: orgId,
-      pipelineStage: "human_interview" as const,
+      pipelineStage: "second_interview" as const,
     })),
   );
-  await db.insert(studioHumanInterviewRound).values(
+  await db.insert(humanInterviewRound).values(
     rounds.map((id, index) => ({
       format: "online" as const,
       id,
-      interviewRecordId: index === 0 ? candidates[0] : candidates[1],
       label: `业务${index + 1}面`,
       organizationId: orgId,
+      recruitingRecordId: index === 0 ? candidates[0] : candidates[1],
+      roundKind: "second_interview" as const,
       sortOrder: index,
     })),
   );
-  await db.insert(studioHumanInterviewMeeting).values({
+  await db.insert(humanInterviewMeeting).values({
     createdAt: now,
     id: meetingId,
     organizationId: orgId,
@@ -73,35 +77,32 @@ beforeAll(async () => {
     title: "Review scope fixture",
   });
   await db
-    .insert(studioHumanInterviewMeetingRound)
-    .values(rounds.map((roundId) => ({ meetingId, roundId })));
+    .insert(humanInterviewMeetingRound)
+    .values(rounds.map((roundId) => ({ meetingId, organizationId: orgId, roundId })));
   await db
-    .insert(studioHumanInterviewMeetingInterviewer)
-    .values({ meetingId, role: "host", userId: reviewerId });
+    .insert(humanInterviewMeetingInterviewer)
+    .values({ meetingId, organizationId: orgId, role: "host", userId: reviewerId });
 });
 afterAll(cleanup);
 
 describe("authenticated review database scope", () => {
   it("keeps the evaluation linked to the non-cancelled meeting when a newer attempt was cancelled", async () => {
     const cancelledId = "review_access_test_cancelled";
-    await db.insert(studioHumanInterviewMeeting).values({
+    await db.insert(humanInterviewMeeting).values({
       createdAt: new Date(now.getTime() + 1000),
       id: cancelledId,
       organizationId: orgId,
       status: "cancelled",
       title: "Cancelled replacement",
     });
-    await db.insert(studioHumanInterviewMeetingRound).values({
-      meetingId: cancelledId,
-      roundId: rounds[1],
-    });
+    await db
+      .insert(humanInterviewMeetingRound)
+      .values({ meetingId: cancelledId, organizationId: orgId, roundId: rounds[1] });
     try {
       const scope = await loadStudioHumanInterviewReviewScope(input);
       expect(scope).toMatchObject({ meetingId, roundId: rounds[1] });
     } finally {
-      await db
-        .delete(studioHumanInterviewMeeting)
-        .where(eq(studioHumanInterviewMeeting.id, cancelledId));
+      await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.id, cancelledId));
     }
   });
   it("returns the requested candidate and round, not the first round linked to a meeting", async () => {

@@ -1,16 +1,24 @@
+import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
+import {
+  assertCanCreateHumanInterviewRound,
+  syncEffectiveHumanRoundNode,
+} from "./human-interview-pipeline";
+import { EditRoundError } from "./human-interview-round-errors";
+
 // 真人复面单轮 DAO：mutation 事务同步 round 与 interviewer junction；路由层只做权限、校验与调用。
 
-import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../../lib/server/db/index";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
+  recruitingRecord,
+  recruitingNodeState,
   user,
 } from "@app/db-schema/schema";
 import type {
@@ -26,6 +34,8 @@ import {
 } from "../utils/human-interview-readiness";
 import type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
+export { EditRoundError } from "./human-interview-round-errors";
+export { syncEffectiveHumanRoundNode } from "./human-interview-pipeline";
 export type { HumanInterviewRoundRecord };
 export {
   COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
@@ -43,15 +53,6 @@ const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
 type HumanInterviewRoundEditInput = Partial<HumanInterviewRoundInput> & {
   validUntil?: string | null;
 };
-
-export class EditRoundError extends Error {
-  readonly status: 400 | 404;
-  constructor(message: string, status: 400 | 404) {
-    super(message);
-    this.name = "EditRoundError";
-    this.status = status;
-  }
-}
 
 function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
@@ -75,24 +76,43 @@ export async function loadHumanInterviewRoundReadiness(
 ): Promise<HumanInterviewRoundReadiness> {
   const rows = await executor
     .select({
-      feedback: studioHumanInterviewRound.feedback,
-      status: studioHumanInterviewRound.status,
+      feedback: humanInterviewRound.feedback,
+      node: recruitingNodeState.node,
+      nodeResult: recruitingNodeState.result,
+      nodeStatus: recruitingNodeState.status,
+      outcome: humanInterviewRound.outcome,
+      status: humanInterviewRound.status,
     })
-    .from(studioHumanInterviewRound)
+    .from(recruitingNodeState)
+    .leftJoin(
+      humanInterviewRound,
+      eq(recruitingNodeState.effectiveHumanRoundId, humanInterviewRound.id),
+    )
     .where(
       and(
-        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-        ne(studioHumanInterviewRound.status, "cancelled"),
+        eq(recruitingNodeState.recruitingRecordId, interviewRecordId),
+        eq(recruitingNodeState.organizationId, organizationId),
+        inArray(recruitingNodeState.node, ["second_interview", "final_interview"]),
       ),
     );
-
+  const passed = (kind: "second_interview" | "final_interview") =>
+    rows.some(
+      (row) =>
+        row.node === kind &&
+        row.nodeStatus === "completed" &&
+        row.nodeResult === "pass" &&
+        row.status === "completed" &&
+        row.outcome === "pass" &&
+        Boolean(row.feedback?.trim()),
+    );
   return {
     completedRoundsMissingFeedback: rows.filter(
       (row) => row.status === "completed" && !row.feedback?.trim(),
     ).length,
+    finalInterviewPassed: passed("final_interview"),
     pendingRounds: rows.filter((row) => row.status === "pending").length,
-    totalRounds: rows.length,
+    secondInterviewPassed: passed("second_interview"),
+    totalRounds: rows.filter((row) => row.status !== null).length,
   };
 }
 
@@ -109,7 +129,7 @@ export async function assertCompletedHumanInterviewRoundsHaveFeedback(
 // 把 query 结果（含 interviewer rows 数组）拍平成 DTO。
 // Flatten the joined query result into the DTO shape.
 function toRecord(row: {
-  round: typeof studioHumanInterviewRound.$inferSelect;
+  round: typeof humanInterviewRound.$inferSelect;
   interviewers: {
     confirmedAt: Date | null;
     confirmedScheduleVersion: number | null;
@@ -117,7 +137,7 @@ function toRecord(row: {
     declinedAt: Date | null;
     image: string | null;
     name: string | null;
-    status: typeof studioHumanInterviewRoundInterviewer.$inferSelect.status;
+    status: typeof humanInterviewRoundInterviewer.$inferSelect.status;
     userId: string;
   }[];
 }): HumanInterviewRoundRecord {
@@ -139,7 +159,7 @@ function toRecord(row: {
     feedback: round.feedback,
     format: round.format,
     id: round.id,
-    interviewRecordId: round.interviewRecordId,
+    interviewRecordId: round.recruitingRecordId,
     interviewers: interviewers.map((i) => ({
       confirmedAt: serializeDate(i.confirmedAt),
       confirmedScheduleVersion: i.confirmedScheduleVersion,
@@ -156,6 +176,7 @@ function toRecord(row: {
     notes: round.notes,
     organizationId: round.organizationId,
     outcome: round.outcome,
+    roundKind: round.roundKind,
     scheduledAt: serializeDate(round.scheduledAt),
     score: round.score,
     sortOrder: round.sortOrder,
@@ -172,14 +193,14 @@ export async function listHumanInterviewRounds(
 ): Promise<HumanInterviewRoundRecord[]> {
   const rounds = await db
     .select()
-    .from(studioHumanInterviewRound)
+    .from(humanInterviewRound)
     .where(
       and(
-        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
+        eq(humanInterviewRound.recruitingRecordId, interviewRecordId),
+        eq(humanInterviewRound.organizationId, organizationId),
       ),
     )
-    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+    .orderBy(asc(humanInterviewRound.sortOrder));
   if (rounds.length === 0) {
     return [];
   }
@@ -188,19 +209,19 @@ export async function listHumanInterviewRounds(
   // Fetch junction rows + linked user info in one query.
   const interviewerRows = await db
     .select({
-      confirmedAt: studioHumanInterviewRoundInterviewer.confirmedAt,
-      confirmedScheduleVersion: studioHumanInterviewRoundInterviewer.confirmedScheduleVersion,
-      declineReason: studioHumanInterviewRoundInterviewer.declineReason,
-      declinedAt: studioHumanInterviewRoundInterviewer.declinedAt,
+      confirmedAt: humanInterviewRoundInterviewer.confirmedAt,
+      confirmedScheduleVersion: humanInterviewRoundInterviewer.confirmedScheduleVersion,
+      declineReason: humanInterviewRoundInterviewer.declineReason,
+      declinedAt: humanInterviewRoundInterviewer.declinedAt,
       image: user.image,
       name: user.name,
-      roundId: studioHumanInterviewRoundInterviewer.roundId,
-      status: studioHumanInterviewRoundInterviewer.status,
+      roundId: humanInterviewRoundInterviewer.roundId,
+      status: humanInterviewRoundInterviewer.status,
       userId: user.id,
     })
-    .from(studioHumanInterviewRoundInterviewer)
-    .innerJoin(user, eq(studioHumanInterviewRoundInterviewer.userId, user.id))
-    .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
+    .from(humanInterviewRoundInterviewer)
+    .innerJoin(user, eq(humanInterviewRoundInterviewer.userId, user.id))
+    .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
   const byRound = new Map<string, (typeof interviewerRows)[number][]>();
   for (const ir of interviewerRows) {
     const list = byRound.get(ir.roundId) ?? [];
@@ -216,78 +237,19 @@ export async function listHumanInterviewRounds(
 // a cancel doesn't collide with the cancelled row.
 async function nextSortOrder(tx: Tx, interviewRecordId: string): Promise<number> {
   const [row] = await tx
-    .select({ sortOrder: studioHumanInterviewRound.sortOrder })
-    .from(studioHumanInterviewRound)
-    .where(eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId))
-    .orderBy(desc(studioHumanInterviewRound.sortOrder))
+    .select({ sortOrder: humanInterviewRound.sortOrder })
+    .from(humanInterviewRound)
+    .where(eq(humanInterviewRound.recruitingRecordId, interviewRecordId))
+    .orderBy(desc(humanInterviewRound.sortOrder))
     .limit(1);
   return row ? row.sortOrder + 1 : 0;
 }
 
 export interface CreateRoundOptions {
+  actorUserId?: string | null;
   interviewRecordId: string;
   organizationId: string;
   input: HumanInterviewRoundInput;
-}
-
-async function assertCanCreateHumanInterviewRound(
-  tx: Tx,
-  interviewRecordId: string,
-  organizationId: string,
-): Promise<void> {
-  const [candidate] = await tx
-    .select({ id: studioInterview.id })
-    .from(studioInterview)
-    .where(
-      and(
-        eq(studioInterview.id, interviewRecordId),
-        eq(studioInterview.organizationId, organizationId),
-      ),
-    )
-    .for("update")
-    .limit(1);
-  if (!candidate) {
-    throw new EditRoundError("候选人记录不存在。", 404);
-  }
-
-  const existingRounds = await tx
-    .select({
-      feedback: studioHumanInterviewRound.feedback,
-      label: studioHumanInterviewRound.label,
-      outcome: studioHumanInterviewRound.outcome,
-      status: studioHumanInterviewRound.status,
-    })
-    .from(studioHumanInterviewRound)
-    .where(
-      and(
-        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-        ne(studioHumanInterviewRound.status, "cancelled"),
-      ),
-    )
-    .orderBy(desc(studioHumanInterviewRound.sortOrder));
-
-  const pendingRound = existingRounds.find((round) => round.status === "pending");
-  if (pendingRound) {
-    throw new EditRoundError(
-      `请先结束并标记完成“${pendingRound.label}”，再安排下一轮真人面试。`,
-      400,
-    );
-  }
-  const completedWithoutFeedback = existingRounds.find(
-    (round) => round.status === "completed" && !round.feedback?.trim(),
-  );
-  if (completedWithoutFeedback) {
-    throw new EditRoundError(COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE, 400);
-  }
-  const [latestCompletedRound] = existingRounds;
-  if (latestCompletedRound?.status === "completed" && latestCompletedRound.outcome !== "pass") {
-    const resultLabel = latestCompletedRound.outcome === "fail" ? "未通过" : "待定";
-    throw new EditRoundError(
-      `“${latestCompletedRound.label}”的结果为${resultLabel}，只有标记为通过后才能安排下一轮真人面试。`,
-      400,
-    );
-  }
 }
 
 // 加载单条详情（含 interviewers）。
@@ -298,11 +260,11 @@ export async function loadRoundById(
 ): Promise<HumanInterviewRoundRecord | null> {
   const [round] = await db
     .select()
-    .from(studioHumanInterviewRound)
+    .from(humanInterviewRound)
     .where(
       and(
-        eq(studioHumanInterviewRound.id, roundId),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
+        eq(humanInterviewRound.id, roundId),
+        eq(humanInterviewRound.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -311,18 +273,18 @@ export async function loadRoundById(
   }
   const interviewerRows = await db
     .select({
-      confirmedAt: studioHumanInterviewRoundInterviewer.confirmedAt,
-      confirmedScheduleVersion: studioHumanInterviewRoundInterviewer.confirmedScheduleVersion,
-      declineReason: studioHumanInterviewRoundInterviewer.declineReason,
-      declinedAt: studioHumanInterviewRoundInterviewer.declinedAt,
+      confirmedAt: humanInterviewRoundInterviewer.confirmedAt,
+      confirmedScheduleVersion: humanInterviewRoundInterviewer.confirmedScheduleVersion,
+      declineReason: humanInterviewRoundInterviewer.declineReason,
+      declinedAt: humanInterviewRoundInterviewer.declinedAt,
       image: user.image,
       name: user.name,
-      status: studioHumanInterviewRoundInterviewer.status,
+      status: humanInterviewRoundInterviewer.status,
       userId: user.id,
     })
-    .from(studioHumanInterviewRoundInterviewer)
-    .innerJoin(user, eq(studioHumanInterviewRoundInterviewer.userId, user.id))
-    .where(eq(studioHumanInterviewRoundInterviewer.roundId, roundId));
+    .from(humanInterviewRoundInterviewer)
+    .innerJoin(user, eq(humanInterviewRoundInterviewer.userId, user.id))
+    .where(eq(humanInterviewRoundInterviewer.roundId, roundId));
   return toRecord({
     interviewers: interviewerRows,
     round,
@@ -335,6 +297,7 @@ export async function loadRoundById(
 // Create a round + its interviewer junction rows. sortOrder is server-side
 // derived so the client can't collide with existing rows.
 export async function createHumanInterviewRound({
+  actorUserId = null,
   interviewRecordId,
   organizationId,
   input,
@@ -344,20 +307,26 @@ export async function createHumanInterviewRound({
   const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
 
   await db.transaction(async (tx) => {
-    await assertCanCreateHumanInterviewRound(tx, interviewRecordId, organizationId);
+    await assertCanCreateHumanInterviewRound(tx, {
+      actorUserId,
+      input,
+      interviewRecordId,
+      organizationId,
+    });
     const sortOrder = input.sortOrder ?? (await nextSortOrder(tx, interviewRecordId));
-    await tx.insert(studioHumanInterviewRound).values({
+    await tx.insert(humanInterviewRound).values({
       createdAt: now,
       feedback: input.feedback ?? null,
       format: input.format,
       id,
-      interviewRecordId,
       label: input.label,
       location: input.location ?? null,
       meetingUrl: input.meetingUrl ?? null,
       notes: input.notes ?? null,
       organizationId,
       outcome: input.outcome ?? null,
+      recruitingRecordId: interviewRecordId,
+      roundKind: input.roundKind,
       scheduledAt,
       score: null,
       sortOrder,
@@ -365,13 +334,22 @@ export async function createHumanInterviewRound({
       updatedAt: now,
     });
     if (input.interviewerIds.length > 0) {
-      await tx.insert(studioHumanInterviewRoundInterviewer).values(
+      await tx.insert(humanInterviewRoundInterviewer).values(
         input.interviewerIds.map((userId) => ({
+          organizationId,
           roundId: id,
           userId,
         })),
       );
     }
+    await updateRecruitingNodeTx(tx, {
+      effectiveHumanRoundId: id,
+      node: input.roundKind,
+      operatorId: actorUserId,
+      organizationId,
+      recordId: interviewRecordId,
+      status: "scheduled",
+    });
   });
 
   const created = await loadRoundById(id, organizationId);
@@ -458,19 +436,19 @@ async function syncLinkedScheduledMeetingWindow({
 }) {
   const linkedMeetings = await tx
     .select({
-      id: studioHumanInterviewMeeting.id,
-      status: studioHumanInterviewMeeting.status,
-      validUntil: studioHumanInterviewMeeting.validUntil,
+      id: humanInterviewMeeting.id,
+      status: humanInterviewMeeting.status,
+      validUntil: humanInterviewMeeting.validUntil,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.roundId, roundId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeetingRound.roundId, roundId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
       ),
     );
 
@@ -489,12 +467,12 @@ async function syncLinkedScheduledMeetingWindow({
     validUntil,
   });
   await tx
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({ scheduledAt, updatedAt: now, validUntil: nextValidUntil })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
-        inArray(studioHumanInterviewMeeting.id, meetingIds),
+        eq(humanInterviewMeeting.organizationId, organizationId),
+        inArray(humanInterviewMeeting.id, meetingIds),
       ),
     );
 }
@@ -513,17 +491,20 @@ export async function editHumanInterviewRound({
   await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
-      .from(studioHumanInterviewRound)
+      .from(humanInterviewRound)
       .where(
         and(
-          eq(studioHumanInterviewRound.id, roundId),
-          eq(studioHumanInterviewRound.organizationId, organizationId),
+          eq(humanInterviewRound.id, roundId),
+          eq(humanInterviewRound.organizationId, organizationId),
         ),
       )
       .for("update")
       .limit(1);
     if (!existing) {
       throw new EditRoundError("轮次不存在", 404);
+    }
+    if (input.roundKind !== undefined && input.roundKind !== existing.roundKind) {
+      throw new EditRoundError("轮次类型不可修改，请取消后重新安排。", 400);
     }
     if (existing.status === "cancelled") {
       throw new EditRoundError("已取消的轮次无法编辑", 400);
@@ -534,12 +515,12 @@ export async function editHumanInterviewRound({
       // completed → feedback only.
       const feedback = normalizeRequiredFeedback(input.feedback ?? existing.feedback);
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           feedback,
           updatedAt: now,
         })
-        .where(eq(studioHumanInterviewRound.id, roundId));
+        .where(eq(humanInterviewRound.id, roundId));
       return;
     }
 
@@ -560,7 +541,7 @@ export async function editHumanInterviewRound({
       });
     }
     await tx
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({
         feedback: input.feedback ?? existing.feedback,
         format: input.format ?? existing.format,
@@ -571,15 +552,17 @@ export async function editHumanInterviewRound({
         scheduledAt: nextScheduledAt,
         updatedAt: now,
       })
-      .where(eq(studioHumanInterviewRound.id, roundId));
+      .where(eq(humanInterviewRound.id, roundId));
 
-    if (input.interviewerIds && input.interviewerIds.length > 0) {
+    if (input.interviewerIds !== undefined) {
       await tx
-        .delete(studioHumanInterviewRoundInterviewer)
-        .where(eq(studioHumanInterviewRoundInterviewer.roundId, roundId));
-      await tx
-        .insert(studioHumanInterviewRoundInterviewer)
-        .values(input.interviewerIds.map((userId) => ({ roundId, userId })));
+        .delete(humanInterviewRoundInterviewer)
+        .where(eq(humanInterviewRoundInterviewer.roundId, roundId));
+      if (input.interviewerIds.length > 0) {
+        await tx
+          .insert(humanInterviewRoundInterviewer)
+          .values(input.interviewerIds.map((userId) => ({ organizationId, roundId, userId })));
+      }
     }
   });
 
@@ -617,7 +600,13 @@ export async function completeHumanInterviewRound({
   const now = new Date();
   await db.transaction(async (tx) => {
     await tx
-      .update(studioHumanInterviewRound)
+      .select({ id: recruitingRecord.id })
+      .from(recruitingRecord)
+      .where(eq(recruitingRecord.id, existing.interviewRecordId))
+      .for("update");
+
+    const updatedRows = await tx
+      .update(humanInterviewRound)
       .set({
         completedAt: now,
         feedback: nextFeedback,
@@ -626,7 +615,26 @@ export async function completeHumanInterviewRound({
         status: "completed",
         updatedAt: now,
       })
-      .where(eq(studioHumanInterviewRound.id, roundId));
+      .where(
+        and(
+          eq(humanInterviewRound.id, roundId),
+          eq(humanInterviewRound.organizationId, organizationId),
+          eq(humanInterviewRound.status, "pending"),
+        ),
+      )
+      .returning({ id: humanInterviewRound.id });
+    if (!updatedRows.length) {
+      throw new EditRoundError("面试轮次已更新，请刷新后重试。", 409);
+    }
+    await syncEffectiveHumanRoundNode(tx, {
+      node: existing.roundKind,
+      operatorId: actorUserId,
+      organizationId,
+      recordId: existing.interviewRecordId,
+      result: outcome === "inconclusive" ? null : outcome,
+      roundId,
+      status: outcome === "inconclusive" ? "awaiting_review" : "completed",
+    });
     await enqueueHumanInterviewRoundCompletion(tx, {
       actorUserId,
       now,
@@ -671,22 +679,41 @@ export async function cancelHumanInterviewRoundWithMeetings({
   const now = new Date();
   const deletedLiveKitRoomNames: (string | null)[] = [];
   await db.transaction(async (tx) => {
+    await tx
+      .select({ id: recruitingRecord.id })
+      .from(recruitingRecord)
+      .where(eq(recruitingRecord.id, existing.interviewRecordId))
+      .for("update");
+
+    const [lockedRound] = await tx
+      .select({ status: humanInterviewRound.status })
+      .from(humanInterviewRound)
+      .where(
+        and(
+          eq(humanInterviewRound.id, roundId),
+          eq(humanInterviewRound.organizationId, organizationId),
+        ),
+      )
+      .for("update");
+    if (lockedRound?.status !== "pending") {
+      throw new EditRoundError("面试轮次已更新，请刷新后重试。", 409);
+    }
     const meetingRows = await tx
       .select({
-        id: studioHumanInterviewMeeting.id,
-        liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
-        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-        status: studioHumanInterviewMeeting.status,
+        id: humanInterviewMeeting.id,
+        liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
+        scheduleVersion: humanInterviewMeeting.scheduleVersion,
+        status: humanInterviewMeeting.status,
       })
-      .from(studioHumanInterviewMeetingRound)
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+        humanInterviewMeeting,
+        eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
       )
       .where(
         and(
-          eq(studioHumanInterviewMeetingRound.roundId, roundId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          eq(humanInterviewMeetingRound.roundId, roundId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
         ),
       );
     if (meetingRows.some((meeting) => meeting.status === "in_progress")) {
@@ -697,7 +724,7 @@ export async function cancelHumanInterviewRoundWithMeetings({
     deletedLiveKitRoomNames.push(...uniq(meetingRows.map((meeting) => meeting.liveKitRoomName)));
     if (meetingIds.length > 0) {
       await tx
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({
           cancelledAt: now,
           lifecycleOccurredAt: now,
@@ -707,8 +734,8 @@ export async function cancelHumanInterviewRoundWithMeetings({
         })
         .where(
           and(
-            eq(studioHumanInterviewMeeting.organizationId, organizationId),
-            inArray(studioHumanInterviewMeeting.id, meetingIds),
+            eq(humanInterviewMeeting.organizationId, organizationId),
+            inArray(humanInterviewMeeting.id, meetingIds),
           ),
         );
       if (isInterviewNotificationFlowEnabled()) {
@@ -726,7 +753,7 @@ export async function cancelHumanInterviewRoundWithMeetings({
     }
 
     await tx
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({
         cancelReason: reason ?? null,
         cancelledAt: now,
@@ -735,10 +762,20 @@ export async function cancelHumanInterviewRoundWithMeetings({
       })
       .where(
         and(
-          eq(studioHumanInterviewRound.id, roundId),
-          eq(studioHumanInterviewRound.organizationId, organizationId),
+          eq(humanInterviewRound.id, roundId),
+          eq(humanInterviewRound.organizationId, organizationId),
         ),
       );
+    await syncEffectiveHumanRoundNode(tx, {
+      clear: true,
+      node: existing.roundKind,
+      operatorId: actorUserId,
+      organizationId,
+      recordId: existing.interviewRecordId,
+      result: null,
+      roundId,
+      status: "pending",
+    });
   });
   const updated = await loadRoundById(roundId, organizationId);
   if (!updated) {
@@ -752,49 +789,4 @@ export async function cancelHumanInterviewRound(
 ): Promise<HumanInterviewRoundRecord> {
   const result = await cancelHumanInterviewRoundWithMeetings(options);
   return result.round;
-}
-
-// 候选人 pipelineStage 自动推进：仅在创建第一轮时触发。
-// 「第一轮」= 该候选人在 round 表里第一次出现非 cancelled 行。
-// 守卫：只在 screening/ai_interview/written_test 三个阶段往前推；
-//      已经在 human_interview 之后（offer/closed）就不动。
-//
-// Auto-advance pipelineStage when creating the candidate's first round.
-// Only nudges forward from screening/written_test/ai_interview; never moves
-// backwards from offer/closed.
-export async function maybeAdvanceToHumanInterview(
-  interviewRecordId: string,
-  organizationId: string,
-): Promise<void> {
-  // 统计非 cancelled 行数 —— 这次插入完后，count=1 说明刚刚是第一轮。
-  // First non-cancelled row count; 1 means we just inserted the first round.
-  const rounds = await db
-    .select({ id: studioHumanInterviewRound.id })
-    .from(studioHumanInterviewRound)
-    .where(
-      and(
-        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-      ),
-    )
-    .limit(2);
-  if (rounds.length !== 1) {
-    return;
-  }
-  // 单条 UPDATE 自带 WHERE 守卫：只在可推进的阶段 + 仍 in_pipeline 时才命中。
-  // 这样 race（另一个 HR 同时把候选人结束）不会触发 CHECK 约束，而是 no-op。
-  // Single UPDATE guarded by WHERE: only fires when the candidate is still in
-  // an advanceable stage and active. A concurrent close becomes a no-op instead
-  // of violating the (pipeline_stage='closed' ⇔ outcome ≠ 'in_pipeline') CHECK.
-  await db
-    .update(studioInterview)
-    .set({ pipelineStage: "human_interview", updatedAt: new Date() })
-    .where(
-      and(
-        eq(studioInterview.id, interviewRecordId),
-        eq(studioInterview.organizationId, organizationId),
-        inArray(studioInterview.pipelineStage, ["screening", "written_test", "ai_interview"]),
-        eq(studioInterview.outcome, "in_pipeline"),
-      ),
-    );
 }

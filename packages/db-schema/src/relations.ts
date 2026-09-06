@@ -10,22 +10,149 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+
+  // 新招聘模型只声明详情查询、聚合子项和所属实体的导航，不为每条外键机械生成反向关系。
+  // 归属完整性由 schema 外键保证；可空招聘归属的记录仍可通过轮次和工作区查询。
+  // 旧档案只保留档案内部导航，不再关联在线共享资源；新域关系独立维护。
+  aiInterviewConversation: {
+    aiInterviewConversationTurns: r.many.aiInterviewConversationTurn({
+      from: [r.aiInterviewConversation.conversationId, r.aiInterviewConversation.organizationId],
+      to: [
+        r.aiInterviewConversationTurn.conversationId,
+        r.aiInterviewConversationTurn.organizationId,
+      ],
+    }),
+    aiRound: r.one.aiInterviewRound({
+      from: [r.aiInterviewConversation.aiRoundId, r.aiInterviewConversation.organizationId],
+      to: [r.aiInterviewRound.id, r.aiInterviewRound.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.aiInterviewConversation.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.aiInterviewConversation.recruitingRecordId,
+        r.aiInterviewConversation.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // ai_interview_conversation_turn 的新域关联；旧域关系保持不变。
+  aiInterviewConversationTurn: {
+    conversation: r.one.aiInterviewConversation({
+      from: [
+        r.aiInterviewConversationTurn.conversationId,
+        r.aiInterviewConversationTurn.organizationId,
+      ],
+      to: [r.aiInterviewConversation.conversationId, r.aiInterviewConversation.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.aiInterviewConversationTurn.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.aiInterviewConversationTurn.recruitingRecordId,
+        r.aiInterviewConversationTurn.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // ai_interview_round 的新域关联；旧域关系保持不变。
+  aiInterviewRound: {
+    contextSnapshots: r.many.recruitingContextSnapshot({
+      from: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+      to: [
+        r.recruitingContextSnapshot.aiRoundId,
+        r.recruitingContextSnapshot.recruitingRecordId,
+        r.recruitingContextSnapshot.organizationId,
+      ],
+    }),
+    conversation: r.one.aiInterviewConversation({
+      from: [
+        r.aiInterviewRound.conversationId,
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.organizationId,
+      ],
+      to: [
+        r.aiInterviewConversation.conversationId,
+        r.aiInterviewConversation.aiRoundId,
+        r.aiInterviewConversation.organizationId,
+      ],
+    }),
+    conversations: r.many.aiInterviewConversation({
+      from: [r.aiInterviewRound.id, r.aiInterviewRound.organizationId],
+      to: [r.aiInterviewConversation.aiRoundId, r.aiInterviewConversation.organizationId],
+    }),
+    creator: r.one.user({
+      from: r.aiInterviewRound.createdBy,
+      to: r.user.id,
+    }),
+    emailLogs: r.many.recruitingRoundEmailLog({
+      from: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+      to: [
+        r.recruitingRoundEmailLog.roundId,
+        r.recruitingRoundEmailLog.recruitingRecordId,
+        r.recruitingRoundEmailLog.organizationId,
+      ],
+    }),
+    evidenceSnapshots: r.many.recruitingEvidenceSnapshot({
+      from: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+      to: [
+        r.recruitingEvidenceSnapshot.aiRoundId,
+        r.recruitingEvidenceSnapshot.recruitingRecordId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+    }),
+    organization: r.one.organization({
+      from: r.aiInterviewRound.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.aiInterviewRound.recruitingRecordId, r.aiInterviewRound.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    reviewedByUser: r.one.user({
+      from: r.aiInterviewRound.reviewedBy,
+      to: r.user.id,
+    }),
+  },
+  // candidate 的新域关联；旧域关系保持不变。
+  candidate: {
+    candidateResumes: r.many.candidateResume({
+      from: [r.candidate.id, r.candidate.organizationId],
+      to: [r.candidateResume.candidateId, r.candidateResume.organizationId],
+    }),
+    creator: r.one.user({
+      from: r.candidate.createdBy,
+      to: r.user.id,
+    }),
+    organization: r.one.organization({
+      from: r.candidate.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecords: r.many.recruitingRecord({
+      from: [r.candidate.id, r.candidate.organizationId],
+      to: [r.recruitingRecord.candidateId, r.recruitingRecord.organizationId],
+    }),
+  },
   candidateFormSubmission: {
     interviewRecord: r.one.studioInterview({
       from: r.candidateFormSubmission.interviewRecordId,
       to: r.studioInterview.id,
-    }),
-    organization: r.one.organization({
-      from: r.candidateFormSubmission.organizationId,
-      to: r.organization.id,
-    }),
-    template: r.one.candidateFormTemplate({
-      from: r.candidateFormSubmission.templateId,
-      to: r.candidateFormTemplate.id,
-    }),
-    version: r.one.candidateFormTemplateVersion({
-      from: r.candidateFormSubmission.versionId,
-      to: r.candidateFormTemplateVersion.id,
     }),
   },
   candidateFormTemplate: {
@@ -35,7 +162,7 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organization.id,
     }),
     questions: r.many.candidateFormTemplateQuestion(),
-    submissions: r.many.candidateFormSubmission(),
+
     user: r.one.user({
       from: r.candidateFormTemplate.createdBy,
       to: r.user.id,
@@ -59,10 +186,24 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   candidateFormTemplateVersion: {
-    submissions: r.many.candidateFormSubmission(),
     template: r.one.candidateFormTemplate({
       from: r.candidateFormTemplateVersion.templateId,
       to: r.candidateFormTemplate.id,
+    }),
+  },
+  // candidate_resume 的新域关联；旧域关系保持不变。
+  candidateResume: {
+    candidate: r.one.candidate({
+      from: [r.candidateResume.candidateId, r.candidateResume.organizationId],
+      to: [r.candidate.id, r.candidate.organizationId],
+    }),
+    creator: r.one.user({
+      from: r.candidateResume.createdBy,
+      to: r.user.id,
+    }),
+    organization: r.one.organization({
+      from: r.candidateResume.organizationId,
+      to: r.organization.id,
     }),
   },
   chatAttachment: {
@@ -120,21 +261,192 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organization.id,
     }),
   },
-  interviewAuditLog: {
+  // human_interview_evaluation_document_sync 的新域关联；旧域关系保持不变。
+  humanInterviewEvaluationDocumentSync: {
     organization: r.one.organization({
-      from: r.interviewAuditLog.organizationId,
+      from: r.humanInterviewEvaluationDocumentSync.organizationId,
+      to: r.organization.id,
+    }),
+    round: r.one.humanInterviewRound({
+      from: [
+        r.humanInterviewEvaluationDocumentSync.roundId,
+        r.humanInterviewEvaluationDocumentSync.organizationId,
+      ],
+      to: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+    }),
+    snapshot: r.one.humanInterviewEvaluationSnapshot({
+      from: [
+        r.humanInterviewEvaluationDocumentSync.snapshotId,
+        r.humanInterviewEvaluationDocumentSync.organizationId,
+      ],
+      to: [
+        r.humanInterviewEvaluationSnapshot.id,
+        r.humanInterviewEvaluationSnapshot.organizationId,
+      ],
+    }),
+  },
+  // human_interview_evaluation_snapshot 的新域关联；旧域关系保持不变。
+  humanInterviewEvaluationSnapshot: {
+    creator: r.one.user({
+      from: r.humanInterviewEvaluationSnapshot.createdBy,
+      to: r.user.id,
+    }),
+    meetingSession: r.one.meetingSession({
+      from: r.humanInterviewEvaluationSnapshot.meetingSessionId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.humanInterviewEvaluationSnapshot.organizationId,
+      to: r.organization.id,
+    }),
+    round: r.one.humanInterviewRound({
+      from: [
+        r.humanInterviewEvaluationSnapshot.roundId,
+        r.humanInterviewEvaluationSnapshot.organizationId,
+      ],
+      to: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+    }),
+    transcriptRevision: r.one.meetingTranscriptRevision({
+      from: r.humanInterviewEvaluationSnapshot.transcriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
+  // human_interview_meeting 的新域关联；旧域关系保持不变。
+  humanInterviewMeeting: {
+    creator: r.one.user({
+      from: r.humanInterviewMeeting.createdBy,
+      to: r.user.id,
+    }),
+    humanInterviewMeetingEvents: r.many.humanInterviewMeetingEvent({
+      from: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+      to: [r.humanInterviewMeetingEvent.meetingId, r.humanInterviewMeetingEvent.organizationId],
+    }),
+    humanInterviewMeetingInterviewers: r.many.humanInterviewMeetingInterviewer({
+      from: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+      to: [
+        r.humanInterviewMeetingInterviewer.meetingId,
+        r.humanInterviewMeetingInterviewer.organizationId,
+      ],
+    }),
+    humanInterviewMeetingRounds: r.many.humanInterviewMeetingRound({
+      from: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+      to: [r.humanInterviewMeetingRound.meetingId, r.humanInterviewMeetingRound.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.humanInterviewMeeting.organizationId,
+      to: r.organization.id,
+    }),
+    processingMeetingSession: r.one.meetingSession({
+      from: r.humanInterviewMeeting.processingMeetingSessionId,
+      to: r.meetingSession.id,
+    }),
+  },
+  // human_interview_meeting_event 的新域关联；旧域关系保持不变。
+  humanInterviewMeetingEvent: {
+    meeting: r.one.humanInterviewMeeting({
+      from: [r.humanInterviewMeetingEvent.meetingId, r.humanInterviewMeetingEvent.organizationId],
+      to: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.humanInterviewMeetingEvent.organizationId,
       to: r.organization.id,
     }),
   },
+  // human_interview_meeting_interviewer 的新域关联；旧域关系保持不变。
+  humanInterviewMeetingInterviewer: {
+    meeting: r.one.humanInterviewMeeting({
+      from: [
+        r.humanInterviewMeetingInterviewer.meetingId,
+        r.humanInterviewMeetingInterviewer.organizationId,
+      ],
+      to: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.humanInterviewMeetingInterviewer.organizationId,
+      to: r.organization.id,
+    }),
+    user: r.one.user({
+      from: r.humanInterviewMeetingInterviewer.userId,
+      to: r.user.id,
+    }),
+  },
+  // human_interview_meeting_round 的新域关联；旧域关系保持不变。
+  humanInterviewMeetingRound: {
+    meeting: r.one.humanInterviewMeeting({
+      from: [r.humanInterviewMeetingRound.meetingId, r.humanInterviewMeetingRound.organizationId],
+      to: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.humanInterviewMeetingRound.organizationId,
+      to: r.organization.id,
+    }),
+    round: r.one.humanInterviewRound({
+      from: [r.humanInterviewMeetingRound.roundId, r.humanInterviewMeetingRound.organizationId],
+      to: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+    }),
+  },
+  // human_interview_round 的新域关联；旧域关系保持不变。
+  humanInterviewRound: {
+    evaluationTranscriptRevision: r.one.meetingTranscriptRevision({
+      from: r.humanInterviewRound.evaluationTranscriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+    evaluationUpdatedByUser: r.one.user({
+      from: r.humanInterviewRound.evaluationUpdatedBy,
+      to: r.user.id,
+    }),
+    humanInterviewEvaluationSnapshots: r.many.humanInterviewEvaluationSnapshot({
+      from: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+      to: [
+        r.humanInterviewEvaluationSnapshot.roundId,
+        r.humanInterviewEvaluationSnapshot.organizationId,
+      ],
+    }),
+    humanInterviewMeetingRounds: r.many.humanInterviewMeetingRound({
+      from: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+      to: [r.humanInterviewMeetingRound.roundId, r.humanInterviewMeetingRound.organizationId],
+    }),
+    humanInterviewRoundInterviewers: r.many.humanInterviewRoundInterviewer({
+      from: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+      to: [
+        r.humanInterviewRoundInterviewer.roundId,
+        r.humanInterviewRoundInterviewer.organizationId,
+      ],
+    }),
+    organization: r.one.organization({
+      from: r.humanInterviewRound.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.humanInterviewRound.recruitingRecordId, r.humanInterviewRound.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // human_interview_round_interviewer 的新域关联；旧域关系保持不变。
+  humanInterviewRoundInterviewer: {
+    organization: r.one.organization({
+      from: r.humanInterviewRoundInterviewer.organizationId,
+      to: r.organization.id,
+    }),
+    round: r.one.humanInterviewRound({
+      from: [
+        r.humanInterviewRoundInterviewer.roundId,
+        r.humanInterviewRoundInterviewer.organizationId,
+      ],
+      to: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+    }),
+    user: r.one.user({
+      from: r.humanInterviewRoundInterviewer.userId,
+      to: r.user.id,
+    }),
+  },
+  interviewAuditLog: {},
   interviewConversation: {
     interviewRecord: r.one.studioInterview({
       from: r.interviewConversation.interviewRecordId,
       to: r.studioInterview.id,
     }),
-    organization: r.one.organization({
-      from: r.interviewConversation.organizationId,
-      to: r.organization.id,
-    }),
+
     turns: r.many.interviewConversationTurn(),
   },
   interviewConversationTurn: {
@@ -146,10 +458,6 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.interviewConversationTurn.interviewRecordId,
       to: r.studioInterview.id,
     }),
-    organization: r.one.organization({
-      from: r.interviewConversationTurn.organizationId,
-      to: r.organization.id,
-    }),
   },
   interviewNotification: {
     event: r.one.interviewNotificationEvent({
@@ -160,20 +468,8 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.interviewNotification.interviewRecordId,
       to: r.studioInterview.id,
     }),
-    organization: r.one.organization({
-      from: r.interviewNotification.organizationId,
-      to: r.organization.id,
-    }),
-    templateVersion: r.one.interviewNotificationTemplateVersion({
-      from: r.interviewNotification.templateVersionId,
-      to: r.interviewNotificationTemplateVersion.id,
-    }),
   },
   interviewNotificationEvent: {
-    actor: r.one.user({
-      from: r.interviewNotificationEvent.actorUserId,
-      to: r.user.id,
-    }),
     aiRound: r.one.studioInterviewSchedule({
       from: r.interviewNotificationEvent.scheduleEntryId,
       to: r.studioInterviewSchedule.id,
@@ -197,10 +493,6 @@ export const relations = defineRelations(schema, (r) => ({
     interviewRecord: r.one.studioInterview({
       from: r.interviewNotificationEvent.interviewRecordId,
       to: r.studioInterview.id,
-    }),
-    organization: r.one.organization({
-      from: r.interviewNotificationEvent.organizationId,
-      to: r.organization.id,
     }),
   },
   interviewNotificationTemplate: {
@@ -226,10 +518,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.interviewNotificationTemplateVersion.createdBy,
       to: r.user.id,
     }),
-    deliveries: r.many.interviewNotification({
-      from: r.interviewNotificationTemplateVersion.id,
-      to: r.interviewNotification.templateVersionId,
-    }),
+
     template: r.one.interviewNotificationTemplate({
       from: r.interviewNotificationTemplateVersion.templateId,
       to: r.interviewNotificationTemplate.id,
@@ -242,12 +531,7 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organization.id,
     }),
   },
-  interviewQuestionTemplateBinding: {
-    organization: r.one.organization({
-      from: r.interviewQuestionTemplateBinding.organizationId,
-      to: r.organization.id,
-    }),
-  },
+  interviewQuestionTemplateBinding: {},
   interviewQuestionTemplateJobDescription: {
     jobDescription: r.one.jobDescription({
       from: r.interviewQuestionTemplateJobDescription.jobDescriptionId,
@@ -297,9 +581,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescription.organizationId,
       to: r.organization.id,
     }),
-    resumeJobMatchCandidates: r.many.resumeJobMatchCandidate(),
-    resumeJobMatchRuns: r.many.resumeJobMatchRun(),
-    studioInterviews: r.many.studioInterview(),
+
     user: r.one.user({
       from: r.jobDescription.createdBy,
       to: r.user.id,
@@ -345,8 +627,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescriptionVersion.createdBy,
       to: r.user.id,
     }),
-    evaluationFailures: r.many.resumeEvaluationFailure(),
-    evaluations: r.many.resumeEvaluationVersion(),
+
     jobDescription: r.one.jobDescription({
       from: r.jobDescriptionVersion.jobDescriptionId,
       to: r.jobDescription.id,
@@ -457,10 +738,6 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   meetingRecruitingContext: {
-    meeting: r.one.meetingSession({
-      from: r.meetingRecruitingContext.meetingId,
-      to: r.meetingSession.id,
-    }),
     recruitingRecord: r.one.studioInterview({
       from: r.meetingRecruitingContext.recruitingRecordId,
       to: r.studioInterview.id,
@@ -496,10 +773,7 @@ export const relations = defineRelations(schema, (r) => ({
     processingRuns: r.many.meetingProcessingRun(),
     questionExchanges: r.many.meetingQuestionExchange(),
     questionThreads: r.many.meetingQuestionThread(),
-    recruitingContext: r.one.meetingRecruitingContext({
-      from: r.meetingSession.id,
-      to: r.meetingRecruitingContext.meetingId,
-    }),
+
     searchProjection: r.one.meetingSearchProjection({
       from: r.meetingSession.id,
       to: r.meetingSearchProjection.meetingId,
@@ -564,7 +838,6 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   organization: {
-    candidateFormSubmissions: r.many.candidateFormSubmission(),
     candidateFormTemplates: r.many.candidateFormTemplate(),
     chatAttachments: r.many.chatAttachment(),
     chatConversations: r.many.chatConversation(),
@@ -572,13 +845,9 @@ export const relations = defineRelations(schema, (r) => ({
     departments: r.many.department(),
     feishuThreadStates: r.many.feishuThreadState(),
     globalConfigs: r.many.globalConfig(),
-    interviewAuditLogs: r.many.interviewAuditLog(),
-    interviewConversationTurns: r.many.interviewConversationTurn(),
-    interviewConversations: r.many.interviewConversation(),
-    interviewNotificationEvents: r.many.interviewNotificationEvent(),
+
     interviewNotificationTemplates: r.many.interviewNotificationTemplate(),
-    interviewNotifications: r.many.interviewNotification(),
-    interviewQuestionTemplateBindings: r.many.interviewQuestionTemplateBinding(),
+
     interviewQuestionTemplates: r.many.interviewQuestionTemplate(),
     interviewers: r.many.interviewer(),
     invitations: r.many.invitation(),
@@ -589,14 +858,9 @@ export const relations = defineRelations(schema, (r) => ({
     meetingTranscriptionPolicies: r.many.meetingTranscriptionPolicy(),
     members: r.many.member(),
     organizationRoles: r.many.organizationRole(),
-    resumeEvaluationFailures: r.many.resumeEvaluationFailure(),
-    resumeEvaluationVersions: r.many.resumeEvaluationVersion(),
-    studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),
-    studioInterviewNotificationRecipients: r.many.studioInterviewNotificationRecipient(),
-    studioInterviewSchedules: r.many.studioInterviewSchedule(),
-    studioInterviews: r.many.studioInterview(),
+
     studioOrgSkills: r.many.studioOrgSkill(),
-    studioRoundEmailLogs: r.many.studioRoundEmailLog(),
+
     workspaceInviteLinks: r.many.workspaceInviteLink(),
   },
   organizationRole: {
@@ -605,39 +869,784 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organization.id,
     }),
   },
-  resumeEvaluationFailure: {
+  // recruiting_context_snapshot 的新域关联；旧域关系保持不变。
+  recruitingContextSnapshot: {
+    aiRound: r.one.aiInterviewRound({
+      from: [
+        r.recruitingContextSnapshot.aiRoundId,
+        r.recruitingContextSnapshot.recruitingRecordId,
+        r.recruitingContextSnapshot.organizationId,
+      ],
+      to: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+    }),
+    creator: r.one.user({
+      from: r.recruitingContextSnapshot.createdBy,
+      to: r.user.id,
+    }),
+    evidenceSnapshots: r.many.recruitingEvidenceSnapshot({
+      from: [
+        r.recruitingContextSnapshot.id,
+        r.recruitingContextSnapshot.recruitingRecordId,
+        r.recruitingContextSnapshot.organizationId,
+      ],
+      to: [
+        r.recruitingEvidenceSnapshot.contextSnapshotId,
+        r.recruitingEvidenceSnapshot.recruitingRecordId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingContextSnapshot.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingContextSnapshot.recruitingRecordId,
+        r.recruitingContextSnapshot.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_duplicate_match 的新域关联；旧域关系保持不变。
+  recruitingDuplicateMatch: {
+    organization: r.one.organization({
+      from: r.recruitingDuplicateMatch.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  // recruiting_event 的新域关联；旧域关系保持不变。
+  recruitingEvent: {
+    aiRound: r.one.aiInterviewRound({
+      from: [
+        r.recruitingEvent.aiRoundId,
+        r.recruitingEvent.recruitingRecordId,
+        r.recruitingEvent.organizationId,
+      ],
+      to: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+    }),
+    operator: r.one.user({
+      from: r.recruitingEvent.operatorId,
+      to: r.user.id,
+    }),
+    organization: r.one.organization({
+      from: r.recruitingEvent.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.recruitingEvent.recruitingRecordId, r.recruitingEvent.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_evidence_snapshot 的新域关联；旧域关系保持不变。
+  recruitingEvidenceSnapshot: {
+    aiRound: r.one.aiInterviewRound({
+      from: [
+        r.recruitingEvidenceSnapshot.aiRoundId,
+        r.recruitingEvidenceSnapshot.recruitingRecordId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+      to: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+    }),
+    contextSnapshot: r.one.recruitingContextSnapshot({
+      from: [
+        r.recruitingEvidenceSnapshot.contextSnapshotId,
+        r.recruitingEvidenceSnapshot.recruitingRecordId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+      to: [
+        r.recruitingContextSnapshot.id,
+        r.recruitingContextSnapshot.recruitingRecordId,
+        r.recruitingContextSnapshot.organizationId,
+      ],
+    }),
+    conversation: r.one.aiInterviewConversation({
+      from: [
+        r.recruitingEvidenceSnapshot.conversationId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+      to: [r.aiInterviewConversation.conversationId, r.aiInterviewConversation.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingEvidenceSnapshot.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingEvidenceSnapshot.recruitingRecordId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_form_submission 的新域关联；旧域关系保持不变。
+  recruitingFormSubmission: {
+    organization: r.one.organization({
+      from: r.recruitingFormSubmission.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingFormSubmission.recruitingRecordId,
+        r.recruitingFormSubmission.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    template: r.one.candidateFormTemplate({
+      from: r.recruitingFormSubmission.templateId,
+      to: r.candidateFormTemplate.id,
+    }),
+    version: r.one.candidateFormTemplateVersion({
+      from: r.recruitingFormSubmission.versionId,
+      to: r.candidateFormTemplateVersion.id,
+    }),
+  },
+  // recruiting_fulfillment 的新域关联；旧域关系保持不变。
+  recruitingFulfillment: {
+    onboardingConfirmedByUser: r.one.user({
+      from: r.recruitingFulfillment.onboardingConfirmedBy,
+      to: r.user.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.recruitingFulfillment.recruitingRecordId, r.recruitingFulfillment.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    selectedOffer: r.one.recruitingOffer({
+      from: [
+        r.recruitingFulfillment.selectedOfferId,
+        r.recruitingFulfillment.recruitingRecordId,
+        r.recruitingFulfillment.organizationId,
+      ],
+      to: [
+        r.recruitingOffer.id,
+        r.recruitingOffer.recruitingRecordId,
+        r.recruitingOffer.organizationId,
+      ],
+    }),
+  },
+  // recruiting_interview_preparation 的新域关联；旧域关系保持不变。
+  recruitingInterviewPreparation: {
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingInterviewPreparation.recruitingRecordId,
+        r.recruitingInterviewPreparation.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_job_match_candidate 的新域关联；旧域关系保持不变。
+  recruitingJobMatchCandidate: {
+    jobDescription: r.one.jobDescription({
+      from: r.recruitingJobMatchCandidate.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.recruitingJobMatchCandidate.organizationId,
+      to: r.organization.id,
+    }),
+    run: r.one.recruitingJobMatchRun({
+      from: [r.recruitingJobMatchCandidate.runId, r.recruitingJobMatchCandidate.organizationId],
+      to: [r.recruitingJobMatchRun.id, r.recruitingJobMatchRun.organizationId],
+    }),
+  },
+  // recruiting_job_match_run 的新域关联；旧域关系保持不变。
+  recruitingJobMatchRun: {
+    batchItem: r.one.recruitingUploadBatchItem({
+      from: [r.recruitingJobMatchRun.batchItemId, r.recruitingJobMatchRun.organizationId],
+      to: [r.recruitingUploadBatchItem.id, r.recruitingUploadBatchItem.organizationId],
+    }),
+    mailMessage: r.one.recruitingMailMessage({
+      from: [r.recruitingJobMatchRun.mailMessageId, r.recruitingJobMatchRun.organizationId],
+      to: [r.recruitingMailMessage.id, r.recruitingMailMessage.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingJobMatchRun.organizationId,
+      to: r.organization.id,
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.recruitingJobMatchRun.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+    recruitingJobMatchCandidates: r.many.recruitingJobMatchCandidate({
+      from: [r.recruitingJobMatchRun.id, r.recruitingJobMatchRun.organizationId],
+      to: [r.recruitingJobMatchCandidate.runId, r.recruitingJobMatchCandidate.organizationId],
+    }),
+    selectedJobDescription: r.one.jobDescription({
+      from: r.recruitingJobMatchRun.selectedJobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+  },
+  // recruiting_mail_message 的新域关联；旧域关系保持不变。
+  recruitingMailMessage: {
+    account: r.one.mailIngestAccount({
+      from: r.recruitingMailMessage.accountId,
+      to: r.mailIngestAccount.id,
+    }),
+    batch: r.one.recruitingUploadBatch({
+      from: [r.recruitingMailMessage.batchId, r.recruitingMailMessage.organizationId],
+      to: [r.recruitingUploadBatch.id, r.recruitingUploadBatch.organizationId],
+    }),
+    boundJobDescription: r.one.jobDescription({
+      from: r.recruitingMailMessage.boundJobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.recruitingMailMessage.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingJobMatchRuns: r.many.recruitingJobMatchRun({
+      from: [r.recruitingMailMessage.id, r.recruitingMailMessage.organizationId],
+      to: [r.recruitingJobMatchRun.mailMessageId, r.recruitingJobMatchRun.organizationId],
+    }),
+  },
+  // recruiting_material 的新域关联；旧域关系保持不变。
+  recruitingMaterial: {
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.recruitingMaterial.recruitingRecordId, r.recruitingMaterial.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    uploader: r.one.user({
+      from: r.recruitingMaterial.uploadedBy,
+      to: r.user.id,
+    }),
+  },
+  // recruiting_meeting_context 的新域关联；旧域关系保持不变。
+  recruitingMeetingContext: {
+    linkedByUser: r.one.user({
+      from: r.recruitingMeetingContext.linkedBy,
+      to: r.user.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: [r.recruitingMeetingContext.meetingId, r.recruitingMeetingContext.organizationId],
+      to: [r.meetingSession.id, r.meetingSession.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingMeetingContext.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingMeetingContext.recruitingRecordId,
+        r.recruitingMeetingContext.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_migration_map 的新域关联；旧域关系保持不变。
+  recruitingMigrationMap: {},
+  // recruiting_node_state 的新域关联；旧域关系保持不变。
+  recruitingNodeState: {
+    decider: r.one.user({
+      from: r.recruitingNodeState.decidedBy,
+      to: r.user.id,
+    }),
+    effectiveAiRound: r.one.aiInterviewRound({
+      from: [
+        r.recruitingNodeState.effectiveAiRoundId,
+        r.recruitingNodeState.recruitingRecordId,
+        r.recruitingNodeState.organizationId,
+      ],
+      to: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+    }),
+    effectiveHumanRound: r.one.humanInterviewRound({
+      from: [
+        r.recruitingNodeState.effectiveHumanRoundId,
+        r.recruitingNodeState.recruitingRecordId,
+        r.recruitingNodeState.organizationId,
+        r.recruitingNodeState.node,
+      ],
+      to: [
+        r.humanInterviewRound.id,
+        r.humanInterviewRound.recruitingRecordId,
+        r.humanInterviewRound.organizationId,
+        r.humanInterviewRound.roundKind,
+      ],
+    }),
+    effectiveOffer: r.one.recruitingOffer({
+      from: [
+        r.recruitingNodeState.effectiveOfferId,
+        r.recruitingNodeState.recruitingRecordId,
+        r.recruitingNodeState.organizationId,
+      ],
+      to: [
+        r.recruitingOffer.id,
+        r.recruitingOffer.recruitingRecordId,
+        r.recruitingOffer.organizationId,
+      ],
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.recruitingNodeState.recruitingRecordId, r.recruitingNodeState.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_notification_delivery 的新域关联；旧域关系保持不变。
+  recruitingNotificationDelivery: {
+    conversation: r.one.aiInterviewConversation({
+      from: [
+        r.recruitingNotificationDelivery.conversationId,
+        r.recruitingNotificationDelivery.organizationId,
+      ],
+      to: [r.aiInterviewConversation.conversationId, r.aiInterviewConversation.organizationId],
+    }),
+    event: r.one.recruitingNotificationEvent({
+      from: [
+        r.recruitingNotificationDelivery.eventId,
+        r.recruitingNotificationDelivery.organizationId,
+      ],
+      to: [r.recruitingNotificationEvent.id, r.recruitingNotificationEvent.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingNotificationDelivery.organizationId,
+      to: r.organization.id,
+    }),
+    recipientUser: r.one.user({
+      from: r.recruitingNotificationDelivery.recipientUserId,
+      to: r.user.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingNotificationDelivery.recruitingRecordId,
+        r.recruitingNotificationDelivery.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    templateVersion: r.one.interviewNotificationTemplateVersion({
+      from: r.recruitingNotificationDelivery.templateVersionId,
+      to: r.interviewNotificationTemplateVersion.id,
+    }),
+  },
+  // recruiting_notification_event 的新域关联；旧域关系保持不变。
+  recruitingNotificationEvent: {
+    actorUser: r.one.user({
+      from: r.recruitingNotificationEvent.actorUserId,
+      to: r.user.id,
+    }),
+    aiRound: r.one.aiInterviewRound({
+      from: [r.recruitingNotificationEvent.aiRoundId, r.recruitingNotificationEvent.organizationId],
+      to: [r.aiInterviewRound.id, r.aiInterviewRound.organizationId],
+    }),
+    conversation: r.one.aiInterviewConversation({
+      from: [
+        r.recruitingNotificationEvent.conversationId,
+        r.recruitingNotificationEvent.organizationId,
+      ],
+      to: [r.aiInterviewConversation.conversationId, r.aiInterviewConversation.organizationId],
+    }),
+    deliveries: r.many.recruitingNotificationDelivery({
+      from: [r.recruitingNotificationEvent.id, r.recruitingNotificationEvent.organizationId],
+      to: [
+        r.recruitingNotificationDelivery.eventId,
+        r.recruitingNotificationDelivery.organizationId,
+      ],
+    }),
+    humanMeeting: r.one.humanInterviewMeeting({
+      from: [
+        r.recruitingNotificationEvent.humanMeetingId,
+        r.recruitingNotificationEvent.organizationId,
+      ],
+      to: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+    }),
+    humanRound: r.one.humanInterviewRound({
+      from: [
+        r.recruitingNotificationEvent.humanRoundId,
+        r.recruitingNotificationEvent.organizationId,
+      ],
+      to: [r.humanInterviewRound.id, r.humanInterviewRound.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingNotificationEvent.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingNotificationEvent.recruitingRecordId,
+        r.recruitingNotificationEvent.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_notification_recipient 的新域关联；旧域关系保持不变。
+  recruitingNotificationRecipient: {
+    creator: r.one.user({
+      from: r.recruitingNotificationRecipient.createdBy,
+      to: r.user.id,
+    }),
+    member: r.one.member({
+      from: [
+        r.recruitingNotificationRecipient.userId,
+        r.recruitingNotificationRecipient.organizationId,
+      ],
+      to: [r.member.userId, r.member.organizationId],
+    }),
+    organization: r.one.organization({
+      from: r.recruitingNotificationRecipient.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingNotificationRecipient.recruitingRecordId,
+        r.recruitingNotificationRecipient.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    user: r.one.user({
+      from: r.recruitingNotificationRecipient.userId,
+      to: r.user.id,
+    }),
+  },
+  // recruiting_offer 的新域关联；旧域关系保持不变。
+  recruitingOffer: {
+    organization: r.one.organization({
+      from: r.recruitingOffer.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.recruitingOffer.recruitingRecordId, r.recruitingOffer.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_pool_import 的新域关联；旧域关系保持不变。
+  recruitingPoolImport: {
+    importedByUser: r.one.user({
+      from: r.recruitingPoolImport.importedBy,
+      to: r.user.id,
+    }),
+    organization: r.one.organization({
+      from: r.recruitingPoolImport.organizationId,
+      to: r.organization.id,
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.recruitingPoolImport.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [r.recruitingPoolImport.recruitingRecordId, r.recruitingPoolImport.organizationId],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  // recruiting_question_template_binding 的新域关联；旧域关系保持不变。
+  recruitingQuestionTemplateBinding: {
+    organization: r.one.organization({
+      from: r.recruitingQuestionTemplateBinding.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingQuestionTemplateBinding.recruitingRecordId,
+        r.recruitingQuestionTemplateBinding.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    template: r.one.interviewQuestionTemplate({
+      from: r.recruitingQuestionTemplateBinding.templateId,
+      to: r.interviewQuestionTemplate.id,
+    }),
+    version: r.one.interviewQuestionTemplateVersion({
+      from: r.recruitingQuestionTemplateBinding.versionId,
+      to: r.interviewQuestionTemplateVersion.id,
+    }),
+  },
+  // recruiting_record 的新域关联；旧域关系保持不变。
+  recruitingRecord: {
+    activeEvaluation: r.one.recruitingResumeEvaluation({
+      from: [
+        r.recruitingRecord.activeEvaluationId,
+        r.recruitingRecord.id,
+        r.recruitingRecord.organizationId,
+      ],
+      to: [
+        r.recruitingResumeEvaluation.id,
+        r.recruitingResumeEvaluation.recruitingRecordId,
+        r.recruitingResumeEvaluation.organizationId,
+      ],
+    }),
+    aiInterviewRounds: r.many.aiInterviewRound({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.aiInterviewRound.recruitingRecordId, r.aiInterviewRound.organizationId],
+    }),
+    candidate: r.one.candidate({
+      from: [r.recruitingRecord.candidateId, r.recruitingRecord.organizationId],
+      to: [r.candidate.id, r.candidate.organizationId],
+    }),
+    creator: r.one.user({
+      from: r.recruitingRecord.createdBy,
+      to: r.user.id,
+    }),
+    currentEvaluation: r.one.recruitingResumeEvaluation({
+      from: [
+        r.recruitingRecord.currentEvaluationId,
+        r.recruitingRecord.id,
+        r.recruitingRecord.organizationId,
+      ],
+      to: [
+        r.recruitingResumeEvaluation.id,
+        r.recruitingResumeEvaluation.recruitingRecordId,
+        r.recruitingResumeEvaluation.organizationId,
+      ],
+    }),
+    hrResumeAssessmentUpdatedByUser: r.one.user({
+      from: r.recruitingRecord.hrResumeAssessmentUpdatedBy,
+      to: r.user.id,
+    }),
+    humanInterviewRounds: r.many.humanInterviewRound({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.humanInterviewRound.recruitingRecordId, r.humanInterviewRound.organizationId],
+    }),
+    interviewPreparation: r.one.recruitingInterviewPreparation({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingInterviewPreparation.recruitingRecordId,
+        r.recruitingInterviewPreparation.organizationId,
+      ],
+    }),
+    jobDescription: r.one.jobDescription({
+      from: r.recruitingRecord.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.recruitingRecord.organizationId,
+      to: r.organization.id,
+    }),
+    owner: r.one.user({
+      from: r.recruitingRecord.ownerId,
+      to: r.user.id,
+    }),
+    recruitingContextSnapshots: r.many.recruitingContextSnapshot({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingContextSnapshot.recruitingRecordId,
+        r.recruitingContextSnapshot.organizationId,
+      ],
+    }),
+    recruitingEvents: r.many.recruitingEvent({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.recruitingEvent.recruitingRecordId, r.recruitingEvent.organizationId],
+    }),
+    recruitingEvidenceSnapshots: r.many.recruitingEvidenceSnapshot({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingEvidenceSnapshot.recruitingRecordId,
+        r.recruitingEvidenceSnapshot.organizationId,
+      ],
+    }),
+    recruitingFormSubmissions: r.many.recruitingFormSubmission({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingFormSubmission.recruitingRecordId,
+        r.recruitingFormSubmission.organizationId,
+      ],
+    }),
+    recruitingFulfillment: r.one.recruitingFulfillment({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.recruitingFulfillment.recruitingRecordId, r.recruitingFulfillment.organizationId],
+    }),
+    recruitingMaterials: r.many.recruitingMaterial({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.recruitingMaterial.recruitingRecordId, r.recruitingMaterial.organizationId],
+    }),
+    recruitingMeetingContexts: r.many.recruitingMeetingContext({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingMeetingContext.recruitingRecordId,
+        r.recruitingMeetingContext.organizationId,
+      ],
+    }),
+    recruitingNodeStates: r.many.recruitingNodeState({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.recruitingNodeState.recruitingRecordId, r.recruitingNodeState.organizationId],
+    }),
+    recruitingNotificationEvents: r.many.recruitingNotificationEvent({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingNotificationEvent.recruitingRecordId,
+        r.recruitingNotificationEvent.organizationId,
+      ],
+    }),
+    recruitingNotificationRecipients: r.many.recruitingNotificationRecipient({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingNotificationRecipient.recruitingRecordId,
+        r.recruitingNotificationRecipient.organizationId,
+      ],
+    }),
+    recruitingOffers: r.many.recruitingOffer({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.recruitingOffer.recruitingRecordId, r.recruitingOffer.organizationId],
+    }),
+    recruitingPoolImports: r.many.recruitingPoolImport({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [r.recruitingPoolImport.recruitingRecordId, r.recruitingPoolImport.organizationId],
+    }),
+    recruitingQuestionTemplateBindings: r.many.recruitingQuestionTemplateBinding({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingQuestionTemplateBinding.recruitingRecordId,
+        r.recruitingQuestionTemplateBinding.organizationId,
+      ],
+    }),
+    recruitingResumeEvaluations: r.many.recruitingResumeEvaluation({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingResumeEvaluation.recruitingRecordId,
+        r.recruitingResumeEvaluation.organizationId,
+      ],
+    }),
+    recruitingUploadBatchItems: r.many.recruitingUploadBatchItem({
+      from: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+      to: [
+        r.recruitingUploadBatchItem.recruitingRecordId,
+        r.recruitingUploadBatchItem.organizationId,
+      ],
+    }),
+    resume: r.one.candidateResume({
+      from: [
+        r.recruitingRecord.resumeId,
+        r.recruitingRecord.candidateId,
+        r.recruitingRecord.organizationId,
+      ],
+      to: [r.candidateResume.id, r.candidateResume.candidateId, r.candidateResume.organizationId],
+    }),
+    sourceImportedByUser: r.one.user({
+      from: r.recruitingRecord.sourceImportedBy,
+      to: r.user.id,
+    }),
+    sourcePoolItem: r.one.resumePoolItem({
+      from: r.recruitingRecord.sourcePoolItemId,
+      to: r.resumePoolItem.id,
+    }),
+  },
+  // recruiting_resume_evaluation 的新域关联；旧域关系保持不变。
+  recruitingResumeEvaluation: {
     jobDescriptionVersion: r.one.jobDescriptionVersion({
-      from: r.resumeEvaluationFailure.jobDescriptionVersionId,
+      from: r.recruitingResumeEvaluation.jobDescriptionVersionId,
       to: r.jobDescriptionVersion.id,
     }),
     organization: r.one.organization({
-      from: r.resumeEvaluationFailure.organizationId,
+      from: r.recruitingResumeEvaluation.organizationId,
       to: r.organization.id,
     }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingResumeEvaluation.recruitingRecordId,
+        r.recruitingResumeEvaluation.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    resume: r.one.candidateResume({
+      from: [r.recruitingResumeEvaluation.resumeId, r.recruitingResumeEvaluation.organizationId],
+      to: [r.candidateResume.id, r.candidateResume.organizationId],
+    }),
+  },
+  // recruiting_round_email_log 的新域关联；旧域关系保持不变。
+  recruitingRoundEmailLog: {
+    organization: r.one.organization({
+      from: r.recruitingRoundEmailLog.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingRoundEmailLog.recruitingRecordId,
+        r.recruitingRoundEmailLog.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+    round: r.one.aiInterviewRound({
+      from: [
+        r.recruitingRoundEmailLog.roundId,
+        r.recruitingRoundEmailLog.recruitingRecordId,
+        r.recruitingRoundEmailLog.organizationId,
+      ],
+      to: [
+        r.aiInterviewRound.id,
+        r.aiInterviewRound.recruitingRecordId,
+        r.aiInterviewRound.organizationId,
+      ],
+    }),
+    sender: r.one.user({
+      from: r.recruitingRoundEmailLog.sentBy,
+      to: r.user.id,
+    }),
+  },
+  // recruiting_search_index 的新域关联；旧域关系保持不变。
+  recruitingSearchIndex: {
+    organization: r.one.organization({
+      from: r.recruitingSearchIndex.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  // recruiting_upload_batch 的新域关联；旧域关系保持不变。
+  recruitingUploadBatch: {
+    creator: r.one.user({
+      from: r.recruitingUploadBatch.createdBy,
+      to: r.user.id,
+    }),
+    jobDescription: r.one.jobDescription({
+      from: r.recruitingUploadBatch.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.recruitingUploadBatch.organizationId,
+      to: r.organization.id,
+    }),
+    recruitingMailMessages: r.many.recruitingMailMessage({
+      from: [r.recruitingUploadBatch.id, r.recruitingUploadBatch.organizationId],
+      to: [r.recruitingMailMessage.batchId, r.recruitingMailMessage.organizationId],
+    }),
+    recruitingUploadBatchItems: r.many.recruitingUploadBatchItem({
+      from: [r.recruitingUploadBatch.id, r.recruitingUploadBatch.organizationId],
+      to: [r.recruitingUploadBatchItem.batchId, r.recruitingUploadBatchItem.organizationId],
+    }),
+  },
+  // recruiting_upload_batch_item 的新域关联；旧域关系保持不变。
+  recruitingUploadBatchItem: {
+    batch: r.one.recruitingUploadBatch({
+      from: [r.recruitingUploadBatchItem.batchId, r.recruitingUploadBatchItem.organizationId],
+      to: [r.recruitingUploadBatch.id, r.recruitingUploadBatch.organizationId],
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.recruitingUploadBatchItem.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+    recruitingJobMatchRuns: r.many.recruitingJobMatchRun({
+      from: [r.recruitingUploadBatchItem.id, r.recruitingUploadBatchItem.organizationId],
+      to: [r.recruitingJobMatchRun.batchItemId, r.recruitingJobMatchRun.organizationId],
+    }),
+    recruitingRecord: r.one.recruitingRecord({
+      from: [
+        r.recruitingUploadBatchItem.recruitingRecordId,
+        r.recruitingUploadBatchItem.organizationId,
+      ],
+      to: [r.recruitingRecord.id, r.recruitingRecord.organizationId],
+    }),
+  },
+  resumeEvaluationFailure: {
     resumeRecord: r.one.studioInterview({
       from: r.resumeEvaluationFailure.resumeRecordId,
       to: r.studioInterview.id,
     }),
   },
   resumeEvaluationVersion: {
-    jobDescriptionVersion: r.one.jobDescriptionVersion({
-      from: r.resumeEvaluationVersion.jobDescriptionVersionId,
-      to: r.jobDescriptionVersion.id,
-    }),
-    organization: r.one.organization({
-      from: r.resumeEvaluationVersion.organizationId,
-      to: r.organization.id,
-    }),
     resumeRecord: r.one.studioInterview({
       from: r.resumeEvaluationVersion.resumeRecordId,
       to: r.studioInterview.id,
     }),
   },
   resumeJobMatchCandidate: {
-    jobDescription: r.one.jobDescription({
-      from: r.resumeJobMatchCandidate.jobDescriptionId,
-      to: r.jobDescription.id,
-    }),
     run: r.one.resumeJobMatchRun({
       from: r.resumeJobMatchCandidate.runId,
       to: r.resumeJobMatchRun.id,
@@ -652,18 +1661,6 @@ export const relations = defineRelations(schema, (r) => ({
     mailMessage: r.one.mailIngestMessage({
       from: r.resumeJobMatchRun.mailMessageId,
       to: r.mailIngestMessage.id,
-    }),
-    organization: r.one.organization({
-      from: r.resumeJobMatchRun.organizationId,
-      to: r.organization.id,
-    }),
-    poolItem: r.one.resumePoolItem({
-      from: r.resumeJobMatchRun.poolItemId,
-      to: r.resumePoolItem.id,
-    }),
-    selectedJobDescription: r.one.jobDescription({
-      from: r.resumeJobMatchRun.selectedJobDescriptionId,
-      to: r.jobDescription.id,
     }),
   },
   resumePoolEvent: {
@@ -681,21 +1678,9 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   resumePoolImport: {
-    importedByUser: r.one.user({
-      from: r.resumePoolImport.importedBy,
-      to: r.user.id,
-    }),
     importedResumeRecord: r.one.studioInterview({
       from: r.resumePoolImport.importedResumeRecordId,
       to: r.studioInterview.id,
-    }),
-    organization: r.one.organization({
-      from: r.resumePoolImport.organizationId,
-      to: r.organization.id,
-    }),
-    poolItem: r.one.resumePoolItem({
-      from: r.resumePoolImport.poolItemId,
-      to: r.resumePoolItem.id,
     }),
   },
   resumePoolItem: {
@@ -704,12 +1689,12 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
     events: r.many.resumePoolEvent(),
-    imports: r.many.resumePoolImport(),
+
     jobDescription: r.one.jobDescription({
       from: r.resumePoolItem.jobDescriptionId,
       to: r.jobDescription.id,
     }),
-    jobMatchRuns: r.many.resumeJobMatchRun(),
+
     organization: r.one.organization({
       from: r.resumePoolItem.organizationId,
       to: r.organization.id,
@@ -734,17 +1719,10 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   studioHumanInterviewMeeting: {
-    createdByUser: r.one.user({
-      from: r.studioHumanInterviewMeeting.createdBy,
-      to: r.user.id,
-    }),
     events: r.many.studioHumanInterviewMeetingEvent(),
     interviewers: r.many.studioHumanInterviewMeetingInterviewer(),
     notificationEvents: r.many.interviewNotificationEvent(),
-    organization: r.one.organization({
-      from: r.studioHumanInterviewMeeting.organizationId,
-      to: r.organization.id,
-    }),
+
     rounds: r.many.studioHumanInterviewMeetingRound(),
   },
   studioHumanInterviewMeetingEvent: {
@@ -757,10 +1735,6 @@ export const relations = defineRelations(schema, (r) => ({
     meeting: r.one.studioHumanInterviewMeeting({
       from: r.studioHumanInterviewMeetingInterviewer.meetingId,
       to: r.studioHumanInterviewMeeting.id,
-    }),
-    user: r.one.user({
-      from: r.studioHumanInterviewMeetingInterviewer.userId,
-      to: r.user.id,
     }),
   },
   studioHumanInterviewMeetingRound: {
@@ -781,19 +1755,11 @@ export const relations = defineRelations(schema, (r) => ({
     interviewers: r.many.studioHumanInterviewRoundInterviewer(),
     meetingLinks: r.many.studioHumanInterviewMeetingRound(),
     notificationEvents: r.many.interviewNotificationEvent(),
-    organization: r.one.organization({
-      from: r.studioHumanInterviewRound.organizationId,
-      to: r.organization.id,
-    }),
   },
   studioHumanInterviewRoundInterviewer: {
     round: r.one.studioHumanInterviewRound({
       from: r.studioHumanInterviewRoundInterviewer.roundId,
       to: r.studioHumanInterviewRound.id,
-    }),
-    user: r.one.user({
-      from: r.studioHumanInterviewRoundInterviewer.userId,
-      to: r.user.id,
     }),
   },
   studioInterview: {
@@ -803,55 +1769,21 @@ export const relations = defineRelations(schema, (r) => ({
     evaluationFailures: r.many.resumeEvaluationFailure(),
     evaluationVersions: r.many.resumeEvaluationVersion(),
     humanInterviewRounds: r.many.studioHumanInterviewRound(),
-    jobDescription: r.one.jobDescription({
-      from: r.studioInterview.jobDescriptionId,
-      to: r.jobDescription.id,
-    }),
+
     meetingContexts: r.many.meetingRecruitingContext(),
     notificationEvents: r.many.interviewNotificationEvent(),
     notificationRecipients: r.many.studioInterviewNotificationRecipient(),
     notifications: r.many.interviewNotification(),
     offerDrafts: r.many.studioOfferDraft(),
-    organization: r.one.organization({
-      from: r.studioInterview.organizationId,
-      to: r.organization.id,
-    }),
-    qualitativeAttemptJobDescriptionVersion: r.one.jobDescriptionVersion({
-      from: r.studioInterview.qualitativeAttemptJobDescriptionVersionId,
-      to: r.jobDescriptionVersion.id,
-    }),
-    qualitativeJobDescriptionVersion: r.one.jobDescriptionVersion({
-      from: r.studioInterview.qualitativeJobDescriptionVersionId,
-      to: r.jobDescriptionVersion.id,
-    }),
+
     roundEmailLogs: r.many.studioRoundEmailLog(),
     scheduleEntries: r.many.studioInterviewSchedule(),
     sourcePoolImports: r.many.resumePoolImport(),
-    sourcePoolItem: r.one.resumePoolItem({
-      from: r.studioInterview.resumeSourcePoolItemId,
-      to: r.resumePoolItem.id,
-    }),
-    user: r.one.user({
-      from: r.studioInterview.createdBy,
-      to: r.user.id,
-    }),
   },
   studioInterviewNotificationRecipient: {
-    createdByUser: r.one.user({
-      from: r.studioInterviewNotificationRecipient.createdBy,
-      to: r.user.id,
-    }),
     interviewRecord: r.one.studioInterview({
       from: r.studioInterviewNotificationRecipient.interviewRecordId,
       to: r.studioInterview.id,
-    }),
-    organization: r.one.organization({
-      from: r.studioInterviewNotificationRecipient.organizationId,
-      to: r.organization.id,
-    }),
-    user: r.one.user({
-      from: r.studioInterviewNotificationRecipient.userId,
-      to: r.user.id,
     }),
   },
   studioInterviewSchedule: {
@@ -861,23 +1793,11 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.studioInterview.id,
     }),
     notificationEvents: r.many.interviewNotificationEvent(),
-    organization: r.one.organization({
-      from: r.studioInterviewSchedule.organizationId,
-      to: r.organization.id,
-    }),
-    user: r.one.user({
-      from: r.studioInterviewSchedule.createdBy,
-      to: r.user.id,
-    }),
   },
   studioOfferDraft: {
     interviewRecord: r.one.studioInterview({
       from: r.studioOfferDraft.interviewRecordId,
       to: r.studioInterview.id,
-    }),
-    organization: r.one.organization({
-      from: r.studioOfferDraft.organizationId,
-      to: r.organization.id,
     }),
   },
   studioOrgSkill: {
@@ -891,17 +1811,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioRoundEmailLog.interviewRecordId,
       to: r.studioInterview.id,
     }),
-    organization: r.one.organization({
-      from: r.studioRoundEmailLog.organizationId,
-      to: r.organization.id,
-    }),
+
     round: r.one.studioInterviewSchedule({
       from: r.studioRoundEmailLog.roundId,
       to: r.studioInterviewSchedule.id,
-    }),
-    sentByUser: r.one.user({
-      from: r.studioRoundEmailLog.sentBy,
-      to: r.user.id,
     }),
   },
   user: {
@@ -910,14 +1823,7 @@ export const relations = defineRelations(schema, (r) => ({
     chatAttachment: r.many.chatAttachment(),
     chatConversation: r.many.chatConversation(),
     departments: r.many.department(),
-    interviewNotificationEventsActed: r.many.interviewNotificationEvent({
-      from: r.user.id,
-      to: r.interviewNotificationEvent.actorUserId,
-    }),
-    interviewNotificationRecipients: r.many.studioInterviewNotificationRecipient({
-      from: r.user.id,
-      to: r.studioInterviewNotificationRecipient.userId,
-    }),
+
     interviewNotificationTemplateVersionsCreated: r.many.interviewNotificationTemplateVersion({
       from: r.user.id,
       to: r.interviewNotificationTemplateVersion.createdBy,
@@ -931,12 +1837,7 @@ export const relations = defineRelations(schema, (r) => ({
     jobDescriptions: r.many.jobDescription(),
     memberships: r.many.member(),
     session: r.many.session(),
-    studioHumanInterviewMeetingInterviewer: r.many.studioHumanInterviewMeetingInterviewer(),
-    studioHumanInterviewMeetingsCreated: r.many.studioHumanInterviewMeeting({
-      from: r.user.id,
-      to: r.studioHumanInterviewMeeting.createdBy,
-    }),
-    studioInterview: r.many.studioInterview(),
+
     workspaceInviteLinksCreated: r.many.workspaceInviteLink({
       from: r.user.id,
       to: r.workspaceInviteLink.createdBy,

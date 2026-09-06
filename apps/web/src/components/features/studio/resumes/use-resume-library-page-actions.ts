@@ -82,8 +82,14 @@ export function useResumeLibraryPageActions({
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
-    if (!canLaunchInterviewFromResume(record.resumeParseStatus)) {
-      toast.error("简历解析完成后才能发起 AI 面试");
+    if (
+      !canLaunchInterviewFromResume(
+        record.resumeParseStatus,
+        record.pipelineStage,
+        record.resumeEvaluationStatus,
+      )
+    ) {
+      toast.error("请先完成简历解析并将筛选标记为通过，再在筛选或 AI 初面节点发起面试。");
       return;
     }
     setLaunchingRecord({ candidateName: record.candidateName ?? null, id: record.id });

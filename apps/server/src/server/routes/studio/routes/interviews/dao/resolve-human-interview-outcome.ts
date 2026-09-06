@@ -1,11 +1,13 @@
+import { syncHumanInterviewRoundNodeTx } from "@app/database/recruiting-pipeline";
+import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
+import {
+  recruitingRecord,
+  humanInterviewEvaluationDocumentSync,
+  recruitingEvent,
+  humanInterviewRound,
+} from "@app/db-schema/schema";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@app/database";
-import {
-  humanInterviewDocumentSync,
-  interviewAuditLog,
-  studioHumanInterviewRound,
-  studioInterview,
-} from "@app/db-schema/schema";
 import { ResolveHumanInterviewOutcomeError } from "../application/resolve-human-interview-outcome";
 import type { ResolveHumanInterviewOutcomeInput } from "../application/resolve-human-interview-outcome";
 
@@ -15,18 +17,22 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
       const now = new Date();
       const [candidate] = await tx
         .select()
-        .from(studioInterview)
+        .from(recruitingRecord)
         .where(
           and(
-            eq(studioInterview.id, input.interviewRecordId),
-            eq(studioInterview.organizationId, input.organizationId),
+            eq(recruitingRecord.id, input.interviewRecordId),
+            eq(recruitingRecord.organizationId, input.organizationId),
           ),
         )
         .for("update");
       if (!candidate) {
         throw new ResolveHumanInterviewOutcomeError("候选人记录不存在。", 404);
       }
-      if (candidate.pipelineStage === "closed" || candidate.pipelineStage === "offer") {
+      if (
+        candidate.currentStage === "closed" ||
+        isOfferStage(candidate.currentStage) ||
+        candidate.currentStage === "onboarding"
+      ) {
         throw new ResolveHumanInterviewOutcomeError(
           "候选人已结束或进入 Offer 阶段，不能修改本轮结论。",
           409,
@@ -34,12 +40,12 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
       }
       const [round] = await tx
         .select()
-        .from(studioHumanInterviewRound)
+        .from(humanInterviewRound)
         .where(
           and(
-            eq(studioHumanInterviewRound.id, input.roundId),
-            eq(studioHumanInterviewRound.organizationId, input.organizationId),
-            eq(studioHumanInterviewRound.interviewRecordId, input.interviewRecordId),
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
+            eq(humanInterviewRound.recruitingRecordId, input.interviewRecordId),
           ),
         )
         .for("update");
@@ -54,11 +60,11 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
       }
       const [sync] = await tx
         .select()
-        .from(humanInterviewDocumentSync)
+        .from(humanInterviewEvaluationDocumentSync)
         .where(
           and(
-            eq(humanInterviewDocumentSync.roundId, input.roundId),
-            eq(humanInterviewDocumentSync.organizationId, input.organizationId),
+            eq(humanInterviewEvaluationDocumentSync.roundId, input.roundId),
+            eq(humanInterviewEvaluationDocumentSync.organizationId, input.organizationId),
           ),
         )
         .for("update");
@@ -67,10 +73,18 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
       }
       // Keep the submitted evaluation and its immutable snapshot untouched.
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({ outcome: input.outcome, updatedAt: now })
-        .where(eq(studioHumanInterviewRound.id, round.id));
-      await tx.insert(interviewAuditLog).values({
+        .where(eq(humanInterviewRound.id, round.id));
+      await syncHumanInterviewRoundNodeTx(tx, {
+        now,
+        operatorId: input.actorId,
+        organizationId: input.organizationId,
+        outcome: input.outcome,
+        recordId: input.interviewRecordId,
+        roundId: input.roundId,
+      });
+      await tx.insert(recruitingEvent).values({
         action: "human_interview_round_updated",
         createdAt: now,
         detail: {
@@ -80,13 +94,13 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
           roundLabel: round.label,
         },
         id: crypto.randomUUID(),
-        interviewRecordId: input.interviewRecordId,
         operatorId: input.actorId,
         organizationId: input.organizationId,
+        recruitingRecordId: input.interviewRecordId,
       });
       if (sync) {
         await tx
-          .update(humanInterviewDocumentSync)
+          .update(humanInterviewEvaluationDocumentSync)
           .set({
             attemptCount: 0,
             error: null,
@@ -94,7 +108,7 @@ export function createResolveHumanInterviewOutcomeDao(db: Database) {
             nextAttemptAt: now,
             status: "pending",
           })
-          .where(eq(humanInterviewDocumentSync.snapshotId, sync.snapshotId));
+          .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, sync.snapshotId));
       }
     });
   };

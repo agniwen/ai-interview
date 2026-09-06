@@ -1,8 +1,17 @@
+import type {
+  RecruitingNode,
+  RecruitingNodeStatus,
+  RecruitingNodeResult,
+  RecruitingCloseReason,
+} from "@app/db-schema/schema";
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeReview, ResumeReviewAction } from "@app/db-schema/resume-review";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
+  pipelineStageMeta,
+  recruitingPipelineNodeValues,
+  recruitingNodeStatusMeta,
   resumeEvaluationStatusMeta,
   resumeEvaluationStatusSchema,
   resumeParseStatusMeta,
@@ -139,6 +148,10 @@ export const EMPTY_RESUME_PROFILE_SNAPSHOT: ResumeLibraryProfileSnapshot = {
  * the resume library view stays focused on candidate + resume metadata.
  */
 export interface ResumeLibraryListRecord {
+  /** 当前节点状态与结果；结束流程保留结束前节点的摘要。 */
+  nodeStatus: RecruitingNodeStatus | null;
+  nodeResult: RecruitingNodeResult | null;
+  version: number;
   id: string;
   candidateName: string;
   candidateEmail: string | null;
@@ -205,7 +218,24 @@ export interface ResumeLibraryListRecord {
  * Detail DTO: list fields plus any `interviewQuestions` generated during upload
  * (may be empty for legacy rows).
  */
+export interface RecruitingNodeStateRecord {
+  node: RecruitingNode;
+  status: RecruitingNodeStatus;
+  result: RecruitingNodeResult | null;
+  enteredAt: string | null;
+  completedAt: string | null;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  reason: string | null;
+  effectiveAiRoundId: string | null;
+  effectiveHumanRoundId: string | null;
+  effectiveOfferId: string | null;
+}
+
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
+  closedFromNode: RecruitingNode | null;
+  closeReason: RecruitingCloseReason | null;
+  nodeStates: RecruitingNodeStateRecord[];
   candidateExpectationsMeta: CandidateExpectationsMeta | null;
   closedAt: string | null;
   closedMeta: ClosedMeta | null;
@@ -275,6 +305,8 @@ interface Description {
 }
 
 interface ResumeProgressInput {
+  nodeStatus?: RecruitingNodeStatus | null;
+  nodeResult?: RecruitingNodeResult | null;
   pipelineStage: PipelineStage;
   outcome: CandidateOutcome;
   resumeParseStatus?: ResumeParseStatus;
@@ -363,6 +395,26 @@ function describeOffer(p: OfferProgress | null): Description {
   }
 }
 
+function describeClosedOutcome(outcome: ResumeProgressInput["outcome"]): Description {
+  switch (outcome) {
+    case "hired": {
+      return { label: "已结束 · 已入职", tone: "success" };
+    }
+    case "rejected": {
+      return { label: "已结束 · 已淘汰", tone: "outline" };
+    }
+    case "withdrawn": {
+      return { label: "已结束 · 已撤回", tone: "outline" };
+    }
+    case "archived": {
+      return { label: "已归档", tone: "outline" };
+    }
+    default: {
+      return { label: "已结束", tone: "outline" };
+    }
+  }
+}
+
 /**
  * 把（pipelineStage, outcome, stageProgress）一句话翻译成 UI 想展示的进度文本 + tone。
  * 单一来源——招聘台列表、详情面板、卡片视图都从这里拿，避免文案各处分叉。
@@ -386,37 +438,31 @@ export function describeResumeProgress(record: ResumeProgressInput): Description
 
   // closed 阶段：用 outcome 决定标签和色调。
   if (pipelineStage === "closed") {
-    switch (outcome) {
-      case "hired": {
-        return { label: "已结束 · 已录用", tone: "success" };
-      }
-      case "rejected": {
-        return { label: "已结束 · 已淘汰", tone: "outline" };
-      }
-      case "withdrawn": {
-        return { label: "已结束 · 已撤回", tone: "outline" };
-      }
-      case "archived": {
-        return { label: "已归档", tone: "outline" };
-      }
-      default: {
-        return { label: "已结束", tone: "outline" };
-      }
-    }
+    return describeClosedOutcome(outcome);
   }
 
   switch (pipelineStage) {
     case "screening": {
       return { label: "简历筛选 · 待处理", tone: "outline" };
     }
-    case "written_test": {
-      return { label: "笔试 · 待安排", tone: "info" };
-    }
     case "ai_interview": {
       return describeAiInterview(stageProgress.aiInterview);
     }
-    case "human_interview": {
-      return describeHumanInterview(stageProgress.humanInterview);
+    case "second_interview":
+    case "final_interview": {
+      const progress = describeHumanInterview(stageProgress.humanInterview);
+      return {
+        ...progress,
+        label: progress.label.replaceAll("真人复面", pipelineStageMeta[pipelineStage].label),
+      };
+    }
+    case "income_proof":
+    case "background_check":
+    case "onboarding": {
+      return {
+        label: `${pipelineStageMeta[pipelineStage].label} · ${record.nodeStatus ? recruitingNodeStatusMeta[record.nodeStatus].label : "待处理"}`,
+        tone: record.nodeResult === "pass" ? "success" : "outline",
+      };
     }
     case "offer": {
       return describeOffer(stageProgress.offer);
@@ -448,8 +494,37 @@ export function canEditResumeRecord(status: ResumeParseStatus): boolean {
   return status === "ready";
 }
 
-export function canLaunchInterviewFromResume(status: ResumeParseStatus): boolean {
-  return status === "ready";
+/** 发起 AI 面试只允许筛选或 AI 节点；后续阶段必须先显式回退。 */
+export function canLaunchInterviewFromResume(
+  status: ResumeParseStatus,
+  stage: PipelineStage | undefined,
+  evaluationStatus: ResumeEvaluationStatus | null,
+): boolean {
+  return (
+    evaluationStatus === "pass" &&
+    status === "ready" &&
+    (stage === "screening" || stage === "ai_interview")
+  );
+}
+
+/** 历史进入时间可能未知，以节点状态共同判断可回退范围，不补造时间。 */
+export function canReopenRecruitingNode(
+  record: {
+    pipelineStage: PipelineStage;
+    closedFromNode: RecruitingNode | null;
+    nodeStates: Pick<RecruitingNodeStateRecord, "node" | "enteredAt" | "status">[];
+  },
+  node: RecruitingNode,
+): boolean {
+  const previous = record.pipelineStage === "closed" ? record.closedFromNode : record.pipelineStage;
+  if (
+    !previous ||
+    recruitingPipelineNodeValues.indexOf(node) > recruitingPipelineNodeValues.indexOf(previous)
+  ) {
+    return false;
+  }
+  const state = record.nodeStates.find((entry) => entry.node === node);
+  return Boolean(state && (state.enteredAt || state.status !== "inactive"));
 }
 
 export function canDeleteResumeRecord(status: ResumeParseStatus): boolean {
@@ -564,7 +639,6 @@ export const resumeLibraryFormSchema = z.object({
   hrResumeAssessment: z.string().trim().max(2000, "HR 评价不能超过 2000 字"),
   jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
   notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
-  resumeEvaluationStatus: resumeEvaluationStatusFormValueSchema,
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
 });
 
@@ -599,7 +673,6 @@ export const resumeIdentityUpdateSchema = z.object({
   candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
   gender: z.string().trim().max(40),
   jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
-  resumeEvaluationStatus: resumeEvaluationStatusFormValueSchema,
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
   workYears: z.number().min(0).max(80).nullable(),
 });
@@ -614,7 +687,6 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
     hrResumeAssessment: "",
     jobDescriptionId: "",
     notes: "",
-    resumeEvaluationStatus: "unreviewed",
     targetRole: "",
   };
 }

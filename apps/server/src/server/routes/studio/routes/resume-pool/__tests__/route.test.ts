@@ -472,6 +472,18 @@ describe("resumePoolImportInputSchema", () => {
     expect(result.initialRecruitmentStage).toBe("ai_interview");
   });
 
+  it.each(["second_interview", "human_interview"])(
+    "normalizes %s to the current second interview stage",
+    (stage) => {
+      const result = resumePoolImportInputSchema.parse({
+        initialRecruitmentStage: stage,
+        jobDescriptionId: "jd-1",
+        jobDescriptionMode: "bind",
+      });
+      expect(result.initialRecruitmentStage).toBe("second_interview");
+    },
+  );
+
   it("rejects a later initial recruitment stage without a bound job", () => {
     const result = resumePoolImportInputSchema.safeParse({
       dedupPolicy: "force",
@@ -576,6 +588,53 @@ describe("resume pool import route", () => {
     });
   });
 
+  it.each(["resume_not_ready", "screening_not_passed", "round_not_created"] as const)(
+    "preserves a successful import when AI launch returns %s",
+    async (reason) => {
+      mocks.importPoolItemToResumeLibrary.mockResolvedValue({
+        resumeRecordId: "resume-record-ai-retry",
+        status: "imported",
+      });
+      mocks.launchAiInterviewRound.mockResolvedValue({ ok: false, reason });
+      const response = await makeApp().request("/resume-pool/pool-item-ai/import", {
+        body: JSON.stringify({
+          initialRecruitmentStage: "ai_interview",
+          jobDescriptionId: "jd-1",
+          jobDescriptionMode: "bind",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      expect(response.status).toBe(201);
+      expect(await response.json()).toEqual({
+        aiInterviewLaunchError: expect.stringContaining("已加入招聘台"),
+        resumeRecordId: "resume-record-ai-retry",
+        status: "imported",
+      });
+      expect(mocks.enqueueCandidateQuestionGenerationForRecordBestEffort).toHaveBeenCalled();
+      expect(mocks.enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalled();
+    },
+  );
+  it("keeps the imported record usable when AI launch throws without leaking internal errors", async () => {
+    mocks.importPoolItemToResumeLibrary.mockResolvedValue({
+      resumeRecordId: "resume-record-ai-retry",
+      status: "imported",
+    });
+    mocks.launchAiInterviewRound.mockRejectedValueOnce(new Error("internal database failure"));
+    const response = await makeApp().request("/resume-pool/pool-item-ai/import", {
+      body: JSON.stringify({
+        initialRecruitmentStage: "ai_interview",
+        jobDescriptionId: "jd-1",
+        jobDescriptionMode: "bind",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    expect(response.status).toBe(201);
+    const payload = await response.json();
+    expect(payload.aiInterviewLaunchError).toContain("请在招聘台重试");
+    expect(payload.aiInterviewLaunchError).not.toContain("internal database failure");
+  });
   it("imports directly into human interview without creating an AI round", async () => {
     mocks.importPoolItemToResumeLibrary.mockResolvedValue({
       resumeRecordId: "resume-record-human",
@@ -595,7 +654,7 @@ describe("resume pool import route", () => {
 
     expect(response.status).toBe(201);
     expect(mocks.importPoolItemToResumeLibrary).toHaveBeenCalledWith(
-      expect.objectContaining({ initialRecruitmentStage: "human_interview" }),
+      expect.objectContaining({ initialRecruitmentStage: "second_interview" }),
     );
     expect(mocks.launchAiInterviewRound).not.toHaveBeenCalled();
   });

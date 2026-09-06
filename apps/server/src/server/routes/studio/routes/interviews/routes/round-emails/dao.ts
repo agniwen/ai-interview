@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 
 import { db } from "../../../../../../../lib/server/db/index";
 import type { RoundEmailLogStatus, RoundEmailSummaryMap } from "@app/db-schema/round-email-log";
-import { studioRoundEmailLog } from "@app/db-schema/schema";
+import { recruitingRoundEmailLog } from "@app/db-schema/schema";
 
 interface InsertRoundEmailLogInput {
   errorMessage: string | null;
@@ -41,12 +41,12 @@ export async function insertRoundEmailLog(
 ): Promise<RoundEmailLogRecord> {
   const id = nanoid();
   const [row] = await db
-    .insert(studioRoundEmailLog)
+    .insert(recruitingRoundEmailLog)
     .values({
       errorMessage: input.errorMessage,
       id,
-      interviewRecordId: input.interviewRecordId,
       organizationId: input.organizationId,
+      recruitingRecordId: input.interviewRecordId,
       resendMessageId: input.resendMessageId,
       roundId: input.roundId,
       sentBy: input.sentBy,
@@ -59,6 +59,7 @@ export async function insertRoundEmailLog(
   return {
     ...row,
     createdAt: row.createdAt.toISOString(),
+    interviewRecordId: row.recruitingRecordId,
   };
 }
 
@@ -77,18 +78,18 @@ export async function summarizeRoundEmailLogs(
 
   const rows = await db
     .select({
-      createdAt: studioRoundEmailLog.createdAt,
-      roundId: studioRoundEmailLog.roundId,
-      status: studioRoundEmailLog.status,
+      createdAt: recruitingRoundEmailLog.createdAt,
+      roundId: recruitingRoundEmailLog.roundId,
+      status: recruitingRoundEmailLog.status,
     })
-    .from(studioRoundEmailLog)
+    .from(recruitingRoundEmailLog)
     .where(
       and(
-        eq(studioRoundEmailLog.organizationId, organizationId),
-        inArray(studioRoundEmailLog.roundId, roundIds),
+        eq(recruitingRoundEmailLog.organizationId, organizationId),
+        inArray(recruitingRoundEmailLog.roundId, roundIds),
       ),
     )
-    .orderBy(desc(studioRoundEmailLog.createdAt));
+    .orderBy(desc(recruitingRoundEmailLog.createdAt));
 
   // 按 createdAt DESC 排序后，第一行即为该轮次最新记录。
   // With ORDER BY createdAt DESC, the first row per round is the latest.

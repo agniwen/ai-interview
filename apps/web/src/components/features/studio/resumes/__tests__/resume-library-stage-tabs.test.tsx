@@ -87,7 +87,9 @@ function tab(label: string) {
   const element = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
     (button) => button.textContent === label,
   );
-  expect(element).toBeDefined();
+  if (!element) {
+    throw new Error(`Missing tab: ${label}`);
+  }
   return element;
 }
 
@@ -134,17 +136,20 @@ describe("recruitment stage tabs", () => {
       }),
     ).not.toEqual(previousKey);
   });
-  it("restores the six stage tabs and reads the selected stage from the URL", async () => {
-    await renderPage({ stage: "human_interview" });
-    expect([...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent)).toEqual([
-      "全部",
-      "简历筛选",
-      "AI 面试",
-      "真人复面",
-      "Offer 协商",
-      "已结束",
-    ]);
-    expect(tab("真人复面")?.getAttribute("aria-selected")).toBe("true");
+  it("restores all recruitment stage tabs and reads the selected stage from the URL", async () => {
+    await renderPage({ stage: "second_interview" });
+    expect(
+      [...document.querySelectorAll('[role="tablist"][aria-label="招聘阶段"] [role="tab"]')].map(
+        (item) => item.textContent,
+      ),
+    ).toEqual(["简历筛选", "面试", "Offer协商", "入职办理", "已结束"]);
+    expect(
+      [...document.querySelectorAll('[role="tablist"][aria-label="面试子流程"] [role="tab"]')].map(
+        (item) => item.textContent,
+      ),
+    ).toEqual(["全部", "AI 初面", "复试", "终试"]);
+    expect(tab("面试")?.getAttribute("aria-selected")).toBe("true");
+    expect(tab("复试")?.getAttribute("aria-selected")).toBe("true");
     expect(currentGrid.bind.canResetFilters).toBe(false);
     expect(currentGrid.bind.filterValues).not.toHaveProperty("stage");
   });
@@ -158,13 +163,16 @@ describe("recruitment stage tabs", () => {
       sortOrder: "desc",
     });
     act(() => currentGrid.setRowSelection({ candidate: true }));
-    act(() => tab("AI 面试")?.click());
+    act(() => tab("面试")?.click());
+    await flushReactUpdates();
+    expect(currentSearch.stage).toBe("interview:all");
+    act(() => tab("AI 初面")?.click());
     await flushReactUpdates();
     expect(currentSearch).toMatchObject({
       creatorIds: "member-1",
       page: 1,
       skills: "Docker",
-      stage: "ai_interview",
+      stage: "interview:ai",
     });
     expect(currentGrid.rowSelection).toEqual({});
     expect(
@@ -177,7 +185,7 @@ describe("recruitment stage tabs", () => {
     ).not.toEqual(previousKey);
     act(() => tab("全部")?.click());
     await flushReactUpdates();
-    expect(currentSearch.stage).toBeUndefined();
+    expect(currentSearch.stage).toBe("interview:all");
     expect(currentGrid.filters.skills).toBe("Docker");
   });
 
@@ -203,8 +211,30 @@ describe("recruitment stage tabs", () => {
     expect(currentSearch.skills).toBeUndefined();
     expect(currentSearch.createdAtRange).toBeUndefined();
     expect(currentSearch.creatorIds).toBeUndefined();
-    expect(tab("Offer 协商")?.getAttribute("aria-selected")).toBe("true");
+    expect(tab("Offer协商")?.getAttribute("aria-selected")).toBe("true");
     expect(currentGrid.bind.canResetFilters).toBe(false);
     expect(currentGrid.rowSelection).toEqual({});
+  });
+  it("defaults to screening and resets the child when switching the main group", async () => {
+    await renderPage({});
+    expect(tab("简历筛选").getAttribute("aria-selected")).toBe("true");
+    act(() => tab("合格").click());
+    await flushReactUpdates();
+    expect(currentSearch.stage).toBe("screening:pass");
+    act(() => tab("Offer协商").click());
+    await flushReactUpdates();
+    expect(currentSearch.stage).toBe("offer:all");
+    expect(tab("全部").getAttribute("aria-selected")).toBe("true");
+    expect(tab("谈薪")).toBeDefined();
+    expect(tab("发 Offer")).toBeDefined();
+    act(() => tab("发 Offer").click());
+    await flushReactUpdates();
+    expect(currentSearch.stage).toBe("offer:send");
+    act(() => tab("入职办理").click());
+    await flushReactUpdates();
+    expect(currentSearch.stage).toBe("onboarding:all");
+    expect(tab("待入职")).toBeDefined();
+    expect(tab("放弃")).toBeDefined();
+    expect(tab("已入职")).toBeDefined();
   });
 });

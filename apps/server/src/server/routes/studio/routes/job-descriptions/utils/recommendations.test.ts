@@ -1,6 +1,7 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import { studioInterview } from "@app/db-schema/schema";
+
 import { db } from "../../../../../../lib/server/db/index";
 import type {
   ResumeSemanticChunkType,
@@ -348,8 +349,8 @@ describe("scoreCandidatesForJobDescription — 打分内核", () => {
 // 只 select id，让 SQL 里 pipeline_stage 只可能来自 WHERE 过滤(而非 select 列表)。
 const whereSqlFor = (includeClosed: boolean) =>
   db
-    .select({ id: studioInterview.id })
-    .from(studioInterview)
+    .select({ id: recruitingRecordReadModel.id })
+    .from(recruitingRecordReadModel)
     .where(recommendationCandidateWhere("org", ["a"], includeClosed))
     .toSQL()
     .sql.toLowerCase();

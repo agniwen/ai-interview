@@ -3,17 +3,17 @@ import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds
 import type { Database } from "@app/database";
 import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interviews";
 import {
-  humanInterviewDocumentSync,
-  interviewNotification,
-  studioHumanInterviewEvaluationSnapshot,
-  studioHumanInterviewRound,
+  humanInterviewEvaluationDocumentSync,
+  recruitingNotificationDelivery,
+  humanInterviewEvaluationSnapshot,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewDocumentSyncJob } from "../application/sync-human-interview-document";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import { resolveFeishuDocxDocumentId } from "../../../../../integrations/feishu/feishu-docx";
 
-const jobs = humanInterviewDocumentSync;
+const jobs = humanInterviewEvaluationDocumentSync;
 const LEASE_MS = 10 * 60_000;
 
 function documentDecision(
@@ -59,22 +59,22 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         }
         const [context] = await tx
           .select({
-            evaluation: studioHumanInterviewEvaluationSnapshot.evaluation,
-            interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-            outcome: studioHumanInterviewRound.outcome,
-            roundLabel: studioHumanInterviewRound.label,
-            sortOrder: studioHumanInterviewRound.sortOrder,
-            submittedAt: studioHumanInterviewEvaluationSnapshot.createdAt,
+            evaluation: humanInterviewEvaluationSnapshot.evaluation,
+            interviewRecordId: humanInterviewRound.recruitingRecordId,
+            outcome: humanInterviewRound.outcome,
+            roundLabel: humanInterviewRound.label,
+            sortOrder: humanInterviewRound.sortOrder,
+            submittedAt: humanInterviewEvaluationSnapshot.createdAt,
             submittedBy: user.name,
-            submittedOutcome: studioHumanInterviewEvaluationSnapshot.outcome,
+            submittedOutcome: humanInterviewEvaluationSnapshot.outcome,
           })
-          .from(studioHumanInterviewEvaluationSnapshot)
-          .innerJoin(studioHumanInterviewRound, eq(studioHumanInterviewRound.id, job.roundId))
-          .leftJoin(user, eq(user.id, studioHumanInterviewEvaluationSnapshot.createdBy))
+          .from(humanInterviewEvaluationSnapshot)
+          .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, job.roundId))
+          .leftJoin(user, eq(user.id, humanInterviewEvaluationSnapshot.createdBy))
           .where(
             and(
-              eq(studioHumanInterviewEvaluationSnapshot.id, job.snapshotId),
-              eq(studioHumanInterviewEvaluationSnapshot.source, "human_submitted"),
+              eq(humanInterviewEvaluationSnapshot.id, job.snapshotId),
+              eq(humanInterviewEvaluationSnapshot.source, "human_submitted"),
             ),
           )
           .limit(1);
@@ -87,14 +87,14 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (context.roundLabel !== "CEO面试") {
           const [previous] = await tx
             .select({ total: count() })
-            .from(studioHumanInterviewRound)
+            .from(humanInterviewRound)
             .where(
               and(
-                eq(studioHumanInterviewRound.organizationId, job.organizationId),
-                eq(studioHumanInterviewRound.interviewRecordId, context.interviewRecordId),
-                lt(studioHumanInterviewRound.sortOrder, context.sortOrder),
-                ne(studioHumanInterviewRound.status, "cancelled"),
-                ne(studioHumanInterviewRound.label, "CEO面试"),
+                eq(humanInterviewRound.organizationId, job.organizationId),
+                eq(humanInterviewRound.recruitingRecordId, context.interviewRecordId),
+                lt(humanInterviewRound.sortOrder, context.sortOrder),
+                ne(humanInterviewRound.status, "cancelled"),
+                ne(humanInterviewRound.label, "CEO面试"),
               ),
             );
           roundLabel = formatBusinessInterviewLabel(previous.total + 1);
@@ -108,20 +108,23 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (!target.documentId) {
           const [notification] = await tx
             .select({
-              documentId: interviewNotification.feishuDocumentId,
-              documentUrl: interviewNotification.feishuDocumentUrl,
-              providerId: interviewNotification.providerId,
+              documentId: recruitingNotificationDelivery.feishuDocumentId,
+              documentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
+              providerId: recruitingNotificationDelivery.providerId,
             })
-            .from(interviewNotification)
+            .from(recruitingNotificationDelivery)
             .where(
               and(
-                eq(interviewNotification.organizationId, job.organizationId),
-                eq(interviewNotification.interviewRecordId, context.interviewRecordId),
-                eq(interviewNotification.type, "summary_ready"),
-                isNotNull(interviewNotification.feishuDocumentUrl),
+                eq(recruitingNotificationDelivery.organizationId, job.organizationId),
+                eq(recruitingNotificationDelivery.recruitingRecordId, context.interviewRecordId),
+                eq(recruitingNotificationDelivery.type, "summary_ready"),
+                isNotNull(recruitingNotificationDelivery.feishuDocumentUrl),
               ),
             )
-            .orderBy(desc(interviewNotification.updatedAt), desc(interviewNotification.id))
+            .orderBy(
+              desc(recruitingNotificationDelivery.updatedAt),
+              desc(recruitingNotificationDelivery.id),
+            )
             .limit(1);
           target = {
             documentId: notification?.documentUrl

@@ -85,7 +85,10 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
   return (
     <>
       <Tabs
-        className={cn(floatingActionBar && "pb-[calc(7rem+env(safe-area-inset-bottom))]")}
+        className={cn(
+          floatingActionBar &&
+            "pb-[calc(14rem+env(safe-area-inset-bottom))] md:pb-[calc(7rem+env(safe-area-inset-bottom))]",
+        )}
         onValueChange={(value) => {
           if (isStudioPersonDetailTab(value)) {
             setActiveTab(value);
@@ -120,7 +123,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
                 >
                   <div
                     className={cn(
-                      "pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-md p-1",
+                      "pointer-events-auto flex w-full max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl p-2 md:w-auto md:rounded-md md:p-1",
                       DETAIL_PAGE_FLOATING_ACTION_CLASS,
                     )}
                   >

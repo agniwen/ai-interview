@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import postgres from "postgres";
 import { loadStandaloneEnv } from "../standalone/env";
 
-const TABLES = ["resume_pool_item", "studio_interview"] as const;
+const TABLES = ["resume_pool_item", "candidate_resume"] as const;
 type SearchTable = (typeof TABLES)[number];
 type Client = ReturnType<typeof postgres>;
 
@@ -15,6 +15,14 @@ export async function backfillResumeSearchBatch(
 ) {
   // Identifiers come only from TABLES. Row locks + the trigger calculate from current
   // values, never a JSON snapshot read by this process. Business timestamps stay intact.
+  const assignment =
+    table === "candidate_resume"
+      ? `search_text = resume_search_text(c.name, c.email, c.phone, r.file_name, (SELECT target_role FROM recruiting_record WHERE resume_id = r.id ORDER BY created_at DESC LIMIT 1), r.profile), search_cjk_bigrams = resume_search_bigrams(resume_search_text(c.name, c.email, c.phone, r.file_name, (SELECT target_role FROM recruiting_record WHERE resume_id = r.id ORDER BY created_at DESC LIMIT 1), r.profile))`
+      : "search_text = NULL";
+  const source =
+    table === "candidate_resume"
+      ? `FROM candidate c WHERE c.id = r.candidate_id AND r.id IN (SELECT id FROM batch)`
+      : `WHERE r.id IN (SELECT id FROM batch)`;
   const [result] = await client.unsafe<{ count: number; last_id: string | null }[]>(
     `WITH batch AS (
        SELECT id FROM "${table}"
@@ -22,8 +30,8 @@ export async function backfillResumeSearchBatch(
          AND (search_text IS NULL OR search_cjk_bigrams IS NULL)
        ORDER BY id LIMIT $2 FOR UPDATE
      ), updated AS (
-       UPDATE "${table}" SET search_text = NULL
-       WHERE id IN (SELECT id FROM batch) RETURNING id
+       UPDATE "${table}" r SET ${assignment}
+       ${source} RETURNING r.id
      ) SELECT count(*)::int AS count, max(id) AS last_id FROM updated`,
     [afterId, batchSize],
   );
@@ -53,7 +61,6 @@ export async function checkResumeSearch(client: Client, table: SearchTable) {
   `;
   const textReady = indexes.some(
     (index) =>
-      index.name === `${table}_search_text_trgm_idx` &&
       index.valid &&
       index.method === "gin" &&
       index.column === "search_text" &&
@@ -61,7 +68,6 @@ export async function checkResumeSearch(client: Client, table: SearchTable) {
   );
   const bigramsReady = indexes.some(
     (index) =>
-      index.name === `${table}_search_cjk_bigrams_idx` &&
       index.valid &&
       index.method === "gin" &&
       index.column === "search_cjk_bigrams" &&
@@ -83,7 +89,7 @@ function parseOptions() {
   const [command] = positionals;
   if (positionals.length !== 1 || !["backfill", "indexes", "check"].includes(command ?? "")) {
     throw new Error(
-      "Usage: resume-search-maintenance.ts backfill|indexes|check [--apply] [--table=all|resume_pool_item|studio_interview] [--batch-size=500] [--after-id=ID]",
+      "Usage: resume-search-maintenance.ts backfill|indexes|check [--apply] [--table=all|resume_pool_item|candidate_resume] [--batch-size=500] [--after-id=ID]",
     );
   }
   if (values.table !== "all" && !TABLES.some((table) => table === values.table)) {
@@ -131,12 +137,20 @@ async function main() {
           throw new Error(`${table}: finish backfill before creating indexes`);
         }
         await client`CREATE EXTENSION IF NOT EXISTS pg_trgm`;
+        const textIndex =
+          table === "candidate_resume"
+            ? "candidate_resume_search_text_idx"
+            : `${table}_search_text_trgm_idx`;
+        const bigramsIndex =
+          table === "candidate_resume"
+            ? "candidate_resume_bigrams_idx"
+            : `${table}_search_cjk_bigrams_idx`;
         // Deliberately outside a transaction: ordinary migrations may be transactional.
         await client.unsafe(
-          `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${table}_search_text_trgm_idx" ON "${table}" USING gin (search_text gin_trgm_ops)`,
+          `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${textIndex}" ON "${table}" USING gin (search_text gin_trgm_ops)`,
         );
         await client.unsafe(
-          `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${table}_search_cjk_bigrams_idx" ON "${table}" USING gin (search_cjk_bigrams)`,
+          `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${bigramsIndex}" ON "${table}" USING gin (search_cjk_bigrams)`,
         );
         await client.unsafe(`ANALYZE "${table}"`);
       }

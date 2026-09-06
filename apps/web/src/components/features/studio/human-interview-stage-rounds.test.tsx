@@ -80,6 +80,7 @@ const round: HumanInterviewRoundRecord = {
   notes: null,
   organizationId: "org-1",
   outcome: null,
+  roundKind: "second_interview",
   scheduledAt: "2026-08-05T09:30:00.000Z",
   score: null,
   sortOrder: 0,

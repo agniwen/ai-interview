@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type {
@@ -5,7 +6,7 @@ import type {
   ResumeEvaluationContractMode,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
-import { account, interviewNotification, studioInterview } from "@app/db-schema/schema";
+import { account, recruitingNotificationDelivery } from "@app/db-schema/schema";
 import { generateFeishuHrEvaluationWithPromptForInterview } from "../../../agent/utils/feishu-hr-evaluation";
 import {
   buildHrInterviewEvaluationBlock,
@@ -77,13 +78,13 @@ const defaultDependencies: PlatformNotificationDependencies = {
     const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
-        documentId: interviewNotification.feishuDocumentId,
-        documentUrl: interviewNotification.feishuDocumentUrl,
-        providerId: interviewNotification.providerId,
-        recipientOpenId: interviewNotification.recipientOpenId,
+        documentId: recruitingNotificationDelivery.feishuDocumentId,
+        documentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
+        providerId: recruitingNotificationDelivery.providerId,
+        recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
       })
-      .from(interviewNotification)
-      .where(eq(interviewNotification.id, notificationId))
+      .from(recruitingNotificationDelivery)
+      .where(eq(recruitingNotificationDelivery.id, notificationId))
       .limit(1);
     return notification ?? null;
   },
@@ -91,14 +92,17 @@ const defaultDependencies: PlatformNotificationDependencies = {
     const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
-        candidateName: studioInterview.candidateName,
-        conversationId: interviewNotification.conversationId,
-        interviewRecordId: interviewNotification.interviewRecordId,
-        type: interviewNotification.type,
+        candidateName: recruitingRecordReadModel.candidateName,
+        conversationId: recruitingNotificationDelivery.conversationId,
+        interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
+        type: recruitingNotificationDelivery.type,
       })
-      .from(interviewNotification)
-      .innerJoin(studioInterview, eq(studioInterview.id, interviewNotification.interviewRecordId))
-      .where(eq(interviewNotification.id, notificationId))
+      .from(recruitingNotificationDelivery)
+      .innerJoin(
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, recruitingNotificationDelivery.recruitingRecordId),
+      )
+      .where(eq(recruitingNotificationDelivery.id, notificationId))
       .limit(1);
     return notification ?? null;
   },
@@ -109,17 +113,20 @@ const defaultStructureDependencies: PlatformNotificationStructureDependencies = 
     const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
-        documentId: interviewNotification.feishuDocumentId,
-        documentUrl: interviewNotification.feishuDocumentUrl,
-        interviewQuestions: studioInterview.interviewQuestions,
-        providerId: interviewNotification.providerId,
-        qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-        resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-        type: interviewNotification.type,
+        documentId: recruitingNotificationDelivery.feishuDocumentId,
+        documentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
+        interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+        providerId: recruitingNotificationDelivery.providerId,
+        qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+        resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+        type: recruitingNotificationDelivery.type,
       })
-      .from(interviewNotification)
-      .innerJoin(studioInterview, eq(studioInterview.id, interviewNotification.interviewRecordId))
-      .where(eq(interviewNotification.id, notificationId))
+      .from(recruitingNotificationDelivery)
+      .innerJoin(
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, recruitingNotificationDelivery.recruitingRecordId),
+      )
+      .where(eq(recruitingNotificationDelivery.id, notificationId))
       .limit(1);
     return notification ?? null;
   },

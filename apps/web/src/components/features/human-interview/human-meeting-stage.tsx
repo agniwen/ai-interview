@@ -1,5 +1,7 @@
 "use client";
 
+import { buttonVariants } from "@/components/ui/button";
+
 /* oxlint-disable no-use-before-define -- exported stage stays above local tile and style helpers. */
 
 import {
@@ -426,8 +428,7 @@ export const humanMeetingControlButtonClass =
 
 const mediaToggleButtonClass = `${humanMeetingControlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
 
-const leaveButtonClass =
-  "inline-flex h-9 items-center gap-2 rounded-md border border-red-400/40 bg-red-500 px-3 text-sm text-white transition hover:bg-red-500/90";
+const leaveButtonClass = buttonVariants({ variant: "destructive" });
 
 const endButtonClass =
   "inline-flex h-9 items-center gap-2 rounded-md border border-amber-300/40 bg-amber-500 px-3 text-sm text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60";

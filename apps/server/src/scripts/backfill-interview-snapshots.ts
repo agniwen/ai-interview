@@ -1,11 +1,11 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { pathToFileURL } from "node:url";
 import { asc, and, eq, isNotNull, notExists, sql } from "drizzle-orm";
 import {
-  interviewContextSnapshot,
-  interviewConversation,
-  interviewEvidenceSnapshot,
-  studioInterview,
-  studioInterviewSchedule,
+  recruitingContextSnapshot,
+  aiInterviewConversation,
+  recruitingEvidenceSnapshot,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import type { Database } from "../lib/server/db/index";
 import { loadStandaloneEnv } from "../standalone/env";
@@ -193,10 +193,10 @@ async function loadFirstScheduleEntryId(
   interviewRecordId: string,
 ): Promise<string | null> {
   const [row] = await db
-    .select({ id: studioInterviewSchedule.id })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, interviewRecordId))
-    .orderBy(asc(studioInterviewSchedule.sortOrder), asc(studioInterviewSchedule.createdAt))
+    .select({ id: aiInterviewRound.id })
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.recruitingRecordId, interviewRecordId))
+    .orderBy(asc(aiInterviewRound.sortOrder), asc(aiInterviewRound.createdAt))
     .limit(1);
   return row?.id ?? null;
 }
@@ -207,21 +207,21 @@ async function loadContextBackfillRecords(
 ): Promise<ContextSnapshotBackfillRecord[]> {
   const query = db
     .select({
-      createdBy: studioInterview.createdBy,
-      interviewRecordId: studioInterview.id,
+      createdBy: recruitingRecordReadModel.createdBy,
+      interviewRecordId: recruitingRecordReadModel.id,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       notExists(
         sql`(
           select 1
-          from ${interviewContextSnapshot}
-          where ${interviewContextSnapshot.interviewRecordId} = ${studioInterview.id}
-            and ${interviewContextSnapshot.status} = 'active'
+          from ${recruitingContextSnapshot}
+          where ${recruitingContextSnapshot.recruitingRecordId} = ${recruitingRecordReadModel.id}
+            and ${recruitingContextSnapshot.status} = 'active'
         )`,
       ),
     )
-    .orderBy(asc(studioInterview.createdAt));
+    .orderBy(asc(recruitingRecordReadModel.createdAt));
 
   const rows = limit ? await query.limit(limit) : await query;
   const records: ContextSnapshotBackfillRecord[] = [];
@@ -244,23 +244,23 @@ async function loadEvidenceBackfillRecords(
 ): Promise<EvidenceSnapshotBackfillRecord[]> {
   const query = db
     .select({
-      conversationId: interviewConversation.conversationId,
-      interviewRecordId: interviewConversation.interviewRecordId,
+      conversationId: aiInterviewConversation.conversationId,
+      interviewRecordId: aiInterviewConversation.recruitingRecordId,
     })
-    .from(interviewConversation)
+    .from(aiInterviewConversation)
     .where(
       and(
-        isNotNull(interviewConversation.interviewRecordId),
+        isNotNull(aiInterviewConversation.recruitingRecordId),
         notExists(
           sql`(
             select 1
-            from ${interviewEvidenceSnapshot}
-            where ${interviewEvidenceSnapshot.conversationId} = ${interviewConversation.conversationId}
+            from ${recruitingEvidenceSnapshot}
+            where ${recruitingEvidenceSnapshot.conversationId} = ${aiInterviewConversation.conversationId}
           )`,
         ),
       ),
     )
-    .orderBy(asc(interviewConversation.createdAt));
+    .orderBy(asc(aiInterviewConversation.createdAt));
 
   const rows = limit ? await query.limit(limit) : await query;
   return rows.flatMap((row) =>

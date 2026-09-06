@@ -1,13 +1,14 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../lib/server/db/index";
 import {
-  interviewContextSnapshot,
-  interviewConversation,
-  interviewEvidenceSnapshot,
+  recruitingContextSnapshot,
+  aiInterviewConversation,
+  recruitingEvidenceSnapshot,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import type { InterviewContextSnapshotPayload } from "@app/db-schema/interview-snapshots";
 import { createInterviewEvidenceSnapshot } from "../evidence-snapshot";
@@ -45,14 +46,14 @@ const contextPayload: InterviewContextSnapshotPayload = {
 
 async function cleanup() {
   await db
-    .delete(interviewEvidenceSnapshot)
-    .where(eq(interviewEvidenceSnapshot.conversationId, CONVERSATION_ID));
+    .delete(recruitingEvidenceSnapshot)
+    .where(eq(recruitingEvidenceSnapshot.conversationId, CONVERSATION_ID));
   await db
-    .delete(interviewConversation)
-    .where(eq(interviewConversation.conversationId, CONVERSATION_ID));
-  await db.delete(interviewContextSnapshot).where(eq(interviewContextSnapshot.id, CONTEXT_ID));
-  await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.id, ROUND_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.id, INTERVIEW_ID));
+    .delete(aiInterviewConversation)
+    .where(eq(aiInterviewConversation.conversationId, CONVERSATION_ID));
+  await db.delete(recruitingContextSnapshot).where(eq(recruitingContextSnapshot.id, CONTEXT_ID));
+  await db.delete(aiInterviewRound).where(eq(aiInterviewRound.id, ROUND_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, INTERVIEW_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
 }
 
@@ -64,7 +65,7 @@ beforeAll(async () => {
     name: "Evidence Snapshot Org",
     slug: ORG_ID,
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "Evidence Candidate",
     createdAt: NOW,
     id: INTERVIEW_ID,
@@ -73,40 +74,40 @@ beforeAll(async () => {
     targetRole: "Engineer",
     updatedAt: NOW,
   });
-  await db.insert(studioInterviewSchedule).values({
+  await db.insert(aiInterviewRound).values({
     createdAt: NOW,
     id: ROUND_ID,
-    interviewRecordId: INTERVIEW_ID,
     organizationId: ORG_ID,
+    recruitingRecordId: INTERVIEW_ID,
     roundLabel: "AI 面试",
     scheduledAt: null,
     sortOrder: 0,
     status: "completed",
     updatedAt: NOW,
   });
-  await db.insert(interviewContextSnapshot).values({
+  await db.insert(recruitingContextSnapshot).values({
+    aiRoundId: ROUND_ID,
     contentHash: "context-hash",
     createdAt: NOW,
     id: CONTEXT_ID,
-    interviewRecordId: INTERVIEW_ID,
     organizationId: ORG_ID,
     payload: contextPayload,
     reason: "create",
-    scheduleEntryId: ROUND_ID,
+    recruitingRecordId: INTERVIEW_ID,
     status: "active",
     version: 1,
   });
-  await db.insert(interviewConversation).values({
+  await db.insert(aiInterviewConversation).values({
+    aiRoundId: ROUND_ID,
     conversationId: CONVERSATION_ID,
     createdAt: NOW,
-    interviewRecordId: INTERVIEW_ID,
     lastSyncedAt: NOW,
     organizationId: ORG_ID,
     recordingDurationSecs: 120,
     recordingEgressId: "egress-1",
     recordingFileKey: "recordings/test.mp4",
     recordingStatus: "completed",
-    scheduleEntryId: ROUND_ID,
+    recruitingRecordId: INTERVIEW_ID,
     status: "completed",
     transcript: [
       { message: "请介绍项目", role: "agent", timeInCallSecs: 1 },

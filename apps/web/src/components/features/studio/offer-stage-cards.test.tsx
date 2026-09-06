@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("OfferCard", () => {
-  it("hides the send action for draft offers", () => {
+  it("opens a state-only send confirmation for a draft without requiring email", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -71,7 +71,18 @@ describe("OfferCard", () => {
     });
 
     expect(host.textContent).toContain("编辑");
-    expect(host.textContent).not.toContain("发送");
+    expect(host.textContent).toContain("标记 Offer 已发出");
+    const sendButton = [...host.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("标记 Offer 已发出"),
+    );
+    await act(() => sendButton?.click());
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain("本操作仅记录状态");
+    expect(dialog?.textContent).not.toContain("即将发送至");
+    const confirm = [...(dialog?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === "确认",
+    );
+    expect(confirm?.disabled).toBe(false);
 
     act(() => root.unmount());
   });

@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
@@ -9,15 +11,14 @@ import {
   candidateFormTemplateVersion,
   department,
   globalConfig,
-  interviewContextSnapshot,
+  recruitingContextSnapshot,
   interviewQuestionTemplate,
-  interviewQuestionTemplateBinding,
+  recruitingQuestionTemplateBinding,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
   jobDescription,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import {
   buildInterviewContextSnapshotPayload,
@@ -139,14 +140,14 @@ const NOW = new Date("2026-06-26T10:00:00.000Z");
 
 async function cleanup() {
   await db
-    .delete(interviewContextSnapshot)
-    .where(eq(interviewContextSnapshot.interviewRecordId, INTERVIEW_ID));
+    .delete(recruitingContextSnapshot)
+    .where(eq(recruitingContextSnapshot.recruitingRecordId, INTERVIEW_ID));
   await db
-    .delete(interviewQuestionTemplateBinding)
+    .delete(recruitingQuestionTemplateBinding)
     .where(
       or(
-        eq(interviewQuestionTemplateBinding.interviewRecordId, INTERVIEW_ID),
-        eq(interviewQuestionTemplateBinding.templateId, QUESTION_TEMPLATE_ID),
+        eq(recruitingQuestionTemplateBinding.recruitingRecordId, INTERVIEW_ID),
+        eq(recruitingQuestionTemplateBinding.templateId, QUESTION_TEMPLATE_ID),
       ),
     );
   await db
@@ -165,8 +166,8 @@ async function cleanup() {
     .delete(candidateFormTemplateQuestion)
     .where(eq(candidateFormTemplateQuestion.templateId, FORM_TEMPLATE_ID));
   await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.id, FORM_TEMPLATE_ID));
-  await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.id, ROUND_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.id, INTERVIEW_ID));
+  await db.delete(aiInterviewRound).where(eq(aiInterviewRound.id, ROUND_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, INTERVIEW_ID));
   await db.delete(globalConfig).where(eq(globalConfig.organizationId, ORG_ID));
   await db.delete(jobDescription).where(eq(jobDescription.id, JD_ID));
   await db.delete(department).where(eq(department.id, DEPARTMENT_ID));
@@ -208,7 +209,7 @@ beforeAll(async () => {
     prompt: "Snapshot JD prompt",
     updatedAt: NOW,
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "snapshot@example.com",
     candidateName: "Snapshot Candidate",
     candidatePhone: "13800000000",
@@ -227,11 +228,11 @@ beforeAll(async () => {
     targetRole: "Backend Engineer",
     updatedAt: NOW,
   });
-  await db.insert(studioInterviewSchedule).values({
+  await db.insert(aiInterviewRound).values({
     createdAt: NOW,
     id: ROUND_ID,
-    interviewRecordId: INTERVIEW_ID,
     organizationId: ORG_ID,
+    recruitingRecordId: INTERVIEW_ID,
     roundLabel: "AI 面试",
     scheduledAt: null,
     sortOrder: 0,
@@ -327,11 +328,11 @@ describe("interview context snapshot DAO", () => {
 
     const rows = await db
       .select({
-        status: interviewContextSnapshot.status,
-        version: interviewContextSnapshot.version,
+        status: recruitingContextSnapshot.status,
+        version: recruitingContextSnapshot.version,
       })
-      .from(interviewContextSnapshot)
-      .where(eq(interviewContextSnapshot.interviewRecordId, INTERVIEW_ID));
+      .from(recruitingContextSnapshot)
+      .where(eq(recruitingContextSnapshot.recruitingRecordId, INTERVIEW_ID));
 
     expect(rows.toSorted((a, b) => a.version - b.version)).toEqual([
       { status: "superseded", version: 1 },

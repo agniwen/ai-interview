@@ -1,14 +1,14 @@
+import { createRecruitingRecords } from "@app/database/recruiting-records";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   department,
-  interviewNotificationEvent,
+  recruitingNotificationEvent,
   jobDescription,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 import { db } from "../../../lib/server/db/index";
 import { enqueueHumanMeetingEvents } from "./events";
@@ -25,7 +25,7 @@ beforeAll(async () => {
     organizationId: id,
     prompt: "岗位 JD",
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "测试候选人",
     id,
     interviewQuestions: [],
@@ -33,17 +33,20 @@ beforeAll(async () => {
     organizationId: id,
     targetRole: "前端开发",
   });
-  await db.insert(studioHumanInterviewRound).values({
+  await db.insert(humanInterviewRound).values({
     format: "online",
     id,
-    interviewRecordId: id,
     label: "业务二面",
     organizationId: id,
     outcome: "pass",
+    recruitingRecordId: id,
+    roundKind: "second_interview",
     status: "completed",
   });
-  await db.insert(studioHumanInterviewMeeting).values({ id, organizationId: id, title: "测试" });
-  await db.insert(studioHumanInterviewMeetingRound).values({ meetingId: id, roundId: id });
+  await db.insert(humanInterviewMeeting).values({ id, organizationId: id, title: "测试" });
+  await db
+    .insert(humanInterviewMeetingRound)
+    .values({ meetingId: id, organizationId: id, roundId: id });
 });
 
 afterAll(async () => {
@@ -62,8 +65,8 @@ describe("notification job context", () => {
     const readEvents = () =>
       db
         .select()
-        .from(interviewNotificationEvent)
-        .where(eq(interviewNotificationEvent.organizationId, id));
+        .from(recruitingNotificationEvent)
+        .where(eq(recruitingNotificationEvent.organizationId, id));
     const created = await readEvents();
     expect(created[0]?.payloadSnapshot.jobName).toBe("【测试2】前端技术经理");
 

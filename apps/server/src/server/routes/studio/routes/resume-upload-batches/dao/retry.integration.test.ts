@@ -1,12 +1,13 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   organization,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import { claimFailedResumeParseRetry } from "./retry";
@@ -17,11 +18,13 @@ const NOW = new Date("2026-08-25T03:00:00.000Z");
 
 async function cleanup() {
   await db
-    .delete(resumeUploadBatchItem)
-    .where(eq(resumeUploadBatchItem.organizationId, ORGANIZATION_ID));
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORGANIZATION_ID));
+    .delete(recruitingUploadBatchItem)
+    .where(eq(recruitingUploadBatchItem.organizationId, ORGANIZATION_ID));
+  await db
+    .delete(recruitingUploadBatch)
+    .where(eq(recruitingUploadBatch.organizationId, ORGANIZATION_ID));
   await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORGANIZATION_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORGANIZATION_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORGANIZATION_ID));
   await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
   await db.delete(user).where(eq(user.id, USER_ID));
 }
@@ -56,7 +59,7 @@ async function insertFailedBatchItem(input: {
 }) {
   const fileName = `${input.target}-unlimited-retry.pdf`;
   const storageKey = `attachments/${input.target}/${fileName}`;
-  await db.insert(resumeUploadBatch).values({
+  await db.insert(recruitingUploadBatch).values({
     completedAt: NOW,
     createdAt: NOW,
     createdBy: USER_ID,
@@ -72,7 +75,7 @@ async function insertFailedBatchItem(input: {
     totalCount: 1,
     updatedAt: NOW,
   });
-  await db.insert(resumeUploadBatchItem).values({
+  await db.insert(recruitingUploadBatchItem).values({
     attemptCount: 4,
     batchId: input.batchId,
     contentHash: input.contentHash,
@@ -84,7 +87,7 @@ async function insertFailedBatchItem(input: {
     organizationId: ORGANIZATION_ID,
     originalFileName: fileName,
     poolItemId: input.poolItemId,
-    resumeRecordId: input.resumeRecordId,
+    recruitingRecordId: input.resumeRecordId,
     status: "failed",
     storageKey,
   });
@@ -93,11 +96,11 @@ async function insertFailedBatchItem(input: {
 async function expectBatchItemRequeued(itemId: string) {
   const [batchItem] = await db
     .select({
-      attemptCount: resumeUploadBatchItem.attemptCount,
-      status: resumeUploadBatchItem.status,
+      attemptCount: recruitingUploadBatchItem.attemptCount,
+      status: recruitingUploadBatchItem.status,
     })
-    .from(resumeUploadBatchItem)
-    .where(eq(resumeUploadBatchItem.id, itemId));
+    .from(recruitingUploadBatchItem)
+    .where(eq(recruitingUploadBatchItem.id, itemId));
   expect(batchItem).toEqual({ attemptCount: 4, status: "pending" });
 }
 
@@ -143,7 +146,7 @@ describe("claimFailedResumeParseRetry", () => {
 
   it("requeues a failed recruitment record after multiple previous attempts", async () => {
     const resumeRecordId = "resume_retry_unlimited_library_record";
-    await db.insert(studioInterview).values({
+    await createRecruitingRecords(db, {
       candidateName: "招聘台重试候选人",
       createdAt: NOW,
       createdBy: USER_ID,
@@ -174,9 +177,9 @@ describe("claimFailedResumeParseRetry", () => {
     expect(result.status).toBe("claimed");
     await expectBatchItemRequeued("resume_retry_unlimited_library_batch_item");
     const [resumeRecord] = await db
-      .select({ status: studioInterview.resumeParseStatus })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, resumeRecordId));
+      .select({ status: recruitingRecordReadModel.resumeParseStatus })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, resumeRecordId));
     expect(resumeRecord?.status).toBe("queued");
   });
 });

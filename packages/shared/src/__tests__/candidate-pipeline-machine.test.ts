@@ -1,128 +1,83 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createActor } from "xstate";
 import {
-  canApplyCandidatePipelineEvent,
   candidatePipelineMachine,
-  getCandidateActivityStatus,
   getCandidatePipelineEventResult,
-} from "@app/shared/candidate-pipeline-machine";
+  canApplyCandidatePipelineEvent,
+  isHumanInterviewStage,
+  isOfferStage,
+} from "../candidate-pipeline-machine";
 
-describe("candidate pipeline machine", () => {
-  it("derives semantic activity only from the terminal pipeline stage", () => {
-    expect(getCandidateActivityStatus("screening")).toBe("active");
-    expect(getCandidateActivityStatus("offer")).toBe("active");
-    expect(getCandidateActivityStatus("closed")).toBe("archived");
+describe("招聘具体节点状态机", () => {
+  it("快捷进入真人仅进入复试", () => {
+    expect(
+      getCandidatePipelineEventResult({ stage: "screening" }, { type: "SKIP_TO_HUMAN_INTERVIEW" }),
+    ).toEqual({ outcome: "in_pipeline", stage: "second_interview" });
   });
-
-  it("allows screening to start AI, skip to human interview, or close, but not offer", () => {
+  it("逐节点推进需要当前通过，终试还需要有效两轮通过", () => {
     expect(
-      canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: false, stage: "screening" },
-        { type: "START_AI_INTERVIEW" },
-      ),
-    ).toBe(true);
-    expect(
-      canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: false, stage: "screening" },
-        { type: "SKIP_TO_HUMAN_INTERVIEW" },
-      ),
-    ).toBe(true);
-    expect(
-      canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: false, stage: "screening" },
-        { outcome: "rejected", type: "CLOSE" },
-      ),
-    ).toBe(true);
-    expect(
-      canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: false, stage: "screening" },
-        { type: "ADVANCE_TO_OFFER" },
-      ),
+      canApplyCandidatePipelineEvent({ stage: "second_interview" }, { type: "ADVANCE_TO_NEXT" }),
     ).toBe(false);
-  });
-
-  it("requires human interview readiness before advancing to offer", () => {
+    expect(
+      getCandidatePipelineEventResult(
+        { currentNodePassed: true, stage: "second_interview" },
+        { type: "ADVANCE_TO_NEXT" },
+      )?.stage,
+    ).toBe("final_interview");
     expect(
       canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: false, stage: "human_interview" },
-        { type: "ADVANCE_TO_OFFER" },
+        { currentNodePassed: true, stage: "final_interview" },
+        { type: "ADVANCE_TO_NEXT" },
       ),
     ).toBe(false);
     expect(
-      canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: true, stage: "human_interview" },
-        { type: "ADVANCE_TO_OFFER" },
-      ),
+      getCandidatePipelineEventResult(
+        { currentNodePassed: true, humanInterviewReadyForOffer: true, stage: "final_interview" },
+        { type: "ADVANCE_TO_NEXT" },
+      )?.stage,
+    ).toBe("income_proof");
+  });
+  it("接受Offer后是背调，不能直接标记已入职", () => {
+    expect(
+      getCandidatePipelineEventResult(
+        { currentNodePassed: true, stage: "offer" },
+        { type: "ADVANCE_TO_NEXT" },
+      )?.stage,
+    ).toBe("background_check");
+    expect(
+      canApplyCandidatePipelineEvent({ stage: "offer" }, { outcome: "hired", type: "CLOSE" }),
+    ).toBe(false);
+    expect(
+      canApplyCandidatePipelineEvent({ stage: "onboarding" }, { outcome: "hired", type: "CLOSE" }),
     ).toBe(true);
   });
-
-  it("maps allowed events to the next stage and outcome", () => {
+  it("回开只能到达结束前已到达的节点", () => {
     expect(
-      getCandidatePipelineEventResult(
-        { humanInterviewReadyForOffer: false, stage: "screening" },
-        { type: "START_AI_INTERVIEW" },
+      canApplyCandidatePipelineEvent(
+        { closedFromNode: "second_interview", stage: "closed" },
+        { target: "ai_interview", type: "REACTIVATE" },
       ),
-    ).toEqual({ outcome: "in_pipeline", stage: "ai_interview" });
+    ).toBe(true);
     expect(
-      getCandidatePipelineEventResult(
-        { humanInterviewReadyForOffer: false, stage: "ai_interview" },
-        { type: "ADVANCE_TO_HUMAN_INTERVIEW" },
+      canApplyCandidatePipelineEvent(
+        { closedFromNode: "second_interview", stage: "closed" },
+        { target: "onboarding", type: "REACTIVATE" },
       ),
-    ).toEqual({ outcome: "in_pipeline", stage: "human_interview" });
-    expect(
-      getCandidatePipelineEventResult(
-        { humanInterviewReadyForOffer: true, stage: "human_interview" },
-        { type: "ADVANCE_TO_OFFER" },
-      ),
-    ).toEqual({ outcome: "in_pipeline", stage: "offer" });
-    expect(
-      getCandidatePipelineEventResult(
-        { humanInterviewReadyForOffer: true, stage: "offer" },
-        { outcome: "hired", type: "CLOSE" },
-      ),
-    ).toEqual({ outcome: "hired", stage: "closed" });
+    ).toBe(false);
   });
-
-  it("exposes the recruiting flow as an XState machine", () => {
-    const actor = createActor(candidatePipelineMachine, {
-      snapshot: candidatePipelineMachine.resolveState({
-        context: { humanInterviewReadyForOffer: false },
-        value: "screening",
-      }),
-    });
+  it("实际XState actor遵循相同推进规则", () => {
+    const actor = createActor(candidatePipelineMachine);
     actor.start();
-
-    actor.send({ type: "ADVANCE_TO_OFFER" });
+    actor.send({ type: "ADVANCE_TO_NEXT" });
     expect(actor.getSnapshot().value).toBe("screening");
-
     actor.send({ type: "SKIP_TO_HUMAN_INTERVIEW" });
-    expect(actor.getSnapshot().value).toBe("human_interview");
-
-    actor.send({ type: "ADVANCE_TO_OFFER" });
-    expect(actor.getSnapshot().value).toBe("human_interview");
+    expect(actor.getSnapshot().value).toBe("second_interview");
+    actor.stop();
   });
-
-  it("uses the current XState pure transition API", () => {
-    const source = readFileSync(
-      fileURLToPath(new URL("../candidate-pipeline-machine.ts", import.meta.url)),
-      "utf-8",
-    );
-
-    expect(source).toContain("transition(");
-    expect(source).not.toContain("getNextSnapshot");
-    expect(source).not.toContain("getInitialSnapshot");
-  });
-
-  it("uses XState snapshots directly for event availability", () => {
-    const source = readFileSync(
-      fileURLToPath(new URL("../candidate-pipeline-machine.ts", import.meta.url)),
-      "utf-8",
-    );
-
-    expect(source).toContain(".can(event)");
-    expect(source).not.toContain("candidatePipelineEventProbes");
-    expect(source).not.toContain("getCandidatePipelineEvents");
+  it("阶段分组不混入入职和旧节点", () => {
+    expect(isHumanInterviewStage("final_interview")).toBe(true);
+    expect(isHumanInterviewStage("human_interview")).toBe(false);
+    expect(isOfferStage("income_proof")).toBe(true);
+    expect(isOfferStage("onboarding")).toBe(false);
   });
 });

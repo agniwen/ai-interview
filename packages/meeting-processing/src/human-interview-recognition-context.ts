@@ -1,11 +1,11 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import type { Database } from "@app/database";
 import {
   jobDescription,
   meetingSession,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 import { and, asc, eq } from "drizzle-orm";
 
@@ -17,27 +17,27 @@ export async function loadHumanInterviewRecognitionDocuments(
     .select({
       jobName: jobDescription.name,
       jobPrompt: jobDescription.prompt,
-      questions: studioInterview.interviewQuestions,
-      resume: studioInterview.resumeText,
+      questions: recruitingRecordReadModel.interviewQuestions,
+      resume: recruitingRecordReadModel.resumeText,
     })
     .from(meetingSession)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeeting.processingMeetingSessionId, meetingSession.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeeting.processingMeetingSessionId, meetingSession.id),
     )
     .innerJoin(
-      studioHumanInterviewMeetingRound,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeetingRound,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
+    .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
     )
-    .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
         eq(jobDescription.organizationId, input.organizationId),
       ),
     )
@@ -46,12 +46,12 @@ export async function loadHumanInterviewRecognitionDocuments(
         eq(meetingSession.id, input.meetingId),
         eq(meetingSession.organizationId, input.organizationId),
         eq(meetingSession.manifestSha256, input.sourceManifestSha256),
-        eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
-        eq(studioHumanInterviewRound.organizationId, input.organizationId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(humanInterviewMeeting.organizationId, input.organizationId),
+        eq(humanInterviewRound.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
       ),
     )
-    .orderBy(asc(studioInterview.id));
+    .orderBy(asc(recruitingRecordReadModel.id));
   return [
     ...new Set(
       records

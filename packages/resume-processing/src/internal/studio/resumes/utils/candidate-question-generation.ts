@@ -1,7 +1,9 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../lib/db";
 import { generateInterviewQuestionsForProfile } from "../../../agents/resume-analysis-agent";
-import { jobDescription, studioInterview } from "@app/db-schema/schema";
+import { jobDescription } from "@app/db-schema/schema";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
@@ -38,23 +40,23 @@ export async function generateCandidateInterviewQuestions(
 
   const [record] = await db
     .select({
-      interviewQuestions: studioInterview.interviewQuestions,
+      interviewQuestions: recruitingRecordReadModel.interviewQuestions,
       jobName: jobDescription.name,
       jobPrompt: jobDescription.prompt,
-      resumeProfile: studioInterview.resumeProfile,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
         eq(jobDescription.organizationId, input.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
       ),
     )
     .limit(1);
@@ -75,17 +77,15 @@ export async function generateCandidateInterviewQuestions(
           : null,
     },
   );
-  const updated = await db
-    .update(studioInterview)
-    .set({ interviewQuestions, updatedAt: new Date() })
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-        sql`${studioInterview.interviewQuestions} = '[]'::jsonb`,
-      ),
-    )
-    .returning({ id: studioInterview.id });
+  const updated = await updateRecruitingRecords(
+    db,
+    and(
+      eq(recruitingRecordReadModel.id, input.resumeRecordId),
+      eq(recruitingRecordReadModel.organizationId, input.organizationId),
+      sql`${recruitingRecordReadModel.interviewQuestions} = '[]'::jsonb`,
+    ),
+    { interviewQuestions, updatedAt: new Date() },
+  );
   return updated.length > 0 ? "generated" : "already_generated";
 }
 

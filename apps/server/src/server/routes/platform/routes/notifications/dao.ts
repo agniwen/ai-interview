@@ -1,14 +1,14 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
 import {
   account,
-  interviewConversation,
-  interviewNotification,
+  aiInterviewConversation,
+  recruitingNotificationDelivery,
   member,
   organization,
-  studioInterview,
   user,
 } from "@app/db-schema/schema";
 import type { AgentNotificationStatus, AgentNotificationType } from "@app/db-schema/db-enums";
@@ -88,11 +88,11 @@ export async function listPlatformNotificationResendRecipients(
 ): Promise<{ records: PlatformNotificationResendRecipient[] } | null> {
   const [notification] = await db
     .select({
-      organizationId: interviewNotification.organizationId,
-      providerId: interviewNotification.providerId,
+      organizationId: recruitingNotificationDelivery.organizationId,
+      providerId: recruitingNotificationDelivery.providerId,
     })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.id, notificationId))
+    .from(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.id, notificationId))
     .limit(1);
   if (!notification) {
     return null;
@@ -154,27 +154,27 @@ function normalizeStatus(
 
 function notificationOrderBy(sortBy: string | undefined, sortOrder: "asc" | "desc" | undefined) {
   const orderDir = sortOrder === "asc" ? asc : desc;
-  const fallback = desc(interviewNotification.createdAt);
+  const fallback = desc(recruitingNotificationDelivery.createdAt);
 
   if (sortBy === "sentAt") {
-    return [orderDir(interviewNotification.sentAt), fallback];
+    return [orderDir(recruitingNotificationDelivery.sentAt), fallback];
   }
   if (sortBy === "updatedAt") {
-    return [orderDir(interviewNotification.updatedAt), fallback];
+    return [orderDir(recruitingNotificationDelivery.updatedAt), fallback];
   }
   if (sortBy === "status") {
-    return [orderDir(interviewNotification.status), fallback];
+    return [orderDir(recruitingNotificationDelivery.status), fallback];
   }
   if (sortBy === "providerId") {
-    return [orderDir(interviewNotification.providerId), fallback];
+    return [orderDir(recruitingNotificationDelivery.providerId), fallback];
   }
   if (sortBy === "candidateName") {
-    return [orderDir(studioInterview.candidateName), fallback];
+    return [orderDir(recruitingRecordReadModel.candidateName), fallback];
   }
   if (sortBy === "organizationName") {
     return [orderDir(organization.name), fallback];
   }
-  return [orderDir(interviewNotification.createdAt)];
+  return [orderDir(recruitingNotificationDelivery.createdAt)];
 }
 
 export async function queryPaginatedPlatformNotifications(
@@ -189,94 +189,101 @@ export async function queryPaginatedPlatformNotifications(
   const providerFilter =
     providerId === "all"
       ? inArray(
-          interviewNotification.providerId,
+          recruitingNotificationDelivery.providerId,
           FEISHU_PROVIDER_IDS.map((id) => id),
         )
-      : inArray(interviewNotification.providerId, [providerId]);
-  const statusFilter = status === "all" ? undefined : eq(interviewNotification.status, status);
+      : inArray(recruitingNotificationDelivery.providerId, [providerId]);
+  const statusFilter =
+    status === "all" ? undefined : eq(recruitingNotificationDelivery.status, status);
   const searchFilter = search
     ? or(
-        ilike(studioInterview.candidateName, `%${search}%`),
-        ilike(studioInterview.targetRole, `%${search}%`),
+        ilike(recruitingRecordReadModel.candidateName, `%${search}%`),
+        ilike(recruitingRecordReadModel.targetRole, `%${search}%`),
         ilike(organization.name, `%${search}%`),
         ilike(organization.slug, `%${search}%`),
         ilike(user.name, `%${search}%`),
         ilike(user.email, `%${search}%`),
-        ilike(interviewNotification.providerId, `%${search}%`),
-        ilike(interviewNotification.recipientOpenId, `%${search}%`),
-        ilike(interviewNotification.feishuMessageId, `%${search}%`),
-        ilike(interviewNotification.error, `%${search}%`),
+        ilike(recruitingNotificationDelivery.providerId, `%${search}%`),
+        ilike(recruitingNotificationDelivery.recipientOpenId, `%${search}%`),
+        ilike(recruitingNotificationDelivery.feishuMessageId, `%${search}%`),
+        ilike(recruitingNotificationDelivery.error, `%${search}%`),
       )
     : undefined;
   const where = and(
     // Keep the legacy platform view focused on the original AI-report
     // notifications; interview outbox deliveries have their own operations UI.
-    isNull(interviewNotification.eventId),
+    isNull(recruitingNotificationDelivery.eventId),
     providerFilter,
     statusFilter,
     searchFilter,
     buildListTextFilterWhere("notifications", query.textFilters, {
-      candidateName: studioInterview.candidateName,
-      error: interviewNotification.error,
-      messageId: interviewNotification.feishuMessageId,
+      candidateName: recruitingRecordReadModel.candidateName,
+      error: recruitingNotificationDelivery.error,
+      messageId: recruitingNotificationDelivery.feishuMessageId,
       organizationName: organization.name,
       organizationSlug: organization.slug,
       recipientEmail: user.email,
       recipientName: user.name,
-      recipientOpenId: interviewNotification.recipientOpenId,
-      targetRole: studioInterview.targetRole,
+      recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
+      targetRole: recruitingRecordReadModel.targetRole,
     }),
   );
 
   const [rows, [{ total }]] = await Promise.all([
     db
       .select({
-        candidateName: studioInterview.candidateName,
-        conversationId: interviewNotification.conversationId,
-        createdAt: interviewNotification.createdAt,
-        error: interviewNotification.error,
-        feishuDocumentUrl: interviewNotification.feishuDocumentUrl,
-        feishuMessageId: interviewNotification.feishuMessageId,
-        id: interviewNotification.id,
-        interviewRecordId: interviewNotification.interviewRecordId,
+        candidateName: recruitingRecordReadModel.candidateName,
+        conversationId: recruitingNotificationDelivery.conversationId,
+        createdAt: recruitingNotificationDelivery.createdAt,
+        error: recruitingNotificationDelivery.error,
+        feishuDocumentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
+        feishuMessageId: recruitingNotificationDelivery.feishuMessageId,
+        id: recruitingNotificationDelivery.id,
+        interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
         organizationId: organization.id,
         organizationName: organization.name,
         organizationSlug: organization.slug,
-        providerId: interviewNotification.providerId,
+        providerId: recruitingNotificationDelivery.providerId,
         recipientEmail: user.email,
         recipientImage: user.image,
         recipientName: user.name,
-        recipientOpenId: interviewNotification.recipientOpenId,
+        recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
         recipientUserId: user.id,
-        scheduleEntryId: interviewConversation.scheduleEntryId,
-        sentAt: interviewNotification.sentAt,
-        status: interviewNotification.status,
-        targetRole: studioInterview.targetRole,
-        type: interviewNotification.type,
-        updatedAt: interviewNotification.updatedAt,
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
+        sentAt: recruitingNotificationDelivery.sentAt,
+        status: recruitingNotificationDelivery.status,
+        targetRole: recruitingRecordReadModel.targetRole,
+        type: recruitingNotificationDelivery.type,
+        updatedAt: recruitingNotificationDelivery.updatedAt,
       })
-      .from(interviewNotification)
-      .innerJoin(studioInterview, eq(studioInterview.id, interviewNotification.interviewRecordId))
-      .leftJoin(
-        interviewConversation,
-        eq(interviewConversation.conversationId, interviewNotification.conversationId),
+      .from(recruitingNotificationDelivery)
+      .innerJoin(
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, recruitingNotificationDelivery.recruitingRecordId),
       )
-      .innerJoin(organization, eq(organization.id, interviewNotification.organizationId))
-      .leftJoin(user, eq(user.id, interviewNotification.recipientUserId))
+      .leftJoin(
+        aiInterviewConversation,
+        eq(aiInterviewConversation.conversationId, recruitingNotificationDelivery.conversationId),
+      )
+      .innerJoin(organization, eq(organization.id, recruitingNotificationDelivery.organizationId))
+      .leftJoin(user, eq(user.id, recruitingNotificationDelivery.recipientUserId))
       .where(where)
       .orderBy(...notificationOrderBy(query.sortBy, query.sortOrder))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     db
       .select({ total: count() })
-      .from(interviewNotification)
-      .innerJoin(studioInterview, eq(studioInterview.id, interviewNotification.interviewRecordId))
-      .leftJoin(
-        interviewConversation,
-        eq(interviewConversation.conversationId, interviewNotification.conversationId),
+      .from(recruitingNotificationDelivery)
+      .innerJoin(
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, recruitingNotificationDelivery.recruitingRecordId),
       )
-      .innerJoin(organization, eq(organization.id, interviewNotification.organizationId))
-      .leftJoin(user, eq(user.id, interviewNotification.recipientUserId))
+      .leftJoin(
+        aiInterviewConversation,
+        eq(aiInterviewConversation.conversationId, recruitingNotificationDelivery.conversationId),
+      )
+      .innerJoin(organization, eq(organization.id, recruitingNotificationDelivery.organizationId))
+      .leftJoin(user, eq(user.id, recruitingNotificationDelivery.recipientUserId))
       .where(where),
   ]);
 

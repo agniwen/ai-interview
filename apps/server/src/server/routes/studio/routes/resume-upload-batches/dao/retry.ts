@@ -1,10 +1,11 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
 } from "@app/db-schema/schema";
 import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
 import { reconcileBatchProgress } from "./batches";
@@ -50,19 +51,19 @@ async function claimUntrackedFailedResumeParseRetry(
   const resumeRecordSources = targetsResumeRecord
     ? await tx
         .select({
-          contentHash: studioInterview.resumeContentHash,
-          createdBy: studioInterview.createdBy,
-          fileName: studioInterview.resumeFileName,
-          jobDescriptionId: studioInterview.jobDescriptionId,
-          parseError: studioInterview.resumeParseError,
-          parseStatus: studioInterview.resumeParseStatus,
-          storageKey: studioInterview.resumeStorageKey,
+          contentHash: recruitingRecordReadModel.resumeContentHash,
+          createdBy: recruitingRecordReadModel.createdBy,
+          fileName: recruitingRecordReadModel.resumeFileName,
+          jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+          parseError: recruitingRecordReadModel.resumeParseError,
+          parseStatus: recruitingRecordReadModel.resumeParseStatus,
+          storageKey: recruitingRecordReadModel.resumeStorageKey,
         })
-        .from(studioInterview)
+        .from(recruitingRecordReadModel)
         .where(
           and(
-            eq(studioInterview.id, input.resumeRecordId),
-            eq(studioInterview.organizationId, input.organizationId),
+            eq(recruitingRecordReadModel.id, input.resumeRecordId),
+            eq(recruitingRecordReadModel.organizationId, input.organizationId),
           ),
         )
         .limit(1)
@@ -106,7 +107,7 @@ async function claimUntrackedFailedResumeParseRetry(
   const now = new Date();
   const resumePoolScope = targetsResumeRecord ? null : (poolItemSources[0]?.scope ?? null);
   const userId = source.createdBy ?? input.requestedBy;
-  const batch: typeof resumeUploadBatch.$inferInsert = {
+  const batch: typeof recruitingUploadBatch.$inferInsert = {
     createdAt: now,
     createdBy: userId,
     dedupPolicy: "create",
@@ -120,8 +121,8 @@ async function claimUntrackedFailedResumeParseRetry(
     totalCount: 1,
     updatedAt: now,
   };
-  await tx.insert(resumeUploadBatch).values(batch);
-  await tx.insert(resumeUploadBatchItem).values({
+  await tx.insert(recruitingUploadBatch).values(batch);
+  await tx.insert(recruitingUploadBatchItem).values({
     attemptCount: 1,
     batchId,
     contentHash: source.contentHash,
@@ -132,7 +133,7 @@ async function claimUntrackedFailedResumeParseRetry(
     originalFileName: source.fileName ?? "resume.pdf",
     poolItemId: targetsResumeRecord ? null : input.poolItemId,
     queuedAt: now,
-    resumeRecordId: targetsResumeRecord ? input.resumeRecordId : null,
+    recruitingRecordId: targetsResumeRecord ? input.resumeRecordId : null,
     status: "pending",
     storageKey: source.storageKey,
   });
@@ -142,10 +143,11 @@ async function claimUntrackedFailedResumeParseRetry(
     updatedAt: now,
   };
   await (targetsResumeRecord
-    ? tx
-        .update(studioInterview)
-        .set(targetUpdate)
-        .where(eq(studioInterview.id, input.resumeRecordId))
+    ? updateRecruitingRecords(
+        tx,
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        targetUpdate,
+      )
     : tx.update(resumePoolItem).set(targetUpdate).where(eq(resumePoolItem.id, input.poolItemId)));
   return {
     errorMessage: source.parseError ?? "简历解析失败。",
@@ -165,23 +167,26 @@ export async function claimFailedResumeParseRetry(
   const claim: ResumeParseRetryClaim = await db.transaction(async (tx) => {
     const targetsResumeRecord = isResumeRecordRetryTarget(input);
     const targetCondition = targetsResumeRecord
-      ? eq(resumeUploadBatchItem.resumeRecordId, input.resumeRecordId)
-      : eq(resumeUploadBatchItem.poolItemId, input.poolItemId);
+      ? eq(recruitingUploadBatchItem.recruitingRecordId, input.resumeRecordId)
+      : eq(recruitingUploadBatchItem.poolItemId, input.poolItemId);
     const [row] = await tx
       .select({
-        batch: resumeUploadBatch,
-        item: resumeUploadBatchItem,
+        batch: recruitingUploadBatch,
+        item: recruitingUploadBatchItem,
       })
-      .from(resumeUploadBatchItem)
-      .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
+      .from(recruitingUploadBatchItem)
+      .innerJoin(
+        recruitingUploadBatch,
+        eq(recruitingUploadBatch.id, recruitingUploadBatchItem.batchId),
+      )
       .where(
         and(
           targetCondition,
-          eq(resumeUploadBatch.organizationId, input.organizationId),
-          eq(resumeUploadBatch.target, targetsResumeRecord ? "resume_library" : "resume_pool"),
+          eq(recruitingUploadBatch.organizationId, input.organizationId),
+          eq(recruitingUploadBatch.target, targetsResumeRecord ? "resume_library" : "resume_pool"),
         ),
       )
-      .orderBy(desc(resumeUploadBatch.createdAt), desc(resumeUploadBatchItem.queuedAt))
+      .orderBy(desc(recruitingUploadBatch.createdAt), desc(recruitingUploadBatchItem.queuedAt))
       .limit(1)
       .for("update");
     if (!row) {
@@ -192,17 +197,15 @@ export async function claimFailedResumeParseRetry(
     }
     const now = new Date();
     const updatedTarget = targetsResumeRecord
-      ? await tx
-          .update(studioInterview)
-          .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })
-          .where(
-            and(
-              eq(studioInterview.id, input.resumeRecordId),
-              eq(studioInterview.organizationId, input.organizationId),
-              eq(studioInterview.resumeParseStatus, "failed"),
-            ),
-          )
-          .returning({ id: studioInterview.id })
+      ? await updateRecruitingRecords(
+          tx,
+          and(
+            eq(recruitingRecordReadModel.id, input.resumeRecordId),
+            eq(recruitingRecordReadModel.organizationId, input.organizationId),
+            eq(recruitingRecordReadModel.resumeParseStatus, "failed"),
+          ),
+          { resumeParseError: null, resumeParseStatus: "queued", updatedAt: now },
+        )
       : await tx
           .update(resumePoolItem)
           .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })
@@ -219,7 +222,7 @@ export async function claimFailedResumeParseRetry(
     }
 
     await tx
-      .update(resumeUploadBatchItem)
+      .update(recruitingUploadBatchItem)
       .set({
         errorMessage: null,
         finishedAt: null,
@@ -227,9 +230,9 @@ export async function claimFailedResumeParseRetry(
         startedAt: null,
         status: "pending",
       })
-      .where(eq(resumeUploadBatchItem.id, row.item.id));
+      .where(eq(recruitingUploadBatchItem.id, row.item.id));
     await tx
-      .update(resumeUploadBatch)
+      .update(recruitingUploadBatch)
       .set({
         completedAt: null,
         failedCount: Math.max(0, row.batch.failedCount - 1),
@@ -237,7 +240,7 @@ export async function claimFailedResumeParseRetry(
         status: row.batch.status === "running" ? "running" : "pending",
         updatedAt: now,
       })
-      .where(eq(resumeUploadBatch.id, row.batch.id));
+      .where(eq(recruitingUploadBatch.id, row.batch.id));
 
     return {
       errorMessage: row.item.errorMessage ?? "简历解析失败。",
@@ -260,7 +263,7 @@ export async function rollbackFailedResumeParseRetry(input: {
 }): Promise<void> {
   const rolledBack = await db.transaction(async (tx) => {
     const rows = await tx
-      .update(resumeUploadBatchItem)
+      .update(recruitingUploadBatchItem)
       .set({
         errorMessage: input.errorMessage,
         finishedAt: new Date(),
@@ -268,30 +271,29 @@ export async function rollbackFailedResumeParseRetry(input: {
       })
       .where(
         and(
-          eq(resumeUploadBatchItem.id, input.job.itemId),
-          eq(resumeUploadBatchItem.status, "pending"),
+          eq(recruitingUploadBatchItem.id, input.job.itemId),
+          eq(recruitingUploadBatchItem.status, "pending"),
         ),
       )
-      .returning({ id: resumeUploadBatchItem.id });
+      .returning({ id: recruitingUploadBatchItem.id });
     if (rows.length === 0) {
       return false;
     }
 
     if (isResumeRecordRetryTarget(input.target)) {
-      await tx
-        .update(studioInterview)
-        .set({
+      await updateRecruitingRecords(
+        tx,
+        and(
+          eq(recruitingRecordReadModel.id, input.target.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.target.organizationId),
+          eq(recruitingRecordReadModel.resumeParseStatus, "queued"),
+        ),
+        {
           resumeParseError: input.errorMessage,
           resumeParseStatus: "failed",
           updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(studioInterview.id, input.target.resumeRecordId),
-            eq(studioInterview.organizationId, input.target.organizationId),
-            eq(studioInterview.resumeParseStatus, "queued"),
-          ),
-        );
+        },
+      );
       return true;
     }
     await tx
@@ -338,18 +340,18 @@ export function claimForceResumeReparse(input: {
   return db.transaction(async (tx) => {
     const [source] = await tx
       .select({
-        contentHash: studioInterview.resumeContentHash,
-        createdBy: studioInterview.createdBy,
-        fileName: studioInterview.resumeFileName,
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        parseStatus: studioInterview.resumeParseStatus,
-        storageKey: studioInterview.resumeStorageKey,
+        contentHash: recruitingRecordReadModel.resumeContentHash,
+        createdBy: recruitingRecordReadModel.createdBy,
+        fileName: recruitingRecordReadModel.resumeFileName,
+        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+        parseStatus: recruitingRecordReadModel.resumeParseStatus,
+        storageKey: recruitingRecordReadModel.resumeStorageKey,
       })
-      .from(studioInterview)
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.id, input.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
       .limit(1)
@@ -372,7 +374,7 @@ export function claimForceResumeReparse(input: {
     const itemId = crypto.randomUUID();
     const now = new Date();
     const userId = source.createdBy ?? input.requestedBy;
-    await tx.insert(resumeUploadBatch).values({
+    await tx.insert(recruitingUploadBatch).values({
       createdAt: now,
       createdBy: userId,
       dedupPolicy: "create",
@@ -386,7 +388,7 @@ export function claimForceResumeReparse(input: {
       totalCount: 1,
       updatedAt: now,
     });
-    await tx.insert(resumeUploadBatchItem).values({
+    await tx.insert(recruitingUploadBatchItem).values({
       // Keep attemptCount at 1 so assessment artifacts reset when the profile is replaced.
       attemptCount: 1,
       batchId,
@@ -398,18 +400,15 @@ export function claimForceResumeReparse(input: {
       originalFileName: source.fileName ?? "resume.pdf",
       poolItemId: null,
       queuedAt: now,
-      resumeRecordId: input.resumeRecordId,
+      recruitingRecordId: input.resumeRecordId,
       status: "pending",
       storageKey: source.storageKey,
     });
-    await tx
-      .update(studioInterview)
-      .set({
-        resumeParseError: null,
-        resumeParseStatus: "queued",
-        updatedAt: now,
-      })
-      .where(eq(studioInterview.id, input.resumeRecordId));
+    await updateRecruitingRecords(tx, eq(recruitingRecordReadModel.id, input.resumeRecordId), {
+      resumeParseError: null,
+      resumeParseStatus: "queued",
+      updatedAt: now,
+    });
 
     return {
       job: {
@@ -433,7 +432,7 @@ export async function rollbackForceResumeReparse(input: {
 }): Promise<void> {
   const rolledBack = await db.transaction(async (tx) => {
     const rows = await tx
-      .update(resumeUploadBatchItem)
+      .update(recruitingUploadBatchItem)
       .set({
         errorMessage: "强制重新解析入队失败。",
         finishedAt: new Date(),
@@ -441,27 +440,26 @@ export async function rollbackForceResumeReparse(input: {
       })
       .where(
         and(
-          eq(resumeUploadBatchItem.id, input.job.itemId),
-          eq(resumeUploadBatchItem.status, "pending"),
+          eq(recruitingUploadBatchItem.id, input.job.itemId),
+          eq(recruitingUploadBatchItem.status, "pending"),
         ),
       )
-      .returning({ id: resumeUploadBatchItem.id });
+      .returning({ id: recruitingUploadBatchItem.id });
     if (rows.length === 0) {
       return false;
     }
-    await tx
-      .update(studioInterview)
-      .set({
+    await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.resumeParseStatus, "queued"),
+      ),
+      {
         resumeParseStatus: input.previousStatus,
         updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-          eq(studioInterview.resumeParseStatus, "queued"),
-        ),
-      );
+      },
+    );
     return true;
   });
   if (rolledBack) {

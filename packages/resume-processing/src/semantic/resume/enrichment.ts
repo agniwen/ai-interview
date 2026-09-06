@@ -1,6 +1,7 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../database";
-import { resumePoolItem, studioInterview } from "@app/db-schema/schema";
+import { resumePoolItem } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumePoolScope } from "@app/db-schema/schema";
 import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
@@ -26,12 +27,12 @@ async function loadSemanticEnrichmentSource(
 ): Promise<SemanticEnrichmentSource | null> {
   if (job.sourceType === "studio_interview") {
     const [row] = await db
-      .select({ profile: studioInterview.resumeProfile })
-      .from(studioInterview)
+      .select({ profile: recruitingRecordReadModel.resumeProfile })
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, job.sourceId),
-          eq(studioInterview.organizationId, job.organizationId),
+          eq(recruitingRecordReadModel.id, job.sourceId),
+          eq(recruitingRecordReadModel.organizationId, job.organizationId),
         ),
       )
       .limit(1);

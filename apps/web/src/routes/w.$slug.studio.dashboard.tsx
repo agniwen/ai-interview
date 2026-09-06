@@ -100,15 +100,13 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
     }
     return null;
   }
-  if (row.stage === "written_test") {
-    return "ai_interview";
+  if (row.stage === "second_interview" || row.stage === "final_interview") {
+    return "human_interview";
   }
-  if (
-    row.stage === "screening" ||
-    row.stage === "ai_interview" ||
-    row.stage === "human_interview" ||
-    row.stage === "offer"
-  ) {
+  if (["income_proof", "offer", "background_check", "onboarding"].includes(row.stage)) {
+    return "offer";
+  }
+  if (row.stage === "screening" || row.stage === "ai_interview") {
     return row.stage;
   }
   return null;

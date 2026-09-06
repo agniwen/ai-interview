@@ -1,5 +1,6 @@
 /* oxlint-disable max-lines -- the two-phase purge state machine shares transactional invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { assertMeetingRecruitingReferences } from "./meeting-reference-retention";
 import type { Database } from "@app/database";
 import {
   meetingAuditLog,
@@ -83,6 +84,7 @@ export function createMeetingPurgeDao(db: Database) {
       if (!meeting) {
         return null;
       }
+      await assertMeetingRecruitingReferences(tx, input.meetingId);
       const due = meeting.purgeAfter && meeting.purgeAfter.getTime() <= now.getTime();
       const leaseAvailable =
         !meeting.purgeLeaseExpiresAt || meeting.purgeLeaseExpiresAt.getTime() <= now.getTime();
@@ -492,6 +494,7 @@ export function createMeetingPurgeDao(db: Database) {
       if (!meeting) {
         return false;
       }
+      await assertMeetingRecruitingReferences(tx, input.meetingId);
       const [remainingCleanupKey] = await tx
         .select({ storageKey: meetingStorageCleanupKey.storageKey })
         .from(meetingStorageCleanupKey)

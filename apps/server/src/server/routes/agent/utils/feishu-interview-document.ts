@@ -3,7 +3,7 @@ import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
 } from "@app/db-schema/qualitative-resume-evaluation";
-import { interviewNotification } from "@app/db-schema/schema";
+import { recruitingNotificationDelivery } from "@app/db-schema/schema";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
@@ -98,11 +98,11 @@ export async function ensureInterviewEvaluationDocument({
 }): Promise<string> {
   const [existing] = await db
     .select({
-      documentId: interviewNotification.feishuDocumentId,
-      documentUrl: interviewNotification.feishuDocumentUrl,
+      documentId: recruitingNotificationDelivery.feishuDocumentId,
+      documentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
     })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.id, notificationId))
+    .from(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.id, notificationId))
     .limit(1);
   if (existing?.documentUrl) {
     const documentId = resolveFeishuDocxDocumentId(existing.documentId, existing.documentUrl);
@@ -151,11 +151,11 @@ export async function ensureInterviewEvaluationDocument({
   });
 
   await db
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       feishuDocumentId: created.documentId,
       feishuDocumentUrl: created.documentUrl,
     })
-    .where(eq(interviewNotification.id, notificationId));
+    .where(eq(recruitingNotificationDelivery.id, notificationId));
   return created.documentUrl;
 }

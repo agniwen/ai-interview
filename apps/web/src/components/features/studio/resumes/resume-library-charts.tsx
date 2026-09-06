@@ -40,8 +40,8 @@ const BUCKET_LABEL = {
   ai_interview: "AI 面试",
   closed_hired: "已录用",
   closed_rejected: "已淘汰 / 撤回",
-  human_interview: "真人复面",
-  offer: "Offer",
+  human_interview: "复试 / 终试",
+  offer: "Offer / 入职",
   screening: "简历筛选",
 } as const satisfies Record<PipelineBucket, string>;
 
@@ -220,15 +220,13 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
     }
     return null;
   }
-  if (row.stage === "written_test") {
-    return "ai_interview";
+  if (row.stage === "second_interview" || row.stage === "final_interview") {
+    return "human_interview";
   }
-  if (
-    row.stage === "screening" ||
-    row.stage === "ai_interview" ||
-    row.stage === "human_interview" ||
-    row.stage === "offer"
-  ) {
+  if (["income_proof", "offer", "background_check", "onboarding"].includes(row.stage)) {
+    return "offer";
+  }
+  if (row.stage === "screening" || row.stage === "ai_interview") {
     return row.stage;
   }
   return null;

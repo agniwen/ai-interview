@@ -1,10 +1,11 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../lib/db";
 import {
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
 } from "@app/db-schema/schema";
 import type { ProcessNextResult } from "@app/shared/bulk-resume-upload";
 import { getObjectStream } from "@app/object-storage";
@@ -63,7 +64,7 @@ function elapsed(startedAt: number): number {
 }
 
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
-type BatchRow = typeof resumeUploadBatch.$inferSelect;
+type BatchRow = typeof recruitingUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 
 export interface ResumeUploadBatchProcessorDependencies extends ParsedResumeEnrichmentDependencies {
@@ -104,7 +105,7 @@ function fallbackItemDto(item: NonNullable<ItemRow>): ReturnType<typeof toItemDt
     orderIndex: item.orderIndex,
     originalFileName: item.originalFileName,
     poolItemId: item.poolItemId,
-    resumeRecordId: item.resumeRecordId,
+    resumeRecordId: item.recruitingRecordId,
     startedAt: item.startedAt ? item.startedAt.toISOString() : null,
     status: item.status,
   };
@@ -203,10 +204,10 @@ async function upsertParsedResumeRecord({
 }): Promise<string> {
   const startedAt = Date.now();
   logStep("record.upsert.start", {
-    hasPlaceholder: Boolean(item.resumeRecordId),
+    hasPlaceholder: Boolean(item.recruitingRecordId),
     itemId: item.id,
   });
-  if (!item.resumeRecordId) {
+  if (!item.recruitingRecordId) {
     const recordId = await createResumeRecordFromStorage({
       candidateEmail: null,
       candidateName: null,
@@ -236,7 +237,7 @@ async function upsertParsedResumeRecord({
     });
     return recordId;
   }
-  const recordId = item.resumeRecordId;
+  const recordId = item.recruitingRecordId;
 
   const now = new Date();
   const assessmentReset =
@@ -254,9 +255,13 @@ async function upsertParsedResumeRecord({
           resumeScreeningStatus: "idle" as const,
         };
   await db.transaction(async (tx) => {
-    await tx
-      .update(studioInterview)
-      .set({
+    await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, recordId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+      ),
+      {
         candidateEmail: resumeProfile?.email ?? null,
         candidateName: resumeProfile?.name || item.originalFileName,
         candidatePhone: resumeProfile?.phone ?? null,
@@ -273,10 +278,8 @@ async function upsertParsedResumeRecord({
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
         updatedAt: now,
         ...assessmentReset,
-      })
-      .where(
-        and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, organizationId)),
-      );
+      },
+    );
     await syncResumeSkills(tx, {
       interviewId: recordId,
       organizationId,
@@ -402,15 +405,16 @@ async function writeOutcome(
   await db.transaction(async (tx) => {
     const now = new Date();
     if (outcome.errorMessage) {
-      if (item.resumeRecordId) {
-        await tx
-          .update(studioInterview)
-          .set({
+      if (item.recruitingRecordId) {
+        await updateRecruitingRecords(
+          tx,
+          eq(recruitingRecordReadModel.id, item.recruitingRecordId),
+          {
             resumeParseError: outcome.errorMessage,
             resumeParseStatus: "failed",
             updatedAt: now,
-          })
-          .where(eq(studioInterview.id, item.resumeRecordId));
+          },
+        );
       }
       if (item.poolItemId) {
         await tx
@@ -423,19 +427,19 @@ async function writeOutcome(
           .where(eq(resumePoolItem.id, item.poolItemId));
       }
       await tx
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({ errorMessage: outcome.errorMessage, finishedAt: now, status: "failed" })
-        .where(eq(resumeUploadBatchItem.id, item.id));
+        .where(eq(recruitingUploadBatchItem.id, item.id));
     } else {
       await tx
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({
           finishedAt: now,
           poolItemId: outcome.succeededPoolItemId,
-          resumeRecordId: outcome.succeededRecordId,
+          recruitingRecordId: outcome.succeededRecordId,
           status: "succeeded",
         })
-        .where(eq(resumeUploadBatchItem.id, item.id));
+        .where(eq(recruitingUploadBatchItem.id, item.id));
     }
 
     // 完了チェック: processed == total かつ terminal でなければ completed にする。
@@ -604,8 +608,8 @@ export async function processBatchItem(
     }
     const [batchRow] = await tx
       .select()
-      .from(resumeUploadBatch)
-      .where(eq(resumeUploadBatch.id, item.batchId))
+      .from(recruitingUploadBatch)
+      .where(eq(recruitingUploadBatch.id, item.batchId))
       .limit(1);
     if (!batchRow || batchRow.status === "cancelled" || batchRow.status === "completed") {
       return null;
@@ -655,12 +659,12 @@ export async function processNextItem(
   const claimed = await db.transaction(async (tx) => {
     const [batchRow] = await tx
       .select()
-      .from(resumeUploadBatch)
+      .from(recruitingUploadBatch)
       .where(
         and(
-          eq(resumeUploadBatch.id, batchId),
-          eq(resumeUploadBatch.organizationId, organizationId),
-          eq(resumeUploadBatch.createdBy, userId),
+          eq(recruitingUploadBatch.id, batchId),
+          eq(recruitingUploadBatch.organizationId, organizationId),
+          eq(recruitingUploadBatch.createdBy, userId),
         ),
       )
       .limit(1);
@@ -691,9 +695,9 @@ export async function processNextItem(
     if (isComplete) {
       const now = new Date();
       await db
-        .update(resumeUploadBatch)
+        .update(recruitingUploadBatch)
         .set({ completedAt: now, status: "completed", updatedAt: now })
-        .where(eq(resumeUploadBatch.id, batchId));
+        .where(eq(recruitingUploadBatch.id, batchId));
       const fresh = await loadBatchDetail(batchId, organizationId, userId);
       return { batch: fresh?.batch ?? detail.batch, done: true, item: null };
     }

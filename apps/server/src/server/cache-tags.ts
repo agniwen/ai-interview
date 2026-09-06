@@ -1,6 +1,6 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { db } from "../lib/server/db/index";
-import { studioInterview } from "@app/db-schema/schema";
 
 export interface CacheInvalidator {
   revalidateTag: (tag: string) => Promise<void> | void;
@@ -107,9 +107,9 @@ export async function lookupOrgIdByInterviewRecord(
   interviewRecordId: string,
 ): Promise<string | null> {
   const [row] = await db
-    .select({ organizationId: studioInterview.organizationId })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
+    .select({ organizationId: recruitingRecordReadModel.organizationId })
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, interviewRecordId))
     .limit(1);
   return row?.organizationId ?? null;
 }

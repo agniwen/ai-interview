@@ -1,184 +1,75 @@
-import type {
-  CandidateOutcome,
-  ClosedMeta,
-  PipelineStage,
-  ResumeEvaluationStatus,
-} from "@app/db-schema/studio-interviews";
-import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import { z } from "zod";
 import {
-  canApplyCandidatePipelineEvent,
-  getCandidatePipelineEventForTargetStage,
-} from "@app/shared/candidate-pipeline-machine";
+  candidateOutcomeSchema,
+  closedMetaSchema,
+  recruitingCloseReasonSchema,
+  recruitingNodeResultSchema,
+  recruitingNodeStatusSchema,
+  recruitingPipelineNodeSchema,
+  studioInterviewQuestionClientSchema,
+} from "@app/db-schema/studio-interviews";
 
-export interface CandidateTransitionExisting {
-  closedMeta: ClosedMeta | null;
-  outcome: CandidateOutcome;
-  pipelineStage: PipelineStage;
-}
+const expectedVersion = z.number().int().nonnegative();
+const reason = z.string().trim().min(1, "请填写调整原因").max(1000);
+const optionalId = z.string().min(1).nullable().optional();
 
-export interface CandidateTransitionInput {
-  closedMeta?: Omit<Partial<ClosedMeta>, "previousStage">;
-  closedReason?: string | null;
-  interviewQuestions?: InterviewQuestion[];
-  outcome?: CandidateOutcome;
-  pipelineStage: PipelineStage;
-  reactivationReason?: string;
-}
-
-export interface CandidateTransitionPatch {
-  closedAt?: Date | null;
-  closedReason?: string | null;
-  closedMeta?: ClosedMeta | null;
-  humanInterviewScheduledAt?: Date | null;
-  humanInterviewerId?: string | null;
-  interviewQuestions?: InterviewQuestion[];
-  offerAcceptedAt?: Date | null;
-  offerSentAt?: Date | null;
-  outcome: CandidateOutcome;
-  pipelineStage: PipelineStage;
-  resumeEvaluationStatus?: ResumeEvaluationStatus | null;
-  updatedAt: Date;
-  writtenTestScheduledAt?: Date | null;
-  writtenTestScore?: string | null;
-}
-
-export interface CandidateTransitionAuditDetail {
-  closedMeta: ClosedMeta | null;
-  fromOutcome: CandidateOutcome;
-  fromStage: PipelineStage;
-  reason: string | null;
-  reactivationReason: string | null;
-  toOutcome: CandidateOutcome;
-  toStage: PipelineStage;
-}
-
-export interface CandidateTransitionResolution {
-  auditDetail: CandidateTransitionAuditDetail;
-  patch: CandidateTransitionPatch;
-}
-
-export function getCandidateReactivationError({
-  from,
-  reactivationReason,
-  to,
-}: {
-  from: PipelineStage;
-  reactivationReason?: string;
-  to: PipelineStage;
-}): string | null {
-  if (from === "closed" && to !== "closed" && !reactivationReason?.trim()) {
-    return "请填写重新激活原因。";
-  }
-  return null;
-}
-
-export function getCandidateStageTransitionError({
-  from,
-  hasJobDescription,
-  humanInterviewReadyForOffer,
-  to,
-}: {
-  from: PipelineStage;
-  hasJobDescription: boolean;
-  humanInterviewReadyForOffer: boolean;
-  to: PipelineStage;
-}): string | null {
-  if (from === to) {
-    return null;
-  }
-  if (to === "closed") {
-    return null;
-  }
-  if (to === "human_interview" && !hasJobDescription) {
-    return "请先绑定在招岗位后再安排真人面试";
-  }
-
-  const event = getCandidatePipelineEventForTargetStage({ from, to });
-  if (!event) {
-    return "当前招聘阶段不能直接推进到目标阶段。";
-  }
-  const canApply = canApplyCandidatePipelineEvent(
-    { humanInterviewReadyForOffer, stage: from },
-    event,
-  );
-  if (canApply) {
-    return null;
-  }
-  if (from === "human_interview" && to === "offer") {
-    return "请先完成所有真人面试轮次，并补全每轮面试评价";
-  }
-  return "当前招聘阶段不能直接推进到目标阶段。";
-}
-
-export function resolveCandidateTransitionPatch({
-  existing,
-  input,
-  now,
-}: {
-  existing: CandidateTransitionExisting;
-  input: CandidateTransitionInput;
-  now: Date;
-}): CandidateTransitionResolution {
-  const isClosing = input.pipelineStage === "closed";
-  const wasClosed = existing.pipelineStage === "closed";
-
-  let closedAt: Date | null | undefined;
-  let closedReason: string | null | undefined;
-  let closedMeta: ClosedMeta | null | undefined;
-  let humanInterviewScheduledAt: Date | null | undefined;
-  let humanInterviewerId: string | null | undefined;
-  let offerSentAt: Date | null | undefined;
-  let offerAcceptedAt: Date | null | undefined;
-  let writtenTestScheduledAt: Date | null | undefined;
-  let writtenTestScore: string | null | undefined;
-
-  if (isClosing) {
-    closedAt = now;
-    closedReason = input.closedReason ?? null;
-    closedMeta = {
-      ...existing.closedMeta,
-      ...input.closedMeta,
-      previousStage: existing.pipelineStage,
-    };
-  } else if (wasClosed) {
-    closedAt = null;
-    closedReason = null;
-    closedMeta = null;
-    humanInterviewScheduledAt = null;
-    humanInterviewerId = null;
-    offerSentAt = null;
-    offerAcceptedAt = null;
-    writtenTestScheduledAt = null;
-    writtenTestScore = null;
-  }
-
-  const outcome = input.outcome ?? "in_pipeline";
-  const patch: CandidateTransitionPatch = {
-    closedAt,
-    closedMeta,
-    closedReason,
-    humanInterviewScheduledAt,
-    humanInterviewerId,
-    offerAcceptedAt,
-    offerSentAt,
-    outcome,
-    pipelineStage: input.pipelineStage,
-    resumeEvaluationStatus: wasClosed && !isClosing ? null : undefined,
-    updatedAt: now,
-    writtenTestScheduledAt,
-    writtenTestScore,
-  };
-
-  return {
-    auditDetail: {
-      closedMeta: closedMeta ?? null,
-      fromOutcome: existing.outcome,
-      fromStage: existing.pipelineStage,
-      reactivationReason: wasClosed && !isClosing ? (input.reactivationReason ?? null) : null,
-      reason: input.closedReason ?? null,
-      toOutcome: outcome,
-      toStage: input.pipelineStage,
-    },
-    patch,
-  };
-}
+/** 人工动作必须提交所见版本；数据库事务负责最终的顺序、依据和归属核验。 */
+export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("screening_advance"),
+    expectedVersion,
+    targetNode: z.enum(["ai_interview", "second_interview"]),
+  }),
+  z
+    .object({
+      action: z.literal("advance"),
+      expectedVersion,
+      interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
+      reason: reason.optional(),
+      skipNodes: z
+        .array(z.enum(["screening", "ai_interview"]))
+        .max(2)
+        .optional(),
+      targetNode: recruitingPipelineNodeSchema,
+    })
+    .refine(
+      (input) =>
+        !input.interviewQuestions ||
+        input.targetNode === "second_interview" ||
+        input.targetNode === "final_interview",
+      { message: "面试准备题目只能在进入真人面试时更新", path: ["interviewQuestions"] },
+    ),
+  z.object({
+    action: z.literal("reopen"),
+    expectedVersion,
+    reason,
+    targetNode: recruitingPipelineNodeSchema,
+    targetStatus: z.literal("pending"),
+  }),
+  z
+    .object({
+      action: z.literal("update_node"),
+      closeReason: recruitingCloseReasonSchema.optional(),
+      effectiveAiRoundId: optionalId,
+      effectiveHumanRoundId: optionalId,
+      effectiveOfferId: optionalId,
+      expectedVersion,
+      node: recruitingPipelineNodeSchema,
+      reason: reason.optional(),
+      result: recruitingNodeResultSchema.nullable().optional(),
+      targetStatus: recruitingNodeStatusSchema.exclude(["inactive", "skipped"]),
+    })
+    .refine((input) => (input.targetStatus === "completed") === Boolean(input.result), {
+      message: "完成节点必须提供结论；未完成不能填写结论",
+      path: ["result"],
+    }),
+  z.object({
+    action: z.literal("close"),
+    closeReason: recruitingCloseReasonSchema,
+    details: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
+    expectedVersion,
+    outcome: candidateOutcomeSchema.exclude(["in_pipeline"]),
+    reason: reason.optional(),
+  }),
+]);
+export type CandidateTransitionInput = z.infer<typeof candidateTransitionInputSchema>;

@@ -15,7 +15,7 @@ import {
 // Explicit opt-in: creates an isolated schema; never uses DATABASE_URL.
 const testUrl = process.env.RESUME_SEARCH_TEST_DATABASE_URL;
 const dialect = new PgDialect();
-const tables = ["resume_pool_item", "studio_interview"] as const;
+const tables = ["resume_pool_item"] as const;
 
 describe.skipIf(!testUrl)("resume keyword search lifecycle (PostgreSQL)", () => {
   const client = postgres(testUrl ?? "postgres://localhost/unused", { max: 1 });
@@ -24,7 +24,8 @@ describe.skipIf(!testUrl)("resume keyword search lifecycle (PostgreSQL)", () => 
   beforeAll(async () => {
     await client.unsafe(`CREATE SCHEMA "${schema}"`);
     await client.unsafe(`SET search_path TO "${schema}", public`);
-    for (const table of tables) {
+    // 旧迁移包含旧表触发器，仅在此隔离 schema 中建立其历史 DDL fixture。
+    for (const table of ["resume_pool_item", "studio_interview"]) {
       await client.unsafe(
         `CREATE TABLE "${table}" (` +
           `id text PRIMARY KEY, candidate_name text, candidate_email text, candidate_phone text, ` +
@@ -41,6 +42,9 @@ describe.skipIf(!testUrl)("resume keyword search lifecycle (PostgreSQL)", () => 
       "utf-8",
     );
     await client.unsafe(migration);
+    await client.unsafe(`CREATE TABLE candidate (id text PRIMARY KEY, name text, email text, phone text);
+      CREATE TABLE recruiting_record (id text PRIMARY KEY, resume_id text, target_role text, created_at timestamptz DEFAULT now());
+      CREATE TABLE candidate_resume (id text PRIMARY KEY, candidate_id text, file_name text, profile jsonb, search_text text, search_cjk_bigrams text[], updated_at timestamptz DEFAULT '2026-08-26T00:00:00Z');`);
   });
 
   afterAll(async () => {
@@ -99,6 +103,28 @@ describe.skipIf(!testUrl)("resume keyword search lifecycle (PostgreSQL)", () => 
     );
     return rows.map((row) => row.id);
   }
+
+  it("backfills the split candidate resume using its candidate and recruiting context", async () => {
+    await client.unsafe(`INSERT INTO candidate VALUES ('c', '王同学', 'new@example.com', '123');
+      INSERT INTO candidate_resume (id, candidate_id, file_name, profile) VALUES ('r', 'c', '新简历.pdf', '{"schools":["清华大学"]}');
+      INSERT INTO recruiting_record (id, resume_id, target_role) VALUES ('record', 'r', '架构师');`);
+    expect(await backfillResumeSearchBatch(client, "candidate_resume", null, 10)).toEqual({
+      count: 1,
+      last_id: "r",
+    });
+    const [row] = await client.unsafe<{ search_text: string; updated_at: Date }[]>(
+      `SELECT search_text, updated_at FROM candidate_resume WHERE id = 'r'`,
+    );
+    expect(row.search_text).toContain("清华大学");
+    expect(row.search_text).toContain("架构师");
+    expect(row.updated_at.toISOString()).toBe("2026-08-26T00:00:00.000Z");
+    const readiness = await checkResumeSearch(client, "candidate_resume");
+    expect(readiness.pending).toBe(0);
+    expect(await backfillResumeSearchBatch(client, "candidate_resume", null, 10)).toEqual({
+      count: 0,
+      last_id: null,
+    });
+  });
 
   for (const table of tables) {
     it(`${table}: combines company and school without cross-field matches`, async () => {

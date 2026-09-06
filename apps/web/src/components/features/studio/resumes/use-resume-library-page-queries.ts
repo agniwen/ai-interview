@@ -1,3 +1,4 @@
+import { resolveRecruitingBoardView } from "@app/shared/recruiting-board";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -82,14 +83,16 @@ export function useResumeLibraryPageQueries({
       (params: FetchParams): Promise<PaginatedResumeLibraryResult> => {
         const bounds = dateRangeFilterBounds(params.filters.createdAtRange);
         return fetchStudioResumes(slug, {
+          boardView: resolveRecruitingBoardView(params.filters.stage),
           createdFrom: bounds?.from,
           createdTo: bounds?.to,
           creatorIds: parseCsvParam(params.filters.creatorIds),
           jobDescriptionIds: parseCsvParam(params.filters.jdIds),
           knownTotal: params.knownTotal,
+          nodeResults: parseCsvParam(params.filters.nodeResults),
+          nodeStatuses: parseCsvParam(params.filters.nodeStatuses),
           page: params.page,
           pageSize: params.pageSize,
-          pipelineStages: parseCsvParam(params.filters.stage),
           recommendationLevels: parseCsvParam(params.filters.recommendationLevels),
           search: params.search || undefined,
           skills: parseCsvParam(params.filters.skills),

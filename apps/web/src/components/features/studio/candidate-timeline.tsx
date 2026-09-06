@@ -128,7 +128,7 @@ const ACTIVITY_FORMATTERS = createActivityFormatters({
   候选人入库: (event) => (event.description ? `创建候选人，${event.description}` : "创建候选人"),
   "候选人回复 Offer": (event) => {
     const status = getMetadataValue(event, "状态");
-    return status ? `回复 Offer：${status}` : "回复 Offer";
+    return status ? `回复 Offer：${status}` : (event.description ?? "回复 Offer");
   },
   候选人提交表单: (event) => {
     const jobName = getMetadataValue(event, "岗位");

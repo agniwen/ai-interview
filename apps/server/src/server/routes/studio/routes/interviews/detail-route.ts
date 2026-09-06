@@ -1,13 +1,9 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
-import {
-  candidateFormSubmission,
-  interviewAuditLog,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@app/db-schema/schema";
+import { recruitingFormSubmission, recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import { buildInterviewDispatchContract } from "@app/shared/interview/dispatch-contract";
@@ -411,14 +407,14 @@ export const studioInterviewDetailRouter = factory
       const operatorId = c.var.user?.id ?? null;
       const result = await db.transaction(async (tx) => {
         const deleted = await tx
-          .delete(candidateFormSubmission)
+          .delete(recruitingFormSubmission)
           .where(
             and(
-              eq(candidateFormSubmission.id, submissionId),
-              eq(candidateFormSubmission.interviewRecordId, candidateId),
+              eq(recruitingFormSubmission.id, submissionId),
+              eq(recruitingFormSubmission.recruitingRecordId, candidateId),
             ),
           )
-          .returning({ id: candidateFormSubmission.id });
+          .returning({ id: recruitingFormSubmission.id });
         if (deleted.length === 0) {
           return null;
         }
@@ -430,8 +426,9 @@ export const studioInterviewDetailRouter = factory
           reason: "manual_refresh",
           scheduleEntryId: roundId,
         });
-        await tx.insert(interviewAuditLog).values({
+        await tx.insert(recruitingEvent).values({
           action: "context_snapshot_refresh",
+          aiRoundId: roundId,
           createdAt: now,
           detail: {
             reason: "form_submission_reset",
@@ -440,10 +437,9 @@ export const studioInterviewDetailRouter = factory
             submissionId,
           },
           id: crypto.randomUUID(),
-          interviewRecordId: candidateId,
           operatorId,
           organizationId: activeOrg.id,
-          scheduleEntryId: roundId,
+          recruitingRecordId: candidateId,
         });
         return refreshed;
       });
@@ -499,17 +495,14 @@ export const studioInterviewDetailRouter = factory
       // Server-side AI-stage guard: once the candidate is past AI interview,
       // schedule-entry mutations are rejected even if a client bypasses the UI.
       const [parent] = await db
-        .select({ pipelineStage: studioInterview.pipelineStage })
-        .from(studioInterviewSchedule)
+        .select({ pipelineStage: recruitingRecordReadModel.pipelineStage })
+        .from(aiInterviewRound)
         .innerJoin(
-          studioInterview,
-          eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
+          recruitingRecordReadModel,
+          eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
         )
         .where(
-          and(
-            eq(studioInterviewSchedule.id, roundId),
-            eq(studioInterviewSchedule.organizationId, activeOrg.id),
-          ),
+          and(eq(aiInterviewRound.id, roundId), eq(aiInterviewRound.organizationId, activeOrg.id)),
         )
         .limit(1);
       if (!parent) {
@@ -524,7 +517,7 @@ export const studioInterviewDetailRouter = factory
         );
       }
 
-      const update: Partial<typeof studioInterviewSchedule.$inferInsert> = {
+      const update: Partial<typeof aiInterviewRound.$inferInsert> = {
         updatedAt: new Date(),
       };
       if (body.allowTextInput !== undefined) {
@@ -548,15 +541,12 @@ export const studioInterviewDetailRouter = factory
       }
 
       const result = await db
-        .update(studioInterviewSchedule)
+        .update(aiInterviewRound)
         .set(update)
         .where(
-          and(
-            eq(studioInterviewSchedule.id, roundId),
-            eq(studioInterviewSchedule.organizationId, activeOrg.id),
-          ),
+          and(eq(aiInterviewRound.id, roundId), eq(aiInterviewRound.organizationId, activeOrg.id)),
         )
-        .returning({ id: studioInterviewSchedule.id });
+        .returning({ id: aiInterviewRound.id });
 
       if (result.length === 0) {
         return c.json({ error: "记录不存在。" }, 404);
@@ -623,18 +613,18 @@ export const studioInterviewDetailRouter = factory
         reason: "manual_refresh",
         scheduleEntryId: roundId,
       });
-      await tx.insert(interviewAuditLog).values({
+      await tx.insert(recruitingEvent).values({
         action: "context_snapshot_refresh",
+        aiRoundId: roundId,
         createdAt: now,
         detail: {
           snapshotId: refreshed.id,
           snapshotVersion: refreshed.version,
         },
         id: crypto.randomUUID(),
-        interviewRecordId: candidateId,
         operatorId,
         organizationId: activeOrg.id,
-        scheduleEntryId: roundId,
+        recruitingRecordId: candidateId,
       });
       return refreshed;
     });

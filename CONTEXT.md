@@ -123,8 +123,12 @@ The workspace record that tracks one candidate in the context of one job and its
 _Avoid_: Candidate identity, resume record, interview round
 
 **Candidate Pipeline End**:
-The terminal recruiting stage after a candidate receives a final outcome. User-facing Chinese uses “结束” for the action and “已结束” for the stage.
+The ended state of a recruiting record after a candidate receives a final outcome. The same record can later be reopened to an earlier recruiting state. User-facing Chinese uses “结束” for the action and “已结束” for the stage.
 _Avoid_: 结案, 已结案
+
+**Candidate Pipeline Reopening**:
+Restoring the same candidate recruiting record to a selected earlier recruiting state while retaining its previous decisions and supporting materials as history. Reopening does not create a new recruiting record or recruiting cycle.
+_Avoid_: New recruiting cycle, reapplication, new candidate
 
 **Resume Library**:
 The workspace roster of resume records that have been accepted into the recruiting workflow.

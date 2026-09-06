@@ -1,3 +1,5 @@
+import { lockRecruitingRecord } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
 import { resolveRecruitingVisibilityScopeFromRows } from "../../access/recruiting-visibility";
@@ -11,12 +13,11 @@ import { z } from "zod";
 import {
   jobDescription,
   meetingAuditLog,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSession,
   member,
   organizationRole,
   recruitingGroupMember,
-  studioInterview,
 } from "@app/db-schema/schema";
 import type {
   MeetingRecruitingContextLink,
@@ -83,12 +84,12 @@ async function canReadRecruitingRecords(
 
 function recruitingVisibilityCondition(scope: RecruitingVisibilityScope) {
   if (scope.kind === "none") {
-    return eq(studioInterview.id, "");
+    return eq(recruitingRecordReadModel.id, "");
   }
   if (scope.kind === "restricted") {
     return scope.userIds.length > 0
-      ? inArray(studioInterview.createdBy, scope.userIds)
-      : eq(studioInterview.id, "");
+      ? inArray(recruitingRecordReadModel.createdBy, scope.userIds)
+      : eq(recruitingRecordReadModel.id, "");
   }
 }
 
@@ -111,12 +112,12 @@ function toRecruitingRecordSummary(row: {
 }
 
 const recruitingRecordSelection = {
-  candidateName: studioInterview.candidateName,
-  id: studioInterview.id,
+  candidateName: recruitingRecordReadModel.candidateName,
+  id: recruitingRecordReadModel.id,
   jobDescriptionName: jobDescription.name,
-  outcome: studioInterview.outcome,
-  pipelineStage: studioInterview.pipelineStage,
-  targetRole: studioInterview.targetRole,
+  outcome: recruitingRecordReadModel.outcome,
+  pipelineStage: recruitingRecordReadModel.pipelineStage,
+  targetRole: recruitingRecordReadModel.targetRole,
 };
 
 export async function loadMeetingRecruitingContext(input: {
@@ -127,35 +128,35 @@ export async function loadMeetingRecruitingContext(input: {
   const [row] = await db
     .select({
       ...recruitingRecordSelection,
-      linkedAt: meetingRecruitingContext.linkedAt,
-      linkedBy: meetingRecruitingContext.linkedBy,
+      linkedAt: recruitingMeetingContext.linkedAt,
+      linkedBy: recruitingMeetingContext.linkedBy,
     })
-    .from(meetingRecruitingContext)
+    .from(recruitingMeetingContext)
     .innerJoin(
       meetingSession,
       and(
-        eq(meetingSession.id, meetingRecruitingContext.meetingId),
-        eq(meetingSession.organizationId, meetingRecruitingContext.organizationId),
+        eq(meetingSession.id, recruitingMeetingContext.meetingId),
+        eq(meetingSession.organizationId, recruitingMeetingContext.organizationId),
       ),
     )
     .innerJoin(
-      studioInterview,
+      recruitingRecordReadModel,
       and(
-        eq(studioInterview.id, meetingRecruitingContext.recruitingRecordId),
-        eq(studioInterview.organizationId, meetingRecruitingContext.organizationId),
+        eq(recruitingRecordReadModel.id, recruitingMeetingContext.recruitingRecordId),
+        eq(recruitingRecordReadModel.organizationId, recruitingMeetingContext.organizationId),
       ),
     )
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(meetingRecruitingContext.meetingId, input.meetingId),
-        eq(meetingRecruitingContext.organizationId, input.organizationId),
+        eq(recruitingMeetingContext.meetingId, input.meetingId),
+        eq(recruitingMeetingContext.organizationId, input.organizationId),
         recruitingVisibilityCondition(input.visibilityScope),
       ),
     )
@@ -181,28 +182,28 @@ export async function listMeetingRecruitingRecordCandidates(input: {
   const searchPattern = search ? `%${search.replaceAll(/[\\%_]/g, "\\$&")}%` : undefined;
   const rows = await db
     .select(recruitingRecordSelection)
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
         recruitingVisibilityCondition(input.visibilityScope),
         searchPattern
           ? or(
-              ilike(studioInterview.candidateName, searchPattern),
-              ilike(studioInterview.targetRole, searchPattern),
+              ilike(recruitingRecordReadModel.candidateName, searchPattern),
+              ilike(recruitingRecordReadModel.targetRole, searchPattern),
               ilike(jobDescription.name, searchPattern),
             )
           : undefined,
       ),
     )
-    .orderBy(desc(studioInterview.updatedAt))
+    .orderBy(desc(recruitingRecordReadModel.updatedAt))
     .limit(Math.min(Math.max(input.limit, 1), 50));
   return rows.map(toRecruitingRecordSummary);
 }
@@ -214,18 +215,18 @@ export async function loadMeetingRecruitingRecordCandidate(input: {
 }): Promise<MeetingRecruitingRecordSummary | null> {
   const [row] = await db
     .select(recruitingRecordSelection)
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.id, input.recruitingRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.recruitingRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
         recruitingVisibilityCondition(input.visibilityScope),
       ),
     )
@@ -267,16 +268,16 @@ async function canActorLinkRecruitingRecord(
   ) {
     return false;
   }
+  await lockRecruitingRecord(tx, input.recruitingRecordId, input.organizationId);
   const [candidate] = await tx
-    .select({ createdBy: studioInterview.createdBy })
-    .from(studioInterview)
+    .select({ createdBy: recruitingRecordReadModel.createdBy })
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.id, input.recruitingRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.recruitingRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
       ),
     )
-    .for("share")
     .limit(1);
   if (!candidate) {
     return false;
@@ -355,7 +356,7 @@ export async function replaceMeetingRecruitingContext(input: {
       return "forbidden";
     }
 
-    const current = await tx.query.meetingRecruitingContext.findFirst({
+    const current = await tx.query.recruitingMeetingContext.findFirst({
       columns: { recruitingRecordId: true },
       where: { meetingId: input.meetingId, organizationId: input.organizationId },
     });
@@ -378,7 +379,7 @@ export async function replaceMeetingRecruitingContext(input: {
         return "invalid-record";
       }
       await tx
-        .insert(meetingRecruitingContext)
+        .insert(recruitingMeetingContext)
         .values({
           linkedAt: new Date(),
           linkedBy: input.actorId,
@@ -392,15 +393,15 @@ export async function replaceMeetingRecruitingContext(input: {
             linkedBy: input.actorId,
             recruitingRecordId: input.recruitingRecordId,
           },
-          target: meetingRecruitingContext.meetingId,
+          target: recruitingMeetingContext.meetingId,
         });
     } else {
       await tx
-        .delete(meetingRecruitingContext)
+        .delete(recruitingMeetingContext)
         .where(
           and(
-            eq(meetingRecruitingContext.meetingId, input.meetingId),
-            eq(meetingRecruitingContext.organizationId, input.organizationId),
+            eq(recruitingMeetingContext.meetingId, input.meetingId),
+            eq(recruitingMeetingContext.organizationId, input.organizationId),
           ),
         );
     }

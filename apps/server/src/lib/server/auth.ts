@@ -1,3 +1,4 @@
+import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -295,6 +296,17 @@ export const auth = betterAuth({
         },
       },
     },
+    user: {
+      delete: {
+        async before(deletingUser) {
+          if (await hasRecruitingReferences(db, "user", deletingUser.id)) {
+            throw new APIError("CONFLICT", {
+              message: "该账号仍被招聘数据引用，请先移交相关数据或停用账号。",
+            });
+          }
+        },
+      },
+    },
   },
   // 开启邮箱+密码登录。注册入口关闭——账号只能通过飞书 OAuth 自动创建，
   // 或由 admin 在「用户管理」里调 setUserPassword 设定登录密码。
@@ -415,6 +427,20 @@ export const auth = betterAuth({
           if (requestedRoles.length === 0 || allowed.some((ok) => !ok)) {
             throw new APIError("FORBIDDEN", {
               message: "只能邀请为低于自己级别的工作区角色。",
+            });
+          }
+        },
+        async beforeDeleteOrganization({ organization: deletingOrganization }) {
+          if (await hasRecruitingReferences(db, "organization", deletingOrganization.id)) {
+            throw new APIError("CONFLICT", {
+              message: "该工作区仍包含招聘数据，请先处理关联数据再删除。",
+            });
+          }
+        },
+        async beforeRemoveMember({ member: removingMember }) {
+          if (await hasRecruitingReferences(db, "member", removingMember.id)) {
+            throw new APIError("CONFLICT", {
+              message: "该成员仍被招聘数据引用，请先移交关联数据或设为无访问权限。",
             });
           }
         },

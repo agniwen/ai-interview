@@ -1,8 +1,10 @@
+import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../../lib/server/db/index";
-import { studioInterview } from "@app/db-schema/schema";
+
 import { offerDraftInputSchema, offerResponseInputSchema } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
@@ -26,12 +28,18 @@ import { invalidateStudioInterviewCaches } from "../../../../../../cache-tags";
 async function loadOfferCandidate(
   recordId: string,
   organizationId: string,
-): Promise<Pick<typeof studioInterview.$inferSelect, "id" | "pipelineStage"> | null> {
+): Promise<Pick<RecruitingRecordRead, "id" | "pipelineStage"> | null> {
   const [candidate] = await db
-    .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
-    .from(studioInterview)
+    .select({
+      id: recruitingRecordReadModel.id,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+    })
+    .from(recruitingRecordReadModel)
     .where(
-      and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, organizationId)),
+      and(
+        eq(recruitingRecordReadModel.id, recordId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+      ),
     )
     .limit(1);
   return candidate ?? null;
@@ -117,18 +125,8 @@ export function createOfferDraftsRouter(
         if (candidate.pipelineStage === "closed") {
           return c.json({ error: "已结束的候选人请先重新激活。" }, 400);
         }
-        if (candidate.pipelineStage !== "human_interview" && candidate.pipelineStage !== "offer") {
-          return c.json({ error: "候选人需先进入真人复面阶段，才能创建 Offer。" }, 400);
-        }
-        if (candidate.pipelineStage === "human_interview") {
-          const readiness = await dependencies.loadHumanInterviewRoundReadiness(
-            recordId,
-            activeOrg.id,
-          );
-          const readinessError = dependencies.getHumanInterviewOfferReadinessError(readiness);
-          if (readinessError) {
-            return c.json({ error: readinessError }, 400);
-          }
+        if (candidate.pipelineStage !== "offer") {
+          return c.json({ error: "请先完成流水提供并进入 Offer 节点。" }, 400);
         }
 
         const { sendImmediately, ...input } = c.req.valid("json");

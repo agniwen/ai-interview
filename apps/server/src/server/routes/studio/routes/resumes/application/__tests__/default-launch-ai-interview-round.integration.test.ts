@@ -1,14 +1,17 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import type { RecruitingRecordValues } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   department,
-  interviewAuditLog,
-  interviewContextSnapshot,
+  recruitingEvent,
+  recruitingContextSnapshot,
   jobDescription,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
+  recruitingNodeState,
   user,
 } from "@app/db-schema/schema";
 import { persistLaunchAiInterviewRound } from "../default-launch-ai-interview-round";
@@ -30,16 +33,7 @@ async function cleanup() {
     STRUCTURED_CANDIDATE_ID,
     STALE_STRUCTURED_CANDIDATE_ID,
   ];
-  await db
-    .delete(interviewContextSnapshot)
-    .where(inArray(interviewContextSnapshot.interviewRecordId, candidateIds));
-  await db
-    .delete(interviewAuditLog)
-    .where(inArray(interviewAuditLog.interviewRecordId, candidateIds));
-  await db
-    .delete(studioInterviewSchedule)
-    .where(inArray(studioInterviewSchedule.interviewRecordId, candidateIds));
-  await db.delete(studioInterview).where(inArray(studioInterview.id, candidateIds));
+  await deleteRecruitingRecords(db, inArray(recruitingRecordReadModel.id, candidateIds));
   await db.delete(jobDescription).where(eq(jobDescription.id, JOB_ID));
   await db.delete(department).where(eq(department.id, DEPARTMENT_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
@@ -63,8 +57,8 @@ function launchInput(
       createdAt: NOW,
       createdBy: USER_ID,
       id: roundId,
-      interviewRecordId,
       organizationId: ORG_ID,
+      recruitingRecordId: interviewRecordId,
       roundLabel: "AI 面试",
       sortOrder: 0,
       status: "pending" as const,
@@ -109,7 +103,7 @@ beforeAll(async () => {
     publishedAt: NOW,
     updatedAt: NOW,
   });
-  await db.insert(studioInterview).values([
+  await createRecruitingRecords(db, [
     {
       candidateName: "Rollback Candidate",
       createdAt: NOW,
@@ -117,7 +111,7 @@ beforeAll(async () => {
       id: ROLLBACK_CANDIDATE_ID,
       jobDescriptionId: JOB_ID,
       organizationId: ORG_ID,
-      resumeEvaluationStatus: "fail",
+      resumeEvaluationStatus: "pass",
       resumeParseStatus: "ready",
       updatedAt: NOW,
     },
@@ -135,7 +129,7 @@ beforeAll(async () => {
       ],
       jobDescriptionId: JOB_ID,
       organizationId: ORG_ID,
-      resumeEvaluationStatus: "fail",
+      resumeEvaluationStatus: "pass",
       resumeParseStatus: "ready",
       updatedAt: NOW,
     },
@@ -146,7 +140,7 @@ beforeAll(async () => {
       id: STRUCTURED_CANDIDATE_ID,
       jobDescriptionId: JOB_ID,
       organizationId: ORG_ID,
-      resumeEvaluationStatus: "fail",
+      resumeEvaluationStatus: "pass",
       resumeParseStatus: "ready",
       resumeReviewRunId: "structured-run-current",
       resumeReviewStatus: "ready",
@@ -155,8 +149,10 @@ beforeAll(async () => {
       structuredGateStatus: "failed",
       // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       structuredResumeEvaluation: {
+        gates: { effectiveStatus: "failed" },
+        grade: "matched",
         runId: "structured-run-current",
-      } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
+      } as RecruitingRecordValues["structuredResumeEvaluation"],
       structuredScoreGrade: "matched",
       updatedAt: NOW,
     },
@@ -167,7 +163,7 @@ beforeAll(async () => {
       id: STALE_STRUCTURED_CANDIDATE_ID,
       jobDescriptionId: JOB_ID,
       organizationId: ORG_ID,
-      resumeEvaluationStatus: "fail",
+      resumeEvaluationStatus: "pass",
       resumeParseStatus: "ready",
       resumeReviewRunId: "structured-run-replacement",
       resumeReviewStatus: "queued",
@@ -176,8 +172,10 @@ beforeAll(async () => {
       structuredGateStatus: "failed",
       // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       structuredResumeEvaluation: {
+        gates: { effectiveStatus: "failed" },
+        grade: "matched",
         runId: "structured-run-stale",
-      } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
+      } as RecruitingRecordValues["structuredResumeEvaluation"],
       structuredScoreGrade: "matched",
       updatedAt: NOW,
     },
@@ -222,9 +220,9 @@ describe("atomic AI interview launch persistence", () => {
     });
 
     const [launchAudit] = await db
-      .select({ detail: interviewAuditLog.detail })
-      .from(interviewAuditLog)
-      .where(eq(interviewAuditLog.id, "atomic_launch_structured_audit"));
+      .select({ detail: recruitingEvent.detail })
+      .from(recruitingEvent)
+      .where(eq(recruitingEvent.id, "atomic_launch_structured_audit"));
     expect(launchAudit?.detail).toMatchObject({
       personalizedQuestionCount: 0,
       questionCount: 0,
@@ -247,6 +245,41 @@ describe("atomic AI interview launch persistence", () => {
     });
   });
 
+  it.each([null, "fail"] as const)(
+    "rejects unapproved screening %s without writes",
+    async (screeningResult) => {
+      await db
+        .update(recruitingNodeState)
+        .set({ result: screeningResult, status: screeningResult ? "completed" : "pending" })
+        .where(
+          and(
+            eq(recruitingNodeState.recruitingRecordId, ROLLBACK_CANDIDATE_ID),
+            eq(recruitingNodeState.node, "screening"),
+          ),
+        );
+      await expect(
+        persistLaunchAiInterviewRound(
+          launchInput(ROLLBACK_CANDIDATE_ID, "blocked-round", "blocked-decision", "blocked-audit"),
+        ),
+      ).resolves.toEqual({ ok: false, reason: "screening_not_passed" });
+      expect(
+        await db
+          .select()
+          .from(aiInterviewRound)
+          .where(eq(aiInterviewRound.recruitingRecordId, ROLLBACK_CANDIDATE_ID)),
+      ).toEqual([]);
+      await db
+        .update(recruitingNodeState)
+        .set({ result: "pass", status: "completed" })
+        .where(
+          and(
+            eq(recruitingNodeState.recruitingRecordId, ROLLBACK_CANDIDATE_ID),
+            eq(recruitingNodeState.node, "screening"),
+          ),
+        );
+    },
+  );
+
   it("rolls back every write when the final audit fails", async () => {
     await expect(
       persistLaunchAiInterviewRound(
@@ -254,40 +287,41 @@ describe("atomic AI interview launch persistence", () => {
           ROLLBACK_CANDIDATE_ID,
           "atomic_launch_rollback_round",
           "atomic_launch_duplicate_audit",
-          "atomic_launch_duplicate_audit",
+          "atomic_launch_stale_structured_audit",
         ),
       ),
     ).rejects.toThrow();
 
     const [candidate] = await db
       .select({
-        interviewQuestions: studioInterview.interviewQuestions,
-        pipelineStage: studioInterview.pipelineStage,
-        resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
+        interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
+        resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, ROLLBACK_CANDIDATE_ID));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, ROLLBACK_CANDIDATE_ID));
     expect(candidate).toEqual({
       interviewQuestions: [],
       pipelineStage: "screening",
-      resumeEvaluationStatus: "fail",
+      resumeEvaluationStatus: "pass",
     });
     const [rounds, snapshots, audits] = await Promise.all([
       db
         .select()
-        .from(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.interviewRecordId, ROLLBACK_CANDIDATE_ID)),
+        .from(aiInterviewRound)
+        .where(eq(aiInterviewRound.recruitingRecordId, ROLLBACK_CANDIDATE_ID)),
       db
         .select()
-        .from(interviewContextSnapshot)
-        .where(eq(interviewContextSnapshot.interviewRecordId, ROLLBACK_CANDIDATE_ID)),
+        .from(recruitingContextSnapshot)
+        .where(eq(recruitingContextSnapshot.recruitingRecordId, ROLLBACK_CANDIDATE_ID)),
       db
         .select()
-        .from(interviewAuditLog)
-        .where(eq(interviewAuditLog.interviewRecordId, ROLLBACK_CANDIDATE_ID)),
+        .from(recruitingEvent)
+        .where(eq(recruitingEvent.recruitingRecordId, ROLLBACK_CANDIDATE_ID)),
     ]);
-    expect({ audits, rounds, snapshots }).toEqual({
-      audits: [],
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.action).toBe("recruiting_node_updated");
+    expect({ rounds, snapshots }).toEqual({
       rounds: [],
       snapshots: [],
     });
@@ -320,12 +354,12 @@ describe("atomic AI interview launch persistence", () => {
     });
     const [candidate] = await db
       .select({
-        interviewQuestions: studioInterview.interviewQuestions,
-        pipelineStage: studioInterview.pipelineStage,
-        resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
+        interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
+        resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, CONCURRENT_CANDIDATE_ID));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, CONCURRENT_CANDIDATE_ID));
     expect(candidate).toMatchObject({
       interviewQuestions: [
         {
@@ -339,15 +373,15 @@ describe("atomic AI interview launch persistence", () => {
     });
     const snapshots = await db
       .select()
-      .from(interviewContextSnapshot)
+      .from(recruitingContextSnapshot)
       .where(
         and(
-          eq(interviewContextSnapshot.interviewRecordId, CONCURRENT_CANDIDATE_ID),
-          eq(interviewContextSnapshot.status, "active"),
+          eq(recruitingContextSnapshot.recruitingRecordId, CONCURRENT_CANDIDATE_ID),
+          eq(recruitingContextSnapshot.status, "active"),
         ),
       );
     expect(snapshots).toHaveLength(1);
-    expect(snapshots[0]?.scheduleEntryId).toMatch(/^atomic_launch_concurrent_round_[ab]$/);
+    expect(snapshots[0]?.aiRoundId).toMatch(/^atomic_launch_concurrent_round_[ab]$/);
     expect(snapshots[0]?.payload.personalizedQuestions).toEqual([]);
   });
 });

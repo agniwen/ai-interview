@@ -2,15 +2,7 @@
 
 import { IconBan, IconCircleCheck, IconMail, IconPencil } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
-// Offer 阶段的详情面板内容：
-//   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
-//   - 下方：Offer 草稿版本时间线（version desc）
-//   - 新建 Offer / 编辑 draft / 记录响应 / 撤回
-//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结束 hired」流程
-//
-// Offer-stage panel: candidate expectations inline form + offer draft
-// timeline. Draft → sent → respond / cancel flows; on "accepted" we prompt
-// the caller to launch the close flow.
+// Offer 接受后完成协商，后续继续背调与入职。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -22,6 +14,7 @@ import {
   cancelOfferDraft,
   fetchStudioResume,
   patchOfferDraft,
+  sendOfferDraft,
   updateCandidateExpectations,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -258,9 +251,19 @@ export function OfferCardView({
   const { slug } = dependencies;
   const meta = offerDraftStatusMeta[draft.status];
   const [editing, setEditing] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
 
+  const sendMutation = useMutation({
+    mutationFn: () => sendOfferDraft(slug, candidateId, draft.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "更新失败"),
+    onSuccess: () => {
+      setSendOpen(false);
+      toast.success("已标记 Offer 已发出");
+      onSaved();
+    },
+  });
   const cancelMutation = useMutation({
     mutationFn: () => cancelOfferDraft(slug, candidateId, draft.id),
     onError: (e) => toast.error(e instanceof Error ? e.message : "撤回失败"),
@@ -339,6 +342,13 @@ export function OfferCardView({
             <Badge variant={meta.tone}>{meta.label}</Badge>
           </div>
 
+          <SendOfferConfirmDialog
+            candidateEmail={null}
+            isPending={sendMutation.isPending}
+            onConfirm={() => sendMutation.mutate()}
+            onOpenChange={setSendOpen}
+            open={sendOpen}
+          />
           <OfferDraftReadonlyFields draft={draft} />
 
           {disabled ? null : (
@@ -348,6 +358,7 @@ export function OfferCardView({
                 canUpdate={canUpdate}
                 cancelMutation={cancelMutation}
                 draft={draft}
+                onSend={() => setSendOpen(true)}
                 onEdit={startEditing}
                 onRespond={onRespond}
               />
@@ -364,6 +375,7 @@ function OfferCardActions({
   canDelete,
   canUpdate,
   onEdit,
+  onSend,
   onRespond,
   cancelMutation,
 }: {
@@ -371,6 +383,7 @@ function OfferCardActions({
   canDelete: boolean;
   canUpdate: boolean;
   onEdit: () => void;
+  onSend: () => void;
   onRespond: () => void;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
@@ -380,6 +393,10 @@ function OfferCardActions({
     }
     return (
       <div className="flex flex-wrap justify-end gap-2">
+        <Button onClick={onSend} size="sm">
+          <IconMail className="size-4" />
+          标记 Offer 已发出
+        </Button>
         <Button onClick={onEdit} size="sm" variant="ghost">
           <IconPencil className="size-4" />
           编辑
@@ -466,7 +483,6 @@ function ReadonlyOfferField({
 }
 
 export function SendOfferConfirmDialog({
-  candidateEmail,
   isPending,
   onConfirm,
   onOpenChange,
@@ -478,34 +494,20 @@ export function SendOfferConfirmDialog({
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
-  const email = candidateEmail?.trim() || "";
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>确认发送 Offer</DialogTitle>
-          <DialogDescription>
-            发送前请确认候选人邮箱。确认后该 Offer 会进入「已发送」状态。
-          </DialogDescription>
+          <DialogTitle>标记 Offer 已发出</DialogTitle>
+          <DialogDescription>请确认已向候选人发出 Offer。本操作仅记录状态。</DialogDescription>
         </DialogHeader>
-
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs">
-            <IconMail className="size-3.5" />
-            即将发送至
-          </div>
-          <div className="mt-1 font-medium text-sm">
-            {email || <span className="text-muted-foreground">未填写候选人邮箱</span>}
-          </div>
-        </div>
 
         <DialogFooter>
           <Button disabled={isPending} onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
-          <Button disabled={isPending || !email} onClick={onConfirm}>
-            {isPending ? "发送中…" : "确认发送"}
+          <Button disabled={isPending} onClick={onConfirm}>
+            {isPending ? "处理中…" : "确认"}
           </Button>
         </DialogFooter>
       </DialogContent>

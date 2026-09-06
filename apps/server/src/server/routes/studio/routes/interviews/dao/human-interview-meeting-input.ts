@@ -1,18 +1,15 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import {
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-} from "@app/db-schema/schema";
+import { humanInterviewRound, humanInterviewRoundInterviewer } from "@app/db-schema/schema";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 
 export async function loadHumanInterviewMeetingInterviewerIds(
   roundIds: string[],
 ): Promise<string[]> {
   const assignments = await db
-    .select({ userId: studioHumanInterviewRoundInterviewer.userId })
-    .from(studioHumanInterviewRoundInterviewer)
-    .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
+    .select({ userId: humanInterviewRoundInterviewer.userId })
+    .from(humanInterviewRoundInterviewer)
+    .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
   return [...new Set(assignments.map((assignment) => assignment.userId))];
 }
 
@@ -27,12 +24,12 @@ export async function validateHumanInterviewMeetingInput({
     throw new HumanInterviewMeetingError("一场真人复面会议只能关联一个候选人轮次。", 400);
   }
   const rounds = await db
-    .select({ id: studioHumanInterviewRound.id, status: studioHumanInterviewRound.status })
-    .from(studioHumanInterviewRound)
+    .select({ id: humanInterviewRound.id, status: humanInterviewRound.status })
+    .from(humanInterviewRound)
     .where(
       and(
-        inArray(studioHumanInterviewRound.id, roundIds),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
+        inArray(humanInterviewRound.id, roundIds),
+        eq(humanInterviewRound.organizationId, organizationId),
       ),
     );
   if (rounds.length !== roundIds.length) {

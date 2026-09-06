@@ -2,12 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { ResumeReview } from "@app/db-schema/resume-review";
 import { createResumeRecordFromStorage } from "./create-from-storage";
 
-type ResumeRecordValues = Readonly<Record<string, string | null | Date | ResumeReview>>;
-
 describe("createResumeRecordFromStorage", () => {
   it("persists a requested initial recruitment stage", async () => {
-    const values = vi.fn((_values: ResumeRecordValues) => Promise.resolve());
-    const executor = { insert: vi.fn(() => ({ values })) };
+    const createRecords = vi.fn(() => Promise.resolve([]));
+    const executor = {};
 
     await createResumeRecordFromStorage(
       {
@@ -18,7 +16,7 @@ describe("createResumeRecordFromStorage", () => {
         jobDescriptionId: "job-1",
         notes: null,
         organizationId: "org-1",
-        pipelineStage: "human_interview",
+        pipelineStage: "second_interview",
         resumeFileName: "resume.pdf",
         resumeProfile: null,
         storageKey: "resumes/resume.pdf",
@@ -27,17 +25,18 @@ describe("createResumeRecordFromStorage", () => {
       },
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
       executor as never,
-      { syncSkills: vi.fn() },
+      { createRecords, syncSkills: vi.fn() },
     );
 
-    expect(values).toHaveBeenCalledWith(
-      expect.objectContaining({ pipelineStage: "human_interview" }),
+    expect(createRecords).toHaveBeenCalledWith(
+      executor,
+      expect.objectContaining({ pipelineStage: "second_interview" }),
     );
   });
 
   it("persists legacy artifact and attempt modes with an imported legacy review", async () => {
-    const values = vi.fn((_values: ResumeRecordValues) => Promise.resolve());
-    const executor = { insert: vi.fn(() => ({ values })) };
+    const createRecords = vi.fn(() => Promise.resolve([]));
+    const executor = {};
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const legacyReview = {
       overall: { baseScore: 80, conclusion: "符合岗位要求" },
@@ -61,10 +60,11 @@ describe("createResumeRecordFromStorage", () => {
       },
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
       executor as never,
-      { syncSkills: vi.fn() },
+      { createRecords, syncSkills: vi.fn() },
     );
 
-    expect(values).toHaveBeenCalledWith(
+    expect(createRecords).toHaveBeenCalledWith(
+      executor,
       expect.objectContaining({
         resumeEvaluationArtifactMode: "legacy",
         resumeEvaluationAttemptMode: "legacy",

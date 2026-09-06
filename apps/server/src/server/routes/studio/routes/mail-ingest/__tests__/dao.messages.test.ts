@@ -1,17 +1,19 @@
+import { RecruitingReferenceRetentionError } from "@app/database/recruiting-reference-retention";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   mailIngestAccount,
-  mailIngestMessage,
+  recruitingMailMessage,
   member,
   organization,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
-import { createMailIngestAccount, listAccountMailMessages } from "../dao";
+import { createMailIngestAccount, deleteMailIngestAccount, listAccountMailMessages } from "../dao";
+import { deleteBatch } from "../../resume-upload-batches/dao/batches";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 const NOW = new Date("2026-06-18T10:00:00.000Z");
@@ -32,9 +34,12 @@ describe("listAccountMailMessages", () => {
   const LOG_MSG_FAILED = "test_mail_ingest_log_msg_failed";
 
   async function logCleanup() {
-    // mailIngestAccount -> mailIngestMessage 是 cascade 删除，不需要单独清理 message。
-    await db.delete(resumeUploadBatchItem).where(eq(resumeUploadBatchItem.batchId, LOG_BATCH));
-    await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, LOG_BATCH));
+    // 邮件关联批次使用复合外键；先清理引用方，再删除批次。
+    await db.delete(recruitingMailMessage).where(eq(recruitingMailMessage.organizationId, LOG_ORG));
+    await db
+      .delete(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, LOG_BATCH));
+    await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, LOG_BATCH));
     // Match pool rows by org/user before deleting parents (SET NULL FKs).
     await deleteFixtureResumePoolItems({
       organizationIds: [LOG_ORG],
@@ -94,7 +99,7 @@ describe("listAccountMailMessages", () => {
   it("returns per-message rows with attachment expansion + scope", async () => {
     const accountId = await insertTestAccount();
 
-    await db.insert(resumeUploadBatch).values({
+    await db.insert(recruitingUploadBatch).values({
       createdAt: NOW,
       createdBy: LOG_USER,
       dedupPolicy: "skip",
@@ -131,7 +136,7 @@ describe("listAccountMailMessages", () => {
         updatedAt: NOW,
       },
     ]);
-    await db.insert(resumeUploadBatchItem).values([
+    await db.insert(recruitingUploadBatchItem).values([
       {
         batchId: LOG_BATCH,
         fileSize: 100,
@@ -155,7 +160,7 @@ describe("listAccountMailMessages", () => {
         storageKey: "storage/test/failed.pdf",
       },
     ]);
-    await db.insert(mailIngestMessage).values([
+    await db.insert(recruitingMailMessage).values([
       {
         accountId,
         attachmentCount: 2,
@@ -163,6 +168,7 @@ describe("listAccountMailMessages", () => {
         fromAddress: "candidate@boss.test",
         id: LOG_MSG_QUEUED,
         mailbox: "INBOX",
+        organizationId: LOG_ORG,
         receivedAt: new Date("2026-06-20T10:00:00.000Z"),
         resumeAttachmentCount: 2,
         status: "queued",
@@ -177,6 +183,7 @@ describe("listAccountMailMessages", () => {
         fromAddress: "spam@boss.test",
         id: LOG_MSG_SKIPPED,
         mailbox: "INBOX",
+        organizationId: LOG_ORG,
         receivedAt: null,
         resumeAttachmentCount: 0,
         skipReason: "no_supported_attachment",
@@ -192,6 +199,7 @@ describe("listAccountMailMessages", () => {
         fromAddress: "err@boss.test",
         id: LOG_MSG_FAILED,
         mailbox: "INBOX",
+        organizationId: LOG_ORG,
         receivedAt: new Date("2026-06-19T10:00:00.000Z"),
         status: "failed",
         subject: "处理失败",
@@ -250,13 +258,14 @@ describe("listAccountMailMessages", () => {
   it("reflects the filtered+scoped total independent of page length", async () => {
     const accountId = await insertTestAccount();
 
-    await db.insert(mailIngestMessage).values([
+    await db.insert(recruitingMailMessage).values([
       {
         accountId,
         batchId: null,
         fromAddress: "a@boss.test",
         id: LOG_MSG_SKIPPED,
         mailbox: "INBOX",
+        organizationId: LOG_ORG,
         receivedAt: new Date("2026-06-20T10:00:00.000Z"),
         skipReason: "no_supported_attachment",
         status: "skipped",
@@ -270,6 +279,7 @@ describe("listAccountMailMessages", () => {
         fromAddress: "b@boss.test",
         id: LOG_MSG_FAILED,
         mailbox: "INBOX",
+        organizationId: LOG_ORG,
         receivedAt: new Date("2026-06-19T10:00:00.000Z"),
         status: "failed",
         subject: "b",
@@ -298,13 +308,81 @@ describe("listAccountMailMessages", () => {
     expect(filtered.records[0]?.id).toBe(LOG_MSG_FAILED);
   }, 30_000);
 
+  it("删除邮件导入批次保留邮件审计，未授权删除不解除关联", async () => {
+    const accountId = await insertTestAccount();
+    await db.insert(recruitingUploadBatch).values({
+      createdBy: LOG_USER,
+      dedupPolicy: "skip",
+      id: LOG_BATCH,
+      jdMode: "none",
+      organizationId: LOG_ORG,
+      status: "completed",
+      target: "resume_pool",
+      totalCount: 0,
+    });
+    await db.insert(recruitingMailMessage).values({
+      accountId,
+      batchId: LOG_BATCH,
+      id: LOG_MSG_QUEUED,
+      mailbox: "INBOX",
+      organizationId: LOG_ORG,
+      status: "queued",
+      uid: "delete-batch-1",
+      uidValidity: "1",
+    });
+    expect(await deleteBatch(LOG_BATCH, LOG_ORG, "other-user")).toBe(false);
+    const [before] = await db
+      .select()
+      .from(recruitingMailMessage)
+      .where(eq(recruitingMailMessage.id, LOG_MSG_QUEUED));
+    expect(before?.batchId).toBe(LOG_BATCH);
+    expect(await deleteBatch(LOG_BATCH, LOG_ORG, LOG_USER)).toBe(true);
+    const [after] = await db
+      .select()
+      .from(recruitingMailMessage)
+      .where(eq(recruitingMailMessage.id, LOG_MSG_QUEUED));
+    expect(after?.batchId).toBeNull();
+    expect(after?.accountId).toBe(accountId);
+    expect(
+      await db.select().from(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, LOG_BATCH)),
+    ).toHaveLength(0);
+  });
+
+  it("邮箱删除先验证所有者，新邮件引用存在时拒绝删除", async () => {
+    const accountId = await insertTestAccount();
+    await db.insert(recruitingMailMessage).values({
+      accountId,
+      id: LOG_MSG_QUEUED,
+      mailbox: "INBOX",
+      organizationId: LOG_ORG,
+      status: "queued",
+      uid: "account-delete-1",
+      uidValidity: "1",
+    });
+    expect(
+      await deleteMailIngestAccount({
+        id: accountId,
+        organizationId: LOG_ORG,
+        userId: "other-user",
+      }),
+    ).toBe(false);
+    await expect(
+      deleteMailIngestAccount({ id: accountId, organizationId: LOG_ORG, userId: LOG_USER }),
+    ).rejects.toBeInstanceOf(RecruitingReferenceRetentionError);
+    await db.delete(recruitingMailMessage).where(eq(recruitingMailMessage.id, LOG_MSG_QUEUED));
+    expect(
+      await deleteMailIngestAccount({ id: accountId, organizationId: LOG_ORG, userId: LOG_USER }),
+    ).toBe(true);
+  });
+
   it("projects errorMessage truncated + single-lined on failed rows", async () => {
     const accountId = await insertTestAccount();
-    await db.insert(mailIngestMessage).values({
+    await db.insert(recruitingMailMessage).values({
       accountId,
       errorMessage: `IMAP fetch failed\nstack line 2\n${"x".repeat(400)}`,
       id: "m_err",
       mailbox: "INBOX",
+      organizationId: LOG_ORG,
       status: "failed",
       uid: "1",
       uidValidity: "1",

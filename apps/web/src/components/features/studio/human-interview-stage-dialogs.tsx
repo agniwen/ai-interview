@@ -1,5 +1,7 @@
 "use client";
 
+import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
+
 import { IconRefresh, IconUserPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,6 +11,7 @@ import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interview
 import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
+  fetchStudioResume,
   cancelHumanInterviewRound,
   completeHumanInterviewRound,
   createHumanInterviewMeeting,
@@ -117,6 +120,11 @@ export function ScheduleRoundDialogView({
 }: ScheduleDialogProps & { dependencies: ScheduleRoundDialogDependencies }) {
   const { slug } = dependencies;
   const queryClient = useQueryClient();
+  const { data: recruitingDetail } = useQuery({
+    enabled: open,
+    queryFn: () => fetchStudioResume(slug, candidateId),
+    queryKey: ["studio-resumes", slug, "detail", candidateId],
+  });
   const membersQuery = useWorkspaceMembers(slug);
   const { data: members } = membersQuery;
   const [label, setLabel] = useState("");
@@ -162,13 +170,21 @@ export function ScheduleRoundDialogView({
       if (interviewerIds.length === 0) {
         throw new Error("请选择工作区面试官");
       }
+      if (!recruitingDetail) {
+        throw new Error("请等待招聘流程加载完成");
+      }
       const round = await createHumanInterviewRound(slug, candidateId, {
+        expectedVersion: recruitingDetail.version,
         format: "online",
         interviewerIds,
         label: roundLabel,
         location: null,
         meetingUrl: null,
         notes: notes.trim() || null,
+        roundKind:
+          recruitingDetail.pipelineStage === "final_interview"
+            ? "final_interview"
+            : "second_interview",
         scheduledAt: scheduledAtIso,
       });
       const validUntilIso = dateTimeLocalInputToISOString(validUntil);
@@ -230,10 +246,10 @@ export function ScheduleRoundDialogView({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>安排真人复面</DialogTitle>
-          <DialogDescription>
-            保存后会创建线上复面会议；有效时间为空时默认到面试时间后一小时。
-          </DialogDescription>
+          <DialogTitle>
+            {recruitingDetail?.pipelineStage === "final_interview" ? "安排终试" : "安排复试"}
+          </DialogTitle>
+          <DialogDescription>有效时间默认为面试后一小时。</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -417,7 +433,7 @@ export function CompleteRoundDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={round !== null}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>标记完成：{round?.label}</DialogTitle>
           <DialogDescription>
@@ -454,13 +470,14 @@ export function CompleteRoundDialog({
             <Label className="text-sm" htmlFor="round-feedback">
               反馈
             </Label>
-            <Textarea
+            <MarkdownEditor
               id="round-feedback"
+              aria-label="反馈"
+              disabled={mutation.isPending}
               maxLength={5000}
-              onChange={(e) => setFeedback(e.target.value)}
-              required
+              onChange={setFeedback}
               placeholder="对候选人的评价、亮点、不足……"
-              rows={4}
+              minHeight={240}
               value={feedback}
             />
           </div>

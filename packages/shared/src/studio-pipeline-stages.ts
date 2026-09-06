@@ -1,14 +1,13 @@
-// 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
-// DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
-// Shared DTOs for the late-pipeline stages (human interview / offer / closed).
-// Imported by both DAO and client; single source of truth.
-
-import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
 import type {
-  FinalMeetingTranscriptRevision,
-  MeetingTranscriptState,
-} from "./meeting-transcription";
+  RecruitingNode,
+  RecruitingNodeStatus,
+  RecruitingNodeResult,
+  RecruitingCloseReason,
+} from "@app/db-schema/schema";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type {
+  CandidateOutcome,
+  ClosedMeta,
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
   HumanInterviewEvaluation,
@@ -24,6 +23,16 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
 } from "@app/db-schema/studio-interviews";
+// 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
+// DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
+// Shared DTOs for the late-pipeline stages (human interview / offer / closed).
+// Imported by both DAO and client; single source of truth.
+
+import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
+import type {
+  FinalMeetingTranscriptRevision,
+  MeetingTranscriptState,
+} from "./meeting-transcription";
 
 export interface PublicAiInterviewInvitationPreview {
   candidateName: string;
@@ -43,6 +52,7 @@ export interface PublicAiInterviewInvitationPreview {
  * interviewers are pre-joined user info.
  */
 export interface HumanInterviewRoundRecord {
+  roundKind: "second_interview" | "final_interview";
   id: string;
   interviewRecordId: string;
   organizationId: string;
@@ -254,3 +264,52 @@ export interface OfferDraftRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+export type { RecruitingNodeStateRecord } from "./studio-resumes";
+export {
+  pipelineStageMeta,
+  recruitingNodeStatusMeta,
+  recruitingNodeResultMeta,
+} from "@app/db-schema/studio-interviews";
+
+export type RecruitingPipelineAction =
+  | {
+      action: "screening_advance";
+      expectedVersion: number;
+      targetNode: "ai_interview" | "second_interview";
+    }
+  | {
+      action: "advance";
+      expectedVersion: number;
+      interviewQuestions?: InterviewQuestion[];
+      reason?: string;
+      skipNodes?: ("screening" | "ai_interview")[];
+      targetNode: RecruitingNode;
+    }
+  | {
+      action: "reopen";
+      expectedVersion: number;
+      reason: string;
+      targetNode: RecruitingNode;
+      targetStatus: "pending";
+    }
+  | {
+      action: "update_node";
+      closeReason?: RecruitingCloseReason;
+      effectiveAiRoundId?: string | null;
+      effectiveHumanRoundId?: string | null;
+      effectiveOfferId?: string | null;
+      expectedVersion: number;
+      node: RecruitingNode;
+      reason?: string;
+      result?: RecruitingNodeResult | null;
+      targetStatus: Exclude<RecruitingNodeStatus, "inactive" | "skipped">;
+    }
+  | {
+      action: "close";
+      closeReason: RecruitingCloseReason;
+      details?: Omit<ClosedMeta, "previousStage">;
+      expectedVersion: number;
+      outcome: Exclude<CandidateOutcome, "in_pipeline">;
+      reason?: string;
+    };

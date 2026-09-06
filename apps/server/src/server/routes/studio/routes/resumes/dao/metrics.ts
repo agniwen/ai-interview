@@ -1,4 +1,5 @@
-import { and, count, desc, eq, exists, gte, isNotNull, ne, sql } from "drizzle-orm";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { and, count, desc, eq, exists, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { startOfBeijingDay, toBeijingCalendarDate } from "@app/shared/beijing-calendar";
 import type {
@@ -7,14 +8,13 @@ import type {
   RecruitingDashboardMetrics,
 } from "@app/shared/studio-dashboard";
 import {
-  candidateFormSubmission,
+  recruitingFormSubmission,
   department,
-  interviewNotification,
+  recruitingNotificationDelivery,
   jobDescription,
-  studioHumanInterviewRound,
-  studioInterview,
-  studioInterviewSchedule,
-  studioOfferDraft,
+  humanInterviewRound,
+  aiInterviewRound,
+  recruitingOffer,
   user,
 } from "@app/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
@@ -31,15 +31,15 @@ const DAILY_ADDED_LOOKBACK_DAYS = 365;
 // the one in dao/resumes.ts; duplicated to keep this metrics module standalone.
 const hasInterviewRoundsSql = exists(
   db
-    .select({ one: studioInterviewSchedule.id })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
+    .select({ one: aiInterviewRound.id })
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id)),
 );
 
 function resumeMetricsOrgFilters(organizationId: string, createdByUserId?: string) {
   return and(
-    eq(studioInterview.organizationId, organizationId),
-    createdByUserId ? eq(studioInterview.createdBy, createdByUserId) : undefined,
+    eq(recruitingRecordReadModel.organizationId, organizationId),
+    createdByUserId ? eq(recruitingRecordReadModel.createdBy, createdByUserId) : undefined,
   );
 }
 
@@ -51,17 +51,17 @@ async function loadByPipeline(organizationId: string, createdByUserId?: string) 
   const rows = await db
     .select({
       count: count(),
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        ne(studioInterview.outcome, "archived"),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     )
-    .groupBy(studioInterview.pipelineStage, studioInterview.outcome);
+    .groupBy(recruitingRecordReadModel.pipelineStage, recruitingRecordReadModel.outcome);
 
   return rows.map((row) => ({
     count: row.count,
@@ -80,25 +80,25 @@ async function loadDailyAdded(
     new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
   );
 
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${recruitingRecordReadModel.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
       count: count(),
       day: dayExpr,
-      userId: studioInterview.createdBy,
+      userId: recruitingRecordReadModel.createdBy,
       userImage: user.image,
       userName: user.name,
     })
-    .from(studioInterview)
-    .leftJoin(user, eq(user.id, studioInterview.createdBy))
+    .from(recruitingRecordReadModel)
+    .leftJoin(user, eq(user.id, recruitingRecordReadModel.createdBy))
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        gte(studioInterview.createdAt, since),
+        gte(recruitingRecordReadModel.createdAt, since),
       ),
     )
-    .groupBy(dayExpr, studioInterview.createdBy, user.image, user.name)
+    .groupBy(dayExpr, recruitingRecordReadModel.createdBy, user.image, user.name)
     .orderBy(dayExpr);
 
   const byDay = new Map<
@@ -139,11 +139,11 @@ async function loadConversion(organizationId: string, createdByUserId?: string) 
         Number,
       ),
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        ne(studioInterview.outcome, "archived"),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     );
 
@@ -213,11 +213,11 @@ async function loadDailyCountByDateExpr({
 }: {
   dayExpr: ReturnType<typeof sql<string>>;
   from:
-    | typeof candidateFormSubmission
-    | typeof studioHumanInterviewRound
-    | typeof studioInterview
-    | typeof studioInterviewSchedule
-    | typeof studioOfferDraft;
+    | typeof recruitingFormSubmission
+    | typeof humanInterviewRound
+    | typeof recruitingRecordReadModel
+    | typeof aiInterviewRound
+    | typeof recruitingOffer;
   where: ReturnType<typeof and> | ReturnType<typeof eq>;
 }) {
   const rows = await db
@@ -236,54 +236,54 @@ async function loadDashboardActivity(organizationId: string) {
   const since = makeLookbackStart();
   const rows = buildZeroActivityRows();
 
-  const resumeDay = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const aiDay = sql<string>`to_char(date_trunc('day', ${studioInterviewSchedule.updatedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const humanDay = sql<string>`to_char(date_trunc('day', ${studioHumanInterviewRound.completedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const offerDay = sql<string>`to_char(date_trunc('day', ${studioOfferDraft.sentAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const formDay = sql<string>`to_char(date_trunc('day', ${candidateFormSubmission.submittedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const resumeDay = sql<string>`to_char(date_trunc('day', ${recruitingRecordReadModel.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const aiDay = sql<string>`to_char(date_trunc('day', ${aiInterviewRound.updatedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const humanDay = sql<string>`to_char(date_trunc('day', ${humanInterviewRound.completedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const offerDay = sql<string>`to_char(date_trunc('day', ${recruitingOffer.sentAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const formDay = sql<string>`to_char(date_trunc('day', ${recruitingFormSubmission.submittedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const [resumeRows, aiRows, humanRows, offerRows, formRows] = await Promise.all([
     loadDailyCountByDateExpr({
       dayExpr: resumeDay,
-      from: studioInterview,
+      from: recruitingRecordReadModel,
       where: and(
-        eq(studioInterview.organizationId, organizationId),
-        gte(studioInterview.createdAt, since),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        gte(recruitingRecordReadModel.createdAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: aiDay,
-      from: studioInterviewSchedule,
+      from: aiInterviewRound,
       where: and(
-        eq(studioInterviewSchedule.organizationId, organizationId),
-        eq(studioInterviewSchedule.status, "completed"),
-        gte(studioInterviewSchedule.updatedAt, since),
+        eq(aiInterviewRound.organizationId, organizationId),
+        eq(aiInterviewRound.status, "completed"),
+        gte(aiInterviewRound.updatedAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: humanDay,
-      from: studioHumanInterviewRound,
+      from: humanInterviewRound,
       where: and(
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-        isNotNull(studioHumanInterviewRound.completedAt),
-        gte(studioHumanInterviewRound.completedAt, since),
+        eq(humanInterviewRound.organizationId, organizationId),
+        isNotNull(humanInterviewRound.completedAt),
+        gte(humanInterviewRound.completedAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: offerDay,
-      from: studioOfferDraft,
+      from: recruitingOffer,
       where: and(
-        eq(studioOfferDraft.organizationId, organizationId),
-        isNotNull(studioOfferDraft.sentAt),
-        gte(studioOfferDraft.sentAt, since),
+        eq(recruitingOffer.organizationId, organizationId),
+        isNotNull(recruitingOffer.sentAt),
+        gte(recruitingOffer.sentAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: formDay,
-      from: candidateFormSubmission,
+      from: recruitingFormSubmission,
       where: and(
-        eq(candidateFormSubmission.organizationId, organizationId),
-        gte(candidateFormSubmission.submittedAt, since),
+        eq(recruitingFormSubmission.organizationId, organizationId),
+        gte(recruitingFormSubmission.submittedAt, since),
       ),
     }),
   ]);
@@ -308,72 +308,75 @@ async function loadActionItems(organizationId: string): Promise<DashboardActionI
   const [candidateRow] = await db
     .select({
       screening:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'screening' AND ${studioInterview.outcome} = 'in_pipeline')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'screening' AND ${recruitingRecordReadModel.outcome} = 'in_pipeline')`.mapWith(
           Number,
         ),
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.outcome, "archived"),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     );
 
   const [aiRow] = await db
     .select({
       interrupted:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterviewSchedule.status} = 'interrupted')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${aiInterviewRound.status} = 'interrupted')`.mapWith(
           Number,
         ),
-      pending:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterviewSchedule.status} = 'pending')`.mapWith(
-          Number,
-        ),
+      pending: sql<number>`COUNT(*) FILTER (WHERE ${aiInterviewRound.status} = 'pending')`.mapWith(
+        Number,
+      ),
     })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
     .where(
       and(
-        eq(studioInterviewSchedule.organizationId, organizationId),
-        eq(studioInterview.pipelineStage, "ai_interview"),
+        eq(aiInterviewRound.organizationId, organizationId),
+        eq(recruitingRecordReadModel.pipelineStage, "ai_interview"),
       ),
     );
 
   const [humanRow] = await db
     .select({
       pending:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioHumanInterviewRound.status} = 'pending')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${humanInterviewRound.status} = 'pending')`.mapWith(
           Number,
         ),
     })
-    .from(studioHumanInterviewRound)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
+    .from(humanInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
+    )
     .where(
       and(
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-        eq(studioInterview.pipelineStage, "human_interview"),
+        eq(humanInterviewRound.organizationId, organizationId),
+        inArray(recruitingRecordReadModel.pipelineStage, ["second_interview", "final_interview"]),
       ),
     );
 
   const [offerRow] = await db
     .select({
-      sent: sql<number>`COUNT(*) FILTER (WHERE ${studioOfferDraft.status} = 'sent')`.mapWith(
-        Number,
-      ),
+      sent: sql<number>`COUNT(*) FILTER (WHERE ${recruitingOffer.status} = 'sent')`.mapWith(Number),
     })
-    .from(studioOfferDraft)
-    .where(eq(studioOfferDraft.organizationId, organizationId));
+    .from(recruitingOffer)
+    .where(eq(recruitingOffer.organizationId, organizationId));
 
   const [notificationRow] = await db
     .select({
       failed:
-        sql<number>`COUNT(*) FILTER (WHERE ${interviewNotification.status} = 'failed')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingNotificationDelivery.status} = 'failed')`.mapWith(
           Number,
         ),
     })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.organizationId, organizationId));
+    .from(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.organizationId, organizationId));
 
   return [
     {
@@ -426,45 +429,45 @@ async function loadJobPipeline(organizationId: string) {
   const rows = await db
     .select({
       aiInterview:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'ai_interview')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'ai_interview')`.mapWith(
           Number,
         ),
       departmentName: department.name,
       humanInterview:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'human_interview')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('second_interview', 'final_interview'))`.mapWith(
           Number,
         ),
       id: jobDescription.id,
       name: jobDescription.name,
       offer:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'offer')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'offer', 'background_check', 'onboarding'))`.mapWith(
           Number,
         ),
       screening:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'screening')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'screening')`.mapWith(
           Number,
         ),
       total: totalExpr,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .innerJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .leftJoin(
       department,
       and(
         eq(jobDescription.departmentId, department.id),
-        eq(department.organizationId, studioInterview.organizationId),
+        eq(department.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.outcome, "archived"),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     )
     .groupBy(jobDescription.id, jobDescription.name, department.name)
@@ -478,11 +481,11 @@ async function loadOfferStatuses(organizationId: string) {
   const rows = await db
     .select({
       count: count(),
-      status: studioOfferDraft.status,
+      status: recruitingOffer.status,
     })
-    .from(studioOfferDraft)
-    .where(eq(studioOfferDraft.organizationId, organizationId))
-    .groupBy(studioOfferDraft.status);
+    .from(recruitingOffer)
+    .where(eq(recruitingOffer.organizationId, organizationId))
+    .groupBy(recruitingOffer.status);
   return rows.map((row) => ({ count: row.count, status: row.status }));
 }
 

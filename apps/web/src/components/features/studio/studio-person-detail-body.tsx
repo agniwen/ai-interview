@@ -57,7 +57,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     isResumeInterviewResultLoading,
     isTimelineLoading,
     mode,
-    onRequestClose,
     record,
     resumeRecord,
     resumeInterviewResultRecord,
@@ -209,7 +208,10 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
           <TabsContent motion="page" value="human-interview">
             <HumanInterviewStagePanel
-              canCreate={canCreateHumanInterview}
+              targetStage={
+                record.pipelineStage === "final_interview" ? "final_interview" : "second_interview"
+              }
+              canCreate={canCreateHumanInterview && resumeRecord?.resumeEvaluationStatus === "pass"}
               canDelete={canDeleteHumanInterview}
               canUpdate={canUpdateHumanInterview}
               candidateId={record.id}
@@ -228,13 +230,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               candidateId={record.id}
               candidateName={record.candidateName}
               disabled={record.pipelineStage === "closed"}
-              onRequestCloseAsHired={() =>
-                onRequestClose?.({
-                  candidateName: record.candidateName,
-                  id: record.id,
-                  initialOutcome: "hired",
-                })
-              }
             />
           </TabsContent>
         ) : null}

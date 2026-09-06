@@ -1,3 +1,8 @@
+import {
+  pipelineStageSchema,
+  legacyPipelineStageSchema,
+  normalizeLegacyPipelineStage,
+} from "./recruiting-contracts";
 import { interviewQuestionDimensionSchema } from "./interview/types";
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
@@ -71,33 +76,24 @@ export function buildCandidateInterviewFeedback(input: {
 // Candidate lifecycle uses an explicit "where in the hiring pipeline" stage
 // plus a separate "what's the verdict" outcome.
 
-// 顺序对应招聘漏斗：简历筛选 → 笔试 → AI 面试 → 真人复面 → offer → 结束。
-// closed 是终态，outcome 字段决定具体结局（hired/rejected/withdrawn/archived）。
-// Funnel order: screening → written_test → ai_interview → human_interview →
-// offer → closed (terminal; outcome describes the verdict).
-export const pipelineStageValues = [
-  "screening",
-  "written_test",
-  "ai_interview",
-  "human_interview",
-  "offer",
-  "closed",
-] as const;
-
-export const pipelineStageSchema = z.enum(pipelineStageValues);
-export type PipelineStage = z.infer<typeof pipelineStageSchema>;
-
-export const pipelineStageMeta = {
-  ai_interview: { label: "AI 面试", tone: "warning" },
-  closed: { label: "已结束", tone: "outline" },
-  human_interview: { label: "真人复面", tone: "warning" },
-  offer: { label: "Offer", tone: "info" },
-  screening: { label: "简历筛选", tone: "outline" },
-  written_test: { label: "笔试", tone: "info" },
-} as const satisfies Record<
-  PipelineStage,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
->;
+export {
+  legacyPipelineStageValues,
+  legacyPipelineStageSchema,
+  recruitingPipelineNodeValues,
+  recruitingPipelineNodeSchema,
+  pipelineStageValues,
+  pipelineStageSchema,
+  pipelineStageMeta,
+  recruitingNodeStatusValues,
+  recruitingNodeStatusSchema,
+  recruitingNodeStatusMeta,
+  recruitingNodeResultSchema,
+  recruitingNodeResultMeta,
+  recruitingCloseReasonValues,
+  recruitingCloseReasonSchema,
+  normalizeLegacyPipelineStage,
+} from "./recruiting-contracts";
+export type { LegacyPipelineStage, PipelineStage } from "./recruiting-contracts";
 
 // 候选人最终结论：in_pipeline 表示还在流程中（默认），其余四种都对应 pipelineStage='closed'。
 // withdrawn = 候选人主动撤回；archived = 冷藏（不删但不在主视图）。
@@ -116,7 +112,7 @@ export type CandidateOutcome = z.infer<typeof candidateOutcomeSchema>;
 
 export const candidateOutcomeMeta = {
   archived: { label: "已归档", tone: "outline" },
-  hired: { label: "已录用", tone: "success" },
+  hired: { label: "已入职", tone: "success" },
   in_pipeline: { label: "进行中", tone: "info" },
   rejected: { label: "已淘汰", tone: "outline" },
   withdrawn: { label: "已撤回", tone: "outline" },
@@ -364,6 +360,7 @@ export type HumanInterviewEvaluation = z.infer<typeof humanInterviewEvaluationSc
 // 时间可空（未定档）。历史数字评分保留在读取模型中，新流程不再写入。
 // Interviewers may be empty while an external interviewer invitation is pending.
 export const humanInterviewRoundInputSchema = z.object({
+  expectedVersion: z.number().int().min(0).optional(),
   feedback: z.string().trim().max(5000, "面试反馈不能超过 5000 字").nullable().optional(),
   format: humanInterviewFormatSchema,
   interviewerIds: z.array(z.string().trim().min(1)).max(10, "面试官最多 10 人"),
@@ -372,6 +369,7 @@ export const humanInterviewRoundInputSchema = z.object({
   meetingUrl: z.string().trim().max(500).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   outcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
+  roundKind: z.enum(["second_interview", "final_interview"]),
   scheduledAt: nullableInstantDateTimeInputSchema,
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -513,7 +511,11 @@ export const closedMetaSchema = z.object({
   feedbackToCandidate: z.string().trim().max(5000).nullable().optional(),
   hiredDetails: closedHiredDetailsSchema.nullable().optional(),
   internalNotes: z.string().trim().max(5000).nullable().optional(),
-  previousStage: pipelineStageSchema.nullable().optional(),
+  previousStage: z
+    .union([pipelineStageSchema, legacyPipelineStageSchema])
+    .transform(normalizeLegacyPipelineStage)
+    .nullable()
+    .optional(),
   rejectionDetails: closedRejectionDetailsSchema.nullable().optional(),
 });
 export type ClosedMeta = z.infer<typeof closedMetaSchema>;

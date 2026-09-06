@@ -1,25 +1,25 @@
+import {
+  reopenRecruitingRecordTx,
+  updateRecruitingNodeTx,
+} from "@app/database/recruiting-pipeline";
+import { deleteAiRounds, lockAiRound } from "./dao/ai-round-lifecycle";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { studioInterviewCollectionRouter } from "./collection-route";
 import { studioInterviewDetailRouter } from "./detail-route";
 import { studioInterviewHumanRouter } from "./human-route";
-import { and, eq, inArray, notExists } from "drizzle-orm";
-import { uniq } from "lodash-es";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import { db } from "../../../../../lib/server/db/index";
-import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
+import { recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import { parseCsvParam } from "@app/shared/csv";
-import {
-  candidateExpectationsMetaSchema,
-  candidateOutcomeSchema,
-  closedMetaSchema,
-  pipelineStageSchema,
-  studioInterviewQuestionClientSchema,
-} from "@app/db-schema/studio-interviews";
+import { candidateExpectationsMetaSchema } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { refreshInterviewContextSnapshot } from "./dao/context-snapshots";
 import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
@@ -33,6 +33,7 @@ import { notificationRecipientsRouter } from "./routes/notification-recipients/r
 import { requirePermission } from "../../../../middlewares/permission";
 import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import { transitionCandidateStage } from "./utils/candidate-stage-transition";
+import { candidateTransitionInputSchema } from "./utils/candidate-transition";
 import { buildResetAiInterviewInvitation } from "./dao/ai-interview-invitation-access";
 
 const dedupCheckInputSchema = z.object({
@@ -41,54 +42,6 @@ const dedupCheckInputSchema = z.object({
   phone: z.string().trim().max(40).nullable().optional(),
   resumeProfile: z.custom<ResumeProfile>().nullable().optional(),
 });
-
-// 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
-//   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
-// 其余阶段下 outcome 必须省略或为 in_pipeline；closedReason 仅 closed 阶段允许。
-//
-// Candidate stage transition input. Encodes the (pipelineStage, outcome)
-// invariant: closed ⇔ a terminal outcome; everything else stays in_pipeline.
-const transitionInputSchema = z
-  .object({
-    // 结束元数据；只在 pipelineStage='closed' 时使用，partial 写入（merge 进现有）。
-    // previousStage 不接受用户输入——服务端自动写当前 stage。
-    closedMeta: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
-    // @deprecated 旧字段，HR 端逐步迁移到 closedMeta.internalNotes；保留以兼容。
-    closedReason: z.string().trim().max(500, "结束原因不能超过 500 字").optional().nullable(),
-    interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
-    outcome: candidateOutcomeSchema.optional(),
-    pipelineStage: pipelineStageSchema,
-    reactivationReason: z.string().trim().max(500, "重新激活原因不能超过 500 字").optional(),
-  })
-  .refine(
-    (v) => {
-      if (v.pipelineStage === "closed") {
-        return v.outcome !== undefined && v.outcome !== "in_pipeline";
-      }
-      return v.outcome === undefined || v.outcome === "in_pipeline";
-    },
-    {
-      message:
-        "结束阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结束阶段 outcome 必须为 in_pipeline。",
-      path: ["outcome"],
-    },
-  )
-  .refine((v) => v.pipelineStage === "closed" || !v.closedReason, {
-    message: "closedReason 仅在结束时允许。",
-    path: ["closedReason"],
-  })
-  .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
-    message: "closedMeta 仅在结束时允许。",
-    path: ["closedMeta"],
-  })
-  .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {
-    message: "reactivationReason 仅在重新激活时允许。",
-    path: ["reactivationReason"],
-  })
-  .refine((v) => v.pipelineStage === "human_interview" || !v.interviewQuestions, {
-    message: "interviewQuestions 仅在安排真人面试时允许。",
-    path: ["interviewQuestions"],
-  });
 
 // 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。
 // Human interview "mark complete" input. Outcome required.
@@ -105,43 +58,6 @@ function loadVisibilityScope(
     return Promise.resolve({ kind: "none" });
   }
   return resolveRecruitingVisibilityScope({ currentRole, organizationId, userId });
-}
-
-// 删除 AI 轮次后回退 parent：若候选人已无任何 schedule entry 且仍处于
-// pipeline_stage='ai_interview' / outcome='in_pipeline'，回退到 'screening'。
-// 已经被推进到 human_interview/offer/closed 的候选人保持原状（HR 已显式推进）。
-// After deleting rounds, roll parent back to 'screening' when no schedules remain
-// and the candidate is still active in AI stage. Stages past ai_interview stay put
-// because HR has already manually advanced them.
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-async function resetOrphanedAiInterviewParents(
-  tx: Tx,
-  organizationId: string,
-  candidateIds: readonly string[],
-): Promise<void> {
-  const unique = uniq(candidateIds.filter(Boolean));
-  if (unique.length === 0) {
-    return;
-  }
-  // 唯一一个 SQL，安全且无 N+1：用 NOT EXISTS 子查询过滤掉还有 schedule 的候选人。
-  // Single SQL guarded by NOT EXISTS — no N+1 and won't touch candidates with surviving rounds.
-  await tx
-    .update(studioInterview)
-    .set({ pipelineStage: "screening", updatedAt: new Date() })
-    .where(
-      and(
-        inArray(studioInterview.id, unique),
-        eq(studioInterview.organizationId, organizationId),
-        eq(studioInterview.pipelineStage, "ai_interview"),
-        eq(studioInterview.outcome, "in_pipeline"),
-        notExists(
-          tx
-            .select({ one: studioInterviewSchedule.id })
-            .from(studioInterviewSchedule)
-            .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
-        ),
-      ),
-    );
 }
 
 export const studioInterviewsRouter = factory
@@ -260,26 +176,23 @@ export const studioInterviewsRouter = factory
     // 加载轮次行 + 候选人上下文。/ Load round row + candidate context.
     const [scheduleRow] = await db
       .select()
-      .from(studioInterviewSchedule)
+      .from(aiInterviewRound)
       .where(
-        and(
-          eq(studioInterviewSchedule.id, roundId),
-          eq(studioInterviewSchedule.organizationId, activeOrg.id),
-        ),
+        and(eq(aiInterviewRound.id, roundId), eq(aiInterviewRound.organizationId, activeOrg.id)),
       )
       .limit(1);
 
     if (!scheduleRow) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    const candidateId = scheduleRow.interviewRecordId;
+    const candidateId = scheduleRow.recruitingRecordId;
     const [candidateRow] = await db
       .select({
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        pipelineStage: studioInterview.pipelineStage,
+        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, candidateId))
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, candidateId))
       .limit(1);
     if (!candidateRow) {
       return c.json({ error: "候选人记录不存在。" }, 404);
@@ -297,15 +210,27 @@ export const studioInterviewsRouter = factory
     const now = new Date();
     const previousConversationId = scheduleRow.conversationId;
     const previousStatus = scheduleRow.status;
-    const resetInvitation = buildResetAiInterviewInvitation({
-      currentTokenHash: scheduleRow.candidateInviteTokenHash,
-      invitationVersion: scheduleRow.invitationVersion,
-      now,
-    });
 
     await db.transaction(async (tx) => {
+      const locked = await lockAiRound(tx, roundId, activeOrg.id);
+      if (!locked || locked.record.currentStage !== "ai_interview") {
+        throw new Error("候选人已不在 AI 面试阶段，无法重置面试轮次。");
+      }
+      const resetInvitation = buildResetAiInterviewInvitation({
+        currentTokenHash: locked.round.candidateInviteTokenHash,
+        invitationVersion: locked.round.invitationVersion,
+        now,
+      });
+      await reopenRecruitingRecordTx(tx, {
+        now,
+        operatorId,
+        organizationId: activeOrg.id,
+        reason: "重置 AI 面试轮次",
+        recordId: candidateId,
+        targetNode: "ai_interview",
+      });
       await tx
-        .update(studioInterviewSchedule)
+        .update(aiInterviewRound)
         .set({
           ...resetInvitation,
           conversationId: null,
@@ -314,11 +239,25 @@ export const studioInterviewsRouter = factory
           disconnectedAt: null,
           liveKitParticipantIdentity: null,
           liveKitRoomName: null,
+          reviewNotes: null,
+          reviewOutcome: null,
+          reviewedAt: null,
+          reviewedBy: null,
           sessionStartedAt: null,
           status: "pending",
           updatedAt: now,
         })
-        .where(eq(studioInterviewSchedule.id, roundId));
+        .where(eq(aiInterviewRound.id, roundId));
+
+      await updateRecruitingNodeTx(tx, {
+        effectiveAiRoundId: roundId,
+        node: "ai_interview",
+        now,
+        operatorId,
+        organizationId: activeOrg.id,
+        recordId: candidateId,
+        status: "scheduled",
+      });
 
       // 重置即「以当下为准」：刷新题库模板绑定并创建新版 runtime context snapshot。
       // Reset = "snapshot to now": refresh bindings and freeze a new runtime context.
@@ -330,8 +269,9 @@ export const studioInterviewsRouter = factory
         scheduleEntryId: roundId,
       });
 
-      await tx.insert(interviewAuditLog).values({
+      await tx.insert(recruitingEvent).values({
         action: "round_reset",
+        aiRoundId: roundId,
         createdAt: now,
         detail: {
           previousConversationId,
@@ -341,10 +281,9 @@ export const studioInterviewsRouter = factory
           snapshotVersion: refreshedSnapshot.version,
         },
         id: crypto.randomUUID(),
-        interviewRecordId: candidateId,
         operatorId,
         organizationId: activeOrg.id,
-        scheduleEntryId: roundId,
+        recruitingRecordId: candidateId,
       });
     });
 
@@ -359,7 +298,7 @@ export const studioInterviewsRouter = factory
   .post(
     "/:id/transition",
     requirePermission("interview", "update"),
-    zValidator("json", transitionInputSchema, jsonValidatorError("阶段流转参数无效。")),
+    zValidator("json", candidateTransitionInputSchema, jsonValidatorError("阶段流转参数无效。")),
     async (c) => {
       // 候选人阶段流转：用于「标记结束 + outcome」「重新激活」「推进到下一阶段」。
       // Candidate stage transition: covers close-with-outcome, reactivate, and stage advance.
@@ -391,10 +330,21 @@ export const studioInterviewsRouter = factory
       if (result.kind === "not_found") {
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
+      if (result.kind === "conflict") {
+        return c.json({ error: result.message }, 409);
+      }
       if (result.kind === "invalid") {
         return c.json({ error: result.message }, 400);
       }
-      return c.json({ ok: true }, 200);
+      return c.json(
+        {
+          currentStage: result.currentStage,
+          ok: true,
+          outcome: result.outcome,
+          version: result.version,
+        },
+        200,
+      );
     },
   )
   // ── 候选人期望 PATCH ──
@@ -423,22 +373,29 @@ export const studioInterviewsRouter = factory
       // concurrent writes (two HRs editing different fields would overwrite
       // each other). FOR UPDATE serializes merges on the same record.
       const merged = await db.transaction(async (tx) => {
+        if (!(await lockRecruitingRecord(tx, recordId, activeOrg.id))) {
+          return null;
+        }
         const [existing] = await tx
-          .select({ candidateExpectationsMeta: studioInterview.candidateExpectationsMeta })
-          .from(studioInterview)
+          .select({
+            candidateExpectationsMeta: recruitingRecordReadModel.candidateExpectationsMeta,
+          })
+          .from(recruitingRecordReadModel)
           .where(
-            and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
+            and(
+              eq(recruitingRecordReadModel.id, recordId),
+              eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+            ),
           )
-          .for("update")
           .limit(1);
         if (!existing) {
           return null;
         }
         const next = { ...existing.candidateExpectationsMeta, ...input };
-        await tx
-          .update(studioInterview)
-          .set({ candidateExpectationsMeta: next, updatedAt: now })
-          .where(eq(studioInterview.id, recordId));
+        await updateRecruitingRecords(tx, eq(recruitingRecordReadModel.id, recordId), {
+          candidateExpectationsMeta: next,
+          updatedAt: now,
+        });
         return next;
       });
 
@@ -464,58 +421,10 @@ export const studioInterviewsRouter = factory
     }
     const roundId = c.req.param("id");
     const orgId = activeOrg.id;
-    const result = await db.transaction(async (tx) => {
-      // 阶段守卫：候选人已不在 AI 面试阶段时不允许删除 AI 轮次（防 UI 绕过）。
-      // FOR UPDATE 串行化 parent 行，与并发 transition / launch-interview 互斥。
-      // Stage guard against UI bypass; FOR UPDATE serializes against concurrent
-      // transition / launch-interview on the same parent.
-      const [parent] = await tx
-        .select({
-          pipelineStage: studioInterview.pipelineStage,
-        })
-        .from(studioInterviewSchedule)
-        .innerJoin(
-          studioInterview,
-          eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
-        )
-        .where(
-          and(
-            eq(studioInterviewSchedule.id, roundId),
-            eq(studioInterviewSchedule.organizationId, orgId),
-          ),
-        )
-        .for("update", { of: studioInterview })
-        .limit(1);
-      if (!parent) {
-        return { kind: "not_found" as const };
-      }
-      if (parent.pipelineStage !== "screening" && parent.pipelineStage !== "ai_interview") {
-        return { kind: "locked" as const };
-      }
-      const removed = await tx
-        .delete(studioInterviewSchedule)
-        .where(
-          and(
-            eq(studioInterviewSchedule.id, roundId),
-            eq(studioInterviewSchedule.organizationId, orgId),
-          ),
-        )
-        .returning({
-          interviewRecordId: studioInterviewSchedule.interviewRecordId,
-        });
-      if (removed.length === 0) {
-        // 极端 race：parent 命中但 round 在 FOR UPDATE 之间被另一个事务删了。返 404。
-        // Edge race: round vanished between the SELECT and DELETE; treat as not-found.
-        return { kind: "not_found" as const };
-      }
-      await resetOrphanedAiInterviewParents(
-        tx,
-        orgId,
-        removed.map((r) => r.interviewRecordId),
-      );
-      return { kind: "ok" as const };
-    });
-    if (result.kind === "not_found") {
+    const result = await db.transaction((tx) =>
+      deleteAiRounds(tx, [roundId], orgId, c.var.user?.id ?? null),
+    );
+    if (result.kind === "ok" && !result.removed.length) {
       return c.json({ error: "记录不存在。" }, 404);
     }
     if (result.kind === "locked") {
@@ -545,54 +454,9 @@ export const studioInterviewsRouter = factory
       }
       const { ids } = c.req.valid("json");
       const orgId = activeOrg.id;
-      const result = await db.transaction(async (tx) => {
-        // 联查每个 round 对应 parent 的 pipelineStage；任意一个超过 AI 阶段就拒整批，
-        // 避免 partial 删除导致前端看到不一致状态。FOR UPDATE 锁 parent 行。
-        // Join each round to its parent stage; reject the whole batch if any parent
-        // is past AI to keep client view consistent. FOR UPDATE locks parents.
-        const targets = await tx
-          .select({
-            pipelineStage: studioInterview.pipelineStage,
-            roundId: studioInterviewSchedule.id,
-          })
-          .from(studioInterviewSchedule)
-          .innerJoin(
-            studioInterview,
-            eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
-          )
-          .where(
-            and(
-              inArray(studioInterviewSchedule.id, ids),
-              eq(studioInterviewSchedule.organizationId, orgId),
-            ),
-          )
-          .for("update", { of: studioInterview });
-        const locked = targets.find(
-          (t) => t.pipelineStage !== "screening" && t.pipelineStage !== "ai_interview",
-        );
-        if (locked) {
-          return { kind: "locked" as const };
-        }
-        const rows = await tx
-          .delete(studioInterviewSchedule)
-          .where(
-            and(
-              inArray(studioInterviewSchedule.id, ids),
-              eq(studioInterviewSchedule.organizationId, orgId),
-            ),
-          )
-          .returning({
-            interviewRecordId: studioInterviewSchedule.interviewRecordId,
-          });
-        if (rows.length > 0) {
-          await resetOrphanedAiInterviewParents(
-            tx,
-            orgId,
-            rows.map((r) => r.interviewRecordId),
-          );
-        }
-        return { kind: "ok" as const, removed: rows };
-      });
+      const result = await db.transaction((tx) =>
+        deleteAiRounds(tx, ids, orgId, c.var.user?.id ?? null),
+      );
       if (result.kind === "locked") {
         return c.json(
           {

@@ -1,4 +1,4 @@
-import type { studioInterview } from "@app/db-schema/schema";
+import type { RecruitingRecordValues } from "@app/database/recruiting-records";
 
 export const INVALIDATED_AI_RESUME_ASSESSMENT = {
   notes: null,
@@ -23,9 +23,9 @@ export const INVALIDATED_AI_RESUME_ASSESSMENT = {
   structuredGateStatus: null,
   structuredResumeEvaluation: null,
   structuredScoreGrade: null,
-} satisfies Partial<typeof studioInterview.$inferInsert>;
+} satisfies Partial<RecruitingRecordValues>;
 
 export const INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE = {
   ...INVALIDATED_AI_RESUME_ASSESSMENT,
   resumeEvaluationStatus: null,
-} satisfies Partial<typeof studioInterview.$inferInsert>;
+} satisfies Partial<RecruitingRecordValues>;

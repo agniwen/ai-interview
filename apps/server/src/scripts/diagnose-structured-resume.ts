@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
@@ -206,12 +207,11 @@ function defaultOutputPath(candidateName: string): string {
 }
 
 async function loadTargets(options: DiagnosticOptions): Promise<DiagnosticTarget[]> {
-  const [{ db }, { jobDescription, organization, studioInterview }, { and, desc, eq }] =
-    await Promise.all([
-      import("../lib/server/db"),
-      import("@app/db-schema/schema"),
-      import("drizzle-orm"),
-    ]);
+  const [{ db }, { jobDescription, organization }, { and, desc, eq }] = await Promise.all([
+    import("../lib/server/db"),
+    import("@app/db-schema/schema"),
+    import("drizzle-orm"),
+  ]);
   const [workspace] = await db
     .select({ id: organization.id, name: organization.name })
     .from(organization)
@@ -222,40 +222,40 @@ async function loadTargets(options: DiagnosticOptions): Promise<DiagnosticTarget
   }
   return db
     .select({
-      candidateName: studioInterview.candidateName,
-      createdAt: studioInterview.createdAt,
+      candidateName: recruitingRecordReadModel.candidateName,
+      createdAt: recruitingRecordReadModel.createdAt,
       deductionRuleSetVersion: jobDescription.deductionRuleSetVersion,
       evaluationBlueprint: jobDescription.evaluationBlueprint,
       evaluationBlueprintHash: jobDescription.evaluationBlueprintHash,
       evaluationMode: jobDescription.evaluationMode,
-      id: studioInterview.id,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      id: recruitingRecordReadModel.id,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
       lifecycleStatus: jobDescription.lifecycleStatus,
-      resumeContentHash: studioInterview.resumeContentHash,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeParseStatus: studioInterview.resumeParseStatus,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      resumeText: studioInterview.resumeText,
+      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      resumeText: recruitingRecordReadModel.resumeText,
       structuredConfig: jobDescription.structuredConfig,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-        eq(studioInterview.candidateName, options.candidateName),
-        options.resumeId ? eq(studioInterview.id, options.resumeId) : undefined,
+        eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+        eq(recruitingRecordReadModel.candidateName, options.candidateName),
+        options.resumeId ? eq(recruitingRecordReadModel.id, options.resumeId) : undefined,
       ),
     )
-    .orderBy(desc(studioInterview.createdAt), desc(studioInterview.id))
+    .orderBy(desc(recruitingRecordReadModel.createdAt), desc(recruitingRecordReadModel.id))
     .limit(20);
 }
 

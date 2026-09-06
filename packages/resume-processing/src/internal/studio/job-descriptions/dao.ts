@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { buildListTextFilterWhere } from "../../lib/db/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
@@ -30,8 +31,7 @@ import {
   jobDescription,
   jobDescriptionEvaluationUpgradeDraft,
   jobDescriptionInterviewer,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
@@ -321,16 +321,16 @@ async function loadResumeCountsForJobDescriptions(
   const rows = await db
     .select({
       count: count(),
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        inArray(studioInterview.jobDescriptionId, jobDescriptionIds),
-        ne(studioInterview.pipelineStage, "closed"),
+        inArray(recruitingRecordReadModel.jobDescriptionId, jobDescriptionIds),
+        ne(recruitingRecordReadModel.pipelineStage, "closed"),
       ),
     )
-    .groupBy(studioInterview.jobDescriptionId);
+    .groupBy(recruitingRecordReadModel.jobDescriptionId);
 
   for (const id of jobDescriptionIds) {
     map.set(id, 0);
@@ -681,22 +681,22 @@ async function loadCandidatesByJd(organizationId: string) {
   // candidates in the result set (they'll surface only if Top N isn't filled).
   const rows = await db
     .select({
-      count: count(studioInterview.id),
+      count: count(recruitingRecordReadModel.id),
       id: jobDescription.id,
       name: jobDescription.name,
     })
     .from(jobDescription)
     .leftJoin(
-      studioInterview,
+      recruitingRecordReadModel,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.pipelineStage, "closed"),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.pipelineStage, "closed"),
       ),
     )
     .where(eq(jobDescription.organizationId, organizationId))
     .groupBy(jobDescription.id, jobDescription.name)
-    .orderBy(desc(count(studioInterview.id)), asc(jobDescription.name))
+    .orderBy(desc(count(recruitingRecordReadModel.id)), asc(jobDescription.name))
     .limit(TOP_N_CANDIDATES);
 
   return rows.map((row) => ({ count: row.count, id: row.id, name: row.name }));
@@ -710,10 +710,10 @@ async function loadCompletionByJd(organizationId: string) {
   // HAVING total > 0 hides JDs that have no scheduled rounds at all so the
   // chart doesn't fill up with 0/0 entries. Sorted by completion ratio desc.
   const done =
-    sql<number>`COUNT(${studioInterviewSchedule.id}) FILTER (WHERE ${studioInterviewSchedule.status} = 'completed')`.mapWith(
+    sql<number>`COUNT(${aiInterviewRound.id}) FILTER (WHERE ${aiInterviewRound.status} = 'completed')`.mapWith(
       Number,
     );
-  const total = sql<number>`COUNT(${studioInterviewSchedule.id})`.mapWith(Number);
+  const total = sql<number>`COUNT(${aiInterviewRound.id})`.mapWith(Number);
 
   const rows = await db
     .select({
@@ -724,24 +724,24 @@ async function loadCompletionByJd(organizationId: string) {
     })
     .from(jobDescription)
     .innerJoin(
-      studioInterview,
+      recruitingRecordReadModel,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
       ),
     )
     .innerJoin(
-      studioInterviewSchedule,
-      eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
+      aiInterviewRound,
+      eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
     .where(
       and(
         eq(jobDescription.organizationId, organizationId),
-        ne(studioInterview.pipelineStage, "closed"),
+        ne(recruitingRecordReadModel.pipelineStage, "closed"),
       ),
     )
     .groupBy(jobDescription.id, jobDescription.name)
-    .having(sql`COUNT(${studioInterviewSchedule.id}) > 0`)
+    .having(sql`COUNT(${aiInterviewRound.id}) > 0`)
     .orderBy(desc(sql`(${done})::float / NULLIF(${total}, 0)`), asc(jobDescription.name))
     .limit(TOP_N_COMPLETION);
 
@@ -764,7 +764,9 @@ async function loadLoadByInterviewer(organizationId: string) {
   // shouldn't appear in practice.
   const rows = await db
     .select({
-      activeCandidates: sql<number>`COUNT(DISTINCT ${studioInterview.id})`.mapWith(Number),
+      activeCandidates: sql<number>`COUNT(DISTINCT ${recruitingRecordReadModel.id})`.mapWith(
+        Number,
+      ),
       id: interviewer.id,
       name: interviewer.name,
     })
@@ -774,17 +776,21 @@ async function loadLoadByInterviewer(organizationId: string) {
       eq(jobDescriptionInterviewer.interviewerId, interviewer.id),
     )
     .innerJoin(
-      studioInterview,
+      recruitingRecordReadModel,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescriptionInterviewer.jobDescriptionId),
-        eq(studioInterview.organizationId, organizationId),
-        inArray(studioInterview.pipelineStage, ["ai_interview", "human_interview", "offer"]),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescriptionInterviewer.jobDescriptionId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        inArray(recruitingRecordReadModel.pipelineStage, [
+          "ai_interview",
+          "human_interview",
+          "offer",
+        ]),
       ),
     )
     .where(eq(interviewer.organizationId, organizationId))
     .groupBy(interviewer.id, interviewer.name)
-    .having(sql`COUNT(DISTINCT ${studioInterview.id}) > 0`)
-    .orderBy(desc(sql`COUNT(DISTINCT ${studioInterview.id})`), asc(interviewer.name))
+    .having(sql`COUNT(DISTINCT ${recruitingRecordReadModel.id}) > 0`)
+    .orderBy(desc(sql`COUNT(DISTINCT ${recruitingRecordReadModel.id})`), asc(interviewer.name))
     .limit(TOP_N_LOAD);
 
   return rows.map((row) => ({

@@ -2,9 +2,9 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../../lib/server/db/index";
 import {
   meetingSession,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
 import { enqueueHumanMeetingEvents } from "./utils/events";
@@ -19,33 +19,33 @@ export async function enqueueHumanInterviewEvaluationReady(
   await db.transaction(async (tx) => {
     const [context] = await tx
       .select({
-        meetingId: studioHumanInterviewMeeting.id,
-        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
+        meetingId: humanInterviewMeeting.id,
+        scheduleVersion: humanInterviewMeeting.scheduleVersion,
       })
-      .from(studioHumanInterviewRound)
+      .from(humanInterviewRound)
       .innerJoin(
-        studioHumanInterviewMeetingRound,
-        eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+        humanInterviewMeetingRound,
+        eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
       )
       .innerJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
       )
       .innerJoin(
         meetingSession,
-        eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+        eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
       )
       .where(
         and(
-          eq(studioHumanInterviewRound.id, input.roundId),
-          eq(studioHumanInterviewRound.organizationId, input.organizationId),
-          eq(studioHumanInterviewRound.evaluationStatus, "draft"),
-          eq(studioHumanInterviewRound.evaluationTranscriptRevisionId, input.transcriptRevisionId),
-          isNull(studioHumanInterviewRound.evaluationUpdatedBy),
+          eq(humanInterviewRound.id, input.roundId),
+          eq(humanInterviewRound.organizationId, input.organizationId),
+          eq(humanInterviewRound.evaluationStatus, "draft"),
+          eq(humanInterviewRound.evaluationTranscriptRevisionId, input.transcriptRevisionId),
+          isNull(humanInterviewRound.evaluationUpdatedBy),
           eq(meetingSession.id, input.meetingSessionId),
         ),
       )
-      .orderBy(desc(studioHumanInterviewMeeting.createdAt))
+      .orderBy(desc(humanInterviewMeeting.createdAt))
       .limit(1);
     if (!context) {
       return;

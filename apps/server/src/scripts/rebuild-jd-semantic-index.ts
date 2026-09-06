@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { asc, eq } from "drizzle-orm";
-import { jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
+import { jobDescription, recruitingSearchIndex } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
 import { loadStandaloneEnv } from "../standalone/env";
 import { runJdSemanticBackfillRecords } from "./backfill-jd-semantic-index";
@@ -57,8 +57,8 @@ export async function rebuildJdSemanticIndex(): Promise<void> {
       wait: true,
     });
     await db
-      .delete(resumeSemanticIndex)
-      .where(eq(resumeSemanticIndex.sourceType, "job_description"));
+      .delete(recruitingSearchIndex)
+      .where(eq(recruitingSearchIndex.sourceType, "job_description"));
 
     const summary = await runJdSemanticBackfillRecords({
       concurrency: DEFAULT_CONCURRENCY,

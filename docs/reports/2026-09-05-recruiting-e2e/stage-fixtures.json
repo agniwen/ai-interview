@@ -1,0 +1,684 @@
+{
+  "createdAt": "2026-09-05T11:40:08.936Z",
+  "organizationId": "org_default",
+  "kind": "数据库展示样例，不属于浏览器推进证据",
+  "records": [
+    {
+      "id": "8b1ce2ea-5da9-4bfa-bb22-db28b6088d29",
+      "name": "E2E阶段样例-筛选未处理",
+      "view": "screening:pending",
+      "node": "screening",
+      "outcome": "in_pipeline",
+      "status": "pending",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "pending",
+      "currentStage": "screening",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "d8ce01cf-6283-4dfe-8419-e15365fb0bf8",
+      "name": "E2E阶段样例-筛选合格",
+      "view": "screening:pass",
+      "node": "screening",
+      "outcome": "in_pipeline",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "completed",
+      "currentStage": "screening",
+      "result": "pass",
+      "closedFromNode": null
+    },
+    {
+      "id": "592f073e-861f-4233-8cc1-9d0a88985113",
+      "name": "E2E阶段样例-筛选淘汰",
+      "view": "screening:fail",
+      "node": "screening",
+      "outcome": "rejected",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "completed",
+      "currentStage": "closed",
+      "result": "fail",
+      "closedFromNode": "screening"
+    },
+    {
+      "id": "d7544303-cdb8-4e93-adcb-58d9c6359d9e",
+      "name": "E2E阶段样例-AI初面待评价",
+      "view": "interview:ai",
+      "node": "ai_interview",
+      "outcome": "in_pipeline",
+      "status": "awaiting_review",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_review",
+      "currentStage": "ai_interview",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "05f54835-d2cb-43a1-ab00-8fcbb322cd49",
+      "name": "E2E阶段样例-复试待评价",
+      "view": "interview:second",
+      "node": "second_interview",
+      "outcome": "in_pipeline",
+      "status": "awaiting_review",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_review",
+      "currentStage": "second_interview",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "b14c15f1-c63d-4b7c-aefc-ddf585739759",
+      "name": "E2E阶段样例-终试待评价",
+      "view": "interview:final",
+      "node": "final_interview",
+      "outcome": "in_pipeline",
+      "status": "awaiting_review",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_review",
+      "currentStage": "final_interview",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "0c25fdb5-3139-43fe-88ff-797940d95e21",
+      "name": "E2E阶段样例-流水待审核",
+      "view": "offer:income",
+      "node": "income_proof",
+      "outcome": "in_pipeline",
+      "status": "pending",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "pending",
+      "currentStage": "income_proof",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "8398514a-9f20-4e53-aad8-faa362a261ac",
+      "name": "E2E阶段样例-谈薪中",
+      "view": "offer:negotiating",
+      "node": "offer",
+      "outcome": "in_pipeline",
+      "status": "negotiating",
+      "notes": "展示样例；另经浏览器E2E标记放弃、回开Offer、保存谈薪中，当前恢复原状态。",
+      "seedStatus": "negotiating",
+      "currentStage": "offer",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "166889ec-be82-4eef-a2a8-7e1d06d83b87",
+      "name": "E2E阶段样例-Offer待发出",
+      "view": "offer:send",
+      "node": "offer",
+      "outcome": "in_pipeline",
+      "status": "awaiting_send",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_send",
+      "currentStage": "offer",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "4f04224e-b00d-49ad-a12f-e76755de9237",
+      "name": "E2E阶段样例-Offer待回复",
+      "view": "offer:send",
+      "node": "offer",
+      "outcome": "in_pipeline",
+      "status": "awaiting_response",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_response",
+      "currentStage": "offer",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "fb0a6f74-a57a-4c62-b7f7-6b669a018648",
+      "name": "E2E阶段样例-Offer已接受",
+      "view": "offer:send",
+      "node": "offer",
+      "outcome": "in_pipeline",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "completed",
+      "currentStage": "offer",
+      "result": "pass",
+      "closedFromNode": null
+    },
+    {
+      "id": "1d63368e-82d0-45d1-9aa0-712dbe7990c0",
+      "name": "E2E阶段样例-背调待确认",
+      "view": "offer:background",
+      "node": "background_check",
+      "outcome": "in_pipeline",
+      "status": "pending",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "pending",
+      "currentStage": "background_check",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "43ccd331-7464-4890-a2ec-8ce748ed3f3b",
+      "name": "E2E阶段样例-待入职",
+      "view": "onboarding:pending",
+      "node": "onboarding",
+      "outcome": "in_pipeline",
+      "status": "pending",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "pending",
+      "currentStage": "onboarding",
+      "result": null,
+      "closedFromNode": null
+    },
+    {
+      "id": "2d800242-3020-4bf2-bd45-cead51318820",
+      "name": "E2E阶段样例-入职放弃",
+      "view": "onboarding:withdrawn",
+      "node": "onboarding",
+      "outcome": "withdrawn",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "completed",
+      "currentStage": "closed",
+      "result": "withdrawn",
+      "closedFromNode": "onboarding"
+    },
+    {
+      "id": "7492cb0d-e770-4581-a5b4-cb99bb91cfb6",
+      "name": "E2E阶段样例-已入职",
+      "view": "onboarding:hired",
+      "node": "onboarding",
+      "outcome": "hired",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "completed",
+      "currentStage": "closed",
+      "result": "pass",
+      "closedFromNode": "onboarding"
+    },
+    {
+      "id": "65cdcae9-752f-4c80-940a-88f128414dbb",
+      "name": "E2E阶段样例-已归档",
+      "view": "closed:archived",
+      "node": "screening",
+      "outcome": "archived",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "pending",
+      "currentStage": "closed",
+      "result": "withdrawn",
+      "closedFromNode": "screening"
+    },
+    {
+      "id": "388d32a7-a405-4096-a756-d29cef485e60",
+      "name": "E2E阶段样例-AI初面淘汰",
+      "view": "interview:ai",
+      "node": "ai_interview",
+      "outcome": "rejected",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_review",
+      "currentStage": "closed",
+      "result": "fail",
+      "closedFromNode": "ai_interview"
+    },
+    {
+      "id": "ec450909-14c4-42ed-af49-902961009588",
+      "name": "E2E阶段样例-复试淘汰",
+      "view": "interview:second",
+      "node": "second_interview",
+      "outcome": "rejected",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_review",
+      "currentStage": "closed",
+      "result": "fail",
+      "closedFromNode": "second_interview"
+    },
+    {
+      "id": "6561f862-38fe-475d-a19f-d45ffc17b09c",
+      "name": "E2E阶段样例-终试放弃",
+      "view": "interview:final",
+      "node": "final_interview",
+      "outcome": "withdrawn",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "awaiting_review",
+      "currentStage": "closed",
+      "result": "withdrawn",
+      "closedFromNode": "final_interview"
+    },
+    {
+      "id": "f3823779-3618-4d66-b77a-2ab933a0cfd4",
+      "name": "E2E阶段样例-谈薪失败",
+      "view": "offer:negotiating",
+      "node": "offer",
+      "outcome": "rejected",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "negotiating",
+      "currentStage": "closed",
+      "result": "fail",
+      "closedFromNode": "offer"
+    },
+    {
+      "id": "7e38563f-ed4e-4fe4-8ab3-ae3255409ddc",
+      "name": "E2E阶段样例-背调异常",
+      "view": "offer:background",
+      "node": "background_check",
+      "outcome": "rejected",
+      "status": "completed",
+      "notes": "独立新记录；原记录与旧表未修改",
+      "seedStatus": "pending",
+      "currentStage": "closed",
+      "result": "fail",
+      "closedFromNode": "background_check"
+    }
+  ],
+  "coverage": {
+    "screening:all": [
+      {
+        "id": "65cdcae9-752f-4c80-940a-88f128414dbb",
+        "name": "E2E阶段样例-已归档"
+      },
+      {
+        "id": "592f073e-861f-4233-8cc1-9d0a88985113",
+        "name": "E2E阶段样例-筛选淘汰"
+      },
+      {
+        "id": "d8ce01cf-6283-4dfe-8419-e15365fb0bf8",
+        "name": "E2E阶段样例-筛选合格"
+      },
+      {
+        "id": "8b1ce2ea-5da9-4bfa-bb22-db28b6088d29",
+        "name": "E2E阶段样例-筛选未处理"
+      }
+    ],
+    "screening:pending": [
+      {
+        "id": "8b1ce2ea-5da9-4bfa-bb22-db28b6088d29",
+        "name": "E2E阶段样例-筛选未处理"
+      }
+    ],
+    "screening:fail": [
+      {
+        "id": "592f073e-861f-4233-8cc1-9d0a88985113",
+        "name": "E2E阶段样例-筛选淘汰"
+      }
+    ],
+    "screening:pass": [
+      {
+        "id": "d8ce01cf-6283-4dfe-8419-e15365fb0bf8",
+        "name": "E2E阶段样例-筛选合格"
+      }
+    ],
+    "interview:all": [
+      {
+        "id": "6561f862-38fe-475d-a19f-d45ffc17b09c",
+        "name": "E2E阶段样例-终试放弃"
+      },
+      {
+        "id": "ec450909-14c4-42ed-af49-902961009588",
+        "name": "E2E阶段样例-复试淘汰"
+      },
+      {
+        "id": "388d32a7-a405-4096-a756-d29cef485e60",
+        "name": "E2E阶段样例-AI初面淘汰"
+      },
+      {
+        "id": "b14c15f1-c63d-4b7c-aefc-ddf585739759",
+        "name": "E2E阶段样例-终试待评价"
+      },
+      {
+        "id": "05f54835-d2cb-43a1-ab00-8fcbb322cd49",
+        "name": "E2E阶段样例-复试待评价"
+      },
+      {
+        "id": "d7544303-cdb8-4e93-adcb-58d9c6359d9e",
+        "name": "E2E阶段样例-AI初面待评价"
+      }
+    ],
+    "interview:ai": [
+      {
+        "id": "388d32a7-a405-4096-a756-d29cef485e60",
+        "name": "E2E阶段样例-AI初面淘汰"
+      },
+      {
+        "id": "d7544303-cdb8-4e93-adcb-58d9c6359d9e",
+        "name": "E2E阶段样例-AI初面待评价"
+      }
+    ],
+    "interview:second": [
+      {
+        "id": "ec450909-14c4-42ed-af49-902961009588",
+        "name": "E2E阶段样例-复试淘汰"
+      },
+      {
+        "id": "05f54835-d2cb-43a1-ab00-8fcbb322cd49",
+        "name": "E2E阶段样例-复试待评价"
+      }
+    ],
+    "interview:final": [
+      {
+        "id": "6561f862-38fe-475d-a19f-d45ffc17b09c",
+        "name": "E2E阶段样例-终试放弃"
+      },
+      {
+        "id": "b14c15f1-c63d-4b7c-aefc-ddf585739759",
+        "name": "E2E阶段样例-终试待评价"
+      }
+    ],
+    "offer:all": [
+      {
+        "id": "7e38563f-ed4e-4fe4-8ab3-ae3255409ddc",
+        "name": "E2E阶段样例-背调异常"
+      },
+      {
+        "id": "f3823779-3618-4d66-b77a-2ab933a0cfd4",
+        "name": "E2E阶段样例-谈薪失败"
+      },
+      {
+        "id": "1d63368e-82d0-45d1-9aa0-712dbe7990c0",
+        "name": "E2E阶段样例-背调待确认"
+      },
+      {
+        "id": "fb0a6f74-a57a-4c62-b7f7-6b669a018648",
+        "name": "E2E阶段样例-Offer已接受"
+      },
+      {
+        "id": "4f04224e-b00d-49ad-a12f-e76755de9237",
+        "name": "E2E阶段样例-Offer待回复"
+      },
+      {
+        "id": "166889ec-be82-4eef-a2a8-7e1d06d83b87",
+        "name": "E2E阶段样例-Offer待发出"
+      },
+      {
+        "id": "8398514a-9f20-4e53-aad8-faa362a261ac",
+        "name": "E2E阶段样例-谈薪中"
+      },
+      {
+        "id": "0c25fdb5-3139-43fe-88ff-797940d95e21",
+        "name": "E2E阶段样例-流水待审核"
+      }
+    ],
+    "offer:income": [
+      {
+        "id": "0c25fdb5-3139-43fe-88ff-797940d95e21",
+        "name": "E2E阶段样例-流水待审核"
+      }
+    ],
+    "offer:negotiating": [
+      {
+        "id": "f3823779-3618-4d66-b77a-2ab933a0cfd4",
+        "name": "E2E阶段样例-谈薪失败"
+      },
+      {
+        "id": "8398514a-9f20-4e53-aad8-faa362a261ac",
+        "name": "E2E阶段样例-谈薪中"
+      }
+    ],
+    "offer:send": [
+      {
+        "id": "fb0a6f74-a57a-4c62-b7f7-6b669a018648",
+        "name": "E2E阶段样例-Offer已接受"
+      },
+      {
+        "id": "4f04224e-b00d-49ad-a12f-e76755de9237",
+        "name": "E2E阶段样例-Offer待回复"
+      },
+      {
+        "id": "166889ec-be82-4eef-a2a8-7e1d06d83b87",
+        "name": "E2E阶段样例-Offer待发出"
+      }
+    ],
+    "offer:background": [
+      {
+        "id": "7e38563f-ed4e-4fe4-8ab3-ae3255409ddc",
+        "name": "E2E阶段样例-背调异常"
+      },
+      {
+        "id": "1d63368e-82d0-45d1-9aa0-712dbe7990c0",
+        "name": "E2E阶段样例-背调待确认"
+      }
+    ],
+    "onboarding:all": [
+      {
+        "id": "7492cb0d-e770-4581-a5b4-cb99bb91cfb6",
+        "name": "E2E阶段样例-已入职"
+      },
+      {
+        "id": "2d800242-3020-4bf2-bd45-cead51318820",
+        "name": "E2E阶段样例-入职放弃"
+      },
+      {
+        "id": "43ccd331-7464-4890-a2ec-8ce748ed3f3b",
+        "name": "E2E阶段样例-待入职"
+      }
+    ],
+    "onboarding:pending": [
+      {
+        "id": "43ccd331-7464-4890-a2ec-8ce748ed3f3b",
+        "name": "E2E阶段样例-待入职"
+      }
+    ],
+    "onboarding:withdrawn": [
+      {
+        "id": "2d800242-3020-4bf2-bd45-cead51318820",
+        "name": "E2E阶段样例-入职放弃"
+      }
+    ],
+    "onboarding:hired": [
+      {
+        "id": "7492cb0d-e770-4581-a5b4-cb99bb91cfb6",
+        "name": "E2E阶段样例-已入职"
+      }
+    ],
+    "closed:all": [
+      {
+        "id": "7e38563f-ed4e-4fe4-8ab3-ae3255409ddc",
+        "name": "E2E阶段样例-背调异常"
+      },
+      {
+        "id": "f3823779-3618-4d66-b77a-2ab933a0cfd4",
+        "name": "E2E阶段样例-谈薪失败"
+      },
+      {
+        "id": "6561f862-38fe-475d-a19f-d45ffc17b09c",
+        "name": "E2E阶段样例-终试放弃"
+      },
+      {
+        "id": "ec450909-14c4-42ed-af49-902961009588",
+        "name": "E2E阶段样例-复试淘汰"
+      },
+      {
+        "id": "388d32a7-a405-4096-a756-d29cef485e60",
+        "name": "E2E阶段样例-AI初面淘汰"
+      },
+      {
+        "id": "65cdcae9-752f-4c80-940a-88f128414dbb",
+        "name": "E2E阶段样例-已归档"
+      },
+      {
+        "id": "7492cb0d-e770-4581-a5b4-cb99bb91cfb6",
+        "name": "E2E阶段样例-已入职"
+      },
+      {
+        "id": "2d800242-3020-4bf2-bd45-cead51318820",
+        "name": "E2E阶段样例-入职放弃"
+      },
+      {
+        "id": "592f073e-861f-4233-8cc1-9d0a88985113",
+        "name": "E2E阶段样例-筛选淘汰"
+      }
+    ],
+    "closed:rejected": [
+      {
+        "id": "7e38563f-ed4e-4fe4-8ab3-ae3255409ddc",
+        "name": "E2E阶段样例-背调异常"
+      },
+      {
+        "id": "f3823779-3618-4d66-b77a-2ab933a0cfd4",
+        "name": "E2E阶段样例-谈薪失败"
+      },
+      {
+        "id": "ec450909-14c4-42ed-af49-902961009588",
+        "name": "E2E阶段样例-复试淘汰"
+      },
+      {
+        "id": "388d32a7-a405-4096-a756-d29cef485e60",
+        "name": "E2E阶段样例-AI初面淘汰"
+      },
+      {
+        "id": "592f073e-861f-4233-8cc1-9d0a88985113",
+        "name": "E2E阶段样例-筛选淘汰"
+      }
+    ],
+    "closed:withdrawn": [
+      {
+        "id": "6561f862-38fe-475d-a19f-d45ffc17b09c",
+        "name": "E2E阶段样例-终试放弃"
+      },
+      {
+        "id": "2d800242-3020-4bf2-bd45-cead51318820",
+        "name": "E2E阶段样例-入职放弃"
+      }
+    ],
+    "closed:hired": [
+      {
+        "id": "7492cb0d-e770-4581-a5b4-cb99bb91cfb6",
+        "name": "E2E阶段样例-已入职"
+      }
+    ],
+    "closed:archived": [
+      {
+        "id": "65cdcae9-752f-4c80-940a-88f128414dbb",
+        "name": "E2E阶段样例-已归档"
+      }
+    ]
+  },
+  "daoVerification": {
+    "screening:all": {
+      "matched": 4,
+      "total": 4,
+      "ok": true
+    },
+    "screening:pending": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "screening:fail": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "screening:pass": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "interview:all": {
+      "matched": 6,
+      "total": 6,
+      "ok": true
+    },
+    "interview:ai": {
+      "matched": 2,
+      "total": 2,
+      "ok": true
+    },
+    "interview:second": {
+      "matched": 2,
+      "total": 2,
+      "ok": true
+    },
+    "interview:final": {
+      "matched": 2,
+      "total": 2,
+      "ok": true
+    },
+    "offer:all": {
+      "matched": 8,
+      "total": 8,
+      "ok": true
+    },
+    "offer:income": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "offer:negotiating": {
+      "matched": 2,
+      "total": 2,
+      "ok": true
+    },
+    "offer:send": {
+      "matched": 3,
+      "total": 3,
+      "ok": true
+    },
+    "offer:background": {
+      "matched": 2,
+      "total": 2,
+      "ok": true
+    },
+    "onboarding:all": {
+      "matched": 3,
+      "total": 3,
+      "ok": true
+    },
+    "onboarding:pending": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "onboarding:withdrawn": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "onboarding:hired": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "closed:all": {
+      "matched": 9,
+      "total": 9,
+      "ok": true
+    },
+    "closed:rejected": {
+      "matched": 5,
+      "total": 5,
+      "ok": true
+    },
+    "closed:withdrawn": {
+      "matched": 2,
+      "total": 2,
+      "ok": true
+    },
+    "closed:hired": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    },
+    "closed:archived": {
+      "matched": 1,
+      "total": 1,
+      "ok": true
+    }
+  },
+  "profileValidation": {
+    "count": 21,
+    "ok": true,
+    "validatedAt": "2026-09-05T12:04:23.857Z"
+  },
+  "deletedFixture": {
+    "id": "d108f357-152e-4177-b80f-4ee5d25a55de",
+    "deletedVia": "浏览器 E2E",
+    "verifiedAbsent": true
+  }
+}

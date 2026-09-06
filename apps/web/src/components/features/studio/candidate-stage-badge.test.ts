@@ -3,7 +3,7 @@ import { getCandidateStageBadgeVariant } from "./candidate-stage-badge";
 
 describe("getCandidateStageBadgeVariant", () => {
   it("maps the human interview and Offer stages to stable Badge variants", () => {
-    expect(getCandidateStageBadgeVariant("human_interview")).toBe("info");
+    expect(getCandidateStageBadgeVariant("second_interview")).toBe("info");
     expect(getCandidateStageBadgeVariant("offer")).toBe("pink");
   });
 

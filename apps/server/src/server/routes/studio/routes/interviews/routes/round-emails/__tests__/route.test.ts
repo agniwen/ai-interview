@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 路由集成测试：round-emails subrouter (POST /:roundId/send + GET /summary)。
 // Route integration tests for the round-emails subrouter.
 // Mocks Resend + permission middleware; hits the real DB for assertions.
@@ -10,9 +12,8 @@ import { createRoundEmailsRouter } from "../route";
 import type { Env } from "../../../../../../../type";
 import {
   organization,
-  studioInterview,
-  studioInterviewSchedule,
-  studioRoundEmailLog,
+  aiInterviewRound,
+  recruitingRoundEmailLog,
   user,
 } from "@app/db-schema/schema";
 
@@ -48,9 +49,9 @@ const ROUND_SUMMARY_ONLY = "test_round_re_route_summary_only";
 const NOW = new Date("2026-05-19T10:00:00.000Z");
 
 async function cleanup() {
-  await db.delete(studioRoundEmailLog).where(eq(studioRoundEmailLog.organizationId, ORG));
-  await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.organizationId, ORG));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
+  await db.delete(recruitingRoundEmailLog).where(eq(recruitingRoundEmailLog.organizationId, ORG));
+  await db.delete(aiInterviewRound).where(eq(aiInterviewRound.organizationId, ORG));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(organization).where(eq(organization.id, ORG));
   await db.delete(organization).where(eq(organization.id, OTHER_ORG));
   await db.delete(user).where(eq(user.id, USER_ID));
@@ -122,7 +123,7 @@ beforeAll(async () => {
   });
 
   // 候选人 A：有邮箱 / Candidate A: has email
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "candidate@example.com",
     candidateName: "郭靖",
     createdAt: NOW,
@@ -132,7 +133,7 @@ beforeAll(async () => {
   });
 
   // 候选人 B：无邮箱 / Candidate B: no email
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "李四",
     createdAt: NOW,
     id: INTERVIEW_NO_EMAIL,
@@ -140,12 +141,12 @@ beforeAll(async () => {
     updatedAt: NOW,
   });
 
-  await db.insert(studioInterviewSchedule).values([
+  await db.insert(aiInterviewRound).values([
     {
       createdAt: NOW,
       id: ROUND_WITH_EMAIL,
-      interviewRecordId: INTERVIEW_WITH_EMAIL,
       organizationId: ORG,
+      recruitingRecordId: INTERVIEW_WITH_EMAIL,
       roundLabel: "一面",
       sortOrder: 0,
       updatedAt: NOW,
@@ -153,8 +154,8 @@ beforeAll(async () => {
     {
       createdAt: NOW,
       id: ROUND_NO_EMAIL,
-      interviewRecordId: INTERVIEW_NO_EMAIL,
       organizationId: ORG,
+      recruitingRecordId: INTERVIEW_NO_EMAIL,
       roundLabel: "一面",
       sortOrder: 0,
       updatedAt: NOW,
@@ -162,8 +163,8 @@ beforeAll(async () => {
     {
       createdAt: NOW,
       id: ROUND_SUMMARY_ONLY,
-      interviewRecordId: INTERVIEW_WITH_EMAIL,
       organizationId: ORG,
+      recruitingRecordId: INTERVIEW_WITH_EMAIL,
       roundLabel: "二面",
       sortOrder: 1,
       updatedAt: NOW,
@@ -206,8 +207,8 @@ describe("POST /:roundId/send", () => {
     // Assert DB has a sent log with the expected resendMessageId.
     const [log] = await db
       .select()
-      .from(studioRoundEmailLog)
-      .where(eq(studioRoundEmailLog.id, body.logId));
+      .from(recruitingRoundEmailLog)
+      .where(eq(recruitingRoundEmailLog.id, body.logId));
     expect(log?.status).toBe("sent");
     expect(log?.resendMessageId).toBe("msg_abc");
   });
@@ -229,8 +230,8 @@ describe("POST /:roundId/send", () => {
     // Assert DB has a failed log with the error message.
     const [log] = await db
       .select()
-      .from(studioRoundEmailLog)
-      .where(eq(studioRoundEmailLog.id, body.logId));
+      .from(recruitingRoundEmailLog)
+      .where(eq(recruitingRoundEmailLog.id, body.logId));
     expect(log?.status).toBe("failed");
     expect(log?.errorMessage).toContain("rate limit");
   });
@@ -241,8 +242,8 @@ describe("POST /:roundId/send", () => {
     // and must not write any log row.
     const logsBefore = await db
       .select()
-      .from(studioRoundEmailLog)
-      .where(eq(studioRoundEmailLog.organizationId, OTHER_ORG));
+      .from(recruitingRoundEmailLog)
+      .where(eq(recruitingRoundEmailLog.organizationId, OTHER_ORG));
 
     const app = buildTestAppForOrg(OTHER_ORG);
     const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
@@ -252,15 +253,17 @@ describe("POST /:roundId/send", () => {
     // Assert no new log rows were written under OTHER_ORG.
     const logsAfter = await db
       .select()
-      .from(studioRoundEmailLog)
-      .where(eq(studioRoundEmailLog.organizationId, OTHER_ORG));
+      .from(recruitingRoundEmailLog)
+      .where(eq(recruitingRoundEmailLog.organizationId, OTHER_ORG));
     expect(logsAfter).toHaveLength(logsBefore.length);
   });
 
   it("POST /:roundId/send -> 500 when Resend client throws, writes failed log", async () => {
     mocks.throwOnClient = true;
     try {
-      await db.delete(studioRoundEmailLog).where(eq(studioRoundEmailLog.roundId, ROUND_WITH_EMAIL));
+      await db
+        .delete(recruitingRoundEmailLog)
+        .where(eq(recruitingRoundEmailLog.roundId, ROUND_WITH_EMAIL));
       const app = buildTestApp();
       const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
       expect(res.status).toBe(500);
@@ -275,8 +278,8 @@ describe("POST /:roundId/send", () => {
       // Assert DB has a failed log with the env error message.
       const logs = await db
         .select()
-        .from(studioRoundEmailLog)
-        .where(eq(studioRoundEmailLog.roundId, ROUND_WITH_EMAIL));
+        .from(recruitingRoundEmailLog)
+        .where(eq(recruitingRoundEmailLog.roundId, ROUND_WITH_EMAIL));
       expect(logs).toHaveLength(1);
       expect(logs[0].status).toBe("failed");
       expect(logs[0].errorMessage).toContain("RESEND_API_KEY");

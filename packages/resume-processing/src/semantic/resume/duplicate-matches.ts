@@ -1,3 +1,12 @@
+import {
+  toRecruitingSearchSource,
+  toVectorSearchSource,
+  vectorSourceColumn,
+} from "../../internal/lib/resume-semantic/db-source";
+import {
+  createRecruitingReadModel,
+  recruitingRecordReadModel,
+} from "@app/database/recruiting-read-model";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../database";
@@ -12,9 +21,8 @@ import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
 import {
   jobDescription,
-  resumeDuplicateMatch,
+  recruitingDuplicateMatch,
   resumePoolItem,
-  studioInterview,
   user,
 } from "@app/db-schema/schema";
 import { getResumeSemanticIndexConfig } from "./indexer";
@@ -33,14 +41,14 @@ export function toDuplicateMatchInsertRows(input: Required<PersistDuplicateMatch
     id: crypto.randomUUID(),
     level: match.level ?? "medium",
     matchedSourceId: match.id,
-    matchedSourceType: match.sourceType ?? "studio_interview",
+    matchedSourceType: toRecruitingSearchSource(match.sourceType ?? "studio_interview"),
     organizationId: input.organizationId,
     reasons: match.semanticReasons ?? [],
     score: Math.round(match.score ?? 0),
     signals: match.conflictingSignals ?? [],
     similarity: match.similarity ?? null,
     sourceId: input.sourceId,
-    sourceType: input.sourceType,
+    sourceType: toRecruitingSearchSource(input.sourceType),
     status: "active" as const,
   }));
 }
@@ -51,14 +59,14 @@ export async function replaceDuplicateMatchesForSource(
   const embeddingVersion =
     input.embeddingVersion ?? getResumeSemanticIndexConfig().embeddingVersion;
   await db
-    .delete(resumeDuplicateMatch)
+    .delete(recruitingDuplicateMatch)
     .where(
       and(
-        eq(resumeDuplicateMatch.organizationId, input.organizationId),
-        eq(resumeDuplicateMatch.sourceType, input.sourceType),
-        eq(resumeDuplicateMatch.sourceId, input.sourceId),
-        eq(resumeDuplicateMatch.embeddingVersion, embeddingVersion),
-        eq(resumeDuplicateMatch.status, "active"),
+        eq(recruitingDuplicateMatch.organizationId, input.organizationId),
+        eq(recruitingDuplicateMatch.sourceType, toRecruitingSearchSource(input.sourceType)),
+        eq(recruitingDuplicateMatch.sourceId, input.sourceId),
+        eq(recruitingDuplicateMatch.embeddingVersion, embeddingVersion),
+        eq(recruitingDuplicateMatch.status, "active"),
       ),
     );
 
@@ -68,7 +76,7 @@ export async function replaceDuplicateMatchesForSource(
 
   const rows = toDuplicateMatchInsertRows({ ...input, embeddingVersion });
   await db
-    .insert(resumeDuplicateMatch)
+    .insert(recruitingDuplicateMatch)
     .values(rows)
     .onConflictDoUpdate({
       set: {
@@ -81,12 +89,12 @@ export async function replaceDuplicateMatchesForSource(
         updatedAt: new Date(),
       },
       target: [
-        resumeDuplicateMatch.organizationId,
-        resumeDuplicateMatch.sourceType,
-        resumeDuplicateMatch.sourceId,
-        resumeDuplicateMatch.matchedSourceType,
-        resumeDuplicateMatch.matchedSourceId,
-        resumeDuplicateMatch.embeddingVersion,
+        recruitingDuplicateMatch.organizationId,
+        recruitingDuplicateMatch.sourceType,
+        recruitingDuplicateMatch.sourceId,
+        recruitingDuplicateMatch.matchedSourceType,
+        recruitingDuplicateMatch.matchedSourceId,
+        recruitingDuplicateMatch.embeddingVersion,
       ],
     });
   return rows.length;
@@ -98,23 +106,26 @@ export async function deleteDuplicateMatchesForSource(input: {
   sourceType: ResumeSemanticSourceType;
 }): Promise<number> {
   const deleted = await db
-    .delete(resumeDuplicateMatch)
+    .delete(recruitingDuplicateMatch)
     .where(
       and(
-        eq(resumeDuplicateMatch.organizationId, input.organizationId),
+        eq(recruitingDuplicateMatch.organizationId, input.organizationId),
         or(
           and(
-            eq(resumeDuplicateMatch.sourceType, input.sourceType),
-            eq(resumeDuplicateMatch.sourceId, input.sourceId),
+            eq(recruitingDuplicateMatch.sourceType, toRecruitingSearchSource(input.sourceType)),
+            eq(recruitingDuplicateMatch.sourceId, input.sourceId),
           ),
           and(
-            eq(resumeDuplicateMatch.matchedSourceType, input.sourceType),
-            eq(resumeDuplicateMatch.matchedSourceId, input.sourceId),
+            eq(
+              recruitingDuplicateMatch.matchedSourceType,
+              toRecruitingSearchSource(input.sourceType),
+            ),
+            eq(recruitingDuplicateMatch.matchedSourceId, input.sourceId),
           ),
         ),
       ),
     )
-    .returning({ id: resumeDuplicateMatch.id });
+    .returning({ id: recruitingDuplicateMatch.id });
 
   return deleted.length;
 }
@@ -250,36 +261,39 @@ export async function listActiveDuplicateMatchCounts(input: {
   const [sourceSideRows, matchedSideRows] = await Promise.all([
     db
       .select({
-        level: resumeDuplicateMatch.level,
-        otherId: resumeDuplicateMatch.matchedSourceId,
-        otherType: resumeDuplicateMatch.matchedSourceType,
-        score: resumeDuplicateMatch.score,
-        subjectId: resumeDuplicateMatch.sourceId,
+        level: recruitingDuplicateMatch.level,
+        otherId: recruitingDuplicateMatch.matchedSourceId,
+        otherType: vectorSourceColumn(recruitingDuplicateMatch.matchedSourceType),
+        score: recruitingDuplicateMatch.score,
+        subjectId: recruitingDuplicateMatch.sourceId,
       })
-      .from(resumeDuplicateMatch)
+      .from(recruitingDuplicateMatch)
       .where(
         and(
-          eq(resumeDuplicateMatch.organizationId, input.organizationId),
-          eq(resumeDuplicateMatch.sourceType, input.sourceType),
-          inArray(resumeDuplicateMatch.sourceId, input.sourceIds),
-          inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+          eq(recruitingDuplicateMatch.organizationId, input.organizationId),
+          eq(recruitingDuplicateMatch.sourceType, toRecruitingSearchSource(input.sourceType)),
+          inArray(recruitingDuplicateMatch.sourceId, input.sourceIds),
+          inArray(recruitingDuplicateMatch.status, ["active", "confirmed"]),
         ),
       ),
     db
       .select({
-        level: resumeDuplicateMatch.level,
-        otherId: resumeDuplicateMatch.sourceId,
-        otherType: resumeDuplicateMatch.sourceType,
-        score: resumeDuplicateMatch.score,
-        subjectId: resumeDuplicateMatch.matchedSourceId,
+        level: recruitingDuplicateMatch.level,
+        otherId: recruitingDuplicateMatch.sourceId,
+        otherType: vectorSourceColumn(recruitingDuplicateMatch.sourceType),
+        score: recruitingDuplicateMatch.score,
+        subjectId: recruitingDuplicateMatch.matchedSourceId,
       })
-      .from(resumeDuplicateMatch)
+      .from(recruitingDuplicateMatch)
       .where(
         and(
-          eq(resumeDuplicateMatch.organizationId, input.organizationId),
-          eq(resumeDuplicateMatch.matchedSourceType, input.sourceType),
-          inArray(resumeDuplicateMatch.matchedSourceId, input.sourceIds),
-          inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+          eq(recruitingDuplicateMatch.organizationId, input.organizationId),
+          eq(
+            recruitingDuplicateMatch.matchedSourceType,
+            toRecruitingSearchSource(input.sourceType),
+          ),
+          inArray(recruitingDuplicateMatch.matchedSourceId, input.sourceIds),
+          inArray(recruitingDuplicateMatch.status, ["active", "confirmed"]),
         ),
       ),
   ]);
@@ -299,65 +313,68 @@ export async function listActiveDuplicateSummariesAgainstStudioInterviews(input:
   if (input.sourceIds.length === 0) {
     return new Map();
   }
-  const duplicateInterview = alias(studioInterview, "duplicate_studio_interview");
+  const duplicateInterview = createRecruitingReadModel("duplicate_recruiting_record");
   const duplicateCreator = alias(user, "duplicate_creator");
   const [sourceSideRows, matchedSideRows] = await Promise.all([
     db
       .select({
-        level: resumeDuplicateMatch.level,
+        level: recruitingDuplicateMatch.level,
         otherCreatedAt: duplicateInterview.createdAt,
         otherCreatorImage: duplicateCreator.image,
         otherCreatorName: duplicateCreator.name,
-        otherId: resumeDuplicateMatch.matchedSourceId,
-        otherType: resumeDuplicateMatch.matchedSourceType,
-        score: resumeDuplicateMatch.score,
-        subjectId: resumeDuplicateMatch.sourceId,
+        otherId: recruitingDuplicateMatch.matchedSourceId,
+        otherType: vectorSourceColumn(recruitingDuplicateMatch.matchedSourceType),
+        score: recruitingDuplicateMatch.score,
+        subjectId: recruitingDuplicateMatch.sourceId,
       })
-      .from(resumeDuplicateMatch)
+      .from(recruitingDuplicateMatch)
       .innerJoin(
         duplicateInterview,
         and(
-          eq(duplicateInterview.id, resumeDuplicateMatch.matchedSourceId),
-          eq(duplicateInterview.organizationId, resumeDuplicateMatch.organizationId),
+          eq(duplicateInterview.id, recruitingDuplicateMatch.matchedSourceId),
+          eq(duplicateInterview.organizationId, recruitingDuplicateMatch.organizationId),
         ),
       )
       .leftJoin(duplicateCreator, eq(duplicateInterview.createdBy, duplicateCreator.id))
       .where(
         and(
-          eq(resumeDuplicateMatch.organizationId, input.organizationId),
-          eq(resumeDuplicateMatch.sourceType, input.sourceType),
-          eq(resumeDuplicateMatch.matchedSourceType, "studio_interview"),
-          inArray(resumeDuplicateMatch.sourceId, input.sourceIds),
-          inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+          eq(recruitingDuplicateMatch.organizationId, input.organizationId),
+          eq(recruitingDuplicateMatch.sourceType, toRecruitingSearchSource(input.sourceType)),
+          eq(recruitingDuplicateMatch.matchedSourceType, "recruiting_record"),
+          inArray(recruitingDuplicateMatch.sourceId, input.sourceIds),
+          inArray(recruitingDuplicateMatch.status, ["active", "confirmed"]),
         ),
       ),
     db
       .select({
-        level: resumeDuplicateMatch.level,
+        level: recruitingDuplicateMatch.level,
         otherCreatedAt: duplicateInterview.createdAt,
         otherCreatorImage: duplicateCreator.image,
         otherCreatorName: duplicateCreator.name,
-        otherId: resumeDuplicateMatch.sourceId,
-        otherType: resumeDuplicateMatch.sourceType,
-        score: resumeDuplicateMatch.score,
-        subjectId: resumeDuplicateMatch.matchedSourceId,
+        otherId: recruitingDuplicateMatch.sourceId,
+        otherType: vectorSourceColumn(recruitingDuplicateMatch.sourceType),
+        score: recruitingDuplicateMatch.score,
+        subjectId: recruitingDuplicateMatch.matchedSourceId,
       })
-      .from(resumeDuplicateMatch)
+      .from(recruitingDuplicateMatch)
       .innerJoin(
         duplicateInterview,
         and(
-          eq(duplicateInterview.id, resumeDuplicateMatch.sourceId),
-          eq(duplicateInterview.organizationId, resumeDuplicateMatch.organizationId),
+          eq(duplicateInterview.id, recruitingDuplicateMatch.sourceId),
+          eq(duplicateInterview.organizationId, recruitingDuplicateMatch.organizationId),
         ),
       )
       .leftJoin(duplicateCreator, eq(duplicateInterview.createdBy, duplicateCreator.id))
       .where(
         and(
-          eq(resumeDuplicateMatch.organizationId, input.organizationId),
-          eq(resumeDuplicateMatch.sourceType, "studio_interview"),
-          eq(resumeDuplicateMatch.matchedSourceType, input.sourceType),
-          inArray(resumeDuplicateMatch.matchedSourceId, input.sourceIds),
-          inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+          eq(recruitingDuplicateMatch.organizationId, input.organizationId),
+          eq(recruitingDuplicateMatch.sourceType, "recruiting_record"),
+          eq(
+            recruitingDuplicateMatch.matchedSourceType,
+            toRecruitingSearchSource(input.sourceType),
+          ),
+          inArray(recruitingDuplicateMatch.matchedSourceId, input.sourceIds),
+          inArray(recruitingDuplicateMatch.status, ["active", "confirmed"]),
         ),
       ),
   ]);
@@ -377,7 +394,7 @@ export function listActiveStudioDuplicateMatchSummaries(input: {
   });
 }
 
-type DuplicateMatchRow = typeof resumeDuplicateMatch.$inferSelect;
+type DuplicateMatchRow = typeof recruitingDuplicateMatch.$inferSelect;
 
 const DEDUP_SKILLS_LIMIT = 12;
 
@@ -437,7 +454,7 @@ export function resolveDuplicateMatchRows<T extends MatchRowDirection>(
       continue;
     }
     const isSourceSide = row.sourceId === subjectId;
-    const otherType = isSourceSide ? row.matchedSourceType : row.sourceType;
+    const otherType = toVectorSearchSource(isSourceSide ? row.matchedSourceType : row.sourceType);
     const otherId = isSourceSide ? row.matchedSourceId : row.sourceId;
     if (otherId === subjectId) {
       continue;
@@ -508,24 +525,27 @@ export async function listDuplicateMatchesForSource(input: {
   // the list stays consistent with the permission-free comparison detail.
   const matchRows = await db
     .select()
-    .from(resumeDuplicateMatch)
+    .from(recruitingDuplicateMatch)
     .where(
       and(
-        eq(resumeDuplicateMatch.organizationId, input.organizationId),
-        inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+        eq(recruitingDuplicateMatch.organizationId, input.organizationId),
+        inArray(recruitingDuplicateMatch.status, ["active", "confirmed"]),
         or(
           and(
-            eq(resumeDuplicateMatch.sourceType, input.sourceType),
-            eq(resumeDuplicateMatch.sourceId, input.sourceId),
+            eq(recruitingDuplicateMatch.sourceType, toRecruitingSearchSource(input.sourceType)),
+            eq(recruitingDuplicateMatch.sourceId, input.sourceId),
           ),
           and(
-            eq(resumeDuplicateMatch.matchedSourceType, input.sourceType),
-            eq(resumeDuplicateMatch.matchedSourceId, input.sourceId),
+            eq(
+              recruitingDuplicateMatch.matchedSourceType,
+              toRecruitingSearchSource(input.sourceType),
+            ),
+            eq(recruitingDuplicateMatch.matchedSourceId, input.sourceId),
           ),
         ),
       ),
     )
-    .orderBy(desc(resumeDuplicateMatch.score), desc(resumeDuplicateMatch.createdAt));
+    .orderBy(desc(recruitingDuplicateMatch.score), desc(recruitingDuplicateMatch.createdAt));
 
   // 双向解析：source 侧命中早于本记录的重复，matched 侧命中后来上传、
   // 把本记录判为重复的记录（即第一份也能看到后面上传的重复份）。
@@ -546,41 +566,41 @@ export async function listDuplicateMatchesForSource(input: {
       ? Promise.resolve([])
       : db
           .select({
-            candidateEmail: studioInterview.candidateEmail,
-            candidateName: studioInterview.candidateName,
-            candidatePhone: studioInterview.candidatePhone,
-            createdAt: studioInterview.createdAt,
-            id: studioInterview.id,
+            candidateEmail: recruitingRecordReadModel.candidateEmail,
+            candidateName: recruitingRecordReadModel.candidateName,
+            candidatePhone: recruitingRecordReadModel.candidatePhone,
+            createdAt: recruitingRecordReadModel.createdAt,
+            id: recruitingRecordReadModel.id,
             jobDescriptionName: jobDescription.name,
-            outcome: studioInterview.outcome,
-            pipelineStage: studioInterview.pipelineStage,
-            resumeFileName: studioInterview.resumeFileName,
-            resumeParseStatus: studioInterview.resumeParseStatus,
-            resumeProfile: studioInterview.resumeProfile,
-            resumeReviewStatus: studioInterview.resumeReviewStatus,
+            outcome: recruitingRecordReadModel.outcome,
+            pipelineStage: recruitingRecordReadModel.pipelineStage,
+            resumeFileName: recruitingRecordReadModel.resumeFileName,
+            resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+            resumeProfile: recruitingRecordReadModel.resumeProfile,
+            resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
             status: sql<"active" | "archived">`
               CASE
-                WHEN ${studioInterview.pipelineStage} = 'closed' THEN 'archived'
+                WHEN ${recruitingRecordReadModel.pipelineStage} = 'closed' THEN 'archived'
                 ELSE 'active'
               END
             `,
-            targetRole: studioInterview.targetRole,
+            targetRole: recruitingRecordReadModel.targetRole,
             uploaderImage: user.image,
             uploaderName: user.name,
           })
-          .from(studioInterview)
-          .leftJoin(user, eq(studioInterview.createdBy, user.id))
+          .from(recruitingRecordReadModel)
+          .leftJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(
-              eq(studioInterview.jobDescriptionId, jobDescription.id),
-              eq(jobDescription.organizationId, studioInterview.organizationId),
+              eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+              eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
             ),
           )
           .where(
             and(
-              eq(studioInterview.organizationId, input.organizationId),
-              inArray(studioInterview.id, studioIds),
+              eq(recruitingRecordReadModel.organizationId, input.organizationId),
+              inArray(recruitingRecordReadModel.id, studioIds),
             ),
           ),
     poolIds.length === 0

@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
-import { studioInterviewSchedule } from "@app/db-schema/schema";
+import { aiInterviewRound } from "@app/db-schema/schema";
 import type {
   CandidateInterviewFeedback,
   CandidateInterviewFeedbackInput,
@@ -12,7 +12,7 @@ export async function submitCandidateInterviewFeedback(
 ): Promise<CandidateInterviewFeedback | null> {
   const submittedAt = new Date();
   const [updated] = await db
-    .update(studioInterviewSchedule)
+    .update(aiInterviewRound)
     .set({
       candidateFeedbackCategories: input.categories,
       candidateFeedbackDetail: input.detail,
@@ -21,16 +21,16 @@ export async function submitCandidateInterviewFeedback(
     })
     .where(
       and(
-        eq(studioInterviewSchedule.id, input.roundId),
-        eq(studioInterviewSchedule.interviewRecordId, input.interviewRecordId),
-        eq(studioInterviewSchedule.status, "completed"),
-        isNull(studioInterviewSchedule.candidateFeedbackSubmittedAt),
+        eq(aiInterviewRound.id, input.roundId),
+        eq(aiInterviewRound.recruitingRecordId, input.interviewRecordId),
+        eq(aiInterviewRound.status, "completed"),
+        isNull(aiInterviewRound.candidateFeedbackSubmittedAt),
       ),
     )
     .returning({
-      categories: studioInterviewSchedule.candidateFeedbackCategories,
-      detail: studioInterviewSchedule.candidateFeedbackDetail,
-      submittedAt: studioInterviewSchedule.candidateFeedbackSubmittedAt,
+      categories: aiInterviewRound.candidateFeedbackCategories,
+      detail: aiInterviewRound.candidateFeedbackDetail,
+      submittedAt: aiInterviewRound.candidateFeedbackSubmittedAt,
     });
 
   return buildCandidateInterviewFeedback({

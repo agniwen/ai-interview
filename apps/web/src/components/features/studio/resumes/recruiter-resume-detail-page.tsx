@@ -293,8 +293,17 @@ export function RecruiterResumeDetailPage({
           onLaunchInterview={
             canCreateInterview
               ? ({ id, candidateName }) => {
-                  if (detail && !canLaunchInterviewFromResume(detail.resumeParseStatus)) {
-                    toast.error("简历解析完成后才能发起 AI 面试");
+                  if (
+                    detail &&
+                    !canLaunchInterviewFromResume(
+                      detail.resumeParseStatus,
+                      detail.pipelineStage,
+                      detail.resumeEvaluationStatus,
+                    )
+                  ) {
+                    toast.error(
+                      "请等待简历解析完成，并在筛选或 AI 初面节点发起面试；后续阶段需先回退。",
+                    );
                     return;
                   }
                   if (detail && !detail.jobDescriptionId) {

@@ -33,14 +33,14 @@ const MATCH: DedupMatchRecord = {
 // Direction-row fixture; defaults both sides to studio records.
 const directionRow = (input: {
   matchedSourceId: string;
-  matchedSourceType?: "resume_pool_item" | "studio_interview";
+  matchedSourceType?: "resume_pool_item" | "recruiting_record";
   sourceId: string;
-  sourceType?: "resume_pool_item" | "studio_interview";
+  sourceType?: "resume_pool_item" | "recruiting_record";
 }) => ({
   matchedSourceId: input.matchedSourceId,
-  matchedSourceType: input.matchedSourceType ?? "studio_interview",
+  matchedSourceType: input.matchedSourceType ?? "recruiting_record",
   sourceId: input.sourceId,
-  sourceType: input.sourceType ?? "studio_interview",
+  sourceType: input.sourceType ?? "recruiting_record",
 });
 
 describe("toDuplicateMatchInsertRows", () => {
@@ -61,7 +61,7 @@ describe("toDuplicateMatchInsertRows", () => {
         id: "00000000-0000-4000-8000-000000000000",
         level: "high",
         matchedSourceId: "target-resume-id",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: "org-id",
         reasons: ["项目经历高度相似"],
         score: 92,
@@ -72,7 +72,7 @@ describe("toDuplicateMatchInsertRows", () => {
           workProject: 0.94,
         },
         sourceId: "source-id",
-        sourceType: "studio_interview",
+        sourceType: "recruiting_record",
         status: "active",
       },
     ]);

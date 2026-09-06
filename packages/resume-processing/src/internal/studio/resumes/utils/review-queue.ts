@@ -1,10 +1,8 @@
-import { and, eq, isNull, notInArray } from "drizzle-orm";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { and, eq, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { db } from "../../../lib/db";
-import { resumeEvaluationFailure, studioInterview } from "@app/db-schema/schema";
-import {
-  QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-  qualitativeResumeEvaluationSchema,
-} from "@app/db-schema/qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
@@ -137,28 +135,28 @@ async function loadSchedulingContextWithDb(
 ): Promise<ResumeEvaluationSchedulingContext | null> {
   const [record] = await db
     .select({
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
-      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-      resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-      resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeParseStatus: studioInterview.resumeParseStatus,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReview: studioInterview.resumeReview,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
-      structuredCompositeScore: studioInterview.structuredCompositeScore,
-      structuredGateSortRank: studioInterview.structuredGateSortRank,
-      structuredGateStatus: studioInterview.structuredGateStatus,
-      structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
-      structuredScoreGrade: studioInterview.structuredScoreGrade,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+      qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+      resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+      resumeEvaluationAttemptMode: recruitingRecordReadModel.resumeEvaluationAttemptMode,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeReview: recruitingRecordReadModel.resumeReview,
+      resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+      structuredCompositeScore: recruitingRecordReadModel.structuredCompositeScore,
+      structuredGateSortRank: recruitingRecordReadModel.structuredGateSortRank,
+      structuredGateStatus: recruitingRecordReadModel.structuredGateStatus,
+      structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
+      structuredScoreGrade: recruitingRecordReadModel.structuredScoreGrade,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
       ),
     )
     .limit(1);
@@ -172,20 +170,18 @@ async function loadSchedulingContextWithDb(
       resumeFileName: record.resumeFileName,
     });
     if (matched?.jobDescriptionId) {
-      const [updated] = await db
-        .update(studioInterview)
-        .set({
+      const [updated] = await updateRecruitingRecords(
+        db,
+        and(
+          eq(recruitingRecordReadModel.id, input.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
+          isNull(recruitingRecordReadModel.jobDescriptionId),
+        ),
+        {
           jobDescriptionId: matched.jobDescriptionId,
           updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(studioInterview.id, input.resumeRecordId),
-            eq(studioInterview.organizationId, input.organizationId),
-            isNull(studioInterview.jobDescriptionId),
-          ),
-        )
-        .returning({ jobDescriptionId: studioInterview.jobDescriptionId });
+        },
+      );
       jobDescriptionId = updated?.jobDescriptionId ?? null;
     }
   }
@@ -216,9 +212,15 @@ function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
     }
 
     const now = new Date();
-    const updated = await tx
-      .update(studioInterview)
-      .set({
+    const updated = await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, input.expectedJobDescriptionId),
+        notInArray(recruitingRecordReadModel.resumeReviewStatus, ["queued", "processing"]),
+      ),
+      {
         qualitativeAttemptJobDescriptionVersionId: snapshot.id,
         resumeEvaluationAttemptMode: input.mode,
         resumeReviewError: null,
@@ -226,16 +228,8 @@ function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
         resumeReviewRunId: input.runId,
         resumeReviewStatus: "queued",
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-          eq(studioInterview.jobDescriptionId, input.expectedJobDescriptionId),
-          notInArray(studioInterview.resumeReviewStatus, ["queued", "processing"]),
-        ),
-      )
-      .returning({ id: studioInterview.id });
+      },
+    );
     return updated.length > 0;
   });
 }
@@ -243,51 +237,40 @@ function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
 async function markQueueFailureWithDb(input: MarkQueueFailureInput) {
   const errorMessage = input.errorMessage.slice(0, 1000);
   await db.transaction(async (tx) => {
+    await lockRecruitingRecord(tx, input.resumeRecordId, input.organizationId);
     const [current] = await tx
       .select({
-        jobDescriptionVersionId: studioInterview.qualitativeAttemptJobDescriptionVersionId,
+        jobDescriptionVersionId:
+          recruitingRecordReadModel.qualitativeAttemptJobDescriptionVersionId,
       })
-      .from(studioInterview)
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-          eq(studioInterview.resumeReviewRunId, input.runId),
+          eq(recruitingRecordReadModel.id, input.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.resumeReviewRunId, input.runId),
+          isNotNull(recruitingRecordReadModel.activeEvaluationId),
         ),
       )
-      .limit(1)
-      .for("update");
+      .limit(1);
     if (!current?.jobDescriptionVersionId) {
       return;
     }
-    await tx
-      .insert(resumeEvaluationFailure)
-      .values({
-        contractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-        createdAt: new Date(),
-        errorMessage,
-        id: crypto.randomUUID(),
-        jobDescriptionVersionId: current.jobDescriptionVersionId,
-        organizationId: input.organizationId,
-        resumeRecordId: input.resumeRecordId,
-        runId: input.runId,
-      })
-      .onConflictDoNothing();
-    await tx
-      .update(studioInterview)
-      .set({
+    await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.resumeReviewRunId, input.runId),
+        isNotNull(recruitingRecordReadModel.activeEvaluationId),
+      ),
+      {
         qualitativeAttemptJobDescriptionVersionId: null,
         resumeReviewError: errorMessage,
         resumeReviewStatus: "failed",
         updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-          eq(studioInterview.resumeReviewRunId, input.runId),
-        ),
-      );
+      },
+    );
   });
 }
 

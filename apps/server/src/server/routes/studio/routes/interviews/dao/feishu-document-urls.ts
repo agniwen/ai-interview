@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../../lib/server/db/index";
-import { interviewNotification } from "@app/db-schema/schema";
+import { recruitingNotificationDelivery } from "@app/db-schema/schema";
 
 export async function loadLatestFeishuDocumentUrls({
   ids: inputIds,
@@ -18,22 +18,23 @@ export async function loadLatestFeishuDocumentUrls({
     return result;
   }
 
-  const keyColumn = interviewNotification[key];
+  const keyColumn =
+    recruitingNotificationDelivery[key === "interviewRecordId" ? "recruitingRecordId" : key];
   const rows = await db
     .select({
       key: keyColumn,
-      url: interviewNotification.feishuDocumentUrl,
+      url: recruitingNotificationDelivery.feishuDocumentUrl,
     })
-    .from(interviewNotification)
+    .from(recruitingNotificationDelivery)
     .where(
       and(
-        eq(interviewNotification.organizationId, organizationId),
+        eq(recruitingNotificationDelivery.organizationId, organizationId),
         inArray(keyColumn, ids),
-        eq(interviewNotification.type, "summary_ready"),
-        isNotNull(interviewNotification.feishuDocumentUrl),
+        eq(recruitingNotificationDelivery.type, "summary_ready"),
+        isNotNull(recruitingNotificationDelivery.feishuDocumentUrl),
       ),
     )
-    .orderBy(desc(interviewNotification.updatedAt));
+    .orderBy(desc(recruitingNotificationDelivery.updatedAt));
 
   for (const row of rows) {
     if (row.key && row.url && !result.has(row.key)) {

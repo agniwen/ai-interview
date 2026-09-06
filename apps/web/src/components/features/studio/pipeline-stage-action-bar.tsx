@@ -6,7 +6,6 @@ import {
   IconCircleOff,
   IconInfoCircle,
   IconLink,
-  IconUsers,
 } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper defined below the export */
 // 候选人详情顶部「下一步操作」action bar。
@@ -17,31 +16,32 @@ import {
 // fires a callback supplied by the parent (resume library page); this
 // component is presentation-only and stateless.
 
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useState } from "react";
-import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
+import { pipelineStageMeta, recruitingPipelineNodeValues } from "@app/db-schema/studio-interviews";
 import type { PipelineStage, ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  RecruitingActionBusyContext,
+  RecruitingActionButton as Button,
+} from "./recruiting-action-button";
 import { withCleanup } from "@/lib/client/async-control";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { CandidatePipelineEvent } from "@app/shared/candidate-pipeline-machine";
-import { canApplyCandidatePipelineEvent } from "@app/shared/candidate-pipeline-machine";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@app/shared/utils";
 import { copyInterviewLink } from "@/components/features/studio/interviews/interview-link-actions";
 
 export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;
+  currentNodePassed?: boolean;
   primaryAction?: ReactNode;
   canCreateHumanInterview?: boolean;
   canCreateOffer?: boolean;
@@ -73,7 +73,7 @@ export interface PipelineStageActionBarProps {
   // 打开「标记结束」dialog。
   // Open the close dialog.
   onRequestClose: () => void;
-  // 打开「重新激活」dialog（仅 pipelineStage='closed' 时使用）。
+  // 打开回退对话框：进行中或已结束都可回到已到达节点。
   // Open the reactivate dialog.
   onRequestReactivate: () => void;
 }
@@ -81,6 +81,7 @@ export interface PipelineStageActionBarProps {
 export function PipelineStageActionBar({
   pipelineStage,
   primaryAction,
+  currentNodePassed = false,
   canCreateHumanInterview = true,
   canCreateOffer = true,
   hasJobDescription = true,
@@ -95,6 +96,13 @@ export function PipelineStageActionBar({
 }: PipelineStageActionBarProps) {
   const [isAdvancing, setIsAdvancing] = useState(false);
   const isBusy = isAdvancing || Boolean(aiRoundReset?.isResetting);
+  let busyReason: string | null = null;
+  if (isAdvancing) {
+    busyReason = "正在推进流程，请稍候";
+  }
+  if (aiRoundReset?.isResetting) {
+    busyReason = "正在重置面试，请稍候";
+  }
 
   async function handleAdvance(target: PipelineStage) {
     if (isBusy) {
@@ -110,6 +118,7 @@ export function PipelineStageActionBar({
   const actions = getStageActions({
     canCreateHumanInterview,
     canCreateOffer,
+    currentNodePassed,
     hasJobDescription,
     humanInterviewDone,
     humanInterviewFeedbackComplete,
@@ -150,38 +159,31 @@ export function PipelineStageActionBar({
     <div
       aria-busy={isBusy}
       aria-label={`当前招聘阶段：${pipelineStageMeta[pipelineStage].label}`}
-      className="flex flex-wrap items-center justify-end gap-2"
+      className="flex w-full flex-col items-stretch gap-2 max-md:[&_button]:h-11 max-md:[&_button]:text-sm md:w-auto md:flex-row md:flex-wrap md:items-center md:justify-end"
     >
       <RecruitmentStageHoverCard
         onViewCurrentStage={onViewCurrentStage}
         pipelineStage={pipelineStage}
       />
-      {/* fieldset disabled locks every nested control (incl. primaryAction / Tooltip wrappers). */}
-      <fieldset
-        className="m-0 inline-flex min-w-0 flex-wrap items-center justify-end gap-2 border-0 p-0"
-        disabled={isBusy}
-      >
-        {hasPrimaryActions ? (
-          <ButtonGroup className="flex-wrap justify-end">
-            {groupedPrimaryAction}
-            {aiRoundCopyLinkAction}
-            {aiRoundResetAction}
-            {actions.right}
-          </ButtonGroup>
-        ) : null}
-        {canClose ? (
-          <Button
-            className="border-destructive/20 bg-destructive/8 text-destructive hover:border-destructive/30 hover:bg-destructive/12 hover:text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/12 dark:hover:bg-destructive/18"
-            onClick={onRequestClose}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <IconCircleOff className="size-4" />
-            标记结束
-          </Button>
-        ) : null}
-      </fieldset>
+      <RecruitingActionBusyContext.Provider value={busyReason}>
+        <fieldset className="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0 [&>button]:flex-1 md:justify-end md:[&>button]:flex-none">
+          {hasPrimaryActions ? (
+            <ButtonGroup className="w-full min-w-0 [&>button]:min-w-0 [&>button]:flex-1 [&>button]:px-2 md:w-fit md:[&>button]:flex-none md:[&>button]:px-3">
+              {groupedPrimaryAction}
+              {aiRoundCopyLinkAction}
+              {aiRoundResetAction}
+              {actions.right}
+            </ButtonGroup>
+          ) : null}
+          {actions.left}
+          {canClose ? (
+            <Button onClick={onRequestClose} size="sm" type="button" variant="destructive">
+              <IconCircleOff className="size-4" />
+              标记结束
+            </Button>
+          ) : null}
+        </fieldset>
+      </RecruitingActionBusyContext.Provider>
     </div>
   );
 }
@@ -209,7 +211,7 @@ function AiRoundResetAction({
 
   if (behavior === "direct") {
     return (
-      <Button disabled={isBusy} onClick={onReset} size="sm" type="button">
+      <Button isLoading={isResetting} disabled={isBusy} onClick={onReset} size="sm" type="button">
         <IconArrowBackUp />
         {buttonLabel}
       </Button>
@@ -218,37 +220,34 @@ function AiRoundResetAction({
 
   if (behavior === "disabled") {
     return (
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button disabled size="sm" type="button">
-              <IconArrowBackUp />
-              重置面试轮次
-            </Button>
-          }
-        />
-        <TooltipContent>面试进行中，暂时不能重置轮次</TooltipContent>
-      </Tooltip>
+      <Button
+        disabledReason={
+          status === "interrupted" ? "面试已中断，请先结束本轮面试" : "面试进行中，请先结束本轮面试"
+        }
+        size="sm"
+        type="button"
+      >
+        <IconArrowBackUp />
+        重置面试轮次
+      </Button>
     );
   }
 
   return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger
+    <Dialog onOpenChange={setOpen} open={open}>
+      <DialogTrigger
         render={
-          <Button disabled={isBusy} size="sm" type="button">
+          <Button isLoading={isResetting} disabled={isBusy} size="sm" type="button">
             <IconArrowBackUp />
             {buttonLabel}
           </Button>
         }
       />
-      <PopoverContent align="end" className="w-80" side="top" sideOffset={8}>
-        <PopoverHeader>
-          <PopoverTitle>确定重置{roundLabel}？</PopoverTitle>
-          <PopoverDescription>
-            该轮面试已经完成。重置后会回到待进场状态，候选人需要重新完成本轮面试。
-          </PopoverDescription>
-        </PopoverHeader>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>确定重置{roundLabel}？</DialogTitle>
+          <DialogDescription>重置后，候选人需要重新完成本轮面试。</DialogDescription>
+        </DialogHeader>
         <div className="mt-4 flex justify-end gap-2">
           <Button
             disabled={isResetting}
@@ -261,6 +260,7 @@ function AiRoundResetAction({
           </Button>
           <Button
             disabled={isResetting}
+            isLoading={isResetting}
             onClick={() => {
               onReset();
               setOpen(false);
@@ -272,8 +272,8 @@ function AiRoundResetAction({
             {isResetting ? "重置中..." : "确认重置"}
           </Button>
         </div>
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -287,25 +287,8 @@ function getAiRoundResetButtonLabel(
   return behavior === "direct" ? "重置沟通" : "重置面试轮次";
 }
 
-const DEFAULT_FLOW_STEPS: PipelineStage[] = [
-  "screening",
-  "ai_interview",
-  "human_interview",
-  "offer",
-  "closed",
-];
-
-const WRITTEN_TEST_FLOW_STEPS: PipelineStage[] = [
-  "screening",
-  "written_test",
-  "ai_interview",
-  "human_interview",
-  "offer",
-  "closed",
-];
-
-function getHoverFlowSteps(pipelineStage: PipelineStage): PipelineStage[] {
-  return pipelineStage === "written_test" ? WRITTEN_TEST_FLOW_STEPS : DEFAULT_FLOW_STEPS;
+function getHoverFlowSteps(): PipelineStage[] {
+  return [...recruitingPipelineNodeValues, "closed"];
 }
 
 function RecruitmentStageHoverCard({
@@ -315,7 +298,7 @@ function RecruitmentStageHoverCard({
   onViewCurrentStage: () => void;
   pipelineStage: PipelineStage;
 }) {
-  const flowSteps = getHoverFlowSteps(pipelineStage);
+  const flowSteps = getHoverFlowSteps();
   const currentIndex = flowSteps.indexOf(pipelineStage);
 
   return (
@@ -324,7 +307,7 @@ function RecruitmentStageHoverCard({
         render={
           <Button
             aria-label={`查看当前阶段：${pipelineStageMeta[pipelineStage].label}`}
-            className="h-8 px-3 font-medium"
+            className="h-8 self-start px-3 font-medium"
             onClick={onViewCurrentStage}
             size="sm"
             type="button"
@@ -385,12 +368,6 @@ function RecruitmentStageHoverCard({
   );
 }
 
-interface StageButton {
-  key: string;
-  node: ReactNode;
-  side: "left" | "right";
-}
-
 interface StageActionGroups {
   left: ReactNode[];
   right: ReactNode[];
@@ -398,6 +375,7 @@ interface StageActionGroups {
 
 function getStageActions(props: {
   pipelineStage: PipelineStage;
+  currentNodePassed: boolean;
   canCreateHumanInterview: boolean;
   canCreateOffer: boolean;
   hasJobDescription: boolean;
@@ -408,274 +386,69 @@ function getStageActions(props: {
   onAdvance: (target: PipelineStage) => void | Promise<void>;
   onRequestReactivate: () => void;
 }): StageActionGroups {
-  const {
-    pipelineStage,
-    canCreateHumanInterview,
-    canCreateOffer,
-    hasJobDescription,
-    humanInterviewFeedbackComplete,
-    humanInterviewDone,
-    isAdvancing,
-    isBusy,
-    onAdvance,
-    onRequestReactivate,
-  } = props;
-
-  // closed：唯一行动是重新激活。
-  // closed → only reactivate is available.
+  const { pipelineStage, isBusy, isAdvancing, onAdvance } = props;
+  const reopen = (
+    <Button
+      key="reopen"
+      disabled={isBusy}
+      onClick={props.onRequestReactivate}
+      size="sm"
+      variant="outline"
+    >
+      <IconArrowBackUp className="size-4" />
+      回到之前节点
+    </Button>
+  );
+  const baseActions = { left: pipelineStage === "screening" ? [] : [reopen], right: [] };
   if (pipelineStage === "closed") {
-    return {
-      left: [],
-      right: [
-        <Button
-          disabled={isBusy}
-          key="reactivate"
-          onClick={onRequestReactivate}
-          size="sm"
-          variant="outline"
-        >
-          <IconArrowBackUp className="size-4" />
-          重新激活
-        </Button>,
-      ],
-    };
+    return baseActions;
   }
-
-  const buttons: StageButton[] = [];
-  const pipelineSnapshot = {
-    humanInterviewReadyForOffer: Boolean(humanInterviewDone && humanInterviewFeedbackComplete),
-    stage: pipelineStage,
+  const next =
+    recruitingPipelineNodeValues[recruitingPipelineNodeValues.indexOf(pipelineStage) + 1];
+  const target = pipelineStage === "screening" ? "second_interview" : next;
+  if (!target) {
+    return baseActions;
+  }
+  const isHumanTarget = target === "second_interview" || target === "final_interview";
+  if (isHumanTarget && !props.canCreateHumanInterview) {
+    return baseActions;
+  }
+  if (["income_proof", "offer", "background_check"].includes(target) && !props.canCreateOffer) {
+    return baseActions;
+  }
+  const allowed = pipelineStage === "screening" || props.currentNodePassed;
+  let advanceLabel = target === "offer" ? "进入谈薪" : `进入${pipelineStageMeta[target].label}`;
+  if (pipelineStage === "screening") {
+    advanceLabel = "直接安排复试";
+  }
+  if (isAdvancing) {
+    advanceLabel = "处理中…";
+  }
+  let disabledReason: string | null = null;
+  if (!allowed) {
+    disabledReason = `请先完成${pipelineStageMeta[pipelineStage].label}并确认通过`;
+  }
+  if (isHumanTarget && !props.hasJobDescription) {
+    disabledReason = "请先绑定在招岗位";
+  }
+  if (isBusy) {
+    disabledReason = "正在推进流程，请稍候";
+  }
+  return {
+    left: baseActions.left,
+    right: [
+      <Button
+        key="advance"
+        isLoading={isAdvancing}
+        disabledReason={disabledReason}
+        onClick={() => {
+          void onAdvance(target);
+        }}
+        size="sm"
+      >
+        <IconArrowRight className="size-4" />
+        {advanceLabel}
+      </Button>,
+    ],
   };
-  const hasEvent = (event: CandidatePipelineEvent) =>
-    canApplyCandidatePipelineEvent(pipelineSnapshot, event);
-
-  switch (pipelineStage) {
-    case "screening": {
-      // 简历筛选阶段：可发起 AI 面试，也可跳过 AI 直接进入真人复面；Offer 必须在真人复面后。
-      // Screening: start AI, or skip to human interview. Offer requires human interview first.
-      const canAdvanceToHumanInterview = hasEvent({ type: "SKIP_TO_HUMAN_INTERVIEW" });
-      if (canAdvanceToHumanInterview && canCreateHumanInterview) {
-        buttons.push({
-          key: "to-human",
-          node: (
-            <HumanInterviewAdvanceButton
-              disabledReason={resolveHumanInterviewAdvanceDisabledReason(
-                hasJobDescription,
-                canAdvanceToHumanInterview,
-              )}
-              isAdvancing={isAdvancing}
-              isBusy={isBusy}
-              key="to-human"
-              onAdvance={onAdvance}
-            />
-          ),
-          side: "right",
-        });
-      }
-      break;
-    }
-
-    case "ai_interview": {
-      // AI 面试阶段只能进入真人复面或结束，不能直接进入 Offer。
-      // AI interview can only advance to human interview or close, never directly to offer.
-      const canAdvanceToHumanInterview = hasEvent({ type: "ADVANCE_TO_HUMAN_INTERVIEW" });
-      if (canAdvanceToHumanInterview && canCreateHumanInterview) {
-        // 还没跑完时，允许 HR 提前安排复面（跳过场景：技术面已经过、不想等剩下的）。
-        // Skip-ahead path while AI interviews are still in flight.
-        buttons.push({
-          key: "to-human",
-          node: (
-            <HumanInterviewAdvanceButton
-              disabledReason={resolveHumanInterviewAdvanceDisabledReason(
-                hasJobDescription,
-                canAdvanceToHumanInterview,
-              )}
-              isAdvancing={isAdvancing}
-              isBusy={isBusy}
-              key="to-human"
-              onAdvance={onAdvance}
-            />
-          ),
-          side: "right",
-        });
-      }
-      break;
-    }
-
-    case "human_interview": {
-      // 真人复面阶段：只有完成所有轮次并补全评价后才能进入 Offer。
-      // Human interview: offer is available only after rounds are complete with feedback.
-      if (canCreateOffer) {
-        const disabledReason = resolveOfferAdvanceDisabledReason(
-          humanInterviewDone,
-          humanInterviewFeedbackComplete,
-          hasEvent({ type: "ADVANCE_TO_OFFER" }),
-        );
-        buttons.push({
-          key: "to-offer",
-          node: (
-            <OfferAdvanceButton
-              disabledReason={disabledReason}
-              isAdvancing={isAdvancing}
-              isBusy={isBusy}
-              key="to-offer"
-              onAdvance={onAdvance}
-            />
-          ),
-          side: "right",
-        });
-      }
-      break;
-    }
-
-    case "offer": {
-      // Offer 阶段只等待结束。
-      // Offer stage only closes.
-      break;
-    }
-
-    case "written_test": {
-      // 笔试阶段当前 UI 隐藏；但万一被 API 直接置过来了，至少给个出口。
-      // Hidden tab currently; allow advance/back so HR isn't stuck.
-      buttons.push({
-        key: "to-ai",
-        node: (
-          <Button
-            disabled={isBusy}
-            key="to-ai"
-            onClick={async () => {
-              await onAdvance("ai_interview");
-            }}
-            size="sm"
-          >
-            <IconArrowRight className="size-4" />
-            {isAdvancing ? "推进中..." : "推进到 AI 面试"}
-          </Button>
-        ),
-        side: "right",
-      });
-      break;
-    }
-
-    default: {
-      break;
-    }
-  }
-
-  const groups: StageActionGroups = { left: [], right: [] };
-  for (const button of buttons) {
-    groups[button.side].push(button.node);
-  }
-  return groups;
-}
-
-function resolveHumanInterviewAdvanceDisabledReason(
-  hasJobDescription: boolean,
-  canAdvanceToHumanInterview: boolean,
-): string | null {
-  return hasJobDescription && canAdvanceToHumanInterview
-    ? null
-    : "请先绑定在招岗位后再安排真人面试";
-}
-
-function resolveOfferAdvanceDisabledReason(
-  humanInterviewDone: boolean | undefined,
-  humanInterviewFeedbackComplete: boolean | undefined,
-  canAdvanceToOffer: boolean,
-): string | null {
-  return humanInterviewDone && humanInterviewFeedbackComplete && canAdvanceToOffer
-    ? null
-    : "请先完成所有真人面试轮次，并补全每轮面试评价";
-}
-
-function HumanInterviewAdvanceButton({
-  disabledReason,
-  isAdvancing,
-  isBusy,
-  onAdvance,
-  variant = "default",
-}: {
-  disabledReason: string | null;
-  isAdvancing: boolean;
-  isBusy: boolean;
-  onAdvance: (target: PipelineStage) => void | Promise<void>;
-  variant?: ComponentProps<typeof Button>["variant"];
-}) {
-  const targetStage: PipelineStage = "human_interview";
-  const locked = isBusy || Boolean(disabledReason);
-  const button = (
-    <Button
-      aria-disabled={locked}
-      className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:shadow-none aria-disabled:active:scale-100"
-      disabled={isBusy}
-      key="to-human"
-      onClick={() => {
-        if (locked) {
-          return;
-        }
-        void onAdvance(targetStage);
-      }}
-      size="sm"
-      variant={variant}
-    >
-      <IconUsers className="size-4" />
-      {isAdvancing ? "处理中..." : "安排真人面试"}
-    </Button>
-  );
-
-  if (!disabledReason) {
-    return button;
-  }
-
-  return (
-    <Tooltip key="to-human">
-      <TooltipTrigger render={button} />
-      <TooltipContent>{disabledReason}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function OfferAdvanceButton({
-  disabledReason,
-  isAdvancing,
-  isBusy,
-  onAdvance,
-}: {
-  disabledReason: string | null;
-  isAdvancing: boolean;
-  isBusy: boolean;
-  onAdvance: (target: PipelineStage) => void | Promise<void>;
-}) {
-  const targetStage: PipelineStage = "offer";
-  const locked = isBusy || Boolean(disabledReason);
-  const button = (
-    <Button
-      aria-disabled={locked}
-      className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:shadow-none aria-disabled:active:scale-100"
-      disabled={isBusy}
-      key="to-offer"
-      onClick={() => {
-        if (locked) {
-          return;
-        }
-        void onAdvance(targetStage);
-      }}
-      size="sm"
-      variant="default"
-    >
-      <IconArrowRight className="size-4" />
-      {isAdvancing ? "推进中..." : "推进到 Offer"}
-    </Button>
-  );
-
-  if (!disabledReason) {
-    return button;
-  }
-
-  return (
-    <Tooltip key="to-offer">
-      <TooltipTrigger render={button} />
-      <TooltipContent>{disabledReason}</TooltipContent>
-    </Tooltip>
-  );
 }

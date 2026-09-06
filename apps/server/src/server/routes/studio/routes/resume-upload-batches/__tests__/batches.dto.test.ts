@@ -26,7 +26,7 @@ describe("resume upload batch DTO mapping", () => {
       poolItemId: null,
       queueJobId: null,
       queuedAt: null,
-      resumeRecordId: null,
+      recruitingRecordId: null,
       startedAt: new Date("2026-06-21T00:00:00.000Z"),
       status: "duplicate_skipped",
       storageKey: "attachments/resume.pdf",

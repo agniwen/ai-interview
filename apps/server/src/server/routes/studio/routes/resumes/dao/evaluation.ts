@@ -1,6 +1,8 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { interviewAuditLog, studioInterview } from "@app/db-schema/schema";
+import { recruitingEvent } from "@app/db-schema/schema";
 import type { ResumeEvaluationStatus } from "@app/shared/studio-resumes";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -28,7 +30,7 @@ async function insertEvaluationAudit(
     toStatus: ResumeEvaluationStatus | null;
   },
 ) {
-  await tx.insert(interviewAuditLog).values({
+  await tx.insert(recruitingEvent).values({
     action: input.action,
     createdAt: new Date(),
     detail: {
@@ -39,9 +41,9 @@ async function insertEvaluationAudit(
       toStatus: input.toStatus,
     },
     id: crypto.randomUUID(),
-    interviewRecordId: input.interviewRecordId,
     operatorId: input.operatorId,
     organizationId: input.organizationId,
+    recruitingRecordId: input.interviewRecordId,
   });
 }
 
@@ -62,20 +64,19 @@ export async function setResumeEvaluationStatusWithAuditTx(
     return { currentStatus: input.status, status: "unchanged" };
   }
 
-  await tx
-    .update(studioInterview)
-    .set({
+  await updateRecruitingRecords(
+    tx,
+    and(
+      eq(recruitingRecordReadModel.id, input.id),
+      eq(recruitingRecordReadModel.organizationId, input.organizationId),
+    ),
+    {
       resumeEvaluationStatus: input.status,
       updatedAt: input.now,
-    })
-    .where(
-      and(
-        eq(studioInterview.id, input.id),
-        eq(studioInterview.organizationId, input.organizationId),
-      ),
-    );
+    },
+  );
 
-  await tx.insert(interviewAuditLog).values({
+  await tx.insert(recruitingEvent).values({
     action:
       input.currentStatus === null ? "resume_evaluation_submitted" : "resume_evaluation_updated",
     createdAt: input.now,
@@ -84,9 +85,9 @@ export async function setResumeEvaluationStatusWithAuditTx(
       toStatus: input.status,
     },
     id: input.auditLogId ?? crypto.randomUUID(),
-    interviewRecordId: input.id,
     operatorId: input.operatorId,
     organizationId: input.organizationId,
+    recruitingRecordId: input.id,
   });
 
   return { currentStatus: input.status, status: "updated" };
@@ -103,12 +104,12 @@ export async function resetResumeEvaluationForJobChange(input: {
   const now = new Date();
   return await db.transaction(async (tx) => {
     const [existing] = await tx
-      .select({ resumeEvaluationStatus: studioInterview.resumeEvaluationStatus })
-      .from(studioInterview)
+      .select({ resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus })
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, input.id),
-          eq(studioInterview.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.id, input.id),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
       .for("update")
@@ -121,18 +122,17 @@ export async function resetResumeEvaluationForJobChange(input: {
       return { currentStatus: null, status: "unchanged" };
     }
 
-    await tx
-      .update(studioInterview)
-      .set({
+    await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, input.id),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+      ),
+      {
         resumeEvaluationStatus: null,
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.id),
-          eq(studioInterview.organizationId, input.organizationId),
-        ),
-      );
+      },
+    );
 
     await insertEvaluationAudit(tx, {
       action: "resume_evaluation_reset_for_job_change",
@@ -158,29 +158,27 @@ export async function submitResumeEvaluationOnce(input: {
 }): Promise<ResumeEvaluationMutationResult> {
   const now = new Date();
   return await db.transaction(async (tx) => {
-    const [updated] = await tx
-      .update(studioInterview)
-      .set({
+    const [updated] = await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, input.id),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        isNull(recruitingRecordReadModel.resumeEvaluationStatus),
+      ),
+      {
         resumeEvaluationStatus: input.status,
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.id),
-          eq(studioInterview.organizationId, input.organizationId),
-          isNull(studioInterview.resumeEvaluationStatus),
-        ),
-      )
-      .returning({ id: studioInterview.id });
+      },
+    );
 
     if (!updated) {
       const [existing] = await tx
-        .select({ resumeEvaluationStatus: studioInterview.resumeEvaluationStatus })
-        .from(studioInterview)
+        .select({ resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus })
+        .from(recruitingRecordReadModel)
         .where(
           and(
-            eq(studioInterview.id, input.id),
-            eq(studioInterview.organizationId, input.organizationId),
+            eq(recruitingRecordReadModel.id, input.id),
+            eq(recruitingRecordReadModel.organizationId, input.organizationId),
           ),
         )
         .limit(1);
@@ -215,12 +213,12 @@ export async function updateResumeEvaluationStatus(input: {
   const now = new Date();
   return await db.transaction(async (tx) => {
     const [existing] = await tx
-      .select({ resumeEvaluationStatus: studioInterview.resumeEvaluationStatus })
-      .from(studioInterview)
+      .select({ resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus })
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, input.id),
-          eq(studioInterview.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.id, input.id),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
       .limit(1);

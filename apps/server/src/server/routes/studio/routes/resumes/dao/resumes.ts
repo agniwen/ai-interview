@@ -1,3 +1,14 @@
+import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
+import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import { buildRecruitingBoardFilter } from "./board-filter";
+import {
+  recruitingNodeState,
+  recruitingNodeValues,
+  department,
+  jobDescription,
+  user,
+} from "@app/db-schema/schema";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
 import { and, arrayContains, asc, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
@@ -13,7 +24,6 @@ import {
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
-import { department, jobDescription, studioInterview, user } from "@app/db-schema/schema";
 import { candidateOutcomeValues, pipelineStageValues } from "@app/db-schema/studio-interviews";
 import type { JsonValue } from "@app/db-schema/json";
 import type {
@@ -58,9 +68,9 @@ function parseResumeReviewNextStepAction(
 const SORT_COLUMNS = ["createdAt", "candidateName", "structuredScore", "updatedAt"] as const;
 
 const ORDER_COLUMNS = {
-  candidateName: studioInterview.candidateName,
-  createdAt: studioInterview.createdAt,
-  updatedAt: studioInterview.updatedAt,
+  candidateName: recruitingRecordReadModel.candidateName,
+  createdAt: recruitingRecordReadModel.createdAt,
+  updatedAt: recruitingRecordReadModel.updatedAt,
 } as const;
 
 const paginationSchema = makePaginationSchema(SORT_COLUMNS);
@@ -78,10 +88,34 @@ const resumeSkillsSchema = z.array(z.string());
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
 // buildWhere drops blanks before using them so we don't need to error here.
 const filtersSchema = z.object({
+  boardView: recruitingBoardViewSchema.optional(),
   createdAtBefore: z.date().optional(),
   createdAtFrom: z.date().optional(),
   creatorIds: z.array(z.string()).max(50).optional().nullable(),
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
+  nodeResults: z
+    .array(z.enum(["pass", "fail", "withdrawn"]))
+    .max(3)
+    .optional()
+    .nullable(),
+  nodeStatuses: z
+    .array(
+      z.enum([
+        "inactive",
+        "pending",
+        "scheduled",
+        "in_progress",
+        "awaiting_review",
+        "negotiating",
+        "awaiting_send",
+        "awaiting_response",
+        "completed",
+        "skipped",
+      ]),
+    )
+    .max(10)
+    .optional()
+    .nullable(),
   outcomes: z.array(z.string()).max(10).optional().nullable(),
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
   recommendationLevels: z.array(qualitativeRecommendationLevelSchema).max(4).optional().nullable(),
@@ -108,7 +142,7 @@ export class ResumeStructuredScoreQueryError extends Error {
 // Filter compilation helpers split out of buildWhere to keep its complexity low.
 
 function buildSearchCondition(search: string | null | undefined) {
-  return buildResumeKeywordSearch(studioInterview, search) ?? null;
+  return buildResumeKeywordSearch(recruitingRecordReadModel, search) ?? null;
 }
 
 // 输入按存储归一化规则同样处理后再 dedupe；空字符串丢弃。
@@ -124,17 +158,19 @@ function buildSkillsCondition(skills: string[] | null | undefined) {
   const normalized = [
     ...new Set((skills ?? []).map((s) => normalizeSkill(s).normalized).filter((s) => s.length > 0)),
   ];
-  return normalized.length > 0 ? arrayContains(studioInterview.skillsNormalized, normalized) : null;
+  return normalized.length > 0
+    ? arrayContains(recruitingRecordReadModel.skillsNormalized, normalized)
+    : null;
 }
 
 function buildJdIdsCondition(jdIds: string[] | null | undefined) {
   const filtered = jdIds?.filter((id) => id.trim().length > 0) ?? [];
-  return filtered.length > 0 ? inArray(studioInterview.jobDescriptionId, filtered) : null;
+  return filtered.length > 0 ? inArray(recruitingRecordReadModel.jobDescriptionId, filtered) : null;
 }
 
 function buildCreatorIdsCondition(creatorIds: string[] | null | undefined) {
   const filtered = creatorIds?.filter((id) => id.trim().length > 0) ?? [];
-  return filtered.length > 0 ? inArray(studioInterview.createdBy, filtered) : null;
+  return filtered.length > 0 ? inArray(recruitingRecordReadModel.createdBy, filtered) : null;
 }
 
 function buildStagesCondition(stages: string[] | null | undefined) {
@@ -142,7 +178,7 @@ function buildStagesCondition(stages: string[] | null | undefined) {
     const parsed = pipelineStageSchema.safeParse(stage);
     return parsed.success ? [parsed.data] : [];
   });
-  return filtered.length > 0 ? inArray(studioInterview.pipelineStage, filtered) : null;
+  return filtered.length > 0 ? inArray(recruitingRecordReadModel.pipelineStage, filtered) : null;
 }
 
 function buildOutcomesCondition(outcomes: string[] | null | undefined) {
@@ -150,22 +186,73 @@ function buildOutcomesCondition(outcomes: string[] | null | undefined) {
     const parsed = candidateOutcomeSchema.safeParse(outcome);
     return parsed.success ? [parsed.data] : [];
   });
-  return filtered.length > 0 ? inArray(studioInterview.outcome, filtered) : null;
+  return filtered.length > 0 ? inArray(recruitingRecordReadModel.outcome, filtered) : null;
 }
 
 function buildRecommendationLevelsCondition(levels: ResumeQueryFilters["recommendationLevels"]) {
-  return levels?.length ? inArray(studioInterview.qualitativeRecommendationLevel, levels) : null;
+  return levels?.length
+    ? inArray(recruitingRecordReadModel.qualitativeRecommendationLevel, levels)
+    : null;
 }
 
 function buildStructuredScoreConditions(filters?: ResumeQueryFilters) {
   const conditions = [];
   if (filters?.structuredMinScore !== null && filters?.structuredMinScore !== undefined) {
-    conditions.push(gte(studioInterview.structuredCompositeScore, filters.structuredMinScore));
+    conditions.push(
+      gte(recruitingRecordReadModel.structuredCompositeScore, filters.structuredMinScore),
+    );
   }
   if (filters?.structuredMaxScore !== null && filters?.structuredMaxScore !== undefined) {
-    conditions.push(lte(studioInterview.structuredCompositeScore, filters.structuredMaxScore));
+    conditions.push(
+      lte(recruitingRecordReadModel.structuredCompositeScore, filters.structuredMaxScore),
+    );
   }
   return conditions;
+}
+
+function toNodeStateRecord(
+  node: (typeof recruitingNodeValues)[number],
+  state: typeof recruitingNodeState.$inferSelect | undefined,
+): ResumeLibraryDetail["nodeStates"][number] {
+  if (!state) {
+    return {
+      completedAt: null,
+      decidedAt: null,
+      decidedBy: null,
+      effectiveAiRoundId: null,
+      effectiveHumanRoundId: null,
+      effectiveOfferId: null,
+      enteredAt: null,
+      node,
+      reason: null,
+      result: null,
+      status: "inactive",
+    };
+  }
+  return {
+    completedAt: serializeDate(state.completedAt),
+    decidedAt: serializeDate(state.decidedAt),
+    decidedBy: state.decidedBy,
+    effectiveAiRoundId: state.effectiveAiRoundId,
+    effectiveHumanRoundId: state.effectiveHumanRoundId,
+    effectiveOfferId: state.effectiveOfferId,
+    enteredAt: serializeDate(state.enteredAt),
+    node,
+    reason: state.reason,
+    result: state.result,
+    status: state.status,
+  };
+}
+
+function buildNodeFilters(filters?: ResumeQueryFilters) {
+  return [
+    filters?.nodeStatuses?.length
+      ? inArray(recruitingRecordReadModel.status, filters.nodeStatuses)
+      : null,
+    filters?.nodeResults?.length
+      ? inArray(recruitingRecordReadModel.result, filters.nodeResults)
+      : null,
+  ];
 }
 
 function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
@@ -173,17 +260,21 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     return sql`false`;
   }
   const conditions = [
-    eq(studioInterview.organizationId, organizationId),
-    filters?.createdAtFrom ? gte(studioInterview.createdAt, filters.createdAtFrom) : null,
+    eq(recruitingRecordReadModel.organizationId, organizationId),
+    filters?.createdAtFrom ? gte(recruitingRecordReadModel.createdAt, filters.createdAtFrom) : null,
     // Exclusive next-day midnight includes the entire end date, including fractional seconds.
-    filters?.createdAtBefore ? lt(studioInterview.createdAt, filters.createdAtBefore) : null,
+    filters?.createdAtBefore
+      ? lt(recruitingRecordReadModel.createdAt, filters.createdAtBefore)
+      : null,
     buildSearchCondition(filters?.search),
-    buildResumeAtomicSearch(studioInterview, filters?.textFilters),
+    buildResumeAtomicSearch(recruitingRecordReadModel, filters?.textFilters),
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
+    ...buildNodeFilters(filters),
+    buildRecruitingBoardFilter(filters?.boardView),
     buildRecommendationLevelsCondition(filters?.recommendationLevels),
     ...buildStructuredScoreConditions(filters),
   ].filter((c) => c !== null);
@@ -191,134 +282,151 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
 }
 
 const SELECTED_COLUMNS = {
-  candidateEmail: studioInterview.candidateEmail,
-  candidateExpectationsMeta: studioInterview.candidateExpectationsMeta,
-  candidateName: studioInterview.candidateName,
-  candidatePhone: studioInterview.candidatePhone,
-  closedAt: studioInterview.closedAt,
-  closedMeta: studioInterview.closedMeta,
-  closedReason: studioInterview.closedReason,
-  createdAt: studioInterview.createdAt,
-  createdBy: studioInterview.createdBy,
+  candidateEmail: recruitingRecordReadModel.candidateEmail,
+  candidateExpectationsMeta: recruitingRecordReadModel.candidateExpectationsMeta,
+  candidateName: recruitingRecordReadModel.candidateName,
+  candidatePhone: recruitingRecordReadModel.candidatePhone,
+  closeReason: recruitingRecordReadModel.closeReason,
+  closedAt: recruitingRecordReadModel.closedAt,
+  closedFromNode: recruitingRecordReadModel.closedFromNode,
+  closedMeta: recruitingRecordReadModel.closedMeta,
+  closedReason: recruitingRecordReadModel.closedReason,
+  createdAt: recruitingRecordReadModel.createdAt,
+  createdBy: recruitingRecordReadModel.createdBy,
   creatorImage: user.image,
   creatorName: user.name,
   creatorOrganizationName: user.feishuTenantName,
-  hrResumeAssessment: studioInterview.hrResumeAssessment,
-  hrResumeAssessmentUpdatedAt: studioInterview.hrResumeAssessmentUpdatedAt,
-  hrResumeAssessmentUpdatedBy: studioInterview.hrResumeAssessmentUpdatedBy,
-  humanInterviewScheduledAt: studioInterview.humanInterviewScheduledAt,
-  humanInterviewerId: studioInterview.humanInterviewerId,
-  id: studioInterview.id,
+  hrResumeAssessment: recruitingRecordReadModel.hrResumeAssessment,
+  hrResumeAssessmentUpdatedAt: recruitingRecordReadModel.hrResumeAssessmentUpdatedAt,
+  hrResumeAssessmentUpdatedBy: recruitingRecordReadModel.hrResumeAssessmentUpdatedBy,
+  humanInterviewScheduledAt: recruitingRecordReadModel.humanInterviewScheduledAt,
+  humanInterviewerId: recruitingRecordReadModel.humanInterviewerId,
+  id: recruitingRecordReadModel.id,
   jobDescriptionDepartmentName: department.name,
-  jobDescriptionId: studioInterview.jobDescriptionId,
+  jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
   jobDescriptionResumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
   jobEvaluationMode: jobDescription.evaluationMode,
-  notes: studioInterview.notes,
-  offerAcceptedAt: studioInterview.offerAcceptedAt,
-  offerSentAt: studioInterview.offerSentAt,
-  outcome: studioInterview.outcome,
-  pipelineStage: studioInterview.pipelineStage,
-  qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
-  qualitativeRecommendationLevel: studioInterview.qualitativeRecommendationLevel,
-  qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+  nodeResult: recruitingRecordReadModel.result,
+  nodeStatus: recruitingRecordReadModel.status,
+  notes: recruitingRecordReadModel.notes,
+  offerAcceptedAt: recruitingRecordReadModel.offerAcceptedAt,
+  offerSentAt: recruitingRecordReadModel.offerSentAt,
+  outcome: recruitingRecordReadModel.outcome,
+  pipelineStage: recruitingRecordReadModel.pipelineStage,
+  qualitativeJobDescriptionVersionId: recruitingRecordReadModel.qualitativeJobDescriptionVersionId,
+  qualitativeRecommendationLevel: recruitingRecordReadModel.qualitativeRecommendationLevel,
+  qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
   qualitativeResumeSummary: sql<
     string | null
-  >`${studioInterview.qualitativeResumeEvaluation}->>'conciseOverall'`.as(
+  >`${recruitingRecordReadModel.qualitativeResumeEvaluation}->>'conciseOverall'`.as(
     "qualitative_resume_summary",
   ),
-  resumeContentHash: studioInterview.resumeContentHash,
+  resumeContentHash: recruitingRecordReadModel.resumeContentHash,
   resumeEducationExperiences:
-    sql<unknown>`${studioInterview.resumeProfile}->'educationExperiences'`.as(
+    sql<unknown>`${recruitingRecordReadModel.resumeProfile}->'educationExperiences'`.as(
       "resume_education_experiences",
     ),
   resumeEducationGraduationYear: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'graduationYear'`.as(
+  >`${recruitingRecordReadModel.resumeProfile}->'educationExperiences'->0->>'graduationYear'`.as(
     "resume_education_graduation_year",
   ),
   resumeEducationLevel: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'educationLevel'`.as(
+  >`${recruitingRecordReadModel.resumeProfile}->'educationExperiences'->0->>'educationLevel'`.as(
     "resume_education_level",
   ),
   resumeEducationMajor: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'major'`.as(
+  >`${recruitingRecordReadModel.resumeProfile}->'educationExperiences'->0->>'major'`.as(
     "resume_education_major",
   ),
   resumeEducationPeriod: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'period'`.as(
+  >`${recruitingRecordReadModel.resumeProfile}->'educationExperiences'->0->>'period'`.as(
     "resume_education_period",
   ),
   resumeEducationSchool: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'school'`.as(
+  >`${recruitingRecordReadModel.resumeProfile}->'educationExperiences'->0->>'school'`.as(
     "resume_education_school",
   ),
-  resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-  resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
-  resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
-  resumeFileName: studioInterview.resumeFileName,
-  resumeParseError: studioInterview.resumeParseError,
-  resumeParseStatus: studioInterview.resumeParseStatus,
-  resumeParsedAt: studioInterview.resumeParsedAt,
-  resumeProjectExperiences: sql<unknown>`${studioInterview.resumeProfile}->'projectExperiences'`.as(
-    "resume_project_experiences",
-  ),
+  resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+  resumeEvaluationAttemptMode: recruitingRecordReadModel.resumeEvaluationAttemptMode,
+  resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus,
+  resumeFileName: recruitingRecordReadModel.resumeFileName,
+  resumeParseError: recruitingRecordReadModel.resumeParseError,
+  resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+  resumeParsedAt: recruitingRecordReadModel.resumeParsedAt,
+  resumeProjectExperiences:
+    sql<unknown>`${recruitingRecordReadModel.resumeProfile}->'projectExperiences'`.as(
+      "resume_project_experiences",
+    ),
   resumeReviewBaseScore: sql<
     string | null
-  >`coalesce(${studioInterview.resumeReview}->'overall'->>'baseScore', ${studioInterview.resumeReview}->'overall'->>'score')`.as(
+  >`coalesce(${recruitingRecordReadModel.resumeReview}->'overall'->>'baseScore', ${recruitingRecordReadModel.resumeReview}->'overall'->>'score')`.as(
     "resume_review_base_score",
   ),
   resumeReviewConclusion: sql<
     string | null
-  >`${studioInterview.resumeReview}->'overall'->>'conclusion'`.as("resume_review_conclusion"),
-  resumeReviewError: studioInterview.resumeReviewError,
-  resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+  >`${recruitingRecordReadModel.resumeReview}->'overall'->>'conclusion'`.as(
+    "resume_review_conclusion",
+  ),
+  resumeReviewError: recruitingRecordReadModel.resumeReviewError,
+  resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
   resumeReviewNextStepAction: sql<
     string | null
-  >`${studioInterview.resumeReview}->'nextStep'->>'action'`.as("resume_review_next_step_action"),
-  resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
-  resumeReviewRunId: studioInterview.resumeReviewRunId,
-  resumeReviewStatus: studioInterview.resumeReviewStatus,
-  resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
+  >`${recruitingRecordReadModel.resumeReview}->'nextStep'->>'action'`.as(
+    "resume_review_next_step_action",
+  ),
+  resumeReviewQueuedAt: recruitingRecordReadModel.resumeReviewQueuedAt,
+  resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+  resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+  resumeSchool: sql<string | null>`${recruitingRecordReadModel.resumeProfile}->'schools'->>0`.as(
     "resume_school",
   ),
-  resumeScreeningError: studioInterview.resumeScreeningError,
-  resumeScreeningEvaluatedAt: studioInterview.resumeScreeningEvaluatedAt,
-  resumeScreeningResult: studioInterview.resumeScreeningResult,
-  resumeScreeningStatus: studioInterview.resumeScreeningStatus,
-  resumeSkills: sql<JsonValue | null>`${studioInterview.resumeProfile}->'skills'`.as(
+  resumeScreeningError: recruitingRecordReadModel.resumeScreeningError,
+  resumeScreeningEvaluatedAt: recruitingRecordReadModel.resumeScreeningEvaluatedAt,
+  resumeScreeningResult: recruitingRecordReadModel.resumeScreeningResult,
+  resumeScreeningStatus: recruitingRecordReadModel.resumeScreeningStatus,
+  resumeSkills: sql<JsonValue | null>`${recruitingRecordReadModel.resumeProfile}->'skills'`.as(
     "resume_skills",
   ),
-  resumeStorageKey: studioInterview.resumeStorageKey,
+  resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
   resumeWorkCompany: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'company'`.as("resume_work_company"),
-  resumeWorkExperiences: sql<unknown>`${studioInterview.resumeProfile}->'workExperiences'`.as(
-    "resume_work_experiences",
+  >`${recruitingRecordReadModel.resumeProfile}->'workExperiences'->0->>'company'`.as(
+    "resume_work_company",
   ),
+  resumeWorkExperiences:
+    sql<unknown>`${recruitingRecordReadModel.resumeProfile}->'workExperiences'`.as(
+      "resume_work_experiences",
+    ),
   resumeWorkPeriod: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'period'`.as("resume_work_period"),
+  >`${recruitingRecordReadModel.resumeProfile}->'workExperiences'->0->>'period'`.as(
+    "resume_work_period",
+  ),
   resumeWorkRole: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'role'`.as("resume_work_role"),
-  structuredCompositeScore: studioInterview.structuredCompositeScore,
-  structuredGateSortRank: studioInterview.structuredGateSortRank,
-  structuredGateStatus: studioInterview.structuredGateStatus,
-  structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+  >`${recruitingRecordReadModel.resumeProfile}->'workExperiences'->0->>'role'`.as(
+    "resume_work_role",
+  ),
+  structuredCompositeScore: recruitingRecordReadModel.structuredCompositeScore,
+  structuredGateSortRank: recruitingRecordReadModel.structuredGateSortRank,
+  structuredGateStatus: recruitingRecordReadModel.structuredGateStatus,
+  structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
   structuredResumeSummary: sql<string | null>`coalesce(
-    ${studioInterview.structuredResumeEvaluation}->'narrative'->>'overallComment',
-    ${studioInterview.structuredResumeEvaluation}->'narrative'->>'summary'
+    ${recruitingRecordReadModel.structuredResumeEvaluation}->'narrative'->>'overallComment',
+    ${recruitingRecordReadModel.structuredResumeEvaluation}->'narrative'->>'summary'
   )`.as("structured_resume_summary"),
-  structuredScoreGrade: studioInterview.structuredScoreGrade,
-  targetRole: studioInterview.targetRole,
-  updatedAt: studioInterview.updatedAt,
-  writtenTestScheduledAt: studioInterview.writtenTestScheduledAt,
-  writtenTestScore: studioInterview.writtenTestScore,
+  structuredScoreGrade: recruitingRecordReadModel.structuredScoreGrade,
+  targetRole: recruitingRecordReadModel.targetRole,
+  updatedAt: recruitingRecordReadModel.updatedAt,
+  version: recruitingRecordReadModel.version,
+  writtenTestScheduledAt: recruitingRecordReadModel.writtenTestScheduledAt,
+  writtenTestScore: recruitingRecordReadModel.writtenTestScore,
 } as const;
 
 // 列表只取卡片、筛选结果和轻量操作实际需要的字段；评价详情、错误信息及阶段元数据
@@ -336,6 +444,8 @@ const LIST_SELECTED_COLUMNS = {
   jobDescriptionId: SELECTED_COLUMNS.jobDescriptionId,
   jobDescriptionName: SELECTED_COLUMNS.jobDescriptionName,
   jobEvaluationMode: SELECTED_COLUMNS.jobEvaluationMode,
+  nodeResult: SELECTED_COLUMNS.nodeResult,
+  nodeStatus: SELECTED_COLUMNS.nodeStatus,
   notes: SELECTED_COLUMNS.notes,
   outcome: SELECTED_COLUMNS.outcome,
   pipelineStage: SELECTED_COLUMNS.pipelineStage,
@@ -375,6 +485,7 @@ const LIST_SELECTED_COLUMNS = {
   structuredScoreGrade: SELECTED_COLUMNS.structuredScoreGrade,
   targetRole: SELECTED_COLUMNS.targetRole,
   updatedAt: SELECTED_COLUMNS.updatedAt,
+  version: SELECTED_COLUMNS.version,
 } as const;
 
 type Row = Awaited<ReturnType<typeof selectRows>>[number];
@@ -391,20 +502,20 @@ function selectRows({
   const { page, pageSize, sortBy, sortOrder } = paginationSchema.parse(pagination ?? {});
   const offset = (page - 1) * pageSize;
   const artifactGroup = sql`case
-    when ${studioInterview.resumeEvaluationArtifactMode} = 'qualitative'
+    when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} = 'qualitative'
       or (
-        ${studioInterview.resumeEvaluationArtifactMode} is null
-        and ${studioInterview.qualitativeRecommendationLevel} is not null
+        ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is null
+        and ${recruitingRecordReadModel.qualitativeRecommendationLevel} is not null
       ) then 0
-    when ${studioInterview.resumeEvaluationArtifactMode} = 'structured'
+    when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} = 'structured'
       or (
-        ${studioInterview.resumeEvaluationArtifactMode} is null
-        and ${studioInterview.structuredCompositeScore} is not null
+        ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is null
+        and ${recruitingRecordReadModel.structuredCompositeScore} is not null
       ) then 1
-    when ${studioInterview.resumeEvaluationArtifactMode} = 'legacy'
+    when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} = 'legacy'
       or (
-        ${studioInterview.resumeEvaluationArtifactMode} is null
-        and ${studioInterview.resumeReview} is not null
+        ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is null
+        and ${recruitingRecordReadModel.resumeReview} is not null
       ) then 2
     else 3
   end`;
@@ -412,37 +523,37 @@ function selectRows({
     sortBy === "structuredScore"
       ? [
           asc(artifactGroup),
-          asc(studioInterview.structuredGateSortRank),
-          desc(studioInterview.structuredCompositeScore),
+          asc(recruitingRecordReadModel.structuredGateSortRank),
+          desc(recruitingRecordReadModel.structuredCompositeScore),
           desc(
             sql`case when ${artifactGroup} = 2
               then coalesce(
-                ${studioInterview.resumeReview}->'overall'->>'baseScore',
-                ${studioInterview.resumeReview}->'overall'->>'score'
+                ${recruitingRecordReadModel.resumeReview}->'overall'->>'baseScore',
+                ${recruitingRecordReadModel.resumeReview}->'overall'->>'score'
               )::numeric
               else null end`,
           ),
-          asc(studioInterview.candidateName),
-          asc(studioInterview.id),
+          asc(recruitingRecordReadModel.candidateName),
+          asc(recruitingRecordReadModel.id),
         ]
       : [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
 
   return db
     .select(LIST_SELECTED_COLUMNS)
-    .from(studioInterview)
-    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .from(recruitingRecordReadModel)
+    .leftJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .leftJoin(
       department,
       and(
         eq(jobDescription.departmentId, department.id),
-        eq(department.organizationId, studioInterview.organizationId),
+        eq(department.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(buildWhere(organizationId, filters))
@@ -565,6 +676,8 @@ function toRecord(
     jobDescriptionName: row.jobDescriptionName,
     jobEvaluationMode: row.jobEvaluationMode,
     lastInterviewAt: resolvedDerived.lastInterviewAt,
+    nodeResult: row.nodeResult,
+    nodeStatus: row.nodeStatus,
     notes: row.notes,
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
@@ -598,12 +711,14 @@ function toRecord(
     structuredScoreGrade: row.structuredScoreGrade,
     targetRole: row.targetRole,
     updatedAt: serializeDate(row.updatedAt),
+    version: row.version,
   };
 }
 
 export async function queryPaginatedResumeRecords(
   organizationId: string,
   filters?: {
+    boardView?: RecruitingBoardView;
     createdAtBefore?: Date;
     createdAtFrom?: Date;
     search?: string | null;
@@ -613,6 +728,8 @@ export async function queryPaginatedResumeRecords(
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
+    nodeStatuses?: string[] | null;
+    nodeResults?: string[] | null;
     recommendationLevels?: string[] | null;
     structuredMaxScore?: number | null;
     structuredMinScore?: number | null;
@@ -666,7 +783,10 @@ export async function queryPaginatedResumeRecords(
   const totalPromise =
     knownTotal === undefined
       ? (async () => {
-          const [row] = await db.select({ count: count() }).from(studioInterview).where(where);
+          const [row] = await db
+            .select({ count: count() })
+            .from(recruitingRecordReadModel)
+            .where(where);
           return row?.count ?? 0;
         })()
       : Promise.resolve(knownTotal);
@@ -708,6 +828,7 @@ export async function queryPaginatedResumeRecords(
 export function listResumeRecords(
   organizationId: string,
   filters?: {
+    boardView?: RecruitingBoardView;
     createdAtBefore?: Date;
     createdAtFrom?: Date;
     search?: string | null;
@@ -717,6 +838,8 @@ export function listResumeRecords(
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
+    nodeStatuses?: string[] | null;
+    nodeResults?: string[] | null;
     structuredMaxScore?: number | null;
     structuredMinScore?: number | null;
   },
@@ -739,34 +862,34 @@ export async function loadResumeDetail(
   }
   const visibilityCondition =
     visibilityScope?.kind === "restricted"
-      ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+      ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
       : null;
   const conditions = [
-    eq(studioInterview.id, id),
-    eq(studioInterview.organizationId, organizationId),
+    eq(recruitingRecordReadModel.id, id),
+    eq(recruitingRecordReadModel.organizationId, organizationId),
     visibilityCondition,
   ].filter((condition) => condition !== null);
   const [row] = await db
     .select({
       ...SELECTED_COLUMNS,
-      interviewQuestions: studioInterview.interviewQuestions,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReview: studioInterview.resumeReview,
+      interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeReview: recruitingRecordReadModel.resumeReview,
     })
-    .from(studioInterview)
-    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .from(recruitingRecordReadModel)
+    .leftJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .leftJoin(
       department,
       and(
         eq(jobDescription.departmentId, department.id),
-        eq(department.organizationId, studioInterview.organizationId),
+        eq(department.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(and(...conditions))
@@ -787,12 +910,21 @@ export async function loadResumeDetail(
   const qualitativeEvaluation = qualitativeResumeEvaluationSchema.safeParse(
     rest.qualitativeResumeEvaluation,
   );
-  const [derivedFields, duplicateMatches] = await Promise.all([
+  const [derivedFields, duplicateMatches, states] = await Promise.all([
     loadResumeDerivedFields([rest.id], organizationId),
     listActiveStudioDuplicateMatchSummaries({
       organizationId,
       sourceIds: [rest.id],
     }),
+    db
+      .select()
+      .from(recruitingNodeState)
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, rest.id),
+          eq(recruitingNodeState.organizationId, organizationId),
+        ),
+      ),
   ]);
   return {
     ...toRecord(
@@ -801,7 +933,9 @@ export async function loadResumeDetail(
       toDuplicateMatchSummary(duplicateMatches.get(rest.id)),
     ),
     candidateExpectationsMeta: rest.candidateExpectationsMeta,
+    closeReason: rest.closeReason,
     closedAt: serializeDate(rest.closedAt),
+    closedFromNode: rest.closedFromNode,
     closedMeta: rest.closedMeta,
     closedReason: rest.closedReason,
     creatorOrganizationName: rest.creatorOrganizationName,
@@ -811,6 +945,12 @@ export async function loadResumeDetail(
     humanInterviewScheduledAt: serializeDate(rest.humanInterviewScheduledAt),
     humanInterviewerId: rest.humanInterviewerId,
     interviewQuestions: interviewQuestions ?? [],
+    nodeStates: recruitingNodeValues.map((node) =>
+      toNodeStateRecord(
+        node,
+        states.find((entry) => entry.node === node),
+      ),
+    ),
     offerAcceptedAt: serializeDate(rest.offerAcceptedAt),
     offerSentAt: serializeDate(rest.offerSentAt),
     qualitativeJobDescriptionVersionId: rest.qualitativeJobDescriptionVersionId,

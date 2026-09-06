@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -9,13 +10,12 @@ import {
   qualitativeResumeEvaluationV2Schema,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import {
-  interviewAuditLog,
-  interviewConversation,
+  recruitingEvent,
+  aiInterviewConversation,
   jobDescription,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
-  studioInterviewSchedule,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
@@ -61,26 +61,26 @@ export async function listHumanInterviewMeetingCandidates(
 ): Promise<HumanInterviewCandidateMaterialListItem[]> {
   const rows = await db
     .select({
-      candidateName: studioInterview.candidateName,
-      id: studioInterview.id,
-      roundId: studioHumanInterviewRound.id,
-      roundLabel: studioHumanInterviewRound.label,
-      targetRole: studioInterview.targetRole,
+      candidateName: recruitingRecordReadModel.candidateName,
+      id: recruitingRecordReadModel.id,
+      roundId: humanInterviewRound.id,
+      roundLabel: humanInterviewRound.label,
+      targetRole: recruitingRecordReadModel.targetRole,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, scope.meetingId),
-        eq(studioHumanInterviewRound.organizationId, scope.organizationId),
-        eq(studioInterview.organizationId, scope.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, scope.meetingId),
+        eq(humanInterviewRound.organizationId, scope.organizationId),
+        eq(recruitingRecordReadModel.organizationId, scope.organizationId),
       ),
     )
-    .orderBy(asc(studioHumanInterviewRound.sortOrder), asc(studioInterview.candidateName));
+    .orderBy(asc(humanInterviewRound.sortOrder), asc(recruitingRecordReadModel.candidateName));
 
   const candidates = new Map<string, HumanInterviewCandidateMaterialListItem>();
   for (const row of rows) {
@@ -128,30 +128,30 @@ export async function loadHumanInterviewCandidateOverview(input: {
 }): Promise<HumanInterviewCandidateOverviewResponse | null> {
   const [row] = await db
     .select({
-      candidateEmail: studioInterview.candidateEmail,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
+      candidateEmail: recruitingRecordReadModel.candidateEmail,
+      candidateName: recruitingRecordReadModel.candidateName,
+      candidatePhone: recruitingRecordReadModel.candidatePhone,
       creatorName: creator.name,
-      id: studioInterview.id,
+      id: recruitingRecordReadModel.id,
       jobDescriptionName: jobDescription.name,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      targetRole: studioInterview.targetRole,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      targetRole: recruitingRecordReadModel.targetRole,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
-    .leftJoin(creator, eq(studioInterview.createdBy, creator.id))
+    .leftJoin(jobDescription, eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id))
+    .leftJoin(creator, eq(recruitingRecordReadModel.createdBy, creator.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
-        eq(studioInterview.id, input.candidateId),
-        eq(studioInterview.organizationId, input.scope.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(recruitingRecordReadModel.organizationId, input.scope.organizationId),
       ),
     )
     .limit(1);
@@ -181,20 +181,20 @@ export async function loadHumanInterviewCandidateAiEvaluation(input: {
 }): Promise<HumanInterviewCandidateAiEvaluationResponse | null> {
   const [row] = await db
     .select({
-      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
+      qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+      resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
-        eq(studioInterview.id, input.candidateId),
-        eq(studioInterview.organizationId, input.scope.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(recruitingRecordReadModel.organizationId, input.scope.organizationId),
       ),
     )
     .limit(1);
@@ -208,22 +208,22 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
   // Anchor history to the linked round, not the candidate's latest round. For legacy
   // meetings with multiple rounds, the earliest linked round is the safe boundary.
   const [currentRound] = await db
-    .select({ sortOrder: studioHumanInterviewRound.sortOrder })
-    .from(studioHumanInterviewMeetingRound)
+    .select({ sortOrder: humanInterviewRound.sortOrder })
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
-        eq(studioHumanInterviewRound.organizationId, input.scope.organizationId),
-        eq(studioInterview.organizationId, input.scope.organizationId),
-        eq(studioInterview.id, input.candidateId),
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(humanInterviewRound.organizationId, input.scope.organizationId),
+        eq(recruitingRecordReadModel.organizationId, input.scope.organizationId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
       ),
     )
-    .orderBy(asc(studioHumanInterviewRound.sortOrder))
+    .orderBy(asc(humanInterviewRound.sortOrder))
     .limit(1);
   if (!currentRound) {
     return null;
@@ -231,25 +231,25 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
 
   const rounds = await db
     .select({
-      evaluation: studioHumanInterviewRound.evaluation,
-      outcome: studioHumanInterviewRound.outcome,
-      roundId: studioHumanInterviewRound.id,
-      roundLabel: studioHumanInterviewRound.label,
-      submittedAt: studioHumanInterviewRound.evaluationSubmittedAt,
+      evaluation: humanInterviewRound.evaluation,
+      outcome: humanInterviewRound.outcome,
+      roundId: humanInterviewRound.id,
+      roundLabel: humanInterviewRound.label,
+      submittedAt: humanInterviewRound.evaluationSubmittedAt,
       submittedBy: user.name,
     })
-    .from(studioHumanInterviewRound)
-    .leftJoin(user, eq(studioHumanInterviewRound.evaluationUpdatedBy, user.id))
+    .from(humanInterviewRound)
+    .leftJoin(user, eq(humanInterviewRound.evaluationUpdatedBy, user.id))
     .where(
       and(
-        eq(studioHumanInterviewRound.organizationId, input.scope.organizationId),
-        eq(studioHumanInterviewRound.interviewRecordId, input.candidateId),
-        lt(studioHumanInterviewRound.sortOrder, currentRound.sortOrder),
-        eq(studioHumanInterviewRound.status, "completed"),
-        eq(studioHumanInterviewRound.evaluationStatus, "submitted"),
+        eq(humanInterviewRound.organizationId, input.scope.organizationId),
+        eq(humanInterviewRound.recruitingRecordId, input.candidateId),
+        lt(humanInterviewRound.sortOrder, currentRound.sortOrder),
+        eq(humanInterviewRound.status, "completed"),
+        eq(humanInterviewRound.evaluationStatus, "submitted"),
       ),
     )
-    .orderBy(asc(studioHumanInterviewRound.sortOrder), asc(studioHumanInterviewRound.id));
+    .orderBy(asc(humanInterviewRound.sortOrder), asc(humanInterviewRound.id));
   const previousEvaluations = rounds.flatMap(({ evaluation, submittedAt, ...round }) => {
     if (!evaluation) {
       return [];
@@ -272,35 +272,32 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
   });
   const conversations = await db
     .select({
-      conversationId: interviewConversation.conversationId,
-      evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      updatedAt: interviewConversation.updatedAt,
+      conversationId: aiInterviewConversation.conversationId,
+      evaluationCriteriaResults: aiInterviewConversation.evaluationCriteriaResults,
+      roundLabel: aiInterviewRound.roundLabel,
+      updatedAt: aiInterviewConversation.updatedAt,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .innerJoin(
-      interviewConversation,
-      eq(interviewConversation.interviewRecordId, studioInterview.id),
+      aiInterviewConversation,
+      eq(aiInterviewConversation.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .leftJoin(
-      studioInterviewSchedule,
-      eq(interviewConversation.scheduleEntryId, studioInterviewSchedule.id),
-    )
+    .leftJoin(aiInterviewRound, eq(aiInterviewConversation.aiRoundId, aiInterviewRound.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
-        eq(studioInterview.id, input.candidateId),
-        eq(interviewConversation.interviewRecordId, input.candidateId),
-        eq(interviewConversation.organizationId, input.scope.organizationId),
-        eq(interviewConversation.summaryStatus, "ready"),
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(aiInterviewConversation.recruitingRecordId, input.candidateId),
+        eq(aiInterviewConversation.organizationId, input.scope.organizationId),
+        eq(aiInterviewConversation.summaryStatus, "ready"),
       ),
     )
-    .orderBy(desc(interviewConversation.updatedAt));
+    .orderBy(desc(aiInterviewConversation.updatedAt));
   const [hrInitialInformation] = conversations.flatMap((conversation) => {
     const parsed = humanInterviewCandidateHrEvaluationSchema.safeParse(
       conversation.evaluationCriteriaResults.hrEvaluation,
@@ -324,18 +321,18 @@ export async function loadHumanInterviewCandidateQuestions(input: {
   scope: HumanInterviewCandidateMaterialsScope;
 }): Promise<HumanInterviewCandidateQuestionsResponse | null> {
   const [row] = await db
-    .select({ interviewQuestions: studioInterview.interviewQuestions })
-    .from(studioHumanInterviewMeetingRound)
+    .select({ interviewQuestions: recruitingRecordReadModel.interviewQuestions })
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
-        eq(studioInterview.id, input.candidateId),
-        eq(studioInterview.organizationId, input.scope.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(recruitingRecordReadModel.organizationId, input.scope.organizationId),
       ),
     )
     .limit(1);
@@ -352,20 +349,20 @@ export async function loadHumanInterviewCandidateResume(input: {
 }): Promise<{ fileName: string | null; storageKey: string } | null> {
   const [row] = await db
     .select({
-      fileName: studioInterview.resumeFileName,
-      storageKey: studioInterview.resumeStorageKey,
+      fileName: recruitingRecordReadModel.resumeFileName,
+      storageKey: recruitingRecordReadModel.resumeStorageKey,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.scope.meetingId),
-        eq(studioInterview.id, input.candidateId),
-        eq(studioInterview.organizationId, input.scope.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(recruitingRecordReadModel.organizationId, input.scope.organizationId),
       ),
     )
     .limit(1);
@@ -380,14 +377,14 @@ export async function recordHumanInterviewCandidateMaterialView(input: {
     .update(`${input.scope.meetingId}\0${input.candidateId}\0${input.scope.userId}`)
     .digest("hex");
   await db
-    .insert(interviewAuditLog)
+    .insert(recruitingEvent)
     .values({
       action: "human_interview.candidate_materials_viewed",
       detail: { meetingId: input.scope.meetingId },
       id: `human-interview-candidate-view:${fingerprint}`,
-      interviewRecordId: input.candidateId,
       operatorId: input.scope.userId,
       organizationId: input.scope.organizationId,
+      recruitingRecordId: input.candidateId,
     })
     .onConflictDoNothing();
 }

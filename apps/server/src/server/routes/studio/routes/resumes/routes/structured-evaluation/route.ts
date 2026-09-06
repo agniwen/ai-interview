@@ -1,8 +1,10 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../../lib/server/db/index";
-import { studioInterview } from "@app/db-schema/schema";
+
 import {
   structuredResumeEvaluationV1Schema,
   structuredResumeGateStatusSchema,
@@ -51,20 +53,20 @@ export const structuredResumeEvaluationRouter = factory
       const result = await db.transaction(async (tx) => {
         const visibilityCondition =
           visibility.kind === "restricted"
-            ? inArray(studioInterview.createdBy, visibility.userIds)
+            ? inArray(recruitingRecordReadModel.createdBy, visibility.userIds)
             : null;
         const conditions = [
-          eq(studioInterview.id, recordId),
-          eq(studioInterview.organizationId, activeOrg.id),
+          eq(recruitingRecordReadModel.id, recordId),
+          eq(recruitingRecordReadModel.organizationId, activeOrg.id),
           visibilityCondition,
         ].filter((condition) => condition !== null);
         const [record] = await tx
           .select({
-            resumeReviewRunId: studioInterview.resumeReviewRunId,
-            resumeReviewStatus: studioInterview.resumeReviewStatus,
-            structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+            resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+            resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+            structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
           })
-          .from(studioInterview)
+          .from(recruitingRecordReadModel)
           .where(and(...conditions))
           .limit(1)
           .for("update");
@@ -94,23 +96,21 @@ export const structuredResumeEvaluationRouter = factory
           }),
         );
         const summaries = deriveStructuredResumeSummaries(correctedEvaluation);
-        const [updated] = await tx
-          .update(studioInterview)
-          .set({
+        const [updated] = await updateRecruitingRecords(
+          tx,
+          and(
+            eq(recruitingRecordReadModel.id, recordId),
+            eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+            eq(recruitingRecordReadModel.resumeReviewRunId, input.expectedRunId),
+            visibilityCondition ?? undefined,
+          ),
+          {
             structuredGateSortRank: summaries.gateSortRank,
             structuredGateStatus: summaries.gateStatus,
             structuredResumeEvaluation: correctedEvaluation,
             updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(studioInterview.id, recordId),
-              eq(studioInterview.organizationId, activeOrg.id),
-              eq(studioInterview.resumeReviewRunId, input.expectedRunId),
-              visibilityCondition ?? undefined,
-            ),
-          )
-          .returning({ id: studioInterview.id });
+          },
+        );
         return updated
           ? {
               evaluation: correctedEvaluation,

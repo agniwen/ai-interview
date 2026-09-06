@@ -1,10 +1,11 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   jobDescription,
   jobDescriptionEvaluationUpgradeAudit,
   jobDescriptionEvaluationUpgradeDraft,
-  studioInterview,
 } from "@app/db-schema/schema";
 import {
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
@@ -395,32 +396,30 @@ export function publishUpgradeDraft(
         updatedAt: now,
       })
       .where(eq(jobDescription.id, job.id));
-    const invalidatedAttempts = await tx
-      .update(studioInterview)
-      .set({
+    const invalidatedAttempts = await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, job.id),
+        inArray(recruitingRecordReadModel.resumeReviewStatus, ["queued", "processing"]),
+      ),
+      {
         resumeEvaluationAttemptMode: null,
         resumeReviewError: null,
         resumeReviewQueuedAt: null,
         resumeReviewRunId: null,
         resumeReviewStatus: sql`case
-          when ${studioInterview.resumeEvaluationArtifactMode} is not null then 'ready'
+          when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is not null then 'ready'
           else 'idle'
         end`,
         resumeScreeningError: null,
         resumeScreeningStatus: sql`case
-          when ${studioInterview.resumeEvaluationArtifactMode} is not null then 'ready'
+          when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is not null then 'ready'
           else 'idle'
         end`,
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.organizationId, input.organizationId),
-          eq(studioInterview.jobDescriptionId, job.id),
-          inArray(studioInterview.resumeReviewStatus, ["queued", "processing"]),
-        ),
-      )
-      .returning({ id: studioInterview.id });
+      },
+    );
     await tx
       .delete(jobDescriptionEvaluationUpgradeDraft)
       .where(eq(jobDescriptionEvaluationUpgradeDraft.id, draft.id));

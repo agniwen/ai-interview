@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { studioHumanInterviewMeeting } from "@app/db-schema/schema";
+import { humanInterviewMeeting } from "@app/db-schema/schema";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
@@ -19,15 +19,15 @@ export function cancelHumanInterviewMeeting({
   return db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
-        liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
-        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-        status: studioHumanInterviewMeeting.status,
+        liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
+        scheduleVersion: humanInterviewMeeting.scheduleVersion,
+        status: humanInterviewMeeting.status,
       })
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          eq(humanInterviewMeeting.id, meetingId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
         ),
       )
       .for("update")
@@ -42,7 +42,7 @@ export function cancelHumanInterviewMeeting({
 
     const now = new Date();
     const cancelled = await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         cancelledAt: now,
         lifecycleOccurredAt: now,
@@ -52,12 +52,12 @@ export function cancelHumanInterviewMeeting({
       })
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
-          ne(studioHumanInterviewMeeting.status, "in_progress"),
+          eq(humanInterviewMeeting.id, meetingId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
+          ne(humanInterviewMeeting.status, "in_progress"),
         ),
       )
-      .returning({ id: studioHumanInterviewMeeting.id });
+      .returning({ id: humanInterviewMeeting.id });
     if (cancelled.length === 0) {
       throw new HumanInterviewMeetingError("进行中的会议不能删除，请先结束会议。", 400);
     }

@@ -5,7 +5,6 @@ import {
   resumeLibrarySortIds,
 } from "@app/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
-import { pipelineStageValues } from "@app/db-schema/studio-interviews";
 
 import {
   useCallback,
@@ -47,6 +46,8 @@ export const EMPTY_FILTERS: ResumeFilters = {
   createdAtRange: "",
   creatorIds: "",
   jdIds: "",
+  nodeResults: "",
+  nodeStatuses: "",
   recommendationLevels: "",
   skills: "",
   stage: "",
@@ -108,13 +109,6 @@ export function firstSearchValue(value: SearchParamsRecord[string]): string | un
   return firstValue === undefined ? undefined : String(firstValue);
 }
 
-// 笔试阶段暂未启用对应的入口/元数据 UI，先在 tabs 中隐藏，避免点进去发现啥也没有。
-// schema、后端 API 仍保留，把 UI 建出来后只要从这里删掉对应 key 即可。
-// Stages without a working entry UI are hidden from the tabs to avoid empty
-// drilldowns. Schema + backend support stays; remove from this set once the
-// stage's UI is built.
-export const HIDDEN_PIPELINE_STAGE_TABS = new Set<string>(["written_test"]);
-
 export async function copyResumeDetailLink(slug: string, record: ResumeLibraryListRecord) {
   const fullLink = toAbsoluteUrl(`/resume-review/${slug}/${record.id}`);
   try {
@@ -132,10 +126,6 @@ export async function copyResumeDetailLink(slug: string, record: ResumeLibraryLi
     toast.error("复制失败，请手动复制");
   }
 }
-
-export const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
-  (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
-);
 
 export function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null {
   let parent = node?.parentElement ?? null;

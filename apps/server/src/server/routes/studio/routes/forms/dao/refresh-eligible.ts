@@ -1,13 +1,13 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, exists, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  candidateFormSubmission,
+  recruitingFormSubmission,
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
-  interviewAuditLog,
-  interviewContextSnapshot,
-  studioInterview,
-  studioInterviewSchedule,
+  recruitingEvent,
+  recruitingContextSnapshot,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import {
   loadActiveInterviewContextSnapshot,
@@ -21,11 +21,11 @@ function neverStartedInterviewCondition() {
   return notExists(
     db
       .select({ one: sql`1` })
-      .from(studioInterviewSchedule)
+      .from(aiInterviewRound)
       .where(
         and(
-          eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
-          sql`${studioInterviewSchedule.status} <> 'pending'`,
+          eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+          sql`${aiInterviewRound.status} <> 'pending'`,
         ),
       ),
   );
@@ -35,11 +35,11 @@ function noSubmissionForTemplate(templateId: string) {
   return notExists(
     db
       .select({ one: sql`1` })
-      .from(candidateFormSubmission)
+      .from(recruitingFormSubmission)
       .where(
         and(
-          eq(candidateFormSubmission.interviewRecordId, studioInterview.id),
-          eq(candidateFormSubmission.templateId, templateId),
+          eq(recruitingFormSubmission.recruitingRecordId, recruitingRecordReadModel.id),
+          eq(recruitingFormSubmission.templateId, templateId),
         ),
       ),
   );
@@ -70,26 +70,26 @@ async function listEligibleInterviewRecordIds(
                 eq(candidateFormTemplateJobDescription.templateId, templateId),
                 eq(
                   candidateFormTemplateJobDescription.jobDescriptionId,
-                  studioInterview.jobDescriptionId,
+                  recruitingRecordReadModel.jobDescriptionId,
                 ),
               ),
             ),
         );
 
   const rows = await db
-    .selectDistinct({ id: studioInterview.id })
-    .from(studioInterview)
+    .selectDistinct({ id: recruitingRecordReadModel.id })
+    .from(recruitingRecordReadModel)
     .innerJoin(
-      interviewContextSnapshot,
+      recruitingContextSnapshot,
       and(
-        eq(interviewContextSnapshot.interviewRecordId, studioInterview.id),
-        eq(interviewContextSnapshot.status, "active"),
+        eq(recruitingContextSnapshot.recruitingRecordId, recruitingRecordReadModel.id),
+        eq(recruitingContextSnapshot.status, "active"),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        sql`${studioInterview.pipelineStage} <> 'closed'`,
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        sql`${recruitingRecordReadModel.pipelineStage} <> 'closed'`,
         neverStartedInterviewCondition(),
         noSubmissionForTemplate(templateId),
         scopeFilter,
@@ -148,8 +148,9 @@ export async function refreshEligibleCandidatesForFormTemplate(options: {
         reason: "manual_refresh",
         scheduleEntryId: active.scheduleEntryId,
       });
-      await tx.insert(interviewAuditLog).values({
+      await tx.insert(recruitingEvent).values({
         action: "context_snapshot_refresh",
+        aiRoundId: active.scheduleEntryId,
         createdAt: now,
         detail: {
           reason: "form_template_bulk_refresh",
@@ -158,10 +159,9 @@ export async function refreshEligibleCandidatesForFormTemplate(options: {
           templateId: options.templateId,
         },
         id: crypto.randomUUID(),
-        interviewRecordId,
         operatorId: options.operatorId,
         organizationId: options.organizationId,
-        scheduleEntryId: active.scheduleEntryId,
+        recruitingRecordId: interviewRecordId,
       });
       return true;
     });

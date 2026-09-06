@@ -6,7 +6,7 @@ describe("resume library chart models", () => {
     const pipeline = buildPipelineRow([
       { count: 1444, outcome: "in_pipeline", stage: "screening" },
       { count: 130, outcome: "in_pipeline", stage: "ai_interview" },
-      { count: 6, outcome: "in_pipeline", stage: "human_interview" },
+      { count: 6, outcome: "in_pipeline", stage: "second_interview" },
       { count: 2, outcome: "in_pipeline", stage: "offer" },
       { count: 0, outcome: "hired", stage: "closed" },
       { count: 10, outcome: "rejected", stage: "closed" },
@@ -16,8 +16,8 @@ describe("resume library chart models", () => {
     expect(pipeline.stackRows.map(({ label, value }) => ({ label, value }))).toEqual([
       { label: "简历筛选", value: 1444 },
       { label: "AI 面试", value: 130 },
-      { label: "真人复面", value: 6 },
-      { label: "Offer", value: 2 },
+      { label: "复试 / 终试", value: 6 },
+      { label: "Offer / 入职", value: 2 },
       { label: "已录用", value: 0 },
       { label: "已淘汰 / 撤回", value: 10 },
     ]);

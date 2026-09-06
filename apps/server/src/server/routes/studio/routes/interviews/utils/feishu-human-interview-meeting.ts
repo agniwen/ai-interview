@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- Feishu sync checkpoints stay together so retry state remains auditable. */
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
@@ -13,11 +14,10 @@ import {
   account,
   jobDescription,
   member,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -409,11 +409,11 @@ export async function syncHumanInterviewMeetingToFeishu({
 }): Promise<HumanInterviewMeetingRecord> {
   let [meeting] = await db
     .select()
-    .from(studioHumanInterviewMeeting)
+    .from(humanInterviewMeeting)
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -432,7 +432,7 @@ export async function syncHumanInterviewMeetingToFeishu({
   const claimTime = new Date();
   const staleBefore = new Date(claimTime.getTime() - FEISHU_SYNC_LEASE_DURATION_MS);
   const [claimedMeeting] = await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       feishuLastError: null,
       feishuSyncStatus: "creating",
@@ -440,13 +440,13 @@ export async function syncHumanInterviewMeetingToFeishu({
     })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
         or(
-          inArray(studioHumanInterviewMeeting.feishuSyncStatus, ["pending", "failed"]),
+          inArray(humanInterviewMeeting.feishuSyncStatus, ["pending", "failed"]),
           and(
-            eq(studioHumanInterviewMeeting.feishuSyncStatus, "creating"),
-            lt(studioHumanInterviewMeeting.updatedAt, staleBefore),
+            eq(humanInterviewMeeting.feishuSyncStatus, "creating"),
+            lt(humanInterviewMeeting.updatedAt, staleBefore),
           ),
         ),
       ),
@@ -455,11 +455,11 @@ export async function syncHumanInterviewMeetingToFeishu({
   if (!claimedMeeting) {
     const [currentMeeting] = await db
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          eq(humanInterviewMeeting.id, meetingId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
         ),
       )
       .limit(1);
@@ -478,14 +478,14 @@ export async function syncHumanInterviewMeetingToFeishu({
 
   const interviewerRows = await db
     .select({
-      feishuOpenId: studioHumanInterviewMeetingInterviewer.feishuOpenId,
+      feishuOpenId: humanInterviewMeetingInterviewer.feishuOpenId,
       name: user.name,
-      role: studioHumanInterviewMeetingInterviewer.role,
-      userId: studioHumanInterviewMeetingInterviewer.userId,
+      role: humanInterviewMeetingInterviewer.role,
+      userId: humanInterviewMeetingInterviewer.userId,
     })
-    .from(studioHumanInterviewMeetingInterviewer)
-    .innerJoin(user, eq(studioHumanInterviewMeetingInterviewer.userId, user.id))
-    .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId));
+    .from(humanInterviewMeetingInterviewer)
+    .innerJoin(user, eq(humanInterviewMeetingInterviewer.userId, user.id))
+    .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
   const interviewerIds = interviewerRows.map((row) => row.userId);
   const client = createFeishuHumanInterviewClient({ accessToken });
   const hostOpenIds: string[] = [];
@@ -549,12 +549,12 @@ export async function syncHumanInterviewMeetingToFeishu({
 
     for (const interviewerId of interviewerIds) {
       await db
-        .update(studioHumanInterviewMeetingInterviewer)
+        .update(humanInterviewMeetingInterviewer)
         .set({ feishuOpenId: participantOpenIds.get(interviewerId) })
         .where(
           and(
-            eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),
-            eq(studioHumanInterviewMeetingInterviewer.userId, interviewerId),
+            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+            eq(humanInterviewMeetingInterviewer.userId, interviewerId),
           ),
         );
     }
@@ -562,24 +562,24 @@ export async function syncHumanInterviewMeetingToFeishu({
 
   const candidateRows = await db
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       jobDescriptionName: jobDescription.name,
-      roundLabel: studioHumanInterviewRound.label,
+      roundLabel: humanInterviewRound.label,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, jobDescription.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
       ),
     )
-    .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId));
+    .where(eq(humanInterviewMeetingRound.meetingId, meetingId));
   const description = buildCalendarDescription({
     candidates: candidateRows,
     interviewers: interviewerRows.map((interviewer) => ({
@@ -595,9 +595,9 @@ export async function syncHumanInterviewMeetingToFeishu({
   const calendarId = meeting.feishuCalendarId ?? (await client.getPrimaryCalendarId());
   if (!meeting.feishuCalendarId) {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ feishuCalendarId: calendarId, updatedAt: new Date() })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
 
   let eventId = meeting.feishuCalendarEventId;
@@ -621,13 +621,13 @@ export async function syncHumanInterviewMeetingToFeishu({
     });
     ({ eventId } = event);
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         feishuCalendarEventId: event.eventId,
         feishuCalendarEventUrl: event.calendarEventUrl,
         updatedAt: new Date(),
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
 
   const attendeeOpenIds = hostOpenIds;
@@ -649,9 +649,9 @@ export async function syncHumanInterviewMeetingToFeishu({
           alreadyAddedOpenIds.add(openId);
         }
         await db
-          .update(studioHumanInterviewMeeting)
+          .update(humanInterviewMeeting)
           .set({ feishuAttendeeOpenIds: [...alreadyAddedOpenIds], updatedAt: new Date() })
-          .where(eq(studioHumanInterviewMeeting.id, meetingId));
+          .where(eq(humanInterviewMeeting.id, meetingId));
       }
       throw error;
     }
@@ -659,20 +659,20 @@ export async function syncHumanInterviewMeetingToFeishu({
       alreadyAddedOpenIds.add(openId);
     }
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ feishuAttendeeOpenIds: [...alreadyAddedOpenIds], updatedAt: new Date() })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
 
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       feishuLastError: null,
       feishuSyncStatus: "ready",
       feishuSyncedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    .where(eq(humanInterviewMeeting.id, meetingId));
 
   return loadSyncedMeeting(meetingId, organizationId);
 }
@@ -689,7 +689,7 @@ export async function recordFeishuHumanInterviewSyncFailure({
   const message = error instanceof Error ? error.message : "飞书日程同步失败。";
   const status = "failed" as const;
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       feishuLastError: message.slice(0, 1000),
       feishuSyncStatus: status,
@@ -697,8 +697,8 @@ export async function recordFeishuHumanInterviewSyncFailure({
     })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
       ),
     );
   return { message, status } as const;

@@ -1,21 +1,23 @@
-/* oxlint-disable max-lines -- evaluation read, publish, and submission transactions share one injected DAO boundary. */
-import { createHash } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { syncHumanInterviewRoundNodeTx } from "@app/database/recruiting-pipeline";
 import {
+  recruitingRecord,
   jobDescription,
-  humanInterviewDocumentSync,
-  meetingRecruitingContext,
+  humanInterviewEvaluationDocumentSync,
+  recruitingMeetingContext,
   meetingSession,
   meetingTranscriptRevision,
   meetingTranscriptTurn,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewEvaluationSnapshot,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewEvaluationSnapshot,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+/* oxlint-disable max-lines -- evaluation read, publish, and submission transactions share one injected DAO boundary. */
+import { createHash } from "node:crypto";
+import { and, asc, eq } from "drizzle-orm";
 import type {
   HumanInterviewEvaluation,
   HumanInterviewRoundOutcome,
@@ -89,14 +91,14 @@ export function createHumanInterviewEvaluationDao(
   }) {
     return await db
       .select()
-      .from(studioHumanInterviewEvaluationSnapshot)
+      .from(humanInterviewEvaluationSnapshot)
       .where(
         and(
-          eq(studioHumanInterviewEvaluationSnapshot.organizationId, input.organizationId),
-          eq(studioHumanInterviewEvaluationSnapshot.roundId, input.roundId),
+          eq(humanInterviewEvaluationSnapshot.organizationId, input.organizationId),
+          eq(humanInterviewEvaluationSnapshot.roundId, input.roundId),
         ),
       )
-      .orderBy(asc(studioHumanInterviewEvaluationSnapshot.createdAt));
+      .orderBy(asc(humanInterviewEvaluationSnapshot.createdAt));
   }
 
   type HumanInterviewLiveTranscriptRecoveryResult =
@@ -116,40 +118,40 @@ export function createHumanInterviewEvaluationDao(
       async (tx) => {
         const [meeting] = await tx
           .select({
-            candidateName: studioInterview.candidateName,
-            candidateRecordingStatus: studioHumanInterviewMeeting.candidateRecordingStatus,
-            createdAt: studioHumanInterviewMeeting.createdAt,
-            createdBy: studioHumanInterviewMeeting.createdBy,
-            endedAt: studioHumanInterviewMeeting.endedAt,
-            interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-            processingMeetingSessionId: studioHumanInterviewMeeting.processingMeetingSessionId,
-            recordingStatus: studioHumanInterviewMeeting.recordingStatus,
-            scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-            startedAt: studioHumanInterviewMeeting.startedAt,
-            status: studioHumanInterviewMeeting.status,
-            title: studioHumanInterviewMeeting.title,
+            candidateName: recruitingRecordReadModel.candidateName,
+            candidateRecordingStatus: humanInterviewMeeting.candidateRecordingStatus,
+            createdAt: humanInterviewMeeting.createdAt,
+            createdBy: humanInterviewMeeting.createdBy,
+            endedAt: humanInterviewMeeting.endedAt,
+            interviewRecordId: humanInterviewRound.recruitingRecordId,
+            processingMeetingSessionId: humanInterviewMeeting.processingMeetingSessionId,
+            recordingStatus: humanInterviewMeeting.recordingStatus,
+            scheduledAt: humanInterviewMeeting.scheduledAt,
+            startedAt: humanInterviewMeeting.startedAt,
+            status: humanInterviewMeeting.status,
+            title: humanInterviewMeeting.title,
           })
-          .from(studioHumanInterviewMeeting)
+          .from(humanInterviewMeeting)
           .innerJoin(
-            studioHumanInterviewMeetingRound,
-            eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+            humanInterviewMeetingRound,
+            eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
           )
           .innerJoin(
-            studioHumanInterviewRound,
-            eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+            humanInterviewRound,
+            eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
           )
           .innerJoin(
-            studioInterview,
-            eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId),
+            recruitingRecordReadModel,
+            eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
           )
           .where(
             and(
-              eq(studioHumanInterviewMeeting.id, input.meetingId),
-              eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
-              eq(studioHumanInterviewRound.id, input.roundId),
+              eq(humanInterviewMeeting.id, input.meetingId),
+              eq(humanInterviewMeeting.organizationId, input.organizationId),
+              eq(humanInterviewRound.id, input.roundId),
             ),
           )
-          .for("update", { of: studioHumanInterviewMeeting })
+          .for("update", { of: humanInterviewMeeting })
           .limit(1);
         if (!meeting) {
           return { status: "not-found" };
@@ -175,14 +177,14 @@ export function createHumanInterviewEvaluationDao(
 
         const interviewers = await tx
           .select({
-            liveTranscriptDraft: studioHumanInterviewMeetingInterviewer.liveTranscriptDraft,
+            liveTranscriptDraft: humanInterviewMeetingInterviewer.liveTranscriptDraft,
             name: user.name,
-            role: studioHumanInterviewMeetingInterviewer.role,
-            userId: studioHumanInterviewMeetingInterviewer.userId,
+            role: humanInterviewMeetingInterviewer.role,
+            userId: humanInterviewMeetingInterviewer.userId,
           })
-          .from(studioHumanInterviewMeetingInterviewer)
-          .innerJoin(user, eq(user.id, studioHumanInterviewMeetingInterviewer.userId))
-          .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId));
+          .from(humanInterviewMeetingInterviewer)
+          .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+          .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId));
         const transcriptOwner =
           interviewers.find(
             (interviewer) =>
@@ -222,7 +224,7 @@ export function createHumanInterviewEvaluationDao(
           verifiedAt: now,
           visibility: "restricted",
         });
-        await tx.insert(meetingRecruitingContext).values({
+        await tx.insert(recruitingMeetingContext).values({
           linkedAt: now,
           linkedBy: input.actorId,
           meetingId: meetingSessionId,
@@ -275,7 +277,7 @@ export function createHumanInterviewEvaluationDao(
           })
           .where(eq(meetingSession.id, meetingSessionId));
         await tx
-          .update(studioHumanInterviewMeeting)
+          .update(humanInterviewMeeting)
           .set({
             candidateRecordingError:
               meeting.candidateRecordingStatus === "pending"
@@ -291,7 +293,7 @@ export function createHumanInterviewEvaluationDao(
             recordingStatus: meeting.recordingStatus === "pending" ? "failed" : undefined,
             updatedAt: now,
           })
-          .where(eq(studioHumanInterviewMeeting.id, input.meetingId));
+          .where(eq(humanInterviewMeeting.id, input.meetingId));
         return { meetingSessionId, status: "ready", transcriptRevisionId };
       },
     );
@@ -305,38 +307,38 @@ export function createHumanInterviewEvaluationDao(
     const [row] = await db
       .select({
         activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
-        evaluation: studioHumanInterviewRound.evaluation,
-        evaluationError: studioHumanInterviewRound.evaluationError,
-        evaluationStatus: studioHumanInterviewRound.evaluationStatus,
-        evaluationUpdatedAt: studioHumanInterviewRound.evaluationUpdatedAt,
-        evaluationUpdatedBy: studioHumanInterviewRound.evaluationUpdatedBy,
-        meetingSessionId: studioHumanInterviewMeeting.processingMeetingSessionId,
-        outcome: studioHumanInterviewRound.outcome,
-        recordingError: studioHumanInterviewMeeting.recordingError,
-        recordingTracks: studioHumanInterviewMeeting.recordingTracks,
-        roundId: studioHumanInterviewRound.id,
-        roundStatus: studioHumanInterviewRound.status,
+        evaluation: humanInterviewRound.evaluation,
+        evaluationError: humanInterviewRound.evaluationError,
+        evaluationStatus: humanInterviewRound.evaluationStatus,
+        evaluationUpdatedAt: humanInterviewRound.evaluationUpdatedAt,
+        evaluationUpdatedBy: humanInterviewRound.evaluationUpdatedBy,
+        meetingSessionId: humanInterviewMeeting.processingMeetingSessionId,
+        outcome: humanInterviewRound.outcome,
+        recordingError: humanInterviewMeeting.recordingError,
+        recordingTracks: humanInterviewMeeting.recordingTracks,
+        roundId: humanInterviewRound.id,
+        roundStatus: humanInterviewRound.status,
         transcriptionError: meetingSession.transcriptionError,
         transcriptionStatus: meetingSession.transcriptionStatus,
       })
-      .from(studioHumanInterviewMeetingRound)
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
       )
       .innerJoin(
-        studioHumanInterviewRound,
-        eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+        humanInterviewRound,
+        eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
       )
       .leftJoin(
         meetingSession,
-        eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+        eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
       )
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, input.meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
-          eq(studioHumanInterviewRound.id, input.roundId),
+          eq(humanInterviewMeeting.id, input.meetingId),
+          eq(humanInterviewMeeting.organizationId, input.organizationId),
+          eq(humanInterviewRound.id, input.roundId),
         ),
       )
       .limit(1);
@@ -384,31 +386,31 @@ export function createHumanInterviewEvaluationDao(
       const [context] = await tx
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
-          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
-          roundId: studioHumanInterviewRound.id,
-          roundStatus: studioHumanInterviewRound.status,
+          evaluationStatus: humanInterviewRound.evaluationStatus,
+          roundId: humanInterviewRound.id,
+          roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
-        .from(studioHumanInterviewMeeting)
+        .from(humanInterviewMeeting)
         .innerJoin(
-          studioHumanInterviewMeetingRound,
-          eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+          humanInterviewMeetingRound,
+          eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
         )
         .innerJoin(
-          studioHumanInterviewRound,
-          eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+          humanInterviewRound,
+          eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
         )
         .innerJoin(
           meetingSession,
-          eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+          eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
         )
         .where(
           and(
-            eq(studioHumanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId),
-            eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
+            eq(humanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId),
+            eq(humanInterviewMeeting.organizationId, input.organizationId),
           ),
         )
-        .for("update", { of: studioHumanInterviewRound })
+        .for("update", { of: humanInterviewRound })
         .limit(1);
       if (
         !context?.activeTranscriptRevisionId ||
@@ -420,14 +422,14 @@ export function createHumanInterviewEvaluationDao(
         return null;
       }
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           evaluationError: null,
           evaluationStatus: "generating",
           evaluationTranscriptRevisionId: context.activeTranscriptRevisionId,
           evaluationUpdatedAt: new Date(),
         })
-        .where(eq(studioHumanInterviewRound.id, context.roundId));
+        .where(eq(humanInterviewRound.id, context.roundId));
       return {
         meetingSessionId: input.meetingSessionId,
         organizationId: input.organizationId,
@@ -461,37 +463,37 @@ export function createHumanInterviewEvaluationDao(
         return null;
       }
       const [round] = await tx
-        .select({ evaluationStatus: studioHumanInterviewRound.evaluationStatus })
-        .from(studioHumanInterviewRound)
+        .select({ evaluationStatus: humanInterviewRound.evaluationStatus })
+        .from(humanInterviewRound)
         .innerJoin(
-          studioHumanInterviewMeetingRound,
-          eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+          humanInterviewMeetingRound,
+          eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
         )
         .innerJoin(
-          studioHumanInterviewMeeting,
-          eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+          humanInterviewMeeting,
+          eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
         )
         .where(
           and(
-            eq(studioHumanInterviewRound.id, input.roundId),
-            eq(studioHumanInterviewRound.organizationId, input.organizationId),
-            eq(studioHumanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId),
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
+            eq(humanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId),
           ),
         )
-        .for("update", { of: studioHumanInterviewRound })
+        .for("update", { of: humanInterviewRound })
         .limit(1);
       if (!round || ["draft", "submitted"].includes(round.evaluationStatus)) {
         return null;
       }
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           evaluationError: null,
           evaluationStatus: "generating",
           evaluationTranscriptRevisionId: transcript.activeTranscriptRevisionId,
           evaluationUpdatedAt: new Date(),
         })
-        .where(eq(studioHumanInterviewRound.id, input.roundId));
+        .where(eq(humanInterviewRound.id, input.roundId));
       return {
         meetingSessionId: input.meetingSessionId,
         organizationId: input.organizationId,
@@ -506,21 +508,21 @@ export function createHumanInterviewEvaluationDao(
   > {
     const rows = await db
       .select({
-        meetingSessionId: studioHumanInterviewMeeting.processingMeetingSessionId,
-        organizationId: studioHumanInterviewMeeting.organizationId,
-        roundId: studioHumanInterviewRound.id,
-        transcriptRevisionId: studioHumanInterviewRound.evaluationTranscriptRevisionId,
+        meetingSessionId: humanInterviewMeeting.processingMeetingSessionId,
+        organizationId: humanInterviewMeeting.organizationId,
+        roundId: humanInterviewRound.id,
+        transcriptRevisionId: humanInterviewRound.evaluationTranscriptRevisionId,
       })
-      .from(studioHumanInterviewRound)
+      .from(humanInterviewRound)
       .innerJoin(
-        studioHumanInterviewMeetingRound,
-        eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+        humanInterviewMeetingRound,
+        eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
       )
       .innerJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
       )
-      .where(eq(studioHumanInterviewRound.evaluationStatus, "generating"));
+      .where(eq(humanInterviewRound.evaluationStatus, "generating"));
     return rows.flatMap((row) =>
       row.meetingSessionId && row.transcriptRevisionId
         ? [
@@ -545,25 +547,22 @@ export function createHumanInterviewEvaluationDao(
     const [context, transcript] = await Promise.all([
       db
         .select({
-          candidateName: studioInterview.candidateName,
+          candidateName: recruitingRecordReadModel.candidateName,
           jobDescription: jobDescription.prompt,
-          resume: studioInterview.resumeText,
+          resume: recruitingRecordReadModel.resumeText,
         })
-        .from(studioHumanInterviewRound)
+        .from(humanInterviewRound)
         .innerJoin(
-          studioInterview,
-          eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId),
+          recruitingRecordReadModel,
+          eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
         )
-        .leftJoin(jobDescription, eq(jobDescription.id, studioInterview.jobDescriptionId))
+        .leftJoin(jobDescription, eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId))
         .where(
           and(
-            eq(studioHumanInterviewRound.id, input.roundId),
-            eq(studioHumanInterviewRound.organizationId, input.organizationId),
-            eq(studioHumanInterviewRound.evaluationStatus, "generating"),
-            eq(
-              studioHumanInterviewRound.evaluationTranscriptRevisionId,
-              input.transcriptRevisionId,
-            ),
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
+            eq(humanInterviewRound.evaluationStatus, "generating"),
+            eq(humanInterviewRound.evaluationTranscriptRevisionId, input.transcriptRevisionId),
           ),
         )
         .limit(1),
@@ -603,30 +602,30 @@ export function createHumanInterviewEvaluationDao(
       const [state] = await tx
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
-          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
-          evaluationTranscriptRevisionId: studioHumanInterviewRound.evaluationTranscriptRevisionId,
+          evaluationStatus: humanInterviewRound.evaluationStatus,
+          evaluationTranscriptRevisionId: humanInterviewRound.evaluationTranscriptRevisionId,
         })
-        .from(studioHumanInterviewRound)
+        .from(humanInterviewRound)
         .innerJoin(
-          studioHumanInterviewMeetingRound,
-          eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+          humanInterviewMeetingRound,
+          eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
         )
         .innerJoin(
-          studioHumanInterviewMeeting,
-          eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+          humanInterviewMeeting,
+          eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
         )
         .innerJoin(
           meetingSession,
-          eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+          eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
         )
         .where(
           and(
-            eq(studioHumanInterviewRound.id, input.roundId),
-            eq(studioHumanInterviewRound.organizationId, input.organizationId),
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
             eq(meetingSession.id, input.meetingSessionId),
           ),
         )
-        .for("update", { of: studioHumanInterviewRound })
+        .for("update", { of: humanInterviewRound })
         .limit(1);
       if (!state) {
         return false;
@@ -637,18 +636,18 @@ export function createHumanInterviewEvaluationDao(
           state.evaluationTranscriptRevisionId === input.transcriptRevisionId
         ) {
           await tx
-            .update(studioHumanInterviewRound)
+            .update(humanInterviewRound)
             .set({
               evaluationError: "会议转录已更新，请基于最新转录重新生成评价。",
               evaluationStatus: "failed",
               evaluationUpdatedAt: new Date(),
             })
-            .where(eq(studioHumanInterviewRound.id, input.roundId));
+            .where(eq(humanInterviewRound.id, input.roundId));
         }
         return false;
       }
       const [updated] = await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           evaluation,
           evaluationError: null,
@@ -656,10 +655,10 @@ export function createHumanInterviewEvaluationDao(
           evaluationUpdatedAt: new Date(),
           evaluationUpdatedBy: null,
         })
-        .where(eq(studioHumanInterviewRound.id, input.roundId))
-        .returning({ id: studioHumanInterviewRound.id });
+        .where(eq(humanInterviewRound.id, input.roundId))
+        .returning({ id: humanInterviewRound.id });
       if (updated) {
-        await tx.insert(studioHumanInterviewEvaluationSnapshot).values({
+        await tx.insert(humanInterviewEvaluationSnapshot).values({
           evaluation,
           id: crypto.randomUUID(),
           meetingSessionId: input.meetingSessionId,
@@ -679,7 +678,7 @@ export function createHumanInterviewEvaluationDao(
     transcriptRevisionId: string;
   }): Promise<void> {
     await db
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({
         evaluationError: input.error,
         evaluationStatus: "failed",
@@ -687,9 +686,9 @@ export function createHumanInterviewEvaluationDao(
       })
       .where(
         and(
-          eq(studioHumanInterviewRound.id, input.roundId),
-          eq(studioHumanInterviewRound.evaluationStatus, "generating"),
-          eq(studioHumanInterviewRound.evaluationTranscriptRevisionId, input.transcriptRevisionId),
+          eq(humanInterviewRound.id, input.roundId),
+          eq(humanInterviewRound.evaluationStatus, "generating"),
+          eq(humanInterviewRound.evaluationTranscriptRevisionId, input.transcriptRevisionId),
         ),
       );
   }
@@ -707,33 +706,33 @@ export function createHumanInterviewEvaluationDao(
       const [context] = await tx
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
-          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
-          id: studioHumanInterviewRound.id,
+          evaluationStatus: humanInterviewRound.evaluationStatus,
+          id: humanInterviewRound.id,
           meetingSessionId: meetingSession.id,
-          roundStatus: studioHumanInterviewRound.status,
+          roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
-        .from(studioHumanInterviewRound)
+        .from(humanInterviewRound)
         .innerJoin(
-          studioHumanInterviewMeetingRound,
-          eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+          humanInterviewMeetingRound,
+          eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
         )
         .innerJoin(
-          studioHumanInterviewMeeting,
-          eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+          humanInterviewMeeting,
+          eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
         )
         .leftJoin(
           meetingSession,
-          eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+          eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
         )
         .where(
           and(
-            eq(studioHumanInterviewRound.id, input.roundId),
-            eq(studioHumanInterviewRound.organizationId, input.organizationId),
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
             input.meetingSessionId ? eq(meetingSession.id, input.meetingSessionId) : undefined,
           ),
         )
-        .for("update", { of: studioHumanInterviewRound })
+        .for("update", { of: humanInterviewRound })
         .limit(1);
       if (
         !context ||
@@ -744,7 +743,7 @@ export function createHumanInterviewEvaluationDao(
         return false;
       }
       const [updated] = await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           evaluation,
           evaluationError: null,
@@ -753,8 +752,8 @@ export function createHumanInterviewEvaluationDao(
           evaluationUpdatedAt: new Date(),
           evaluationUpdatedBy: input.actorId,
         })
-        .where(eq(studioHumanInterviewRound.id, input.roundId))
-        .returning({ id: studioHumanInterviewRound.id });
+        .where(eq(humanInterviewRound.id, input.roundId))
+        .returning({ id: humanInterviewRound.id });
       return Boolean(updated);
     });
   }
@@ -774,6 +773,24 @@ export function createHumanInterviewEvaluationDao(
     const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
     const now = new Date();
     return await db.transaction(async (tx) => {
+      // 招聘记录先锁，再锁会议/轮次，与流程回退、取消保持一致，避免旧结果覆盖当前节点。
+      const [owner] = await tx
+        .select({ recordId: humanInterviewRound.recruitingRecordId })
+        .from(humanInterviewRound)
+        .where(
+          and(
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
+          ),
+        );
+      if (!owner) {
+        return false;
+      }
+      await tx
+        .select({ id: recruitingRecord.id })
+        .from(recruitingRecord)
+        .where(eq(recruitingRecord.id, owner.recordId))
+        .for("update");
       if (input.meetingSessionId) {
         // Match the transcript-correction path's lock order: session before round.
         // Keep the reviewed revision stable through the final submission commit.
@@ -801,34 +818,34 @@ export function createHumanInterviewEvaluationDao(
       const [round] = await tx
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
-          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
-          organizationId: studioHumanInterviewRound.organizationId,
-          roundStatus: studioHumanInterviewRound.status,
+          evaluationStatus: humanInterviewRound.evaluationStatus,
+          organizationId: humanInterviewRound.organizationId,
+          roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
-        .from(studioHumanInterviewRound)
+        .from(humanInterviewRound)
         .innerJoin(
-          studioHumanInterviewMeetingRound,
-          eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+          humanInterviewMeetingRound,
+          eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
         )
         .innerJoin(
-          studioHumanInterviewMeeting,
-          eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+          humanInterviewMeeting,
+          eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
         )
         .leftJoin(
           meetingSession,
-          eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+          eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
         )
         .where(
           and(
-            eq(studioHumanInterviewRound.id, input.roundId),
-            eq(studioHumanInterviewRound.organizationId, input.organizationId),
+            eq(humanInterviewRound.id, input.roundId),
+            eq(humanInterviewRound.organizationId, input.organizationId),
             input.meetingSessionId
-              ? eq(studioHumanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId)
+              ? eq(humanInterviewMeeting.processingMeetingSessionId, input.meetingSessionId)
               : undefined,
           ),
         )
-        .for("update", { of: studioHumanInterviewRound })
+        .for("update", { of: humanInterviewRound })
         .limit(1);
       if (
         !round ||
@@ -839,7 +856,7 @@ export function createHumanInterviewEvaluationDao(
         return false;
       }
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           completedAt: now,
           evaluation,
@@ -854,9 +871,17 @@ export function createHumanInterviewEvaluationDao(
           status: "completed",
           updatedAt: now,
         })
-        .where(eq(studioHumanInterviewRound.id, input.roundId));
+        .where(eq(humanInterviewRound.id, input.roundId));
+      await syncHumanInterviewRoundNodeTx(tx, {
+        now,
+        operatorId: input.actorId,
+        organizationId: input.organizationId,
+        outcome: input.outcome,
+        recordId: owner.recordId,
+        roundId: input.roundId,
+      });
       const snapshotId = crypto.randomUUID();
-      await tx.insert(studioHumanInterviewEvaluationSnapshot).values({
+      await tx.insert(humanInterviewEvaluationSnapshot).values({
         createdBy: input.actorId,
         evaluation,
         id: snapshotId,
@@ -867,7 +892,7 @@ export function createHumanInterviewEvaluationDao(
         source: "human_submitted",
         transcriptRevisionId: input.transcriptRevisionId,
       });
-      await tx.insert(humanInterviewDocumentSync).values({
+      await tx.insert(humanInterviewEvaluationDocumentSync).values({
         organizationId: input.organizationId,
         roundId: input.roundId,
         snapshotId,

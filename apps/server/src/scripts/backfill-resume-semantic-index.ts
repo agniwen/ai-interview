@@ -1,6 +1,7 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, isNotNull, notExists, sql } from "drizzle-orm";
-import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@app/db-schema/schema";
+import { resumePoolItem, recruitingSearchIndex } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
 import type { Database } from "../lib/server/db/index";
 import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
@@ -187,16 +188,16 @@ export async function runResumeSemanticBackfillRecords({
 
 function notAlreadyIndexedCondition(
   sourceType: SemanticBackfillRecord["sourceType"],
-  sourceIdColumn: typeof studioInterview.id | typeof resumePoolItem.id,
+  sourceIdColumn: typeof recruitingRecordReadModel.id | typeof resumePoolItem.id,
 ) {
   return notExists(
     sql`(
       select 1
-      from ${resumeSemanticIndex}
-      where ${resumeSemanticIndex.sourceType} = ${sourceType}
-        and ${resumeSemanticIndex.sourceId} = ${sourceIdColumn}
-        and ${resumeSemanticIndex.embeddingVersion} = ${process.env.RESUME_EMBEDDING_VERSION || "dashscope-text-embedding-v4-1024-v1"}
-        and ${resumeSemanticIndex.status} = 'indexed'
+      from ${recruitingSearchIndex}
+      where ${recruitingSearchIndex.sourceType} = ${sourceType === "studio_interview" ? "recruiting_record" : sourceType}
+        and ${recruitingSearchIndex.sourceId} = ${sourceIdColumn}
+        and ${recruitingSearchIndex.embeddingVersion} = ${process.env.RESUME_EMBEDDING_VERSION || "dashscope-text-embedding-v4-1024-v1"}
+        and ${recruitingSearchIndex.status} = 'indexed'
     )`,
   );
 }
@@ -204,18 +205,18 @@ function notAlreadyIndexedCondition(
 async function loadStudioRecords(db: Database): Promise<SemanticBackfillRecord[]> {
   const rows = await db
     .select({
-      organizationId: studioInterview.organizationId,
-      sourceId: studioInterview.id,
+      organizationId: recruitingRecordReadModel.organizationId,
+      sourceId: recruitingRecordReadModel.id,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.resumeParseStatus, "ready"),
-        isNotNull(studioInterview.resumeProfile),
-        notAlreadyIndexedCondition("studio_interview", studioInterview.id),
+        eq(recruitingRecordReadModel.resumeParseStatus, "ready"),
+        isNotNull(recruitingRecordReadModel.resumeProfile),
+        notAlreadyIndexedCondition("studio_interview", recruitingRecordReadModel.id),
       ),
     )
-    .orderBy(asc(studioInterview.createdAt));
+    .orderBy(asc(recruitingRecordReadModel.createdAt));
 
   return rows.map((row) => ({
     organizationId: row.organizationId,
@@ -277,7 +278,7 @@ async function loadSemanticBackfillRecords(
 }
 
 async function countCurrentSemanticIndexRows(db: Database): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(resumeSemanticIndex);
+  const [row] = await db.select({ value: count() }).from(recruitingSearchIndex);
   return row?.value ?? 0;
 }
 

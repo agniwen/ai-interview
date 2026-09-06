@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
+import { setTimeout as delay } from "node:timers/promises";
+import type { Editor } from "@tiptap/core";
 import type { ReactNode } from "react";
 import {
   createBrowserHistory,
@@ -145,10 +147,29 @@ async function renderReview(onClose = vi.fn()) {
   return container;
 }
 
+type EvaluationEditorElement = HTMLElement & { editor: Editor };
+
+async function evaluationField(container: ParentNode) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const field = container.querySelector<EvaluationEditorElement>(".tiptap");
+    if (field) {
+      return field;
+    }
+    await act(async () => {
+      await delay(10);
+    });
+  }
+  throw new Error("找不到评价编辑器");
+}
+
 function change(
-  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | EvaluationEditorElement,
   value: string,
 ) {
+  if ("editor" in element) {
+    element.editor.commands.setContent(value);
+    return;
+  }
   if (element instanceof HTMLSelectElement) {
     Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(
       element,
@@ -223,7 +244,7 @@ describe("HumanMeetingReview", () => {
         <HumanMeetingReview active inviteToken="invite-1" onClose={onClose} />,
         navigation === "back",
       );
-      const textarea = container.querySelector("textarea");
+      const textarea = await evaluationField(container);
       if (!textarea) {
         throw new Error("missing evaluation field");
       }
@@ -255,7 +276,7 @@ describe("HumanMeetingReview", () => {
         await vi.advanceTimersByTimeAsync(20);
       });
       await flush();
-      expect(textarea.value).toBe("后退前的未保存评价");
+      expect(textarea.textContent).toBe("后退前的未保存评价");
       act(leave);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(20);
@@ -282,7 +303,7 @@ describe("HumanMeetingReview", () => {
       true,
     );
     onClose.mockImplementation(() => router.history.back());
-    const textarea = container.querySelector("textarea");
+    const textarea = await evaluationField(container);
     if (!textarea) {
       throw new Error("missing evaluation field");
     }
@@ -334,7 +355,7 @@ describe("HumanMeetingReview", () => {
     await flush();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.textContent).toContain("面试评价 · 候选人 · 业务一面");
-    const textarea = document.querySelector("textarea");
+    const textarea = await evaluationField(document);
     if (!textarea) {
       throw new Error("missing evaluation field");
     }
@@ -343,7 +364,7 @@ describe("HumanMeetingReview", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("放弃未保存的修改");
     act(() => button(document.body, "继续编辑").click());
-    expect(textarea.value).toBe("未保存修改");
+    expect(textarea.textContent).toBe("未保存修改");
     act(() => button(document.body, "关闭").click());
     act(() => button(document.body, "放弃修改并关闭").click());
     expect(onClose).toHaveBeenCalledOnce();
@@ -380,7 +401,7 @@ describe("HumanMeetingReview", () => {
   it("asks before discarding edited evaluation text", async () => {
     const onClose = vi.fn();
     const container = await renderReview(onClose);
-    const textarea = container.querySelector("textarea");
+    const textarea = await evaluationField(container);
     if (!textarea) {
       throw new Error("missing field");
     }
@@ -389,7 +410,7 @@ describe("HumanMeetingReview", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("放弃未保存的修改");
     act(() => button(document.body, "继续编辑").click());
-    expect(textarea.value).toBe("未保存修改");
+    expect(textarea.textContent).toBe("未保存修改");
     act(() => button(container, "关闭").click());
     act(() => button(document.body, "放弃修改并关闭").click());
     expect(onClose).toHaveBeenCalledOnce();
@@ -604,7 +625,7 @@ describe("HumanMeetingReview", () => {
     const onClose = vi.fn();
     const container = await renderReview(onClose);
     chooseOutcome(container);
-    const field = container.querySelector<HTMLTextAreaElement>("textarea");
+    const field = await evaluationField(container);
     if (!field) {
       throw new Error("找不到评价输入框");
     }
@@ -622,7 +643,7 @@ describe("HumanMeetingReview", () => {
     });
     await flush();
     expect(onClose).not.toHaveBeenCalled();
-    expect(field.value).toBe("面试官手动填写的内容");
+    expect(field.textContent).toBe("面试官手动填写的内容");
     expect(button(container, "提交").disabled).toBe(false);
   });
 

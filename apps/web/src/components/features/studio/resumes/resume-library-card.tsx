@@ -29,7 +29,7 @@ function lifecycleTargetTab(record: ResumeLibraryListRecord): ResumeDetailDefaul
   if (record.pipelineStage === "ai_interview") {
     return "rounds";
   }
-  if (record.pipelineStage === "human_interview") {
+  if (record.pipelineStage === "second_interview" || record.pipelineStage === "final_interview") {
     return "human-interview";
   }
   if (record.pipelineStage === "offer") {
@@ -110,7 +110,7 @@ function describeCompactLifecycleDetail(
   if (record.pipelineStage === "ai_interview") {
     return describeCompactAiLifecycle(record);
   }
-  if (record.pipelineStage === "human_interview") {
+  if (record.pipelineStage === "second_interview" || record.pipelineStage === "final_interview") {
     return describeCompactHumanLifecycle(record);
   }
   if (record.pipelineStage === "offer") {

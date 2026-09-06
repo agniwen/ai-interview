@@ -5,7 +5,6 @@ import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import type { ToolbarFilterConfig } from "@/components/features/data-grid";
 import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,6 @@ import {
 import { shouldShowStudioListLoadingState } from "@/components/features/studio/studio-list-loading-state";
 
 import {
-  formatResumeLibraryJobDescriptionLabel,
   useResumeLibraryCardHeight,
   useResumeLibraryInitialScrollOffset,
   useResumeLibraryScrollElement,
@@ -209,15 +207,6 @@ export function ResumeLibraryCardList({
     },
     [setRowSelection],
   );
-  const selectedItems = useMemo(
-    () =>
-      selectedRows.map((record) => ({
-        id: record.id,
-        jobDescriptionLabel: formatResumeLibraryJobDescriptionLabel(record),
-        name: formatResumeCandidateTitle(record.candidateName, record.id),
-      })),
-    [selectedRows],
-  );
   const hasLockedSelection = selectedRows.some(
     (record) => !canDeleteResumeRecord(record.resumeParseStatus),
   );
@@ -370,17 +359,8 @@ export function ResumeLibraryCardList({
         <ResumeLibraryFloatingActionBar
           disabled={hasLockedSelection}
           disabledReason={bulkDeleteLockedReason}
-          onClearSelection={() => grid.setRowSelection({})}
           onBulkDelete={onBulkDelete}
-          onRemoveItem={(id) => grid.setRowSelection((prev) => ({ ...prev, [id]: false }))}
-          onViewItem={(id) => {
-            const record = records.find((item) => item.id === id);
-            if (record) {
-              onOpenDetail(record);
-            }
-          }}
           selectedCount={selectedIds.length}
-          selectedItems={selectedItems}
         />
       ) : null}
     </div>

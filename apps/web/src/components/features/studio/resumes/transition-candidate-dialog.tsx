@@ -12,6 +12,7 @@
 // chooses which non-closed stage to restore to. Candidate detail is fetched via
 // React Query and shares cache with the detail panel.
 
+import { canReopenRecruitingNode } from "@app/shared/studio-resumes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import {
   closeCategoryMeta,
   closeCategoryValues,
   pipelineStageSchema,
+  recruitingPipelineNodeValues,
   pipelineStageMeta,
 } from "@app/db-schema/studio-interviews";
 import type {
@@ -46,13 +48,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectGroup,
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,54 +68,39 @@ const CLOSE_OUTCOMES: Exclude<CandidateOutcome, "in_pipeline">[] = [
   "archived",
 ];
 
-type ReactivateTargetStage = Extract<
-  PipelineStage,
-  "screening" | "ai_interview" | "human_interview" | "offer"
->;
+function closeReasonForOutcome(
+  outcome: Exclude<CandidateOutcome, "in_pipeline">,
+  stage: PipelineStage,
+) {
+  if (outcome === "hired") {
+    return "onboarded";
+  }
+  if (outcome === "withdrawn") {
+    return stage === "onboarding" ? "onboarding_no_show" : "candidate_withdrew";
+  }
+  if (outcome === "archived") {
+    return "position_closed";
+  }
+  if (stage === "screening") {
+    return "resume_rejected";
+  }
+  if (stage === "background_check") {
+    return "background_check_failed";
+  }
+  return "other";
+}
 
-const REACTIVATE_TARGET_STAGES: ReactivateTargetStage[] = [
-  "screening",
-  "ai_interview",
-  "human_interview",
-  "offer",
-];
-
+type ReactivateTargetStage = Exclude<PipelineStage, "closed">;
+const REACTIVATE_TARGET_STAGES = recruitingPipelineNodeValues;
 const closeOutcomeSchema = z.enum(["hired", "rejected", "withdrawn", "archived"]);
-
 function isReactivateTargetStage(stage: PipelineStage): stage is ReactivateTargetStage {
-  return REACTIVATE_TARGET_STAGES.some((candidate) => candidate === stage);
+  return stage !== "closed";
 }
-
-const REACTIVATE_TARGET_STAGE_INDEX = new Map(
-  REACTIVATE_TARGET_STAGES.map((stage, index) => [stage, index]),
-);
-
-function getReachedReactivateStageIndex(
-  resume: Awaited<ReturnType<typeof fetchStudioResume>> | undefined,
-): number {
-  let reached = 0;
-  const previousStage = resume?.closedMeta?.previousStage;
-  if (previousStage && isReactivateTargetStage(previousStage)) {
-    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get(previousStage) ?? 0);
-  }
-  if (resume?.hasInterviewRounds || resume?.stageProgress.aiInterview) {
-    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("ai_interview") ?? 0);
-  }
-  if (resume?.stageProgress.humanInterview) {
-    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("human_interview") ?? 0);
-  }
-  if (resume?.stageProgress.offer) {
-    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("offer") ?? 0);
-  }
-  return reached;
-}
-
 function isReactivateTargetStageEnabled(
   stage: ReactivateTargetStage,
   resume: Awaited<ReturnType<typeof fetchStudioResume>> | undefined,
 ): boolean {
-  const stageIndex = REACTIVATE_TARGET_STAGE_INDEX.get(stage) ?? 0;
-  return stageIndex <= getReachedReactivateStageIndex(resume);
+  return Boolean(resume && canReopenRecruitingNode(resume, stage));
 }
 
 interface TransitionCandidateDialogProps {
@@ -147,10 +134,19 @@ function CloseDialog({
 }: Omit<TransitionCandidateDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  const { data: resume } = useQuery({
+    enabled: open && Boolean(candidate?.id),
+    queryFn: () => fetchStudioResume(slug, candidate?.id ?? ""),
+    queryKey: ["studio-resumes", slug, "detail", candidate?.id],
+  });
 
-  const [outcome, setOutcome] = useState<Exclude<CandidateOutcome, "in_pipeline">>(
+  const [selectedOutcome, setOutcome] = useState<Exclude<CandidateOutcome, "in_pipeline">>(
     initialOutcome ?? "rejected",
   );
+  const outcome =
+    selectedOutcome === "hired" && resume?.pipelineStage !== "onboarding"
+      ? "rejected"
+      : selectedOutcome;
   const [internalNotes, setInternalNotes] = useState("");
   const [feedbackToCandidate, setFeedbackToCandidate] = useState("");
   // 录用细节
@@ -184,7 +180,7 @@ function CloseDialog({
   }, [open, initialOutcome]);
 
   async function handleConfirm() {
-    if (!candidate) {
+    if (!candidate || !resume) {
       return;
     }
     setSubmitting(true);
@@ -221,9 +217,12 @@ function CloseDialog({
         }
 
         await transitionInterviewRecord(slug, candidate.id, {
-          closedMeta,
+          action: "close",
+          closeReason: closeReasonForOutcome(outcome, resume.pipelineStage),
+          details: closedMeta,
+          expectedVersion: resume?.version ?? -1,
           outcome,
-          pipelineStage: "closed",
+          reason: internalNotes.trim() || undefined,
         });
         toast.success(`已标记为「${candidateOutcomeMeta[outcome].label}」`);
         // 详情面板缓存也刷一下，让 action bar 立刻显示「重新激活」。
@@ -260,7 +259,9 @@ function CloseDialog({
             }}
             value={outcome}
           >
-            {CLOSE_OUTCOMES.map((value) => (
+            {CLOSE_OUTCOMES.filter(
+              (value) => value !== "hired" || resume?.pipelineStage === "onboarding",
+            ).map((value) => (
               <div className="flex items-center gap-2" key={value}>
                 <RadioGroupItem id={`outcome-${value}`} value={value} />
                 <Label className="cursor-pointer text-sm" htmlFor={`outcome-${value}`}>
@@ -331,27 +332,33 @@ function CloseDialog({
                   <Label className="text-xs" htmlFor="reject-category">
                     淘汰原因分类（可选，用于统计）
                   </Label>
-                  <NativeSelect
-                    id="reject-category"
-                    onChange={(event) => {
-                      if (!event.target.value) {
+                  <Select
+                    onValueChange={(value) => {
+                      if (!value) {
                         setCategory("");
                         return;
                       }
-                      const parsed = closeCategorySchema.safeParse(event.target.value);
+                      const parsed = closeCategorySchema.safeParse(value);
                       if (parsed.success) {
                         setCategory(parsed.data);
                       }
                     }}
                     value={category}
                   >
-                    <NativeSelectOption value="">请选择</NativeSelectOption>
-                    {closeCategoryValues.map((v) => (
-                      <NativeSelectOption key={v} value={v}>
-                        {closeCategoryMeta[v].label}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
+                    <SelectTrigger className="w-full" id="reject-category">
+                      <SelectValue placeholder="请选择" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="">请选择</SelectItem>
+                        {closeCategoryValues.map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {closeCategoryMeta[v].label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -415,7 +422,7 @@ function CloseDialog({
           <Button disabled={submitting} onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
-          <Button disabled={submitting || !candidate} onClick={handleConfirm}>
+          <Button disabled={submitting || !candidate || !resume} onClick={handleConfirm}>
             {submitting ? "处理中…" : "确认结束"}
           </Button>
         </DialogFooter>
@@ -454,7 +461,7 @@ function ReactivateDialog({
   }, [open]);
 
   async function handleConfirm() {
-    if (!candidate) {
+    if (!candidate || !resume) {
       return;
     }
     const trimmedReason = reactivationReason.trim();
@@ -475,9 +482,11 @@ function ReactivateDialog({
       },
       operation: async () => {
         await transitionInterviewRecord(slug, candidate.id, {
-          outcome: "in_pipeline",
-          pipelineStage: targetStage,
-          reactivationReason: trimmedReason,
+          action: "reopen",
+          expectedVersion: resume?.version ?? -1,
+          reason: trimmedReason,
+          targetNode: targetStage,
+          targetStatus: "pending",
         });
         toast.success(`已重新激活，回到「${pipelineStageMeta[targetStage].label}」`);
         await queryClient.invalidateQueries({
@@ -497,8 +506,7 @@ function ReactivateDialog({
         <DialogHeader>
           <DialogTitle>重新激活：{candidateLabel}</DialogTitle>
           <DialogDescription>
-            选择恢复到哪个招聘阶段。确认后简历评估会重置为「未评估」，已存在的轮次 / Offer
-            记录会保留。
+            回到已到达的节点重新处理。已完成的面试可重新确认，后续节点重置，历史记录保留。
           </DialogDescription>
         </DialogHeader>
 

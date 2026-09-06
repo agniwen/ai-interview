@@ -3,7 +3,7 @@ import type { InterviewEvidenceSnapshotPayload } from "@app/db-schema/interview-
 import { db } from "../../../../lib/server/db/index";
 import { serializeDate } from "../../../../lib/server/db/serialize";
 import { jsonValueSchema } from "../../../../lib/server/stable-stringify";
-import { interviewConversation, interviewEvidenceSnapshot } from "@app/db-schema/schema";
+import { aiInterviewConversation, recruitingEvidenceSnapshot } from "@app/db-schema/schema";
 import { loadSubmissionsByInterview } from "../../studio/routes/forms/dao/submissions";
 import {
   hashSnapshotPayload,
@@ -30,7 +30,7 @@ export interface InterviewEvidenceSnapshotRecord {
 }
 
 function serializeEvidenceRow(
-  row: typeof interviewEvidenceSnapshot.$inferSelect,
+  row: typeof recruitingEvidenceSnapshot.$inferSelect,
 ): InterviewEvidenceSnapshotRecord {
   return {
     contentHash: row.contentHash,
@@ -38,10 +38,10 @@ function serializeEvidenceRow(
     conversationId: row.conversationId,
     createdAt: serializeDate(row.createdAt),
     id: row.id,
-    interviewRecordId: row.interviewRecordId,
+    interviewRecordId: row.recruitingRecordId,
     organizationId: row.organizationId,
     payload: row.payload,
-    scheduleEntryId: row.scheduleEntryId,
+    scheduleEntryId: row.aiRoundId,
   };
 }
 
@@ -49,11 +49,11 @@ const productionDependencies: EvidenceSnapshotDependencies = {
   findExistingSnapshot: async (conversationId, contentHash) => {
     const [existing] = await db
       .select()
-      .from(interviewEvidenceSnapshot)
+      .from(recruitingEvidenceSnapshot)
       .where(
         and(
-          eq(interviewEvidenceSnapshot.conversationId, conversationId),
-          eq(interviewEvidenceSnapshot.contentHash, contentHash),
+          eq(recruitingEvidenceSnapshot.conversationId, conversationId),
+          eq(recruitingEvidenceSnapshot.contentHash, contentHash),
         ),
       )
       .limit(1);
@@ -61,29 +61,36 @@ const productionDependencies: EvidenceSnapshotDependencies = {
   },
   hashSnapshotPayload: (payload) => hashSnapshotPayload(jsonValueSchema.parse(payload)),
   insertSnapshot: async (input) => {
-    const [inserted] = await db.insert(interviewEvidenceSnapshot).values(input).returning();
+    const [inserted] = await db
+      .insert(recruitingEvidenceSnapshot)
+      .values({
+        ...input,
+        aiRoundId: input.scheduleEntryId,
+        recruitingRecordId: input.interviewRecordId,
+      })
+      .returning();
     return inserted ? serializeEvidenceRow(inserted) : null;
   },
   loadContextSnapshot: loadActiveInterviewContextSnapshot,
   loadConversation: async (conversationId, interviewRecordId) => {
     const [conversation] = await db
       .select({
-        lastSyncedAt: interviewConversation.lastSyncedAt,
-        organizationId: interviewConversation.organizationId,
-        recordingDurationSecs: interviewConversation.recordingDurationSecs,
-        recordingEgressId: interviewConversation.recordingEgressId,
-        recordingFileKey: interviewConversation.recordingFileKey,
-        recordingStatus: interviewConversation.recordingStatus,
-        scheduleEntryId: interviewConversation.scheduleEntryId,
-        transcript: interviewConversation.transcript,
-        updatedAt: interviewConversation.updatedAt,
-        webhookReceivedAt: interviewConversation.webhookReceivedAt,
+        lastSyncedAt: aiInterviewConversation.lastSyncedAt,
+        organizationId: aiInterviewConversation.organizationId,
+        recordingDurationSecs: aiInterviewConversation.recordingDurationSecs,
+        recordingEgressId: aiInterviewConversation.recordingEgressId,
+        recordingFileKey: aiInterviewConversation.recordingFileKey,
+        recordingStatus: aiInterviewConversation.recordingStatus,
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
+        transcript: aiInterviewConversation.transcript,
+        updatedAt: aiInterviewConversation.updatedAt,
+        webhookReceivedAt: aiInterviewConversation.webhookReceivedAt,
       })
-      .from(interviewConversation)
+      .from(aiInterviewConversation)
       .where(
         and(
-          eq(interviewConversation.conversationId, conversationId),
-          eq(interviewConversation.interviewRecordId, interviewRecordId),
+          eq(aiInterviewConversation.conversationId, conversationId),
+          eq(aiInterviewConversation.recruitingRecordId, interviewRecordId),
         ),
       )
       .limit(1);

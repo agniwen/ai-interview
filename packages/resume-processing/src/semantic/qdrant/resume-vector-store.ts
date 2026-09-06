@@ -44,7 +44,9 @@ const FILTER_PAYLOAD_FIELDS = [
 type QdrantFilterCondition = ReturnType<typeof mustMatch> | ReturnType<typeof mustMatchAny>;
 
 const chunkTypeSchema = z.enum(["resume_overview", "work_project", "skill_role"]);
-const sourceTypeSchema = z.enum(["studio_interview", "resume_pool_item", "job_description"]);
+const sourceTypeSchema = z
+  .enum(["studio_interview", "recruiting_record", "resume_pool_item", "job_description"])
+  .transform((value) => (value === "recruiting_record" ? ("studio_interview" as const) : value));
 const searchResponseSchema = z.object({
   points: z
     .array(

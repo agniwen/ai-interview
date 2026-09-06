@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 import time
+from ipaddress import ip_address
+from urllib.parse import urlparse
 
 import httpx
 
@@ -9,6 +11,17 @@ from agent_config import resolve_agent_name
 from dispatch_context import InterviewDispatchContext
 
 logger = logging.getLogger("agent")
+
+
+def callback_uses_environment(base_url: str) -> bool:
+    """Local callbacks must reach this host instead of an inherited HTTP proxy."""
+    host = (urlparse(base_url).hostname or "").rstrip(".").lower()
+    if host == "localhost" or host.endswith(".localhost"):
+        return False
+    try:
+        return not ip_address(host).is_loopback
+    except ValueError:
+        return True
 
 
 async def send_question_checkpoint(
@@ -36,7 +49,9 @@ async def send_question_checkpoint(
     }
     url = f"{base_url.rstrip('/')}/api/agent/checkpoint"
 
-    async with httpx.AsyncClient(timeout=3) as client:
+    async with httpx.AsyncClient(
+        timeout=3, trust_env=callback_uses_environment(base_url)
+    ) as client:
         for attempt in range(2):
             try:
                 response = await client.post(url, json=payload, headers=headers)
@@ -130,7 +145,9 @@ async def send_report(
     # inside the same backend pressure window during transient overload.
     backoff_seconds = (1, 2)
     total_attempts = len(backoff_seconds) + 1
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(
+        timeout=15, trust_env=callback_uses_environment(base_url)
+    ) as client:
         for attempt in range(total_attempts):
             try:
                 resp = await client.post(url, json=payload, headers=headers)

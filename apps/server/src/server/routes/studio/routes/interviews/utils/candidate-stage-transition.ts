@@ -1,57 +1,48 @@
 import { and, eq } from "drizzle-orm";
+import {
+  advanceScreeningRecruitingNodeTx,
+  closeRecruitingRecordTx,
+  RecruitingPipelineError,
+  reopenRecruitingRecordTx,
+  transitionRecruitingNodeTx,
+  updateRecruitingNodeTx,
+} from "@app/database/recruiting-pipeline";
+import type { RecruitingPipelineResult } from "@app/database/recruiting-pipeline";
+import { reviewAiInterviewRoundTx } from "@app/database/recruiting-ai-review";
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingEvent, recruitingNodeState, recruitingRecord } from "@app/db-schema/schema";
+import { isHumanInterviewStage, isOfferStage } from "@app/shared/candidate-pipeline-machine";
 import type { WorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
 import { db } from "../../../../../../lib/server/db/index";
 import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
-import {
-  getHumanInterviewOfferReadinessError,
-  loadHumanInterviewRoundReadiness,
-} from "../dao/human-interview-rounds";
-import { interviewAuditLog, studioInterview } from "@app/db-schema/schema";
-import type { JsonObject } from "@app/db-schema/json";
-import {
-  getCandidateReactivationError,
-  getCandidateStageTransitionError,
-  resolveCandidateTransitionPatch,
-} from "./candidate-transition";
 import type { CandidateTransitionInput } from "./candidate-transition";
 
 export type CandidateStageTransitionProvenance =
   | { kind: "manual" }
-  | {
-      kind: "workspace_recruiting_copilot";
-      proposalId: string;
-      proposalTitle: string;
-    };
-
+  | { kind: "workspace_recruiting_copilot"; proposalId: string; proposalTitle: string };
 export type CandidateStageTransitionResult =
   | { kind: "forbidden" }
   | { kind: "not_found" }
   | { kind: "invalid"; message: string }
-  | { kind: "noop" }
-  | { kind: "ok" };
-
+  | { kind: "conflict"; message: string }
+  | ({ kind: "noop" | "ok" } & RecruitingPipelineResult);
 export interface CandidateStageTransitionDependencies {
-  getReadinessError: typeof getHumanInterviewOfferReadinessError;
   invalidateCaches: typeof invalidateStudioInterviewCaches;
-  loadReadiness: typeof loadHumanInterviewRoundReadiness;
   transaction: typeof db.transaction;
 }
-
 const defaultDependencies: CandidateStageTransitionDependencies = {
-  getReadinessError: getHumanInterviewOfferReadinessError,
   invalidateCaches: invalidateStudioInterviewCaches,
-  loadReadiness: loadHumanInterviewRoundReadiness,
   transaction: db.transaction.bind(db),
 };
+class CandidateStageTransitionForbiddenError extends Error {
+  override name = "CandidateStageTransitionForbiddenError";
+}
 
-function resolveTargetStagePermission(target: CandidateTransitionInput["pipelineStage"]) {
-  if (target === "human_interview") {
-    return { action: "create", resource: "humanInterview" } as const;
+function requireHumanInterviewJob(jobDescriptionId: string | null) {
+  if (!jobDescriptionId) {
+    throw new RecruitingPipelineError("请先绑定在招岗位后再安排真人面试。", "invalid");
   }
-  if (target === "offer") {
-    return { action: "create", resource: "offer" } as const;
-  }
-  return null;
 }
 
 export async function transitionCandidateStage(
@@ -65,115 +56,146 @@ export async function transitionCandidateStage(
   },
   dependencies: CandidateStageTransitionDependencies = defaultDependencies,
 ): Promise<CandidateStageTransitionResult> {
-  const targetPermission = resolveTargetStagePermission(command.input.pipelineStage);
-  if (targetPermission && !(await command.authorize(targetPermission))) {
+  const { input } = command;
+  let target = "closed";
+  if (input.action === "update_node") {
+    target = input.node;
+  }
+  if (
+    input.action === "advance" ||
+    input.action === "reopen" ||
+    input.action === "screening_advance"
+  ) {
+    target = input.targetNode;
+  }
+  if (
+    isHumanInterviewStage(target) &&
+    !(await command.authorize({ action: "create", resource: "humanInterview" }))
+  ) {
     return { kind: "forbidden" };
   }
-
-  const now = new Date();
-  const result = await dependencies.transaction(async (tx) => {
-    const [existing] = await tx
-      .select({
-        closedMeta: studioInterview.closedMeta,
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        outcome: studioInterview.outcome,
-        pipelineStage: studioInterview.pipelineStage,
-      })
-      .from(studioInterview)
-      .where(
-        and(
-          eq(studioInterview.id, command.candidateId),
-          eq(studioInterview.organizationId, command.organizationId),
-        ),
-      )
-      .for("update")
-      .limit(1);
-    if (!existing) {
-      return { kind: "not_found" } as const;
-    }
-
-    const reactivationError = getCandidateReactivationError({
-      from: existing.pipelineStage,
-      reactivationReason: command.input.reactivationReason,
-      to: command.input.pipelineStage,
-    });
-    if (reactivationError) {
-      return { kind: "invalid", message: reactivationError } as const;
-    }
-
-    let humanInterviewOfferReadinessError: string | null = null;
-    let humanInterviewReadyForOffer = false;
-    if (existing.pipelineStage === "human_interview" && command.input.pipelineStage === "offer") {
-      const readiness = await dependencies.loadReadiness(
-        command.candidateId,
-        command.organizationId,
-        tx,
-      );
-      humanInterviewOfferReadinessError = dependencies.getReadinessError(readiness);
-      humanInterviewReadyForOffer = !humanInterviewOfferReadinessError;
-    }
-    const stageTransitionError = getCandidateStageTransitionError({
-      from: existing.pipelineStage,
-      hasJobDescription: Boolean(existing.jobDescriptionId),
-      humanInterviewReadyForOffer,
-      to: command.input.pipelineStage,
-    });
-    if (stageTransitionError) {
-      return {
-        kind: "invalid",
-        message: humanInterviewOfferReadinessError ?? stageTransitionError,
-      } as const;
-    }
-
-    if (
-      existing.pipelineStage === command.input.pipelineStage &&
-      existing.outcome === (command.input.outcome ?? "in_pipeline")
-    ) {
-      return { kind: "noop" } as const;
-    }
-
-    const transition = resolveCandidateTransitionPatch({
-      existing,
-      input: command.input,
-      now,
-    });
-    if (command.input.interviewQuestions !== undefined) {
-      transition.patch.interviewQuestions = command.input.interviewQuestions;
-    }
-    await tx
-      .update(studioInterview)
-      .set(transition.patch)
-      .where(eq(studioInterview.id, command.candidateId));
-    const provenanceDetail =
-      command.provenance.kind === "workspace_recruiting_copilot"
-        ? {
+  if (isOfferStage(target) && !(await command.authorize({ action: "create", resource: "offer" }))) {
+    return { kind: "forbidden" };
+  }
+  try {
+    const changed = await dependencies.transaction(async (tx) => {
+      const base = {
+        expectedVersion: input.expectedVersion,
+        now: new Date(),
+        operatorId: command.operatorId,
+        organizationId: command.organizationId,
+        recordId: command.candidateId,
+      };
+      const [record] = await tx
+        .select()
+        .from(recruitingRecord)
+        .where(
+          and(
+            eq(recruitingRecord.id, command.candidateId),
+            eq(recruitingRecord.organizationId, command.organizationId),
+          ),
+        )
+        .for("update");
+      if (!record) {
+        throw new RecruitingPipelineError("招聘记录不存在。", "not_found");
+      }
+      if (isHumanInterviewStage(target)) {
+        requireHumanInterviewJob(record.jobDescriptionId);
+      }
+      let result: RecruitingPipelineResult;
+      if (input.action === "screening_advance") {
+        result = await advanceScreeningRecruitingNodeTx(tx, { ...base, ...input });
+      } else if (input.action === "advance") {
+        result = await transitionRecruitingNodeTx(tx, { ...base, ...input });
+        if (input.interviewQuestions !== undefined) {
+          await updateRecruitingRecords(
+            tx,
+            and(
+              eq(recruitingRecordReadModel.id, command.candidateId),
+              eq(recruitingRecordReadModel.organizationId, command.organizationId),
+            ),
+            { interviewQuestions: input.interviewQuestions },
+          );
+        }
+      } else if (input.action === "reopen") {
+        result = await reopenRecruitingRecordTx(tx, { ...base, ...input });
+      } else if (input.action === "close") {
+        result = await closeRecruitingRecordTx(tx, { ...base, ...input });
+      } else if (
+        input.node === "ai_interview" &&
+        (input.result === "pass" || input.result === "fail")
+      ) {
+        if (!input.effectiveAiRoundId) {
+          throw new RecruitingPipelineError("请指定本次有效 AI 面试轮次。", "invalid");
+        }
+        result = await reviewAiInterviewRoundTx(tx, {
+          ...base,
+          outcome: input.result,
+          reason: input.reason,
+          roundId: input.effectiveAiRoundId,
+        });
+        if (input.result === "pass") {
+          const [node] = await tx
+            .select()
+            .from(recruitingNodeState)
+            .where(
+              and(
+                eq(recruitingNodeState.recruitingRecordId, command.candidateId),
+                eq(recruitingNodeState.node, "ai_interview"),
+              ),
+            );
+          // 同批多轮仍继续 AI；末轮确认与进入复试必须一起成功或回滚。
+          if (node?.status === "completed" && node.result === "pass") {
+            if (!(await command.authorize({ action: "create", resource: "humanInterview" }))) {
+              throw new CandidateStageTransitionForbiddenError();
+            }
+            requireHumanInterviewJob(record.jobDescriptionId);
+            result = await transitionRecruitingNodeTx(tx, {
+              ...base,
+              expectedVersion: result.version,
+              reason: input.reason,
+              targetNode: "second_interview",
+            });
+          }
+        }
+      } else {
+        result = await updateRecruitingNodeTx(tx, {
+          ...base,
+          ...input,
+          status: input.targetStatus,
+        });
+      }
+      if (result.changed && command.provenance.kind === "workspace_recruiting_copilot") {
+        await tx.insert(recruitingEvent).values({
+          action: "candidate_transition",
+          detail: {
+            action: input.action,
             copilotActionProposalId: command.provenance.proposalId,
             copilotActionTitle: command.provenance.proposalTitle,
-            source: "workspace_recruiting_copilot" as const,
-          }
-        : {};
-    const auditDetail: JsonObject = {
-      ...transition.auditDetail,
-      ...provenanceDetail,
-    };
-    if (command.input.interviewQuestions !== undefined) {
-      auditDetail.interviewerReferenceQuestionCount = command.input.interviewQuestions.length;
-    }
-    await tx.insert(interviewAuditLog).values({
-      action: "candidate_transition",
-      createdAt: now,
-      detail: auditDetail,
-      id: crypto.randomUUID(),
-      interviewRecordId: command.candidateId,
-      operatorId: command.operatorId,
-      organizationId: command.organizationId,
-      scheduleEntryId: null,
+            source: command.provenance.kind,
+          },
+          id: crypto.randomUUID(),
+          operatorId: command.operatorId,
+          organizationId: command.organizationId,
+          recruitingRecordId: command.candidateId,
+        });
+      }
+      return result;
     });
-    return { kind: "ok" } as const;
-  });
-
-  if (result.kind === "ok") {
-    dependencies.invalidateCaches(command.organizationId);
+    if (changed.changed) {
+      dependencies.invalidateCaches(command.organizationId);
+    }
+    return { kind: changed.changed ? "ok" : "noop", ...changed };
+  } catch (error) {
+    if (error instanceof CandidateStageTransitionForbiddenError) {
+      return { kind: "forbidden" };
+    }
+    if (!(error instanceof RecruitingPipelineError)) {
+      throw error;
+    }
+    if (error.code === "not_found") {
+      return { kind: "not_found" };
+    }
+    return { kind: error.code, message: error.message };
   }
-  return result;
 }

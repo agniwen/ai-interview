@@ -6,9 +6,9 @@ import { listActiveDuplicateMatchCounts } from "../../../../../../lib/server/res
 import {
   jobDescription,
   mailIngestAccount,
-  mailIngestMessage,
+  recruitingMailMessage,
   resumePoolItem,
-  resumeUploadBatchItem,
+  recruitingUploadBatchItem,
 } from "@app/db-schema/schema";
 import type {
   MailIngestJdBindStatus,
@@ -116,24 +116,24 @@ function summarizePool(
 async function loadAttachments(organizationId: string, batchIds: string[]) {
   const rows = await db
     .select({
-      batchId: resumeUploadBatchItem.batchId,
-      fileName: resumeUploadBatchItem.originalFileName,
-      orderIndex: resumeUploadBatchItem.orderIndex,
-      poolItemId: resumeUploadBatchItem.poolItemId,
+      batchId: recruitingUploadBatchItem.batchId,
+      fileName: recruitingUploadBatchItem.originalFileName,
+      orderIndex: recruitingUploadBatchItem.orderIndex,
+      poolItemId: recruitingUploadBatchItem.poolItemId,
       resumeParseError: resumePoolItem.resumeParseError,
       resumeParseStatus: resumePoolItem.resumeParseStatus,
-      resumeRecordId: resumeUploadBatchItem.resumeRecordId,
+      resumeRecordId: recruitingUploadBatchItem.recruitingRecordId,
     })
-    .from(resumeUploadBatchItem)
+    .from(recruitingUploadBatchItem)
     .leftJoin(
       resumePoolItem,
       and(
-        eq(resumeUploadBatchItem.poolItemId, resumePoolItem.id),
+        eq(recruitingUploadBatchItem.poolItemId, resumePoolItem.id),
         eq(resumePoolItem.organizationId, organizationId),
       ),
     )
-    .where(inArray(resumeUploadBatchItem.batchId, batchIds))
-    .orderBy(asc(resumeUploadBatchItem.batchId), asc(resumeUploadBatchItem.orderIndex));
+    .where(inArray(recruitingUploadBatchItem.batchId, batchIds))
+    .orderBy(asc(recruitingUploadBatchItem.batchId), asc(recruitingUploadBatchItem.orderIndex));
   const poolItemIds = rows.map((row) => row.poolItemId).filter((id): id is string => id !== null);
   const duplicates = await listActiveDuplicateMatchCounts({
     organizationId,
@@ -166,24 +166,24 @@ function buildWhere(input: {
   status?: MailIngestMessageStatus;
 }) {
   return and(
-    eq(mailIngestMessage.accountId, input.accountId),
+    eq(recruitingMailMessage.accountId, input.accountId),
     buildListTextFilterWhere("mailLogs", input.textFilters, {
-      fromAddress: mailIngestMessage.fromAddress,
-      subject: mailIngestMessage.subject,
+      fromAddress: recruitingMailMessage.fromAddress,
+      subject: recruitingMailMessage.subject,
     }),
-    ...(input.status ? [eq(mailIngestMessage.status, input.status)] : []),
-    ...(input.skipReason ? [eq(mailIngestMessage.skipReason, input.skipReason)] : []),
-    ...(input.jdBindStatus ? [eq(mailIngestMessage.jdBindStatus, input.jdBindStatus)] : []),
+    ...(input.status ? [eq(recruitingMailMessage.status, input.status)] : []),
+    ...(input.skipReason ? [eq(recruitingMailMessage.skipReason, input.skipReason)] : []),
+    ...(input.jdBindStatus ? [eq(recruitingMailMessage.jdBindStatus, input.jdBindStatus)] : []),
     ...(input.keyword
       ? [
           or(
-            ilike(mailIngestMessage.subject, `%${input.keyword}%`),
-            ilike(mailIngestMessage.fromAddress, `%${input.keyword}%`),
+            ilike(recruitingMailMessage.subject, `%${input.keyword}%`),
+            ilike(recruitingMailMessage.fromAddress, `%${input.keyword}%`),
           ),
         ]
       : []),
-    ...(input.receivedFrom ? [gte(mailIngestMessage.receivedAt, input.receivedFrom)] : []),
-    ...(input.receivedTo ? [lte(mailIngestMessage.receivedAt, input.receivedTo)] : []),
+    ...(input.receivedFrom ? [gte(recruitingMailMessage.receivedAt, input.receivedFrom)] : []),
+    ...(input.receivedTo ? [lte(recruitingMailMessage.receivedAt, input.receivedTo)] : []),
   );
 }
 
@@ -204,41 +204,44 @@ export async function listAccountMailMessages(input: {
   const [[{ count: total } = { count: 0 }], rows] = await Promise.all([
     db
       .select({ count: count() })
-      .from(mailIngestMessage)
+      .from(recruitingMailMessage)
       .innerJoin(
         mailIngestAccount,
         and(
-          eq(mailIngestMessage.accountId, mailIngestAccount.id),
+          eq(recruitingMailMessage.accountId, mailIngestAccount.id),
           eq(mailIngestAccount.organizationId, input.organizationId),
         ),
       )
       .where(where),
     db
       .select({
-        attachmentCount: mailIngestMessage.attachmentCount,
-        batchId: mailIngestMessage.batchId,
+        attachmentCount: recruitingMailMessage.attachmentCount,
+        batchId: recruitingMailMessage.batchId,
         boundJobDescriptionName: jobDescription.name,
-        errorMessage: mailIngestMessage.errorMessage,
-        fromAddress: mailIngestMessage.fromAddress,
-        id: mailIngestMessage.id,
-        jdBindStatus: mailIngestMessage.jdBindStatus,
-        receivedAt: mailIngestMessage.receivedAt,
-        resumeAttachmentCount: mailIngestMessage.resumeAttachmentCount,
-        skipReason: mailIngestMessage.skipReason,
-        status: mailIngestMessage.status,
-        subject: mailIngestMessage.subject,
+        errorMessage: recruitingMailMessage.errorMessage,
+        fromAddress: recruitingMailMessage.fromAddress,
+        id: recruitingMailMessage.id,
+        jdBindStatus: recruitingMailMessage.jdBindStatus,
+        receivedAt: recruitingMailMessage.receivedAt,
+        resumeAttachmentCount: recruitingMailMessage.resumeAttachmentCount,
+        skipReason: recruitingMailMessage.skipReason,
+        status: recruitingMailMessage.status,
+        subject: recruitingMailMessage.subject,
       })
-      .from(mailIngestMessage)
+      .from(recruitingMailMessage)
       .innerJoin(
         mailIngestAccount,
         and(
-          eq(mailIngestMessage.accountId, mailIngestAccount.id),
+          eq(recruitingMailMessage.accountId, mailIngestAccount.id),
           eq(mailIngestAccount.organizationId, input.organizationId),
         ),
       )
-      .leftJoin(jobDescription, eq(mailIngestMessage.boundJobDescriptionId, jobDescription.id))
+      .leftJoin(jobDescription, eq(recruitingMailMessage.boundJobDescriptionId, jobDescription.id))
       .where(where)
-      .orderBy(sql`${mailIngestMessage.receivedAt} DESC NULLS LAST`, desc(mailIngestMessage.id))
+      .orderBy(
+        sql`${recruitingMailMessage.receivedAt} DESC NULLS LAST`,
+        desc(recruitingMailMessage.id),
+      )
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize),
   ]);

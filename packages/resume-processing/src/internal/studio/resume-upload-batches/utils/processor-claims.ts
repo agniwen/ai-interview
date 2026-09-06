@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "../../../lib/db";
-import { resumeUploadBatch, resumeUploadBatchItem } from "@app/db-schema/schema";
+import { recruitingUploadBatch, recruitingUploadBatchItem } from "@app/db-schema/schema";
 
 export class BatchItemCancelledError extends Error {
   readonly batchId: string;
@@ -18,12 +18,12 @@ export class BatchItemCancelledError extends Error {
 export async function loadClaimMissSnapshot(itemId: string) {
   const [row] = await db
     .select({
-      batchId: resumeUploadBatchItem.batchId,
-      startedAt: resumeUploadBatchItem.startedAt,
-      status: resumeUploadBatchItem.status,
+      batchId: recruitingUploadBatchItem.batchId,
+      startedAt: recruitingUploadBatchItem.startedAt,
+      status: recruitingUploadBatchItem.status,
     })
-    .from(resumeUploadBatchItem)
-    .where(eq(resumeUploadBatchItem.id, itemId))
+    .from(recruitingUploadBatchItem)
+    .where(eq(recruitingUploadBatchItem.id, itemId))
     .limit(1);
   return row ?? null;
 }
@@ -31,12 +31,17 @@ export async function loadClaimMissSnapshot(itemId: string) {
 export async function isBatchItemCancelled(batchId: string, itemId: string): Promise<boolean> {
   const [row] = await db
     .select({
-      batchStatus: resumeUploadBatch.status,
-      itemStatus: resumeUploadBatchItem.status,
+      batchStatus: recruitingUploadBatch.status,
+      itemStatus: recruitingUploadBatchItem.status,
     })
-    .from(resumeUploadBatchItem)
-    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
-    .where(and(eq(resumeUploadBatchItem.id, itemId), eq(resumeUploadBatchItem.batchId, batchId)))
+    .from(recruitingUploadBatchItem)
+    .innerJoin(
+      recruitingUploadBatch,
+      eq(recruitingUploadBatch.id, recruitingUploadBatchItem.batchId),
+    )
+    .where(
+      and(eq(recruitingUploadBatchItem.id, itemId), eq(recruitingUploadBatchItem.batchId, batchId)),
+    )
     .limit(1);
   return !row || row.batchStatus === "cancelled" || row.itemStatus === "cancelled";
 }
@@ -49,13 +54,13 @@ export async function assertBatchItemNotCancelled(batchId: string, itemId: strin
 
 export async function releaseBatchItemForRetry(batchId: string, itemId: string): Promise<void> {
   await db
-    .update(resumeUploadBatchItem)
+    .update(recruitingUploadBatchItem)
     .set({ startedAt: null, status: "pending" })
     .where(
       and(
-        eq(resumeUploadBatchItem.id, itemId),
-        eq(resumeUploadBatchItem.batchId, batchId),
-        eq(resumeUploadBatchItem.status, "processing"),
+        eq(recruitingUploadBatchItem.id, itemId),
+        eq(recruitingUploadBatchItem.batchId, batchId),
+        eq(recruitingUploadBatchItem.status, "processing"),
       ),
     );
 }

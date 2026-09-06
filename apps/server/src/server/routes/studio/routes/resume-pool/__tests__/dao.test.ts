@@ -1,18 +1,21 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- resume-pool DAO assertions share one integration fixture. */
 import { and, eq, inArray, or } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   mailIngestAccount,
-  mailIngestMessage,
+  recruitingMailMessage,
   member,
   organization,
-  resumeDuplicateMatch,
-  resumePoolImport,
+  recruitingDuplicateMatch,
+  recruitingPoolImport,
+  recruitingNodeState,
+  recruitingEvent,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -54,22 +57,28 @@ const NOW = new Date("2026-06-14T09:00:00.000Z");
 
 async function cleanup() {
   await db
-    .delete(mailIngestMessage)
-    .where(eq(mailIngestMessage.accountId, "resume_pool_mail_account"));
+    .delete(recruitingMailMessage)
+    .where(eq(recruitingMailMessage.accountId, "resume_pool_mail_account"));
   await db.delete(mailIngestAccount).where(eq(mailIngestAccount.id, "resume_pool_mail_account"));
-  await db.delete(resumeUploadBatchItem).where(eq(resumeUploadBatchItem.organizationId, ORG_A));
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
-  await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_A));
-  await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_B));
+  await db
+    .delete(recruitingUploadBatchItem)
+    .where(eq(recruitingUploadBatchItem.organizationId, ORG_A));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_A));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_B));
+  await db.delete(recruitingPoolImport).where(eq(recruitingPoolImport.organizationId, ORG_A));
+  await db.delete(recruitingPoolImport).where(eq(recruitingPoolImport.organizationId, ORG_B));
   // Match pool rows by org/user before deleting parents (SET NULL FKs).
   await deleteFixtureResumePoolItems({
     organizationIds: [ORG_A, ORG_B],
     userIds: [USER_A, USER_B],
   });
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await db.delete(member).where(eq(member.userId, USER_A));
   await db.delete(member).where(eq(member.userId, USER_B));
   await db.delete(organization).where(eq(organization.id, ORG_A));
@@ -320,7 +329,7 @@ describe("queryResumePoolItems", () => {
         resumeFileName: "candidate-medium-only-summary.pdf",
       }),
     );
-    await db.insert(studioInterview).values([
+    await createRecruitingRecords(db, [
       {
         candidateName: "招聘台高相似候选人",
         createdAt: new Date("2026-06-15T09:00:00.000Z"),
@@ -338,13 +347,13 @@ describe("queryResumePoolItems", () => {
         updatedAt: new Date("2026-06-16T09:00:00.000Z"),
       },
     ]);
-    await db.insert(resumeDuplicateMatch).values([
+    await db.insert(recruitingDuplicateMatch).values([
       {
         embeddingVersion: "test-v1",
         id: "resume_pool_duplicate_high_active",
         level: "high",
         matchedSourceId: "resume_pool_duplicate_high_interview",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["简历高度相似"],
         score: 94,
@@ -357,7 +366,7 @@ describe("queryResumePoolItems", () => {
         id: "resume_pool_duplicate_medium_active",
         level: "medium",
         matchedSourceId: "resume_pool_duplicate_medium_interview",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["项目经历相似"],
         score: 88,
@@ -370,7 +379,7 @@ describe("queryResumePoolItems", () => {
         id: "resume_pool_duplicate_medium_only",
         level: "medium",
         matchedSourceId: "resume_pool_duplicate_medium_interview",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["项目经历相似"],
         score: 88,
@@ -383,7 +392,7 @@ describe("queryResumePoolItems", () => {
         id: "resume_pool_duplicate_dismissed",
         level: "high",
         matchedSourceId: "dismissed_resume_record",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["已忽略"],
         score: 93,
@@ -425,7 +434,9 @@ describe("queryResumePoolItems", () => {
         },
       });
     } finally {
-      await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+      await db
+        .delete(recruitingDuplicateMatch)
+        .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
     }
   });
 
@@ -466,7 +477,7 @@ describe("queryResumePoolItems", () => {
         resumeFileName: "candidate-mail-ingest.pdf",
       }),
     );
-    await db.insert(resumeUploadBatch).values({
+    await db.insert(recruitingUploadBatch).values({
       createdAt: NOW,
       createdBy: USER_A,
       dedupPolicy: "skip",
@@ -480,7 +491,7 @@ describe("queryResumePoolItems", () => {
       totalCount: 1,
       updatedAt: NOW,
     });
-    await db.insert(resumeUploadBatchItem).values({
+    await db.insert(recruitingUploadBatchItem).values({
       batchId: "resume_pool_mail_batch",
       contentHash: "hash-resume-pool-mail-ingest",
       fileSize: 1024,
@@ -502,12 +513,13 @@ describe("queryResumePoolItems", () => {
       userId: USER_A,
       username: "hr@example.com",
     });
-    await db.insert(mailIngestMessage).values({
+    await db.insert(recruitingMailMessage).values({
       accountId: "resume_pool_mail_account",
       batchId: "resume_pool_mail_batch",
       createdAt: NOW,
       id: "resume_pool_mail_message",
       mailbox: "INBOX",
+      organizationId: ORG_A,
       processedAt: NOW,
       status: "queued",
       subject: "boss直聘 - 候选人简历",
@@ -658,8 +670,8 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(result).toEqual({ matches, status: "duplicate_found" });
     const records = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.resumeSourcePoolItemId, publicId));
     if (result.status !== "duplicate_found") {
       throw new Error("expected duplicate result");
     }
@@ -683,8 +695,8 @@ describe("importPoolItemToResumeLibrary", () => {
     }
     const [record] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, result.resumeRecordId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, result.resumeRecordId));
     expect(record?.organizationId).toBe(ORG_A);
     expect(record?.candidateName).toBe(PROFILE.name);
     expect(record?.resumeSourceType).toBe("public_pool");
@@ -693,8 +705,8 @@ describe("importPoolItemToResumeLibrary", () => {
 
     const imports = await db
       .select()
-      .from(resumePoolImport)
-      .where(eq(resumePoolImport.importedResumeRecordId, result.resumeRecordId));
+      .from(recruitingPoolImport)
+      .where(eq(recruitingPoolImport.recruitingRecordId, result.resumeRecordId));
     expect(imports).toHaveLength(1);
     expect(imports[0]?.organizationId).toBe(ORG_A);
     expect(mocks.cloneSemanticIndex).toHaveBeenCalledWith({
@@ -706,30 +718,75 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(mocks.enqueueSemanticIndex).not.toHaveBeenCalled();
   });
 
-  it("creates an imported Resume Record directly in the human interview stage", async () => {
-    const publicId = await createResumePoolItem(
-      basePoolInput({ contentHash: "hash-resume-pool-human-stage", scope: "public" }),
-    );
+  it.each(["ai_interview", "second_interview"] as const)(
+    "imports directly into %s with passed screening and audited progression",
+    async (stage) => {
+      const publicId = await createResumePoolItem(
+        basePoolInput({ contentHash: "hash-resume-pool-human-stage", scope: "public" }),
+      );
 
-    const result = await importPoolItem({
-      dedupPolicy: "force",
-      importedBy: USER_B,
-      initialRecruitmentStage: "human_interview",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      poolItemId: publicId,
-    });
+      const result = await importPoolItem({
+        dedupPolicy: "force",
+        importedBy: USER_B,
+        initialRecruitmentStage: stage,
+        jobDescriptionId: null,
+        organizationId: ORG_A,
+        poolItemId: publicId,
+      });
 
-    expect(result.status).toBe("imported");
-    if (result.status !== "imported") {
-      throw new Error("expected import success");
-    }
-    const [record] = await db
-      .select({ pipelineStage: studioInterview.pipelineStage })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, result.resumeRecordId));
-    expect(record?.pipelineStage).toBe("human_interview");
-  });
+      expect(result.status).toBe("imported");
+      if (result.status !== "imported") {
+        throw new Error("expected import success");
+      }
+      const [record] = await db
+        .select({ pipelineStage: recruitingRecordReadModel.pipelineStage })
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, result.resumeRecordId));
+      expect(record?.pipelineStage).toBe(stage);
+      const nodes = await db
+        .select()
+        .from(recruitingNodeState)
+        .where(eq(recruitingNodeState.recruitingRecordId, result.resumeRecordId));
+      expect(nodes.find((node) => node.node === "screening")).toMatchObject({
+        result: "pass",
+        status: "completed",
+      });
+      expect(nodes.find((node) => node.node === stage)).toMatchObject({
+        result: null,
+        status: "pending",
+      });
+      if (stage === "second_interview") {
+        expect(nodes.find((node) => node.node === "ai_interview")).toMatchObject({
+          result: null,
+          status: "skipped",
+        });
+      }
+      const events = await db
+        .select()
+        .from(recruitingEvent)
+        .where(eq(recruitingEvent.recruitingRecordId, result.resumeRecordId));
+      expect(events.some((event) => event.action === "recruiting_node_advanced")).toBe(true);
+      const reused = await importPoolItem({
+        dedupPolicy: "force",
+        importedBy: USER_B,
+        initialRecruitmentStage: stage === "ai_interview" ? "second_interview" : "ai_interview",
+        jobDescriptionId: null,
+        organizationId: ORG_A,
+        poolItemId: publicId,
+      });
+      expect(reused).toEqual(result);
+      const [unchanged] = await db
+        .select({ pipelineStage: recruitingRecordReadModel.pipelineStage })
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, result.resumeRecordId));
+      expect(unchanged?.pipelineStage).toBe(stage);
+      const afterEvents = await db
+        .select()
+        .from(recruitingEvent)
+        .where(eq(recruitingEvent.recruitingRecordId, result.resumeRecordId));
+      expect(afterEvents).toHaveLength(events.length);
+    },
+  );
 
   it("creates another Resume Record for an explicit reimport", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
@@ -749,13 +806,13 @@ describe("importPoolItemToResumeLibrary", () => {
 
     expect(second.resumeRecordId).not.toBe(first.resumeRecordId);
     const records = await db
-      .select({ id: studioInterview.id })
-      .from(studioInterview)
-      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.resumeSourcePoolItemId, publicId));
     const imports = await db
-      .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
-      .from(resumePoolImport)
-      .where(eq(resumePoolImport.poolItemId, publicId));
+      .select({ resumeRecordId: recruitingPoolImport.recruitingRecordId })
+      .from(recruitingPoolImport)
+      .where(eq(recruitingPoolImport.poolItemId, publicId));
     expect(records).toHaveLength(2);
     expect(imports).toHaveLength(2);
     expect(imports.map((item) => item.resumeRecordId)).toEqual(
@@ -799,12 +856,12 @@ describe("importPoolItemToResumeLibrary", () => {
 
     const records = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.resumeSourcePoolItemId, publicId));
     const imports = await db
       .select()
-      .from(resumePoolImport)
-      .where(eq(resumePoolImport.poolItemId, publicId));
+      .from(recruitingPoolImport)
+      .where(eq(recruitingPoolImport.poolItemId, publicId));
     expect(records).toHaveLength(1);
     expect(records[0]?.resumeParseStatus).toBe("failed");
     expect(records[0]?.resumeParseError).toBe("clone failed");
@@ -824,8 +881,8 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(retried.resumeRecordId).toBe(records[0]?.id);
     const retriedRecords = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.resumeSourcePoolItemId, publicId));
     expect(retriedRecords).toHaveLength(1);
     expect(retriedRecords[0]?.resumeParseStatus).toBe("ready");
     expect(retriedRecords[0]?.resumeParseError).toBeNull();
@@ -863,7 +920,7 @@ describe("importPoolItemToResumeLibrary", () => {
 });
 
 describe("deleteOwnPoolItem", () => {
-  it("hard-deletes the owner's private pool item and keeps imported resume records", async () => {
+  it("archives the owner's private pool item and preserves imported source references", async () => {
     const privateId = await createResumePoolItem(basePoolInput());
     const imported = await importPoolItem({
       dedupPolicy: "force",
@@ -875,13 +932,13 @@ describe("deleteOwnPoolItem", () => {
     if (imported.status !== "imported") {
       throw new Error("expected import success");
     }
-    await db.insert(resumeDuplicateMatch).values([
+    await db.insert(recruitingDuplicateMatch).values([
       {
         embeddingVersion: "test-v1",
         id: "resume_pool_delete_duplicate_source",
         level: "medium",
         matchedSourceId: imported.resumeRecordId,
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["人才库记录匹配招聘台记录"],
         score: 88,
@@ -899,7 +956,7 @@ describe("deleteOwnPoolItem", () => {
         reasons: ["招聘台记录匹配人才库记录"],
         score: 93,
         sourceId: imported.resumeRecordId,
-        sourceType: "studio_interview",
+        sourceType: "recruiting_record",
         status: "active",
       },
     ]);
@@ -910,20 +967,21 @@ describe("deleteOwnPoolItem", () => {
     );
 
     const poolRows = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, privateId));
-    expect(poolRows).toHaveLength(0);
+    expect(poolRows).toHaveLength(1);
+    expect(poolRows[0]?.status).toBe("archived");
     expect(mocks.deleteSemanticIndex).toHaveBeenCalledWith({
       sourceId: privateId,
       sourceType: "resume_pool_item",
     });
     const duplicateRows = await db
       .select()
-      .from(resumeDuplicateMatch)
+      .from(recruitingDuplicateMatch)
       .where(
         and(
-          eq(resumeDuplicateMatch.organizationId, ORG_A),
+          eq(recruitingDuplicateMatch.organizationId, ORG_A),
           or(
-            eq(resumeDuplicateMatch.sourceId, privateId),
-            eq(resumeDuplicateMatch.matchedSourceId, privateId),
+            eq(recruitingDuplicateMatch.sourceId, privateId),
+            eq(recruitingDuplicateMatch.matchedSourceId, privateId),
           ),
         ),
       );
@@ -931,14 +989,14 @@ describe("deleteOwnPoolItem", () => {
 
     const [record] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, imported.resumeRecordId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, imported.resumeRecordId));
     expect(record?.candidateName).toBe(PROFILE.name);
     expect(record?.resumeSourceType).toBe("private_pool");
-    expect(record?.resumeSourcePoolItemId).toBeNull();
+    expect(record?.resumeSourcePoolItemId).toBe(privateId);
   });
 
-  it("deletes public items created by the current user", async () => {
+  it("archives public items created by the current user", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
 
     await deleteOwnPoolItem({
@@ -948,7 +1006,8 @@ describe("deleteOwnPoolItem", () => {
     });
 
     const poolRows = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, publicId));
-    expect(poolRows).toHaveLength(0);
+    expect(poolRows).toHaveLength(1);
+    expect(poolRows[0]?.status).toBe("archived");
   });
 
   it("rejects deleting another user's items", async () => {

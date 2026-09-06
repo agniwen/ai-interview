@@ -1,13 +1,13 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   account,
-  interviewConversation,
-  interviewNotification,
+  aiInterviewConversation,
+  recruitingNotificationDelivery,
   member,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { db } from "../../../../lib/server/db/index";
@@ -146,28 +146,31 @@ function buildNotificationCard(input: NotificationCardInput, detailUrl?: string)
 async function loadNotificationContext(options: SummaryReadyNotificationOptions) {
   const [row] = await db
     .select({
-      candidateName: studioInterview.candidateName,
-      createdBy: studioInterview.createdBy,
-      dataCollectionResults: interviewConversation.dataCollectionResults,
-      endedAt: interviewConversation.endedAt,
-      evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
-      interviewQuestions: studioInterview.interviewQuestions,
-      organizationId: studioInterview.organizationId,
+      candidateName: recruitingRecordReadModel.candidateName,
+      createdBy: recruitingRecordReadModel.createdBy,
+      dataCollectionResults: aiInterviewConversation.dataCollectionResults,
+      endedAt: aiInterviewConversation.endedAt,
+      evaluationCriteriaResults: aiInterviewConversation.evaluationCriteriaResults,
+      interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+      organizationId: recruitingRecordReadModel.organizationId,
       organizationSlug: organization.slug,
-      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-      resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      scheduleEntryId: interviewConversation.scheduleEntryId,
-      startedAt: interviewConversation.startedAt,
-      summaryStatus: interviewConversation.summaryStatus,
-      targetRole: studioInterview.targetRole,
-      transcriptSummary: interviewConversation.transcriptSummary,
+      qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+      resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      scheduleEntryId: aiInterviewConversation.aiRoundId,
+      startedAt: aiInterviewConversation.startedAt,
+      summaryStatus: aiInterviewConversation.summaryStatus,
+      targetRole: recruitingRecordReadModel.targetRole,
+      transcriptSummary: aiInterviewConversation.transcriptSummary,
     })
-    .from(interviewConversation)
-    .innerJoin(studioInterview, eq(interviewConversation.interviewRecordId, studioInterview.id))
-    .leftJoin(organization, eq(studioInterview.organizationId, organization.id))
-    .where(eq(interviewConversation.conversationId, options.conversationId))
+    .from(aiInterviewConversation)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(aiInterviewConversation.recruitingRecordId, recruitingRecordReadModel.id),
+    )
+    .leftJoin(organization, eq(recruitingRecordReadModel.organizationId, organization.id))
+    .where(eq(aiInterviewConversation.conversationId, options.conversationId))
     .limit(1);
 
   return row ?? null;
@@ -249,20 +252,20 @@ async function claimNotification({
 }) {
   const [existing] = await db
     .select({
-      id: interviewNotification.id,
-      status: interviewNotification.status,
+      id: recruitingNotificationDelivery.id,
+      status: recruitingNotificationDelivery.status,
     })
-    .from(interviewNotification)
+    .from(recruitingNotificationDelivery)
     .where(
       and(
-        eq(interviewNotification.interviewRecordId, interviewRecordId),
+        eq(recruitingNotificationDelivery.recruitingRecordId, interviewRecordId),
         or(
-          eq(interviewNotification.conversationId, conversationId),
-          isNull(interviewNotification.conversationId),
+          eq(recruitingNotificationDelivery.conversationId, conversationId),
+          isNull(recruitingNotificationDelivery.conversationId),
         ),
-        eq(interviewNotification.type, "summary_ready"),
-        eq(interviewNotification.recipientUserId, recipient.userId),
-        eq(interviewNotification.providerId, recipient.providerId),
+        eq(recruitingNotificationDelivery.type, "summary_ready"),
+        eq(recruitingNotificationDelivery.recipientUserId, recipient.userId),
+        eq(recruitingNotificationDelivery.providerId, recipient.providerId),
       ),
     )
     .limit(1);
@@ -273,40 +276,40 @@ async function claimNotification({
 
   if (existing) {
     await db
-      .update(interviewNotification)
+      .update(recruitingNotificationDelivery)
       .set({
         conversationId,
         error: null,
         recipientOpenId: recipient.accountId,
         status: "pending",
       })
-      .where(eq(interviewNotification.id, existing.id));
+      .where(eq(recruitingNotificationDelivery.id, existing.id));
     return existing.id;
   }
 
   const [row] = await db
-    .insert(interviewNotification)
+    .insert(recruitingNotificationDelivery)
     .values({
       conversationId,
       id: crypto.randomUUID(),
-      interviewRecordId,
       organizationId,
       providerId: recipient.providerId,
       recipientOpenId: recipient.accountId,
       recipientUserId: recipient.userId,
+      recruitingRecordId: interviewRecordId,
       status: "pending",
       type: "summary_ready",
     })
     .onConflictDoNothing({
       target: [
-        interviewNotification.interviewRecordId,
-        interviewNotification.conversationId,
-        interviewNotification.type,
-        interviewNotification.recipientUserId,
-        interviewNotification.providerId,
+        recruitingNotificationDelivery.recruitingRecordId,
+        recruitingNotificationDelivery.conversationId,
+        recruitingNotificationDelivery.type,
+        recruitingNotificationDelivery.recipientUserId,
+        recruitingNotificationDelivery.providerId,
       ],
     })
-    .returning({ id: interviewNotification.id });
+    .returning({ id: recruitingNotificationDelivery.id });
 
   return row?.id ?? null;
 }
@@ -318,25 +321,25 @@ function buildPublicAssetUrl(path: string): string {
 
 async function markNotificationSent(notificationId: string, messageId: string | null) {
   await db
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: null,
       feishuMessageId: messageId,
       sentAt: new Date(),
       status: "sent",
     })
-    .where(eq(interviewNotification.id, notificationId));
+    .where(eq(recruitingNotificationDelivery.id, notificationId));
 }
 
 async function markNotificationFailed(notificationId: string, error: Error) {
   const { message } = error;
   await db
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: message,
       status: "failed",
     })
-    .where(eq(interviewNotification.id, notificationId));
+    .where(eq(recruitingNotificationDelivery.id, notificationId));
 }
 
 async function sendGoogleSummaryEmail({
@@ -405,17 +408,17 @@ export async function resendInterviewSummaryNotification(
 ): Promise<ResendInterviewSummaryNotificationResult> {
   const [notification] = await db
     .select({
-      conversationId: interviewNotification.conversationId,
-      id: interviewNotification.id,
-      interviewRecordId: interviewNotification.interviewRecordId,
-      organizationId: interviewNotification.organizationId,
-      providerId: interviewNotification.providerId,
-      recipientOpenId: interviewNotification.recipientOpenId,
-      recipientUserId: interviewNotification.recipientUserId,
-      type: interviewNotification.type,
+      conversationId: recruitingNotificationDelivery.conversationId,
+      id: recruitingNotificationDelivery.id,
+      interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
+      organizationId: recruitingNotificationDelivery.organizationId,
+      providerId: recruitingNotificationDelivery.providerId,
+      recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
+      recipientUserId: recruitingNotificationDelivery.recipientUserId,
+      type: recruitingNotificationDelivery.type,
     })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.id, notificationId))
+    .from(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.id, notificationId))
     .limit(1);
 
   if (!notification) {
@@ -479,41 +482,41 @@ export async function resendInterviewSummaryNotification(
 
     const insertedId = crypto.randomUUID();
     const [inserted] = await db
-      .insert(interviewNotification)
+      .insert(recruitingNotificationDelivery)
       .values({
         conversationId: notification.conversationId,
         id: insertedId,
-        interviewRecordId: notification.interviewRecordId,
         organizationId: notification.organizationId,
         providerId: notification.providerId,
         recipientOpenId: recipient.accountId,
         recipientUserId,
+        recruitingRecordId: notification.interviewRecordId,
         status: "pending",
         type: notification.type,
       })
       .onConflictDoNothing({
         target: [
-          interviewNotification.interviewRecordId,
-          interviewNotification.conversationId,
-          interviewNotification.type,
-          interviewNotification.recipientUserId,
-          interviewNotification.providerId,
+          recruitingNotificationDelivery.recruitingRecordId,
+          recruitingNotificationDelivery.conversationId,
+          recruitingNotificationDelivery.type,
+          recruitingNotificationDelivery.recipientUserId,
+          recruitingNotificationDelivery.providerId,
         ],
       })
-      .returning({ id: interviewNotification.id });
+      .returning({ id: recruitingNotificationDelivery.id });
     if (inserted) {
       resendNotificationId = inserted.id;
     } else {
       const [existing] = await db
-        .select({ id: interviewNotification.id })
-        .from(interviewNotification)
+        .select({ id: recruitingNotificationDelivery.id })
+        .from(recruitingNotificationDelivery)
         .where(
           and(
-            eq(interviewNotification.interviewRecordId, notification.interviewRecordId),
-            eq(interviewNotification.conversationId, notification.conversationId),
-            eq(interviewNotification.type, notification.type),
-            eq(interviewNotification.recipientUserId, recipientUserId),
-            eq(interviewNotification.providerId, notification.providerId),
+            eq(recruitingNotificationDelivery.recruitingRecordId, notification.interviewRecordId),
+            eq(recruitingNotificationDelivery.conversationId, notification.conversationId),
+            eq(recruitingNotificationDelivery.type, notification.type),
+            eq(recruitingNotificationDelivery.recipientUserId, recipientUserId),
+            eq(recruitingNotificationDelivery.providerId, notification.providerId),
           ),
         )
         .limit(1);
@@ -527,14 +530,14 @@ export async function resendInterviewSummaryNotification(
   }
 
   await db
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: null,
       recipientOpenId: resendRecipientOpenId,
       recipientUserId: resendRecipientUserId,
       status: "pending",
     })
-    .where(eq(interviewNotification.id, resendNotificationId));
+    .where(eq(recruitingNotificationDelivery.id, resendNotificationId));
 
   try {
     const documentUrl = await ensureInterviewEvaluationDocument({
@@ -551,14 +554,14 @@ export async function resendInterviewSummaryNotification(
     const sent = await postFeishuDirectCard(notification.providerId, resendRecipientOpenId, card);
     const sentAt = new Date();
     await db
-      .update(interviewNotification)
+      .update(recruitingNotificationDelivery)
       .set({
         error: null,
         feishuMessageId: sent.id ?? null,
         sentAt,
         status: "sent",
       })
-      .where(eq(interviewNotification.id, resendNotificationId));
+      .where(eq(recruitingNotificationDelivery.id, resendNotificationId));
     return { notificationId: resendNotificationId, sentAt: sentAt.toISOString() };
   } catch (error) {
     const notificationError = error instanceof Error ? error : new Error(String(error));
@@ -576,49 +579,58 @@ async function loadMissingGoogleEmailNotificationTargets(
 
   const rows = await db
     .select({
-      conversationId: interviewConversation.conversationId,
-      interviewRecordId: interviewConversation.interviewRecordId,
+      conversationId: aiInterviewConversation.conversationId,
+      interviewRecordId: aiInterviewConversation.recruitingRecordId,
     })
-    .from(interviewConversation)
-    .innerJoin(studioInterview, eq(interviewConversation.interviewRecordId, studioInterview.id))
+    .from(aiInterviewConversation)
     .innerJoin(
-      studioInterviewSchedule,
+      recruitingRecordReadModel,
+      eq(aiInterviewConversation.recruitingRecordId, recruitingRecordReadModel.id),
+    )
+    .innerJoin(
+      aiInterviewRound,
       and(
-        eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
-        eq(studioInterviewSchedule.conversationId, interviewConversation.conversationId),
+        eq(aiInterviewRound.id, aiInterviewConversation.aiRoundId),
+        eq(aiInterviewRound.conversationId, aiInterviewConversation.conversationId),
       ),
     )
     .innerJoin(
       account,
       and(
-        eq(account.userId, studioInterview.createdBy),
+        eq(account.userId, recruitingRecordReadModel.createdBy),
         eq(account.providerId, GOOGLE_PROVIDER_ID),
       ),
     )
-    .innerJoin(user, eq(studioInterview.createdBy, user.id))
+    .innerJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
     .where(
       and(
-        eq(interviewConversation.summaryStatus, "ready"),
-        isNotNull(interviewConversation.interviewRecordId),
-        isNotNull(studioInterview.createdBy),
+        eq(aiInterviewConversation.summaryStatus, "ready"),
+        isNotNull(aiInterviewConversation.recruitingRecordId),
+        isNotNull(recruitingRecordReadModel.createdBy),
         isNotNull(user.email),
         notExists(
           db
-            .select({ id: interviewNotification.id })
-            .from(interviewNotification)
+            .select({ id: recruitingNotificationDelivery.id })
+            .from(recruitingNotificationDelivery)
             .where(
               and(
-                eq(interviewNotification.interviewRecordId, studioInterview.id),
-                eq(interviewNotification.conversationId, interviewConversation.conversationId),
-                eq(interviewNotification.type, "summary_ready"),
-                eq(interviewNotification.recipientUserId, studioInterview.createdBy),
-                eq(interviewNotification.providerId, GOOGLE_PROVIDER_ID),
+                eq(recruitingNotificationDelivery.recruitingRecordId, recruitingRecordReadModel.id),
+                eq(
+                  recruitingNotificationDelivery.conversationId,
+                  aiInterviewConversation.conversationId,
+                ),
+                eq(recruitingNotificationDelivery.type, "summary_ready"),
+                eq(
+                  recruitingNotificationDelivery.recipientUserId,
+                  recruitingRecordReadModel.createdBy,
+                ),
+                eq(recruitingNotificationDelivery.providerId, GOOGLE_PROVIDER_ID),
               ),
             ),
         ),
       ),
     )
-    .orderBy(desc(interviewConversation.updatedAt))
+    .orderBy(desc(aiInterviewConversation.updatedAt))
     .limit(limit);
 
   return rows.flatMap((row) => {
@@ -724,14 +736,14 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
 }> {
   const failedRows = await db
     .select({
-      conversationId: interviewNotification.conversationId,
-      interviewRecordId: interviewNotification.interviewRecordId,
+      conversationId: recruitingNotificationDelivery.conversationId,
+      interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
     })
-    .from(interviewNotification)
+    .from(recruitingNotificationDelivery)
     .where(
       and(
-        eq(interviewNotification.type, "summary_ready"),
-        inArray(interviewNotification.status, ["failed", "pending"]),
+        eq(recruitingNotificationDelivery.type, "summary_ready"),
+        inArray(recruitingNotificationDelivery.status, ["failed", "pending"]),
       ),
     )
     .limit(RETRY_BATCH_SIZE);

@@ -1,3 +1,4 @@
+import type { RecruitingBoardView } from "@app/shared/recruiting-board";
 /**
  * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
@@ -50,10 +51,13 @@ export interface ResumeListParams {
   /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
   jobDescriptionIds?: string[];
   /** pipeline 阶段过滤（任一匹配）。Pipeline stage filter (OR semantics). */
+  boardView?: RecruitingBoardView;
   pipelineStages?: string[];
   /** 候选人最终结论过滤（任一匹配）。Outcome filter (OR semantics). */
   outcomes?: string[];
   recommendationLevels?: string[];
+  nodeStatuses?: string[];
+  nodeResults?: string[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   structuredMaxScore?: number;
@@ -61,6 +65,7 @@ export interface ResumeListParams {
 }
 
 interface ResumeListQuery {
+  boardView?: RecruitingBoardView;
   createdFrom?: string;
   createdTo?: string;
   creatorIds?: string;
@@ -68,6 +73,8 @@ interface ResumeListQuery {
   knownTotal?: string;
   outcomes?: string;
   recommendationLevels?: string;
+  nodeStatuses?: string;
+  nodeResults?: string;
   page?: string;
   pageSize?: string;
   pipelineStages?: string;
@@ -117,6 +124,12 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
 
 function buildResumeListQuery(params: ResumeListParams): ResumeListQuery {
   const query = buildResumeScalarQuery(params);
+  if (params.nodeStatuses?.length) {
+    query.nodeStatuses = params.nodeStatuses.join(",");
+  }
+  if (params.nodeResults?.length) {
+    query.nodeResults = params.nodeResults.join(",");
+  }
   if (params.creatorIds?.length) {
     query.creatorIds = params.creatorIds.join(",");
   }
@@ -125,6 +138,9 @@ function buildResumeListQuery(params: ResumeListParams): ResumeListQuery {
   }
   if (params.outcomes?.length) {
     query.outcomes = params.outcomes.join(",");
+  }
+  if (params.boardView) {
+    query.boardView = params.boardView;
   }
   if (params.pipelineStages?.length) {
     query.pipelineStages = params.pipelineStages.join(",");

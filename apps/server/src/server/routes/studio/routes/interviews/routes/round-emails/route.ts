@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // round-emails 子路由：POST /:roundId/send 发送邀请邮件，GET /summary 查询发送摘要。
 // round-emails subrouter: POST /:roundId/send sends invite email, GET /summary queries send summary.
 
@@ -14,7 +15,7 @@ import { insertRoundEmailLog, summarizeRoundEmailLogs } from "./dao";
 import { renderRoundInviteEmail } from "./utils/templates";
 import type { SendRoundEmailResponse } from "@app/db-schema/round-email-log";
 import { summaryQuerySchema } from "@app/db-schema/round-email-log";
-import { studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
+import { aiInterviewRound } from "@app/db-schema/schema";
 
 const sendParamsSchema = z.object({ roundId: z.string().min(1) });
 
@@ -63,22 +64,22 @@ export function createRoundEmailsRouter(
         // Join round with candidate email + pipelineStage for the stage guard.
         const [row] = await db
           .select({
-            candidateEmail: studioInterview.candidateEmail,
-            candidateName: studioInterview.candidateName,
-            interviewRecordId: studioInterviewSchedule.interviewRecordId,
-            pipelineStage: studioInterview.pipelineStage,
-            roundLabel: studioInterviewSchedule.roundLabel,
-            scheduledAt: studioInterviewSchedule.scheduledAt,
+            candidateEmail: recruitingRecordReadModel.candidateEmail,
+            candidateName: recruitingRecordReadModel.candidateName,
+            interviewRecordId: aiInterviewRound.recruitingRecordId,
+            pipelineStage: recruitingRecordReadModel.pipelineStage,
+            roundLabel: aiInterviewRound.roundLabel,
+            scheduledAt: aiInterviewRound.scheduledAt,
           })
-          .from(studioInterviewSchedule)
+          .from(aiInterviewRound)
           .innerJoin(
-            studioInterview,
-            eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
+            recruitingRecordReadModel,
+            eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
           )
           .where(
             and(
-              eq(studioInterviewSchedule.id, roundId),
-              eq(studioInterviewSchedule.organizationId, activeOrg.id),
+              eq(aiInterviewRound.id, roundId),
+              eq(aiInterviewRound.organizationId, activeOrg.id),
             ),
           )
           .limit(1);

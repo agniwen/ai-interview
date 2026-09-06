@@ -2,12 +2,12 @@ import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { uniq } from "lodash-es";
 
 import { db } from "../../../../../../lib/server/db/index";
-import { interviewConversation } from "@app/db-schema/schema";
+import { aiInterviewConversation } from "@app/db-schema/schema";
 import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
 import { resolveEvaluationDocument } from "./evaluation-document-status";
 import type { FeishuEvaluationDocumentProjection } from "./evaluation-document-status";
 
-type InterviewConversationRow = typeof interviewConversation.$inferSelect;
+type InterviewConversationRow = typeof aiInterviewConversation.$inferSelect;
 
 export interface LatestEndedInterviewConversation {
   conversationId: string;
@@ -27,24 +27,24 @@ async function loadLatestEndedInterviewConversations(
   }
   const rows = await db
     .select({
-      conversationId: interviewConversation.conversationId,
-      dataCollectionResults: interviewConversation.dataCollectionResults,
-      interviewRecordId: interviewConversation.interviewRecordId,
-      scheduleEntryId: interviewConversation.scheduleEntryId,
-      summaryStatus: interviewConversation.summaryStatus,
+      conversationId: aiInterviewConversation.conversationId,
+      dataCollectionResults: aiInterviewConversation.dataCollectionResults,
+      interviewRecordId: aiInterviewConversation.recruitingRecordId,
+      scheduleEntryId: aiInterviewConversation.aiRoundId,
+      summaryStatus: aiInterviewConversation.summaryStatus,
     })
-    .from(interviewConversation)
+    .from(aiInterviewConversation)
     .where(
       and(
-        eq(interviewConversation.organizationId, organizationId),
-        inArray(interviewConversation.scheduleEntryId, ids),
-        isNotNull(interviewConversation.endedAt),
+        eq(aiInterviewConversation.organizationId, organizationId),
+        inArray(aiInterviewConversation.aiRoundId, ids),
+        isNotNull(aiInterviewConversation.endedAt),
       ),
     )
     .orderBy(
-      asc(interviewConversation.scheduleEntryId),
-      desc(interviewConversation.endedAt),
-      desc(interviewConversation.updatedAt),
+      asc(aiInterviewConversation.aiRoundId),
+      desc(aiInterviewConversation.endedAt),
+      desc(aiInterviewConversation.updatedAt),
     );
 
   const result = new Map<string, LatestEndedInterviewConversation>();

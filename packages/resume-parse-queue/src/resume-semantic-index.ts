@@ -15,9 +15,12 @@ export const RESUME_SEMANTIC_INDEX_JOB_NAME = "index-resume-semantic";
 export const resumeSemanticIndexJobSchema = z.object({
   organizationId: z.string().min(1),
   sourceId: z.string().min(1),
-  sourceType: z.enum(["studio_interview", "resume_pool_item", "job_description"]),
+  sourceType: z
+    .enum(["studio_interview", "recruiting_record", "resume_pool_item", "job_description"])
+    .transform((value) => (value === "recruiting_record" ? ("studio_interview" as const) : value)),
 });
 
+export type ResumeSemanticIndexJobInput = z.input<typeof resumeSemanticIndexJobSchema>;
 export type ResumeSemanticIndexJobData = z.infer<typeof resumeSemanticIndexJobSchema>;
 export type ResumeSemanticIndexJobProcessor = (
   payload: ResumeSemanticIndexJobData,
@@ -49,8 +52,8 @@ function jobOptions(): JobsOptions {
 export function buildResumeSemanticIndexJobId({
   sourceId,
   sourceType,
-}: Pick<ResumeSemanticIndexJobData, "sourceId" | "sourceType">): string {
-  return `${sourceType}-${sourceId.replaceAll(":", "-")}`;
+}: Pick<ResumeSemanticIndexJobInput, "sourceId" | "sourceType">): string {
+  return `${sourceType === "recruiting_record" ? "studio_interview" : sourceType}-${sourceId.replaceAll(":", "-")}`;
 }
 
 export function resolveResumeSemanticIndexWorkerConcurrency(
@@ -71,8 +74,9 @@ export function getResumeSemanticIndexQueue(): Queue<ResumeSemanticIndexJobData>
 }
 
 export async function enqueueResumeSemanticIndexJobs(
-  jobs: ResumeSemanticIndexJobData[],
+  inputs: ResumeSemanticIndexJobInput[],
 ): Promise<void> {
+  const jobs = inputs.map((input) => resumeSemanticIndexJobSchema.parse(input));
   if (jobs.length === 0 || !isResumeParseQueueConfigured()) {
     return;
   }

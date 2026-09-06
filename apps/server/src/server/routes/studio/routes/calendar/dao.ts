@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
   and,
   asc,
@@ -16,15 +17,14 @@ import {
 import { db } from "../../../../../lib/server/db/index";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
-  interviewConversation,
-  interviewConversationTurn,
+  aiInterviewConversation,
+  aiInterviewConversationTurn,
   jobDescription,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-  studioInterview,
-  studioInterviewSchedule,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type {
@@ -105,130 +105,127 @@ export async function listStudioCalendarEvents({
   const [candidateRows, aiRows, aiConversationRows] = await Promise.all([
     db
       .select({
-        candidateName: studioInterview.candidateName,
-        endedAt: studioHumanInterviewMeeting.endedAt,
-        format: studioHumanInterviewRound.format,
-        interviewRecordId: studioInterview.id,
+        candidateName: recruitingRecordReadModel.candidateName,
+        endedAt: humanInterviewMeeting.endedAt,
+        format: humanInterviewRound.format,
+        interviewRecordId: recruitingRecordReadModel.id,
         jobDescriptionName: jobDescription.name,
-        location: studioHumanInterviewRound.location,
-        meetingId: studioHumanInterviewMeeting.id,
-        meetingStatus: studioHumanInterviewMeeting.status,
-        meetingUrl: studioHumanInterviewRound.meetingUrl,
-        roundId: studioHumanInterviewRound.id,
-        roundLabel: studioHumanInterviewRound.label,
-        roundStatus: studioHumanInterviewRound.status,
-        scheduledAt: studioHumanInterviewRound.scheduledAt,
-        startedAt: studioHumanInterviewMeeting.startedAt,
+        location: humanInterviewRound.location,
+        meetingId: humanInterviewMeeting.id,
+        meetingStatus: humanInterviewMeeting.status,
+        meetingUrl: humanInterviewRound.meetingUrl,
+        roundId: humanInterviewRound.id,
+        roundLabel: humanInterviewRound.label,
+        roundStatus: humanInterviewRound.status,
+        scheduledAt: humanInterviewRound.scheduledAt,
+        startedAt: humanInterviewMeeting.startedAt,
       })
-      .from(studioHumanInterviewRound)
+      .from(humanInterviewRound)
       .leftJoin(
-        studioHumanInterviewMeetingRound,
-        eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+        humanInterviewMeetingRound,
+        eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
       )
       .leftJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
       )
       .innerJoin(
-        studioInterview,
-        eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId),
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
       )
       .leftJoin(
         jobDescription,
         and(
-          eq(studioInterview.jobDescriptionId, jobDescription.id),
-          eq(studioInterview.organizationId, jobDescription.organizationId),
+          eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+          eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
         ),
       )
       .where(
         and(
-          eq(studioHumanInterviewRound.organizationId, organizationId),
-          ne(studioHumanInterviewRound.status, "cancelled"),
-          or(
-            isNull(studioHumanInterviewMeeting.status),
-            ne(studioHumanInterviewMeeting.status, "cancelled"),
-          ),
-          gte(studioHumanInterviewRound.scheduledAt, start),
-          lt(studioHumanInterviewRound.scheduledAt, end),
+          eq(humanInterviewRound.organizationId, organizationId),
+          ne(humanInterviewRound.status, "cancelled"),
+          or(isNull(humanInterviewMeeting.status), ne(humanInterviewMeeting.status, "cancelled")),
+          gte(humanInterviewRound.scheduledAt, start),
+          lt(humanInterviewRound.scheduledAt, end),
           visibilityScope.kind === "restricted"
-            ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+            ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
             : undefined,
         ),
       )
-      .orderBy(
-        asc(studioHumanInterviewRound.scheduledAt),
-        asc(studioHumanInterviewRound.sortOrder),
-      ),
+      .orderBy(asc(humanInterviewRound.scheduledAt), asc(humanInterviewRound.sortOrder)),
     db
       .select({
-        candidateName: studioInterview.candidateName,
-        interviewRecordId: studioInterview.id,
+        candidateName: recruitingRecordReadModel.candidateName,
+        interviewRecordId: recruitingRecordReadModel.id,
         jobDescriptionName: jobDescription.name,
-        roundId: studioInterviewSchedule.id,
-        roundLabel: studioInterviewSchedule.roundLabel,
-        scheduledAt: studioInterviewSchedule.scheduledAt,
-        scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
-        status: studioInterviewSchedule.status,
+        roundId: aiInterviewRound.id,
+        roundLabel: aiInterviewRound.roundLabel,
+        scheduledAt: aiInterviewRound.scheduledAt,
+        scheduledEndAt: aiInterviewRound.scheduledEndAt,
+        status: aiInterviewRound.status,
       })
-      .from(studioInterviewSchedule)
-      .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
-      .leftJoin(
-        jobDescription,
-        and(
-          eq(studioInterview.jobDescriptionId, jobDescription.id),
-          eq(studioInterview.organizationId, jobDescription.organizationId),
-        ),
-      )
-      .where(
-        and(
-          eq(studioInterviewSchedule.organizationId, organizationId),
-          gte(studioInterviewSchedule.scheduledAt, start),
-          lt(studioInterviewSchedule.scheduledAt, end),
-          visibilityScope.kind === "restricted"
-            ? inArray(studioInterview.createdBy, visibilityScope.userIds)
-            : undefined,
-        ),
-      )
-      .orderBy(asc(studioInterviewSchedule.scheduledAt), asc(studioInterviewSchedule.sortOrder)),
-    db
-      .select({
-        candidateName: studioInterview.candidateName,
-        conversationId: interviewConversation.conversationId,
-        endedAt: interviewConversation.endedAt,
-        interviewRecordId: studioInterview.id,
-        jobDescriptionName: jobDescription.name,
-        roundId: studioInterviewSchedule.id,
-        roundLabel: studioInterviewSchedule.roundLabel,
-        startedAt: interviewConversation.startedAt,
-      })
-      .from(interviewConversation)
+      .from(aiInterviewRound)
       .innerJoin(
-        studioInterviewSchedule,
-        eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
       )
-      .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
       .leftJoin(
         jobDescription,
         and(
-          eq(studioInterview.jobDescriptionId, jobDescription.id),
-          eq(studioInterview.organizationId, jobDescription.organizationId),
+          eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+          eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
         ),
       )
       .where(
         and(
-          eq(interviewConversation.organizationId, organizationId),
-          eq(studioInterviewSchedule.organizationId, organizationId),
-          eq(studioInterview.organizationId, organizationId),
-          isNotNull(interviewConversation.startedAt),
-          isNotNull(interviewConversation.endedAt),
-          gt(interviewConversation.endedAt, start),
-          lt(interviewConversation.startedAt, end),
+          eq(aiInterviewRound.organizationId, organizationId),
+          gte(aiInterviewRound.scheduledAt, start),
+          lt(aiInterviewRound.scheduledAt, end),
           visibilityScope.kind === "restricted"
-            ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+            ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
             : undefined,
         ),
       )
-      .orderBy(asc(interviewConversation.startedAt)),
+      .orderBy(asc(aiInterviewRound.scheduledAt), asc(aiInterviewRound.sortOrder)),
+    db
+      .select({
+        candidateName: recruitingRecordReadModel.candidateName,
+        conversationId: aiInterviewConversation.conversationId,
+        endedAt: aiInterviewConversation.endedAt,
+        interviewRecordId: recruitingRecordReadModel.id,
+        jobDescriptionName: jobDescription.name,
+        roundId: aiInterviewRound.id,
+        roundLabel: aiInterviewRound.roundLabel,
+        startedAt: aiInterviewConversation.startedAt,
+      })
+      .from(aiInterviewConversation)
+      .innerJoin(aiInterviewRound, eq(aiInterviewRound.id, aiInterviewConversation.aiRoundId))
+      .innerJoin(
+        recruitingRecordReadModel,
+        eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+      )
+      .leftJoin(
+        jobDescription,
+        and(
+          eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+          eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
+        ),
+      )
+      .where(
+        and(
+          eq(aiInterviewConversation.organizationId, organizationId),
+          eq(aiInterviewRound.organizationId, organizationId),
+          eq(recruitingRecordReadModel.organizationId, organizationId),
+          isNotNull(aiInterviewConversation.startedAt),
+          isNotNull(aiInterviewConversation.endedAt),
+          gt(aiInterviewConversation.endedAt, start),
+          lt(aiInterviewConversation.startedAt, end),
+          visibilityScope.kind === "restricted"
+            ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
+            : undefined,
+        ),
+      )
+      .orderBy(asc(aiInterviewConversation.startedAt)),
   ]);
 
   const roundIds = candidateRows.map((row) => row.roundId);
@@ -240,23 +237,23 @@ export async function listStudioCalendarEvents({
           .select({
             id: user.id,
             name: user.name,
-            roundId: studioHumanInterviewRoundInterviewer.roundId,
+            roundId: humanInterviewRoundInterviewer.roundId,
           })
-          .from(studioHumanInterviewRoundInterviewer)
-          .innerJoin(user, eq(user.id, studioHumanInterviewRoundInterviewer.userId))
-          .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds))
+          .from(humanInterviewRoundInterviewer)
+          .innerJoin(user, eq(user.id, humanInterviewRoundInterviewer.userId))
+          .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds))
           .orderBy(asc(user.name)),
     aiRoundIds.length === 0
       ? []
       : db
-          .selectDistinct({ roundId: interviewConversation.scheduleEntryId })
-          .from(interviewConversation)
+          .selectDistinct({ roundId: aiInterviewConversation.aiRoundId })
+          .from(aiInterviewConversation)
           .where(
             and(
-              eq(interviewConversation.organizationId, organizationId),
-              inArray(interviewConversation.scheduleEntryId, aiRoundIds),
-              isNotNull(interviewConversation.startedAt),
-              isNotNull(interviewConversation.endedAt),
+              eq(aiInterviewConversation.organizationId, organizationId),
+              inArray(aiInterviewConversation.aiRoundId, aiRoundIds),
+              isNotNull(aiInterviewConversation.startedAt),
+              isNotNull(aiInterviewConversation.endedAt),
             ),
           ),
   ]);
@@ -342,36 +339,39 @@ export async function loadAiCalendarEventPreview({
 
   const [round] = await db
     .select({
-      allowTextInput: studioInterviewSchedule.allowTextInput,
-      candidateId: studioInterview.id,
-      candidateName: studioInterview.candidateName,
-      conversationId: studioInterviewSchedule.conversationId,
-      disconnectedAt: studioInterviewSchedule.disconnectedAt,
+      allowTextInput: aiInterviewRound.allowTextInput,
+      candidateId: recruitingRecordReadModel.id,
+      candidateName: recruitingRecordReadModel.candidateName,
+      conversationId: aiInterviewRound.conversationId,
+      disconnectedAt: aiInterviewRound.disconnectedAt,
       jobDescriptionName: jobDescription.name,
-      roundId: studioInterviewSchedule.id,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      scheduledAt: studioInterviewSchedule.scheduledAt,
-      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
-      sessionStartedAt: studioInterviewSchedule.sessionStartedAt,
-      status: studioInterviewSchedule.status,
-      targetRole: studioInterview.targetRole,
+      roundId: aiInterviewRound.id,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduledAt: aiInterviewRound.scheduledAt,
+      scheduledEndAt: aiInterviewRound.scheduledEndAt,
+      sessionStartedAt: aiInterviewRound.sessionStartedAt,
+      status: aiInterviewRound.status,
+      targetRole: recruitingRecordReadModel.targetRole,
     })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
         eq(jobDescription.organizationId, organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterviewSchedule.id, roundId),
-        eq(studioInterviewSchedule.organizationId, organizationId),
-        eq(studioInterview.organizationId, organizationId),
+        eq(aiInterviewRound.id, roundId),
+        eq(aiInterviewRound.organizationId, organizationId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
         visibilityScope.kind === "restricted"
-          ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+          ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
           : undefined,
       ),
     )
@@ -385,37 +385,37 @@ export async function loadAiCalendarEventPreview({
   const [result] = selectedConversationId
     ? await db
         .select({
-          conversationId: interviewConversation.conversationId,
-          endedAt: interviewConversation.endedAt,
-          recordingDurationSecs: interviewConversation.recordingDurationSecs,
-          reportStatus: interviewConversation.summaryStatus,
-          startedAt: interviewConversation.startedAt,
-          summary: interviewConversation.transcriptSummary,
+          conversationId: aiInterviewConversation.conversationId,
+          endedAt: aiInterviewConversation.endedAt,
+          recordingDurationSecs: aiInterviewConversation.recordingDurationSecs,
+          reportStatus: aiInterviewConversation.summaryStatus,
+          startedAt: aiInterviewConversation.startedAt,
+          summary: aiInterviewConversation.transcriptSummary,
           turnCount: sql<number>`greatest(
-            ${count(interviewConversationTurn.id)},
-            jsonb_array_length(${interviewConversation.transcript})
+            ${count(aiInterviewConversationTurn.id)},
+            jsonb_array_length(${aiInterviewConversation.transcript})
           )`.mapWith(Number),
         })
-        .from(interviewConversation)
+        .from(aiInterviewConversation)
         .leftJoin(
-          interviewConversationTurn,
-          eq(interviewConversationTurn.conversationId, interviewConversation.conversationId),
+          aiInterviewConversationTurn,
+          eq(aiInterviewConversationTurn.conversationId, aiInterviewConversation.conversationId),
         )
         .where(
           and(
-            eq(interviewConversation.conversationId, selectedConversationId),
-            eq(interviewConversation.scheduleEntryId, roundId),
-            eq(interviewConversation.organizationId, organizationId),
+            eq(aiInterviewConversation.conversationId, selectedConversationId),
+            eq(aiInterviewConversation.aiRoundId, roundId),
+            eq(aiInterviewConversation.organizationId, organizationId),
           ),
         )
         .groupBy(
-          interviewConversation.conversationId,
-          interviewConversation.endedAt,
-          interviewConversation.recordingDurationSecs,
-          interviewConversation.summaryStatus,
-          interviewConversation.startedAt,
-          interviewConversation.transcript,
-          interviewConversation.transcriptSummary,
+          aiInterviewConversation.conversationId,
+          aiInterviewConversation.endedAt,
+          aiInterviewConversation.recordingDurationSecs,
+          aiInterviewConversation.summaryStatus,
+          aiInterviewConversation.startedAt,
+          aiInterviewConversation.transcript,
+          aiInterviewConversation.transcriptSummary,
         )
         .limit(1)
     : [];

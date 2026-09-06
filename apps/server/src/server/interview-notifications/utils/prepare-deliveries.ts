@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { createHash } from "node:crypto";
 import {
   account,
@@ -6,13 +7,12 @@ import {
   interviewNotificationTemplate,
   interviewNotificationTemplateVersion,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
-  studioInterviewNotificationRecipient,
-  studioInterviewSchedule,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  recruitingNotificationRecipient,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type {
@@ -119,12 +119,12 @@ async function loadInterviewerMeetingLink(
   userId: string,
 ): Promise<string | undefined> {
   const [assignment] = await database
-    .select({ role: studioHumanInterviewMeetingInterviewer.role })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .select({ role: humanInterviewMeetingInterviewer.role })
+    .from(humanInterviewMeetingInterviewer)
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),
-        eq(studioHumanInterviewMeetingInterviewer.userId, userId),
+        eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+        eq(humanInterviewMeetingInterviewer.userId, userId),
       ),
     )
     .limit(1);
@@ -144,24 +144,24 @@ async function loadRecordContexts(
   database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
 ): Promise<RecordContext[]> {
-  let recordIds = event.interviewRecordId ? [event.interviewRecordId] : [];
-  if (recordIds.length === 0 && event.scheduleEntryId) {
+  let recordIds = event.recruitingRecordId ? [event.recruitingRecordId] : [];
+  if (recordIds.length === 0 && event.aiRoundId) {
     const [schedule] = await database
-      .select({ interviewRecordId: studioInterviewSchedule.interviewRecordId })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, event.scheduleEntryId))
+      .select({ interviewRecordId: aiInterviewRound.recruitingRecordId })
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, event.aiRoundId))
       .limit(1);
     recordIds = schedule ? [schedule.interviewRecordId] : [];
   }
   if (recordIds.length === 0 && event.humanMeetingId) {
     const rows = await database
-      .select({ interviewRecordId: studioHumanInterviewRound.interviewRecordId })
-      .from(studioHumanInterviewMeetingRound)
+      .select({ interviewRecordId: humanInterviewRound.recruitingRecordId })
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewRound,
-        eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+        humanInterviewRound,
+        eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
       )
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, event.humanMeetingId));
+      .where(eq(humanInterviewMeetingRound.meetingId, event.humanMeetingId));
     recordIds = [...new Set(rows.map((row) => row.interviewRecordId))];
   }
   if (recordIds.length === 0) {
@@ -169,29 +169,34 @@ async function loadRecordContexts(
   }
   const rows = await database
     .select({
-      candidateEmail: studioInterview.candidateEmail,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
+      candidateEmail: recruitingRecordReadModel.candidateEmail,
+      candidateName: recruitingRecordReadModel.candidateName,
+      candidatePhone: recruitingRecordReadModel.candidatePhone,
       configuredCompanyName: globalConfig.companyName,
-      createdBy: studioInterview.createdBy,
-      id: studioInterview.id,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
+      createdBy: recruitingRecordReadModel.createdBy,
+      id: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
       workspaceName: organization.name,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
     .where(
       and(
-        eq(studioInterview.organizationId, event.organizationId),
-        inArray(studioInterview.id, recordIds),
+        eq(recruitingRecordReadModel.organizationId, event.organizationId),
+        inArray(recruitingRecordReadModel.id, recordIds),
       ),
     );
   return rows.map(({ configuredCompanyName, workspaceName, ...record }) => ({
@@ -240,11 +245,11 @@ async function loadInitiatorUserId(
   event: InterviewNotificationEventRecord,
   records: RecordContext[],
 ): Promise<string | null> {
-  if (event.scheduleEntryId) {
+  if (event.aiRoundId) {
     const [row] = await database
-      .select({ createdBy: studioInterviewSchedule.createdBy })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, event.scheduleEntryId))
+      .select({ createdBy: aiInterviewRound.createdBy })
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, event.aiRoundId))
       .limit(1);
     if (row?.createdBy) {
       return row.createdBy;
@@ -252,9 +257,9 @@ async function loadInitiatorUserId(
   }
   if (event.humanMeetingId) {
     const [row] = await database
-      .select({ createdBy: studioHumanInterviewMeeting.createdBy })
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, event.humanMeetingId))
+      .select({ createdBy: humanInterviewMeeting.createdBy })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, event.humanMeetingId))
       .limit(1);
     if (row?.createdBy) {
       return row.createdBy;
@@ -395,13 +400,13 @@ async function loadTargets(
     return [];
   }
   const interviewers = await database
-    .select({ userId: studioHumanInterviewMeetingInterviewer.userId })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .select({ userId: humanInterviewMeetingInterviewer.userId })
+    .from(humanInterviewMeetingInterviewer)
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, event.humanMeetingId),
+        eq(humanInterviewMeetingInterviewer.meetingId, event.humanMeetingId),
         event.type === "human_evaluation_summary_ready"
-          ? ne(studioHumanInterviewMeetingInterviewer.role, "observer")
+          ? ne(humanInterviewMeetingInterviewer.role, "observer")
           : undefined,
       ),
     );
@@ -453,11 +458,11 @@ export async function prepareInterviewNotificationDeliveries(
   const recipientRows = event.humanMeetingId
     ? []
     : await database
-        .select({ userId: studioInterviewNotificationRecipient.userId })
-        .from(studioInterviewNotificationRecipient)
+        .select({ userId: recruitingNotificationRecipient.userId })
+        .from(recruitingNotificationRecipient)
         .where(
           inArray(
-            studioInterviewNotificationRecipient.interviewRecordId,
+            recruitingNotificationRecipient.recruitingRecordId,
             records.map((record) => record.id),
           ),
         );

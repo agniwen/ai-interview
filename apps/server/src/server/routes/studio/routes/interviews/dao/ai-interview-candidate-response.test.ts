@@ -1,14 +1,15 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   account,
   globalConfig,
-  interviewNotification,
-  interviewNotificationEvent,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -34,7 +35,7 @@ const previousEnvironment = {
 };
 
 async function cleanup() {
-  await db.delete(studioInterview).where(eq(studioInterview.id, INTERVIEW_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, INTERVIEW_ID));
   await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
   await db.delete(user).where(eq(user.id, USER_ID));
 }
@@ -72,7 +73,7 @@ beforeAll(async () => {
     id: "ai_initial_notification_test_global_config",
     organizationId: ORGANIZATION_ID,
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "candidate@example.test",
     candidateName: "张三",
     createdAt: NOW,
@@ -84,16 +85,16 @@ beforeAll(async () => {
     updatedAt: NOW,
   });
   const invitation = addAiInterviewInvitationToSchedule({ id: SCHEDULE_ID }, NOW);
-  await db.insert(studioInterviewSchedule).values({
+  await db.insert(aiInterviewRound).values({
     candidateInviteExpiresAt: invitation.candidateInviteExpiresAt,
     candidateInviteStatus: "sent",
     candidateInviteTokenHash: invitation.candidateInviteTokenHash,
     createdAt: NOW,
     createdBy: USER_ID,
     id: SCHEDULE_ID,
-    interviewRecordId: INTERVIEW_ID,
     invitationVersion: 1,
     organizationId: ORGANIZATION_ID,
+    recruitingRecordId: INTERVIEW_ID,
     roundLabel: "AI HR 初面",
     sortOrder: 0,
     status: "pending",
@@ -122,14 +123,14 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await db
-    .delete(interviewNotification)
-    .where(eq(interviewNotification.interviewRecordId, INTERVIEW_ID));
+    .delete(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.recruitingRecordId, INTERVIEW_ID));
   await db
-    .delete(interviewNotificationEvent)
-    .where(eq(interviewNotificationEvent.interviewRecordId, INTERVIEW_ID));
+    .delete(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.recruitingRecordId, INTERVIEW_ID));
   const invitation = addAiInterviewInvitationToSchedule({ id: SCHEDULE_ID }, NOW);
   await db
-    .update(studioInterviewSchedule)
+    .update(aiInterviewRound)
     .set({
       candidateDeclineReason: null,
       candidateInviteExpiresAt: invitation.candidateInviteExpiresAt,
@@ -140,7 +141,7 @@ beforeEach(async () => {
       status: "pending",
       updatedAt: NOW,
     })
-    .where(eq(studioInterviewSchedule.id, SCHEDULE_ID));
+    .where(eq(aiInterviewRound.id, SCHEDULE_ID));
 });
 
 describe("AI interview candidate response notification", () => {
@@ -170,11 +171,11 @@ describe("AI interview candidate response notification", () => {
 
     const [event] = await db
       .select()
-      .from(interviewNotificationEvent)
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.scheduleEntryId, SCHEDULE_ID),
-          eq(interviewNotificationEvent.type, "ai_invitation_accepted"),
+          eq(recruitingNotificationEvent.aiRoundId, SCHEDULE_ID),
+          eq(recruitingNotificationEvent.type, "ai_invitation_accepted"),
         ),
       );
     expect(event?.payloadSnapshot).toMatchObject({
@@ -190,8 +191,8 @@ describe("AI interview candidate response notification", () => {
 
     const [delivery] = await db
       .select()
-      .from(interviewNotification)
-      .where(eq(interviewNotification.eventId, event.id));
+      .from(recruitingNotificationDelivery)
+      .where(eq(recruitingNotificationDelivery.eventId, event.id));
     // Do not assert the mutable delivery status: a concurrently running local
     // Worker may claim this real-DB fixture after its immutable routing fields are written.
     expect(delivery).toMatchObject({
@@ -213,12 +214,12 @@ describe("AI interview candidate response notification", () => {
       scheduleEntryId: SCHEDULE_ID,
     });
     await db
-      .update(studioInterviewSchedule)
+      .update(aiInterviewRound)
       .set({
         candidateInviteExpiresAt: expiresAt,
         candidateInviteTokenHash: hashAiInterviewInvitationToken(token),
       })
-      .where(eq(studioInterviewSchedule.id, SCHEDULE_ID));
+      .where(eq(aiInterviewRound.id, SCHEDULE_ID));
 
     await expect(respondAiInterviewInvitation({ action: "accept", token })).rejects.toMatchObject({
       code: "invitation_expired",
@@ -228,11 +229,11 @@ describe("AI interview candidate response notification", () => {
 
     const [event] = await db
       .select()
-      .from(interviewNotificationEvent)
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.scheduleEntryId, SCHEDULE_ID),
-          eq(interviewNotificationEvent.type, "ai_invitation_exception"),
+          eq(recruitingNotificationEvent.aiRoundId, SCHEDULE_ID),
+          eq(recruitingNotificationEvent.type, "ai_invitation_exception"),
         ),
       );
     expect(event?.payloadSnapshot).toMatchObject({
@@ -244,8 +245,8 @@ describe("AI interview candidate response notification", () => {
     }
     const deliveries = await db
       .select()
-      .from(interviewNotification)
-      .where(eq(interviewNotification.eventId, event.id));
+      .from(recruitingNotificationDelivery)
+      .where(eq(recruitingNotificationDelivery.eventId, event.id));
     const hrDelivery = deliveries.find(
       (delivery) => delivery.audienceType === "initiator_fallback",
     );
@@ -273,9 +274,9 @@ describe("AI interview candidate response notification", () => {
       scheduleEntryId: SCHEDULE_ID,
     });
     await db
-      .update(studioInterviewSchedule)
+      .update(aiInterviewRound)
       .set({ candidateInviteStatus: "declined" })
-      .where(eq(studioInterviewSchedule.id, SCHEDULE_ID));
+      .where(eq(aiInterviewRound.id, SCHEDULE_ID));
 
     await expect(respondAiInterviewInvitation({ action: "accept", token })).rejects.toMatchObject({
       code: "response_conflict",
@@ -285,11 +286,11 @@ describe("AI interview candidate response notification", () => {
 
     const [event] = await db
       .select()
-      .from(interviewNotificationEvent)
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.scheduleEntryId, SCHEDULE_ID),
-          eq(interviewNotificationEvent.type, "ai_invitation_exception"),
+          eq(recruitingNotificationEvent.aiRoundId, SCHEDULE_ID),
+          eq(recruitingNotificationEvent.type, "ai_invitation_exception"),
         ),
       );
     expect(event?.payloadSnapshot).toMatchObject({
@@ -308,16 +309,16 @@ describe("AI interview candidate response notification", () => {
     await recordAiInterviewInvitationException({ exceptionType: "system_error", token });
 
     const [schedule] = await db
-      .select({ status: studioInterviewSchedule.candidateInviteStatus })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, SCHEDULE_ID));
+      .select({ status: aiInterviewRound.candidateInviteStatus })
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, SCHEDULE_ID));
     const [event] = await db
       .select()
-      .from(interviewNotificationEvent)
+      .from(recruitingNotificationEvent)
       .where(
         and(
-          eq(interviewNotificationEvent.scheduleEntryId, SCHEDULE_ID),
-          eq(interviewNotificationEvent.type, "ai_invitation_exception"),
+          eq(recruitingNotificationEvent.aiRoundId, SCHEDULE_ID),
+          eq(recruitingNotificationEvent.type, "ai_invitation_exception"),
         ),
       );
     expect(schedule?.status).toBe("sent");

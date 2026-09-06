@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
 import type { InterviewRecordingStatus } from "@app/db-schema/db-enums";
 import { db } from "../../../lib/server/db/index";
-import { interviewConversation } from "@app/db-schema/schema";
+import { aiInterviewConversation } from "@app/db-schema/schema";
 import { factory } from "../../factory";
 import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import {
@@ -206,14 +206,14 @@ export const livekitRouter = factory.createApp().post("/webhook", async (c) => {
   const durationSecs = deriveDurationSecs(info.startedAt, info.endedAt);
 
   const updated = await db
-    .update(interviewConversation)
+    .update(aiInterviewConversation)
     .set({
       lastSyncedAt: new Date(),
       recordingDurationSecs: durationSecs,
       recordingStatus,
     })
-    .where(eq(interviewConversation.recordingEgressId, info.egressId))
-    .returning({ interviewRecordId: interviewConversation.interviewRecordId });
+    .where(eq(aiInterviewConversation.recordingEgressId, info.egressId))
+    .returning({ interviewRecordId: aiInterviewConversation.recruitingRecordId });
 
   if (updated.length === 0) {
     // Webhook 比 agent 的 /report 更早到达时会出现这种情况；返回 200 让 LiveKit 不重投，

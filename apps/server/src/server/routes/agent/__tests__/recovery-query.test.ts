@@ -16,16 +16,16 @@ describe("report generation recovery queries", () => {
   it("filters exhausted or orphaned summary jobs before applying the batch limit", () => {
     const query = queryBeforeLimit("listSummaryRetryCandidates");
 
-    expect(query).toContain("isNotNull(interviewConversation.interviewRecordId)");
-    expect(query).toContain("lt(interviewConversation.summaryAttempts, RECOVERY_MAX_ATTEMPTS)");
+    expect(query).toContain("isNotNull(aiInterviewConversation.recruitingRecordId)");
+    expect(query).toContain("lt(aiInterviewConversation.summaryAttempts, RECOVERY_MAX_ATTEMPTS)");
   });
 
   it("filters exhausted or orphaned key-information jobs before applying the batch limit", () => {
     const query = queryBeforeLimit("listKeyInformationRetryCandidates");
 
-    expect(query).toContain("isNotNull(interviewConversation.interviewRecordId)");
+    expect(query).toContain("isNotNull(aiInterviewConversation.recruitingRecordId)");
     expect(query).toContain(
-      "lt(interviewConversation.keyInformationAttempts, RECOVERY_MAX_ATTEMPTS)",
+      "lt(aiInterviewConversation.keyInformationAttempts, RECOVERY_MAX_ATTEMPTS)",
     );
   });
 });

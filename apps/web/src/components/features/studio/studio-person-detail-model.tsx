@@ -18,8 +18,9 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
+import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
 
-export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/50 bg-background/80 bg-clip-padding backdrop-blur-lg ${cossWhisperShadowClass}`;
+export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/50 bg-background/70 bg-clip-padding backdrop-blur-xl backdrop-saturate-150 ${cossWhisperShadowClass}`;
 
 export type StudioPersonDetailMode = "interview" | "resume";
 export type StudioPersonDetailLayoutMode = "modal" | "page";
@@ -63,7 +64,16 @@ export function shouldShowAiInterviewTab(record: { pipelineStage?: string } | nu
   if (!record?.pipelineStage) {
     return false;
   }
-  return ["ai_interview", "human_interview", "offer", "closed"].includes(record.pipelineStage);
+  return [
+    "ai_interview",
+    "second_interview",
+    "final_interview",
+    "income_proof",
+    "offer",
+    "background_check",
+    "onboarding",
+    "closed",
+  ].includes(record.pipelineStage);
 }
 
 // 真人复面 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
@@ -80,7 +90,15 @@ export function shouldShowHumanInterviewTab(
   if (!record?.pipelineStage) {
     return false;
   }
-  return ["human_interview", "offer", "closed"].includes(record.pipelineStage);
+  return [
+    "second_interview",
+    "final_interview",
+    "income_proof",
+    "offer",
+    "background_check",
+    "onboarding",
+    "closed",
+  ].includes(record.pipelineStage);
 }
 
 export function shouldShowOfferTab(
@@ -93,7 +111,9 @@ export function shouldShowOfferTab(
   if (!record?.pipelineStage) {
     return false;
   }
-  return ["offer", "closed"].includes(record.pipelineStage);
+  return (
+    isOfferStage(record.pipelineStage) || ["onboarding", "closed"].includes(record.pipelineStage)
+  );
 }
 
 function readCandidateNameFromRecord(
@@ -147,10 +167,10 @@ export function findCachedResumeCandidateName(queryClient: QueryClient, recordId
 }
 
 export function tabForPipelineStage(stage: PipelineStage): StudioPersonDetailTab {
-  if (stage === "human_interview") {
+  if (stage === "second_interview" || stage === "final_interview") {
     return "human-interview";
   }
-  if (stage === "offer") {
+  if (isOfferStage(stage)) {
     return "offer";
   }
   if (stage === "ai_interview") {

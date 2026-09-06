@@ -68,6 +68,7 @@ const round: HumanInterviewRoundRecord = {
   notes: null,
   organizationId: "org-1",
   outcome: null,
+  roundKind: "second_interview",
   scheduledAt: "2026-08-05T09:30:00.000Z",
   score: null,
   sortOrder: 0,
@@ -302,7 +303,7 @@ it("keeps scheduling as a direct grouped button across loading, blocked and allo
   const button = () =>
     view.container.querySelector<HTMLButtonElement>('[aria-label="阶段操作"] > button');
   try {
-    expect(button()?.textContent).toContain("安排真人复面");
+    expect(button()?.textContent).toContain("安排复试");
     expect(button()?.getAttribute("aria-disabled")).toBe("true");
     await act(async () => {
       view.rounds.resolve([round]);
@@ -338,7 +339,7 @@ it("keeps scheduling as a direct grouped button across loading, blocked and allo
     await waitForUi(() => expect(button()?.getAttribute("aria-disabled")).toBe("false"));
     act(() => button()?.click());
     await waitForUi(() =>
-      expect(document.querySelector('[role="dialog"]')?.textContent).toContain("安排真人复面"),
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain("安排复试"),
     );
     expect(view.container.querySelectorAll('[aria-label="阶段操作"] > button')).toHaveLength(2);
   } finally {

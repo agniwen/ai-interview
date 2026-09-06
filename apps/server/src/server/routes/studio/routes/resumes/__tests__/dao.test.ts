@@ -1,3 +1,10 @@
+import {
+  deleteRecruitingRecords,
+  createRecruitingRecords,
+  updateRecruitingRecords,
+} from "@app/database/recruiting-records";
+import type { RecruitingRecordValues } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- Real-DB DAO scenarios intentionally share one seeded fixture. */
 // Real-DB integration test for the resume library DAO.
 // Per project memory: integration tests hit the actual database — no mocks.
@@ -7,16 +14,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
-  interviewConversation,
-  interviewNotification,
+  aiInterviewConversation,
+  recruitingNotificationDelivery,
   jobDescription,
   member,
   organization,
-  resumeDuplicateMatch,
-  studioHumanInterviewRound,
-  studioInterview,
-  studioInterviewSchedule,
-  studioOfferDraft,
+  recruitingDuplicateMatch,
+  humanInterviewRound,
+  aiInterviewRound,
+  recruitingOffer,
   studioOrgSkill,
   user,
 } from "@app/db-schema/schema";
@@ -36,10 +42,14 @@ const JD_BACKEND = "jd_test_resume_dao_backend";
 const DEPT_ID = "dept_test_resume_dao";
 
 async function cleanup() {
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await db.delete(studioOrgSkill).where(eq(studioOrgSkill.organizationId, ORG_A));
   await db.delete(studioOrgSkill).where(eq(studioOrgSkill.organizationId, ORG_B));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
@@ -132,7 +142,7 @@ beforeAll(async () => {
     },
   ]);
 
-  await db.insert(studioInterview).values([
+  await createRecruitingRecords(db, [
     {
       candidateEmail: "zhang@example.com",
       candidateName: "郭靖",
@@ -199,15 +209,15 @@ afterAll(async () => {
 describe("queryPaginatedResumeRecords", () => {
   it("shows a declined AI interview invitation in the candidate timeline", async () => {
     const respondedAt = new Date("2026-05-13T12:00:00.000Z");
-    await db.insert(studioInterviewSchedule).values({
+    await db.insert(aiInterviewRound).values({
       allowTextInput: false,
       candidateDeclineReason: "时间不合适",
       candidateInviteStatus: "declined",
       candidateRespondedAt: respondedAt,
       createdAt: NOW,
       id: "sched_test_candidate_declined",
-      interviewRecordId: "ri_test_a_1",
       organizationId: ORG_A,
+      recruitingRecordId: "ri_test_a_1",
       roundLabel: "AI HR 初面",
       sortOrder: 0,
       status: "pending",
@@ -236,8 +246,8 @@ describe("queryPaginatedResumeRecords", () => {
       });
     } finally {
       await db
-        .delete(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.id, "sched_test_candidate_declined"));
+        .delete(aiInterviewRound)
+        .where(eq(aiInterviewRound.id, "sched_test_candidate_declined"));
     }
   });
 
@@ -249,15 +259,15 @@ describe("queryPaginatedResumeRecords", () => {
   });
 
   it("returns the latest generated Feishu document for each candidate", async () => {
-    await db.insert(interviewNotification).values([
+    await db.insert(recruitingNotificationDelivery).values([
       {
         createdAt: new Date("2026-05-13T11:00:00.000Z"),
         feishuDocumentUrl: "https://example.feishu.cn/docx/older",
         id: "notification_resume_dao_older",
-        interviewRecordId: "ri_test_a_1",
         organizationId: ORG_A,
         providerId: "feishu:test",
         recipientOpenId: "ou_test",
+        recruitingRecordId: "ri_test_a_1",
         status: "sent",
         type: "summary_ready",
         updatedAt: new Date("2026-05-13T11:00:00.000Z"),
@@ -266,10 +276,10 @@ describe("queryPaginatedResumeRecords", () => {
         createdAt: new Date("2026-05-13T12:00:00.000Z"),
         feishuDocumentUrl: "https://example.feishu.cn/docx/latest",
         id: "notification_resume_dao_latest",
-        interviewRecordId: "ri_test_a_1",
         organizationId: ORG_A,
         providerId: "feishu:test",
         recipientOpenId: "ou_test",
+        recruitingRecordId: "ri_test_a_1",
         status: "sent",
         type: "summary_ready",
         updatedAt: new Date("2026-05-13T12:00:00.000Z"),
@@ -286,8 +296,8 @@ describe("queryPaginatedResumeRecords", () => {
       ).toBeNull();
     } finally {
       await db
-        .delete(interviewNotification)
-        .where(eq(interviewNotification.interviewRecordId, "ri_test_a_1"));
+        .delete(recruitingNotificationDelivery)
+        .where(eq(recruitingNotificationDelivery.recruitingRecordId, "ri_test_a_1"));
     }
   });
 
@@ -329,22 +339,19 @@ describe("queryPaginatedResumeRecords", () => {
       source: "fallback summary for older evaluations",
     },
   ])("returns the structured $source as the list summary", async ({ expected, narrative }) => {
-    await db
-      .update(studioInterview)
-      .set({
-        notes: null,
-        resumeEvaluationArtifactMode: "structured",
-        resumeReview: null,
-        structuredCompositeScore: 65,
-        structuredGateSortRank: 0,
-        structuredGateStatus: "passed",
-        // SAFETY: This test constructs the value with the asserted contract before this boundary.
-        structuredResumeEvaluation: {
-          narrative,
-        } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
-        structuredScoreGrade: "matched",
-      })
-      .where(eq(studioInterview.id, "ri_test_a_1"));
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, "ri_test_a_1"), {
+      notes: null,
+      resumeEvaluationArtifactMode: "structured",
+      resumeReview: null,
+      structuredCompositeScore: 65,
+      structuredGateSortRank: 0,
+      structuredGateStatus: "passed",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
+      structuredResumeEvaluation: {
+        narrative,
+      } as RecruitingRecordValues["structuredResumeEvaluation"],
+      structuredScoreGrade: "matched",
+    });
 
     try {
       const result = await queryPaginatedResumeRecords(ORG_A);
@@ -352,17 +359,14 @@ describe("queryPaginatedResumeRecords", () => {
 
       expect(record?.resumeSummary).toBe(expected);
     } finally {
-      await db
-        .update(studioInterview)
-        .set({
-          resumeEvaluationArtifactMode: null,
-          structuredCompositeScore: null,
-          structuredGateSortRank: null,
-          structuredGateStatus: null,
-          structuredResumeEvaluation: null,
-          structuredScoreGrade: null,
-        })
-        .where(eq(studioInterview.id, "ri_test_a_1"));
+      await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, "ri_test_a_1"), {
+        resumeEvaluationArtifactMode: null,
+        structuredCompositeScore: null,
+        structuredGateSortRank: null,
+        structuredGateStatus: null,
+        structuredResumeEvaluation: null,
+        structuredScoreGrade: null,
+      });
     }
   });
 
@@ -379,19 +383,60 @@ describe("queryPaginatedResumeRecords", () => {
     expect(result.totalPages).toBe(99);
   });
 
+  it("filters current node status and retains failed results after closing", async () => {
+    const ids = ["new_node_filter_pass", "new_node_filter_fail"];
+    try {
+      for (const id of ids) {
+        await createRecruitingRecords(db, {
+          candidateName: id,
+          id,
+          organizationId: ORG_A,
+          resumeParseStatus: "ready",
+        });
+      }
+      await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, ids[0] ?? "missing"), {
+        resumeEvaluationStatus: "pass",
+      });
+      await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, ids[1] ?? "missing"), {
+        resumeEvaluationStatus: "fail",
+      });
+      const passed = await queryPaginatedResumeRecords(ORG_A, {
+        nodeResults: ["pass"],
+        nodeStatuses: ["completed"],
+        pipelineStages: ["screening"],
+      });
+      expect(passed.records.map((row) => row.id)).toContain(ids[0]);
+      const failed = await queryPaginatedResumeRecords(ORG_A, {
+        nodeResults: ["fail"],
+        pipelineStages: ["closed"],
+      });
+      expect(failed.records.map((row) => row.id)).toContain(ids[1]);
+      const detail = await loadResumeDetail(ids[1] ?? "missing", ORG_A);
+      expect(detail?.closedFromNode).toBe("screening");
+      expect(detail?.nodeStates).toHaveLength(8);
+      expect(detail?.nodeResult).toBe("fail");
+      const otherOrg = await queryPaginatedResumeRecords(ORG_B, { nodeResults: ["fail"] });
+      expect(otherOrg.records.map((row) => row.id)).not.toContain(ids[1]);
+    } finally {
+      for (const id of ids) {
+        await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, id));
+      }
+    }
+  });
+
   it("includes active duplicate match summary for resume library rows", async () => {
-    await db.insert(resumeDuplicateMatch).values([
+    await db.insert(recruitingDuplicateMatch).values([
       {
         embeddingVersion: "test-v1",
         id: "resume_dao_duplicate_active",
         level: "high",
         matchedSourceId: "ri_test_a_2",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["整体履历高度相似"],
         score: 96,
         sourceId: "ri_test_a_1",
-        sourceType: "studio_interview",
+        sourceType: "recruiting_record",
         status: "active",
       },
       {
@@ -399,12 +444,12 @@ describe("queryPaginatedResumeRecords", () => {
         id: "resume_dao_duplicate_dismissed",
         level: "medium",
         matchedSourceId: "ri_test_a_1",
-        matchedSourceType: "studio_interview",
+        matchedSourceType: "recruiting_record",
         organizationId: ORG_A,
         reasons: ["已忽略"],
         score: 82,
         sourceId: "ri_test_a_2",
-        sourceType: "studio_interview",
+        sourceType: "recruiting_record",
         status: "dismissed",
       },
     ]);
@@ -444,18 +489,20 @@ describe("queryPaginatedResumeRecords", () => {
         },
       });
     } finally {
-      await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+      await db
+        .delete(recruitingDuplicateMatch)
+        .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
     }
   });
 
   it("serializes lastInterviewAt from conversation timestamps without timezone loss", async () => {
     const startedAt = new Date("2026-05-13T10:00:00.000Z");
-    await db.insert(interviewConversation).values({
+    await db.insert(aiInterviewConversation).values({
       conversationId: "conv_resume_dao_last_interview_at",
       createdAt: new Date("2026-05-13T09:00:00.000Z"),
-      interviewRecordId: "ri_test_a_1",
       lastSyncedAt: NOW,
       organizationId: ORG_A,
+      recruitingRecordId: "ri_test_a_1",
       startedAt,
       status: "completed",
       updatedAt: NOW,
@@ -467,8 +514,8 @@ describe("queryPaginatedResumeRecords", () => {
       expect(row?.lastInterviewAt).toBe(startedAt.toISOString());
     } finally {
       await db
-        .delete(interviewConversation)
-        .where(eq(interviewConversation.conversationId, "conv_resume_dao_last_interview_at"));
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, "conv_resume_dao_last_interview_at"));
     }
   });
 
@@ -597,13 +644,13 @@ describe("queryPaginatedResumeRecords", () => {
   it("aggregates stageProgress from studio_interview_schedule", async () => {
     // 给李四（ri_test_a_2）安排 3 轮：第 1 轮 completed、第 2 轮 in_progress、第 3 轮 pending。
     // Schedule 3 rounds for Li: round-1 completed, round-2 in_progress, round-3 pending.
-    await db.insert(studioInterviewSchedule).values([
+    await db.insert(aiInterviewRound).values([
       {
         allowTextInput: false,
         createdAt: NOW,
         id: "sched_test_a2_r1",
-        interviewRecordId: "ri_test_a_2",
         organizationId: ORG_A,
+        recruitingRecordId: "ri_test_a_2",
         roundLabel: "一面",
         sortOrder: 0,
         status: "completed",
@@ -613,8 +660,8 @@ describe("queryPaginatedResumeRecords", () => {
         allowTextInput: false,
         createdAt: NOW,
         id: "sched_test_a2_r2",
-        interviewRecordId: "ri_test_a_2",
         organizationId: ORG_A,
+        recruitingRecordId: "ri_test_a_2",
         roundLabel: "二面",
         sortOrder: 1,
         status: "in_progress",
@@ -624,8 +671,8 @@ describe("queryPaginatedResumeRecords", () => {
         allowTextInput: false,
         createdAt: NOW,
         id: "sched_test_a2_r3",
-        interviewRecordId: "ri_test_a_2",
         organizationId: ORG_A,
+        recruitingRecordId: "ri_test_a_2",
         roundLabel: "三面",
         sortOrder: 2,
         status: "pending",
@@ -667,8 +714,8 @@ describe("queryPaginatedResumeRecords", () => {
       });
     } finally {
       await db
-        .delete(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.interviewRecordId, "ri_test_a_2"));
+        .delete(aiInterviewRound)
+        .where(eq(aiInterviewRound.recruitingRecordId, "ri_test_a_2"));
     }
   });
 
@@ -680,16 +727,17 @@ describe("queryPaginatedResumeRecords", () => {
     // cancelled 应被 total 排除；activeRound 取最低 sort_order 的 pending 那条。
     // Li: 4 rounds — pending(scheduled) + pass + fail + cancelled. cancelled
     // excluded from totals; activeRound = lowest sortOrder pending.
-    await db.insert(studioHumanInterviewRound).values([
+    await db.insert(humanInterviewRound).values([
       {
         completedAt: NOW,
         createdAt: NOW,
         format: "online",
         id: "hr_li_1",
-        interviewRecordId: "ri_test_a_2",
         label: "技术复面",
         organizationId: ORG_A,
         outcome: "pass",
+        recruitingRecordId: "ri_test_a_2",
+        roundKind: "second_interview",
         score: 85,
         sortOrder: 0,
         status: "completed",
@@ -700,10 +748,11 @@ describe("queryPaginatedResumeRecords", () => {
         createdAt: NOW,
         format: "online",
         id: "hr_li_2",
-        interviewRecordId: "ri_test_a_2",
         label: "HR 复面",
         organizationId: ORG_A,
         outcome: "fail",
+        recruitingRecordId: "ri_test_a_2",
+        roundKind: "second_interview",
         sortOrder: 1,
         status: "completed",
         updatedAt: NOW,
@@ -712,10 +761,11 @@ describe("queryPaginatedResumeRecords", () => {
         createdAt: NOW,
         format: "onsite",
         id: "hr_li_3",
-        interviewRecordId: "ri_test_a_2",
         label: "总监终面",
         location: "上海办公室",
         organizationId: ORG_A,
+        recruitingRecordId: "ri_test_a_2",
+        roundKind: "final_interview",
         scheduledAt: new Date("2026-05-30T10:00:00.000Z"),
         sortOrder: 2,
         status: "pending",
@@ -727,9 +777,10 @@ describe("queryPaginatedResumeRecords", () => {
         createdAt: NOW,
         format: "online",
         id: "hr_li_4",
-        interviewRecordId: "ri_test_a_2",
         label: "Cross 面",
         organizationId: ORG_A,
+        recruitingRecordId: "ri_test_a_2",
+        roundKind: "second_interview",
         sortOrder: 3,
         status: "cancelled",
         updatedAt: NOW,
@@ -768,8 +819,8 @@ describe("queryPaginatedResumeRecords", () => {
       expect(zhang.stageProgress.humanInterview).toBeNull();
     } finally {
       await db
-        .delete(studioHumanInterviewRound)
-        .where(eq(studioHumanInterviewRound.interviewRecordId, "ri_test_a_2"));
+        .delete(humanInterviewRound)
+        .where(eq(humanInterviewRound.recruitingRecordId, "ri_test_a_2"));
     }
   });
 
@@ -778,15 +829,15 @@ describe("queryPaginatedResumeRecords", () => {
   // Offer aggregation: latestDraft = highest non-superseded version; total
   // excludes superseded versions.
   it("aggregates offer branch and excludes superseded versions from latest pointer", async () => {
-    await db.insert(studioOfferDraft).values([
+    await db.insert(recruitingOffer).values([
       {
         baseSalary: 30_000,
         createdAt: NOW,
         currency: "CNY",
         id: "od_li_v1",
-        interviewRecordId: "ri_test_a_2",
         organizationId: ORG_A,
         position: "高级前端",
+        recruitingRecordId: "ri_test_a_2",
         sentAt: NOW,
         status: "superseded",
         updatedAt: NOW,
@@ -797,9 +848,9 @@ describe("queryPaginatedResumeRecords", () => {
         createdAt: NOW,
         currency: "CNY",
         id: "od_li_v2",
-        interviewRecordId: "ri_test_a_2",
         organizationId: ORG_A,
         position: "高级前端",
+        recruitingRecordId: "ri_test_a_2",
         sentAt: NOW,
         status: "sent",
         updatedAt: NOW,
@@ -826,9 +877,7 @@ describe("queryPaginatedResumeRecords", () => {
         totalVersions: 1,
       });
     } finally {
-      await db
-        .delete(studioOfferDraft)
-        .where(eq(studioOfferDraft.interviewRecordId, "ri_test_a_2"));
+      await db.delete(recruitingOffer).where(eq(recruitingOffer.recruitingRecordId, "ri_test_a_2"));
     }
   });
 });

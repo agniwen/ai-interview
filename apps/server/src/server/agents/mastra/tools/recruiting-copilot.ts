@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- recruiting copilot search/detail/proposal tools stay co-located. */
 import { createTool } from "@mastra/core/tools";
 import { and, eq, inArray, ne } from "drizzle-orm";
@@ -28,7 +29,7 @@ import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@app/db-schema/chat-context-binding
 import { jobEvaluationModeSchema } from "@app/db-schema/job-description-evaluation";
 import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import { resumeReviewLooseSchema } from "@app/db-schema/resume-review";
-import { jobDescription, resumePoolItem, studioInterview } from "@app/db-schema/schema";
+import { jobDescription, resumePoolItem } from "@app/db-schema/schema";
 import { resumeReviewStatusSchema } from "@app/db-schema/studio-interviews";
 import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import type { StructuredResumeEvaluationV1 } from "@app/db-schema/structured-resume-evaluation";
@@ -573,37 +574,37 @@ async function loadSemanticCandidateCards({
   }
   const visibilityCondition =
     visibilityScope.kind === "restricted"
-      ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+      ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
       : undefined;
   const rows = await db
     .select({
-      candidateName: studioInterview.candidateName,
-      id: studioInterview.id,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      candidateName: recruitingRecordReadModel.candidateName,
+      id: recruitingRecordReadModel.id,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
-      notes: studioInterview.notes,
-      pipelineStage: studioInterview.pipelineStage,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReview: studioInterview.resumeReview,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      skills: studioInterview.skillsNormalized,
-      targetRole: studioInterview.targetRole,
-      updatedAt: studioInterview.updatedAt,
+      notes: recruitingRecordReadModel.notes,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeReview: recruitingRecordReadModel.resumeReview,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      skills: recruitingRecordReadModel.skillsNormalized,
+      targetRole: recruitingRecordReadModel.targetRole,
+      updatedAt: recruitingRecordReadModel.updatedAt,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        inArray(studioInterview.id, ids),
-        ne(studioInterview.pipelineStage, "closed"),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        inArray(recruitingRecordReadModel.id, ids),
+        ne(recruitingRecordReadModel.pipelineStage, "closed"),
         visibilityCondition,
       ),
     );
@@ -812,12 +813,12 @@ async function executeCandidateBindProposal(input: {
   }
   if (boundFromConversation !== jobDescriptionId) {
     const [existing] = await db
-      .select({ id: studioInterview.id })
-      .from(studioInterview)
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.id, resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
       .limit(1);
@@ -942,39 +943,39 @@ export async function getResumeRecordDetailForCopilot(input: {
   const ids = parsed.requests.map((request) => request.id);
   const visibilityCondition =
     input.visibilityScope.kind === "restricted"
-      ? inArray(studioInterview.createdBy, input.visibilityScope.userIds)
+      ? inArray(recruitingRecordReadModel.createdBy, input.visibilityScope.userIds)
       : undefined;
   const records = await db
     .select({
-      candidateName: studioInterview.candidateName,
-      id: studioInterview.id,
-      interviewQuestions: studioInterview.interviewQuestions,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      candidateName: recruitingRecordReadModel.candidateName,
+      id: recruitingRecordReadModel.id,
+      interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
-      notes: studioInterview.notes,
-      pipelineStage: studioInterview.pipelineStage,
-      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-      resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReview: studioInterview.resumeReview,
-      resumeReviewError: studioInterview.resumeReviewError,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
-      resumeText: studioInterview.resumeText,
-      structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
-      targetRole: studioInterview.targetRole,
+      notes: recruitingRecordReadModel.notes,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+      qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+      resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeReview: recruitingRecordReadModel.resumeReview,
+      resumeReviewError: recruitingRecordReadModel.resumeReviewError,
+      resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+      resumeText: recruitingRecordReadModel.resumeText,
+      structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
+      targetRole: recruitingRecordReadModel.targetRole,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        inArray(studioInterview.id, ids),
-        eq(studioInterview.organizationId, input.organizationId),
+        inArray(recruitingRecordReadModel.id, ids),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
         visibilityCondition,
       ),
     );

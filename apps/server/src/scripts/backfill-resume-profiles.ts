@@ -1,18 +1,14 @@
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { pathToFileURL } from "node:url";
 import { and, asc, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { AttachmentTextSource } from "@app/db-schema/db-enums";
 import type { JsonValue } from "@app/db-schema/json";
-import {
-  chatAttachment,
-  resumeEvaluationVersion,
-  resumePoolItem,
-  studioInterview,
-} from "@app/db-schema/schema";
+import { chatAttachment, resumePoolItem } from "@app/db-schema/schema";
 import type { Database } from "../lib/server/db/index";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
-import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { loadStandaloneEnv } from "../standalone/env";
 
 type BackfillTarget = "all" | "pool" | "private";
@@ -177,16 +173,16 @@ function loadScriptEnv(): void {
 async function loadPrivateRecords(db: Database, limit: number | null): Promise<BackfillRecord[]> {
   const query = db
     .select({
-      contentHash: studioInterview.resumeContentHash,
-      fileName: studioInterview.resumeFileName,
-      id: studioInterview.id,
-      organizationId: studioInterview.organizationId,
-      resumeProfile: studioInterview.resumeProfile,
-      storageKey: studioInterview.resumeStorageKey,
+      contentHash: recruitingRecordReadModel.resumeContentHash,
+      fileName: recruitingRecordReadModel.resumeFileName,
+      id: recruitingRecordReadModel.id,
+      organizationId: recruitingRecordReadModel.organizationId,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      storageKey: recruitingRecordReadModel.resumeStorageKey,
     })
-    .from(studioInterview)
-    .where(isNotNull(studioInterview.resumeStorageKey))
-    .orderBy(asc(studioInterview.createdAt));
+    .from(recruitingRecordReadModel)
+    .where(isNotNull(recruitingRecordReadModel.resumeStorageKey))
+    .orderBy(asc(recruitingRecordReadModel.createdAt));
 
   const rows = limit ? await query.limit(limit) : await query;
   return rows
@@ -359,47 +355,37 @@ async function writeBackfillResult(
     await updateRelatedAttachmentCache(tx, record, parsed);
 
     if (record.recordType === "private") {
+      await lockRecruitingRecord(tx, record.id, record.organizationId);
       const [current] = await tx
         .select({
-          notes: studioInterview.notes,
-          organizationId: studioInterview.organizationId,
-          qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
-          qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-          resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-          resumeProfile: studioInterview.resumeProfile,
-          resumeReview: studioInterview.resumeReview,
-          resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
-          structuredCompositeScore: studioInterview.structuredCompositeScore,
-          structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+          notes: recruitingRecordReadModel.notes,
+          organizationId: recruitingRecordReadModel.organizationId,
+          qualitativeJobDescriptionVersionId:
+            recruitingRecordReadModel.qualitativeJobDescriptionVersionId,
+          qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+          resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+          resumeProfile: recruitingRecordReadModel.resumeProfile,
+          resumeReview: recruitingRecordReadModel.resumeReview,
+          resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
+          structuredCompositeScore: recruitingRecordReadModel.structuredCompositeScore,
+          structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
         })
-        .from(studioInterview)
-        .where(eq(studioInterview.id, record.id))
-        .limit(1)
-        .for("update");
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.id, record.id))
+        .limit(1);
       if (!current?.resumeProfile) {
         throw new Error("Existing resumeProfile is empty; education-only backfill cannot merge.");
       }
-      const archive = buildPreQualitativeEvaluationArchive({
-        organizationId: current.organizationId,
-        record: current,
-        resumeRecordId: record.id,
+      await updateRecruitingRecords(tx, eq(recruitingRecordReadModel.id, record.id), {
+        ...INVALIDATED_AI_RESUME_ASSESSMENT,
+        resumeParseError: null,
+        resumeParsedAt: now,
+        resumeProfile: mergeEducationExperiencesIntoProfile(
+          current.resumeProfile,
+          parsed.educationExperiences,
+        ),
+        updatedAt: now,
       });
-      if (archive) {
-        await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
-      }
-      await tx
-        .update(studioInterview)
-        .set({
-          ...INVALIDATED_AI_RESUME_ASSESSMENT,
-          resumeParseError: null,
-          resumeParsedAt: now,
-          resumeProfile: mergeEducationExperiencesIntoProfile(
-            current.resumeProfile,
-            parsed.educationExperiences,
-          ),
-          updatedAt: now,
-        })
-        .where(eq(studioInterview.id, record.id));
       return;
     }
 

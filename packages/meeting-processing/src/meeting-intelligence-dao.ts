@@ -716,7 +716,7 @@ export function createMeetingIntelligenceDao(db: Database) {
       )
       .orderBy(desc(meetingIntelligenceRevision.revision));
     const history = rows.map(serializeRevision);
-    const linked = await db.query.meetingRecruitingContext.findFirst({
+    const linked = await db.query.recruitingMeetingContext.findFirst({
       columns: { meetingId: true },
       where: { meetingId: input.meetingId, organizationId: input.organizationId },
     });

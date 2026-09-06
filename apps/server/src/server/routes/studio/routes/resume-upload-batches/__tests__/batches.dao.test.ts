@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 批量简历上传 DAO 集成测试（直接连接真实 PG 数据库，不 mock）。
 // Integration tests for the bulk-resume-upload batch DAO — hit the real Postgres
 // dev database; no mocking per project convention.
@@ -10,12 +12,11 @@ import {
   jobDescription,
   member,
   organization,
-  resumeDuplicateMatch,
+  recruitingDuplicateMatch,
   resumePoolEvent,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -60,12 +61,16 @@ function makeFiles(n: number) {
 async function cleanup() {
   // FK-ordered: batches/interviews/matches first, then pool rows by every ownership
   // key (org/user/storage) before deleting orgs/users — pool FKs are SET NULL.
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
-  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_A));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_B));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_A));
+  await db
+    .delete(recruitingDuplicateMatch)
+    .where(eq(recruitingDuplicateMatch.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await deleteFixtureResumePoolItems({
     organizationIds: [ORG_A, ORG_B],
     storageKeyPrefixes: [STORAGE_KEY_PREFIX],
@@ -166,8 +171,8 @@ describe("insertBatchWithItems", () => {
     try {
       const [batch] = await db
         .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
+        .from(recruitingUploadBatch)
+        .where(eq(recruitingUploadBatch.id, batchId));
       expect(batch).toBeDefined();
       expect(batch?.status).toBe("pending");
       expect(batch?.totalCount).toBe(N);
@@ -178,20 +183,20 @@ describe("insertBatchWithItems", () => {
 
       const items = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       expect(items).toHaveLength(N);
       for (const item of items) {
         expect(item.status).toBe("pending");
-        expect(item.resumeRecordId).toBeTruthy();
+        expect(item.recruitingRecordId).toBeTruthy();
       }
       const orderIndexes = items.map((r) => r.orderIndex).toSorted((a, b) => a - b);
       expect(orderIndexes).toEqual([0, 1, 2]);
 
       const records = await db
         .select()
-        .from(studioInterview)
-        .where(eq(studioInterview.organizationId, ORG_A));
+        .from(recruitingRecordReadModel)
+        .where(eq(recruitingRecordReadModel.organizationId, ORG_A));
       expect(records).toHaveLength(N);
       for (const record of records) {
         expect(record.resumeParseStatus).toBe("queued");
@@ -199,7 +204,7 @@ describe("insertBatchWithItems", () => {
         expect(record.resumeStorageKey).toBeTruthy();
       }
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 
@@ -241,7 +246,7 @@ describe("insertBatchWithItems", () => {
         expect.objectContaining({ bindingMode: "automatic", source: "referral" }),
       );
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
       await deleteFixtureResumePoolItems({
         organizationIds: [ORG_A],
         storageKeyPrefixes: [STORAGE_KEY_PREFIX],
@@ -280,7 +285,7 @@ describe("insertBatchWithItems", () => {
         expect.objectContaining({ bindingMode: "automatic", source: "batch_fixed_job" }),
       );
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
       await deleteFixtureResumePoolItems({
         organizationIds: [ORG_A],
         storageKeyPrefixes: [STORAGE_KEY_PREFIX],
@@ -316,7 +321,7 @@ describe("insertBatchWithItems", () => {
 
       expect(poolItem?.jobDescriptionId).toBeNull();
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
       await deleteFixtureResumePoolItems({
         organizationIds: [ORG_A],
         storageKeyPrefixes: [STORAGE_KEY_PREFIX],
@@ -355,8 +360,8 @@ describe("multiple active batches", () => {
         [firstBatchId, secondBatchId].toSorted(),
       );
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, firstBatchId));
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, secondBatchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, firstBatchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, secondBatchId));
     }
   });
 });
@@ -391,7 +396,7 @@ describe("loadBatchDetail", () => {
       expect(detail?.batch.id).toBe(batchId);
       expect(detail?.items).toHaveLength(2);
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -411,17 +416,17 @@ describe("reconcileBatchProgress", () => {
 
     try {
       await db
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({ finishedAt: new Date(), status: "succeeded" })
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       await db
-        .update(resumeUploadBatch)
+        .update(recruitingUploadBatch)
         .set({
           processedCount: 2,
           status: "running",
           succeededCount: 2,
         })
-        .where(eq(resumeUploadBatch.id, batchId));
+        .where(eq(recruitingUploadBatch.id, batchId));
 
       await reconcileBatchProgress(batchId);
       const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
@@ -434,7 +439,7 @@ describe("reconcileBatchProgress", () => {
       const active = await loadActiveBatch(ORG_A, USER_A);
       expect(active).toBeNull();
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -459,14 +464,14 @@ describe("loadActiveBatch", () => {
 
       // 手动设为 completed
       await db
-        .update(resumeUploadBatch)
+        .update(recruitingUploadBatch)
         .set({ completedAt: new Date(), status: "completed" })
-        .where(eq(resumeUploadBatch.id, batchId));
+        .where(eq(recruitingUploadBatch.id, batchId));
 
       const afterComplete = await loadActiveBatch(ORG_A, USER_A);
       expect(afterComplete).toBeNull();
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
 
     // 通过 cancelBatch 取消后也应返回 null。
@@ -485,7 +490,7 @@ describe("loadActiveBatch", () => {
       const afterCancel = await loadActiveBatch(ORG_A, USER_A);
       expect(afterCancel).toBeNull();
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId2));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId2));
     }
   });
 });
@@ -524,14 +529,17 @@ describe("claimNextPendingItem", () => {
       // 事务提交后，通过 DB 查询验证 orderIndex 顺序符合 0, 1, 2。
       // After the transaction, verify the claimed items were processed in orderIndex order.
       const processedItems = await db
-        .select({ id: resumeUploadBatchItem.id, orderIndex: resumeUploadBatchItem.orderIndex })
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .select({
+          id: recruitingUploadBatchItem.id,
+          orderIndex: recruitingUploadBatchItem.orderIndex,
+        })
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       const idToOrderIndex = new Map(processedItems.map((r) => [r.id, r.orderIndex]));
       const claimedOrderIndexes = claimedIds.map((id) => idToOrderIndex.get(id));
       expect(claimedOrderIndexes).toEqual([0, 1, 2]);
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -568,7 +576,7 @@ describe("claimNextPendingItem concurrency", () => {
       expect(claimed.length).toBeLessThanOrEqual(3);
       expect(claimed.length).toBeGreaterThan(0);
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -604,15 +612,15 @@ describe("reviveOrphans", () => {
       // 手动把第一个 item 的 started_at 设为 120 秒前（超过阈值）。
       // Backdate the first item so it looks stale.
       await db.execute(
-        sql`update resume_upload_batch_item set started_at = now() - interval '120 seconds' where id = ${oldItemId}`,
+        sql`update recruiting_upload_batch_item set started_at = now() - interval '120 seconds' where id = ${oldItemId}`,
       );
 
       await reviveOrphans(batchId, ORG_A, USER_A, 60);
 
       const items = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
 
       const oldItem = items.find((r) => r.id === oldItemId);
       const freshItem = items.find((r) => r.id === freshItemId);
@@ -625,11 +633,11 @@ describe("reviveOrphans", () => {
       // batch.status 应从 running 回到 pending。
       const [batch] = await db
         .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
+        .from(recruitingUploadBatch)
+        .where(eq(recruitingUploadBatch.id, batchId));
       expect(batch?.status).toBe("pending");
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -648,36 +656,36 @@ describe("reviveRetriableFailures", () => {
     try {
       const items = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       const [retriable, permanent] = items;
       expect(retriable).toBeDefined();
       expect(permanent).toBeDefined();
 
       await db
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({
           errorMessage: "简历文件不可用（S3 对象缺失）。",
           finishedAt: new Date(),
           status: "failed",
         })
-        .where(eq(resumeUploadBatchItem.id, retriable.id));
+        .where(eq(recruitingUploadBatchItem.id, retriable.id));
       await db
-        .update(resumeUploadBatchItem)
+        .update(recruitingUploadBatchItem)
         .set({
           errorMessage: "PPTX 内容为空。",
           finishedAt: new Date(),
           status: "failed",
         })
-        .where(eq(resumeUploadBatchItem.id, permanent.id));
+        .where(eq(recruitingUploadBatchItem.id, permanent.id));
       await reconcileBatchProgress(batchId);
 
       await reviveRetriableFailures(batchId, ORG_A, USER_A);
 
       const updated = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       const updatedRetriable = updated.find((item) => item.id === retriable.id);
       const updatedPermanent = updated.find((item) => item.id === permanent.id);
 
@@ -688,11 +696,11 @@ describe("reviveRetriableFailures", () => {
 
       const [batch] = await db
         .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
+        .from(recruitingUploadBatch)
+        .where(eq(recruitingUploadBatch.id, batchId));
       expect(batch?.status).toBe("pending");
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });
@@ -716,7 +724,7 @@ describe("recoverIncompleteBatchItems", () => {
       });
       expect(staleItemId).not.toBeNull();
       await db.execute(
-        sql`update resume_upload_batch_item set started_at = now() - interval '120 seconds' where id = ${staleItemId}`,
+        sql`update recruiting_upload_batch_item set started_at = now() - interval '120 seconds' where id = ${staleItemId}`,
       );
 
       const jobs = await recoverIncompleteBatchItems(60);
@@ -730,11 +738,11 @@ describe("recoverIncompleteBatchItems", () => {
       });
       const items = await db
         .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
+        .from(recruitingUploadBatchItem)
+        .where(eq(recruitingUploadBatchItem.batchId, batchId));
       expect(items.find((item) => item.id === staleItemId)?.status).toBe("pending");
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 
@@ -756,7 +764,7 @@ describe("recoverIncompleteBatchItems", () => {
       });
       expect(itemId).not.toBeNull();
       await db.execute(
-        sql`update resume_upload_batch_item set started_at = now() - interval '1200 seconds' where id = ${itemId}`,
+        sql`update recruiting_upload_batch_item set started_at = now() - interval '1200 seconds' where id = ${itemId}`,
       );
 
       const reclaimed = await db.transaction((tx) => claimPendingItemById(tx, itemId ?? ""));
@@ -765,7 +773,7 @@ describe("recoverIncompleteBatchItems", () => {
       expect(reclaimed?.status).toBe("processing");
       expect(reclaimed?.attemptCount).toBe(2);
     } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
     }
   });
 });

@@ -1,3 +1,5 @@
+import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
@@ -11,7 +13,6 @@ import {
   jobDescription,
   jobDescriptionInterviewer,
   jobDescriptionVersion,
-  studioInterview,
 } from "@app/db-schema/schema";
 import {
   jobDescriptionSaveSchema,
@@ -867,34 +868,49 @@ export function createJobDescriptionsRouter(
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
 
-      // 有非归档候选人关联到该岗位时禁止删除：候选人是业务实体，外键的 SET NULL
-      // 行为会让简历挂在"未知岗位"上，难以追溯，因此前置拦截。
-      // Block delete when non-archived candidates still reference this JD —
-      // SET NULL would orphan candidates onto an empty job-description column
-      // and make follow-up triage hard. Force the user to deal with them first.
-      const [resumeRow] = await db
-        .select({ count: count() })
-        .from(studioInterview)
-        .where(
-          and(
-            eq(studioInterview.jobDescriptionId, id),
-            ne(studioInterview.pipelineStage, "closed"),
-          ),
+      const deletion = await db.transaction(async (tx) => {
+        const condition = and(
+          eq(jobDescription.id, id),
+          eq(jobDescription.organizationId, activeOrg.id),
         );
-      const resumeCount = resumeRow?.count ?? 0;
-      if (resumeCount > 0) {
-        return c.json(
-          {
+        const [locked] = await tx
+          .select({ id: jobDescription.id })
+          .from(jobDescription)
+          .where(condition)
+          .for("update")
+          .limit(1);
+        if (!locked) {
+          return { error: "在招岗位不存在。", status: 404 as const };
+        }
+        // 锁住岗位后检查引用，避免新关联在检查和删除之间被级联清除。
+        const [resumeRow] = await tx
+          .select({ count: count() })
+          .from(recruitingRecordReadModel)
+          .where(
+            and(
+              eq(recruitingRecordReadModel.jobDescriptionId, id),
+              ne(recruitingRecordReadModel.pipelineStage, "closed"),
+            ),
+          );
+        const resumeCount = resumeRow?.count ?? 0;
+        if (resumeCount > 0) {
+          return {
             error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在招聘台中调整或删除这些候选人。`,
-          },
-          409,
-        );
+            status: 409 as const,
+          };
+        }
+        if (await hasRecruitingReferences(tx, "job_description", id)) {
+          return {
+            error: "该岗位仍被招聘数据引用，请先解除关联或停止招聘。",
+            status: 409 as const,
+          };
+        }
+        await tx.delete(jobDescription).where(condition);
+        return null;
+      });
+      if (deletion) {
+        return c.json({ error: deletion.error }, deletion.status);
       }
-
-      // jobDescriptionInterviewer cascades on JD delete; studio_interview.job_description_id → SET NULL.
-      await db
-        .delete(jobDescription)
-        .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       safeUpdateTag(cacheTags.studioInterviews(activeOrg.id));
       safeUpdateTag(`interviewers:${activeOrg.id}`);

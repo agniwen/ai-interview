@@ -1,3 +1,9 @@
+import {
+  deleteRecruitingRecords,
+  createRecruitingRecords,
+  updateRecruitingRecords,
+} from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 批量简历上传 processor 集成测试 —— 真实 PG，mock S3 和简历解析器。
 // Integration tests for the bulk-upload processor — real Postgres, mocked S3 + parser.
 
@@ -10,9 +16,8 @@ import {
   jobDescription,
   organization,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import type { ResumeReview } from "@app/db-schema/resume-review";
@@ -142,28 +147,28 @@ async function cleanup() {
   // studio_interview FK refs resumeUploadBatchItem.resume_record_id → delete interview first.
   // 按 FK 顺序清理: interview → batch（items cascade）→ member → org → user
   const batches = await db
-    .select({ id: resumeUploadBatch.id })
-    .from(resumeUploadBatch)
-    .where(eq(resumeUploadBatch.organizationId, ORG_A));
+    .select({ id: recruitingUploadBatch.id })
+    .from(recruitingUploadBatch)
+    .where(eq(recruitingUploadBatch.organizationId, ORG_A));
 
   // 先找所有 item 的 resumeRecordId，再删对应的 studio_interview。
   // Find all interview IDs created by these batches before deleting.
   for (const batch of batches) {
     const items = await db
-      .select({ resumeRecordId: resumeUploadBatchItem.resumeRecordId })
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batch.id));
+      .select({ resumeRecordId: recruitingUploadBatchItem.recruitingRecordId })
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batch.id));
 
     for (const item of items) {
       if (item.resumeRecordId) {
-        await db.delete(studioInterview).where(eq(studioInterview.id, item.resumeRecordId));
+        await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, item.resumeRecordId));
       }
     }
   }
 
   // 直接清理 org 下的 studio_interview（含 dedup 测试中手动插入的行）。
   // Also clean any studio_interview rows directly under the org (e.g. pre-inserted dedup rows).
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
   // Match pool rows by org/user/storage before deleting parents (SET NULL FKs).
   await deleteFixtureResumePoolItems({
     organizationIds: [ORG_A],
@@ -171,7 +176,7 @@ async function cleanup() {
     userIds: [USER_A],
   });
 
-  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
+  await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.organizationId, ORG_A));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -239,7 +244,7 @@ describe("processNextItem — dedup skip", () => {
     // 预插入一个 studio_interview，邮箱为 dupEmail。
     // Pre-insert an existing interview with the duplicate email.
     const preExistingId = crypto.randomUUID();
-    await db.insert(studioInterview).values({
+    await createRecruitingRecords(db, {
       candidateEmail: dupEmail,
       candidateName: "Existing Candidate",
       candidatePhone: null,
@@ -287,13 +292,13 @@ describe("processNextItem — dedup skip", () => {
     // 确认 preExistingId 行依然存在（未被删除）。
     // Confirm the pre-existing row still exists.
     const [preExisting] = await db
-      .select({ id: studioInterview.id })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, preExistingId));
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, preExistingId));
     expect(preExisting).toBeDefined();
 
     // 清理预插入行（afterAll 也会处理，但提前清更干净）。
-    await db.delete(studioInterview).where(eq(studioInterview.id, preExistingId));
+    await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, preExistingId));
   });
 
   it("skip 策略先创建招聘台记录并异步查重", async () => {
@@ -307,8 +312,8 @@ describe("processNextItem — dedup skip", () => {
     });
     const [beforeItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     mockS3OK();
     mockParseOK({
       email: "library-dup@example.com",
@@ -320,11 +325,11 @@ describe("processNextItem — dedup skip", () => {
     const result = await processNextItem(batchId, ORG_A, USER_A);
 
     expect(result?.item?.status).toBe("succeeded");
-    expect(result?.item?.resumeRecordId).toBe(beforeItem?.resumeRecordId);
+    expect(result?.item?.resumeRecordId).toBe(beforeItem?.recruitingRecordId);
     expect(result?.batch.skippedCount).toBe(0);
     expect(dependencies.enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
-      sourceId: beforeItem?.resumeRecordId,
+      sourceId: beforeItem?.recruitingRecordId,
       sourceType: "studio_interview",
     });
   });
@@ -362,14 +367,14 @@ describe("processNextItem — enrichment failure isolation", () => {
 
     const [item] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     expect(item?.status).toBe("pending");
     expect(item?.startedAt).toBeNull();
     const [record] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, item?.resumeRecordId ?? ""));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, item?.recruitingRecordId ?? ""));
     expect(record?.resumeParseStatus).toBe("ready");
     expect(record?.resumeProfile).toMatchObject({ name: "Enqueue Failure User" });
 
@@ -378,14 +383,15 @@ describe("processNextItem — enrichment failure isolation", () => {
     Object.assign(reviewPatch, structuredClone(REVIEW_RESULT.structuredReview));
     // SAFETY: The fixture is the complete legacy review shape used by this test.
     const completeReview = reviewPatch as ResumeReview;
-    await db
-      .update(studioInterview)
-      .set({
+    await updateRecruitingRecords(
+      db,
+      eq(recruitingRecordReadModel.id, item?.recruitingRecordId ?? ""),
+      {
         // SAFETY: This test constructs the value with the asserted contract before this boundary.
         resumeReview: completeReview,
         resumeReviewStatus: "ready",
-      })
-      .where(eq(studioInterview.id, item?.resumeRecordId ?? ""));
+      },
+    );
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     dependencies.enqueueResumeSemanticIndexJobBestEffort.mockResolvedValue(true);
     mockS3OK();
@@ -395,8 +401,8 @@ describe("processNextItem — enrichment failure isolation", () => {
     expect(retried?.item?.status).toBe("succeeded");
     const [retriedRecord] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, item?.resumeRecordId ?? ""));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, item?.recruitingRecordId ?? ""));
     expect(retriedRecord?.resumeReview).toEqual(REVIEW_RESULT.structuredReview);
     expect(retriedRecord?.resumeReviewStatus).toBe("ready");
   });
@@ -418,9 +424,9 @@ describe("processNextItem — no pending items, batch already completed", () => 
 
     // 直接把 batch 设为 completed。
     await db
-      .update(resumeUploadBatch)
+      .update(recruitingUploadBatch)
       .set({ completedAt: new Date(), status: "completed" })
-      .where(eq(resumeUploadBatch.id, batchId));
+      .where(eq(recruitingUploadBatch.id, batchId));
 
     const result = await processNextItem(batchId, ORG_A, USER_A);
 
@@ -429,7 +435,7 @@ describe("processNextItem — no pending items, batch already completed", () => 
     expect(result?.item).toBeNull();
 
     // 清理。
-    await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
   });
 });
 
@@ -452,7 +458,7 @@ describe("processNextItem — wrong tenant", () => {
     expect(result).toBeNull();
 
     // 清理。
-    await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    await db.delete(recruitingUploadBatch).where(eq(recruitingUploadBatch.id, batchId));
   });
 });
 
@@ -498,10 +504,10 @@ describe("processBatchItem — one automatic retry", () => {
     });
     const [item] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
-    expect(item?.resumeRecordId).toBeTruthy();
-    if (!item?.resumeRecordId) {
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
+    expect(item?.recruitingRecordId).toBeTruthy();
+    if (!item?.recruitingRecordId) {
       throw new Error("expected a queued resume record");
     }
 
@@ -512,20 +518,20 @@ describe("processBatchItem — one automatic retry", () => {
     );
     const [pendingItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.id, item.id));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.id, item.id));
     expect(pendingItem).toMatchObject({ attemptCount: 1, status: "pending" });
 
     mockS3OK();
     await processBatchItem(item.id);
     const [failedItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.id, item.id));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.id, item.id));
     const [failedRecord] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, item.resumeRecordId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, item.recruitingRecordId));
     expect(failedItem).toMatchObject({ attemptCount: 2, status: "failed" });
     expect(failedRecord).toMatchObject({
       resumeParseError: "parse failed",
@@ -546,8 +552,8 @@ describe("processBatchItem — one automatic retry", () => {
     });
     const [item] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.batchId, batchId));
     expect(item?.poolItemId).toBeTruthy();
     if (!item?.poolItemId) {
       throw new Error("expected a queued resume-pool item");
@@ -560,16 +566,16 @@ describe("processBatchItem — one automatic retry", () => {
     );
     const [pendingItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.id, item.id));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.id, item.id));
     expect(pendingItem).toMatchObject({ attemptCount: 1, status: "pending" });
 
     mockS3OK();
     await processBatchItem(item.id);
     const [failedItem] = await db
       .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.id, item.id));
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.id, item.id));
     const [failedPoolItem] = await db
       .select()
       .from(resumePoolItem)

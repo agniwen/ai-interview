@@ -1,13 +1,15 @@
-import { eq } from "drizzle-orm";
+import { createRecruitingRecords, deleteRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  humanInterviewDocumentSync,
-  interviewAuditLog,
+  humanInterviewEvaluationDocumentSync,
+  recruitingEvent,
+  recruitingNodeState,
   organization,
-  studioHumanInterviewEvaluationSnapshot,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewEvaluationSnapshot,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { factory } from "../../../../../factory";
@@ -47,6 +49,7 @@ const request = (outcome: string) => ({
   method: "POST",
 });
 async function cleanup() {
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, orgId));
   await db.delete(organization).where(eq(organization.id, orgId));
   await db.delete(user).where(eq(user.id, actorId));
 }
@@ -69,15 +72,15 @@ async function fixture() {
   const candidateId = crypto.randomUUID();
   const roundId = crypto.randomUUID();
   const snapshotId = crypto.randomUUID();
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "测试候选人",
     createdBy: actorId,
     id: candidateId,
     interviewQuestions: [],
     organizationId: orgId,
-    pipelineStage: "human_interview",
+    pipelineStage: "second_interview",
   });
-  await db.insert(studioHumanInterviewRound).values({
+  await db.insert(humanInterviewRound).values({
     evaluation,
     evaluationStatus: "submitted",
     evaluationSubmittedAt: new Date("2026-09-01"),
@@ -85,13 +88,23 @@ async function fixture() {
     feedback: evaluation.overallEvaluation,
     format: "online",
     id: roundId,
-    interviewRecordId: candidateId,
     label: "业务一面",
     organizationId: orgId,
     outcome: "inconclusive",
+    recruitingRecordId: candidateId,
+    roundKind: "second_interview",
     status: "completed",
   });
-  await db.insert(studioHumanInterviewEvaluationSnapshot).values({
+  await db
+    .update(recruitingNodeState)
+    .set({ effectiveHumanRoundId: roundId, status: "awaiting_review" })
+    .where(
+      and(
+        eq(recruitingNodeState.recruitingRecordId, candidateId),
+        eq(recruitingNodeState.node, "second_interview"),
+      ),
+    );
+  await db.insert(humanInterviewEvaluationSnapshot).values({
     createdBy: actorId,
     evaluation,
     id: snapshotId,
@@ -100,7 +113,7 @@ async function fixture() {
     roundId,
     source: "human_submitted",
   });
-  await db.insert(humanInterviewDocumentSync).values({
+  await db.insert(humanInterviewEvaluationDocumentSync).values({
     blockId: "block",
     documentId: "doc",
     documentUrl: "https://example.feishu.cn/docx/doc",
@@ -157,9 +170,9 @@ describe("resolve historical human interview outcome", () => {
     }
     // This fixture's sync should not interfere with the claim tests below.
     await db
-      .update(humanInterviewDocumentSync)
+      .update(humanInterviewEvaluationDocumentSync)
       .set({ status: "synced" })
-      .where(eq(humanInterviewDocumentSync.snapshotId, input.snapshotId));
+      .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, input.snapshotId));
   });
   it.each(["pass", "fail"] as const)(
     "resolves %s without changing evaluation or snapshot and queues rating-only sync",
@@ -168,8 +181,8 @@ describe("resolve historical human interview outcome", () => {
       await resolveHumanInterviewOutcome({ ...input, outcome }, { persist });
       const [round] = await db
         .select()
-        .from(studioHumanInterviewRound)
-        .where(eq(studioHumanInterviewRound.id, input.roundId));
+        .from(humanInterviewRound)
+        .where(eq(humanInterviewRound.id, input.roundId));
       expect(round).toMatchObject({
         evaluation,
         evaluationStatus: "submitted",
@@ -178,13 +191,18 @@ describe("resolve historical human interview outcome", () => {
       });
       const [snapshot] = await db
         .select()
-        .from(studioHumanInterviewEvaluationSnapshot)
-        .where(eq(studioHumanInterviewEvaluationSnapshot.id, input.snapshotId));
+        .from(humanInterviewEvaluationSnapshot)
+        .where(eq(humanInterviewEvaluationSnapshot.id, input.snapshotId));
       expect(snapshot).toMatchObject({ evaluation, outcome: "inconclusive" });
       const [audit] = await db
         .select()
-        .from(interviewAuditLog)
-        .where(eq(interviewAuditLog.interviewRecordId, input.interviewRecordId));
+        .from(recruitingEvent)
+        .where(
+          and(
+            eq(recruitingEvent.recruitingRecordId, input.interviewRecordId),
+            eq(recruitingEvent.action, "human_interview_round_updated"),
+          ),
+        );
       expect(audit).toMatchObject({
         detail: { newOutcome: outcome, oldOutcome: "inconclusive" },
         operatorId: actorId,
@@ -197,7 +215,12 @@ describe("resolve historical human interview outcome", () => {
       }
       const nextRound = () =>
         createHumanInterviewRound({
-          input: { format: "online", interviewerIds: [], label: "业务二面" },
+          input: {
+            format: "online",
+            interviewerIds: [],
+            label: "业务二面",
+            roundKind: "final_interview",
+          },
           interviewRecordId: input.interviewRecordId,
           organizationId: orgId,
         });
@@ -214,9 +237,9 @@ describe("resolve historical human interview outcome", () => {
     async (stage) => {
       const input = await fixture();
       await db
-        .update(humanInterviewDocumentSync)
+        .update(humanInterviewEvaluationDocumentSync)
         .set({ status: "failed", syncedAt: null })
-        .where(eq(humanInterviewDocumentSync.snapshotId, input.snapshotId));
+        .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, input.snapshotId));
       await resolveHumanInterviewOutcome(input, { persist });
       const fields = stage === "before-body-write" ? INTERVIEW_STAGE_PLACEHOLDER_FIELDS : [];
       const writes: string[] = [];
@@ -300,8 +323,13 @@ describe("resolve historical human interview outcome", () => {
     expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
     const logs = await db
       .select()
-      .from(interviewAuditLog)
-      .where(eq(interviewAuditLog.interviewRecordId, input.interviewRecordId));
+      .from(recruitingEvent)
+      .where(
+        and(
+          eq(recruitingEvent.recruitingRecordId, input.interviewRecordId),
+          eq(recruitingEvent.action, "human_interview_round_updated"),
+        ),
+      );
     expect(logs).toHaveLength(1);
   });
   it("rejects wrong organization, wrong candidate, non-completed and finalized rounds", async () => {
@@ -317,16 +345,16 @@ describe("resolve historical human interview outcome", () => {
       ),
     ).rejects.toMatchObject({ status: 404 });
     await db
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({ status: "pending" })
-      .where(eq(studioHumanInterviewRound.id, input.roundId));
+      .where(eq(humanInterviewRound.id, input.roundId));
     await expect(resolveHumanInterviewOutcome(input, { persist })).rejects.toMatchObject({
       status: 409,
     });
     await db
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({ outcome: "pass", status: "completed" })
-      .where(eq(studioHumanInterviewRound.id, input.roundId));
+      .where(eq(humanInterviewRound.id, input.roundId));
     await expect(
       resolveHumanInterviewOutcome({ ...input, outcome: "fail" }, { persist }),
     ).rejects.toMatchObject({ status: 409 });
@@ -334,24 +362,24 @@ describe("resolve historical human interview outcome", () => {
   it("does not race with an active document sync", async () => {
     const input = await fixture();
     await db
-      .update(humanInterviewDocumentSync)
+      .update(humanInterviewEvaluationDocumentSync)
       .set({ nextAttemptAt: new Date(Date.now() + 600_000), status: "syncing" })
-      .where(eq(humanInterviewDocumentSync.snapshotId, input.snapshotId));
+      .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, input.snapshotId));
     await expect(resolveHumanInterviewOutcome(input, { persist })).rejects.toMatchObject({
       status: 409,
     });
     const [round] = await db
       .select()
-      .from(studioHumanInterviewRound)
-      .where(eq(studioHumanInterviewRound.id, input.roundId));
+      .from(humanInterviewRound)
+      .where(eq(humanInterviewRound.id, input.roundId));
     expect(round?.outcome).toBe("inconclusive");
   });
   it("rejects inconclusive formal submissions even when called without HTTP", async () => {
     const input = await fixture();
     await db
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({ evaluationStatus: "draft", status: "pending" })
-      .where(eq(studioHumanInterviewRound.id, input.roundId));
+      .where(eq(humanInterviewRound.id, input.roundId));
     expect(
       await submitHumanInterviewEvaluation({
         ...input,

@@ -1,10 +1,10 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
 } from "@app/db-schema/schema";
 import type { HumanInterviewMeetingScheduleUpdate } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
@@ -38,11 +38,11 @@ export async function updateHumanInterviewMeetingSchedule({
   await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          eq(humanInterviewMeeting.id, meetingId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
         ),
       )
       .for("update")
@@ -74,34 +74,34 @@ export async function updateHumanInterviewMeetingSchedule({
     const now = new Date();
     const roundLinks = await tx
       .select({
-        candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-        candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
-        candidateRespondedAt: studioHumanInterviewMeetingRound.candidateRespondedAt,
-        invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
-        roundId: studioHumanInterviewMeetingRound.roundId,
+        candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+        candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
+        candidateRespondedAt: humanInterviewMeetingRound.candidateRespondedAt,
+        invitationVersion: humanInterviewMeetingRound.invitationVersion,
+        roundId: humanInterviewMeetingRound.roundId,
       })
-      .from(studioHumanInterviewMeetingRound)
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId));
+      .from(humanInterviewMeetingRound)
+      .where(eq(humanInterviewMeetingRound.meetingId, meetingId));
 
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         feishuLastError: null,
         feishuSyncStatus: existing.feishuProviderId ? "pending" : null,
-        scheduleVersion: sql`${studioHumanInterviewMeeting.scheduleVersion} + 1`,
+        scheduleVersion: sql`${humanInterviewMeeting.scheduleVersion} + 1`,
         scheduledAt,
         updatedAt: now,
         validUntil,
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     if (roundLinks.length > 0) {
       const nextScheduleVersion = existing.scheduleVersion + 1;
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({ scheduledAt, updatedAt: now })
         .where(
           inArray(
-            studioHumanInterviewRound.id,
+            humanInterviewRound.id,
             roundLinks.map((round) => round.roundId),
           ),
         );
@@ -117,7 +117,7 @@ export async function updateHumanInterviewMeetingSchedule({
             )
           : null;
         await tx
-          .update(studioHumanInterviewMeetingRound)
+          .update(humanInterviewMeetingRound)
           .set({
             candidateDeclineReason:
               roundLink.candidateInviteStatus === "declined" ? undefined : null,
@@ -131,18 +131,18 @@ export async function updateHumanInterviewMeetingSchedule({
               roundLink.candidateInviteStatus === "accepted" ||
               roundLink.candidateInviteStatus === "declined"
                 ? roundLink.invitationVersion
-                : sql`${studioHumanInterviewMeetingRound.invitationVersion} + 1`,
+                : sql`${humanInterviewMeetingRound.invitationVersion} + 1`,
           })
           .where(
             and(
-              eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
-              eq(studioHumanInterviewMeetingRound.roundId, roundLink.roundId),
+              eq(humanInterviewMeetingRound.meetingId, meetingId),
+              eq(humanInterviewMeetingRound.roundId, roundLink.roundId),
             ),
           );
       }
       const roundIds = roundLinks.map((round) => round.roundId);
       await tx
-        .update(studioHumanInterviewRoundInterviewer)
+        .update(humanInterviewRoundInterviewer)
         .set({
           confirmedAt: now,
           confirmedScheduleVersion: nextScheduleVersion,
@@ -150,7 +150,7 @@ export async function updateHumanInterviewMeetingSchedule({
           declinedAt: null,
           status: "confirmed",
         })
-        .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
+        .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
     }
     if (isInterviewNotificationFlowEnabled()) {
       await enqueueHumanMeetingEvents(tx, {

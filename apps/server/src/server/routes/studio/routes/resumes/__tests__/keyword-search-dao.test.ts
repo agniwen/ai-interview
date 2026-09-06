@@ -1,7 +1,9 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
-import { organization, studioInterview, user } from "@app/db-schema/schema";
+import { organization, user } from "@app/db-schema/schema";
 import { queryPaginatedResumeRecords } from "../dao/resumes";
 import { PROFILE_WITH_HIGHLIGHTS } from "../../resume-pool/__tests__/fixtures";
 
@@ -9,7 +11,7 @@ const ORGS = ["keyword_search_org_a", "keyword_search_org_b"];
 const USERS = ["keyword_search_owner", "keyword_search_other"];
 
 async function cleanup() {
-  await db.delete(studioInterview).where(inArray(studioInterview.organizationId, ORGS));
+  await deleteRecruitingRecords(db, inArray(recruitingRecordReadModel.organizationId, ORGS));
   await db.delete(organization).where(inArray(organization.id, ORGS));
   await db.delete(user).where(inArray(user.id, USERS));
 }
@@ -35,7 +37,7 @@ beforeAll(async () => {
       slug: id,
     })),
   );
-  await db.insert(studioInterview).values([
+  await createRecruitingRecords(db, [
     {
       candidateName: "甲",
       createdBy: USERS[0],

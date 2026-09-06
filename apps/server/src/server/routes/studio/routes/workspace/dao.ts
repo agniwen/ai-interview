@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
@@ -11,7 +12,6 @@ import {
   recruitingGroup,
   recruitingGroupMember,
   session,
-  studioInterview,
   user,
 } from "@app/db-schema/schema";
 import { recruitingGroupRoleSchema } from "./schema";
@@ -647,19 +647,19 @@ export async function loadMyResumeActivity({
     new Date(Date.now() - (MY_ACTIVITY_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
   );
 
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${recruitingRecordReadModel.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
       count: count(),
       day: dayExpr,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        eq(studioInterview.createdBy, userId),
-        gte(studioInterview.createdAt, since),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        eq(recruitingRecordReadModel.createdBy, userId),
+        gte(recruitingRecordReadModel.createdAt, since),
       ),
     )
     .groupBy(dayExpr)

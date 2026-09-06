@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
@@ -8,13 +10,12 @@ import type {
 } from "@app/db-schema/interview-snapshots";
 import type { InterviewQuestionTemplateSnapshot } from "@app/db-schema/interview-question-templates";
 import {
-  interviewContextSnapshot,
-  interviewConversation,
-  interviewConversationTurn,
-  interviewEvidenceSnapshot,
+  recruitingContextSnapshot,
+  aiInterviewConversation,
+  aiInterviewConversationTurn,
+  recruitingEvidenceSnapshot,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import {
   queryInterviewConversationReportByRound,
@@ -155,19 +156,19 @@ const evidencePayload: InterviewEvidenceSnapshotPayload = {
 
 async function cleanup() {
   await db
-    .delete(interviewEvidenceSnapshot)
-    .where(eq(interviewEvidenceSnapshot.organizationId, ORG_ID));
+    .delete(recruitingEvidenceSnapshot)
+    .where(eq(recruitingEvidenceSnapshot.organizationId, ORG_ID));
   await db
-    .delete(interviewConversationTurn)
-    .where(eq(interviewConversationTurn.organizationId, ORG_ID));
-  await db.delete(interviewConversation).where(eq(interviewConversation.organizationId, ORG_ID));
+    .delete(aiInterviewConversationTurn)
+    .where(eq(aiInterviewConversationTurn.organizationId, ORG_ID));
   await db
-    .delete(interviewContextSnapshot)
-    .where(eq(interviewContextSnapshot.organizationId, ORG_ID));
+    .delete(aiInterviewConversation)
+    .where(eq(aiInterviewConversation.organizationId, ORG_ID));
   await db
-    .delete(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.organizationId, ORG_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_ID));
+    .delete(recruitingContextSnapshot)
+    .where(eq(recruitingContextSnapshot.organizationId, ORG_ID));
+  await db.delete(aiInterviewRound).where(eq(aiInterviewRound.organizationId, ORG_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
 }
 
@@ -179,7 +180,7 @@ beforeAll(async () => {
     name: "Report Snapshot Metadata Org",
     slug: ORG_ID,
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "meta-candidate@example.com",
     candidateName: "元信息候选人",
     createdAt: NOW,
@@ -190,37 +191,37 @@ beforeAll(async () => {
     targetRole: "后端工程师",
     updatedAt: NOW,
   });
-  await db.insert(studioInterviewSchedule).values({
+  await db.insert(aiInterviewRound).values({
     allowTextInput: true,
     createdAt: NOW,
     id: ROUND_ID,
-    interviewRecordId: INTERVIEW_ID,
     organizationId: ORG_ID,
+    recruitingRecordId: INTERVIEW_ID,
     roundLabel: "一面",
     scheduledAt: NOW,
     sortOrder: 0,
     status: "completed",
     updatedAt: NOW,
   });
-  await db.insert(interviewContextSnapshot).values({
+  await db.insert(recruitingContextSnapshot).values({
+    aiRoundId: ROUND_ID,
     contentHash: "context-hash",
     createdAt: NOW,
     id: CONTEXT_ID,
-    interviewRecordId: INTERVIEW_ID,
     organizationId: ORG_ID,
     payload: contextPayload,
     reason: "create",
-    scheduleEntryId: ROUND_ID,
+    recruitingRecordId: INTERVIEW_ID,
     status: "active",
     version: 4,
   });
-  await db.insert(interviewConversation).values({
+  await db.insert(aiInterviewConversation).values({
     agentId: "agent-report-snapshot-metadata",
+    aiRoundId: ROUND_ID,
     callSuccessful: "success",
     conversationId: CONVERSATION_ID,
     createdAt: NOW,
     endedAt: NOW,
-    interviewRecordId: INTERVIEW_ID,
     keyInformation: {
       quantitativeInformation: [],
       risks: [],
@@ -238,7 +239,7 @@ beforeAll(async () => {
     organizationId: ORG_ID,
     recordingDurationSecs: 120,
     recordingStatus: "completed",
-    scheduleEntryId: ROUND_ID,
+    recruitingRecordId: INTERVIEW_ID,
     startedAt: NOW,
     status: "done",
     transcript: evidencePayload.transcript,
@@ -246,15 +247,15 @@ beforeAll(async () => {
     updatedAt: NOW,
     webhookReceivedAt: NOW,
   });
-  await db.insert(interviewConversationTurn).values([
+  await db.insert(aiInterviewConversationTurn).values([
     {
       conversationId: CONVERSATION_ID,
       createdAt: NOW,
       id: "test_report_snapshot_metadata_turn_agent",
-      interviewRecordId: INTERVIEW_ID,
       message: "请介绍一下自己。",
       organizationId: ORG_ID,
       receivedAt: NOW,
+      recruitingRecordId: INTERVIEW_ID,
       role: "agent",
       source: "post_call_transcription",
       timeInCallSecs: 1,
@@ -263,25 +264,25 @@ beforeAll(async () => {
       conversationId: CONVERSATION_ID,
       createdAt: new Date("2026-06-26T10:00:03.000Z"),
       id: "test_report_snapshot_metadata_turn_user",
-      interviewRecordId: INTERVIEW_ID,
       message: "我是候选人。",
       organizationId: ORG_ID,
       receivedAt: new Date("2026-06-26T10:00:03.000Z"),
+      recruitingRecordId: INTERVIEW_ID,
       role: "user",
       source: "post_call_transcription",
       timeInCallSecs: 3,
     },
   ]);
-  await db.insert(interviewEvidenceSnapshot).values({
+  await db.insert(recruitingEvidenceSnapshot).values({
+    aiRoundId: ROUND_ID,
     contentHash: "evidence-hash",
     contextSnapshotId: CONTEXT_ID,
     conversationId: CONVERSATION_ID,
     createdAt: NOW,
     id: EVIDENCE_ID,
-    interviewRecordId: INTERVIEW_ID,
     organizationId: ORG_ID,
     payload: evidencePayload,
-    scheduleEntryId: ROUND_ID,
+    recruitingRecordId: INTERVIEW_ID,
   });
 });
 

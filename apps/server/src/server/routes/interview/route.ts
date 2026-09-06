@@ -1,12 +1,16 @@
+import {
+  lockAiRound,
+  updateEffectiveAiProgress,
+} from "../studio/routes/interviews/dao/ai-round-lifecycle";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "../../../lib/server/db/index";
 import { buildRecordingFileKey, isRecordingStorageConfigured } from "@app/object-storage";
 import {
-  candidateFormSubmission,
-  interviewConversation,
-  studioInterviewSchedule,
+  recruitingFormSubmission,
+  aiInterviewConversation,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import { buildCandidateFormAnswersSchema } from "@app/db-schema/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@app/db-schema/studio-interviews";
@@ -16,7 +20,7 @@ import { factory, jsonValidatorError } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
 import { loadSubmittedTemplateIds } from "../studio/routes/forms/dao/submissions";
 import { loadActiveInterviewContextSnapshot } from "../studio/routes/interviews/dao/context-snapshots";
-import { cacheTags, lookupOrgIdByInterviewRecord, safeUpdateTag } from "../../cache-tags";
+import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import { resolveInterviewRecordingEnabled } from "@app/shared/interview/recording-config";
 import { INTERVIEW_END_REASON } from "@app/shared/interview/end-reason";
 import {
@@ -53,26 +57,26 @@ async function recordCandidateClickedEnd(
   },
 ): Promise<void> {
   await tx
-    .insert(interviewConversation)
+    .insert(aiInterviewConversation)
     .values({
+      aiRoundId: input.roundId,
       conversationId: input.conversationId,
       endedAt: input.now,
-      interviewRecordId: input.interviewRecordId,
       lastSyncedAt: input.now,
       metadata: { closeReason: INTERVIEW_END_REASON.CANDIDATE_CLICKED_END },
       mode: "voice",
       organizationId: input.organizationId,
-      scheduleEntryId: input.roundId,
+      recruitingRecordId: input.interviewRecordId,
       status: "completed",
     })
     .onConflictDoUpdate({
       set: {
         endedAt: input.now,
         lastSyncedAt: input.now,
-        metadata: sql`${interviewConversation.metadata} || ${CANDIDATE_CLICKED_END_METADATA}::jsonb`,
+        metadata: sql`${aiInterviewConversation.metadata} || ${CANDIDATE_CLICKED_END_METADATA}::jsonb`,
         status: "completed",
       },
-      target: interviewConversation.conversationId,
+      target: aiInterviewConversation.conversationId,
     });
 }
 
@@ -81,13 +85,13 @@ async function recordDirectAiInterviewAcceptance(
   input: { invitationVersion: number; now: Date; roundId: string },
 ): Promise<void> {
   await tx
-    .update(studioInterviewSchedule)
+    .update(aiInterviewRound)
     .set({
       candidateInviteStatus: "accepted" as const,
       candidateRespondedAt: input.now,
       updatedAt: input.now,
     })
-    .where(eq(studioInterviewSchedule.id, input.roundId));
+    .where(eq(aiInterviewRound.id, input.roundId));
   if (isInterviewNotificationFlowEnabled()) {
     await enqueueAiInvitationResponseEvent(tx, {
       action: "accept",
@@ -103,14 +107,14 @@ async function recordDirectAiInterviewVisit(roundId: string): Promise<boolean> {
   return await db.transaction(async (tx) => {
     const [row] = await tx
       .select({
-        candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-        candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
-        candidateInviteTokenHash: studioInterviewSchedule.candidateInviteTokenHash,
-        invitationVersion: studioInterviewSchedule.invitationVersion,
-        status: studioInterviewSchedule.status,
+        candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
+        candidateInviteStatus: aiInterviewRound.candidateInviteStatus,
+        candidateInviteTokenHash: aiInterviewRound.candidateInviteTokenHash,
+        invitationVersion: aiInterviewRound.invitationVersion,
+        status: aiInterviewRound.status,
       })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, roundId))
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, roundId))
       .for("update")
       .limit(1);
     if (!row) {
@@ -213,19 +217,23 @@ export const interviewRouter = factory
     const now = new Date();
 
     const resolution = await db.transaction(async (tx): Promise<TokenResolution> => {
+      const active = await lockAiRound(tx, roundId);
+      if (!active?.isEffective || active.record.id !== id) {
+        return { status: "invitation_unavailable" };
+      }
       const [row] = await tx
         .select({
-          candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-          candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
-          candidateInviteTokenHash: studioInterviewSchedule.candidateInviteTokenHash,
-          disconnectedAt: studioInterviewSchedule.disconnectedAt,
-          invitationVersion: studioInterviewSchedule.invitationVersion,
-          liveKitParticipantIdentity: studioInterviewSchedule.liveKitParticipantIdentity,
-          liveKitRoomName: studioInterviewSchedule.liveKitRoomName,
-          status: studioInterviewSchedule.status,
+          candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
+          candidateInviteStatus: aiInterviewRound.candidateInviteStatus,
+          candidateInviteTokenHash: aiInterviewRound.candidateInviteTokenHash,
+          disconnectedAt: aiInterviewRound.disconnectedAt,
+          invitationVersion: aiInterviewRound.invitationVersion,
+          liveKitParticipantIdentity: aiInterviewRound.liveKitParticipantIdentity,
+          liveKitRoomName: aiInterviewRound.liveKitRoomName,
+          status: aiInterviewRound.status,
         })
-        .from(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.id, roundId))
+        .from(aiInterviewRound)
+        .where(eq(aiInterviewRound.id, roundId))
         .for("update")
         .limit(1);
 
@@ -265,7 +273,7 @@ export const interviewRouter = factory
         const elapsed = now.getTime() - new Date(row.disconnectedAt).getTime();
         if (elapsed > RECONNECT_GRACE_MS) {
           await tx
-            .update(studioInterviewSchedule)
+            .update(aiInterviewRound)
             .set({
               disconnectedAt: null,
               liveKitParticipantIdentity: null,
@@ -273,7 +281,8 @@ export const interviewRouter = factory
               status: "completed" as const,
               updatedAt: now,
             })
-            .where(eq(studioInterviewSchedule.id, roundId));
+            .where(eq(aiInterviewRound.id, roundId));
+          await updateEffectiveAiProgress(tx, roundId, "awaiting_review");
           if (isInterviewNotificationFlowEnabled()) {
             await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: roundId });
           }
@@ -303,7 +312,7 @@ export const interviewRouter = factory
       const freshRoomName = `interview_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
       const freshIdentity = `candidate_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
       await tx
-        .update(studioInterviewSchedule)
+        .update(aiInterviewRound)
         .set({
           disconnectedAt: null,
           liveKitParticipantIdentity: freshIdentity,
@@ -312,7 +321,8 @@ export const interviewRouter = factory
           status: "in_progress" as const,
           updatedAt: now,
         })
-        .where(eq(studioInterviewSchedule.id, roundId));
+        .where(eq(aiInterviewRound.id, roundId));
+      await updateEffectiveAiProgress(tx, roundId, "in_progress");
       return {
         isReconnect: false,
         participantIdentity: freshIdentity,
@@ -520,11 +530,11 @@ export const interviewRouter = factory
       const now = new Date();
       const submissionId = crypto.randomUUID();
       try {
-        await db.insert(candidateFormSubmission).values({
+        await db.insert(recruitingFormSubmission).values({
           answers: parsed.data,
           id: submissionId,
-          interviewRecordId: id,
           organizationId: interviewRecord.organizationId,
+          recruitingRecordId: id,
           submittedAt: now,
           templateId,
           versionId,
@@ -559,90 +569,55 @@ export const interviewRouter = factory
       const mode = c.req.valid("query").mode === "final" ? "final" : "interrupt";
       const now = new Date();
 
-      const [entry] = await db
-        .select({
-          conversationId: studioInterviewSchedule.conversationId,
-          disconnectedAt: studioInterviewSchedule.disconnectedAt,
-          id: studioInterviewSchedule.id,
-          interviewRecordId: studioInterviewSchedule.interviewRecordId,
-          liveKitRoomName: studioInterviewSchedule.liveKitRoomName,
-          organizationId: studioInterviewSchedule.organizationId,
-          status: studioInterviewSchedule.status,
-        })
-        .from(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.id, roundId))
-        .limit(1);
-
-      if (!entry) {
-        return c.json({ error: "Round not found." }, 404);
-      }
-
-      if (entry.status === "completed") {
-        return c.json({ success: true }, 200);
-      }
-
-      if (mode === "interrupt") {
-        // 每次断连都覆盖 disconnectedAt = now，让 3 分钟宽限窗口与 agent 端的
-        // grace 计时器（每次 participant_disconnected 重启）保持同步。
-        // 之前"只在首次写"的策略会让多次断连时两端窗口错位 —— 例如用户首次断
-        // 30 秒后重连，又过 60 秒再次断开，agent 重启 grace 等 180 秒，但 web
-        // 仍按首次断的时间算（剩余 90 秒）就会过早判 410。
-        // pending 没有 anchor 不能重连，忽略；completed 已结束，忽略。
-        // Always overwrite disconnectedAt = now on every drop so the web grace
-        // window stays in lockstep with agent's grace timer (which restarts on
-        // each participant_disconnected). The earlier "first-drop only" rule
-        // caused the two windows to drift apart on multiple reconnects.
-        if (entry.status === "in_progress" || entry.status === "interrupted") {
-          await db
-            .update(studioInterviewSchedule)
-            .set({
-              disconnectedAt: now,
-              status: "interrupted" as const,
-              updatedAt: now,
-            })
-            .where(eq(studioInterviewSchedule.id, roundId));
-          // 候选人侧路由没有 activeOrg，反查 interview record 拿 orgId。
-          // 找不到时跳过失效（约定见 cache-tags.ts），等 cacheLife 自然过期。
-          // Candidate-side route has no activeOrg; reverse-lookup org from the
-          // interview record. Skip invalidation on miss; cacheLife will refresh.
-          const orgId = await lookupOrgIdByInterviewRecord(entry.interviewRecordId);
-          if (orgId) {
-            safeUpdateTag(cacheTags.studioInterviews(orgId));
-          }
+      const result = await db.transaction(async (tx) => {
+        const locked = await lockAiRound(tx, roundId);
+        if (!locked || locked.record.id !== c.req.param("id")) {
+          return { kind: "not_found" } as const;
         }
-        return c.json({ success: true }, 200);
-      }
-
-      const conversationId = entry.conversationId ?? entry.liveKitRoomName;
-      await db.transaction(async (tx) => {
-        await tx
-          .update(studioInterviewSchedule)
-          .set({
-            conversationId: conversationId ?? entry.conversationId,
-            status: "completed" as const,
-            updatedAt: now,
-          })
-          .where(eq(studioInterviewSchedule.id, roundId));
+        const entry = locked.round;
+        if (!locked.isEffective) {
+          return { kind: "inactive" } as const;
+        }
+        if (entry.status === "completed") {
+          return { kind: "ok", organizationId: entry.organizationId } as const;
+        }
+        if (mode === "interrupt") {
+          if (entry.status === "in_progress" || entry.status === "interrupted") {
+            await tx
+              .update(aiInterviewRound)
+              .set({ disconnectedAt: now, status: "interrupted", updatedAt: now })
+              .where(eq(aiInterviewRound.id, roundId));
+          }
+          return { kind: "ok", organizationId: entry.organizationId } as const;
+        }
+        const conversationId = entry.conversationId ?? entry.liveKitRoomName;
+        // 先建立会话归属，再写轮次的当前会话指针，满足新表的双向复合外键。
         if (conversationId) {
           await recordCandidateClickedEnd(tx, {
             conversationId,
-            interviewRecordId: entry.interviewRecordId,
+            interviewRecordId: entry.recruitingRecordId,
             now,
             organizationId: entry.organizationId,
             roundId,
           });
         }
+        await tx
+          .update(aiInterviewRound)
+          .set({ conversationId, status: "completed", updatedAt: now })
+          .where(eq(aiInterviewRound.id, roundId));
+        await updateEffectiveAiProgress(tx, roundId, "awaiting_review");
         if (isInterviewNotificationFlowEnabled()) {
           await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: roundId });
         }
+        return { kind: "ok", organizationId: entry.organizationId } as const;
       });
-
-      // 候选人侧路由没有 activeOrg —— 反查 org 拼 org-scoped tag。
-      // Reverse-lookup orgId on the candidate-side path; tag is org-scoped now.
-      const completedOrgId = await lookupOrgIdByInterviewRecord(entry.interviewRecordId);
-      if (completedOrgId) {
-        safeUpdateTag(cacheTags.studioInterviews(completedOrgId));
+      if (result.kind === "not_found") {
+        return c.json({ error: "Round not found." }, 404);
       }
+      if (result.kind === "inactive") {
+        return c.json({ error: "当前面试已失效，请联系招聘人员。" }, 409);
+      }
+      safeUpdateTag(cacheTags.studioInterviews(result.organizationId));
       return c.json({ success: true }, 200);
     },
   );
