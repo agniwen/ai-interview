@@ -1,6 +1,6 @@
 # 招聘数据复制回填
 
-此工具只支持显式指定的开发库 `ainterview-dev`。执行使用已有的 Node/tsx 和 Web 迁移环境的 `pg` 驱动；不通过业务 ORM 实例进行运维写入。数据库连接来自 Web 当前 Drizzle 配置；不会输出连接串。
+此工具默认允许显式指定的开发库 `ainterview-dev`；生产库 `ainterview` 写入必须同时传入 `--database ainterview --confirm-database ainterview`。配置连接、实际连接数据库及显式目标必须一致。额外参数仅防止误操作，不代替备份、停写及迁移顺序核查。执行使用已有的 Node/tsx 和 Web 迁移环境的 `pg` 驱动；不通过业务 ORM 实例进行运维写入。数据库连接来自 Web 当前 Drizzle 配置；不会输出连接串。
 
 ```sh
 # 只读预检，不写数据库

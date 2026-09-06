@@ -25,6 +25,7 @@ async function main() {
   const { values } = parseArgs({
     options: {
       apply: { default: false, type: "boolean" },
+      "confirm-database": { type: "string" },
       database: { type: "string" },
       "infer-legacy-nodes": { default: false, type: "boolean" },
       mapping: { type: "string" },
@@ -35,10 +36,10 @@ async function main() {
   });
   if (!values.database || !values.report) {
     throw new Error(
-      "Required: --database ainterview-dev --report <private-report-path> [--apply] [--infer-legacy-nodes]",
+      "Required: --database <name> --report <private-report-path> [--apply] [--confirm-database <name>] [--infer-legacy-nodes]",
     );
   }
-  // 运维入口允许动态读取 Web 的 Drizzle 配置，保持本次明确指定的开发库目标。
+  // 运维入口读取 Web 的 Drizzle 配置，并核对显式指定的数据库；生产写入需要再次指定库名。
   // 运行时代码不依赖 Web；动态 URL 避免把其他应用的源码纳入 Server 编译范围。
   const configUrl = new URL("../../../web/drizzle.config.ts", import.meta.url);
   const { default: config } = z
@@ -90,6 +91,7 @@ async function main() {
         },
         {
           apply: values.apply,
+          confirmedDatabase: values["confirm-database"],
           expectedDatabase: databaseName,
           mapping,
           sourceCachePath: values["source-cache"],

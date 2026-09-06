@@ -230,6 +230,14 @@ describe("append-only migration ledger", () => {
 });
 
 describe("database-side copy payload", () => {
+  it("keeps ordinary batches below the transport limit without losing rows", () => {
+    const rows = Array.from({ length: 100 }, (_, index) => ({ index, text: "中".repeat(1000) }));
+    const batches = jsonBatches(rows);
+    expect(batches.flat()).toEqual(rows);
+    for (const batch of batches) {
+      expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThanOrEqual(128 * 1024);
+    }
+  });
   it("keeps large artifacts in PostgreSQL and transmits only a field reference", () => {
     const artifact = { text: "中文".repeat(20_000) };
     const source = { artifact, id: "history1" };

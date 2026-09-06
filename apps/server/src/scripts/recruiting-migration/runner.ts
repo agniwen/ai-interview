@@ -292,6 +292,7 @@ export async function runMigration(
     sourceCachePath?: string;
     apply: boolean;
     expectedDatabase: string;
+    confirmedDatabase?: string;
     mapping?: MigrationMapping;
   },
 ): Promise<MigrationReport> {
@@ -299,8 +300,14 @@ export async function runMigration(
   if (identity?.database !== options.expectedDatabase) {
     throw new Error("Database identity differs from --database; refusing migration");
   }
-  if (options.apply && options.expectedDatabase !== "ainterview-dev") {
-    throw new Error("This migration command is restricted to ainterview-dev");
+  if (
+    options.apply &&
+    options.expectedDatabase !== "ainterview-dev" &&
+    !(options.expectedDatabase === "ainterview" && options.confirmedDatabase === "ainterview")
+  ) {
+    throw new Error(
+      "Production migration requires --database ainterview --confirm-database ainterview",
+    );
   }
   if (options.apply) {
     await query("SELECT pg_advisory_xact_lock(718401256)");
