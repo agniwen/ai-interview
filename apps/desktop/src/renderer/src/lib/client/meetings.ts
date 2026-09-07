@@ -277,8 +277,12 @@ export function fetchMeetingRecruitingContextCandidates(
   meetingId: string,
   search: string,
   signal?: AbortSignal,
+  purpose?: "initial-interview",
 ): Promise<MeetingRecruitingRecordSummary[]> {
   const params = new URLSearchParams({ limit: "20" });
+  if (purpose) {
+    params.set("purpose", purpose);
+  }
   if (search.trim()) {
     params.set("search", search.trim());
   }

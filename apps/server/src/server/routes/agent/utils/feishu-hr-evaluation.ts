@@ -122,7 +122,7 @@ function takeMostRecent<T extends { period: string | null }>(items: T[], limit: 
     .map(({ item }) => item);
 }
 
-function formatResumeEmploymentContext(resumeProfile: ResumeProfile | null): string {
+export function formatResumeEmploymentContext(resumeProfile: ResumeProfile | null): string {
   if (!resumeProfile) {
     return "（无简历背景）";
   }

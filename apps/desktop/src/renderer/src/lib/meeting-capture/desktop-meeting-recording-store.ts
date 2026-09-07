@@ -116,7 +116,13 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        | "endedAt"
+        | "liveSummary"
+        | "liveSummaryCheckpoint"
+        | "liveTranscriptDraft"
+        | "segmentCount"
+        | "state"
+        | "title"
       >
     >,
   ): Promise<LocalMeetingSession> {

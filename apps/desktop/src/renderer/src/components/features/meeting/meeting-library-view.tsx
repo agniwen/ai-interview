@@ -1,3 +1,4 @@
+import { MEETING_RECORDING_TYPE_LABELS } from "@app/shared/meeting-recording";
 import type { ReactNode } from "react";
 import type {
   MeetingDetail,
@@ -160,6 +161,9 @@ export function MeetingDetailView({
         )}
       </header>
       <SettingsGroup>
+        <SettingsRow label="录音类型">
+          {MEETING_RECORDING_TYPE_LABELS[meeting.recordingType] ?? "—"}
+        </SettingsRow>
         <SettingsRow label="处理状态">
           <div className="flex justify-end">
             <Badge variant={state.variant}>{detailStateLabel}</Badge>

@@ -1,12 +1,15 @@
-import { and, asc, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import type { ResumeStageProgress } from "@app/shared/studio-resumes";
+import { initialInterviewStatusSchema } from "@app/shared/human-initial-interview";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   aiInterviewConversation,
   humanInterviewRound,
   aiInterviewRound,
   recruitingOffer,
+  recruitingInitialInterview,
+  recruitingInitialInterviewVersion,
 } from "@app/db-schema/schema";
 
 // 兜底默认值：候选人完全没有任何子表数据时返回（虽然聚合 SQL 总会返回一个对象，
@@ -54,7 +57,7 @@ export async function loadResumeStageProgress(
     return result;
   }
 
-  const [aiRows, humanRows, offerRows, lastInterviewRows] = await Promise.all([
+  const [aiRows, humanRows, offerRows, lastInterviewRows, initialRows] = await Promise.all([
     db
       .select({
         interviewRecordId: aiInterviewRound.recruitingRecordId,
@@ -107,6 +110,21 @@ export async function loadResumeStageProgress(
         ),
       )
       .groupBy(aiInterviewConversation.recruitingRecordId),
+    db
+      .select({
+        id: recruitingInitialInterviewVersion.id,
+        recordedAt: sql<string>`${recruitingInitialInterview.snapshot}->>'recordedAt'`,
+        recruitingRecordId: recruitingInitialInterviewVersion.recruitingRecordId,
+        snapshotId: recruitingInitialInterviewVersion.initialInterviewId,
+        status: recruitingInitialInterviewVersion.status,
+      })
+      .from(recruitingInitialInterviewVersion)
+      .innerJoin(
+        recruitingInitialInterview,
+        eq(recruitingInitialInterview.id, recruitingInitialInterviewVersion.initialInterviewId),
+      )
+      .where(inArray(recruitingInitialInterviewVersion.recruitingRecordId, ids))
+      .orderBy(desc(recruitingInitialInterviewVersion.createdAt)),
   ]);
 
   const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();
@@ -212,5 +230,25 @@ export async function loadResumeStageProgress(
     }
   }
 
+  const initialByCandidate = new Map<string, typeof initialRows>();
+  for (const row of initialRows) {
+    const rows = initialByCandidate.get(row.recruitingRecordId) ?? [];
+    rows.push(row);
+    initialByCandidate.set(row.recruitingRecordId, rows);
+  }
+  for (const [id, rows] of initialByCandidate) {
+    const derived = result.get(id);
+    const [latest] = rows;
+    if (derived && latest) {
+      derived.stageProgress.initialInterview = {
+        latestStatus: initialInterviewStatusSchema.parse(latest.status),
+        latestVersionId: latest.id,
+        totalSnapshots: new Set(rows.map((row) => row.snapshotId)).size,
+      };
+      if (!derived.lastInterviewAt || latest.recordedAt > derived.lastInterviewAt) {
+        derived.lastInterviewAt = latest.recordedAt;
+      }
+    }
+  }
   return result;
 }

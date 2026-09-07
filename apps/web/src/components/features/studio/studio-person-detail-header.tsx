@@ -73,7 +73,7 @@ export interface BuildStudioPersonDetailHeaderParams {
   round: StudioInterviewRoundDetail | null | undefined;
   showAgentInstructions: boolean;
   slug: string;
-  tabVisibilityRecord: { pipelineStage?: PipelineStage } | null;
+  tabVisibilityRecord: { pipelineStage?: PipelineStage; hasInitialInterview?: boolean } | null;
 }
 
 export interface StudioPersonDetailHeaderResult {

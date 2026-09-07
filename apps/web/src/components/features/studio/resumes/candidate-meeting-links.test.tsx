@@ -10,6 +10,7 @@ const meeting: MeetingLibraryItem = {
   id: "meeting-79",
   processingState: "ready",
   recordingAvailable: true,
+  recordingType: "voice_recording",
   savedAt: "2026-08-09T10:30:00.000Z",
   title: "候选人沟通会",
   workspaceCustodied: false,

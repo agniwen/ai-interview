@@ -7,7 +7,10 @@ import type {
   LocalMeetingSessionCreateInput,
 } from "../../preload/local-meeting-session";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
-import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import {
+  meetingLiveSummaryCheckpointSchema,
+  meetingLiveSummarySnapshotSchema,
+} from "@app/shared/meeting-live-summary";
 
 interface LocalMeetingSessionStoreOptions {
   migrationsFolder?: string;
@@ -18,6 +21,7 @@ interface SessionRow {
   ended_at: string | null;
   id: string;
   live_summary: string | null;
+  live_summary_checkpoint: string | null;
   live_transcript_draft: string | null;
   recruiting_record_id: string | null;
   segment_count: number;
@@ -31,6 +35,7 @@ const sessionRowSchema = z.object({
   ended_at: z.string().nullable(),
   id: z.string(),
   live_summary: z.string().nullable(),
+  live_summary_checkpoint: z.string().nullable(),
   live_transcript_draft: z.string().nullable(),
   recruiting_record_id: z.string().nullable(),
   segment_count: z.number(),
@@ -60,6 +65,9 @@ function fromRow(row: SessionRow): LocalMeetingSession {
     endedAt: row.ended_at,
     id: row.id,
     liveSummary: parsedSummary,
+    liveSummaryCheckpoint: row.live_summary_checkpoint
+      ? meetingLiveSummaryCheckpointSchema.parse(JSON.parse(row.live_summary_checkpoint))
+      : null,
     liveTranscriptDraft: parsedDraft,
     recruitingRecordId: row.recruiting_record_id,
     segmentCount: row.segment_count,
@@ -152,7 +160,13 @@ export class LocalMeetingSessionStore {
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        | "endedAt"
+        | "liveSummary"
+        | "liveSummaryCheckpoint"
+        | "liveTranscriptDraft"
+        | "segmentCount"
+        | "state"
+        | "title"
       >
     >,
   ): LocalMeetingSession {
@@ -165,7 +179,7 @@ export class LocalMeetingSessionStore {
       .prepare(`
         UPDATE local_meeting_session
         SET title = ?, state = ?, ended_at = ?, segment_count = ?,
-            live_summary = ?, live_transcript_draft = ?, updated_at = ?
+            live_summary = ?, live_summary_checkpoint = ?, live_transcript_draft = ?, updated_at = ?
         WHERE id = ?
       `)
       .run(
@@ -174,6 +188,7 @@ export class LocalMeetingSessionStore {
         next.endedAt,
         next.segmentCount,
         next.liveSummary ? JSON.stringify(next.liveSummary) : null,
+        next.liveSummaryCheckpoint ? JSON.stringify(next.liveSummaryCheckpoint) : null,
         next.liveTranscriptDraft ? JSON.stringify(next.liveTranscriptDraft) : null,
         next.updatedAt,
         id,

@@ -1,3 +1,4 @@
+import "./initialize-app-identity";
 import { captureDesktopMainException } from "./sentry";
 
 import { electronApp, optimizer } from "@electron-toolkit/utils";

@@ -94,10 +94,8 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const localSessionTitles = useRef(new Map<string, string>());
   const captureSnapshotRef = useRef(captureSnapshot);
   const liveTranscriptDraftRef = useRef(liveTranscriptDraft);
-  const liveSummaryRef = useRef(liveSummary);
   captureSnapshotRef.current = captureSnapshot;
   liveTranscriptDraftRef.current = liveTranscriptDraft;
-  liveSummaryRef.current = liveSummary;
   localSessionTitles.current = new Map(
     captureSnapshot.localSessions.map((session) => [session.id, session.title]),
   );
@@ -128,8 +126,9 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     }
     void meetingCapture.updateLocalSession(activeCaptureId, {
       liveSummary: liveSummary.summary,
+      liveSummaryCheckpoint: liveSummary.checkpoint ?? null,
     });
-  }, [activeCaptureId, liveSummary.captureId, liveSummary.summary]);
+  }, [activeCaptureId, liveSummary.captureId, liveSummary.checkpoint, liveSummary.summary]);
 
   const attemptTitleGenerationRef = useRef<(captureId: string) => Promise<void>>(() =>
     Promise.resolve(),
@@ -285,6 +284,21 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     void retryPendingUploads();
   }, [captureSnapshot.recoveryComplete, pendingWorkspaceUploadKey]);
 
+  const pendingSummaryKey = captureSnapshot.workspaceSaves
+    .filter((item) => item.state === "summary-pending")
+    .map((item) => item.captureId)
+    .toSorted()
+    .join(",");
+  useEffect(() => {
+    if (!pendingSummaryKey) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void meetingCapture.retryPendingWorkspaceSaves();
+    }, 60_000);
+    return () => clearTimeout(timer);
+  }, [pendingSummaryKey]);
+
   const openMeetingRecording = useCallback(
     (options?: OpenMeetingRecordingOptions) => {
       const record = options?.resumeRecord ?? null;
@@ -329,14 +343,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const saveRecording = useCallback(async (captureId?: string) => {
     try {
-      const summary = liveSummaryRef.current;
-      await meetingCapture.save({
-        captureId,
-        liveSummary:
-          summary.captureId && (!captureId || summary.captureId === captureId)
-            ? summary.summary
-            : undefined,
-      });
+      await meetingCapture.save({ captureId });
       toast.success("双轨录音已安全保存到本地");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存本地录音失败");

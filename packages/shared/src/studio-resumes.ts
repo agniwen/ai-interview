@@ -105,6 +105,11 @@ export interface OfferProgress {
  * sub-structure matching the candidate's current pipelineStage.
  */
 export interface ResumeStageProgress {
+  initialInterview?: {
+    totalSnapshots: number;
+    latestStatus: "queued" | "identifying" | "needs_speakers" | "generating" | "ready" | "failed";
+    latestVersionId: string;
+  } | null;
   aiInterview: AiInterviewProgress | null;
   humanInterview: HumanInterviewProgress | null;
   offer: OfferProgress | null;
@@ -228,6 +233,7 @@ export interface RecruitingNodeStateRecord {
   decidedBy: string | null;
   reason: string | null;
   effectiveAiRoundId: string | null;
+  effectiveInitialInterviewVersionId?: string | null;
   effectiveHumanRoundId: string | null;
   effectiveOfferId: string | null;
 }

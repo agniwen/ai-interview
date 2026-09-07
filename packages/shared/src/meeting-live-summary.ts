@@ -99,6 +99,20 @@ export const meetingLiveSummarySnapshotSchema = z
   });
 
 export type MeetingLiveSummarySnapshot = z.infer<typeof meetingLiveSummarySnapshotSchema>;
+
+/** Local progress is committed with the matching summary revision, never sent as AI context. */
+export const meetingLiveSummaryCheckpointSchema = z.object({
+  revision: z.number().int().positive(),
+  turns: z.record(z.string(), z.string()),
+});
+export type MeetingLiveSummaryCheckpoint = z.infer<typeof meetingLiveSummaryCheckpointSchema>;
+
+export class MeetingSummaryPendingError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "MeetingSummaryPendingError";
+  }
+}
 export type MeetingLiveSummaryTopic = MeetingLiveSummarySnapshot["topics"][number];
 export type MeetingLiveSummaryPoint = MeetingLiveSummaryTopic["points"][number];
 

@@ -1,6 +1,6 @@
 import { hierarchy, tree } from "d3-hierarchy";
-import { Background, Controls, MarkerType, ReactFlow } from "@xyflow/react";
-import type { Edge, Node, NodeMouseHandler } from "@xyflow/react";
+import { Background, Controls, MarkerType, Position, ReactFlow } from "@xyflow/react";
+import type { Edge, Node, NodeMouseHandler, NodeProps } from "@xyflow/react";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
@@ -70,6 +70,12 @@ type FlowNodeData = Record<string, ReactNode | string | null> & {
   label: ReactNode;
 };
 
+function StandaloneSummaryNode({ data }: NodeProps<Node<FlowNodeData>>) {
+  return <>{data.label}</>;
+}
+
+const summaryNodeTypes = { standalone: StandaloneSummaryNode };
+
 function iconForKind(kind: LiveSummaryTreeDatum["kind"]): string {
   if (kind === "root") {
     return "ph:sparkle-fill";
@@ -95,7 +101,9 @@ function nodeLabel(node: LiveSummaryGraphNode) {
   return (
     <div className="grid gap-1 text-left">
       <div className="flex items-center gap-1.5">
-        <Icon aria-hidden className="size-3.5 shrink-0" icon={iconForKind(node.kind)} />
+        {node.kind === "point" ? null : (
+          <Icon aria-hidden className="size-3.5 shrink-0" icon={iconForKind(node.kind)} />
+        )}
         <span className="font-medium text-xs leading-snug">{node.title}</span>
       </div>
       {node.subtitle ? (
@@ -112,7 +120,12 @@ function nodeLabel(node: LiveSummaryGraphNode) {
   );
 }
 
-function flowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
+export function buildLiveSummaryFlowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
+  const hasChildren = Boolean(node.children?.length);
+  let type = hasChildren ? "default" : "output";
+  if (node.kind === "root") {
+    type = hasChildren ? "input" : "standalone";
+  }
   return {
     ariaLabel: node.evidenceTurnId ? `${node.title}，点击查看字幕证据` : node.title,
     data: {
@@ -123,6 +136,7 @@ function flowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
     id: node.id,
     position: { x: node.x, y: node.y },
     selectable: Boolean(node.evidenceTurnId),
+    sourcePosition: Position.Right,
     style: {
       background: nodeBackground(node.kind),
       border: node.kind === "topic" ? "1px solid var(--border)" : "1px solid transparent",
@@ -135,6 +149,8 @@ function flowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
       padding: node.kind === "point" ? "9px 12px" : "12px 14px",
       width: nodeWidth(node.kind),
     },
+    targetPosition: Position.Left,
+    type,
   };
 }
 
@@ -164,16 +180,29 @@ export function MeetingLiveSummaryEmpty({
 
 export function MeetingLiveSummaryPanel({
   onEvidence,
+  onNodeSelect,
   snapshot,
 }: {
   onEvidence: (turnId: string) => void;
+  onNodeSelect?: (nodeId: string) => void;
   snapshot: MeetingLiveSummaryControllerSnapshot;
 }) {
   const graph = useMemo(
     () => (snapshot.summary ? buildLiveSummaryGraph(snapshot.summary) : null),
     [snapshot.summary],
   );
-  const nodes = useMemo(() => graph?.nodes.map(flowNode) ?? [], [graph]);
+  const nodes = useMemo(
+    () =>
+      graph?.nodes.map((node) => {
+        const flowNode = buildLiveSummaryFlowNode(node);
+        if (onNodeSelect) {
+          flowNode.ariaLabel = `${node.title}，点击查看对应总结`;
+          flowNode.selectable = true;
+        }
+        return flowNode;
+      }) ?? [],
+    [graph, onNodeSelect],
+  );
   const edges = useMemo<Edge[]>(
     () =>
       graph?.edges.map((edge) => ({
@@ -185,7 +214,9 @@ export function MeetingLiveSummaryPanel({
     [graph],
   );
   const handleNodeClick: NodeMouseHandler<Node<FlowNodeData>> = (_event, node) => {
-    if (node.data.evidenceTurnId) {
+    if (onNodeSelect) {
+      onNodeSelect(node.id);
+    } else if (node.data.evidenceTurnId) {
       onEvidence(node.data.evidenceTurnId);
     }
   };
@@ -202,6 +233,7 @@ export function MeetingLiveSummaryPanel({
             maxZoom={1.5}
             minZoom={0.25}
             nodes={nodes}
+            nodeTypes={summaryNodeTypes}
             nodesConnectable={false}
             nodesDraggable={false}
             onNodeClick={handleNodeClick}

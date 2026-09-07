@@ -11,6 +11,7 @@ export const meetingRecruitingContextCandidatesRouter = factory.createApp().get(
     "query",
     z.object({
       limit: z.coerce.number().int().min(1).max(50).default(20),
+      purpose: z.literal("initial-interview").optional(),
       search: z.string().trim().max(200).optional(),
     }),
     jsonValidatorError("查询参数无效"),
@@ -33,6 +34,7 @@ export const meetingRecruitingContextCandidatesRouter = factory.createApp().get(
       meetingId,
       memberRole: member.role,
       organizationId: organization.id,
+      purpose: c.req.valid("query").purpose,
       search: c.req.valid("query").search,
       userId: user.id,
     });

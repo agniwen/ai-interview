@@ -1,6 +1,6 @@
 import { lockRecruitingRecord } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
 import { resolveRecruitingVisibilityScopeFromRows } from "../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../access/recruiting-visibility";
@@ -11,6 +11,8 @@ import {
 import { roles } from "@app/shared/permissions";
 import { z } from "zod";
 import {
+  recruitingEvaluationDocument,
+  recruitingInitialInterview,
   jobDescription,
   meetingAuditLog,
   recruitingMeetingContext,
@@ -173,6 +175,7 @@ export async function loadMeetingRecruitingContext(input: {
 }
 
 export async function listMeetingRecruitingRecordCandidates(input: {
+  purpose?: "initial-interview";
   limit: number;
   organizationId: string;
   search?: string;
@@ -194,6 +197,18 @@ export async function listMeetingRecruitingRecordCandidates(input: {
       and(
         eq(recruitingRecordReadModel.organizationId, input.organizationId),
         recruitingVisibilityCondition(input.visibilityScope),
+        input.purpose === "initial-interview"
+          ? and(
+              inArray(recruitingRecordReadModel.pipelineStage, ["screening", "ai_interview"]),
+              eq(recruitingRecordReadModel.outcome, "in_pipeline"),
+              sql`not exists (select 1 from ${recruitingEvaluationDocument}
+                where ${recruitingEvaluationDocument.recruitingRecordId} = ${recruitingRecordReadModel.id}
+                and ${recruitingEvaluationDocument.organizationId} = ${recruitingRecordReadModel.organizationId})`,
+              sql`not exists (select 1 from ${recruitingInitialInterview}
+                where ${recruitingInitialInterview.recruitingRecordId} = ${recruitingRecordReadModel.id}
+                and ${recruitingInitialInterview.organizationId} = ${recruitingRecordReadModel.organizationId})`,
+            )
+          : undefined,
         searchPattern
           ? or(
               ilike(recruitingRecordReadModel.candidateName, searchPattern),

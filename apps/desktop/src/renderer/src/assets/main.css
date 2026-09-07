@@ -589,7 +589,7 @@
 }
 
 /*
- * Meeting Buddy is a desktop shell: Chromium's default focus outline clashes
+ * Echo is a desktop shell: Chromium's default focus outline clashes
  * with designed control chrome. Suppress the browser outline only — keep
  * intentional Tailwind rings (form fields, buttons, etc.) so copied coss /
  * shadcn focus styles still thicken the border on focus.

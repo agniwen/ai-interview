@@ -10,6 +10,8 @@ import type { WorkspaceSavePhase } from "../../../../../preload/meeting-capture"
 
 const LOCAL_WORKSPACE_SAVE_LABEL = {
   "action-required": "上传需要处理",
+  summarizing: "录音已保存，总结补齐中",
+  "summary-pending": "总结待重试",
   uploading: "正在上传",
   verifying: "正在验证",
   "waiting-for-network": "等待网络后自动上传",

@@ -1,6 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import type { recruitingNodeState } from "@app/db-schema/schema";
-import { aiInterviewRound, humanInterviewRound } from "@app/db-schema/schema";
+import {
+  aiInterviewRound,
+  humanInterviewRound,
+  recruitingInitialInterviewVersion,
+} from "@app/db-schema/schema";
 import type { RecruitingPipelineCommand, RecruitingTransaction } from "./recruiting-pipeline";
 type NodeRow = typeof recruitingNodeState.$inferSelect;
 
@@ -10,6 +14,22 @@ export async function reopenInterviewEvidence(
   input: RecruitingPipelineCommand,
   target: NodeRow | undefined,
 ): Promise<Partial<typeof recruitingNodeState.$inferInsert>> {
+  if (target?.node === "ai_interview" && target.effectiveInitialInterviewVersionId) {
+    const [version] = await tx
+      .select({ id: recruitingInitialInterviewVersion.id })
+      .from(recruitingInitialInterviewVersion)
+      .where(
+        and(
+          eq(recruitingInitialInterviewVersion.id, target.effectiveInitialInterviewVersionId),
+          eq(recruitingInitialInterviewVersion.recruitingRecordId, input.recordId),
+          eq(recruitingInitialInterviewVersion.organizationId, input.organizationId),
+          eq(recruitingInitialInterviewVersion.status, "ready"),
+        ),
+      );
+    if (version) {
+      return { effectiveInitialInterviewVersionId: version.id, status: "awaiting_review" };
+    }
+  }
   if (target?.node === "ai_interview" && target.effectiveAiRoundId) {
     const [round] = await tx
       .select({ id: aiInterviewRound.id })

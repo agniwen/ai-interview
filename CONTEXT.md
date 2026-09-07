@@ -441,9 +441,9 @@ _Avoid_: Resume review, screening result, interview report
 The recruiter-triggered act of generating a new AI evaluation under the current evaluation contract and the latest job evaluation version. A successful reassessment makes the new result current while preserving older versioned results for history; it does not itself change a recruiter decision.
 _Avoid_: Screening-only refresh
 
-### Meeting Buddy
+### Echo
 
-**Meeting Buddy**:
+**Echo**:
 A general-purpose desktop meeting companion that captures a meeting for transcription and follow-up. Recruiting is one optional integration rather than the product boundary.
 _Avoid_: Recruiting recorder, interview-only recorder, meeting bot
 
@@ -464,7 +464,7 @@ An optional association between a meeting session and at most one candidate recr
 _Avoid_: Required candidate binding, meeting ownership, interview round
 
 **Meeting Share**:
-An explicit grant that makes a creator-private meeting session available to selected workspace members or to the whole workspace. Meeting Buddy does not expose meeting sessions through unauthenticated public links.
+An explicit grant that makes a creator-private meeting session available to selected workspace members or to the whole workspace. Echo does not expose meeting sessions through unauthenticated public links.
 _Avoid_: Public link, recruiting context link, default workspace visibility
 
 **Meeting Access Role**:
@@ -585,6 +585,18 @@ _Avoid_: Calendar event, timeslot
 A live interview session involving a human interviewer and a candidate.
 _Avoid_: AI interview, manual round
 
+**Human Initial Interview**:
+An HR-led conversation with a candidate that serves the initial interview assessment purpose as an alternative to an AI interview. Starting from screening advances the candidate to AI interview when the recording snapshot is saved; the dedicated human initial interview card represents this manual path. The generated evaluation remains decision support, and advancement to business interviews requires a separate HR decision.
+_Avoid_: AI interview, business follow-up interview, meeting summary
+
+**Human Initial Interview Recording**:
+The recruiting-owned copy of one recorded HR conversation and its transcript, available to members who can view the candidate recruiting record. It remains available independently of the original Echo recording and does not require an Echo share grant.
+_Avoid_: AI interview conversation, automatically public recording, combined meeting summary
+
+**Human Initial Interview Evaluation Version**:
+One preserved generation of the seven HR information fields from a human initial interview, together with the transcript and speaker identities used as its evidence. It belongs to the candidate recruiting record and uses independently retained materials, so changes or deletion in Echo do not affect it.
+_Avoid_: AI interview report version, current Feishu document body, meeting summary
+
 **Human Interview Evaluation**:
 The single current evaluation for one human interview round. AI may create its draft and a person may revise or submit it, but the user-facing evaluation does not identify itself as AI-authored or human-authored.
 _Avoid_: AI evaluation, human evaluation, parallel final evaluations
@@ -642,7 +654,7 @@ The decision process applied to the immutable interview report version submitted
 _Avoid_: Report editing, recruitment stage, Feishu document status
 
 **Business Interview Entry Gate**:
-The human decision made from one submitted interview report version: advance the candidate to the human interview stage or close the recruiting record as rejected.
+The human decision made from a submitted AI interview report version or a successfully generated human initial interview evaluation: advance the candidate to the human interview stage or close the recruiting record as rejected.
 _Avoid_: AI recommendation, human interview outcome, report status
 
 **Interview Report Reviewer**:
@@ -650,11 +662,11 @@ A workspace member who may decide the business interview entry gate for candidat
 _Avoid_: Feishu document editor, AI evaluator, human interviewer
 
 **Feishu Review Workspace**:
-The editable Feishu candidate evaluation document owned by one Candidate Recruiting Record and shared across its AI and human interview rounds. The first automatic AI report delivery or formal human evaluation submission ensures that the document exists; skipping AI does not prevent creation. Document identity and owning Feishu application are stored independently of notification delivery types. Human submissions update their designated round sections, while an explicit Platform Administrator maintenance action may synchronize the wholly system-owned Resume Evaluation and Recommended Interview Questions callouts. Other reviewer-owned content remains untouched. System interview reports remain round-scoped; document updates do not revise them, and gate decisions remain authenticated system actions. See ADR-0037.
+The editable Feishu candidate evaluation document owned by one Candidate Recruiting Record and shared across its AI and human interview rounds. The first automatic AI report delivery or formal human evaluation submission ensures that the document exists; skipping AI does not prevent creation. Document identity and owning Feishu application are stored independently of notification delivery types. Human submissions update their designated round sections, while an explicit Platform Administrator maintenance action may synchronize the wholly system-owned Resume Evaluation and Recommended Interview Questions callouts. A human initial interview may populate or, after explicit confirmation, replace the seven HR initial-interview fields in the same document (ADR-0038). Other reviewer-owned content remains untouched. System interview reports remain round-scoped; document updates do not revise them, and gate decisions remain authenticated system actions. See ADR-0037.
 _Avoid_: Report source of truth, report version, unrestricted report editor
 
 **Human Review Input**:
-Reviewer-authored content entered in designated sections of a Feishu review workspace. In the first version it remains in Feishu and is not part of the immutable generated report or the system review record.
+Reviewer-authored content entered in designated sections of a Feishu review workspace. It remains outside the immutable generated report; content within the seven HR initial-interview fields may be replaced only through the explicit human initial interview overwrite confirmation (ADR-0038).
 _Avoid_: AI assessment conclusion, Feishu document body, approval decision
 
 **Interview Report Source Coverage**:

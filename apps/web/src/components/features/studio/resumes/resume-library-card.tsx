@@ -13,6 +13,7 @@ import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { describeResumeProgress } from "@app/shared/studio-resumes";
+import { INITIAL_INTERVIEW_STATUS_LABELS } from "@app/shared/human-initial-interview";
 import type {
   ResumeLibraryListRecord,
   ResumeLibraryProfileSnapshot,
@@ -38,7 +39,33 @@ function lifecycleTargetTab(record: ResumeLibraryListRecord): ResumeDetailDefaul
   return "overview";
 }
 
+function InitialInterviewStatusBadge({
+  record,
+  onOpen,
+}: {
+  record: ResumeLibraryListRecord;
+  onOpen: () => void;
+}) {
+  const initial = record.stageProgress.initialInterview;
+  if (!initial || record.pipelineStage === "ai_interview") {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      className="rounded-md border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+      onClick={onOpen}
+    >
+      人工初面 · {INITIAL_INTERVIEW_STATUS_LABELS[initial.latestStatus]}
+    </button>
+  );
+}
+
 function describeCompactAiLifecycle(record: ResumeLibraryListRecord): string {
+  const initial = record.stageProgress.initialInterview;
+  if (initial) {
+    return `人工初面 · ${initial.latestStatus === "ready" ? "已生成待决策" : INITIAL_INTERVIEW_STATUS_LABELS[initial.latestStatus]}`;
+  }
   const progress = record.stageProgress.aiInterview;
   if (!progress || progress.totalRounds === 0) {
     return "未排期";
@@ -549,6 +576,10 @@ function ResumeLibraryCardComponent({
                   stage={record.pipelineStage}
                   stageLabel={lifecycle.stageLabel}
                   tone={lifecycle.tone}
+                />
+                <InitialInterviewStatusBadge
+                  record={record}
+                  onOpen={() => onOpenDetail(record, "rounds")}
                 />
                 {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
               </div>

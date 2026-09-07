@@ -10,12 +10,6 @@ import { MeetingLiveSummaryPanel } from "./meeting-live-summary-panel";
 
 type CompletedContentView = "document" | "mind-map" | "transcript";
 
-const completedContentViewTitles = {
-  document: "Markdown 总结",
-  "mind-map": "思维导图",
-  transcript: "实时字幕",
-} satisfies Record<CompletedContentView, string>;
-
 const noDragStyle: CSSProperties & { WebkitAppRegion: "no-drag" } = {
   WebkitAppRegion: "no-drag",
 };
@@ -35,27 +29,63 @@ function controllerSnapshot(
 export function MeetingCompletedContentStage({
   summary,
   transcript,
+  children,
 }: {
   summary: MeetingLiveSummarySnapshot | null;
   transcript: ReactNode;
+  children: (slots: { toolbar: ReactNode; content: ReactNode }) => ReactNode;
 }) {
   const [selectedView, setSelectedView] = useState<CompletedContentView | null>(null);
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
   const view = selectedView ?? (summary ? "document" : "transcript");
   const snapshot = controllerSnapshot(summary);
   const showTranscriptEvidence = () => setSelectedView("transcript");
 
-  return (
-    <section
-      className="flex min-h-full w-full flex-col pb-10"
-      data-slot="meeting-completed-content-stage"
-    >
+  return children({
+    content: (
+      <section
+        className="flex min-h-full w-full flex-col pb-10"
+        data-slot="meeting-completed-content-stage"
+      >
+        <div className="min-h-0 flex-1">
+          {view === "document" ? (
+            <MeetingLiveSummaryDocument
+              highlightedNodeId={highlightedNodeId}
+              onEvidence={showTranscriptEvidence}
+              snapshot={snapshot}
+            />
+          ) : null}
+          {view === "mind-map" ? (
+            <div
+              className="h-[min(42rem,70vh)] min-h-[32rem] w-full"
+              data-slot="meeting-completed-mind-map"
+            >
+              <MeetingLiveSummaryPanel
+                onEvidence={showTranscriptEvidence}
+                onNodeSelect={(nodeId) => {
+                  setHighlightedNodeId(nodeId);
+                  setSelectedView("document");
+                }}
+                snapshot={snapshot}
+              />
+            </div>
+          ) : null}
+          {view === "transcript" ? (
+            <div
+              className="mx-auto w-full max-w-3xl px-4 sm:px-6"
+              data-slot="meeting-completed-transcript"
+            >
+              {transcript}
+            </div>
+          ) : null}
+        </div>
+      </section>
+    ),
+    toolbar: (
       <header
-        className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-between gap-3 px-4 sm:px-6"
+        className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-start px-4 sm:px-6"
         data-slot="meeting-completed-content-header"
       >
-        <h2 className="font-semibold text-sm" data-slot="meeting-completed-content-title">
-          {completedContentViewTitles[view]}
-        </h2>
         <TooltipProvider delay={200}>
           <ToggleGroup
             aria-label="会议内容显示方式"
@@ -63,6 +93,7 @@ export function MeetingCompletedContentStage({
             onValueChange={(value) => {
               const [next] = value;
               if (next === "document" || next === "mind-map" || next === "transcript") {
+                setHighlightedNodeId(null);
                 setSelectedView(next);
               }
             }}
@@ -103,27 +134,6 @@ export function MeetingCompletedContentStage({
           </ToggleGroup>
         </TooltipProvider>
       </header>
-      <div className="min-h-0 flex-1">
-        {view === "document" ? (
-          <MeetingLiveSummaryDocument onEvidence={showTranscriptEvidence} snapshot={snapshot} />
-        ) : null}
-        {view === "mind-map" ? (
-          <div
-            className="h-[min(42rem,70vh)] min-h-[32rem] w-full"
-            data-slot="meeting-completed-mind-map"
-          >
-            <MeetingLiveSummaryPanel onEvidence={showTranscriptEvidence} snapshot={snapshot} />
-          </div>
-        ) : null}
-        {view === "transcript" ? (
-          <div
-            className="mx-auto w-full max-w-3xl px-4 sm:px-6"
-            data-slot="meeting-completed-transcript"
-          >
-            {transcript}
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
+    ),
+  });
 }

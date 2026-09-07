@@ -72,7 +72,7 @@ describe("Final Meeting Transcript panel", () => {
       </QueryClientProvider>,
     );
     const actionIndex = html.indexOf(">重新转录</button>");
-    const panelIndex = html.indexOf('data-slot="frame-panel"');
+    const panelIndex = html.indexOf('data-slot="scroll-area"');
 
     expect(actionIndex).toBeGreaterThan(-1);
     expect(actionIndex).toBeLessThan(panelIndex);

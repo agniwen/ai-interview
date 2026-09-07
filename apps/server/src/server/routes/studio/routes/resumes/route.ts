@@ -67,6 +67,7 @@ import {
 } from "./utils/resume-assessment-invalidation";
 import { structuredResumeEvaluationRouter as defaultStructuredResumeEvaluationRouter } from "./routes/structured-evaluation/route";
 import { recruitingRecordMeetingsRouter as defaultRecruitingRecordMeetingsRouter } from "./routes/meetings/route";
+import { initialInterviewsRouter } from "./routes/initial-interviews/route";
 import { resumeEvaluationHistoryRouter as defaultResumeEvaluationHistoryRouter } from "./routes/evaluation-history/route";
 import {
   forceResumeReparse as defaultForceResumeReparse,
@@ -296,6 +297,7 @@ export function createResumeLibraryRouter(
       .route("/", resumeLibraryReadRouter)
       .route("/:id/evaluation-history", defaultResumeEvaluationHistoryRouter)
       .route("/:id/meetings", recruitingRecordMeetingsRouter)
+      .route("/:id/initial-interviews", initialInterviewsRouter)
       .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)
       .route("/", interviewQuestionsRouter)
       .post(

@@ -121,6 +121,75 @@ describe("MeetingCapture", () => {
     await rm(root, { force: true, recursive: true });
   });
 
+  it("stops immediately, saves the finalized tail, and does not wait for background processing", async () => {
+    const source = new DeterministicCaptureSource();
+    const media = await source.acquire();
+    const transcriptDone = Promise.withResolvers<null>();
+    const backgroundDone = Promise.withResolvers<{ recoveryCopyDeleteAfter: string }>();
+    const finalDraft = {
+      capturedAt: "2026-09-07T03:01:00.000Z",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      sections: [
+        {
+          id: "tail",
+          sequence: 0,
+          startedAt: "2026-09-07T03:00:00.000Z",
+          track: "system" as const,
+        },
+      ],
+      turns: [
+        {
+          final: true,
+          id: "tail-1",
+          sectionId: "tail",
+          text: "结束后返回的最后一句",
+          track: "system" as const,
+        },
+      ],
+    };
+    let finalized = false;
+    const stop = vi.fn(async () => {
+      await transcriptDone.promise;
+      finalized = true;
+    });
+    const persist = vi.fn(() => backgroundDone.promise);
+    const store = new LocalMeetingRecordingStore(root);
+    const capture = createMeetingCapture({
+      source: {
+        acquire: () =>
+          Promise.resolve({
+            ...media,
+            getLiveTranscriptDraft: () => (finalized ? finalDraft : null),
+            stop,
+          }),
+      },
+      store,
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(capture);
+    await capture.start();
+    await source.fragment("microphone", 0, "microphone");
+    await source.fragment("system", 0, "system");
+    const saving = capture.save();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(observed.read().phase).toBe("saving");
+    expect(observed.read().active?.resumedAt).toBeNull();
+    transcriptDone.resolve(null);
+    const saved = await saving;
+    expect(observed.read().phase).toBe("saved-local");
+    const descriptor = await store.describeWorkspaceSave(saved.captureId);
+    expect(descriptor.liveTranscriptDraft).toEqual(finalDraft);
+    expect(persist).toHaveBeenCalledOnce();
+    backgroundDone.resolve({ recoveryCopyDeleteAfter: "2027-09-07T03:00:00.000Z" });
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
+    observed.unsubscribe();
+  });
+
   it("starts one local dual-track capture, diagnoses system silence, then discards it", async () => {
     vi.useFakeTimers();
     const source = new DeterministicCaptureSource();
@@ -499,6 +568,20 @@ describe("MeetingCapture", () => {
 
     expect(descriptor.liveTranscriptDraft).toEqual(liveTranscriptDraft);
     expect(descriptor.liveSummary).toEqual(liveSummary);
+    const completedSummary = { ...liveSummary, revision: 2, summary: "已经补齐尾段的总结" };
+    const checkpoint = { revision: 2, turns: { "microphone-1:turn-1": "confirmed" } };
+    store.updateLocalSession(saved.captureId, {
+      liveSummary: completedSummary,
+      liveSummaryCheckpoint: checkpoint,
+    });
+    await store.recover();
+    const completedDescriptor = await store.describeWorkspaceSave(saved.captureId);
+    expect(completedDescriptor.liveSummary).toEqual(completedSummary);
+    expect(completedDescriptor.manifestSha256).toBe(descriptor.manifestSha256);
+    expect(
+      store.listLocalSessions().find((session) => session.id === saved.captureId)
+        ?.liveSummaryCheckpoint,
+    ).toEqual(checkpoint);
 
     await store.uploadSmall(
       saved.captureId,

@@ -26,7 +26,8 @@ import { MeetingMorePageSkeleton } from "./meeting-page-skeletons";
 import { MeetingDeleteAction, canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { MeetingDetailTitle } from "./meeting-detail-title";
 import { MEETING_SESSION_TOP_INSET_PX } from "./meeting-recording-session-layout";
-import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
+import { MeetingInitialInterviewAction } from "./meeting-initial-interview-action";
+import { SettingsRow } from "@/components/settings/settings-ui";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
 function MeetingMoreStatus({ children }: { children: ReactNode }) {
@@ -182,11 +183,14 @@ export function MeetingMorePage({
           <MeetingDetailView
             additionalRows={
               <>
-                <MeetingRecruitingContextPanel
-                  accessRole={meeting.accessRole}
-                  meetingId={meetingId}
-                  slug={workspaceSlug}
-                />
+                <SettingsRow label="人工初面" description="用当前录音在招聘台生成独立评价资料">
+                  <MeetingInitialInterviewAction
+                    accessRole={meeting.accessRole}
+                    meetingId={meetingId}
+                    slug={workspaceSlug}
+                    ready={meeting.recordingAvailable && meeting.processingState === "ready"}
+                  />
+                </SettingsRow>
                 <MeetingDeleteAction
                   accessRole={meeting.accessRole}
                   meetingId={meetingId}

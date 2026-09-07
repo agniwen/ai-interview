@@ -86,6 +86,8 @@ function recoveryMeta(capture: RecoverableMeetingCapture): string {
 
 const WORKSPACE_SAVE_TITLE = {
   "action-required": "需处理",
+  summarizing: "录音已保存，总结补齐中",
+  "summary-pending": "总结待重试",
   uploading: "上传中",
   verifying: "验证中",
   "waiting-for-network": "等待网络",
@@ -170,7 +172,8 @@ function InboxSavedRow({
     <InboxRowShell
       actions={
         <>
-          {workspaceSave?.state === "action-required" ? (
+          {workspaceSave?.state === "action-required" ||
+          workspaceSave?.state === "summary-pending" ? (
             <InboxActionButton onClick={() => onSave(captureId)}>重试</InboxActionButton>
           ) : null}
           <InboxActionButton onClick={() => onDiscard(captureId, true)}>清除</InboxActionButton>

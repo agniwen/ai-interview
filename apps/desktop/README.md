@@ -1,6 +1,6 @@
-# Meeting Buddy (AI Hiring Copilot Desktop)
+# Echo (AI Hiring Copilot Desktop)
 
-Electron desktop app for Meeting Buddy (`@app/desktop`) — HR–candidate conversation capture and transcription (electron-vite + React + TypeScript).
+Electron desktop app for Echo (`@app/desktop`) — HR–candidate conversation capture and transcription (electron-vite + React + TypeScript).
 
 ## 职责与边界
 
@@ -118,6 +118,10 @@ src/
 resources/    # app icons / assets
 build/        # electron-builder resources
 ```
+
+## 应用身份与升级兼容
+
+桌面端展示名称和安装包名称为 Echo。保留已有应用 ID `com.arc.ai-recruitment-copilot-desktop`；正式包继续使用 `appData/Meeting Buddy` 保存本地录音、数据库、设置和浏览器会话，避免改名后丢失旧版数据。开发环境沿用原有数据目录。历史研究和验证文档保留当时的产品名称。
 
 ## Notes
 

@@ -1,5 +1,5 @@
 appId: com.arc.ai-recruitment-copilot-desktop
-productName: Meeting Buddy
+productName: Echo
 directories:
   buildResources: build
 files:
@@ -17,25 +17,25 @@ extraResources:
     filter:
       - "**/migration.sql"
 win:
-  executableName: arc-desktop
+  executableName: echo
   icon: icon.png
 nsis:
-  artifactName: ai-recruitment-copilot-desktop-${version}-setup.${ext}
+  artifactName: Echo-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
-  icon: meeting-buddy.icon
+  icon: echo.icon
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSCameraUsageDescription: Application requests access to the device's camera.
-    NSMicrophoneUsageDescription: Meeting Buddy needs microphone access to record your side of meetings.
-    NSAudioCaptureUsageDescription: Meeting Buddy needs system audio access to record the other side of meetings.
+    NSMicrophoneUsageDescription: Echo needs microphone access to record your side of meetings.
+    NSAudioCaptureUsageDescription: Echo needs system audio access to record the other side of meetings.
     NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
-  artifactName: ai-recruitment-copilot-desktop-${version}.${ext}
+  artifactName: Echo-${version}.${ext}
   icon: icon.icns
 linux:
   icon: icons
@@ -45,7 +45,7 @@ linux:
   maintainer: arc
   category: Utility
 appImage:
-  artifactName: ai-recruitment-copilot-desktop-${version}.${ext}
+  artifactName: Echo-${version}.${ext}
 npmRebuild: false
 publish:
   provider: generic

@@ -38,7 +38,14 @@ export function SettingsGroup({
   className?: string;
 }) {
   return (
-    <div className={cn("divide-y overflow-hidden rounded-lg border", className)}>{children}</div>
+    <div
+      className={cn(
+        "divide-y divide-border overflow-hidden rounded-lg border border-border",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -63,7 +70,9 @@ export function SettingsRow({
           <p className="text-muted-foreground text-xs leading-relaxed">{description}</p>
         ) : null}
       </div>
-      <div className="w-full shrink-0 sm:w-auto sm:min-w-[14rem] sm:max-w-xs">{children}</div>
+      <div className="w-full shrink-0 sm:w-auto sm:min-w-[14rem] sm:max-w-xs text-right">
+        {children}
+      </div>
     </div>
   );
 }

@@ -19,12 +19,26 @@ const item: MeetingLibraryItem = {
   id: "meeting-74",
   processingState: "processing",
   recordingAvailable: false,
+  recordingType: "voice_recording",
   savedAt: "2026-08-09T04:00:00.000Z",
   title: "录制记录-2608091200",
   workspaceCustodied: false,
 };
 
 describe("Meeting Library views", () => {
+  it("keeps recording types out of the library rows", () => {
+    const html = renderToStaticMarkup(
+      <MeetingLibraryView
+        meetings={[
+          { ...item, id: "human", recordingType: "human_interview", title: "相同名称" },
+          { ...item, id: "voice", recordingType: "voice_recording", title: "相同名称" },
+        ]}
+      />,
+    );
+    expect(html).not.toContain("真人面试");
+    expect(html).not.toContain("语音记录");
+  });
+
   it("renders a bounded search snippet and transcript time range", () => {
     const html = renderToStaticMarkup(
       <MeetingLibraryView
@@ -114,6 +128,7 @@ describe("Meeting Library views", () => {
           liveSummary: null,
           processingState: "ready",
           recordingAvailable: true,
+          recordingType: "voice_recording",
           startedAt: "2026-08-09T03:59:00.000Z",
           verifiedAt: "2026-08-09T04:01:00.000Z",
         }}
@@ -124,6 +139,8 @@ describe("Meeting Library views", () => {
         seekToSeconds={30}
       />,
     );
+    expect(ready).toContain("录音类型");
+    expect(ready).toContain("语音记录");
     expect(ready).toContain('data-slot="meeting-audio-player"');
     expect(ready).toContain('data-slot="meeting-playback-waveform-row"');
     expect(ready).toContain('data-slot="meeting-playback-controls"');

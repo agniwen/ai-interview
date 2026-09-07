@@ -207,7 +207,12 @@ export function useStudioPersonDetailController({
 
   const visiblePipelineStage = optimisticPipelineStage ?? record?.pipelineStage;
   const hasRecord = record !== null;
-  const tabVisibilityRecord = hasRecord ? { pipelineStage: visiblePipelineStage } : null;
+  const tabVisibilityRecord = hasRecord
+    ? {
+        hasInitialInterview: Boolean(resumeRecord?.stageProgress.initialInterview?.totalSnapshots),
+        pipelineStage: visiblePipelineStage,
+      }
+    : null;
   const showAgentInstructions = import.meta.env.DEV && mode === "interview" && !isPublic;
 
   const availableTabs = (() => {

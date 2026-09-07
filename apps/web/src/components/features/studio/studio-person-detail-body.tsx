@@ -18,6 +18,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { cn } from "@app/shared/utils";
 
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
+import { HumanInitialInterviewPanel } from "./initial-interviews/human-initial-interview-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { CandidateDetailRail } from "./candidate-detail-rail";
 import { DetailBodySkeleton } from "./studio-person-detail-skeletons";
@@ -176,12 +177,27 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         ) : null}
         {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
           <TabsContent motion="page" value="rounds">
-            <section>
+            <section className="flex flex-col gap-6">
+              {resumeRecord ? (
+                <HumanInitialInterviewPanel
+                  slug={model.slug}
+                  recordId={resumeRecord.id}
+                  stage={resumeRecord.pipelineStage}
+                  pipelineVersion={resumeRecord.version}
+                  effectiveVersionId={
+                    resumeRecord.nodeStates.find((node) => node.node === "ai_interview")
+                      ?.effectiveInitialInterviewVersionId
+                  }
+                  canManage={Boolean(model.canUpdateResumeLibrary)}
+                />
+              ) : null}
               {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / result */}
               {isResumeInterviewResultLoading ? (
                 <DetailBodySkeleton mode="interview" />
               ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or result. */
-              candidateRounds.length === 0 ? (
+              candidateRounds.length === 0 &&
+                resumeRecord?.stageProgress.initialInterview ? null : candidateRounds.length ===
+                0 ? (
                 <p className="text-muted-foreground text-sm leading-normal">
                   该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
                 </p>

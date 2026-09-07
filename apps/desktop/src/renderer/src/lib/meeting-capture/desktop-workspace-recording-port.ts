@@ -15,6 +15,8 @@ import type { ApiError } from "@/lib/client/api-error";
 import { isApiError } from "@/lib/client/api-error";
 import { z } from "zod";
 
+import { finalizeWorkspaceRecordingSummary } from "./finalize-saved-meeting-summary";
+
 const UPLOAD_HEARTBEAT_INTERVAL_MS = 30 * 60 * 1000;
 
 const permanentPurgeConflictSchema = z.object({ code: z.literal("meeting-purged") });
@@ -62,6 +64,7 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
     this.dependencies = {
       apiJson: dependencies.apiJson ?? apiJson,
       apiUrl: dependencies.apiUrl ?? apiUrl,
+      finalizeSummary: dependencies.finalizeSummary ?? finalizeWorkspaceRecordingSummary,
       meetingCapture: dependencies.meetingCapture ?? window.api.meetingCapture,
       resolveActiveWorkspace: dependencies.resolveActiveWorkspace ?? resolveActiveWorkspace,
     };
@@ -107,6 +110,9 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
     if (!workspace) {
       throw new Error("请先加入或选择一个工作区");
     }
+    input.report("summarizing");
+    await this.dependencies.finalizeSummary(input.captureId, workspace.slug);
+    input.report("uploading");
     const descriptor = await this.dependencies.meetingCapture.describeWorkspaceSave(
       input.captureId,
     );
@@ -220,6 +226,7 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
 }
 
 export interface DesktopWorkspaceRecordingPortDependencies {
+  finalizeSummary: typeof finalizeWorkspaceRecordingSummary;
   apiJson: typeof apiJson;
   apiUrl: typeof apiUrl;
   meetingCapture: Pick<

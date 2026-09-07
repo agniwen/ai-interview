@@ -1,3 +1,4 @@
+import { meetingRecordingType } from "./recording-type";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
@@ -286,6 +287,7 @@ export async function listMeetingSessionsForAccess(input: {
       grantRole: meetingAccessGrant.role,
       id: meetingSession.id,
       recordingAvailable: sql<boolean>`coalesce(bool_or(${meetingRecordingAsset.track} = 'playback' and ${meetingRecordingAsset.status} = 'ready'), false)`,
+      recordingType: meetingRecordingType,
       savedAt: meetingSession.savedAt,
       status: meetingSession.status,
       title: meetingSession.title,
@@ -317,6 +319,7 @@ export async function listMeetingSessionsForAccess(input: {
     .where(
       and(
         access,
+        eq(meetingRecordingType, "voice_recording"),
         inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
         input.recruitingRecordId
           ? eq(recruitingMeetingContext.recruitingRecordId, input.recruitingRecordId)
@@ -353,6 +356,7 @@ export async function loadMeetingSessionForAccess(input: {
   const [authorized] = await db
     .select({
       grantRole: meetingAccessGrant.role,
+      recordingType: meetingRecordingType,
       workspaceCustodied: sql<boolean>`not exists (
         select 1 from ${member}
         where ${member.organizationId} = ${meetingSession.organizationId}
@@ -398,6 +402,7 @@ export async function loadMeetingSessionForAccess(input: {
     ? {
         ...meeting,
         accessGrantRole: parseMeetingGrantRole(authorized.grantRole),
+        recordingType: authorized.recordingType,
         workspaceCustodied: authorized.workspaceCustodied,
       }
     : null;

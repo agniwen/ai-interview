@@ -1,3 +1,4 @@
+import { meetingRecordingType } from "./recording-type";
 /* oxlint-disable max-lines -- lifecycle commands and the two-phase purge state machine share transactional invariants. */
 import { and, asc, count, desc, eq, ilike, isNotNull, sql } from "drizzle-orm";
 import {
@@ -170,6 +171,7 @@ export async function listTrashedMeetingSessions(
     const where = and(
       eq(meetingSession.organizationId, input.organizationId),
       eq(meetingSession.status, "trashed"),
+      eq(meetingRecordingType, "voice_recording"),
       isNotNull(meetingSession.purgeAfter),
       isNotNull(meetingSession.trashedAt),
       administrator

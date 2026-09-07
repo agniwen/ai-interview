@@ -14,7 +14,8 @@
       "types": "./dist/rpc-client.d.ts",
       "default": "./src/rpc-client.ts"
     },
-    "./web/runtime": "./src/exports/web/runtime.ts"
+    "./web/runtime": "./src/exports/web/runtime.ts",
+    "./initial-interview-evaluation": "./src/exports/worker/initial-interview-evaluation.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.rpc-client.json",

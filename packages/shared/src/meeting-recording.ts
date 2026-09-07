@@ -279,7 +279,14 @@ export interface MeetingCreatorSummary {
   name: string;
 }
 
+export type MeetingRecordingType = "human_interview" | "voice_recording";
+export const MEETING_RECORDING_TYPE_LABELS = {
+  human_interview: "真人面试",
+  voice_recording: "语音记录",
+} satisfies Record<MeetingRecordingType, string>;
+
 export interface MeetingLibraryItem {
+  recordingType: MeetingRecordingType;
   accessRole: MeetingAccessRole;
   creator: MeetingCreatorSummary;
   durationMs: number;

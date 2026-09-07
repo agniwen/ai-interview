@@ -4476,6 +4476,91 @@ export const recruitingMaterial = pgTable(
 
 // 每个节点仅一条当前有效状态。回退将下游状态置 inactive，原依据先写入 recruitingEvent。
 // 业务轮次的原始评价继续保留；筛选只读取这里明确选定的有效结果。
+// 招聘侧持有独立资料与音频副本；来源 Echo ID 仅存在于快照 JSON 中，不建立会议外键。
+export const recruitingInitialInterview = pgTable(
+  "recruiting_initial_interview",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    snapshot: jsonb("snapshot").$type<JsonObject>().notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    uniqueIndex("recruiting_initial_interview_owner_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_initial_interview_record_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_initial_interview_creator_fk",
+    }).onDelete("set null"),
+    index("recruiting_initial_interview_record_idx").on(
+      table.organizationId,
+      table.recruitingRecordId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const recruitingInitialInterviewVersion = pgTable(
+  "recruiting_initial_interview_version",
+  {
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    documentId: text("document_id"),
+    documentUrl: text("document_url"),
+    error: text("error"),
+    evaluation: jsonb("evaluation").$type<JsonObject>(),
+    id: text("id").primaryKey(),
+    initialInterviewId: text("initial_interview_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    overwriteDocumentId: text("overwrite_document_id"),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    roles: jsonb("roles").$type<JsonObject>().notNull().default({}),
+    status: text("status").notNull().default("queued"),
+    transcript: jsonb("transcript").$type<JsonObject>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    version: integer("version").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    uniqueIndex("recruiting_initial_version_owner_uq").on(
+      table.id,
+      table.recruitingRecordId,
+      table.organizationId,
+    ),
+    uniqueIndex("recruiting_initial_version_number_uq").on(table.initialInterviewId, table.version),
+    foreignKey({
+      columns: [table.initialInterviewId, table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        recruitingInitialInterview.id,
+        recruitingInitialInterview.recruitingRecordId,
+        recruitingInitialInterview.organizationId,
+      ],
+      name: "recruiting_initial_version_snapshot_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_initial_version_creator_fk",
+    }).onDelete("set null"),
+    index("recruiting_initial_version_pending_idx").on(table.status, table.updatedAt),
+    check(
+      "recruiting_initial_version_status_check",
+      sql`${table.status} IN ('queued', 'identifying', 'needs_speakers', 'generating', 'ready', 'failed')`,
+    ),
+  ],
+);
+
 export const recruitingNodeState = pgTable(
   "recruiting_node_state",
   {
@@ -4484,6 +4569,7 @@ export const recruitingNodeState = pgTable(
     decidedBy: text("decided_by"),
     effectiveAiRoundId: text("effective_ai_round_id"),
     effectiveHumanRoundId: text("effective_human_round_id"),
+    effectiveInitialInterviewVersionId: text("effective_initial_interview_version_id"),
     effectiveOfferId: text("effective_offer_id"),
     enteredAt: timestamp("entered_at", { withTimezone: true }),
     node: text("node").$type<RecruitingNode>().notNull(),
@@ -4504,6 +4590,19 @@ export const recruitingNodeState = pgTable(
       name: "recruiting_node_state_decided_by_fk",
     }).onDelete("set null"),
     primaryKey({ columns: [table.recruitingRecordId, table.node] }),
+    foreignKey({
+      columns: [
+        table.effectiveInitialInterviewVersionId,
+        table.recruitingRecordId,
+        table.organizationId,
+      ],
+      foreignColumns: [
+        recruitingInitialInterviewVersion.id,
+        recruitingInitialInterviewVersion.recruitingRecordId,
+        recruitingInitialInterviewVersion.organizationId,
+      ],
+      name: "recruiting_node_initial_interview_owner_fk",
+    }),
     foreignKey({
       columns: [table.recruitingRecordId, table.organizationId],
       foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
@@ -4576,11 +4675,11 @@ export const recruitingNodeState = pgTable(
     ),
     check(
       "recruiting_node_evidence_check",
-      sql`(${table.effectiveAiRoundId} IS NULL OR ${table.node} = 'ai_interview') AND (${table.effectiveHumanRoundId} IS NULL OR ${table.node} IN ('second_interview', 'final_interview')) AND (${table.effectiveOfferId} IS NULL OR ${table.node} = 'offer')`,
+      sql`(${table.effectiveAiRoundId} IS NULL OR ${table.node} = 'ai_interview') AND (${table.effectiveInitialInterviewVersionId} IS NULL OR (${table.node} = 'ai_interview' AND ${table.effectiveAiRoundId} IS NULL)) AND (${table.effectiveHumanRoundId} IS NULL OR ${table.node} IN ('second_interview', 'final_interview')) AND (${table.effectiveOfferId} IS NULL OR ${table.node} = 'offer')`,
     ),
     check(
       "recruiting_node_inactive_check",
-      sql`${table.status} NOT IN ('inactive', 'skipped') OR (${table.effectiveAiRoundId} IS NULL AND ${table.effectiveHumanRoundId} IS NULL AND ${table.effectiveOfferId} IS NULL)`,
+      sql`${table.status} NOT IN ('inactive', 'skipped') OR (${table.effectiveAiRoundId} IS NULL AND ${table.effectiveInitialInterviewVersionId} IS NULL AND ${table.effectiveHumanRoundId} IS NULL AND ${table.effectiveOfferId} IS NULL)`,
     ),
   ],
 );

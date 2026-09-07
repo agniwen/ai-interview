@@ -24,6 +24,10 @@ import {
   recruitingNotificationEvent,
   recruitingOffer,
   recruitingRecord,
+  recruitingInitialInterview,
+  recruitingInitialInterviewVersion,
+  meetingSession,
+  user,
 } from "@app/db-schema/schema";
 import type { RecruitingNode } from "@app/db-schema/schema";
 
@@ -159,6 +163,97 @@ suite("新招聘节点事务真实 SQL", () => {
     await database().delete(organization).where(eq(organization.id, orgId));
     await database().delete(organization).where(eq(organization.id, otherOrgId));
     await client.end();
+  });
+
+  it("Echo 删除后独立快照和初面依据仍有效，未完成 AI 轮次不阻塞人工推进", async () => {
+    const id = await seed("ai_interview");
+    const sourceId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
+    const snapshotId = crypto.randomUUID();
+    const versionId = crypto.randomUUID();
+    await database()
+      .insert(user)
+      .values({ email: `${ownerId}@example.invalid`, id: ownerId, name: "HR" });
+    await database().insert(meetingSession).values({
+      id: sourceId,
+      manifestSha256: "test",
+      organizationId: orgId,
+      ownerId,
+      savedAt: now,
+      startedAt: now,
+      title: "原录音",
+    });
+    await database()
+      .insert(recruitingInitialInterview)
+      .values({
+        id: snapshotId,
+        organizationId: orgId,
+        recruitingRecordId: id,
+        snapshot: {
+          recording: { storageKey: "recruiting-independent-copy" },
+          resumeText: "固定简历",
+          sourceMeetingId: sourceId,
+        },
+      });
+    await database()
+      .insert(recruitingInitialInterviewVersion)
+      .values({
+        id: versionId,
+        initialInterviewId: snapshotId,
+        organizationId: orgId,
+        recruitingRecordId: id,
+        status: "queued",
+        transcript: { turns: [{ text: "下周入职" }] },
+        version: 1,
+      });
+    const passInitial = () =>
+      database().transaction((tx) =>
+        updateRecruitingNodeTx(tx, {
+          ...command(id),
+          effectiveInitialInterviewVersionId: versionId,
+          node: "ai_interview",
+          result: "pass",
+          status: "completed",
+        }),
+      );
+    await expect(passInitial()).rejects.toThrow("生成成功");
+    await database()
+      .update(recruitingInitialInterviewVersion)
+      .set({ status: "ready" })
+      .where(eq(recruitingInitialInterviewVersion.id, versionId));
+    await database().insert(aiInterviewRound).values({
+      id: crypto.randomUUID(),
+      organizationId: orgId,
+      recruitingRecordId: id,
+      roundLabel: "未开始",
+      sortOrder: 0,
+      status: "pending",
+    });
+    await database().delete(meetingSession).where(eq(meetingSession.id, sourceId));
+    await database().delete(user).where(eq(user.id, ownerId));
+    const [saved] = await database()
+      .select()
+      .from(recruitingInitialInterview)
+      .where(eq(recruitingInitialInterview.id, snapshotId));
+    expect(saved?.snapshot.resumeText).toBe("固定简历");
+    await passInitial();
+    await advance(id, "second_interview");
+    const initialNode = await loadNode(id, "ai_interview");
+    expect(initialNode.effectiveInitialInterviewVersionId).toBe(versionId);
+    const secondNode = await loadNode(id, "second_interview");
+    expect(secondNode.status).toBe("pending");
+    const other = await seed("ai_interview");
+    await expect(
+      database().transaction((tx) =>
+        updateRecruitingNodeTx(tx, {
+          ...command(other),
+          effectiveInitialInterviewVersionId: versionId,
+          node: "ai_interview",
+          result: "pass",
+          status: "completed",
+        }),
+      ),
+    ).rejects.toThrow("生成成功");
   });
 
   it("回开取消旧批次待发通知并释放租约，保留已发送历史", async () => {

@@ -13,6 +13,7 @@ export function MeetingRecordingSessionLayout({
   composer,
   composerClassName,
   header,
+  toolbar,
   main,
   className,
   overlay,
@@ -21,6 +22,7 @@ export function MeetingRecordingSessionLayout({
   composer?: ReactNode;
   composerClassName?: string;
   header?: ReactNode;
+  toolbar?: ReactNode;
   main: ReactNode;
   className?: string;
   overlay?: ReactNode;
@@ -41,6 +43,7 @@ export function MeetingRecordingSessionLayout({
           {header}
         </div>
       ) : null}
+      {toolbar}
       <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade={scrollFade}>
         <div
           className="box-border h-full min-h-full"

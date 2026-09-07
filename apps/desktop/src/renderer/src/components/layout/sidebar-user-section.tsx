@@ -44,7 +44,7 @@ const sidebarFooterTriggerInteractionClassName =
   "border-transparent transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-transparent hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:border-transparent active:scale-100 active:bg-sidebar-accent-active active:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-accent-foreground dark:active:bg-sidebar-accent-active motion-reduce:transition-none";
 
 const userTriggerClassName = cn(
-  "h-10 w-full justify-start gap-2 rounded-lg px-2",
+  "h-8 w-full justify-start gap-2 rounded-lg py-0 pr-2 pl-[3px] has-[>svg]:pr-2 has-[>svg]:pl-[3px]",
   sidebarFooterTriggerInteractionClassName,
 );
 
@@ -79,7 +79,7 @@ function SidebarSettingsButton() {
       className={cn("shrink-0 rounded-lg", sidebarFooterTriggerInteractionClassName)}
       nativeButton={false}
       render={<Link to="/settings" />}
-      size="icon-lg"
+      size="icon-sm"
       title="设置"
       variant="ghost"
     >
@@ -109,7 +109,6 @@ export function UserMenuDropdown({
 }) {
   const userName = user.name ?? "用户";
   const userEmail = user.email ?? "";
-  const organizationName = user.feishuTenantName ?? null;
   const userInitials = getInitials(user.name, user.email);
 
   // Single stable trigger layout. Sidebar uses offcanvas collapse (opacity/width
@@ -118,17 +117,14 @@ export function UserMenuDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button className={userTriggerClassName} type="button" variant="ghost">
+          <Button className={userTriggerClassName} size="sm" type="button" variant="ghost">
             <Avatar label={`${userName}的头像`} seed={`user:${userEmail || user.id}`} size="sm">
               <AvatarImage alt={userName} src={user.image ?? undefined} />
               <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>
-            <div className="grid min-w-0 flex-1 gap-0.5 text-left">
-              <p className="truncate font-medium text-sm leading-none">{userName}</p>
-              <p className="truncate text-[10px] text-muted-foreground leading-none">
-                {activeWorkspace?.name ?? "选择工作区"}
-              </p>
-            </div>
+            <span className="min-w-0 flex-1 truncate text-left font-medium text-sm">
+              {userName}
+            </span>
             <Icon className="size-3 shrink-0 text-muted-foreground" icon="ph:caret-up-down" />
           </Button>
         }
@@ -137,10 +133,9 @@ export function UserMenuDropdown({
         <DropdownMenuGroup>
           <DropdownMenuLabel className="space-y-0.5">
             <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
-            {organizationName ? (
-              <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
-            ) : null}
+            <p className="truncate text-muted-foreground text-xs">
+              {activeWorkspace?.name ?? "选择工作区"}
+            </p>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -244,7 +239,7 @@ export function SidebarUserSection() {
     return (
       <div className="border-sidebar-border border-t px-2 py-2 select-none">
         <div className="flex min-w-0 items-center gap-1">
-          <div className="h-10 min-w-0 flex-1 animate-pulse rounded-md bg-muted" />
+          <div className="h-8 min-w-0 flex-1 animate-pulse rounded-md bg-muted" />
           <SidebarSettingsButton />
         </div>
       </div>

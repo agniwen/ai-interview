@@ -60,7 +60,12 @@ const cachedCandidatePagesSchema = z.object({
 
 type CachedCandidateRecord = z.infer<typeof cachedCandidateRecordSchema>;
 
-export function shouldShowAiInterviewTab(record: { pipelineStage?: string } | null): boolean {
+export function shouldShowAiInterviewTab(
+  record: { pipelineStage?: string; hasInitialInterview?: boolean } | null,
+): boolean {
+  if (record?.hasInitialInterview) {
+    return true;
+  }
   if (!record?.pipelineStage) {
     return false;
   }

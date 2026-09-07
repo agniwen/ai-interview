@@ -68,7 +68,7 @@ export function AppearanceSettingsPage(): React.JSX.Element {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 pt-12 pb-16">
       <div className="space-y-0.5">
         <h1 className="text-xl font-medium tracking-tight text-foreground">外观</h1>
-        <p className="text-sm text-muted-foreground">选择 Meeting Buddy 的显示主题。</p>
+        <p className="text-sm text-muted-foreground">选择 Echo 的显示主题。</p>
       </div>
 
       <SettingsGroup>

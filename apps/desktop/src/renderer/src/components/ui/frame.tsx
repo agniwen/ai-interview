@@ -21,7 +21,7 @@ export function FramePanel({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("relative rounded-xl border border-muted bg-background px-4 py-5", className)}
+      className={cn("relative rounded-xl border border-border bg-background px-4 py-5", className)}
       data-slot="frame-panel"
       {...props}
     />

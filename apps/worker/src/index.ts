@@ -1,3 +1,5 @@
+import { startInitialInterviewProcessing } from "./initial-interview-evaluation/start";
+
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import {
@@ -502,6 +504,14 @@ async function main() {
     typeof createHumanInterviewEvaluationWorker
   > | null = null;
   let humanInterviewEvaluationRecoveryTimer: NodeJS.Timeout | null = null;
+  if (backgroundProcessingEnabled) {
+    await startInitialInterviewProcessing({
+      onFailure: reportQueueFailure("initial-interview-evaluation"),
+      resourceLifecycle,
+      trackRecoveryRun,
+      triggerLifecycle,
+    });
+  }
   if (backgroundProcessingEnabled && isHumanInterviewEvaluationQueueConfigured()) {
     humanInterviewEvaluationWorker = createHumanInterviewEvaluationWorker(
       async (payload, context) => {

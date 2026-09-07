@@ -324,7 +324,7 @@ function makeApp() {
 
 const client = testClient(makeApp());
 
-describe("Meeting Buddy small Saved Meeting control plane", () => {
+describe("Echo small Saved Meeting control plane", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

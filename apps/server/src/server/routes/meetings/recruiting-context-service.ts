@@ -86,7 +86,11 @@ export async function getMeetingRecruitingContext(
 }
 
 export async function getMeetingRecruitingRecordCandidates(
-  input: RecruitingContextAccessInput & { limit: number; search?: string },
+  input: RecruitingContextAccessInput & {
+    limit: number;
+    search?: string;
+    purpose?: "initial-interview";
+  },
   dependencies = defaultDependencies,
 ): Promise<"forbidden" | MeetingRecruitingRecordSummary[] | null> {
   const meeting = await dependencies.loadAuthorizedMeeting(input);
@@ -102,6 +106,7 @@ export async function getMeetingRecruitingRecordCandidates(
   return await dependencies.listCandidates({
     limit: input.limit,
     organizationId: input.organizationId,
+    purpose: input.purpose,
     search: input.search,
     visibilityScope: await loadRecruitingVisibility(input, dependencies),
   });

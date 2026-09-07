@@ -80,6 +80,9 @@ describe("LocalMeetingSessionStore", () => {
       state: "interrupted",
       title: "产品发布计划",
     });
+    store.update(SESSION_ID, {
+      liveSummaryCheckpoint: { revision: 1, turns: { "turn-1": "fingerprint" } },
+    });
     const { path } = store;
     store.close();
 
@@ -95,6 +98,10 @@ describe("LocalMeetingSessionStore", () => {
     });
     expect(reopened.get(SESSION_ID)?.liveTranscriptDraft?.turns[0]?.text).toBe("讨论产品发布计划");
     expect(reopened.get(SESSION_ID)?.liveSummary?.summary).toBe("讨论了产品发布计划。");
+    expect(reopened.get(SESSION_ID)?.liveSummaryCheckpoint).toEqual({
+      revision: 1,
+      turns: { "turn-1": "fingerprint" },
+    });
     reopened.close();
   });
 

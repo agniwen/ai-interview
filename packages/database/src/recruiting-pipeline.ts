@@ -1,12 +1,12 @@
+import { RecruitingPipelineError } from "./recruiting-pipeline-errors";
+import { validateEvidence } from "./recruiting-pipeline-evidence";
 import { and, eq } from "drizzle-orm";
 import {
-  aiInterviewRound,
   humanInterviewRound,
   recruitingEvent,
   recruitingFulfillment,
   recruitingNodeState,
   recruitingNodeValues,
-  recruitingOffer,
   recruitingRecord,
 } from "@app/db-schema/schema";
 import type {
@@ -27,15 +27,7 @@ export type RecruitingTransaction = Parameters<Parameters<Database["transaction"
 type RecordRow = typeof recruitingRecord.$inferSelect;
 type NodeRow = typeof recruitingNodeState.$inferSelect;
 
-export class RecruitingPipelineError extends Error {
-  readonly code: "not_found" | "conflict" | "invalid";
-
-  constructor(message: string, code: "not_found" | "conflict" | "invalid") {
-    super(message);
-    this.name = "RecruitingPipelineError";
-    this.code = code;
-  }
-}
+export { RecruitingPipelineError } from "./recruiting-pipeline-errors";
 
 export interface RecruitingPipelineCommand {
   recordId: string;
@@ -98,6 +90,7 @@ function snapshotNode(node: NodeRow): JsonObject {
     decidedBy: node.decidedBy,
     effectiveAiRoundId: node.effectiveAiRoundId,
     effectiveHumanRoundId: node.effectiveHumanRoundId,
+    effectiveInitialInterviewVersionId: node.effectiveInitialInterviewVersionId,
     effectiveOfferId: node.effectiveOfferId,
     enteredAt: node.enteredAt?.toISOString() ?? null,
     node: node.node,
@@ -188,6 +181,7 @@ const clearNodeEvidence = {
   decidedBy: null,
   effectiveAiRoundId: null,
   effectiveHumanRoundId: null,
+  effectiveInitialInterviewVersionId: null,
   effectiveOfferId: null,
   result: null,
 } as const;
@@ -534,6 +528,7 @@ export interface RecruitingNodeUpdate extends RecruitingPipelineCommand {
   status: Exclude<RecruitingNodeStatus, "inactive" | "skipped">;
   result?: RecruitingNodeResult | null;
   effectiveAiRoundId?: string | null;
+  effectiveInitialInterviewVersionId?: string | null;
   effectiveHumanRoundId?: string | null;
   effectiveOfferId?: string | null;
   /** 异步回调必须带原依据，回退后即便仍处同名节点也不会重新激活旧轮次。 */
@@ -561,88 +556,6 @@ function validateNodeProgress(input: RecruitingNodeUpdate) {
   }
 }
 
-// oxlint-disable-next-line complexity -- 不同依据分别核验真实执行状态及复合归属，不能只依赖客户端传入的结论。
-async function validateEvidence(
-  tx: RecruitingTransaction,
-  input: RecruitingNodeUpdate,
-  values: Pick<NodeRow, "effectiveAiRoundId" | "effectiveHumanRoundId" | "effectiveOfferId">,
-) {
-  if (values.effectiveAiRoundId) {
-    if (input.node !== "ai_interview") {
-      throw new RecruitingPipelineError("AI 面试依据只能用于 AI 初面节点。", "invalid");
-    }
-    const [round] = await tx
-      .select()
-      .from(aiInterviewRound)
-      .where(
-        and(
-          eq(aiInterviewRound.id, values.effectiveAiRoundId),
-          eq(aiInterviewRound.recruitingRecordId, input.recordId),
-          eq(aiInterviewRound.organizationId, input.organizationId),
-        ),
-      );
-    if (
-      !round ||
-      (input.result === "pass" && (round.status !== "completed" || round.reviewOutcome !== "pass"))
-    ) {
-      throw new RecruitingPipelineError("请先确认本次 AI 面试评价通过。", "invalid");
-    }
-  }
-  if (values.effectiveHumanRoundId) {
-    if (input.node !== "second_interview" && input.node !== "final_interview") {
-      throw new RecruitingPipelineError("真人面试依据只能用于复试或终试。", "invalid");
-    }
-    const [round] = await tx
-      .select()
-      .from(humanInterviewRound)
-      .where(
-        and(
-          eq(humanInterviewRound.id, values.effectiveHumanRoundId),
-          eq(humanInterviewRound.recruitingRecordId, input.recordId),
-          eq(humanInterviewRound.organizationId, input.organizationId),
-          eq(humanInterviewRound.roundKind, input.node),
-        ),
-      );
-    if (
-      !round ||
-      (input.result === "pass" &&
-        (round.status !== "completed" || round.outcome !== "pass" || !round.feedback?.trim()))
-    ) {
-      throw new RecruitingPipelineError("请先完成本轮面试、填写反馈并确认通过。", "invalid");
-    }
-  }
-  if (values.effectiveOfferId) {
-    if (input.node !== "offer") {
-      throw new RecruitingPipelineError("Offer 依据只能用于谈薪发 Offer 节点。", "invalid");
-    }
-    const [offer] = await tx
-      .select({ id: recruitingOffer.id, status: recruitingOffer.status })
-      .from(recruitingOffer)
-      .where(
-        and(
-          eq(recruitingOffer.id, values.effectiveOfferId),
-          eq(recruitingOffer.recruitingRecordId, input.recordId),
-          eq(recruitingOffer.organizationId, input.organizationId),
-        ),
-      );
-    if (!offer || (input.result === "pass" && offer.status !== "accepted")) {
-      throw new RecruitingPipelineError("请先确认本次招聘的 Offer 已被接受。", "invalid");
-    }
-  }
-  if (input.result === "pass" && input.node === "offer" && !values.effectiveOfferId) {
-    throw new RecruitingPipelineError("请先选择本次有效 Offer。", "invalid");
-  }
-  if (
-    input.result === "pass" &&
-    ((input.node === "ai_interview" && !values.effectiveAiRoundId) ||
-      ((input.node === "second_interview" || input.node === "final_interview") &&
-        !values.effectiveHumanRoundId))
-  ) {
-    throw new RecruitingPipelineError("面试通过必须选择本次有效面试轮次。", "invalid");
-  }
-}
-
-/** 只更新当前有效节点；失败/放弃与关闭记录在同一事务完成。 */
 // oxlint-disable-next-line complexity -- 同一事务保留版本、原有效依据、幂等和失败关闭四项竞争保护。
 export async function updateRecruitingNodeTx(
   tx: RecruitingTransaction,
@@ -656,7 +569,10 @@ export async function updateRecruitingNodeTx(
   const nodes = await loadNodes(tx, input);
   const existing = nodes.find((node) => node.node === input.node);
   const existingEffectiveId =
-    existing?.effectiveAiRoundId ?? existing?.effectiveHumanRoundId ?? existing?.effectiveOfferId;
+    existing?.effectiveAiRoundId ??
+    existing?.effectiveInitialInterviewVersionId ??
+    existing?.effectiveHumanRoundId ??
+    existing?.effectiveOfferId;
   if (
     input.expectedEffectiveId !== undefined &&
     input.expectedEffectiveId !== existingEffectiveId
@@ -672,16 +588,27 @@ export async function updateRecruitingNodeTx(
       input.effectiveHumanRoundId === undefined
         ? (existing?.effectiveHumanRoundId ?? null)
         : input.effectiveHumanRoundId,
+    effectiveInitialInterviewVersionId:
+      input.effectiveInitialInterviewVersionId === undefined
+        ? (existing?.effectiveInitialInterviewVersionId ?? null)
+        : input.effectiveInitialInterviewVersionId,
     effectiveOfferId:
       input.effectiveOfferId === undefined
         ? (existing?.effectiveOfferId ?? null)
         : input.effectiveOfferId,
   };
+  if (input.effectiveInitialInterviewVersionId) {
+    evidence.effectiveAiRoundId = null;
+  }
+  if (input.effectiveAiRoundId) {
+    evidence.effectiveInitialInterviewVersionId = null;
+  }
   await validateEvidence(tx, input, evidence);
   if (
     existing?.status === input.status &&
     existing.result === (input.result ?? null) &&
     existing.effectiveAiRoundId === evidence.effectiveAiRoundId &&
+    existing.effectiveInitialInterviewVersionId === evidence.effectiveInitialInterviewVersionId &&
     existing.effectiveHumanRoundId === evidence.effectiveHumanRoundId &&
     existing.effectiveOfferId === evidence.effectiveOfferId &&
     existing.reason === (input.reason ?? null)

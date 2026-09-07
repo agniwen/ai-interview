@@ -1,5 +1,8 @@
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
-import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
+import type {
+  MeetingLiveSummaryCheckpoint,
+  MeetingLiveSummarySnapshot,
+} from "@app/shared/meeting-live-summary";
 
 export type LocalMeetingSessionState =
   | "recording"
@@ -15,6 +18,7 @@ export interface LocalMeetingSession {
   endedAt: string | null;
   id: string;
   liveSummary?: MeetingLiveSummarySnapshot | null;
+  liveSummaryCheckpoint?: MeetingLiveSummaryCheckpoint | null;
   liveTranscriptDraft: MeetingLiveTranscriptDraft | null;
   recruitingRecordId: string | null;
   segmentCount: number;

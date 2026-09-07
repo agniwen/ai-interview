@@ -9,8 +9,9 @@ import type {
   MeetingTranscriptResult,
 } from "@app/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
-import { Frame, FrameHeader, FrameHeading, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { FrameHeader, FrameHeading, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { isApiError } from "@/lib/client/api-error";
 import {
@@ -660,8 +661,8 @@ export function MeetingTranscriptPanel({
       );
   }
   return (
-    <Frame>
-      <FrameHeader>
+    <FramePanel className="flex h-[28rem] flex-col overflow-hidden p-0">
+      <FrameHeader className="h-auto shrink-0 py-3">
         <FrameHeading>
           <FrameTitle>最终转录</FrameTitle>
         </FrameHeading>
@@ -678,89 +679,91 @@ export function MeetingTranscriptPanel({
           />
         ) : null}
       </FrameHeader>
-      <FramePanel className="flex flex-col gap-3">
-        {transcriptQuery.isPending ? (
-          <p className="text-muted-foreground text-sm">正在加载最终转录…</p>
-        ) : null}
-        <TranscriptErrorMessage error={transcriptQuery.error} fallback="加载最终会议转录失败" />
-        {conflictNotice ? <p className="text-destructive text-sm">{conflictNotice}</p> : null}
-        <TranscriptErrorMessage error={retryMutation.error} fallback="重新生成最终会议转录失败" />
-        {transcriptContent}
-      </FramePanel>
-      {transcriptQuery.data?.state === "ready" ? (
-        <FramePanel>
-          <Button
-            onClick={() => setHistoryOpen((open) => !open)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            {historyOpen ? "收起修订历史" : "查看修订历史"}
-          </Button>
-          {historyOpen ? (
-            <div className="mt-3 flex flex-col gap-2">
-              {historyQuery.isPending ? (
-                <p className="text-muted-foreground text-sm">正在加载修订历史…</p>
-              ) : null}
-              <TranscriptErrorMessage error={historyQuery.error} fallback="加载修订历史失败" />
-              {historyQuery.data?.records.map((revision) => (
-                <article className="rounded-lg bg-muted/40 px-3 py-3 text-sm" key={revision.id}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">
-                      版本 {revision.revision} ·{" "}
-                      {revision.kind === "human" ? "人工修订" : "机器生成"}
-                      {revision.id === activeRevision?.id ? " · 当前权威版本" : ""}
-                    </span>
-                    <span className="text-muted-foreground text-xs tabular-nums">
-                      {formatAppDateTime(revision.createdAt)}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-muted-foreground text-xs">
-                    {revision.createdBy?.name ?? "自动转录服务"}
-                    {revision.basedOnRevisionId
-                      ? ` · 基于版本 ${historyRevisionNumbers.get(revision.basedOnRevisionId) ?? "?"}`
-                      : ""}
-                  </p>
-                  <Button
-                    className="mt-2"
-                    onClick={() =>
-                      setSelectedRevisionId((selected) =>
-                        selected === revision.id ? null : revision.id,
-                      )
-                    }
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {selectedRevisionId === revision.id ? "收起版本" : "查看版本"}
-                  </Button>
-                  {selectedRevisionId === revision.id ? (
-                    <div className="mt-3 border-t pt-3">
-                      {historicalRevisionQuery.isPending ? (
-                        <p className="text-muted-foreground text-sm">正在加载版本…</p>
-                      ) : null}
-                      <TranscriptErrorMessage
-                        error={historicalRevisionQuery.error}
-                        fallback="加载版本失败"
-                      />
-                      {historicalRevisionQuery.data ? (
-                        <MeetingTranscriptView
-                          result={{
-                            error: null,
-                            revision: historicalRevisionQuery.data,
-                            state: "ready",
-                          }}
-                          speakerScopeId={meetingId}
-                        />
-                      ) : null}
-                    </div>
+      <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade>
+        <div className="flex flex-col gap-3 px-4 pt-1 pb-4">
+          {transcriptQuery.isPending ? (
+            <p className="text-muted-foreground text-sm">正在加载最终转录…</p>
+          ) : null}
+          <TranscriptErrorMessage error={transcriptQuery.error} fallback="加载最终会议转录失败" />
+          {conflictNotice ? <p className="text-destructive text-sm">{conflictNotice}</p> : null}
+          <TranscriptErrorMessage error={retryMutation.error} fallback="重新生成最终会议转录失败" />
+          {transcriptContent}
+          {transcriptQuery.data?.state === "ready" ? (
+            <div className="border-t pt-3">
+              <Button
+                onClick={() => setHistoryOpen((open) => !open)}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                {historyOpen ? "收起修订历史" : "查看修订历史"}
+              </Button>
+              {historyOpen ? (
+                <div className="mt-3 flex flex-col gap-2">
+                  {historyQuery.isPending ? (
+                    <p className="text-muted-foreground text-sm">正在加载修订历史…</p>
                   ) : null}
-                </article>
-              ))}
+                  <TranscriptErrorMessage error={historyQuery.error} fallback="加载修订历史失败" />
+                  {historyQuery.data?.records.map((revision) => (
+                    <article className="rounded-lg bg-muted/40 px-3 py-3 text-sm" key={revision.id}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">
+                          版本 {revision.revision} ·{" "}
+                          {revision.kind === "human" ? "人工修订" : "机器生成"}
+                          {revision.id === activeRevision?.id ? " · 当前权威版本" : ""}
+                        </span>
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {formatAppDateTime(revision.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-muted-foreground text-xs">
+                        {revision.createdBy?.name ?? "自动转录服务"}
+                        {revision.basedOnRevisionId
+                          ? ` · 基于版本 ${historyRevisionNumbers.get(revision.basedOnRevisionId) ?? "?"}`
+                          : ""}
+                      </p>
+                      <Button
+                        className="mt-2"
+                        onClick={() =>
+                          setSelectedRevisionId((selected) =>
+                            selected === revision.id ? null : revision.id,
+                          )
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {selectedRevisionId === revision.id ? "收起版本" : "查看版本"}
+                      </Button>
+                      {selectedRevisionId === revision.id ? (
+                        <div className="mt-3 border-t pt-3">
+                          {historicalRevisionQuery.isPending ? (
+                            <p className="text-muted-foreground text-sm">正在加载版本…</p>
+                          ) : null}
+                          <TranscriptErrorMessage
+                            error={historicalRevisionQuery.error}
+                            fallback="加载版本失败"
+                          />
+                          {historicalRevisionQuery.data ? (
+                            <MeetingTranscriptView
+                              result={{
+                                error: null,
+                                revision: historicalRevisionQuery.data,
+                                state: "ready",
+                              }}
+                              speakerScopeId={meetingId}
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
-        </FramePanel>
-      ) : null}
-    </Frame>
+        </div>
+      </ScrollArea>
+    </FramePanel>
   );
 }

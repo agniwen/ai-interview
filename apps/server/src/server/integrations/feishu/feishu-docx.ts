@@ -1282,6 +1282,46 @@ export async function createFeishuInterviewEvaluationDocx(
   return await createFeishuDocx({ ...options, accessToken, folderToken });
 }
 
+export async function replaceFeishuDocxHrInitialInterview(
+  input: { accessToken: string; documentId: string; block: FeishuDocumentBlock },
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<void> {
+  await serializeDocumentStructureUpdate(input.documentId, async () => {
+    const blocks = await listDocumentBlocks(input.documentId, input.accessToken, dependencies);
+    const blocksById = new Map(blocks.map((block) => [block.block_id, block]));
+    const matches = blocks.filter(
+      (block) =>
+        block.block_type === 19 &&
+        isHrEvaluationTitle(plainText(blocksById.get(block.children?.[0] ?? ""))),
+    );
+    const [target] = matches;
+    if (matches.length !== 1 || !target) {
+      throw new Error(
+        "无法唯一定位飞书评价表的 HR 初面区域，请检查文档结构后重试；未覆盖其他区域。",
+      );
+    }
+    await syncCalloutContent(
+      {
+        ...input,
+        blocksById,
+        desiredCallout: input.block,
+        existingCallout: target,
+        section: "hr-initial-interview",
+      },
+      dependencies,
+    );
+  });
+}
+
+export async function replaceFeishuHrInitialInterview(
+  providerId: FeishuProviderId,
+  input: { documentId: string; block: FeishuDocumentBlock },
+): Promise<void> {
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
+  const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
+  await replaceFeishuDocxHrInitialInterview({ ...input, accessToken });
+}
+
 export async function moveFeishuInterviewEvaluationDocx(
   providerId: FeishuProviderId,
   documentId: string,

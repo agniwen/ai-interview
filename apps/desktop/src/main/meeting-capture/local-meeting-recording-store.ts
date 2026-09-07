@@ -284,6 +284,10 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     await atomicWrite(this.manifestPath(manifest.captureId), jsonBytes(manifest));
   }
 
+  private currentSummary(manifest: StoredManifest): MeetingLiveSummarySnapshot | null {
+    return this.sessionStore.get(manifest.captureId)?.liveSummary ?? manifest.liveSummary ?? null;
+  }
+
   private ensureLocalSession(manifest: StoredManifest): LocalMeetingSession {
     return (
       this.sessionStore.get(manifest.captureId) ??
@@ -490,8 +494,8 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         null;
       const durableSummary =
         liveSummary ??
-        manifest.liveSummary ??
         this.sessionStore.get(captureId)?.liveSummary ??
+        manifest.liveSummary ??
         null;
       manifest = parseStoredManifest(
         { ...manifest, liveSummary: durableSummary, liveTranscriptDraft: durableDraft },
@@ -566,7 +570,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     return {
       assets,
       id: manifest.captureId,
-      liveSummary: manifest.liveSummary ?? null,
+      liveSummary: this.currentSummary(manifest),
       liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
       manifestSha256: manifest.manifestSha256,
       savedAt: manifest.savedAt,
@@ -938,7 +942,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
             }
             this.sessionStore.update(manifest.captureId, {
               endedAt: manifest.endedAt,
-              liveSummary: manifest.liveSummary ?? null,
+              liveSummary: this.currentSummary(manifest),
               liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
               state: intent.status === "workspace-verified" ? "workspace-verified" : "saved-local",
             });

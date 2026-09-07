@@ -24,7 +24,7 @@ function chooseMimeType(): string {
 
 function captureErrorMessage(error: Error): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
-    return "麦克风或系统音频权限被拒绝，请在 macOS 系统设置中允许 Meeting Buddy 后重试";
+    return "麦克风或系统音频权限被拒绝，请在 macOS 系统设置中允许 Echo 后重试";
   }
   if (error instanceof DOMException && error.name === "NotFoundError") {
     return "未找到可用的麦克风或系统音频源";
@@ -138,6 +138,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
       let captureError: Error | null = null;
       let pendingBytes = 0;
       let sidecarStopped = false;
+      let finalLiveTranscriptDraft: MeetingLiveTranscriptDraft | null = null;
       let transcriptMicrophoneTrack = microphoneTrack;
       let transcriptTrackPromise: Promise<MediaStreamTrack> | null = null;
 
@@ -205,9 +206,10 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
 
       return {
         dispose,
-        flushLiveTranscriptDraft: () =>
-          this.liveTranscriptSidecar?.flushCorrections?.() ?? Promise.resolve(),
         getLiveTranscriptDraft: () => {
+          if (sidecarStopped) {
+            return finalLiveTranscriptDraft;
+          }
           const snapshot = this.liveTranscriptSidecar?.getSnapshot?.();
           return snapshot ? createDurableLiveTranscriptDraft(snapshot) : null;
         },
@@ -391,6 +393,10 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           } catch {
             // Live transcript finalization is best effort; the authoritative local tracks are stopped.
           } finally {
+            const finalSnapshot = this.liveTranscriptSidecar?.getSnapshot?.();
+            finalLiveTranscriptDraft = finalSnapshot
+              ? createDurableLiveTranscriptDraft(finalSnapshot)
+              : null;
             stopSidecar();
           }
           if (transcriptMicrophoneTrack !== microphoneTrack) {

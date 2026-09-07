@@ -13,7 +13,10 @@ import type {
 } from "@app/shared/meeting-recording";
 import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
-import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
+import {
+  meetingLiveSummaryCheckpointSchema,
+  meetingLiveSummarySnapshotSchema,
+} from "@app/shared/meeting-live-summary";
 import { getMainWindowWebContents } from "../window";
 import { registerMeetingCaptureMediaSessionHandlers } from "./media-session";
 
@@ -79,6 +82,7 @@ const localMeetingSessionPatchSchema = z
   .object({
     endedAt: z.string().datetime({ offset: true }).nullable().optional(),
     liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
+    liveSummaryCheckpoint: meetingLiveSummaryCheckpointSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     segmentCount: z.number().int().positive().optional(),
     state: z

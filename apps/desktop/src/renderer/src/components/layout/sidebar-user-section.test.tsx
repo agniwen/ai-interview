@@ -37,7 +37,12 @@ describe("sidebar user menu", () => {
           onThemeChange={vi.fn()}
           switchingWorkspace={false}
           theme="system"
-          user={{ email: "user@example.com", id: "user-1", name: "测试用户" }}
+          user={{
+            email: "user@example.com",
+            feishuTenantName: "飞书测试租户",
+            id: "user-1",
+            name: "测试用户",
+          }}
           workspaces={[
             { id: "workspace-1", name: "产品团队", slug: "product" },
             { id: "workspace-2", name: "招聘团队", slug: "recruiting" },
@@ -48,12 +53,19 @@ describe("sidebar user menu", () => {
 
     const userMenuTrigger = container.querySelector<HTMLButtonElement>("button");
     expect(userMenuTrigger).not.toBeNull();
-    expect(userMenuTrigger?.classList).toContain("h-10");
+    expect(userMenuTrigger?.classList).toContain("h-8");
     expect(userMenuTrigger?.classList).toContain("border-transparent");
     expect(userMenuTrigger?.classList).toContain("hover:border-transparent");
     expect(userMenuTrigger?.classList).toContain("focus-visible:border-transparent");
     expect(userMenuTrigger?.classList).toContain("dark:hover:bg-sidebar-accent");
+    expect(userMenuTrigger?.textContent).toContain("测试用户");
+    expect(userMenuTrigger?.textContent).not.toContain("产品团队");
     act(() => userMenuTrigger?.click());
+
+    const menuLabel = document.body.querySelector('[data-slot="dropdown-menu-label"]');
+    expect(menuLabel?.textContent).toBe("测试用户产品团队");
+    expect(menuLabel?.textContent).not.toContain("user@example.com");
+    expect(menuLabel?.textContent).not.toContain("飞书测试租户");
 
     const workspaceSubmenuTrigger = document.body.querySelector<HTMLElement>(
       '[data-slot="dropdown-menu-sub-trigger"]',
