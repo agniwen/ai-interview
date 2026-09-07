@@ -173,6 +173,7 @@ export function ResumeLibraryPage() {
           empty={
             <ResumeLibraryPageEmptyState
               canUploadResumeLibrary={canUploadResumeLibrary}
+              hrHandling={grid.filters.hrHandling === "true"}
               onOpenUploadEntry={() => setUploadEntryOpen(true)}
               stageFilter={grid.filters.stage}
               uploadEntryDisabled={uploadEntryDisabled}
@@ -186,6 +187,7 @@ export function ResumeLibraryPage() {
           grid={grid}
           hasActiveUploadBatches={hasActiveUploadBatches}
           hasNextPage={Boolean(resumeLibraryListQuery.hasNextPage)}
+          hrHandling={grid.filters.hrHandling === "true"}
           isFetchingNextPage={resumeLibraryListQuery.isFetchingNextPage}
           isInitialLoading={resumeLibraryListQuery.isLoading}
           isRefetching={
@@ -196,6 +198,7 @@ export function ResumeLibraryPage() {
           onDelete={setDeleteRecord}
           onEdit={(record) => setEditRecordId(record.id)}
           onForceReparse={forceReparseMutation.mutate}
+          onHrHandlingChange={(checked) => grid.setFilter("hrHandling", checked ? "true" : "")}
           onLaunchInterview={startAiInterview}
           onOpenBatchList={() => setBatchListOpen(true)}
           onOpenDetail={onOpenDetail}

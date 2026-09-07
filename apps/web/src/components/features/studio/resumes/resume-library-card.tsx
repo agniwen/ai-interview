@@ -12,7 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { describeResumeProgress } from "@app/shared/studio-resumes";
+import {
+  describeResumeProgress,
+  getHumanInterviewProgressForStage,
+} from "@app/shared/studio-resumes";
+import { getRecruitingHrAction } from "@app/shared/recruiting-hr-action";
 import type {
   ResumeLibraryListRecord,
   ResumeLibraryProfileSnapshot,
@@ -57,8 +61,11 @@ function describeCompactAiLifecycle(record: ResumeLibraryListRecord): string {
   return `${current}/${progress.totalRounds} 待进场`;
 }
 
-function describeCompactHumanLifecycle(record: ResumeLibraryListRecord): string {
-  const progress = record.stageProgress.humanInterview;
+function describeCompactHumanLifecycle(
+  record: ResumeLibraryListRecord,
+  stage: "second_interview" | "final_interview",
+): string {
+  const progress = getHumanInterviewProgressForStage(record.stageProgress.humanInterview, stage);
   if (!progress || progress.totalRounds === 0) {
     return "未安排";
   }
@@ -107,11 +114,14 @@ function describeCompactLifecycleDetail(
   record: ResumeLibraryListRecord,
   fallback: string | null,
 ): string | null {
+  if (record.nodeStatus === "completed" && record.nodeResult === "pass") {
+    return "已通过待推进";
+  }
   if (record.pipelineStage === "ai_interview") {
     return describeCompactAiLifecycle(record);
   }
   if (record.pipelineStage === "second_interview" || record.pipelineStage === "final_interview") {
-    return describeCompactHumanLifecycle(record);
+    return describeCompactHumanLifecycle(record, record.pipelineStage);
   }
   if (record.pipelineStage === "offer") {
     return describeCompactOfferLifecycle(record);
@@ -433,6 +443,7 @@ function ResumeLibraryCardComponent({
 }: ResumeLibraryCardProps) {
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
+  const hrAction = getRecruitingHrAction(record);
   const profileSnapshot = record.resumeProfileSnapshot;
   const skills = record.resumeSkills;
   const summary = record.resumeSummary;
@@ -550,6 +561,11 @@ function ResumeLibraryCardComponent({
                   stageLabel={lifecycle.stageLabel}
                   tone={lifecycle.tone}
                 />
+                {hrAction ? (
+                  <Badge title={hrAction.description} variant="warning">
+                    HR处理 · {hrAction.label}
+                  </Badge>
+                ) : null}
                 {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
               </div>
 

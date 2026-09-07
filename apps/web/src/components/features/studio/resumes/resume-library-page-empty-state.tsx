@@ -5,11 +5,13 @@ import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/comp
 
 export function ResumeLibraryPageEmptyState({
   canUploadResumeLibrary,
+  hrHandling = false,
   onOpenUploadEntry,
   stageFilter,
   uploadEntryDisabled,
 }: {
   canUploadResumeLibrary: boolean;
+  hrHandling?: boolean;
   onOpenUploadEntry: () => void;
   stageFilter: string;
   uploadEntryDisabled: boolean;
@@ -21,7 +23,11 @@ export function ResumeLibraryPageEmptyState({
         <EmptyMedia variant="icon">
           <IconUsers className="size-5" />
         </EmptyMedia>
-        <EmptyTitle>「{stageLabel}」阶段暂无候选人</EmptyTitle>
+        <EmptyTitle>
+          {hrHandling
+            ? `「${stageLabel}」暂无需要 HR 处理的候选人`
+            : `「${stageLabel}」阶段暂无候选人`}
+        </EmptyTitle>
       </EmptyHeader>
       <EmptyContent>
         {canUploadResumeLibrary && !stageFilter ? (

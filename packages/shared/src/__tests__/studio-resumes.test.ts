@@ -316,6 +316,38 @@ describe("describeResumeProgress", () => {
     });
   });
 
+  it("final_interview ignores completed second interview rounds", () => {
+    expect(
+      describeResumeProgress({
+        outcome: "in_pipeline",
+        pipelineStage: "final_interview",
+        stageProgress: {
+          aiInterview: null,
+          humanInterview: {
+            activeRound: null,
+            byRoundKind: {
+              final_interview: null,
+              second_interview: {
+                activeRound: null,
+                completedRounds: 2,
+                completedRoundsMissingFeedback: 0,
+                failedRounds: 0,
+                passedRounds: 2,
+                totalRounds: 2,
+              },
+            },
+            completedRounds: 2,
+            completedRoundsMissingFeedback: 0,
+            failedRounds: 0,
+            passedRounds: 2,
+            totalRounds: 2,
+          },
+          offer: null,
+        },
+      }),
+    ).toEqual({ label: "终试 · 未安排", tone: "outline" });
+  });
+
   // ── offer ──
 
   it("offer 阶段无 draft → 待发出", () => {

@@ -1,6 +1,6 @@
 import { and, asc, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import type { ResumeStageProgress } from "@app/shared/studio-resumes";
+import type { HumanInterviewStageProgress, ResumeStageProgress } from "@app/shared/studio-resumes";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   aiInterviewConversation,
@@ -72,6 +72,7 @@ export async function loadResumeStageProgress(
         interviewRecordId: humanInterviewRound.recruitingRecordId,
         label: humanInterviewRound.label,
         outcome: humanInterviewRound.outcome,
+        roundKind: humanInterviewRound.roundKind,
         scheduledAt: humanInterviewRound.scheduledAt,
         sortOrder: humanInterviewRound.sortOrder,
         status: humanInterviewRound.status,
@@ -135,20 +136,14 @@ export async function loadResumeStageProgress(
     };
   }
 
-  const humanByCandidate = new Map<string, (typeof humanRows)[number][]>();
-  for (const row of humanRows) {
-    const current = humanByCandidate.get(row.interviewRecordId) ?? [];
-    current.push(row);
-    humanByCandidate.set(row.interviewRecordId, current);
-  }
-  for (const [id, rows] of humanByCandidate) {
-    const derived = result.get(id);
+  type HumanRow = (typeof humanRows)[number];
+  const summarizeHumanRows = (rows: HumanRow[]): HumanInterviewStageProgress | null => {
     const countedRows = rows.filter((row) => row.status !== "cancelled");
-    if (!derived || countedRows.length === 0) {
-      continue;
+    if (countedRows.length === 0) {
+      return null;
     }
-    const activeRound = rows.find((row) => row.status === "pending") ?? null;
-    derived.stageProgress.humanInterview = {
+    const activeRound = countedRows.find((row) => row.status === "pending") ?? null;
+    return {
       activeRound: activeRound
         ? {
             id: activeRound.id,
@@ -170,6 +165,30 @@ export async function loadResumeStageProgress(
         (row) => row.status === "completed" && row.outcome === "pass",
       ).length,
       totalRounds: countedRows.length,
+    };
+  };
+  const humanByCandidate = new Map<string, HumanRow[]>();
+  for (const row of humanRows) {
+    const current = humanByCandidate.get(row.interviewRecordId) ?? [];
+    current.push(row);
+    humanByCandidate.set(row.interviewRecordId, current);
+  }
+  for (const [id, rows] of humanByCandidate) {
+    const derived = result.get(id);
+    const aggregate = summarizeHumanRows(rows);
+    if (!derived || !aggregate) {
+      continue;
+    }
+    derived.stageProgress.humanInterview = {
+      ...aggregate,
+      byRoundKind: {
+        final_interview: summarizeHumanRows(
+          rows.filter((row) => row.roundKind === "final_interview"),
+        ),
+        second_interview: summarizeHumanRows(
+          rows.filter((row) => row.roundKind === "second_interview"),
+        ),
+      },
     };
   }
 

@@ -91,6 +91,7 @@ export function useResumeLibraryPageQueries({
           createdFrom: bounds?.from,
           createdTo: bounds?.to,
           creatorIds: parseCsvParam(params.filters.creatorIds),
+          hrHandling: params.filters.hrHandling === "true",
           jobDescriptionIds: parseCsvParam(params.filters.jdIds),
           knownTotal: params.knownTotal,
           nodeResults: parseCsvParam(params.filters.nodeResults),

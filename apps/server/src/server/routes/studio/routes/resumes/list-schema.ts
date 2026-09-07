@@ -6,6 +6,7 @@ import { z } from "zod";
 export const resumeLibraryListQuerySchema = createdAtDateQuerySchema.safeExtend({
   boardView: recruitingBoardViewSchema.optional(),
   creatorIds: z.string().optional(),
+  hrHandling: z.literal("true").optional(),
   jdIds: z.string().optional(),
   knownTotal: z.coerce.number().int().min(0).max(10_000_000).optional(),
   nodeResults: z.string().optional(),

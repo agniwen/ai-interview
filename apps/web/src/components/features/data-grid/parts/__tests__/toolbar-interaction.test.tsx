@@ -91,6 +91,26 @@ function TextHarness({ onChange }: { onChange: (key: string, value: string) => v
 }
 
 describe("Toolbar filter editing", () => {
+  it("enables clearing when resettable state lives outside configured filter fields", async () => {
+    const onResetFilters = vi.fn();
+    const { root } = await renderInAct(
+      <Toolbar
+        canResetFilters
+        filters={[{ key: "search", label: "搜索", type: "search" }]}
+        filterValues={{ search: "" }}
+        onResetFilters={onResetFilters}
+      />,
+    );
+    roots.push(root);
+
+    const clearButton = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent?.trim() === "清空筛选",
+    );
+    expect(clearButton?.disabled).toBe(false);
+    await clickText("button", "清空筛选");
+    expect(onResetFilters).toHaveBeenCalledOnce();
+  });
+
   it("keeps the add-filter button labeled when conditions exist and after clearing values", async () => {
     const { root } = await renderInAct(
       <Provider store={createStore()}>

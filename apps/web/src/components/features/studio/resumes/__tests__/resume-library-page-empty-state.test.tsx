@@ -41,4 +41,16 @@ describe("招聘台空状态的阶段名称", () => {
     expect(emptyText(value)).not.toContain("还没有任何候选人");
     expect(emptyText(value)).not.toContain("unknown:value");
   });
+  it("HR处理开启时说明当前范围内没有待办", () => {
+    const html = renderToStaticMarkup(
+      <ResumeLibraryPageEmptyState
+        canUploadResumeLibrary={false}
+        hrHandling
+        onOpenUploadEntry={() => {}}
+        stageFilter="interview:second"
+        uploadEntryDisabled={false}
+      />,
+    );
+    expect(html).toContain("暂无需要 HR 处理的候选人");
+  });
 });
