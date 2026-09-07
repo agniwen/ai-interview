@@ -173,6 +173,15 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
     // code_verifier field.
     pkce: false,
     scopes: ["contact:user.base:readonly", "contact:user.email:readonly"],
+    mapProfileToUser(profile) {
+      // Generic OAuth only forwards standard fields unless explicitly mapped.
+      return z
+        .object({
+          feishuTenantKey: z.string().optional(),
+          feishuTenantName: z.string().optional(),
+        })
+        .parse(profile);
+    },
     async getToken({ code, redirectURI }) {
       const res = await fetch("https://open.feishu.cn/open-apis/authen/v2/oauth/token", {
         body: JSON.stringify({
