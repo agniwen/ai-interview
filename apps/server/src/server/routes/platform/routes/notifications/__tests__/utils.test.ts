@@ -91,7 +91,7 @@ describe("grantPlatformNotificationDocumentAccess", () => {
     });
   });
 
-  it("does not grant duplicate access when the current user is already the recipient", async () => {
+  it("ensures current access even for the original recipient", async () => {
     mockQueryRows(
       [
         {
@@ -109,7 +109,10 @@ describe("grantPlatformNotificationDocumentAccess", () => {
       dependencies,
     );
 
-    expect(mocks.grantDocumentAccess).not.toHaveBeenCalled();
+    expect(mocks.grantDocumentAccess).toHaveBeenCalledWith("feishu", {
+      documentId: "docx-1",
+      recipientOpenId: "ou_admin",
+    });
   });
 
   it("requires an existing document and a matching Feishu account", async () => {
@@ -150,33 +153,36 @@ describe("previewPlatformFeishuNotification", () => {
     vi.clearAllMocks();
   });
 
-  it("builds the HR block without creating a document or sending a card", async () => {
-    mockPreviewRows([
-      {
-        candidateName: "张三",
+  it.each(["summary_ready", "ai_report_ready"])(
+    "builds the HR block for %s without creating a document or sending a card",
+    async (type) => {
+      mockPreviewRows([
+        {
+          candidateName: "张三",
+          conversationId: "conversation-1",
+          interviewRecordId: "interview-1",
+          type,
+        },
+      ]);
+      mocks.generateHrEvaluationWithPromptForInterview.mockResolvedValue({
+        evaluation: { jobMotivation: "希望承担更完整的系统架构职责。" },
+        prompt: "最终发送给模型的 Prompt",
+      });
+
+      const preview = await previewPlatformFeishuNotification("log-1", dependencies);
+
+      expect(mocks.generateHrEvaluationWithPromptForInterview).toHaveBeenCalledWith({
         conversationId: "conversation-1",
         interviewRecordId: "interview-1",
-        type: "summary_ready",
-      },
-    ]);
-    mocks.generateHrEvaluationWithPromptForInterview.mockResolvedValue({
-      evaluation: { jobMotivation: "希望承担更完整的系统架构职责。" },
-      prompt: "最终发送给模型的 Prompt",
-    });
-
-    const preview = await previewPlatformFeishuNotification("log-1", dependencies);
-
-    expect(mocks.generateHrEvaluationWithPromptForInterview).toHaveBeenCalledWith({
-      conversationId: "conversation-1",
-      interviewRecordId: "interview-1",
-    });
-    expect(preview.prompt).toBe("最终发送给模型的 Prompt");
-    expect(preview.title).toBe("张三 - HR面试评价预览");
-    expect(preview.block.block_type).toBe(19);
-    expect(JSON.stringify(preview.block.children)).toContain("1. 求职动机：");
-    expect(JSON.stringify(preview.block.children)).toContain("希望承担更完整的系统架构职责。");
-    expect(mocks.grantDocumentAccess).not.toHaveBeenCalled();
-  });
+      });
+      expect(preview.prompt).toBe("最终发送给模型的 Prompt");
+      expect(preview.title).toBe("张三 - HR面试评价预览");
+      expect(preview.block.block_type).toBe(19);
+      expect(JSON.stringify(preview.block.children)).toContain("1. 求职动机：");
+      expect(JSON.stringify(preview.block.children)).toContain("希望承担更完整的系统架构职责。");
+      expect(mocks.grantDocumentAccess).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("updatePlatformNotificationDocumentStructure", () => {
@@ -184,45 +190,48 @@ describe("updatePlatformNotificationDocumentStructure", () => {
     vi.clearAllMocks();
   });
 
-  it("inserts current candidate sections into an existing summary document", async () => {
-    mocks.loadStructure.mockResolvedValueOnce({
-      documentId: "docx-1",
-      documentUrl: "https://feishu.cn/docx/docx-1",
-      interviewQuestions: [
-        {
-          difficulty: "medium",
-          evaluationFocus: "验证系统设计能力",
-          followUpDirections: "追问技术取舍",
-          order: 1,
-          question: "请介绍你主导的系统设计。",
-        },
-      ],
-      providerId: "feishu",
-      qualitativeResumeEvaluation: null,
-      resumeEvaluationArtifactMode: null,
-      type: "summary_ready",
-    });
-    mocks.updateDocumentStructure.mockResolvedValueOnce({
-      insertedSections: ["recommendedQuestions"],
-      updatedSections: ["resumeEvaluation"],
-    });
-
-    await expect(
-      updatePlatformNotificationDocumentStructure("log-1", structureDependencies),
-    ).resolves.toEqual({
-      documentUrl: "https://feishu.cn/docx/docx-1",
-      insertedSections: ["recommendedQuestions"],
-      updatedSections: ["resumeEvaluation"],
-    });
-    expect(mocks.updateDocumentStructure).toHaveBeenCalledWith(
-      "feishu",
-      expect.objectContaining({
+  it.each(["summary_ready", "ai_report_ready"])(
+    "updates candidate sections for %s",
+    async (type) => {
+      mocks.loadStructure.mockResolvedValueOnce({
         documentId: "docx-1",
-        recommendedQuestionsBlock: expect.objectContaining({ block_type: 19 }),
-        resumeEvaluationBlock: undefined,
-      }),
-    );
-  });
+        documentUrl: "https://feishu.cn/docx/docx-1",
+        interviewQuestions: [
+          {
+            difficulty: "medium",
+            evaluationFocus: "验证系统设计能力",
+            followUpDirections: "追问技术取舍",
+            order: 1,
+            question: "请介绍你主导的系统设计。",
+          },
+        ],
+        providerId: "feishu",
+        qualitativeResumeEvaluation: null,
+        resumeEvaluationArtifactMode: null,
+        type,
+      });
+      mocks.updateDocumentStructure.mockResolvedValueOnce({
+        insertedSections: ["recommendedQuestions"],
+        updatedSections: ["resumeEvaluation"],
+      });
+
+      await expect(
+        updatePlatformNotificationDocumentStructure("log-1", structureDependencies),
+      ).resolves.toEqual({
+        documentUrl: "https://feishu.cn/docx/docx-1",
+        insertedSections: ["recommendedQuestions"],
+        updatedSections: ["resumeEvaluation"],
+      });
+      expect(mocks.updateDocumentStructure).toHaveBeenCalledWith(
+        "feishu",
+        expect.objectContaining({
+          documentId: "docx-1",
+          recommendedQuestionsBlock: expect.objectContaining({ block_type: 19 }),
+          resumeEvaluationBlock: undefined,
+        }),
+      );
+    },
+  );
 
   it("requires an existing summary document", async () => {
     mocks.loadStructure.mockResolvedValueOnce(null);

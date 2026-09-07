@@ -93,6 +93,54 @@ function existingRecommendedQuestionItems(
 }
 
 describe("createFeishuDocx", () => {
+  it("checkpoints the external document identity before editing content", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse({ code: 0, data: { document: { document_id: "checkpoint" } } }),
+      );
+    const checkpoint = vi.fn(() => {
+      throw new Error("checkpoint unavailable");
+    });
+    await expect(
+      createFeishuDocx(
+        {
+          accessToken: "test",
+          blocks: [],
+          onDocumentCreated: checkpoint,
+          recipientOpenId: "test",
+          title: "test",
+        },
+        { fetcher, sleep: async () => {} },
+      ),
+    ).rejects.toThrow("checkpoint unavailable");
+    expect(checkpoint).toHaveBeenCalledWith("checkpoint");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("resumes the same external document and uses stable initialization tokens", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [{ block_id: "body" }] } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }));
+    const onDocumentCreated = vi.fn();
+    await createFeishuDocx(
+      {
+        accessToken: "test",
+        blocks: [{ block_type: 2, text: { elements: [] } }],
+        existingDocumentId: "checkpoint",
+        initializationKey: "record-1",
+        onDocumentCreated,
+        recipientOpenId: "test",
+        title: "test",
+      },
+      { fetcher, sleep: async () => {} },
+    );
+    expect(onDocumentCreated).not.toHaveBeenCalled();
+    expect(fetcher.mock.calls[0]?.[0]).toContain(
+      "/documents/checkpoint/blocks/checkpoint/children?client_token=",
+    );
+    expect(fetcher.mock.calls).toHaveLength(2);
+  });
   it("grants edit access to an existing application-owned document", async () => {
     const fetcher = vi
       .fn()

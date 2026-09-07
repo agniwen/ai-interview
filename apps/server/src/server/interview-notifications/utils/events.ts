@@ -959,7 +959,7 @@ export async function enqueueAiReportReadyEvent(
       discriminator: input.conversationId,
       scopeId: context.scheduleEntryId,
       type: "ai_report_ready",
-      version: 1,
+      version: 2,
     }),
     interviewRecordId: input.interviewRecordId,
     organizationId: context.organizationId,

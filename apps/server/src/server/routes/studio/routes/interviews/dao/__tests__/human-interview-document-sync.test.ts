@@ -3,10 +3,12 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startHumanInterviewDocumentSyncScheduler } from "../../adapters/document-sync-scheduler";
 import { syncHumanInterviewDocument } from "../../application/sync-human-interview-document";
+import type { HumanInterviewDocumentSyncJob } from "../../application/sync-human-interview-document";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   humanInterviewEvaluationDocumentSync,
   recruitingNotificationDelivery,
+  recruitingEvaluationDocument,
   organization,
   humanInterviewEvaluationSnapshot,
   humanInterviewRound,
@@ -29,6 +31,16 @@ const evaluation = {
   strengths: "优势",
 };
 const dao = createHumanInterviewDocumentSyncDao(db);
+const resolveDocument = async (job: HumanInterviewDocumentSyncJob) => {
+  const resolved = {
+    ...job,
+    documentId: job.documentId ?? "created-human-only",
+    documentUrl: job.documentUrl ?? "https://feishu.cn/docx/created-human-only",
+    providerId: job.providerId ?? ("feishu" as const),
+  };
+  await dao.bindDocument(job, resolved);
+  return resolved;
+};
 let serial = 0;
 async function seed() {
   serial += 1;
@@ -69,7 +81,7 @@ async function notification(suffix: string, providerId: string, date: string) {
     recipientUserId: actor,
     recruitingRecordId: candidate,
     status: "sent",
-    type: "summary_ready",
+    type: "ai_report_ready",
     updatedAt: new Date(date),
   });
 }
@@ -164,7 +176,7 @@ describe("human interview document outbox", () => {
     }
   });
 
-  it("processes a ready task in the same poll after postponing a task without a document", async () => {
+  it("creates a target for a human-only task and continues processing the next round", async () => {
     const waitingId = await seed();
     const readyId = await seed();
     await db
@@ -182,17 +194,17 @@ describe("human interview document outbox", () => {
       .where(eq(humanInterviewEvaluationDocumentSync.snapshotId, readyId));
     const updateDocument = vi.fn(async () => {});
     const scheduler = startHumanInterviewDocumentSyncScheduler(() =>
-      syncHumanInterviewDocument({ ...dao, updateDocument }),
+      syncHumanInterviewDocument({ ...dao, ensureDocument: resolveDocument, updateDocument }),
     );
     try {
       await scheduler.runOnce();
       expect(await dao.loadStatus({ organizationId: org, roundId: waitingId })).toMatchObject({
-        status: "waiting_document",
+        status: "synced",
       });
       expect(await dao.loadStatus({ organizationId: org, roundId: readyId })).toMatchObject({
         status: "synced",
       });
-      expect(updateDocument).toHaveBeenCalledTimes(1);
+      expect(updateDocument).toHaveBeenCalledTimes(2);
     } finally {
       await scheduler.close();
       await db
@@ -201,14 +213,24 @@ describe("human interview document outbox", () => {
     }
   });
 
-  it("waits for a document, pins the latest provider target, and retains it on retry", async () => {
+  it("claims without an AI document, then uses the record association independent of notification type", async () => {
     const id = await seed();
-    expect(await dao.claim()).toBe("deferred");
-    expect(await dao.loadStatus({ organizationId: org, roundId: id })).toMatchObject({
-      status: "waiting_document",
-    });
+    const initial = await dao.claim();
+    expect(initial).toMatchObject({ documentId: null, recruitingRecordId: candidate });
+    if (!initial || initial === "deferred") {
+      throw new Error("missing human-only claim");
+    }
+    await dao.finish(initial, { error: "test creation retry", status: "failed" });
     await notification("older", "feishu", "2026-09-01T00:00:00Z");
     await notification("latest", "feishu-jiguang-hr", "2026-09-02T00:00:00Z");
+    await db.insert(recruitingEvaluationDocument).values({
+      documentId: "latest",
+      documentUrl: "https://feishu.cn/docx/latest",
+      organizationId: org,
+      providerId: "feishu-jiguang-hr",
+      recruitingRecordId: candidate,
+      status: "ready",
+    });
     await dao.retry({ organizationId: org, roundId: id });
     const job = await dao.claim();
     expect(job).toMatchObject({

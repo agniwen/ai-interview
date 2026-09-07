@@ -5964,6 +5964,33 @@ export const recruitingNotificationEvent = pgTable(
   ],
 );
 
+// 一条招聘记录共享一份评价表；通知只是链接的投递凭证，不再拥有文档。
+export const recruitingEvaluationDocument = pgTable(
+  "recruiting_evaluation_document",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    documentId: text("document_id"),
+    documentUrl: text("document_url"),
+    // Temporary immutable creation input allows resuming the same document after partial writes.
+    initialization: jsonb("initialization").$type<JsonObject>(),
+    organizationId: text("organization_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    recruitingRecordId: text("recruiting_record_id").primaryKey(),
+    status: text("status").$type<"creating" | "ready">().notNull().default("creating"),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_evaluation_document_record_org_fk",
+    }).onDelete("cascade"),
+    check(
+      "recruiting_evaluation_document_status_check",
+      sql`${table.status} IN ('creating', 'ready')`,
+    ),
+  ],
+);
+
 // 招聘通知投递：保留外部消息身份、发送结果及未知结果状态，防止历史通知重复投递。
 export const recruitingNotificationDelivery = pgTable(
   "recruiting_notification_delivery",
@@ -6055,13 +6082,15 @@ export const recruitingNotificationDelivery = pgTable(
     uniqueIndex("recruiting_notification_delivery_provider_request_uq")
       .on(table.providerRequestKey)
       .where(sql`${table.providerRequestKey} IS NOT NULL`),
-    uniqueIndex("recruiting_notification_delivery_once_uq").on(
-      table.recruitingRecordId,
-      table.conversationId,
-      table.type,
-      table.recipientUserId,
-      table.providerId,
-    ),
+    uniqueIndex("recruiting_notification_delivery_once_uq")
+      .on(
+        table.recruitingRecordId,
+        table.conversationId,
+        table.type,
+        table.recipientUserId,
+        table.providerId,
+      )
+      .where(sql`${table.eventId} IS NULL`),
     index("recruiting_notification_delivery_organization_idx").on(table.organizationId),
     check(
       "recruiting_notification_delivery_delivery_status_check",

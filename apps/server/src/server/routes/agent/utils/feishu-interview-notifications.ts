@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- legacy and Worker-compatible report delivery share one transition module during migration. */
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
 import { z } from "zod";
@@ -5,7 +6,6 @@ import {
   account,
   aiInterviewConversation,
   recruitingNotificationDelivery,
-  member,
   organization,
   aiInterviewRound,
   user,
@@ -37,9 +37,12 @@ interface SummaryReadyNotificationOptions {
   interviewRecordId: string;
 }
 
-export interface ResendInterviewSummaryNotificationResult {
+export interface SendInterviewReportReadyFeishuNotificationInput {
+  conversationId: string;
+  interviewRecordId: string;
   notificationId: string;
-  sentAt: string;
+  providerId: string;
+  recipientOpenId: string;
 }
 
 interface RecipientAccount {
@@ -122,19 +125,20 @@ function buildSummaryPayload(input: NotificationCardInput) {
   return { assessment, overallScore, recommendation };
 }
 
-function buildNotificationCard(input: NotificationCardInput, detailUrl?: string) {
+function buildNotificationCard(input: NotificationCardInput, evaluationDocumentUrl: string) {
   const { assessment, overallScore, recommendation } = buildSummaryPayload(input);
 
   const card = InterviewSummaryCard({
     assessment,
     candidateName: input.candidateName,
-    detailUrl: detailUrl ?? buildStudioUrl(input.roundId, input.organizationSlug),
     duration: input.duration,
+    evaluationDocumentUrl,
     interviewQuestions: input.interviewQuestions,
     interviewStartedAt: input.interviewStartedAt,
     overallScore,
     questionAnswers: input.questionAnswers,
     recommendation,
+    reportUrl: buildStudioUrl(input.roundId, input.organizationSlug),
     resumeEvaluation: input.resumeEvaluation,
     summary: input.summary,
     targetRole: input.targetRole,
@@ -170,10 +174,54 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
       eq(aiInterviewConversation.recruitingRecordId, recruitingRecordReadModel.id),
     )
     .leftJoin(organization, eq(recruitingRecordReadModel.organizationId, organization.id))
-    .where(eq(aiInterviewConversation.conversationId, options.conversationId))
+    .where(
+      and(
+        eq(aiInterviewConversation.conversationId, options.conversationId),
+        eq(aiInterviewConversation.recruitingRecordId, options.interviewRecordId),
+      ),
+    )
     .limit(1);
 
   return row ?? null;
+}
+
+export async function sendInterviewReportReadyFeishuNotification(
+  options: SendInterviewReportReadyFeishuNotificationInput,
+): Promise<{ providerMessageId: string | null }> {
+  if (!isFeishuProviderId(options.providerId)) {
+    throw new Error("飞书通知供应商配置无效。");
+  }
+  const context = await loadNotificationContext(options);
+  if (!context || context.summaryStatus !== "ready" || !context.scheduleEntryId) {
+    throw new Error("面试报告尚未生成完成，无法创建飞书评价表。");
+  }
+  const notificationInput = {
+    candidateName: context.candidateName,
+    duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
+    evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
+    ...extractNotificationCardSupplement(context),
+    interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
+    organizationSlug: context.organizationSlug ?? null,
+    roundId: context.scheduleEntryId,
+    summary: context.transcriptSummary,
+    targetRole: context.targetRole,
+  };
+  const documentUrl = await ensureInterviewEvaluationDocument({
+    context,
+    conversationId: options.conversationId,
+    input: notificationInput,
+    interviewRecordId: options.interviewRecordId,
+    notificationId: options.notificationId,
+    providerId: options.providerId,
+    recipientOpenId: options.recipientOpenId,
+  });
+  const { card } = buildNotificationCard(notificationInput, documentUrl);
+  const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
+  const sent = await postFeishuDirectCard(options.providerId, options.recipientOpenId, card);
+  if (!sent.id) {
+    throw new Error("飞书卡片发送未返回消息 ID，请先核对实际投递结果。");
+  }
+  return { providerMessageId: sent.id ?? null };
 }
 
 async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]> {
@@ -263,19 +311,20 @@ async function claimNotification({
           eq(recruitingNotificationDelivery.conversationId, conversationId),
           isNull(recruitingNotificationDelivery.conversationId),
         ),
-        eq(recruitingNotificationDelivery.type, "summary_ready"),
+        inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
         eq(recruitingNotificationDelivery.recipientUserId, recipient.userId),
         eq(recruitingNotificationDelivery.providerId, recipient.providerId),
+        isNull(recruitingNotificationDelivery.eventId),
       ),
     )
     .limit(1);
 
-  if (existing?.status === "sent") {
+  if (existing && ["sent", "sending", "unknown", "dead", "cancelled"].includes(existing.status)) {
     return null;
   }
 
   if (existing) {
-    await db
+    const [claimed] = await db
       .update(recruitingNotificationDelivery)
       .set({
         conversationId,
@@ -283,8 +332,14 @@ async function claimNotification({
         recipientOpenId: recipient.accountId,
         status: "pending",
       })
-      .where(eq(recruitingNotificationDelivery.id, existing.id));
-    return existing.id;
+      .where(
+        and(
+          eq(recruitingNotificationDelivery.id, existing.id),
+          eq(recruitingNotificationDelivery.status, existing.status),
+        ),
+      )
+      .returning({ id: recruitingNotificationDelivery.id });
+    return claimed?.id ?? null;
   }
 
   const [row] = await db
@@ -298,7 +353,7 @@ async function claimNotification({
       recipientUserId: recipient.userId,
       recruitingRecordId: interviewRecordId,
       status: "pending",
-      type: "summary_ready",
+      type: "ai_report_ready",
     })
     .onConflictDoNothing({
       target: [
@@ -308,6 +363,7 @@ async function claimNotification({
         recruitingNotificationDelivery.recipientUserId,
         recruitingNotificationDelivery.providerId,
       ],
+      where: isNull(recruitingNotificationDelivery.eventId),
     })
     .returning({ id: recruitingNotificationDelivery.id });
 
@@ -402,174 +458,6 @@ async function sendGoogleSummaryEmail({
   }
 }
 
-export async function resendInterviewSummaryNotification(
-  notificationId: string,
-  recipientUserId?: string,
-): Promise<ResendInterviewSummaryNotificationResult> {
-  const [notification] = await db
-    .select({
-      conversationId: recruitingNotificationDelivery.conversationId,
-      id: recruitingNotificationDelivery.id,
-      interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
-      organizationId: recruitingNotificationDelivery.organizationId,
-      providerId: recruitingNotificationDelivery.providerId,
-      recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
-      recipientUserId: recruitingNotificationDelivery.recipientUserId,
-      type: recruitingNotificationDelivery.type,
-    })
-    .from(recruitingNotificationDelivery)
-    .where(eq(recruitingNotificationDelivery.id, notificationId))
-    .limit(1);
-
-  if (!notification) {
-    throw new Error("通知记录不存在");
-  }
-  if (notification.type !== "summary_ready") {
-    throw new Error("暂不支持重发该类型通知");
-  }
-  if (!notification.conversationId) {
-    throw new Error("通知缺少面试会话，无法重发");
-  }
-  if (!isFeishuProviderId(notification.providerId)) {
-    throw new Error("只支持重发飞书机器人通知");
-  }
-
-  const context = await loadNotificationContext({
-    conversationId: notification.conversationId,
-    interviewRecordId: notification.interviewRecordId,
-  });
-  if (!context || context.summaryStatus !== "ready") {
-    throw new Error("面试报告还未生成完成，无法重发");
-  }
-  if (!context.scheduleEntryId) {
-    throw new Error("通知缺少面试轮次，无法生成报告链接");
-  }
-
-  const notificationInput = {
-    candidateName: context.candidateName,
-    duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
-    evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
-    ...extractNotificationCardSupplement(context),
-    interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
-    organizationSlug: context.organizationSlug ?? null,
-    roundId: context.scheduleEntryId,
-    summary: context.transcriptSummary,
-    targetRole: context.targetRole,
-  };
-
-  let resendNotificationId = notification.id;
-  let resendRecipientOpenId = notification.recipientOpenId;
-  let resendRecipientUserId = notification.recipientUserId;
-  if (recipientUserId && recipientUserId !== notification.recipientUserId) {
-    const [recipient] = await db
-      .select({ accountId: account.accountId })
-      .from(member)
-      .innerJoin(
-        account,
-        and(eq(account.userId, member.userId), eq(account.providerId, notification.providerId)),
-      )
-      .where(
-        and(
-          eq(member.organizationId, notification.organizationId),
-          eq(member.userId, recipientUserId),
-        ),
-      )
-      .orderBy(desc(account.updatedAt))
-      .limit(1);
-    if (!recipient) {
-      throw new Error("所选用户不是当前工作区内已绑定对应飞书机器人的成员");
-    }
-
-    const insertedId = crypto.randomUUID();
-    const [inserted] = await db
-      .insert(recruitingNotificationDelivery)
-      .values({
-        conversationId: notification.conversationId,
-        id: insertedId,
-        organizationId: notification.organizationId,
-        providerId: notification.providerId,
-        recipientOpenId: recipient.accountId,
-        recipientUserId,
-        recruitingRecordId: notification.interviewRecordId,
-        status: "pending",
-        type: notification.type,
-      })
-      .onConflictDoNothing({
-        target: [
-          recruitingNotificationDelivery.recruitingRecordId,
-          recruitingNotificationDelivery.conversationId,
-          recruitingNotificationDelivery.type,
-          recruitingNotificationDelivery.recipientUserId,
-          recruitingNotificationDelivery.providerId,
-        ],
-      })
-      .returning({ id: recruitingNotificationDelivery.id });
-    if (inserted) {
-      resendNotificationId = inserted.id;
-    } else {
-      const [existing] = await db
-        .select({ id: recruitingNotificationDelivery.id })
-        .from(recruitingNotificationDelivery)
-        .where(
-          and(
-            eq(recruitingNotificationDelivery.recruitingRecordId, notification.interviewRecordId),
-            eq(recruitingNotificationDelivery.conversationId, notification.conversationId),
-            eq(recruitingNotificationDelivery.type, notification.type),
-            eq(recruitingNotificationDelivery.recipientUserId, recipientUserId),
-            eq(recruitingNotificationDelivery.providerId, notification.providerId),
-          ),
-        )
-        .limit(1);
-      if (!existing) {
-        throw new Error("无法创建所选接收人的飞书通知记录");
-      }
-      resendNotificationId = existing.id;
-    }
-    resendRecipientOpenId = recipient.accountId;
-    resendRecipientUserId = recipientUserId;
-  }
-
-  await db
-    .update(recruitingNotificationDelivery)
-    .set({
-      error: null,
-      recipientOpenId: resendRecipientOpenId,
-      recipientUserId: resendRecipientUserId,
-      status: "pending",
-    })
-    .where(eq(recruitingNotificationDelivery.id, resendNotificationId));
-
-  try {
-    const documentUrl = await ensureInterviewEvaluationDocument({
-      context,
-      conversationId: notification.conversationId,
-      input: notificationInput,
-      interviewRecordId: notification.interviewRecordId,
-      notificationId: resendNotificationId,
-      providerId: notification.providerId,
-      recipientOpenId: resendRecipientOpenId,
-    });
-    const { card } = buildNotificationCard(notificationInput, documentUrl);
-    const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
-    const sent = await postFeishuDirectCard(notification.providerId, resendRecipientOpenId, card);
-    const sentAt = new Date();
-    await db
-      .update(recruitingNotificationDelivery)
-      .set({
-        error: null,
-        feishuMessageId: sent.id ?? null,
-        sentAt,
-        status: "sent",
-      })
-      .where(eq(recruitingNotificationDelivery.id, resendNotificationId));
-    return { notificationId: resendNotificationId, sentAt: sentAt.toISOString() };
-  } catch (error) {
-    const notificationError = error instanceof Error ? error : new Error(String(error));
-    await markNotificationFailed(resendNotificationId, notificationError);
-    throw error;
-  }
-}
-
 async function loadMissingGoogleEmailNotificationTargets(
   limit: number,
 ): Promise<NotificationTarget[]> {
@@ -619,7 +507,7 @@ async function loadMissingGoogleEmailNotificationTargets(
                   recruitingNotificationDelivery.conversationId,
                   aiInterviewConversation.conversationId,
                 ),
-                eq(recruitingNotificationDelivery.type, "summary_ready"),
+                inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
                 eq(
                   recruitingNotificationDelivery.recipientUserId,
                   recruitingRecordReadModel.createdBy,
@@ -683,8 +571,6 @@ export async function notifyInterviewSummaryReady(
   const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
 
   if (recipients.length > 0) {
-    const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
-
     for (const recipient of recipients) {
       const notificationId = await claimNotification({
         conversationId: options.conversationId,
@@ -697,18 +583,14 @@ export async function notifyInterviewSummaryReady(
       }
 
       try {
-        const documentUrl = await ensureInterviewEvaluationDocument({
-          context,
+        const sent = await sendInterviewReportReadyFeishuNotification({
           conversationId: options.conversationId,
-          input: notificationInput,
           interviewRecordId: options.interviewRecordId,
           notificationId,
           providerId: recipient.providerId,
           recipientOpenId: recipient.accountId,
         });
-        const { card } = buildNotificationCard(notificationInput, documentUrl);
-        const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card);
-        await markNotificationSent(notificationId, sent.id ?? null);
+        await markNotificationSent(notificationId, sent.providerMessageId);
       } catch (error) {
         const notificationError = error instanceof Error ? error : new Error(String(error));
         await markNotificationFailed(notificationId, notificationError);
@@ -742,8 +624,9 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
     .from(recruitingNotificationDelivery)
     .where(
       and(
-        eq(recruitingNotificationDelivery.type, "summary_ready"),
+        inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
         inArray(recruitingNotificationDelivery.status, ["failed", "pending"]),
+        isNull(recruitingNotificationDelivery.eventId),
       ),
     )
     .limit(RETRY_BATCH_SIZE);

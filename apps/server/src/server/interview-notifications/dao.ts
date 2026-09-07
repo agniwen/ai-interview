@@ -138,6 +138,7 @@ export async function loadInterviewNotificationEvent(
 export interface CreateInterviewNotificationDeliveryInput {
   audienceType: InterviewNotificationAudienceType;
   channel: InterviewNotificationChannel;
+  conversationId?: string | null;
   error?: string | null;
   eventId: string;
   id?: string;
@@ -166,6 +167,7 @@ export async function createInterviewNotificationDelivery(
     .values({
       audienceType: input.audienceType,
       channel: input.channel,
+      conversationId: input.conversationId ?? null,
       error: input.error ?? null,
       eventId: input.eventId,
       id: input.id ?? crypto.randomUUID(),

@@ -137,6 +137,9 @@ describe("interview notification processor", () => {
     expect(mocks.send).toHaveBeenCalledWith(
       expect.objectContaining({
         audienceType: "initiator_fallback",
+        conversationId: "conversation_1",
+        deliveryId: "delivery_1",
+        interviewRecordId: "record_1",
         payload: notificationEvent.payloadSnapshot,
         type: "ai_report_ready",
       }),

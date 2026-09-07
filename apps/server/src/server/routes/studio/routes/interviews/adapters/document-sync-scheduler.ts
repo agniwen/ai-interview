@@ -16,8 +16,11 @@ export function startHumanInterviewDocumentSyncScheduler(processOne: () => Promi
     }
   }
   async function runOnce() {
-    if (closed || running) {
+    if (closed) {
       return;
+    }
+    if (running) {
+      return running;
     }
     running = poll();
     try {

@@ -29,6 +29,8 @@ import { loadLatestEndedInterviewConversationForRound } from "./dao/evaluation-d
 import { loadLatestFeishuDocumentUrls } from "./dao/feishu-document-urls";
 import { notifyInterviewSummaryReady } from "../../../agent/utils/feishu-interview-notifications";
 import { runSummaryJob } from "../../../agent/utils/interview-summary-job";
+import { enqueueAiReportReadyEvent } from "../../../../interview-notifications/utils/events";
+import { isInterviewNotificationWorkerEnabled } from "../../../../interview-notifications/utils/feature-flags";
 import {
   hasExistingInterviewAnswers,
   isInterviewQuestionSetComplete,
@@ -156,13 +158,52 @@ export const studioInterviewDetailRouter = factory
         return c.json({ error: "面试报告自动恢复失败，请稍后重试。" }, 422);
       }
     }
+    const { interviewRecordId } = conversation;
+    if (!interviewRecordId) {
+      return c.json({ error: "面试记录缺少招聘关联，无法生成评价表。" }, 409);
+    }
+
+    let documentUrls = await loadLatestFeishuDocumentUrls({
+      ids: [conversation.conversationId],
+      key: "conversationId",
+      organizationId: activeOrg.id,
+    });
+    const existingDocumentUrl = documentUrls.get(conversation.conversationId) ?? null;
+    if (existingDocumentUrl) {
+      return c.json(
+        {
+          conversationId: conversation.conversationId,
+          feishuDocumentUrl: existingDocumentUrl,
+          status: "generated" as const,
+        },
+        200,
+      );
+    }
+
+    if (isInterviewNotificationWorkerEnabled()) {
+      await db.transaction((tx) =>
+        enqueueAiReportReadyEvent(tx, {
+          conversationId: conversation.conversationId,
+          interviewRecordId,
+        }),
+      );
+      invalidateStudioInterviewCaches(activeOrg.id);
+      return c.json(
+        {
+          conversationId: conversation.conversationId,
+          feishuDocumentUrl: null,
+          status: "pending" as const,
+        },
+        202,
+      );
+    }
 
     await notifyInterviewSummaryReady({
       allowIncomplete: true,
       conversationId: conversation.conversationId,
-      interviewRecordId: conversation.interviewRecordId,
+      interviewRecordId,
     });
-    const documentUrls = await loadLatestFeishuDocumentUrls({
+    documentUrls = await loadLatestFeishuDocumentUrls({
       ids: [conversation.conversationId],
       key: "conversationId",
       organizationId: activeOrg.id,
@@ -177,6 +218,7 @@ export const studioInterviewDetailRouter = factory
       {
         conversationId: conversation.conversationId,
         feishuDocumentUrl,
+        status: "generated" as const,
       },
       200,
     );

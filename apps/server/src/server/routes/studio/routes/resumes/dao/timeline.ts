@@ -84,6 +84,7 @@ const NOTIFICATION_STATUS_LABEL = {
 } satisfies Record<string, string>;
 
 const NOTIFICATION_TYPE_LABEL = {
+  ai_report_ready: "报告完成通知",
   summary_ready: "报告完成通知",
 } satisfies Record<string, string>;
 

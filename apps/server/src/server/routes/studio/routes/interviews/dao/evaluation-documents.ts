@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { uniq } from "lodash-es";
 
 import { db } from "../../../../../../lib/server/db/index";
-import { aiInterviewConversation } from "@app/db-schema/schema";
+import { aiInterviewConversation, aiInterviewRound } from "@app/db-schema/schema";
 import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
 import { resolveEvaluationDocument } from "./evaluation-document-status";
 import type { FeishuEvaluationDocumentProjection } from "./evaluation-document-status";
@@ -60,20 +60,38 @@ export async function loadRoundFeishuEvaluationDocuments(
   roundIds: string[],
   organizationId: string,
 ): Promise<Map<string, FeishuEvaluationDocumentProjection>> {
-  const latestConversationByRoundId = await loadLatestEndedInterviewConversations(
-    roundIds,
-    organizationId,
-  );
-  const documentUrlsByConversationId = await loadLatestFeishuDocumentUrls({
-    ids: [...latestConversationByRoundId.values()].map((row) => row.conversationId),
-    key: "conversationId",
+  if (roundIds.length === 0) {
+    return new Map();
+  }
+  const [latestConversationByRoundId, rounds] = await Promise.all([
+    loadLatestEndedInterviewConversations(roundIds, organizationId),
+    db
+      .select({ id: aiInterviewRound.id, recordId: aiInterviewRound.recruitingRecordId })
+      .from(aiInterviewRound)
+      .where(
+        and(
+          eq(aiInterviewRound.organizationId, organizationId),
+          inArray(aiInterviewRound.id, roundIds),
+        ),
+      ),
+  ]);
+  const documents = await loadLatestFeishuDocumentUrls({
+    ids: rounds.map((row) => row.recordId),
+    key: "interviewRecordId",
     organizationId,
   });
   return new Map(
-    [...latestConversationByRoundId.entries()].map(([roundId, conversation]) => [
-      roundId,
-      resolveEvaluationDocument(conversation, documentUrlsByConversationId),
-    ]),
+    rounds.map((round) => {
+      const url = documents.get(round.recordId);
+      const conversation = latestConversationByRoundId.get(round.id);
+      let projection: FeishuEvaluationDocumentProjection = { status: "unavailable", url: null };
+      if (url) {
+        projection = { status: "generated", url };
+      } else if (conversation) {
+        projection = resolveEvaluationDocument(conversation, new Map());
+      }
+      return [round.id, projection];
+    }),
   );
 }
 

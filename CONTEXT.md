@@ -650,7 +650,7 @@ A workspace member who may decide the business interview entry gate for candidat
 _Avoid_: Feishu document editor, AI evaluator, human interviewer
 
 **Feishu Review Workspace**:
-The editable Feishu document generated for one AI interview round. Each round has its own document; an explicit Platform Administrator maintenance action may insert or synchronize the wholly system-owned Resume Evaluation and Recommended Interview Questions callouts from their current source data, replacing edits inside those callouts while leaving reviewer-owned sections and all other blocks untouched. Editing or synchronizing the document does not revise a system report version, and gate decisions are submitted in the authenticated system rather than through Feishu callbacks.
+The editable Feishu candidate evaluation document owned by one Candidate Recruiting Record and shared across its AI and human interview rounds. The first automatic AI report delivery or formal human evaluation submission ensures that the document exists; skipping AI does not prevent creation. Document identity and owning Feishu application are stored independently of notification delivery types. Human submissions update their designated round sections, while an explicit Platform Administrator maintenance action may synchronize the wholly system-owned Resume Evaluation and Recommended Interview Questions callouts. Other reviewer-owned content remains untouched. System interview reports remain round-scoped; document updates do not revise them, and gate decisions remain authenticated system actions. See ADR-0037.
 _Avoid_: Report source of truth, report version, unrestricted report editor
 
 **Human Review Input**:

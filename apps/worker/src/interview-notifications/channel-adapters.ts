@@ -6,6 +6,7 @@ import type {
 } from "@app/db-schema/interview-notifications";
 import { InterviewNotificationProviderError } from "@app/shared/interview-notifications";
 import { z } from "zod";
+import { sendInterviewReportReadyFeishuNotification } from "@app/server/ai-interview-report-notification";
 import {
   InterviewNotificationCard,
   renderInterviewNotificationEmailHtml,
@@ -22,7 +23,10 @@ export interface SendInterviewNotificationInput {
   address: string;
   audienceType: InterviewNotificationAudienceType;
   channel: InterviewNotificationChannel;
+  conversationId: string | null;
+  deliveryId: string;
   idempotencyKey: string;
+  interviewRecordId: string;
   providerId: string;
   payload: InterviewNotificationPayloadSnapshot;
   renderedContent: string;
@@ -114,6 +118,18 @@ async function sendFeishu(input: SendInterviewNotificationInput) {
     });
   }
   try {
+    if (input.type === "ai_report_ready") {
+      if (!input.conversationId) {
+        throw new Error("AI 面试报告通知缺少会话 ID。");
+      }
+      return await sendInterviewReportReadyFeishuNotification({
+        conversationId: input.conversationId,
+        interviewRecordId: input.interviewRecordId,
+        notificationId: input.deliveryId,
+        providerId: input.providerId,
+        recipientOpenId: input.address,
+      });
+    }
     const result = await postFeishuDirectCard(
       input.providerId,
       input.address,

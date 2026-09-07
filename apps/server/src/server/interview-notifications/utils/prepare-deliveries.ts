@@ -486,6 +486,7 @@ export async function prepareInterviewNotificationDeliveries(
       await createInterviewNotificationDelivery(database, {
         audienceType: template.audienceType,
         channel: template.channel,
+        conversationId: event.conversationId,
         error: target.errorMessage,
         eventId: event.id,
         interviewRecordId: target.record.id,

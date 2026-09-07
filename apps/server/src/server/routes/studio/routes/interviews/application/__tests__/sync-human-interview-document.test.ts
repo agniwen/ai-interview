@@ -23,15 +23,18 @@ const job = {
   organizationId: "org-1",
   outcome: "pass" as const,
   providerId: "feishu" as const,
+  recruitingRecordId: "record-1",
   roundId: "round-1",
   roundLabel: "架构复面",
   snapshotId: "snapshot-1",
   submittedAt: "2026-09-02T03:00:00.000Z",
   submittedBy: "张面试官",
+  submittedByUserId: "user-1",
 };
 function deps() {
   return {
     claim: vi.fn(() => Promise.resolve(job)),
+    ensureDocument: vi.fn(() => Promise.resolve(job)),
     finish: vi.fn(async () => {}),
     saveBlock: vi.fn(async () => {}),
     updateDocument: vi.fn(async (input: { onBlockCreated: (id: string) => Promise<void> }) => {
@@ -40,6 +43,17 @@ function deps() {
   };
 }
 describe("sync confirmed human interview document", () => {
+  it("ensures and checkpoints the recruiting document before writing a human-only evaluation", async () => {
+    const dependencies = {
+      ...deps(),
+      ensureDocument: vi.fn(() => Promise.resolve({ ...job, documentId: "new-human-document" })),
+    };
+    await syncHumanInterviewDocument(dependencies);
+    expect(dependencies.ensureDocument).toHaveBeenCalledWith(job);
+    expect(dependencies.updateDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: "new-human-document" }),
+    );
+  });
   it("checkpoints the created block and completes the claimed submitted snapshot", async () => {
     const dependencies = deps();
     await syncHumanInterviewDocument(dependencies);

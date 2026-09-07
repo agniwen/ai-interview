@@ -12,6 +12,7 @@ import { db } from "../../../../../../../lib/server/db/index";
 import {
   aiInterviewConversation,
   recruitingNotificationDelivery,
+  recruitingEvaluationDocument,
   member,
   organization,
   aiInterviewRound,
@@ -282,6 +283,14 @@ describe("queryPaginatedInterviewRounds", () => {
       type: "summary_ready",
       updatedAt: NOW,
     });
+    await db.insert(recruitingEvaluationDocument).values({
+      documentId: "round-a1",
+      documentUrl: "https://example.feishu.cn/docx/round-a1",
+      organizationId: ORG,
+      providerId: "feishu",
+      recruitingRecordId: "cand-a",
+      status: "ready",
+    });
 
     try {
       const result = await queryPaginatedInterviewRounds(ORG);
@@ -289,8 +298,14 @@ describe("queryPaginatedInterviewRounds", () => {
       const withoutDocument = result.records.find((record) => record.id === "rnd-a2");
       expect(withDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
       expect(withDocument?.feishuEvaluationDocumentStatus).toBe("generated");
-      expect(withoutDocument?.feishuDocumentUrl).toBeNull();
+      expect(withoutDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
     } finally {
+      await db
+        .delete(recruitingEvaluationDocument)
+        .where(eq(recruitingEvaluationDocument.recruitingRecordId, "cand-a"));
+      await db
+        .delete(recruitingNotificationDelivery)
+        .where(eq(recruitingNotificationDelivery.id, "notification_rounds_dao_feishu_document"));
       await db
         .update(aiInterviewRound)
         .set({ conversationId: null })

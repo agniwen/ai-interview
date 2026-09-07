@@ -1,23 +1,37 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
 import {
   account,
   aiInterviewConversation,
   recruitingNotificationDelivery,
+  recruitingEvaluationDocument,
   member,
   organization,
   user,
 } from "@app/db-schema/schema";
-import type { AgentNotificationStatus, AgentNotificationType } from "@app/db-schema/db-enums";
-import { agentNotificationStatusSchema } from "@app/db-schema/db-enums";
+import type { AgentNotificationType } from "@app/db-schema/db-enums";
+import {
+  interviewNotificationDeliveryStatusSchema,
+  interviewNotificationDeliveryStatusValues,
+} from "@app/db-schema/interview-notifications";
+import type {
+  InterviewNotificationDeliveryStatus,
+  InterviewNotificationEventType,
+} from "@app/db-schema/interview-notifications";
 import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
 import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
-import type { InterviewNotificationEventType } from "@app/db-schema/interview-notifications";
+import { reportConversationId } from "./report-conversation";
 
-export const platformNotificationStatusFilterValues = ["all", "pending", "sent", "failed"] as const;
+export const platformNotificationStatusFilterValues = [
+  "all",
+  ...interviewNotificationDeliveryStatusValues,
+] as const;
+const messageIdentity = sql<
+  string | null
+>`coalesce(${recruitingNotificationDelivery.providerMessageId}, ${recruitingNotificationDelivery.feishuMessageId})`;
 
 export const platformNotificationProviderFilterValues = ["all", ...FEISHU_PROVIDER_IDS] as const;
 const feishuProviderIdSchema = z.enum(FEISHU_PROVIDER_IDS);
@@ -62,7 +76,7 @@ export interface PlatformNotificationRecord {
   };
   scheduleEntryId: string | null;
   sentAt: string | null;
-  status: AgentNotificationStatus;
+  status: InterviewNotificationDeliveryStatus;
   targetRole: string | null;
   type: AgentNotificationType | InterviewNotificationEventType;
   updatedAt: string;
@@ -205,21 +219,21 @@ export async function queryPaginatedPlatformNotifications(
         ilike(user.email, `%${search}%`),
         ilike(recruitingNotificationDelivery.providerId, `%${search}%`),
         ilike(recruitingNotificationDelivery.recipientOpenId, `%${search}%`),
-        ilike(recruitingNotificationDelivery.feishuMessageId, `%${search}%`),
+        ilike(messageIdentity, `%${search}%`),
         ilike(recruitingNotificationDelivery.error, `%${search}%`),
       )
     : undefined;
   const where = and(
-    // Keep the legacy platform view focused on the original AI-report
-    // notifications; interview outbox deliveries have their own operations UI.
-    isNull(recruitingNotificationDelivery.eventId),
+    // Report debugging includes both historical and Worker deliveries.
+    // Other interview events retain their dedicated operations UI.
+    inArray(recruitingNotificationDelivery.type, ["summary_ready", "ai_report_ready"]),
     providerFilter,
     statusFilter,
     searchFilter,
     buildListTextFilterWhere("notifications", query.textFilters, {
       candidateName: recruitingRecordReadModel.candidateName,
       error: recruitingNotificationDelivery.error,
-      messageId: recruitingNotificationDelivery.feishuMessageId,
+      messageId: messageIdentity,
       organizationName: organization.name,
       organizationSlug: organization.slug,
       recipientEmail: user.email,
@@ -233,11 +247,13 @@ export async function queryPaginatedPlatformNotifications(
     db
       .select({
         candidateName: recruitingRecordReadModel.candidateName,
-        conversationId: recruitingNotificationDelivery.conversationId,
+        conversationId: reportConversationId,
         createdAt: recruitingNotificationDelivery.createdAt,
         error: recruitingNotificationDelivery.error,
-        feishuDocumentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
-        feishuMessageId: recruitingNotificationDelivery.feishuMessageId,
+        feishuDocumentUrl: sql<
+          string | null
+        >`coalesce(${recruitingNotificationDelivery.feishuDocumentUrl}, ${recruitingEvaluationDocument.documentUrl})`,
+        feishuMessageId: messageIdentity,
         id: recruitingNotificationDelivery.id,
         interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
         organizationId: organization.id,
@@ -257,13 +273,27 @@ export async function queryPaginatedPlatformNotifications(
         updatedAt: recruitingNotificationDelivery.updatedAt,
       })
       .from(recruitingNotificationDelivery)
+      .leftJoin(
+        recruitingEvaluationDocument,
+        and(
+          eq(
+            recruitingEvaluationDocument.recruitingRecordId,
+            recruitingNotificationDelivery.recruitingRecordId,
+          ),
+          eq(
+            recruitingEvaluationDocument.organizationId,
+            recruitingNotificationDelivery.organizationId,
+          ),
+          eq(recruitingEvaluationDocument.status, "ready"),
+        ),
+      )
       .innerJoin(
         recruitingRecordReadModel,
         eq(recruitingRecordReadModel.id, recruitingNotificationDelivery.recruitingRecordId),
       )
       .leftJoin(
         aiInterviewConversation,
-        eq(aiInterviewConversation.conversationId, recruitingNotificationDelivery.conversationId),
+        eq(aiInterviewConversation.conversationId, reportConversationId),
       )
       .innerJoin(organization, eq(organization.id, recruitingNotificationDelivery.organizationId))
       .leftJoin(user, eq(user.id, recruitingNotificationDelivery.recipientUserId))
@@ -280,7 +310,7 @@ export async function queryPaginatedPlatformNotifications(
       )
       .leftJoin(
         aiInterviewConversation,
-        eq(aiInterviewConversation.conversationId, recruitingNotificationDelivery.conversationId),
+        eq(aiInterviewConversation.conversationId, reportConversationId),
       )
       .innerJoin(organization, eq(organization.id, recruitingNotificationDelivery.organizationId))
       .leftJoin(user, eq(user.id, recruitingNotificationDelivery.recipientUserId))
@@ -314,7 +344,7 @@ export async function queryPaginatedPlatformNotifications(
       },
       scheduleEntryId: row.scheduleEntryId,
       sentAt: toIsoString(row.sentAt),
-      status: agentNotificationStatusSchema.parse(row.status),
+      status: interviewNotificationDeliveryStatusSchema.parse(row.status),
       targetRole: row.targetRole,
       type: row.type,
       updatedAt: row.updatedAt.toISOString(),

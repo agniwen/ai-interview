@@ -16,6 +16,7 @@ import {
   department,
   aiInterviewConversation,
   recruitingNotificationDelivery,
+  recruitingEvaluationDocument,
   jobDescription,
   member,
   organization,
@@ -259,6 +260,14 @@ describe("queryPaginatedResumeRecords", () => {
   });
 
   it("returns the latest generated Feishu document for each candidate", async () => {
+    await db.insert(recruitingEvaluationDocument).values({
+      documentId: "latest",
+      documentUrl: "https://example.feishu.cn/docx/latest",
+      organizationId: ORG_A,
+      providerId: "feishu",
+      recruitingRecordId: "ri_test_a_1",
+      status: "ready",
+    });
     await db.insert(recruitingNotificationDelivery).values([
       {
         createdAt: new Date("2026-05-13T11:00:00.000Z"),
@@ -298,6 +307,9 @@ describe("queryPaginatedResumeRecords", () => {
       await db
         .delete(recruitingNotificationDelivery)
         .where(eq(recruitingNotificationDelivery.recruitingRecordId, "ri_test_a_1"));
+      await db
+        .delete(recruitingEvaluationDocument)
+        .where(eq(recruitingEvaluationDocument.recruitingRecordId, "ri_test_a_1"));
     }
   });
 

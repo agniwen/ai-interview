@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../../lib/server/db/index";
-import { recruitingNotificationDelivery } from "@app/db-schema/schema";
+import { aiInterviewConversation, recruitingEvaluationDocument } from "@app/db-schema/schema";
 
 export async function loadLatestFeishuDocumentUrls({
   ids: inputIds,
@@ -18,23 +18,25 @@ export async function loadLatestFeishuDocumentUrls({
     return result;
   }
 
-  const keyColumn =
-    recruitingNotificationDelivery[key === "interviewRecordId" ? "recruitingRecordId" : key];
-  const rows = await db
-    .select({
-      key: keyColumn,
-      url: recruitingNotificationDelivery.feishuDocumentUrl,
-    })
-    .from(recruitingNotificationDelivery)
-    .where(
-      and(
-        eq(recruitingNotificationDelivery.organizationId, organizationId),
-        inArray(keyColumn, ids),
-        eq(recruitingNotificationDelivery.type, "summary_ready"),
-        isNotNull(recruitingNotificationDelivery.feishuDocumentUrl),
-      ),
-    )
-    .orderBy(desc(recruitingNotificationDelivery.updatedAt));
+  const table = recruitingEvaluationDocument;
+  const scope = and(eq(table.organizationId, organizationId), eq(table.status, "ready"));
+  const rows =
+    key === "interviewRecordId"
+      ? await db
+          .select({ key: table.recruitingRecordId, url: table.documentUrl })
+          .from(table)
+          .where(and(scope, inArray(table.recruitingRecordId, ids)))
+      : await db
+          .select({ key: aiInterviewConversation.conversationId, url: table.documentUrl })
+          .from(table)
+          .innerJoin(
+            aiInterviewConversation,
+            and(
+              eq(aiInterviewConversation.recruitingRecordId, table.recruitingRecordId),
+              eq(aiInterviewConversation.organizationId, table.organizationId),
+            ),
+          )
+          .where(and(scope, inArray(aiInterviewConversation.conversationId, ids)));
 
   for (const row of rows) {
     if (row.key && row.url && !result.has(row.key)) {

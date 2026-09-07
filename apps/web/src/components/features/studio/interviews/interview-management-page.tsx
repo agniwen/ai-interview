@@ -73,6 +73,7 @@ import { useHasPermission } from "@/hooks/use-has-permission";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { CandidateEvaluationDocumentCell } from "@/components/features/studio/interviews/candidate-evaluation-document-cell";
+import { useEvaluationDocumentGenerationPoll } from "@/components/features/studio/interviews/use-evaluation-document-generation-poll";
 
 interface FetchParams {
   page: number;
@@ -153,6 +154,7 @@ export function InterviewManagementPage() {
     queryFn: fetchRounds,
     queryKeyBase: ["studio-interviews", slug],
   });
+  const evaluationDocumentPoll = useEvaluationDocumentGenerationPoll(grid.queryKey);
 
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
@@ -275,9 +277,13 @@ export function InterviewManagementPage() {
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "生成候选人评价表失败");
     },
-    onSuccess: () => {
-      toast.success("候选人评价表已生成");
-      invalidateAll();
+    onSuccess: (result, roundId) => {
+      if (result.feishuDocumentUrl) {
+        toast.success("候选人评价表已生成");
+        invalidateAll();
+        return;
+      }
+      evaluationDocumentPoll.start(roundId);
     },
   });
 
@@ -414,7 +420,8 @@ export function InterviewManagementPage() {
           <CandidateEvaluationDocumentCell
             canGenerate={canUpdateInterview}
             generating={
-              isGeneratingEvaluationDocument && generatingEvaluationDocumentRoundId === r.id
+              (isGeneratingEvaluationDocument && generatingEvaluationDocumentRoundId === r.id) ||
+              evaluationDocumentPoll.queuedRoundIds.has(r.id)
             }
             onGenerate={generateEvaluationDocument}
             row={r}
@@ -480,6 +487,7 @@ export function InterviewManagementPage() {
       generateEvaluationDocument,
       generatingEvaluationDocumentRoundId,
       isGeneratingEvaluationDocument,
+      evaluationDocumentPoll.queuedRoundIds,
     ],
   );
 

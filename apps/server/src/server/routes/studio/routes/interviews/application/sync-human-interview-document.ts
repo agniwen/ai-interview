@@ -2,20 +2,31 @@ import type { HumanInterviewDocumentContent } from "../../../../../integrations/
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 
 export interface HumanInterviewDocumentSyncJob extends HumanInterviewDocumentContent {
+  recruitingRecordId: string;
+  submittedByUserId: string | null;
   snapshotId: string;
   deadlineAt: number;
   roundId: string;
   organizationId: string;
   leaseOwner: string;
-  documentId: string;
-  documentUrl: string;
-  providerId: FeishuProviderId;
+  documentId: string | null;
+  documentUrl: string | null;
+  providerId: FeishuProviderId | null;
   blockId: string | null;
   attemptCount: number;
   ratingOnly?: boolean;
 }
 
+export type ResolvedHumanInterviewDocumentSyncJob = HumanInterviewDocumentSyncJob & {
+  documentId: string;
+  documentUrl: string;
+  providerId: FeishuProviderId;
+};
+
 export interface HumanInterviewDocumentSyncDependencies {
+  ensureDocument(
+    job: HumanInterviewDocumentSyncJob,
+  ): Promise<ResolvedHumanInterviewDocumentSyncJob>;
   // null means no due work; deferred means a due row was postponed and scanning can continue.
   claim(): Promise<HumanInterviewDocumentSyncJob | "deferred" | null>;
   saveBlock(job: HumanInterviewDocumentSyncJob, blockId: string): Promise<void>;
@@ -24,7 +35,9 @@ export interface HumanInterviewDocumentSyncDependencies {
     result: { status: "synced" | "failed"; error: string | null },
   ): Promise<void>;
   updateDocument(
-    input: HumanInterviewDocumentSyncJob & { onBlockCreated: (blockId: string) => Promise<void> },
+    input: ResolvedHumanInterviewDocumentSyncJob & {
+      onBlockCreated: (blockId: string) => Promise<void>;
+    },
   ): Promise<void>;
 }
 
@@ -42,8 +55,9 @@ export async function syncHumanInterviewDocument(
     if (Date.now() >= job.deadlineAt) {
       throw new Error("评价表同步任务已超时，将自动重试");
     }
+    const resolved = await dependencies.ensureDocument(job);
     await dependencies.updateDocument({
-      ...job,
+      ...resolved,
       onBlockCreated: (blockId) => dependencies.saveBlock(job, blockId),
     });
     await dependencies.finish(job, { error: null, status: "synced" });

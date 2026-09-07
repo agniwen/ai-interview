@@ -121,6 +121,9 @@ interface CreateFeishuDocxOptions {
   folderToken?: string;
   recipientOpenId: string;
   title: string;
+  existingDocumentId?: string;
+  onDocumentCreated?: (documentId: string) => Promise<void>;
+  initializationKey?: string;
 }
 
 interface GrantFeishuDocxAccessOptions {
@@ -725,16 +728,22 @@ export async function createFeishuDocx(
   options: CreateFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
 ): Promise<{ documentId: string; documentUrl: string }> {
-  const created = await requestFeishu(
-    "/docx/v1/documents",
-    options.accessToken,
-    { title: options.title },
-    createDocumentResponseSchema,
-    dependencies,
-  );
+  const created = options.existingDocumentId
+    ? { document: { document_id: options.existingDocumentId } }
+    : await requestFeishu(
+        "/docx/v1/documents",
+        options.accessToken,
+        { title: options.title },
+        createDocumentResponseSchema,
+        dependencies,
+      );
   const documentId = created.document?.document_id;
   if (!documentId) {
     throw new Error("Feishu create document response did not include document_id");
+  }
+  // Persist external identity before any potentially slow document edits.
+  if (!options.existingDocumentId) {
+    await options.onDocumentCreated?.(documentId);
   }
   await dependencies.sleep(EDIT_THROTTLE_MS);
 
@@ -751,6 +760,8 @@ export async function createFeishuDocx(
     documentBlocks,
     options.accessToken,
     dependencies,
+    undefined,
+    options.initializationKey ? `${options.initializationKey}:top-level` : undefined,
   );
 
   if (options.attachment) {
@@ -782,6 +793,7 @@ export async function createFeishuDocx(
     topLevelBlocks,
     options.accessToken,
     dependencies,
+    options.initializationKey ? { clientTokenSeed: options.initializationKey } : undefined,
   );
 
   await grantFeishuDocxAccess(

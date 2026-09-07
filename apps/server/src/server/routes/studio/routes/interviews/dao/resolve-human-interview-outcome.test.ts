@@ -246,6 +246,17 @@ describe("resolve historical human interview outcome", () => {
       const dao = createHumanInterviewDocumentSyncDao(db);
       await syncHumanInterviewDocument({
         ...dao,
+        ensureDocument: (job) => {
+          if (!job.documentId || !job.documentUrl || !job.providerId) {
+            throw new Error("missing fixture document");
+          }
+          return Promise.resolve({
+            ...job,
+            documentId: job.documentId,
+            documentUrl: job.documentUrl,
+            providerId: job.providerId,
+          });
+        },
         updateDocument: (job) =>
           updateFeishuDocxHumanInterviewEvaluation(
             { ...job, accessToken: "test-token", block: buildHumanInterviewEvaluationBlock(job) },

@@ -1,12 +1,16 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
-import { account, recruitingNotificationDelivery } from "@app/db-schema/schema";
+import {
+  account,
+  recruitingEvaluationDocument,
+  recruitingNotificationDelivery,
+} from "@app/db-schema/schema";
 import { generateFeishuHrEvaluationWithPromptForInterview } from "../../../agent/utils/feishu-hr-evaluation";
 import {
   buildHrInterviewEvaluationBlock,
@@ -21,8 +25,28 @@ import {
 import type { InterviewEvaluationStructureSection } from "../../../../integrations/feishu/feishu-docx";
 import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
 import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
+import { reportConversationId } from "./report-conversation";
 
 const feishuProviderIdSchema = z.enum(FEISHU_PROVIDER_IDS);
+const documentOwnerJoin = and(
+  eq(
+    recruitingEvaluationDocument.recruitingRecordId,
+    recruitingNotificationDelivery.recruitingRecordId,
+  ),
+  eq(recruitingEvaluationDocument.organizationId, recruitingNotificationDelivery.organizationId),
+  eq(recruitingEvaluationDocument.status, "ready"),
+  or(
+    isNull(recruitingNotificationDelivery.feishuDocumentUrl),
+    eq(recruitingEvaluationDocument.documentUrl, recruitingNotificationDelivery.feishuDocumentUrl),
+  ),
+);
+const documentProvider = sql<string>`coalesce(${recruitingEvaluationDocument.providerId}, ${recruitingNotificationDelivery.providerId})`;
+const selectedDocumentId = sql<
+  string | null
+>`coalesce(${recruitingNotificationDelivery.feishuDocumentId}, ${recruitingEvaluationDocument.documentId})`;
+const documentUrl = sql<
+  string | null
+>`coalesce(${recruitingNotificationDelivery.feishuDocumentUrl}, ${recruitingEvaluationDocument.documentUrl})`;
 
 interface NotificationDocumentRow {
   documentId: string | null;
@@ -78,12 +102,13 @@ const defaultDependencies: PlatformNotificationDependencies = {
     const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
-        documentId: recruitingNotificationDelivery.feishuDocumentId,
-        documentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
-        providerId: recruitingNotificationDelivery.providerId,
+        documentId: selectedDocumentId,
+        documentUrl,
+        providerId: documentProvider,
         recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
       })
       .from(recruitingNotificationDelivery)
+      .leftJoin(recruitingEvaluationDocument, documentOwnerJoin)
       .where(eq(recruitingNotificationDelivery.id, notificationId))
       .limit(1);
     return notification ?? null;
@@ -93,7 +118,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
     const [notification] = await db
       .select({
         candidateName: recruitingRecordReadModel.candidateName,
-        conversationId: recruitingNotificationDelivery.conversationId,
+        conversationId: reportConversationId,
         interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
         type: recruitingNotificationDelivery.type,
       })
@@ -113,15 +138,16 @@ const defaultStructureDependencies: PlatformNotificationStructureDependencies = 
     const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
-        documentId: recruitingNotificationDelivery.feishuDocumentId,
-        documentUrl: recruitingNotificationDelivery.feishuDocumentUrl,
+        documentId: selectedDocumentId,
+        documentUrl,
         interviewQuestions: recruitingRecordReadModel.interviewQuestions,
-        providerId: recruitingNotificationDelivery.providerId,
+        providerId: documentProvider,
         qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
         resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
         type: recruitingNotificationDelivery.type,
       })
       .from(recruitingNotificationDelivery)
+      .leftJoin(recruitingEvaluationDocument, documentOwnerJoin)
       .innerJoin(
         recruitingRecordReadModel,
         eq(recruitingRecordReadModel.id, recruitingNotificationDelivery.recruitingRecordId),
@@ -196,12 +222,12 @@ export async function grantPlatformNotificationDocumentAccess(
     );
   }
 
-  if (currentUserAccount !== notification.recipientOpenId) {
-    await dependencies.grantDocumentAccess(notification.providerId, {
-      documentId: notification.documentId,
-      recipientOpenId: currentUserAccount,
-    });
-  }
+  // The original notification account does not prove current access, especially
+  // when the shared document belongs to a different Feishu application.
+  await dependencies.grantDocumentAccess(notification.providerId, {
+    documentId: notification.documentId,
+    recipientOpenId: currentUserAccount,
+  });
 
   return { documentUrl: notification.documentUrl };
 }
@@ -215,7 +241,10 @@ export async function previewPlatformFeishuNotification(
   if (!notification) {
     throw new NotificationDocumentAccessError("NOTIFICATION_NOT_FOUND", "通知记录不存在", 404);
   }
-  if (notification.type !== "summary_ready" || !notification.conversationId) {
+  if (
+    !["summary_ready", "ai_report_ready"].includes(notification.type) ||
+    !notification.conversationId
+  ) {
     throw new NotificationDocumentAccessError(
       "PREVIEW_NOT_AVAILABLE",
       "该通知没有可供 AI 调试的面试会话",
@@ -254,7 +283,7 @@ export async function updatePlatformNotificationDocumentStructure(
       409,
     );
   }
-  if (notification.type !== "summary_ready") {
+  if (!["summary_ready", "ai_report_ready"].includes(notification.type)) {
     throw new NotificationDocumentAccessError(
       "STRUCTURE_UPDATE_NOT_AVAILABLE",
       "只有 AI 面试报告通知支持更新文档结构",

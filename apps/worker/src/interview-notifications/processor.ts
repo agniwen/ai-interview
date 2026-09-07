@@ -42,7 +42,10 @@ export interface InterviewNotificationProcessorDependencies {
     address: string;
     audienceType: InterviewNotificationAudienceType;
     channel: InterviewNotificationChannel;
+    conversationId: string | null;
+    deliveryId: string;
     idempotencyKey: string;
+    interviewRecordId: string;
     providerId: string;
     payload: InterviewNotificationPayloadSnapshot;
     renderedContent: string;
@@ -175,7 +178,10 @@ async function processInterviewNotificationEventPromise(
         address: claimed.recipientAddress,
         audienceType: claimed.audienceType,
         channel: claimed.channel,
+        conversationId: event.conversationId,
+        deliveryId: claimed.id,
         idempotencyKey: claimed.providerRequestKey,
+        interviewRecordId: claimed.recruitingRecordId,
         payload: event.payloadSnapshot,
         providerId: claimed.providerId,
         renderedContent: claimed.renderedContent ?? "",

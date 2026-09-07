@@ -9,6 +9,7 @@ import {
   recruitingNodeState,
   recruitingFormSubmission,
   humanInterviewEvaluationDocumentSync,
+  recruitingEvaluationDocument,
   recruitingEvent,
   recruitingContextSnapshot,
   aiInterviewConversation,
@@ -41,7 +42,7 @@ import {
 import { getTableName, sql } from "drizzle-orm";
 import type { RecruitingExecutor } from "./recruiting-records";
 
-// 仅检查当前招聘模型的 38 张业务表；迁移台账和旧归档表不参与运行时删除决策。
+// 仅检查当前招聘模型的业务表；迁移台账和旧归档表不参与运行时删除决策。
 const recruitingTables = [
   candidate,
   candidateResume,
@@ -53,6 +54,7 @@ const recruitingTables = [
   recruitingNodeState,
   recruitingFormSubmission,
   humanInterviewEvaluationDocumentSync,
+  recruitingEvaluationDocument,
   recruitingEvent,
   recruitingContextSnapshot,
   aiInterviewConversation,

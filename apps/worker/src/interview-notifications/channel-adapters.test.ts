@@ -6,6 +6,12 @@ const mocks = vi.hoisted(() => ({
   buildSenderFromAddress: vi.fn(() => "示例科技 AI HR <noreply@example.com>"),
   postFeishuDirectCard: vi.fn(),
   resendSend: vi.fn(),
+  sendInterviewReportReadyFeishuNotification: vi.fn(),
+}));
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- isolates the Server-owned rich report sender boundary
+vi.mock("@app/server/ai-interview-report-notification", () => ({
+  sendInterviewReportReadyFeishuNotification: mocks.sendInterviewReportReadyFeishuNotification,
 }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- isolates the Resend provider boundary
@@ -19,7 +25,10 @@ vi.mock("./providers", () => ({
 const baseInput = {
   address: "recipient@example.com",
   audienceType: "candidate" as const,
+  conversationId: null,
+  deliveryId: "delivery-1",
   idempotencyKey: "event:email:recipient",
+  interviewRecordId: "record-1",
   payload: {
     candidateName: "张三",
     companyName: "示例科技",
@@ -72,6 +81,33 @@ describe("interview notification channel adapters", () => {
 
     expect(mocks.postFeishuDirectCard).toHaveBeenCalledOnce();
     expect(toCardElement(mocks.postFeishuDirectCard.mock.calls[0]?.[2])?.type).toBe("card");
+  });
+
+  it("generates the evaluation document and sends the full report card for AI reports", async () => {
+    mocks.sendInterviewReportReadyFeishuNotification.mockResolvedValue({
+      providerMessageId: "feishu-report-message-1",
+    });
+
+    await expect(
+      sendInterviewNotification({
+        ...baseInput,
+        address: "feishu-open-id",
+        audienceType: "initiator_fallback",
+        channel: "feishu",
+        conversationId: "conversation-1",
+        providerId: "feishu-jiguang-hr",
+        type: "ai_report_ready",
+      }),
+    ).resolves.toEqual({ providerMessageId: "feishu-report-message-1" });
+
+    expect(mocks.sendInterviewReportReadyFeishuNotification).toHaveBeenCalledWith({
+      conversationId: "conversation-1",
+      interviewRecordId: "record-1",
+      notificationId: "delivery-1",
+      providerId: "feishu-jiguang-hr",
+      recipientOpenId: "feishu-open-id",
+    });
+    expect(mocks.postFeishuDirectCard).not.toHaveBeenCalled();
   });
 
   it("keeps the Feishu provider failure visible to the notification retry policy", async () => {
