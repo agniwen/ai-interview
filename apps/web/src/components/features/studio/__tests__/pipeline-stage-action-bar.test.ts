@@ -47,6 +47,24 @@ describe("流程回退入口", () => {
 });
 
 describe("真实节点推进与状态标签区分", () => {
+  it("复试阶段无需复试结论即可进入终试", () => {
+    const markup = renderToStaticMarkup(
+      createElement(PipelineStageActionBar, {
+        canCreateHumanInterview: true,
+        currentNodePassed: false,
+        hasJobDescription: true,
+        onAdvance: vi.fn(),
+        onRequestClose: vi.fn(),
+        onRequestReactivate: vi.fn(),
+        onViewCurrentStage: vi.fn(),
+        pipelineStage: "second_interview",
+      }),
+    );
+
+    expect(markup).toContain("进入终试");
+    expect(markup).not.toContain('aria-disabled="true"');
+  });
+
   it.each([
     ["income_proof", "进入谈薪"],
     ["offer", "进入背调"],

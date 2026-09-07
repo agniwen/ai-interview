@@ -27,7 +27,7 @@ export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
       interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
       reason: reason.optional(),
       skipNodes: z
-        .array(z.enum(["screening", "ai_interview"]))
+        .array(z.enum(["screening", "ai_interview", "second_interview"]))
         .max(2)
         .optional(),
       targetNode: recruitingPipelineNodeSchema,

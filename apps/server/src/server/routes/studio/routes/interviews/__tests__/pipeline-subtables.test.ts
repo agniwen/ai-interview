@@ -296,6 +296,56 @@ describe("human interview rounds DAO", () => {
     expect(round2.interviewers).toHaveLength(2);
   });
 
+  it("已完成复试且历史筛选为跳过时仍可继续安排复试", async () => {
+    await clearSubtables();
+    const completedRound = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A],
+        label: "已通过复试",
+        roundKind: "second_interview",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    await completeHumanInterviewRound({
+      feedback: "通过",
+      organizationId: ORG,
+      outcome: "pass",
+      roundId: completedRound.id,
+    });
+    await db
+      .update(recruitingNodeState)
+      .set({ result: null, status: "skipped" })
+      .where(
+        sql`${recruitingNodeState.recruitingRecordId} = ${RECORD_ID} AND ${recruitingNodeState.node} = 'screening'`,
+      );
+
+    const nextRound = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_B],
+        label: "追加复试",
+        roundKind: "second_interview",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+
+    expect(nextRound).toMatchObject({ sortOrder: 1, status: "pending" });
+    const [node] = await db
+      .select()
+      .from(recruitingNodeState)
+      .where(
+        sql`${recruitingNodeState.recruitingRecordId} = ${RECORD_ID} AND ${recruitingNodeState.node} = 'second_interview'`,
+      );
+    expect(node).toMatchObject({
+      effectiveHumanRoundId: nextRound.id,
+      result: null,
+      status: "scheduled",
+    });
+  });
+
   it("创建真人面试原子进入复试，进入 Offer 后不能创建真人轮次", async () => {
     await clearSubtables();
     await resetCandidateStage("ai_interview");

@@ -416,7 +416,10 @@ function getStageActions(props: {
   if (["income_proof", "offer", "background_check"].includes(target) && !props.canCreateOffer) {
     return baseActions;
   }
-  const allowed = pipelineStage === "screening" || props.currentNodePassed;
+  const allowed =
+    pipelineStage === "screening" ||
+    pipelineStage === "second_interview" ||
+    props.currentNodePassed;
   let advanceLabel = target === "offer" ? "进入谈薪" : `进入${pipelineStageMeta[target].label}`;
   if (pipelineStage === "screening") {
     advanceLabel = "直接安排复试";

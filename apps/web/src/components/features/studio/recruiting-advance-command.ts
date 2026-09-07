@@ -15,6 +15,15 @@ export function buildRecruitingAdvanceCommand(
     }
     return { action: "screening_advance", expectedVersion: current.version, targetNode: target };
   }
+  if (current.pipelineStage === "second_interview" && target === "final_interview") {
+    return {
+      action: "advance",
+      expectedVersion: current.version,
+      reason: "直接进入终试，复试节点明确跳过",
+      skipNodes: ["second_interview"],
+      targetNode: target,
+    };
+  }
   return {
     action: "advance",
     expectedVersion: current.version,

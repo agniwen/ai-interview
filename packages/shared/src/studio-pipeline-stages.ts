@@ -283,7 +283,7 @@ export type RecruitingPipelineAction =
       expectedVersion: number;
       interviewQuestions?: InterviewQuestion[];
       reason?: string;
-      skipNodes?: ("screening" | "ai_interview")[];
+      skipNodes?: ("screening" | "ai_interview" | "second_interview")[];
       targetNode: RecruitingNode;
     }
   | {

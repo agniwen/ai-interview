@@ -2,9 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   buildHumanInterviewMeetingTitle,
   canCompleteHumanInterviewRound,
+  canShowHumanInterviewScheduleAction,
   getHumanInterviewBusinessRoundNumbers,
   getHumanInterviewScheduleBlockReason,
 } from "./human-interview-stage-utils";
+
+describe("canShowHumanInterviewScheduleAction", () => {
+  it("shows the action for an existing human-interview stage without requiring screening state", () => {
+    expect(canShowHumanInterviewScheduleAction("second_interview", true, true)).toBe(true);
+    expect(canShowHumanInterviewScheduleAction("final_interview", true, true)).toBe(true);
+  });
+
+  it("keeps permission and stage boundaries", () => {
+    expect(canShowHumanInterviewScheduleAction("ai_interview", true, true)).toBe(false);
+    expect(canShowHumanInterviewScheduleAction("second_interview", false, true)).toBe(false);
+    expect(canShowHumanInterviewScheduleAction("second_interview", true, false)).toBe(false);
+  });
+});
 
 describe("canCompleteHumanInterviewRound", () => {
   it("does not expose the retired direct-completion action after a meeting ends", () => {

@@ -21,6 +21,7 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
+import { canShowHumanInterviewScheduleAction } from "./human-interview-stage-utils";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import {
@@ -288,11 +289,11 @@ export function buildStudioPersonDetailHeader({
                 )) && (
                 <RecruitingNodeActions key={`node:${resumeRecord.id}`} record={resumeRecord} />
               )}
-            {(actionBarPipelineStage === "second_interview" ||
-              actionBarPipelineStage === "final_interview") &&
-            canCreateHumanInterview &&
-            resumeRecord?.resumeEvaluationStatus === "pass" &&
-            canReadHumanInterview ? (
+            {canShowHumanInterviewScheduleAction(
+              actionBarPipelineStage,
+              canCreateHumanInterview,
+              canReadHumanInterview,
+            ) ? (
               <ScheduleHumanInterviewButton
                 onScheduled={() => onInterviewStageReady(actionBarPipelineStage)}
                 targetStage={actionBarPipelineStage}

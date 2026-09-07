@@ -29,4 +29,19 @@ describe("recruiting advance commands", () => {
       targetNode: "second_interview",
     });
   });
+
+  it("allows the second-interview stage to be skipped when entering the final interview", () => {
+    expect(
+      buildRecruitingAdvanceCommand(
+        { pipelineStage: "second_interview", version: 9 },
+        "final_interview",
+      ),
+    ).toEqual({
+      action: "advance",
+      expectedVersion: 9,
+      reason: "直接进入终试，复试节点明确跳过",
+      skipNodes: ["second_interview"],
+      targetNode: "final_interview",
+    });
+  });
 });

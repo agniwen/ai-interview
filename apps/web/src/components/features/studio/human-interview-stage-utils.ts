@@ -1,4 +1,5 @@
 import { humanInterviewRoundOutcomeMeta } from "@app/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/studio-interviews";
 /* oxlint-disable no-use-before-define -- status helpers compose one another */
 import type {
   HumanInterviewMeetingRecord,
@@ -8,6 +9,18 @@ import type {
 interface HumanInterviewStatusDescription {
   label: string;
   tone: "success" | "warning" | "info" | "outline";
+}
+
+export function canShowHumanInterviewScheduleAction(
+  pipelineStage: PipelineStage | undefined,
+  canCreate: boolean,
+  canRead: boolean,
+): pipelineStage is "second_interview" | "final_interview" {
+  return (
+    canCreate &&
+    canRead &&
+    (pipelineStage === "second_interview" || pipelineStage === "final_interview")
+  );
 }
 
 export function getHumanInterviewBusinessRoundNumbers(

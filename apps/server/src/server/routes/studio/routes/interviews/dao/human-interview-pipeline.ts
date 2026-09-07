@@ -1,5 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
+  reopenRecruitingRecordTx,
   transitionRecruitingNodeTx,
   updateRecruitingNodeTx,
 } from "@app/database/recruiting-pipeline";
@@ -8,7 +9,22 @@ import { recruitingRecord, recruitingNodeState, humanInterviewRound } from "@app
 import { EditRoundError } from "./human-interview-round-errors";
 import type { CreateRoundOptions } from "./human-interview-rounds";
 
-// oxlint-disable-next-line complexity -- 直接入面试与正常复试晋级在同一事务验证当前有效依据。
+export function planHumanInterviewRoundCreation(input: {
+  currentStage: string;
+  nodeStatus: string | null | undefined;
+  roundKind: "second_interview" | "final_interview";
+  screeningResult: string | null | undefined;
+}) {
+  return {
+    requiresPassedScreening:
+      (input.currentStage === "screening" || input.currentStage === "ai_interview") &&
+      input.screeningResult !== "pass",
+    shouldReopenCurrentNode:
+      input.currentStage === input.roundKind && input.nodeStatus === "completed",
+  };
+}
+
+// oxlint-disable-next-line complexity -- 直接入面试、已完成节点重开与有效轮次校验必须在同一事务完成。
 export async function assertCanCreateHumanInterviewRound(
   tx: Tx,
   options: CreateRoundOptions,
@@ -33,16 +49,25 @@ export async function assertCanCreateHumanInterviewRound(
   if (record.currentStage === "closed") {
     throw new EditRoundError("招聘已结束，请先重新激活。", 409);
   }
-  const [screening] = await tx
+  const nodeRows = await tx
     .select()
     .from(recruitingNodeState)
     .where(
       and(
         eq(recruitingNodeState.recruitingRecordId, interviewRecordId),
-        eq(recruitingNodeState.node, "screening"),
+        eq(recruitingNodeState.organizationId, organizationId),
+        inArray(recruitingNodeState.node, ["screening", input.roundKind]),
       ),
     );
-  if (screening?.result !== "pass") {
+  const screening = nodeRows.find((row) => row.node === "screening");
+  let node = nodeRows.find((row) => row.node === input.roundKind);
+  const creationPlan = planHumanInterviewRoundCreation({
+    currentStage: record.currentStage,
+    nodeStatus: node?.status,
+    roundKind: input.roundKind,
+    screeningResult: screening?.result,
+  });
+  if (creationPlan.requiresPassedScreening) {
     throw new EditRoundError("请先将简历筛选标记为通过，再发起真人面试。", 409);
   }
   if (record.currentStage !== input.roundKind) {
@@ -63,9 +88,10 @@ export async function assertCanCreateHumanInterviewRound(
       record.currentStage === "screening" ? ["screening", "ai_interview"] : ["ai_interview"];
     const skipNodes = direct
       ? previous.filter(
-          (node) =>
+          (previousNode) =>
             !rows.some(
-              (row) => row.node === node && row.status === "completed" && row.result === "pass",
+              (row) =>
+                row.node === previousNode && row.status === "completed" && row.result === "pass",
             ),
         )
       : [];
@@ -78,20 +104,27 @@ export async function assertCanCreateHumanInterviewRound(
       skipNodes,
       targetNode: input.roundKind,
     });
+    [node] = await tx
+      .select()
+      .from(recruitingNodeState)
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, interviewRecordId),
+          eq(recruitingNodeState.node, input.roundKind),
+        ),
+      );
   }
-  const [node] = await tx
-    .select()
-    .from(recruitingNodeState)
-    .where(
-      and(
-        eq(recruitingNodeState.recruitingRecordId, interviewRecordId),
-        eq(recruitingNodeState.node, input.roundKind),
-      ),
-    );
-  if (node?.status === "completed") {
-    throw new EditRoundError("该节点已完成，请进入下一节点或先回退重新确认。", 409);
+  if (creationPlan.shouldReopenCurrentNode) {
+    await reopenRecruitingRecordTx(tx, {
+      expectedVersion: input.expectedVersion,
+      operatorId: actorUserId,
+      organizationId,
+      reason: "继续安排真人面试，重新打开当前面试节点",
+      recordId: interviewRecordId,
+      targetNode: input.roundKind,
+    });
   }
-  if (node?.effectiveHumanRoundId) {
+  if (!creationPlan.shouldReopenCurrentNode && node?.effectiveHumanRoundId) {
     const [round] = await tx
       .select()
       .from(humanInterviewRound)

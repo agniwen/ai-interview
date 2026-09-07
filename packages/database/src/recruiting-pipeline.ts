@@ -21,6 +21,7 @@ import type { CandidateOutcome } from "@app/db-schema/studio-interviews";
 import type { Database } from "./index";
 import { reopenInterviewEvidence } from "./recruiting-reopen-evidence";
 import { invalidateRecruitingNodeNotificationsTx } from "./recruiting-notification-invalidation";
+import { getRecruitingTransitionSkipIssue } from "./recruiting-transition-skip";
 
 export type RecruitingTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type RecordRow = typeof recruitingRecord.$inferSelect;
@@ -191,7 +192,27 @@ const clearNodeEvidence = {
   result: null,
 } as const;
 
-/** 显式推进；不会因为某个旧轮次曾经通过，就将它重新当作当前结果。 */
+function validateSkippedTransition(
+  input: { reason?: string; targetNode: RecruitingNode },
+  skipped: Set<RecruitingNode>,
+  traversed: RecruitingNode[],
+) {
+  const issue = getRecruitingTransitionSkipIssue(input.targetNode, skipped, traversed);
+  if (issue === "outside_transition") {
+    throw new RecruitingPipelineError("只能跳过本次推进途经的节点。", "invalid");
+  }
+  if (skipped.size === 0) {
+    return;
+  }
+  requireReason(input.reason);
+  if (issue === "unsupported_transition") {
+    throw new RecruitingPipelineError(
+      "只允许直接进入复试时跳过 AI 初面，或直接进入终试时跳过复试。",
+      "invalid",
+    );
+  }
+}
+
 export async function transitionRecruitingNodeTx(
   tx: RecruitingTransaction,
   input: RecruitingPipelineCommand & {
@@ -216,18 +237,7 @@ export async function transitionRecruitingNodeTx(
   }
   const traversed = recruitingNodeValues.slice(start, end);
   const skipped = new Set(input.skipNodes);
-  if ([...skipped].some((node) => !traversed.includes(node))) {
-    throw new RecruitingPipelineError("只能跳过本次推进途经的节点。", "invalid");
-  }
-  if (skipped.size > 0) {
-    requireReason(input.reason);
-    if (
-      end > recruitingNodeValues.indexOf("second_interview") ||
-      [...skipped].some((node) => node !== "ai_interview")
-    ) {
-      throw new RecruitingPipelineError("只允许在直接安排真人面试时明确跳过 AI 初面。", "invalid");
-    }
-  }
+  validateSkippedTransition(input, skipped, traversed);
   for (const node of traversed) {
     const existing = nodes.find((row) => row.node === node);
     if (
@@ -498,7 +508,6 @@ async function closeLocked(
   );
 }
 
-/** 结束只改变流程状态；不删除轮次、材料或评价，也不发送外部通知。 */
 export async function closeRecruitingRecordTx(
   tx: RecruitingTransaction,
   input: RecruitingPipelineCommand & {
@@ -757,7 +766,6 @@ export async function syncHumanInterviewRoundNodeTx(
   return true;
 }
 
-/** 筛选台显式推进：确认合格和进入面试节点必须一并成功，不创建面试轮次。 */
 export async function advanceScreeningRecruitingNodeTx(
   tx: RecruitingTransaction,
   input: RecruitingPipelineCommand & { targetNode: "ai_interview" | "second_interview" },

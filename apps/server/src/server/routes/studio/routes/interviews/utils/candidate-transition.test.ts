@@ -42,6 +42,17 @@ describe("招聘动作输入", () => {
       }).success,
     ).toBe(true);
   });
+  it("允许显式跳过复试直接进入终试", () => {
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        action: "advance",
+        expectedVersion: 2,
+        reason: "直接进入终试，复试节点明确跳过",
+        skipNodes: ["second_interview"],
+        targetNode: "final_interview",
+      }).success,
+    ).toBe(true);
+  });
   it("回开必须填写原因，并只恢复待处理状态", () => {
     const base = {
       action: "reopen",
