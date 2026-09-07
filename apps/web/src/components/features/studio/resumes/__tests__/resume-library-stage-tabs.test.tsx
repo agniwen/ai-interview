@@ -21,6 +21,7 @@ import {
 import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import { ResumeLibraryPageShell } from "../resume-library-page-shell";
 import { coerceSearchParams, useResumeLibrarySearchState } from "../resume-library-page-model";
+import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { ResumeLibraryGridState, SearchParamsRecord } from "../resume-library-page-model";
 
 enableReactActEnvironment();
@@ -44,6 +45,7 @@ function Harness() {
   }, [grid, search]);
   return (
     <ResumeLibraryPageShell
+      fixedRecruitingGroup={firstSearchValue(search.boardPreset)}
       grid={grid}
       metrics={undefined}
       metricsChartKey="team:0"
@@ -111,7 +113,7 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
-describe("recruitment stage tabs", () => {
+describe("recruitment board filter state", () => {
   it("resets pagination and query cache when creation dates change while preserving stage", async () => {
     await renderPage({
       createdAtRange: "custom:2026-08-01:2026-08-20",
@@ -145,6 +147,40 @@ describe("recruitment stage tabs", () => {
       }),
     ).not.toEqual(previousKey);
   });
+  it("keeps the route stage out of the visible toolbar filter state", async () => {
+    await renderPage({ stage: "second_interview" });
+    expect(currentGrid.bind.canResetFilters).toBe(false);
+    expect(currentGrid.bind.filterValues).not.toHaveProperty("stage");
+  });
+
+  it("hides the fixed sidebar stage while keeping its subflow filters available", async () => {
+    await renderPage({ boardPreset: "interview", stage: "interview:all" });
+    expect(document.querySelector("h1")?.textContent).toBe("招聘台·面试");
+    expect(document.querySelectorAll('[data-slot="metrics-card-skeleton"]')).toHaveLength(2);
+    expect(document.querySelector('[role="tablist"][aria-label="招聘阶段"]')).toBeNull();
+    expect(
+      [...document.querySelectorAll('[role="tablist"][aria-label="面试子流程"] [role="tab"]')].map(
+        (item) => item.textContent,
+      ),
+    ).toEqual(["全部", "AI 初面", "复试", "终试"]);
+    const secondInterview = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+      (item) => item.textContent === "复试",
+    );
+    act(() => secondInterview?.click());
+    await flushReactUpdates();
+    expect(currentSearch).toMatchObject({
+      boardPreset: "interview",
+      page: 1,
+      stage: "interview:second",
+    });
+  });
+
+  it("falls back to the fixed stage when a restored URL contains a conflicting subflow", async () => {
+    await renderPage({ boardPreset: "interview", stage: "offer:send" });
+    expect(currentGrid.filters.stage).toBe("interview:all");
+    expect(tab("全部", "面试子流程").getAttribute("aria-selected")).toBe("true");
+  });
+
   it("restores all recruitment stage tabs and reads the selected stage from the URL", async () => {
     await renderPage({ stage: "second_interview" });
     expect(
@@ -157,13 +193,11 @@ describe("recruitment stage tabs", () => {
         (item) => item.textContent,
       ),
     ).toEqual(["全部", "AI 初面", "复试", "终试"]);
-    expect(tab("面试")?.getAttribute("aria-selected")).toBe("true");
-    expect(tab("复试")?.getAttribute("aria-selected")).toBe("true");
-    expect(currentGrid.bind.canResetFilters).toBe(false);
-    expect(currentGrid.bind.filterValues).not.toHaveProperty("stage");
+    expect(tab("面试").getAttribute("aria-selected")).toBe("true");
+    expect(tab("复试").getAttribute("aria-selected")).toBe("true");
   });
 
-  it("preserves filters while switching stages, resets selection/page, and isolates query caches", async () => {
+  it("preserves filters while switching visible stages and isolates query caches", async () => {
     await renderPage({ creatorIds: "member-1", page: 4, skills: "Docker", stage: "screening" });
     const previousKey = buildInfiniteDataGridQueryKey(["studio-resumes", "default"], {
       filters: currentGrid.filters,
@@ -171,11 +205,9 @@ describe("recruitment stage tabs", () => {
       sortBy: "createdAt",
       sortOrder: "desc",
     });
-    act(() => currentGrid.setRowSelection({ candidate: true }));
-    act(() => tab("面试")?.click());
+    act(() => tab("面试").click());
     await flushReactUpdates();
-    expect(currentSearch.stage).toBe("interview:all");
-    act(() => tab("AI 初面")?.click());
+    act(() => tab("AI 初面").click());
     await flushReactUpdates();
     expect(currentSearch).toMatchObject({
       creatorIds: "member-1",
@@ -183,7 +215,6 @@ describe("recruitment stage tabs", () => {
       skills: "Docker",
       stage: "interview:ai",
     });
-    expect(currentGrid.rowSelection).toEqual({});
     expect(
       buildInfiniteDataGridQueryKey(["studio-resumes", "default"], {
         filters: currentGrid.filters,
@@ -192,21 +223,27 @@ describe("recruitment stage tabs", () => {
         sortOrder: "desc",
       }),
     ).not.toEqual(previousKey);
-    act(() => tab("全部", "面试子流程")?.click());
-    await flushReactUpdates();
-    expect(currentSearch.stage).toBe("interview:all");
-    expect(currentGrid.filters.skills).toBe("Docker");
   });
 
-  it("restores an aggregate child URL with every stage still visible", async () => {
+  it("restores aggregate child URLs on the unfixed recruiting board", async () => {
     await renderPage({ page: 2, stage: "all:interview:final" });
     expect(tab("全部", "招聘阶段").getAttribute("aria-selected")).toBe("true");
     expect(tab("面试 · 终试").getAttribute("aria-selected")).toBe("true");
     expect(tab("已结束 · 已归档")).toBeDefined();
-    act(() => tab("全部", "全部子流程").click());
+  });
+
+  it("resets selection when a sidebar preset changes the hidden stage", async () => {
+    await renderPage({ creatorIds: "member-1", page: 4, skills: "Docker", stage: "screening" });
+    act(() => currentGrid.setRowSelection({ candidate: true }));
+    act(() => currentGrid.setFilter("stage", "interview:all"));
     await flushReactUpdates();
-    expect(currentSearch.stage).toBe("all");
-    expect(currentSearch.page).toBe(1);
+    expect(currentSearch).toMatchObject({
+      creatorIds: "member-1",
+      page: 1,
+      skills: "Docker",
+      stage: "interview:all",
+    });
+    expect(currentGrid.rowSelection).toEqual({});
   });
 
   it("clears filter values without changing the stage or sorting", async () => {
@@ -231,32 +268,18 @@ describe("recruitment stage tabs", () => {
     expect(currentSearch.skills).toBeUndefined();
     expect(currentSearch.createdAtRange).toBeUndefined();
     expect(currentSearch.creatorIds).toBeUndefined();
-    expect(tab("Offer协商")?.getAttribute("aria-selected")).toBe("true");
     expect(currentGrid.bind.canResetFilters).toBe(false);
     expect(currentGrid.rowSelection).toEqual({});
   });
-  it("defaults to all and preserves the aggregate group in child URLs", async () => {
+
+  it("keeps the original all-stage navigation on the recruitment desk", async () => {
     await renderPage({});
     expect(tab("全部", "招聘阶段").getAttribute("aria-selected")).toBe("true");
     expect(tab("全部", "全部子流程").getAttribute("aria-selected")).toBe("true");
-    act(() => tab("简历筛选 · 合格").click());
-    await flushReactUpdates();
-    expect(currentSearch.stage).toBe("all:screening:pass");
-    expect(tab("全部", "招聘阶段").getAttribute("aria-selected")).toBe("true");
     act(() => tab("Offer协商").click());
     await flushReactUpdates();
     expect(currentSearch.stage).toBe("offer:all");
-    expect(tab("全部", "Offer协商子流程").getAttribute("aria-selected")).toBe("true");
     expect(tab("谈薪")).toBeDefined();
     expect(tab("发 Offer")).toBeDefined();
-    act(() => tab("发 Offer").click());
-    await flushReactUpdates();
-    expect(currentSearch.stage).toBe("offer:send");
-    act(() => tab("入职办理").click());
-    await flushReactUpdates();
-    expect(currentSearch.stage).toBe("onboarding:all");
-    expect(tab("待入职")).toBeDefined();
-    expect(tab("放弃")).toBeDefined();
-    expect(tab("已入职")).toBeDefined();
   });
 });

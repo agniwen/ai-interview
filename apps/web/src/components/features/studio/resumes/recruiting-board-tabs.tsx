@@ -3,23 +3,31 @@ import {
   recruitingBoardGroups,
   resolveRecruitingBoardView,
 } from "@app/shared/recruiting-board";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEffect, useRef, useState } from "react";
 import type { OverlayScrollbars } from "overlayscrollbars";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-/** 主分组与子流程共同编码进 URL，刷新、分享及列表缓存都使用同一选择。 */
 export function RecruitingBoardTabs({
-  value,
+  fixedGroupId,
   onChange,
+  value,
 }: {
-  value: string;
+  fixedGroupId?: string;
   onChange: (value: string) => void;
+  value: string;
 }) {
   const view = resolveRecruitingBoardView(value);
-  const group = getRecruitingBoardGroup(view);
+  const fixedGroup = recruitingBoardGroups.find(
+    (entry) => entry.id !== "all" && entry.id === fixedGroupId,
+  );
+  const group = fixedGroup ?? getRecruitingBoardGroup(view);
+  const selectedView = group.tabs.some((entry) => entry.value === view)
+    ? view
+    : group.tabs[0].value;
   const viewportRef = useRef<HTMLElement | null>(null);
   const [scrollReady, setScrollReady] = useState(false);
+
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) {
@@ -39,7 +47,6 @@ export function RecruitingBoardTabs({
       }
     };
     revealSelected();
-    // Base UI 水合后才完成选中标记；同时响应容器宽度变化。
     const observer = new MutationObserver(revealSelected);
     observer.observe(viewport, {
       attributeFilter: ["aria-selected"],
@@ -56,38 +63,40 @@ export function RecruitingBoardTabs({
       observer.disconnect();
       resizeObserver.disconnect();
     };
-  }, [view, scrollReady]);
+  }, [scrollReady, selectedView]);
+
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-3">
-      <Tabs
-        value={group.id}
-        onValueChange={(id) => {
-          const next = recruitingBoardGroups.find((entry) => entry.id === id);
-          if (next) {
-            onChange(next.tabs[0].value);
-          }
-        }}
-      >
-        <TabsList aria-label="招聘阶段" className="w-full sm:w-fit">
-          {recruitingBoardGroups.map((entry) => (
-            <TabsTrigger
-              key={entry.id}
-              value={entry.id}
-              className="h-10! flex-1 px-4 text-sm sm:flex-none sm:px-7"
-            >
-              {entry.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {fixedGroup ? null : (
+        <Tabs
+          value={group.id}
+          onValueChange={(id) => {
+            const next = recruitingBoardGroups.find((entry) => entry.id === id);
+            if (next) {
+              onChange(next.tabs[0].value);
+            }
+          }}
+        >
+          <TabsList aria-label="招聘阶段" className="w-full sm:w-fit">
+            {recruitingBoardGroups.map((entry) => (
+              <TabsTrigger
+                className="h-10! flex-1 px-4 text-sm sm:flex-none sm:px-7"
+                key={entry.id}
+                value={entry.id}
+              >
+                {entry.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
       <Tabs
         className="min-w-0 max-w-full"
-        value={view}
+        value={selectedView}
         onValueChange={(next) => onChange(String(next))}
       >
         <ScrollArea
           className="w-full max-w-6xl [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_12px),transparent)]"
-          scrollbars="leave"
           events={{
             initialized: (instance: OverlayScrollbars) => {
               viewportRef.current = instance.elements().viewport;
@@ -98,14 +107,15 @@ export function RecruitingBoardTabs({
             overflow: { x: "scroll", y: "hidden" },
             scrollbars: { autoHide: "leave", autoHideDelay: 600, theme: "os-theme-app" },
           }}
+          scrollbars="leave"
         >
           <TabsList
             aria-label={`${group.label}子流程`}
-            variant="underline"
             className="w-max max-w-none gap-1 overflow-visible px-3"
+            variant="underline"
           >
             {group.tabs.map((entry) => (
-              <TabsTrigger key={entry.value} value={entry.value} className="h-8! px-3 text-xs!">
+              <TabsTrigger className="h-8! px-3 text-xs!" key={entry.value} value={entry.value}>
                 {entry.label}
               </TabsTrigger>
             ))}

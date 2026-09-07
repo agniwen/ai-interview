@@ -18,6 +18,11 @@ import {
   user,
 } from "@app/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import {
+  getRecruitingBoardPresetStatusTabs,
+  recruitingBoardStagePresets,
+} from "@app/shared/recruiting-board";
+import { buildRecruitingBoardFilter } from "./board-filter";
 import { candidateOutcomeSchema, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 
 // Dashboard activity uses 30 days; resume-library uploader rankings keep a
@@ -43,11 +48,16 @@ function resumeMetricsOrgFilters(organizationId: string, createdByUserId?: strin
   );
 }
 
-async function loadByPipeline(organizationId: string, createdByUserId?: string) {
-  // 漏斗分布：按 (pipelineStage, outcome) 分桶；outcome='archived' 排除，避免
-  // 冷藏长尾压扁主流程展示。其他 closed outcome（hired / rejected / withdrawn）保留。
-  // Pipeline funnel: bucket by (pipelineStage, outcome); archived outcomes are
-  // excluded so cold-storage long-tail doesn't crush the live funnel.
+async function loadByPipeline(
+  organizationId: string,
+  createdByUserId?: string,
+  boardPreset?: string,
+) {
+  const presetView = recruitingBoardStagePresets.find((preset) => preset.id === boardPreset)?.view;
+  // 漏斗分布：按 (pipelineStage, outcome) 分桶；常规视图排除 archived，避免冷藏长尾
+  // 压扁主流程。已结束子页面保留 archived，确保“已归档”二级 Tab 有对应分布。
+  // Pipeline funnel: bucket by (pipelineStage, outcome). Regular views exclude
+  // archived rows; the closed submenu keeps them for its archived child tab.
   const rows = await db
     .select({
       count: count(),
@@ -58,7 +68,8 @@ async function loadByPipeline(organizationId: string, createdByUserId?: string) 
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        ne(recruitingRecordReadModel.outcome, "archived"),
+        presetView ? (buildRecruitingBoardFilter(presetView) ?? undefined) : undefined,
+        boardPreset === "closed" ? undefined : ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     )
     .groupBy(recruitingRecordReadModel.pipelineStage, recruitingRecordReadModel.outcome);
@@ -68,6 +79,28 @@ async function loadByPipeline(organizationId: string, createdByUserId?: string) 
     outcome: candidateOutcomeSchema.parse(row.outcome),
     stage: pipelineStageSchema.parse(row.pipelineStage),
   }));
+}
+
+function loadBoardStatusCounts(
+  organizationId: string,
+  createdByUserId?: string,
+  boardPreset?: string,
+): Promise<NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>> {
+  const tabs = getRecruitingBoardPresetStatusTabs(boardPreset);
+  return Promise.all(
+    tabs.map(async (tab) => {
+      const [row] = await db
+        .select({ count: count() })
+        .from(recruitingRecordReadModel)
+        .where(
+          and(
+            resumeMetricsOrgFilters(organizationId, createdByUserId),
+            buildRecruitingBoardFilter(tab.value) ?? undefined,
+          ),
+        );
+      return { count: row?.count ?? 0, label: tab.label, view: tab.value };
+    }),
+  );
 }
 
 async function loadDailyAdded(
@@ -154,6 +187,8 @@ async function loadConversion(organizationId: string, createdByUserId?: string) 
 }
 
 export interface ResumeLibraryMetricsOptions {
+  /** Fixed recruiting-board stage used by sidebar submenu pages. */
+  boardPreset?: string;
   /** When set, only count candidates created by this user (personal scope). */
   createdByUserId?: string;
 }
@@ -163,12 +198,16 @@ async function queryResumeLibraryMetrics(
   options?: ResumeLibraryMetricsOptions,
 ): Promise<ResumeLibraryMetrics> {
   const createdByUserId = options?.createdByUserId;
-  const [byPipeline, dailyAdded, conversion] = await Promise.all([
-    loadByPipeline(organizationId, createdByUserId),
-    loadDailyAdded(organizationId, createdByUserId),
-    loadConversion(organizationId, createdByUserId),
+  const boardPreset = options?.boardPreset;
+  const [boardStatusCounts, byPipeline, dailyAdded, conversion] = await Promise.all([
+    loadBoardStatusCounts(organizationId, createdByUserId, boardPreset),
+    loadByPipeline(organizationId, createdByUserId, boardPreset),
+    boardPreset ? Promise.resolve([]) : loadDailyAdded(organizationId, createdByUserId),
+    boardPreset
+      ? Promise.resolve({ withInterview: 0, withoutInterview: 0 })
+      : loadConversion(organizationId, createdByUserId),
   ]);
-  return { byPipeline, conversion, dailyAdded };
+  return { boardStatusCounts, byPipeline, conversion, dailyAdded };
 }
 
 function makeLookbackStart(days = DASHBOARD_LOOKBACK_DAYS) {

@@ -8,6 +8,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { resolveRecruitingBoardStagePreset } from "@app/shared/recruiting-board";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { db } from "../../../../../lib/server/db/index";
 import { getObjectBytes, getObjectStream } from "@app/object-storage";
@@ -172,17 +173,23 @@ export const resumeLibraryReadRouter = factory
     zValidator(
       "query",
       z.object({
+        boardPreset: z
+          .string()
+          .trim()
+          .refine((value) => Boolean(resolveRecruitingBoardStagePreset(value)))
+          .optional(),
         scope: z.enum(["team", "personal"]).optional().default("team"),
       }),
       jsonValidatorError("招聘指标参数无效。"),
     ),
     async (c) => {
       const { organization } = getWorkspaceRequestContext(c);
-      const { scope } = c.req.valid("query");
+      const { boardPreset, scope } = c.req.valid("query");
       if (scope === "personal" && !c.var.user?.id) {
         return c.json({ message: "Unauthorized" }, 401);
       }
       const metrics = await loadResumeLibraryMetrics(organization.id, {
+        boardPreset,
         createdByUserId: scope === "personal" ? c.var.user?.id : undefined,
       });
       return c.json(metrics, 200);

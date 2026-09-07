@@ -1,4 +1,7 @@
-import { resolveRecruitingBoardView } from "@app/shared/recruiting-board";
+import {
+  resolveRecruitingBoardStagePreset,
+  resolveRecruitingBoardView,
+} from "@app/shared/recruiting-board";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -31,6 +34,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { jobDescriptionKeys, studioResumeKeys } from "@/lib/client/api/query-keys";
 import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope";
+import { firstSearchValue } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useResumeLibrarySearchState } from "./resume-library-page-model";
 import type {
@@ -201,17 +205,18 @@ export function useResumeLibraryPageQueries({
   });
 
   const [metricsScope, setMetricsScope] = useAtom(resumeMetricsScopeAtom);
+  const boardPreset = resolveRecruitingBoardStagePreset(firstSearchValue(routeSearch.boardPreset));
   const metricsQuery = useQuery({
     placeholderData: keepPreviousData,
-    queryFn: () => fetchStudioResumeMetrics(slug, metricsScope),
-    queryKey: studioResumeKeys.metrics(slug, metricsScope),
+    queryFn: () => fetchStudioResumeMetrics(slug, metricsScope, boardPreset),
+    queryKey: studioResumeKeys.metrics(slug, metricsScope, boardPreset),
     structuralSharing: false,
   });
   /** Dim charts only while switching scope and the previous scope is still shown. */
   const metricsSwitching = metricsQuery.isPlaceholderData;
   const metricsChartKey = metricsQuery.isPlaceholderData
-    ? `pending:${metricsScope}`
-    : `${metricsScope}:${metricsQuery.dataUpdatedAt}`;
+    ? `pending:${metricsScope}:${boardPreset ?? "all"}`
+    : `${metricsScope}:${boardPreset ?? "all"}:${metricsQuery.dataUpdatedAt}`;
 
   const retryParseMutation = useMutation({
     mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),

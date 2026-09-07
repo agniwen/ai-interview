@@ -17,44 +17,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { defineDonutChart } from "@/lib/client/charts/donut";
 import { toBeijingDayKey } from "@app/shared/beijing-calendar";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import { recruitingBoardStagePresets } from "@app/shared/recruiting-board";
 import { cn } from "@app/shared/utils";
+import { getBoardFlowColor, PIPELINE_COLORS } from "./resume-library-chart-colors";
 
-type PipelineBucket =
-  | "screening"
-  | "ai_interview"
-  | "human_interview"
-  | "offer"
-  | "closed_hired"
-  | "closed_rejected";
+type PipelineBucket = "screening" | "interview" | "offer" | "onboarding" | "closed";
 
-const BUCKET_ORDER: PipelineBucket[] = [
-  "screening",
-  "ai_interview",
-  "human_interview",
-  "offer",
-  "closed_hired",
-  "closed_rejected",
-];
+const BUCKET_ORDER: PipelineBucket[] = ["screening", "interview", "offer", "onboarding", "closed"];
 
 const BUCKET_LABEL = {
-  ai_interview: "AI 面试",
-  closed_hired: "已录用",
-  closed_rejected: "已淘汰 / 撤回",
-  human_interview: "复试 / 终试",
-  offer: "Offer / 入职",
+  closed: "已结束",
+  interview: "面试",
+  offer: "Offer协商",
+  onboarding: "入职办理",
   screening: "简历筛选",
 } as const satisfies Record<PipelineBucket, string>;
 
 const BUCKET_COLORS = {
-  ai_interview: "var(--pipeline-ai-interview)",
-  closed_hired: "var(--pipeline-closed-hired)",
-  closed_rejected: "var(--pipeline-closed-rejected)",
-  human_interview: "var(--pipeline-human-interview)",
-  offer: "var(--pipeline-offer)",
-  screening: "var(--pipeline-screening)",
+  closed: PIPELINE_COLORS.failure,
+  interview: PIPELINE_COLORS.advanced,
+  offer: PIPELINE_COLORS.final,
+  onboarding: PIPELINE_COLORS.success,
+  screening: PIPELINE_COLORS.early,
 } as const satisfies Record<PipelineBucket, string>;
 
 const MIN_PIPELINE_VISUAL_SHARE = 0.035;
+
+interface FlowStackRow {
+  bucket: string;
+  category: string;
+  color: string;
+  label: string;
+  value: number;
+  visualShare: number;
+}
 
 const pipelineTooltipDatumSchema = z.object({
   label: z.string(),
@@ -62,7 +58,13 @@ const pipelineTooltipDatumSchema = z.object({
 });
 const CONVERSION_ACCENT = "var(--chart-conversion)";
 const CONVERSION_ACCENT_MUTED = "var(--chart-conversion-muted)";
-
+const BOARD_SHARE_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+] as const;
 const RANKING_PERIODS = [
   { label: "今日", value: "today" },
   { label: "昨日", value: "yesterday" },
@@ -96,11 +98,13 @@ function ChartCardShell({
   title,
   description,
   metrics,
+  compact = false,
   children,
 }: {
   title: string;
   description?: string;
   metrics: [MetricItem, MetricItem];
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -139,7 +143,7 @@ function ChartCardShell({
         ))}
       </div>
       <CardContent className="p-0">
-        <ScrollArea className="h-[260px]" scrollFade scrollbars="scroll">
+        <ScrollArea className={compact ? "h-[208px]" : "h-[260px]"} scrollFade scrollbars="scroll">
           <div className="p-4">{children}</div>
         </ScrollArea>
       </CardContent>
@@ -212,21 +216,15 @@ export function buildUploaderRanking(
 
 function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): PipelineBucket | null {
   if (row.stage === "closed") {
-    if (row.outcome === "hired") {
-      return "closed_hired";
-    }
-    if (row.outcome === "rejected" || row.outcome === "withdrawn") {
-      return "closed_rejected";
-    }
-    return null;
+    return "closed";
   }
-  if (row.stage === "second_interview" || row.stage === "final_interview") {
-    return "human_interview";
+  if (["ai_interview", "second_interview", "final_interview"].includes(row.stage)) {
+    return "interview";
   }
-  if (["income_proof", "offer", "background_check", "onboarding"].includes(row.stage)) {
+  if (["income_proof", "offer", "background_check"].includes(row.stage)) {
     return "offer";
   }
-  if (row.stage === "screening" || row.stage === "ai_interview") {
+  if (row.stage === "screening" || row.stage === "onboarding") {
     return row.stage;
   }
   return null;
@@ -278,11 +276,10 @@ function buildReadablePipelineShares(values: number[]) {
 
 export function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
   const counts = {
-    ai_interview: 0,
-    closed_hired: 0,
-    closed_rejected: 0,
-    human_interview: 0,
+    closed: 0,
+    interview: 0,
     offer: 0,
+    onboarding: 0,
     screening: 0,
   } satisfies Record<PipelineBucket, number>;
   let total = 0;
@@ -296,7 +293,7 @@ export function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
   }
 
   const visualShares = buildReadablePipelineShares(BUCKET_ORDER.map((bucket) => counts[bucket]));
-  const stackRows = BUCKET_ORDER.map((bucket, index) => ({
+  const stackRows: FlowStackRow[] = BUCKET_ORDER.map((bucket, index) => ({
     bucket,
     category: "总计",
     color: BUCKET_COLORS[bucket],
@@ -304,16 +301,25 @@ export function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
     value: counts[bucket],
     visualShare: visualShares[index] ?? 0,
   }));
-  const active = counts.screening + counts.ai_interview + counts.human_interview + counts.offer;
+  const active = total - counts.closed;
   return { active, counts, stackRows, total };
 }
 
-const statusChartConfig: ChartConfig = {};
-for (const bucket of BUCKET_ORDER) {
-  statusChartConfig[bucket] = {
-    color: BUCKET_COLORS[bucket],
-    label: BUCKET_LABEL[bucket],
-  };
+export function buildBoardFlowRow(counts: NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>) {
+  let total = 0;
+  for (const item of counts) {
+    total += item.count;
+  }
+  const visualShares = buildReadablePipelineShares(counts.map((item) => item.count));
+  const stackRows: FlowStackRow[] = counts.map((item, index) => ({
+    bucket: item.view,
+    category: "总计",
+    color: getBoardFlowColor(item.view, index),
+    label: item.label,
+    value: item.count,
+    visualShare: visualShares[index] ?? 0,
+  }));
+  return { stackRows, total };
 }
 
 const conversionChartConfig: ChartConfig = {
@@ -321,12 +327,35 @@ const conversionChartConfig: ChartConfig = {
   withoutInterview: { color: CONVERSION_ACCENT_MUTED, label: "仅入库" },
 };
 
-function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeline"] }) {
-  const { active, counts, stackRows, total } = useMemo(
-    () => buildPipelineRow(byPipeline),
-    [byPipeline],
+function StatusCard({
+  byPipeline,
+  compact = false,
+  distribution,
+  description,
+  title = "招聘流程分布",
+}: {
+  byPipeline: ResumeLibraryMetrics["byPipeline"];
+  compact?: boolean;
+  distribution?: NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>;
+  description?: string;
+  title?: string;
+}) {
+  const pipeline = useMemo(() => buildPipelineRow(byPipeline), [byPipeline]);
+  const boardFlow = useMemo(
+    () => (distribution ? buildBoardFlowRow(distribution) : null),
+    [distribution],
   );
+  const stackRows = boardFlow?.stackRows ?? pipeline.stackRows;
+  const total = boardFlow?.total ?? pipeline.total;
+  const { active } = pipeline;
   const hasData = total > 0;
+  const config = useMemo<ChartConfig>(
+    () =>
+      Object.fromEntries(
+        stackRows.map((row) => [row.bucket, { color: row.color, label: row.label }]),
+      ),
+    [stackRows],
+  );
 
   const definition = useMemo(() => {
     if (!hasData) {
@@ -337,7 +366,7 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
       marks: [
         barX(stackRows, {
           fill: (row) => row.color,
-          layout: stack({ order: BUCKET_ORDER }),
+          layout: stack({ order: stackRows.map((row) => row.bucket) }),
           radius: 4,
           x: "visualShare",
           y: "category",
@@ -358,17 +387,18 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
 
   return (
     <ChartCardShell
-      description={hasData ? "不含归档候选人" : "暂无候选人"}
+      compact={compact}
+      description={hasData ? (description ?? "不含归档候选人") : "暂无候选人"}
       metrics={[
         { label: "总候选", value: formatCompact(total) },
         { label: "推进中", value: formatCompact(active) },
       ]}
-      title="面试流程分布"
+      title={title}
     >
-      <div className="flex min-h-[228px] items-center">
+      <div className={cn("flex items-center", compact ? "min-h-[176px]" : "min-h-[228px]")}>
         {hasData && definition ? (
           <div className="flex w-full flex-col justify-center gap-3">
-            <ChartContainer className="aspect-auto h-[86px] w-full" config={statusChartConfig}>
+            <ChartContainer className="aspect-auto h-[86px] w-full" config={config}>
               <Chart
                 ariaLabel="面试流程分布"
                 className="h-[86px] w-full"
@@ -377,21 +407,113 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
               />
             </ChartContainer>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
-              {BUCKET_ORDER.map((bucket) => (
-                <li className="flex items-center gap-2" key={bucket}>
+              {stackRows.map((row) => (
+                <li className="flex items-center gap-2" key={row.bucket}>
                   <span
                     aria-hidden
                     className="size-2.5 rounded-sm"
-                    style={{ backgroundColor: BUCKET_COLORS[bucket] }}
+                    style={{ backgroundColor: row.color }}
                   />
-                  <span className="flex-1 truncate">{BUCKET_LABEL[bucket]}</span>
-                  <span className="tabular-nums">{counts[bucket]}</span>
+                  <span className="flex-1 truncate">{row.label}</span>
+                  <span className="tabular-nums">{row.value}</span>
                 </li>
               ))}
             </ul>
           </div>
         ) : (
           <EmptyHint message="还没有任何候选人" />
+        )}
+      </div>
+    </ChartCardShell>
+  );
+}
+
+export function buildBoardStatusSummary(
+  counts: NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>,
+) {
+  let total = 0;
+  for (const item of counts) {
+    total += item.count;
+  }
+  const slices = counts.map((item, index) => ({
+    fill: BOARD_SHARE_COLORS[index % BOARD_SHARE_COLORS.length],
+    key: item.view,
+    label: item.label,
+    percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+    value: item.count,
+  }));
+  let largestPercent = 0;
+  for (const slice of slices) {
+    largestPercent = Math.max(largestPercent, slice.percent);
+  }
+  return { largestPercent, slices, total };
+}
+
+function BoardStatusCard({
+  counts,
+  stageLabel,
+}: {
+  counts: NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>;
+  stageLabel: string;
+}) {
+  const { largestPercent, slices, total } = useMemo(
+    () => buildBoardStatusSummary(counts),
+    [counts],
+  );
+  const definition = useMemo(
+    () => (total > 0 ? defineDonutChart(slices, { innerRatio: 0.66 }) : null),
+    [slices, total],
+  );
+  const config = useMemo<ChartConfig>(
+    () => Object.fromEntries(slices.map((slice) => [slice.key, slice])),
+    [slices],
+  );
+
+  return (
+    <ChartCardShell
+      compact
+      description={total > 0 ? "当前阶段各状态占比" : "暂无可统计的候选人"}
+      metrics={[
+        { label: "阶段候选", value: formatCompact(total) },
+        { label: "最大占比", value: `${largestPercent}%` },
+      ]}
+      title={`${stageLabel}状态占比`}
+    >
+      <div className="flex min-h-[176px] items-center">
+        {definition ? (
+          <div className="grid w-full grid-cols-[minmax(7.5rem,10rem)_9rem] items-center justify-center gap-3">
+            <ul className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs">
+              {slices.map((slice) => (
+                <li className="flex min-w-0 items-center gap-2" key={slice.key}>
+                  <span
+                    aria-hidden
+                    className="size-2.5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: slice.fill }}
+                  />
+                  <span className="flex-1 truncate">{slice.label}</span>
+                  <span className="tabular-nums">
+                    {slice.value} · {slice.percent}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="relative size-36">
+              <ChartContainer className="absolute inset-0 aspect-square size-full" config={config}>
+                <Chart
+                  ariaLabel={`${stageLabel}状态占比`}
+                  className="size-full"
+                  definition={definition}
+                  height={144}
+                />
+              </ChartContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="font-mono font-semibold text-2xl tabular-nums">{total}</span>
+                <span className="text-muted-foreground text-[10px]">候选人</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <EmptyHint message="当前阶段还没有候选人" />
         )}
       </div>
     </ChartCardShell>
@@ -612,13 +734,36 @@ export function ResumeLibraryCharts({
   chartKey,
   isRefreshing = false,
   metrics,
+  fixedRecruitingGroup,
   onRefresh,
 }: {
   chartKey?: string;
   isRefreshing?: boolean;
   metrics: ResumeLibraryMetrics;
+  fixedRecruitingGroup?: string;
   onRefresh?: () => Promise<void>;
 }) {
+  const preset = recruitingBoardStagePresets.find((item) => item.id === fixedRecruitingGroup);
+  if (preset) {
+    return (
+      <div className="grid gap-4 lg:grid-cols-2">
+        <StatusCard
+          byPipeline={metrics.byPipeline}
+          compact
+          description={preset.id === "closed" ? "包含已归档候选人" : undefined}
+          distribution={metrics.boardStatusCounts ?? []}
+          key={`status:${chartKey ?? "metrics"}`}
+          title={`${preset.label} · 流程分布`}
+        />
+        <BoardStatusCard
+          counts={metrics.boardStatusCounts ?? []}
+          stageLabel={preset.label}
+          key={`board-status:${chartKey ?? "metrics"}`}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <StatusCard byPipeline={metrics.byPipeline} key={`status:${chartKey ?? "metrics"}`} />

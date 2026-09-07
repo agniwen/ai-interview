@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   getRecruitingBoardGroup,
+  getRecruitingBoardPageTitle,
+  getRecruitingBoardPresetStatusTabs,
   getRecruitingBoardViewLabel,
   recruitingBoardAllTabs,
   recruitingBoardGroups,
   recruitingBoardViewSchema,
+  resolveRecruitingBoardPresetView,
   resolveRecruitingBoardFilterView,
   resolveRecruitingBoardView,
 } from "./recruiting-board";
@@ -53,5 +56,33 @@ describe("招聘台全部及阶段标签", () => {
     expect(getRecruitingBoardGroup("interview:ai").id).toBe("interview");
     expect(getRecruitingBoardViewLabel("screening:pending")).toBe("简历筛选 · 未处理");
     expect(getRecruitingBoardViewLabel("offer:all")).toBe("Offer协商");
+  });
+
+  it("固定阶段预设拒绝跨阶段筛选并保留同组子流程", () => {
+    expect(resolveRecruitingBoardPresetView("interview", "offer:send")).toBe("interview:all");
+    expect(resolveRecruitingBoardPresetView("interview", "interview:final")).toBe(
+      "interview:final",
+    );
+    expect(resolveRecruitingBoardPresetView("invalid", "offer:send")).toBe("offer:send");
+  });
+
+  it("固定阶段预设生成对应的招聘台页面标题", () => {
+    expect(getRecruitingBoardPageTitle()).toBe("招聘台");
+    expect(getRecruitingBoardPageTitle("invalid")).toBe("招聘台");
+    expect(getRecruitingBoardPageTitle("screening")).toBe("招聘台·简历筛选");
+    expect(getRecruitingBoardPageTitle("interview")).toBe("招聘台·面试");
+    expect(getRecruitingBoardPageTitle("offer")).toBe("招聘台·Offer协商");
+    expect(getRecruitingBoardPageTitle("onboarding")).toBe("招聘台·入职办理");
+    expect(getRecruitingBoardPageTitle("closed")).toBe("招聘台·已结束");
+  });
+
+  it("固定阶段预设提供阶段内状态，不包含汇总项", () => {
+    expect(getRecruitingBoardPresetStatusTabs("offer")).toEqual([
+      { label: "流水提供", value: "offer:income" },
+      { label: "谈薪", value: "offer:negotiating" },
+      { label: "发 Offer", value: "offer:send" },
+      { label: "背调", value: "offer:background" },
+    ]);
+    expect(getRecruitingBoardPresetStatusTabs()).toEqual([]);
   });
 });

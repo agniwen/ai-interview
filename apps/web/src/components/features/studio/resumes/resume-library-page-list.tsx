@@ -153,7 +153,7 @@ export function ResumeLibraryCardList({
   const virtualListRootRef = useRef<HTMLDivElement | null>(null);
   const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
-  const { setRowSelection } = grid;
+  const { updateRowSelection } = grid;
   const initialScrollOffset = useResumeLibraryInitialScrollOffset();
   const sortBy = getResumeLibrarySortBy(grid);
   const virtualRows = useMemo(
@@ -203,9 +203,9 @@ export function ResumeLibraryCardList({
   );
   const handleSelectionChange = useCallback(
     (recordId: string, checked: boolean) => {
-      setRowSelection((previous) => ({ ...previous, [recordId]: checked }));
+      updateRowSelection((previous) => ({ ...previous, [recordId]: checked }));
     },
-    [setRowSelection],
+    [updateRowSelection],
   );
   const hasLockedSelection = selectedRows.some(
     (record) => !canDeleteResumeRecord(record.resumeParseStatus),

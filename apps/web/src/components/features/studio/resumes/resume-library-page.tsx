@@ -4,6 +4,7 @@ import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceMemberRole } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { buildResumeLibraryFiltersConfig } from "./resume-library-filters-config";
+import { firstSearchValue } from "@/lib/client/data-grid-search";
 import { ResumeLibraryCardList } from "./resume-library-page-list";
 import { ResumeLibraryPageEmptyState } from "./resume-library-page-empty-state";
 import { ResumeLibraryPageOverlays } from "./resume-library-page-overlays";
@@ -145,6 +146,7 @@ export function ResumeLibraryPage() {
   return (
     <>
       <ResumeLibraryPageShell
+        fixedRecruitingGroup={firstSearchValue(routeSearch.boardPreset)}
         grid={grid}
         metrics={metricsQuery.data}
         metricsChartKey={metricsChartKey}

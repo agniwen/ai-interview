@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useLoaderData,
   useRouter,
   useRouterState,
 } from "@tanstack/react-router";
@@ -17,12 +18,14 @@ import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-body";
+import { SidebarPersistenceProvider } from "@/components/layout/sidebar-persistence-context";
 import type { getQueryClient } from "@/lib/client/query-client";
 import { AppWatermark } from "@/components/features/watermark/app-watermark";
 import { env } from "@/env/client";
 import { ROOT_DOCUMENT_TITLE, documentTitleMeta } from "@/lib/start/document-title";
 import { isHumanInterviewPage, resolveForcedPageTheme } from "@/lib/client/fixed-page-theme";
 import { getLocale, getTextDirection } from "@/paraglide/runtime";
+import { getSidebarInitialState } from "@/lib/start/sidebar-preferences";
 
 const ROOT_DESCRIPTION =
   "面向招聘团队的 AI 协同工作台，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。AI Hiring Copilot — one connected hiring workflow.";
@@ -55,6 +58,7 @@ function RootDocument({
 }
 
 function RootComponent() {
+  const sidebarInitialState = useLoaderData({ from: "__root__" });
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const forcedTheme = resolveForcedPageTheme(pathname);
   const {
@@ -77,11 +81,13 @@ function RootComponent() {
             forcedTheme={forcedTheme}
           >
             <QueryProvider queryClient={queryClient}>
-              <TooltipProvider>
-                <Outlet />
-                <AppWatermark />
-                <Toaster />
-              </TooltipProvider>
+              <SidebarPersistenceProvider value={sidebarInitialState}>
+                <TooltipProvider>
+                  <Outlet />
+                  <AppWatermark />
+                  <Toaster />
+                </TooltipProvider>
+              </SidebarPersistenceProvider>
             </QueryProvider>
           </ThemeProvider>
         </LazyMotion>
@@ -98,6 +104,7 @@ export const Route = createRootRouteWithContext<{
   queryClient: ReturnType<typeof getQueryClient>;
 }>()({
   component: RootComponent,
+  loader: () => getSidebarInitialState(),
   head: ({ matches }) => ({
     links: [
       {

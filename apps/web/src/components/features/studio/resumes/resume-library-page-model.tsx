@@ -4,6 +4,10 @@ import {
   RESUME_LIBRARY_INFINITE_PAGE_SIZE,
   resumeLibrarySortIds,
 } from "@app/shared/studio-resumes";
+import {
+  resolveRecruitingBoardPresetView,
+  resolveRecruitingBoardStagePreset,
+} from "@app/shared/recruiting-board";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 
 import {
@@ -14,7 +18,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { RefObject } from "react";
 import { toast } from "sonner";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
@@ -223,8 +227,11 @@ export interface ResumeLibraryGridState {
   filters: ResumeFilters;
   rowSelection: ResumeLibraryRowSelection;
   setFilter: (key: keyof ResumeFilters & string, value: string) => void;
-  setRowSelection: Dispatch<SetStateAction<ResumeLibraryRowSelection>>;
+  setRowSelection: (value: ResumeLibraryRowSelection) => void;
   sorting: { desc: boolean; id: string }[];
+  updateRowSelection: (
+    update: (previous: ResumeLibraryRowSelection) => ResumeLibraryRowSelection,
+  ) => void;
 }
 
 export { coerceSearchParams } from "@/lib/client/data-grid-search";
@@ -237,7 +244,7 @@ export interface UseResumeLibrarySearchStateOptions {
 }
 
 export function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibraryQueryState {
-  return parseDataGridSearchParams(
+  const query = parseDataGridSearchParams(
     { ...searchParams, search: undefined },
     {
       allowedSortIds: resumeLibrarySortIds,
@@ -246,6 +253,17 @@ export function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibrar
       initialFilters: EMPTY_FILTERS,
     },
   );
+  const preset = resolveRecruitingBoardStagePreset(firstSearchValue(searchParams.boardPreset));
+  if (!preset) {
+    return query;
+  }
+  return {
+    ...query,
+    filters: {
+      ...query.filters,
+      stage: resolveRecruitingBoardPresetView(preset, query.filters.stage),
+    },
+  };
 }
 
 export function useResumeLibrarySearchState({
@@ -256,7 +274,30 @@ export function useResumeLibrarySearchState({
   const navigate = useNavigate({ from: "/w/$slug/studio/resumes" });
   const query = useMemo(() => parseResumeQuery(routeSearch), [routeSearch]);
   const deferredSearch = useDeferredValue(query.search);
-  const [rowSelection, setRowSelection] = useState<ResumeLibraryRowSelection>({});
+  const activeStage = query.filters.stage;
+  const [rowSelectionState, setRowSelectionState] = useState<{
+    stage: string;
+    value: ResumeLibraryRowSelection;
+  }>(() => ({ stage: activeStage, value: {} }));
+  const rowSelection = useMemo(
+    () => (rowSelectionState.stage === activeStage ? rowSelectionState.value : {}),
+    [activeStage, rowSelectionState],
+  );
+  const setRowSelection = useCallback(
+    (value: ResumeLibraryRowSelection) => {
+      setRowSelectionState({ stage: activeStage, value });
+    },
+    [activeStage],
+  );
+  const updateRowSelection = useCallback(
+    (update: (previous: ResumeLibraryRowSelection) => ResumeLibraryRowSelection) => {
+      setRowSelectionState((current) => ({
+        stage: activeStage,
+        value: update(current.stage === activeStage ? current.value : {}),
+      }));
+    },
+    [activeStage],
+  );
 
   const updateRouteSearch = useCallback(
     (updates: Record<string, number | string | undefined>) => {
@@ -286,7 +327,7 @@ export function useResumeLibrarySearchState({
       setRowSelection({});
       updateRouteSearch({ ...updates, page: 1 });
     },
-    [updateRouteSearch],
+    [setRowSelection, updateRouteSearch],
   );
 
   const setFilter = useCallback(
@@ -330,7 +371,7 @@ export function useResumeLibrarySearchState({
         resumeLibraryToolbarFilterKeys.map((key) => [key, EMPTY_FILTERS[key] || undefined]),
       ),
     });
-  }, [updateRouteSearch]);
+  }, [setRowSelection, updateRouteSearch]);
 
   const sorting = useMemo(
     () => (query.sortBy ? [{ desc: query.sortOrder === "desc", id: query.sortBy }] : []),
@@ -358,7 +399,17 @@ export function useResumeLibrarySearchState({
       setFilter,
       setRowSelection,
       sorting,
+      updateRowSelection,
     }),
-    [bind, deferredSearch, query.filters, rowSelection, setFilter, setRowSelection, sorting],
+    [
+      bind,
+      deferredSearch,
+      query.filters,
+      rowSelection,
+      setFilter,
+      setRowSelection,
+      sorting,
+      updateRowSelection,
+    ],
   );
 }

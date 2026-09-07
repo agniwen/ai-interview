@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { getRecruitingBoardPageTitle } from "@app/shared/recruiting-board";
 import { RecruitingBoardTabs } from "./recruiting-board-tabs";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
@@ -11,6 +12,7 @@ import type { ReactNode } from "react";
 
 export function ResumeLibraryPageShell({
   children,
+  fixedRecruitingGroup,
   grid,
   metrics,
   metricsChartKey,
@@ -23,6 +25,7 @@ export function ResumeLibraryPageShell({
   slug,
 }: {
   children: ReactNode;
+  fixedRecruitingGroup?: string;
   grid: ResumeLibraryGridState;
   metrics: ResumeLibraryMetrics | undefined;
   metricsChartKey: string;
@@ -35,12 +38,13 @@ export function ResumeLibraryPageShell({
   slug: string;
 }) {
   const queryClient = useQueryClient();
+  const pageTitle = getRecruitingBoardPageTitle(fixedRecruitingGroup);
   const handleMetricsRetry = async () => {
     await onMetricsRetry();
   };
 
   return (
-    <div className="mx-auto w-full max-w-[96rem] space-y-6">
+    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
         className="items-end sm:items-end"
         actionRender={
@@ -65,7 +69,7 @@ export function ResumeLibraryPageShell({
             </Button>
           </div>
         }
-        title="招聘台"
+        title={pageTitle}
       />
       <ResumeLibraryMetricsSection
         chartKey={metricsChartKey}
@@ -73,10 +77,12 @@ export function ResumeLibraryPageShell({
         isRefreshing={metricsFetching}
         isSwitching={metricsSwitching}
         metrics={metrics}
+        fixedRecruitingGroup={fixedRecruitingGroup}
         onRefresh={handleMetricsRetry}
         onRetry={onMetricsRetry}
       />
       <RecruitingBoardTabs
+        fixedGroupId={fixedRecruitingGroup}
         value={grid.filters.stage}
         onChange={(value) => grid.setFilter("stage", value)}
       />

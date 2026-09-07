@@ -100,6 +100,26 @@ const stageBoardGroups = [
   },
 ] satisfies BoardGroup[];
 
+export const recruitingBoardStagePresets = stageBoardGroups.map((group) => ({
+  id: group.id,
+  label: group.label,
+  view: group.tabs[0].value,
+}));
+
+export function resolveRecruitingBoardStagePreset(value?: string): string | undefined {
+  return recruitingBoardStagePresets.find((preset) => preset.id === value)?.id;
+}
+
+export function getRecruitingBoardPageTitle(presetId?: string): string {
+  const preset = recruitingBoardStagePresets.find((entry) => entry.id === presetId);
+  return preset ? `招聘台·${preset.label}` : "招聘台";
+}
+
+export function getRecruitingBoardPresetStatusTabs(presetId?: string) {
+  const group = stageBoardGroups.find((entry) => entry.id === presetId);
+  return group?.tabs.filter((tab) => !tab.value.endsWith(":all")) ?? [];
+}
+
 /** 汇总具体子流程；不重复收录各主阶段自己的“全部”。 */
 export const recruitingBoardAllTabs: BoardGroup["tabs"] = [
   { label: "全部", value: "all" },
@@ -169,6 +189,15 @@ export function resolveRecruitingBoardView(value: string | undefined): Recruitin
       return "all";
     }
   }
+}
+
+export function resolveRecruitingBoardPresetView(
+  presetId: string,
+  value: string | undefined,
+): RecruitingBoardView {
+  const group = stageBoardGroups.find((entry) => entry.id === presetId);
+  const view = resolveRecruitingBoardView(value);
+  return group?.tabs.some((tab) => tab.value === view) ? view : (group?.tabs[0].value ?? view);
 }
 
 export function getRecruitingBoardGroup(view: RecruitingBoardView) {

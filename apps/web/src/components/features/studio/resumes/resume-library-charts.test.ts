@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildPipelineRow, buildUploaderRanking } from "./resume-library-charts";
+import {
+  buildBoardFlowRow,
+  buildBoardStatusSummary,
+  buildPipelineRow,
+  buildUploaderRanking,
+} from "./resume-library-charts";
 
 describe("resume library chart models", () => {
   it("builds the single stacked pipeline bar from current-stage counts", () => {
@@ -15,11 +20,10 @@ describe("resume library chart models", () => {
     expect(pipeline).toMatchObject({ active: 1582, total: 1592 });
     expect(pipeline.stackRows.map(({ label, value }) => ({ label, value }))).toEqual([
       { label: "简历筛选", value: 1444 },
-      { label: "AI 面试", value: 130 },
-      { label: "复试 / 终试", value: 6 },
-      { label: "Offer / 入职", value: 2 },
-      { label: "已录用", value: 0 },
-      { label: "已淘汰 / 撤回", value: 10 },
+      { label: "面试", value: 136 },
+      { label: "Offer协商", value: 2 },
+      { label: "入职办理", value: 0 },
+      { label: "已结束", value: 10 },
     ]);
     const visibleRows = pipeline.stackRows.filter((row) => row.value > 0);
     expect(visibleRows.every((row) => row.visualShare >= 0.035)).toBe(true);
@@ -27,6 +31,39 @@ describe("resume library chart models", () => {
     expect(pipeline.stackRows[0]?.visualShare).toBeGreaterThan(
       pipeline.stackRows[1]?.visualShare ?? 0,
     );
+  });
+
+  it("groups every closed outcome under the top-level closed stage", () => {
+    const pipeline = buildPipelineRow([
+      { count: 8, outcome: "archived", stage: "closed" },
+      { count: 2, outcome: "hired", stage: "closed" },
+    ]);
+
+    expect(pipeline).toMatchObject({ active: 0, total: 10 });
+    expect(pipeline.counts.closed).toBe(10);
+  });
+
+  it("builds submenu flow segments from its child tabs", () => {
+    const flow = buildBoardFlowRow([
+      { count: 2, label: "流水提供", view: "offer:income" },
+      { count: 3, label: "谈薪", view: "offer:negotiating" },
+      { count: 4, label: "发 Offer", view: "offer:send" },
+      { count: 1, label: "背调", view: "offer:background" },
+    ]);
+
+    expect(flow.total).toBe(10);
+    expect(flow.stackRows.map(({ label, value }) => ({ label, value }))).toEqual([
+      { label: "流水提供", value: 2 },
+      { label: "谈薪", value: 3 },
+      { label: "发 Offer", value: 4 },
+      { label: "背调", value: 1 },
+    ]);
+    expect(flow.stackRows.map((row) => row.color)).toEqual([
+      "var(--pipeline-screening)",
+      "var(--pipeline-ai-interview)",
+      "var(--pipeline-human-interview)",
+      "var(--pipeline-offer)",
+    ]);
   });
 
   it("aggregates uploader totals for each Beijing calendar range and returns the top five", () => {
@@ -81,5 +118,30 @@ describe("resume library chart models", () => {
       total: 22,
     });
     expect(buildUploaderRanking(dailyAdded, "month", "2026-08-23").total).toBe(22);
+  });
+
+  it("calculates the status shares shown by a recruiting submenu", () => {
+    const summary = buildBoardStatusSummary([
+      { count: 2, label: "流水提供", view: "offer:income" },
+      { count: 3, label: "谈薪", view: "offer:negotiating" },
+      { count: 4, label: "发 Offer", view: "offer:send" },
+      { count: 1, label: "背调", view: "offer:background" },
+    ]);
+    expect(summary).toMatchObject({
+      largestPercent: 40,
+      slices: [
+        { key: "offer:income", label: "流水提供", percent: 20, value: 2 },
+        { key: "offer:negotiating", label: "谈薪", percent: 30, value: 3 },
+        { key: "offer:send", label: "发 Offer", percent: 40, value: 4 },
+        { key: "offer:background", label: "背调", percent: 10, value: 1 },
+      ],
+      total: 10,
+    });
+    expect(summary.slices.map((slice) => slice.fill)).toEqual([
+      "var(--chart-1)",
+      "var(--chart-2)",
+      "var(--chart-3)",
+      "var(--chart-4)",
+    ]);
   });
 });

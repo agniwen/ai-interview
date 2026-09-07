@@ -4,6 +4,7 @@ import {
   IconBuilding,
   IconCalendarEvent,
   IconChartBar,
+  IconChevronRight,
   IconClipboardList,
   IconFileText,
   IconLayoutGrid,
@@ -17,20 +18,32 @@ import {
   IconUserCog,
   IconUsers,
 } from "@tabler/icons-react";
+import {
+  recruitingBoardStagePresets,
+  resolveRecruitingBoardStagePreset,
+} from "@app/shared/recruiting-board";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { SidebarBodyPortalContent } from "@/components/layout/app-sidebar/portals";
+import { useSidebarPersistence } from "@/components/layout/sidebar-persistence-context";
 import { useSidebarMenuHoverHighlight } from "@/components/layout/app-sidebar/sidebar-menu-hover-highlight";
 import { SidebarSlotTransition } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import type { SidebarSlotDirection } from "@/components/layout/app-sidebar/sidebar-slot-transition";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { useHasPermission } from "@/hooks/use-has-permission";
+import { firstSearchValue } from "@/lib/client/data-grid-search";
+import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { statement } from "@app/shared/permissions";
 
@@ -179,6 +192,37 @@ const navGroups: NavGroup[] = [
 ];
 
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
+const RECRUITING_BOARD_PATH = "/studio/resumes";
+export const STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS =
+  "relative z-10 border border-transparent transition-[background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:border-sidebar-border/60 data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
+
+export function buildRecruitingBoardSearch(
+  previous: SearchParamsRecord,
+  preservePrevious: boolean,
+  preset?: (typeof recruitingBoardStagePresets)[number],
+): SearchParamsRecord {
+  const next = preservePrevious ? { ...previous } : {};
+  next.boardPreset = preset?.id;
+  next.page = 1;
+  next.stage = preset?.view;
+  return next;
+}
+
+export function isStudioSidebarParentActive(
+  active: boolean,
+  isRecruitingBoard: boolean,
+  selectedRecruitingPreset?: string,
+): boolean {
+  return active && (!isRecruitingBoard || !selectedRecruitingPreset);
+}
+
+export function shouldToggleStudioSidebarSubmenu(
+  isRecruitingBoard: boolean,
+  isParentActive: boolean,
+  modifiedNavigation = false,
+): boolean {
+  return isRecruitingBoard && isParentActive && !modifiedNavigation;
+}
 
 export function resolveStudioSidebarNavItem(pathname: string): NavItem | undefined {
   const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "");
@@ -192,44 +236,133 @@ function SidebarNavItem({
   active,
   href,
   onHover,
+  selectedRecruitingPreset,
 }: {
   item: NavItem;
   active: boolean;
   href: string;
   onHover: (target: HTMLElement) => void;
+  selectedRecruitingPreset: string | undefined;
 }) {
   // Hook must be called unconditionally
   const allowed = useHasPermission(item.resource, item.action);
   const memberRole = useWorkspaceMemberRole();
+  const { menuOpen: sidebarMenuOpen, setMenuOpen: setSidebarMenuOpen } = useSidebarPersistence();
 
   if (!allowed || (item.adminOnly && memberRole !== "owner" && memberRole !== "admin")) {
     return null;
   }
 
   const Icon = item.icon;
-  return (
-    <SidebarMenuItem
-      className="relative"
-      key={item.path}
+  const isRecruitingBoard = item.path === RECRUITING_BOARD_PATH;
+  const submenuOpen = sidebarMenuOpen[item.path] ?? true;
+  const isParentActive = isStudioSidebarParentActive(
+    active,
+    isRecruitingBoard,
+    selectedRecruitingPreset,
+  );
+  const menuButton = (
+    <SidebarMenuButton
+      className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/60 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${isParentActive ? "" : " hover:bg-transparent!"}`}
+      isActive={isParentActive}
       onPointerEnter={(event) => onHover(event.currentTarget)}
-    >
-      <SidebarMenuButton
-        className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/60 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${active ? "" : " hover:bg-transparent!"}`}
-        isActive={active}
-        render={
-          <Link to={href}>
-            <Icon />
-            <span>{item.title}</span>
-          </Link>
-        }
-        tooltip={item.title}
-      />
+      render={
+        <Link
+          onClick={(event) => {
+            const modifiedNavigation =
+              event.button !== 0 ||
+              event.altKey ||
+              event.ctrlKey ||
+              event.metaKey ||
+              event.shiftKey;
+            if (
+              !shouldToggleStudioSidebarSubmenu(
+                isRecruitingBoard,
+                isParentActive,
+                modifiedNavigation,
+              )
+            ) {
+              return;
+            }
+            event.preventDefault();
+            setSidebarMenuOpen((current) => ({
+              ...current,
+              [item.path]: !(current[item.path] ?? true),
+            }));
+          }}
+          search={
+            isRecruitingBoard
+              ? (previous) => buildRecruitingBoardSearch(previous, active)
+              : undefined
+          }
+          to={href}
+        >
+          <Icon />
+          <span>{item.title}</span>
+        </Link>
+      }
+      tooltip={item.title}
+    />
+  );
+
+  if (!isRecruitingBoard) {
+    return (
+      <SidebarMenuItem className="relative" key={item.path}>
+        {menuButton}
+      </SidebarMenuItem>
+    );
+  }
+
+  return (
+    <SidebarMenuItem className="relative" key={item.path}>
+      <Collapsible
+        onOpenChange={(open) => {
+          setSidebarMenuOpen((current) => ({ ...current, [item.path]: open }));
+        }}
+        open={submenuOpen}
+      >
+        {menuButton}
+        <CollapsibleTrigger
+          aria-label={submenuOpen ? "收起招聘台子菜单" : "展开招聘台子菜单"}
+          render={<SidebarMenuAction className="z-20" />}
+        >
+          <IconChevronRight
+            className={`transition-transform duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none${submenuOpen ? " rotate-90" : ""}`}
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {recruitingBoardStagePresets.map((preset) => (
+              <SidebarMenuSubItem key={preset.id}>
+                <SidebarMenuSubButton
+                  className={STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS}
+                  isActive={active && selectedRecruitingPreset === preset.id}
+                  onPointerEnter={(event) => onHover(event.currentTarget)}
+                  render={
+                    <Link
+                      resetScroll={false}
+                      search={(previous) => buildRecruitingBoardSearch(previous, active, preset)}
+                      to={href}
+                    >
+                      <span>{preset.label}</span>
+                    </Link>
+                  }
+                />
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
     </SidebarMenuItem>
   );
 }
 
 function StudioSidebarNavigation() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const location = useRouterState({ select: (state) => state.location });
+  const { pathname } = location;
+  const selectedRecruitingPreset = resolveRecruitingBoardStagePreset(
+    firstSearchValue(location.search.boardPreset),
+  );
   const slug = useWorkspaceSlug();
   const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
     useSidebarMenuHoverHighlight();
@@ -258,6 +391,7 @@ function StudioSidebarNavigation() {
                   active={isActive(item.path)}
                   href={buildHref(item.path)}
                   onHover={moveToMenuItem}
+                  selectedRecruitingPreset={selectedRecruitingPreset}
                 />
               ))}
             </SidebarMenu>

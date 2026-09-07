@@ -701,6 +701,8 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
  * Aggregations for the charts shown above the resume-library table.
  * - byPipeline: candidate count grouped by (pipelineStage, outcome). Archived
  *   outcomes are excluded so the funnel reflects the live pool.
+ * - boardStatusCounts: exact child-status counts for a fixed recruiting-board
+ *   stage. Omitted by older consumers and empty outside submenu metrics.
  * - dailyAdded: daily new rows over the last 365 days. Each day includes a
  *   byUser split so the client can aggregate uploader rankings by date range.
  * - conversion: how many candidates have already launched an AI interview
@@ -720,6 +722,7 @@ export interface ResumeLibraryDailyAdded {
 }
 
 export interface ResumeLibraryMetrics {
+  boardStatusCounts?: { count: number; label: string; view: string }[];
   byPipeline: { stage: PipelineStage; outcome: CandidateOutcome; count: number }[];
   dailyAdded: ResumeLibraryDailyAdded[];
   conversion: { withInterview: number; withoutInterview: number };
