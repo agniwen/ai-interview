@@ -26,6 +26,8 @@ nsis:
   createDesktopShortcut: always
 mac:
   icon: echo.icon
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSCameraUsageDescription: Application requests access to the device's camera.
@@ -33,7 +35,7 @@ mac:
     NSAudioCaptureUsageDescription: Echo needs system audio access to record the other side of meetings.
     NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+  notarize: true
 dmg:
   artifactName: Echo-${version}.${ext}
   icon: icon.icns
