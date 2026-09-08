@@ -90,7 +90,7 @@ export function Toolbar({
       Boolean(filterValues[filter.key]) &&
       filterValues[filter.key] !== filter.unfilteredValue,
   );
-  const canClear = expanded.length ? activeFields.length > 0 : canResetFilters;
+  const canClear = activeFields.length > 0 || Boolean(canResetFilters);
   function clearFilterValues() {
     if (advanced) {
       const selectedKeys = new Set(selected);

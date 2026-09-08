@@ -224,7 +224,7 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("未通过门槛 · 68 分");
   });
 
-  it("places the duplicate badge immediately after the lifecycle badge", () => {
+  it("preserves initial interview and HR action badges alongside lifecycle and duplicates", () => {
     const noop = vi.fn();
     const content = renderWithQueryClient(
       <ResumeLibraryCard
@@ -246,12 +246,25 @@ describe("ResumeLibraryCard", () => {
         onSelectChange={noop}
         onShowDuplicateMatches={noop}
         onTransition={noop}
-        record={{ ...record, duplicateMatch: { count: 2, highestLevel: "high" } }}
+        record={{
+          ...record,
+          duplicateMatch: { count: 2, highestLevel: "high" },
+          stageProgress: {
+            ...record.stageProgress,
+            initialInterview: {
+              latestStatus: "ready",
+              latestVersionId: "initial-version-1",
+              totalSnapshots: 1,
+            },
+          },
+        }}
         retrying={false}
         selected={false}
       />,
     );
 
+    expect(content).toContain("人工初面 · 已生成");
+    expect(content).toContain("HR处理 · 筛选简历");
     expect(content.indexOf("简历筛选")).toBeLessThan(content.indexOf("重复简历 2 条"));
   });
 

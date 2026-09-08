@@ -40,6 +40,8 @@ export interface ResumeListParams {
   createdTo?: string;
   /** 已知的列表总数；后续分页用于跳过重复 COUNT。 */
   knownTotal?: number;
+  /** 仅显示当前存在明确 HR 作业的候选人。 */
+  hrHandling?: boolean;
   page?: number;
   pageSize?: number;
   search?: string;
@@ -69,6 +71,7 @@ interface ResumeListQuery {
   createdFrom?: string;
   createdTo?: string;
   creatorIds?: string;
+  hrHandling?: "true";
   jdIds?: string;
   knownTotal?: string;
   outcomes?: string;
@@ -94,6 +97,9 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
   };
   if (params.knownTotal !== undefined) {
     query.knownTotal = String(params.knownTotal);
+  }
+  if (params.hrHandling) {
+    query.hrHandling = "true";
   }
   if (params.page !== undefined) {
     query.page = String(params.page);

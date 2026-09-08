@@ -7,7 +7,11 @@ import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
 } from "@app/shared/studio-interview-rounds";
-import { canLaunchInterviewFromResume } from "@app/shared/studio-resumes";
+import {
+  canLaunchInterviewFromResume,
+  getHumanInterviewProgressForStage,
+} from "@app/shared/studio-resumes";
+import { getRecruitingHrAction } from "@app/shared/recruiting-hr-action";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
 import type { QueryClient } from "@tanstack/react-query";
@@ -215,6 +219,16 @@ export function buildStudioPersonDetailHeader({
     const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
+  const hrAction = mode === "resume" && resumeRecord ? getRecruitingHrAction(resumeRecord) : null;
+  const currentHumanInterviewProgress =
+    resumeRecord &&
+    (resumeRecord.pipelineStage === "second_interview" ||
+      resumeRecord.pipelineStage === "final_interview")
+      ? getHumanInterviewProgressForStage(
+          resumeRecord.stageProgress.humanInterview,
+          resumeRecord.pipelineStage,
+        )
+      : null;
 
   const actionBarAiRound = candidateRounds.at(-1);
   const actionBar =
@@ -225,13 +239,13 @@ export function buildStudioPersonDetailHeader({
     record.outcome ? (
       <PipelineStageActionBar
         humanInterviewDone={Boolean(
-          resumeRecord?.stageProgress.humanInterview &&
-          resumeRecord.stageProgress.humanInterview.totalRounds > 0 &&
-          resumeRecord.stageProgress.humanInterview.activeRound === null,
+          currentHumanInterviewProgress &&
+          currentHumanInterviewProgress.totalRounds > 0 &&
+          currentHumanInterviewProgress.activeRound === null,
         )}
         humanInterviewFeedbackComplete={Boolean(
-          resumeRecord?.stageProgress.humanInterview &&
-          resumeRecord.stageProgress.humanInterview.completedRoundsMissingFeedback === 0,
+          currentHumanInterviewProgress &&
+          currentHumanInterviewProgress.completedRoundsMissingFeedback === 0,
         )}
         aiRoundInterviewLink={
           layoutMode === "page" &&
@@ -312,68 +326,81 @@ export function buildStudioPersonDetailHeader({
   const floatingActionBar = layoutMode === "page" ? actionBar : null;
 
   const headerControls = record ? (
-    <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <TabsList className="mt-0 w-full sm:w-auto">
-        <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
-          {mode === "interview" ? "结果" : "概览"}
-        </TabsTrigger>
-        {mode === "interview" ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
-            经历
+    <div className="mt-2 flex flex-col gap-3">
+      {hrAction ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
+          <Badge className="mt-0.5" variant="warning">
+            HR处理
+          </Badge>
+          <div className="min-w-0">
+            <p className="font-medium">{hrAction.label}</p>
+            <p className="text-muted-foreground text-xs">{hrAction.description}</p>
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <TabsList className="mt-0 w-full sm:w-auto">
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
+            {mode === "interview" ? "结果" : "概览"}
           </TabsTrigger>
-        ) : null}
-        {mode === "resume" ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-            AI评价
-          </TabsTrigger>
-        ) : null}
-        {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
-            AI 面试
-          </TabsTrigger>
-        ) : null}
-        {mode === "resume" &&
-        shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
-            真人复面
-          </TabsTrigger>
-        ) : null}
-        {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
-            Offer
-          </TabsTrigger>
-        ) : null}
-        {showAgentInstructions ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
-            Agent 提示词
-          </TabsTrigger>
-        ) : null}
-      </TabsList>
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-        {headerActionBar}
-        <div className="flex items-center gap-2">
-          <ResumeDocumentPreviewButton
-            className="flex-1 sm:flex-none"
-            disabled={!record.hasResumeFile}
-            filename={record.resumeFileName ?? undefined}
-            label="预览简历"
-            url={resumePreviewUrl}
-          />
-          {mode === "resume" && (
-            <Button
-              className="h-8 shrink-0 gap-1.5"
-              size="sm"
-              variant="ghost"
-              isLoading={isRefreshing}
-              onClick={onRefresh}
-            >
-              <IconRefresh
-                className={cn("size-3.5", isRefreshing && "animate-spin")}
-                data-icon="inline-start"
-              />
-              {isRefreshing ? "刷新中…" : "刷新信息"}
-            </Button>
-          )}
+          {mode === "interview" ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
+              经历
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+              AI评价
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
+              AI 面试
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" &&
+          shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
+              真人复面
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
+              Offer
+            </TabsTrigger>
+          ) : null}
+          {showAgentInstructions ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+              Agent 提示词
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {headerActionBar}
+          <div className="flex items-center gap-2">
+            <ResumeDocumentPreviewButton
+              className="flex-1 sm:flex-none"
+              disabled={!record.hasResumeFile}
+              filename={record.resumeFileName ?? undefined}
+              label="预览简历"
+              url={resumePreviewUrl}
+            />
+            {mode === "resume" && (
+              <Button
+                className="h-8 shrink-0 gap-1.5"
+                size="sm"
+                variant="ghost"
+                isLoading={isRefreshing}
+                onClick={onRefresh}
+              >
+                <IconRefresh
+                  className={cn("size-3.5", isRefreshing && "animate-spin")}
+                  data-icon="inline-start"
+                />
+                {isRefreshing ? "刷新中…" : "刷新信息"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

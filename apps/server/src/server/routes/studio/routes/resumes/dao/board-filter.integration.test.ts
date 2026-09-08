@@ -7,7 +7,9 @@ import {
 } from "@app/database/recruiting-pipeline";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
+  aiInterviewRound,
   candidate,
+  humanInterviewRound,
   organization,
   recruitingNodeState,
   recruitingRecord,
@@ -160,6 +162,107 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
     });
     expect(closed.total).toBe(1);
     expect(closed.records[0]?.candidateName).toBe("screen-fail");
+  });
+  it("HR处理在 SQL 分页前筛出当前存在明确人工作业的候选人", async () => {
+    const result = await queryPaginatedResumeRecords(
+      org,
+      { hrHandling: true },
+      { page: 2, pageSize: 2, sortBy: "candidateName", sortOrder: "asc" },
+    );
+    expect(result.total).toBe(8);
+    expect(result.records.map((record) => record.candidateName)).toEqual([
+      "offer-awaiting-send",
+      "offer-negotiating",
+    ]);
+  });
+  it("HR处理依据实际面试轮次排除待进场和待面试官反馈", async () => {
+    const recordIds = {
+      aiScheduled: `${org}-hr-ai-scheduled`,
+      humanFeedbackReady: `${org}-hr-human-feedback-ready`,
+      humanScheduled: `${org}-hr-human-scheduled`,
+      humanWaitingFeedback: `${org}-hr-human-waiting-feedback`,
+    };
+    try {
+      await Promise.all([
+        createRecruitingRecords(db, {
+          candidateName: "hr-ai-scheduled",
+          id: recordIds.aiScheduled,
+          organizationId: org,
+          pipelineStage: "ai_interview",
+        }),
+        createRecruitingRecords(db, {
+          candidateName: "hr-human-scheduled",
+          id: recordIds.humanScheduled,
+          organizationId: org,
+          pipelineStage: "second_interview",
+        }),
+        createRecruitingRecords(db, {
+          candidateName: "hr-human-waiting-feedback",
+          id: recordIds.humanWaitingFeedback,
+          organizationId: org,
+          pipelineStage: "second_interview",
+        }),
+        createRecruitingRecords(db, {
+          candidateName: "hr-human-feedback-ready",
+          id: recordIds.humanFeedbackReady,
+          organizationId: org,
+          pipelineStage: "second_interview",
+        }),
+      ]);
+      await db.insert(aiInterviewRound).values({
+        id: `${org}-hr-ai-round`,
+        organizationId: org,
+        recruitingRecordId: recordIds.aiScheduled,
+        roundLabel: "AI 初面",
+        sortOrder: 0,
+      });
+      await db.insert(humanInterviewRound).values([
+        {
+          format: "online",
+          id: `${org}-hr-human-scheduled-round`,
+          label: "复试",
+          organizationId: org,
+          recruitingRecordId: recordIds.humanScheduled,
+          roundKind: "second_interview",
+          scheduledAt: new Date("2026-09-08T02:00:00.000Z"),
+        },
+        {
+          format: "online",
+          id: `${org}-hr-human-waiting-feedback-round`,
+          label: "复试",
+          organizationId: org,
+          recruitingRecordId: recordIds.humanWaitingFeedback,
+          roundKind: "second_interview",
+          status: "completed",
+        },
+        {
+          feedback: "建议通过",
+          format: "online",
+          id: `${org}-hr-human-feedback-ready-round`,
+          label: "复试",
+          organizationId: org,
+          recruitingRecordId: recordIds.humanFeedbackReady,
+          roundKind: "second_interview",
+          status: "completed",
+        },
+      ]);
+
+      const result = await queryPaginatedResumeRecords(
+        org,
+        { hrHandling: true },
+        { pageSize: 100 },
+      );
+      const actionableNames = result.records.map((record) => record.candidateName);
+      expect(actionableNames).toContain("hr-human-feedback-ready");
+      expect(actionableNames).not.toContain("hr-ai-scheduled");
+      expect(actionableNames).not.toContain("hr-human-scheduled");
+      expect(actionableNames).not.toContain("hr-human-waiting-feedback");
+    } finally {
+      await deleteRecruitingRecords(
+        db,
+        inArray(recruitingRecordReadModel.id, Object.values(recordIds)),
+      );
+    }
   });
   it("实际 Offer 响应和重发持续匹配子标签，接受不会自动进入背调", async () => {
     const id = `${org}-offer-real-actions`;

@@ -2,16 +2,31 @@ import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
 import { buildRecruitingBoardFilter } from "./board-filter";
 import {
+  aiInterviewRound,
   recruitingNodeState,
   recruitingNodeValues,
   department,
+  humanInterviewRound,
   jobDescription,
   user,
 } from "@app/db-schema/schema";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
-import { and, arrayContains, asc, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
+import {
+  and,
+  arrayContains,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "../../../../../../lib/server/db/index";
@@ -92,6 +107,7 @@ const filtersSchema = z.object({
   createdAtBefore: z.date().optional(),
   createdAtFrom: z.date().optional(),
   creatorIds: z.array(z.string()).max(50).optional().nullable(),
+  hrHandling: z.boolean().optional(),
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
   nodeResults: z
     .array(z.enum(["pass", "fail", "withdrawn"]))
@@ -257,6 +273,59 @@ function buildNodeFilters(filters?: ResumeQueryFilters) {
   ];
 }
 
+function buildHrHandlingCondition(enabled: boolean | undefined) {
+  if (!enabled) {
+    return null;
+  }
+
+  const stage = recruitingRecordReadModel.pipelineStage;
+  const { status } = recruitingRecordReadModel;
+  const { result } = recruitingRecordReadModel;
+  const completedAndPassed = and(eq(status, "completed"), eq(result, "pass"));
+  const materialWork = inArray(status, ["pending", "in_progress", "awaiting_review"]);
+  const noActiveAiRound = sql`NOT EXISTS (
+    SELECT 1 FROM ${aiInterviewRound}
+    WHERE ${aiInterviewRound.recruitingRecordId} = ${recruitingRecordReadModel.id}
+      AND ${aiInterviewRound.organizationId} = ${recruitingRecordReadModel.organizationId}
+      AND ${aiInterviewRound.status} IN ('pending', 'in_progress', 'interrupted')
+  )`;
+  const noScheduledHumanRound = sql`NOT EXISTS (
+    SELECT 1 FROM ${humanInterviewRound}
+    WHERE ${humanInterviewRound.recruitingRecordId} = ${recruitingRecordReadModel.id}
+      AND ${humanInterviewRound.organizationId} = ${recruitingRecordReadModel.organizationId}
+      AND ${humanInterviewRound.roundKind} = ${recruitingRecordReadModel.pipelineStage}
+      AND ${humanInterviewRound.status} = 'pending'
+      AND ${humanInterviewRound.scheduledAt} IS NOT NULL
+  )`;
+  const noHumanRoundWaitingForFeedback = sql`NOT EXISTS (
+    SELECT 1 FROM ${humanInterviewRound}
+    WHERE ${humanInterviewRound.recruitingRecordId} = ${recruitingRecordReadModel.id}
+      AND ${humanInterviewRound.organizationId} = ${recruitingRecordReadModel.organizationId}
+      AND ${humanInterviewRound.roundKind} = ${recruitingRecordReadModel.pipelineStage}
+      AND ${humanInterviewRound.status} = 'completed'
+      AND NULLIF(BTRIM(${humanInterviewRound.feedback}), '') IS NULL
+  )`;
+
+  return or(
+    and(
+      eq(stage, "screening"),
+      or(inArray(status, ["pending", "awaiting_review"]), completedAndPassed),
+    ),
+    and(eq(stage, "ai_interview"), or(completedAndPassed, noActiveAiRound)),
+    and(
+      inArray(stage, ["second_interview", "final_interview"]),
+      or(completedAndPassed, and(noScheduledHumanRound, noHumanRoundWaitingForFeedback)),
+    ),
+    and(eq(stage, "income_proof"), or(materialWork, completedAndPassed)),
+    and(
+      eq(stage, "offer"),
+      or(inArray(status, ["pending", "negotiating", "awaiting_send"]), completedAndPassed),
+    ),
+    and(eq(stage, "background_check"), or(materialWork, completedAndPassed)),
+    and(eq(stage, "onboarding"), or(materialWork, completedAndPassed)),
+  );
+}
+
 function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
   if (filters?.forceEmpty) {
     return sql`false`;
@@ -273,6 +342,7 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
+    buildHrHandlingCondition(filters?.hrHandling),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
     ...buildNodeFilters(filters),
@@ -723,6 +793,7 @@ export async function queryPaginatedResumeRecords(
     boardView?: RecruitingBoardView;
     createdAtBefore?: Date;
     createdAtFrom?: Date;
+    hrHandling?: boolean;
     search?: string | null;
     textFilters?: string;
     creatorIds?: string[] | null;
@@ -833,6 +904,7 @@ export function listResumeRecords(
     boardView?: RecruitingBoardView;
     createdAtBefore?: Date;
     createdAtFrom?: Date;
+    hrHandling?: boolean;
     search?: string | null;
     textFilters?: string;
     creatorIds?: string[] | null;

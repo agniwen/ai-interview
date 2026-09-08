@@ -34,6 +34,7 @@ export { getResumeLibraryCardHeight } from "./resume-library-card-layout";
 export interface ResumeFilters extends Record<string, string> {
   createdAtRange: string;
   creatorIds: string;
+  hrHandling: string;
   jdIds: string;
   skills: string;
   stage: string;
@@ -49,6 +50,7 @@ export interface ResumeFilters extends Record<string, string> {
 export const EMPTY_FILTERS: ResumeFilters = {
   createdAtRange: "",
   creatorIds: "",
+  hrHandling: "",
   jdIds: "",
   nodeResults: "",
   nodeStatuses: "",

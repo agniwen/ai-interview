@@ -65,7 +65,7 @@ export interface AiInterviewProgress {
  * 不计 cancelled 轮次到 totalRounds，避免被取消的轮次干扰「全部完成」的判定。
  * Derived human-interview progress; cancelled rounds excluded from totals.
  */
-export interface HumanInterviewProgress {
+export interface HumanInterviewStageProgress {
   totalRounds: number;
   completedRounds: number;
   completedRoundsMissingFeedback: number;
@@ -79,6 +79,23 @@ export interface HumanInterviewProgress {
     outcome: HumanInterviewRoundOutcome | null;
     scheduledAt: string | null;
   } | null;
+}
+
+export interface HumanInterviewProgress extends HumanInterviewStageProgress {
+  /** 按复试/终试拆分的进度；旧数据缺失时消费者可回退到聚合进度。 */
+  byRoundKind?: Partial<
+    Record<"second_interview" | "final_interview", HumanInterviewStageProgress | null>
+  >;
+}
+
+export function getHumanInterviewProgressForStage(
+  progress: HumanInterviewProgress | null,
+  stage: "second_interview" | "final_interview",
+): HumanInterviewStageProgress | null {
+  if (!progress?.byRoundKind || !Object.hasOwn(progress.byRoundKind, stage)) {
+    return progress;
+  }
+  return progress.byRoundKind[stage] ?? null;
 }
 
 /**
@@ -446,6 +463,12 @@ export function describeResumeProgress(record: ResumeProgressInput): Description
   if (pipelineStage === "closed") {
     return describeClosedOutcome(outcome);
   }
+  if (record.nodeStatus === "completed" && record.nodeResult === "pass") {
+    return {
+      label: `${pipelineStageMeta[pipelineStage].label} · 已通过待推进`,
+      tone: "success",
+    };
+  }
 
   switch (pipelineStage) {
     case "screening": {
@@ -456,7 +479,9 @@ export function describeResumeProgress(record: ResumeProgressInput): Description
     }
     case "second_interview":
     case "final_interview": {
-      const progress = describeHumanInterview(stageProgress.humanInterview);
+      const progress = describeHumanInterview(
+        getHumanInterviewProgressForStage(stageProgress.humanInterview, pipelineStage),
+      );
       return {
         ...progress,
         label: progress.label.replaceAll("真人复面", pipelineStageMeta[pipelineStage].label),
