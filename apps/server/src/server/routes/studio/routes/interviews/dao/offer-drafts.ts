@@ -2,26 +2,15 @@ import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import type { RecruitingTransaction as Tx } from "@app/database/recruiting-records";
 import { lockRecruitingRecord } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-// Offer 草稿 DAO。每次新建版本：
-//   - version 取 MAX(version) + 1（同候选人下唯一索引保证 race-safe）
-//   - 旧的非终态版本（draft / sent）自动 supersede
-//   - 终态版本（accepted / declined / expired）不动
-//
-// Offer draft DAO. Each new version auto-increments and supersedes any
-// existing non-terminal (draft/sent) drafts so HR's offer history stays
-// linear without manual cleanup.
+// 同一候选人只允许一份 Offer；未发送时可删除后重新创建，内部 version 固定为 1。
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { recruitingNodeState, recruitingFulfillment, recruitingOffer } from "@app/db-schema/schema";
-import type { OfferDraftInput, OfferDraftStatus } from "@app/db-schema/studio-interviews";
+import type { OfferDraftInput } from "@app/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 
 export type { OfferDraftRecord };
-
-// 非终态状态：新建版本时会被 supersede。
-// Non-terminal statuses that get superseded when a new version is created.
-const SUPERSEDABLE_STATUSES = new Set<OfferDraftStatus>(["draft", "sent"]);
 
 function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
@@ -110,11 +99,7 @@ export interface CreateDraftOptions {
   sendImmediately?: boolean;
 }
 
-// 新建版本：MAX(version)+1，旧的非终态版自动 supersede。
-// FOR UPDATE 锁确保并发 race 下 version 不冲突（搭配 unique index 兜底）。
-//
-// Create new version: max(version)+1; supersede any non-terminal predecessors.
-// FOR UPDATE lock + unique index protect against concurrent inserts.
+// 锁定招聘主记录，串行化存在性检查与创建，防止并发创建第二份 Offer。
 export async function createOfferDraft({
   interviewRecordId,
   organizationId,
@@ -127,34 +112,36 @@ export async function createOfferDraft({
   return await db.transaction(async (tx) => {
     const parent = await lockRecruitingRecord(tx, interviewRecordId, organizationId);
     if (!parent || parent.currentStage !== "offer") {
-      throw new OfferDraftError("请先完成流水提供并进入 Offer 节点", 409);
+      throw new OfferDraftError("请先完成谈薪并进入发 Offer 节点", 409);
     }
-    // 锁同候选人下的所有 draft，串行化新建版本流程。
-    // Lock all drafts for this candidate to serialize version creation.
-    const existing = await tx
-      .select({
-        id: recruitingOffer.id,
-        status: recruitingOffer.status,
-        version: recruitingOffer.version,
-      })
+    const [existing] = await tx
+      .select({ id: recruitingOffer.id })
       .from(recruitingOffer)
-      .where(eq(recruitingOffer.recruitingRecordId, interviewRecordId))
-      .orderBy(desc(recruitingOffer.version))
-      .for("update");
-
-    const [latestExisting] = existing;
-    const nextVersion = latestExisting ? latestExisting.version + 1 : 1;
-
-    // Supersede 所有未结的旧版本。
-    // Supersede all non-terminal predecessors.
-    const toSupersede = existing
-      .filter((row) => SUPERSEDABLE_STATUSES.has(row.status))
-      .map((row) => row.id);
-    if (toSupersede.length > 0) {
-      await tx
-        .update(recruitingOffer)
-        .set({ status: "superseded", updatedAt: now })
-        .where(inArray(recruitingOffer.id, toSupersede));
+      .where(
+        and(
+          eq(recruitingOffer.recruitingRecordId, interviewRecordId),
+          eq(recruitingOffer.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      throw new OfferDraftError(
+        "该候选人已有 Offer，请编辑现有草稿；删除未发送的 Offer 后才能重新创建",
+        409,
+      );
+    }
+    const [node] = await tx
+      .select({ status: recruitingNodeState.status })
+      .from(recruitingNodeState)
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, interviewRecordId),
+          eq(recruitingNodeState.organizationId, organizationId),
+          eq(recruitingNodeState.node, "offer"),
+        ),
+      );
+    if (node?.status !== "awaiting_send" && node?.status !== "pending") {
+      throw new OfferDraftError("请先确认谈薪完成并进入发 Offer 阶段", 409);
     }
 
     await tx.insert(recruitingOffer).values({
@@ -173,7 +160,7 @@ export async function createOfferDraft({
       sentAt: sendImmediately ? now : null,
       status: sendImmediately ? "sent" : "draft",
       updatedAt: now,
-      version: nextVersion,
+      version: 1,
     });
 
     await tx
@@ -242,7 +229,7 @@ async function lockOfferContext(tx: Tx, draftId: string, organizationId: string)
       ),
     );
   if (!draft || node?.effectiveOfferId !== draftId) {
-    throw new OfferDraftError("该 Offer 已不是当前有效版本", 409);
+    throw new OfferDraftError("该 Offer 已不是当前有效 Offer", 409);
   }
   return { draft, record };
 }
@@ -362,7 +349,7 @@ export async function respondOfferDraft({
       reason: candidateCounter ?? undefined,
       recordId: record.id,
       result: response === "counter" ? null : result,
-      status: response === "counter" ? "negotiating" : "completed",
+      status: response === "counter" ? "awaiting_response" : "completed",
     });
     if (!updated) {
       throw new Error("响应后查询失败");
@@ -371,26 +358,26 @@ export async function respondOfferDraft({
   });
 }
 
-/** 撤回只取消当前 Offer 依据，不擅自回退面试节点；回退由明确的流程操作完成。 */
-export async function cancelOfferDraft(
+/** 只有未发送草稿可删除；先解除外键引用，再删除，全部在招聘记录锁内完成。 */
+export async function deleteOfferDraft(
   draftId: string,
   organizationId: string,
 ): Promise<OfferDraftRecord> {
   return await db.transaction(async (tx) => {
     const { draft, record } = await lockOfferContext(tx, draftId, organizationId);
-    if (draft.status !== "sent" && draft.status !== "draft") {
-      throw new OfferDraftError("已结状态的 Offer 不可撤回", 400);
+    if (draft.status !== "draft" || draft.sentAt !== null) {
+      throw new OfferDraftError("Offer 确认发送后不可删除", 409);
     }
     const now = new Date();
-    const [updated] = await tx
-      .update(recruitingOffer)
-      .set({ status: "expired", updatedAt: now })
-      .where(eq(recruitingOffer.id, draftId))
-      .returning();
     await tx
       .update(recruitingFulfillment)
-      .set({ selectedOfferId: null })
-      .where(eq(recruitingFulfillment.recruitingRecordId, record.id));
+      .set({ selectedOfferId: null, updatedAt: now })
+      .where(
+        and(
+          eq(recruitingFulfillment.recruitingRecordId, record.id),
+          eq(recruitingFulfillment.organizationId, organizationId),
+        ),
+      );
     await updateRecruitingNodeTx(tx, {
       effectiveOfferId: null,
       expectedEffectiveId: draftId,
@@ -398,15 +385,17 @@ export async function cancelOfferDraft(
       now,
       operatorId: null,
       organizationId,
-      reason: "撤回当前 Offer",
+      reason: "删除未发送的 Offer",
       recordId: record.id,
       result: null,
-      status: "pending",
+      status: "awaiting_send",
     });
-    if (!updated) {
-      throw new Error("撤回后查询失败");
-    }
-    return toRecord(updated);
+    await tx
+      .delete(recruitingOffer)
+      .where(
+        and(eq(recruitingOffer.id, draftId), eq(recruitingOffer.organizationId, organizationId)),
+      );
+    return toRecord(draft);
   });
 }
 
@@ -425,6 +414,6 @@ export async function maybeAdvanceToOffer(
       ),
     );
   if (!record || record.stage !== "offer") {
-    throw new OfferDraftError("请先完成流水提供并进入 Offer 节点", 409);
+    throw new OfferDraftError("请先完成谈薪并进入发 Offer 节点", 409);
   }
 }

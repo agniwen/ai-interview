@@ -18,6 +18,7 @@ export const recruitingPipelineNodeValues = [
   "second_interview",
   "final_interview",
   "income_proof",
+  "salary_negotiation",
   "offer",
   "background_check",
   "onboarding",
@@ -33,8 +34,9 @@ export const pipelineStageMeta = {
   closed: { label: "已结束", tone: "outline" },
   final_interview: { label: "终试", tone: "warning" },
   income_proof: { label: "流水提供", tone: "info" },
-  offer: { label: "谈薪发 Offer", tone: "info" },
+  offer: { label: "发 Offer", tone: "info" },
   onboarding: { label: "入职", tone: "success" },
+  salary_negotiation: { label: "谈薪", tone: "info" },
   screening: { label: "简历筛选", tone: "outline" },
   second_interview: { label: "复试", tone: "warning" },
 } as const satisfies Record<

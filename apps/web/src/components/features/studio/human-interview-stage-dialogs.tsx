@@ -208,9 +208,9 @@ export function ScheduleRoundDialogView({
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
     onSuccess: ({ feishuFailure }) => {
       if (feishuFailure) {
-        toast.warning("真人复面已安排，飞书同步失败，可在会议链接中重试");
+        toast.warning("真人面试已安排，飞书同步失败，可在会议链接中重试");
       } else {
-        toast.success("已安排线上真人复面");
+        toast.success("已安排线上真人面试");
       }
       void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
       onScheduled();
@@ -551,7 +551,7 @@ export function CancelRoundDialog({
         <DialogHeader>
           <DialogTitle>取消轮次：{round?.label}</DialogTitle>
           <DialogDescription>
-            取消后该轮不会算入复面统计，关联的视频会议也会一并删除；如想保留为「已完成」请改走「标记完成」流程。
+            取消后该轮不会算入真人面试统计，关联的视频会议也会一并删除；如想保留为「已完成」请改走「标记完成」流程。
           </DialogDescription>
         </DialogHeader>
 

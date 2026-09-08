@@ -173,8 +173,11 @@ export function resolveRecruitingBoardView(value: string | undefined): Recruitin
     case "income_proof": {
       return "offer:income";
     }
+    case "salary_negotiation": {
+      return "offer:negotiating";
+    }
     case "offer": {
-      return "offer:all";
+      return "offer:send";
     }
     case "background_check": {
       return "offer:background";

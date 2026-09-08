@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function HumanInterviewStageSkeleton() {
   return (
-    <output aria-label="加载真人复面" aria-busy="true" className="block">
+    <output aria-label="加载真人面试" aria-busy="true" className="block">
       <div aria-hidden="true" className="flex flex-col gap-3">
         <div className="flex h-5 items-center gap-2">
           <Skeleton className="h-3.5 w-16" />

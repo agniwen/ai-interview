@@ -5,8 +5,8 @@ import { createOfferDraftsRouter } from "../route";
 import type { OfferDraftsRouteDependencies } from "../route";
 
 const mocks = {
-  cancelOfferDraft: vi.fn<OfferDraftsRouteDependencies["cancelOfferDraft"]>(),
   createOfferDraft: vi.fn<OfferDraftsRouteDependencies["createOfferDraft"]>(),
+  deleteOfferDraft: vi.fn<OfferDraftsRouteDependencies["deleteOfferDraft"]>(),
   editOfferDraft: vi.fn<OfferDraftsRouteDependencies["editOfferDraft"]>(),
   getHumanInterviewOfferReadinessError:
     vi.fn<OfferDraftsRouteDependencies["getHumanInterviewOfferReadinessError"]>(),
@@ -118,7 +118,7 @@ describe("offerDraftsRouter", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "请先完成流水提供并进入 Offer 节点。" });
+    expect(await response.json()).toEqual({ error: "请先完成谈薪并进入发 Offer 节点。" });
     expect(mocks.createOfferDraft).not.toHaveBeenCalled();
   });
 
@@ -128,7 +128,7 @@ describe("offerDraftsRouter", () => {
     mocks.editOfferDraft.mockResolvedValue(offer);
     mocks.sendOfferDraft.mockResolvedValue(offer);
     mocks.respondOfferDraft.mockResolvedValue(offer);
-    mocks.cancelOfferDraft.mockResolvedValue(offer);
+    mocks.deleteOfferDraft.mockResolvedValue(offer);
     const app = makeApp();
 
     const responses = [
@@ -158,7 +158,7 @@ describe("offerDraftsRouter", () => {
       "offer_draft_updated",
       "offer_draft_sent",
       "offer_draft_responded",
-      "offer_draft_cancelled",
+      "offer_draft_deleted",
     ]);
     expect(mocks.invalidateStudioInterviewCaches).toHaveBeenCalledTimes(5);
   });

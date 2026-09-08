@@ -19,6 +19,8 @@ describe("招聘台全部及阶段标签", () => {
     expect(resolveRecruitingBoardView("screening")).toBe("screening:all");
     expect(resolveRecruitingBoardView("ai_interview")).toBe("interview:ai");
     expect(resolveRecruitingBoardView("income_proof")).toBe("offer:income");
+    expect(resolveRecruitingBoardView("salary_negotiation")).toBe("offer:negotiating");
+    expect(resolveRecruitingBoardView("offer")).toBe("offer:send");
   });
 
   it("全部首项默认选中，依流程顺序汇总所有具体子标签", () => {

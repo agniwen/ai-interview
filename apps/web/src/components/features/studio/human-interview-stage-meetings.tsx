@@ -65,7 +65,7 @@ export function EndMeetingDialog({
     <AlertDialog onOpenChange={onOpenChange} open={meeting !== null}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>结束真人复面会议？</AlertDialogTitle>
+          <AlertDialogTitle>结束真人面试会议？</AlertDialogTitle>
           <AlertDialogDescription>
             结束后会关闭当前视频房间，已拿到链接的候选人和面试官将不能继续进入该会议。
           </AlertDialogDescription>
@@ -140,7 +140,7 @@ export function MeetingLinksDialogView({
         <DialogHeader>
           <DialogTitle>候选人确认与面试官会议链接</DialogTitle>
           <DialogDescription>
-            {meeting?.title ?? "真人复面会议"} 的候选人确认入口和面试官会议入口。链接不可混用。
+            {meeting?.title ?? "真人面试会议"} 的候选人确认入口和面试官会议入口。链接不可混用。
           </DialogDescription>
         </DialogHeader>
 

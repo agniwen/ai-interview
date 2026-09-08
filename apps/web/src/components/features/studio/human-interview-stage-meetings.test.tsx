@@ -67,7 +67,7 @@ const meeting: HumanInterviewMeetingRecord = {
   scheduledAt: "2026-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
-  title: "张三 - 真人复面",
+  title: "张三 - 真人面试",
   updatedAt: "2026-08-05T09:00:00.000Z",
   validUntil: "2026-08-06T09:30:00.000Z",
 };
@@ -79,7 +79,7 @@ const links: HumanInterviewMeetingLinkBundle = {
       expiresAt: "2026-08-06T09:30:00.000Z",
       interviewRecordId: "candidate-1",
       roundId: "round-1",
-      roundLabel: "真人复面",
+      roundLabel: "真人面试",
       url: "/human-interview/candidate-token",
     },
   ],

@@ -3976,6 +3976,7 @@ export const recruitingNodeValues = [
   "second_interview",
   "final_interview",
   "income_proof",
+  "salary_negotiation",
   "offer",
   "background_check",
   "onboarding",
@@ -4249,7 +4250,7 @@ export const recruitingRecord = pgTable(
     index("recruiting_record_candidate_idx").on(table.candidateId),
     check(
       "recruiting_record_stage_check",
-      sql`${table.currentStage} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'offer', 'background_check', 'onboarding', 'closed')`,
+      sql`${table.currentStage} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding', 'closed')`,
     ),
     check(
       "recruiting_record_outcome_check",
@@ -4261,7 +4262,7 @@ export const recruitingRecord = pgTable(
     ),
     check(
       "recruiting_record_closed_node_check",
-      sql`${table.closedFromNode} IS NULL OR ${table.closedFromNode} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'offer', 'background_check', 'onboarding')`,
+      sql`${table.closedFromNode} IS NULL OR ${table.closedFromNode} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding')`,
     ),
     check(
       "recruiting_record_reason_check",
@@ -4655,7 +4656,7 @@ export const recruitingNodeState = pgTable(
     ),
     check(
       "recruiting_node_kind_check",
-      sql`${table.node} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'offer', 'background_check', 'onboarding')`,
+      sql`${table.node} IN ('screening', 'ai_interview', 'second_interview', 'final_interview', 'income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding')`,
     ),
     check(
       "recruiting_node_status_check",
@@ -4671,7 +4672,7 @@ export const recruitingNodeState = pgTable(
     ),
     check(
       "recruiting_node_progress_check",
-      sql`(${table.status} IN ('inactive', 'pending', 'completed', 'skipped')) OR (${table.node} IN ('ai_interview', 'second_interview', 'final_interview') AND ${table.status} IN ('scheduled', 'in_progress', 'awaiting_review')) OR (${table.node} IN ('income_proof', 'background_check') AND ${table.status} IN ('in_progress', 'awaiting_review')) OR (${table.node} = 'offer' AND ${table.status} IN ('negotiating', 'awaiting_send', 'awaiting_response'))`,
+      sql`(${table.status} IN ('inactive', 'pending', 'completed', 'skipped')) OR (${table.node} IN ('ai_interview', 'second_interview', 'final_interview') AND ${table.status} IN ('scheduled', 'in_progress', 'awaiting_review')) OR (${table.node} IN ('income_proof', 'background_check') AND ${table.status} IN ('in_progress', 'awaiting_review')) OR (${table.node} = 'salary_negotiation' AND ${table.status} IN ('negotiating', 'in_progress', 'awaiting_review')) OR (${table.node} = 'offer' AND ${table.status} IN ('awaiting_send', 'awaiting_response'))`,
     ),
     check(
       "recruiting_node_evidence_check",
@@ -5289,7 +5290,7 @@ export const humanInterviewRoundInterviewer = pgTable(
   ],
 );
 
-// 薪资和 Offer 版本：同一招聘可有多版，接受 Offer 只代表进入后续办理，不能直接标记入职。
+// 新建 Offer 固定 version=1；同一招聘仅一份，确认发送后不可删除。历史版本字段保留兼容。
 export const recruitingOffer = pgTable(
   "recruiting_offer",
   {

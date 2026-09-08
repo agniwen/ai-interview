@@ -74,7 +74,7 @@ const round: HumanInterviewRoundRecord = {
       status: "pending",
     },
   ],
-  label: "真人复面",
+  label: "真人面试",
   location: null,
   meetingUrl: "https://vc.feishu.cn/j/123456789",
   notes: null,
@@ -119,7 +119,7 @@ const meeting: HumanInterviewMeetingRecord = {
   scheduledAt: "2026-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
-  title: "张三 - 真人复面",
+  title: "张三 - 真人面试",
   updatedAt: "2026-08-05T09:00:00.000Z",
   validUntil: "2026-08-05T10:30:00.000Z",
 };

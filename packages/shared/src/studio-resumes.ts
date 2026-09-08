@@ -487,6 +487,7 @@ export function describeResumeProgress(record: ResumeProgressInput): Description
         label: progress.label.replaceAll("真人复面", pipelineStageMeta[pipelineStage].label),
       };
     }
+    case "salary_negotiation":
     case "income_proof":
     case "background_check":
     case "onboarding": {

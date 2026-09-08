@@ -83,9 +83,9 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
     await seed("screen-pass", "screening", "completed");
     await seed("screen-fail", "screening", "pending", "rejected");
     await seed("advanced-ai", "ai_interview");
-    await seed("offer-pending", "offer");
-    await seed("offer-negotiating", "offer", "negotiating");
-    await seed("offer-salary-failed", "offer", "pending", "rejected");
+    await seed("offer-pending", "salary_negotiation");
+    await seed("offer-negotiating", "salary_negotiation", "negotiating");
+    await seed("offer-salary-failed", "salary_negotiation", "pending", "rejected");
     await seed("offer-awaiting-send", "offer", "awaiting_send");
     await seed("offer-sent", "offer", "awaiting_response");
     await seed("offer-accepted", "offer", "completed");
@@ -264,7 +264,7 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
       );
     }
   });
-  it("实际 Offer 响应和重发持续匹配子标签，接受不会自动进入背调", async () => {
+  it("实际 Offer 响应持续匹配发 Offer 标签，接受不会自动进入背调", async () => {
     const id = `${org}-offer-real-actions`;
     const command = { operatorId: null, organizationId: org, recordId: id };
     await createRecruitingRecords(db, {
@@ -290,7 +290,7 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
       expect(await names("offer:all")).toContain("offer-real-actions");
     }
     try {
-      await isOnly("offer:negotiating");
+      await isOnly("offer:send");
       const first = await createOfferDraft({
         input: { baseSalary: 20_000, position: "测试岗位" },
         interviewRecordId: id,
@@ -305,15 +305,9 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
         organizationId: org,
         response: "counter",
       });
-      await isOnly("offer:negotiating");
-      const second = await createOfferDraft({
-        input: { baseSalary: 22_000, position: "测试岗位" },
-        interviewRecordId: id,
-        organizationId: org,
-      });
       await isOnly("offer:send");
-      await sendOfferDraft(second.id, org);
-      await respondOfferDraft({ draftId: second.id, organizationId: org, response: "accepted" });
+      await isOnly("offer:send");
+      await respondOfferDraft({ draftId: first.id, organizationId: org, response: "accepted" });
       await isOnly("offer:send");
       expect(await names("offer:background")).not.toContain("offer-real-actions");
       await db.transaction((tx) =>
@@ -322,7 +316,11 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
       expect(await names("offer:background")).toContain("offer-real-actions");
       expect(await names("offer:send")).not.toContain("offer-real-actions");
       await db.transaction((tx) =>
-        reopenRecruitingRecordTx(tx, { ...command, reason: "重新谈薪", targetNode: "offer" }),
+        reopenRecruitingRecordTx(tx, {
+          ...command,
+          reason: "重新谈薪",
+          targetNode: "salary_negotiation",
+        }),
       );
       await isOnly("offer:negotiating");
       await db.transaction((tx) =>
@@ -344,7 +342,7 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
     ["negotiating", "archived", "other", "offer:negotiating"],
     ["awaiting_send", "withdrawn", "candidate_withdrew", "offer:send"],
     ["awaiting_response", "withdrawn", "candidate_withdrew", "offer:send"],
-    ["awaiting_response", "rejected", "salary_disagreement", "offer:negotiating"],
+    ["awaiting_response", "rejected", "salary_disagreement", "offer:send"],
   ] as const)("Offer %s 结束为 %s 后保留正确子流程", async (status, outcome, closeReason, view) => {
     const id = `${org}-close-${status}-${outcome}`;
     const name = `close-${status}-${outcome}`;
@@ -352,12 +350,12 @@ describe.skipIf(!url)("招聘台主标签和子标签 SQL 分页", () => {
       candidateName: name,
       id,
       organizationId: org,
-      pipelineStage: "offer",
+      pipelineStage: view === "offer:negotiating" ? "salary_negotiation" : "offer",
     });
     try {
       await db.transaction((tx) =>
         updateRecruitingNodeTx(tx, {
-          node: "offer",
+          node: view === "offer:negotiating" ? "salary_negotiation" : "offer",
           operatorId: null,
           organizationId: org,
           recordId: id,

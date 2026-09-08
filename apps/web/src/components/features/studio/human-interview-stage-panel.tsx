@@ -187,11 +187,11 @@ export function HumanInterviewStagePanel({
   } else if (!hasData) {
     roundsContent = <HumanInterviewStageSkeleton />;
   } else if (rounds.length === 0) {
-    let emptyDescription = "你可以查看真人复面记录，但不能创建复面。";
+    let emptyDescription = "你可以查看真人面试记录，但不能创建面试。";
     if (disabled) {
-      emptyDescription = "已结束候选人不可新增复面，请先重新激活。";
+      emptyDescription = "已结束候选人不可新增面试，请先重新激活。";
     } else if (canCreate) {
-      emptyDescription = "点「安排真人复面」创建线上复面会议。";
+      emptyDescription = "点「安排真人面试」创建线上面试会议。";
     }
     roundsContent = (
       <Empty className="border-border">
@@ -199,7 +199,7 @@ export function HumanInterviewStagePanel({
           <EmptyMedia variant="icon">
             <IconUsers className="size-5" />
           </EmptyMedia>
-          <EmptyTitle>尚未安排真人复面</EmptyTitle>
+          <EmptyTitle>尚未安排真人面试</EmptyTitle>
           <EmptyDescription>{emptyDescription}</EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -292,7 +292,7 @@ export function HumanInterviewStagePanel({
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h3 className="font-medium text-sm">真人复面进度</h3>
+            <h3 className="font-medium text-sm">真人面试进度</h3>
             <p className="text-muted-foreground text-xs">查看面试安排、轮次结果与面试评价。</p>
           </div>
           {canScheduleRounds ? (

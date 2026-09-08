@@ -118,8 +118,8 @@ export function CreateOrEditOfferDialog({
           <DialogTitle>{mode === "edit" ? "编辑 Offer 草稿" : "创建 Offer"}</DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "草稿状态可编辑。发送后请用「记录响应」/「撤回」操作。"
-              : "创建版本会替换尚未结束的已发出版本。"}
+              ? "草稿状态可编辑和删除。确认发送后可记录候选人响应。"
+              : "每位候选人仅保留一份 Offer，确认发送后不可删除。"}
           </DialogDescription>
         </DialogHeader>
 

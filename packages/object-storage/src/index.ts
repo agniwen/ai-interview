@@ -681,3 +681,25 @@ export async function getObjectBytes(storageKey: string): Promise<{
     throw error;
   }
 }
+
+export async function buildRecruitingMaterialKey(
+  organizationId: string,
+  recordId: string,
+  materialId: string,
+): Promise<string> {
+  const { config } = await getClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  return `${prefix}recruiting-materials/${encodeURIComponent(organizationId)}/${encodeURIComponent(recordId)}/${encodeURIComponent(materialId)}`;
+}
+
+export async function deleteRecruitingMaterialObject(storageKey: string): Promise<void> {
+  const [{ DeleteObjectCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getClient(),
+  ]);
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  if (!storageKey.startsWith(`${prefix}recruiting-materials/`)) {
+    throw new Error("Not a recruiting material object");
+  }
+  await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }));
+}

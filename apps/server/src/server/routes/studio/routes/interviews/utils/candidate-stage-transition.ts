@@ -104,35 +104,6 @@ async function advanceWithInitialInterview(
   return result;
 }
 
-async function saveOnboardingDate(
-  tx: RecruitingTransaction,
-  base: RecruitingPipelineCommand,
-  input: CandidateTransitionInput,
-  changed: boolean,
-) {
-  if (
-    changed &&
-    input.action === "update_node" &&
-    input.node === "onboarding" &&
-    input.earliestJoiningDate !== undefined
-  ) {
-    const scope = and(
-      eq(recruitingRecordReadModel.id, base.recordId),
-      eq(recruitingRecordReadModel.organizationId, base.organizationId),
-    );
-    const [current] = await tx
-      .select({ expectations: recruitingRecordReadModel.candidateExpectationsMeta })
-      .from(recruitingRecordReadModel)
-      .where(scope);
-    await updateRecruitingRecords(tx, scope, {
-      candidateExpectationsMeta: {
-        ...current?.expectations,
-        earliestJoiningDate: input.earliestJoiningDate,
-      },
-    });
-  }
-}
-
 export async function transitionCandidateStage(
   command: {
     authorize: WorkspaceAuthorizer;
@@ -243,7 +214,6 @@ export async function transitionCandidateStage(
           status: input.targetStatus,
         });
       }
-      await saveOnboardingDate(tx, base, input, result.changed);
       if (result.changed && command.provenance.kind === "workspace_recruiting_copilot") {
         await tx.insert(recruitingEvent).values({
           action: "candidate_transition",

@@ -62,7 +62,7 @@ const round: HumanInterviewRoundRecord = {
       status: "confirmed",
     },
   ],
-  label: "真人复面",
+  label: "真人面试",
   location: null,
   meetingUrl: "https://vc.feishu.cn/j/123456789",
   notes: null,
@@ -110,7 +110,7 @@ const meeting: HumanInterviewMeetingRecord = {
       hasCandidateInvite: false,
       interviewRecordId: "candidate-1",
       joinedAt: null,
-      label: "真人复面",
+      label: "真人面试",
       leftAt: null,
       roundId: "round-1",
       sortOrder: 0,
@@ -121,7 +121,7 @@ const meeting: HumanInterviewMeetingRecord = {
   scheduledAt: "2026-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
-  title: "张三 - 真人复面",
+  title: "张三 - 真人面试",
   updatedAt: "2026-08-05T09:00:00.000Z",
   validUntil: "2026-08-05T10:30:00.000Z",
 };
@@ -209,7 +209,7 @@ describe("human interview initial loading", () => {
     async (first) => {
       const view = await mountPanel();
       try {
-        expect(view.container.querySelector('[aria-label="加载真人复面"]')).not.toBeNull();
+        expect(view.container.querySelector('[aria-label="加载真人面试"]')).not.toBeNull();
         await act(async () => {
           if (first === "rounds") {
             view.rounds.resolve([round]);
@@ -222,7 +222,7 @@ describe("human interview initial loading", () => {
         await waitForUi(() => {
           expect(view.container.textContent).not.toContain("安排已更新");
           expect(view.container.textContent).not.toContain("创建会议");
-          expect(view.container.querySelector('[aria-label="加载真人复面"]')).not.toBeNull();
+          expect(view.container.querySelector('[aria-label="加载真人面试"]')).not.toBeNull();
         });
         await act(async () => {
           view.rounds.resolve([round]);
@@ -230,7 +230,7 @@ describe("human interview initial loading", () => {
           await Promise.all([view.roundsRequest, view.meetingsRequest]);
         });
         await waitForUi(() => {
-          expect(view.container.querySelector('[aria-label="加载真人复面"]')).toBeNull();
+          expect(view.container.querySelector('[aria-label="加载真人面试"]')).toBeNull();
           expect(view.container.textContent).toContain("待开始（视频）");
           expect(view.container.textContent).not.toContain("安排已更新");
         });
@@ -279,7 +279,7 @@ it("retains loaded cards during a background request and its failure", async () 
         })
         .catch(() => {});
     });
-    expect(view.container.querySelector('[aria-label="加载真人复面"]')).toBeNull();
+    expect(view.container.querySelector('[aria-label="加载真人面试"]')).toBeNull();
     expect(view.container.textContent).toContain("待开始（视频）");
     await act(async () => {
       background.reject(new Error("刷新失败"));

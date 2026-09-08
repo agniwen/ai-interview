@@ -37,6 +37,23 @@ describe("招聘具体节点状态机", () => {
       )?.stage,
     ).toBe("income_proof");
   });
+  it("流水、谈薪、发 Offer 逐节点推进，谈薪未完成不能继续", () => {
+    expect(
+      getCandidatePipelineEventResult(
+        { currentNodePassed: true, stage: "income_proof" },
+        { type: "ADVANCE_TO_NEXT" },
+      )?.stage,
+    ).toBe("salary_negotiation");
+    expect(
+      getCandidatePipelineEventResult({ stage: "salary_negotiation" }, { type: "ADVANCE_TO_NEXT" }),
+    ).toBeNull();
+    expect(
+      getCandidatePipelineEventResult(
+        { currentNodePassed: true, stage: "salary_negotiation" },
+        { type: "ADVANCE_TO_NEXT" },
+      )?.stage,
+    ).toBe("offer");
+  });
   it("接受Offer后是背调，不能直接标记已入职", () => {
     expect(
       getCandidatePipelineEventResult(

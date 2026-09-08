@@ -42,8 +42,13 @@ export function isInterviewStage(
 }
 export function isOfferStage(
   stage: string,
-): stage is "income_proof" | "offer" | "background_check" {
-  return stage === "income_proof" || stage === "offer" || stage === "background_check";
+): stage is "income_proof" | "salary_negotiation" | "offer" | "background_check" {
+  return (
+    stage === "income_proof" ||
+    stage === "salary_negotiation" ||
+    stage === "offer" ||
+    stage === "background_check"
+  );
 }
 export function getCandidateActivityStatus(stage: PipelineStage): "active" | "archived" {
   return stage === "closed" ? "archived" : "active";
@@ -114,6 +119,10 @@ export const candidatePipelineMachine = setup({
             guard: { params: { target: "income_proof" }, type: "reactivatesTo" },
             target: "income_proof",
           },
+          {
+            guard: { params: { target: "salary_negotiation" }, type: "reactivatesTo" },
+            target: "salary_negotiation",
+          },
           { guard: { params: { target: "offer" }, type: "reactivatesTo" }, target: "offer" },
           {
             guard: { params: { target: "background_check" }, type: "reactivatesTo" },
@@ -138,7 +147,7 @@ export const candidatePipelineMachine = setup({
     },
     income_proof: {
       on: {
-        ADVANCE_TO_NEXT: { guard: "nodePassed", target: "offer" },
+        ADVANCE_TO_NEXT: { guard: "nodePassed", target: "salary_negotiation" },
         CLOSE: { guard: { params: { node: "income_proof" }, type: "canClose" }, target: "closed" },
       },
     },
@@ -151,6 +160,15 @@ export const candidatePipelineMachine = setup({
     onboarding: {
       on: {
         CLOSE: { guard: { params: { node: "onboarding" }, type: "canClose" }, target: "closed" },
+      },
+    },
+    salary_negotiation: {
+      on: {
+        ADVANCE_TO_NEXT: { guard: "nodePassed", target: "offer" },
+        CLOSE: {
+          guard: { params: { node: "salary_negotiation" }, type: "canClose" },
+          target: "closed",
+        },
       },
     },
     screening: {

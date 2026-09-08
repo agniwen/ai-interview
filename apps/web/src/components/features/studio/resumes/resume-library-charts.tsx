@@ -221,7 +221,7 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
   if (["ai_interview", "second_interview", "final_interview"].includes(row.stage)) {
     return "interview";
   }
-  if (["income_proof", "offer", "background_check"].includes(row.stage)) {
+  if (["income_proof", "salary_negotiation", "offer", "background_check"].includes(row.stage)) {
     return "offer";
   }
   if (row.stage === "screening" || row.stage === "onboarding") {

@@ -1,9 +1,10 @@
+import { materialsRouter } from "./routes/materials/route";
 import {
   reopenRecruitingRecordTx,
   updateRecruitingNodeTx,
 } from "@app/database/recruiting-pipeline";
 import { deleteAiRounds, lockAiRound } from "./dao/ai-round-lifecycle";
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { updateCandidateExpectations } from "./dao/candidate-expectations";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
@@ -151,6 +152,7 @@ export const studioInterviewsRouter = factory
   )
   // oxlint-disable-next-line complexity -- CRUD handler orchestrates parse → validate → persist in one flow.
 
+  .route("/:id/materials", materialsRouter)
   .route("/", studioInterviewCollectionRouter)
   .route("/", studioInterviewDetailRouter)
   .route("/", notificationRecipientsRouter)
@@ -365,45 +367,19 @@ export const studioInterviewsRouter = factory
       }
       const recordId = c.req.param("id");
       const input = c.req.valid("json");
-      const now = new Date();
-
-      // 事务 + 行锁：partial merge `{...existing, ...input}` 在并发下会丢字段，
-      //   两个 HR 同时改不同字段会互相覆盖。FOR UPDATE 串行化合并；事务外读会等。
-      // Transaction + row lock: the partial merge would otherwise lose
-      // concurrent writes (two HRs editing different fields would overwrite
-      // each other). FOR UPDATE serializes merges on the same record.
-      const merged = await db.transaction(async (tx) => {
-        if (!(await lockRecruitingRecord(tx, recordId, activeOrg.id))) {
-          return null;
-        }
-        const [existing] = await tx
-          .select({
-            candidateExpectationsMeta: recruitingRecordReadModel.candidateExpectationsMeta,
-          })
-          .from(recruitingRecordReadModel)
-          .where(
-            and(
-              eq(recruitingRecordReadModel.id, recordId),
-              eq(recruitingRecordReadModel.organizationId, activeOrg.id),
-            ),
-          )
-          .limit(1);
-        if (!existing) {
-          return null;
-        }
-        const next = { ...existing.candidateExpectationsMeta, ...input };
-        await updateRecruitingRecords(tx, eq(recruitingRecordReadModel.id, recordId), {
-          candidateExpectationsMeta: next,
-          updatedAt: now,
-        });
-        return next;
-      });
+      const merged = await updateCandidateExpectations(recordId, activeOrg.id, input);
 
       if (!merged) {
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
+      if (merged.kind === "wrong_stage") {
+        return c.json(
+          { error: "仅谈薪阶段可编辑候选人期望；入职办理阶段仅可修改最早可到岗日期。" },
+          409,
+        );
+      }
       invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json({ candidateExpectationsMeta: merged }, 200);
+      return c.json({ candidateExpectationsMeta: merged.data }, 200);
     },
   )
   // ── 真人复面单轮 endpoints ──

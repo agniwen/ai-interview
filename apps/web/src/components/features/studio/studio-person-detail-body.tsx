@@ -96,7 +96,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
       <div className={cn("relative", detailScrollClassName)} ref={tabContentRootRef}>
         <TabsContent motion="page" value="overview">
           <div className="space-y-8">
-            {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
+            {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI初面」
               弹窗的概览 tab 同一布局，后续要扩字段也只改一处。
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
@@ -217,7 +217,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                 />
               ) : (
                 <p className="text-muted-foreground text-sm leading-normal">
-                  未找到该 AI 面试的详情数据。
+                  未找到该 AI初面的详情数据。
                 </p>
               )}
             </section>
@@ -242,6 +242,11 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
           <TabsContent motion="page" value="offer">
             <OfferStagePanel
+              stage={
+                record.pipelineStage === "closed"
+                  ? (resumeRecord?.closedFromNode ?? "offer")
+                  : (record.pipelineStage ?? "income_proof")
+              }
               canCreate={canCreateOffer}
               canDelete={canDeleteOffer}
               canUpdate={canUpdateOffer}
@@ -254,7 +259,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         ) : null}
         {mode === "resume" && resumeRecord && shouldShowOnboardingTab(tabVisibilityRecord) ? (
           <TabsContent motion="page" value="onboarding">
-            <OnboardingStagePanel record={resumeRecord} />
+            <OnboardingStagePanel record={resumeRecord} canUpdate={canUseManagementActions} />
           </TabsContent>
         ) : null}
         {showAgentInstructions ? (

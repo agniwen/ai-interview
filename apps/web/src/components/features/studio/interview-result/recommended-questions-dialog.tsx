@@ -76,7 +76,7 @@ export function RecommendedQuestionsDialog({
       description={
         isEditing
           ? `共 ${questions.length} 题，可调整内容、维度、难度和顺序`
-          : `共 ${questions.length} 题，发起 AI 面试时生成`
+          : `共 ${questions.length} 题，发起 AI初面时生成`
       }
       dismissible={!isSaving}
       footer={

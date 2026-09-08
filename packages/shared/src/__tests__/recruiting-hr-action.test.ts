@@ -11,7 +11,7 @@ describe("recruiting HR action", () => {
     ["second_interview", "awaiting_review", null, "审核复试结果"],
     ["final_interview", "completed", "pass", "推进流水"],
     ["income_proof", "in_progress", null, "跟进流水"],
-    ["offer", "negotiating", null, "处理谈薪"],
+    ["salary_negotiation", "negotiating", null, "处理谈薪"],
     ["offer", "awaiting_send", null, "发送 Offer"],
     ["offer", "completed", "pass", "推进背调"],
     ["background_check", "awaiting_review", null, "跟进背调"],

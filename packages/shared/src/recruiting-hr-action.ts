@@ -55,7 +55,7 @@ const PASSED_NODE_ACTIONS = {
     label: "推进流水",
   },
   income_proof: {
-    description: "薪资流水已确认，请将候选人推进到谈薪发 Offer。",
+    description: "薪资流水已确认，请将候选人推进到谈薪。",
     label: "推进谈薪",
   },
   offer: {
@@ -66,6 +66,7 @@ const PASSED_NODE_ACTIONS = {
     description: "入职办理已完成，请确认候选人已入职并结束流程。",
     label: "确认入职",
   },
+  salary_negotiation: { description: "谈薪已完成，请推进到发 Offer。", label: "进入发 Offer" },
   screening: {
     description: "简历筛选已通过，请选择 AI 初面或复试并推进流程。",
     label: "推进面试",
@@ -186,10 +187,10 @@ function getOfferAction(input: ActiveHrActionInput): RecruitingHrAction | null {
       label: "发送 Offer",
     };
   }
-  return isOneOfStatuses(status, ["pending", "negotiating"])
+  return status === "pending"
     ? {
-        description: "请继续与候选人确认薪资和 Offer 条件，并更新协商结果。",
-        label: "处理谈薪",
+        description: "请创建 Offer 并确认发送。",
+        label: "创建 Offer",
       }
     : null;
 }
@@ -214,6 +215,10 @@ const HR_ACTION_RESOLVERS = {
       description: "请跟进入职材料和到岗情况，并确认最终入职结果。",
       label: "办理入职",
     }),
+  salary_negotiation: () => ({
+    description: "请与候选人确认薪资和条件，并确认谈薪结果。",
+    label: "处理谈薪",
+  }),
   screening: ({ nodeStatus }: ActiveHrActionInput) => getScreeningAction(nodeStatus),
   second_interview: (input: ActiveHrActionInput) =>
     getHumanInterviewAction(input, "复试", "second_interview"),

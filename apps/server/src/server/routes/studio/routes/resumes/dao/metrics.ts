@@ -479,7 +479,7 @@ async function loadJobPipeline(organizationId: string) {
       id: jobDescription.id,
       name: jobDescription.name,
       offer:
-        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'offer', 'background_check', 'onboarding'))`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding'))`.mapWith(
           Number,
         ),
       screening:

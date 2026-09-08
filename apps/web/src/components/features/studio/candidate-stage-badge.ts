@@ -8,6 +8,7 @@ export function getCandidateStageBadgeVariant(
   }
   if (
     stage === "income_proof" ||
+    stage === "salary_negotiation" ||
     stage === "offer" ||
     stage === "background_check" ||
     stage === "onboarding"
@@ -25,6 +26,7 @@ export function getCandidateStageBadgeHoverRingClass(
   }
   if (
     stage === "income_proof" ||
+    stage === "salary_negotiation" ||
     stage === "offer" ||
     stage === "background_check" ||
     stage === "onboarding"

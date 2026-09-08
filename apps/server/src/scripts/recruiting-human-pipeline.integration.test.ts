@@ -247,6 +247,17 @@ suite("真人面试与新招聘节点集成", () => {
       }),
     );
     await db.transaction((tx) =>
+      transitionRecruitingNodeTx(tx, { ...command(id), targetNode: "salary_negotiation" }),
+    );
+    await db.transaction((tx) =>
+      updateRecruitingNodeTx(tx, {
+        ...command(id),
+        node: "salary_negotiation",
+        result: "pass",
+        status: "completed",
+      }),
+    );
+    await db.transaction((tx) =>
       transitionRecruitingNodeTx(tx, { ...command(id), targetNode: "offer" }),
     );
     const first = await createOfferDraft({
@@ -261,19 +272,7 @@ suite("真人面试与新招聘节点集成", () => {
       organizationId: orgId,
       response: "counter",
     });
-    await respondOfferDraft({ draftId: first.id, organizationId: orgId, response: "declined" });
-    let [record] = await db.select().from(recruitingRecord).where(eq(recruitingRecord.id, id));
-    expect(record).toMatchObject({ closeReason: "offer_declined", currentStage: "closed" });
-    await db.transaction((tx) =>
-      reopenRecruitingRecordTx(tx, { ...command(id), reason: "重新谈薪", targetNode: "offer" }),
-    );
-    const offer = await createOfferDraft({
-      input: { baseSalary: 22_000, position: "测试岗位" },
-      interviewRecordId: id,
-      organizationId: orgId,
-    });
-    await sendOfferDraft(offer.id, orgId);
-    await respondOfferDraft({ draftId: offer.id, organizationId: orgId, response: "accepted" });
+    await respondOfferDraft({ draftId: first.id, organizationId: orgId, response: "accepted" });
     await db.transaction((tx) =>
       transitionRecruitingNodeTx(tx, { ...command(id), targetNode: "background_check" }),
     );
@@ -285,7 +284,7 @@ suite("真人面试与新招聘节点集成", () => {
         status: "completed",
       }),
     );
-    [record] = await db.select().from(recruitingRecord).where(eq(recruitingRecord.id, id));
+    const [record] = await db.select().from(recruitingRecord).where(eq(recruitingRecord.id, id));
     expect(record).toMatchObject({
       closeReason: "background_check_failed",
       currentStage: "closed",

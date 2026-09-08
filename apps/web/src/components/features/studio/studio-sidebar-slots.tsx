@@ -85,7 +85,7 @@ const navGroups: NavGroup[] = [
         icon: IconRobot,
         path: "/studio/interviews",
         resource: "page",
-        title: "AI 面试",
+        title: "AI初面",
       },
       {
         action: "interviews",

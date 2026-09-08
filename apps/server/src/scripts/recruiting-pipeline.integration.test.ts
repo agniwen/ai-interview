@@ -364,6 +364,8 @@ suite("新招聘节点事务真实 SQL", () => {
     });
     await advance(id, "income_proof");
     await pass(id, "income_proof");
+    await advance(id, "salary_negotiation");
+    await pass(id, "salary_negotiation");
     await advance(id, "offer");
     const offerId = crypto.randomUUID();
     await database().insert(recruitingOffer).values({

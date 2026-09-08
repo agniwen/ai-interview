@@ -68,6 +68,7 @@ const AUDIT_TITLES = new Map([
   ["interview_questions_drafted", "面试题草稿已生成"],
   ["job_description_changed", "关联岗位已变更"],
   ["offer_draft_cancelled", "Offer 已撤回"],
+  ["offer_draft_deleted", "Offer 已删除"],
   ["offer_draft_created", "创建 Offer"],
   ["offer_draft_responded", "候选人回复 Offer"],
   ["offer_draft_sent", "Offer 已发送"],
@@ -239,21 +240,23 @@ export function auditDescription(
     }
   }
   if (action.startsWith("offer_draft_")) {
-    const version = detail.version === undefined ? "" : ` v${detail.version}`;
     if (action === "offer_draft_created") {
-      return `创建 Offer${version}：${detail.position ?? "Offer"}`;
+      return `创建 Offer：${detail.position ?? "Offer"}`;
     }
     if (action === "offer_draft_updated") {
-      return `更新 Offer${version}`;
+      return `更新 Offer`;
     }
     if (action === "offer_draft_sent") {
-      return `发送 Offer${version}`;
+      return `发送 Offer`;
     }
     if (action === "offer_draft_responded") {
-      return `记录候选人 Offer${version} 回复：${offerResponseLabel(detail.response)}`;
+      return `记录候选人 Offer 回复：${offerResponseLabel(detail.response)}`;
+    }
+    if (action === "offer_draft_deleted") {
+      return "删除 Offer";
     }
     if (action === "offer_draft_cancelled") {
-      return `撤回 Offer${version}`;
+      return `撤回 Offer`;
     }
   }
   if (action === "context_snapshot_refresh") {

@@ -638,14 +638,10 @@ export async function loadCandidateTimeline(
       addEvent(events, {
         actorImage: null,
         actorName: null,
-        description: `${draft.position} Offer v${draft.version} 已创建`,
+        description: `${draft.position} Offer 已创建`,
         id: `offer:${draft.id}:created`,
         kind: "offer",
-        metadata: compactMeta([
-          textMeta("职位", draft.position),
-          textMeta("版本", `v${draft.version}`),
-          textMeta("币种", draft.currency),
-        ]),
+        metadata: compactMeta([textMeta("职位", draft.position), textMeta("币种", draft.currency)]),
         occurredAt: draft.createdAt,
         title: "创建 Offer",
         tone: "info",
@@ -660,12 +656,11 @@ export async function loadCandidateTimeline(
       addEvent(events, {
         actorImage: null,
         actorName: null,
-        description: `Offer v${draft.version} 已发送，当前状态：${statusMeta.label}`,
+        description: `Offer 已发送，当前状态：${statusMeta.label}`,
         id: `offer:${draft.id}:sent`,
         kind: "offer",
         metadata: compactMeta([
           textMeta("职位", draft.position),
-          textMeta("版本", `v${draft.version}`),
           textMeta("状态", statusMeta.label),
         ]),
         occurredAt: draft.sentAt,
@@ -677,12 +672,11 @@ export async function loadCandidateTimeline(
       addEvent(events, {
         actorImage: null,
         actorName: null,
-        description: `候选人对 Offer v${draft.version} 的反馈：${statusMeta.label}`,
+        description: `候选人对 Offer 的反馈：${statusMeta.label}`,
         id: `offer:${draft.id}:response`,
         kind: "offer",
         metadata: compactMeta([
           textMeta("职位", draft.position),
-          textMeta("版本", `v${draft.version}`),
           textMeta("状态", statusMeta.label),
         ]),
         occurredAt: draft.responseAt,

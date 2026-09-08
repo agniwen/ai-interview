@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBan, IconCircleCheck, IconMail, IconPencil } from "@tabler/icons-react";
+import { IconCircleCheck, IconMail, IconPencil } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
 // Offer 接受后完成协商，后续继续背调与入职。
 
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@app/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import {
-  cancelOfferDraft,
+  deleteOfferDraft,
   fetchStudioResume,
   patchOfferDraft,
   sendOfferDraft,
@@ -22,7 +22,7 @@ import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import {
   Dialog,
   DialogContent,
@@ -101,11 +101,13 @@ export function CandidateExpectationsBlock({
     },
   });
 
-  if (editing) {
+  if (editing && !disabled) {
     return (
-      <Card className="gap-0 rounded-lg py-0">
-        <CardContent className="p-4">
-          <h4 className="mb-3 font-medium text-sm">编辑候选人期望</h4>
+      <Frame>
+        <FrameHeader className="h-auto min-h-10 py-2">
+          <FrameTitle>编辑候选人期望</FrameTitle>
+        </FrameHeader>
+        <FramePanel>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label className="text-sm" htmlFor="exp-salary">
@@ -172,28 +174,24 @@ export function CandidateExpectationsBlock({
               {mutation.isPending ? "保存中…" : "保存"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </FramePanel>
+      </Frame>
     );
   }
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h4 className="font-medium text-sm">候选人期望</h4>
-            <p className="text-muted-foreground text-xs">
-              发 Offer 前先收集候选人期望，做议价参考。
-            </p>
-          </div>
-          {disabled ? null : (
-            <Button onClick={startEditing} size="sm" variant="ghost">
-              <IconPencil className="size-3.5" />
-              编辑
-            </Button>
-          )}
-        </div>
+    <Frame>
+      <FrameHeader className="h-auto min-h-10 justify-between gap-3 py-2">
+        <FrameTitle>候选人期望</FrameTitle>
+        {disabled ? null : (
+          <Button onClick={startEditing} size="sm" variant="ghost">
+            <IconPencil data-icon="inline-start" />
+            编辑
+          </Button>
+        )}
+      </FrameHeader>
+      <FramePanel>
+        <p className="text-muted-foreground text-xs">发 Offer 前先收集候选人期望，做议价参考。</p>
         <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <ExpectationField
             label="期望月薪"
@@ -206,8 +204,8 @@ export function CandidateExpectationsBlock({
           <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
           <ExpectationField label="备注" value={meta?.notes ?? null} />
         </dl>
-      </CardContent>
-    </Card>
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -265,10 +263,10 @@ export function OfferCardView({
     },
   });
   const cancelMutation = useMutation({
-    mutationFn: () => cancelOfferDraft(slug, candidateId, draft.id),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "撤回失败"),
+    mutationFn: () => deleteOfferDraft(slug, candidateId, draft.id),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "删除失败"),
     onSuccess: () => {
-      toast.success("已撤回 Offer");
+      toast.success("已删除 Offer");
       onCancelled();
     },
   });
@@ -292,13 +290,13 @@ export function OfferCardView({
     setEditing(true);
   }
 
-  if (editing && canUpdate && draft.status === "draft") {
+  if (editing && !disabled && canUpdate && draft.status === "draft") {
     return (
-      <Card className="gap-0 rounded-lg py-0">
-        <CardContent className="p-4">
+      <div className="min-w-0">
+        <div>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">v{draft.version} · 编辑 Offer 草稿</span>
+              <span className="font-medium text-sm">编辑 Offer 草稿</span>
               <Badge variant={meta.tone}>{meta.label}</Badge>
             </div>
           </div>
@@ -326,19 +324,17 @@ export function OfferCardView({
               {saveMutation.isPending ? "保存中…" : "保存"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="p-4">
+    <div className="min-w-0">
+      <div>
         <div className="space-y-4">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">
-              v{draft.version} · {draft.position}
-            </span>
+            <span className="font-medium text-sm">{draft.position}</span>
             <Badge variant={meta.tone}>{meta.label}</Badge>
           </div>
 
@@ -347,7 +343,7 @@ export function OfferCardView({
             isPending={sendMutation.isPending}
             onConfirm={() => sendMutation.mutate()}
             onOpenChange={setSendOpen}
-            open={sendOpen}
+            open={sendOpen && !disabled && canUpdate}
           />
           <OfferDraftReadonlyFields draft={draft} />
 
@@ -365,8 +361,8 @@ export function OfferCardView({
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -388,46 +384,40 @@ function OfferCardActions({
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
-    if (!canUpdate) {
-      return null;
-    }
     return (
       <div className="flex flex-wrap justify-end gap-2">
-        <Button onClick={onSend} size="sm">
-          <IconMail className="size-4" />
-          标记 Offer 已发出
-        </Button>
-        <Button onClick={onEdit} size="sm" variant="ghost">
-          <IconPencil className="size-4" />
-          编辑
-        </Button>
-      </div>
-    );
-  }
-  if (draft.status === "sent") {
-    const hasActions = canUpdate || canDelete;
-    if (!hasActions) {
-      return null;
-    }
-    return (
-      <div className="flex flex-wrap justify-end gap-2">
-        {canUpdate ? (
-          <Button onClick={onRespond} size="sm">
-            <IconCircleCheck className="size-4" />
-            记录响应
-          </Button>
-        ) : null}
-        {canDelete ? (
+        {canDelete && draft.sentAt === null && (
           <Button
             disabled={cancelMutation.isPending}
             onClick={() => cancelMutation.mutate()}
             size="sm"
             variant="outline"
           >
-            <IconBan className="size-4" />
-            撤回
+            删除 Offer
           </Button>
-        ) : null}
+        )}
+        {canUpdate && (
+          <>
+            <Button disabled={cancelMutation.isPending} onClick={onSend} size="sm">
+              <IconMail className="size-4" />
+              标记 Offer 已发出
+            </Button>
+            <Button disabled={cancelMutation.isPending} onClick={onEdit} size="sm" variant="ghost">
+              <IconPencil className="size-4" />
+              编辑
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  }
+  if (draft.status === "sent" && canUpdate) {
+    return (
+      <div className="flex justify-end">
+        <Button onClick={onRespond} size="sm">
+          <IconCircleCheck className="size-4" />
+          记录响应
+        </Button>
       </div>
     );
   }

@@ -397,7 +397,7 @@ export function updateCandidateExpectations(
   );
 }
 
-// ── 真人复面 client wrappers ──
+// ── 真人面试 client wrappers ──
 
 export function listHumanInterviewMeetings(
   slug: string,
@@ -408,7 +408,7 @@ export function listHumanInterviewMeetings(
       param: { slug },
       query: input,
     }),
-    "加载真人复面会议失败",
+    "加载真人面试会议失败",
   );
 }
 
@@ -421,7 +421,7 @@ export function createHumanInterviewMeeting(
       json: input,
       param: { slug },
     }),
-    "创建真人复面会议失败",
+    "创建真人面试会议失败",
   );
 }
 
@@ -435,7 +435,7 @@ export function updateHumanInterviewMeeting(
       json: input,
       param: { meetingId, slug },
     }),
-    "更新真人复面会议时间失败",
+    "更新真人面试会议时间失败",
   );
 }
 
@@ -447,7 +447,7 @@ export function getHumanInterviewMeeting(
     rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$get({
       param: { meetingId, slug },
     }),
-    "加载真人复面会议失败",
+    "加载真人面试会议失败",
   );
 }
 
@@ -459,7 +459,7 @@ export function issueHumanInterviewMeetingLinks(
     rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].links.$post({
       param: { meetingId, slug },
     }),
-    "生成真人复面链接失败",
+    "生成真人面试链接失败",
   );
 }
 
@@ -485,7 +485,7 @@ export function endHumanInterviewMeeting(
     rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].end.$post({
       param: { meetingId, slug },
     }),
-    "结束真人复面会议失败",
+    "结束真人面试会议失败",
   );
 }
 
@@ -497,7 +497,7 @@ export function deleteHumanInterviewMeeting(
     rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$delete({
       param: { meetingId, slug },
     }),
-    "删除真人复面会议失败",
+    "删除真人面试会议失败",
   );
 }
 
@@ -513,12 +513,12 @@ export function getHumanInterviewMeetingLiveKitToken(
       json: input,
       param: { meetingId, slug },
     }),
-    "进入真人复面会议失败",
+    "进入真人面试会议失败",
   );
 }
 
 /**
- * 列出候选人所有真人复面轮次（含 cancelled）。
+ * 列出候选人所有真人面试轮次（含 cancelled）。
  * List all human interview rounds for a candidate (including cancelled).
  */
 export function listHumanInterviewRounds(
@@ -529,12 +529,12 @@ export function listHumanInterviewRounds(
     rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"].$get({
       param: { id: candidateId, slug },
     }),
-    "加载真人复面轮次失败",
+    "加载真人面试轮次失败",
   );
 }
 
 /**
- * 新建真人复面轮次。第一次创建时服务端会自动把 pipelineStage 推进到 human_interview。
+ * 新建真人面试轮次。第一次创建时服务端会自动把 pipelineStage 推进到 human_interview。
  * Create a human interview round; auto-advances the pipeline stage on the first round.
  */
 export function createHumanInterviewRound(
@@ -547,12 +547,12 @@ export function createHumanInterviewRound(
       json: input,
       param: { id: candidateId, slug },
     }),
-    "创建真人复面失败",
+    "创建真人面试失败",
   );
 }
 
 /**
- * 编辑真人复面轮次。pending 可改排期字段；completed 仅可改 feedback。
+ * 编辑真人面试轮次。pending 可改排期字段；completed 仅可改 feedback。
  * Edit a round; pending allows scheduling fields, completed only feedback.
  */
 export function patchHumanInterviewRound(
@@ -566,12 +566,12 @@ export function patchHumanInterviewRound(
       json: input,
       param: { id: candidateId, roundId, slug },
     }),
-    "更新真人复面失败",
+    "更新真人面试失败",
   );
 }
 
 /**
- * 标记真人复面轮次为已完成。
+ * 标记真人面试轮次为已完成。
  * Mark a pending round as completed.
  */
 export function completeHumanInterviewRound(
@@ -609,7 +609,7 @@ export function resolveHumanInterviewRoundOutcome(
 }
 
 /**
- * 取消真人复面轮次。已完成轮次不可取消。
+ * 取消真人面试轮次。已完成轮次不可取消。
  * Cancel a pending round (completed rounds are immutable).
  */
 export function cancelHumanInterviewRound(
@@ -643,8 +643,8 @@ export function listOfferDrafts(slug: string, candidateId: string): Promise<Offe
 }
 
 /**
- * 新建 Offer 修订版本。sendImmediately=true 时直接发送（跳过 draft 状态）。
- * Create a new offer version; pass sendImmediately to skip the draft state.
+ * 新建唯一一份 Offer。sendImmediately=true 时直接发送（跳过 draft 状态）。
+ * Create the candidate's only offer; pass sendImmediately to skip the draft state.
  */
 export function createOfferDraft(
   slug: string,
@@ -716,10 +716,10 @@ export function respondOfferDraft(
 }
 
 /**
- * HR 撤回 Offer（draft/sent → expired）。
- * HR cancels an active offer (draft or sent → expired).
+ * 删除未发送 Offer；保留旧 cancel 路径兼容现有路由。
+ * Sent offers cannot be deleted.
  */
-export function cancelOfferDraft(
+export function deleteOfferDraft(
   slug: string,
   candidateId: string,
   draftId: string,
@@ -728,7 +728,7 @@ export function cancelOfferDraft(
     rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].cancel.$post({
       param: { draftId, id: candidateId, slug },
     }),
-    "撤回 Offer 失败",
+    "删除 Offer 失败",
   );
 }
 

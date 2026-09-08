@@ -49,8 +49,8 @@ export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
   z
     .object({
       action: z.literal("update_node"),
+      actualJoiningDate: z.iso.date().optional(),
       closeReason: recruitingCloseReasonSchema.optional(),
-      earliestJoiningDate: z.iso.date().nullable().optional(),
       effectiveAiRoundId: optionalId,
       effectiveHumanRoundId: optionalId,
       effectiveOfferId: optionalId,
@@ -60,10 +60,23 @@ export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
       result: recruitingNodeResultSchema.nullable().optional(),
       targetStatus: recruitingNodeStatusSchema.exclude(["inactive", "skipped"]),
     })
-    .refine((input) => input.earliestJoiningDate === undefined || input.node === "onboarding", {
-      message: "最早可入职日只能在入职办理时填写",
-      path: ["earliestJoiningDate"],
-    })
+    .refine(
+      (input) =>
+        input.actualJoiningDate === undefined ||
+        (input.node === "onboarding" && input.result === "pass"),
+      {
+        message: "到岗日期只能在确认入职时填写",
+        path: ["actualJoiningDate"],
+      },
+    )
+    .refine(
+      (input) =>
+        input.node !== "onboarding" || input.result !== "pass" || Boolean(input.actualJoiningDate),
+      {
+        message: "确认入职必须填写到岗日期",
+        path: ["actualJoiningDate"],
+      },
+    )
     .refine((input) => (input.targetStatus === "completed") === Boolean(input.result), {
       message: "完成节点必须提供结论；未完成不能填写结论",
       path: ["result"],

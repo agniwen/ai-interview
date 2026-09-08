@@ -1,3 +1,4 @@
+import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- integration suite covering human-interview and offer subtable lifecycle invariants. */
@@ -8,6 +9,8 @@ import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 //
 // Integration tests for human-interview + offer subtable DAOs.
 
+import { updateCandidateExpectations } from "../dao/candidate-expectations";
+import { withMaterialLock, removeMaterial } from "../routes/materials/dao";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
@@ -67,7 +70,7 @@ import {
   saveHumanInterviewRecordingProcessingError,
 } from "../dao/human-interview-recording-processing";
 import {
-  cancelOfferDraft,
+  deleteOfferDraft,
   createOfferDraft,
   editOfferDraft,
   listOfferDrafts,
@@ -199,6 +202,7 @@ async function resetCandidateStage(
     | "second_interview"
     | "final_interview"
     | "income_proof"
+    | "salary_negotiation"
     | "offer"
     | "background_check"
     | "onboarding",
@@ -1415,32 +1419,33 @@ describe("human interview meetings DAO", () => {
 });
 
 describe("offer drafts DAO", () => {
-  it("createOfferDraft 自动算 version 并 supersede 旧的 sent 版本", async () => {
+  it("only creates one Offer even with concurrent requests", async () => {
     await clearSubtables();
     await resetCandidateStage("offer");
-
-    const v1 = await createOfferDraft({
-      input: { baseSalary: 30_000, position: "高级前端" },
+    const options = {
+      input: { baseSalary: 30_000, position: "测试岗" },
       interviewRecordId: RECORD_ID,
       organizationId: ORG,
-      sendImmediately: true,
-    });
-    expect(v1.version).toBe(1);
-    expect(v1.status).toBe("sent");
+    };
+    const results = await Promise.allSettled([
+      createOfferDraft(options),
+      createOfferDraft(options),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(await listOfferDrafts(RECORD_ID, ORG)).toMatchObject([{ status: "draft", version: 1 }]);
+  });
 
-    // 新建 v2 应该把 v1 supersede。
-    const v2 = await createOfferDraft({
-      input: { baseSalary: 32_000, position: "高级前端" },
-      interviewRecordId: RECORD_ID,
-      organizationId: ORG,
-      sendImmediately: true,
-    });
-    expect(v2.version).toBe(2);
-
-    const drafts = await listOfferDrafts(RECORD_ID, ORG);
-    const sortedById = new Map(drafts.map((d) => [d.id, d]));
-    expect(sortedById.get(v1.id)?.status).toBe("superseded");
-    expect(sortedById.get(v2.id)?.status).toBe("sent");
+  it("rejects creation during salary negotiation", async () => {
+    await clearSubtables();
+    await resetCandidateStage("salary_negotiation");
+    await expect(
+      createOfferDraft({
+        input: { baseSalary: 30_000, position: "测试岗" },
+        interviewRecordId: RECORD_ID,
+        organizationId: ORG,
+      }),
+    ).rejects.toBeInstanceOf(OfferDraftError);
   });
 
   it("maybeAdvanceToOffer 验证当前 Offer 节点", async () => {
@@ -1526,18 +1531,100 @@ describe("offer drafts DAO", () => {
     ).rejects.toBeInstanceOf(OfferDraftError);
   });
 
-  it("cancelOfferDraft：sent → expired；终态版本不可撤回", async () => {
+  it("deletes only unsent drafts and recreates version 1", async () => {
     await clearSubtables();
     await resetCandidateStage("offer");
-    const draft = await createOfferDraft({
-      input: { baseSalary: 30_000, position: "撤回测试岗" },
+    const options = {
+      input: { baseSalary: 30_000, position: "测试岗" },
       interviewRecordId: RECORD_ID,
       organizationId: ORG,
-      sendImmediately: true,
-    });
-    const cancelled = await cancelOfferDraft(draft.id, ORG);
-    expect(cancelled.status).toBe("expired");
-
-    await expect(cancelOfferDraft(draft.id, ORG)).rejects.toBeInstanceOf(OfferDraftError);
+    };
+    const draft = await createOfferDraft(options);
+    await deleteOfferDraft(draft.id, ORG);
+    expect(await listOfferDrafts(RECORD_ID, ORG)).toEqual([]);
+    const recreated = await createOfferDraft(options);
+    expect(recreated.version).toBe(1);
+    await sendOfferDraft(recreated.id, ORG);
+    await expect(deleteOfferDraft(recreated.id, ORG)).rejects.toBeInstanceOf(OfferDraftError);
+    await expect(createOfferDraft(options)).rejects.toBeInstanceOf(OfferDraftError);
+    expect(await listOfferDrafts(RECORD_ID, ORG)).toMatchObject([
+      { id: recreated.id, status: "sent" },
+    ]);
   });
+});
+
+describe("offer stage editing boundaries", () => {
+  it("locks income attachments once the candidate leaves income proof", async () => {
+    await clearSubtables();
+    const scope = { actorId: HR_USER, organizationId: ORG, recruitingRecordId: RECORD_ID };
+    await resetCandidateStage("income_proof");
+    expect(await withMaterialLock(scope, (store) => store.count())).toBe(0);
+    for (const stage of [
+      "salary_negotiation",
+      "offer",
+      "background_check",
+      "onboarding",
+    ] as const) {
+      await resetCandidateStage(stage);
+      await expect(withMaterialLock(scope, () => Promise.resolve(true))).rejects.toMatchObject({
+        status: 409,
+      });
+      await expect(removeMaterial(scope, "nonexistent")).rejects.toMatchObject({ status: 409 });
+    }
+  });
+  it("only merges candidate expectations during salary negotiation", async () => {
+    await clearSubtables();
+    await resetCandidateStage("salary_negotiation");
+    expect(
+      await updateCandidateExpectations(RECORD_ID, ORG, { expectedSalary: 30_000 }),
+    ).toMatchObject({ data: { expectedSalary: 30_000 }, kind: "saved" });
+    for (const stage of ["income_proof", "offer", "background_check", "onboarding"] as const) {
+      await resetCandidateStage(stage);
+      expect(await updateCandidateExpectations(RECORD_ID, ORG, { expectedSalary: 1 })).toEqual({
+        kind: "wrong_stage",
+      });
+    }
+    const [record] = await db
+      .select({ expectations: recruitingRecordReadModel.candidateExpectationsMeta })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
+    expect(record?.expectations?.expectedSalary).toBe(30_000);
+  });
+});
+
+it("入职办理分开保存最早可到岗日期与确认到岗日期", async () => {
+  await clearSubtables();
+  await resetCandidateStage("onboarding");
+  expect(
+    await updateCandidateExpectations(RECORD_ID, ORG, { earliestJoiningDate: "2026-09-18" }),
+  ).toMatchObject({ kind: "saved" });
+  expect(
+    await updateCandidateExpectations(RECORD_ID, ORG, {
+      earliestJoiningDate: "2026-09-19",
+      expectedSalary: 1,
+    }),
+  ).toMatchObject({ kind: "wrong_stage" });
+  await db.transaction((tx) =>
+    updateRecruitingNodeTx(tx, {
+      actualJoiningDate: "2026-09-21",
+      node: "onboarding",
+      operatorId: HR_USER,
+      organizationId: ORG,
+      reason: "已到岗",
+      recordId: RECORD_ID,
+      result: "pass",
+      status: "completed",
+    }),
+  );
+  const [record] = await db
+    .select()
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, RECORD_ID));
+  expect(record?.candidateExpectationsMeta?.earliestJoiningDate).toBe("2026-09-18");
+  expect(record?.closedMeta?.hiredDetails?.actualJoiningDate).toBe("2026-09-21");
+  const [fulfillment] = await db
+    .select()
+    .from(recruitingFulfillment)
+    .where(eq(recruitingFulfillment.recruitingRecordId, RECORD_ID));
+  expect(fulfillment?.actualJoiningDate).toBe("2026-09-21");
 });

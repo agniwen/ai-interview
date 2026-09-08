@@ -318,9 +318,10 @@ function buildHrHandlingCondition(enabled: boolean | undefined) {
     ),
     and(eq(stage, "income_proof"), or(materialWork, completedAndPassed)),
     and(
-      eq(stage, "offer"),
-      or(inArray(status, ["pending", "negotiating", "awaiting_send"]), completedAndPassed),
+      eq(stage, "salary_negotiation"),
+      or(materialWork, eq(status, "negotiating"), completedAndPassed),
     ),
+    and(eq(stage, "offer"), or(inArray(status, ["pending", "awaiting_send"]), completedAndPassed)),
     and(eq(stage, "background_check"), or(materialWork, completedAndPassed)),
     and(eq(stage, "onboarding"), or(materialWork, completedAndPassed)),
   );

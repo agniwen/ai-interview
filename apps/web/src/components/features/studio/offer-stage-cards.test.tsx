@@ -71,6 +71,8 @@ describe("OfferCard", () => {
     });
 
     expect(host.textContent).toContain("编辑");
+    expect(host.textContent).toContain("删除 Offer");
+    expect(host.textContent).not.toContain("v1");
     expect(host.textContent).toContain("标记 Offer 已发出");
     const sendButton = [...host.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("标记 Offer 已发出"),
@@ -84,6 +86,32 @@ describe("OfferCard", () => {
     );
     expect(confirm?.disabled).toBe(false);
 
+    act(() => root.unmount());
+  });
+  it("never exposes deletion after sending, even with delete permission", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient();
+    act(() =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <OfferCardView
+            canDelete
+            canUpdate
+            candidateId="candidate-1"
+            dependencies={offerCardDependencies}
+            draft={{ ...draft, sentAt: "2026-09-08T00:00:00.000Z", status: "sent" }}
+            onCancelled={vi.fn()}
+            onRespond={vi.fn()}
+            onSaved={vi.fn()}
+          />
+        </QueryClientProvider>,
+      ),
+    );
+    expect(host.textContent).toContain("记录响应");
+    expect(host.textContent).not.toContain("删除");
+    expect(host.textContent).not.toContain("撤回");
     act(() => root.unmount());
   });
 });

@@ -89,7 +89,7 @@ export async function validateEvidence(
   }
   if (values.effectiveOfferId) {
     if (input.node !== "offer") {
-      throw new RecruitingPipelineError("Offer 依据只能用于谈薪发 Offer 节点。", "invalid");
+      throw new RecruitingPipelineError("Offer 依据只能用于发 Offer 节点。", "invalid");
     }
     const [offer] = await tx
       .select({ id: recruitingOffer.id, status: recruitingOffer.status })

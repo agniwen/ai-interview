@@ -8,6 +8,7 @@ import {
   recruitingNodeState,
   recruitingNodeValues,
   recruitingRecord,
+  recruitingOffer,
 } from "@app/db-schema/schema";
 import type {
   RecruitingCloseReason,
@@ -207,6 +208,38 @@ function validateSkippedTransition(
   }
 }
 
+/** 进入发 Offer 时复用回填或回退保留的唯一 Offer，不创建新版本。 */
+async function getOfferEntryPatch(
+  tx: RecruitingTransaction,
+  input: RecruitingPipelineCommand,
+): Promise<Partial<NodeRow>> {
+  const [offer] = await tx
+    .select()
+    .from(recruitingOffer)
+    .where(
+      and(
+        eq(recruitingOffer.recruitingRecordId, input.recordId),
+        eq(recruitingOffer.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!offer) {
+    return { status: "awaiting_send" };
+  }
+  if (offer.status === "accepted") {
+    return {
+      completedAt: offer.responseAt,
+      effectiveOfferId: offer.id,
+      result: "pass",
+      status: "completed",
+    };
+  }
+  return {
+    effectiveOfferId: offer.id,
+    status: offer.status === "sent" ? "awaiting_response" : "awaiting_send",
+  };
+}
+
 export async function transitionRecruitingNodeTx(
   tx: RecruitingTransaction,
   input: RecruitingPipelineCommand & {
@@ -254,11 +287,13 @@ export async function transitionRecruitingNodeTx(
       status: "skipped",
     });
   }
+  const offerPatch = input.targetNode === "offer" ? await getOfferEntryPatch(tx, input) : {};
   await putNode(tx, input, input.targetNode, {
     ...clearNodeEvidence,
     enteredAt: now,
     reason: null,
     status: "pending",
+    ...offerPatch,
   });
   return writeRecordEvent(
     tx,
@@ -386,7 +421,7 @@ function closeReasonForNode(
   if (node === "background_check") {
     return "background_check_failed";
   }
-  if (node === "offer") {
+  if (node === "salary_negotiation") {
     return "salary_disagreement";
   }
   return node === "ai_interview" || node === "second_interview" || node === "final_interview"
@@ -524,6 +559,7 @@ export async function closeRecruitingRecordTx(
 }
 
 export interface RecruitingNodeUpdate extends RecruitingPipelineCommand {
+  actualJoiningDate?: string;
   node: RecruitingNode;
   status: Exclude<RecruitingNodeStatus, "inactive" | "skipped">;
   result?: RecruitingNodeResult | null;
@@ -546,12 +582,12 @@ function validateNodeProgress(input: RecruitingNodeUpdate) {
     ["ai_interview", "second_interview", "final_interview"].includes(input.node) &&
     ["scheduled", "in_progress", "awaiting_review"].includes(input.status);
   const material =
-    ["income_proof", "background_check"].includes(input.node) &&
+    ["income_proof", "salary_negotiation", "background_check"].includes(input.node) &&
     ["in_progress", "awaiting_review"].includes(input.status);
   const offer =
-    input.node === "offer" &&
-    ["negotiating", "awaiting_send", "awaiting_response"].includes(input.status);
-  if (!common && !interview && !material && !offer) {
+    input.node === "offer" && ["awaiting_send", "awaiting_response"].includes(input.status);
+  const negotiation = input.node === "salary_negotiation" && input.status === "negotiating";
+  if (!common && !interview && !material && !offer && !negotiation) {
     throw new RecruitingPipelineError("此节点不支持该进度状态。", "invalid");
   }
 }
@@ -642,6 +678,9 @@ export async function updateRecruitingNodeTx(
           input.result === "pass"
             ? "onboarded"
             : (input.closeReason ?? closeReasonForNode(input.node, input.result)),
+        details: input.actualJoiningDate
+          ? { hiredDetails: { actualJoiningDate: input.actualJoiningDate } }
+          : undefined,
         outcome: outcomeForNodeResult(input.result),
       },
       record,

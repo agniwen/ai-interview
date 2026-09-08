@@ -149,7 +149,7 @@ export function buildStudioPersonDetailHeader({
     !isRoundsLoading &&
     candidateRounds.length === 0;
   const launchResumeModeDisabledReason =
-    showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI 面试" : null;
+    showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI初面" : null;
   const launchResumeModeButtonContent = showLaunchButton ? (
     <Button
       disabledReason={launchResumeModeDisabledReason}
@@ -176,7 +176,7 @@ export function buildStudioPersonDetailHeader({
       type="button"
     >
       <IconRobot className="size-4" />
-      发起 AI 面试
+      发起 AI初面
       {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
@@ -305,9 +305,13 @@ export function buildStudioPersonDetailHeader({
             {resumeRecord &&
               canUpdateInterview &&
               (canCreateOffer ||
-                !["income_proof", "offer", "background_check", "onboarding"].includes(
-                  actionBarPipelineStage,
-                )) && (
+                ![
+                  "income_proof",
+                  "salary_negotiation",
+                  "offer",
+                  "background_check",
+                  "onboarding",
+                ].includes(actionBarPipelineStage)) && (
                 <RecruitingNodeActions key={`node:${resumeRecord.id}`} record={resumeRecord} />
               )}
             {canShowHumanInterviewScheduleAction(
@@ -351,13 +355,13 @@ export function buildStudioPersonDetailHeader({
           ) : null}
           {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
-              AI 面试
+              AI初面
             </TabsTrigger>
           ) : null}
           {mode === "resume" &&
           shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
-              真人复面
+              真人面试
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (

@@ -75,6 +75,7 @@ export function shouldShowAiInterviewTab(
     "second_interview",
     "final_interview",
     "income_proof",
+    "salary_negotiation",
     "offer",
     "background_check",
     "onboarding",
@@ -82,7 +83,7 @@ export function shouldShowAiInterviewTab(
   ].includes(record.pipelineStage);
 }
 
-// 真人复面 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
+// 真人面试 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
 // 关闭后仍显示（HR 想回看历史 / 重新激活时直接点）。
 // Human-interview tab is visible once the candidate has reached or passed that
 // stage; remains visible after close for HR audit and reactivation.
@@ -100,6 +101,7 @@ export function shouldShowHumanInterviewTab(
     "second_interview",
     "final_interview",
     "income_proof",
+    "salary_negotiation",
     "offer",
     "background_check",
     "onboarding",

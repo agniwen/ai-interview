@@ -108,7 +108,26 @@ it.each(["income_proof", "background_check", "onboarding"] as const)(
         throw new Error("确认弹窗未打开");
       }
       if (stage === "onboarding") {
-        expect(dialog.querySelector('[aria-label="最早可入职日"]')).not.toBeNull();
+        expect(dialog.textContent).not.toContain("最早可入职日");
+        const datePicker = dialog.querySelector<HTMLButtonElement>('[aria-label="到岗日期"]');
+        expect(datePicker).not.toBeNull();
+        expect(
+          [...dialog.querySelectorAll("button")]
+            .find((button) => button.textContent === "确认入职")
+            ?.getAttribute("aria-disabled"),
+        ).toBe("true");
+        await act(() => datePicker?.click());
+        await waitForUi(() => expect(document.querySelector("button[data-day]")).not.toBeNull());
+        const day = [...document.querySelectorAll<HTMLButtonElement>("button[data-day]")].find(
+          (button) => !button.disabled && new Date(button.dataset.day ?? "").getDate() === 10,
+        );
+        expect(day).toBeDefined();
+        await act(() => day?.click());
+        await act(() =>
+          [...document.querySelectorAll("button")]
+            .find((button) => button.textContent === "确定")
+            ?.click(),
+        );
       } else {
         expect(dialog.querySelector('[role="combobox"]')).toBeNull();
       }
@@ -122,7 +141,7 @@ it.each(["income_proof", "background_check", "onboarding"] as const)(
       const [[, init]] = request.mock.calls;
       if (stage === "onboarding") {
         expect(await new Response(init?.body).json()).toMatchObject({
-          earliestJoiningDate: "2026-09-18",
+          actualJoiningDate: expect.stringMatching(/-10$/),
         });
       }
       expect(await new Response(init?.body).json()).toMatchObject({

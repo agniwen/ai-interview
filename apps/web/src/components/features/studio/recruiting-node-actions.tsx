@@ -30,8 +30,9 @@ export const recruitingNodeActionLabels = {
   closed: "查看结束结果",
   final_interview: "确认终试结果",
   income_proof: "审核薪资流水",
-  offer: "更新 Offer 协商进度",
+  offer: "更新 Offer 进度",
   onboarding: "确认入职结果",
+  salary_negotiation: "确认谈薪结果",
   screening: "确认简历筛选结果",
   second_interview: "确认复试结果",
 } satisfies Record<ResumeLibraryDetail["pipelineStage"], string>;
@@ -65,7 +66,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [earliestJoiningDate, setEarliestJoiningDate] = useState("");
+  const [actualJoiningDate, setActualJoiningDate] = useState("");
   const [reason, setReason] = useState("");
   const node = record.nodeStates.find((state) => state.node === record.pipelineStage);
   const mutation = useMutation({
@@ -78,8 +79,10 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
       }
       await transitionInterviewRecord(slug, record.id, {
         action: "update_node",
-        earliestJoiningDate:
-          record.pipelineStage === "onboarding" ? earliestJoiningDate || null : undefined,
+        actualJoiningDate:
+          record.pipelineStage === "onboarding" && result === "pass"
+            ? actualJoiningDate
+            : undefined,
         effectiveAiRoundId: node?.effectiveAiRoundId,
         effectiveHumanRoundId: node?.effectiveHumanRoundId,
         effectiveOfferId: node?.effectiveOfferId,
@@ -113,7 +116,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
           variant="default"
           onClick={() => {
             setReason(node?.reason ?? "");
-            setEarliestJoiningDate(record.candidateExpectationsMeta?.earliestJoiningDate ?? "");
+            setActualJoiningDate("");
             setOpen(true);
           }}
         >
@@ -126,7 +129,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         title={recruitingNodeActionLabels[record.pipelineStage]}
         description={
           record.pipelineStage === "onboarding"
-            ? "候选人已到岗时，填写说明并点击“确认入职”，完成招聘流程。"
+            ? "候选人已到岗时，填写到岗日期与说明并点击“确认入职”，完成招聘流程。"
             : undefined
         }
         size="xl"
@@ -141,7 +144,18 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
               淘汰
             </Button>
             {record.pipelineStage !== "offer" && (
-              <Button disabled={mutation.isPending} onClick={() => mutation.mutate("pass")}>
+              <Button
+                disabledReason={
+                  record.pipelineStage === "onboarding" && !actualJoiningDate
+                    ? "请填写到岗日期"
+                    : null
+                }
+                disabled={
+                  mutation.isPending ||
+                  (record.pipelineStage === "onboarding" && !actualJoiningDate)
+                }
+                onClick={() => mutation.mutate("pass")}
+              >
                 {passLabel(record.pipelineStage)}
               </Button>
             )}
@@ -150,12 +164,12 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
       >
         {record.pipelineStage === "onboarding" ? (
           <div className="grid gap-1.5">
-            <Label htmlFor="onboarding-earliest-date">最早可入职日</Label>
+            <Label htmlFor="onboarding-actual-date">到岗日期</Label>
             <DatePicker
-              id="onboarding-earliest-date"
-              aria-label="最早可入职日"
-              value={earliestJoiningDate}
-              onValueChange={setEarliestJoiningDate}
+              id="onboarding-actual-date"
+              aria-label="到岗日期"
+              value={actualJoiningDate}
+              onValueChange={setActualJoiningDate}
               disabled={mutation.isPending}
             />
           </div>
