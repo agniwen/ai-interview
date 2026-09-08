@@ -2,6 +2,7 @@ import { cn } from "@app/shared/utils";
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -29,9 +30,15 @@ function controllerSnapshot(
 
 export function MeetingCompletedContentStage({
   summary,
+  summaryState,
+  onRetrySummary,
+  retrying,
   transcript,
   children,
 }: {
+  onRetrySummary?: () => void;
+  retrying?: boolean;
+  summaryState?: "pending" | "processing" | "ready" | "failed";
   summary: MeetingLiveSummarySnapshot | null;
   transcript: ReactNode;
   children: (slots: { toolbar: ReactNode; content: ReactNode; scrollable: boolean }) => ReactNode;
@@ -88,6 +95,19 @@ export function MeetingCompletedContentStage({
         className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-start px-4 sm:px-6"
         data-slot="meeting-completed-content-header"
       >
+        {summaryState === "processing" || summaryState === "pending" ? (
+          <output className="mr-3 text-xs text-muted-foreground">总结更新中</output>
+        ) : null}
+        {summaryState === "failed" ? (
+          <output className="mr-3 text-xs text-muted-foreground">
+            总结生成失败，已有内容已保留
+          </output>
+        ) : null}
+        {summaryState === "failed" && onRetrySummary ? (
+          <Button size="sm" variant="text" disabled={retrying} onClick={onRetrySummary}>
+            重试总结
+          </Button>
+        ) : null}
         <TooltipProvider delay={200}>
           <ToggleGroup
             aria-label="会议内容显示方式"

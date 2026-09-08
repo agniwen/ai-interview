@@ -222,7 +222,9 @@ describe("Meeting Intelligence generator", () => {
           text: "",
         });
       }
-      const turnId = prompt.includes('"id":"turn-1"') ? "turn-1" : "turn-2";
+      const turnId = prompt.split("转录 JSON：").at(-1)?.includes('"id":"turn-1"')
+        ? "turn-1"
+        : "turn-2";
       return Promise.resolve({
         object: {
           actionItems: [],
@@ -317,7 +319,9 @@ describe("Meeting Intelligence generator", () => {
       if (prompt.includes("分块 Intelligence JSON")) {
         return Promise.reject(new Error("provider temporarily unavailable"));
       }
-      const turnId = prompt.includes('"id":"turn-1"') ? "turn-1" : "turn-2";
+      const turnId = prompt.split("转录 JSON：").at(-1)?.includes('"id":"turn-1"')
+        ? "turn-1"
+        : "turn-2";
       return Promise.resolve({
         object: {
           actionItems: [],

@@ -224,49 +224,54 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("未通过门槛 · 68 分");
   });
 
-  it("preserves initial interview and HR action badges alongside lifecycle and duplicates", () => {
-    const noop = vi.fn();
-    const content = renderWithQueryClient(
-      <ResumeLibraryCard
-        canCreateInterview={false}
-        canDeleteResumeLibrary={false}
-        canForceReparse={false}
-        canRetryResumeParse={false}
-        canUpdateResumeLibrary={false}
-        currentMemberRole="viewer"
-        currentUserId={null}
-        onCopyDetailLink={noop}
-        onDelete={noop}
-        onEdit={noop}
-        onForceReparse={noop}
-        onLaunchInterview={noop}
-        onOpenDetail={noop}
-        onPreviewResume={noop}
-        onRetryParse={noop}
-        onSelectChange={noop}
-        onShowDuplicateMatches={noop}
-        onTransition={noop}
-        record={{
-          ...record,
-          duplicateMatch: { count: 2, highestLevel: "high" },
-          stageProgress: {
-            ...record.stageProgress,
-            initialInterview: {
-              latestStatus: "ready",
-              latestVersionId: "initial-version-1",
-              totalSnapshots: 1,
+  it.each(["development", "production", "test"])(
+    "shows HR badges only in development (%s)",
+    (environment) => {
+      vi.stubEnv("NODE_ENV", environment);
+      const noop = vi.fn();
+      const content = renderWithQueryClient(
+        <ResumeLibraryCard
+          canCreateInterview={false}
+          canDeleteResumeLibrary={false}
+          canForceReparse={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary={false}
+          currentMemberRole="viewer"
+          currentUserId={null}
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onForceReparse={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{
+            ...record,
+            duplicateMatch: { count: 2, highestLevel: "high" },
+            stageProgress: {
+              ...record.stageProgress,
+              initialInterview: {
+                latestStatus: "ready",
+                latestVersionId: "initial-version-1",
+                totalSnapshots: 1,
+              },
             },
-          },
-        }}
-        retrying={false}
-        selected={false}
-      />,
-    );
+          }}
+          retrying={false}
+          selected={false}
+        />,
+      );
 
-    expect(content).toContain("人工初面 · 已生成");
-    expect(content).toContain("HR处理 · 筛选简历");
-    expect(content.indexOf("简历筛选")).toBeLessThan(content.indexOf("重复简历 2 条"));
-  });
+      expect(content).toContain("人工初面 · 已生成");
+      expect(content.includes("HR处理 · 筛选简历")).toBe(environment === "development");
+      vi.unstubAllEnvs();
+      expect(content.indexOf("简历筛选")).toBeLessThan(content.indexOf("重复简历 2 条"));
+    },
+  );
 
   it("shows the hired outcome instead of pending advancement after onboarding", () => {
     const noop = vi.fn();

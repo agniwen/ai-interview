@@ -1,8 +1,5 @@
-import {
-  MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS,
-  MEETING_LIVE_SUMMARY_MAX_TURNS_PER_REQUEST,
-  meetingLiveSummarySnapshotSchema,
-} from "@app/shared/meeting-live-summary";
+import { selectSummarySegment, summarySegmentContext } from "@app/shared/meeting-summary-segments";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import type {
   MeetingLiveSummaryCheckpoint,
   MeetingLiveSummaryRequest,
@@ -104,22 +101,6 @@ export function buildMeetingLiveSummaryTurns(
       ];
     })
     .toSorted((left, right) => left.startMs - right.startMs || left.id.localeCompare(right.id));
-}
-
-function boundedTurns(turns: MeetingLiveSummaryTurn[]): MeetingLiveSummaryTurn[] {
-  const selected: MeetingLiveSummaryTurn[] = [];
-  let characters = 0;
-  for (const turn of turns) {
-    if (
-      selected.length >= MEETING_LIVE_SUMMARY_MAX_TURNS_PER_REQUEST ||
-      characters + turn.text.length > MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS
-    ) {
-      break;
-    }
-    selected.push(turn);
-    characters += turn.text.length;
-  }
-  return selected;
 }
 
 export function meetingLiveSummaryTurnFingerprint(turn: MeetingLiveSummaryTurn): string {
@@ -241,7 +222,7 @@ export function createMeetingLiveSummaryController(
     }
     const requestSource = source;
     const baseSnapshot = state.summary;
-    const turns = boundedTurns(uncoveredTurns());
+    const turns = selectSummarySegment(uncoveredTurns());
     if (turns.length === 0) {
       return;
     }
@@ -255,6 +236,13 @@ export function createMeetingLiveSummaryController(
           {
             baseSnapshot,
             captureId: requestSource.captureId,
+            contextTurns: summarySegmentContext(
+              buildMeetingLiveSummaryTurns(
+                requestSource.transcript,
+                requestSource.meetingStartedAt,
+              ),
+              turns,
+            ),
             template: requestSource.template,
             turns,
           },

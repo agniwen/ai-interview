@@ -125,7 +125,11 @@ export function sessionDetailStatus(input: {
 export function meetingDetailRefetchInterval(
   meeting: MeetingDetail | null | undefined,
 ): number | false {
-  if (meeting?.processingState === "processing") {
+  if (
+    meeting?.summaryState === "processing" ||
+    meeting?.summaryState === "pending" ||
+    meeting?.processingState === "processing"
+  ) {
     return 5000;
   }
   if (meeting?.processingState === "failed") {

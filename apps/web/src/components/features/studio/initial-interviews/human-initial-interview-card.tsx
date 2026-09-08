@@ -1,4 +1,4 @@
-import { IconFileText, IconLoader2, IconPhone, IconRefresh } from "@tabler/icons-react";
+import { IconFileText, IconLoader2, IconRefresh } from "@tabler/icons-react";
 import {
   INITIAL_INTERVIEW_STATUS_LABELS,
   isInitialInterviewProcessing,
@@ -6,7 +6,7 @@ import {
 import type { HumanInitialInterviewSummary } from "@app/shared/human-initial-interview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardFooter, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 
 export function HumanInitialInterviewCard({
   record,
@@ -33,12 +33,11 @@ export function HumanInitialInterviewCard({
   const processing = isInitialInterviewProcessing(version.status);
   const availableUrl = version.documentUrl ?? documentUrl;
   return (
-    <Card data-testid="human-initial-interview-card">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <Frame data-testid="human-initial-interview-card">
+      <FrameHeader className="h-auto min-h-8 py-1">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <IconPhone className="size-4 text-muted-foreground" />
-            <CardTitle>人工初面</CardTitle>
+            <FrameTitle>人工初面</FrameTitle>
             <Badge variant="outline">HR 沟通录音</Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -49,8 +48,8 @@ export function HumanInitialInterviewCard({
             </Badge>
           </div>
         </div>
-      </CardHeader>
-      <CardPanel className="flex flex-col gap-2">
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-2">
         <p className="truncate text-sm font-medium" title={record.title}>
           {record.title}
         </p>
@@ -67,45 +66,46 @@ export function HumanInitialInterviewCard({
             {version.error}
           </p>
         ) : null}
-      </CardPanel>
-      <CardFooter className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          {availableUrl ? (
-            <Button
-              nativeButton={false}
-              render={
-                <a aria-label="打开评价表" href={availableUrl} target="_blank" rel="noreferrer" />
-              }
-              size="sm"
-              variant="outline"
-            >
-              <IconFileText className="size-3.5" />
-              {version.status === "ready" ? "打开评价表" : "现有评价表"}
-            </Button>
-          ) : null}
-          {canGenerate && version.status === "ready" ? (
-            <Button disabled={pending} onClick={onRegenerate} size="sm" variant="outline">
-              <IconRefresh className="size-3.5" />
-              重新生成
-            </Button>
-          ) : null}
-          {canGenerate && version.status === "failed" ? (
-            <Button disabled={pending} onClick={onResume} size="sm">
-              重试
-            </Button>
-          ) : null}
-          {canGenerate && version.status === "needs_speakers" ? (
-            <Button disabled={pending} onClick={onResume} size="sm">
-              重新生成
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {availableUrl ? (
+              <Button
+                nativeButton={false}
+                render={
+                  <a aria-label="打开评价表" href={availableUrl} target="_blank" rel="noreferrer" />
+                }
+                size="sm"
+                variant="outline"
+              >
+                <IconFileText className="size-3.5" />
+                {version.status === "ready" ? "打开评价表" : "现有评价表"}
+              </Button>
+            ) : null}
+            {canGenerate && version.status === "ready" ? (
+              <Button disabled={pending} onClick={onRegenerate} size="sm" variant="outline">
+                <IconRefresh className="size-3.5" />
+                重新生成
+              </Button>
+            ) : null}
+            {canGenerate && version.status === "failed" ? (
+              <Button disabled={pending} onClick={onResume} size="sm">
+                重试
+              </Button>
+            ) : null}
+            {canGenerate && version.status === "needs_speakers" ? (
+              <Button disabled={pending} onClick={onResume} size="sm">
+                重新生成
+              </Button>
+            ) : null}
+          </div>
+          {canDelete ? (
+            <Button disabled={pending} onClick={onDelete} size="sm" variant="destructive">
+              删除
             </Button>
           ) : null}
         </div>
-        {canDelete ? (
-          <Button disabled={pending} onClick={onDelete} size="sm" variant="destructive">
-            删除
-          </Button>
-        ) : null}
-      </CardFooter>
-    </Card>
+      </FramePanel>
+    </Frame>
   );
 }

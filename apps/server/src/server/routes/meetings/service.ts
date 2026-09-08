@@ -591,6 +591,13 @@ export async function listSavedMeetings(
   });
 }
 
+function meetingSummaryState(status?: string): "ready" | "failed" | "processing" | undefined {
+  if (status === "ready" || status === "failed") {
+    return status;
+  }
+  return status ? "processing" : undefined;
+}
+
 export async function getSavedMeetingDetail(
   input: {
     meetingId: string;
@@ -645,6 +652,7 @@ export async function getSavedMeetingDetail(
     recordingType: meeting.recordingType ?? "voice_recording",
     savedAt: meeting.savedAt.toISOString(),
     startedAt: meeting.startedAt.toISOString(),
+    summaryState: meetingSummaryState(meeting.intelligenceStatus),
     title: meeting.title ?? "",
     verifiedAt: meeting.verifiedAt?.toISOString() ?? null,
     workspaceCustodied: meeting.workspaceCustodied,

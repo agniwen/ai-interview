@@ -299,6 +299,7 @@ export interface MeetingLibraryItem {
 }
 
 export interface MeetingDetail extends MeetingLibraryItem {
+  summaryState?: "pending" | "processing" | "ready" | "failed";
   archived: boolean;
   liveSummary: MeetingLiveSummarySnapshot | null;
   startedAt: string;

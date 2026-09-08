@@ -1,3 +1,4 @@
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import { and, eq } from "drizzle-orm";
 import { jobDescription } from "@app/db-schema/schema";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
@@ -112,6 +113,7 @@ async function captureSnapshot(input: ImportRecordedInitialInterviewInput) {
       durationMs: playback.durationMs ?? transcript.turns.at(-1)?.endMs ?? 0,
       interviewQuestions: record.interviewQuestions ?? [],
       job: job ?? null,
+      liveSummary: meetingLiveSummarySnapshotSchema.safeParse(meeting.liveSummary).data ?? null,
       qualitativeResumeEvaluation: record.qualitativeResumeEvaluation,
       recordedAt: meeting.startedAt.toISOString(),
       recording: {

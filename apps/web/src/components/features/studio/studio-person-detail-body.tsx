@@ -194,7 +194,8 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                 />
               ) : null}
               {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / result */}
-              {isResumeInterviewResultLoading ? (
+              {resumeRecord?.stageProgress
+                .initialInterview ? null : isResumeInterviewResultLoading ? (
                 <DetailBodySkeleton mode="interview" />
               ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or result. */
               candidateRounds.length === 0 &&

@@ -1,8 +1,10 @@
 import { advanceScreeningRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
 import postgres from "postgres";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import { z } from "zod";
 import {
+  meetingSession,
   recruitingRecord,
   recruitingEvaluationDocument,
   recruitingInitialInterview,
@@ -152,30 +154,58 @@ export async function listInitialInterviews(
         )
         .orderBy(desc(recruitingInitialInterviewVersion.version))
     : [];
-  return sources.map((source) => ({
-    createdAt: source.createdAt.toISOString(),
-    id: source.id,
-    recruitingRecordId: source.recruitingRecordId,
-    snapshot: initialInterviewSnapshotSchema.parse(source.snapshot),
-    versions: versions
-      .filter((version) => version.initialInterviewId === source.id)
-      .map((version) => ({
-        completedAt: version.completedAt?.toISOString() ?? null,
-        createdAt: version.createdAt.toISOString(),
-        documentId: version.documentId,
-        documentUrl: version.documentUrl,
-        error: version.error,
-        evaluation: version.evaluation
-          ? initialInterviewHrEvaluationSchema.parse(version.evaluation)
-          : null,
-        id: version.id,
-        overwriteDocumentId: version.overwriteDocumentId,
-        roles: initialInterviewRolesSchema.parse(version.roles),
-        status: initialInterviewStatusSchema.parse(version.status),
-        turns: initialInterviewTurnsSchema.parse(version.transcript.turns),
-        version: version.version,
-      })),
-  }));
+  // Older recruiting snapshots predate summary capture. Only resolve their source in this workspace.
+  const snapshots = sources.map((source) => initialInterviewSnapshotSchema.parse(source.snapshot));
+  const legacyIds = snapshots
+    .filter((snapshot) => snapshot.liveSummary === undefined)
+    .map((snapshot) => snapshot.sourceMeetingId);
+  const legacyMeetings = legacyIds.length
+    ? await db
+        .select({ id: meetingSession.id, liveSummary: meetingSession.liveSummary })
+        .from(meetingSession)
+        .where(
+          and(
+            eq(meetingSession.organizationId, scope.organizationId),
+            inArray(meetingSession.id, legacyIds),
+          ),
+        )
+    : [];
+  const legacySummaries = new Map(
+    legacyMeetings.map((meeting) => [
+      meeting.id,
+      meetingLiveSummarySnapshotSchema.safeParse(meeting.liveSummary).data ?? null,
+    ]),
+  );
+  return sources.map((source) => {
+    const snapshot = initialInterviewSnapshotSchema.parse(source.snapshot);
+    return {
+      createdAt: source.createdAt.toISOString(),
+      id: source.id,
+      recruitingRecordId: source.recruitingRecordId,
+      snapshot: {
+        ...snapshot,
+        liveSummary: snapshot.liveSummary ?? legacySummaries.get(snapshot.sourceMeetingId) ?? null,
+      },
+      versions: versions
+        .filter((version) => version.initialInterviewId === source.id)
+        .map((version) => ({
+          completedAt: version.completedAt?.toISOString() ?? null,
+          createdAt: version.createdAt.toISOString(),
+          documentId: version.documentId,
+          documentUrl: version.documentUrl,
+          error: version.error,
+          evaluation: version.evaluation
+            ? initialInterviewHrEvaluationSchema.parse(version.evaluation)
+            : null,
+          id: version.id,
+          overwriteDocumentId: version.overwriteDocumentId,
+          roles: initialInterviewRolesSchema.parse(version.roles),
+          status: initialInterviewStatusSchema.parse(version.status),
+          turns: initialInterviewTurnsSchema.parse(version.transcript.turns),
+          version: version.version,
+        })),
+    };
+  });
 }
 
 export async function listInitialInterviewSummaries(

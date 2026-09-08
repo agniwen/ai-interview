@@ -332,18 +332,20 @@ export function ResumeLibraryCardList({
         searchLoading={isInitialLoading}
         toolbarRight={
           <div className="flex items-center gap-3">
-            <label
-              className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm"
-              htmlFor="resume-hr-handling"
-            >
-              <Switch
-                aria-label="HR处理"
-                checked={hrHandling}
-                id="resume-hr-handling"
-                onCheckedChange={onHrHandlingChange}
-              />
-              <span>HR处理</span>
-            </label>
+            {process.env.NODE_ENV === "development" ? (
+              <label
+                className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm"
+                htmlFor="resume-hr-handling"
+              >
+                <Switch
+                  aria-label="HR处理"
+                  checked={hrHandling}
+                  id="resume-hr-handling"
+                  onCheckedChange={onHrHandlingChange}
+                />
+                <span>HR处理</span>
+              </label>
+            ) : null}
             {canUploadResumeLibrary || canReadResumeUploadBatch ? (
               <ButtonGroup>
                 {canUploadResumeLibrary ? (

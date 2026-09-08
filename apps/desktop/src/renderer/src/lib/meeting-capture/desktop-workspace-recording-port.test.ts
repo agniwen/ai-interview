@@ -13,7 +13,6 @@ function createDependencies(
   return {
     apiJson: apiJsonMock,
     apiUrl: (path) => path,
-    finalizeSummary: vi.fn().mockResolvedValue(null),
     meetingCapture,
     resolveActiveWorkspace: resolveActiveWorkspaceMock,
   };
@@ -30,9 +29,7 @@ describe("DesktopWorkspaceRecordingPort", () => {
     vi.unstubAllGlobals();
   });
 
-  it("finishes summary metadata before describing or uploading the recording", async () => {
-    const summaryDone = Promise.withResolvers<null>();
-    const finalizeSummary = vi.fn(() => summaryDone.promise);
+  it("uploads the existing summary immediately without a summarizing phase", async () => {
     const completeSummary = { summary: "包括最后一句的总结" };
     const meetingCapture = {
       describeMultipartWorkspaceSave: vi.fn(),
@@ -53,13 +50,8 @@ describe("DesktopWorkspaceRecordingPort", () => {
     const report = vi.fn();
     const operation = new DesktopWorkspaceRecordingPort({
       ...createDependencies(meetingCapture),
-      finalizeSummary,
     }).persist({ captureId: "capture", manifestSha256: "a".repeat(64), report });
-    await vi.waitFor(() => expect(finalizeSummary).toHaveBeenCalledWith("capture", "org"));
-    expect(report).toHaveBeenCalledWith("summarizing");
-    expect(meetingCapture.describeWorkspaceSave).not.toHaveBeenCalled();
-    expect(apiJsonMock).not.toHaveBeenCalled();
-    summaryDone.resolve(null);
+    expect(report).not.toHaveBeenCalledWith("summarizing");
     await operation;
     expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[2]?.body)).liveSummary).toEqual(
       completeSummary,

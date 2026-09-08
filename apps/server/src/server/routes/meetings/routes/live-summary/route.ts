@@ -32,7 +32,7 @@ export function createMeetingLiveSummaryRouter(
         }
         try {
           const request = c.req.valid("json");
-          const result = await dependencies.generate(request);
+          const result = await dependencies.generate(request, `${activeOrg.id}:${user.id}`);
           return c.json(result, 200);
         } catch (error) {
           console.error("[meeting-live-summary] generation failed", {

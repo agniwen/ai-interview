@@ -52,6 +52,55 @@ const candidate = {
 };
 
 describe("generateLiveMeetingSummary", () => {
+  it("carries an unfinished condition and replaces a corrected prior fact", async () => {
+    const first = await generateLiveMeetingSummary(baseRequest, {
+      generateCandidate: () =>
+        Promise.resolve({
+          ...candidate,
+          pendingThoughts: [{ evidenceTurnIds: ["turn-2"], text: "上线前提尚未说完" }],
+        }),
+      getGeneratorSnapshot: () => ({ model: "test", provider: "test" }),
+      now: () => new Date("2026-09-08T00:00:00Z"),
+    });
+    expect(first.pendingThoughts?.[0]).toMatchObject({ endMs: 14_000, startMs: 9000 });
+    const [topic] = first.topics;
+    if (!topic) {
+      throw new Error("missing topic");
+    }
+    const [point] = topic.points;
+    if (!point) {
+      throw new Error("missing point");
+    }
+    const next = await generateLiveMeetingSummary(
+      { ...baseRequest, baseSnapshot: first },
+      {
+        generateCandidate: () =>
+          Promise.resolve({
+            ...candidate,
+            pendingThoughts: [],
+            topics: [
+              {
+                ...candidate.topics[0],
+                id: topic.id,
+                points: [
+                  {
+                    ...candidate.topics[0].points[0],
+                    id: "corrected",
+                    replacesPointIds: [point.id],
+                    text: "评审通过后才能上线。",
+                  },
+                ],
+              },
+            ],
+          }),
+        getGeneratorSnapshot: () => ({ model: "test", provider: "test" }),
+        now: () => new Date("2026-09-08T00:00:00Z"),
+      },
+    );
+    expect(next.pendingThoughts).toEqual([]);
+    expect(next.topics[0]?.points.map((item) => item.text)).toEqual(["评审通过后才能上线。"]);
+  });
+
   it("creates deterministic evidence-backed node ids and time ranges", async () => {
     const generateCandidate = vi.fn().mockResolvedValue(candidate);
     const dependencies = {

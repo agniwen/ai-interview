@@ -19,6 +19,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   desktopMeetingKeys,
   fetchMeetingDetail,
+  fetchMeetingIntelligence,
+  regenerateMeetingIntelligence,
   fetchMeetingPlayback,
   fetchMeetingTranscript,
   renameMeeting,
@@ -438,6 +440,23 @@ export function MeetingDetailPage({
     },
   });
 
+  const retrySummaryMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspace) {
+        throw new Error("请先选择工作区");
+      }
+      const result = await fetchMeetingIntelligence(workspace.slug, meetingId);
+      return await regenerateMeetingIntelligence(
+        workspace.slug,
+        meetingId,
+        result.current?.template ?? result.suggestedTemplate,
+      );
+    },
+    onError: (error) => toast.error(error.message),
+    onSuccess: async () => {
+      await detailQuery.refetch();
+    },
+  });
   const meeting = detailQuery.data;
   const title = resolvedMeetingTitle({
     localTitle: localSession?.title,
@@ -580,7 +599,17 @@ export function MeetingDetailPage({
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
       {isInitialLoading ? null : (
-        <MeetingCompletedContentStage summary={completedSummary} transcript={completedTranscript}>
+        <MeetingCompletedContentStage
+          summary={completedSummary}
+          summaryState={meeting?.summaryState}
+          retrying={retrySummaryMutation.isPending}
+          onRetrySummary={
+            meeting && canRetryMeetingProcessing(meeting.accessRole)
+              ? () => retrySummaryMutation.mutate()
+              : undefined
+          }
+          transcript={completedTranscript}
+        >
           {({ toolbar, content, scrollable }) => (
             <MeetingRecordingSessionLayout
               scrollable={isInterruptedSession ? true : scrollable}

@@ -69,6 +69,45 @@ function source(transcript = draft()) {
 }
 
 describe("saved recording summary finalization", () => {
+  it("waits for a valid summary that takes longer than the old 45 second client deadline", async () => {
+    vi.useFakeTimers();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("signal timed out", "TimeoutError")), ms);
+      return controller.signal;
+    });
+    try {
+      const persist = vi.fn(async () => {});
+      const provider = {
+        summarize: (request: MeetingLiveSummaryRequest, signal: AbortSignal) => {
+          const { promise, resolve, reject } = Promise.withResolvers<MeetingLiveSummarySnapshot>();
+          signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+          setTimeout(() => resolve(summarize(request)), 140_000);
+          return promise;
+        },
+      };
+      const completion = expect(
+        finalizeSavedMeetingSummary(source(), { persist, provider }),
+      ).resolves.toMatchObject({ revision: 1 });
+      await Promise.all([completion, vi.advanceTimersByTimeAsync(140_000)]);
+      expect(persist).toHaveBeenCalledOnce();
+    } finally {
+      timeout.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps progress unacknowledged and explains a real timeout in Chinese", async () => {
+    const persist = vi.fn(async () => {});
+    const provider = {
+      summarize: vi.fn(() => Promise.reject(new DOMException("signal timed out", "TimeoutError"))),
+    };
+    await expect(finalizeSavedMeetingSummary(source(), { persist, provider })).rejects.toThrow(
+      "生成总结超时，已保留补齐进度，请稍后重试",
+    );
+    expect(persist).not.toHaveBeenCalled();
+  });
+
   it("summarizes a short recording immediately without a character threshold or timer", async () => {
     const provider = {
       summarize: vi.fn((request: MeetingLiveSummaryRequest) => Promise.resolve(summarize(request))),
@@ -157,7 +196,9 @@ describe("saved recording summary finalization", () => {
       summarize: vi.fn((request: MeetingLiveSummaryRequest) => Promise.resolve(summarize(request))),
     };
     await finalizeSavedMeetingSummary(source(transcript), { persist: async () => {}, provider });
-    expect(provider.summarize.mock.calls.map(([request]) => request.turns.length)).toEqual([3, 1]);
+    expect(provider.summarize.mock.calls.map(([request]) => request.turns.length)).toEqual([
+      1, 1, 1, 1,
+    ]);
   });
 
   it("never acknowledges unpersisted results and rejects responses from another recording", async () => {

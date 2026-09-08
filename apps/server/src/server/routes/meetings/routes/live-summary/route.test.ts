@@ -71,7 +71,7 @@ describe("meeting live summary route", () => {
     expect(result.status).toBe(200);
     expect(result.headers.get("Cache-Control")).toBe("no-store");
     await expect(result.json()).resolves.toMatchObject({ revision: 1, summary: "讨论支付系统。" });
-    expect(generate).toHaveBeenCalledWith(request);
+    expect(generate).toHaveBeenCalledWith(request, "org-1:user-1");
   });
 
   it("keeps model failures generic and retryable", async () => {

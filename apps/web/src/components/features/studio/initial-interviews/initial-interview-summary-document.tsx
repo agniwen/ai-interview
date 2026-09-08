@@ -1,8 +1,12 @@
 import { useCallback } from "react";
-import type { MeetingLiveSummaryControllerSnapshot } from "@/lib/meeting-capture/live-summary-controller";
+import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
+
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MeetingLiveSummaryEmpty } from "./meeting-live-summary-panel";
+
+interface MeetingLiveSummaryControllerSnapshot {
+  summary: MeetingLiveSummarySnapshot | null;
+}
 
 function firstEvidence(ids: string[]): string {
   const [first] = ids;
@@ -31,7 +35,7 @@ export function MeetingLiveSummaryDocument({
   });
 
   if (!snapshot.summary) {
-    return <MeetingLiveSummaryEmpty status={snapshot.status} />;
+    return <p className="text-muted-foreground text-sm">暂无总结</p>;
   }
 
   return (

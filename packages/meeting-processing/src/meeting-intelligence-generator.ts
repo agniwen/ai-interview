@@ -1,11 +1,19 @@
+import { compactReduceIntelligence } from "./meeting-intelligence-compact-reduce";
+import { createHash } from "node:crypto";
+import { compactIntelligenceEvidence } from "./meeting-intelligence-evidence";
+import { selectSummarySegment } from "@app/shared/meeting-summary-segments";
 import {
   generateStructuredWithMastraAgent,
-  meetingIntelligenceAgent,
+  meetingSummaryAgent,
   meetingIntelligenceDecisionPolicyAgent,
   StructuredOutputValidationError,
 } from "@app/ai-runtime/simple-generators";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
-import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
+import {
+  getMastraModelIdentifier,
+  mastraModels,
+  usesTextJsonStructuredOutput,
+} from "@app/ai-runtime/models";
 import {
   MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION,
   MeetingIntelligenceTerminalError,
@@ -37,13 +45,14 @@ export interface MeetingIntelligenceGeneratorSnapshot {
 }
 
 interface MeetingIntelligenceGenerationRuntime {
+  livePrefix?: { content: MeetingIntelligencePayload; turnCount: number };
   heartbeat?: () => Promise<boolean>;
   progress?: MeetingIntelligenceGenerationProgress | null;
   saveProgress?: (progress: MeetingIntelligenceGenerationProgress) => Promise<boolean>;
 }
 
-const DEFAULT_MAX_TRANSCRIPT_CHARS = 120_000;
-const DEFAULT_MAX_REDUCE_CHARS = 100_000;
+const DEFAULT_MAX_TRANSCRIPT_CHARS = 8000;
+const DEFAULT_MAX_REDUCE_CHARS = 24_000;
 
 const decisionPolicyResultSchema = z
   .object({
@@ -70,6 +79,7 @@ const RECRUITING_TEMPLATE_INSTRUCTIONS = `使用 Recruiting Interview 模板：
 - 不得给出录用、淘汰、通过或不通过结论，也不得自动生成招聘决策。`;
 
 function buildPrompt(input: {
+  contextTurns?: IntelligenceTranscriptTurn[];
   template: MeetingIntelligenceTemplate;
   turns: IntelligenceTranscriptTurn[];
 }): string {
@@ -79,6 +89,9 @@ function buildPrompt(input: {
 
 约束：
 - 只能使用输入转录中的事实，不得补充常识、猜测或外部信息；
+- 前段原文仅用于衔接，不重复提取；每个新条目至少引用一条本轮转录；
+- 片段结尾不是观点结束；未完条件、转折或问答不能写成确定事实。通用会议放入 openQuestions，面试放入 verificationItems，写清“未明确”的内容及证据；
+- 后续原文明确修正前文时以修正为准，不得并列保留相互矛盾的确定结论；
 - 每一条 topic、decision、action item、open question、candidate statement、experience、verification item 或 follow-up action 都必须填写至少一个 evidenceTurnIds；
 - evidenceTurnIds 只能逐字使用输入 JSON 中的 id；
 - 没有证据的条目不要输出；
@@ -86,6 +99,9 @@ function buildPrompt(input: {
 - 输出必须严格符合所选模板 ${input.template} 的结构。
 
 ${templateInstructions}
+
+前段原文（仅上下文）：
+${JSON.stringify(input.contextTurns ?? [])}
 
 转录 JSON：
 ${JSON.stringify(input.turns)}`;
@@ -143,6 +159,14 @@ function splitMeetingIntelligenceTurns(
   const chunks: IntelligenceTranscriptTurn[][] = [];
   let current: IntelligenceTranscriptTurn[] = [];
   for (const turn of turns) {
+    if (
+      maxChars <= 8000 &&
+      current.length > 0 &&
+      selectSummarySegment([...current, turn]).length <= current.length
+    ) {
+      chunks.push(current);
+      current = [];
+    }
     if (serializedTurnsLength([turn]) > maxChars) {
       if (current.length > 0) {
         chunks.push(current);
@@ -151,7 +175,12 @@ function splitMeetingIntelligenceTurns(
       let offset = 0;
       while (offset < turn.text.length) {
         const remaining = turn.text.slice(offset);
-        const textSliceLength = fittingTurnTextPrefixLength(turn, remaining, maxChars);
+        const fittingLength = fittingTurnTextPrefixLength(turn, remaining, maxChars);
+        const prefix = remaining.slice(0, fittingLength);
+        const sentenceBoundary =
+          Math.max(...["。", "！", "？", ".", "!", "?"].map((mark) => prefix.lastIndexOf(mark))) +
+          1;
+        const textSliceLength = sentenceBoundary > 0 ? sentenceBoundary : fittingLength;
         chunks.push([{ ...turn, text: remaining.slice(0, textSliceLength) }]);
         offset += textSliceLength;
       }
@@ -172,6 +201,15 @@ function splitMeetingIntelligenceTurns(
   return chunks;
 }
 
+function chunkContext(
+  chunks: IntelligenceTranscriptTurn[][],
+  index: number,
+): IntelligenceTranscriptTurn[] {
+  return (chunks[index - 1] ?? [])
+    .slice(-2)
+    .map((turn) => ({ ...turn, text: turn.text.slice(-1500) }));
+}
+
 function buildReducePrompt(input: {
   partials: MeetingIntelligencePayload[];
   template: MeetingIntelligenceTemplate;
@@ -182,7 +220,9 @@ function buildReducePrompt(input: {
 
 约束：
 - 只能合并输入分块中的事实，不得新增事实或 evidenceTurnIds；
-- 去除重复条目，保留所有互不重复的重要主题、决定、行动、问题或招聘事实；
+- 去除因上下文重叠产生的重复条目，按原始证据合并；后段明确补全前段条件或纠正旧观点时，更新原条目，不能同时保留过时结论；
+- 未完条件只能在后段有明确证据时补全，否则保留为未明确的问题；
+- 保留所有互不重复的重要主题、决定、行动、问题或招聘事实；
 - 每一条结构化条目必须保留至少一个原始 evidenceTurnIds；
 - 不得输出面试评分、招聘决定、受保护特征风险标签或候选人 pipeline 变更；
 - 输出必须严格符合模板 ${input.template}。
@@ -204,27 +244,51 @@ async function generatePayload(input: {
   if (input.heartbeat && !(await input.heartbeat())) {
     throw createMeetingIntelligenceLeaseLostError();
   }
-  return await generateStructuredWithMastraAgent({
+  const compact =
+    input.agent === meetingSummaryAgent
+      ? compactIntelligenceEvidence(input.prompt, input.evidenceTurnIds)
+      : null;
+  const result = await generateStructuredWithMastraAgent({
     agent: input.agent,
     maxOutputTokens: input.maxOutputTokens,
     observabilityLabel: "meeting-intelligence",
     prompt: `输出必须是下面 JSON Schema 定义的单个对象，包含全部必填字段，不得增加字段。没有条目的列表返回 []，未明确的负责人和截止时间返回 null。不要返回 Schema 本身：
 ${JSON.stringify(z.toJSONSchema(input.template === "general" ? generalMeetingIntelligenceSchema : recruitingMeetingIntelligenceSchema, { io: "input" }))}
 
-${input.prompt}`,
+${compact?.prompt ?? input.prompt}`,
     retryOnInvalid: true,
     schema: meetingIntelligencePayloadSchema,
     temperature: 0.1,
+    textGenerationFirst:
+      input.agent === meetingSummaryAgent
+        ? usesTextJsonStructuredOutput(mastraModels.fastModel)
+        : undefined,
     timeoutMs: 5 * 60 * 1000,
     validate: (value) => {
       if (value.template !== input.template) {
         throw new Error("Meeting Intelligence template 与请求不一致");
       }
-      if (!validateMeetingIntelligenceEvidence(value, input.evidenceTurnIds)) {
-        throw new Error("Meeting Intelligence evidence 不属于输入转录版本");
+      if (!validateMeetingIntelligenceEvidence(value, compact?.ids ?? input.evidenceTurnIds)) {
+        const items =
+          value.template === "general"
+            ? [...value.topics, ...value.decisions, ...value.actionItems, ...value.openQuestions]
+            : [
+                ...value.candidateStatements,
+                ...value.keyExperience,
+                ...value.verificationItems,
+                ...value.followUpActions,
+              ];
+        const unexpected = items
+          .flatMap((item) => item.evidenceTurnIds)
+          .filter((id) => !(compact?.ids ?? input.evidenceTurnIds).has(id))
+          .slice(0, 3);
+        throw new Error(
+          `Meeting Intelligence evidence 不属于输入转录版本: ${JSON.stringify(unexpected)}`,
+        );
       }
     },
   });
+  return compact ? compact.restore(result) : result;
 }
 
 function payloadEvidenceTurnIds(payload: MeetingIntelligencePayload): Set<string> {
@@ -316,17 +380,24 @@ async function reducePayloads(input: {
         throw new MeetingIntelligenceTerminalError("Meeting Intelligence 归并分组不存在");
       }
       const [single] = group;
-      const output =
-        group.length === 1 && single
-          ? single
-          : await generatePayload({
-              agent: input.agent,
-              evidenceTurnIds: groupEvidenceTurnIds(group),
-              heartbeat: input.runtime.heartbeat,
-              maxOutputTokens: 6000,
-              prompt: buildReducePrompt({ partials: group, template: input.template }),
-              template: input.template,
-            });
+      let output: MeetingIntelligencePayload;
+      if (group.length === 1 && single) {
+        output = single;
+      } else if (input.agent === meetingSummaryAgent) {
+        if (input.runtime.heartbeat && !(await input.runtime.heartbeat())) {
+          throw createMeetingIntelligenceLeaseLostError();
+        }
+        output = await compactReduceIntelligence(group);
+      } else {
+        output = await generatePayload({
+          agent: input.agent,
+          evidenceTurnIds: groupEvidenceTurnIds(group),
+          heartbeat: input.runtime.heartbeat,
+          maxOutputTokens: 6000,
+          prompt: buildReducePrompt({ partials: group, template: input.template }),
+          template: input.template,
+        });
+      }
       completed.push(output);
       await persistProgress(input.runtime, {
         ...input.progress,
@@ -391,7 +462,7 @@ ${JSON.stringify(content)}`,
 // eslint-disable-next-line complexity -- durable map/reduce resume states share one orchestrator.
 export async function generateMeetingIntelligence(
   input: { template: MeetingIntelligenceTemplate; turns: IntelligenceTranscriptTurn[] },
-  agent: MastraGeneratorLike = meetingIntelligenceAgent,
+  agent: MastraGeneratorLike = meetingSummaryAgent,
   decisionPolicyAgent: MastraGeneratorLike = meetingIntelligenceDecisionPolicyAgent,
   runtime: MeetingIntelligenceGenerationRuntime = {},
 ): Promise<MeetingIntelligencePayload> {
@@ -406,15 +477,27 @@ export async function generateMeetingIntelligence(
     const maxReduceChars =
       runtime.progress?.maxReduceChars ??
       readPositiveIntegerEnv("MEETING_INTELLIGENCE_MAX_REDUCE_CHARS", DEFAULT_MAX_REDUCE_CHARS);
-    const chunks = splitMeetingIntelligenceTurns(input.turns, maxTranscriptChars);
+    const prefix =
+      runtime.livePrefix?.content.template === input.template ? runtime.livePrefix : undefined;
+    const chunks = prefix
+      ? [
+          input.turns.slice(0, prefix.turnCount),
+          ...(input.turns.length > prefix.turnCount
+            ? splitMeetingIntelligenceTurns(input.turns.slice(prefix.turnCount), maxTranscriptChars)
+            : []),
+        ]
+      : splitMeetingIntelligenceTurns(input.turns, maxTranscriptChars);
     let progress: MeetingIntelligenceGenerationProgress = runtime.progress ?? {
-      completed: [],
+      completed: prefix ? [prefix.content] : [],
       kind: "progress",
       maxReduceChars,
       maxTranscriptChars,
       phase: "map",
       version: MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION,
     };
+    if (prefix && progress.phase === "map" && progress.completed.length === 0) {
+      progress = { ...progress, completed: [prefix.content] };
+    }
     if (
       progress.phase === "reduce" &&
       progress.source.some(
@@ -436,36 +519,88 @@ export async function generateMeetingIntelligence(
           !content ||
           !turns ||
           content.template !== input.template ||
-          !validateMeetingIntelligenceEvidence(content, new Set(turns.map((turn) => turn.id)))
+          !validateMeetingIntelligenceEvidence(
+            content,
+            new Set([...chunkContext(chunks, index), ...turns].map((turn) => turn.id)),
+          )
         ) {
           throw new MeetingIntelligenceTerminalError("Meeting Intelligence 分块进度证据无效");
         }
       }
       await persistProgress(runtime, progress);
-      for (let index = progress.completed.length; index < chunks.length; index += 1) {
-        const turns = chunks[index];
-        if (!turns) {
-          throw new MeetingIntelligenceTerminalError("Meeting Intelligence 分块不存在");
-        }
-        const content = await generatePayload({
-          agent,
-          evidenceTurnIds: new Set(turns.map((turn) => turn.id)),
-          heartbeat: runtime.heartbeat,
-          maxOutputTokens: chunks.length === 1 ? 12_000 : 4000,
-          prompt: buildPrompt({ template: input.template, turns }),
+      const cache = new Map((progress.segmentCache ?? []).map((item) => [item.key, item.content]));
+      const prompts = chunks.map((turns, index) =>
+        buildPrompt({
+          contextTurns: chunkContext(chunks, index),
           template: input.template,
-        });
-        // oxlint-disable-next-line no-accumulating-spread -- each persisted stage needs an immutable snapshot.
-        const completed: MeetingIntelligencePayload[] = [...progress.completed, content];
+          turns,
+        }),
+      );
+      const keys = prompts.map((prompt) =>
+        createHash("sha256").update(`segments-v2:${prompt}`).digest("hex"),
+      );
+      const outputs = [...progress.completed];
+      for (let index = 0; index < outputs.length; index += 1) {
+        const output = outputs[index];
+        const key = keys[index];
+        if (output && key) {
+          cache.set(key, output);
+        }
+      }
+      // Bound provider load, await every in-flight request, then persist successes even if a sibling failed.
+      for (let start = outputs.length; start < chunks.length; start += 3) {
+        const results = await Promise.allSettled(
+          chunks.slice(start, start + 3).map(async (turns, offset) => {
+            const index = start + offset;
+            const evidenceTurnIds = new Set(
+              [...chunkContext(chunks, index), ...turns].map((turn) => turn.id),
+            );
+            const cached = cache.get(keys[index] ?? "");
+            if (
+              cached &&
+              cached.template === input.template &&
+              validateMeetingIntelligenceEvidence(cached, evidenceTurnIds)
+            ) {
+              return cached;
+            }
+            return await generatePayload({
+              agent,
+              evidenceTurnIds,
+              heartbeat: runtime.heartbeat,
+              maxOutputTokens: 3000,
+              prompt: prompts[index] ?? "",
+              template: input.template,
+            });
+          }),
+        );
+        for (const [offset, result] of results.entries()) {
+          if (result.status === "fulfilled") {
+            cache.set(keys[start + offset] ?? "", result.value);
+          }
+        }
+        const completed = [];
+        for (const key of keys) {
+          const item = cache.get(key);
+          if (!item) {
+            break;
+          }
+          completed.push(item);
+        }
+        // oxlint-disable-next-line no-accumulating-spread -- immutable durable checkpoint snapshot.
         progress = {
           completed,
           kind: "progress",
           maxReduceChars: progress.maxReduceChars,
           maxTranscriptChars: progress.maxTranscriptChars,
           phase: "map",
+          segmentCache: [...cache].map(([key, content]) => ({ content, key })),
           version: progress.version,
         };
         await persistProgress(runtime, progress);
+        const failure = results.find((result) => result.status === "rejected");
+        if (failure?.status === "rejected") {
+          throw failure.reason;
+        }
       }
     }
     if (progress.phase === "map" && progress.completed.length > 1) {
@@ -475,6 +610,7 @@ export async function generateMeetingIntelligence(
         maxReduceChars,
         maxTranscriptChars,
         phase: "reduce",
+        segmentCache: progress.segmentCache,
         source: progress.completed,
         version: MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION,
       };
@@ -510,6 +646,6 @@ export async function generateMeetingIntelligence(
 }
 
 export function getMeetingIntelligenceGeneratorSnapshot(): MeetingIntelligenceGeneratorSnapshot {
-  const model = getMastraModelIdentifier(mastraModels.structuredModel);
+  const model = getMastraModelIdentifier(mastraModels.fastModel);
   return { model, provider: model.split("/", 1)[0] || "unknown" };
 }

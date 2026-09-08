@@ -1,5 +1,7 @@
+import { reusableLiveSummaryPrefix } from "./meeting-intelligence-live-prefix";
+import { completedIntelligenceSummary } from "./meeting-intelligence-summary";
 /* oxlint-disable max-lines, unicorn/consistent-function-scoping -- the DAO factory keeps transaction helpers beside the injected database. */
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, max, ne, or } from "drizzle-orm";
+import { sql, and, asc, desc, eq, inArray, isNotNull, isNull, lte, max, ne, or } from "drizzle-orm";
 import {
   meetingAuditLog,
   meetingIntelligenceRevision,
@@ -187,6 +189,23 @@ export function createMeetingIntelligenceDao(db: Database) {
           input.requestKind === "automatic"
             ? automaticIdempotencyKey(input, meeting.activeTranscriptRevisionId)
             : `${automaticIdempotencyKey(input, meeting.activeTranscriptRevisionId)}:manual:${crypto.randomUUID()}`;
+        const [priorRun] = await tx
+          .select({ result: meetingProcessingRun.result })
+          .from(meetingProcessingRun)
+          .where(
+            and(
+              eq(meetingProcessingRun.meetingId, input.meetingId),
+              eq(meetingProcessingRun.organizationId, input.organizationId),
+              eq(meetingProcessingRun.model, input.model),
+              eq(meetingProcessingRun.provider, input.provider),
+              eq(meetingProcessingRun.promptVersion, input.promptVersion),
+              eq(meetingProcessingRun.templateKey, input.template),
+            ),
+          )
+          .orderBy(desc(meetingProcessingRun.startedAt))
+          .limit(1);
+        const previous = meetingIntelligenceRunResultSchema.safeParse(priorRun?.result).data;
+        const reusable = previous?.segmentCache;
         const processingRunId = crypto.randomUUID();
         const [inserted] = await tx
           .insert(meetingProcessingRun)
@@ -204,6 +223,17 @@ export function createMeetingIntelligenceDao(db: Database) {
             region: "default",
             requestKind: input.requestKind,
             requestedBy: input.actorId,
+            result: reusable?.length
+              ? {
+                  completed: [],
+                  kind: "progress",
+                  maxReduceChars: 24_000,
+                  maxTranscriptChars: 8000,
+                  phase: "map",
+                  segmentCache: reusable,
+                  version: "map-reduce-v1",
+                }
+              : undefined,
             stage: "meeting-intelligence",
             status: "pending",
             templateKey: input.template,
@@ -386,7 +416,7 @@ export function createMeetingIntelligenceDao(db: Database) {
     organizationId: string;
     transcriptRevisionId: string;
   }) {
-    return await db.query.meetingTranscriptRevision.findFirst({
+    const transcript = await db.query.meetingTranscriptRevision.findFirst({
       where: {
         id: input.transcriptRevisionId,
         meetingId: input.meetingId,
@@ -394,6 +424,21 @@ export function createMeetingIntelligenceDao(db: Database) {
       },
       with: { turns: { orderBy: { sequence: "asc" } } },
     });
+    if (!transcript) {
+      return transcript;
+    }
+    const meeting = await db.query.meetingSession.findFirst({
+      where: { id: input.meetingId, organizationId: input.organizationId },
+    });
+    const livePrefix = meeting
+      ? await reusableLiveSummaryPrefix({
+          draft: meeting.liveTranscriptDraft,
+          snapshot: meeting.liveSummary,
+          startedAt: meeting.startedAt,
+          turns: transcript.turns,
+        })
+      : undefined;
+    return { ...transcript, livePrefix };
   }
 
   async function saveMeetingIntelligenceCheckpoint(input: {
@@ -411,7 +456,10 @@ export function createMeetingIntelligenceDao(db: Database) {
     });
     const [updated] = await db
       .update(meetingProcessingRun)
-      .set({ result: checkpoint, startedAt: new Date() })
+      .set({
+        result: sql`${JSON.stringify(checkpoint)}::jsonb || jsonb_build_object('segmentCache', coalesce(${meetingProcessingRun.result}->'segmentCache', '[]'::jsonb))`,
+        startedAt: new Date(),
+      })
       .where(
         and(
           eq(meetingProcessingRun.id, input.processingRunId),
@@ -480,6 +528,7 @@ export function createMeetingIntelligenceDao(db: Database) {
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
           intelligenceRunId: meetingSession.intelligenceRunId,
+          liveSummary: meetingSession.liveSummary,
           status: meetingSession.status,
         })
         .from(meetingSession)
@@ -527,7 +576,11 @@ export function createMeetingIntelligenceDao(db: Database) {
         return false;
       }
       const turns = await tx
-        .select({ id: meetingTranscriptTurn.id })
+        .select({
+          endMs: meetingTranscriptTurn.endMs,
+          id: meetingTranscriptTurn.id,
+          startMs: meetingTranscriptTurn.startMs,
+        })
         .from(meetingTranscriptTurn)
         .where(eq(meetingTranscriptTurn.revisionId, run.inputTranscriptRevisionId));
       if (!validateMeetingIntelligenceEvidence(content, new Set(turns.map((turn) => turn.id)))) {
@@ -561,6 +614,16 @@ export function createMeetingIntelligenceDao(db: Database) {
           intelligenceError: null,
           intelligenceRunId: null,
           intelligenceStatus: "ready",
+          liveSummary:
+            completedIntelligenceSummary({
+              captureId: run.meetingId,
+              content,
+              model: run.model,
+              now: new Date(),
+              previous: meeting.liveSummary,
+              provider: run.provider,
+              turns,
+            }) ?? meeting.liveSummary,
         })
         .where(eq(meetingSession.id, run.meetingId));
       await tx

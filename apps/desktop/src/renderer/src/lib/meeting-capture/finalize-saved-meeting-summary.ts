@@ -1,7 +1,6 @@
+import { selectSummarySegment, summarySegmentContext } from "@app/shared/meeting-summary-segments";
 import {
-  MEETING_LIVE_SUMMARY_MAX_CONTEXT_CHARACTERS,
-  MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS,
-  MEETING_LIVE_SUMMARY_MAX_TURNS_PER_REQUEST,
+  MEETING_LIVE_SUMMARY_REQUEST_TIMEOUT_MS,
   meetingLiveSummaryRequestSchema,
   meetingLiveSummarySnapshotSchema,
   MeetingSummaryPendingError,
@@ -10,7 +9,6 @@ import type {
   MeetingLiveSummaryCheckpoint,
   MeetingLiveSummarySnapshot,
   MeetingLiveSummaryTemplate,
-  MeetingLiveSummaryTurn,
 } from "@app/shared/meeting-live-summary";
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 import { requestMeetingLiveSummary } from "@/lib/client/meetings";
@@ -38,29 +36,6 @@ interface FinalizeSummaryDependencies {
   timeoutMs?: number;
 }
 
-function nextBatch(turns: MeetingLiveSummaryTurn[], summary: MeetingLiveSummarySnapshot | null) {
-  const maxCharacters = Math.min(
-    MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS,
-    MEETING_LIVE_SUMMARY_MAX_CONTEXT_CHARACTERS - JSON.stringify(summary).length,
-  );
-  const selected: MeetingLiveSummaryTurn[] = [];
-  let characters = 0;
-  for (const turn of turns) {
-    if (
-      selected.length === MEETING_LIVE_SUMMARY_MAX_TURNS_PER_REQUEST ||
-      characters + turn.text.length > maxCharacters
-    ) {
-      break;
-    }
-    selected.push(turn);
-    characters += turn.text.length;
-  }
-  if (!selected.length) {
-    throw new Error("总结上下文超过限制，无法补齐剩余字幕");
-  }
-  return selected;
-}
-
 /** Runs on frozen, durable input; live recording resets and new captures cannot cancel it. */
 export async function finalizeSavedMeetingSummary(
   source: SavedSummarySource,
@@ -82,14 +57,17 @@ export async function finalizeSavedMeetingSummary(
   );
   try {
     while (pending.length) {
-      const batch = nextBatch(pending, summary);
+      const batch = selectSummarySegment(pending);
       const request = meetingLiveSummaryRequestSchema.parse({
         baseSnapshot: summary,
         captureId: source.captureId,
+        contextTurns: summarySegmentContext(turns, batch),
         template: source.template,
         turns: batch,
       });
-      const signal = AbortSignal.timeout(dependencies.timeoutMs ?? 45_000);
+      const signal = AbortSignal.timeout(
+        dependencies.timeoutMs ?? MEETING_LIVE_SUMMARY_REQUEST_TIMEOUT_MS,
+      );
       const result = meetingLiveSummarySnapshotSchema.parse(
         await dependencies.provider.summarize(request, signal),
       );
@@ -113,10 +91,11 @@ export async function finalizeSavedMeetingSummary(
     }
     return summary;
   } catch (error) {
-    throw new MeetingSummaryPendingError(
-      `录音已保存，总结待补齐：${error instanceof Error ? error.message : "AI 暂时不可用"}`,
-      { cause: error },
-    );
+    let message = error instanceof Error ? error.message : "AI 暂时不可用";
+    if (error instanceof Error && error.name === "TimeoutError") {
+      message = "生成总结超时，已保留补齐进度，请稍后重试";
+    }
+    throw new MeetingSummaryPendingError(`录音已保存，总结待补齐：${message}`, { cause: error });
   }
 }
 

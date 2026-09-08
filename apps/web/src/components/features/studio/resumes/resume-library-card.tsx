@@ -595,7 +595,7 @@ function ResumeLibraryCardComponent({
                   record={record}
                   onOpen={() => onOpenDetail(record, "rounds")}
                 />
-                {hrAction ? (
+                {process.env.NODE_ENV === "development" && hrAction ? (
                   <Badge title={hrAction.description} variant="warning">
                     HR处理 · {hrAction.label}
                   </Badge>

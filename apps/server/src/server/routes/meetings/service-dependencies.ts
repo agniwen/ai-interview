@@ -81,6 +81,7 @@ export interface MeetingAuthorizedAsset {
 }
 
 export interface MeetingAuthorizedSession {
+  intelligenceStatus?: string;
   recordingType?: MeetingRecordingType;
   accessGrantRole?: MeetingGrantRole | null;
   assets: MeetingAuthorizedAsset[];

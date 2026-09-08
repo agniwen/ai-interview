@@ -236,6 +236,13 @@ export const interviewReportEvaluationAgent = new Agent({
   name: "InterviewReportEvaluationAgent",
 });
 
+export const meetingSummaryAgent = new Agent({
+  id: "meeting-summary-fast",
+  instructions: "根据提供的字幕整理有证据的事实和未明确问题。不得推测或自动作出招聘决策。",
+  model: withThinkingDisabled(mastraModels.fastModel),
+  name: "Meeting Summary",
+});
+
 export const meetingIntelligenceAgent = new Agent({
   id: "meeting-intelligence-agent",
   instructions:

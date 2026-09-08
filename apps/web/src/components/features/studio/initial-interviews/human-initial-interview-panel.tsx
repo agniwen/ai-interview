@@ -27,6 +27,7 @@ import {
   regenerateInitialInterview,
   resumeInitialInterview,
 } from "@/lib/client/initial-interviews";
+import { InitialInterviewRecording } from "./initial-interview-recording";
 import { HumanInitialInterviewCard } from "./human-initial-interview-card";
 
 type GenerationAction =
@@ -155,35 +156,37 @@ export function HumanInitialInterviewPanel({
         </Empty>
       ) : null}
       {query.data?.records.map((record) => (
-        <HumanInitialInterviewCard
-          key={record.id}
-          record={record}
-          canGenerate={canGenerate}
-          canDelete={Boolean(query.data.canDelete)}
-          pending={mutation.isPending}
-          effective={effectiveVersionId === record.latestVersion.id}
-          documentUrl={query.data.document?.documentUrl ?? null}
-          onRegenerate={() => {
-            void prepare({
-              kind: "regenerate",
-              requestId: crypto.randomUUID(),
-              snapshotId: record.id,
-            });
-          }}
-          onResume={() => {
-            void prepare({
-              approvedDocumentId: record.latestVersion.overwriteDocumentId,
-              kind: "resume",
-              versionId: record.latestVersion.id,
-            });
-          }}
-          onDelete={() =>
-            setConfirmation({
-              action: { kind: "delete", snapshotId: record.id },
-              documentId: null,
-            })
-          }
-        />
+        <div key={record.id} className="flex min-w-0 flex-col gap-4">
+          <HumanInitialInterviewCard
+            record={record}
+            canGenerate={canGenerate}
+            canDelete={Boolean(query.data.canDelete)}
+            pending={mutation.isPending}
+            effective={effectiveVersionId === record.latestVersion.id}
+            documentUrl={query.data.document?.documentUrl ?? null}
+            onRegenerate={() => {
+              void prepare({
+                kind: "regenerate",
+                requestId: crypto.randomUUID(),
+                snapshotId: record.id,
+              });
+            }}
+            onResume={() => {
+              void prepare({
+                approvedDocumentId: record.latestVersion.overwriteDocumentId,
+                kind: "resume",
+                versionId: record.latestVersion.id,
+              });
+            }}
+            onDelete={() =>
+              setConfirmation({
+                action: { kind: "delete", snapshotId: record.id },
+                documentId: null,
+              })
+            }
+          />
+          <InitialInterviewRecording slug={slug} recordId={recordId} snapshotId={record.id} />
+        </div>
       ))}
       <Dialog
         open={Boolean(confirmation)}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { meetingLiveSummarySnapshotSchema } from "./meeting-live-summary";
 import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
 import { canonicalMeetingTranscriptTurnSchema } from "./meeting-transcription";
@@ -33,6 +34,7 @@ export const initialInterviewSnapshotSchema = z
     durationMs: z.number().nonnegative(),
     interviewQuestions: z.array(studioInterviewQuestionClientSchema),
     job: z.object({ id: z.string(), prompt: z.string(), title: z.string() }).nullable(),
+    liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     qualitativeResumeEvaluation: qualitativeResumeEvaluationSchema.nullable(),
     recordedAt: z.string(),
     recording: z.object({ contentType: z.string(), sizeBytes: z.number(), storageKey: z.string() }),

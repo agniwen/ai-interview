@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+// The generator allows two attempts; the HTTP caller must outlive both plus transport overhead.
+export const MEETING_LIVE_SUMMARY_MODEL_TIMEOUT_MS = 75_000;
+export const MEETING_LIVE_SUMMARY_REQUEST_TIMEOUT_MS =
+  MEETING_LIVE_SUMMARY_MODEL_TIMEOUT_MS * 2 + 15_000;
+
 export const MEETING_LIVE_SUMMARY_MAX_TOPICS = 12;
 export const MEETING_LIVE_SUMMARY_MAX_POINTS_PER_TOPIC = 8;
 export const MEETING_LIVE_SUMMARY_MAX_EVIDENCE_TURNS = 30;
@@ -10,10 +15,7 @@ export const MEETING_LIVE_SUMMARY_MAX_CONTEXT_CHARACTERS = 80_000;
 export const meetingLiveSummaryTemplateSchema = z.enum(["general", "recruiting-interview"]);
 export type MeetingLiveSummaryTemplate = z.infer<typeof meetingLiveSummaryTemplateSchema>;
 
-const evidenceTurnIdsSchema = z
-  .array(z.string().min(1).max(512))
-  .min(1)
-  .max(MEETING_LIVE_SUMMARY_MAX_EVIDENCE_TURNS);
+const evidenceTurnIdsSchema = z.array(z.string().min(1).max(512)).min(1).max(10_000);
 
 const meetingLiveSummaryPointSchema = z
   .object({
@@ -32,7 +34,7 @@ const meetingLiveSummaryTopicSchema = z
     endMs: z.number().int().nonnegative(),
     evidenceTurnIds: evidenceTurnIdsSchema,
     id: z.string().min(1).max(128),
-    points: z.array(meetingLiveSummaryPointSchema).max(MEETING_LIVE_SUMMARY_MAX_POINTS_PER_TOPIC),
+    points: z.array(meetingLiveSummaryPointSchema),
     startMs: z.number().int().nonnegative(),
     status: z.enum(["active", "completed"]),
     summary: z.string().trim().min(1).max(2000),
@@ -41,6 +43,15 @@ const meetingLiveSummaryTopicSchema = z
   .strict()
   .refine((topic) => topic.endMs >= topic.startMs, "总结主题结束时间不能早于开始时间");
 
+export const meetingSummaryPendingThoughtSchema = z
+  .object({
+    endMs: z.number().int().nonnegative().optional(),
+    evidenceTurnIds: z.array(z.string().min(1).max(512)).min(1).max(3),
+    startMs: z.number().int().nonnegative().optional(),
+    text: z.string().min(1).max(500),
+  })
+  .strict();
+
 export const meetingLiveSummarySnapshotSchema = z
   .object({
     captureId: z.uuid(),
@@ -48,11 +59,15 @@ export const meetingLiveSummarySnapshotSchema = z
     coveredThroughTurnId: z.string().min(1).max(512),
     generatedAt: z.string().datetime({ offset: true }),
     model: z.string().min(1).max(128),
+    pendingThoughts: z.array(meetingSummaryPendingThoughtSchema).max(5).optional(),
     provider: z.string().min(1).max(128),
     revision: z.number().int().positive(),
+    sourceFingerprint: z
+      .object({ count: z.number().int().positive(), digest: z.string().length(64) })
+      .optional(),
     summary: z.string().trim().min(1).max(4000),
     template: meetingLiveSummaryTemplateSchema,
-    topics: z.array(meetingLiveSummaryTopicSchema).min(1).max(MEETING_LIVE_SUMMARY_MAX_TOPICS),
+    topics: z.array(meetingLiveSummaryTopicSchema).min(1),
   })
   .strict()
   .superRefine((snapshot, context) => {
@@ -136,6 +151,7 @@ export const meetingLiveSummaryRequestSchema = z
   .object({
     baseSnapshot: meetingLiveSummarySnapshotSchema.nullable(),
     captureId: z.uuid(),
+    contextTurns: z.array(meetingLiveSummaryTurnSchema).max(3).optional(),
     template: meetingLiveSummaryTemplateSchema,
     turns: z
       .array(meetingLiveSummaryTurnSchema)
@@ -170,7 +186,10 @@ export const meetingLiveSummaryRequestSchema = z
     if (totalCharacters > MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS) {
       context.addIssue({ code: "custom", message: "实时总结新增字幕过长", path: ["turns"] });
     }
-    const contextCharacters = totalCharacters + JSON.stringify(request.baseSnapshot).length;
+    const contextCharacters =
+      totalCharacters +
+      JSON.stringify(request.baseSnapshot).length +
+      JSON.stringify(request.contextTurns ?? []).length;
     if (contextCharacters > MEETING_LIVE_SUMMARY_MAX_CONTEXT_CHARACTERS) {
       context.addIssue({ code: "custom", message: "实时总结上下文过长", path: ["baseSnapshot"] });
     }
