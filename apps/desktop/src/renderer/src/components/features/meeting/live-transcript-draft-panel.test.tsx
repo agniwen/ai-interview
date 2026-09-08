@@ -62,8 +62,8 @@ describe("LiveTranscriptDraftPanel", () => {
     expect(html).not.toContain("provisional");
     expect(html).not.toContain(">interrupted<");
     expect(html).toContain("实时字幕已中断，录音仍在继续");
-    expect(html).toContain("约 125 ms");
-    expect(html).toContain("本地录音未受影响");
+    expect(html).not.toContain("约 125 ms");
+    expect(html).not.toContain("本地录音未受影响");
   });
 
   it("renders Chinese connection labels and hides them for a saved idle draft", () => {

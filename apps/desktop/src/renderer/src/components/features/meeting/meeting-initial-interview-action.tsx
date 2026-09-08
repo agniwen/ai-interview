@@ -6,13 +6,8 @@ import type { MeetingAccessRole } from "@app/shared/meeting-recording";
 import {
   INITIAL_INTERVIEW_OVERWRITE_DESCRIPTION,
   INITIAL_INTERVIEW_STATUS_LABELS,
-  getInitialInterviewRolesIssue,
   initialInterviewKeys,
   isInitialInterviewProcessing,
-} from "@app/shared/human-initial-interview";
-import type {
-  InitialInterviewRoles,
-  InitialInterviewVersion,
 } from "@app/shared/human-initial-interview";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -29,60 +24,11 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { fetchMeetingRecruitingContextCandidates } from "@/lib/client/meetings";
 import {
   createInitialInterview,
-  fetchInitialInterview,
   fetchInitialInterviews,
   recruitingInitialInterviewUrl,
   resumeInitialInterview,
 } from "@/lib/client/initial-interviews";
 import { useDebouncedMeetingRecruitingSearch } from "./meeting-recruiting-context-panel";
-
-function SpeakerConfirmation({
-  version,
-  onSubmit,
-  pending,
-}: {
-  version: InitialInterviewVersion;
-  onSubmit: (roles: InitialInterviewRoles) => void;
-  pending: boolean;
-}) {
-  const [roles, setRoles] = useState(version.roles);
-  const keys = [...new Set(version.turns.map((turn) => turn.speakerKey))];
-  const issue = getInitialInterviewRolesIssue(version.turns, roles);
-  return (
-    <div className="flex flex-col gap-4">
-      {keys.map((key) => {
-        const example = version.turns.find((turn) => turn.speakerKey === key);
-        return (
-          <fieldset className="flex flex-col gap-2" key={key}>
-            <legend className="text-sm font-medium">{example?.speakerDisplayName ?? key}</legend>
-            <p className="text-muted-foreground text-sm line-clamp-3">{example?.text}</p>
-            <label className="sr-only" htmlFor={`initial-speaker-${key}`}>
-              说话人身份
-            </label>
-            <SearchableSelect
-              id={`initial-speaker-${key}`}
-              options={[
-                { label: "候选人", value: "candidate" },
-                { label: "HR", value: "interviewer" },
-              ]}
-              placeholder="选择身份"
-              value={roles[key] ?? null}
-              onChange={(role) => {
-                if (role === "candidate" || role === "interviewer") {
-                  setRoles((previous) => ({ ...previous, [key]: role }));
-                }
-              }}
-            />
-          </fieldset>
-        );
-      })}
-      {issue ? <p className="text-muted-foreground text-xs">{issue}</p> : null}
-      <Button disabled={pending || Boolean(issue)} onClick={() => onSubmit(roles)}>
-        确认并继续生成
-      </Button>
-    </div>
-  );
-}
 
 function useInitialInterviewGeneration(slug: string, meetingId: string) {
   const queryClient = useQueryClient();
@@ -94,7 +40,6 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{
     documentId: string;
-    roles?: InitialInterviewRoles;
   } | null>(null);
   const debounced = useDebouncedMeetingRecruitingSearch(search);
   const candidates = useQuery({
@@ -123,21 +68,14 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
         : false,
   });
   const current = list.data?.records.find((record) => record.id === createdId);
-  const detail = useQuery({
-    enabled:
-      open && Boolean(recordId && createdId) && current?.latestVersion.status === "needs_speakers",
-    queryFn: () => fetchInitialInterview(slug, recordId ?? "", createdId ?? ""),
-    queryKey: initialInterviewKeys.detail(slug, recordId ?? "", createdId ?? ""),
-  });
   const mutation = useMutation({
-    mutationFn: async (input: { documentId: string | null; roles?: InitialInterviewRoles }) => {
+    mutationFn: async (input: { documentId: string | null }) => {
       if (!recordId) {
         throw new Error("请选择招聘记录");
       }
-      if (input.roles && current) {
+      if (current) {
         return await resumeInitialInterview(slug, recordId, current.latestVersion.id, {
           overwriteDocumentId: input.documentId,
-          roles: input.roles,
         });
       }
       return await createInitialInterview(slug, recordId, {
@@ -148,7 +86,7 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
     },
     onError: (error) => toast.error(error.message),
     onSuccess: async (result) => {
-      setCreatedId(result.id);
+      setCreatedId(current?.id ?? result.id);
       setConfirmation(null);
       await queryClient.invalidateQueries({
         queryKey: initialInterviewKeys.list(slug, recordId ?? ""),
@@ -156,7 +94,7 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
       toast.success("资料快照已保存，评价表将在后台生成");
     },
   });
-  async function begin(roles?: InitialInterviewRoles) {
+  async function begin() {
     if (checking || mutation.isPending) {
       return;
     }
@@ -167,7 +105,7 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
         toast.error(fresh.error.message);
         return;
       }
-      if (!roles && (fresh.data?.document || fresh.data?.records.length)) {
+      if (!current && (fresh.data?.document || fresh.data?.records.length)) {
         toast.error("该招聘记录已有评价表或人工初面生成记录，请在招聘台查看或继续处理。");
         await queryClient.invalidateQueries({
           queryKey: ["initial-interview-candidates", slug, meetingId],
@@ -175,11 +113,11 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
         return;
       }
       const documentId = fresh.data?.document?.documentId ?? null;
-      if (documentId && (!roles || current?.latestVersion.overwriteDocumentId !== documentId)) {
-        setConfirmation({ documentId, roles });
+      if (documentId && current?.latestVersion.overwriteDocumentId !== documentId) {
+        setConfirmation({ documentId });
         return;
       }
-      mutation.mutate({ documentId, roles });
+      mutation.mutate({ documentId });
     } finally {
       setChecking(false);
     }
@@ -191,7 +129,6 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
     confirmation,
     createdId,
     current,
-    detail,
     list,
     mutation,
     open,
@@ -205,7 +142,7 @@ function useInitialInterviewGeneration(slug: string, meetingId: string) {
 }
 
 function GenerationStatus({ state }: { state: ReturnType<typeof useInitialInterviewGeneration> }) {
-  const { candidates, list, mutation, current, detail, begin, checking } = state;
+  const { candidates, list, mutation, current, begin, checking } = state;
   return (
     <>
       {candidates.error || list.error ? (
@@ -230,15 +167,15 @@ function GenerationStatus({ state }: { state: ReturnType<typeof useInitialInterv
       {current?.latestVersion.error ? (
         <p className="text-destructive text-sm">{current.latestVersion.error}</p>
       ) : null}
-      {current?.latestVersion.status === "needs_speakers" && detail.data?.versions[0] ? (
-        <SpeakerConfirmation
-          key={current.latestVersion.id}
-          version={detail.data.versions[0]}
-          onSubmit={(roles) => {
-            void begin(roles);
+      {current && ["needs_speakers", "failed"].includes(current.latestVersion.status) ? (
+        <Button
+          disabled={mutation.isPending || checking || !list.data?.canGenerate}
+          onClick={() => {
+            void begin();
           }}
-          pending={mutation.isPending || checking}
-        />
+        >
+          重试生成
+        </Button>
       ) : null}
     </>
   );

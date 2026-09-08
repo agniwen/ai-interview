@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+import { z } from "zod";
 import type {
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
@@ -19,7 +21,7 @@ const MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MEETING_OBJECT_UPLOAD_TIMEOUT_MS = 55 * 60 * 1000;
 
 export interface MeetingObjectUploadInput {
-  body: ReadableStream<Uint8Array>;
+  createBody: () => ReadableStream<Uint8Array>;
   headers: Record<string, string>;
   sizeBytes: number;
   url: string;
@@ -27,18 +29,80 @@ export interface MeetingObjectUploadInput {
 
 export type MeetingObjectUploader = (input: MeetingObjectUploadInput) => Promise<void>;
 
+const retryableNetworkCode = z.enum([
+  "ECONNRESET",
+  "EPIPE",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+const networkErrorSchema = z.object({ code: retryableNetworkCode });
+const RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+const MAX_UPLOAD_ATTEMPTS = 3;
+
+function uploadNetworkCode(error: Error): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5; depth += 1) {
+    const parsed = networkErrorSchema.safeParse(current);
+    if (parsed.success) {
+      return parsed.data.code;
+    }
+    if (!(current instanceof Error)) {
+      return null;
+    }
+    current = current.cause;
+  }
+  return null;
+}
+
 export async function uploadMeetingObject(input: MeetingObjectUploadInput): Promise<void> {
-  // SAFETY: Node's undici fetch requires the runtime-supported duplex option for a
-  // ReadableStream request body; TypeScript's RequestInit declaration omits it.
-  const response = await fetch(input.url, {
-    body: input.body,
-    duplex: "half",
-    headers: { ...input.headers, "content-length": String(input.sizeBytes) },
-    method: "PUT",
-    signal: AbortSignal.timeout(MEETING_OBJECT_UPLOAD_TIMEOUT_MS),
-  } as RequestInit & { duplex: "half" });
-  if (!response.ok) {
-    throw new Error(`录音对象上传失败 (${response.status})`);
+  // All attempts share the original deadline so deletion quiet periods still bound every writer.
+  const signal = AbortSignal.timeout(MEETING_OBJECT_UPLOAD_TIMEOUT_MS);
+  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt += 1) {
+    signal.throwIfAborted();
+    let retryCode: string;
+    try {
+      // SAFETY: Node fetch requires duplex for streaming bodies; RequestInit omits it.
+      const response = await fetch(input.url, {
+        body: input.createBody(),
+        duplex: "half",
+        headers: { ...input.headers, "content-length": String(input.sizeBytes) },
+        method: "PUT",
+        signal,
+      } as RequestInit & { duplex: "half" });
+      await response.body?.cancel();
+      if (response.ok) {
+        return;
+      }
+      if (!RETRYABLE_HTTP_STATUSES.has(response.status)) {
+        throw new Error(`录音对象上传失败 (${response.status})`);
+      }
+      retryCode = `HTTP ${response.status}`;
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+      const code = uploadNetworkCode(error);
+      if (!code || signal.aborted) {
+        throw error;
+      }
+      retryCode = code;
+    }
+    if (attempt === MAX_UPLOAD_ATTEMPTS) {
+      throw new Error(
+        `录音对象上传失败（${retryCode}），已尝试 ${attempt} 次；本地录音已保留，请稍后重试保存。`,
+      );
+    }
+    // Log transport diagnostics without exposing the signed URL or recording contents.
+    console.warn("[meeting-capture] retrying object upload", {
+      attempt,
+      code: retryCode,
+      sizeBytes: input.sizeBytes,
+    });
+    await delay(500 * 2 ** (attempt - 1), undefined, { signal });
   }
 }
 
@@ -175,12 +239,13 @@ export async function uploadLocalMeetingMultipart(input: {
       }
       try {
         await input.putObject({
-          body: trackRangeStream({
-            captureDirectory: input.captureDirectory,
-            fragments: trackFragments(input.fragments, instruction.track),
-            offsetBytes: instruction.offsetBytes,
-            sizeBytes: instruction.sizeBytes,
-          }),
+          createBody: () =>
+            trackRangeStream({
+              captureDirectory: input.captureDirectory,
+              fragments: trackFragments(input.fragments, instruction.track),
+              offsetBytes: instruction.offsetBytes,
+              sizeBytes: instruction.sizeBytes,
+            }),
           headers: { "content-md5": part.md5Base64 },
           sizeBytes: part.sizeBytes,
           url: instruction.url,

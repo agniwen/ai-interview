@@ -7,7 +7,6 @@ import {
 import { db } from "../../../../../../../../lib/server/db";
 import { generateFeishuHrEvaluation } from "../../../../../../agent/utils/feishu-hr-evaluation";
 import { loadInitialInterviewVersion, withInitialInterviewLock } from "../dao";
-import { identifyInitialInterviewSpeakers } from "./identify-initial-interview-speakers";
 import { publishInitialInterviewDocument } from "./publish-initial-interview-document";
 import { processInitialInterview } from "./process-initial-interview";
 
@@ -21,27 +20,16 @@ export function processInitialInterviewVersion(
       generate: (job) =>
         generateFeishuHrEvaluation({
           candidateFormResponses: "",
-          resumeEmploymentContext: job.snapshot.resumeEmploymentContext,
-          transcript: job.turns.map((turn) => ({
-            message: turn.text,
-            role: job.roles[turn.speakerKey] === "candidate" ? "user" : "agent",
-            timeInCallSecs: turn.startMs / 1000,
-          })),
-        }),
-      identify: async (job) => {
-        try {
-          return await identifyInitialInterviewSpeakers({
+          recordedTranscript: JSON.stringify({
             candidateName: job.snapshot.candidateName,
-            turns: job.turns,
-          });
-        } catch (error) {
-          console.error("[initial-interview] speaker identification requires HR confirmation", {
-            error,
-            versionId: job.id,
-          });
-          return null;
-        }
-      },
+            turns: job.turns.map((turn) => ({
+              speakerKey: turn.speakerKey,
+              startMs: turn.startMs,
+              text: turn.text,
+            })),
+          }),
+          resumeEmploymentContext: job.snapshot.resumeEmploymentContext,
+        }),
       load: async (organizationId, versionId) => {
         const loaded = await loadInitialInterviewVersion(organizationId, versionId);
         if (!loaded) {

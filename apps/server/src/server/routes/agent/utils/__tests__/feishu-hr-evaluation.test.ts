@@ -66,6 +66,25 @@ describe("generateFeishuHrEvaluation", () => {
     expect(prompt).not.toContain("## 面试题目");
   });
 
+  it("analyzes unassigned recorded speakers in the same evaluation call", async () => {
+    const transcript = JSON.stringify({
+      candidateName: "测试候选人",
+      turns: [
+        { speakerKey: "speaker-1", text: "您期望多少薪资？" },
+        { speakerKey: "speaker-2", text: "期望年包五十万。" },
+      ],
+    });
+    const result = await generateFeishuHrEvaluationWithPrompt(
+      { candidateFormResponses: "", recordedTranscript: transcript, resumeEmploymentContext: "" },
+      dependencies,
+    );
+    expect(result.evaluation).toEqual(HR_EVALUATION);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(1);
+    expect(result.prompt).toContain(transcript);
+    expect(result.prompt).toContain("在本次分析中根据完整问答上下文区分候选人与 HR");
+    expect(result.prompt).toContain("无需输出身份映射、confident 或 speakers");
+  });
+
   it("loads the same evidence snapshot used by the report before generating", async () => {
     const transcript = [{ message: "一个月内到岗。", role: "user" }];
     mocks.createEvidenceSnapshot.mockResolvedValue({

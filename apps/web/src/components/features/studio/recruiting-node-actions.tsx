@@ -1,53 +1,15 @@
+import { DatePicker } from "@/components/date-time-picker";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { recruitingNodeStatusMeta } from "@app/db-schema/studio-interviews";
 import type { RecruitingNodeStatus } from "@app/db-schema/schema";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { transitionInterviewRecord } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { RecruitingActionButton as Button } from "./recruiting-action-button";
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
-
-type ProgressOptions = Partial<
-  Record<
-    ResumeLibraryDetail["pipelineStage"],
-    Exclude<RecruitingNodeStatus, "inactive" | "skipped">[]
-  >
->;
-const progressOptions = {
-  background_check: ["pending", "in_progress", "awaiting_review"],
-  income_proof: ["pending", "in_progress", "awaiting_review"],
-  offer: ["pending", "negotiating", "awaiting_send"],
-  onboarding: ["pending", "in_progress"],
-  screening: ["pending", "awaiting_review"],
-} satisfies ProgressOptions;
-
-export function getRecruitingProgressOptions(
-  stage: ResumeLibraryDetail["pipelineStage"],
-  currentStatus?: RecruitingNodeStatus,
-): Exclude<RecruitingNodeStatus, "inactive" | "skipped">[] {
-  if (
-    currentStatus === "completed" ||
-    (stage === "offer" && currentStatus === "awaiting_response")
-  ) {
-    return [];
-  }
-  if (stage in progressOptions) {
-    // SAFETY: 上面的成员检查已确认 stage 是该固定配置的键。
-    return progressOptions[stage as keyof typeof progressOptions];
-  }
-  return [];
-}
 
 function passLabel(stage: ResumeLibraryDetail["pipelineStage"]) {
   if (stage === "ai_interview") {
@@ -83,7 +45,7 @@ export function canConfirmRecruitingNode(
     status: RecruitingNodeStatus;
   },
 ) {
-  if (stage === "closed" || stage === "screening") {
+  if (stage === "closed" || stage === "screening" || stage === "offer") {
     return false;
   }
   if (node?.status === "completed") {
@@ -98,32 +60,26 @@ export function canConfirmRecruitingNode(
   );
 }
 
-/** 人工确认只更新当前有效节点；安排面试、发 Offer 仍使用各自的业务操作。 */
+/** 人工确认当前有效节点的最终结果；业务进度由安排面试、发 Offer 等操作更新。 */
 export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [earliestJoiningDate, setEarliestJoiningDate] = useState("");
   const [reason, setReason] = useState("");
   const node = record.nodeStates.find((state) => state.node === record.pipelineStage);
-  const [status, setStatus] = useState(node?.status ?? "pending");
   const mutation = useMutation({
-    mutationFn: async (result: "pass" | "fail" | null) => {
+    mutationFn: async (result: "pass" | "fail") => {
       if (record.pipelineStage === "closed") {
         return;
       }
-      if (result !== null && !reason.trim()) {
+      if (!reason.trim()) {
         throw new Error("请填写说明");
-      }
-      const targetStatus = result
-        ? "completed"
-        : getRecruitingProgressOptions(record.pipelineStage, node?.status).find(
-            (value) => value === status,
-          );
-      if (!targetStatus) {
-        throw new Error("当前状态不可修改，请刷新后重试");
       }
       await transitionInterviewRecord(slug, record.id, {
         action: "update_node",
+        earliestJoiningDate:
+          record.pipelineStage === "onboarding" ? earliestJoiningDate || null : undefined,
         effectiveAiRoundId: node?.effectiveAiRoundId,
         effectiveHumanRoundId: node?.effectiveHumanRoundId,
         effectiveOfferId: node?.effectiveOfferId,
@@ -131,7 +87,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         node: record.pipelineStage,
         reason: reason.trim() || undefined,
         result,
-        targetStatus,
+        targetStatus: "completed",
       });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "更新节点失败"),
@@ -149,7 +105,6 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
     },
   });
   const canConfirm = canConfirmRecruitingNode(record.pipelineStage, node);
-  const options = getRecruitingProgressOptions(record.pipelineStage, node?.status);
   return (
     <>
       {canConfirm && (
@@ -157,8 +112,8 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
           size="sm"
           variant="default"
           onClick={() => {
-            setStatus(node?.status ?? "pending");
-            setReason("");
+            setReason(node?.reason ?? "");
+            setEarliestJoiningDate(record.candidateExpectationsMeta?.earliestJoiningDate ?? "");
             setOpen(true);
           }}
         >
@@ -169,6 +124,11 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         open={open}
         onOpenChange={setOpen}
         title={recruitingNodeActionLabels[record.pipelineStage]}
+        description={
+          record.pipelineStage === "onboarding"
+            ? "候选人已到岗时，填写说明并点击“确认入职”，完成招聘流程。"
+            : undefined
+        }
         size="xl"
         bodyClassName="flex flex-col gap-4"
         footer={
@@ -180,15 +140,6 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
             >
               淘汰
             </Button>
-            {options.length > 0 && (
-              <Button
-                variant={record.pipelineStage === "offer" ? "default" : "outline"}
-                disabled={mutation.isPending}
-                onClick={() => mutation.mutate(null)}
-              >
-                保存进度
-              </Button>
-            )}
             {record.pipelineStage !== "offer" && (
               <Button disabled={mutation.isPending} onClick={() => mutation.mutate("pass")}>
                 {passLabel(record.pipelineStage)}
@@ -197,31 +148,18 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
           </>
         }
       >
-        {options.length > 0 && (
-          <Select
-            value={status}
-            onValueChange={(selected) => {
-              const next = options.find((value) => value === selected);
-              if (next) {
-                setStatus(next);
-              }
-            }}
-            disabled={mutation.isPending}
-          >
-            <SelectTrigger aria-label="节点状态" className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {options.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {recruitingNodeStatusMeta[value].label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        )}
+        {record.pipelineStage === "onboarding" ? (
+          <div className="grid gap-1.5">
+            <Label htmlFor="onboarding-earliest-date">最早可入职日</Label>
+            <DatePicker
+              id="onboarding-earliest-date"
+              aria-label="最早可入职日"
+              value={earliestJoiningDate}
+              onValueChange={setEarliestJoiningDate}
+              disabled={mutation.isPending}
+            />
+          </div>
+        ) : null}
         <MarkdownEditor
           minHeight={240}
           aria-label="说明"

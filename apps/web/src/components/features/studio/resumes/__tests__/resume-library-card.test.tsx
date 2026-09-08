@@ -268,6 +268,44 @@ describe("ResumeLibraryCard", () => {
     expect(content.indexOf("简历筛选")).toBeLessThan(content.indexOf("重复简历 2 条"));
   });
 
+  it("shows the hired outcome instead of pending advancement after onboarding", () => {
+    const noop = vi.fn();
+    const content = renderWithQueryClient(
+      <ResumeLibraryCard
+        canCreateInterview={false}
+        canDeleteResumeLibrary={false}
+        canForceReparse={false}
+        canRetryResumeParse={false}
+        canUpdateResumeLibrary={false}
+        currentMemberRole="viewer"
+        currentUserId={null}
+        onCopyDetailLink={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onForceReparse={noop}
+        onLaunchInterview={noop}
+        onOpenDetail={noop}
+        onPreviewResume={noop}
+        onRetryParse={noop}
+        onSelectChange={noop}
+        onShowDuplicateMatches={noop}
+        onTransition={noop}
+        record={{
+          ...record,
+          nodeResult: "pass",
+          nodeStatus: "completed",
+          outcome: "hired",
+          pipelineStage: "closed",
+        }}
+        retrying={false}
+        selected={false}
+      />,
+    );
+
+    expect(content).toContain("已入职");
+    expect(content).not.toContain("已通过待推进");
+  });
+
   it("places the AI score inside the generated summary paragraph", () => {
     const noop = vi.fn();
     const content = renderWithQueryClient(

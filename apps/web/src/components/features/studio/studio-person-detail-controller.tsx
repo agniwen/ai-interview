@@ -16,6 +16,7 @@ import {
   shouldShowAiInterviewTab,
   shouldShowHumanInterviewTab,
   shouldShowOfferTab,
+  shouldShowOnboardingTab,
   tabForPipelineStage,
 } from "./studio-person-detail-model";
 import type {
@@ -209,6 +210,7 @@ export function useStudioPersonDetailController({
   const hasRecord = record !== null;
   const tabVisibilityRecord = hasRecord
     ? {
+        closedFromNode: resumeRecord?.closedFromNode,
         hasInitialInterview: Boolean(resumeRecord?.stageProgress.initialInterview?.totalSnapshots),
         pipelineStage: visiblePipelineStage,
       }
@@ -229,6 +231,9 @@ export function useStudioPersonDetailController({
       return tabs;
     }
     tabs.add("ai-analysis");
+    if (shouldShowOnboardingTab(tabVisibilityRecord)) {
+      tabs.add("onboarding");
+    }
     if (shouldShowAiInterviewTab(tabVisibilityRecord)) {
       tabs.add("rounds");
     }
@@ -246,7 +251,9 @@ export function useStudioPersonDetailController({
       const previous = previousStageRef.current;
       previousStageRef.current = { id: record.id, stage: record.pipelineStage };
       if (previous?.id === record.id && previous.stage !== record.pipelineStage) {
-        const targetTab = tabForPipelineStage(record.pipelineStage);
+        const targetTab = availableTabs.has("onboarding")
+          ? "onboarding"
+          : tabForPipelineStage(record.pipelineStage);
         if (availableTabs.has(targetTab) && activeTab !== targetTab) {
           // 同步确认、回退等操作刷新后的真实节点；初次打开仍尊重 URL 指定的 tab。
           // oxlint-disable-next-line react/set-state-in-effect -- 同步服务端节点变化到受控 tab 与 URL。

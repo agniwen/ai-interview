@@ -141,6 +141,9 @@ function describeCompactLifecycleDetail(
   record: ResumeLibraryListRecord,
   fallback: string | null,
 ): string | null {
+  if (record.pipelineStage === "closed") {
+    return fallback;
+  }
   if (record.nodeStatus === "completed" && record.nodeResult === "pass") {
     return "已通过待推进";
   }

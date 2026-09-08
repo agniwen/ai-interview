@@ -70,3 +70,10 @@ export function advanceInitialInterview(
 export function getInitialInterviewResumeUrl(slug: string, id: string, snapshotId: string) {
   return resource[":snapshotId"].resume.$url({ param: { id, slug, snapshotId } }).toString();
 }
+
+export function deleteInitialInterview(slug: string, id: string, snapshotId: string) {
+  return rpcFetch(
+    resource[":snapshotId"].$delete({ param: { id, slug, snapshotId } }),
+    "删除人工初面失败",
+  );
+}

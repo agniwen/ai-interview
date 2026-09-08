@@ -95,7 +95,6 @@ function processor(overrides: Partial<InitialInterviewJob> = {}) {
   };
   const dependencies: InitialInterviewProcessorDependencies = {
     generate: vi.fn(() => Promise.resolve(evaluation)),
-    identify: vi.fn(() => Promise.resolve(null)),
     load: vi.fn(() => Promise.resolve(structuredClone(job))),
     publish: vi.fn(() =>
       Promise.resolve({ documentId: "doc", documentUrl: "https://example.com/doc" }),
@@ -153,12 +152,14 @@ describe("independent recorded initial interview", () => {
     expect(job.status).toBe("ready");
     expect(job.documentId).toBe("doc");
   });
-  it("waits for HR when automatic speaker identification is ambiguous", async () => {
+  it("generates directly from unassigned speakers without a separate identification step", async () => {
     const { job, dependencies, run } = processor({ roles: {} });
     await run();
-    expect(job.status).toBe("needs_speakers");
-    expect(dependencies.generate).not.toHaveBeenCalled();
-    expect(dependencies.publish).not.toHaveBeenCalled();
+    expect(job.status).toBe("ready");
+    expect(dependencies.generate).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ roles: {}, turns: snapshot.turns }),
+    );
+    expect(dependencies.publish).toHaveBeenCalledTimes(1);
   });
   it("does not become ready after document failure and reuses the evaluation checkpoint on retry", async () => {
     const { job, dependencies, run } = processor();

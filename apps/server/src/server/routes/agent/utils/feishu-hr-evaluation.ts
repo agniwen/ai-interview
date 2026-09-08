@@ -37,6 +37,7 @@ const FEISHU_HR_EVALUATION_PROMPT = `你是一位 HR 信息整理助手。请只
 - projectHighlights：候选人分享的亮点项目
 
 通用规则：
+- 对于仅含 speakerKey 的录音转写，在本次分析中根据完整问答上下文区分候选人与 HR：候选人介绍自己的经历、意向、薪资和到岗时间，HR 介绍岗位并追问；候选人也可能反问岗位情况。speakerKey 只用于区分声音，不代表身份，不得根据声道、性别或姓名猜测。仅提取可明确归属于候选人的陈述，归属不明的信息不填。无需输出身份映射、confident 或 speakers，只输出上述 7 项评价字段
 - 只采用候选人在表单答复或候选人本人对话中明确表达的信息，不得从简历、面试官话术或常识推测
 - 简历背景仅用于识别“上一家公司”“那个项目”等指代，以及补全公司、岗位和项目的规范名称；不能仅凭简历背景生成候选人没有在表单或对话中确认的结论
 - 合并同一主题在表单和对话中的信息，使用简洁、完整、适合直接展示在文档中的中文陈述
@@ -64,11 +65,13 @@ const feishuHrEvaluationSchema = z.object({
 
 export type FeishuHrEvaluation = z.infer<typeof feishuHrEvaluationSchema>;
 
-interface FeishuHrEvaluationInput {
+type FeishuHrEvaluationInput = {
   candidateFormResponses: string;
   resumeEmploymentContext: string;
-  transcript: InterviewTranscriptTurn[];
-}
+} & (
+  | { transcript: InterviewTranscriptTurn[]; recordedTranscript?: never }
+  | { recordedTranscript: string; transcript?: never }
+);
 
 export interface FeishuHrEvaluationGeneration {
   evaluation: FeishuHrEvaluation;
@@ -176,7 +179,14 @@ function buildFeishuHrEvaluationPrompt(options: FeishuHrEvaluationInput): string
     promptData(options.resumeEmploymentContext || "（无简历背景）"),
   )
     .replace("{formResponses}", promptData(options.candidateFormResponses || "（无表单答复）"))
-    .replace("{transcript}", promptData(formatTranscript(options.transcript)));
+    .replace(
+      "{transcript}",
+      promptData(
+        options.recordedTranscript === undefined
+          ? formatTranscript(options.transcript)
+          : options.recordedTranscript,
+      ),
+    );
 }
 
 export async function generateFeishuHrEvaluationWithPrompt(

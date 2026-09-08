@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   advanceScreeningRecruitingNodeTx,
   closeRecruitingRecordTx,
@@ -7,11 +7,20 @@ import {
   transitionRecruitingNodeTx,
   updateRecruitingNodeTx,
 } from "@app/database/recruiting-pipeline";
-import type { RecruitingPipelineResult } from "@app/database/recruiting-pipeline";
+import type {
+  RecruitingPipelineCommand,
+  RecruitingTransaction,
+  RecruitingPipelineResult,
+} from "@app/database/recruiting-pipeline";
 import { reviewAiInterviewRoundTx } from "@app/database/recruiting-ai-review";
 import { updateRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { recruitingEvent, recruitingNodeState, recruitingRecord } from "@app/db-schema/schema";
+import {
+  recruitingInitialInterviewVersion,
+  recruitingEvent,
+  recruitingNodeState,
+  recruitingRecord,
+} from "@app/db-schema/schema";
 import { isHumanInterviewStage, isOfferStage } from "@app/shared/candidate-pipeline-machine";
 import type { WorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
 import { db } from "../../../../../../lib/server/db/index";
@@ -42,6 +51,85 @@ class CandidateStageTransitionForbiddenError extends Error {
 function requireHumanInterviewJob(jobDescriptionId: string | null) {
   if (!jobDescriptionId) {
     throw new RecruitingPipelineError("请先绑定在招岗位后再安排真人面试。", "invalid");
+  }
+}
+
+async function advanceWithInitialInterview(
+  tx: RecruitingTransaction,
+  base: RecruitingPipelineCommand,
+  record: typeof recruitingRecord.$inferSelect,
+  input: Extract<CandidateTransitionInput, { action: "advance" }>,
+) {
+  let advanceVersion = base.expectedVersion;
+  if (record.currentStage === "ai_interview" && input.targetNode === "second_interview") {
+    const [latest] = await tx
+      .select()
+      .from(recruitingInitialInterviewVersion)
+      .where(
+        and(
+          eq(recruitingInitialInterviewVersion.recruitingRecordId, record.id),
+          eq(recruitingInitialInterviewVersion.organizationId, base.organizationId),
+        ),
+      )
+      .orderBy(desc(recruitingInitialInterviewVersion.createdAt))
+      .limit(1);
+    if (latest?.status === "ready") {
+      const reviewed = await updateRecruitingNodeTx(tx, {
+        ...base,
+        effectiveAiRoundId: null,
+        effectiveInitialInterviewVersionId: latest.id,
+        node: "ai_interview",
+        reason: "HR 根据人工初面评价确认通过",
+        result: "pass",
+        status: "completed",
+      });
+      advanceVersion = reviewed.version;
+    }
+  }
+  const result = await transitionRecruitingNodeTx(tx, {
+    ...base,
+    ...input,
+    expectedVersion: advanceVersion,
+  });
+  if (input.interviewQuestions !== undefined) {
+    await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, base.recordId),
+        eq(recruitingRecordReadModel.organizationId, base.organizationId),
+      ),
+      { interviewQuestions: input.interviewQuestions },
+    );
+  }
+  return result;
+}
+
+async function saveOnboardingDate(
+  tx: RecruitingTransaction,
+  base: RecruitingPipelineCommand,
+  input: CandidateTransitionInput,
+  changed: boolean,
+) {
+  if (
+    changed &&
+    input.action === "update_node" &&
+    input.node === "onboarding" &&
+    input.earliestJoiningDate !== undefined
+  ) {
+    const scope = and(
+      eq(recruitingRecordReadModel.id, base.recordId),
+      eq(recruitingRecordReadModel.organizationId, base.organizationId),
+    );
+    const [current] = await tx
+      .select({ expectations: recruitingRecordReadModel.candidateExpectationsMeta })
+      .from(recruitingRecordReadModel)
+      .where(scope);
+    await updateRecruitingRecords(tx, scope, {
+      candidateExpectationsMeta: {
+        ...current?.expectations,
+        earliestJoiningDate: input.earliestJoiningDate,
+      },
+    });
   }
 }
 
@@ -106,17 +194,7 @@ export async function transitionCandidateStage(
       if (input.action === "screening_advance") {
         result = await advanceScreeningRecruitingNodeTx(tx, { ...base, ...input });
       } else if (input.action === "advance") {
-        result = await transitionRecruitingNodeTx(tx, { ...base, ...input });
-        if (input.interviewQuestions !== undefined) {
-          await updateRecruitingRecords(
-            tx,
-            and(
-              eq(recruitingRecordReadModel.id, command.candidateId),
-              eq(recruitingRecordReadModel.organizationId, command.organizationId),
-            ),
-            { interviewQuestions: input.interviewQuestions },
-          );
-        }
+        result = await advanceWithInitialInterview(tx, base, record, input);
       } else if (input.action === "reopen") {
         result = await reopenRecruitingRecordTx(tx, { ...base, ...input });
       } else if (input.action === "close") {
@@ -165,6 +243,7 @@ export async function transitionCandidateStage(
           status: input.targetStatus,
         });
       }
+      await saveOnboardingDate(tx, base, input, result.changed);
       if (result.changed && command.provenance.kind === "workspace_recruiting_copilot") {
         await tx.insert(recruitingEvent).values({
           action: "candidate_transition",

@@ -1,3 +1,4 @@
+import { cn } from "@app/shared/utils";
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
@@ -33,7 +34,7 @@ export function MeetingCompletedContentStage({
 }: {
   summary: MeetingLiveSummarySnapshot | null;
   transcript: ReactNode;
-  children: (slots: { toolbar: ReactNode; content: ReactNode }) => ReactNode;
+  children: (slots: { toolbar: ReactNode; content: ReactNode; scrollable: boolean }) => ReactNode;
 }) {
   const [selectedView, setSelectedView] = useState<CompletedContentView | null>(null);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
@@ -44,7 +45,10 @@ export function MeetingCompletedContentStage({
   return children({
     content: (
       <section
-        className="flex min-h-full w-full flex-col pb-10"
+        className={cn(
+          "flex w-full flex-col",
+          view === "mind-map" ? "h-full min-h-0" : "min-h-full pb-10",
+        )}
         data-slot="meeting-completed-content-stage"
       >
         <div className="min-h-0 flex-1">
@@ -56,10 +60,7 @@ export function MeetingCompletedContentStage({
             />
           ) : null}
           {view === "mind-map" ? (
-            <div
-              className="h-[min(42rem,70vh)] min-h-[32rem] w-full"
-              data-slot="meeting-completed-mind-map"
-            >
+            <div className="h-full min-h-0 w-full" data-slot="meeting-completed-mind-map">
               <MeetingLiveSummaryPanel
                 onEvidence={showTranscriptEvidence}
                 onNodeSelect={(nodeId) => {
@@ -81,6 +82,7 @@ export function MeetingCompletedContentStage({
         </div>
       </section>
     ),
+    scrollable: view !== "mind-map",
     toolbar: (
       <header
         className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-start px-4 sm:px-6"

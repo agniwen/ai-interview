@@ -131,12 +131,13 @@ export const INITIAL_INTERVIEW_STATUS_LABELS = {
   failed: "生成失败",
   generating: "生成中",
   identifying: "识别说话人",
-  needs_speakers: "待确认说话人",
+  needs_speakers: "待重新生成",
   queued: "等待生成",
   ready: "已生成",
 } satisfies Record<InitialInterviewStatus, string>;
 
 export interface InitialInterviewList {
+  canDelete: boolean;
   canGenerate: boolean;
   records: HumanInitialInterviewSummary[];
   document: { documentId: string | null; documentUrl: string | null; status: string } | null;

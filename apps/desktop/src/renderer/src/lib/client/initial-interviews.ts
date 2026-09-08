@@ -38,13 +38,13 @@ export function resumeInitialInterview(
   recordId: string,
   versionId: string,
   input: {
-    roles: InitialInterviewRoles;
+    roles?: InitialInterviewRoles;
     overwriteDocumentId: string | null;
   },
 ) {
   return apiJson<{ id: string }>(
     apiUrl(`${path(slug, recordId)}/versions/${encodeURIComponent(versionId)}/resume`),
-    "确认说话人失败",
+    "重试生成评价表失败",
     {
       body: JSON.stringify(input),
       headers: { "Content-Type": "application/json" },

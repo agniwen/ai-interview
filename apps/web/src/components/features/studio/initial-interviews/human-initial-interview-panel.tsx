@@ -22,13 +22,12 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  advanceInitialInterview,
+  deleteInitialInterview,
   listInitialInterviews,
   regenerateInitialInterview,
   resumeInitialInterview,
 } from "@/lib/client/initial-interviews";
 import { HumanInitialInterviewCard } from "./human-initial-interview-card";
-import { InitialInterviewMaterials } from "./initial-interview-materials";
 
 type GenerationAction =
   | {
@@ -44,13 +43,11 @@ type GenerationAction =
       approvedDocumentId: string | null;
       roles?: InitialInterviewRoles;
     };
-type Action = GenerationAction | { kind: "advance"; versionId: string };
+type Action = GenerationAction | { kind: "delete"; snapshotId: string };
 
 export function HumanInitialInterviewPanel({
   slug,
   recordId,
-  stage,
-  pipelineVersion,
   effectiveVersionId,
   canManage,
 }: {
@@ -62,7 +59,6 @@ export function HumanInitialInterviewPanel({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [materialsId, setMaterialsId] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{
     action: Action;
     documentId: string | null;
@@ -88,8 +84,8 @@ export function HumanInitialInterviewPanel({
   const canGenerate = canManage && Boolean(query.data?.canGenerate);
   const mutation = useMutation({
     mutationFn: async ({ action, documentId }: { action: Action; documentId: string | null }) => {
-      if (action.kind === "advance") {
-        return await advanceInitialInterview(slug, recordId, action.versionId, pipelineVersion);
+      if (action.kind === "delete") {
+        return await deleteInitialInterview(slug, recordId, action.snapshotId);
       }
       if (action.kind === "resume") {
         return await resumeInitialInterview(slug, recordId, action.versionId, {
@@ -107,13 +103,12 @@ export function HumanInitialInterviewPanel({
     onError: (error) => toast.error(error.message),
     onSuccess: async (_result, { action }) => {
       setConfirmation(null);
-      setMaterialsId(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: initialInterviewKeys.list(slug, recordId) }),
         queryClient.invalidateQueries({ queryKey: ["initial-interview-detail", slug, recordId] }),
         queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] }),
       ]);
-      toast.success(action.kind === "advance" ? "已进入真人复面" : "已提交，评价表正在后台生成");
+      toast.success(action.kind === "delete" ? "已删除人工初面记录" : "已提交，评价表正在后台生成");
     },
   });
   async function prepare(action: GenerationAction) {
@@ -129,8 +124,7 @@ export function HumanInitialInterviewPanel({
       mutation.mutate({ action, documentId });
     }
   }
-  const confirmationLabel =
-    confirmation?.action.kind === "advance" ? "确认通过并继续" : "覆盖并生成";
+  const confirmationLabel = confirmation?.action.kind === "delete" ? "确认删除" : "覆盖并生成";
   return (
     <section className="flex flex-col gap-4" aria-label="人工初面">
       {query.isPending ? <Skeleton className="h-44 w-full rounded-lg" /> : null}
@@ -165,11 +159,10 @@ export function HumanInitialInterviewPanel({
           key={record.id}
           record={record}
           canGenerate={canGenerate}
-          canAdvance={canGenerate && stage === "ai_interview"}
+          canDelete={Boolean(query.data.canDelete)}
           pending={mutation.isPending}
           effective={effectiveVersionId === record.latestVersion.id}
           documentUrl={query.data.document?.documentUrl ?? null}
-          onMaterials={() => setMaterialsId(record.id)}
           onRegenerate={() => {
             void prepare({
               kind: "regenerate",
@@ -184,42 +177,14 @@ export function HumanInitialInterviewPanel({
               versionId: record.latestVersion.id,
             });
           }}
-          onAdvance={() =>
+          onDelete={() =>
             setConfirmation({
-              action: { kind: "advance", versionId: record.latestVersion.id },
+              action: { kind: "delete", snapshotId: record.id },
               documentId: null,
             })
           }
         />
       ))}
-      {materialsId ? (
-        <InitialInterviewMaterials
-          key={materialsId}
-          slug={slug}
-          recordId={recordId}
-          snapshotId={materialsId}
-          canGenerate={canGenerate}
-          pending={mutation.isPending}
-          onClose={() => setMaterialsId(null)}
-          onResume={(version, roles) => {
-            void prepare({
-              approvedDocumentId: version.overwriteDocumentId,
-              kind: "resume",
-              roles,
-              versionId: version.id,
-            });
-          }}
-          onRegenerate={(turns, roles) => {
-            void prepare({
-              kind: "regenerate",
-              requestId: crypto.randomUUID(),
-              roles,
-              snapshotId: materialsId,
-              turns,
-            });
-          }}
-        />
-      ) : null}
       <Dialog
         open={Boolean(confirmation)}
         onOpenChange={(open) => {
@@ -231,13 +196,13 @@ export function HumanInitialInterviewPanel({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {confirmation?.action.kind === "advance"
-                ? "确认进入真人复面？"
+              {confirmation?.action.kind === "delete"
+                ? "删除人工初面记录？"
                 : "覆盖现有 HR 初面内容？"}
             </DialogTitle>
             <DialogDescription>
-              {confirmation?.action.kind === "advance"
-                ? "将本次人工初面评价作为通过依据，进入真人复面。已有 AI 面试记录会保留，未开始的安排请单独取消。"
+              {confirmation?.action.kind === "delete"
+                ? "删除此人工初面的资料与评价版本，并解除由其创建的飞书评价表关联。Echo 原录音和飞书原文档保留。"
                 : INITIAL_INTERVIEW_OVERWRITE_DESCRIPTION}
             </DialogDescription>
           </DialogHeader>

@@ -80,7 +80,8 @@ export function regenerateInitialInterview(
     }
     await requireInitialInterviewOverwrite(input, input.overwriteDocumentId);
     const turns = input.turns ?? initialInterviewTurnsSchema.parse(latest.transcript.turns);
-    const roles = input.roles ?? initialInterviewRolesSchema.parse(latest.roles);
+    const roles =
+      input.roles ?? (input.turns ? {} : initialInterviewRolesSchema.parse(latest.roles));
     if (input.roles) {
       const issue = getInitialInterviewRolesIssue(turns, input.roles);
       if (issue) {
@@ -110,7 +111,7 @@ export function resumeInitialInterviewVersion(
     }
     await requireInitialInterviewOverwrite(input, input.overwriteDocumentId);
     const roles = input.roles ?? loaded.roles;
-    if (loaded.version.status === "needs_speakers" || input.roles) {
+    if (input.roles) {
       const issue = getInitialInterviewRolesIssue(loaded.turns, roles);
       if (issue) {
         throw new InitialInterviewError(issue, 400);

@@ -493,9 +493,9 @@ describe("MeetingCapture", () => {
     const uploaded = new Map<string, Uint8Array>();
     const store = new LocalMeetingRecordingStore(root, {
       allowedUploadOrigin: "https://account.r2.cloudflarestorage.com",
-      putObject: async ({ body, url }) => {
+      putObject: async ({ createBody, url }) => {
         const chunks: Uint8Array[] = [];
-        const reader = body.getReader();
+        const reader = createBody().getReader();
         while (true) {
           const result = await reader.read();
           if (result.done) {
@@ -646,12 +646,12 @@ describe("MeetingCapture", () => {
     const store = new LocalMeetingRecordingStore(root, {
       allowedUploadOrigin: "https://account.r2.cloudflarestorage.com",
       multipartPartSizeBytes: 8,
-      putObject: async ({ body, url }) => {
+      putObject: async ({ createBody, url }) => {
         inFlight += 1;
         maxInFlight = Math.max(maxInFlight, inFlight);
         await delay(5);
         const chunks: Uint8Array[] = [];
-        const reader = body.getReader();
+        const reader = createBody().getReader();
         while (true) {
           const result = await reader.read();
           if (result.done) {

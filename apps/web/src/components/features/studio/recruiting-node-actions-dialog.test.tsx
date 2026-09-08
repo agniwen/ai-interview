@@ -71,3 +71,74 @@ describe("node confirmation dialog lifetime", () => {
     host.remove();
   });
 });
+
+it.each(["income_proof", "background_check", "onboarding"] as const)(
+  "%s 直接确认结果，不手动选择进度",
+  async (stage) => {
+    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const client = new QueryClient();
+    try {
+      await act(() =>
+        root.render(
+          <QueryClientProvider client={client}>
+            <WorkspaceSlugProvider id="test" slug="test" memberRole="owner" permissions={{}}>
+              <RecruitingNodeActions
+                record={
+                  // SAFETY: 只读取此处提供的节点、身份与版本字段。
+                  {
+                    candidateExpectationsMeta: { earliestJoiningDate: "2026-09-18" },
+                    id: "record",
+                    nodeStates: [{ node: stage, reason: "已完成核实", status: "pending" }],
+                    pipelineStage: stage,
+                    version: 3,
+                  } as ResumeLibraryDetail
+                }
+              />
+            </WorkspaceSlugProvider>
+          </QueryClientProvider>,
+        ),
+      );
+      await act(() => host.querySelector<HTMLButtonElement>("button")?.click());
+      await waitForUi(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+      const dialog = document.querySelector('[role="dialog"]');
+      if (!dialog) {
+        throw new Error("确认弹窗未打开");
+      }
+      if (stage === "onboarding") {
+        expect(dialog.querySelector('[aria-label="最早可入职日"]')).not.toBeNull();
+      } else {
+        expect(dialog.querySelector('[role="combobox"]')).toBeNull();
+      }
+      expect(dialog.textContent).not.toContain("保存进度");
+      const confirm = [...dialog.querySelectorAll("button")].find(
+        (button) => button.textContent === (stage === "onboarding" ? "确认入职" : "通过"),
+      );
+      expect(confirm).toBeDefined();
+      await act(() => confirm?.click());
+      await waitForUi(() => expect(request).toHaveBeenCalledOnce());
+      const [[, init]] = request.mock.calls;
+      if (stage === "onboarding") {
+        expect(await new Response(init?.body).json()).toMatchObject({
+          earliestJoiningDate: "2026-09-18",
+        });
+      }
+      expect(await new Response(init?.body).json()).toMatchObject({
+        action: "update_node",
+        expectedVersion: 3,
+        node: stage,
+        reason: "已完成核实",
+        result: "pass",
+        targetStatus: "completed",
+      });
+      await waitForUi(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+    } finally {
+      request.mockRestore();
+      await act(() => root.unmount());
+      client.clear();
+      host.remove();
+    }
+  },
+);

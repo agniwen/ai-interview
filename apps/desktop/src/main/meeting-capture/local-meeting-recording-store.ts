@@ -622,7 +622,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           throw new Error(`${asset.track} 上传签名完整性信息不匹配`);
         }
         return this.putObject({
-          body: this.trackStream(captureId, asset.track),
+          createBody: () => this.trackStream(captureId, asset.track),
           headers: expectedHeaders,
           sizeBytes: asset.sizeBytes,
           url: instruction.url,

@@ -58,7 +58,7 @@ export function MeetingLiveSessionStage({
   };
 
   return (
-    <ResizablePanelGroup className="h-dvh min-h-[36rem] overflow-hidden" orientation="horizontal">
+    <ResizablePanelGroup className="h-dvh min-h-0 overflow-hidden" orientation="horizontal">
       <ResizablePanel defaultSize="42%" minSize="320px">
         <section className="flex h-full min-w-0 flex-col overflow-hidden">
           <div

@@ -295,6 +295,7 @@ export type RecruitingPipelineAction =
     }
   | {
       action: "update_node";
+      earliestJoiningDate?: string | null;
       closeReason?: RecruitingCloseReason;
       effectiveAiRoundId?: string | null;
       effectiveHumanRoundId?: string | null;

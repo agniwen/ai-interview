@@ -1,5 +1,4 @@
 import type { z } from "zod";
-import { getInitialInterviewRolesIssue } from "@app/shared/human-initial-interview";
 import type {
   InitialInterviewRoles,
   InitialInterviewSnapshot,
@@ -39,7 +38,6 @@ export interface InitialInterviewProcessorDependencies {
       error?: string | null;
     },
   ): Promise<void>;
-  identify(job: InitialInterviewJob): Promise<InitialInterviewRoles | null>;
   generate(job: InitialInterviewJob): Promise<InitialInterviewEvaluation>;
   publish(
     job: InitialInterviewJob,
@@ -61,16 +59,6 @@ export async function processInitialInterview(
       return;
     }
     try {
-      if (getInitialInterviewRolesIssue(job.turns, job.roles)) {
-        await dependencies.update(job, { error: null, status: "identifying" });
-        const identified = await dependencies.identify(job);
-        if (!identified || getInitialInterviewRolesIssue(job.turns, identified)) {
-          await dependencies.update(job, { status: "needs_speakers" });
-          return;
-        }
-        job.roles = identified;
-        await dependencies.update(job, { roles: identified });
-      }
       await dependencies.update(job, { error: null, status: "generating" });
       const evaluation = job.evaluation ?? (await dependencies.generate(job));
       await dependencies.update(job, { evaluation });

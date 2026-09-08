@@ -581,8 +581,9 @@ export function MeetingDetailPage({
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
       {isInitialLoading ? null : (
         <MeetingCompletedContentStage summary={completedSummary} transcript={completedTranscript}>
-          {({ toolbar, content }) => (
+          {({ toolbar, content, scrollable }) => (
             <MeetingRecordingSessionLayout
+              scrollable={isInterruptedSession ? true : scrollable}
               toolbar={isInterruptedSession && localDraft ? undefined : toolbar}
               composerClassName="max-w-2xl"
               composer={sessionComposer({

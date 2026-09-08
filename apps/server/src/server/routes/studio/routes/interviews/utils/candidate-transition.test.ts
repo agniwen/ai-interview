@@ -110,3 +110,24 @@ describe("招聘动作输入", () => {
     ).toBe(true);
   });
 });
+
+it("仅入职办理接受有效的最早可入职日期", () => {
+  const input = {
+    action: "update_node",
+    earliestJoiningDate: "2026-09-18",
+    expectedVersion: 1,
+    node: "onboarding",
+    result: "pass",
+    targetStatus: "completed",
+  };
+  expect(candidateTransitionInputSchema.parse(input)).toMatchObject({
+    earliestJoiningDate: "2026-09-18",
+  });
+  expect(
+    candidateTransitionInputSchema.safeParse({ ...input, earliestJoiningDate: "2026-02-30" })
+      .success,
+  ).toBe(false);
+  expect(
+    candidateTransitionInputSchema.safeParse({ ...input, node: "background_check" }).success,
+  ).toBe(false);
+});

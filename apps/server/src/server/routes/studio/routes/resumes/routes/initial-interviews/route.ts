@@ -1,3 +1,7 @@
+import {
+  canDeleteInitialInterview,
+  deleteInitialInterview,
+} from "./application/delete-initial-interview";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { presignGetObjectUrl, presignRecordingGetObjectUrl } from "@app/object-storage";
@@ -87,7 +91,17 @@ export const initialInterviewsRouter = factory
       loadInitialInterviewDocument(scope),
       authorize({ action: "update", resource: "resumeLibrary" }),
     ]);
-    return c.json({ canGenerate, document, records }, 200);
+    return c.json(
+      {
+        canDelete:
+          (await authorize({ action: "delete", resource: "resumeLibrary" })) &&
+          (await canDeleteInitialInterview(scope)),
+        canGenerate,
+        document,
+        records,
+      },
+      200,
+    );
   })
   .post(
     "/",
@@ -103,6 +117,15 @@ export const initialInterviewsRouter = factory
       return c.json(result, 202);
     },
   )
+  .delete("/:snapshotId", requirePermission("resumeLibrary", "delete"), async (c) => {
+    const scope = await visibleRecord(c);
+    const result = await deleteInitialInterview({
+      ...scope,
+      initialInterviewId: c.req.param("snapshotId"),
+    });
+    invalidateStudioInterviewCaches(scope.organizationId);
+    return c.json(result, 200);
+  })
   .get("/:snapshotId", async (c) => {
     const scope = await visibleRecord(c);
     const [record] = await listInitialInterviews(scope, c.req.param("snapshotId"));

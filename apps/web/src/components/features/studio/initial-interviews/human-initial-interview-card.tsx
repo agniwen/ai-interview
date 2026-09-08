@@ -1,10 +1,4 @@
-import {
-  IconFileText,
-  IconHeadphones,
-  IconLoader2,
-  IconPhone,
-  IconRefresh,
-} from "@tabler/icons-react";
+import { IconFileText, IconLoader2, IconPhone, IconRefresh } from "@tabler/icons-react";
 import {
   INITIAL_INTERVIEW_STATUS_LABELS,
   isInitialInterviewProcessing,
@@ -17,25 +11,23 @@ import { Card, CardFooter, CardHeader, CardPanel, CardTitle } from "@/components
 export function HumanInitialInterviewCard({
   record,
   canGenerate,
-  canAdvance,
+  canDelete,
   pending,
   effective,
   documentUrl,
-  onMaterials,
   onRegenerate,
   onResume,
-  onAdvance,
+  onDelete,
 }: {
   record: HumanInitialInterviewSummary;
   canGenerate: boolean;
-  canAdvance: boolean;
+  canDelete: boolean;
   pending: boolean;
   effective: boolean;
   documentUrl: string | null;
-  onMaterials: () => void;
   onRegenerate: () => void;
   onResume: () => void;
-  onAdvance: () => void;
+  onDelete: () => void;
 }) {
   const version = record.latestVersion;
   const processing = isInitialInterviewProcessing(version.status);
@@ -50,7 +42,7 @@ export function HumanInitialInterviewCard({
             <Badge variant="outline">HR 沟通录音</Badge>
           </div>
           <div className="flex items-center gap-2">
-            {effective ? <Badge variant="secondary">流程依据</Badge> : null}
+            {effective ? <Badge variant="outline">流程依据</Badge> : null}
             <Badge variant={version.status === "ready" ? "success" : "secondary"}>
               {processing ? <IconLoader2 className="size-3 animate-spin" /> : null}
               {INITIAL_INTERVIEW_STATUS_LABELS[version.status]}
@@ -77,10 +69,6 @@ export function HumanInitialInterviewCard({
         ) : null}
       </CardPanel>
       <CardFooter className="flex flex-wrap items-center justify-between gap-2">
-        <Button onClick={onMaterials} size="sm" variant="outline">
-          <IconHeadphones className="size-3.5" />
-          资料快照{record.versionCount > 1 ? ` · ${record.versionCount} 个版本` : ""}
-        </Button>
         <div className="flex flex-wrap gap-2">
           {availableUrl ? (
             <Button
@@ -96,7 +84,7 @@ export function HumanInitialInterviewCard({
             </Button>
           ) : null}
           {canGenerate && version.status === "ready" ? (
-            <Button disabled={pending} onClick={onRegenerate} size="sm" variant="ghost">
+            <Button disabled={pending} onClick={onRegenerate} size="sm" variant="outline">
               <IconRefresh className="size-3.5" />
               重新生成
             </Button>
@@ -107,16 +95,16 @@ export function HumanInitialInterviewCard({
             </Button>
           ) : null}
           {canGenerate && version.status === "needs_speakers" ? (
-            <Button disabled={pending} onClick={onMaterials} size="sm">
-              确认说话人
-            </Button>
-          ) : null}
-          {canAdvance && version.status === "ready" ? (
-            <Button disabled={pending} onClick={onAdvance} size="sm">
-              进入真人复面
+            <Button disabled={pending} onClick={onResume} size="sm">
+              重新生成
             </Button>
           ) : null}
         </div>
+        {canDelete ? (
+          <Button disabled={pending} onClick={onDelete} size="sm" variant="destructive">
+            删除
+          </Button>
+        ) : null}
       </CardFooter>
     </Card>
   );

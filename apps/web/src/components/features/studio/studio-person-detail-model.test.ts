@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { shouldShowOfferTab, tabForPipelineStage } from "./studio-person-detail-model";
+import {
+  shouldShowOfferTab,
+  shouldShowOnboardingTab,
+  tabForPipelineStage,
+} from "./studio-person-detail-model";
 
 describe("招聘子节点所属详情 tab", () => {
   it.each(["income_proof", "offer", "background_check"] as const)(
@@ -15,7 +19,7 @@ describe("招聘子节点所属详情 tab", () => {
     ["ai_interview", "rounds"],
     ["second_interview", "human-interview"],
     ["final_interview", "human-interview"],
-    ["onboarding", "overview"],
+    ["onboarding", "onboarding"],
     ["closed", "overview"],
   ] as const)("%s 定位到 %s", (stage, tab) => {
     expect(tabForPipelineStage(stage)).toBe(tab);
@@ -24,4 +28,15 @@ describe("招聘子节点所属详情 tab", () => {
     expect(shouldShowOfferTab({ pipelineStage: "final_interview" }, true)).toBe(false);
     expect(shouldShowOfferTab({ pipelineStage: "closed" }, true)).toBe(true);
   });
+});
+
+it("入职 tab 仅在入职阶段及其结束记录展示", () => {
+  expect(shouldShowOnboardingTab({ pipelineStage: "onboarding" })).toBe(true);
+  expect(shouldShowOnboardingTab({ closedFromNode: "onboarding", pipelineStage: "closed" })).toBe(
+    true,
+  );
+  expect(shouldShowOnboardingTab({ closedFromNode: "screening", pipelineStage: "closed" })).toBe(
+    false,
+  );
+  expect(shouldShowOnboardingTab({ pipelineStage: "background_check" })).toBe(false);
 });

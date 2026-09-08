@@ -40,6 +40,7 @@ const DETAIL_TABS = {
   "human-interview": true,
   instructions: true,
   offer: true,
+  onboarding: true,
   overview: true,
   rounds: true,
   transcript: true,

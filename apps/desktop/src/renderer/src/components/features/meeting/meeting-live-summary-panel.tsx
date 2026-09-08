@@ -1,7 +1,16 @@
 import { hierarchy, tree } from "d3-hierarchy";
-import { Background, Controls, MarkerType, Position, ReactFlow } from "@xyflow/react";
+import {
+  Background,
+  Controls,
+  MarkerType,
+  Position,
+  ReactFlow,
+  useStore,
+  useNodesInitialized,
+  useReactFlow,
+} from "@xyflow/react";
 import type { Edge, Node, NodeMouseHandler, NodeProps } from "@xyflow/react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import type { MeetingLiveSummaryControllerSnapshot } from "@/lib/meeting-capture/live-summary-controller";
@@ -160,7 +169,7 @@ export function MeetingLiveSummaryEmpty({
   status: MeetingLiveSummaryControllerSnapshot["status"];
 }) {
   return (
-    <div className="flex h-full min-h-[30rem] flex-col items-center justify-center gap-3 px-8 text-center">
+    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 px-8 text-center">
       <Icon
         aria-hidden
         className={cn("size-7 text-muted-foreground", status === "updating" && "animate-pulse")}
@@ -176,6 +185,24 @@ export function MeetingLiveSummaryEmpty({
       </div>
     </div>
   );
+}
+
+// React Flow already observes its container, including sidebar and split-pane resizing.
+function SummaryViewport({ graphKey }: { graphKey: string }) {
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  const initialized = useNodesInitialized();
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (!initialized || width <= 0 || height <= 0) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      void fitView({ maxZoom: 1, minZoom: 0.05, padding: 0.18 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fitView, graphKey, height, initialized, width]);
+  return null;
 }
 
 export function MeetingLiveSummaryPanel({
@@ -222,7 +249,7 @@ export function MeetingLiveSummaryPanel({
   };
 
   return (
-    <div className="h-full min-h-[32rem]">
+    <div className="h-full min-h-0 min-w-0">
       {graph ? (
         <div className="h-full overflow-hidden bg-transparent">
           <ReactFlow
@@ -231,7 +258,7 @@ export function MeetingLiveSummaryPanel({
             fitView
             fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
             maxZoom={1.5}
-            minZoom={0.25}
+            minZoom={0.05}
             nodes={nodes}
             nodeTypes={summaryNodeTypes}
             nodesConnectable={false}
@@ -240,6 +267,7 @@ export function MeetingLiveSummaryPanel({
             panOnScroll
             proOptions={{ hideAttribution: true }}
           >
+            <SummaryViewport graphKey={nodes.map((node) => node.id).join("|")} />
             <Background color="var(--border)" gap={24} size={1} />
             <Controls position="bottom-right" showInteractive={false} />
           </ReactFlow>

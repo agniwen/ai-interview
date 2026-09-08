@@ -58,3 +58,9 @@ describe("recruiter resume detail search", () => {
     ).toEqual({ page: 3, search: "候选人" });
   });
 });
+
+it("preserves onboarding tab on reload", () => {
+  expect(resolveResumeDetailDefaultTab({ stage: "onboarding:all", tab: "onboarding" })).toBe(
+    "onboarding",
+  );
+});

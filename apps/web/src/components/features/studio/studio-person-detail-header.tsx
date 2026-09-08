@@ -11,7 +11,6 @@ import {
   canLaunchInterviewFromResume,
   getHumanInterviewProgressForStage,
 } from "@app/shared/studio-resumes";
-import { getRecruitingHrAction } from "@app/shared/recruiting-hr-action";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
 import type { QueryClient } from "@tanstack/react-query";
@@ -34,6 +33,7 @@ import {
   shouldShowAiInterviewTab,
   shouldShowHumanInterviewTab,
   shouldShowOfferTab,
+  shouldShowOnboardingTab,
 } from "./studio-person-detail-model";
 import type {
   StudioPersonDetailLayoutMode,
@@ -77,7 +77,11 @@ export interface BuildStudioPersonDetailHeaderParams {
   round: StudioInterviewRoundDetail | null | undefined;
   showAgentInstructions: boolean;
   slug: string;
-  tabVisibilityRecord: { pipelineStage?: PipelineStage; hasInitialInterview?: boolean } | null;
+  tabVisibilityRecord: {
+    pipelineStage?: PipelineStage;
+    closedFromNode?: string | null;
+    hasInitialInterview?: boolean;
+  } | null;
 }
 
 export interface StudioPersonDetailHeaderResult {
@@ -219,7 +223,6 @@ export function buildStudioPersonDetailHeader({
     const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
-  const hrAction = mode === "resume" && resumeRecord ? getRecruitingHrAction(resumeRecord) : null;
   const currentHumanInterviewProgress =
     resumeRecord &&
     (resumeRecord.pipelineStage === "second_interview" ||
@@ -275,7 +278,11 @@ export function buildStudioPersonDetailHeader({
         }
         canCreateHumanInterview={actionBarPipelineStage !== "screening" && canCreateHumanInterview}
         canCreateOffer={canCreateOffer}
-        currentNodePassed={resumeRecord?.nodeResult === "pass"}
+        currentNodePassed={
+          resumeRecord?.nodeResult === "pass" ||
+          (actionBarPipelineStage === "ai_interview" &&
+            resumeRecord?.stageProgress.initialInterview?.latestStatus === "ready")
+        }
         hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}
         onAdvance={onAdvancePipelineStage}
         onRequestClose={() =>
@@ -327,17 +334,6 @@ export function buildStudioPersonDetailHeader({
 
   const headerControls = record ? (
     <div className="mt-2 flex flex-col gap-3">
-      {hrAction ? (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
-          <Badge className="mt-0.5" variant="warning">
-            HR处理
-          </Badge>
-          <div className="min-w-0">
-            <p className="font-medium">{hrAction.label}</p>
-            <p className="text-muted-foreground text-xs">{hrAction.description}</p>
-          </div>
-        </div>
-      ) : null}
       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <TabsList className="mt-0 w-full sm:w-auto">
           <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
@@ -367,6 +363,11 @@ export function buildStudioPersonDetailHeader({
           {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
               Offer
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" && shouldShowOnboardingTab(tabVisibilityRecord) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="onboarding">
+              入职办理
             </TabsTrigger>
           ) : null}
           {showAgentInstructions ? (

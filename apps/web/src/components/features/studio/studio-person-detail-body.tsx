@@ -17,6 +17,7 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsContent } from "@/components/ui/tabs";
 import { cn } from "@app/shared/utils";
 
+import { OnboardingStagePanel } from "./onboarding-stage-panel";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { HumanInitialInterviewPanel } from "./initial-interviews/human-initial-interview-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
@@ -27,6 +28,7 @@ import {
   shouldShowAiInterviewTab,
   shouldShowHumanInterviewTab,
   shouldShowOfferTab,
+  shouldShowOnboardingTab,
 } from "./studio-person-detail-model";
 import { ResumeScreeningResultPanel } from "./studio-person-detail-sections";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
@@ -247,6 +249,11 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               candidateName={record.candidateName}
               disabled={record.pipelineStage === "closed"}
             />
+          </TabsContent>
+        ) : null}
+        {mode === "resume" && resumeRecord && shouldShowOnboardingTab(tabVisibilityRecord) ? (
+          <TabsContent motion="page" value="onboarding">
+            <OnboardingStagePanel record={resumeRecord} />
           </TabsContent>
         ) : null}
         {showAgentInstructions ? (

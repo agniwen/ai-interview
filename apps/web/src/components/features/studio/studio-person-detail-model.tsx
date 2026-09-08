@@ -43,6 +43,7 @@ export type StudioPersonDetailTab =
   | "rounds"
   | "human-interview"
   | "offer"
+  | "onboarding"
   | "experience"
   | "instructions"
   | "transcript";
@@ -121,6 +122,15 @@ export function shouldShowOfferTab(
   );
 }
 
+export function shouldShowOnboardingTab(
+  record: { pipelineStage?: string; closedFromNode?: string | null } | null,
+): boolean {
+  return (
+    record?.pipelineStage === "onboarding" ||
+    (record?.pipelineStage === "closed" && record.closedFromNode === "onboarding")
+  );
+}
+
 function readCandidateNameFromRecord(
   record: CachedCandidateRecord,
   recordId: string,
@@ -172,6 +182,9 @@ export function findCachedResumeCandidateName(queryClient: QueryClient, recordId
 }
 
 export function tabForPipelineStage(stage: PipelineStage): StudioPersonDetailTab {
+  if (stage === "onboarding") {
+    return "onboarding";
+  }
   if (stage === "second_interview" || stage === "final_interview") {
     return "human-interview";
   }

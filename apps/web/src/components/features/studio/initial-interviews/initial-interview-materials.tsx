@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import {
-  getInitialInterviewRolesIssue,
   initialInterviewKeys,
   isInitialInterviewProcessing,
 } from "@app/shared/human-initial-interview";
@@ -118,16 +117,14 @@ function VersionMaterials({
   pending: boolean;
   audioUrl?: string;
   resumeUrl: string;
-  onResume: (roles: InitialInterviewRoles) => void;
-  onRegenerate: (turns: InitialInterviewTurn[], roles: InitialInterviewRoles) => void;
+  onResume: () => void;
+  onRegenerate: (turns: InitialInterviewTurn[]) => void;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [editing, setEditing] = useState(false);
   const [turns, setTurns] = useState(version.turns);
-  const [roles, setRoles] = useState(version.roles);
+  const { roles } = version;
   const needsSpeakers = latest && version.status === "needs_speakers";
-  const issue = getInitialInterviewRolesIssue(turns, roles);
-  const keys = [...new Set(turns.map((turn) => turn.speakerKey))];
   return (
     <div className="flex flex-col gap-5">
       {audioUrl ? (
@@ -141,44 +138,10 @@ function VersionMaterials({
           src={audioUrl}
         />
       ) : null}
-      {needsSpeakers || editing ? (
-        <section className="flex flex-col gap-3" aria-label="说话人身份">
-          <p className="text-sm font-medium">确认说话人</p>
-          {keys.map((key) => {
-            const example = turns.find((turn) => turn.speakerKey === key);
-            return (
-              <div className="flex flex-col gap-2 rounded-lg border p-3" key={key}>
-                <label className="text-sm" htmlFor={`speaker-${key}`}>
-                  {example?.speakerDisplayName ?? key}
-                </label>
-                <p className="text-muted-foreground text-sm line-clamp-3">{example?.text}</p>
-                <NativeSelect
-                  id={`speaker-${key}`}
-                  disabled={!canGenerate || pending}
-                  value={roles[key] ?? ""}
-                  onChange={(event) => {
-                    const { value } = event.target;
-                    if (value === "candidate" || value === "interviewer") {
-                      setRoles((previous) => ({ ...previous, [key]: value }));
-                    }
-                  }}
-                >
-                  <NativeSelectOption value="" disabled>
-                    选择身份
-                  </NativeSelectOption>
-                  <NativeSelectOption value="candidate">候选人</NativeSelectOption>
-                  <NativeSelectOption value="interviewer">HR</NativeSelectOption>
-                </NativeSelect>
-              </div>
-            );
-          })}
-          {issue ? <p className="text-muted-foreground text-xs">{issue}</p> : null}
-          {needsSpeakers && canGenerate ? (
-            <Button disabled={Boolean(issue) || pending} onClick={() => onResume(roles)}>
-              确认并继续生成
-            </Button>
-          ) : null}
-        </section>
+      {needsSpeakers && canGenerate ? (
+        <Button disabled={pending} onClick={onResume}>
+          重新生成
+        </Button>
       ) : null}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -190,7 +153,6 @@ function VersionMaterials({
             <Button
               onClick={() => {
                 setTurns(version.turns);
-                setRoles(version.roles);
                 setEditing((value) => !value);
               }}
               size="sm"
@@ -238,8 +200,8 @@ function VersionMaterials({
         ))}
         {editing ? (
           <Button
-            disabled={pending || Boolean(issue) || turns.some((turn) => !turn.text.trim())}
-            onClick={() => onRegenerate(turns, roles)}
+            disabled={pending || turns.some((turn) => !turn.text.trim())}
+            onClick={() => onRegenerate(turns)}
           >
             使用修正版重新生成
           </Button>
@@ -281,8 +243,8 @@ export function InitialInterviewMaterials({
   canGenerate: boolean;
   pending: boolean;
   onClose: () => void;
-  onResume: (version: InitialInterviewVersion, roles: InitialInterviewRoles) => void;
-  onRegenerate: (turns: InitialInterviewTurn[], roles: InitialInterviewRoles) => void;
+  onResume: (version: InitialInterviewVersion) => void;
+  onRegenerate: (turns: InitialInterviewTurn[]) => void;
 }) {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const query = useQuery({
@@ -341,7 +303,7 @@ export function InitialInterviewMaterials({
                 pending={pending}
                 audioUrl={playback.data?.url}
                 resumeUrl={getInitialInterviewResumeUrl(slug, recordId, snapshotId)}
-                onResume={(roles) => onResume(version, roles)}
+                onResume={() => onResume(version)}
                 onRegenerate={onRegenerate}
               />
             </>
