@@ -9,7 +9,7 @@ export function validateRecruitingMaterialFiles(
     return "请选择文件";
   }
   if (existingCount + files.length > RECRUITING_MATERIAL_MAX_COUNT) {
-    return "每位候选人的流水附件最多 10 个，请删除后再上传";
+    return "每位候选人的流水文件最多 10 个，请删除后再上传";
   }
   for (const file of files) {
     if (!file.name.trim() || file.name.length > 255) {

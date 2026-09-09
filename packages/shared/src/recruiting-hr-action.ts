@@ -51,8 +51,8 @@ const PASSED_NODE_ACTIONS = {
     label: "推进入职",
   },
   final_interview: {
-    description: "终试已确认通过，请将候选人推进到流水提供。",
-    label: "推进流水",
+    description: "终试已结束，请进入 Offer 协商并开始提供流水。",
+    label: "进入 Offer 协商",
   },
   income_proof: {
     description: "薪资流水已确认，请将候选人推进到谈薪。",

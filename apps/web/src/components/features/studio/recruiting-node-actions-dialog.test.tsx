@@ -16,6 +16,18 @@ Object.defineProperty(window, "matchMedia", {
     .mockReturnValue({ addEventListener: vi.fn(), matches: false, removeEventListener: vi.fn() }),
 });
 
+function expectedConfirmLabel(
+  stage: "background_check" | "income_proof" | "onboarding" | "salary_negotiation",
+) {
+  if (stage === "onboarding") {
+    return "确认入职";
+  }
+  if (stage === "income_proof") {
+    return "通过并进入谈薪";
+  }
+  return stage === "salary_negotiation" ? "确认并进入发 Offer" : "通过";
+}
+
 describe("node confirmation dialog lifetime", () => {
   it("keeps the open dialog mounted when refreshed node data completes, then releases interaction on close", async () => {
     const host = document.createElement("div");
@@ -72,7 +84,7 @@ describe("node confirmation dialog lifetime", () => {
   });
 });
 
-it.each(["income_proof", "background_check", "onboarding"] as const)(
+it.each(["income_proof", "salary_negotiation", "background_check", "onboarding"] as const)(
   "%s 直接确认结果，不手动选择进度",
   async (stage) => {
     const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
@@ -131,9 +143,29 @@ it.each(["income_proof", "background_check", "onboarding"] as const)(
       } else {
         expect(dialog.querySelector('[role="combobox"]')).toBeNull();
       }
+      if (stage === "income_proof") {
+        expect(dialog.textContent).toContain("确认流水审核结果");
+        expect(dialog.textContent).toContain("未提供材料时，请在说明中记录原因");
+      }
+      if (stage === "salary_negotiation") {
+        const salary = dialog.querySelector<HTMLInputElement>('[aria-label="谈定 Base 月薪"]');
+        expect(salary).not.toBeNull();
+        expect(
+          [...dialog.querySelectorAll("button")]
+            .find((button) => button.textContent === "确认并进入发 Offer")
+            ?.getAttribute("aria-disabled"),
+        ).toBe("true");
+        await act(() => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+            salary,
+            "28000",
+          );
+          salary?.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      }
       expect(dialog.textContent).not.toContain("保存进度");
       const confirm = [...dialog.querySelectorAll("button")].find(
-        (button) => button.textContent === (stage === "onboarding" ? "确认入职" : "通过"),
+        (button) => button.textContent === expectedConfirmLabel(stage),
       );
       expect(confirm).toBeDefined();
       await act(() => confirm?.click());
@@ -144,14 +176,32 @@ it.each(["income_proof", "background_check", "onboarding"] as const)(
           actualJoiningDate: expect.stringMatching(/-10$/),
         });
       }
-      expect(await new Response(init?.body).json()).toMatchObject({
-        action: "update_node",
-        expectedVersion: 3,
-        node: stage,
-        reason: "已完成核实",
-        result: "pass",
-        targetStatus: "completed",
-      });
+      const payload = await new Response(init?.body).json();
+      if (stage === "income_proof") {
+        expect(payload).toMatchObject({
+          action: "review_income_proof",
+          expectedVersion: 3,
+          reason: "已完成核实",
+          result: "pass",
+        });
+      } else if (stage === "salary_negotiation") {
+        expect(payload).toMatchObject({
+          action: "review_salary_negotiation",
+          agreedBaseSalary: 28_000,
+          expectedVersion: 3,
+          reason: "已完成核实",
+          result: "pass",
+        });
+      } else {
+        expect(payload).toMatchObject({
+          action: "update_node",
+          expectedVersion: 3,
+          node: stage,
+          reason: "已完成核实",
+          result: "pass",
+          targetStatus: "completed",
+        });
+      }
       await waitForUi(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
     } finally {
       request.mockRestore();

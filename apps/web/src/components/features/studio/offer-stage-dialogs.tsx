@@ -43,6 +43,7 @@ interface OfferDialogProps {
   candidateEmail: string | null;
   mode: "create" | "edit";
   existingDraft?: OfferDraftRecord | null;
+  initialBaseSalary?: number | null;
   onSaved: () => void;
 }
 
@@ -53,13 +54,14 @@ export function CreateOrEditOfferDialog({
   candidateEmail,
   mode,
   existingDraft,
+  initialBaseSalary,
   onSaved,
 }: OfferDialogProps) {
   const slug = useWorkspaceSlug();
   const [form, setForm] = useState<OfferFormState>(() =>
     mode === "edit" && existingDraft
       ? offerFormStateFromDraft(existingDraft)
-      : createBlankOfferFormState(),
+      : createBlankOfferFormState(initialBaseSalary),
   );
   const setFormField = createOfferFormFieldSetter(setForm);
   const [sendImmediately, setSendImmediately] = useState(false);
@@ -73,11 +75,11 @@ export function CreateOrEditOfferDialog({
     setForm(
       mode === "edit" && existingDraft
         ? offerFormStateFromDraft(existingDraft)
-        : createBlankOfferFormState(),
+        : createBlankOfferFormState(initialBaseSalary),
     );
     setSendImmediately(false);
     setSendConfirmOpen(false);
-  }, [existingDraft, mode, open]);
+  }, [existingDraft, initialBaseSalary, mode, open]);
 
   function handleOpenChange(next: boolean) {
     if (!next) {

@@ -9,13 +9,17 @@ import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 //
 // Integration tests for human-interview + offer subtable DAOs.
 
-import { updateCandidateExpectations } from "../dao/candidate-expectations";
+import {
+  mergeCandidateExpectationsTx,
+  updateCandidateExpectations,
+} from "../dao/candidate-expectations";
 import { withMaterialLock, removeMaterial } from "../routes/materials/dao";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   recruitingRecord,
+  recruitingEvent,
   recruitingNodeState,
   recruitingFulfillment,
   recruitingNodeValues,
@@ -79,6 +83,7 @@ import {
   respondOfferDraft,
   sendOfferDraft,
 } from "../dao/offer-drafts";
+import { reviewSalaryNegotiationAndAdvanceTx } from "../utils/candidate-stage-transition";
 
 const ORG = "test_org_pipeline_subtables";
 const HR_USER = "test_user_pipeline_hr";
@@ -1474,6 +1479,11 @@ describe("offer drafts DAO", () => {
       organizationId: ORG,
     });
     expect(draft.status).toBe("draft");
+    let [record] = await db
+      .select({ expectations: recruitingRecordReadModel.candidateExpectationsMeta })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
+    expect(record?.expectations?.agreedBaseSalary).toBe(25_000);
 
     const edited = await editOfferDraft({
       draftId: draft.id,
@@ -1481,6 +1491,11 @@ describe("offer drafts DAO", () => {
       organizationId: ORG,
     });
     expect(edited.baseSalary).toBe(27_000);
+    [record] = await db
+      .select({ expectations: recruitingRecordReadModel.candidateExpectationsMeta })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
+    expect(record?.expectations?.agreedBaseSalary).toBe(27_000);
 
     await sendOfferDraft(draft.id, ORG);
     await expect(
@@ -1554,6 +1569,74 @@ describe("offer drafts DAO", () => {
 });
 
 describe("offer stage editing boundaries", () => {
+  it("records the previous and confirmed salary when negotiation passes", async () => {
+    await clearSubtables();
+    await resetCandidateStage("salary_negotiation");
+    await db
+      .update(recruitingNodeState)
+      .set({ completedAt: NOW, result: "pass", status: "completed" })
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, RECORD_ID),
+          eq(recruitingNodeState.node, "screening"),
+        ),
+      );
+    await db.transaction((tx) =>
+      mergeCandidateExpectationsTx(tx, RECORD_ID, ORG, { agreedBaseSalary: 26_000 }),
+    );
+    const [before] = await db
+      .select({ version: recruitingRecord.version })
+      .from(recruitingRecord)
+      .where(eq(recruitingRecord.id, RECORD_ID));
+
+    await db.transaction((tx) =>
+      reviewSalaryNegotiationAndAdvanceTx(
+        tx,
+        {
+          expectedVersion: before?.version,
+          now: new Date("2026-09-09T02:00:00Z"),
+          operatorId: HR_USER,
+          organizationId: ORG,
+          recordId: RECORD_ID,
+        },
+        {
+          action: "review_salary_negotiation",
+          agreedBaseSalary: 28_000,
+          expectedVersion: before?.version ?? 0,
+          reason: "双方已确认薪资方案",
+          result: "pass",
+        },
+      ),
+    );
+
+    const [event] = await db
+      .select({ detail: recruitingEvent.detail })
+      .from(recruitingEvent)
+      .where(
+        and(
+          eq(recruitingEvent.recruitingRecordId, RECORD_ID),
+          eq(recruitingEvent.action, "salary_negotiation_compensation_confirmed"),
+        ),
+      )
+      .orderBy(desc(recruitingEvent.createdAt))
+      .limit(1);
+    expect(event?.detail).toMatchObject({
+      agreedBaseSalary: 28_000,
+      previousAgreedBaseSalary: 26_000,
+    });
+    const [after] = await db
+      .select({
+        expectations: recruitingRecordReadModel.candidateExpectationsMeta,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
+      })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
+    expect(after).toMatchObject({
+      expectations: { agreedBaseSalary: 28_000 },
+      pipelineStage: "offer",
+    });
+  });
+
   it("locks income attachments once the candidate leaves income proof", async () => {
     await clearSubtables();
     const scope = { actorId: HR_USER, organizationId: ORG, recruitingRecordId: RECORD_ID };
@@ -1578,6 +1661,9 @@ describe("offer stage editing boundaries", () => {
     expect(
       await updateCandidateExpectations(RECORD_ID, ORG, { expectedSalary: 30_000 }),
     ).toMatchObject({ data: { expectedSalary: 30_000 }, kind: "saved" });
+    await db.transaction((tx) =>
+      mergeCandidateExpectationsTx(tx, RECORD_ID, ORG, { agreedBaseSalary: 28_000 }),
+    );
     for (const stage of ["income_proof", "offer", "background_check", "onboarding"] as const) {
       await resetCandidateStage(stage);
       expect(await updateCandidateExpectations(RECORD_ID, ORG, { expectedSalary: 1 })).toEqual({
@@ -1589,6 +1675,7 @@ describe("offer stage editing boundaries", () => {
       .from(recruitingRecordReadModel)
       .where(eq(recruitingRecordReadModel.id, RECORD_ID));
     expect(record?.expectations?.expectedSalary).toBe(30_000);
+    expect(record?.expectations?.agreedBaseSalary).toBe(28_000);
   });
 });
 

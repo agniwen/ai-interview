@@ -44,4 +44,18 @@ describe("recruiting advance commands", () => {
       targetNode: "final_interview",
     });
   });
+
+  it("keeps income proof as the first Offer-negotiation step after final interview", () => {
+    const command = buildRecruitingAdvanceCommand(
+      { pipelineStage: "final_interview", version: 10 },
+      "income_proof",
+    );
+
+    expect(command).toMatchObject({
+      action: "advance",
+      expectedVersion: 10,
+      targetNode: "income_proof",
+    });
+    expect(command).not.toHaveProperty("skipNodes");
+  });
 });

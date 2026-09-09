@@ -59,7 +59,7 @@ describe("recruiting materials panel", () => {
   it("disables upload at ten files and keeps downloads accessible", () => {
     const { host, cleanup } = renderPanel(10, true);
     try {
-      expect(host.textContent).toContain("流水附件（10/10）");
+      expect(host.textContent).toContain("流水文件（10/10）");
       expect(host.querySelector<HTMLButtonElement>('[aria-label="上传附件"]')?.disabled).toBe(true);
       expect(host.querySelectorAll("a[download]")).toHaveLength(10);
       expect(host.querySelector("a")?.getAttribute("href")).toBe(

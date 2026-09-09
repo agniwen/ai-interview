@@ -373,6 +373,30 @@ interface StageActionGroups {
   right: ReactNode[];
 }
 
+function getAdvanceTarget(pipelineStage: Exclude<PipelineStage, "closed">) {
+  if (pipelineStage === "screening") {
+    return "second_interview";
+  }
+  return recruitingPipelineNodeValues[recruitingPipelineNodeValues.indexOf(pipelineStage) + 1];
+}
+
+function getAdvanceLabel(
+  pipelineStage: PipelineStage,
+  target: Exclude<PipelineStage, "closed">,
+  isAdvancing: boolean,
+) {
+  if (isAdvancing) {
+    return "处理中…";
+  }
+  if (pipelineStage === "screening") {
+    return "直接安排复试";
+  }
+  if (pipelineStage === "final_interview") {
+    return "面试结束，进入 Offer 协商";
+  }
+  return target === "salary_negotiation" ? "进入谈薪" : `进入${pipelineStageMeta[target].label}`;
+}
+
 function getStageActions(props: {
   pipelineStage: PipelineStage;
   currentNodePassed: boolean;
@@ -403,9 +427,7 @@ function getStageActions(props: {
   if (pipelineStage === "closed") {
     return baseActions;
   }
-  const next =
-    recruitingPipelineNodeValues[recruitingPipelineNodeValues.indexOf(pipelineStage) + 1];
-  const target = pipelineStage === "screening" ? "second_interview" : next;
+  const target = getAdvanceTarget(pipelineStage);
   if (!target) {
     return baseActions;
   }
@@ -423,14 +445,7 @@ function getStageActions(props: {
     pipelineStage === "screening" ||
     pipelineStage === "second_interview" ||
     props.currentNodePassed;
-  let advanceLabel =
-    target === "salary_negotiation" ? "进入谈薪" : `进入${pipelineStageMeta[target].label}`;
-  if (pipelineStage === "screening") {
-    advanceLabel = "直接安排复试";
-  }
-  if (isAdvancing) {
-    advanceLabel = "处理中…";
-  }
+  const advanceLabel = getAdvanceLabel(pipelineStage, target, isAdvancing);
   let disabledReason: string | null = null;
   if (!allowed) {
     disabledReason = `请先完成${pipelineStageMeta[pipelineStage].label}并确认通过`;

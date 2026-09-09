@@ -242,6 +242,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
           <TabsContent motion="page" value="offer">
             <OfferStagePanel
+              agreedBaseSalary={resumeRecord?.candidateExpectationsMeta?.agreedBaseSalary}
               stage={
                 record.pipelineStage === "closed"
                   ? (resumeRecord?.closedFromNode ?? "offer")
@@ -254,6 +255,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               candidateId={record.id}
               candidateName={record.candidateName}
               disabled={record.pipelineStage === "closed"}
+              nodeStates={resumeRecord?.nodeStates ?? []}
             />
           </TabsContent>
         ) : null}

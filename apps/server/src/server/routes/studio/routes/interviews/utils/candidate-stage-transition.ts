@@ -25,6 +25,7 @@ import { isHumanInterviewStage, isOfferStage } from "@app/shared/candidate-pipel
 import type { WorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
 import { db } from "../../../../../../lib/server/db/index";
 import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
+import { mergeCandidateExpectationsTx } from "../dao/candidate-expectations";
 import type { CandidateTransitionInput } from "./candidate-transition";
 
 export type CandidateStageTransitionProvenance =
@@ -36,13 +37,116 @@ export type CandidateStageTransitionResult =
   | { kind: "invalid"; message: string }
   | { kind: "conflict"; message: string }
   | ({ kind: "noop" | "ok" } & RecruitingPipelineResult);
+
+interface IncomeProofReviewOperations {
+  advanceNode: typeof transitionRecruitingNodeTx;
+  updateNode: typeof updateRecruitingNodeTx;
+}
+
+const defaultIncomeProofReviewOperations: IncomeProofReviewOperations = {
+  advanceNode: transitionRecruitingNodeTx,
+  updateNode: updateRecruitingNodeTx,
+};
+
+interface SalaryNegotiationReviewOperations extends IncomeProofReviewOperations {
+  recordAudit: typeof recordSalaryNegotiationAuditTx;
+  updateExpectations: typeof mergeCandidateExpectationsTx;
+}
+
+async function recordSalaryNegotiationAuditTx(
+  tx: RecruitingTransaction,
+  base: RecruitingPipelineCommand,
+  detail: { agreedBaseSalary: number; previousAgreedBaseSalary: number | null },
+) {
+  await tx.insert(recruitingEvent).values({
+    action: "salary_negotiation_compensation_confirmed",
+    createdAt: base.now ?? new Date(),
+    detail,
+    id: crypto.randomUUID(),
+    operatorId: base.operatorId,
+    organizationId: base.organizationId,
+    recruitingRecordId: base.recordId,
+  });
+}
+
+const defaultSalaryNegotiationReviewOperations: SalaryNegotiationReviewOperations = {
+  ...defaultIncomeProofReviewOperations,
+  recordAudit: recordSalaryNegotiationAuditTx,
+  updateExpectations: mergeCandidateExpectationsTx,
+};
+
+export async function reviewIncomeProofAndAdvanceTx(
+  tx: RecruitingTransaction,
+  base: RecruitingPipelineCommand,
+  input: Extract<CandidateTransitionInput, { action: "review_income_proof" }>,
+  operations: IncomeProofReviewOperations = defaultIncomeProofReviewOperations,
+) {
+  const reviewed = await operations.updateNode(tx, {
+    ...base,
+    node: "income_proof",
+    reason: input.reason,
+    result: input.result,
+    status: "completed",
+  });
+  if (input.result === "fail") {
+    return reviewed;
+  }
+  return operations.advanceNode(tx, {
+    ...base,
+    expectedVersion: reviewed.version,
+    targetNode: "salary_negotiation",
+  });
+}
+
+export async function reviewSalaryNegotiationAndAdvanceTx(
+  tx: RecruitingTransaction,
+  base: RecruitingPipelineCommand,
+  input: Extract<CandidateTransitionInput, { action: "review_salary_negotiation" }>,
+  operations: SalaryNegotiationReviewOperations = defaultSalaryNegotiationReviewOperations,
+) {
+  if (input.result === "pass") {
+    const { agreedBaseSalary } = input;
+    if (agreedBaseSalary === undefined) {
+      throw new RecruitingPipelineError("谈薪通过必须填写谈定月薪。", "invalid");
+    }
+    const expectations = await operations.updateExpectations(
+      tx,
+      base.recordId,
+      base.organizationId,
+      { agreedBaseSalary },
+    );
+    if (!expectations) {
+      throw new RecruitingPipelineError("招聘记录不存在。", "not_found");
+    }
+    await operations.recordAudit(tx, base, {
+      agreedBaseSalary,
+      previousAgreedBaseSalary: expectations.previous?.agreedBaseSalary ?? null,
+    });
+  }
+  const reviewed = await operations.updateNode(tx, {
+    ...base,
+    node: "salary_negotiation",
+    reason: input.reason,
+    result: input.result,
+    status: "completed",
+  });
+  if (input.result === "fail") {
+    return reviewed;
+  }
+  return operations.advanceNode(tx, {
+    ...base,
+    expectedVersion: reviewed.version,
+    targetNode: "offer",
+  });
+}
+
 export interface CandidateStageTransitionDependencies {
   invalidateCaches: typeof invalidateStudioInterviewCaches;
   transaction: typeof db.transaction;
 }
 const defaultDependencies: CandidateStageTransitionDependencies = {
   invalidateCaches: invalidateStudioInterviewCaches,
-  transaction: db.transaction.bind(db),
+  transaction: (...args) => db.transaction(...args),
 };
 class CandidateStageTransitionForbiddenError extends Error {
   override name = "CandidateStageTransitionForbiddenError";
@@ -120,6 +224,12 @@ export async function transitionCandidateStage(
   if (input.action === "update_node") {
     target = input.node;
   }
+  if (input.action === "review_income_proof") {
+    target = "salary_negotiation";
+  }
+  if (input.action === "review_salary_negotiation") {
+    target = "offer";
+  }
   if (
     input.action === "advance" ||
     input.action === "reopen" ||
@@ -166,6 +276,10 @@ export async function transitionCandidateStage(
         result = await advanceScreeningRecruitingNodeTx(tx, { ...base, ...input });
       } else if (input.action === "advance") {
         result = await advanceWithInitialInterview(tx, base, record, input);
+      } else if (input.action === "review_income_proof") {
+        result = await reviewIncomeProofAndAdvanceTx(tx, base, input);
+      } else if (input.action === "review_salary_negotiation") {
+        result = await reviewSalaryNegotiationAndAdvanceTx(tx, base, input);
       } else if (input.action === "reopen") {
         result = await reopenRecruitingRecordTx(tx, { ...base, ...input });
       } else if (input.action === "close") {

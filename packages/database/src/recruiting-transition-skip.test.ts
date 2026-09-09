@@ -17,4 +17,14 @@ describe("getRecruitingTransitionSkipIssue", () => {
       ]),
     ).toBe("outside_transition");
   });
+
+  it("rejects skipping income proof and salary negotiation into Offer", () => {
+    expect(
+      getRecruitingTransitionSkipIssue("offer", new Set(["income_proof", "salary_negotiation"]), [
+        "final_interview",
+        "income_proof",
+        "salary_negotiation",
+      ]),
+    ).toBe("unsupported_transition");
+  });
 });

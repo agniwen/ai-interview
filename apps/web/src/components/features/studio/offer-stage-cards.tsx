@@ -201,6 +201,10 @@ export function CandidateExpectationsBlock({
             label="当前月薪"
             value={meta?.currentSalary ? `¥ ${meta.currentSalary.toLocaleString()}` : null}
           />
+          <ExpectationField
+            label="谈定 Base 月薪"
+            value={meta?.agreedBaseSalary ? `¥ ${meta.agreedBaseSalary.toLocaleString()}` : null}
+          />
           <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
           <ExpectationField label="备注" value={meta?.notes ?? null} />
         </dl>

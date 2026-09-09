@@ -9,6 +9,7 @@ import { db } from "../../../../../../lib/server/db/index";
 import { recruitingNodeState, recruitingFulfillment, recruitingOffer } from "@app/db-schema/schema";
 import type { OfferDraftInput } from "@app/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
+import { mergeCandidateExpectationsTx } from "./candidate-expectations";
 
 export type { OfferDraftRecord };
 
@@ -163,6 +164,13 @@ export async function createOfferDraft({
       version: 1,
     });
 
+    const expectations = await mergeCandidateExpectationsTx(tx, interviewRecordId, organizationId, {
+      agreedBaseSalary: input.baseSalary,
+    });
+    if (!expectations) {
+      throw new OfferDraftError("候选人记录不存在", 404);
+    }
+
     await tx
       .insert(recruitingFulfillment)
       .values({ organizationId, recruitingRecordId: interviewRecordId, selectedOfferId: id })
@@ -268,6 +276,17 @@ export async function editOfferDraft({
         updatedAt: now,
       })
       .where(eq(recruitingOffer.id, draftId));
+    if (input.baseSalary !== undefined) {
+      const expectations = await mergeCandidateExpectationsTx(
+        tx,
+        existing.recruitingRecordId,
+        organizationId,
+        { agreedBaseSalary: input.baseSalary },
+      );
+      if (!expectations) {
+        throw new OfferDraftError("候选人记录不存在", 404);
+      }
+    }
   });
   const updated = await loadDraftById(draftId, organizationId);
   if (!updated) {

@@ -87,4 +87,23 @@ describe("真实节点推进与状态标签区分", () => {
     expect(markup).not.toContain("进入谈薪发 Offer");
     expect(markup).not.toContain("进入已入职");
   });
+
+  it("终试通过后以 Offer 协商呈现，并从流水提供开始", () => {
+    const markup = renderToStaticMarkup(
+      createElement(PipelineStageActionBar, {
+        canCreateHumanInterview: true,
+        canCreateOffer: true,
+        currentNodePassed: true,
+        hasJobDescription: true,
+        onAdvance: vi.fn(),
+        onRequestClose: vi.fn(),
+        onRequestReactivate: vi.fn(),
+        onViewCurrentStage: vi.fn(),
+        pipelineStage: "final_interview",
+      }),
+    );
+
+    expect(markup).toContain("面试结束，进入 Offer 协商");
+    expect(markup).not.toContain("进入流水提供");
+  });
 });

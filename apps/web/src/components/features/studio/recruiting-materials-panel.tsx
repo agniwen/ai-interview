@@ -26,12 +26,16 @@ import {
   AttachmentTrigger,
 } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageResumePreviewContent } from "@/components/features/resume/resume-document-preview-dialog";
 import { Modal } from "@/components/ui/modal";
+import type { RecruitingNodeStateRecord } from "@app/shared/studio-resumes";
+
+type IncomeProofReview = Pick<RecruitingNodeStateRecord, "reason" | "result" | "status">;
 
 function UploadAttachmentCard({
   busy,
@@ -65,16 +69,52 @@ function UploadAttachmentCard({
   );
 }
 
+function getIncomeProofReviewMeta(review?: IncomeProofReview) {
+  if (review?.status === "completed" && review.result === "pass") {
+    return { label: "审核通过", variant: "success" as const };
+  }
+  if (review?.status === "completed" && review.result === "fail") {
+    return { label: "已驳回", variant: "destructive" as const };
+  }
+  if (review?.status === "completed" && review.result === "withdrawn") {
+    return { label: "候选人放弃", variant: "warning" as const };
+  }
+  if (review?.status === "skipped") {
+    return { label: "已跳过", variant: "outline" as const };
+  }
+  return { label: "待审核", variant: "warning" as const };
+}
+
+function IncomeProofReviewSummary({ review }: { review?: IncomeProofReview }) {
+  const meta = getIncomeProofReviewMeta(review);
+  return (
+    <div className="rounded-lg border bg-muted/30 px-3 py-2" aria-label="流水审核结果">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground text-xs">审核结果</span>
+        <Badge variant={meta.variant}>{meta.label}</Badge>
+      </div>
+      {review?.reason ? (
+        <p aria-label="流水审核说明" className="mt-2 text-xs leading-relaxed whitespace-pre-wrap">
+          <span className="font-medium">审核说明：</span>
+          {review.reason}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function RecruitingMaterialsPanel({
   candidateId,
   canCreate,
   canDelete,
   disabled,
+  review,
 }: {
   candidateId: string;
   canCreate: boolean;
   canDelete: boolean;
   disabled?: boolean;
+  review?: IncomeProofReview;
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
@@ -127,21 +167,23 @@ export function RecruitingMaterialsPanel({
   const busy = upload.isPending || remove.isPending;
   const showUpload = canCreate && !disabled;
   return (
-    <section aria-label="流水附件" className="flex flex-col gap-3">
+    <section aria-label="流水文件" className="flex flex-col gap-3">
       <Frame className="min-w-0">
-        <FrameHeader className="h-auto min-h-10 py-2">
-          <FrameTitle>流水附件{materials.isSuccess ? `（${files.length}/10）` : ""}</FrameTitle>
+        <FrameHeader>
+          <FrameTitle>流水文件{materials.isSuccess ? `（${files.length}/10）` : ""}</FrameTitle>
         </FrameHeader>
         <FramePanel className="flex min-w-0 flex-col gap-3">
           <p className="text-muted-foreground text-xs">
-            上传候选人的薪资流水、图片等文件，单个不超过 20 MB，最多 10 个。
+            上传候选人的薪资流水、个税记录等薪酬证明。请按公司规范脱敏；单个不超过 20 MB，最多 10
+            个。
           </p>
+          <IncomeProofReviewSummary review={review} />
           <input
             ref={input}
             type="file"
             multiple
             className="hidden"
-            aria-label="上传流水附件"
+            aria-label="上传流水文件"
             disabled={busy || disabled || !canCreate}
             onChange={(event) => {
               const selected = [...(event.currentTarget.files ?? [])];
@@ -163,7 +205,7 @@ export function RecruitingMaterialsPanel({
           {materials.isSuccess && files.length === 0 && !uploadingName && !showUpload ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>暂无流水附件</EmptyTitle>
+                <EmptyTitle>暂无流水文件</EmptyTitle>
                 <EmptyDescription>候选人提供材料后，可在此上传留存。</EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -178,7 +220,7 @@ export function RecruitingMaterialsPanel({
               initialized: (instance: OverlayScrollbars) => {
                 const { viewport } = instance.elements();
                 viewport.classList.add("scroll-fade-x");
-                viewport.setAttribute("aria-label", "流水附件列表");
+                viewport.setAttribute("aria-label", "流水文件列表");
                 viewport.tabIndex = 0;
               },
             }}
@@ -218,6 +260,7 @@ export function RecruitingMaterialsPanel({
                       </AttachmentAction>
                     ) : null}
                     <AttachmentAction
+                      nativeButton={false}
                       render={
                         <a
                           aria-label={`下载 ${file.fileName}`}

@@ -53,9 +53,9 @@ export interface OfferFormState {
   notes: string;
 }
 
-export function createBlankOfferFormState(): OfferFormState {
+export function createBlankOfferFormState(initialBaseSalary?: number | null): OfferFormState {
   return {
-    baseSalary: "",
+    baseSalary: initialBaseSalary ? String(initialBaseSalary) : "",
     bonus: "",
     equity: "",
     expiresAt: "",

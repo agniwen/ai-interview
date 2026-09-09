@@ -287,6 +287,19 @@ export type RecruitingPipelineAction =
       targetNode: RecruitingNode;
     }
   | {
+      action: "review_income_proof";
+      expectedVersion: number;
+      reason: string;
+      result: "pass" | "fail";
+    }
+  | {
+      action: "review_salary_negotiation";
+      agreedBaseSalary?: number;
+      expectedVersion: number;
+      reason: string;
+      result: "pass" | "fail";
+    }
+  | {
       action: "reopen";
       expectedVersion: number;
       reason: string;

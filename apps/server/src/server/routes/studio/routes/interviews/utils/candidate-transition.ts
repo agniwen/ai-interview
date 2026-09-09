@@ -40,6 +40,29 @@ export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
       { message: "面试准备题目只能在进入真人面试时更新", path: ["interviewQuestions"] },
     ),
   z.object({
+    action: z.literal("review_income_proof"),
+    expectedVersion,
+    reason,
+    result: z.enum(["pass", "fail"]),
+  }),
+  z
+    .object({
+      action: z.literal("review_salary_negotiation"),
+      agreedBaseSalary: z.number().int().positive("谈定月薪必须大于 0").optional(),
+      expectedVersion,
+      reason,
+      result: z.enum(["pass", "fail"]),
+    })
+    .refine(
+      (input) =>
+        (input.result === "pass" && input.agreedBaseSalary !== undefined) ||
+        (input.result === "fail" && input.agreedBaseSalary === undefined),
+      {
+        message: "谈薪通过必须填写谈定月薪，淘汰时不能填写谈定月薪",
+        path: ["agreedBaseSalary"],
+      },
+    ),
+  z.object({
     action: z.literal("reopen"),
     expectedVersion,
     reason,

@@ -53,6 +53,69 @@ describe("招聘动作输入", () => {
       }).success,
     ).toBe(true);
   });
+  it("不允许跳过流水和谈薪直接进入 Offer", () => {
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        action: "advance",
+        expectedVersion: 2,
+        skipNodes: ["income_proof", "salary_negotiation"],
+        targetNode: "offer",
+      }).success,
+    ).toBe(false);
+  });
+  it("流水审核通过或驳回必须使用专用动作并填写说明", () => {
+    const base = {
+      action: "review_income_proof",
+      expectedVersion: 2,
+      reason: "已核验近六个月流水",
+    };
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "pass" }).success).toBe(
+      true,
+    );
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "fail" }).success).toBe(
+      true,
+    );
+    expect(
+      candidateTransitionInputSchema.safeParse({ ...base, reason: " ", result: "pass" }).success,
+    ).toBe(false);
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "withdrawn" }).success).toBe(
+      false,
+    );
+  });
+  it("谈薪通过必须填写谈定月薪，淘汰时不接受薪资", () => {
+    const base = {
+      action: "review_salary_negotiation",
+      expectedVersion: 2,
+      reason: "双方已确认薪资方案",
+    };
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        agreedBaseSalary: 28_000,
+        result: "pass",
+      }).success,
+    ).toBe(true);
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "pass" }).success).toBe(
+      false,
+    );
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        agreedBaseSalary: 0,
+        result: "pass",
+      }).success,
+    ).toBe(false);
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "fail" }).success).toBe(
+      true,
+    );
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        agreedBaseSalary: 28_000,
+        result: "fail",
+      }).success,
+    ).toBe(false);
+  });
   it("回开必须填写原因，并只恢复待处理状态", () => {
     const base = {
       action: "reopen",

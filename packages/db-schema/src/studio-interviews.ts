@@ -456,6 +456,7 @@ export type OfferResponseInput = z.infer<typeof offerResponseInputSchema>;
 // 候选人期望（在 offer 阶段录入，后续 dialog prefill 用）。
 // Candidate expectations; populated during the offer flow and used to prefill.
 export const candidateExpectationsMetaSchema = z.object({
+  agreedBaseSalary: z.number().int().positive().nullable().optional(),
   currentSalary: z.number().int().min(0).nullable().optional(),
   earliestJoiningDate: z.string().trim().nullable().optional(),
   expectedSalary: z.number().int().min(0).nullable().optional(),
