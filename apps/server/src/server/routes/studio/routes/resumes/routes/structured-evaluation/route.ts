@@ -1,4 +1,4 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
@@ -51,6 +51,7 @@ export const structuredResumeEvaluationRouter = factory
         return c.json({ error: "记录不存在。" }, 404);
       }
       const result = await db.transaction(async (tx) => {
+        await lockRecruitingRecord(tx, recordId, activeOrg.id);
         const visibilityCondition =
           visibility.kind === "restricted"
             ? inArray(recruitingRecordReadModel.createdBy, visibility.userIds)
@@ -68,8 +69,7 @@ export const structuredResumeEvaluationRouter = factory
           })
           .from(recruitingRecordReadModel)
           .where(and(...conditions))
-          .limit(1)
-          .for("update");
+          .limit(1);
         if (!record) {
           return { status: "not_found" as const };
         }

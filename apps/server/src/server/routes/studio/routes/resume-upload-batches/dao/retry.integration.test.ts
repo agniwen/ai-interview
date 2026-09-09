@@ -10,7 +10,7 @@ import {
   recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
-import { claimFailedResumeParseRetry } from "./retry";
+import { claimFailedResumeParseRetry, claimForceResumeReparse } from "./retry";
 
 const ORGANIZATION_ID = "resume_retry_unlimited_org";
 const USER_ID = "resume_retry_unlimited_user";
@@ -181,5 +181,61 @@ describe("claimFailedResumeParseRetry", () => {
       .from(recruitingRecordReadModel)
       .where(eq(recruitingRecordReadModel.id, resumeRecordId));
     expect(resumeRecord?.status).toBe("queued");
+  });
+});
+
+async function insertUntrackedRecord(id: string, status: "failed" | "ready") {
+  await createRecruitingRecords(db, {
+    candidateName: "重新解析候选人",
+    createdBy: USER_ID,
+    id,
+    organizationId: ORGANIZATION_ID,
+    resumeFileName: "resume.pdf",
+    resumeParseError: status === "failed" ? "解析失败" : null,
+    resumeParseStatus: status,
+    resumeStorageKey: `attachments/${id}/resume.pdf`,
+  });
+}
+
+describe("recruiting resume reparse claims", () => {
+  it("requeues a failed record without an upload batch", async () => {
+    const resumeRecordId = "resume_retry_untracked_record";
+    await insertUntrackedRecord(resumeRecordId, "failed");
+    const result = await claimFailedResumeParseRetry({
+      organizationId: ORGANIZATION_ID,
+      requestedBy: USER_ID,
+      resumeRecordId,
+    });
+    expect(result.status).toBe("claimed");
+    const [record] = await db
+      .select()
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, resumeRecordId));
+    expect(record?.resumeParseStatus).toBe("queued");
+    expect(record?.resumeParseError).toBeNull();
+  });
+
+  it("allows only one concurrent force reparse and rejects another workspace", async () => {
+    const resumeRecordId = "resume_force_reparse_record";
+    await insertUntrackedRecord(resumeRecordId, "ready");
+    const input = { organizationId: ORGANIZATION_ID, requestedBy: USER_ID, resumeRecordId };
+    expect(await claimForceResumeReparse({ ...input, organizationId: "other_workspace" })).toEqual({
+      status: "not_found",
+    });
+    const claims = await Promise.all([
+      claimForceResumeReparse(input),
+      claimForceResumeReparse(input),
+    ]);
+    expect(claims.map((claim) => claim.status).toSorted()).toEqual(["busy", "claimed"]);
+    const [record] = await db
+      .select()
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, resumeRecordId));
+    expect(record?.resumeParseStatus).toBe("queued");
+    const items = await db
+      .select()
+      .from(recruitingUploadBatchItem)
+      .where(eq(recruitingUploadBatchItem.recruitingRecordId, resumeRecordId));
+    expect(items).toHaveLength(1);
   });
 });

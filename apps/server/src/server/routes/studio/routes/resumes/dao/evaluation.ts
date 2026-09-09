@@ -1,4 +1,4 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
@@ -103,6 +103,7 @@ export async function resetResumeEvaluationForJobChange(input: {
 }): Promise<ResumeEvaluationMutationResult> {
   const now = new Date();
   return await db.transaction(async (tx) => {
+    await lockRecruitingRecord(tx, input.id, input.organizationId);
     const [existing] = await tx
       .select({ resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus })
       .from(recruitingRecordReadModel)
@@ -112,7 +113,6 @@ export async function resetResumeEvaluationForJobChange(input: {
           eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
-      .for("update")
       .limit(1);
 
     if (!existing) {

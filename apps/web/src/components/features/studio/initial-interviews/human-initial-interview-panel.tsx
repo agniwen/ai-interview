@@ -19,7 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   deleteInitialInterview,
@@ -146,14 +147,21 @@ export function HumanInitialInterviewPanel({
         </div>
       ) : null}
       {query.data?.records.length === 0 ? (
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyTitle>人工初面</EmptyTitle>
-            <EmptyDescription>
-              HR 电话沟通结束后，可在 Echo 中使用当前录音生成评价表。招聘台会独立保存录音和资料。
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <Frame>
+          <FrameHeader>
+            <FrameTitle>人工初面</FrameTitle>
+          </FrameHeader>
+          <FramePanel>
+            <Empty>
+              <EmptyHeader>
+                <EmptyDescription>
+                  HR 电话沟通结束后，可在 Echo
+                  中使用当前录音生成评价表。招聘台会独立保存录音和资料。
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </FramePanel>
+        </Frame>
       ) : null}
       {query.data?.records.map((record) => (
         <div key={record.id} className="flex min-w-0 flex-col gap-4">

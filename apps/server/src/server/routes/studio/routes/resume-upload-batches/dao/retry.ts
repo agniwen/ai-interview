@@ -1,4 +1,4 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
@@ -48,6 +48,9 @@ async function claimUntrackedFailedResumeParseRetry(
   input: ResumeParseRetryRequest,
 ): Promise<ResumeParseRetryClaim> {
   const targetsResumeRecord = isResumeRecordRetryTarget(input);
+  if (targetsResumeRecord) {
+    await lockRecruitingRecord(tx, input.resumeRecordId, input.organizationId);
+  }
   const resumeRecordSources = targetsResumeRecord
     ? await tx
         .select({
@@ -67,7 +70,6 @@ async function claimUntrackedFailedResumeParseRetry(
           ),
         )
         .limit(1)
-        .for("update")
     : [];
   const poolItemSources = targetsResumeRecord
     ? []
@@ -338,6 +340,7 @@ export function claimForceResumeReparse(input: {
   resumeRecordId: string;
 }): Promise<ResumeForceReparseClaim> {
   return db.transaction(async (tx) => {
+    await lockRecruitingRecord(tx, input.resumeRecordId, input.organizationId);
     const [source] = await tx
       .select({
         contentHash: recruitingRecordReadModel.resumeContentHash,
@@ -354,8 +357,7 @@ export function claimForceResumeReparse(input: {
           eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
-      .limit(1)
-      .for("update");
+      .limit(1);
     if (!source) {
       return { status: "not_found" };
     }
