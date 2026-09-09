@@ -46,12 +46,6 @@ export default defineConfig({
       },
     },
     {
-      files: ["apps/web/src/app/_components/home/footer.tsx"],
-      rules: {
-        "nextjs/no-html-link-for-pages": "off",
-      },
-    },
-    {
       // Electron desktop does not enable React Compiler; its compiler diagnostics
       // would not describe code that actually passes through the transform.
       files: ["apps/desktop/**/*.{ts,tsx}"],
