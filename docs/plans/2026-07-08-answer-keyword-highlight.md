@@ -17,7 +17,7 @@
 - metric 只匹配紧跟单位/百分号的数字；裸数字（年份/题号/年龄/版本号）不命中。
 - 高亮文本范围：候选人原话（问答记录 `user` 气泡、报告证据 `quote`）+ AI 评价文本（`overallAssessment`、逐题 `assessment`）；**不**高亮面试官（`assistant`）气泡。
 - 中文注释保留项目双语风格即可；提交用 conventional commits。
-- 每个任务结束前跑对应测试到绿；全部完成后跑 `pnpm fix` 统一格式。
+- 每个任务结束前跑对应测试到绿；全部完成后跑 `bun run fix` 统一格式。
 
 ---
 
@@ -129,7 +129,7 @@ describe("extractAnswerKeywords", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/shared exec vitest run src/answer-keywords.test.ts`
+Run: `bun run --filter @app/shared exec vitest run src/answer-keywords.test.ts`
 Expected: FAIL —「Cannot find module './answer-keywords'」。
 
 - [ ] **Step 3: 写词典模块**
@@ -387,7 +387,7 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 
 - [ ] **Step 5: 跑测试确认通过**
 
-Run: `pnpm --filter @app/shared exec vitest run src/answer-keywords.test.ts`
+Run: `bun run --filter @app/shared exec vitest run src/answer-keywords.test.ts`
 Expected: PASS（9 个用例全绿）。
 
 - [ ] **Step 6: 提交**
@@ -550,7 +550,7 @@ describe("KeywordHighlightLegend", () => {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx`
+Run: `bun run --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/legend.test.tsx`
 Expected: PASS。
 
 - [ ] **Step 5: 提交**
@@ -610,7 +610,7 @@ describe("HighlightedText", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
+Run: `bun run --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
 Expected: FAIL —「Cannot find module './highlighted-text'」。
 
 - [ ] **Step 3: 写组件实现**
@@ -697,7 +697,7 @@ export function HighlightedText({
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
+Run: `bun run --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/keyword-highlight/highlighted-text.test.tsx`
 Expected: PASS。
 
 - [ ] **Step 5: 提交**
@@ -777,7 +777,7 @@ describe("EvaluationResults highlighting", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
+Run: `bun run --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
 Expected: FAIL（`data-category` 不存在，评价文本仍是纯文本）。
 
 - [ ] **Step 3: 改 `evaluation-results.tsx` — 加 client 指令 + 顶部导入**
@@ -937,7 +937,7 @@ const { enabledCategories } = useKeywordHighlight();
 
 - [ ] **Step 6: 跑集成测试确认通过**
 
-Run: `pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
+Run: `bun run --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
 Expected: PASS。
 
 - [ ] **Step 7: 改 `conversation-transcript.tsx` — 候选人气泡接入**
@@ -1027,7 +1027,7 @@ import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-hi
                   <div className="grid gap-x-8 gap-y-4 md:grid-cols-4">
 ```
 
-（缩进先不管，Step 5 的 `pnpm fix` 会统一格式化。）
+（缩进先不管，Step 5 的 `bun run fix` 会统一格式化。）
 
 - [ ] **Step 3: 在汇总卡下方插入图例**
 
@@ -1075,18 +1075,18 @@ import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-hi
 Run:
 
 ```bash
-pnpm fix
-pnpm --filter @app/web typecheck
-pnpm --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail
-pnpm --filter @app/shared test
+bun run fix
+bun run --filter @app/web typecheck
+bun run --filter @app/web exec vitest run src/components/features/studio/interviews/interview-detail
+bun run --filter @app/shared test
 ```
 
-Expected: `pnpm fix` 无报错并把 Step 2 的缩进补齐；typecheck 通过；两处 vitest 全绿。
+Expected: `bun run fix` 无报错并把 Step 2 的缩进补齐；typecheck 通过；两处 vitest 全绿。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add -A   # 含 studio-person-detail-panel.tsx，及 pnpm fix 可能重排的前序文件
+git add -A   # 含 studio-person-detail-panel.tsx，及 bun run fix 可能重排的前序文件
 git commit -m "feat(studio): 报告 Tab 挂载关键词高亮 Provider 与图例"
 ```
 
@@ -1094,7 +1094,7 @@ git commit -m "feat(studio): 报告 Tab 挂载关键词高亮 Provider 与图例
 
 ## 手动验证（可选，全部任务后）
 
-启动 web（`pnpm --filter @app/web dev`），进候选人详情 →「面试报告」Tab：
+启动 web（`bun run --filter @app/web dev`），进候选人详情 →「面试报告」Tab：
 
 - 顶部出现「关键词高亮」图例三枚 chip；
 - 问答记录里候选人气泡的技能/数字/风险词着色，面试官气泡不着色；

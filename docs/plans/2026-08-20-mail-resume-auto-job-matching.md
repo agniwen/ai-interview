@@ -524,15 +524,15 @@ WHERE id = ?
 - [ ] 增加必要唯一约束和索引。
 - [ ] 在 `relations.ts` 增加关系。
 - [ ] 将 `mail_ingest_account.jdMode` 默认值改为 `auto`。
-- [ ] 使用 `pnpm db:generate` 生成迁移，不手写迁移 SQL。
+- [ ] 使用 `bun run db:generate` 生成迁移，不手写迁移 SQL。
 - [ ] 审核迁移，确认没有历史 UPDATE、回填或全表重写。
 - [ ] 运行 schema typecheck 和迁移测试。
 
 验证：
 
 ```bash
-pnpm db:generate
-pnpm --filter @app/db-schema typecheck
+bun run db:generate
+bun run --filter @app/db-schema typecheck
 ```
 
 ### Task 2：文件名精准匹配（测试先行）
@@ -690,17 +690,17 @@ pnpm --filter @app/db-schema typecheck
 按任务运行聚焦测试，最终执行：
 
 ```bash
-pnpm --filter @app/db-schema typecheck
-pnpm --filter @app/worker test
-pnpm --filter @app/worker typecheck
-pnpm --filter @app/server test
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web test
-pnpm --filter @app/web typecheck
-pnpm check
+bun run --filter @app/db-schema typecheck
+bun run --filter @app/worker test
+bun run --filter @app/worker typecheck
+bun run --filter @app/server test
+bun run --filter @app/server typecheck
+bun run --filter @app/web test
+bun run --filter @app/web typecheck
+bun run check
 ```
 
-涉及格式调整时按仓库约定运行 `pnpm fix`，但只提交本功能相关变化。
+涉及格式调整时按仓库约定运行 `bun run fix`，但只提交本功能相关变化。
 
 ---
 

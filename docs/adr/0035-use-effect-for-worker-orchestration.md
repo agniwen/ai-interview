@@ -1,3 +1,7 @@
+---
+status: accepted
+---
+
 # Use Effect for worker orchestration
 
 Adopt an exactly pinned Effect 4 release-candidate version across `apps/worker` orchestration and the execution-heavy parts of its direct dependency packages because the worker concentrates typed failure policy, scheduling, concurrency, resource ownership, and graceful shutdown. Keep existing Hono, BullMQ, DAO, provider, and shared-package Promise APIs as stable facades. Direct dependencies may add separate Effect-native entry points for the worker when wrapping the entire operation as one opaque Promise would hide meaningful retry, cancellation, or resource lifecycles; server, web, and other consumers are not forced to migrate. Pure transformations remain ordinary TypeScript.

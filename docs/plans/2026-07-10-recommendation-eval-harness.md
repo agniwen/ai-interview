@@ -167,7 +167,7 @@ describe("recommendCandidatesForJobDescription — 特征化(锁生产行为)", 
 
 - [ ] **Step 3: 跑测试确认全绿（锁现状）**
 
-Run: `pnpm --filter @app/server test recommendations`
+Run: `bun run --filter @app/server test recommendations`
 Expected: 全绿。若某条不符现状 → 说明我对生产行为的理解有误，**先纠正测试到反映现状**（不是改生产）。
 
 - [ ] **Step 4: Commit**
@@ -249,7 +249,7 @@ it("内核返回完整排序 + 诊断中间量(不套阈值/截断，不调 ensu
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test recommendations`
+Run: `bun run --filter @app/server test recommendations`
 Expected: FAIL — `scoreCandidatesForJobDescription is not a function`。
 
 - [ ] **Step 3: 实现内核 + 生产函数复用它**
@@ -341,12 +341,12 @@ export async function recommendCandidatesForJobDescription(
 
 - [ ] **Step 4: 跑测试确认全绿（内核新测 + Task 1 特征化都过）**
 
-Run: `pnpm --filter @app/server test recommendations`
+Run: `bun run --filter @app/server test recommendations`
 Expected: PASS（特征化仍绿 = 生产行为未变）。
 
 - [ ] **Step 5: typecheck**
 
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 Expected: 无错误。
 
 - [ ] **Step 6: Commit**
@@ -416,7 +416,7 @@ describe("labels", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test reco-eval/labels`
+Run: `bun run --filter @app/server test reco-eval/labels`
 Expected: FAIL。
 
 - [ ] **Step 3: 实现**
@@ -453,7 +453,7 @@ export function validateLabels(labels: PositiveLabel[], validKeys: Set<string>) 
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test reco-eval/labels`
+Run: `bun run --filter @app/server test reco-eval/labels`
 Expected: PASS。
 
 - [ ] **Step 5: Commit**
@@ -562,7 +562,7 @@ describe("classifyPositive", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test reco-eval/classify`
+Run: `bun run --filter @app/server test reco-eval/classify`
 Expected: FAIL。
 
 - [ ] **Step 3: 实现**
@@ -615,7 +615,7 @@ export function classifyPositive(i: ClassifyInput): PositiveVerdict {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test reco-eval/classify`
+Run: `bun run --filter @app/server test reco-eval/classify`
 Expected: PASS（7 例）。
 
 - [ ] **Step 5: Commit**
@@ -702,7 +702,7 @@ describe("computeMetrics", () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → Run: `pnpm --filter @app/server test reco-eval/metrics` → FAIL。
+- [ ] **Step 2: 跑测试确认失败** → Run: `bun run --filter @app/server test reco-eval/metrics` → FAIL。
 
 - [ ] **Step 3: 实现**
 
@@ -932,11 +932,11 @@ async hasCollection(): Promise<boolean> {
 }
 ```
 
-- [ ] **Step 5: 跑测试确认通过** → Run: `pnpm --filter @app/server test reco-eval/mine-labels` → PASS（纯判定 8 例）。
+- [ ] **Step 5: 跑测试确认通过** → Run: `bun run --filter @app/server test reco-eval/mine-labels` → PASS（纯判定 8 例）。
 
 - [ ] **Step 6: typecheck**
 
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 Expected: 无错误。
 
 - [ ] **Step 7: Commit**
@@ -1388,7 +1388,7 @@ main().then(
 
 - [ ] **Step 10: typecheck + reco-eval 全量单测**
 
-Run: `pnpm --filter @app/server typecheck && pnpm --filter @app/server test reco-eval`
+Run: `bun run --filter @app/server typecheck && bun run --filter @app/server test reco-eval`
 Expected: 无类型错误；labels/classify/metrics/mine-labels/run/report 全绿。
 
 - [ ] **Step 11: Commit**
@@ -1410,7 +1410,7 @@ standalone 脚本进程需读到 `RESUME_SEMANTIC_INDEX_ENABLED/QDRANT_URL/QDRAN
 
 - [ ] **Step 2: 运行 B-only**
 
-Run: `pnpm --filter @app/server eval:recommendations --org org_default --mode b-only`
+Run: `bun run --filter @app/server eval:recommendations --org org_default --mode b-only`
 Expected: 控制台打印基线报告；`.eval/report-b-only-*.md`、`detail-*.jsonl`、`labels.json` 生成。
 
 - [ ] **Step 3: 判读并回填决策**

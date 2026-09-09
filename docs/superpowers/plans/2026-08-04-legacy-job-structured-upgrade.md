@@ -586,27 +586,27 @@ TanStack route 文件只保留 loader、search 校验和薄页面组合，不把
 
 ```bash
 # 数据层和后端定向测试
-pnpm --filter @app/server test -- <upgrade-tests>
+bun run --filter @app/server test -- <upgrade-tests>
 
 # Web 定向测试
-pnpm --filter @app/web test -- <upgrade-ui-tests>
+bun run --filter @app/web test -- <upgrade-ui-tests>
 
 # 类型检查
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web typecheck
+bun run --filter @app/server typecheck
+bun run --filter @app/web typecheck
 
 # 全仓验证
-pnpm typecheck
-pnpm test
-pnpm check
-pnpm build
+bun run typecheck
+bun run test
+bun run check
+bun run build
 ```
 
 数据库变更：
 
 ```bash
-pnpm db:generate
-pnpm db:migrate
+bun run db:generate
+bun run db:migrate
 ```
 
 生成迁移后必须人工检查 SQL，确认没有误删列、重建大表、错误默认值或把现有候选人模式全部按岗位当前模式覆盖。

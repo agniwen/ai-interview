@@ -1,7 +1,10 @@
 # AI Hiring Copilot 项目介绍
 
-最后更新：2026-06-10  
+最后更新：2026-09-09
+
 资料来源：当前代码结构、`README.md`、`AGENTS.md`、`package.json`、数据库 schema、路由文件、以及 git 提交历史。
+
+工具链：TypeScript 工作区使用 Bun 1.4.0，Python agent 使用 uv，不要混用。
 
 ## 这是什么项目
 
@@ -110,9 +113,9 @@ flowchart LR
   Hono --> Storage["S3/R2 对象存储"]
   Hono --> Email["Resend 邮件"]
   Hono --> Feishu["飞书机器人"]
-  Hono --> LiveKit["LiveKit Cloud"]
+  Hono --> LiveKit["LiveKit（默认自托管）"]
   Hono --> Queue["Redis/BullMQ 队列"]
-  Queue --> Worker["简历解析 Worker"]
+  Queue --> Worker["后台 Worker（简历解析/会议转写）"]
   Worker --> DB
   Worker --> Storage
   Agent["Python LiveKit Agent"] --> LiveKit
@@ -131,11 +134,20 @@ flowchart LR
 
 - `apps/web/`：浏览器 UI、TanStack Start 路由、SSR、server functions。
 - `apps/server/`：Hono API、业务路由、数据库 DAO、外部服务调用。
-- `apps/worker/`：后台简历解析 worker。
+- `apps/worker/`：后台 Worker，消费简历解析、会议转写、通知与队列对账任务。
+- `apps/desktop/`：Electron 应用 Echo，负责本地优先的会议采集与实时转写。
 - `apps/livekit-agent/`：Python 语音面试 agent。
-- `packages/db-schema/`：Drizzle schema、relations、数据库相邻类型。
-- `packages/shared/`：纯类型、Zod schema、同构工具。
-- `packages/resume-parse-queue/`：简历解析队列共享定义。
+- `packages/shared/`：同构产品契约、Zod schema、状态机与共享工具。
+- `packages/db-schema/`：Drizzle schema、relations、数据库枚举与持久化相邻契约。
+- `packages/database/`：server/worker/processing 共用的 Drizzle 数据库工厂与类型。
+- `packages/ai-runtime/`：与供应商无关的服务端模型选择与文本生成原语。
+- `packages/object-storage/`：S3 兼容对象存储客户端与 key/上传/下载原语。
+- `packages/resume-parse-queue/`：简历解析、评价、语义索引与邮件导入的队列契约。
+- `packages/resume-processing/`：简历导入、解析、评价、语义索引与去重工作流。
+- `packages/meeting-media/`：会议录音归一化与转写前音频准备。
+- `packages/meeting-live-transcript/`：实时转写采集、校正与浏览器到服务端的中继契约。
+- `packages/meeting-processing/`：会议转写、智能分析、清理与检索投影工作流。
+- `packages/meeting-processing-queue/`：会议相关后台任务的队列契约与生产者。
 
 ### 前端：TanStack Start + Router + Query
 
@@ -207,7 +219,7 @@ AI 能力不是一个单点模型调用，而分布在多个业务节点：
 - 报告生成：结合转写、题目、候选人回答和证据引用生成评价。
 - 聊天助手：围绕简历、岗位、附件进行多轮分析。
 
-代码里可以看到 OpenAI-compatible provider、阿里云/DashScope、Google、ElevenLabs、Minimax、Qwen OCR 等痕迹。文档读者不需要记住所有 provider，重点是：系统刻意把「模型供应商」和「招聘业务流程」分开，便于替换模型而不重写候选人流程。
+代码里可以看到 OpenAI-compatible provider、阿里云/DashScope（OCR、LLM、语音 STT）、MiniMax（TTS）等痕迹。文档读者不需要记住所有 provider，重点是：系统刻意把「模型供应商」和「招聘业务流程」分开，便于替换模型而不重写候选人流程。
 
 ## 技术选择变迁
 
@@ -251,7 +263,9 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ### 7. 从 Next.js 自部署形态迁移到 TanStack Start
 
-历史中有 Next.js standalone、OpenNext/Cloudflare 讨论痕迹，也有 2026-06-09 的迁移提交：迁移到 TanStack Start、移除 oRPC、迁移到 TanStack Router server functions、使用 Vite cache control、React Compiler、DataGrid 状态从 nuqs 迁到 TanStack Router。
+历史中有 Next.js standalone、OpenNext/Cloudflare 讨论痕迹，也有 2026-06-09 的迁移提交：迁移到 TanStack Start、Web/Server 移除 oRPC、迁移到 TanStack Router server functions、使用 Vite cache control、React Compiler、DataGrid 状态从 nuqs 迁到 TanStack Router。
+
+注意：oRPC 只从 Web/Server 移除；`apps/desktop/` 仍用 oRPC over MessageChannel 做主进程与 renderer 的 IPC 契约。
 
 当前代码已经是 TanStack Start + Vite，不要再按 Next App Router 的文件约定寻找页面。旧经验仍有参考价值，例如 SSR、server/client 边界、同源 API，但具体实现入口已经变了。
 
@@ -333,15 +347,15 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ## 常用命令
 
-TypeScript 部分使用 pnpm：
+TypeScript 部分使用 Bun：
 
 ```bash
-pnpm dev
-pnpm check
-pnpm --filter @app/web typecheck
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web test
-pnpm --filter @app/server test
+bun run dev
+bun run check
+bun run --filter @app/web typecheck
+bun run --filter @app/server typecheck
+bun run --filter @app/web test
+bun run --filter @app/server test
 ```
 
 Python agent 使用 uv：
@@ -358,16 +372,16 @@ uv run ruff check
 数据库迁移：
 
 ```bash
-pnpm db:generate
-pnpm db:migrate
-pnpm db:studio
+bun run db:generate
+bun run db:migrate
+bun run db:studio
 ```
 
 ## 新人阅读路线
 
 ### 前端
 
-1. 先跑 Web：`pnpm --filter @app/web dev`。
+1. 先跑 Web：`bun run --filter @app/web dev`。
 2. 看 `src/routes/w.$slug.studio.resumes.tsx` 和 `src/routes/w.$slug.studio.interviews.tsx`，理解列表页模式。
 3. 看 `src/router.tsx` 和 `src/lib/client/`，理解 Router + Query + API 调用。
 4. 再看具体组件，不要从 UI 基础组件开始读。
@@ -389,7 +403,7 @@ pnpm db:studio
 ## 需要特别注意的历史包袱
 
 - 旧 Next.js/App Router 相关经验可能仍在讨论中出现，但当前页面入口已经是 TanStack Router file routes。
-- 旧的 analytics、Mastra 等尝试已经被移除，除非重新评估，否则不要基于这些方向继续扩展。
+- 旧的 analytics（PostHog）、Web 端 vendored Mastra Studio 等尝试已经被移除；但 Mastra workflow/agent 仍在 `apps/server`、`packages/ai-runtime` 和 `packages/resume-processing` 中使用，不要因为 Web 里没有就以为整套 Mastra 已废弃。
 - 简历解析和 AI 面试都涉及外部模型与存储，失败不是单纯前端错误；排查要看 API、worker、对象存储和 provider 日志。
 - 语音面试的“中断、停顿、长回答、断线”都是高频真实场景，产品验收要覆盖这些边界。
-- `pnpm` 和 `uv` 不要混用。TypeScript workspace 和 Python agent 是两个依赖系统。
+- `bun` 和 `uv` 不要混用。TypeScript workspace 和 Python agent 是两个依赖系统。

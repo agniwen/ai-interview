@@ -118,4 +118,4 @@ Verify:
 
 - No chat composer upload entry remains.
 - Remaining upload APIs are still used by resume library or resume pool flows before deleting shared code.
-- `pnpm check`, focused backend tests, focused frontend tests, and `git diff --check` pass.
+- `bun run check`, focused backend tests, focused frontend tests, and `git diff --check` pass.

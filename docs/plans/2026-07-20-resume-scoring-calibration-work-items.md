@@ -104,7 +104,7 @@ ADR 0016 已要求停止全局硬编码单一权重，并使用带快照的评�
 执行入口：
 
 ```bash
-pnpm --filter @app/server eval:resume-reviews -- \
+bun run --filter @app/server eval:resume-reviews -- \
   --org org_default --strict
 ```
 
@@ -154,12 +154,12 @@ pnpm --filter @app/server eval:resume-reviews -- \
 建议验证命令：
 
 ```bash
-pnpm --filter @app/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
-pnpm --filter @app/server eval:resume-reviews:synthetic -- \
+bun run --filter @app/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
+bun run --filter @app/server eval:resume-reviews:synthetic -- \
   --execute --runs 3 --strict
-pnpm --filter @app/server test
-pnpm --filter @app/server typecheck
-pnpm check
+bun run --filter @app/server test
+bun run --filter @app/server typecheck
+bun run check
 ```
 
 真实数据回归不建议直接放入普通 CI：它依赖数据库、模型密钥且包含候选人级数据。CI 只运行纯函数、脱敏固定夹具和不调用模型的合成契约；真实评测通过受控命令定期运行并保存聚合报告。

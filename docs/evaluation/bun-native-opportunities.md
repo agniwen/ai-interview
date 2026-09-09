@@ -50,7 +50,7 @@ Bun 自带 Jest-compatible 测试运行器，支持 TypeScript、mock、生命�
 4. Worker 的纯函数测试；
 5. Web、TanStack Start、jsdom、复杂 `vi.mock` 测试继续保留 Vitest，直到单独迁移验收。
 
-验收指标：总测试数量与断言语义不下降，重复运行无 mock 泄漏，JUnit 能被 Jenkins 消费，冷/热 CI 都记录 wall time。不要为了删除 Vitest 一次性迁完整仓库。
+验收指标：总测试数量与断言语义不下降，重复运行无 mock 泄漏，JUnit 能被 CI 消费，冷/热 CI 都记录 wall time。不要为了删除 Vitest 一次性迁完整仓库。
 
 ## 2. BullMQ 原生 Redis：值得做受控 A/B
 
@@ -186,7 +186,7 @@ Bun Worker 可在独立线程运行 TypeScript，但官方仍明确标为 experi
 
 ### 第一批：一周内可验证
 
-1. 将 `meeting-processing-queue` 的 19 个测试正式迁到 `bun:test`，记录 Jenkins 冷/热耗时。
+1. 将 `meeting-processing-queue` 的 19 个测试正式迁到 `bun:test`，记录 CI 冷/热耗时。
 2. 为 BullMQ Redis client 建立 adapter seam 和环境开关；先只跑 benchmark/故障测试，不直接生产启用。
 3. 用 Bun 自带 `--cpu-prof-md`、`--heap-prof-md` 给真实 Worker 样本建立 CPU/RSS 基线。[Bun Benchmarking & Profiling](https://bun.sh/docs/project/benchmarking)
 
@@ -204,7 +204,7 @@ Bun Worker 可在独立线程运行 TypeScript，但官方仍明确标为 experi
 
 ## 成功判定
 
-不要以“删掉多少 npm 包”或“用了多少 Bun API”衡量成功。建议把以下指标固定进 Jenkins：
+不要以“删掉多少 npm 包”或“用了多少 Bun API”衡量成功。建议把以下指标固定进 CI：
 
 - 安装、typecheck、各 package 测试的冷/热 wall time；
 - Web API 和 enqueue 的 p50/p95/p99；

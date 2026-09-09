@@ -15,7 +15,7 @@
 - section 外层 `xl:col-span-2` 保留(守卫测试 `:68` 依赖)。
 - 栏内顺序沿用现状:表单栏按 `formSubmissions` → 每份 `snapshot.questions`;面试栏按 `evaluation.questions` 数组顺序。不引入新排序。
 - 栏标题计数口径 = 条目数(题数):`formItems.length` 是所有问卷题目总数,`interviewItems.length` 是面试题数。
-- 提交信息用 conventional commits;格式化**只针对本次改动的两个文件**(见 Step 9,用 `pnpm exec ultracite fix <两文件>`),不跑全仓 `pnpm fix`,避免误伤范围外文件。
+- 提交信息用 conventional commits;格式化**只针对本次改动的两个文件**(见 Step 9,用 `bunx ultracite fix <两文件>`),不跑全仓 `bun run fix`,避免误伤范围外文件。
 
 ---
 
@@ -112,7 +112,7 @@ expect(collectedSource).toContain('emptyLabel="暂无面试题"');
 
 - [ ] **Step 2: 运行测试,确认失败**
 
-Run: `pnpm --filter @app/web test studio-person-detail-panel`
+Run: `bun run --filter @app/web test studio-person-detail-panel`
 Expected: FAIL — 新断言在旧源码里找不到(如 `items={formItems}`、`sequence: formItems.length + 1`、`emptyLabel` 均不存在),原 `.tsx` 仍是旧的合并列表结构。
 
 - [ ] **Step 3: 移除接口的 `sourceLabel` 字段**
@@ -329,33 +329,33 @@ section(约 `:2037-2054`)原:
 
 - [ ] **Step 8: 定向运行守卫测试,确认转绿**
 
-Run: `pnpm --filter @app/web test studio-person-detail-panel`
+Run: `bun run --filter @app/web test studio-person-detail-panel`
 Expected: PASS — Step 1 的新断言全部命中(`items={formItems}`、`items={interviewItems}`、两个 `sequence:` 表达式、`emptyLabel`,以及四条负向断言),且保留的断言(`xl:col-span-2`、`<CollectedCandidateInfoList`、`{item.sequence}.`、`问题`/`AI 分析` 顺序、tooltip/clamp、`function getCollectedCandidateInfoItems` 等)仍绿。此定向跑仅为快速反馈。
 
 - [ ] **Step 9: 格式化(仅限本次改动的两个文件)**
 
-只格式化改动文件,避免 `pnpm fix` 全仓扫描顺带改动无关文件、超出 spec 范围:
+只格式化改动文件,避免 `bun run fix` 全仓扫描顺带改动无关文件、超出 spec 范围:
 
-用仓库已安装的锁定版本(`pnpm exec`,非 `dlx` 临时下载,避免与 CI/团队版本漂移):
+用仓库已安装的锁定版本(`bunx` 优先使用本地依赖,避免与 CI/团队版本漂移):
 
-Run: `pnpm exec ultracite fix apps/web/src/components/features/studio/studio-person-detail-panel.tsx apps/web/src/components/features/studio/studio-person-detail-panel.test.ts`
+Run: `bunx ultracite fix apps/web/src/components/features/studio/studio-person-detail-panel.tsx apps/web/src/components/features/studio/studio-person-detail-panel.test.ts`
 Expected: 两个文件通过格式化(无报错;如有自动改动,后续步骤会重跑验证闭环)。
 
 - [ ] **Step 10: 运行完整包测试(对齐 spec 验证标准)**
 
 格式化后重跑完整测试套件,确保未被格式化破坏、且不遗漏同包内受影响的用例:
 
-Run: `pnpm --filter @app/web test`
+Run: `bun run --filter @app/web test`
 Expected: PASS — 全部用例通过(spec 验证标准 1)。
 
 - [ ] **Step 11: 类型检查**
 
-Run: `pnpm --filter @app/web typecheck`
+Run: `bun run --filter @app/web typecheck`
 Expected: PASS — builder 新返回类型与调用处解构一致;`CollectedCandidateInfoList` 的 `emptyLabel` 必填 prop 在两处调用均已提供;移除 `sourceLabel` 后无残留引用(spec 验证标准 2)。
 
 - [ ] **Step 12: 手工验证(spec 验证标准 3)**
 
-启动 dev 服务器(`pnpm --filter @app/web dev`),按终端打印的本地 URL 打开(TanStack Start dev 默认 `http://localhost:3000`),进入某候选人 AI 面试详情的 `overview` tab;验证完成后在该终端 `Ctrl-C` 结束进程。
+启动 dev 服务器(`bun run --filter @app/web dev`),按终端打印的本地 URL 打开(TanStack Start dev 默认 `http://localhost:3000`),进入某候选人 AI 面试详情的 `overview` tab;验证完成后在该终端 `Ctrl-C` 结束进程。
 
 如何构造四种数据状态(用现有候选人数据挑选,不改库):
 

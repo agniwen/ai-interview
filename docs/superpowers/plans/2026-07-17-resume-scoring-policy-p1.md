@@ -25,7 +25,7 @@
 - JSON：`c.json(data, status)` + `zValidator(..., jsonValidatorError("..."))`；日期 `.toISOString()`。
 - 前端 feature UI 放 `src/components/features/<feature>/`；`src/routes/` 只做路由薄壳。
 - 权限写：**仅 owner/admin**（新 resource + page action）；读策略配置页同写权限；简历详情上策略名/快照摘要对能看简历的人可见。
-- 命令：`pnpm --filter @app/db-schema …` / `@app/shared` / `@app/server` / `@app/web`；根目录 `pnpm fix` 提交前。
+- 命令：`bun run --filter @app/db-schema …` / `@app/shared` / `@app/server` / `@app/web`；根目录 `bun run fix` 提交前。
 - Conventional commits；每个 Task 结束提交一次。
 - **P1 不做：** Workspace Deduction Rule Set、Agent 2 扣项 schema、改策略批量重算、默认改列表排序、替换向量推荐分。
 - **Mastra 边界（见下节）：** 策略 CRUD / 权重数学 / nextStep 约束 **不**做成 Agent tool 或 LLM 输出；只扩展现有 workflow 输入与 compose 步。
@@ -253,7 +253,7 @@ it("weights enabled dimensions only (equal 3)", () => {
 - [ ] **Step 2: 跑测确认 FAIL**
 
 ```bash
-pnpm --filter @app/shared test resume-review
+bun run --filter @app/shared test resume-review
 ```
 
 - [ ] **Step 3: 实现 schema + 计算 + nextStep 约束**
@@ -263,7 +263,7 @@ pnpm --filter @app/shared test resume-review
 - [ ] **Step 4: 测 PASS + typecheck packages**
 
 ```bash
-pnpm --filter @app/shared test && pnpm --filter @app/db-schema typecheck
+bun run --filter @app/shared test && bun run --filter @app/db-schema typecheck
 ```
 
 - [ ] **Step 5: Commit**
@@ -281,7 +281,7 @@ git commit -m "feat(scoring-policy): add policy types, composite score, nextStep
 
 - Modify: `packages/db-schema/src/schema.ts`（新表 + studio_interview 列）
 - Modify: relations 若项目有 `relations.ts`
-- Generate migration via `pnpm db:generate`（从 web app 代理）
+- Generate migration via `bun run db:generate`（从 web app 代理）
 - Review SQL：unique partial global、unique job_description_id
 
 - [ ] **Step 1: 表定义** — 按 Data Model 落地；`resume_review_base_score` 用 `numeric({ precision: 5, scale: 1 })` 或 double + 应用层 round。
@@ -289,13 +289,13 @@ git commit -m "feat(scoring-policy): add policy types, composite score, nextStep
 - [ ] **Step 2: 生成并检查 migration**
 
 ```bash
-pnpm db:generate
+bun run db:generate
 ```
 
 - [ ] **Step 3: 本地 migrate（若环境有 DB）**
 
 ```bash
-pnpm db:migrate
+bun run db:migrate
 ```
 
 - [ ] **Step 4: Commit**
@@ -351,7 +351,7 @@ git commit -m "feat(scoring-policy): dao resolve, seed, exclusive bindings"
 - [ ] **Step 2: backfill：对每个 organization 无 global 则 insert 默认**
 
 ```bash
-# 示例：pnpm --filter @app/server exec tsx src/.../backfill-global-scoring-policies.ts
+# 示例：bun run --filter @app/server exec tsx src/.../backfill-global-scoring-policies.ts
 ```
 
 - [ ] **Step 3: 测 hook 或 DAO ensure 幂等（二次调用不插第二条 global）**
@@ -476,9 +476,9 @@ export function composeResumeReviewResult(
 - [ ] **Step 4: 跑测**
 
 ```bash
-pnpm --filter @app/server test resume-review-workflow
-pnpm --filter @app/server test resume-analysis-agent-review
-pnpm --filter @app/server test review-generation
+bun run --filter @app/server test resume-review-workflow
+bun run --filter @app/server test resume-analysis-agent-review
+bun run --filter @app/server test review-generation
 ```
 
 - [ ] **Step 5: Commit**
@@ -650,14 +650,14 @@ git commit -m "feat(jd): show effective resume scoring policy"
 **Verify:**
 
 ```bash
-pnpm --filter @app/shared test
-pnpm --filter @app/server test
-pnpm --filter @app/server test resume-review-workflow
-pnpm --filter @app/server test recruitment-scorers
-pnpm --filter @app/web test  # 若有相关
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web typecheck
-pnpm fix
+bun run --filter @app/shared test
+bun run --filter @app/server test
+bun run --filter @app/server test resume-review-workflow
+bun run --filter @app/server test recruitment-scorers
+bun run --filter @app/web test  # 若有相关
+bun run --filter @app/server typecheck
+bun run --filter @app/web typecheck
+bun run fix
 ```
 
 Mastra 相关：确认 `recruitmentWorkflows.resumeReviewWorkflow` step id 仍为 `qualitative-review` / `scoring` / `compose-review`（或有意重命名时同步 stream labels 与 `workflows.test.ts`）。

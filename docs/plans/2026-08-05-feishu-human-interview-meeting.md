@@ -360,7 +360,7 @@ POST /open-apis/calendar/v4/calendars/:calendar_id/events
 **Verify**
 
 - 检查生成 SQL 的默认值、可空性、索引和约束。
-- 运行 `pnpm db:generate` 后确认无手工 schema 漂移。
+- 运行 `bun run db:generate` 后确认无手工 schema 漂移。
 
 ### Task 3: Resolve provider and Feishu identities
 
@@ -537,12 +537,12 @@ POST /open-apis/calendar/v4/calendars/:calendar_id/events
 按任务逐步运行定向测试，最终执行：
 
 ```bash
-pnpm --filter @app/server test
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web test
-pnpm --filter @app/web typecheck
-pnpm check
-pnpm db:generate
+bun run --filter @app/server test
+bun run --filter @app/server typecheck
+bun run --filter @app/web test
+bun run --filter @app/web typecheck
+bun run check
+bun run db:generate
 git diff --check
 ```
 

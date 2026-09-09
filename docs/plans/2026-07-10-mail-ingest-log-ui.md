@@ -11,10 +11,10 @@
 ## Global Constraints
 
 - **Conventional commits**：`feat:` / `test:` / `refactor:` 前缀。
-- **Ultracite**：改完 TS 跑 `pnpm fix` 再提交；对象字面量键**按字母序**排列（本仓库现有 DAO/组件均如此，新增字段务必保持字母序，否则 oxfmt 会重排）。
-- **后端测试命令**：`pnpm --filter @app/server test <文件名子串>`（DAO 测试需可连的 Postgres，`DATABASE_URL` 已在本地 env）。
-- **前端测试命令**：`pnpm --filter @app/web test <文件名子串>`。
-- **类型检查（project-wide）**：后端 `pnpm --filter @app/server typecheck`；前端 `pnpm --filter @app/web typecheck`。**注意 typecheck 是整包的**——引用未定义符号会失败，故"页面引用抽屉组件/回调"的接线只在组件已存在后进行（见任务顺序）。
+- **Ultracite**：改完 TS 跑 `bun run fix` 再提交；对象字面量键**按字母序**排列（本仓库现有 DAO/组件均如此，新增字段务必保持字母序，否则 oxfmt 会重排）。
+- **后端测试命令**：`bun run --filter @app/server test <文件名子串>`（DAO 测试需可连的 Postgres，`DATABASE_URL` 已在本地 env）。
+- **前端测试命令**：`bun run --filter @app/web test <文件名子串>`。
+- **类型检查（project-wide）**：后端 `bun run --filter @app/server typecheck`；前端 `bun run --filter @app/web typecheck`。**注意 typecheck 是整包的**——引用未定义符号会失败，故"页面引用抽屉组件/回调"的接线只在组件已存在后进行（见任务顺序）。
 - **日期跨线**：DAO 把 `Date` 列 `.toISOString()` 成 `string` 再返回（现有 `MailMessageLogRecord.receivedAt` 已如此）。
 - **不改既有 `/:id/messages` 行为**：其 `read` + owner-gated 校验与回归测试保持原样；但它与 managed 路由**共享 `listAccountMailMessages`**，故 Task 2 给该 DAO 加的 `errorMessage`（已截断）会同时出现在两端响应——这是加法变更，两端一致。
 - **`errorMessage` 后端脱敏**：截断到 `MAIL_MESSAGE_ERROR_DISPLAY_MAX = 300` 字 + 单行化（去换行），在 DAO 投影层完成，API 不返回无界原始错误。**不做**深度正则清洗（连接串/令牌），残留风险如实声明——该字段是 worker 已 `truncateError` 过的 IMAP/解析错误。
@@ -82,7 +82,7 @@ it("projects messageCount/problemCount/lastRun* on workspace rows", async () => 
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: FAIL —`row.messageCount` 为 `undefined`。
 
 - [ ] **Step 3: 扩展行类型**（dao.ts `WorkspaceMailIngestAccountRow`，字母序插入新键）
@@ -188,9 +188,9 @@ it("returns account===null member rows with messageCount 0", async () => {
 
 - [ ] **Step 8: mapper 带出后跑测试 + typecheck**
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: PASS（Step 1 与 Step 7 用例）。
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 Expected: 无错误（平台 mapper 因 Step 5 补列而类型自洽）。
 
 - [ ] **Step 9: 平台路径回归断言**（守住平台补列——防后续删列致 mapper 断裂）
@@ -210,7 +210,7 @@ it("platform rows also carry the new counts (mapper type parity)", async () => {
 }, 30_000);
 ```
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: PASS。
 
 - [ ] **Step 10: Commit**
@@ -263,7 +263,7 @@ it("projects errorMessage truncated + single-lined on failed rows", async () => 
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: FAIL —`records[0].errorMessage` 为 `undefined`。
 
 - [ ] **Step 3: 类型加字段**（`MailMessageLogRecord`，字母序——`errorMessage` 在 `boundJobDescriptionName` 与 `fromAddress` 之间）
@@ -298,9 +298,9 @@ function truncateErrorForDisplay(message: string | null): string | null {
 
 - [ ] **Step 6: 跑测试确认通过 + typecheck**
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: PASS。
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 Expected: 无错误。
 
 - [ ] **Step 7: Commit**
@@ -341,7 +341,7 @@ it("mailIngestAccountExistsInOrg: true same-org, false cross-org/missing", async
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: FAIL —导入报错 / `is not a function`。
 
 - [ ] **Step 3: 实现 DAO**
@@ -365,7 +365,7 @@ export async function mailIngestAccountExistsInOrg({
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test dao.test.ts`
+Run: `bun run --filter @app/server test dao.test.ts`
 Expected: PASS。
 
 - [ ] **Step 5: Commit**
@@ -427,7 +427,7 @@ it("managed messages: 404 when account not in org", async () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test route.test.ts`
+Run: `bun run --filter @app/server test route.test.ts`
 Expected: FAIL —路由未定义，`mailIngestAccountExistsInOrg` 未被调用。
 
 - [ ] **Step 3: 实现路由**（route.ts：`import { ..., mailIngestAccountExistsInOrg } from "./dao"`；在 `.patch("/managed/:id", ...)` 之后插入）
@@ -463,7 +463,7 @@ Expected: FAIL —路由未定义，`mailIngestAccountExistsInOrg` 未被调用�
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test route.test.ts`
+Run: `bun run --filter @app/server test route.test.ts`
 Expected: PASS。
 
 - [ ] **Step 5: 写真实中间件权限测试**（新建 `__tests__/route.permission.test.ts`——不 mock 权限模块，mock `auth.api.hasPermission` 驱动真实 `requirePermission`）
@@ -529,9 +529,9 @@ describe("managed messages permission (real middleware)", () => {
 
 - [ ] **Step 6: 跑权限测试 + typecheck**
 
-Run: `pnpm --filter @app/server test route.permission.test.ts`
+Run: `bun run --filter @app/server test route.permission.test.ts`
 Expected: PASS（403 与 200 各一）。
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 Expected: 无错误。
 
 - [ ] **Step 7: Commit**
@@ -610,7 +610,7 @@ describe("renderRunSummary", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/web test mail-ingest-log-drawer`
+Run: `bun run --filter @app/web test mail-ingest-log-drawer`
 Expected: FAIL —模块/导出不存在。
 
 - [ ] **Step 3: 建组件文件 — 类型 + 纯函数 + 外壳 + 小结**
@@ -725,11 +725,11 @@ export function MailIngestLogDrawer({
 
 - [ ] **Step 4: 跑测试通过 + typecheck + lint**
 
-Run: `pnpm --filter @app/web test mail-ingest-log-drawer`
+Run: `bun run --filter @app/web test mail-ingest-log-drawer`
 Expected: PASS。
-Run: `pnpm --filter @app/web typecheck`
+Run: `bun run --filter @app/web typecheck`
 Expected: 无错误。
-Run: `pnpm fix`
+Run: `bun run fix`
 
 - [ ] **Step 5: Commit**
 
@@ -790,7 +790,7 @@ describe("serializeDateRange", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/web test mail-ingest-log-drawer`
+Run: `bun run --filter @app/web test mail-ingest-log-drawer`
 Expected: FAIL —`serializeDateRange` 未导出 / 表未渲染。
 
 - [ ] **Step 3: 加导入 + 常量 + 类型 + serializeDateRange**（组件文件顶部）
@@ -1108,11 +1108,11 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
 
 - [ ] **Step 5: 跑测试通过 + typecheck + lint**
 
-Run: `pnpm --filter @app/web test mail-ingest-log-drawer`
+Run: `bun run --filter @app/web test mail-ingest-log-drawer`
 Expected: PASS（serializeDateRange + 表渲染/展开/空态）。
-Run: `pnpm --filter @app/web typecheck`
+Run: `bun run --filter @app/web typecheck`
 Expected: 无错误。
-Run: `pnpm fix`
+Run: `bun run fix`
 
 - [ ] **Step 6: Commit**
 
@@ -1249,10 +1249,10 @@ async function refresh() {
 
 - [ ] **Step 6: typecheck + lint + 前端测试**
 
-Run: `pnpm --filter @app/web typecheck`
+Run: `bun run --filter @app/web typecheck`
 Expected: 无错误（抽屉组件已存在，无未定义引用）。
-Run: `pnpm fix`
-Run: `pnpm --filter @app/web test mail-ingest-log-drawer`
+Run: `bun run fix`
+Run: `bun run --filter @app/web test mail-ingest-log-drawer`
 Expected: PASS。
 
 - [ ] **Step 7: 徽章 + 接线组件测试**（在 drawer test 里补：因徽章列在页面文件内联，测试可对**抽屉**层验证接线；徽章渲染逻辑抽一个小纯函数或在页面测试中覆盖。最小闭环——补以下断言）
@@ -1265,7 +1265,7 @@ Expected: PASS。
 //    一次 ["mail-ingest-messages", slug, account.id]（mock useQueryClient 断言调用）。
 ```
 
-Run: `pnpm --filter @app/web test mail-ingest-log-drawer`
+Run: `bun run --filter @app/web test mail-ingest-log-drawer`
 Expected: PASS。
 
 - [ ] **Step 8: Commit**
@@ -1280,10 +1280,10 @@ git commit -m "feat(mail-ingest): wire log drawer into account page with badge +
 ## 收尾验证
 
 - [ ] **性能联调**（spec 要求的性能门槛，无硬数值但须观察）：确认 `mail_ingest_message.account_id` 有索引（Plan A 应已建；`\d mail_ingest_message` 查）。在有代表性数据的库上对 `/managed` 列表底层查询跑 `EXPLAIN ANALYZE`，确认两个标量子查询走 `account_id` 索引而非顺序扫；若明显退化，记录并评估"一次 `group by account_id` 聚合后 join"替代。
-- [ ] **后端全量**：`pnpm --filter @app/server test mail-ingest` → 全绿。
-- [ ] **前端全量**：`pnpm --filter @app/web test mail-ingest-log-drawer` → 全绿。
+- [ ] **后端全量**：`bun run --filter @app/server test mail-ingest` → 全绿。
+- [ ] **前端全量**：`bun run --filter @app/web test mail-ingest-log-drawer` → 全绿。
 - [ ] **双端 typecheck**：两个 `typecheck` 命令均无错误。
-- [ ] **Lint**：`pnpm check` 无新增告警。
+- [ ] **Lint**：`bun run check` 无新增告警。
 - [ ] **手测**（可选）：本地起 web，工作区账号页——未配置成员行显示 `—`（不可点）；已配置账号点徽章 → 抽屉打开 → 上轮小结按启发式显示对应文案 → 逐封表可按状态/关键词/日期筛选、翻页、展开附件、看失败原因；`messageCount=0` 的账号仍能打开抽屉看 `lastError`；切换账号抽屉状态重置、不串数据。
 
 ## 残留风险 / 已知边界（如实声明）

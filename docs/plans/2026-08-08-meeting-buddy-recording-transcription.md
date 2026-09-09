@@ -568,9 +568,9 @@ Exit gate: unauthorized users cannot obtain metadata, transcript snippets, expor
 - DAO tests for one active capture, zero-or-one recruiting link, state compare-and-set and trash recovery.
 - Queue tests for duplicate delivery, retry after provider success/database failure, and recovery after process restart.
 - Export tests proving timestamps and speaker labels survive TXT/SRT/JSON generation.
-- `pnpm --filter @app/desktop typecheck`
+- `bun run --filter @app/desktop typecheck`
 - backend/worker/package focused typechecks and Vitest suites
-- root `pnpm check` with inherited failures explicitly separated from new failures
+- root `bun run check` with inherited failures explicitly separated from new failures
 - `git diff --check`
 
 ### Real macOS checks

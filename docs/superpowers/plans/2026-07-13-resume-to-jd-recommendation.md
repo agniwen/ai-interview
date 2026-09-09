@@ -19,7 +19,7 @@
 - 权限中间件用**内联位置参数**（`requirePermission("scope","action")` 串在路由链里），不是 `.use(...)`。
 - 后端 `src/server/` 与 `src/lib/server/` 不得 import web-app `@/` 或 TanStack Start 请求原语。
 - 所有 Date 列跨线前 `.toISOString()`；JSON 端点用 `c.json(data, <status>)` 显式状态码 + `zValidator(..., jsonValidatorError("..."))`。
-- 命令前缀：后端测试 `pnpm --filter @app/server test`；lint `pnpm fix`。
+- 命令前缀：后端测试 `bun run --filter @app/server test`；lint `bun run fix`。
 - Conventional commits；每个 Task 末尾提交一次。
 
 ---
@@ -56,7 +56,7 @@ describe("isSourceType", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test resume-vector-store`
+Run: `bun run --filter @app/server test resume-vector-store`
 Expected: FAIL（`isSourceType` 未导出，或返回 false）
 
 - [ ] **Step 3: 改联合类型** — `vector-store.ts:3`：
@@ -77,7 +77,7 @@ export function isSourceType(value: unknown): value is ResumeSemanticSourceType 
 
 - [ ] **Step 5: 跑测试确认通过 + 全量 typecheck**
 
-Run: `pnpm --filter @app/server test resume-vector-store && pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server test resume-vector-store && bun run --filter @app/server typecheck`
 Expected: PASS（typecheck 会暴露所有 `switch`/`Record<ResumeSemanticSourceType, ...>` 穷举点；若有编译错误，在对应位置补 `job_description` 分支——记录到本 Task 一并处理）
 
 - [ ] **Step 6: Commit**
@@ -143,7 +143,7 @@ describe("buildJobDescriptionSemanticTexts", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test text-builders`
+Run: `bun run --filter @app/server test text-builders`
 Expected: FAIL（`buildJobDescriptionSemanticTexts` 不存在）
 
 - [ ] **Step 3: 迁移实现到 text-builders.ts** — 把 `recommendations.ts:114-155` 的 `cleanText` / `section` / `buildJobRecommendationQueryTexts` 整段搬到 `text-builders.ts`，函数改名 `buildJobDescriptionSemanticTexts`，入参类型改名 `JobDescriptionSemanticInput` 并 `export`。若 `text-builders.ts` 已有同名 `cleanText`/`section`（`buildResumeSemanticTexts` 复用的），则不重复定义、直接用现有的。实现体逐字复制自 recommendations.ts（3 个 chunk 的 `section(...)` 结构照抄，见 ADR 复用清单）。
@@ -162,7 +162,7 @@ export type RecommendJobDescription = JobDescriptionSemanticInput;
 
 - [ ] **Step 5: 跑测试 + 现有 recommendations 测试确认无回归**
 
-Run: `pnpm --filter @app/server test text-builders recommendations`
+Run: `bun run --filter @app/server test text-builders recommendations`
 Expected: PASS（新测试通过，旧 `recommendations.test.ts` 不变仍绿）
 
 - [ ] **Step 6: Commit**
@@ -215,7 +215,7 @@ describe("hashJobDescriptionForSemanticIndex", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test jd-semantic/hash`
+Run: `bun run --filter @app/server test jd-semantic/hash`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现** — `hash.ts`：
@@ -241,7 +241,7 @@ export function hashJobDescriptionForSemanticIndex(jd: JobDescriptionSemanticInp
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test jd-semantic/hash`
+Run: `bun run --filter @app/server test jd-semantic/hash`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -284,7 +284,7 @@ describe("resumeSemanticIndexJobSchema", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/resume-parse-queue test resume-semantic-index`
+Run: `bun run --filter @app/resume-parse-queue test resume-semantic-index`
 Expected: FAIL（enum 拒绝 job_description）
 
 - [ ] **Step 3: 改 enum** — `resume-semantic-index.ts:18`：
@@ -295,7 +295,7 @@ sourceType: z.enum(["studio_interview", "resume_pool_item", "job_description"]),
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/resume-parse-queue test resume-semantic-index`
+Run: `bun run --filter @app/resume-parse-queue test resume-semantic-index`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -412,7 +412,7 @@ describe("runJdSemanticIndexJob", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test jd-semantic/indexer`
+Run: `bun run --filter @app/server test jd-semantic/indexer`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现 indexer.ts** — 结构逐段镜像 `resume-semantic/indexer.ts:176-244`（`runResumeSemanticIndexJob`）与 `:109-149`（`prepareResumeSemanticIndexJob`）。核心体：
@@ -546,7 +546,7 @@ export async function runJdSemanticIndexJob(
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test jd-semantic/indexer`
+Run: `bun run --filter @app/server test jd-semantic/indexer`
 Expected: PASS（4 个用例）
 
 - [ ] **Step 5: Commit**
@@ -612,7 +612,7 @@ describe("enqueueJobDescriptionIndexJobBestEffort", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test jd-semantic/enqueue`
+Run: `bun run --filter @app/server test jd-semantic/enqueue`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现 enqueue.ts**（逐字镜像 resume enqueue，dynamic import 惰性加载队列，`sourceType:"job_description"`，`prepareJdSemanticIndexJob` 决定是否入队，`enqueueResumeSemanticIndexJobs` 复用；catch 里 `console.warn("[jd-semantic-index] enqueue failed", { jobDescriptionId, reason })`）：
@@ -685,7 +685,7 @@ export async function deleteJobDescriptionSemanticIndexBestEffort(input: {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test jd-semantic/enqueue`
+Run: `bun run --filter @app/server test jd-semantic/enqueue`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -736,7 +736,7 @@ semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
 
 - [ ] **Step 2: typecheck 确认无错**
 
-Run: `pnpm --filter @app/worker typecheck`
+Run: `bun run --filter @app/worker typecheck`
 Expected: PASS（`payload.sourceType` 已含 `job_description`，`runJdSemanticIndexJob` 入参匹配）
 
 - [ ] **Step 3: Commit**
@@ -798,7 +798,7 @@ await deleteJobDescriptionSemanticIndexBestEffort({
 
 - [ ] **Step 5: 写钩子调用测试**（`.../job-descriptions/__tests__/index-hooks.test.ts`；testClient + `vi.mock` 掉 `jd-semantic/enqueue`，断言真实被调用，不用 typecheck 兜底）——三条：(1) POST 建 JD → `enqueueJobDescriptionIndexJobBestEffort` 被调用一次且 `{ jobDescriptionId: record.id, organizationId: activeOrg.id }`（校验 org id 正确、非他组织）；(2) PATCH 改 JD → 同样以正确 id+org 入队；(3) DELETE JD → `deleteJobDescriptionSemanticIndexBestEffort` 被调用一次（校验删除清理确实触发）。注意：钩子本身内部 try/catch 吞错、**永不抛**（A6 已验证），故路由只 `await` 它即安全、**不需要 route 层 catch**；因此本测试**不** mock 钩子抛错（那是不可达场景），"best-effort 不阻断 CRUD"由 A6 的吞错测试覆盖，不在此重复。
 
-Run: `pnpm --filter @app/server test job-descriptions && pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server test job-descriptions && bun run --filter @app/server typecheck`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -827,11 +827,11 @@ git commit -m "feat(jd-semantic): index JD on create/update, purge on delete"
   - target 简化为 `"all"`（JD 无 pool/studio 之分）。
   - 环境变量前缀改 `BACKFILL_JD_SEMANTIC_*`。
 
-- [ ] **Step 2: 注册可执行入口** — 在 backend `package.json` `scripts` 加 `"backfill:jd-semantic": "tsx src/scripts/backfill-jd-semantic-index.ts"`（镜像现有 `backfill:resume-semantic` 若有；runner 名以现有 resume 脚本的注册方式为准）。验收即 `pnpm --filter @app/server backfill:jd-semantic`（配好 env 后）跑通、日志出 `backfill_finished`。
+- [ ] **Step 2: 注册可执行入口** — 在 backend `package.json` `scripts` 加 `"backfill:jd-semantic": "tsx src/scripts/backfill-jd-semantic-index.ts"`（镜像现有 `backfill:resume-semantic` 若有；runner 名以现有 resume 脚本的注册方式为准）。验收即 `bun run --filter @app/server backfill:jd-semantic`（配好 env 后）跑通、日志出 `backfill_finished`。
 
 - [ ] **Step 3: 冒烟验证脚本可加载**（不实际连库）：
 
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -884,7 +884,7 @@ git commit -m "feat(jd-semantic): add backfill script for existing JDs"
 
 - [ ] **Step 2: typecheck**
 
-Run: `pnpm --filter @app/shared typecheck`
+Run: `bun run --filter @app/shared typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -937,7 +937,7 @@ git commit -m "feat(shared): add JobDescriptionRecommendation DTO for resume->JD
   1. 新建 `resume-semantic/scoring.ts`，从 `recommendations.ts:108-112/157-183` 迁入 `SEARCH_LIMIT_BY_CHUNK`、`VectorScores`、`mergeVectorScores`、`weightedScore`；`mergeVectorScores` 签名改 `(results, expectedSourceType)`，guard 用参数 `if (r.sourceType !== expectedSourceType) continue`。
   2. 写 `scoring.test.ts`：`mergeVectorScores` 按传入 sourceType 过滤（传 `"job_description"` 只并 JD 命中）、`weightedScore` 权重（0.9/0.8/0.7→82）。
   3. 改 `recommendations.ts`：删本地三段，import `scoring.ts`，调用处 `mergeVectorScores(results, "studio_interview")`。
-  4. 跑 `pnpm --filter @app/server test scoring recommendations` → **两者皆绿**（recommendations.test.ts 无回归 = 抽取正确的护栏）。
+  4. 跑 `bun run --filter @app/server test scoring recommendations` → **两者皆绿**（recommendations.test.ts 无回归 = 抽取正确的护栏）。
 
 - [ ] **Step 1: 写失败测试** — 镜像 `recommendations.test.ts` 的 `depsWith` 工厂，`searchSimilarResumes` 返回 `sourceType:"job_description"`。覆盖用例：
   1. 加权：per-chunk skill_role=0.9/work_project=0.8/resume_overview=0.7 → `score===82`；`status:"ready"`。
@@ -1068,7 +1068,7 @@ describe("recommendJobDescriptionsForResume", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test jd-recommendations`
+Run: `bun run --filter @app/server test jd-recommendations`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现 jd-recommendations.ts**：
@@ -1088,7 +1088,7 @@ Expected: FAIL（模块不存在）
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server test jd-recommendations`
+Run: `bun run --filter @app/server test jd-recommendations`
 Expected: PASS（全部用例）
 
 - [ ] **Step 5: Commit**
@@ -1127,7 +1127,7 @@ export const jdRecommendationBodySchema = z.object({
 
 - [ ] **Step 3: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server test recommendations/route`
+Run: `bun run --filter @app/server test recommendations/route`
 Expected: FAIL
 
 - [ ] **Step 4: 实现 route.ts**：
@@ -1186,7 +1186,7 @@ export const resumePoolRecommendationsRouter = factory
 
 - [ ] **Step 6: 跑测试确认通过 + typecheck（RPC 类型应自动出现）**
 
-Run: `pnpm --filter @app/server test recommendations/route && pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server test recommendations/route && bun run --filter @app/server typecheck`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -1251,12 +1251,12 @@ export function ResumePoolRecommendationsPanel({
 
 - [ ] **Step 2: 写状态测试** — `resume-pool-recommendations-panel.test.tsx`（React Testing Library + Vitest，mock `rpcFetch`）：分别断言 `disabled`→灰态文案、`indexing`→"处理中"文案、`ready`(有卡)→渲染 JD 名+分数+理由、`ready`(空+diagnostics)→"暂无合适岗位"/"暂无命中"、`bound=true`→组件返回 `null`（不渲染）。先写、跑 → 红。
 
-Run: `pnpm --filter @app/web test resume-pool-recommendations-panel`
+Run: `bun run --filter @app/web test resume-pool-recommendations-panel`
 Expected: FAIL → 补齐面板渲染分支后 PASS
 
 - [ ] **Step 3: lint/typecheck**
 
-Run: `pnpm --filter @app/web typecheck`
+Run: `bun run --filter @app/web typecheck`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -1291,7 +1291,7 @@ export const resumePoolBindSchema = z.object({
 
 - [ ] **Step 2: 写失败测试**（testClient）：绑定不存在 JD → 400；绑定他组织 JD → 400；成功 → 200 且返回 item.jobDescriptionId===目标；item 不存在 → 404；**已绑定的 pool item 再次 bind → 409**（条件更新 0 命中，落实 bind-once）。
 
-Run: `pnpm --filter @app/server test resume-pool`（新用例）
+Run: `bun run --filter @app/server test resume-pool`（新用例）
 Expected: FAIL
 
 - [ ] **Step 3: DAO** — `dao.ts` 加 `bindResumePoolItemJobDescription`：`db.transaction` 内 `update(resumePoolItem).set({ jobDescriptionId, updatedAt }).where(and(eq(id), eq(organizationId), isNull(resumePoolItem.jobDescriptionId)))` → 用返回的 `rowCount`/结果长度判断是否命中；命中才 `writeResumePoolEvent(tx, { type: "bound", ... })` 并返回 `true`，否则返回 `false`（已绑定）。事件类型：`resumePoolEvent.type` 列是 `text().$type<ResumePoolEventType>()`（**TS 联合类型、非 pg enum，故无需 DB 迁移**）。在 `@app/db-schema` 里 `ResumePoolEventType` 联合类型补 `"bound"`（纯类型改动），DAO 用 `type:"bound"`。若该联合有对应 Zod schema 也一并加。
@@ -1334,7 +1334,7 @@ Expected: FAIL
 
 - [ ] **Step 5: 跑测试确认通过 + typecheck**
 
-Run: `pnpm --filter @app/server test resume-pool && pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server test resume-pool && bun run --filter @app/server typecheck`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -1387,7 +1387,7 @@ void queryClient.invalidateQueries({ queryKey: ["resume-pool", slug] });
 
 - [ ] **Step 4: 跑前端测试 + typecheck**
 
-Run: `pnpm --filter @app/web test && pnpm --filter @app/web typecheck`
+Run: `bun run --filter @app/web test && bun run --filter @app/web typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1407,10 +1407,10 @@ git commit -m "feat(resume-pool): embed JD recommendations panel with one-click 
 
 - [ ] 前置：`.env` 配好 `RESUME_SEMANTIC_INDEX_ENABLED=1` + `QDRANT_URL` + embedding key + `DATABASE_URL` + Redis；启动 worker（`@app/worker`）。
 - [ ] **索引链路**：建一个 JD → 看 worker 日志出现 `job_description` 索引成功；Qdrant 查该 collection 有 `sourceType=job_description` 的点（`scroll` filter sourceType）。改 JD 的 description → 重新索引（hash 变）；改无关字段（不影响 hash 的）→ 跳过。删 JD → 点被删。
-- [ ] **回填**：对已有 JD 跑 `pnpm --filter @app/server backfill:jd-semantic`，日志 `backfill_finished`，Qdrant 出现存量 JD 点。
+- [ ] **回填**：对已有 JD 跑 `bun run --filter @app/server backfill:jd-semantic`，日志 `backfill_finished`，Qdrant 出现存量 JD 点。
 - [ ] **召回链路**：取一份已索引、未绑定的 pool item → `POST /:id/recommendations` → 返回 `ready` + Top-N JD；删掉其中一个 Top JD → 再次调用该 JD 掉出（存在性兜底）；对刚导入未索引的 pool item → 返回 `indexing` 且后台补索引任务入队。
 - [ ] **绑定链路**：`POST /:id/bind` → 回填成功、再次 bind 同一 item → 409；详情页面板绑定后收起。
-- [ ] 收尾：全仓 `pnpm fix` + `pnpm check`（Global Constraints 的 lint/format 门，集中在此跑一次避免延后暴露）。
+- [ ] 收尾：全仓 `bun run fix` + `bun run check`（Global Constraints 的 lint/format 门，集中在此跑一次避免延后暴露）。
 
 ---
 
