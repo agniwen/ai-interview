@@ -107,14 +107,16 @@ export function useStudioPersonDetailController({
     [onTabChange],
   );
 
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
+  const detailContextKey = JSON.stringify([defaultTab, mode, recordId, roundId]);
+  const [previousDetailContextKey, setPreviousDetailContextKey] = useState(detailContextKey);
+  if (previousDetailContextKey !== detailContextKey) {
+    setPreviousDetailContextKey(detailContextKey);
     setActiveTabState(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
     setHumanInterviewQuestionDialogOpen(false);
     setSelectedResultConversationId(null);
-  }, [defaultTab, mode, recordId, roundId]);
+  }
 
   useEffect(() => {
     tabContentRootRef.current?.scrollTo({ top: 0 });

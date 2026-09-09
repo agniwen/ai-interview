@@ -136,6 +136,24 @@ type ReviewProps = {
   renderShell?: (content: ReactNode, requestClose: () => void) => ReactNode;
 } & ({ inviteToken: string; basePath?: never } | { basePath: string; inviteToken?: never });
 
+function HumanMeetingReviewShell({
+  children,
+  renderShell,
+  requestClose,
+}: {
+  children: ReactNode;
+  renderShell: ReviewProps["renderShell"];
+  requestClose: () => void;
+}) {
+  return renderShell ? (
+    renderShell(children, requestClose)
+  ) : (
+    <div className="dark h-full overflow-y-auto bg-background p-4 text-foreground">
+      <div className="mx-auto max-w-5xl">{children}</div>
+    </div>
+  );
+}
+
 // eslint-disable-next-line complexity -- one review form serves both authenticated and invitation entrypoints.
 function HumanMeetingReviewForm({
   active,
@@ -233,16 +251,11 @@ function HumanMeetingReviewForm({
   }
 
   function wrap(content: ReactNode) {
-    const shell = renderShell ? (
-      renderShell(content, requestClose)
-    ) : (
-      <div className="dark h-full overflow-y-auto bg-background p-4 text-foreground">
-        <div className="mx-auto max-w-5xl">{content}</div>
-      </div>
-    );
     return (
       <>
-        {shell}
+        <HumanMeetingReviewShell renderShell={renderShell} requestClose={requestClose}>
+          {content}
+        </HumanMeetingReviewShell>
         <AlertDialog
           open={confirmDiscard || navigationBlocker.status === "blocked"}
           onOpenChange={(open) => {
