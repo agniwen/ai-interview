@@ -9,6 +9,26 @@ import { ScheduleRoundDialogView } from "./human-interview-stage-dialogs";
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
+const membersEndpoint = "/studio/workspace/members/options";
+
+// 弹窗挂载时会同时拉取候选人详情，所以只能按成员接口的 URL 统计刷新次数，
+// 不能按 fetch 的总调用次数断言。
+// The dialog also loads candidate detail on mount, so count refreshes by the
+// members endpoint URL instead of total fetch calls.
+function toRequestUrl(input: RequestInfo | URL): string {
+  if (input instanceof URL) {
+    return input.href;
+  }
+  if (input instanceof Request) {
+    return input.url;
+  }
+  return input;
+}
+
+function membersFetchCalls() {
+  return fetchMock.mock.calls.filter(([input]) => toRequestUrl(input).includes(membersEndpoint));
+}
+
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 Object.defineProperty(window, "matchMedia", {
@@ -28,6 +48,8 @@ const scheduleDependencies = { slug: "test-workspace" };
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  // 清除上一个用例设置的按 URL 路由实现，避免影响后续用例。
+  fetchMock.mockReset();
 });
 
 describe("ScheduleRoundDialog", () => {
@@ -41,21 +63,23 @@ describe("ScheduleRoundDialog", () => {
         feishuHumanInterviewEnabled: false,
         records: [],
       });
-      fetchMock.mockResolvedValue(
-        Response.json(
+      const membersPayload = {
+        feishuHumanInterviewEnabled: false,
+        records: [
           {
-            feishuHumanInterviewEnabled: false,
-            records: [
-              {
-                email: "new@example.com",
-                feishuProviderIds: ["feishu-jiguang-hr"],
-                id: "new-member",
-                image: null,
-                name: "新面试官",
-              },
-            ],
+            email: "new@example.com",
+            feishuProviderIds: ["feishu-jiguang-hr"],
+            id: "new-member",
+            image: null,
+            name: "新面试官",
           },
-          { status: 200 },
+        ],
+      };
+      fetchMock.mockImplementation((input: RequestInfo | URL) =>
+        Promise.resolve(
+          toRequestUrl(input).includes(membersEndpoint)
+            ? Response.json(membersPayload, { status: 200 })
+            : Response.json(null, { status: 404 }),
         ),
       );
       const host = document.createElement("div");
@@ -108,7 +132,7 @@ describe("ScheduleRoundDialog", () => {
         await Promise.resolve();
       });
 
-      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(membersFetchCalls()).toHaveLength(1));
       expect(queryClient.getQueryData(["workspace-members", "test-workspace"])).toEqual(
         expect.objectContaining({
           records: [expect.objectContaining({ id: "new-member", name: "新面试官" })],
