@@ -1,3 +1,5 @@
+import { authClient } from "@/lib/auth-client";
+import { resolveActiveWorkspace } from "@/lib/client/workspace";
 // oxlint-disable class-methods-use-this, prefer-await-to-callbacks, promise/avoid-new -- The stateless adapter implements the store interface and races the invoke ack against a bounded write timeout.
 import type {
   AppendLocalFragmentInput,
@@ -12,6 +14,25 @@ import type { LocalMeetingSession } from "../../../../preload/local-meeting-sess
 
 const WRITE_TIMEOUT_MS = 30_000;
 
+async function currentCaptureOwner() {
+  const [session, workspace] = await Promise.all([
+    authClient.getSession(),
+    resolveActiveWorkspace(),
+  ]);
+  if (!session.data?.user.id || !workspace) {
+    throw new Error("请先登录并选择工作区");
+  }
+  return {
+    accountId: session.data.user.id,
+    workspaceId: workspace.id,
+    workspaceSlug: workspace.slug,
+  };
+}
+async function legacyCaptureOwner(captureId: string) {
+  const status = await window.api.echoProcessing.status(captureId);
+  return status.state === "unbound" ? currentCaptureOwner() : undefined;
+}
+
 /**
  * 分片落盘走 ipcRenderer.invoke（与 begin/save 同一条桥接通道），而不是跨
  * window.postMessage → preload 转发 MessagePort 的握手链路——后者曾导致分片
@@ -23,8 +44,8 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
   acknowledgeRemoteVisibility(captureId: string): Promise<void> {
     return window.api.meetingCapture.acknowledgeRemoteVisibility(captureId);
   }
-  begin(input: BeginLocalCaptureInput): Promise<void> {
-    return window.api.meetingCapture.begin(input);
+  async begin(input: BeginLocalCaptureInput): Promise<void> {
+    return window.api.meetingCapture.begin({ ...input, owner: await currentCaptureOwner() });
   }
 
   append(input: AppendLocalFragmentInput, bytes: Uint8Array): Promise<void> {
@@ -76,12 +97,17 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     ]);
   }
 
-  save(
+  async save(
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
     liveSummary?: MeetingLiveSummarySnapshot | null,
   ): Promise<LocalSavedMeeting> {
-    return window.api.meetingCapture.save(captureId, liveTranscriptDraft, liveSummary);
+    return window.api.meetingCapture.save(
+      captureId,
+      liveTranscriptDraft,
+      liveSummary,
+      await legacyCaptureOwner(captureId),
+    );
   }
 
   discard(captureId: string): Promise<void> {
@@ -100,11 +126,15 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     return window.api.meetingCapture.recover();
   }
 
-  resumeInterrupted(
+  async resumeInterrupted(
     captureId: string,
     trackContentTypes: Record<"microphone" | "system", string>,
   ): Promise<void> {
-    return window.api.meetingCapture.resumeInterrupted(captureId, trackContentTypes);
+    return window.api.meetingCapture.resumeInterrupted(
+      captureId,
+      trackContentTypes,
+      await legacyCaptureOwner(captureId),
+    );
   }
 
   rollbackInterruptedResume(captureId: string): Promise<void> {

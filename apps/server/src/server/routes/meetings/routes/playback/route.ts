@@ -1,3 +1,4 @@
+import { echoDeviceRequired } from "../device/legacy-guard";
 import { factory } from "../../../../factory";
 import { createMeetingPlaybackAuthorization, retryMeetingPlayback } from "../../service";
 
@@ -31,6 +32,10 @@ export const meetingPlaybackRouter = factory
     const meetingId = c.req.param("id");
     if (!meetingId) {
       return c.json({ error: "Meeting Session 不存在" }, 404);
+    }
+    const deviceRequired = await echoDeviceRequired(c);
+    if (deviceRequired) {
+      return deviceRequired;
     }
     const result = await retryMeetingPlayback({
       meetingId,

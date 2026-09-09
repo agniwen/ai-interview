@@ -1,3 +1,4 @@
+import { echoProcessingOwner, hasEchoProcessing, retryEchoProcessing } from "./echo-processing";
 import type {
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
@@ -210,17 +211,9 @@ export function renameMeeting(
 }
 
 export async function purgeMeeting(slug: string, meetingId: string): Promise<null> {
-  // localRecoveryCleanup 只描述当前设备的清理结果；服务端仍会协调其他设备和持久化对象的清扫。
-  // localRecoveryCleanup reports this device only; server purge still coordinates other devices and durable objects.
-  let localRecoveryCleanup = "deleted";
-  try {
-    await window.api.meetingCapture.discard(meetingId);
-  } catch {
-    localRecoveryCleanup = "failed";
-  }
-  const query = new URLSearchParams({ localRecoveryCleanup });
-  const path = `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}?${query.toString()}`;
-  return apiJson<null>(apiUrl(path), "永久清除会议失败", { method: "DELETE" });
+  const owner = await echoProcessingOwner(slug);
+  await window.api.echoProcessing.purge({ ...owner, meetingId });
+  return null;
 }
 
 export function searchMeetings(
@@ -257,8 +250,7 @@ export function retryMeetingPlayback(
   slug: string,
   meetingId: string,
 ): Promise<{ state: "processing" | "ready" }> {
-  const path = `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}/playback/retry`;
-  return apiJson(apiUrl(path), "重试会议录音处理失败", { method: "POST" });
+  return retryEchoProcessing(slug, meetingId);
 }
 
 export function fetchMeetingRecruitingContext(
@@ -358,63 +350,80 @@ export function createMeetingQuestionThread(
   );
 }
 
-export function fetchMeetingQuestionThread(
+export async function fetchMeetingQuestionThread(
   slug: string,
   meetingId: string,
   threadId: string,
 ): Promise<MeetingQuestionThread> {
-  return apiJson(
+  const thread = await apiJson<MeetingQuestionThread>(
     apiUrl(
       `${meetingSubresourcePath(slug, meetingId, "questions")}/${encodeURIComponent(threadId)}`,
     ),
     "加载会议提问内容失败",
   );
+  if (!hasEchoProcessing()) {
+    return thread;
+  }
+  const owner = await echoProcessingOwner(slug);
+  const local = await window.api.echoProcessing.localQuestions({
+    accountId: owner.accountId,
+    meetingId,
+    threadId,
+  });
+  const byRequest = new Map(thread.exchanges.map((exchange) => [exchange.requestId, exchange]));
+  for (const exchange of local) {
+    const remote = byRequest.get(exchange.requestId);
+    if (remote?.status !== "ready") {
+      byRequest.set(exchange.requestId, {
+        ...exchange,
+        sequence: remote?.sequence ?? exchange.sequence,
+      });
+    }
+  }
+  return {
+    ...thread,
+    exchanges: [...byRequest.values()].toSorted((left, right) =>
+      left.createdAt.localeCompare(right.createdAt),
+    ),
+  };
 }
 
-export function askMeetingQuestion(
+export async function askMeetingQuestion(
   slug: string,
   meetingId: string,
   threadId: string,
   input: CreateMeetingQuestion,
 ): Promise<MeetingQuestionExchange> {
-  return apiJson(
-    apiUrl(
-      `${meetingSubresourcePath(slug, meetingId, "questions")}/${encodeURIComponent(threadId)}/messages`,
-    ),
-    "提交会议问题失败",
-    {
-      body: JSON.stringify(input),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
+  const owner = await echoProcessingOwner(slug);
+  await window.api.echoProcessing.question({ ...owner, meetingId, threadId, ...input });
+  return {
+    answer: null,
+    answeredAt: null,
+    createdAt: new Date().toISOString(),
+    error: null,
+    id: input.requestId,
+    question: input.question,
+    requestId: input.requestId,
+    sequence: 0,
+    status: "pending",
+  };
 }
 
-export function regenerateMeetingIntelligence(
+export async function regenerateMeetingIntelligence(
   slug: string,
   meetingId: string,
   template: MeetingIntelligenceTemplate,
 ): Promise<{ state: "processing" }> {
-  return apiJson(
-    apiUrl(meetingSubresourcePath(slug, meetingId, "intelligence")),
-    "重新生成 Meeting Intelligence 失败",
-    {
-      body: JSON.stringify({ template }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
+  const owner = await echoProcessingOwner(slug);
+  await window.api.echoProcessing.regenerate({ ...owner, meetingId, template });
+  return { state: "processing" };
 }
 
 export function retryMeetingTranscript(
   slug: string,
   meetingId: string,
 ): Promise<{ state: "processing" | "ready" }> {
-  return apiJson(
-    apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/retry`),
-    "重新生成最终会议转录失败",
-    { method: "POST" },
-  );
+  return retryEchoProcessing(slug, meetingId);
 }
 
 export function fetchMeetingTranscriptHistory(

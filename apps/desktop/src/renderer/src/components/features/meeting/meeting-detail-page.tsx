@@ -1,3 +1,9 @@
+import {
+  EchoProcessingPanel,
+  useEchoLocalProcessing,
+  localTranscriptResult,
+} from "./echo-processing-panel";
+import { hasEchoProcessing } from "@/lib/client/echo-processing";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -309,7 +315,7 @@ function MeetingDetailHeader({
           <Icon icon="ph:warning-circle" />
           <AlertTitle>{sessionStatusAlertTitle(status.id)}</AlertTitle>
           <AlertDescription>{status.label}</AlertDescription>
-          {canRetry && status.retryLabel ? (
+          {hasEchoProcessing() && canRetry && status.retryLabel ? (
             <AlertAction>
               <AlertActionButton disabled={isRetryPending()} onClick={retry}>
                 {retryButtonLabel()}
@@ -358,6 +364,7 @@ export function MeetingDetailPage({
   });
   const workspace = workspaceQuery.data;
   const workspaceSlug = workspace?.slug ?? "";
+  const localProcessing = useEchoLocalProcessing(workspaceSlug, meetingId, !isActiveCapture);
   const detailQuery = useQuery({
     enabled: Boolean(workspace) && !isActiveCapture,
     queryFn: () => fetchMeetingDetail(workspaceSlug, meetingId),
@@ -564,7 +571,17 @@ export function MeetingDetailPage({
   const remoteLiveDraft = transcriptQuery.data?.draft
     ? storedDraftSnapshot(meetingId, transcriptQuery.data.draft, "saved-local")
     : null;
-  const completedSummary = meeting?.liveSummary ?? localSession?.liveSummary ?? null;
+  const pendingLocalSummary = localProcessing.data?.status.tasks.some(
+    (task) =>
+      (task.kind === "sync-intelligence" || task.kind === "sync-regeneration") &&
+      task.state !== "succeeded",
+  );
+  const completedSummary =
+    (pendingLocalSummary ? localProcessing.data?.results.liveSummary : null) ??
+    meeting?.liveSummary ??
+    localProcessing.data?.results.liveSummary ??
+    localSession?.liveSummary ??
+    null;
   const isCompletedSession = Boolean(
     meeting ||
     (localSession && !["recording", "paused", "interrupted"].includes(localSession.state)),
@@ -584,7 +601,14 @@ export function MeetingDetailPage({
     uploadLabel,
   });
   let completedTranscript: ReactNode = <MeetingLocalTranscriptStage localDraft={localDraft} />;
-  if (remoteLiveDraft) {
+  if (!transcriptQuery.data?.revision && localProcessing.data?.results.transcript) {
+    completedTranscript = (
+      <MeetingTranscriptStage
+        result={localTranscriptResult(localProcessing.data.results.transcript)}
+        speakerScopeId={meetingId}
+      />
+    );
+  } else if (remoteLiveDraft) {
     completedTranscript = <LiveTranscriptDraftPanel embedded snapshot={remoteLiveDraft} />;
   } else if (meeting) {
     completedTranscript = (
@@ -604,7 +628,7 @@ export function MeetingDetailPage({
           summaryState={meeting?.summaryState}
           retrying={retrySummaryMutation.isPending}
           onRetrySummary={
-            meeting && canRetryMeetingProcessing(meeting.accessRole)
+            meeting && hasEchoProcessing() && canRetryMeetingProcessing(meeting.accessRole)
               ? () => retrySummaryMutation.mutate()
               : undefined
           }
@@ -658,7 +682,16 @@ export function MeetingDetailPage({
                 isInterruptedSession && localDraft ? (
                   <LiveTranscriptDraftPanel snapshot={localDraft} />
                 ) : (
-                  content
+                  <>
+                    <div className="mx-auto mb-3 w-full max-w-3xl px-4 sm:px-6">
+                      <EchoProcessingPanel
+                        slug={workspaceSlug}
+                        meetingId={meetingId}
+                        accessRole={meeting?.accessRole}
+                      />
+                    </div>
+                    {content}
+                  </>
                 )
               }
               scrollFade={isCompletedSession}

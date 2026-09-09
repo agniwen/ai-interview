@@ -176,90 +176,112 @@ describe("Meeting capacity leases", () => {
     await expect(claimMeetingLiveTranscriptLease(second)).resolves.toBe("created");
   });
 
-  it("promotes a Deepgram live draft while verifying sources", async () => {
-    const meetingId = `${NS}_deepgram`;
-    await createOrLoadMeetingSession({
-      assets: assets(meetingId),
-      meeting: {
-        ...meeting(meetingId),
-        liveTranscriptDraft: {
-          capturedAt: "2026-08-09T08:00:05.000Z",
-          droppedAudioMs: 0,
-          droppedPcmFrames: 0,
-          error: null,
-          language: "zh-CN",
-          model: "nova-3",
-          provider: "deepgram",
-          sections: [
-            {
-              id: "system-1",
-              sequence: 0,
-              startedAt: "2026-08-09T08:00:01.000Z",
-              track: "system",
-            },
-          ],
-          turns: [
-            {
-              endMs: 900,
-              final: true,
-              id: "system-1:turn-1",
-              sectionId: "system-1",
-              speakerKey: "deepgram-speaker-0",
-              startMs: 100,
-              text: "这段实时转录会直接成为正式版本",
-              track: "system",
-            },
-          ],
+  it.each(["device", "worker"] as const)(
+    "promotes Deepgram only for Worker; Echo retains the draft (%s)",
+    async (processingOwner) => {
+      const meetingId = `${NS}_deepgram`;
+      await createOrLoadMeetingSession({
+        assets: assets(meetingId),
+        meeting: {
+          ...meeting(meetingId),
+          liveTranscriptDraft: {
+            capturedAt: "2026-08-09T08:00:05.000Z",
+            droppedAudioMs: 0,
+            droppedPcmFrames: 0,
+            error: null,
+            language: "zh-CN",
+            model: "nova-3",
+            provider: "deepgram",
+            sections: [
+              {
+                id: "system-1",
+                sequence: 0,
+                startedAt: "2026-08-09T08:00:01.000Z",
+                track: "system",
+              },
+            ],
+            turns: [
+              {
+                endMs: 900,
+                final: true,
+                id: "system-1:turn-1",
+                sectionId: "system-1",
+                speakerKey: "deepgram-speaker-0",
+                startMs: 100,
+                text: "这段实时转录会直接成为正式版本",
+                track: "system",
+              },
+            ],
+          },
         },
-      },
-    });
+      });
 
-    await markMeetingSessionVerified({
-      meetingId,
-      organizationId: ORGANIZATION_ID,
-      ownerId: OWNER_ID,
-    });
+      if (processingOwner === "worker") {
+        await db
+          .update(meetingSession)
+          .set({ processingOwner })
+          .where(eq(meetingSession.id, meetingId));
+      }
+      await markMeetingSessionVerified({
+        meetingId,
+        organizationId: ORGANIZATION_ID,
+        ownerId: OWNER_ID,
+      });
 
-    const savedMeeting = await db.query.meetingSession.findFirst({ where: { id: meetingId } });
-    const revisions = await db
-      .select()
-      .from(meetingTranscriptRevision)
-      .where(eq(meetingTranscriptRevision.meetingId, meetingId));
-    const turns = await db
-      .select()
-      .from(meetingTranscriptTurn)
-      .where(eq(meetingTranscriptTurn.revisionId, revisions[0]?.id ?? "missing"));
-    const runs = await db
-      .select()
-      .from(meetingProcessingRun)
-      .where(eq(meetingProcessingRun.meetingId, meetingId));
+      const savedMeeting = await db.query.meetingSession.findFirst({ where: { id: meetingId } });
+      const revisions = await db
+        .select()
+        .from(meetingTranscriptRevision)
+        .where(eq(meetingTranscriptRevision.meetingId, meetingId));
+      const turns = await db
+        .select()
+        .from(meetingTranscriptTurn)
+        .where(eq(meetingTranscriptTurn.revisionId, revisions[0]?.id ?? "missing"));
+      const runs = await db
+        .select()
+        .from(meetingProcessingRun)
+        .where(eq(meetingProcessingRun.meetingId, meetingId));
 
-    expect(savedMeeting).toMatchObject({
-      activeTranscriptRevisionId: revisions[0]?.id,
-      status: "processing",
-      transcriptionStatus: "ready",
-    });
-    expect(revisions).toHaveLength(1);
-    expect(revisions[0]).toMatchObject({
-      model: "nova-3",
-      pipelineVersion: "deepgram-live-v1",
-      provider: "deepgram",
-    });
-    expect(turns).toEqual([
-      expect.objectContaining({
-        endMs: 1900,
-        speakerKey: "remote-1",
-        startMs: 1100,
-        text: "这段实时转录会直接成为正式版本",
-        track: "remote",
-      }),
-    ]);
-    expect(runs).toEqual([
-      expect.objectContaining({
+      if (processingOwner === "device") {
+        expect(savedMeeting).toMatchObject({
+          activeTranscriptRevisionId: null,
+          processingOwner: "device",
+          status: "processing",
+          transcriptionStatus: "pending",
+        });
+        expect(savedMeeting?.liveTranscriptDraft).toBeTruthy();
+        expect(revisions).toEqual([]);
+        expect(turns).toEqual([]);
+        expect(runs).toEqual([]);
+        return;
+      }
+      expect(savedMeeting).toMatchObject({
+        activeTranscriptRevisionId: revisions[0]?.id,
+        status: "processing",
+        transcriptionStatus: "ready",
+      });
+      expect(revisions).toHaveLength(1);
+      expect(revisions[0]).toMatchObject({
+        model: "nova-3",
+        pipelineVersion: "deepgram-live-v1",
         provider: "deepgram",
-        stage: "final-transcription",
-        status: "succeeded",
-      }),
-    ]);
-  });
+      });
+      expect(turns).toEqual([
+        expect.objectContaining({
+          endMs: 1900,
+          speakerKey: "remote-1",
+          startMs: 1100,
+          text: "这段实时转录会直接成为正式版本",
+          track: "remote",
+        }),
+      ]);
+      expect(runs).toEqual([
+        expect.objectContaining({
+          provider: "deepgram",
+          stage: "final-transcription",
+          status: "succeeded",
+        }),
+      ]);
+    },
+  );
 });

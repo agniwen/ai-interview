@@ -75,6 +75,7 @@
     "electron",
     "electron-winstaller",
     "esbuild",
+    "ffmpeg-static",
     "lefthook",
     "protobufjs",
     "sharp"

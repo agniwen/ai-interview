@@ -1,3 +1,4 @@
+import type { EchoProcessingOwner } from "./echo-processing-api";
 // oxlint-disable max-lines, promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
 import type {
   MeetingLiveTranscriptDraft,
@@ -158,6 +159,7 @@ export interface MeetingCaptureSource {
 }
 
 export interface BeginLocalCaptureInput {
+  owner?: EchoProcessingOwner;
   captureId: string;
   recruitingRecordId: string | null;
   startedAt: string;
@@ -329,7 +331,6 @@ export function createMeetingCapture({
   const pendingFragments = new Set<Promise<void>>();
   const listeners = new Set<(next: MeetingCaptureSnapshot) => void>();
   const workspaceOperations = new Map<string, Promise<void>>();
-  const recoveryCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const reportSavedMetric = (saved: LocalSavedMeeting): void => {
     diagnostics({
@@ -394,58 +395,6 @@ export function createMeetingCapture({
         },
       ],
     });
-  };
-
-  const clearRecoveryCleanup = (captureId: string) => {
-    const timer = recoveryCleanupTimers.get(captureId);
-    if (timer) {
-      clearTimeout(timer);
-      recoveryCleanupTimers.delete(captureId);
-    }
-  };
-
-  const reportRecoveryCopyCleanup = async (
-    captureId: string,
-    manifestSha256: string,
-    status: "deleted" | "failed",
-  ): Promise<void> => {
-    try {
-      await workspace?.reportRecoveryCopyCleanup?.(captureId, manifestSha256, status);
-    } catch (reportError) {
-      console.warn("[meeting-capture] local recovery cleanup report failed", {
-        errorName: reportError instanceof Error ? reportError.name : "UnknownError",
-      });
-    }
-  };
-
-  const scheduleRecoveryCleanup = (captureId: string, deadline: string): void => {
-    clearRecoveryCleanup(captureId);
-    const remainingMs = Date.parse(deadline) - now().getTime();
-    const delayMs = Math.max(0, Math.min(remainingMs, 2_147_000_000));
-    const timer = setTimeout(() => {
-      recoveryCleanupTimers.delete(captureId);
-      if (remainingMs > delayMs) {
-        scheduleRecoveryCleanup(captureId, deadline);
-        return;
-      }
-      void store
-        .discard(captureId)
-        .then(() => {
-          patch({
-            phase: snapshot.active ? snapshot.phase : "idle",
-            recoverable: snapshot.recoverable.filter((item) => item.captureId !== captureId),
-            saved: snapshot.saved?.captureId === captureId ? null : snapshot.saved,
-            workspaceSaves: snapshot.workspaceSaves.filter((item) => item.captureId !== captureId),
-          });
-        })
-        .catch((error) => {
-          patch({
-            error:
-              error instanceof Error ? error.message : "Local Recording Recovery Copy 自动清理失败",
-          });
-        });
-    }, delayMs);
-    recoveryCleanupTimers.set(captureId, timer);
   };
 
   const persistToWorkspace = (saved: LocalSavedMeeting): void => {
@@ -600,9 +549,6 @@ export function createMeetingCapture({
       patch({ recoverable: retained, recoveryComplete: true });
       await refreshLocalSessions();
       for (const capture of retained) {
-        if (capture.recoveryCopyDeleteAfter) {
-          scheduleRecoveryCleanup(capture.captureId, capture.recoveryCopyDeleteAfter);
-        }
         if (capture.status === "saved-local" && !capture.recoveryCopyDeleteAfter) {
           persistToWorkspace(await store.save(capture.captureId));
         }
@@ -769,7 +715,6 @@ export function createMeetingCapture({
       try {
         await store.discard(captureId);
         await refreshLocalSessions();
-        clearRecoveryCleanup(captureId);
       } catch {
         // Best effort when begin did not reach durable spool creation.
       }
@@ -1125,14 +1070,7 @@ export function createMeetingCapture({
 
   return {
     acknowledgeRemoteVisibility: async (captureId) => {
-      const manifestSha256 =
-        snapshot.saved?.captureId === captureId
-          ? snapshot.saved.manifestSha256
-          : snapshot.recoverable.find((item) => item.captureId === captureId)?.manifestSha256;
       await store.acknowledgeRemoteVisibility?.(captureId);
-      if (manifestSha256) {
-        await reportRecoveryCopyCleanup(captureId, manifestSha256, "deleted");
-      }
       await refreshLocalSessions();
       patch({
         phase: snapshot.active ? snapshot.phase : "idle",

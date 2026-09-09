@@ -14,7 +14,6 @@ import type {
 import { cn } from "@app/shared/utils";
 import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import type { CapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
-import { formatAppDateTime } from "@/lib/client/datetime";
 
 const HEALTH_LABEL = {
   checking: "检测中",
@@ -31,10 +30,6 @@ function formatElapsed(milliseconds: number): string {
   const remainingSeconds = seconds % 60;
   const parts = hours > 0 ? [hours, minutes, remainingSeconds] : [minutes, remainingSeconds];
   return parts.map((value) => String(value).padStart(2, "0")).join(":");
-}
-
-function formatRecoveryDeadline(value: string): string {
-  return formatAppDateTime(value);
 }
 
 export function useElapsed(active?: ActiveMeetingCapture | null) {
@@ -246,7 +241,7 @@ function localSaveDescription(
     return workspaceSave.error;
   }
   if (workspaceSave?.state === "workspace-verified" && workspaceSave.recoveryCopyDeleteAfter) {
-    return `双轨源音频已验证；本地 Recovery Copy 将在 ${formatRecoveryDeadline(workspaceSave.recoveryCopyDeleteAfter)} 后自动清理。`;
+    return "双轨源音频已验证并同步，本地录音和处理结果继续保留。";
   }
   return copy?.description ?? "双轨清单和保存意图已冻结，尚未保存到工作区。";
 }

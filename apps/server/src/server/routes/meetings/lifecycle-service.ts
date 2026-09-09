@@ -123,7 +123,7 @@ export async function permanentlyPurgeSavedMeeting(
     }
     throw error;
   });
-  if (result.state === "purging") {
+  if (result.state === "purging" && result.processingOwner !== "device") {
     await enqueueMeetingPurgeBestEffort(
       {
         meetingId: input.meetingId,

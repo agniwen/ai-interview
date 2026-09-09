@@ -343,6 +343,9 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const saveRecording = useCallback(async (captureId?: string) => {
     try {
+      if (captureId) {
+        await window.api.echoProcessing.retry(captureId);
+      }
       await meetingCapture.save({ captureId });
       toast.success("双轨录音已安全保存到本地");
     } catch (error) {

@@ -37,20 +37,26 @@ export interface MeetingPurgeClaimResult {
   storageKeys: string[];
 }
 
-export function createMeetingPurgeDao(db: Database) {
+export function createMeetingPurgeDao(
+  db: Database,
+  processingOwner: "worker" | "device" = "worker",
+) {
   function listRecoverableMeetingPurgeJobs(now = new Date()): Promise<MeetingPurgeJobData[]> {
     return db
       .select({ meetingId: meetingSession.id, organizationId: meetingSession.organizationId })
       .from(meetingSession)
       .where(
-        or(
-          and(eq(meetingSession.status, "trashed"), lte(meetingSession.purgeAfter, now)),
-          and(
-            eq(meetingSession.status, "purging"),
-            lte(meetingSession.purgeAfter, now),
-            or(
-              isNull(meetingSession.purgeLeaseExpiresAt),
-              lte(meetingSession.purgeLeaseExpiresAt, now),
+        and(
+          eq(meetingSession.processingOwner, processingOwner),
+          or(
+            and(eq(meetingSession.status, "trashed"), lte(meetingSession.purgeAfter, now)),
+            and(
+              eq(meetingSession.status, "purging"),
+              lte(meetingSession.purgeAfter, now),
+              or(
+                isNull(meetingSession.purgeLeaseExpiresAt),
+                lte(meetingSession.purgeLeaseExpiresAt, now),
+              ),
             ),
           ),
         ),
@@ -75,6 +81,7 @@ export function createMeetingPurgeDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, processingOwner),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
           ),
@@ -215,6 +222,7 @@ export function createMeetingPurgeDao(db: Database) {
       .set({ purgeAfter: now, purgeClaimToken: null, purgeLeaseExpiresAt: null })
       .where(
         and(
+          eq(meetingSession.processingOwner, processingOwner),
           eq(meetingSession.id, input.meetingId),
           eq(meetingSession.organizationId, input.organizationId),
           eq(meetingSession.status, "purging"),
@@ -243,6 +251,7 @@ export function createMeetingPurgeDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, processingOwner),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.status, "purging"),
@@ -346,6 +355,7 @@ export function createMeetingPurgeDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, processingOwner),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.status, "purging"),
@@ -399,6 +409,7 @@ export function createMeetingPurgeDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, processingOwner),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.status, "purging"),
@@ -482,6 +493,7 @@ export function createMeetingPurgeDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, processingOwner),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.status, "purging"),

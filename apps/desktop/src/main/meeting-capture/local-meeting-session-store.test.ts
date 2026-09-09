@@ -140,7 +140,7 @@ describe("LocalMeetingSessionStore", () => {
     });
   });
 
-  it("retains a verified row until explicit remote visibility acknowledgement", async () => {
+  it("retains a verified row after remote visibility acknowledgement", async () => {
     const store = await createStore();
     store.create({
       id: SESSION_ID,
@@ -152,7 +152,7 @@ describe("LocalMeetingSessionStore", () => {
 
     expect(store.list()).toHaveLength(1);
     store.acknowledgeRemoteVisibility(SESSION_ID);
-    expect(store.list()).toHaveLength(0);
+    expect(store.list()).toHaveLength(1);
     store.close();
   });
 });

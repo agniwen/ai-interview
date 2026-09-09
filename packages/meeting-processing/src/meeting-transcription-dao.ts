@@ -151,6 +151,7 @@ export function createMeetingTranscriptionDao(
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.transcriptionStatus, "processing"),
             isNotNull(meetingSession.transcriptionRunId),
@@ -167,6 +168,7 @@ export function createMeetingTranscriptionDao(
         })
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.transcriptionStatus, "processing"),
           ),
@@ -243,6 +245,7 @@ export function createMeetingTranscriptionDao(
       where: {
         id: input.meetingId,
         organizationId: input.organizationId,
+        processingOwner: "worker",
         status: "ready",
         transcriptionStatus: {
           in: input.allowTerminalStatus
@@ -296,6 +299,7 @@ export function createMeetingTranscriptionDao(
       where: {
         id: input.meetingId,
         organizationId: input.organizationId,
+        processingOwner: "worker",
         transcriptionStatus: "ready",
       },
     });
@@ -304,7 +308,11 @@ export function createMeetingTranscriptionDao(
 
   async function listRecoverableMeetingTranscriptionJobs(): Promise<MeetingTranscriptionJobData[]> {
     const meetings = await db.query.meetingSession.findMany({
-      where: { status: "ready", transcriptionStatus: { in: ["pending", "processing"] } },
+      where: {
+        processingOwner: "worker",
+        status: "ready",
+        transcriptionStatus: { in: ["pending", "processing"] },
+      },
       with: { assets: true },
     });
     const organizationIds = [...new Set(meetings.map((meeting) => meeting.organizationId))];
@@ -364,6 +372,7 @@ export function createMeetingTranscriptionDao(
       where: {
         id: input.meetingId,
         organizationId: input.organizationId,
+        processingOwner: "worker",
         status: "ready",
       },
       with: { assets: true },
@@ -437,6 +446,7 @@ export function createMeetingTranscriptionDao(
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
           ),
@@ -596,6 +606,7 @@ export function createMeetingTranscriptionDao(
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.status, "ready"),
@@ -693,6 +704,7 @@ export function createMeetingTranscriptionDao(
         })
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             eq(meetingSession.transcriptionRunId, input.processingRunId),
@@ -751,6 +763,7 @@ export function createMeetingTranscriptionDao(
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
           ),
@@ -825,6 +838,7 @@ export function createMeetingTranscriptionDao(
         .set({ transcriptionError: null, transcriptionStatus: "pending" })
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, input.meetingId),
             eq(meetingSession.organizationId, input.organizationId),
             inArray(meetingSession.transcriptionStatus, ["failed", "ready"]),
@@ -859,6 +873,7 @@ export function createMeetingTranscriptionDao(
       })
       .where(
         and(
+          eq(meetingSession.processingOwner, "worker"),
           eq(meetingSession.id, input.meetingId),
           eq(meetingSession.organizationId, input.organizationId),
           eq(meetingSession.transcriptionStatus, "pending"),

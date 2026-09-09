@@ -1,7 +1,7 @@
 // oxlint-disable max-lines, promise/prefer-await-to-then -- The per-capture promise chain is the serialization primitive.
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { mkdir, open, readFile, readdir, rm, stat, unlink } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, rm, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import type { JsonValue } from "@app/db-schema/json";
 import type {
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
+  MeetingSourceAssetInput,
   MultipartMeetingUploadInstruction,
   MultipartSavedMeetingDescriptor,
   SmallMeetingUploadInstruction,
@@ -24,7 +25,7 @@ import {
   uploadMeetingObject,
   uploadLocalMeetingMultipart,
 } from "./local-meeting-multipart";
-import type { MeetingObjectUploader } from "./local-meeting-multipart";
+import type { MeetingObjectUploader, MeetingObjectUploadOptions } from "./local-meeting-multipart";
 import type {
   AppendLocalFragmentInput,
   BeginLocalCaptureInput,
@@ -45,7 +46,6 @@ interface LocalMeetingRecordingStoreOptions {
   allowedUploadOrigin?: string;
   migrationsFolder?: string;
   multipartPartSizeBytes?: number;
-  now?: () => Date;
   putObject?: MeetingObjectUploader;
   sessionStore?: LocalMeetingSessionStore;
 }
@@ -215,7 +215,6 @@ function savedMeeting(manifest: StoredManifest): LocalSavedMeeting {
 export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   private readonly allowedUploadOrigin: URL | null;
   private readonly multipartPartSizeBytes: number;
-  private readonly now: () => Date;
   private readonly operations = new Map<string, Promise<unknown>>();
   private readonly putObject: MeetingObjectUploader;
   private readonly root: string;
@@ -237,7 +236,6 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     if (!(Number.isSafeInteger(this.multipartPartSizeBytes) && this.multipartPartSizeBytes > 0)) {
       throw new Error("multipart part 大小必须是正整数");
     }
-    this.now = options.now ?? (() => new Date());
     this.putObject = options.putObject ?? uploadMeetingObject;
     this.root = root;
     mkdirSync(root, { mode: 0o700, recursive: true });
@@ -579,9 +577,42 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     };
   }
 
+  async materializeProcessingSources(captureId: string, directory: string, signal?: AbortSignal) {
+    const descriptor = await this.describeWorkspaceSave(captureId);
+    await mkdir(directory, { mode: 0o700, recursive: true });
+    const sources: (MeetingSourceAssetInput & { filePath: string })[] = [];
+    for (const asset of descriptor.assets) {
+      const filePath = join(directory, `${asset.track}-source.webm`);
+      const temporaryPath = `${filePath}.partial`;
+      const file = await open(temporaryPath, "w", 0o600);
+      const reader = this.trackStream(captureId, asset.track).getReader();
+      const hash = createHash("sha256");
+      try {
+        let chunk = await reader.read();
+        while (!chunk.done) {
+          signal?.throwIfAborted();
+          hash.update(chunk.value);
+          await file.writeFile(chunk.value);
+          chunk = await reader.read();
+        }
+        await file.sync();
+      } finally {
+        reader.releaseLock();
+        await file.close();
+      }
+      if (hash.digest("hex") !== asset.sha256) {
+        throw new Error("本地音轨完整性校验失败，原始录音已保留");
+      }
+      await rename(temporaryPath, filePath);
+      sources.push({ ...asset, filePath });
+    }
+    return { descriptor, sources };
+  }
+
   async uploadSmall(
     captureId: string,
     instructions: SmallMeetingUploadInstruction[],
+    options: MeetingObjectUploadOptions = {},
   ): Promise<void> {
     const descriptor = await this.describeWorkspaceSave(captureId);
     if (instructions.length !== 2) {
@@ -622,6 +653,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           throw new Error(`${asset.track} 上传签名完整性信息不匹配`);
         }
         return this.putObject({
+          ...options,
           createBody: () => this.trackStream(captureId, asset.track),
           headers: expectedHeaders,
           sizeBytes: asset.sizeBytes,
@@ -647,6 +679,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   async uploadMultipart(
     captureId: string,
     instructions: MultipartMeetingUploadInstruction[],
+    options: MeetingObjectUploadOptions = {},
   ): Promise<void> {
     const descriptor = await this.describeMultipartWorkspaceSave(captureId);
     const manifest = await this.readManifest(captureId);
@@ -657,6 +690,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       instructions,
       isAllowedUploadUrl: (url) => this.isAllowedUploadUrl(url),
       putObject: this.putObject,
+      uploadOptions: options,
     });
   }
 
@@ -762,6 +796,49 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     });
   }
 
+  async releaseAudio(captureId: string): Promise<void> {
+    await this.enqueue(captureId, async () => {
+      const manifest = await this.readManifest(captureId);
+      if (await this.isAudioReleased(captureId, manifest.manifestSha256)) {
+        await rm(join(this.captureDirectory(captureId), "fragments"), {
+          force: true,
+          recursive: true,
+        });
+        return;
+      }
+      const intent = await this.verifySavedManifestAndIntent(manifest);
+      if (intent.status !== "workspace-verified") {
+        throw new Error("源音频尚未通过云端校验");
+      }
+      await atomicWrite(
+        join(this.captureDirectory(captureId), "audio-release.json"),
+        jsonBytes({ manifestSha256: intent.manifestSha256 }),
+      );
+      await rm(join(this.captureDirectory(captureId), "fragments"), {
+        force: true,
+        recursive: true,
+      });
+    });
+  }
+
+  private async isAudioReleased(captureId: string, manifestSha256?: string): Promise<boolean> {
+    try {
+      const release = z
+        .object({ manifestSha256: z.string() })
+        .parse(
+          JSON.parse(
+            await readFile(join(this.captureDirectory(captureId), "audio-release.json"), "utf-8"),
+          ),
+        );
+      return release.manifestSha256 === manifestSha256;
+    } catch (error) {
+      if (isErrnoException(error) && error.code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async discard(captureId: string): Promise<void> {
     assertCaptureId(captureId);
     await this.enqueue(captureId, async () => {
@@ -845,11 +922,11 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     });
   }
 
-  async acknowledgeRemoteVisibility(captureId: string): Promise<void> {
-    if (this.sessionStore.get(captureId)?.state !== "workspace-verified") {
-      return;
-    }
-    await this.discard(captureId);
+  acknowledgeRemoteVisibility(captureId: string): Promise<void> {
+    // Visibility is a UI handoff, never evidence that local processing is complete.
+    assertCaptureId(captureId);
+    this.sessionStore.acknowledgeRemoteVisibility(captureId);
+    return Promise.resolve();
   }
 
   listLocalSessions(): LocalMeetingSession[] {
@@ -914,6 +991,9 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         await this.enqueue(entry.name, async () => {
           const manifest = await this.readManifest(entry.name);
           this.ensureLocalSession(manifest);
+          if (await this.isAudioReleased(manifest.captureId, manifest.manifestSha256)) {
+            return;
+          }
           const verification = await this.verifiedPrefix(manifest);
           if (manifest.status === "recording" || manifest.status === "interrupted") {
             const wasRecording = manifest.status === "recording";
@@ -927,19 +1007,6 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           }
           if (manifest.status === "saved-local") {
             const intent = await this.verifySavedManifestAndIntent(manifest);
-            if (
-              intent.status === "workspace-verified" &&
-              intent.recoveryCopyDeleteAfter &&
-              Date.parse(intent.recoveryCopyDeleteAfter) <= this.now().getTime()
-            ) {
-              await rm(this.captureDirectory(manifest.captureId), {
-                force: true,
-                recursive: true,
-              });
-              this.sessionStore.delete(manifest.captureId);
-              await this.releaseActiveLock(manifest.captureId);
-              return;
-            }
             this.sessionStore.update(manifest.captureId, {
               endedAt: manifest.endedAt,
               liveSummary: this.currentSummary(manifest),

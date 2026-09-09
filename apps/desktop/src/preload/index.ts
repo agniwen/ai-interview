@@ -1,3 +1,4 @@
+import type { EchoProcessingApi } from "./echo-processing-api";
 import { electronAPI } from "@electron-toolkit/preload";
 import { contextBridge, ipcRenderer } from "electron";
 import type { AuthApi } from "./auth-api";
@@ -55,12 +56,12 @@ const meetingCaptureApi: MeetingCaptureApi = {
       recoveryCopyDeleteAfter,
     ),
   recover: () => ipcRenderer.invoke("meeting-capture:recover"),
-  resumeInterrupted: (captureId, trackContentTypes) =>
-    ipcRenderer.invoke("meeting-capture:resume-interrupted", captureId, trackContentTypes),
+  resumeInterrupted: (captureId, trackContentTypes, owner) =>
+    ipcRenderer.invoke("meeting-capture:resume-interrupted", captureId, trackContentTypes, owner),
   rollbackInterruptedResume: (captureId) =>
     ipcRenderer.invoke("meeting-capture:rollback-interrupted-resume", captureId),
-  save: (captureId, liveTranscriptDraft, liveSummary) =>
-    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft, liveSummary),
+  save: (captureId, liveTranscriptDraft, liveSummary, owner) =>
+    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft, liveSummary, owner),
   updateLocalSession: (captureId, patch) =>
     ipcRenderer.invoke("meeting-capture:update-local-session", captureId, patch),
   uploadMultipart: (captureId, instructions) =>
@@ -73,9 +74,25 @@ const meetingPlaybackApi: MeetingPlaybackApi = {
   readAudioBytes: (url) => ipcRenderer.invoke("meeting-playback:read-audio-bytes", url),
 };
 
+const echoProcessingApi: EchoProcessingApi = {
+  adopt: (input) => ipcRenderer.invoke("echo-processing:adopt", input),
+  context: (input) => ipcRenderer.invoke("echo-processing:context", input),
+  localQuestions: (input) => ipcRenderer.invoke("echo-processing:local-questions", input),
+  localResults: (meetingId, accountId) =>
+    ipcRenderer.invoke("echo-processing:local-results", meetingId, accountId),
+  purge: (input) => ipcRenderer.invoke("echo-processing:purge", input),
+  question: (input) => ipcRenderer.invoke("echo-processing:question", input),
+  regenerate: (input) => ipcRenderer.invoke("echo-processing:regenerate", input),
+  releaseAudio: (meetingId) => ipcRenderer.invoke("echo-processing:release-audio", meetingId),
+  retry: (meetingId) => ipcRenderer.invoke("echo-processing:retry", meetingId),
+  status: (meetingId, accountId) =>
+    ipcRenderer.invoke("echo-processing:status", meetingId, accountId),
+};
+
 const api = {
   auth: authApi,
   download: downloadApi,
+  echoProcessing: echoProcessingApi,
   meetingCapture: meetingCaptureApi,
   meetingPlayback: meetingPlaybackApi,
   window: windowApi,

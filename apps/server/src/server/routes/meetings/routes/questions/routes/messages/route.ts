@@ -1,3 +1,4 @@
+import { echoDeviceRequired } from "../../../device/legacy-guard";
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import { factory, jsonValidatorError } from "../../../../../../factory";
@@ -47,6 +48,10 @@ export function createMeetingQuestionMessagesRouter(
       const threadId = c.req.param("threadId");
       if (!(meetingId && threadId)) {
         return c.json({ error: "Meeting Question thread 不存在" }, 404);
+      }
+      const deviceRequired = await echoDeviceRequired(c);
+      if (deviceRequired) {
+        return deviceRequired;
       }
       const result = await dependencies.askMeetingQuestion({
         ...c.req.valid("json"),

@@ -476,8 +476,8 @@ The source audio captured locally during a meeting session and persisted to the 
 _Avoid_: Meeting recording, transcript, meeting session, summary
 
 **Local Recording Recovery Copy**:
-The temporary local copy retained until a server-verified recording becomes visible in the workspace, then removed after the local-to-online handoff.
-_Avoid_: Unsaved recording, server recording, permanent local archive
+The local source audio retained until required processing completes and its cloud data is verified. It remains recoverable across application exits; releasing synchronized audio is an explicit user action.
+_Avoid_: Unsaved recording, completed upload, automatically discarded cache
 
 **Live Transcript Draft**:
 The provisional transcript shown while a meeting session is still being captured. It may change during or after the meeting and is not the authoritative meeting record.

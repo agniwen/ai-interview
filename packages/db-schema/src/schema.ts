@@ -357,7 +357,13 @@ export const meetingSession = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    processingAccountId: text("processing_account_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    processingDeviceId: text("processing_device_id"),
+    processingEpoch: integer("processing_epoch").notNull().default(1),
     processingError: text("processing_error"),
+    processingOwner: text("processing_owner").notNull().default("worker"),
     processingRunId: text("processing_run_id"),
     purgeAfter: timestamp("purge_after", { withTimezone: true }),
     purgeClaimToken: text("purge_claim_token"),
@@ -388,6 +394,11 @@ export const meetingSession = pgTable(
     visibility: text("visibility").default("restricted").notNull(),
   },
   (table) => [
+    check(
+      "meeting_session_processing_owner_check",
+      sql`${table.processingOwner} in ('worker', 'device')`,
+    ),
+    check("meeting_session_processing_epoch_check", sql`${table.processingEpoch} > 0`),
     check(
       "meeting_session_visibility_check",
       sql`${table.visibility} in ('restricted', 'workspace')`,
@@ -649,6 +660,34 @@ export const meetingProcessingRun = pgTable(
       table.meetingId,
       table.organizationId,
     ),
+  ],
+);
+
+/** Request receipts provide idempotency; devices own scheduling and retries. */
+export const meetingDeviceRequest = pgTable(
+  "meeting_device_request",
+  {
+    accountId: text("account_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    attemptToken: text("attempt_token"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    deviceId: text("device_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    requestHash: text("request_hash").notNull(),
+    result: jsonb("result").$type<unknown>(),
+    status: text("status").notNull().default("pending"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("meeting_device_request_meeting_idx").on(table.meetingId),
+    check("meeting_device_request_status_check", sql`${table.status} in ('pending', 'complete')`),
   ],
 );
 

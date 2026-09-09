@@ -19,7 +19,6 @@ import type {
   WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
 import { cn } from "@app/shared/utils";
-import { formatAppDateTimeShort } from "@/lib/client/datetime";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";
 import { createDeferredInboxDiscard } from "./inbox-deferred-discard";
@@ -64,20 +63,16 @@ function InboxActionButton({
   );
 }
 
-function formatRecoveryDeadline(value: string): string {
-  return formatAppDateTimeShort(value);
-}
-
 function recoveryTitle(capture: RecoverableMeetingCapture): string {
   if (capture.status === "interrupted") {
     return "中断录音";
   }
-  return capture.recoveryCopyDeleteAfter ? "Recovery Copy" : "待上传";
+  return capture.recoveryCopyDeleteAfter ? "本地副本" : "待上传";
 }
 
 function recoveryMeta(capture: RecoverableMeetingCapture): string {
   if (capture.recoveryCopyDeleteAfter) {
-    return `${formatRecoveryDeadline(capture.recoveryCopyDeleteAfter)} 清理`;
+    return "源音频已同步，本地继续保留";
   }
   const micSec = Math.floor(capture.tracks.microphone.committedThroughMs / 1000);
   const sysSec = Math.floor(capture.tracks.system.committedThroughMs / 1000);
@@ -164,9 +159,7 @@ function InboxSavedRow({
   const title = workspaceSave ? WORKSPACE_SAVE_TITLE[workspaceSave.state] : "本地保存";
   const meta =
     workspaceSave?.error?.trim() ||
-    (workspaceSave?.recoveryCopyDeleteAfter
-      ? `${formatRecoveryDeadline(workspaceSave.recoveryCopyDeleteAfter)} 清理`
-      : "待同步");
+    (workspaceSave?.recoveryCopyDeleteAfter ? "源音频已同步，本地继续保留" : "待同步");
 
   return (
     <InboxRowShell

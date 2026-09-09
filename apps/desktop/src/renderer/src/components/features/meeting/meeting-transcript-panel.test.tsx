@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as processingBridge from "@/lib/client/echo-processing";
 import type { MeetingTranscriptResult } from "@app/shared/meeting-transcription";
 import {
   canCorrectMeetingTranscript,
@@ -56,7 +57,12 @@ const readyTranscript: MeetingTranscriptResult = {
 };
 
 describe("Final Meeting Transcript panel", () => {
-  it("keeps the retranscription action visible in the panel header", () => {
+  beforeEach(() => {
+    vi.spyOn(processingBridge, "hasEchoProcessing").mockReturnValue(true);
+  });
+  afterEach(() => vi.restoreAllMocks());
+  it.each([true, false])("shows the retry action only in Echo (native=%s)", (native) => {
+    vi.mocked(processingBridge.hasEchoProcessing).mockReturnValue(native);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
     });
@@ -74,9 +80,13 @@ describe("Final Meeting Transcript panel", () => {
     const actionIndex = html.indexOf(">重新转录</button>");
     const panelIndex = html.indexOf('data-slot="scroll-area"');
 
-    expect(actionIndex).toBeGreaterThan(-1);
-    expect(actionIndex).toBeLessThan(panelIndex);
-    expect(html).toContain("disabled");
+    if (native) {
+      expect(actionIndex).toBeGreaterThan(-1);
+      expect(actionIndex).toBeLessThan(panelIndex);
+      expect(html).toContain("disabled");
+    } else {
+      expect(actionIndex).toBe(-1);
+    }
   });
 
   it("hides retranscription for a promoted Deepgram live transcript", () => {

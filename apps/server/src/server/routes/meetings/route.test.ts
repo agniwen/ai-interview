@@ -60,6 +60,7 @@ const createInput = {
   ],
   id: MEETING_ID,
   manifestSha256: MANIFEST_SHA,
+  processingOwnership: { accountId: "user-72", deviceId: "00000000-0000-4000-8000-000000000073" },
   savedAt: "2026-08-09T02:01:00.000Z",
   startedAt: "2026-08-09T02:00:00.000Z",
 };
@@ -354,7 +355,10 @@ describe("Echo small Saved Meeting control plane", () => {
       ],
     });
 
-    const response = await client.meetings.$post({ json: createInput });
+    const response = await client.meetings.$post(
+      { json: createInput },
+      { headers: { "X-Echo-Workspace-Id": "org-72" } },
+    );
 
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({
@@ -389,7 +393,10 @@ describe("Echo small Saved Meeting control plane", () => {
       message: "Meeting Session 已绑定另一份本地录音清单",
     });
 
-    const response = await client.meetings.$post({ json: createInput });
+    const response = await client.meetings.$post(
+      { json: createInput },
+      { headers: { "X-Echo-Workspace-Id": "org-72" } },
+    );
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
@@ -404,7 +411,10 @@ describe("Echo small Saved Meeting control plane", () => {
       message: "录音上传容量已满，本地 Meeting Recording 已保留",
     });
 
-    const response = await client.meetings.$post({ json: createInput });
+    const response = await client.meetings.$post(
+      { json: createInput },
+      { headers: { "X-Echo-Workspace-Id": "org-72" } },
+    );
 
     expect(await response.json()).toEqual({
       code: "meeting-upload-capacity-exhausted",
@@ -453,7 +463,10 @@ describe("Echo small Saved Meeting control plane", () => {
       ],
     });
 
-    const response = await client.meetings.multipart.$post({ json: multipartInput });
+    const response = await client.meetings.multipart.$post(
+      { json: multipartInput },
+      { headers: { "X-Echo-Workspace-Id": "org-72" } },
+    );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({

@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { TrashedMeetingItem } from "@app/shared/meeting-recording";
@@ -248,6 +249,7 @@ export function MeetingTrashView({ slug }: { slug: string }) {
     mutationFn: (meetingId: string) => purgeMeeting(slug, meetingId),
     onSuccess: async () => {
       setConfirmPurgeId(null);
+      toast.success("已加入永久清理，Echo 会在后台继续");
       await invalidate();
     },
   });

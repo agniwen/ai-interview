@@ -11,6 +11,7 @@ files:
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
 asarUnpack:
   - resources/**
+  - "**/ffmpeg-static/ffmpeg*"
 extraResources:
   - from: drizzle-local
     to: desktop-db-migrations

@@ -58,6 +58,9 @@ export interface MeetingServiceUser {
 }
 
 export interface MeetingServiceSession {
+  processingOwner?: string;
+  processingDeviceId?: string | null;
+  processingAccountId?: string | null;
   assets: MeetingServiceAsset[];
   id: string;
   liveSummary?: unknown;

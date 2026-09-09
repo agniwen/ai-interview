@@ -11,13 +11,13 @@ export function createDesktopConfig(_mode: string) {
     main: {
       build: {
         externalizeDeps: {
-          exclude: ["@app/meeting-live-transcript"],
+          exclude: ["@app/shared", "@app/meeting-live-transcript", "@app/meeting-media"],
         },
       },
       envDir: desktopRoot,
       envPrefix: ["VITE_", "SENTRY_DESKTOP_DSN", "SENTRY_DSN", "SENTRY_RELEASE"],
     },
-    preload: { envDir: desktopRoot },
+    preload: { build: { externalizeDeps: { exclude: ["@app/shared"] } }, envDir: desktopRoot },
     renderer: {
       build: {
         // AudioWorklet modules must remain same-origin files under the packaged renderer CSP.

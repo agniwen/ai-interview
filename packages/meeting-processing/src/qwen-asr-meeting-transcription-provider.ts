@@ -151,9 +151,74 @@ function assertDashScopeResultUrl(url: string): string {
   return url;
 }
 
+function mapQwenTranscriptResult(
+  result: z.infer<typeof transcriptionResultSchema>,
+  chunk: FinalTranscriptionAudioChunk,
+  remoteSpeakers: Map<string, string>,
+): CanonicalMeetingTranscriptTurn[] {
+  const turns: CanonicalMeetingTranscriptTurn[] = [];
+  for (const transcript of result.transcripts ?? []) {
+    for (const sentence of transcript.sentences ?? []) {
+      const text = sentence.text.trim();
+      if (!text) {
+        continue;
+      }
+      const startMs = Math.max(chunk.startMs, chunk.startMs + sentence.begin_time);
+      const endMs = Math.min(chunk.endMs, chunk.startMs + sentence.end_time);
+      if (endMs <= startMs) {
+        continue;
+      }
+      const local = chunk.track === "microphone";
+      const candidate = chunk.track === "candidate";
+      if (!(local || candidate)) {
+        const identity = `${chunk.index}:${sentence.speaker_id ?? 0}`;
+        if (!remoteSpeakers.has(identity)) {
+          remoteSpeakers.set(identity, `remote-${remoteSpeakers.size + 1}`);
+        }
+      }
+      let speakerKey = "remote-1";
+      let track: "local" | "remote" = "remote";
+      if (local) {
+        speakerKey = "local";
+        track = "local";
+      } else if (!candidate) {
+        speakerKey = remoteSpeakers.get(`${chunk.index}:${sentence.speaker_id ?? 0}`) ?? "remote-1";
+      }
+      const turn: CanonicalMeetingTranscriptTurn = {
+        confidence: null,
+        endMs,
+        speakerKey,
+        startMs,
+        text,
+        track,
+      };
+      if (candidate && chunk.speakerDisplayName) {
+        turn.speakerDisplayName = chunk.speakerDisplayName;
+      }
+      turns.push(turn);
+    }
+  }
+  return turns;
+}
+
+export interface QwenAsrTaskClient {
+  submitTask: (input: {
+    audioUrl: string;
+    chunk: FinalTranscriptionAudioChunk;
+    signal: AbortSignal;
+    recognitionHints?: MeetingRecognitionHints;
+  }) => Promise<string>;
+  readTask: (input: {
+    chunk: FinalTranscriptionAudioChunk;
+    languageHint: string | null;
+    signal: AbortSignal;
+    taskId: string;
+  }) => Promise<{ state: "pending" } | { state: "ready"; transcript: CanonicalMeetingTranscript }>;
+}
+
 export function createQwenAsrMeetingTranscriptionProvider(
   dependencies: QwenAsrMeetingTranscriptionDependencies,
-): MeetingTranscriptionProvider {
+): MeetingTranscriptionProvider & QwenAsrTaskClient {
   const fetch = dependencies.fetch ?? globalThis.fetch;
   const origin = qwenAsrOrigin(dependencies.baseUrl ?? "https://dashscope.aliyuncs.com");
   const pollIntervalMs = dependencies.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
@@ -229,51 +294,63 @@ export function createQwenAsrMeetingTranscriptionProvider(
     return parsed.output.task_id;
   }
 
+  async function pollTaskOnce(input: {
+    signal: AbortSignal;
+    taskId: string;
+  }): Promise<{ state: "pending" } | { state: "ready"; url: string | null }> {
+    const response = await fetch(`${origin}/api/v1/tasks/${input.taskId}`, {
+      headers: authHeaders(),
+      method: "GET",
+      signal: input.signal,
+    });
+    if (response.status === 429) {
+      throw new MeetingProviderQuotaError();
+    }
+    if (!response.ok) {
+      throw new Error(`Qwen ASR task query failed with HTTP ${response.status}`);
+    }
+    let parsed: z.infer<typeof pollTaskResponseSchema>;
+    try {
+      parsed = pollTaskResponseSchema.parse(await response.json());
+    } catch {
+      throw new MeetingProviderResponseError("malformed-response", "Qwen ASR");
+    }
+    if (parsed.output.task_status === "SUCCEEDED") {
+      const transcriptionUrl =
+        parsed.output.result?.transcription_url ??
+        (parsed.output.results ?? []).find((result) => result.subtask_status !== "FAILED")
+          ?.transcription_url;
+      if (!transcriptionUrl) {
+        const failure = (parsed.output.results ?? []).find(
+          (result) => result.subtask_status === "FAILED",
+        );
+        throw new MeetingProviderResponseError(
+          "partial-result",
+          `Qwen ASR ${failure?.code ?? "subtask"}`,
+        );
+      }
+      return { state: "ready", url: transcriptionUrl };
+    }
+    if (parsed.output.task_status === "FAILED" || parsed.output.task_status === "CANCELED") {
+      if (parsed.output.code === "SUCCESS_WITH_NO_VALID_FRAGMENT") {
+        return { state: "ready", url: null };
+      }
+      throw new MeetingProviderResponseError(
+        "partial-result",
+        "Qwen ASR",
+        [parsed.output.code, parsed.output.message].filter(Boolean).join(": "),
+      );
+    }
+
+    return { state: "pending" };
+  }
+
   async function pollTask(input: { signal: AbortSignal; taskId: string }): Promise<string | null> {
     const deadline = Date.now() + pollTimeoutMs;
     while (Date.now() < deadline) {
-      const response = await fetch(`${origin}/api/v1/tasks/${input.taskId}`, {
-        headers: authHeaders(),
-        method: "GET",
-        signal: input.signal,
-      });
-      if (response.status === 429) {
-        throw new MeetingProviderQuotaError();
-      }
-      if (!response.ok) {
-        throw new Error(`Qwen ASR task query failed with HTTP ${response.status}`);
-      }
-      let parsed: z.infer<typeof pollTaskResponseSchema>;
-      try {
-        parsed = pollTaskResponseSchema.parse(await response.json());
-      } catch {
-        throw new MeetingProviderResponseError("malformed-response", "Qwen ASR");
-      }
-      if (parsed.output.task_status === "SUCCEEDED") {
-        const transcriptionUrl =
-          parsed.output.result?.transcription_url ??
-          (parsed.output.results ?? []).find((result) => result.subtask_status !== "FAILED")
-            ?.transcription_url;
-        if (!transcriptionUrl) {
-          const failure = (parsed.output.results ?? []).find(
-            (result) => result.subtask_status === "FAILED",
-          );
-          throw new MeetingProviderResponseError(
-            "partial-result",
-            `Qwen ASR ${failure?.code ?? "subtask"}`,
-          );
-        }
-        return transcriptionUrl;
-      }
-      if (parsed.output.task_status === "FAILED" || parsed.output.task_status === "CANCELED") {
-        if (parsed.output.code === "SUCCESS_WITH_NO_VALID_FRAGMENT") {
-          return null;
-        }
-        throw new MeetingProviderResponseError(
-          "partial-result",
-          "Qwen ASR",
-          [parsed.output.code, parsed.output.message].filter(Boolean).join(": "),
-        );
+      const result = await pollTaskOnce(input);
+      if (result.state === "ready") {
+        return result.url;
       }
       await delay(pollIntervalMs, undefined, { signal: input.signal });
     }
@@ -298,6 +375,24 @@ export function createQwenAsrMeetingTranscriptionProvider(
   }
 
   return {
+    readTask: async (input) => {
+      const result = await pollTaskOnce(input);
+      if (result.state === "pending") {
+        return result;
+      }
+      const turns = result.url
+        ? mapQwenTranscriptResult(
+            await fetchResult({ signal: input.signal, url: result.url }),
+            input.chunk,
+            new Map(),
+          )
+        : [];
+      return {
+        state: "ready",
+        transcript: canonicalMeetingTranscriptSchema.parse({ language: input.languageHint, turns }),
+      };
+    },
+    submitTask,
     // oxlint-disable-next-line complexity -- provider polling, response validation, and speaker mapping share one ordered transcript pass.
     async transcribeFinal(input): Promise<CanonicalMeetingTranscript> {
       if (!dependencies.apiKey.trim()) {
@@ -325,48 +420,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
             continue;
           }
           const result = await fetchResult({ signal, url: resultUrl });
-          for (const transcript of result.transcripts ?? []) {
-            for (const sentence of transcript.sentences ?? []) {
-              const text = sentence.text.trim();
-              if (!text) {
-                continue;
-              }
-              const startMs = Math.max(chunk.startMs, chunk.startMs + sentence.begin_time);
-              const endMs = Math.min(chunk.endMs, chunk.startMs + sentence.end_time);
-              if (endMs <= startMs) {
-                continue;
-              }
-              const local = chunk.track === "microphone";
-              const candidate = chunk.track === "candidate";
-              if (!(local || candidate)) {
-                const identity = `${chunk.index}:${sentence.speaker_id ?? 0}`;
-                if (!remoteSpeakers.has(identity)) {
-                  remoteSpeakers.set(identity, `remote-${remoteSpeakers.size + 1}`);
-                }
-              }
-              let speakerKey = "remote-1";
-              let track: "local" | "remote" = "remote";
-              if (local) {
-                speakerKey = "local";
-                track = "local";
-              } else if (!candidate) {
-                speakerKey =
-                  remoteSpeakers.get(`${chunk.index}:${sentence.speaker_id ?? 0}`) ?? "remote-1";
-              }
-              const turn: CanonicalMeetingTranscriptTurn = {
-                confidence: null,
-                endMs,
-                speakerKey,
-                startMs,
-                text,
-                track,
-              };
-              if (candidate && chunk.speakerDisplayName) {
-                turn.speakerDisplayName = chunk.speakerDisplayName;
-              }
-              turns.push(turn);
-            }
-          }
+          turns.push(...mapQwenTranscriptResult(result, chunk, remoteSpeakers));
         } finally {
           if (dependencies.deleteAudioUrl) {
             try {

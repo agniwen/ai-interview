@@ -105,9 +105,8 @@ export class LocalMeetingSessionStore {
   }
 
   acknowledgeRemoteVisibility(id: string): void {
-    this.database.sqlite
-      .prepare("DELETE FROM local_meeting_session WHERE id = ? AND state = 'workspace-verified'")
-      .run(id);
+    // Keep the durable index and local text after upload. Explicit deletion owns removal.
+    this.get(id);
   }
 
   close(): void {

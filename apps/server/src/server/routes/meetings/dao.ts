@@ -105,6 +105,7 @@ export async function markMeetingSessionVerified(input: {
         activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
         liveTranscriptDraft: meetingSession.liveTranscriptDraft,
         manifestSha256: meetingSession.manifestSha256,
+        processingOwner: meetingSession.processingOwner,
         startedAt: meetingSession.startedAt,
       })
       .from(meetingSession)
@@ -127,7 +128,12 @@ export async function markMeetingSessionVerified(input: {
     let promotedRevisionId: string | null = null;
     const draft = meetingLiveTranscriptDraftSchema.safeParse(meeting.liveTranscriptDraft);
     let unusableDeepgramDraft = false;
-    if (draft.success && draft.data.provider === "deepgram" && draft.data.model) {
+    if (
+      meeting.processingOwner === "worker" &&
+      draft.success &&
+      draft.data.provider === "deepgram" &&
+      draft.data.model
+    ) {
       const [existing] = await tx
         .select({ id: meetingTranscriptRevision.id })
         .from(meetingTranscriptRevision)

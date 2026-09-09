@@ -1,3 +1,4 @@
+import { echoDeviceRequired } from "../device/legacy-guard";
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requestMeetingIntelligenceSchema } from "@app/shared/meeting-intelligence";
@@ -40,6 +41,10 @@ export const meetingIntelligenceRouter = factory
       const meetingId = c.req.param("id");
       if (!meetingId) {
         return c.json({ error: "Meeting Session 不存在" }, 404);
+      }
+      const deviceRequired = await echoDeviceRequired(c);
+      if (deviceRequired) {
+        return deviceRequired;
       }
       const result = await regenerateSavedMeetingIntelligence({
         meetingId,

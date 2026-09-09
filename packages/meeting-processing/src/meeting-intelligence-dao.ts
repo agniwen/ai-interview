@@ -85,6 +85,7 @@ export function createMeetingIntelligenceDao(db: Database) {
           .from(meetingSession)
           .where(
             and(
+              eq(meetingSession.processingOwner, "worker"),
               eq(meetingSession.id, input.meetingId),
               eq(meetingSession.organizationId, input.organizationId),
             ),
@@ -337,6 +338,7 @@ export function createMeetingIntelligenceDao(db: Database) {
           .from(meetingSession)
           .where(
             and(
+              eq(meetingSession.processingOwner, "worker"),
               eq(meetingSession.id, candidate.meetingId),
               eq(meetingSession.organizationId, candidate.organizationId),
             ),
@@ -534,6 +536,7 @@ export function createMeetingIntelligenceDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, candidate.meetingId),
             eq(meetingSession.organizationId, candidate.organizationId),
           ),
@@ -667,6 +670,7 @@ export function createMeetingIntelligenceDao(db: Database) {
         .from(meetingSession)
         .where(
           and(
+            eq(meetingSession.processingOwner, "worker"),
             eq(meetingSession.id, candidate.meetingId),
             eq(meetingSession.organizationId, candidate.organizationId),
           ),
@@ -801,8 +805,10 @@ export function createMeetingIntelligenceDao(db: Database) {
         id: meetingProcessingRun.id,
       })
       .from(meetingProcessingRun)
+      .innerJoin(meetingSession, eq(meetingSession.id, meetingProcessingRun.meetingId))
       .where(
         and(
+          eq(meetingSession.processingOwner, "worker"),
           eq(meetingProcessingRun.stage, "meeting-intelligence"),
           or(
             eq(meetingProcessingRun.status, "pending"),
@@ -836,6 +842,7 @@ export function createMeetingIntelligenceDao(db: Database) {
       )
       .where(
         and(
+          eq(meetingSession.processingOwner, "worker"),
           eq(meetingSession.status, "ready"),
           eq(meetingSession.transcriptionStatus, "ready"),
           isNotNull(meetingSession.activeTranscriptRevisionId),

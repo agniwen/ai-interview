@@ -1,3 +1,4 @@
+import type { EchoProcessingService } from "../meeting-processing/service";
 // oxlint-disable promise/prefer-await-to-callbacks -- Electron permission APIs are callback based.
 import { desktopCapturer, ipcMain, session } from "electron";
 import { z } from "zod";
@@ -54,6 +55,13 @@ const multipartUploadInstructionSchema = z.object({
 });
 const beginRequestSchema = z.object({
   captureId: captureIdSchema,
+  owner: z
+    .object({
+      accountId: z.string().min(1),
+      workspaceId: z.string().min(1),
+      workspaceSlug: z.string().min(1),
+    })
+    .optional(),
   recruitingRecordId: z.string().nullable(),
   startedAt: z.string(),
   trackContentTypes: z.object({
@@ -162,7 +170,10 @@ async function logCaptureOperation<Result>(
  * 录音 IPC 的安全边界：只接受主窗口主 Frame，并在任何磁盘或网络操作前验证载荷和大小上限。
  * Security boundary for capture IPC: only the trusted main frame may cross into disk/network operations after validation.
  */
-export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): void {
+export function registerMeetingCaptureIpc(
+  store: LocalMeetingRecordingStore,
+  processing?: EchoProcessingService,
+): void {
   ipcMain.handle("meeting-capture:list-local-sessions", (event) => {
     if (!isTrustedMainFrame(event)) {
       throw new Error("不受信任的录制请求");
@@ -187,26 +198,41 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
       throw new Error("不受信任的录制请求");
     }
     console.info("[meeting-capture] begin", { captureId: input.captureId });
-    return logCaptureOperation("begin", () => store.begin(input));
+    return logCaptureOperation("begin", async () => {
+      processing?.bind(input);
+      try {
+        return await store.begin(input);
+      } catch (error) {
+        processing?.captureFinished(input.captureId);
+        throw error;
+      }
+    });
   });
-  ipcMain.handle("meeting-capture:save", (event, captureId, liveTranscriptDraft, liveSummary) => {
-    if (
-      !isTrustedMainFrame(event) ||
-      !isCaptureId(captureId) ||
-      (liveTranscriptDraft !== undefined &&
-        liveTranscriptDraft !== null &&
-        !meetingLiveTranscriptDraftSchema.safeParse(liveTranscriptDraft).success) ||
-      (liveSummary !== undefined &&
-        liveSummary !== null &&
-        !meetingLiveSummarySnapshotSchema.safeParse(liveSummary).success)
-    ) {
-      throw new Error("不受信任的录制请求");
-    }
-    console.info("[meeting-capture] save", { captureId });
-    return logCaptureOperation("save", () =>
-      store.save(captureId, liveTranscriptDraft, liveSummary),
-    );
-  });
+  ipcMain.handle(
+    "meeting-capture:save",
+    (event, captureId, liveTranscriptDraft, liveSummary, owner) => {
+      if (
+        !isTrustedMainFrame(event) ||
+        !isCaptureId(captureId) ||
+        (liveTranscriptDraft !== undefined &&
+          liveTranscriptDraft !== null &&
+          !meetingLiveTranscriptDraftSchema.safeParse(liveTranscriptDraft).success) ||
+        (liveSummary !== undefined &&
+          liveSummary !== null &&
+          !meetingLiveSummarySnapshotSchema.safeParse(liveSummary).success)
+      ) {
+        throw new Error("不受信任的录制请求");
+      }
+      console.info("[meeting-capture] save", { captureId });
+      return logCaptureOperation("save", async () => {
+        processing?.captureFinished(captureId);
+        processing?.prepareLocal(captureId, beginRequestSchema.shape.owner.parse(owner));
+        const saved = await store.save(captureId, liveTranscriptDraft, liveSummary);
+        processing?.saved(saved);
+        return saved;
+      });
+    },
+  );
   ipcMain.handle("meeting-capture:describe-workspace-save", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
       throw new Error("不受信任的录制请求");
@@ -247,7 +273,13 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
       throw new Error("不受信任的录制请求");
     }
-    return logCaptureOperation("discard", () => store.discard(captureId));
+    return logCaptureOperation("discard", () => {
+      processing?.captureFinished(captureId);
+      if (processing && processing.tasks.list(captureId).length > 0) {
+        return processing.discardLocal(captureId);
+      }
+      return store.discard(captureId);
+    });
   });
   ipcMain.handle(
     "meeting-capture:mark-workspace-verified",
@@ -268,25 +300,36 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     }
     return store.recover();
   });
-  ipcMain.handle("meeting-capture:resume-interrupted", (event, captureId, trackContentTypes) => {
-    if (
-      !isTrustedMainFrame(event) ||
-      !isCaptureId(captureId) ||
-      !trackContentTypesSchema.safeParse(trackContentTypes).success
-    ) {
-      throw new Error("不受信任的继续录制请求");
-    }
-    return logCaptureOperation("resume-interrupted", () =>
-      store.resumeInterrupted(captureId, trackContentTypes),
-    );
-  });
+  ipcMain.handle(
+    "meeting-capture:resume-interrupted",
+    (event, captureId, trackContentTypes, owner) => {
+      if (
+        !isTrustedMainFrame(event) ||
+        !isCaptureId(captureId) ||
+        !trackContentTypesSchema.safeParse(trackContentTypes).success
+      ) {
+        throw new Error("不受信任的继续录制请求");
+      }
+      return logCaptureOperation("resume-interrupted", async () => {
+        processing?.prepareLocal(captureId, beginRequestSchema.shape.owner.parse(owner));
+        processing?.captureStarted(captureId);
+        try {
+          await store.resumeInterrupted(captureId, trackContentTypes);
+        } catch (error) {
+          processing?.captureFinished(captureId);
+          throw error;
+        }
+      });
+    },
+  );
   ipcMain.handle("meeting-capture:rollback-interrupted-resume", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
       throw new Error("不受信任的继续录制回滚请求");
     }
-    return logCaptureOperation("rollback-interrupted-resume", () =>
-      store.rollbackInterruptedResume(captureId),
-    );
+    return logCaptureOperation("rollback-interrupted-resume", () => {
+      processing?.captureFinished(captureId);
+      return store.rollbackInterruptedResume(captureId);
+    });
   });
 
   ipcMain.handle("meeting-capture:append-fragment", async (event, input, bytes) => {

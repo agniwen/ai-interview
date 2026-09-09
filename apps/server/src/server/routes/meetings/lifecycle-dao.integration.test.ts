@@ -337,7 +337,7 @@ describe("Meeting lifecycle DAO", () => {
         meetingId: MEETING_ID,
         organizationId: ORGANIZATION_ID,
       }),
-    ).resolves.toEqual({ state: "purging" });
+    ).resolves.toEqual({ processingOwner: "worker", state: "purging" });
     expect(
       await db
         .select()
@@ -529,7 +529,7 @@ describe("Meeting lifecycle DAO", () => {
         now,
         organizationId: ORGANIZATION_ID,
       }),
-    ).resolves.toEqual({ state: "purging" });
+    ).resolves.toEqual({ processingOwner: "worker", state: "purging" });
     await expect(
       claimMeetingPurge({ meetingId: MEETING_ID, now, organizationId: ORGANIZATION_ID }),
     ).resolves.toBeNull();
@@ -539,7 +539,7 @@ describe("Meeting lifecycle DAO", () => {
         manifestSha256: "a".repeat(64),
         meetingId: MEETING_ID,
       }),
-    ).resolves.toBe("delete");
+    ).resolves.toBe("retain");
     await expect(
       recordMeetingLocalRecoveryCleanup({
         actorId: OWNER_ID,

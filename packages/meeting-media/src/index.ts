@@ -71,6 +71,7 @@ export interface MeetingTranscriptionChunkSource {
 }
 
 export async function normalizeMeetingRecordingSegments(input: {
+  signal?: AbortSignal;
   ffmpegBin?: string;
   ffmpegTimeoutMs?: number;
   outputPath: string;
@@ -117,12 +118,13 @@ export async function normalizeMeetingRecordingSegments(input: {
       "webm",
       input.outputPath,
     ],
-    { timeout: input.ffmpegTimeoutMs ?? 30 * 60 * 1000 },
+    { signal: input.signal, timeout: input.ffmpegTimeoutMs ?? 30 * 60 * 1000 },
   );
   return input.outputPath;
 }
 
 export async function prepareMeetingTranscriptionAudioChunks(input: {
+  signal?: AbortSignal;
   chunkDurationMs?: number;
   directory: string;
   ffmpegBin?: string;
@@ -137,6 +139,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
       ffmpegTimeoutMs: input.ffmpegTimeoutMs,
       outputPath: join(input.directory, `${source.track}-normalized.webm`),
       segments: source.segments,
+      signal: input.signal,
       sourcePath: source.filePath,
     });
     const outputPattern = join(input.directory, `${source.track}-%03d.webm`);
@@ -168,6 +171,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
       {
         killSignal: "SIGKILL",
         maxBuffer: 4 * 1024 * 1024,
+        signal: input.signal,
         timeout: input.ffmpegTimeoutMs ?? 30 * 60 * 1000,
       },
     );

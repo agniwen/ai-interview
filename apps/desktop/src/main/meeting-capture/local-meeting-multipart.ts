@@ -20,7 +20,12 @@ interface LocalMultipartFragment {
 const MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MEETING_OBJECT_UPLOAD_TIMEOUT_MS = 55 * 60 * 1000;
 
-export interface MeetingObjectUploadInput {
+export interface MeetingObjectUploadOptions {
+  signal?: AbortSignal;
+  maxAttempts?: number;
+}
+
+export interface MeetingObjectUploadInput extends MeetingObjectUploadOptions {
   createBody: () => ReadableStream<Uint8Array>;
   headers: Record<string, string>;
   sizeBytes: number;
@@ -60,8 +65,10 @@ function uploadNetworkCode(error: Error): string | null {
 
 export async function uploadMeetingObject(input: MeetingObjectUploadInput): Promise<void> {
   // All attempts share the original deadline so deletion quiet periods still bound every writer.
-  const signal = AbortSignal.timeout(MEETING_OBJECT_UPLOAD_TIMEOUT_MS);
-  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt += 1) {
+  const timeout = AbortSignal.timeout(MEETING_OBJECT_UPLOAD_TIMEOUT_MS);
+  const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
+  const maxAttempts = input.maxAttempts ?? MAX_UPLOAD_ATTEMPTS;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     signal.throwIfAborted();
     let retryCode: string;
     try {
@@ -91,7 +98,7 @@ export async function uploadMeetingObject(input: MeetingObjectUploadInput): Prom
       }
       retryCode = code;
     }
-    if (attempt === MAX_UPLOAD_ATTEMPTS) {
+    if (attempt === maxAttempts) {
       throw new Error(
         `录音对象上传失败（${retryCode}），已尝试 ${attempt} 次；本地录音已保留，请稍后重试保存。`,
       );
@@ -206,6 +213,7 @@ export async function uploadLocalMeetingMultipart(input: {
   instructions: MultipartMeetingUploadInstruction[];
   isAllowedUploadUrl: (url: URL) => boolean;
   putObject: MeetingObjectUploader;
+  uploadOptions?: MeetingObjectUploadOptions;
 }): Promise<void> {
   // 固定大小的 worker pool 限制内存和上行并发；首错后不再领取新 part，但等待在途请求收敛。
   // A fixed worker pool bounds memory/uplink use; the first error stops new work while in-flight requests settle.
@@ -239,6 +247,7 @@ export async function uploadLocalMeetingMultipart(input: {
       }
       try {
         await input.putObject({
+          ...input.uploadOptions,
           createBody: () =>
             trackRangeStream({
               captureDirectory: input.captureDirectory,

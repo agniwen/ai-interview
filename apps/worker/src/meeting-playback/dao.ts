@@ -20,6 +20,7 @@ export function loadMeetingPlaybackSource(input: { meetingId: string; organizati
     where: {
       id: input.meetingId,
       organizationId: input.organizationId,
+      processingOwner: "worker",
       status: { in: [...LIBRARY_MEETING_STATUSES] },
     },
     with: { assets: true },
@@ -34,7 +35,13 @@ export async function listRecoverableMeetingPlaybackJobs(): Promise<
     .select({ meetingId: meetingSession.id, organizationId: meetingSession.organizationId })
     .from(meetingSession)
     .where(
-      or(eq(meetingSession.status, "workspace-verified"), eq(meetingSession.status, "processing")),
+      and(
+        eq(meetingSession.processingOwner, "worker"),
+        or(
+          eq(meetingSession.status, "workspace-verified"),
+          eq(meetingSession.status, "processing"),
+        ),
+      ),
     );
   return jobs;
 }
@@ -54,6 +61,7 @@ export async function markMeetingPlaybackProcessing(input: {
     })
     .where(
       and(
+        eq(meetingSession.processingOwner, "worker"),
         eq(meetingSession.id, input.meetingId),
         eq(meetingSession.organizationId, input.organizationId),
         inArray(meetingSession.status, ["workspace-verified", "processing", "processing-failed"]),
@@ -77,6 +85,7 @@ export async function registerMeetingPlaybackCleanupKey(input: {
       .from(meetingSession)
       .where(
         and(
+          eq(meetingSession.processingOwner, "worker"),
           eq(meetingSession.id, input.meetingId),
           eq(meetingSession.organizationId, input.organizationId),
           eq(meetingSession.processingRunId, input.processingRunId),
@@ -141,6 +150,7 @@ export async function markMeetingPlaybackFailed(input: {
     })
     .where(
       and(
+        eq(meetingSession.processingOwner, "worker"),
         eq(meetingSession.id, input.meetingId),
         eq(meetingSession.organizationId, input.organizationId),
         eq(meetingSession.processingRunId, input.processingRunId),
@@ -169,6 +179,7 @@ export async function publishMeetingPlaybackAsset(input: {
       .set({ processingError: null, processingRunId: null, status: "ready" })
       .where(
         and(
+          eq(meetingSession.processingOwner, "worker"),
           eq(meetingSession.id, input.meetingId),
           eq(meetingSession.organizationId, input.organizationId),
           eq(meetingSession.processingRunId, input.processingRunId),

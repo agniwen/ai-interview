@@ -1,3 +1,4 @@
+import { hasEchoProcessing } from "@/lib/client/echo-processing";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -622,7 +623,8 @@ export function MeetingTranscriptPanel({
       ]);
     },
   });
-  const canRetry = canRetryMeetingTranscript(accessRole, transcriptQuery.data);
+  const canRetry =
+    hasEchoProcessing() && canRetryMeetingTranscript(accessRole, transcriptQuery.data);
   const canCorrect = canCorrectMeetingTranscript(accessRole);
   const historyRevisionNumbers = useMemo(
     () =>
