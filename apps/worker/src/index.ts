@@ -788,7 +788,9 @@ try {
 } catch (error) {
   captureWorkerException(error, "worker.startup");
   console.error("[worker] fatal startup failure", {
+    errorMessage: error instanceof Error ? error.message : String(error),
     errorName: error instanceof Error ? error.name : "UnknownError",
+    errorStack: error instanceof Error ? error.stack : undefined,
   });
   await closeWorkerLifecycles(Exit.fail(error));
   await flushWorkerSentry();
