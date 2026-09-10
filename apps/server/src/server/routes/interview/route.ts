@@ -102,9 +102,15 @@ async function recordDirectAiInterviewAcceptance(
   }
 }
 
-async function recordDirectAiInterviewVisit(roundId: string): Promise<boolean> {
+async function recordDirectAiInterviewVisit(
+  roundId: string,
+): Promise<"available" | "superseded" | "unavailable"> {
   const now = new Date();
   return await db.transaction(async (tx) => {
+    const active = await lockAiRound(tx, roundId);
+    if (!active?.isEffective) {
+      return "superseded";
+    }
     const [row] = await tx
       .select({
         candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
@@ -118,7 +124,7 @@ async function recordDirectAiInterviewVisit(roundId: string): Promise<boolean> {
       .for("update")
       .limit(1);
     if (!row) {
-      return false;
+      return "unavailable";
     }
     const decision = resolveAiInterviewAccess({
       candidateInviteExpiresAt: row.candidateInviteExpiresAt,
@@ -128,7 +134,7 @@ async function recordDirectAiInterviewVisit(roundId: string): Promise<boolean> {
       roundStatus: row.status,
     });
     if (decision === "unavailable") {
-      return false;
+      return "unavailable";
     }
     if (decision === "auto_accept") {
       await recordDirectAiInterviewAcceptance(tx, {
@@ -137,7 +143,7 @@ async function recordDirectAiInterviewVisit(roundId: string): Promise<boolean> {
         roundId,
       });
     }
-    return true;
+    return "available";
   });
 }
 
@@ -211,6 +217,7 @@ export const interviewRouter = factory
         }
       | { status: "grace_expired" }
       | { status: "invitation_unavailable" }
+      | { status: "round_superseded" }
       | { status: "round_completed" };
 
     const participantName = interviewRecord.candidateName || "candidate";
@@ -219,7 +226,7 @@ export const interviewRouter = factory
     const resolution = await db.transaction(async (tx): Promise<TokenResolution> => {
       const active = await lockAiRound(tx, roundId);
       if (!active?.isEffective || active.record.id !== id) {
-        return { status: "invitation_unavailable" };
+        return { status: "round_superseded" };
       }
       const [row] = await tx
         .select({
@@ -339,6 +346,16 @@ export const interviewRouter = factory
       return c.json({ code: "grace_expired", error: "重连超时，本轮面试已结束。" }, 410);
     }
 
+    if (resolution.status === "round_superseded") {
+      return c.json(
+        {
+          code: "round_superseded",
+          error: "此链接已不是当前有效面试，请联系招聘负责人获取新的邀请。",
+        },
+        403,
+      );
+    }
+
     if (resolution.status === "invitation_unavailable") {
       return c.json({ code: "invitation_unavailable", error: "面试邀请已拒绝或已过期。" }, 403);
     }
@@ -443,7 +460,17 @@ export const interviewRouter = factory
       return c.json({ error: "Interview not available." }, 404);
     }
 
-    if (!(await recordDirectAiInterviewVisit(roundId))) {
+    const invitationAccess = await recordDirectAiInterviewVisit(roundId);
+    if (invitationAccess === "superseded") {
+      return c.json(
+        {
+          code: "round_superseded",
+          error: "此链接已不是当前有效面试，请联系招聘负责人获取新的邀请。",
+        },
+        403,
+      );
+    }
+    if (invitationAccess === "unavailable") {
       return c.json({ code: "invitation_unavailable", error: "面试邀请已拒绝或已过期。" }, 403);
     }
 

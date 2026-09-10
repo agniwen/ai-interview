@@ -77,6 +77,37 @@ describe.skipIf(!testUrl)("招聘回退后重新确认", () => {
       .from(recruitingNodeState)
       .where(eq(recruitingNodeState.recruitingRecordId, recordId));
   }
+  it("已完成且带原因的筛选通过可以推进，不重复写入决定", async () => {
+    const [record] = await createRecruitingRecords(db, {
+      candidateName: "已筛选候选人",
+      organizationId: org,
+      pipelineStage: "screening",
+    });
+    if (!record) {
+      throw new Error("创建失败");
+    }
+    const command = { operatorId: null, organizationId: org, recordId: record.id };
+    await db.transaction((tx) =>
+      updateRecruitingNodeTx(tx, {
+        ...command,
+        node: "screening",
+        reason: "HR 人工筛选通过",
+        result: "pass",
+        status: "completed",
+      }),
+    );
+    const beforeNodes = await nodes(record.id);
+    const before = beforeNodes.find((node) => node.node === "screening");
+    await db.transaction((tx) =>
+      advanceScreeningRecruitingNodeTx(tx, { ...command, targetNode: "ai_interview" }),
+    );
+    const afterNodes = await nodes(record.id);
+    expect(afterNodes.find((node) => node.node === "screening")).toMatchObject({
+      decidedAt: before?.decidedAt,
+      reason: before?.reason,
+      result: "pass",
+    });
+  });
   it("回退复试保留已完成依据、清除下游，连续回退仍可重新确认并推进", async () => {
     const f = await fixture();
     await db.transaction((tx) =>

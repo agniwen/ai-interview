@@ -8,6 +8,16 @@ import type {
   InterviewNotificationTemplateVariable,
 } from "@app/db-schema/interview-notifications";
 
+// 临时止血：候选人面试邮件必须由 HRD 明确知晓收件人和内容后主动发送。
+// 人工发送流程尚未完成验收，本版本暂停全部候选人面试邮件（含已入队任务）。
+// 后续按各流程页面重新设计入口并验收后再恢复；内部人员通知不受影响。
+export const CANDIDATE_INTERVIEW_EMAILS_ENABLED = false;
+
+/** 候选人渠道暂停；HR 和面试官渠道照常准备和消费。 */
+export function canSendInterviewNotificationToAudience(audience: string): boolean {
+  return audience !== "candidate" || CANDIDATE_INTERVIEW_EMAILS_ENABLED;
+}
+
 export {
   aiInvitationExceptionTypeSchema,
   aiInvitationExceptionTypeValues,

@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../../../../../../lib/server/db/index";
 import { createRoundEmailsRouter } from "../route";
+import { insertRoundEmailLog } from "../dao";
 import type { Env } from "../../../../../../../type";
 import {
   organization,
@@ -180,122 +181,32 @@ beforeEach(() => {
 });
 
 describe("POST /:roundId/send", () => {
-  it("returns 400 when candidate email is missing; send not called", async () => {
-    const app = buildTestApp();
-    const res = await app.request(`/${ROUND_NO_EMAIL}/send`, { method: "POST" });
-    expect(res.status).toBe(400);
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain("邮箱");
-    expect(mocks.sendMock).not.toHaveBeenCalled();
-  });
-
-  it("returns 200 on success and persists a sent log in DB", async () => {
-    // Resend 返回成功 / Resend returns success
-    mocks.sendMock.mockResolvedValueOnce({ data: { id: "msg_abc" }, error: null });
-
-    const app = buildTestApp();
-    const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
-    expect(res.status).toBe(200);
-
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    const body = (await res.json()) as { logId: string; sentAt: string; toEmail: string };
-    expect(body.toEmail).toBe("candidate@example.com");
-    expect(body.logId).toBeTruthy();
-
-    // 验证 DB 中有 status='sent' 且 resendMessageId='msg_abc' 的日志。
-    // Assert DB has a sent log with the expected resendMessageId.
-    const [log] = await db
-      .select()
-      .from(recruitingRoundEmailLog)
-      .where(eq(recruitingRoundEmailLog.id, body.logId));
-    expect(log?.status).toBe("sent");
-    expect(log?.resendMessageId).toBe("msg_abc");
-  });
-
-  it("returns 400 and persists a failed log when Resend returns an error", async () => {
-    // Resend 返回 rate limit 错误 / Resend returns rate limit error
-    mocks.sendMock.mockResolvedValueOnce({ data: null, error: { message: "rate limit exceeded" } });
-
-    const app = buildTestApp();
-    const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
-    expect(res.status).toBe(400);
-
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    const body = (await res.json()) as { error: string; logId: string };
-    expect(body.error).toContain("rate limit");
-    expect(body.logId).toBeTruthy();
-
-    // 验证 DB 中有 status='failed' 且 errorMessage 包含 'rate limit' 的日志。
-    // Assert DB has a failed log with the error message.
-    const [log] = await db
-      .select()
-      .from(recruitingRoundEmailLog)
-      .where(eq(recruitingRoundEmailLog.id, body.logId));
-    expect(log?.status).toBe("failed");
-    expect(log?.errorMessage).toContain("rate limit");
-  });
-
-  it("returns 404 when activeOrg does not own the round; no log written", async () => {
-    // 使用 OTHER_ORG 身份访问属于 ORG 的轮次，应返回 404 而不泄露存在性。
-    // Access a round belonging to ORG via OTHER_ORG credentials — must return 404
-    // and must not write any log row.
-    const logsBefore = await db
-      .select()
-      .from(recruitingRoundEmailLog)
-      .where(eq(recruitingRoundEmailLog.organizationId, OTHER_ORG));
-
-    const app = buildTestAppForOrg(OTHER_ORG);
-    const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
-    expect(res.status).toBe(404);
-
-    // 验证 OTHER_ORG 名下没有新增日志。
-    // Assert no new log rows were written under OTHER_ORG.
-    const logsAfter = await db
-      .select()
-      .from(recruitingRoundEmailLog)
-      .where(eq(recruitingRoundEmailLog.organizationId, OTHER_ORG));
-    expect(logsAfter).toHaveLength(logsBefore.length);
-  });
-
-  it("POST /:roundId/send -> 500 when Resend client throws, writes failed log", async () => {
-    mocks.throwOnClient = true;
-    try {
-      await db
-        .delete(recruitingRoundEmailLog)
-        .where(eq(recruitingRoundEmailLog.roundId, ROUND_WITH_EMAIL));
-      const app = buildTestApp();
-      const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
-      expect(res.status).toBe(500);
-
-      // SAFETY: This test constructs the value with the asserted contract before this boundary.
-      const body = (await res.json()) as { error: string; logId: string };
-      expect(body.logId).toBeTruthy();
-      expect(body.error).toBe("邮件发送失败，请稍后重试。");
-      expect(body.error).not.toContain("RESEND_API_KEY");
-
-      // 验证 DB 中有 status='failed' 且 errorMessage 包含 'RESEND_API_KEY' 的日志。
-      // Assert DB has a failed log with the env error message.
-      const logs = await db
-        .select()
-        .from(recruitingRoundEmailLog)
-        .where(eq(recruitingRoundEmailLog.roundId, ROUND_WITH_EMAIL));
-      expect(logs).toHaveLength(1);
-      expect(logs[0].status).toBe("failed");
-      expect(logs[0].errorMessage).toContain("RESEND_API_KEY");
-    } finally {
-      mocks.throwOnClient = false;
-    }
-  });
+  it.each([ROUND_WITH_EMAIL, ROUND_NO_EMAIL, "nonexistent-round"])(
+    "returns 503 while candidate emails are paused: %s",
+    async (roundId) => {
+      const app = buildTestAppForOrg(ORG);
+      const response = await app.request(`/${roundId}/send`, { method: "POST" });
+      expect(response.status).toBe(503);
+      expect(mocks.sendMock).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("GET /summary", () => {
   it("returns 200 with correct count for rounds with logs, zero for others", async () => {
-    // 先发送一封邮件来为 ROUND_WITH_EMAIL 创建日志。
-    // Send one email to create a log for ROUND_WITH_EMAIL.
-    mocks.sendMock.mockResolvedValueOnce({ data: { id: "msg_summary" }, error: null });
+    // 暂停发送后，直接准备历史日志来验证摘要仍可读取，不调用发信接口。
+    await insertRoundEmailLog({
+      errorMessage: null,
+      interviewRecordId: INTERVIEW_WITH_EMAIL,
+      organizationId: ORG,
+      resendMessageId: "historical-message",
+      roundId: ROUND_WITH_EMAIL,
+      sentBy: USER_ID,
+      status: "sent",
+      subject: "历史面试邀请",
+      toEmail: "candidate@example.com",
+    });
     const app = buildTestApp();
-    await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
 
     // 查询摘要：ROUND_WITH_EMAIL 应有 >=1 条，ROUND_SUMMARY_ONLY 应为 0。
     // Query summary: ROUND_WITH_EMAIL should have >=1, ROUND_SUMMARY_ONLY should be 0.

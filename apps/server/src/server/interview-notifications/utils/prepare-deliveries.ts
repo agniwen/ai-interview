@@ -1,4 +1,5 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { canSendInterviewNotificationToAudience } from "@app/shared/interview-notifications";
 import { createHash } from "node:crypto";
 import {
   account,
@@ -470,6 +471,10 @@ export async function prepareInterviewNotificationDeliveries(
   const initiatorUserId = await loadInitiatorUserId(database, event, records);
 
   for (const template of templates) {
+    // 临时跳过候选人发送步骤，待 HRD 主动发送流程重新设计并验收后恢复。
+    if (!canSendInterviewNotificationToAudience(template.audienceType)) {
+      continue;
+    }
     const targets = await loadTargets(
       database,
       event,

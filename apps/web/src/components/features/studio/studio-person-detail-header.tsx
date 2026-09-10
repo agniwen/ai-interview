@@ -1,4 +1,5 @@
 import { ScreeningAdvanceActions } from "./screening-advance-actions";
+import { findEffectiveAiRound } from "./effective-ai-round";
 import { RecruitingNodeActions } from "./recruiting-node-actions";
 /* oxlint-disable complexity -- header builder composes title, tabs, action bar, and layout classes. */
 
@@ -147,7 +148,9 @@ export function buildStudioPersonDetailHeader({
     record?.pipelineStage === "ai_interview" &&
     canLaunchResumeModeRecord &&
     !isRoundsLoading &&
-    candidateRounds.length === 0;
+    !resumeRecord?.nodeStates.some(
+      (node) => node.node === "ai_interview" && node.effectiveAiRoundId,
+    );
   const launchResumeModeDisabledReason =
     showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI初面" : null;
   const launchResumeModeButtonContent = showLaunchButton ? (
@@ -233,7 +236,7 @@ export function buildStudioPersonDetailHeader({
         )
       : null;
 
-  const actionBarAiRound = candidateRounds.at(-1);
+  const actionBarAiRound = findEffectiveAiRound(candidateRounds, resumeRecord?.nodeStates);
   const actionBar =
     mode === "resume" &&
     record &&
