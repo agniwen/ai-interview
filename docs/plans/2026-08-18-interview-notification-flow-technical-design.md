@@ -1,5 +1,13 @@
 # 面试通知全流程技术设计
 
+## 2026-09-10 止血版本：暂停候选人面试邮件
+
+- 共用 `CANDIDATE_INTERVIEW_EMAILS_ENABLED=false` 与受众策略：Server 跳过 candidate delivery 准备，Worker 发送前也拦截已有 candidate 任务。旧授权标记不能绕过暂停。
+- Worker 对被阻断任务记录 `dead` / `candidate-email-paused`，不调用供应商、不删除历史，也不自动重试；内部受众继续原流程。
+- 旧版 `/interviews/round-emails/:roundId/send` 在调用供应商前返回 503，防止直发绕过。撤除新加的独立发送入口、API 和邮件选择交互，不引入新的授权字段。
+- 不新增表、列或外键，无数据库迁移。已发送或已在供应商调用中的邮件不能撤回。未来必须在 HRD 主动发送交互验收后才恢复。
+- 部署需同步更新 Server 与 Worker；仅刷新前端不能阻止旧 Worker 发信。
+
 > 状态：Phase 1 核心闭环已实现并按 2026-08-26 最终产品口径收口
 >
 > 产品依据：[面试通知全流程 PRD](../product/2026-08-18-interview-notification-flow-prd.md)

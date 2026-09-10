@@ -73,8 +73,8 @@ function delivery(overrides: Partial<InterviewNotificationDeliveryRecord> = {}) 
   } satisfies InterviewNotificationDeliveryRecord;
 }
 
-function dependencies() {
-  let rows = [delivery()];
+function dependencies(overrides: Partial<InterviewNotificationDeliveryRecord> = {}) {
+  let rows = [delivery(overrides)];
   const mocks = {
     claimDelivery: vi.fn(async () => {
       rows = [{ ...rows[0], attemptCount: 1, status: "sending" }];
@@ -110,6 +110,46 @@ function dependencies() {
 }
 
 describe("interview notification processor", () => {
+  it("stops finalizing when the paused delivery lease was lost", async () => {
+    const mocks = dependencies({ audienceType: "candidate" });
+    mocks.markDeliveryFailed.mockResolvedValueOnce(false);
+    await processInterviewNotificationEvent(event(), { leaseOwner: "worker_1", now }, mocks);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.updateEventState).not.toHaveBeenCalled();
+  });
+  it("blocks old queued candidate emails without HR confirmation", async () => {
+    const mocks = dependencies({ audienceType: "candidate" });
+    await processInterviewNotificationEvent(event(), { leaseOwner: "worker_1", now }, mocks);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.markDeliveryFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "candidate-email-paused",
+        nextAttemptAt: null,
+        status: "dead",
+      }),
+    );
+  });
+
+  it("blocks even previously authorized invitations and reminders during the pause", async () => {
+    const notificationEvent = event();
+    notificationEvent.type = "ai_interview_invited";
+    Object.assign(notificationEvent.payloadSnapshot, { candidateEmailConfirmedBy: "user_1" });
+    const mocks = dependencies({ audienceType: "candidate" });
+    await processInterviewNotificationEvent(
+      notificationEvent,
+      { leaseOwner: "worker_1", now },
+      mocks,
+    );
+    expect(mocks.send).not.toHaveBeenCalled();
+    const reminderMocks = dependencies({ audienceType: "candidate" });
+    notificationEvent.type = "ai_interview_reminder";
+    await processInterviewNotificationEvent(
+      notificationEvent,
+      { leaseOwner: "worker_1", now },
+      reminderMocks,
+    );
+    expect(reminderMocks.send).not.toHaveBeenCalled();
+  });
   it("claims newly prepared deliveries with a fresh timestamp", async () => {
     const mocks = dependencies();
     const dateNow = vi.spyOn(Date, "now").mockReturnValue(now.getTime() + 1000);

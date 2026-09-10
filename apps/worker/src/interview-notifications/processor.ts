@@ -9,6 +9,7 @@ import type {
 import {
   classifyInterviewNotificationFailure,
   getInterviewNotificationRetryAt,
+  canSendInterviewNotificationToAudience,
 } from "@app/shared/interview-notifications";
 import { Context, Data, Effect, Layer } from "effect";
 
@@ -174,6 +175,21 @@ async function processInterviewNotificationEventPromise(
     }
 
     try {
+      // 同时拦截已经入队的候选人邮件，旧的人工确认标记不绕过本次暂停。
+      if (!canSendInterviewNotificationToAudience(claimed.audienceType)) {
+        const completed = await dependencies.markDeliveryFailed({
+          code: "candidate-email-paused",
+          deliveryId: claimed.id,
+          leaseOwner: input.leaseOwner,
+          message: "候选人面试邮件暂时停用，待 HRD 主动发送流程验收后恢复。",
+          nextAttemptAt: null,
+          status: "dead",
+        });
+        if (!completed) {
+          return;
+        }
+        continue;
+      }
       const result = await dependencies.send({
         address: claimed.recipientAddress,
         audienceType: claimed.audienceType,

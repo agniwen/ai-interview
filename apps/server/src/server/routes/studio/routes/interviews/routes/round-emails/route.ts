@@ -1,4 +1,5 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { CANDIDATE_INTERVIEW_EMAILS_ENABLED } from "@app/shared/interview-notifications";
 // round-emails 子路由：POST /:roundId/send 发送邀请邮件，GET /summary 查询发送摘要。
 // round-emails subrouter: POST /:roundId/send sends invite email, GET /summary queries send summary.
 
@@ -57,6 +58,10 @@ export function createRoundEmailsRouter(
         const { activeOrg, user } = c.var;
         if (!activeOrg) {
           return c.json({ error: "Unauthorized" }, 401);
+        }
+        // 旧版直发接口同样暂停，防止绕过通知队列的止血限制。
+        if (!CANDIDATE_INTERVIEW_EMAILS_ENABLED) {
+          return c.json({ error: "候选人面试邮件暂时停用，请复制面试链接人工联系候选人。" }, 503);
         }
         const { roundId } = c.req.valid("param");
 

@@ -748,12 +748,15 @@ export async function advanceScreeningRecruitingNodeTx(
       "invalid",
     );
   }
-  const confirmed = await updateRecruitingNodeTx(tx, {
-    ...input,
-    node: "screening",
-    result: "pass",
-    status: "completed",
-  });
+  const confirmed =
+    screening?.status === "completed" && screening.result === "pass"
+      ? result(record, false)
+      : await updateRecruitingNodeTx(tx, {
+          ...input,
+          node: "screening",
+          result: "pass",
+          status: "completed",
+        });
   return transitionRecruitingNodeTx(tx, {
     ...input,
     expectedVersion: confirmed.version,

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  IconCheck,
-  IconFileDescription,
-  IconLoader2,
-  IconLogin,
-  IconVideo,
-  IconX,
-} from "@tabler/icons-react";
+import { IconFileDescription, IconLoader2, IconLogin, IconVideo } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
 import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from "@livekit/components-react";
@@ -24,6 +17,7 @@ import type {
 import { humanInterviewRecordingStatusSchema } from "@app/db-schema/studio-interviews";
 import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
+import { CandidateInvitation } from "./candidate-invitation";
 import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
@@ -428,45 +422,19 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   if (props.mode === "candidate" && candidateInviteStatus !== "accepted") {
     const canRespond = candidateInviteStatus === "pending" || candidateInviteStatus === "sent";
     return (
-      <main className="dark mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center bg-background px-6 py-16 text-foreground">
-        <p className="mb-3 text-muted-foreground text-sm">{props.preview.roundLabel}</p>
-        <h1 className="text-2xl font-semibold">{props.preview.title}</h1>
-        <p className="mt-2 text-muted-foreground">
-          {props.preview.candidateName}，请确认是否参加本次面试。
-        </p>
-        <div className="mt-8 border-border border-y py-5 font-medium">
-          {formatDateTime(props.preview.scheduledAt)}
-        </div>
-        {canRespond ? (
-          <div className="mt-8 flex gap-3">
-            <Button
-              disabled={candidateResponsePending}
-              onClick={async () => {
-                await respondToInvitation("accept");
-              }}
-            >
-              <IconCheck className="size-4" />
-              {candidateResponsePending ? "处理中…" : "确认参加"}
-            </Button>
-            <Button
-              disabled={candidateResponsePending}
-              onClick={async () => {
-                await respondToInvitation("decline");
-              }}
-              variant="outline"
-            >
-              <IconX className="size-4" />
-              无法参加
-            </Button>
-          </div>
-        ) : (
-          <p className="mt-8 text-muted-foreground text-sm">
-            {candidateInviteStatus === "declined"
-              ? "你已拒绝本次面试，如需变更请联系 HR。"
-              : "该邀请已失效，请联系 HR。"}
-          </p>
-        )}
-      </main>
+      <CandidateInvitation
+        candidateName={props.preview.candidateName}
+        title={props.preview.title}
+        scheduledAt={props.preview.scheduledAt}
+        canRespond={canRespond}
+        pending={candidateResponsePending}
+        onRespond={respondToInvitation}
+        message={
+          candidateInviteStatus === "declined"
+            ? "你已拒绝本次面试，如需变更请联系 HR。"
+            : "该邀请已失效，请联系 HR。"
+        }
+      />
     );
   }
 
