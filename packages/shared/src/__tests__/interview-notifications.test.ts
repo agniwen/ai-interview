@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  interviewNotificationEventStatusForQueue,
+  parseInterviewNotificationQueueNamespace,
+} from "@app/db-schema/interview-notifications";
+import {
   buildInterviewNotificationDedupeKey,
   classifyInterviewNotificationFailure,
   extractInterviewNotificationTemplateVariables,
@@ -10,6 +14,15 @@ import {
 } from "../interview-notifications";
 
 describe("interview notification contracts", () => {
+  it("keeps a local notification queue invisible to production workers", () => {
+    expect(parseInterviewNotificationQueueNamespace("local")).toBe("local");
+    expect(interviewNotificationEventStatusForQueue("local", "pending")).toBe("isolated_pending");
+    expect(interviewNotificationEventStatusForQueue("production", "pending")).toBe("pending");
+    expect(() => parseInterviewNotificationQueueNamespace("local queue")).toThrow(
+      "通知队列命名空间格式无效",
+    );
+  });
+
   it("builds stable versioned dedupe keys", () => {
     expect(
       buildInterviewNotificationDedupeKey({

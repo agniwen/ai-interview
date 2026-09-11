@@ -24,6 +24,9 @@ const draft: OfferDraftRecord = {
   candidateCounter: null,
   createdAt: "2026-08-05T00:00:00.000Z",
   currency: "CNY",
+  declineReason: null,
+  emailRecipient: null,
+  emailSentAt: null,
   equity: null,
   expiresAt: null,
   id: "offer-1",
@@ -32,7 +35,12 @@ const draft: OfferDraftRecord = {
   notes: null,
   organizationId: "org-1",
   position: "产品经理",
+  publicPath: null,
+  publishedAt: null,
+  publishedBy: null,
   responseAt: null,
+  responseBy: null,
+  responseSource: null,
   sentAt: null,
   status: "draft",
   updatedAt: "2026-08-05T00:00:00.000Z",
@@ -45,7 +53,7 @@ afterEach(() => {
 });
 
 describe("OfferCard", () => {
-  it("opens a state-only send confirmation for a draft without requiring email", async () => {
+  it("publishes a draft before exposing email and link actions", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -60,6 +68,8 @@ describe("OfferCard", () => {
             canDelete
             canUpdate
             candidateId="candidate-1"
+            candidateEmail="candidate@example.com"
+            candidateName="候选人"
             dependencies={offerCardDependencies}
             draft={draft}
             onCancelled={vi.fn()}
@@ -73,14 +83,13 @@ describe("OfferCard", () => {
     expect(host.textContent).toContain("编辑");
     expect(host.textContent).toContain("删除 Offer");
     expect(host.textContent).not.toContain("v1");
-    expect(host.textContent).toContain("标记 Offer 已发出");
+    expect(host.textContent).toContain("确认并发布");
     const sendButton = [...host.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("标记 Offer 已发出"),
+      button.textContent?.includes("确认并发布"),
     );
     await act(() => sendButton?.click());
     const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain("本操作仅记录状态");
-    expect(dialog?.textContent).not.toContain("即将发送至");
+    expect(dialog?.textContent).toContain("发布后内容将锁定");
     const confirm = [...(dialog?.querySelectorAll("button") ?? [])].find(
       (button) => button.textContent === "确认",
     );
@@ -100,8 +109,16 @@ describe("OfferCard", () => {
             canDelete
             canUpdate
             candidateId="candidate-1"
+            candidateEmail="candidate@example.com"
+            candidateName="候选人"
             dependencies={offerCardDependencies}
-            draft={{ ...draft, sentAt: "2026-09-08T00:00:00.000Z", status: "sent" }}
+            draft={{
+              ...draft,
+              publicPath: "/offer/token",
+              publishedAt: "2026-09-08T00:00:00.000Z",
+              sentAt: "2026-09-08T00:00:00.000Z",
+              status: "sent",
+            }}
             onCancelled={vi.fn()}
             onRespond={vi.fn()}
             onSaved={vi.fn()}
@@ -110,6 +127,8 @@ describe("OfferCard", () => {
       ),
     );
     expect(host.textContent).toContain("记录响应");
+    expect(host.textContent).toContain("发送邮件");
+    expect(host.textContent).toContain("复制 Offer 链接");
     expect(host.textContent).not.toContain("删除");
     expect(host.textContent).not.toContain("撤回");
     act(() => root.unmount());

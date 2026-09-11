@@ -48,6 +48,7 @@ describe("interview notification scheduler", () => {
     vi.useFakeTimers();
     vi.stubEnv("INTERVIEW_NOTIFICATION_FLOW_ENABLED", "true");
     vi.stubEnv("INTERVIEW_NOTIFICATION_WORKER_ENABLED", "true");
+    vi.stubEnv("INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE", "local");
     let release: (() => void) | undefined;
     const blocked = new Promise<void>((resolve) => {
       release = resolve;
@@ -71,6 +72,7 @@ describe("interview notification scheduler", () => {
       expect.objectContaining({
         leaseDurationMs: 120_000,
         limit: 1,
+        queueNamespace: "local",
       }),
     );
     await scheduler!.close();

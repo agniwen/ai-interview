@@ -60,4 +60,26 @@ describe("auditDescription", () => {
       auditDescription({ fromStatus: "scheduled", toStatus: "completed" }, "round_reset"),
     ).toContain("已重置");
   });
+  it("显示误发邮件后的 Offer 链接作废记录", () => {
+    expect(auditTitle("offer_link_revoked")).toBe("Offer 链接已作废");
+    expect(auditDescription({ reason: "撤回误发邮件中的 Offer 链接" }, "offer_link_revoked")).toBe(
+      "旧 Offer 链接已作废并生成新链接，原因：撤回误发邮件中的 Offer 链接",
+    );
+    expect(auditTone("offer_link_revoked")).toBe("warning");
+  });
+  it("显示背调采集全过程的活动记录", () => {
+    expect(auditTitle("background_check_collection_created")).toBe("创建背调信息采集");
+    expect(auditDescription({}, "background_check_link_copied")).toBe("HR 已复制背调信息采集链接");
+    expect(auditDescription({}, "background_check_link_accessed")).toBe(
+      "候选人已打开背景调查信息采集页面",
+    );
+    expect(auditDescription({ to: "candidate@example.com" }, "background_check_email_sent")).toBe(
+      "已向 candidate@example.com 发送背调信息采集邮件",
+    );
+    expect(auditDescription({}, "background_check_submitted_by_candidate")).toBe(
+      "候选人已在线提交背景调查信息，等待 HR 确认结果",
+    );
+    expect(auditTone("background_check_submitted_by_candidate")).toBe("success");
+    expect(auditTone("background_check_email_send_failed")).toBe("danger");
+  });
 });

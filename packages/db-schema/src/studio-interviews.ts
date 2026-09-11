@@ -427,7 +427,7 @@ export const offerDraftStatusMeta = {
   declined: { label: "已拒绝", tone: "outline" },
   draft: { label: "草稿", tone: "outline" },
   expired: { label: "已过期", tone: "outline" },
-  sent: { label: "已发送", tone: "info" },
+  sent: { label: "已发布，待回复", tone: "info" },
   superseded: { label: "已被新版替代", tone: "outline" },
 } as const satisfies Record<
   OfferDraftStatus,
@@ -453,8 +453,16 @@ export type OfferDraftInput = z.infer<typeof offerDraftInputSchema>;
 // HR records the candidate's response to a sent offer.
 export const offerResponseInputSchema = z.object({
   candidateCounter: z.string().trim().max(2000).nullable().optional(),
+  declineReason: z.string().trim().max(1000).nullable().optional(),
   response: z.enum(["accepted", "declined", "counter"]),
 });
+
+export const offerEmailInputSchema = z.object({
+  content: z.string().trim().min(1, "请填写邮件内容").max(10_000),
+  subject: z.string().trim().min(1, "请填写邮件主题").max(300),
+  to: z.string().trim().email("请输入有效邮箱"),
+});
+export type OfferEmailInput = z.infer<typeof offerEmailInputSchema>;
 export type OfferResponseInput = z.infer<typeof offerResponseInputSchema>;
 
 // ── 候选人期望 / 结束元数据（单行 JSONB，不需要子表）──

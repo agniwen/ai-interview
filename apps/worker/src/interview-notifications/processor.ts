@@ -60,6 +60,7 @@ export interface InterviewNotificationProcessorDependencies {
     lastErrorCode?: string | null;
     lastErrorMessage?: string | null;
     nextAttemptAt?: Date;
+    queueNamespace: string;
     status: "completed" | "dead" | "failed";
   }): Promise<boolean>;
 }
@@ -90,18 +91,19 @@ function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now:
 
 // 聚合所有收件人结果：有待处理则重试、有未知/死信则转人工，否则完成事件。 / Aggregates recipients: retry while pending, require manual action for unknown/dead, otherwise complete the event.
 async function finalizeEvent(
-  eventId: string,
+  event: InterviewNotificationEventRecord,
   leaseOwner: string,
   now: Date,
   dependencies: InterviewNotificationProcessorDependencies,
 ): Promise<void> {
-  const deliveries = await dependencies.listDeliveries(eventId);
+  const deliveries = await dependencies.listDeliveries(event.id);
   if (deliveries.length === 0) {
     await dependencies.updateEventState({
-      eventId,
+      eventId: event.id,
       lastErrorCode: "notification-no-delivery",
       lastErrorMessage: "通知事件没有可发送的接收人或模板。",
       leaseOwner,
+      queueNamespace: event.queueNamespace,
       status: "dead",
     });
     return;
@@ -112,11 +114,12 @@ async function finalizeEvent(
   );
   if (retryable.length > 0) {
     await dependencies.updateEventState({
-      eventId,
+      eventId: event.id,
       lastErrorCode: "notification-delivery-pending",
       lastErrorMessage: "通知事件仍有待发送或待重试的投递。",
       leaseOwner,
       nextAttemptAt: earliestRetryAt(retryable, now),
+      queueNamespace: event.queueNamespace,
       status: "failed",
     });
     return;
@@ -125,10 +128,11 @@ async function finalizeEvent(
   const manual = deliveries.find((delivery) => ["dead", "unknown"].includes(delivery.status));
   if (manual) {
     await dependencies.updateEventState({
-      eventId,
+      eventId: event.id,
       lastErrorCode: manual.lastErrorCode ?? "notification-manual-action-required",
       lastErrorMessage: manual.error ?? "通知投递需要人工处理。",
       leaseOwner,
+      queueNamespace: event.queueNamespace,
       status: "dead",
     });
     return;
@@ -136,8 +140,9 @@ async function finalizeEvent(
 
   await dependencies.updateEventState({
     completedAt: now,
-    eventId,
+    eventId: event.id,
     leaseOwner,
+    queueNamespace: event.queueNamespace,
     status: "completed",
   });
 }
@@ -239,7 +244,7 @@ async function processInterviewNotificationEventPromise(
     }
   }
 
-  await finalizeEvent(event.id, input.leaseOwner, now, dependencies);
+  await finalizeEvent(event, input.leaseOwner, now, dependencies);
 }
 
 export function processInterviewNotificationEventEffect(

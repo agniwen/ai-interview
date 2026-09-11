@@ -27,6 +27,7 @@ function event(): InterviewNotificationEventRecord {
     nextAttemptAt: now,
     organizationId: "org_1",
     payloadSnapshot: { schemaVersion: 1, timeZone: "Asia/Shanghai" },
+    queueNamespace: "local",
     recruitingRecordId: "record_1",
     scopeType: "interview_record",
     status: "processing",
@@ -194,6 +195,7 @@ describe("interview notification processor", () => {
       completedAt: now,
       eventId: "event_1",
       leaseOwner: "worker_1",
+      queueNamespace: "local",
       status: "completed",
     });
   });

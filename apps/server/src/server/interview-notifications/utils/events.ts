@@ -10,6 +10,8 @@ import {
   globalConfig,
   recruitingNotificationDelivery,
   recruitingNotificationEvent,
+  recruitingOffer,
+  recruitingBackgroundCheck,
   organization,
   humanInterviewMeeting,
   humanInterviewMeetingInterviewer,
@@ -23,6 +25,7 @@ import type {
   AiInvitationExceptionType,
   InterviewNotificationEventType,
 } from "@app/db-schema/interview-notifications";
+import { activeInterviewNotificationEventStatuses } from "@app/db-schema/interview-notifications";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
 import { buildInterviewNotificationDedupeKey } from "@app/shared/interview-notifications";
 import {
@@ -391,6 +394,132 @@ export async function enqueueAiInvitationResponseEvent(
   });
 }
 
+export async function enqueueOfferResponseEvent(
+  tx: Transaction,
+  input: {
+    declineReason?: string | null;
+    offerId: string;
+    respondedAt: Date;
+    response: "accepted" | "declined";
+  },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      interviewRecordId: recruitingOffer.recruitingRecordId,
+      organizationId: recruitingOffer.organizationId,
+      organizationSlug: organization.slug,
+      position: recruitingOffer.position,
+      publishedBy: recruitingOffer.publishedBy,
+      workspaceName: organization.name,
+    })
+    .from(recruitingOffer)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingOffer.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingOffer.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, recruitingOffer.organizationId))
+    .where(eq(recruitingOffer.id, input.offerId))
+    .limit(1);
+  if (!context) {
+    throw new Error("Offer 响应通知缺少招聘上下文。");
+  }
+  const type = input.response === "accepted" ? "offer_accepted" : "offer_declined";
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.publishedBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.respondedAt.toISOString(),
+      scopeId: input.offerId,
+      type,
+      version: 1,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      changeReason: input.declineReason?.trim() || "未填写",
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(context.interviewRecordId, context.organizationSlug),
+      jobName: context.position,
+      responseTime: input.respondedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type,
+  });
+}
+
+export async function enqueueBackgroundCheckSubmittedEvent(
+  tx: Transaction,
+  input: { recruitingRecordId: string; submittedAt: Date },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      createdBy: recruitingBackgroundCheck.createdBy,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingBackgroundCheck.organizationId,
+      organizationSlug: organization.slug,
+      workspaceName: organization.name,
+    })
+    .from(recruitingBackgroundCheck)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingBackgroundCheck.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingBackgroundCheck.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingBackgroundCheck.organizationId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .where(eq(recruitingBackgroundCheck.recruitingRecordId, input.recruitingRecordId))
+    .limit(1);
+  if (!context) {
+    throw new Error("背调提交通知缺少招聘上下文。");
+  }
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.createdBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.submittedAt.toISOString(),
+      scopeId: input.recruitingRecordId,
+      type: "background_check_submitted",
+      version: 1,
+    }),
+    interviewRecordId: input.recruitingRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(input.recruitingRecordId, context.organizationSlug),
+      jobName: context.jobName ?? undefined,
+      responseTime: input.submittedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type: "background_check_submitted",
+  });
+}
+
 const AI_INVITATION_EXCEPTION_COPY = {
   invitation_expired: {
     label: "邀请已过期",
@@ -673,7 +802,7 @@ export async function cancelPendingHumanMeetingReminders(
           "human_interview_attendance_alert",
           "human_interview_not_held",
         ]),
-        inArray(recruitingNotificationEvent.status, ["pending", "processing", "failed"]),
+        inArray(recruitingNotificationEvent.status, activeInterviewNotificationEventStatuses),
       ),
     )
     .returning({ id: recruitingNotificationEvent.id });

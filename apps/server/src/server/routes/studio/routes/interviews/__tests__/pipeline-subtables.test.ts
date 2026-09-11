@@ -1723,7 +1723,7 @@ describe("offer drafts DAO", () => {
     ).rejects.toBeInstanceOf(OfferDraftError);
   });
 
-  it("respondOfferDraft：accepted/declined 终态化，counter 保持 sent + 记 candidateCounter", async () => {
+  it("respondOfferDraft：accepted 终态化，counter 保持 sent + 记 candidateCounter", async () => {
     await clearSubtables();
     await resetCandidateStage("offer");
     const draft = await createOfferDraft({
@@ -1760,6 +1760,47 @@ describe("offer drafts DAO", () => {
         response: "declined",
       }),
     ).rejects.toBeInstanceOf(OfferDraftError);
+  });
+
+  it("候选人拒绝 Offer 后保留在 Offer 阶段等待 HR 处理", async () => {
+    await clearSubtables();
+    await resetCandidateStage("offer");
+    const draft = await createOfferDraft({
+      input: { baseSalary: 30_000, position: "前端工程师" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+      sendImmediately: true,
+    });
+
+    const declined = await respondOfferDraft({
+      declineReason: "入职时间不合适",
+      draftId: draft.id,
+      organizationId: ORG,
+      response: "declined",
+      responseSource: "candidate",
+    });
+
+    const [node] = await db
+      .select({ result: recruitingNodeState.result, status: recruitingNodeState.status })
+      .from(recruitingNodeState)
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, RECORD_ID),
+          eq(recruitingNodeState.node, "offer"),
+        ),
+      );
+    const [record] = await db
+      .select({ stage: recruitingRecordReadModel.currentStage })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
+
+    expect(declined).toMatchObject({
+      declineReason: "入职时间不合适",
+      responseSource: "candidate",
+      status: "declined",
+    });
+    expect(node).toEqual({ result: null, status: "awaiting_response" });
+    expect(record?.stage).toBe("offer");
   });
 
   it("deletes only unsent drafts and recreates version 1", async () => {

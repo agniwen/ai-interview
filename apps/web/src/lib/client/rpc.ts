@@ -1,5 +1,6 @@
 import {
   hcChatWithType,
+  hcBackgroundCheckWithType,
   hcPublicWithType,
   hcStudioInterviewsWithType,
   hcWithType,
@@ -37,6 +38,13 @@ export function chatRpc(slug: string) {
 export function studioInterviewsRpc(slug: string) {
   return hcStudioInterviewsWithType(
     `/api/w/${encodeURIComponent(slug)}/studio/interviews`,
+    rpcClientOptions,
+  );
+}
+
+export function backgroundCheckRpc(slug: string, candidateId: string) {
+  return hcBackgroundCheckWithType(
+    `/api/w/${encodeURIComponent(slug)}/studio/interviews/${encodeURIComponent(candidateId)}/background-check`,
     rpcClientOptions,
   );
 }

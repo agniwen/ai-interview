@@ -5,6 +5,7 @@ import type {
   HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
+  OfferEmailPreviewRecord,
 } from "@app/shared/studio-pipeline-stages";
 /**
  * Studio 后台「面试管理」相关 API。
@@ -629,10 +630,6 @@ export function cancelHumanInterviewRound(
 
 // ── Offer 草稿 client wrappers ──
 
-/**
- * 列出候选人所有 Offer 草稿（version desc）。
- * List all offer drafts for a candidate, newest version first.
- */
 export function listOfferDrafts(slug: string, candidateId: string): Promise<OfferDraftRecord[]> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"].$get({
@@ -642,10 +639,6 @@ export function listOfferDrafts(slug: string, candidateId: string): Promise<Offe
   );
 }
 
-/**
- * 新建唯一一份 Offer。sendImmediately=true 时直接发送（跳过 draft 状态）。
- * Create the candidate's only offer; pass sendImmediately to skip the draft state.
- */
 export function createOfferDraft(
   slug: string,
   candidateId: string,
@@ -660,10 +653,6 @@ export function createOfferDraft(
   );
 }
 
-/**
- * 编辑草稿（仅 status='draft' 时允许）。
- * Edit a draft (only allowed when status='draft').
- */
 export function patchOfferDraft(
   slug: string,
   candidateId: string,
@@ -679,32 +668,69 @@ export function patchOfferDraft(
   );
 }
 
-/**
- * draft → sent：HR 把草稿正式发出。
- * Send a draft offer.
- */
 export function sendOfferDraft(
   slug: string,
   candidateId: string,
   draftId: string,
 ): Promise<OfferDraftRecord> {
   return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].send.$post({
+    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].publish.$post({
       param: { draftId, id: candidateId, slug },
     }),
-    "发送 Offer 失败",
+    "发布 Offer 失败",
   );
 }
 
-/**
- * 记录候选人对已发送 Offer 的响应。
- * Record the candidate's response to a sent offer.
- */
+export function getOfferPublicLink(
+  slug: string,
+  candidateId: string,
+  draftId: string,
+): Promise<{ url: string }> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].link.$post({
+      param: { draftId, id: candidateId, slug },
+    }),
+    "获取 Offer 链接失败",
+  );
+}
+
+export function getOfferEmailPreview(
+  slug: string,
+  candidateId: string,
+  draftId: string,
+): Promise<OfferEmailPreviewRecord> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"]["email-preview"].$get({
+      param: { draftId, id: candidateId, slug },
+    }),
+    "加载 Offer 邮件内容失败",
+  );
+}
+
+export function sendOfferEmail(
+  slug: string,
+  candidateId: string,
+  draftId: string,
+  input: { content: string; subject: string; to: string },
+): Promise<{ interviewRecordId: string; providerMessageId: string; sentAt: string; url: string }> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].email.$post({
+      json: input,
+      param: { draftId, id: candidateId, slug },
+    }),
+    "发送 Offer 邮件失败",
+  );
+}
+
 export function respondOfferDraft(
   slug: string,
   candidateId: string,
   draftId: string,
-  input: { response: "accepted" | "declined" | "counter"; candidateCounter?: string | null },
+  input: {
+    response: "accepted" | "declined" | "counter";
+    candidateCounter?: string | null;
+    declineReason?: string | null;
+  },
 ): Promise<OfferDraftRecord> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].respond.$post({

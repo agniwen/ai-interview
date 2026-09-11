@@ -33,6 +33,9 @@ function toRecord(row: typeof recruitingOffer.$inferSelect): OfferDraftRecord {
     candidateCounter: row.candidateCounter,
     createdAt: serializeDate(row.createdAt) ?? new Date().toISOString(),
     currency: row.currency,
+    declineReason: row.declineReason,
+    emailRecipient: row.emailRecipient,
+    emailSentAt: serializeDate(row.emailSentAt),
     equity: row.equity,
     expiresAt: serializeDate(row.expiresAt),
     id: row.id,
@@ -41,7 +44,12 @@ function toRecord(row: typeof recruitingOffer.$inferSelect): OfferDraftRecord {
     notes: row.notes,
     organizationId: row.organizationId,
     position: row.position,
+    publicPath: row.publicToken ? `/offer/${encodeURIComponent(row.publicToken)}` : null,
+    publishedAt: serializeDate(row.publishedAt),
+    publishedBy: row.publishedBy,
     responseAt: serializeDate(row.responseAt),
+    responseBy: row.responseBy,
+    responseSource: row.responseSource,
     sentAt: serializeDate(row.sentAt),
     status: row.status,
     updatedAt: serializeDate(row.updatedAt) ?? new Date().toISOString(),
@@ -98,18 +106,22 @@ export interface CreateDraftOptions {
   // 是否直接发出（默认 false，进 draft 状态）。
   // Whether to send immediately; defaults to draft.
   sendImmediately?: boolean;
+  operatorId?: string | null;
 }
 
 // 锁定招聘主记录，串行化存在性检查与创建，防止并发创建第二份 Offer。
+// oxlint-disable-next-line complexity -- Creation validates the pipeline lock and writes the complete Offer snapshot atomically.
 export async function createOfferDraft({
   interviewRecordId,
   organizationId,
   input,
   sendImmediately,
+  operatorId,
 }: CreateDraftOptions): Promise<OfferDraftRecord> {
   const id = crypto.randomUUID();
   const now = new Date();
 
+  // oxlint-disable-next-line complexity -- The transaction validates and writes the complete Offer snapshot atomically.
   return await db.transaction(async (tx) => {
     const parent = await lockRecruitingRecord(tx, interviewRecordId, organizationId);
     if (!parent || parent.currentStage !== "offer") {
@@ -157,6 +169,9 @@ export async function createOfferDraft({
       notes: input.notes ?? null,
       organizationId,
       position: input.position,
+      publicToken: sendImmediately ? crypto.randomUUID() : null,
+      publishedAt: sendImmediately ? now : null,
+      publishedBy: sendImmediately ? (operatorId ?? null) : null,
       recruitingRecordId: interviewRecordId,
       sentAt: sendImmediately ? now : null,
       status: sendImmediately ? "sent" : "draft",
@@ -298,16 +313,24 @@ export async function editOfferDraft({
 export async function sendOfferDraft(
   draftId: string,
   organizationId: string,
+  operatorId: string | null = null,
 ): Promise<OfferDraftRecord> {
   return await db.transaction(async (tx) => {
     const { draft, record } = await lockOfferContext(tx, draftId, organizationId);
     if (draft.status !== "draft") {
-      throw new OfferDraftError("只有草稿状态的 Offer 可以发出", 400);
+      throw new OfferDraftError("只有草稿状态的 Offer 可以确认发布", 400);
     }
     const now = new Date();
     const [updated] = await tx
       .update(recruitingOffer)
-      .set({ sentAt: now, status: "sent", updatedAt: now })
+      .set({
+        publicToken: crypto.randomUUID(),
+        publishedAt: now,
+        publishedBy: operatorId,
+        sentAt: now,
+        status: "sent",
+        updatedAt: now,
+      })
       .where(eq(recruitingOffer.id, draftId))
       .returning();
     await updateRecruitingNodeTx(tx, {
@@ -332,6 +355,13 @@ export interface RespondOfferOptions {
   organizationId: string;
   response: "accepted" | "declined" | "counter";
   candidateCounter?: string | null;
+  declineReason?: string | null;
+  responseBy?: string | null;
+  responseSource?: "candidate" | "hr";
+  onResponded?: (
+    tx: Tx,
+    context: { offerId: string; respondedAt: Date; response: "accepted" | "declined" | "counter" },
+  ) => Promise<void>;
 }
 
 export async function respondOfferDraft({
@@ -339,26 +369,31 @@ export async function respondOfferDraft({
   organizationId,
   response,
   candidateCounter,
+  declineReason,
+  responseBy,
+  responseSource = "hr",
+  onResponded,
 }: RespondOfferOptions): Promise<OfferDraftRecord> {
   return await db.transaction(async (tx) => {
     const { draft, record } = await lockOfferContext(tx, draftId, organizationId);
     if (draft.status !== "sent") {
-      throw new OfferDraftError("只有已发送的 Offer 可以记录响应", 400);
+      throw new OfferDraftError("只有已发布、待回复的 Offer 可以记录响应", 400);
     }
     const now = new Date();
     const [updated] = await tx
       .update(recruitingOffer)
       .set({
         candidateCounter: candidateCounter ?? draft.candidateCounter,
+        declineReason: response === "declined" ? (declineReason ?? null) : null,
         responseAt: now,
+        responseBy: responseBy ?? null,
+        responseSource,
         status: response === "counter" ? "sent" : response,
         updatedAt: now,
       })
       .where(eq(recruitingOffer.id, draftId))
       .returning();
-    const result = response === "accepted" ? "pass" : "fail";
     await updateRecruitingNodeTx(tx, {
-      closeReason: "offer_declined",
       effectiveOfferId: draftId,
       expectedEffectiveId: draftId,
       node: "offer",
@@ -367,9 +402,10 @@ export async function respondOfferDraft({
       organizationId,
       reason: candidateCounter ?? undefined,
       recordId: record.id,
-      result: response === "counter" ? null : result,
-      status: response === "counter" ? "awaiting_response" : "completed",
+      result: response === "accepted" ? "pass" : null,
+      status: response === "accepted" ? "completed" : "awaiting_response",
     });
+    await onResponded?.(tx, { offerId: draftId, respondedAt: now, response });
     if (!updated) {
       throw new Error("响应后查询失败");
     }

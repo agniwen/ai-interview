@@ -62,6 +62,8 @@ import {
 import { aiInterviewInvitationsRouter } from "./routes/ai-interview-invitations/route";
 import { humanInterviewCandidateMaterialsRouter } from "./routes/human-interview-candidate-materials/route";
 import { humanInterviewLiveTranscriptRouter } from "./routes/human-interview-live-transcript/route";
+import { publicOffersRouter } from "./routes/offers/route";
+import { publicBackgroundChecksRouter } from "./routes/background-checks/route";
 import { validateResumeFile } from "../../agents/resume-analysis-agent";
 import {
   cancelBatch,
@@ -103,6 +105,8 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
   const dependencies: PublicRouterDependencies = { ...defaultDependencies, ...overrides };
   return factory
     .createApp()
+    .route("/background-checks", publicBackgroundChecksRouter)
+    .route("/offers", publicOffersRouter)
     .route("/human-interview-candidate-materials", humanInterviewCandidateMaterialsRouter)
     .get("/referrals/:token", async (c) => {
       const link = await dependencies.resolveReferralLink(c.req.param("token"));

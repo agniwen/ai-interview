@@ -25,6 +25,7 @@ import {
 import { CandidateExpectationsBlock, OfferCard } from "./offer-stage-cards";
 import { CreateOrEditOfferDialog, RespondOfferDialog } from "./offer-stage-dialogs";
 import { cn } from "@app/shared/utils";
+import { BackgroundCheckPanel } from "./background-check-panel";
 
 const offerNegotiationSteps = [
   { label: "流水提供", stage: "income_proof" },
@@ -121,6 +122,25 @@ interface PanelProps {
   nodeStates: RecruitingNodeStateRecord[];
 }
 
+function BackgroundCheckStageContent({
+  candidateId,
+  canUpdate,
+  disabled,
+  nodeStates,
+  stage,
+}: Pick<PanelProps, "candidateId" | "canUpdate" | "disabled" | "nodeStates" | "stage">) {
+  if (stage !== "background_check") {
+    return null;
+  }
+  return (
+    <BackgroundCheckPanel
+      candidateId={candidateId}
+      disabled={disabled || !canUpdate}
+      review={nodeStates.find((node) => node.node === "background_check")}
+    />
+  );
+}
+
 export function OfferStagePanel({
   agreedBaseSalary,
   stage,
@@ -193,6 +213,8 @@ export function OfferStagePanel({
             canDelete={canDelete}
             canUpdate={canUpdate}
             candidateId={candidateId}
+            candidateEmail={candidateEmail}
+            candidateName={candidateName}
             disabled={offerDisabled}
             draft={draft}
             key={draft.id}
@@ -235,12 +257,20 @@ export function OfferStagePanel({
           </FrameHeader>
           <FramePanel className="flex flex-col gap-4">
             <p className="text-muted-foreground text-xs">
-              管理 {candidateName} 的 Offer，确认发送后不可删除。
+              管理 {candidateName} 的 Offer。确认发布后内容锁定，可发送邮件或复制链接。
             </p>
             {renderDraftsContent()}
           </FramePanel>
         </Frame>
       )}
+
+      <BackgroundCheckStageContent
+        candidateId={candidateId}
+        canUpdate={canUpdate}
+        disabled={disabled}
+        nodeStates={nodeStates}
+        stage={stage}
+      />
 
       <CreateOrEditOfferDialog
         initialBaseSalary={agreedBaseSalary}

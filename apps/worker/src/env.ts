@@ -21,6 +21,7 @@ export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) 
       INTERVIEW_NOTIFICATION_BATCH_SIZE: runtimeEnv.INTERVIEW_NOTIFICATION_BATCH_SIZE,
       INTERVIEW_NOTIFICATION_FLOW_ENABLED: runtimeEnv.INTERVIEW_NOTIFICATION_FLOW_ENABLED,
       INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS: runtimeEnv.INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS,
+      INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE: runtimeEnv.INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE,
       INTERVIEW_NOTIFICATION_WORKER_ENABLED: runtimeEnv.INTERVIEW_NOTIFICATION_WORKER_ENABLED,
       POSTGRES_CONNECT_TIMEOUT_SECONDS: runtimeEnv.POSTGRES_CONNECT_TIMEOUT_SECONDS,
       POSTGRES_IDLE_TIMEOUT_SECONDS: runtimeEnv.POSTGRES_IDLE_TIMEOUT_SECONDS,
@@ -46,6 +47,11 @@ export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) 
       INTERVIEW_NOTIFICATION_BATCH_SIZE: positiveIntegerString.optional(),
       INTERVIEW_NOTIFICATION_FLOW_ENABLED: booleanString.optional(),
       INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS: positiveIntegerString.optional(),
+      INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE: z
+        .string()
+        .trim()
+        .regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
+        .optional(),
       INTERVIEW_NOTIFICATION_WORKER_ENABLED: booleanString.optional(),
       POSTGRES_CONNECT_TIMEOUT_SECONDS: positiveIntegerString.optional(),
       POSTGRES_IDLE_TIMEOUT_SECONDS: positiveIntegerString.optional(),

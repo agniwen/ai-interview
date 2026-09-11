@@ -2,12 +2,14 @@ import type { AppType } from "./server/app";
 import type { chatRouter } from "./server/routes/chat/route";
 import type { publicRouter } from "./server/routes/public/route";
 import type { studioInterviewsRouter } from "./server/routes/studio/routes/interviews/route";
+import type { backgroundCheckRouter } from "./server/routes/studio/routes/interviews/routes/background-check/route";
 import { hc } from "hono/client";
 
 export type RpcClient = ReturnType<typeof hc<AppType>>;
 export type ChatRpcClient = ReturnType<typeof hc<typeof chatRouter>>;
 export type PublicRpcClient = ReturnType<typeof hc<typeof publicRouter>>;
 export type StudioInterviewsRpcClient = ReturnType<typeof hc<typeof studioInterviewsRouter>>;
+export type BackgroundCheckRpcClient = ReturnType<typeof hc<typeof backgroundCheckRouter>>;
 
 export const hcWithType = (...args: Parameters<typeof hc>): RpcClient => hc<AppType>(...args);
 export const hcChatWithType = (...args: Parameters<typeof hc>): ChatRpcClient =>
@@ -17,3 +19,6 @@ export const hcPublicWithType = (...args: Parameters<typeof hc>): PublicRpcClien
 export const hcStudioInterviewsWithType = (
   ...args: Parameters<typeof hc>
 ): StudioInterviewsRpcClient => hc<typeof studioInterviewsRouter>(...args);
+export const hcBackgroundCheckWithType = (
+  ...args: Parameters<typeof hc>
+): BackgroundCheckRpcClient => hc<typeof backgroundCheckRouter>(...args);

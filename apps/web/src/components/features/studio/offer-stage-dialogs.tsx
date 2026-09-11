@@ -22,7 +22,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { SendOfferConfirmDialog } from "./offer-stage-cards";
 import {
   OfferDraftFormFields,
   buildOfferDraftPayload,
@@ -51,7 +50,6 @@ export function CreateOrEditOfferDialog({
   open,
   onOpenChange,
   candidateId,
-  candidateEmail,
   mode,
   existingDraft,
   initialBaseSalary,
@@ -64,8 +62,6 @@ export function CreateOrEditOfferDialog({
       : createBlankOfferFormState(initialBaseSalary),
   );
   const setFormField = createOfferFormFieldSetter(setForm);
-  const [sendImmediately, setSendImmediately] = useState(false);
-  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -77,14 +73,9 @@ export function CreateOrEditOfferDialog({
         ? offerFormStateFromDraft(existingDraft)
         : createBlankOfferFormState(initialBaseSalary),
     );
-    setSendImmediately(false);
-    setSendConfirmOpen(false);
   }, [existingDraft, initialBaseSalary, mode, open]);
 
   function handleOpenChange(next: boolean) {
-    if (!next) {
-      setSendConfirmOpen(false);
-    }
     onOpenChange(next);
   }
 
@@ -94,22 +85,17 @@ export function CreateOrEditOfferDialog({
       if (mode === "edit" && existingDraft) {
         return patchOfferDraft(slug, candidateId, existingDraft.id, payload);
       }
-      return createOfferDraft(slug, candidateId, { ...payload, sendImmediately });
+      return createOfferDraft(slug, candidateId, payload);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "保存失败"),
     onSuccess: () => {
-      toast.success(saveSuccessMessage(mode, sendImmediately));
-      setSendConfirmOpen(false);
+      toast.success(saveSuccessMessage(mode, false));
       onSaved();
       onOpenChange(false);
     },
   });
 
   function handleSave() {
-    if (mode === "create" && sendImmediately) {
-      setSendConfirmOpen(true);
-      return;
-    }
     mutation.mutate();
   }
 
@@ -120,29 +106,12 @@ export function CreateOrEditOfferDialog({
           <DialogTitle>{mode === "edit" ? "编辑 Offer 草稿" : "创建 Offer"}</DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "草稿状态可编辑和删除。确认发送后可记录候选人响应。"
-              : "每位候选人仅保留一份 Offer，确认发送后不可删除。"}
+              ? "草稿状态可编辑和删除。确认发布后内容将锁定。"
+              : "先保存草稿，核对无误后再确认发布。"}
           </DialogDescription>
         </DialogHeader>
 
         <OfferDraftFormFields form={form} idPrefix="offer" onFieldChange={setFormField} />
-        <div className="grid gap-3 py-2 sm:grid-cols-2">
-          {mode === "create" ? (
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <input
-                aria-label="立即发送 Offer"
-                checked={sendImmediately}
-                className="size-4 accent-foreground"
-                id="offer-send-now"
-                onChange={(e) => setSendImmediately(e.target.checked)}
-                type="checkbox"
-              />
-              <Label className="cursor-pointer text-sm" htmlFor="offer-send-now">
-                立即发送（跳过草稿状态）
-              </Label>
-            </div>
-          ) : null}
-        </div>
 
         <DialogFooter>
           <Button
@@ -159,13 +128,6 @@ export function CreateOrEditOfferDialog({
             {mutation.isPending ? "保存中…" : "保存"}
           </Button>
         </DialogFooter>
-        <SendOfferConfirmDialog
-          candidateEmail={candidateEmail}
-          isPending={mutation.isPending}
-          onConfirm={() => mutation.mutate()}
-          onOpenChange={setSendConfirmOpen}
-          open={sendConfirmOpen}
-        />
       </DialogContent>
     </Dialog>
   );
@@ -190,12 +152,14 @@ export function RespondOfferDialog({
   const slug = useWorkspaceSlug();
   const [response, setResponse] = useState<"accepted" | "declined" | "counter">("accepted");
   const [counter, setCounter] = useState("");
+  const [declineReason, setDeclineReason] = useState("");
 
   useEffect(() => {
     if (draft) {
       // oxlint-disable-next-line react/set-state-in-effect -- A new response target resets dialog-local fields without remounting the animated root.
       setResponse("accepted");
       setCounter("");
+      setDeclineReason("");
     }
   }, [draft]);
 
@@ -206,6 +170,7 @@ export function RespondOfferDialog({
       }
       return respondOfferDraft(slug, candidateId, draft.id, {
         candidateCounter: response === "counter" ? counter.trim() || null : null,
+        declineReason: response === "declined" ? declineReason.trim() || null : null,
         response,
       });
     },
@@ -225,8 +190,10 @@ export function RespondOfferDialog({
     <Dialog onOpenChange={onOpenChange} open={draft !== null}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>记录候选人响应</DialogTitle>
-          <DialogDescription>接受后可进入背调。</DialogDescription>
+          <DialogTitle>HR 手动记录 Offer 响应</DialogTitle>
+          <DialogDescription>
+            用于候选人无法在线操作等异常场景。接受后可进入背调。
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -262,6 +229,21 @@ export function RespondOfferDialog({
                 placeholder="例如：希望月薪提高到 35k，或希望追加 0.05% 期权"
                 rows={3}
                 value={counter}
+              />
+            </div>
+          ) : null}
+          {response === "declined" ? (
+            <div className="grid gap-1.5">
+              <Label className="text-sm" htmlFor="offer-decline-reason">
+                拒绝原因（选填）
+              </Label>
+              <Textarea
+                id="offer-decline-reason"
+                maxLength={1000}
+                onChange={(event) => setDeclineReason(event.target.value)}
+                placeholder="记录候选人反馈，便于后续沟通"
+                rows={3}
+                value={declineReason}
               />
             </div>
           ) : null}
