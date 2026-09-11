@@ -19,6 +19,7 @@ export function cancelHumanInterviewMeeting({
   return db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
+        feishuProviderId: humanInterviewMeeting.feishuProviderId,
         liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
         scheduleVersion: humanInterviewMeeting.scheduleVersion,
         status: humanInterviewMeeting.status,
@@ -45,6 +46,8 @@ export function cancelHumanInterviewMeeting({
       .update(humanInterviewMeeting)
       .set({
         cancelledAt: now,
+        feishuLastError: null,
+        feishuSyncStatus: meeting.feishuProviderId ? "pending" : null,
         lifecycleOccurredAt: now,
         lifecycleSource: "manual",
         status: "cancelled",

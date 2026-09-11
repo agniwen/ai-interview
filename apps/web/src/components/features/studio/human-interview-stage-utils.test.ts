@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHumanInterviewMeetingTitle,
+  canCancelHumanInterviewRound,
   canCompleteHumanInterviewRound,
+  canRescheduleHumanInterviewRound,
   canShowHumanInterviewScheduleAction,
   getHumanInterviewBusinessRoundNumbers,
   getHumanInterviewScheduleBlockReason,
@@ -23,6 +25,20 @@ describe("canShowHumanInterviewScheduleAction", () => {
 describe("canCompleteHumanInterviewRound", () => {
   it("does not expose the retired direct-completion action after a meeting ends", () => {
     expect(canCompleteHumanInterviewRound({ status: "pending" }, { status: "ended" })).toBe(false);
+  });
+});
+
+describe("not-held meeting recovery", () => {
+  it("allows HR to reschedule or cancel a pending round after the meeting was not held", () => {
+    // SAFETY: These guards read only the status fields provided by the focused fixtures.
+    const round = { status: "pending" } as Parameters<typeof canRescheduleHumanInterviewRound>[0];
+    // SAFETY: These guards read only the status fields provided by the focused fixtures.
+    const meeting = { status: "not_held" } as Parameters<
+      typeof canRescheduleHumanInterviewRound
+    >[1];
+
+    expect(canRescheduleHumanInterviewRound(round, meeting)).toBe(true);
+    expect(canCancelHumanInterviewRound(round, meeting)).toBe(true);
   });
 });
 

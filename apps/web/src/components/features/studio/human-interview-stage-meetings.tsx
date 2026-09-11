@@ -82,8 +82,8 @@ export function EndMeetingDialog({
   );
 }
 
-const interviewerRoleLabel = {
-  host: "主持人",
+export const interviewerRoleLabel = {
+  host: "面试官",
   interviewer: "面试官",
   observer: "旁听",
 } satisfies Record<HumanInterviewMeetingInterviewerRole, string>;
@@ -162,6 +162,7 @@ export function MeetingLinksDialogView({
             <MeetingLinksContent
               isRetrying={retryFeishu.isPending}
               links={data}
+              scheduledAt={meeting?.scheduledAt ?? null}
               onRetry={() => retryFeishu.mutate()}
             />
           ) : null}
@@ -175,10 +176,12 @@ function MeetingLinksContent({
   isRetrying,
   links,
   onRetry,
+  scheduledAt,
 }: {
   isRetrying: boolean;
   links: HumanInterviewMeetingLinkBundle;
   onRetry: () => void;
+  scheduledAt: string | null;
 }) {
   const retryCopy = getFeishuRetryCopy(links.feishu?.status);
 
@@ -206,10 +209,21 @@ function MeetingLinksContent({
           <IconUsers className="size-4" />
           候选人确认链接
         </h4>
+        <p className="text-muted-foreground text-xs">
+          复制后包含面试场景、轮次和时间，可直接发送给候选人。
+        </p>
         <div className="space-y-2">
           {links.candidateLinks.map((link) => (
             <MeetingLinkRow
-              description={`${link.roundLabel} · 有效至 ${formatDateTime(link.expiresAt)}`}
+              copyText={buildCandidateLinkCopy({
+                candidateName: link.candidateName,
+                companyName: link.companyName,
+                jobDescriptionName: link.jobDescriptionName,
+                roundLabel: link.roundLabel,
+                scheduledAt,
+                url: link.url,
+              })}
+              description={`${link.jobDescriptionName ?? "未关联岗位"} · ${link.roundLabel} · 有效至 ${formatDateTime(link.expiresAt)}`}
               key={link.roundId}
               label={link.candidateName}
               url={link.url}
@@ -223,10 +237,21 @@ function MeetingLinksContent({
           <IconLink className="size-4" />
           面试官会议链接
         </h4>
+        <p className="text-muted-foreground text-xs">
+          复制后包含会议名称、面试时间和人员身份，可直接发送给面试官。
+        </p>
         <div className="space-y-2">
           {links.interviewerLinks.map((link) => (
             <MeetingLinkRow
-              description={interviewerRoleLabel[link.role]}
+              copyText={buildInterviewerLinkCopy({
+                interviewerName: link.name,
+                jobDescriptionName: formatMeetingJobNames(links),
+                meetingTitle: links.title,
+                roleLabel: interviewerRoleLabel[link.role],
+                scheduledAt,
+                url: link.url,
+              })}
+              description={`${interviewerRoleLabel[link.role]} · ${formatMeetingJobNames(links)}`}
               key={link.userId}
               label={link.name}
               url={link.url}
@@ -236,6 +261,57 @@ function MeetingLinksContent({
       </section>
     </div>
   );
+}
+
+export function buildCandidateLinkCopy({
+  candidateName,
+  companyName,
+  jobDescriptionName,
+  roundLabel,
+  scheduledAt,
+  url,
+}: {
+  candidateName: string;
+  companyName: string;
+  jobDescriptionName: string | null;
+  roundLabel: string;
+  scheduledAt: string | null;
+  url: string;
+}): string {
+  const absoluteUrl = toAbsoluteUrl(url);
+  const timeCopy = scheduledAt ? `\n面试时间：${formatDateTime(scheduledAt)}` : "";
+  return `${candidateName}，您好：\n这是您的真人面试确认链接。\n公司：${companyName}\n应聘岗位：${jobDescriptionName ?? "待确认"}\n面试轮次：${roundLabel}${timeCopy}\n请打开链接确认是否参加，本链接仅供本人使用，请勿转发。\n${absoluteUrl}`;
+}
+
+export function buildInterviewerLinkCopy({
+  interviewerName,
+  jobDescriptionName,
+  meetingTitle,
+  roleLabel,
+  scheduledAt,
+  url,
+}: {
+  interviewerName: string;
+  jobDescriptionName: string;
+  meetingTitle: string;
+  roleLabel: string;
+  scheduledAt: string | null;
+  url: string;
+}): string {
+  const absoluteUrl = toAbsoluteUrl(url);
+  const timeCopy = scheduledAt ? `\n面试时间：${formatDateTime(scheduledAt)}` : "";
+  return `${interviewerName}，您好：\n这是「${meetingTitle}」真人面试的面试官会议链接。\n岗位：${jobDescriptionName}${timeCopy}\n您本次的会议身份为${roleLabel}，请使用本人账号打开，本链接请勿转发。\n${absoluteUrl}`;
+}
+
+export function formatMeetingJobNames(links: HumanInterviewMeetingLinkBundle): string {
+  const names = [
+    ...new Set(
+      links.candidateLinks.flatMap((link) =>
+        link.jobDescriptionName?.trim() ? [link.jobDescriptionName.trim()] : [],
+      ),
+    ),
+  ];
+  return names.join("、") || "未关联岗位";
 }
 
 function getFeishuRetryCopy(status: FeishuHumanInterviewSyncStatus | undefined) {
@@ -264,10 +340,12 @@ function getFeishuRetryCopy(status: FeishuHumanInterviewSyncStatus | undefined) 
 }
 
 function MeetingLinkRow({
+  copyText,
   description,
   label,
   url,
 }: {
+  copyText: string;
   description: string;
   label: string;
   url: string;
@@ -275,9 +353,9 @@ function MeetingLinkRow({
   const absoluteUrl = toAbsoluteUrl(url);
 
   async function handleCopy() {
-    const result = await copyTextToClipboard(absoluteUrl);
+    const result = await copyTextToClipboard(copyText);
     if (result === "copied") {
-      toast.success("链接已复制");
+      toast.success("发送文案已复制");
       return;
     }
     if (result === "manual") {
@@ -299,7 +377,7 @@ function MeetingLinkRow({
         </div>
         <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
           <IconCopy className="size-4" />
-          复制
+          复制消息
         </Button>
       </CardContent>
     </Card>

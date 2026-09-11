@@ -579,11 +579,13 @@ export async function enqueueAiInterviewCompletedEvent(
 
 interface HumanMeetingEventInput {
   actorUserId: string | null;
+  attendanceStatus?: string;
   changeReason?: string | null;
   dedupeDiscriminator?: string;
   exceptionType?: string;
   humanRoundId?: string;
   meetingId: string;
+  missingParticipantNames?: string[];
   now?: Date;
   oldScheduledAt?: Date | null;
   oldValidUntil?: Date | null;
@@ -603,6 +605,8 @@ interface HumanMeetingEventInput {
     | "human_interviewer_added"
     | "human_interview_cancelled"
     | "human_interview_completed"
+    | "human_interview_attendance_alert"
+    | "human_interview_not_held"
     | "human_evaluation_summary_ready";
 }
 
@@ -624,7 +628,11 @@ export function resolveHumanMeetingEventInterviewLink(input: {
       }),
     );
   }
-  if (input.type === "human_interview_completed") {
+  if (
+    input.type === "human_interview_completed" ||
+    input.type === "human_interview_attendance_alert" ||
+    input.type === "human_interview_not_held"
+  ) {
     return humanInterviewRecordUrl(input.interviewRecordId, input.organizationSlug);
   }
   if (!(input.candidateInviteExpiresAt && input.candidateInviteTokenHash)) {
@@ -660,7 +668,11 @@ export async function cancelPendingHumanMeetingReminders(
     .where(
       and(
         eq(recruitingNotificationEvent.humanMeetingId, meetingId),
-        eq(recruitingNotificationEvent.type, "human_interview_reminder"),
+        inArray(recruitingNotificationEvent.type, [
+          "human_interview_reminder",
+          "human_interview_attendance_alert",
+          "human_interview_not_held",
+        ]),
         inArray(recruitingNotificationEvent.status, ["pending", "processing", "failed"]),
       ),
     )
@@ -696,7 +708,8 @@ export async function enqueueHumanMeetingEvents(
   if (
     input.type === "human_interview_rescheduled" ||
     input.type === "human_interview_cancelled" ||
-    input.type === "human_interview_completed"
+    input.type === "human_interview_completed" ||
+    input.type === "human_interview_not_held"
   ) {
     await cancelPendingHumanMeetingReminders(tx, input.meetingId);
   }
@@ -820,6 +833,7 @@ export async function enqueueHumanMeetingEvents(
       );
     }
     const payloadSnapshot = {
+      attendanceStatus: input.attendanceStatus,
       candidateName: row.candidateName,
       changeReason: input.changeReason?.trim() || undefined,
       companyName: resolveInterviewNotificationCompanyName(
@@ -839,6 +853,7 @@ export async function enqueueHumanMeetingEvents(
       invitationEndTime: row.candidateInviteExpiresAt?.toISOString(),
       invitationStartTime: now.toISOString(),
       jobName: row.jobName ?? undefined,
+      missingParticipantNames: input.missingParticipantNames,
       occurredAt: input.type === "human_invitation_exception" ? now.toISOString() : undefined,
       oldInterviewEndTime: input.oldValidUntil?.toISOString(),
       oldInterviewStartTime: input.oldScheduledAt?.toISOString(),

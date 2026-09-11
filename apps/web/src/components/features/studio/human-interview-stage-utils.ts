@@ -5,10 +5,15 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@app/shared/studio-pipeline-stages";
+import {
+  describeHumanInterviewAttendance,
+  humanInterviewAttendanceStatusMeta,
+} from "@app/shared/human-interview-attendance";
 
 interface HumanInterviewStatusDescription {
   label: string;
-  tone: "success" | "warning" | "info" | "outline";
+  note?: string | null;
+  tone: "danger" | "success" | "warning" | "info" | "outline";
 }
 
 export function canShowHumanInterviewScheduleAction(
@@ -84,21 +89,11 @@ export function describeRoundSummaryStatus(
 export function describeMeetingStatus(
   meeting: HumanInterviewMeetingRecord,
 ): HumanInterviewStatusDescription {
-  if (meeting.status === "cancelled") {
-    return { label: "已取消", tone: "outline" };
-  }
-  if (meeting.status === "ended") {
-    return { label: "已结束", tone: "outline" };
-  }
-  if (meeting.status === "in_progress") {
-    return {
-      label: "视频会议进行中",
-      tone: "success",
-    };
-  }
+  const attendance = describeHumanInterviewAttendance(meeting);
+  const meta = humanInterviewAttendanceStatusMeta[attendance.status];
   return {
-    label: "待开始（视频）",
-    tone: "info",
+    ...meta,
+    note: attendance.note,
   };
 }
 
@@ -124,7 +119,7 @@ export function canCancelHumanInterviewRound(
   if (disabled || round.status !== "pending") {
     return false;
   }
-  return meeting === null || meeting.status === "scheduled";
+  return meeting === null || meeting.status === "scheduled" || meeting.status === "not_held";
 }
 
 export function canCompleteHumanInterviewRound(
@@ -144,7 +139,7 @@ export function canRescheduleHumanInterviewRound(
   if (disabled || round.status !== "pending") {
     return false;
   }
-  return meeting === null || meeting.status === "scheduled";
+  return meeting === null || meeting.status === "scheduled" || meeting.status === "not_held";
 }
 
 export function pad2(n: number): string {

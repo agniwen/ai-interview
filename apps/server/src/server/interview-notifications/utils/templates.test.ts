@@ -24,6 +24,20 @@ describe("interview notification templates", () => {
     expect(template?.contentTemplate).toContain("[确认面试评价]({{interviewLink}})");
   });
 
+  it("provides creator Feishu templates for attendance exceptions", () => {
+    const templates = CORE_INTERVIEW_NOTIFICATION_TEMPLATES.filter((item) =>
+      ["human_interview_attendance_alert", "human_interview_not_held"].includes(item.eventType),
+    );
+    expect(templates).toHaveLength(2);
+    for (const template of templates) {
+      expect(template.audienceType).toBe("initiator_fallback");
+      expect(template.channel).toBe("feishu");
+      expect(template.contentTemplate).toContain("{{missingParticipantNames}}");
+      expect(template.contentTemplate).toContain("{{jobName}}");
+      expect(template.contentTemplate).toContain("{{interviewLink}}");
+    }
+  });
+
   it("uses direct confirmation copy and no interviewer confirmation request templates", () => {
     expect(JSON.stringify(CORE_INTERVIEW_NOTIFICATION_TEMPLATES)).not.toContain(
       '"human_interviewer_confirmation_requested"',

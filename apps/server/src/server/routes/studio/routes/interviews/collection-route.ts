@@ -45,6 +45,7 @@ import { requirePermission } from "../../../../middlewares/permission";
 import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
 import { requireHumanMeetingUpdateAccess } from "./utils/human-meeting-update-access";
 import { loadHumanInterviewMeetingInterviewerIds } from "./dao/human-interview-meeting-input";
+import { syncCancelledHumanInterviewMeetingCalendars } from "./application/sync-cancelled-human-interview-meetings";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
@@ -247,9 +248,27 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
           }
           const meetingId = c.req.param("meetingId");
           try {
+            const input = c.req.valid("json");
+            if (isFeishuHumanInterviewEnabled() && input.interviewerIds) {
+              const existing = await loadHumanInterviewMeetingById(meetingId, activeOrg.id);
+              if (!existing) {
+                return c.json({ error: "真人复面会议不存在。" }, 404);
+              }
+              const providerId = await resolveHumanInterviewFeishuProviderId({
+                interviewerIds: input.interviewerIds,
+                organizationId: activeOrg.id,
+                preferredProviderId: existing.feishu?.providerId,
+              });
+              if (existing.feishu && providerId !== existing.feishu.providerId) {
+                throw new HumanInterviewMeetingError(
+                  "所选面试官与当前会议不属于同一个飞书应用来源，请取消后重新创建会议。",
+                  400,
+                );
+              }
+            }
             const updated = await updateHumanInterviewMeetingSchedule({
               actorUserId: user.id,
-              input: c.req.valid("json"),
+              input,
               meetingId,
               organizationId: activeOrg.id,
             });
@@ -538,9 +557,10 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
             return c.json({ message: "Unauthorized" }, 401);
           }
           try {
+            const meetingId = c.req.param("meetingId");
             const roomName = await cancelHumanInterviewMeeting({
               actorUserId: user.id,
-              meetingId: c.req.param("meetingId"),
+              meetingId,
               organizationId: activeOrg.id,
             });
             if (roomName) {
@@ -557,7 +577,23 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
                 console.warn("failed to delete livekit human interview room", error);
               }
             }
+            const feishuFailure = await syncCancelledHumanInterviewMeetingCalendars({
+              meetingIds: [meetingId],
+              organizationId: activeOrg.id,
+            });
             invalidateStudioInterviewCaches(activeOrg.id);
+            if (feishuFailure) {
+              return c.json(
+                {
+                  feishuSync: {
+                    meetingId: feishuFailure.meetingId,
+                    status: "retrying" as const,
+                  },
+                  ok: true,
+                },
+                200,
+              );
+            }
             return c.json({ ok: true }, 200);
           } catch (error) {
             if (error instanceof HumanInterviewMeetingError) {

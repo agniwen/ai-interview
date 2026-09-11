@@ -1,3 +1,4 @@
+/* oxlint-disable complexity -- route handlers coordinate lifecycle cleanup and external calendar failure responses. */
 import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
 import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
@@ -37,6 +38,7 @@ import {
 import { createResolveHumanInterviewOutcomeDao } from "./dao/resolve-human-interview-outcome";
 import { studioHumanInterviewReviewRouter } from "./review-route";
 import { humanInterviewMeetingDetailRouter } from "./routes/human-interview-meetings/route";
+import { syncCancelledHumanInterviewMeetingCalendars } from "./application/sync-cancelled-human-interview-meetings";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
@@ -256,13 +258,16 @@ export const studioInterviewHumanRouter = factory
       const roundId = c.req.param("roundId");
       const { reason } = c.req.valid("json");
       try {
-        const { deletedLiveKitRoomNames, round: updated } =
-          await cancelHumanInterviewRoundWithMeetings({
-            actorUserId: c.var.user?.id ?? null,
-            organizationId: activeOrg.id,
-            reason,
-            roundId,
-          });
+        const {
+          cancelledMeetingIds,
+          deletedLiveKitRoomNames,
+          round: updated,
+        } = await cancelHumanInterviewRoundWithMeetings({
+          actorUserId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+          reason,
+          roundId,
+        });
         await recordCandidateActivity({
           action: "human_interview_round_cancelled",
           detail: {
@@ -297,7 +302,23 @@ export const studioInterviewHumanRouter = factory
             }
           }
         }
+        const feishuFailure = await syncCancelledHumanInterviewMeetingCalendars({
+          meetingIds: cancelledMeetingIds,
+          organizationId: activeOrg.id,
+        });
         invalidateStudioInterviewCaches(activeOrg.id);
+        if (feishuFailure) {
+          return c.json(
+            {
+              ...updated,
+              feishuSync: {
+                meetingId: feishuFailure.meetingId,
+                status: "retrying" as const,
+              },
+            },
+            200,
+          );
+        }
         return c.json(updated, 200);
       } catch (error) {
         if (error instanceof RecruitingPipelineError) {

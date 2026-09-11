@@ -33,11 +33,7 @@ import type {
   StudioCalendarEvent,
   StudioCalendarInterviewer,
 } from "@app/shared/studio-calendar";
-import type {
-  HumanInterviewMeetingStatus,
-  HumanInterviewRoundStatus,
-} from "@app/db-schema/studio-interviews";
-import { buildAiCalendarEvents } from "./events";
+import { buildAiCalendarEvents, resolveHumanCalendarEventStatus } from "./events";
 import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;
@@ -80,16 +76,6 @@ function resolveEndAt(startAt: Date, endedAt: Date | null): Date {
 
 function eventIdFor(row: { meetingId: string | null; roundId: string }) {
   return row.meetingId ?? row.roundId;
-}
-
-function resolveEventStatus(
-  meetingStatus: HumanInterviewMeetingStatus | null,
-  roundStatus: HumanInterviewRoundStatus,
-): StudioCalendarEvent["status"] {
-  if (meetingStatus === "in_progress" || meetingStatus === "ended") {
-    return meetingStatus;
-  }
-  return roundStatus === "completed" ? "ended" : "scheduled";
 }
 
 export async function listStudioCalendarEvents({
@@ -303,7 +289,7 @@ export async function listStudioCalendarEvents({
       location: row.location,
       meetingUrl: row.meetingUrl,
       startAt: startAt.toISOString(),
-      status: resolveEventStatus(row.meetingStatus, row.roundStatus),
+      status: resolveHumanCalendarEventStatus(row.meetingStatus, row.roundStatus),
       title: buildInterviewCalendarTitle(candidatesByEvent.get(eventId) ?? []),
     });
   }

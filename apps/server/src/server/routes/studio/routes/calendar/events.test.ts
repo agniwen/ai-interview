@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildAiCalendarEvents } from "./events";
+import { buildAiCalendarEvents, resolveHumanCalendarEventStatus } from "./events";
+
+describe("resolveHumanCalendarEventStatus", () => {
+  it("keeps a not-held meeting visible as not held", () => {
+    expect(resolveHumanCalendarEventStatus("not_held", "pending")).toBe("not_held");
+  });
+
+  it("falls back to the round status when no active meeting status exists", () => {
+    expect(resolveHumanCalendarEventStatus("cancelled", "completed")).toBe("ended");
+    expect(resolveHumanCalendarEventStatus(null, "pending")).toBe("scheduled");
+  });
+});
 
 describe("buildAiCalendarEvents", () => {
   it("includes the bound job in both scheduled and recorded AI events", () => {

@@ -1,5 +1,9 @@
-import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
-import type { StudioAiCalendarEvent } from "@app/shared/studio-calendar";
+import type {
+  HumanInterviewMeetingStatus,
+  HumanInterviewRoundStatus,
+  ScheduleEntryStatus,
+} from "@app/db-schema/studio-interviews";
+import type { StudioAiCalendarEvent, StudioCalendarEvent } from "@app/shared/studio-calendar";
 import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 
 export interface AiCalendarScheduledRow {
@@ -29,6 +33,20 @@ function resolveAiEventStatus(status: ScheduleEntryStatus): StudioAiCalendarEven
     return "ended";
   }
   return status === "in_progress" || status === "interrupted" ? "in_progress" : "scheduled";
+}
+
+export function resolveHumanCalendarEventStatus(
+  meetingStatus: HumanInterviewMeetingStatus | null,
+  roundStatus: HumanInterviewRoundStatus,
+): StudioCalendarEvent["status"] {
+  if (
+    meetingStatus === "in_progress" ||
+    meetingStatus === "ended" ||
+    meetingStatus === "not_held"
+  ) {
+    return meetingStatus;
+  }
+  return roundStatus === "completed" ? "ended" : "scheduled";
 }
 
 export function buildAiCalendarEvents({

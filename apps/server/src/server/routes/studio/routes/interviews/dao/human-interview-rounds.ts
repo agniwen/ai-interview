@@ -7,7 +7,7 @@ import { EditRoundError } from "./human-interview-round-errors";
 
 // 真人复面单轮 DAO：mutation 事务同步 round 与 interviewer junction；路由层只做权限、校验与调用。
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../../lib/server/db/index";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
@@ -659,6 +659,7 @@ export interface CancelRoundOptions {
 }
 
 export interface CancelRoundResult {
+  cancelledMeetingIds: string[];
   round: HumanInterviewRoundRecord;
   deletedLiveKitRoomNames: (string | null)[];
 }
@@ -678,6 +679,7 @@ export async function cancelHumanInterviewRoundWithMeetings({
   }
   const now = new Date();
   const deletedLiveKitRoomNames: (string | null)[] = [];
+  const cancelledMeetingIds: string[] = [];
   await db.transaction(async (tx) => {
     await tx
       .select({ id: recruitingRecord.id })
@@ -721,12 +723,15 @@ export async function cancelHumanInterviewRoundWithMeetings({
     }
 
     const meetingIds = uniq(meetingRows.map((meeting) => meeting.id));
+    cancelledMeetingIds.push(...meetingIds);
     deletedLiveKitRoomNames.push(...uniq(meetingRows.map((meeting) => meeting.liveKitRoomName)));
     if (meetingIds.length > 0) {
       await tx
         .update(humanInterviewMeeting)
         .set({
           cancelledAt: now,
+          feishuLastError: null,
+          feishuSyncStatus: sql`CASE WHEN ${humanInterviewMeeting.feishuProviderId} IS NOT NULL THEN 'pending' ELSE NULL END`,
           lifecycleOccurredAt: now,
           lifecycleSource: "manual",
           status: "cancelled",
@@ -781,7 +786,7 @@ export async function cancelHumanInterviewRoundWithMeetings({
   if (!updated) {
     throw new Error("更新后查询失败");
   }
-  return { deletedLiveKitRoomNames, round: updated };
+  return { cancelledMeetingIds, deletedLiveKitRoomNames, round: updated };
 }
 
 export async function cancelHumanInterviewRound(

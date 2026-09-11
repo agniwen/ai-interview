@@ -88,7 +88,7 @@ function calendarEventForeground(event: StudioCalendarEvent): string {
 }
 
 function calendarEventSurfaceClassName(event: StudioCalendarEvent): string {
-  if (event.status === "ended") {
+  if (event.status === "ended" || event.status === "not_held") {
     return "bg-(--ec-event-color)/10 text-(--ec-event-foreground) inset-ring-(--ec-event-color)/30 hover:bg-(--ec-event-color)/15 data-selected:bg-(--ec-event-color)/15 dark:bg-(--ec-event-color)/15 dark:inset-ring-(--ec-event-color)/40 dark:hover:bg-(--ec-event-color)/20 dark:data-selected:bg-(--ec-event-color)/20 [&_.text-muted-foreground]:text-(--ec-event-foreground)/75";
   }
   return "bg-(--ec-event-color)/5 text-(--ec-event-foreground) inset-ring-(--ec-event-color)/15 hover:bg-(--ec-event-color)/10 data-selected:bg-(--ec-event-color)/10 dark:bg-(--ec-event-color)/10 dark:inset-ring-(--ec-event-color)/20 dark:hover:bg-(--ec-event-color)/15 dark:data-selected:bg-(--ec-event-color)/15 [&_.text-muted-foreground]:text-(--ec-event-foreground)/65";

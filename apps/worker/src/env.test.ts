@@ -7,6 +7,7 @@ describe("createWorkerEnv", () => {
   });
 
   it("rejects malformed configured values", () => {
+    expect(() => createWorkerEnv({ FEISHU_HUMAN_INTERVIEW_ENABLED: "maybe" })).toThrow();
     expect(() => createWorkerEnv({ WORKER_PORT: "not-a-port" })).toThrow();
     expect(() => createWorkerEnv({ REDIS_URL: "not-a-url" })).toThrow();
   });

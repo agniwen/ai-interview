@@ -5064,6 +5064,7 @@ export const humanInterviewEvaluationDocumentSync = pgTable(
 export const humanInterviewMeeting = pgTable(
   "human_interview_meeting",
   {
+    attendanceAlertedAt: timestamp("attendance_alerted_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     candidateRecordingDurationMs: integer("candidate_recording_duration_ms"),
     candidateRecordingEgressId: text("candidate_recording_egress_id"),
@@ -5077,6 +5078,7 @@ export const humanInterviewMeeting = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by"),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    establishedAt: timestamp("established_at", { withTimezone: true }),
     feishuAppLink: text("feishu_app_link"),
     feishuAttendeeOpenIds: jsonb("feishu_attendee_open_ids").$type<string[]>(),
     feishuCalendarEventId: text("feishu_calendar_event_id"),
@@ -5137,6 +5139,15 @@ export const humanInterviewMeeting = pgTable(
     }).onDelete("set null"),
     index("human_interview_meeting_schedule_idx").on(table.organizationId, table.scheduledAt),
     index("human_interview_meeting_status_idx").on(table.organizationId, table.status),
+    index("human_interview_meeting_attendance_expiry_idx")
+      .on(table.status, table.validUntil)
+      .where(sql`${table.establishedAt} IS NULL`),
+    index("human_interview_meeting_attendance_late_idx")
+      .on(table.status, table.scheduledAt)
+      .where(sql`${table.attendanceAlertedAt} IS NULL`),
+    index("human_interview_meeting_cancelled_feishu_retry_idx")
+      .on(table.feishuSyncStatus, table.updatedAt)
+      .where(sql`${table.status} = 'cancelled' AND ${table.feishuProviderId} IS NOT NULL`),
     index("human_interview_meeting_recording_status_idx").on(
       table.organizationId,
       table.recordingStatus,

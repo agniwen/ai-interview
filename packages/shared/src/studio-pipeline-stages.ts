@@ -127,6 +127,7 @@ export interface FeishuHumanInterviewMeetingSync {
 }
 
 export interface HumanInterviewMeetingRecord {
+  attendanceAlertedAt: string | null;
   id: string;
   organizationId: string;
   title: string;
@@ -137,6 +138,7 @@ export interface HumanInterviewMeetingRecord {
   status: HumanInterviewMeetingStatus;
   startedAt: string | null;
   endedAt: string | null;
+  establishedAt: string | null;
   validUntil: string | null;
   cancelledAt: string | null;
   recordingEgressId: string | null;
@@ -158,8 +160,10 @@ export interface HumanInterviewMeetingRecord {
 
 export interface HumanInterviewMeetingCandidateLinkRecord {
   candidateName: string;
+  companyName: string;
   expiresAt: string;
   interviewRecordId: string;
+  jobDescriptionName: string | null;
   roundId: string;
   roundLabel: string;
   url: string;
