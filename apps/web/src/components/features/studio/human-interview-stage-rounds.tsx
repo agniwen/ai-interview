@@ -52,6 +52,7 @@ import {
 } from "./human-interview-stage-utils";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { HumanInterviewOutcomeDialog } from "./human-interview-outcome-dialog";
+import { HumanInterviewEmailButton } from "./human-interview-email-button";
 
 interface RoundDateTimePickerProps {
   className: string;
@@ -221,6 +222,15 @@ export function RoundCard({
         ) : null}
 
         <RoundCardActions
+          canSendEmail={
+            canUpdate &&
+            canWrite &&
+            round.status !== "completed" &&
+            meeting !== null &&
+            ["scheduled", "cancelled"].includes(meeting.status)
+          }
+          roundId={round.id}
+          recordId={round.interviewRecordId}
           canCancelRound={canCancelRound}
           canCompleteRound={canCompleteRound}
           canCreateMeeting={canCreateMeeting}
@@ -460,6 +470,9 @@ function RoundScheduledAtControl({
 }
 
 function RoundCardActions({
+  canSendEmail,
+  roundId,
+  recordId,
   meeting,
   canCreateMeeting,
   canOpenLinks,
@@ -475,6 +488,9 @@ function RoundCardActions({
   onReview,
   slug,
 }: {
+  canSendEmail: boolean;
+  roundId: string;
+  recordId: string;
   meeting: HumanInterviewMeetingRecord | null;
   canCreateMeeting: boolean;
   canOpenLinks: boolean;
@@ -491,6 +507,7 @@ function RoundCardActions({
   slug: string;
 }) {
   const hasActions =
+    canSendEmail ||
     canCreateMeeting ||
     canOpenLinks ||
     canEndMeeting ||
@@ -532,6 +549,14 @@ function RoundCardActions({
           <IconVideo className="size-4" />
           创建会议
         </Button>
+      ) : null}
+      {canSendEmail && meeting ? (
+        <HumanInterviewEmailButton
+          slug={slug}
+          meetingId={meeting.id}
+          roundId={roundId}
+          recordId={recordId}
+        />
       ) : null}
       {canOpenLinks ? (
         <MeetingConfirmationLinkActions

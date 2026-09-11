@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { matchesDetailRefresh } from "./detail-refresh";
+import { isCurrentInterviewResultSelected } from "./interview-result/selection";
 import { useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -279,17 +280,17 @@ export function useStudioPersonDetailController({
     evaluation: null,
     formSubmissions: currentResultFormSubmissions,
   }).formItems;
+  const isLatestResultReportSelected = isCurrentInterviewResultSelected(
+    effectiveSelectedResultConversationId,
+    latestResultReport?.conversationId,
+  );
   const selectedResultFormItems =
     getReportFormItems(selectedResultReport) ??
-    (effectiveSelectedResultConversationId === latestResultReport?.conversationId
-      ? currentResultFormItems
-      : []);
+    (isLatestResultReportSelected ? currentResultFormItems : []);
   const selectedResultInterviewItems = getCollectedCandidateInfoItems({
     evaluation: selectedResultReport?.evaluationCriteriaResults,
     formSubmissions: [],
   }).interviewItems;
-  const isLatestResultReportSelected =
-    effectiveSelectedResultConversationId === latestResultReport?.conversationId;
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
@@ -395,6 +396,7 @@ export function useStudioPersonDetailController({
     canReadOffer,
     canResetAiRound,
     canUpdateHumanInterview,
+    canUpdateInterview,
     canUpdateOffer,
     canUpdateResumeLibrary,
     canUseManagementActions,

@@ -21,8 +21,6 @@ import {
   isStructuredEvaluationConfirmationValid,
 } from "./launch-ai-interview-round";
 import type { PersistLaunchInput } from "./launch-ai-interview-round";
-import { enqueueAiInterviewInvitedEvents } from "../../../../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import { applyAiInterviewInvitationValidityToSchedule } from "../../interviews/dao/ai-interview-invitation-access";
 
 export function persistLaunchAiInterviewRound(
@@ -145,20 +143,13 @@ export function persistLaunchAiInterviewRound(
       return { ok: false as const, reason: "stage_conflict" as const };
     }
 
-    const notificationFlowEnabled = isInterviewNotificationFlowEnabled();
     const scheduleToInsert = applyAiInterviewInvitationValidityToSchedule(
       schedule,
       now,
       candidateInviteValidity,
     );
     await tx.insert(aiInterviewRound).values(scheduleToInsert);
-    if (notificationFlowEnabled) {
-      await enqueueAiInterviewInvitedEvents(tx, {
-        actorUserId: actorId,
-        now,
-        scheduleEntryId: schedule.id,
-      });
-    }
+    // 发起面试不创建候选人邮件事件；HRD 在邮件弹窗确认后单独创建。
     if (candidate.pipelineStage === "screening") {
       await transitionRecruitingNodeTx(tx, {
         now,

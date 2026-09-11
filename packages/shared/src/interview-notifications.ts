@@ -9,13 +9,46 @@ import type {
 } from "@app/db-schema/interview-notifications";
 
 // 临时止血：候选人面试邮件必须由 HRD 明确知晓收件人和内容后主动发送。
-// 人工发送流程尚未完成验收，本版本暂停全部候选人面试邮件（含已入队任务）。
-// 后续按各流程页面重新设计入口并验收后再恢复；内部人员通知不受影响。
+// 自动候选人面试邮件及旧队列继续暂停，仅新确认接口生成的 AI / 真人手动邮件允许消费。
+// 内部人员通知不受影响。
 export const CANDIDATE_INTERVIEW_EMAILS_ENABLED = false;
 
 /** 候选人渠道暂停；HR 和面试官渠道照常准备和消费。 */
 export function canSendInterviewNotificationToAudience(audience: string): boolean {
   return audience !== "candidate" || CANDIDATE_INTERVIEW_EMAILS_ENABLED;
+}
+
+/** Only the new, server-confirmed AI invitation may bypass the automatic-email pause. */
+export function isConfirmedManualAiInvitation(
+  input: {
+    type: string;
+    actorUserId: string | null;
+    organizationId: string;
+    aiRoundId: string | null;
+    payloadSnapshot: unknown;
+  },
+  delivery: {
+    audienceType: string | null;
+    channel: string | null;
+    recipientAddress: string | null;
+    renderedSubject: string | null;
+    renderedContent: string | null;
+  },
+): boolean {
+  const parsed = interviewNotificationPayloadSnapshotSchema.safeParse(input.payloadSnapshot);
+  const confirmation = parsed.success ? parsed.data.manualAiInvitation : undefined;
+  return Boolean(
+    confirmation &&
+    input.type === "ai_interview_invited" &&
+    delivery.audienceType === "candidate" &&
+    delivery.channel === "email" &&
+    input.actorUserId === confirmation.confirmedBy &&
+    input.organizationId === confirmation.organizationId &&
+    input.aiRoundId === confirmation.roundId &&
+    delivery.recipientAddress === confirmation.recipient &&
+    delivery.renderedSubject === confirmation.subject &&
+    delivery.renderedContent === confirmation.text,
+  );
 }
 
 export {

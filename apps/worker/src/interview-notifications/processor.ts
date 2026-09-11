@@ -10,8 +10,10 @@ import {
   classifyInterviewNotificationFailure,
   getInterviewNotificationRetryAt,
   canSendInterviewNotificationToAudience,
+  isConfirmedManualAiInvitation,
 } from "@app/shared/interview-notifications";
 import { Context, Data, Effect, Layer } from "effect";
+import { isConfirmedManualHumanEmail } from "@app/shared/manual-human-email";
 
 export interface InterviewNotificationSendResult {
   providerMessageId: string | null;
@@ -176,7 +178,11 @@ async function processInterviewNotificationEventPromise(
 
     try {
       // 同时拦截已经入队的候选人邮件，旧的人工确认标记不绕过本次暂停。
-      if (!canSendInterviewNotificationToAudience(claimed.audienceType)) {
+      if (
+        !canSendInterviewNotificationToAudience(claimed.audienceType) &&
+        !isConfirmedManualAiInvitation(event, claimed) &&
+        !isConfirmedManualHumanEmail(event, claimed)
+      ) {
         const completed = await dependencies.markDeliveryFailed({
           code: "candidate-email-paused",
           deliveryId: claimed.id,
