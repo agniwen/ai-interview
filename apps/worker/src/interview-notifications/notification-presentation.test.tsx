@@ -94,6 +94,86 @@ describe("worker interview notification presentation", () => {
     expect(cardText).toContain("技术复面");
   });
 
+  it("renders an accepted Offer as an Offer notification with the next HR action", () => {
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        audienceType: "initiator_fallback",
+        payload: {
+          ...input.payload,
+          candidateName: "任杨帆",
+          jobName: "前端高级工程师",
+          responseTime: "2026-09-11T06:42:20.015Z",
+        },
+        renderedContent:
+          "候选人任杨帆已接受前端高级工程师的 Offer。\n[查看候选人](http://localhost:3000/w/light/studio/resumes/candidate-1)",
+        type: "offer_accepted",
+      }),
+    );
+
+    const cardText = JSON.stringify(card);
+    expect(card?.title).toBe("候选人已接受 Offer");
+    expect(cardText).toContain("候选人已接受本次 Offer，请及时确认后续入职安排");
+    expect(cardText).toContain("前端高级工程师");
+    expect(cardText).toContain("反馈时间");
+    expect(cardText).not.toContain("变更原因");
+    expect(card?.children.find((child) => child.type === "actions")?.children).toContainEqual(
+      expect.objectContaining({ label: "查看候选人", type: "link-button" }),
+    );
+  });
+
+  it("renders a declined Offer with the candidate reason and HR decision prompt", () => {
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        audienceType: "initiator_fallback",
+        payload: {
+          ...input.payload,
+          candidateName: "任杨帆",
+          changeReason: "入职时间不合适",
+          jobName: "前端高级工程师",
+          responseTime: "2026-09-11T06:42:20.015Z",
+        },
+        renderedContent:
+          "候选人任杨帆已拒绝前端高级工程师的 Offer。\n[查看候选人](http://localhost:3000/w/light/studio/resumes/candidate-1)",
+        type: "offer_declined",
+      }),
+    );
+
+    const cardText = JSON.stringify(card);
+    expect(card?.title).toBe("候选人已拒绝 Offer");
+    expect(cardText).toContain("请决定继续沟通或结束招聘流程");
+    expect(cardText).toContain("拒绝原因");
+    expect(cardText).toContain("入职时间不合适");
+    expect(cardText).not.toContain("变更原因");
+  });
+
+  it("renders a submitted background check as an HR review reminder", () => {
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        audienceType: "initiator_fallback",
+        payload: {
+          ...input.payload,
+          candidateName: "任杨帆",
+          responseTime: "2026-09-11T07:00:00.000Z",
+        },
+        renderedContent:
+          "背调信息已提交。\n[查看并确认背调结果](http://localhost:3000/w/light/studio/resumes/candidate-1)",
+        type: "background_check_submitted",
+      }),
+    );
+
+    const cardText = JSON.stringify(card);
+    expect(card?.title).toBe("背景调查信息已提交");
+    expect(cardText).toContain("请核对并记录背调结果");
+    expect(cardText).toContain("待 HR 确认");
+    expect(cardText).toContain("反馈时间");
+    expect(card?.children.find((child) => child.type === "actions")?.children).toContainEqual(
+      expect.objectContaining({ label: "查看并确认背调结果", type: "link-button" }),
+    );
+  });
+
   it("renders the current round evaluation for the HR creator", () => {
     const card = toCardElement(
       InterviewNotificationCard({
