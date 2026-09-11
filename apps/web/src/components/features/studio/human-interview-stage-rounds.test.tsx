@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/client/api";
 
 const patchRoundMock = vi.fn<RoundCardDependencies["patchHumanInterviewRound"]>();
 const updateMeetingMock = vi.fn<RoundCardDependencies["updateHumanInterviewMeeting"]>();
+const loadWorkspaceMembersMock = vi.fn<RoundCardDependencies["loadWorkspaceMembers"]>();
 const toastMocks = {
   error: vi.fn(),
   success: vi.fn(),
@@ -27,6 +28,7 @@ const originalTimeZone = process.env.TZ;
 
 const dependencies: RoundCardDependencies = {
   isApiError: (error): error is ApiError => error instanceof ApiError,
+  loadWorkspaceMembers: loadWorkspaceMembersMock,
   notifyError: toastMocks.error,
   notifySuccess: toastMocks.success,
   notifyWarning: toastMocks.warning,
@@ -89,10 +91,12 @@ const round: HumanInterviewRoundRecord = {
 };
 
 const meeting: HumanInterviewMeetingRecord = {
+  attendanceAlertedAt: null,
   cancelledAt: null,
   createdAt: "2026-08-05T09:00:00.000Z",
   createdBy: "operator-1",
   endedAt: null,
+  establishedAt: null,
   feishu: {
     appLink: "https://applink.feishu.cn/client/video/123456789",
     calendarEventUrl: "https://applink.feishu.cn/client/calendar/event/event-1",
@@ -130,6 +134,18 @@ if (!baseAssignment) {
 
 beforeEach(() => {
   process.env.TZ = "Asia/Shanghai";
+  loadWorkspaceMembersMock.mockResolvedValue({
+    feishuHumanInterviewEnabled: true,
+    records: [
+      {
+        email: "guang@example.com",
+        feishuProviderIds: ["feishu-jiguang-hr"],
+        id: "interviewer-1",
+        image: null,
+        name: "光芒",
+      },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -176,7 +192,7 @@ describe("RoundCard rescheduling", () => {
     });
 
     act(() => {
-      document.querySelector<HTMLButtonElement>('[aria-label="调整面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="修改会议时间和面试官"]')?.click();
     });
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const scheduledAtInput = document.querySelector(
@@ -195,12 +211,13 @@ describe("RoundCard rescheduling", () => {
       await Promise.resolve();
     });
     await act(async () => {
-      document.querySelector<HTMLButtonElement>('[aria-label="保存面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="保存会议安排"]')?.click();
       await Promise.resolve();
     });
 
     await vi.waitFor(() => {
       expect(updateMeetingMock).toHaveBeenCalledWith("test-workspace", "meeting-1", {
+        interviewerIds: ["interviewer-1"],
         scheduledAt: "2026-08-05T10:30:00.000Z",
         validUntil: "2026-08-05T11:30:00.000Z",
       });
@@ -253,10 +270,10 @@ describe("RoundCard rescheduling", () => {
       );
     });
     act(() => {
-      document.querySelector<HTMLButtonElement>('[aria-label="调整面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="修改会议时间和面试官"]')?.click();
     });
     await act(async () => {
-      document.querySelector<HTMLButtonElement>('[aria-label="保存面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="保存会议安排"]')?.click();
       await Promise.resolve();
     });
 
@@ -267,6 +284,78 @@ describe("RoundCard rescheduling", () => {
       expect(onRescheduled).toHaveBeenCalledOnce();
     });
     expect(toastMocks.error).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+});
+
+describe("RoundCard attendance status", () => {
+  it("keeps the candidate, interviewer, and meeting presence visible", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const attendanceMeeting: HumanInterviewMeetingRecord = {
+      ...meeting,
+      attendanceAlertedAt: "2026-08-05T09:33:00.000Z",
+      interviewers: [
+        {
+          id: "interviewer-1",
+          image: null,
+          joinedAt: "2026-08-05T09:31:00.000Z",
+          leftAt: null,
+          name: "光芒",
+          role: "host",
+        },
+      ],
+      rounds: [
+        {
+          candidateInviteExpiresAt: null,
+          candidateInviteStatus: "accepted",
+          candidateName: "张三",
+          hasCandidateInvite: true,
+          interviewRecordId: "candidate-1",
+          joinedAt: null,
+          label: "真人面试",
+          leftAt: null,
+          roundId: "round-1",
+          sortOrder: 0,
+          status: "pending",
+        },
+      ],
+      validUntil: "2099-08-05T10:30:00.000Z",
+    };
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RoundCard
+            canCreate
+            canDelete
+            canUpdate
+            dependencies={dependencies}
+            meeting={attendanceMeeting}
+            onCancel={vi.fn()}
+            onComplete={vi.fn()}
+            onCreateMeeting={vi.fn()}
+            onEndMeeting={vi.fn()}
+            onOpenLinks={vi.fn()}
+            onRescheduled={vi.fn()}
+            onReview={vi.fn()}
+            round={round}
+            roundNumber={2}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(host.textContent).toContain("等待候选人");
+    expect(host.textContent).toContain("参会情况");
+    expect(host.textContent).toContain("张三候选人未入会");
+    expect(host.textContent).toContain("光芒面试官在会");
+    expect(host.textContent).toContain("未入会提醒已发送给会议创建人");
 
     act(() => root.unmount());
     queryClient.clear();
@@ -628,7 +717,7 @@ describe("RoundCard interviewer arrangement", () => {
     });
     expect(host.textContent).not.toContain("确认安排");
     expect(host.textContent).not.toContain("无法参加");
-    expect(host.querySelector('[aria-label="调整面试时间"]')).toBeNull();
+    expect(host.querySelector('[aria-label="修改会议时间和面试官"]')).toBeNull();
 
     act(() => root.unmount());
     queryClient.clear();

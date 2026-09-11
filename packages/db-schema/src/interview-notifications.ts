@@ -24,6 +24,8 @@ export const interviewNotificationEventTypeValues = [
   "human_interviewer_removed",
   "human_interview_cancelled",
   "human_interview_completed",
+  "human_interview_attendance_alert",
+  "human_interview_not_held",
   "human_evaluation_pending",
   "human_evaluation_summary_ready",
 ] as const;
@@ -151,6 +153,8 @@ export const interviewNotificationTemplateVariableValues = [
   "occurredAt",
   "suggestedAction",
   "supportContact",
+  "attendanceStatus",
+  "missingParticipantNames",
 ] as const;
 export const interviewNotificationTemplateVariableSchema = z.enum(
   interviewNotificationTemplateVariableValues,
@@ -160,6 +164,7 @@ export type InterviewNotificationTemplateVariable = z.infer<
 >;
 
 export const interviewNotificationPayloadSnapshotSchema = z.object({
+  attendanceStatus: z.string().optional(),
   candidateName: z.string().optional(),
   changeReason: z.string().optional(),
   companyName: z.string().optional(),
@@ -213,6 +218,7 @@ export const interviewNotificationPayloadSnapshotSchema = z.object({
       version: z.literal(1),
     })
     .optional(),
+  missingParticipantNames: z.array(z.string()).optional(),
   occurredAt: z.string().optional(),
   oldInterviewEndTime: z.string().optional(),
   oldInterviewStartTime: z.string().optional(),

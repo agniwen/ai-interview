@@ -310,6 +310,22 @@ export const CORE_INTERVIEW_NOTIFICATION_TEMPLATES = [
     eventType: "human_interview_completed",
     subjectTemplate: null,
   },
+  {
+    audienceType: "initiator_fallback",
+    channel: "feishu",
+    contentTemplate:
+      "候选人：{{candidateName}}\n应聘岗位：{{jobName}}\n面试轮次：{{roundName}}\n面试时间：{{interviewStartTime}}\n当前状态：{{attendanceStatus}}\n未入会人员：{{missingParticipantNames}}\n处理建议：{{suggestedAction}}\n[查看实时参会状态]({{interviewLink}})",
+    eventType: "human_interview_attendance_alert",
+    subjectTemplate: null,
+  },
+  {
+    audienceType: "initiator_fallback",
+    channel: "feishu",
+    contentTemplate:
+      "候选人：{{candidateName}}\n应聘岗位：{{jobName}}\n面试轮次：{{roundName}}\n有效时间：{{interviewStartTime}} 至 {{interviewEndTime}}\n当前状态：未召开\n未入会人员：{{missingParticipantNames}}\n处理建议：{{suggestedAction}}\n[查看面试记录]({{interviewLink}})",
+    eventType: "human_interview_not_held",
+    subjectTemplate: null,
+  },
 ] as const satisfies readonly InterviewNotificationTemplateContent[];
 
 export function getInterviewNotificationTemplateVariables(

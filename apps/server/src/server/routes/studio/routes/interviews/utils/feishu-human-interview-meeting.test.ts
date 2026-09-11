@@ -204,6 +204,66 @@ describe("Feishu human interview HTTP contract", () => {
     });
   });
 
+  it("removes replaced interviewers from the calendar with notifications", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    const client = createFeishuHumanInterviewClient({
+      accessToken: "tenant-token",
+      fetch: fetchMock,
+    });
+
+    await client.removeCalendarAttendees({
+      attendeeOpenIds: ["ou_old_interviewer", "ou_old_interviewer"],
+      calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+      eventId: "event_1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1/attendees/batch_delete?user_id_type=open_id",
+      {
+        body: JSON.stringify({
+          delete_ids: [{ type: "user", user_id: "ou_old_interviewer" }],
+          need_notification: true,
+        }),
+        headers: {
+          authorization: "Bearer tenant-token",
+          "content-type": "application/json; charset=utf-8",
+        },
+        method: "POST",
+      },
+    );
+  });
+
+  it("deletes a cancelled calendar event with notifications", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    const client = createFeishuHumanInterviewClient({
+      accessToken: "tenant-token",
+      fetch: fetchMock,
+    });
+
+    await client.deleteCalendarEvent({
+      calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+      eventId: "event_1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1?need_notification=true",
+      {
+        headers: { authorization: "Bearer tenant-token" },
+        method: "DELETE",
+      },
+    );
+  });
+
   it("resolves app-scoped open ids from member emails", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(

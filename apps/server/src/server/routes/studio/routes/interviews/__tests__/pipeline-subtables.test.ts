@@ -23,6 +23,8 @@ import {
   recruitingNodeState,
   recruitingFulfillment,
   recruitingNodeValues,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
   meetingSession,
   meetingTranscriptRevision,
   member,
@@ -56,6 +58,8 @@ import {
   markHumanInterviewParticipantJoined,
   markHumanInterviewParticipantLeft,
 } from "../dao/human-interview-meetings";
+import { updateHumanInterviewMeetingSchedule } from "../dao/human-interview-meeting-schedule";
+import { reconcileDueHumanInterviewAttendance } from "../../../../../interview-notifications/application/reconcile-human-interview-attendance";
 import {
   listHumanInterviewEvaluationSnapshotsForAnalysis,
   loadHumanInterviewReview,
@@ -94,6 +98,12 @@ const RECORD_ID_B = "ri_pipeline_subtables_2";
 const NOW = new Date("2026-05-22T08:00:00.000Z");
 
 async function cleanup() {
+  await db
+    .delete(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.organizationId, ORG));
+  await db
+    .delete(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.organizationId, ORG));
   await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(member).where(eq(member.organizationId, ORG));
   await db.delete(organization).where(eq(organization.id, ORG));
@@ -237,6 +247,12 @@ async function resetCandidateStage(
 }
 
 async function clearSubtables() {
+  await db
+    .delete(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.organizationId, ORG));
+  await db
+    .delete(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.organizationId, ORG));
   await db.delete(recruitingNodeState).where(eq(recruitingNodeState.organizationId, ORG));
   await db
     .update(recruitingFulfillment)
@@ -749,6 +765,201 @@ describe("human interview meetings DAO", () => {
     ).rejects.toBeInstanceOf(HumanInterviewMeetingError);
   });
 
+  it("rescheduling preserves existing interviewer roles even when the submitted order changes", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+        label: "角色保留复面",
+        roundKind: "second_interview",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "角色保留复面",
+      },
+      organizationId: ORG,
+    });
+    await db
+      .update(humanInterviewMeetingInterviewer)
+      .set({ role: "observer" })
+      .where(
+        and(
+          eq(humanInterviewMeetingInterviewer.meetingId, meeting.id),
+          eq(humanInterviewMeetingInterviewer.userId, INTERVIEWER_B),
+        ),
+      );
+
+    const updated = await updateHumanInterviewMeetingSchedule({
+      actorUserId: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_B, INTERVIEWER_A],
+        scheduledAt: "2026-05-30T10:30:00.000Z",
+      },
+      meetingId: meeting.id,
+      organizationId: ORG,
+    });
+
+    expect(updated.interviewers.find((item) => item.id === INTERVIEWER_A)?.role).toBe("host");
+    expect(updated.interviewers.find((item) => item.id === INTERVIEWER_B)?.role).toBe("observer");
+  });
+
+  it("reopens a not-held meeting when HR reschedules it", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A],
+        label: "未召开后改期",
+        roundKind: "second_interview",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "未召开后改期",
+        validUntil: "2026-05-30T11:00:00.000Z",
+      },
+      organizationId: ORG,
+    });
+    await db
+      .update(humanInterviewMeeting)
+      .set({
+        endedAt: new Date("2026-05-30T11:00:00.000Z"),
+        lifecycleOccurredAt: new Date("2026-05-30T11:00:00.000Z"),
+        lifecycleSource: "manual",
+        status: "not_held",
+      })
+      .where(eq(humanInterviewMeeting.id, meeting.id));
+
+    const updated = await updateHumanInterviewMeetingSchedule({
+      actorUserId: HR_USER,
+      input: {
+        scheduledAt: "2026-05-31T10:00:00.000Z",
+        validUntil: "2026-05-31T11:00:00.000Z",
+      },
+      meetingId: meeting.id,
+      organizationId: ORG,
+    });
+
+    expect(updated).toMatchObject({
+      endedAt: null,
+      establishedAt: null,
+      status: "scheduled",
+    });
+  });
+
+  it("does not reclassify an ended historical meeting as not held", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A],
+        label: "历史已结束会议",
+        roundKind: "second_interview",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "历史已结束会议",
+        validUntil: "2026-05-30T11:00:00.000Z",
+      },
+      organizationId: ORG,
+    });
+    await db
+      .update(humanInterviewMeeting)
+      .set({
+        endedAt: new Date("2026-05-30T10:45:00.000Z"),
+        establishedAt: null,
+        startedAt: new Date("2026-05-30T10:01:00.000Z"),
+        status: "ended",
+      })
+      .where(eq(humanInterviewMeeting.id, meeting.id));
+
+    const result = await reconcileDueHumanInterviewAttendance({
+      now: new Date("2026-05-30T11:01:00.000Z"),
+    });
+    const [reconciled] = await db
+      .select({ status: humanInterviewMeeting.status })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meeting.id));
+
+    expect(result.notHeld).toBe(0);
+    expect(reconciled?.status).toBe("ended");
+  });
+
+  it("alerts HR when one assigned interviewer is still missing after the meeting is established", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+        label: "多人参会提醒",
+        roundKind: "second_interview",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "多人参会提醒",
+        validUntil: "2026-05-30T11:00:00.000Z",
+      },
+      organizationId: ORG,
+    });
+    const joinedAt = new Date("2026-05-30T10:01:00.000Z");
+    await db
+      .update(humanInterviewMeeting)
+      .set({ establishedAt: joinedAt })
+      .where(eq(humanInterviewMeeting.id, meeting.id));
+    await db
+      .update(humanInterviewMeetingRound)
+      .set({ joinedAt })
+      .where(eq(humanInterviewMeetingRound.meetingId, meeting.id));
+    await db
+      .update(humanInterviewMeetingInterviewer)
+      .set({ joinedAt })
+      .where(
+        and(
+          eq(humanInterviewMeetingInterviewer.meetingId, meeting.id),
+          eq(humanInterviewMeetingInterviewer.userId, INTERVIEWER_A),
+        ),
+      );
+
+    const result = await reconcileDueHumanInterviewAttendance({
+      now: new Date("2026-05-30T10:04:00.000Z"),
+    });
+    const [reconciled] = await db
+      .select({ attendanceAlertedAt: humanInterviewMeeting.attendanceAlertedAt })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meeting.id));
+
+    expect(result.alerted).toBe(1);
+    expect(reconciled?.attendanceAlertedAt).toEqual(new Date("2026-05-30T10:04:00.000Z"));
+  });
+
   it("createHumanInterviewMeeting 拒绝已完成轮次", async () => {
     await clearSubtables();
     const round = await createHumanInterviewRound({
@@ -1229,6 +1440,11 @@ describe("human interview meetings DAO", () => {
     await expect(claimHumanInterviewRecordingStartByRoomName(roomName)).resolves.toMatchObject({
       meetingId: meeting.id,
     });
+    const [establishedMeeting] = await db
+      .select({ establishedAt: humanInterviewMeeting.establishedAt })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meeting.id));
+    expect(establishedMeeting?.establishedAt).not.toBeNull();
   });
 
   it("保留 AI 原始评价与人工提交评价，并以人工评价作为当前值", async () => {

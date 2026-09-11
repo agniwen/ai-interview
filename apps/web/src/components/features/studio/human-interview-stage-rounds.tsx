@@ -1,5 +1,5 @@
 "use client";
-/* oxlint-disable no-use-before-define -- helper components follow the public card */
+/* oxlint-disable max-lines, no-use-before-define -- helper components follow the public card */
 
 import {
   IconBan,
@@ -23,6 +23,8 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@app/shared/studio-pipeline-stages";
+import { humanInterviewParticipantPresence } from "@app/shared/human-interview-attendance";
+import type { HumanInterviewParticipantPresence } from "@app/shared/human-interview-attendance";
 import { RoundEvaluation } from "./human-interview-evaluation-summary";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
@@ -31,7 +33,7 @@ import {
   patchHumanInterviewRound,
   updateHumanInterviewMeeting,
 } from "@/lib/client/api";
-import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,15 @@ import {
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { HumanInterviewOutcomeDialog } from "./human-interview-outcome-dialog";
 import { HumanInterviewEmailButton } from "./human-interview-email-button";
+import {
+  buildCandidateLinkCopy,
+  buildInterviewerLinkCopy,
+  formatMeetingJobNames,
+  interviewerRoleLabel,
+} from "./human-interview-stage-meetings";
+import { getCommonFeishuProviderIds, loadWorkspaceMembers } from "./human-interview-stage-dialogs";
+import type { WorkspaceMembersResult } from "./human-interview-stage-dialogs";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 
 interface RoundDateTimePickerProps {
   className: string;
@@ -65,6 +76,7 @@ interface RoundDateTimePickerProps {
 
 export interface RoundCardDependencies {
   isApiError: typeof isApiError;
+  loadWorkspaceMembers: (slug: string) => Promise<WorkspaceMembersResult>;
   notifyError: (message: string) => void;
   notifySuccess: (message: string) => void;
   notifyWarning: (message: string) => void;
@@ -75,6 +87,7 @@ export interface RoundCardDependencies {
 
 const defaultRoundCardDependencies: RoundCardDependencies = {
   isApiError,
+  loadWorkspaceMembers,
   notifyError: (message) => toast.error(message),
   notifySuccess: (message) => toast.success(message),
   notifyWarning: (message) => toast.warning(message),
@@ -92,8 +105,8 @@ const defaultRoundCardDependencies: RoundCardDependencies = {
   updateHumanInterviewMeeting,
 };
 
-async function copyMeetingLink(url: string, label: string) {
-  const result = await copyTextToClipboard(toAbsoluteUrl(url));
+async function copyMeetingLink(message: string, label: string) {
+  const result = await copyTextToClipboard(message);
   if (result === "copied") {
     toast.success(`${label}已复制`);
   } else if (result === "manual") {
@@ -199,6 +212,7 @@ export function RoundCard({
             </dd>
           </dl>
         </div>
+        {meeting ? <MeetingAttendanceSummary meeting={meeting} note={statusBadge.note} /> : null}
         {round.evaluation ? (
           <RoundEvaluation evaluation={round.evaluation} round={round} compact />
         ) : null}
@@ -258,6 +272,118 @@ export function RoundCard({
   );
 }
 
+function participantStatusMeta(
+  presence: HumanInterviewParticipantPresence,
+  meeting: HumanInterviewMeetingRecord,
+) {
+  if (presence === "present") {
+    return { label: "在会", tone: "success" as const };
+  }
+  if (presence === "left") {
+    return { label: "已离会", tone: "outline" as const };
+  }
+  const startedAt = meeting.scheduledAt ? new Date(meeting.scheduledAt).getTime() : Number.NaN;
+  let tone: "outline" | "warning" = "outline";
+  if (meeting.status === "not_held" || (!Number.isNaN(startedAt) && Date.now() >= startedAt)) {
+    tone = "warning";
+  }
+  return {
+    label: "未入会",
+    tone,
+  };
+}
+
+function participantTime(
+  presence: HumanInterviewParticipantPresence,
+  joinedAt: string | null,
+  leftAt: string | null,
+): string | null {
+  let value: string | null = null;
+  if (presence === "left") {
+    value = leftAt;
+  } else if (presence === "present") {
+    value = joinedAt;
+  }
+  if (!value) {
+    return null;
+  }
+  return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(
+    new Date(value),
+  );
+}
+
+function AttendanceRow({
+  joinedAt,
+  label,
+  leftAt,
+  meeting,
+  participantRole,
+}: {
+  joinedAt: string | null;
+  label: string;
+  leftAt: string | null;
+  meeting: HumanInterviewMeetingRecord;
+  participantRole: string;
+}) {
+  const presence = humanInterviewParticipantPresence({ joinedAt, leftAt });
+  const meta = participantStatusMeta(presence, meeting);
+  const time = participantTime(presence, joinedAt, leftAt);
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border/50 bg-background px-3 py-2">
+      <div className="min-w-0 text-xs">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="ml-2 text-muted-foreground">{participantRole}</span>
+      </div>
+      <Badge className="shrink-0" variant={meta.tone}>
+        {meta.label}
+        {time ? ` · ${time}` : ""}
+      </Badge>
+    </div>
+  );
+}
+
+function MeetingAttendanceSummary({
+  meeting,
+  note,
+}: {
+  meeting: HumanInterviewMeetingRecord;
+  note?: string | null;
+}) {
+  return (
+    <section aria-label="参会情况" className="space-y-2 rounded-lg bg-muted/35 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h5 className="font-medium text-sm">参会情况</h5>
+        {meeting.attendanceAlertedAt ? (
+          <span className="text-muted-foreground text-xs">未入会提醒已发送给会议创建人</span>
+        ) : null}
+      </div>
+      {note ? <p className="text-muted-foreground text-xs">{note}</p> : null}
+      <div className="grid gap-2 lg:grid-cols-2">
+        {meeting.rounds.map((candidate) => (
+          <AttendanceRow
+            joinedAt={candidate.joinedAt}
+            key={candidate.roundId}
+            label={candidate.candidateName}
+            leftAt={candidate.leftAt}
+            meeting={meeting}
+            participantRole="候选人"
+          />
+        ))}
+        {meeting.interviewers.map((interviewer) => (
+          <AttendanceRow
+            joinedAt={interviewer.joinedAt}
+            key={interviewer.id}
+            label={interviewer.name}
+            leftAt={interviewer.leftAt}
+            meeting={meeting}
+            participantRole={interviewerRoleLabel[interviewer.role]}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function InterviewerAssignmentList({
   meeting,
   round,
@@ -312,6 +438,31 @@ function RoundScheduledAtControl({
   const [validUntil, setValidUntil] = useState(() =>
     toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
   );
+  const [interviewerIds, setInterviewerIds] = useState(() =>
+    (meeting?.interviewers.length ? meeting.interviewers : round.interviewers).map(
+      (interviewer) => interviewer.id,
+    ),
+  );
+  const membersQuery = useQuery({
+    enabled: editing && meeting !== null,
+    queryFn: () => dependencies.loadWorkspaceMembers(slug),
+    queryKey: ["workspace-members", slug],
+    staleTime: 60_000,
+  });
+  const memberRecords = membersQuery.data?.records ?? [];
+  const interviewerIdSet = new Set(interviewerIds);
+  const selectedMembers = memberRecords.filter((member) => interviewerIdSet.has(member.id));
+  const commonProviderIds = getCommonFeishuProviderIds(selectedMembers);
+  const memberOptions = memberRecords.map((member) => ({
+    avatarUrl: member.image,
+    disabled:
+      membersQuery.data?.feishuHumanInterviewEnabled === true &&
+      !interviewerIdSet.has(member.id) &&
+      commonProviderIds !== null &&
+      !member.feishuProviderIds.some((providerId) => commonProviderIds.has(providerId)),
+    label: member.name,
+    value: member.id,
+  }));
   const canReschedule = canUpdate && canRescheduleHumanInterviewRound(round, meeting, disabled);
   const inputId = `human-round-${round.id}-scheduled-at`;
   const validUntilInputId = `human-round-${round.id}-valid-until`;
@@ -322,9 +473,13 @@ function RoundScheduledAtControl({
       if (!nextScheduledAt) {
         throw new Error("请输入有效的面试时间");
       }
+      if (meeting && interviewerIds.length === 0) {
+        throw new Error("请至少选择一位面试官");
+      }
       try {
         await (meeting
           ? dependencies.updateHumanInterviewMeeting(slug, meeting.id, {
+              interviewerIds,
               scheduledAt: nextScheduledAt,
               validUntil: nextValidUntil,
             })
@@ -362,6 +517,11 @@ function RoundScheduledAtControl({
     setValidUntil(
       toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
     );
+    setInterviewerIds(
+      (meeting?.interviewers.length ? meeting.interviewers : round.interviewers).map(
+        (interviewer) => interviewer.id,
+      ),
+    );
     setEditing(true);
   }
 
@@ -369,6 +529,11 @@ function RoundScheduledAtControl({
     setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
     setValidUntil(
       toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+    );
+    setInterviewerIds(
+      (meeting?.interviewers.length ? meeting.interviewers : round.interviewers).map(
+        (interviewer) => interviewer.id,
+      ),
     );
     setEditing(false);
   }
@@ -409,12 +574,31 @@ function RoundScheduledAtControl({
           onValueChange: setValidUntil,
           value: validUntil,
         })}
+        {meeting ? (
+          <div className="min-w-64">
+            <Label className="sr-only" htmlFor={`human-round-${round.id}-interviewers`}>
+              面试官
+            </Label>
+            <SearchableMultiSelect
+              disabled={mutation.isPending || membersQuery.isLoading}
+              emptyMessage="找不到匹配的成员"
+              id={`human-round-${round.id}-interviewers`}
+              onChange={setInterviewerIds}
+              options={memberOptions}
+              placeholder={membersQuery.isLoading ? "加载面试官…" : "选择面试官（可多选）"}
+              searchPlaceholder="搜索成员…"
+              selectedDisplay="count"
+              selectedFormat={(count) => `已选 ${count} 位面试官`}
+              value={interviewerIds}
+            />
+          </div>
+        ) : null}
         <Button
-          aria-label="保存面试时间"
+          aria-label="保存会议安排"
           className="h-7 w-7 p-0"
           disabled={mutation.isPending}
           size="icon"
-          title="保存面试时间"
+          title="保存会议安排"
           type="submit"
         >
           {mutation.isPending ? (
@@ -429,7 +613,7 @@ function RoundScheduledAtControl({
           disabled={mutation.isPending}
           onClick={cancelEditing}
           size="icon"
-          title="取消调整时间"
+          title="取消修改会议安排"
           type="button"
           variant="outline"
         >
@@ -455,11 +639,11 @@ function RoundScheduledAtControl({
       ) : null}
       {canReschedule ? (
         <Button
-          aria-label="调整面试时间"
+          aria-label="修改会议时间和面试官"
           className="h-6 w-6 p-0"
           onClick={startEditing}
           size="icon"
-          title="调整面试时间"
+          title="修改会议时间和面试官"
           variant="ghost"
         >
           <IconPencil className="size-3.5" />
@@ -637,24 +821,48 @@ function MeetingConfirmationLinkActions({
               <Button
                 className="w-full justify-start"
                 key={link.roundId}
-                onClick={() => copyMeetingLink(link.url, `${link.candidateName}的候选人确认链接`)}
+                onClick={() =>
+                  copyMeetingLink(
+                    buildCandidateLinkCopy({
+                      candidateName: link.candidateName,
+                      companyName: link.companyName,
+                      jobDescriptionName: link.jobDescriptionName,
+                      roundLabel: link.roundLabel,
+                      scheduledAt: meeting?.scheduledAt ?? null,
+                      url: link.url,
+                    }),
+                    `${link.candidateName}的候选人确认消息`,
+                  )
+                }
                 size="sm"
                 variant="outline"
               >
                 <IconCopy className="size-4" />
-                复制候选人确认链接 · {link.candidateName}
+                复制候选人确认消息 · {link.candidateName}
               </Button>
             ))}
             {links.interviewerLinks.map((link) => (
               <Button
                 className="w-full justify-start"
                 key={link.userId}
-                onClick={() => copyMeetingLink(link.url, `${link.name}的面试官会议链接`)}
+                onClick={() =>
+                  copyMeetingLink(
+                    buildInterviewerLinkCopy({
+                      interviewerName: link.name,
+                      jobDescriptionName: formatMeetingJobNames(links),
+                      meetingTitle: links.title,
+                      roleLabel: interviewerRoleLabel[link.role],
+                      scheduledAt: meeting?.scheduledAt ?? null,
+                      url: link.url,
+                    }),
+                    `${link.name}的面试官会议消息`,
+                  )
+                }
                 size="sm"
                 variant="outline"
               >
                 <IconCopy className="size-4" />
-                复制面试官会议链接 · {link.name}
+                复制面试官会议消息 · {link.name}
               </Button>
             ))}
           </div>

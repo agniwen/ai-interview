@@ -15,6 +15,7 @@ export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) 
       FEISHU_APP_SECRET: runtimeEnv.FEISHU_APP_SECRET,
       FEISHU_APP_SECRET2: runtimeEnv.FEISHU_APP_SECRET2,
       FEISHU_EVALUATION_FOLDER_TOKEN: runtimeEnv.FEISHU_EVALUATION_FOLDER_TOKEN,
+      FEISHU_HUMAN_INTERVIEW_ENABLED: runtimeEnv.FEISHU_HUMAN_INTERVIEW_ENABLED,
       FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN:
         runtimeEnv.FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN,
       INTERVIEW_NOTIFICATION_BATCH_SIZE: runtimeEnv.INTERVIEW_NOTIFICATION_BATCH_SIZE,
@@ -40,6 +41,7 @@ export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) 
       FEISHU_APP_SECRET: z.string().trim().min(1).optional(),
       FEISHU_APP_SECRET2: z.string().trim().min(1).optional(),
       FEISHU_EVALUATION_FOLDER_TOKEN: z.string().trim().min(1).optional(),
+      FEISHU_HUMAN_INTERVIEW_ENABLED: booleanString.optional(),
       FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN: z.string().trim().min(1).optional(),
       INTERVIEW_NOTIFICATION_BATCH_SIZE: positiveIntegerString.optional(),
       INTERVIEW_NOTIFICATION_FLOW_ENABLED: booleanString.optional(),

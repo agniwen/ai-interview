@@ -48,9 +48,9 @@ import {
 } from "./human-interview-stage-utils";
 import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 
-type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
+export type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
 
-interface WorkspaceMember {
+export interface WorkspaceMember {
   id: string;
   name: string;
   email: string;
@@ -58,7 +58,14 @@ interface WorkspaceMember {
   image: string | null;
 }
 
-function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProviderId> | null {
+export interface WorkspaceMembersResult {
+  feishuHumanInterviewEnabled: boolean;
+  records: WorkspaceMember[];
+}
+
+export function getCommonFeishuProviderIds(
+  members: WorkspaceMember[],
+): Set<FeishuProviderId> | null {
   const [firstMember, ...remainingMembers] = members;
   if (!firstMember) {
     return null;
@@ -75,13 +82,16 @@ function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProvi
   return commonProviderIds;
 }
 
+export function loadWorkspaceMembers(slug: string): Promise<WorkspaceMembersResult> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
+    "加载成员列表失败",
+  );
+}
+
 function useWorkspaceMembers(slug: string) {
   return useQuery({
-    queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
-        "加载成员列表失败",
-      ),
+    queryFn: () => loadWorkspaceMembers(slug),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
   });

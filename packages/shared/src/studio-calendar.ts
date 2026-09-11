@@ -18,7 +18,7 @@ export interface StudioCalendarInterviewer {
   name: string;
 }
 
-export type StudioCalendarEventStatus = "scheduled" | "in_progress" | "ended";
+export type StudioCalendarEventStatus = "scheduled" | "in_progress" | "ended" | "not_held";
 
 interface StudioCalendarEventBase {
   candidates: StudioCalendarCandidate[];

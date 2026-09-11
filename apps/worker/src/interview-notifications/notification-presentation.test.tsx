@@ -116,6 +116,33 @@ describe("worker interview notification presentation", () => {
     expect(cardText).toContain("综合评级：C");
   });
 
+  it("shows who is missing in the creator attendance alert", () => {
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        audienceType: "initiator_fallback",
+        payload: {
+          ...input.payload,
+          attendanceStatus: "候选人未入会",
+          missingParticipantNames: ["张三"],
+          suggestedAction: "请及时联系未入会人员。",
+        },
+        renderedContent:
+          "[查看实时参会状态](http://localhost:3000/w/light/studio/resumes/candidate-1)",
+        type: "human_interview_attendance_alert",
+      }),
+    );
+    const cardText = JSON.stringify(card);
+    expect(card?.title).toBe("真人面试到场异常");
+    expect(cardText).toContain("候选人未入会");
+    expect(cardText).toContain("未入会人员");
+    expect(cardText).toContain("张三");
+    expect(cardText).toContain("请及时联系未入会人员");
+    expect(card?.children.find((child) => child.type === "actions")?.children).toContainEqual(
+      expect.objectContaining({ label: "查看实时参会状态", type: "link-button" }),
+    );
+  });
+
   it("explains partial AI completion and links HR to manual generation", () => {
     const completionNotice =
       "候选人已结束 AI 面试，但部分问题未完成，系统未自动生成候选人评价表。可前往 AI 面试列表，根据已有回答生成。";

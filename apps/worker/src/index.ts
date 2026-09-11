@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- Worker bootstrap owns process-wide resource lifecycles. */
 import { startInitialInterviewProcessing } from "./initial-interview-evaluation/start";
 
 import { promisify } from "node:util";
@@ -476,6 +477,16 @@ async function main() {
         { leaseOwner },
         defaultInterviewNotificationProcessorDependencies,
       );
+    },
+    reconcileHumanInterviewAttendance: async ({ now }) => {
+      const { reconcileDueHumanInterviewAttendance } =
+        await import("@app/server/human-interview-attendance-reconciliation");
+      await reconcileDueHumanInterviewAttendance({ now });
+    },
+    retryCancelledHumanInterviewCalendars: async ({ now }) => {
+      const { retryFailedCancelledHumanInterviewMeetingCalendars } =
+        await import("@app/server/human-interview-attendance-reconciliation");
+      await retryFailedCancelledHumanInterviewMeetingCalendars({ now });
     },
   });
   if (interviewNotificationScheduler) {

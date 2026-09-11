@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { humanInterviewRound, humanInterviewRoundInterviewer } from "@app/db-schema/schema";
+import { humanInterviewRound, humanInterviewRoundInterviewer, member } from "@app/db-schema/schema";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 
 export async function loadHumanInterviewMeetingInterviewerIds(
@@ -11,6 +11,29 @@ export async function loadHumanInterviewMeetingInterviewerIds(
     .from(humanInterviewRoundInterviewer)
     .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
   return [...new Set(assignments.map((assignment) => assignment.userId))];
+}
+
+export async function validateHumanInterviewMeetingInterviewerIds({
+  interviewerIds,
+  organizationId,
+}: {
+  interviewerIds: string[];
+  organizationId: string;
+}): Promise<string[]> {
+  const uniqueInterviewerIds = [...new Set(interviewerIds)];
+  if (uniqueInterviewerIds.length === 0) {
+    throw new HumanInterviewMeetingError("请至少选择一位真人面试官。", 400);
+  }
+  const workspaceMembers = await db
+    .select({ userId: member.userId })
+    .from(member)
+    .where(
+      and(eq(member.organizationId, organizationId), inArray(member.userId, uniqueInterviewerIds)),
+    );
+  if (workspaceMembers.length !== uniqueInterviewerIds.length) {
+    throw new HumanInterviewMeetingError("存在不属于当前工作区的真人面试官。", 404);
+  }
+  return uniqueInterviewerIds;
 }
 
 export async function validateHumanInterviewMeetingInput({

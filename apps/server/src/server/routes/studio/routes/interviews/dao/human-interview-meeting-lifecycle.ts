@@ -42,6 +42,7 @@ export function applyHumanInterviewMeetingLifecycleEvent(
       .select()
       .from(humanInterviewMeeting)
       .where(eq(humanInterviewMeeting.id, event.meetingId))
+      .for("update")
       .limit(1);
 
     if (!meeting) {
@@ -66,7 +67,7 @@ export function applyHumanInterviewMeetingLifecycleEvent(
       }
     }
 
-    if (meeting.status === "cancelled" || meeting.status === "ended") {
+    if (["cancelled", "ended", "not_held"].includes(meeting.status)) {
       return "ignored";
     }
     if (event.provider === "feishu" && !meeting.feishuProviderId) {
@@ -126,7 +127,7 @@ export function forceEndHumanInterviewMeeting({
     if (!meeting) {
       throw new HumanInterviewMeetingError("真人复面会议不存在。", 404);
     }
-    if (meeting.status === "cancelled" || meeting.status === "ended") {
+    if (["cancelled", "ended", "not_held"].includes(meeting.status)) {
       return meeting.liveKitRoomName;
     }
 

@@ -8,7 +8,11 @@ import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
 } from "@app/shared/studio-pipeline-stages";
-import { MeetingLinksDialogView } from "./human-interview-stage-meetings";
+import {
+  buildCandidateLinkCopy,
+  buildInterviewerLinkCopy,
+  MeetingLinksDialogView,
+} from "./human-interview-stage-meetings";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -37,10 +41,12 @@ afterEach(() => {
 });
 
 const meeting: HumanInterviewMeetingRecord = {
+  attendanceAlertedAt: null,
   cancelledAt: null,
   createdAt: "2026-08-05T09:00:00.000Z",
   createdBy: "operator-1",
   endedAt: null,
+  establishedAt: null,
   feishu: {
     appLink: null,
     calendarEventUrl: "https://applink.feishu.cn/client/calendar/event/event-1",
@@ -76,8 +82,10 @@ const links: HumanInterviewMeetingLinkBundle = {
   candidateLinks: [
     {
       candidateName: "张三",
+      companyName: "示例科技",
       expiresAt: "2026-08-06T09:30:00.000Z",
       interviewRecordId: "candidate-1",
+      jobDescriptionName: "前端技术经理",
       roundId: "round-1",
       roundLabel: "真人面试",
       url: "/human-interview/candidate-token",
@@ -97,6 +105,33 @@ const links: HumanInterviewMeetingLinkBundle = {
 };
 
 describe("MeetingLinksDialog", () => {
+  it("builds candidate and interviewer messages that can be sent directly", () => {
+    expect(
+      buildCandidateLinkCopy({
+        candidateName: "张三",
+        companyName: "示例科技",
+        jobDescriptionName: "前端技术经理",
+        roundLabel: "业务六面",
+        scheduledAt: "2026-08-05T09:30:00.000Z",
+        url: "https://interview.example.test/human-interview/candidate-token",
+      }),
+    ).toBe(
+      "张三，您好：\n这是您的真人面试确认链接。\n公司：示例科技\n应聘岗位：前端技术经理\n面试轮次：业务六面\n面试时间：2026-08-05 17:30\n请打开链接确认是否参加，本链接仅供本人使用，请勿转发。\nhttps://interview.example.test/human-interview/candidate-token",
+    );
+    expect(
+      buildInterviewerLinkCopy({
+        interviewerName: "光芒",
+        jobDescriptionName: "前端技术经理",
+        meetingTitle: "张三 - 业务六面",
+        roleLabel: "面试官",
+        scheduledAt: "2026-08-05T09:30:00.000Z",
+        url: "https://interview.example.test/human-interview/interviewer/interviewer-token",
+      }),
+    ).toBe(
+      "光芒，您好：\n这是「张三 - 业务六面」真人面试的面试官会议链接。\n岗位：前端技术经理\n面试时间：2026-08-05 17:30\n您本次的会议身份为面试官，请使用本人账号打开，本链接请勿转发。\nhttps://interview.example.test/human-interview/interviewer/interviewer-token",
+    );
+  });
+
   it("hides Feishu details while keeping candidate and interviewer links visible", async () => {
     issueLinksMock.mockResolvedValue(links);
     const container = document.createElement("div");
@@ -129,6 +164,9 @@ describe("MeetingLinksDialog", () => {
     expect(text).not.toContain("飞书会议链接");
     expect(text).toContain("候选人确认链接");
     expect(text).toContain("面试官会议链接");
+    expect(text).toContain("可直接发送给候选人");
+    expect(text).toContain("可直接发送给面试官");
+    expect(text.match(/复制消息/g)).toHaveLength(2);
 
     act(() => root.unmount());
   });

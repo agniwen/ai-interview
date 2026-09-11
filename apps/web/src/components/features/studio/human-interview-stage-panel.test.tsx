@@ -69,7 +69,7 @@ const round: HumanInterviewRoundRecord = {
   organizationId: "org-1",
   outcome: null,
   roundKind: "second_interview",
-  scheduledAt: "2026-08-05T09:30:00.000Z",
+  scheduledAt: "2099-08-05T09:30:00.000Z",
   score: null,
   sortOrder: 0,
   status: "pending",
@@ -77,10 +77,12 @@ const round: HumanInterviewRoundRecord = {
 };
 
 const meeting: HumanInterviewMeetingRecord = {
+  attendanceAlertedAt: null,
   cancelledAt: null,
   createdAt: "2026-08-05T09:00:00.000Z",
   createdBy: "operator-1",
   endedAt: null,
+  establishedAt: null,
   feishu: {
     appLink: "https://applink.feishu.cn/client/video/123456789",
     calendarEventUrl: "https://applink.feishu.cn/client/calendar/event/event-1",
@@ -118,12 +120,12 @@ const meeting: HumanInterviewMeetingRecord = {
     },
   ],
   scheduleVersion: 1,
-  scheduledAt: "2026-08-05T09:30:00.000Z",
+  scheduledAt: "2099-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
   title: "张三 - 真人面试",
   updatedAt: "2026-08-05T09:00:00.000Z",
-  validUntil: "2026-08-05T10:30:00.000Z",
+  validUntil: "2099-08-05T10:30:00.000Z",
 };
 
 afterEach(() => {
@@ -231,7 +233,7 @@ describe("human interview initial loading", () => {
         });
         await waitForUi(() => {
           expect(view.container.querySelector('[aria-label="加载真人面试"]')).toBeNull();
-          expect(view.container.textContent).toContain("待开始（视频）");
+          expect(view.container.textContent).toContain("状态待开始");
           expect(view.container.textContent).not.toContain("安排已更新");
         });
       } finally {
@@ -267,7 +269,7 @@ it("retains loaded cards during a background request and its failure", async () 
       view.meetings.resolve([meeting]);
       await Promise.all([view.roundsRequest, view.meetingsRequest]);
     });
-    await waitForUi(() => expect(view.container.textContent).toContain("待开始（视频）"));
+    await waitForUi(() => expect(view.container.textContent).toContain("状态待开始"));
     const background = Promise.withResolvers<HumanInterviewMeetingRecord[]>();
     let request: Promise<unknown>;
     await act(() => {
@@ -280,7 +282,7 @@ it("retains loaded cards during a background request and its failure", async () 
         .catch(() => {});
     });
     expect(view.container.querySelector('[aria-label="加载真人面试"]')).toBeNull();
-    expect(view.container.textContent).toContain("待开始（视频）");
+    expect(view.container.textContent).toContain("状态待开始");
     await act(async () => {
       background.reject(new Error("刷新失败"));
       await request;
@@ -289,7 +291,7 @@ it("retains loaded cards during a background request and its failure", async () 
       expect(
         view.client.getQueryState(humanInterviewKeys.meetings(slug, candidateId))?.status,
       ).toBe("error");
-      expect(view.container.textContent).toContain("待开始（视频）");
+      expect(view.container.textContent).toContain("状态待开始");
       expect(view.container.querySelector('[role="alert"]')).toBeNull();
       expect(view.container.textContent).not.toContain("安排已更新");
     });

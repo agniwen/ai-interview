@@ -258,6 +258,7 @@ export const humanInterviewMeetingStatusValues = [
   "in_progress",
   "ended",
   "cancelled",
+  "not_held",
 ] as const;
 export const humanInterviewMeetingStatusSchema = z.enum(humanInterviewMeetingStatusValues);
 export type HumanInterviewMeetingStatus = z.infer<typeof humanInterviewMeetingStatusSchema>;
@@ -387,6 +388,11 @@ export const humanInterviewMeetingInputSchema = z.object({
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
 
 export const humanInterviewMeetingScheduleUpdateSchema = z.object({
+  interviewerIds: z
+    .array(z.string().trim().min(1))
+    .min(1, "请至少选择一位面试官")
+    .max(10, "面试官最多 10 人")
+    .optional(),
   reason: z.string().trim().max(500, "改期原因不能超过 500 字").nullable().optional(),
   scheduledAt: z
     .string()

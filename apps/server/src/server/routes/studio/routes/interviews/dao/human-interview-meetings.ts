@@ -6,12 +6,14 @@ import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
+  globalConfig,
   jobDescription,
   humanInterviewMeeting,
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
   humanInterviewRound,
   humanInterviewRoundInterviewer,
+  organization,
   user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewMeetingInput } from "@app/db-schema/studio-interviews";
@@ -39,7 +41,10 @@ import {
   applyHumanInterviewMeetingLifecycleEvent,
   forceEndHumanInterviewMeeting,
 } from "./human-interview-meeting-lifecycle";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import {
+  enqueueHumanMeetingEvents,
+  resolveInterviewNotificationCompanyName,
+} from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 
 export {
@@ -61,10 +66,12 @@ function toRecord({
   interviewers: HumanInterviewMeetingRecord["interviewers"];
 }): HumanInterviewMeetingRecord {
   return {
+    attendanceAlertedAt: serializeDate(meeting.attendanceAlertedAt),
     cancelledAt: serializeDate(meeting.cancelledAt),
     createdAt: serializeDate(meeting.createdAt) ?? new Date().toISOString(),
     createdBy: meeting.createdBy,
     endedAt: serializeDate(meeting.endedAt),
+    establishedAt: serializeDate(meeting.establishedAt),
     feishu:
       meeting.feishuProviderId && meeting.feishuSyncStatus
         ? {
@@ -389,15 +396,30 @@ export async function issueHumanInterviewMeetingLinks({
       candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
       candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
       candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
       interviewRecordId: humanInterviewRound.recruitingRecordId,
+      jobDescriptionName: jobDescription.name,
       label: humanInterviewRound.label,
       roundId: humanInterviewMeetingRound.roundId,
+      workspaceName: organization.name,
     })
     .from(humanInterviewMeetingRound)
     .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
       recruitingRecordReadModel,
       eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
+      ),
+    )
+    .innerJoin(organization, eq(organization.id, humanInterviewMeetingRound.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, humanInterviewMeetingRound.organizationId),
     )
     .where(eq(humanInterviewMeetingRound.meetingId, meetingId))
     .orderBy(asc(humanInterviewRound.sortOrder));
@@ -448,8 +470,13 @@ export async function issueHumanInterviewMeetingLinks({
 
     candidateLinks.push({
       candidateName: row.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        row.configuredCompanyName,
+        row.workspaceName,
+      ),
       expiresAt: expiresAt.toISOString(),
       interviewRecordId: row.interviewRecordId,
+      jobDescriptionName: row.jobDescriptionName,
       roundId: row.roundId,
       roundLabel: row.label,
       url: `/human-interview/${encodeURIComponent(token)}`,
@@ -1134,30 +1161,90 @@ export async function markHumanInterviewParticipantJoined({
   }
 
   const now = new Date();
-  if (identity.startsWith("candidate_")) {
-    await db
-      .update(humanInterviewMeetingRound)
-      .set({ joinedAt: now, leftAt: null })
-      .where(
-        and(
-          eq(humanInterviewMeetingRound.meetingId, meetingId),
-          eq(humanInterviewMeetingRound.roundId, identity.slice("candidate_".length)),
-        ),
-      );
-    return;
-  }
+  await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({
+        establishedAt: humanInterviewMeeting.establishedAt,
+        status: humanInterviewMeeting.status,
+      })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meetingId))
+      .for("update")
+      .limit(1);
+    if (!meeting || ["cancelled", "ended", "not_held"].includes(meeting.status)) {
+      return;
+    }
 
-  if (identity.startsWith("interviewer_")) {
-    await db
-      .update(humanInterviewMeetingInterviewer)
-      .set({ joinedAt: now, leftAt: null })
-      .where(
-        and(
-          eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
-          eq(humanInterviewMeetingInterviewer.userId, identity.slice("interviewer_".length)),
-        ),
-      );
-  }
+    if (identity.startsWith("candidate_")) {
+      await tx
+        .update(humanInterviewMeetingRound)
+        .set({ joinedAt: now, leftAt: null })
+        .where(
+          and(
+            eq(humanInterviewMeetingRound.meetingId, meetingId),
+            eq(humanInterviewMeetingRound.roundId, identity.slice("candidate_".length)),
+          ),
+        );
+    } else if (identity.startsWith("interviewer_")) {
+      await tx
+        .update(humanInterviewMeetingInterviewer)
+        .set({ joinedAt: now, leftAt: null })
+        .where(
+          and(
+            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+            eq(humanInterviewMeetingInterviewer.userId, identity.slice("interviewer_".length)),
+          ),
+        );
+    } else {
+      return;
+    }
+
+    if (meeting.establishedAt) {
+      return;
+    }
+    const [candidatePresent, interviewerPresent] = await Promise.all([
+      tx
+        .select({ roundId: humanInterviewMeetingRound.roundId })
+        .from(humanInterviewMeetingRound)
+        .where(
+          and(
+            eq(humanInterviewMeetingRound.meetingId, meetingId),
+            isNotNull(humanInterviewMeetingRound.joinedAt),
+            or(
+              isNull(humanInterviewMeetingRound.leftAt),
+              gt(humanInterviewMeetingRound.joinedAt, humanInterviewMeetingRound.leftAt),
+            ),
+          ),
+        )
+        .limit(1),
+      tx
+        .select({ userId: humanInterviewMeetingInterviewer.userId })
+        .from(humanInterviewMeetingInterviewer)
+        .where(
+          and(
+            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+            ne(humanInterviewMeetingInterviewer.role, "observer"),
+            isNotNull(humanInterviewMeetingInterviewer.joinedAt),
+            or(
+              isNull(humanInterviewMeetingInterviewer.leftAt),
+              gt(
+                humanInterviewMeetingInterviewer.joinedAt,
+                humanInterviewMeetingInterviewer.leftAt,
+              ),
+            ),
+          ),
+        )
+        .limit(1),
+    ]);
+    if (candidatePresent.length > 0 && interviewerPresent.length > 0) {
+      await tx
+        .update(humanInterviewMeeting)
+        .set({ establishedAt: now, updatedAt: now })
+        .where(
+          and(eq(humanInterviewMeeting.id, meetingId), isNull(humanInterviewMeeting.establishedAt)),
+        );
+    }
+  });
 }
 
 export async function markHumanInterviewParticipantLeft({
