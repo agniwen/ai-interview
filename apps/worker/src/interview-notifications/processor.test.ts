@@ -7,7 +7,9 @@ import { processInterviewNotificationEvent } from "./processor";
 
 const now = new Date("2026-08-20T02:00:00.000Z");
 
-function event(): InterviewNotificationEventRecord {
+function event(
+  overrides: Partial<InterviewNotificationEventRecord> = {},
+): InterviewNotificationEventRecord {
   return {
     actorUserId: "user_1",
     aiRoundId: null,
@@ -32,6 +34,7 @@ function event(): InterviewNotificationEventRecord {
     status: "processing",
     type: "ai_report_ready",
     updatedAt: now,
+    ...overrides,
   };
 }
 
@@ -110,6 +113,98 @@ function dependencies(overrides: Partial<InterviewNotificationDeliveryRecord> = 
 }
 
 describe("interview notification processor", () => {
+  it.each([
+    "human_candidate_invitation_requested",
+    "human_interview_confirmed",
+    "human_interview_rescheduled",
+    "human_interview_cancelled",
+    "human_interview_reminder",
+  ] as const)("sends only explicitly confirmed manual human email: %s", async (type) => {
+    const manualHumanEmail = {
+      confirmedAt: now.toISOString(),
+      confirmedBy: "user_1",
+      eventType: type,
+      meetingId: "meeting_1",
+      organizationId: "org_1",
+      recipient: "candidate@example.com",
+      requestId: "4b21611a-c4e9-4c7a-8c0a-4fdd65dd0bf6",
+      roundId: "round_1",
+      subject: "面试通知",
+      text: "通知正文",
+      version: 1 as const,
+    };
+    const input = event({
+      humanMeetingId: "meeting_1",
+      humanRoundId: "round_1",
+      payloadSnapshot: { manualHumanEmail, schemaVersion: 1, timeZone: "Asia/Shanghai" },
+      type,
+    });
+    const row = {
+      audienceType: "candidate" as const,
+      recipientAddress: manualHumanEmail.recipient,
+      renderedContent: manualHumanEmail.text,
+      renderedSubject: manualHumanEmail.subject,
+      type,
+    };
+    const mocks = dependencies(row);
+    await processInterviewNotificationEvent(input, { leaseOwner: "worker_1", now }, mocks);
+    expect(mocks.send).toHaveBeenCalledOnce();
+    const blocked = dependencies(row);
+    await processInterviewNotificationEvent(
+      { ...input, payloadSnapshot: { schemaVersion: 1, timeZone: "Asia/Shanghai" } },
+      { leaseOwner: "worker_1", now },
+      blocked,
+    );
+    expect(blocked.send).not.toHaveBeenCalled();
+  });
+  it("sends only the newly confirmed manual AI invitation to the approved recipient", async () => {
+    const manualAiInvitation = {
+      confirmedAt: now.toISOString(),
+      confirmedBy: "user_1",
+      html: "<p>邀请正文</p>",
+      organizationId: "org_1",
+      recipient: "candidate@example.com",
+      requestId: "4b21611a-c4e9-4c7a-8c0a-4fdd65dd0bf6",
+      roundId: "round_1",
+      subject: "面试邀请",
+      text: "邀请正文",
+      version: 1 as const,
+    };
+    const input = event({
+      actorUserId: "user_1",
+      aiRoundId: "round_1",
+      payloadSnapshot: { manualAiInvitation, schemaVersion: 1, timeZone: "Asia/Shanghai" },
+      type: "ai_interview_invited",
+    });
+    const mocks = dependencies({
+      audienceType: "candidate",
+      recipientAddress: manualAiInvitation.recipient,
+      renderedContent: manualAiInvitation.text,
+      renderedSubject: manualAiInvitation.subject,
+    });
+    await processInterviewNotificationEvent(input, { leaseOwner: "worker_1", now }, mocks);
+    expect(mocks.send).toHaveBeenCalledOnce();
+    const mismatch = dependencies({
+      audienceType: "candidate",
+      recipientAddress: "other@example.com",
+      renderedContent: manualAiInvitation.text,
+      renderedSubject: manualAiInvitation.subject,
+    });
+    await processInterviewNotificationEvent(input, { leaseOwner: "worker_1", now }, mismatch);
+    expect(mismatch.send).not.toHaveBeenCalled();
+    const reminder = dependencies({
+      audienceType: "candidate",
+      recipientAddress: manualAiInvitation.recipient,
+      renderedContent: manualAiInvitation.text,
+      renderedSubject: manualAiInvitation.subject,
+    });
+    await processInterviewNotificationEvent(
+      { ...input, type: "ai_interview_reminder" },
+      { leaseOwner: "worker_1", now },
+      reminder,
+    );
+    expect(reminder.send).not.toHaveBeenCalled();
+  });
   it("stops finalizing when the paused delivery lease was lost", async () => {
     const mocks = dependencies({ audienceType: "candidate" });
     mocks.markDeliveryFailed.mockResolvedValueOnce(false);

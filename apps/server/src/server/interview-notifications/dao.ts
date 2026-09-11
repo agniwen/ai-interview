@@ -154,7 +154,7 @@ export interface CreateInterviewNotificationDeliveryInput {
   renderedContent: string;
   renderedSubject?: string | null;
   status?: InterviewNotificationDeliveryStatus;
-  templateVersionId: string;
+  templateVersionId: string | null;
   type: InterviewNotificationEventType;
 }
 

@@ -183,6 +183,41 @@ export const interviewNotificationPayloadSnapshotSchema = z.object({
   invitationEndTime: z.string().optional(),
   invitationStartTime: z.string().optional(),
   jobName: z.string().optional(),
+  manualAiInvitation: z
+    .object({
+      confirmedAt: z.string().datetime(),
+      confirmedBy: z.string().min(1),
+      html: z.string().min(1),
+      organizationId: z.string().min(1),
+      recipient: z.email(),
+      requestId: z.string().uuid(),
+      roundId: z.string().min(1),
+      subject: z.string().min(1),
+      text: z.string().min(1),
+      version: z.literal(1),
+    })
+    .optional(),
+  manualHumanEmail: z
+    .object({
+      confirmedAt: z.string().datetime(),
+      confirmedBy: z.string().min(1),
+      eventType: z.enum([
+        "human_candidate_invitation_requested",
+        "human_interview_confirmed",
+        "human_interview_rescheduled",
+        "human_interview_cancelled",
+        "human_interview_reminder",
+      ]),
+      meetingId: z.string().min(1),
+      organizationId: z.string().min(1),
+      recipient: z.email(),
+      requestId: z.uuid(),
+      roundId: z.string().min(1),
+      subject: z.string().min(1),
+      text: z.string().min(1),
+      version: z.literal(1),
+    })
+    .optional(),
   missingParticipantNames: z.array(z.string()).optional(),
   occurredAt: z.string().optional(),
   oldInterviewEndTime: z.string().optional(),

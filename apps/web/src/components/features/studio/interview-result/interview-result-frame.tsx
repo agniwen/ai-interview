@@ -22,14 +22,17 @@ import { SummaryMetric } from "../studio-person-detail-skeletons";
 import { compactText } from "../studio-person-detail-sections";
 import type { StudioPersonDetailViewModel } from "../studio-person-detail-controller";
 import { RecommendedQuestionsDialog } from "./recommended-questions-dialog";
+import { SendInvitationButton } from "./send-invitation-button";
 
 type InterviewResultRecord = NonNullable<StudioPersonDetailViewModel["record"]>;
 
 function InterviewResultActionRow({
+  invitation,
   canEditQuestions,
   onSaveQuestions,
   record,
 }: {
+  invitation?: { slug: string; roundId: string };
   canEditQuestions: boolean;
   onSaveQuestions: (
     questions: NonNullable<InterviewResultRecord["interviewQuestions"]>,
@@ -73,24 +76,29 @@ function InterviewResultActionRow({
           </Button>
         ) : null}
         {showCopyInterviewLink ? (
-          <Button
-            className="w-full"
-            disabled={!record.roundInterviewLink || interviewLinkState?.copyDisabled}
-            onClick={() => {
-              if (record.roundInterviewLink && record.roundStatus) {
-                void copyInterviewLink({
-                  candidateInviteExpiresAt: record.roundCandidateInviteExpiresAt ?? null,
-                  interviewLink: record.roundInterviewLink,
-                  status: record.roundStatus,
-                });
-              }
-            }}
-            type="button"
-            variant="outline"
-          >
-            <IconCopy className="size-4" />
-            复制面试链接
-          </Button>
+          <div className="flex w-full gap-2">
+            <Button
+              className="min-w-0 flex-1"
+              disabled={!record.roundInterviewLink || interviewLinkState?.copyDisabled}
+              onClick={() => {
+                if (record.roundInterviewLink && record.roundStatus) {
+                  void copyInterviewLink({
+                    candidateInviteExpiresAt: record.roundCandidateInviteExpiresAt ?? null,
+                    interviewLink: record.roundInterviewLink,
+                    status: record.roundStatus,
+                  });
+                }
+              }}
+              type="button"
+              variant="outline"
+            >
+              <IconCopy className="size-4" />
+              复制面试链接
+            </Button>
+            {invitation ? (
+              <SendInvitationButton {...invitation} disabled={record.roundStatus !== "pending"} />
+            ) : null}
+          </div>
         ) : null}
       </div>
       {showCopyInterviewLink && interviewLinkState ? (
@@ -117,12 +125,14 @@ function InterviewResultActionRow({
 }
 
 export function InterviewResultFrame({
+  invitation,
   canEditQuestions,
   evaluationSummary,
   onSaveQuestions,
   record,
   report,
 }: {
+  invitation?: { slug: string; roundId: string };
   canEditQuestions: boolean;
   evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
   onSaveQuestions: (
@@ -192,6 +202,7 @@ export function InterviewResultFrame({
           </div>
         ) : null}
         <InterviewResultActionRow
+          invitation={invitation}
           canEditQuestions={canEditQuestions}
           onSaveQuestions={onSaveQuestions}
           record={record}

@@ -2,7 +2,7 @@ import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/
 import type { RecruitingRecordValues } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   department,
@@ -12,6 +12,7 @@ import {
   organization,
   aiInterviewRound,
   recruitingNodeState,
+  recruitingNotificationEvent,
   user,
 } from "@app/db-schema/schema";
 import { persistLaunchAiInterviewRound } from "../default-launch-ai-interview-round";
@@ -24,6 +25,7 @@ const ROLLBACK_CANDIDATE_ID = "atomic_launch_rollback_candidate";
 const CONCURRENT_CANDIDATE_ID = "atomic_launch_concurrent_candidate";
 const STRUCTURED_CANDIDATE_ID = "atomic_launch_structured_candidate";
 const STALE_STRUCTURED_CANDIDATE_ID = "atomic_launch_stale_structured_candidate";
+const MANUAL_ONLY_CANDIDATE_ID = "atomic_launch_manual_only_candidate";
 const NOW = new Date("2026-07-29T12:00:00.000Z");
 
 async function cleanup() {
@@ -32,6 +34,7 @@ async function cleanup() {
     CONCURRENT_CANDIDATE_ID,
     STRUCTURED_CANDIDATE_ID,
     STALE_STRUCTURED_CANDIDATE_ID,
+    MANUAL_ONLY_CANDIDATE_ID,
   ];
   await deleteRecruitingRecords(db, inArray(recruitingRecordReadModel.id, candidateIds));
   await db.delete(jobDescription).where(eq(jobDescription.id, JOB_ID));
@@ -243,6 +246,45 @@ describe("atomic AI interview launch persistence", () => {
       ok: true,
       roundId: "atomic_launch_stale_structured_round",
     });
+  });
+
+  it("launches AI without automatic invitation or reminder events even when notifications are enabled", async () => {
+    vi.stubEnv("INTERVIEW_NOTIFICATION_FLOW_ENABLED", "true");
+    try {
+      await createRecruitingRecords(db, {
+        candidateName: "Manual Invitation Candidate",
+        createdAt: NOW,
+        createdBy: USER_ID,
+        id: MANUAL_ONLY_CANDIDATE_ID,
+        jobDescriptionId: JOB_ID,
+        organizationId: ORG_ID,
+        resumeEvaluationStatus: "pass",
+        resumeParseStatus: "ready",
+        updatedAt: NOW,
+      });
+      const input = launchInput(
+        MANUAL_ONLY_CANDIDATE_ID,
+        "atomic_launch_manual_only_round",
+        "atomic_launch_manual_only_decision",
+        "atomic_launch_manual_only_audit",
+      );
+      const result = await persistLaunchAiInterviewRound({
+        ...input,
+        schedule: {
+          ...input.schedule,
+          scheduledAt: new Date(NOW.getTime() + 48 * 60 * 60 * 1000),
+        },
+      });
+      expect(result).toEqual({ ok: true, roundId: input.schedule.id });
+      expect(
+        await db
+          .select({ type: recruitingNotificationEvent.type })
+          .from(recruitingNotificationEvent)
+          .where(eq(recruitingNotificationEvent.aiRoundId, input.schedule.id)),
+      ).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it.each([null, "fail"] as const)(

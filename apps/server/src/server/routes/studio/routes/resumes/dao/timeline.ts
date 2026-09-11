@@ -15,6 +15,7 @@ import {
   recruitingEvent,
   aiInterviewConversation,
   recruitingNotificationDelivery,
+  recruitingNotificationEvent,
   humanInterviewRound,
   aiInterviewRound,
   recruitingOffer,
@@ -31,6 +32,8 @@ import {
 import { loadResumeDetail } from "./resumes";
 import { auditDescription, auditTitle, auditTone, stageLabel } from "./timeline-audit";
 import { z } from "zod";
+import { describeManualInvitationEmail } from "./timeline-manual-invitation";
+import { describeManualHumanEmail } from "./timeline-manual-human-email";
 
 type TimeValue = Date | string | null | undefined;
 
@@ -242,16 +245,35 @@ function loadTimelineRows(interviewRecordId: string, organizationId: string) {
       ),
     db
       .select({
+        actorImage: user.image,
+        actorName: user.name,
+        audienceType: recruitingNotificationDelivery.audienceType,
+        channel: recruitingNotificationDelivery.channel,
         createdAt: recruitingNotificationDelivery.createdAt,
         error: recruitingNotificationDelivery.error,
         id: recruitingNotificationDelivery.id,
+        payloadSnapshot: recruitingNotificationEvent.payloadSnapshot,
         providerId: recruitingNotificationDelivery.providerId,
+        recipientAddress: recruitingNotificationDelivery.recipientAddress,
+        recipientDisplayName: recruitingNotificationDelivery.recipientDisplayName,
+        renderedSubject: recruitingNotificationDelivery.renderedSubject,
         sentAt: recruitingNotificationDelivery.sentAt,
         status: recruitingNotificationDelivery.status,
         type: recruitingNotificationDelivery.type,
         updatedAt: recruitingNotificationDelivery.updatedAt,
       })
       .from(recruitingNotificationDelivery)
+      .leftJoin(
+        recruitingNotificationEvent,
+        and(
+          eq(recruitingNotificationEvent.id, recruitingNotificationDelivery.eventId),
+          eq(
+            recruitingNotificationEvent.organizationId,
+            recruitingNotificationDelivery.organizationId,
+          ),
+        ),
+      )
+      .leftJoin(user, eq(user.id, recruitingNotificationEvent.actorUserId))
       .where(
         and(
           eq(recruitingNotificationDelivery.recruitingRecordId, interviewRecordId),
@@ -719,6 +741,7 @@ export async function loadCandidateTimeline(
       occurredAt: notification.sentAt ?? notification.updatedAt ?? notification.createdAt,
       title: notificationTitle(notification.status),
       tone: notificationTone(notification.status),
+      ...(describeManualInvitationEmail(notification) ?? describeManualHumanEmail(notification)),
     });
   }
 

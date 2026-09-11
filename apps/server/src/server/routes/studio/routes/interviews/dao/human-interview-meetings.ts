@@ -359,15 +359,14 @@ export async function createHumanInterviewMeeting({
           ),
         );
     }
-    if (notificationFlowEnabled) {
+    // 已安排时间的候选人邀请由 HRD 手动确认发送；保留未排期待办通知。
+    if (notificationFlowEnabled && !scheduledAt) {
       await enqueueHumanMeetingEvents(tx, {
         actorUserId: createdBy,
         meetingId: id,
         now,
         scheduleVersion: 1,
-        type: scheduledAt
-          ? "human_candidate_invitation_requested"
-          : "human_interview_pending_schedule",
+        type: "human_interview_pending_schedule",
       });
     }
   });
