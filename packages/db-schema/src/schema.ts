@@ -110,6 +110,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -1728,8 +1729,10 @@ export const jobDescription = pgTable(
       onDelete: "set null",
     }),
     feishuChatId: text("feishu_chat_id"),
+    headcount: integer("headcount"),
     id: text("id").primaryKey(),
     internalCriteria: text("internal_criteria"),
+    jobWeight: numeric("job_weight", { precision: 8, scale: 2 }),
     lifecycleStatus: text("lifecycle_status")
       .$type<JobLifecycleStatus>()
       .notNull()
@@ -1741,15 +1744,24 @@ export const jobDescription = pgTable(
         onDelete: "cascade",
       }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
+    priority: text("priority").$type<"high" | "medium" | "low">(),
     prompt: text("prompt").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedDate: date("published_date"),
+    referralChannels: text("referral_channels"),
+    reportingManagerUserId: text("reporting_manager_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     resumeScreeningPolicy: jsonb("resume_screening_policy").$type<JsonObject | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
+    salaryMaxK: numeric("salary_max_k", { precision: 10, scale: 2 }),
+    salaryMinK: numeric("salary_min_k", { precision: 10, scale: 2 }),
     structuredConfig: jsonb("structured_config")
       .$type<JobDescriptionStructuredConfig>()
       .notNull()
       .default(createDefaultJobDescriptionStructuredConfig()),
+    targetDate: date("target_date"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -1760,6 +1772,7 @@ export const jobDescription = pgTable(
     index("job_description_name_idx").on(table.name),
     index("job_description_created_at_idx").on(table.createdAt),
     index("job_description_organization_idx").on(table.organizationId),
+    index("job_description_priority_idx").on(table.organizationId, table.priority),
     uniqueIndex("job_description_org_code_uq")
       .on(table.organizationId, table.code)
       .where(sql`${table.code} IS NOT NULL`),
@@ -1770,6 +1783,10 @@ export const jobDescription = pgTable(
     check(
       "job_description_lifecycle_status_check",
       sql`${table.lifecycleStatus} IN ('draft', 'published')`,
+    ),
+    check(
+      "job_description_priority_check",
+      sql`${table.priority} IS NULL OR ${table.priority} IN ('high', 'medium', 'low')`,
     ),
     check(
       "job_description_evaluation_lifecycle_check",

@@ -32,6 +32,7 @@ import {
   jobDescriptionEvaluationUpgradeDraft,
   jobDescriptionInterviewer,
   aiInterviewRound,
+  user,
 } from "@app/db-schema/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
@@ -41,12 +42,13 @@ const jobDescriptionListFiltersSchema = z.object({
   textFilters: listTextFiltersSchema("jobs"),
 });
 
-const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
+const SORT_COLUMNS = ["priority", "createdAt", "name", "updatedAt"] as const;
 type SortColumn = (typeof SORT_COLUMNS)[number];
 
 const ORDER_COLUMNS = {
   createdAt: jobDescription.createdAt,
   name: jobDescription.name,
+  priority: sql<number>`CASE ${jobDescription.priority} WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END`,
   updatedAt: jobDescription.updatedAt,
 } as const;
 
@@ -165,7 +167,7 @@ function listJobDescriptionRows({
   departmentIds,
   interviewerIds,
   jdIdsForInterviewers,
-  sortBy = "createdAt",
+  sortBy = "priority",
   sortOrder = "desc",
   limit,
   offset,
@@ -213,23 +215,34 @@ function listJobDescriptionRows({
       evaluationMode: jobDescription.evaluationMode,
       evaluationUpgradedAt: jobDescription.evaluationUpgradedAt,
       evaluationUpgradedBy: jobDescription.evaluationUpgradedBy,
+      headcount: jobDescription.headcount,
       id: jobDescription.id,
       internalCriteria: jobDescription.internalCriteria,
+      jobWeight: jobDescription.jobWeight,
       lifecycleStatus: jobDescription.lifecycleStatus,
       name: jobDescription.name,
       presetQuestions: jobDescription.presetQuestions,
+      priority: jobDescription.priority,
       prompt: jobDescription.prompt,
       publishedAt: jobDescription.publishedAt,
+      publishedDate: jobDescription.publishedDate,
+      referralChannels: jobDescription.referralChannels,
+      reportingManagerName: user.name,
+      reportingManagerUserId: jobDescription.reportingManagerUserId,
       resumeScreeningPolicy: jobDescription.resumeScreeningPolicy,
       resumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
       resumeScreeningPolicyVersion: jobDescription.resumeScreeningPolicyVersion,
+      salaryMaxK: jobDescription.salaryMaxK,
+      salaryMinK: jobDescription.salaryMinK,
       structuredConfig: jobDescription.structuredConfig,
+      targetDate: jobDescription.targetDate,
       updatedAt: jobDescription.updatedAt,
     })
     .from(jobDescription)
     .leftJoin(department, eq(jobDescription.departmentId, department.id))
+    .leftJoin(user, eq(jobDescription.reportingManagerUserId, user.id))
     .where(where)
-    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
+    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder), desc(jobDescription.createdAt))
     .$dynamic();
 
   if (limit !== undefined) {
@@ -384,20 +397,30 @@ function toJobDescriptionListRecord(
     evaluationUpgradedAt: row.evaluationUpgradedAt ? serializeDate(row.evaluationUpgradedAt) : null,
     evaluationUpgradedBy: row.evaluationUpgradedBy,
     hasEvaluationUpgradeDraft,
+    headcount: row.headcount,
     id: row.id,
     internalCriteria: row.internalCriteria,
     interviewerIds: interviewers.map((item) => item.id),
     interviewers,
+    jobWeight: row.jobWeight,
     lifecycleStatus: row.lifecycleStatus,
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
+    priority: row.priority,
     prompt: row.prompt,
     publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
+    publishedDate: row.publishedDate,
+    referralChannels: row.referralChannels,
+    reportingManagerName: row.reportingManagerName,
+    reportingManagerUserId: row.reportingManagerUserId,
     resumeCount,
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
+    salaryMaxK: row.salaryMaxK,
+    salaryMinK: row.salaryMinK,
     structuredConfig: parseStructuredConfig(row.structuredConfig),
+    targetDate: row.targetDate,
     updatedAt: serializeDate(row.updatedAt),
   };
 }
@@ -851,18 +874,27 @@ export function serializeJobDescription(
     evaluationUpgradedAt: row.evaluationUpgradedAt ? serializeDate(row.evaluationUpgradedAt) : null,
     evaluationUpgradedBy: row.evaluationUpgradedBy,
     hasEvaluationUpgradeDraft,
+    headcount: row.headcount,
     id: row.id,
     internalCriteria: row.internalCriteria,
     interviewerIds,
+    jobWeight: row.jobWeight,
     lifecycleStatus: row.lifecycleStatus,
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
+    priority: row.priority,
     prompt: row.prompt,
     publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
+    publishedDate: row.publishedDate,
+    referralChannels: row.referralChannels,
+    reportingManagerUserId: row.reportingManagerUserId,
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
+    salaryMaxK: row.salaryMaxK,
+    salaryMinK: row.salaryMinK,
     structuredConfig: parseStructuredConfig(row.structuredConfig),
+    targetDate: row.targetDate,
     updatedAt: serializeDate(row.updatedAt),
   };
 }

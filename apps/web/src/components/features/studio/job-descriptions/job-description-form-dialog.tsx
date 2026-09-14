@@ -108,6 +108,25 @@ export function JobDescriptionFormDialog({
     }
   }, [form, open, resolvedInitialValues]);
 
+  const { data: workspaceMembers } = useQuery({
+    enabled: open,
+    queryFn: () =>
+      rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
+        "加载工作区成员失败",
+      ),
+    queryKey: ["workspace-members", slug],
+    staleTime: 60_000,
+  });
+  const reportingManagerOptions = useMemo(
+    () =>
+      (workspaceMembers?.records ?? []).map((member) => ({
+        label: member.name,
+        value: member.id,
+      })),
+    [workspaceMembers?.records],
+  );
+
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && !!record?.id,
     queryFn: async () => {
@@ -230,6 +249,7 @@ export function JobDescriptionFormDialog({
                 interviewers={interviewers}
                 interviewerOptions={interviewerOptions}
                 isGeneratingCode={actions.isGeneratingCode}
+                reportingManagerOptions={reportingManagerOptions}
                 selectedDepartmentId={selectedDepartmentId}
                 selectedInterviewerIds={selectedInterviewerIds}
               />
