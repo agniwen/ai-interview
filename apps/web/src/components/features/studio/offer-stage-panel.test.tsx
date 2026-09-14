@@ -358,7 +358,7 @@ describe("Offer stage content", () => {
     }
   });
 
-  it("keeps the confirmed background check result and confirmation details visible", () => {
+  it("keeps the confirmed background check result in the Offer module after entering onboarding", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
@@ -395,7 +395,7 @@ describe("Offer stage content", () => {
           <QueryClientProvider client={queryClient}>
             <WorkspaceSlugProvider id="org" slug="acme" memberRole="hr" permissions={{}}>
               <OfferStagePanel
-                stage="background_check"
+                stage="onboarding"
                 candidateId="candidate"
                 candidateName="任杨帆"
                 candidateEmail="candidate@example.com"
@@ -424,6 +424,12 @@ describe("Offer stage content", () => {
       expect(host.textContent).toContain("确认说明：合格");
       expect(host.textContent).toContain("确认时间");
       expect(host.textContent).not.toContain("已提交，待确认结果");
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "复制链接"),
+      ).toBe(false);
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "发送邮件"),
+      ).toBe(false);
     } finally {
       act(() => root.unmount());
       queryClient.clear();

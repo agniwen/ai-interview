@@ -129,14 +129,17 @@ function BackgroundCheckStageContent({
   nodeStates,
   stage,
 }: Pick<PanelProps, "candidateId" | "canUpdate" | "disabled" | "nodeStates" | "stage">) {
-  if (stage !== "background_check") {
+  const review = nodeStates.find((node) => node.node === "background_check");
+  const shouldShow =
+    stage === "background_check" || review?.status === "completed" || review?.status === "skipped";
+  if (!shouldShow) {
     return null;
   }
   return (
     <BackgroundCheckPanel
       candidateId={candidateId}
-      disabled={disabled || !canUpdate}
-      review={nodeStates.find((node) => node.node === "background_check")}
+      disabled={disabled || stage !== "background_check" || !canUpdate}
+      review={review}
     />
   );
 }
