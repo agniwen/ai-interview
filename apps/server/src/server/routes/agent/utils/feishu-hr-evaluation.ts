@@ -1,3 +1,5 @@
+import { formatJobInternalCriteria } from "@app/shared/job-internal-criteria";
+import { loadManagedJobDescriptionById } from "../../studio/routes/job-descriptions/dao";
 import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@app/db-schema/interview-session";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
@@ -67,6 +69,8 @@ export type FeishuHrEvaluation = z.infer<typeof feishuHrEvaluationSchema>;
 
 type FeishuHrEvaluationInput = {
   candidateFormResponses: string;
+  internalCriteria?: string | null;
+  jobDescription?: string | null;
   resumeEmploymentContext: string;
 } & (
   | { transcript: InterviewTranscriptTurn[]; recordedTranscript?: never }
@@ -165,16 +169,18 @@ export interface FeishuHrEvaluationDependencies {
   agent: typeof interviewReportEvaluationAgent;
   createEvidenceSnapshot: typeof createInterviewEvidenceSnapshot;
   generate: typeof generateStructuredWithMastraAgent;
+  loadJobDescription: typeof loadManagedJobDescriptionById;
 }
 
 const defaultFeishuHrEvaluationDependencies: FeishuHrEvaluationDependencies = {
   agent: interviewReportEvaluationAgent,
   createEvidenceSnapshot: createInterviewEvidenceSnapshot,
   generate: generateStructuredWithMastraAgent,
+  loadJobDescription: loadManagedJobDescriptionById,
 };
 
 function buildFeishuHrEvaluationPrompt(options: FeishuHrEvaluationInput): string {
-  return FEISHU_HR_EVALUATION_PROMPT.replace(
+  const candidatePrompt = FEISHU_HR_EVALUATION_PROMPT.replace(
     "{resumeEmploymentContext}",
     promptData(options.resumeEmploymentContext || "（无简历背景）"),
   )
@@ -187,6 +193,16 @@ function buildFeishuHrEvaluationPrompt(options: FeishuHrEvaluationInput): string
           : options.recordedTranscript,
       ),
     );
+  return [
+    candidatePrompt,
+    options.jobDescription
+      ? `岗位 JD（仅用于理解岗位背景，不是候选人事实）：\n${promptData(options.jobDescription)}`
+      : "",
+    formatJobInternalCriteria(options.internalCriteria),
+    "岗位要求仅用于理解相关工作和项目背景；保持七项事实整理契约，不得把内部标准原文、匹配判断或未收集信息补入候选人答复。",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export async function generateFeishuHrEvaluationWithPrompt(
@@ -222,8 +238,16 @@ async function loadFeishuHrEvaluationInput(
   if (evidence.payload.transcript.length === 0) {
     throw new Error("该通知没有可供 AI 分析的面试记录");
   }
+  const job = evidence.payload.context.jobDescription
+    ? await dependencies.loadJobDescription(
+        evidence.organizationId,
+        evidence.payload.context.jobDescription.id,
+      )
+    : null;
   return {
     candidateFormResponses: formatCandidateFormSubmissions(evidence.payload.formSubmissions),
+    internalCriteria: job?.internalCriteria,
+    jobDescription: evidence.payload.context.jobDescription?.prompt,
     resumeEmploymentContext: formatResumeEmploymentContext(
       evidence.payload.context.candidate.resumeProfile,
     ),

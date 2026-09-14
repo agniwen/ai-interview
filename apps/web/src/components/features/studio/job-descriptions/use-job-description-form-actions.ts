@@ -45,6 +45,7 @@ export function useJobDescriptionFormActions({
       allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
       code: value.code?.trim() || undefined,
       departmentId: value.departmentId,
+      internalCriteria: value.internalCriteria?.trim() || null,
       interviewerIds: value.interviewerIds,
       name: value.name.trim(),
       prompt: value.prompt.trim(),

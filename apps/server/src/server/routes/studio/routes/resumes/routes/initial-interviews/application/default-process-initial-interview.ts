@@ -20,6 +20,8 @@ export function processInitialInterviewVersion(
       generate: (job) =>
         generateFeishuHrEvaluation({
           candidateFormResponses: "",
+          internalCriteria: job.snapshot.job?.internalCriteria,
+          jobDescription: job.snapshot.job?.prompt,
           recordedTranscript: JSON.stringify({
             candidateName: job.snapshot.candidateName,
             turns: job.turns.map((turn) => ({

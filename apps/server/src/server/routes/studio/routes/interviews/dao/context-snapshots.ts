@@ -78,6 +78,14 @@ export function buildInterviewContextSnapshotPayload(
 ): InterviewContextSnapshotPayload {
   return {
     ...input,
+    jobDescription: input.jobDescription
+      ? {
+          description: input.jobDescription.description,
+          id: input.jobDescription.id,
+          name: input.jobDescription.name,
+          prompt: input.jobDescription.prompt,
+        }
+      : null,
     schemaVersion: 1,
   };
 }

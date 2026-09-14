@@ -22,6 +22,7 @@ describe("generateHumanInterviewEvaluation", () => {
       generateHumanInterviewEvaluation(
         {
           candidateName: "候选人",
+          internalCriteria: "熟悉工业自动化行业",
           jobDescription: "必须具备独立负责海外渠道的经验",
           resume: "国内销售经验",
           salaryRange: null,
@@ -40,6 +41,8 @@ describe("generateHumanInterviewEvaluation", () => {
       ),
     ).resolves.toEqual(evaluation);
     expect(generate).toHaveBeenCalledOnce();
+    expect(JSON.stringify(generate.mock.calls)).toContain("熟悉工业自动化行业");
+    expect(JSON.stringify(supportedReview.generate.mock.calls)).toContain("熟悉工业自动化行业");
   });
 
   it.each([false, true])(

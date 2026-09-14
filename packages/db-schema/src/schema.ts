@@ -1729,6 +1729,7 @@ export const jobDescription = pgTable(
     }),
     feishuChatId: text("feishu_chat_id"),
     id: text("id").primaryKey(),
+    internalCriteria: text("internal_criteria"),
     lifecycleStatus: text("lifecycle_status")
       .$type<JobLifecycleStatus>()
       .notNull()
@@ -1832,6 +1833,7 @@ export const jobDescriptionVersion = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
+    internalCriteria: text("internal_criteria"),
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),

@@ -57,6 +57,14 @@ function JobDescriptionPreview({ record }: { record: JobDescriptionRecord }) {
           <MarkdownView className="pr-3 text-sm" content={record.prompt.trim() || "未填写"} />
         </ScrollArea>
       </section>
+      {record.internalCriteria?.trim() ? (
+        <section className="flex flex-col gap-1">
+          <h4 className="font-medium text-muted-foreground text-xs">内部标准</h4>
+          <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
+            <MarkdownView className="pr-3 text-sm" content={record.internalCriteria} />
+          </ScrollArea>
+        </section>
+      ) : null}
     </div>
   );
 }

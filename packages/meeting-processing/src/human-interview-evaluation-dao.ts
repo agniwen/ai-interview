@@ -541,6 +541,7 @@ export function createHumanInterviewEvaluationDao(
   ): Promise<{
     candidateName: string;
     jobDescription: string;
+    internalCriteria: string | null;
     resume: string;
     turns: EvaluationMeetingTranscriptRevision["turns"];
   } | null> {
@@ -548,6 +549,7 @@ export function createHumanInterviewEvaluationDao(
       db
         .select({
           candidateName: recruitingRecordReadModel.candidateName,
+          internalCriteria: jobDescription.internalCriteria,
           jobDescription: jobDescription.prompt,
           resume: recruitingRecordReadModel.resumeText,
         })
@@ -578,6 +580,7 @@ export function createHumanInterviewEvaluationDao(
     }
     return {
       candidateName: row.candidateName,
+      internalCriteria: row.internalCriteria,
       jobDescription: row.jobDescription ?? "",
       resume: row.resume ?? "",
       turns: transcript.turns.map((turn) => ({

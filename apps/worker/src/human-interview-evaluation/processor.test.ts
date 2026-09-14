@@ -31,6 +31,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
         loadInput: vi.fn(() =>
           Promise.resolve({
             candidateName: "候选人",
+            internalCriteria: "需要行业经验",
             jobDescription: "JD",
             resume: "简历",
             turns: [
@@ -91,6 +92,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
       loadInput: vi.fn(() =>
         Promise.resolve({
           candidateName: "候选人",
+          internalCriteria: null,
           jobDescription: "JD",
           resume: "简历",
           turns: [],

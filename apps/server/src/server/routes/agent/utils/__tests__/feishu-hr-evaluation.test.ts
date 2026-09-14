@@ -10,6 +10,7 @@ import type { FeishuHrEvaluationDependencies } from "../feishu-hr-evaluation";
 const mocks = {
   createEvidenceSnapshot: vi.fn(),
   generateStructuredWithMastraAgent: vi.fn(),
+  loadJobDescription: vi.fn(),
 };
 
 const dependencies: FeishuHrEvaluationDependencies = {
@@ -19,6 +20,7 @@ const dependencies: FeishuHrEvaluationDependencies = {
     mocks.createEvidenceSnapshot as FeishuHrEvaluationDependencies["createEvidenceSnapshot"],
   // SAFETY: this fake is controlled by this test and resolves the schema-validated DTOs below.
   generate: mocks.generateStructuredWithMastraAgent as FeishuHrEvaluationDependencies["generate"],
+  loadJobDescription: mocks.loadJobDescription,
 };
 
 const HR_EVALUATION = {
@@ -42,6 +44,7 @@ describe("generateFeishuHrEvaluation", () => {
       generateFeishuHrEvaluation(
         {
           candidateFormResponses: "当前状态：在职",
+          internalCriteria: "需要招聘软件行业经验",
           resumeEmploymentContext: "最近工作：示例科技；项目：招聘系统",
           transcript: [{ message: "我希望获得更大发展空间。", role: "user" }],
         },
@@ -87,7 +90,9 @@ describe("generateFeishuHrEvaluation", () => {
 
   it("loads the same evidence snapshot used by the report before generating", async () => {
     const transcript = [{ message: "一个月内到岗。", role: "user" }];
+    mocks.loadJobDescription.mockResolvedValue({ internalCriteria: "需要行业经验" });
     mocks.createEvidenceSnapshot.mockResolvedValue({
+      organizationId: "org-1",
       payload: {
         context: {
           candidate: {
@@ -143,6 +148,7 @@ describe("generateFeishuHrEvaluation", () => {
               ],
             },
           },
+          jobDescription: { id: "jd-1", name: "产品经理", prompt: "负责招聘产品" },
         },
         formSubmissions: [],
         transcript,
@@ -167,12 +173,31 @@ describe("generateFeishuHrEvaluation", () => {
     const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
     expect(prompt).toContain("示例科技");
     expect(prompt).toContain("前一家公司");
+    expect(prompt).toContain("需要行业经验");
+    expect(mocks.loadJobDescription).toHaveBeenCalledWith("org-1", "jd-1");
     expect(prompt).not.toContain("更早公司");
     expect(prompt).not.toContain("区间对照公司");
     expect(prompt).toContain("智能招聘系统");
     expect(prompt).toContain("React、Node.js");
     expect(prompt).toContain("企业服务平台");
     expect(prompt).not.toContain("早期内部系统");
+  });
+
+  it("adds private criteria as context while preserving the seven factual fields", async () => {
+    mocks.generateStructuredWithMastraAgent.mockResolvedValue(HR_EVALUATION);
+    const result = await generateFeishuHrEvaluationWithPrompt(
+      {
+        candidateFormResponses: "",
+        internalCriteria: "招聘软件行业经验",
+        jobDescription: "负责企业产品",
+        recordedTranscript: "候选人：我做过招聘软件。",
+        resumeEmploymentContext: "",
+      },
+      dependencies,
+    );
+    expect(result.prompt).toContain("招聘软件行业经验");
+    expect(result.prompt).toContain("不得把内部标准原文、匹配判断或未收集信息补入候选人答复");
+    expect(result.evaluation).toEqual(HR_EVALUATION);
   });
 
   it("isolates candidate-provided content from prompt instructions", async () => {

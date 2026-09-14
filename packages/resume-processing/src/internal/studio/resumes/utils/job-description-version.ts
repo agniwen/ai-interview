@@ -2,12 +2,13 @@ import { and, desc, eq } from "drizzle-orm";
 import type { db } from "../../../lib/db";
 import { jobDescription, jobDescriptionVersion } from "@app/db-schema/schema";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Tx = Pick<Parameters<Parameters<typeof db.transaction>[0]>[0], "select" | "insert">;
 
 export interface CurrentJobDescriptionVersion {
   id: string;
   jobDescriptionName: string;
   prompt: string;
+  internalCriteria: string | null;
   version: number;
 }
 
@@ -17,6 +18,7 @@ export async function ensureCurrentJobDescriptionVersion(
 ): Promise<CurrentJobDescriptionVersion | null> {
   const [currentJob] = await tx
     .select({
+      internalCriteria: jobDescription.internalCriteria,
       lifecycleStatus: jobDescription.lifecycleStatus,
       name: jobDescription.name,
       prompt: jobDescription.prompt,
@@ -37,6 +39,7 @@ export async function ensureCurrentJobDescriptionVersion(
   let [snapshot] = await tx
     .select({
       id: jobDescriptionVersion.id,
+      internalCriteria: jobDescriptionVersion.internalCriteria,
       jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
       prompt: jobDescriptionVersion.prompt,
       version: jobDescriptionVersion.version,
@@ -48,6 +51,7 @@ export async function ensureCurrentJobDescriptionVersion(
   if (
     !snapshot ||
     snapshot.prompt !== currentJob.prompt ||
+    (snapshot.internalCriteria ?? null) !== (currentJob.internalCriteria ?? null) ||
     snapshot.jobDescriptionName !== currentJob.name
   ) {
     const [created] = await tx
@@ -56,6 +60,7 @@ export async function ensureCurrentJobDescriptionVersion(
         createdAt: new Date(),
         createdBy: null,
         id: crypto.randomUUID(),
+        internalCriteria: currentJob.internalCriteria,
         jobDescriptionId: input.jobDescriptionId,
         jobDescriptionName: currentJob.name,
         organizationId: input.organizationId,
@@ -64,6 +69,7 @@ export async function ensureCurrentJobDescriptionVersion(
       })
       .returning({
         id: jobDescriptionVersion.id,
+        internalCriteria: jobDescriptionVersion.internalCriteria,
         jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
         prompt: jobDescriptionVersion.prompt,
         version: jobDescriptionVersion.version,

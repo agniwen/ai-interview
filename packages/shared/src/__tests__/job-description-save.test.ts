@@ -15,6 +15,21 @@ describe("jobDescriptionSaveSchema", () => {
     expect(jobDescriptionSaveSchema.parse(validJob)).toEqual(validJob);
   });
 
+  it.each([undefined, null, "", "  ", "要求 **行业经验**"])(
+    "accepts optional internal criteria: %s",
+    (internalCriteria) => {
+      const parsed = jobDescriptionSaveSchema.parse({ ...validJob, internalCriteria });
+      expect(parsed.internalCriteria).toBe(internalCriteria?.trim() ?? internalCriteria);
+    },
+  );
+
+  it("rejects oversized internal criteria", () => {
+    expect(
+      jobDescriptionSaveSchema.safeParse({ ...validJob, internalCriteria: "字".repeat(10_001) })
+        .success,
+    ).toBe(false);
+  });
+
   it("requires the canonical 岗位 JD prompt", () => {
     expect(jobDescriptionSaveSchema.safeParse({ ...validJob, prompt: "  " }).success).toBe(false);
   });

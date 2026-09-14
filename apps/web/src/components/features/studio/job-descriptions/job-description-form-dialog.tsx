@@ -174,7 +174,7 @@ export function JobDescriptionFormDialog({
     >
       <Modal
         bodyClassName="px-5 py-3"
-        description="岗位 JD 是 AI 评价的唯一岗位要求来源；内容较少时仍可保存，但建议写清职责和核心要求。"
+        description="岗位 JD 用于描述职责和核心要求；内部标准可补充仅供招聘端使用的评价依据。"
         footer={
           <>
             <Button

@@ -32,66 +32,75 @@ afterEach(() => {
 });
 
 describe("JobDescriptionHoverCard", () => {
-  it("loads job details only after the preview opens", async () => {
-    const detail = Promise.withResolvers<JobDescriptionRecord>();
-    fetchDetailMock.mockReturnValue(detail.promise);
-    const host = document.createElement("div");
-    document.body.append(host);
-    const root = createRoot(host);
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+  it.each([null, "", "熟悉 **金融行业**"])(
+    "loads JD and optional internal criteria after opening: %s",
+    async (internalCriteria) => {
+      const detail = Promise.withResolvers<JobDescriptionRecord>();
+      fetchDetailMock.mockReturnValue(detail.promise);
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
-    act(() => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <JobDescriptionHoverCardView
-            dependencies={{ fetchDetail: fetchDetailMock, slug: "demo" }}
-            jobDescriptionId="job-1"
-            name="前端工程师"
-          />
-        </QueryClientProvider>,
-      );
-    });
+      act(() => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <JobDescriptionHoverCardView
+              dependencies={{ fetchDetail: fetchDetailMock, slug: "demo" }}
+              jobDescriptionId="job-1"
+              name="前端工程师"
+            />
+          </QueryClientProvider>,
+        );
+      });
 
-    expect(fetchDetailMock).not.toHaveBeenCalled();
-    const trigger = host.querySelector("button");
-    expect(trigger?.className).not.toMatch(/(^|\s)underline(\s|$)/);
-    expect(trigger?.className).toContain("hover:underline");
+      expect(fetchDetailMock).not.toHaveBeenCalled();
+      const trigger = host.querySelector("button");
+      expect(trigger?.className).not.toMatch(/(^|\s)underline(\s|$)/);
+      expect(trigger?.className).toContain("hover:underline");
 
-    act(() => {
-      trigger?.click();
-    });
+      act(() => {
+        trigger?.click();
+      });
 
-    await vi.waitFor(() => {
-      expect(fetchDetailMock).toHaveBeenCalledTimes(1);
-    });
-    expect(getRevealState()).toBe("loading");
-    expect(
-      document.body.querySelector('[data-slot="job-description-preview-skeleton"]'),
-    ).not.toBeNull();
+      await vi.waitFor(() => {
+        expect(fetchDetailMock).toHaveBeenCalledTimes(1);
+      });
+      expect(getRevealState()).toBe("loading");
+      expect(
+        document.body.querySelector('[data-slot="job-description-preview-skeleton"]'),
+      ).not.toBeNull();
 
-    await act(async () => {
-      detail.resolve(record);
-      await detail.promise;
-    });
+      await act(async () => {
+        detail.resolve({ ...record, internalCriteria });
+        await detail.promise;
+      });
 
-    await vi.waitFor(() => {
-      expect(document.body.textContent).toContain("岗位 JD");
-      expect(document.body.textContent).not.toContain("负责产品前端研发");
-      expect(document.body.querySelector('[data-slot="hover-card-content"]')?.classList).toContain(
-        "bg-background",
-      );
-      const scrollAreas = document.body.querySelectorAll('[data-slot="scroll-area"]');
-      expect(scrollAreas).toHaveLength(1);
-      expect(scrollAreas[0]?.classList).toContain("[--scroll-fade-reveal:1rem]");
-      for (const scrollArea of scrollAreas) {
-        expect(scrollArea.firstElementChild?.classList).toContain("scroll-fade");
-      }
-      expect(document.body.querySelector("strong")?.textContent).toBe("React");
-      expect(getRevealState()).toBe("revealed");
-    });
+      await vi.waitFor(() => {
+        expect(document.body.textContent).toContain("岗位 JD");
+        expect(document.body.textContent).not.toContain("负责产品前端研发");
+        expect(
+          document.body.querySelector('[data-slot="hover-card-content"]')?.classList,
+        ).toContain("bg-background");
+        const scrollAreas = document.body.querySelectorAll('[data-slot="scroll-area"]');
+        expect(scrollAreas).toHaveLength(internalCriteria ? 2 : 1);
+        if (internalCriteria) {
+          expect(document.body.textContent).toContain("内部标准");
+          expect(document.body.textContent).toContain("金融行业");
+        } else {
+          expect(document.body.textContent).not.toContain("内部标准");
+        }
+        expect(scrollAreas[0]?.classList).toContain("[--scroll-fade-reveal:1rem]");
+        for (const scrollArea of scrollAreas) {
+          expect(scrollArea.firstElementChild?.classList).toContain("scroll-fade");
+        }
+        expect(document.body.querySelector("strong")?.textContent).toBe("React");
+        expect(getRevealState()).toBe("revealed");
+      });
 
-    act(() => root.unmount());
-  });
+      act(() => root.unmount());
+    },
+  );
 });
