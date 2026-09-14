@@ -33,9 +33,32 @@ export async function submitCandidateInterviewFeedback(
       submittedAt: aiInterviewRound.candidateFeedbackSubmittedAt,
     });
 
-  return buildCandidateInterviewFeedback({
-    categories: updated?.categories ?? null,
-    detail: updated?.detail ?? null,
-    submittedAt: updated?.submittedAt ?? null,
-  });
+  if (updated) {
+    return buildCandidateInterviewFeedback(updated);
+  }
+  const [existing] = await db
+    .select({
+      categories: aiInterviewRound.candidateFeedbackCategories,
+      detail: aiInterviewRound.candidateFeedbackDetail,
+      submittedAt: aiInterviewRound.candidateFeedbackSubmittedAt,
+    })
+    .from(aiInterviewRound)
+    .where(
+      and(
+        eq(aiInterviewRound.id, input.roundId),
+        eq(aiInterviewRound.recruitingRecordId, input.interviewRecordId),
+        eq(aiInterviewRound.status, "completed"),
+      ),
+    )
+    .limit(1);
+  // The response may have been lost after the first commit. Accept an exact
+  // retry without changing the original submission or its timestamp.
+  if (
+    !existing ||
+    existing.detail !== input.detail ||
+    JSON.stringify(existing.categories?.toSorted()) !== JSON.stringify(input.categories.toSorted())
+  ) {
+    return null;
+  }
+  return buildCandidateInterviewFeedback(existing);
 }

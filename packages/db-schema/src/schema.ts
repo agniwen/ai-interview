@@ -6730,3 +6730,38 @@ export const recruitingDuplicateMatch = pgTable(
     index("recruiting_duplicate_match_org_status_idx").on(table.organizationId, table.status),
   ],
 );
+
+// Immutable Agent callback payloads also serve as a durable processing inbox.
+export const aiInterviewReportReceipt = pgTable(
+  "ai_interview_report_receipt",
+  {
+    aiRoundId: text("ai_round_id").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    conversationId: text("conversation_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id").notNull(),
+    payload: jsonb("payload").$type<JsonObject>().notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    status: text("status")
+      .$type<"pending" | "applied" | "processed" | "archived">()
+      .default("pending")
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "ai_report_receipt_org_fk",
+    }).onDelete("cascade"),
+    index("ai_report_receipt_retry_idx").on(table.status, table.nextAttemptAt),
+    index("ai_report_receipt_conversation_idx").on(table.conversationId, table.createdAt),
+    check(
+      "ai_report_receipt_status_check",
+      sql`${table.status} in ('pending', 'applied', 'processed', 'archived')`,
+    ),
+  ],
+);

@@ -27,6 +27,16 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+const click = async (label: string) => {
+  const button = [...document.querySelectorAll("button")].find(
+    (element) => element.textContent === label,
+  );
+  expect(button).toBeDefined();
+  await act(() => {
+    button?.click();
+  });
+};
+
 describe("CandidateInterviewFeedbackPanel", () => {
   it("shows the feedback action until the candidate has submitted", () => {
     const html = renderToStaticMarkup(
@@ -119,6 +129,43 @@ describe("CandidateInterviewFeedbackPanel", () => {
     expect(drawerContent?.className).toContain("h-dvh");
     expect(drawerContent?.className).toContain("rounded-none");
 
+    await act(() => {
+      root.unmount();
+    });
+  });
+  it("restores the round draft, keeps submission visible, and allows retry after failure", async () => {
+    const draft = { categories: ["audio"], detail: "面试结束提交反馈之后页面没有反应" };
+    sessionStorage.setItem("interview-feedback:round-1", JSON.stringify(draft));
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const { promise: pending, reject: fail } = Promise.withResolvers<undefined>();
+    const submit = vi
+      .fn()
+      .mockReturnValueOnce(pending)
+      .mockImplementation(() => Promise.resolve());
+    await act(() => {
+      root.render(
+        <CandidateInterviewFeedbackPanel draftKey="round-1" feedback={null} onSubmit={submit} />,
+      );
+    });
+    await click("反馈问题");
+    expect(document.querySelector("textarea")?.value).toBe(draft.detail);
+    await click("下一步");
+    await click("确认提交");
+    expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain("提交中...");
+    await act(async () => {
+      fail(new Error("结束状态正在同步，请重试"));
+      await pending.catch(() => {});
+    });
+    expect(document.querySelector('[role="alertdialog"] [role="alert"]')?.textContent).toContain(
+      "结束状态正在同步",
+    );
+    expect(sessionStorage.getItem("interview-feedback:round-1")).not.toBeNull();
+    await click("确认提交");
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(submit).toHaveBeenLastCalledWith(draft);
+    expect(sessionStorage.getItem("interview-feedback:round-1")).toBeNull();
     await act(() => {
       root.unmount();
     });

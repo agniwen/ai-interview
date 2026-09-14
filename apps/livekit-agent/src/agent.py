@@ -27,6 +27,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from livekit import api as lkapi_module
@@ -71,6 +72,7 @@ from recording import (
     stop_recording,
 )
 from report import send_question_checkpoint, send_report
+from report_outbox import report_recovery_process
 from sentry_setup import initialize_sentry
 from transcript_replay import replay_turns_to
 
@@ -199,6 +201,7 @@ class SessionState:
     recording_info: dict[str, Any]
     started_at: float
     clock: PausableInterviewClock
+    agent_session_id: str = field(default_factory=lambda: str(uuid4()))
     turns: list[dict[str, Any]] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=_empty_metrics_state)
     close_reason: CloseReason | None = None
@@ -596,6 +599,7 @@ async def _on_session_end(ctx: JobContext) -> None:
             metrics=state.metrics,
             data_collection_results=data_collection_results,
             livekit_close_reason=livekit_close_reason,
+            agent_session_id=state.agent_session_id,
         ),
         _stop_recording_best_effort(state.lkapi, recording_info, state.eager_stop_task),
     )
@@ -760,6 +764,7 @@ async def my_agent(ctx: JobContext) -> None:
                 interview_record_id=interview_context.session.interview_record_id,
                 schedule_entry_id=interview_context.session.round_id,
                 outcome=outcome.to_payload(),
+                agent_session_id=state.agent_session_id,
             )
         )
         state.checkpoint_tasks.add(task)
@@ -1060,4 +1065,5 @@ async def my_agent(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
-    cli.run_app(server)
+    with report_recovery_process():
+        cli.run_app(server)

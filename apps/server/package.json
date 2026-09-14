@@ -10,6 +10,7 @@
     "./env": "./src/lib/server/env.ts",
     "./human-interview-evaluation-ready": "./src/server/interview-notifications/human-evaluation-ready.ts",
     "./human-interview-attendance-reconciliation": "./src/exports/worker/human-interview-attendance-reconciliation.ts",
+    "./ai-interview-report-recovery": "./src/exports/worker/ai-interview-report-recovery.ts",
     "./ai-interview-report-notification": "./src/exports/worker/ai-interview-report-notification.ts",
     "./rpc-client": {
       "types": "./dist/rpc-client.d.ts",

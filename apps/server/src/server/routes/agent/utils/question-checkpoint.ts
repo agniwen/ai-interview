@@ -3,6 +3,7 @@ import { interviewQuestionOutcomeSchema } from "@app/shared/interview/question-o
 
 export const questionCheckpointPayloadSchema = z
   .object({
+    agentSessionId: z.string().min(1).optional(),
     conversationId: z.string().min(1),
     interviewRecordId: z.string().min(1),
     outcome: interviewQuestionOutcomeSchema,

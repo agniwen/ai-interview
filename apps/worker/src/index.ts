@@ -1,3 +1,4 @@
+import { recoverAiInterviewReports } from "@app/server/ai-interview-report-recovery";
 /* oxlint-disable max-lines -- Worker bootstrap owns process-wide resource lifecycles. */
 import { startInitialInterviewProcessing } from "./initial-interview-evaluation/start";
 
@@ -516,6 +517,28 @@ async function main() {
   > | null = null;
   let humanInterviewEvaluationRecoveryTimer: NodeJS.Timeout | null = null;
   if (backgroundProcessingEnabled) {
+    let reportRecoveryRunning = false;
+    const recoverReports = async () => {
+      if (reportRecoveryRunning) {
+        return;
+      }
+      reportRecoveryRunning = true;
+      try {
+        await recoverAiInterviewReports();
+      } catch (error) {
+        captureWorkerException(error, "worker.ai-interview-report-recovery");
+      } finally {
+        reportRecoveryRunning = false;
+      }
+    };
+    void trackRecoveryRun(recoverReports);
+    const reportRecoveryTimer = setInterval(() => {
+      void trackRecoveryRun(recoverReports);
+    }, 30_000);
+    reportRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("ai-interview-report-recovery", () => {
+      clearInterval(reportRecoveryTimer);
+    });
     await startInitialInterviewProcessing({
       onFailure: reportQueueFailure("initial-interview-evaluation"),
       resourceLifecycle,
