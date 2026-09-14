@@ -81,6 +81,14 @@ class InterviewNotificationFailure extends Data.TaggedError("InterviewNotificati
 // 发送超过一分钟未提交时允许其他 Worker 接管，降低崩溃后的阻塞时间。 / Allows another worker to reclaim a send not committed within one minute after a crash.
 const DELIVERY_LEASE_DURATION_MS = 60_000;
 
+function isRetiredHumanInterviewReminder(event: InterviewNotificationEventRecord): boolean {
+  return (
+    event.scopeType === "human_meeting" &&
+    event.type === "human_interview_reminder" &&
+    event.payloadSnapshot.reminderLeadTime === "24 小时"
+  );
+}
+
 // 用最早投递重试时间驱动父事件再次可用；没有计划时间时立即重试。 / Drives parent-event availability from the earliest delivery retry, falling back to immediate retry.
 function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now: Date): Date {
   const timestamps = deliveries.flatMap((delivery) =>
@@ -154,6 +162,16 @@ async function processInterviewNotificationEventPromise(
   dependencies: InterviewNotificationProcessorDependencies,
 ): Promise<void> {
   const now = input.now ?? new Date();
+  if (isRetiredHumanInterviewReminder(event)) {
+    await dependencies.updateEventState({
+      completedAt: now,
+      eventId: event.id,
+      leaseOwner: input.leaseOwner,
+      queueNamespace: event.queueNamespace,
+      status: "completed",
+    });
+    return;
+  }
   const deliveries = await dependencies.listDeliveries(event.id);
   // Delivery preparation may insert rows a few milliseconds after the event's
   // claim timestamp. Use a fresh claim time so those new rows are immediately

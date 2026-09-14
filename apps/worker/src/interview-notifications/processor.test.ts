@@ -131,6 +131,30 @@ describe("interview notification processor", () => {
     );
   });
 
+  it("suppresses legacy 24-hour human interview reminders", async () => {
+    const notificationEvent = event();
+    notificationEvent.scopeType = "human_meeting";
+    notificationEvent.type = "human_interview_reminder";
+    Object.assign(notificationEvent.payloadSnapshot, { reminderLeadTime: "24 小时" });
+    const mocks = dependencies();
+
+    await processInterviewNotificationEvent(
+      notificationEvent,
+      { leaseOwner: "worker_1", now },
+      mocks,
+    );
+
+    expect(mocks.listDeliveries).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.updateEventState).toHaveBeenCalledWith({
+      completedAt: now,
+      eventId: "event_1",
+      leaseOwner: "worker_1",
+      queueNamespace: "local",
+      status: "completed",
+    });
+  });
+
   it("blocks even previously authorized invitations and reminders during the pause", async () => {
     const notificationEvent = event();
     notificationEvent.type = "ai_interview_invited";

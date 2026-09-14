@@ -48,9 +48,12 @@ import {
   hashAiInterviewInvitationToken,
 } from "../../routes/studio/routes/interviews/dao/ai-interview-invitation-access";
 
-// Candidate reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
-// 候选人提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
-const REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+// AI interview reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
+// AI 面试提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
+const AI_INTERVIEW_REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+
+// 真人面试已有日程安排，仅保留开始前 1 小时提醒，避免与日程的 24 小时提醒重复。
+const HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES = [60] as const;
 
 export const AI_INTERVIEW_COMPLETION_NOTICES = {
   complete: (candidateName: string) => `${candidateName} 已完成 AI 面试，报告生成后将另行通知。`,
@@ -146,17 +149,32 @@ export function buildHumanInterviewEvaluationSummary(
   return sections.join("\n\n");
 }
 
-export function buildInterviewReminderSchedule(
+function buildReminderSchedule(
   scheduledAt: Date | null,
-  now: Date = new Date(),
+  now: Date,
+  offsetsMinutes: readonly number[],
 ): { availableAt: Date; offsetMinutes: number }[] {
   if (!scheduledAt) {
     return [];
   }
-  return REMINDER_OFFSETS_MINUTES.flatMap((offsetMinutes) => {
+  return offsetsMinutes.flatMap((offsetMinutes) => {
     const availableAt = new Date(scheduledAt.getTime() - offsetMinutes * 60_000);
     return availableAt.getTime() > now.getTime() ? [{ availableAt, offsetMinutes }] : [];
   });
+}
+
+export function buildInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, AI_INTERVIEW_REMINDER_OFFSETS_MINUTES);
+}
+
+export function buildHumanInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES);
 }
 
 interface HumanInterviewRoundProgression {
@@ -1023,7 +1041,7 @@ export async function enqueueHumanMeetingEvents(
     if (!shouldScheduleReminders) {
       continue;
     }
-    for (const reminder of buildInterviewReminderSchedule(row.scheduledAt, now)) {
+    for (const reminder of buildHumanInterviewReminderSchedule(row.scheduledAt, now)) {
       const reminderType: InterviewNotificationEventType = "human_interview_reminder";
       await enqueuePreparedInterviewNotificationEvent(tx, {
         actorUserId: input.actorUserId,
