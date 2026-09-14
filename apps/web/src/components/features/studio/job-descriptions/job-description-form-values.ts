@@ -51,6 +51,7 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
     allowCrossDepartmentInterviewers: false,
     code: "",
     departmentId: "",
+    internalCriteria: "",
     interviewerIds: [],
     name: "",
     prompt: "",
@@ -62,6 +63,7 @@ export function toFormValues(record: JobDescriptionRecord): JobDescriptionFormVa
     allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
     code: record.code ?? "",
     departmentId: record.departmentId,
+    internalCriteria: record.internalCriteria ?? "",
     interviewerIds: [...record.interviewerIds],
     name: record.name,
     prompt: record.prompt,
@@ -108,6 +110,7 @@ const JOB_DESCRIPTION_BASIC_FIELDS = [
   "allowCrossDepartmentInterviewers",
   "interviewerIds",
   "prompt",
+  "internalCriteria",
 ] as const;
 
 export function focusJobDescriptionBasicTabOnInvalidSubmit(

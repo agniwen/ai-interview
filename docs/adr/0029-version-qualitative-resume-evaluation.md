@@ -25,3 +25,5 @@ The AI Evaluation tab shows the latest successful result by default and provides
 Evaluation is generated automatically when a newly parsed candidate is first bound to a job, when the candidate is rebound to another job, or when replacement/reparsed resume content changes the evaluation evidence. Changing a job's JD does not fan out reassessments to existing candidates; it affects new evaluations and explicit reassessments only. Contact details, notes, pipeline state, and other non-evidence changes never trigger evaluation.
 
 A candidate without a bound job does not receive a qualitative evaluation or recommendation level. The AI Evaluation tab instead asks the recruiter to bind a job; that binding then triggers the first evaluation automatically.
+
+The later [private internal criteria decision](0040-use-private-job-internal-criteria.md) supersedes the JD-only evaluation-input restriction; all other lifecycle and historical-result rules remain in force.

@@ -27,6 +27,7 @@ import {
 } from "./utils/human-interview-livekit";
 import { stopActiveHumanInterviewRecordingByRoomName } from "./utils/human-interview-recording-service";
 import { offerDraftsRouter } from "./routes/offer-drafts/route";
+import { backgroundCheckRouter } from "./routes/background-check/route";
 import { recordCandidateActivity } from "./utils/candidate-activity";
 import { requirePermission } from "../../../../middlewares/permission";
 import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
@@ -331,4 +332,5 @@ export const studioInterviewHumanRouter = factory
       }
     },
   )
-  .route("/:id/offer-drafts", offerDraftsRouter);
+  .route("/:id/offer-drafts", offerDraftsRouter)
+  .route("/:id/background-check", backgroundCheckRouter);

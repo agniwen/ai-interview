@@ -38,6 +38,7 @@ export interface ResumeReviewGenerationDependencies {
     jobDescriptionId: string | null;
     jobDescriptionName: string;
     prompt: string;
+    internalCriteria?: string | null;
   } | null>;
 }
 
@@ -54,6 +55,7 @@ const defaultDependencies: ResumeReviewGenerationDependencies = {
     const [version] = await db
       .select({
         id: jobDescriptionVersion.id,
+        internalCriteria: jobDescriptionVersion.internalCriteria,
         jobDescriptionId: jobDescriptionVersion.jobDescriptionId,
         jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
         prompt: jobDescriptionVersion.prompt,
@@ -120,6 +122,7 @@ export async function generateResumeAssessment(
       dependencies.generateQualitative ?? generateQualitativeResumeEvaluation
     )({
       evaluationAsOf: input.evaluationAsOf,
+      internalCriteria: snapshot.internalCriteria,
       jobDescriptionName: snapshot.jobDescriptionName,
       jobDescriptionPrompt: snapshot.prompt,
       resumeProfile: input.resumeProfile,

@@ -1,5 +1,54 @@
 import { z } from "zod";
 
+export const DEFAULT_INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE = "production";
+export const interviewNotificationQueueNamespaceSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-z0-9][a-z0-9_-]{0,63}$/, "通知队列命名空间格式无效。");
+export type InterviewNotificationQueueNamespace = z.infer<
+  typeof interviewNotificationQueueNamespaceSchema
+>;
+
+export function parseInterviewNotificationQueueNamespace(
+  value: string | undefined,
+): InterviewNotificationQueueNamespace {
+  return value?.trim()
+    ? interviewNotificationQueueNamespaceSchema.parse(value)
+    : DEFAULT_INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE;
+}
+
+const notificationEventStatusByQueue = {
+  completed: ["completed", "isolated_completed"],
+  dead: ["dead", "isolated_dead"],
+  failed: ["failed", "isolated_failed"],
+  pending: ["pending", "isolated_pending"],
+  processing: ["processing", "isolated_processing"],
+} as const;
+
+export function isIsolatedInterviewNotificationQueue(
+  queueNamespace: InterviewNotificationQueueNamespace,
+): boolean {
+  return queueNamespace !== DEFAULT_INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE;
+}
+
+export function interviewNotificationEventStatusForQueue(
+  queueNamespace: InterviewNotificationQueueNamespace,
+  status: keyof typeof notificationEventStatusByQueue,
+) {
+  return notificationEventStatusByQueue[status][
+    isIsolatedInterviewNotificationQueue(queueNamespace) ? 1 : 0
+  ];
+}
+
+export const activeInterviewNotificationEventStatuses = [
+  "pending",
+  "processing",
+  "failed",
+  "isolated_pending",
+  "isolated_processing",
+  "isolated_failed",
+] as const;
+
 export const interviewNotificationEventTypeValues = [
   "ai_interview_invited",
   "ai_invitation_accepted",
@@ -28,6 +77,9 @@ export const interviewNotificationEventTypeValues = [
   "human_interview_not_held",
   "human_evaluation_pending",
   "human_evaluation_summary_ready",
+  "offer_accepted",
+  "offer_declined",
+  "background_check_submitted",
 ] as const;
 export const interviewNotificationEventTypeSchema = z.enum(interviewNotificationEventTypeValues);
 export type InterviewNotificationEventType = z.infer<typeof interviewNotificationEventTypeSchema>;
@@ -55,6 +107,11 @@ export const interviewNotificationEventStatusValues = [
   "failed",
   "dead",
   "cancelled",
+  "isolated_pending",
+  "isolated_processing",
+  "isolated_completed",
+  "isolated_failed",
+  "isolated_dead",
 ] as const;
 export const interviewNotificationEventStatusSchema = z.enum(
   interviewNotificationEventStatusValues,

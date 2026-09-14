@@ -3,6 +3,7 @@ import {
   AI_INTERVIEW_COMPLETION_NOTICES,
   buildHumanInterviewEvaluationSummary,
   buildHumanInterviewRoundProgression,
+  buildHumanInterviewReminderSchedule,
   buildInterviewReminderSchedule,
   resolveAiInterviewCompletionNotice,
   resolveHumanMeetingEventInterviewLink,
@@ -112,6 +113,20 @@ describe("interview notification reminder schedule", () => {
         new Date("2026-08-20T10:00:00.000Z"),
       ),
     ).toEqual([]);
+  });
+
+  it("creates only a T-1h reminder for human interviews", () => {
+    expect(
+      buildHumanInterviewReminderSchedule(
+        new Date("2026-08-22T10:00:00.000Z"),
+        new Date("2026-08-20T10:00:00.000Z"),
+      ),
+    ).toEqual([
+      {
+        availableAt: new Date("2026-08-22T09:00:00.000Z"),
+        offsetMinutes: 60,
+      },
+    ]);
   });
 });
 

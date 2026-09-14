@@ -10,6 +10,7 @@ const mocks = {
   editOfferDraft: vi.fn<OfferDraftsRouteDependencies["editOfferDraft"]>(),
   getHumanInterviewOfferReadinessError:
     vi.fn<OfferDraftsRouteDependencies["getHumanInterviewOfferReadinessError"]>(),
+  getOfferEmailPreview: vi.fn<OfferDraftsRouteDependencies["getOfferEmailPreview"]>(),
   invalidateStudioInterviewCaches:
     vi.fn<OfferDraftsRouteDependencies["invalidateStudioInterviewCaches"]>(),
   listOfferDrafts: vi.fn<OfferDraftsRouteDependencies["listOfferDrafts"]>(),
@@ -60,6 +61,9 @@ const offer: OfferDraftRecord = {
   candidateCounter: null,
   createdAt: "2026-08-18T00:00:00.000Z",
   currency: "CNY",
+  declineReason: null,
+  emailRecipient: null,
+  emailSentAt: null,
   equity: null,
   expiresAt: null,
   id: "offer-1",
@@ -68,7 +72,12 @@ const offer: OfferDraftRecord = {
   notes: null,
   organizationId: ORG_ID,
   position: "高级前端",
+  publicPath: null,
+  publishedAt: null,
+  publishedBy: null,
   responseAt: null,
+  responseBy: null,
+  responseSource: null,
   sentAt: null,
   status: "draft",
   updatedAt: "2026-08-18T00:00:00.000Z",
@@ -92,6 +101,9 @@ describe("offerDraftsRouter", () => {
       ["offer", "create"],
       ["offer", "update"],
       ["offer", "update"],
+      ["offer", "read"],
+      ["offer", "read"],
+      ["offer", "update"],
       ["offer", "update"],
       ["offer", "delete"],
     ]);
@@ -105,6 +117,28 @@ describe("offerDraftsRouter", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([offer]);
     expect(mocks.listOfferDrafts).toHaveBeenCalledWith(RECORD_ID, ORG_ID);
+  });
+
+  it("loads email defaults from company and linked-job context", async () => {
+    mocks.getOfferEmailPreview.mockResolvedValue({
+      content: "邮件内容",
+      offerUrl: "https://example.com/offer/token",
+      subject: "【示例公司】Offer 通知｜高级前端",
+      to: "candidate@example.com",
+    });
+
+    const response = await makeApp().request(
+      `/${RECORD_ID}/offer-drafts/${offer.id}/email-preview`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      content: "邮件内容",
+      offerUrl: "https://example.com/offer/token",
+      subject: "【示例公司】Offer 通知｜高级前端",
+      to: "candidate@example.com",
+    });
+    expect(mocks.getOfferEmailPreview).toHaveBeenCalledWith(offer.id, ORG_ID);
   });
 
   it("blocks offer creation before the offer node", async () => {
@@ -142,7 +176,7 @@ describe("offerDraftsRouter", () => {
         headers: { "Content-Type": "application/json" },
         method: "PATCH",
       }),
-      await app.request(`/${RECORD_ID}/offer-drafts/${offer.id}/send`, { method: "POST" }),
+      await app.request(`/${RECORD_ID}/offer-drafts/${offer.id}/publish`, { method: "POST" }),
       await app.request(`/${RECORD_ID}/offer-drafts/${offer.id}/respond`, {
         body: JSON.stringify({ response: "accepted" }),
         headers: { "Content-Type": "application/json" },
@@ -156,8 +190,8 @@ describe("offerDraftsRouter", () => {
     expect(mocks.recordCandidateActivity.mock.calls.map(([input]) => input.action)).toEqual([
       "offer_draft_created",
       "offer_draft_updated",
-      "offer_draft_sent",
-      "offer_draft_responded",
+      "offer_published",
+      "offer_response_recorded_by_hr",
       "offer_draft_deleted",
     ]);
     expect(mocks.invalidateStudioInterviewCaches).toHaveBeenCalledTimes(5);

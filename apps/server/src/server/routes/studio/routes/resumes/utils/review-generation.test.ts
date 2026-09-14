@@ -1,7 +1,7 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResumeReviewGenerationDependencies } from "./review-generation";
-import { generateResumeReviewBestEffort } from "./review-generation";
+import { generateResumeAssessment, generateResumeReviewBestEffort } from "./review-generation";
 
 const mocks = {
   generateResumeReview: vi.fn(),
@@ -119,4 +119,38 @@ describe("generateResumeReviewBestEffort", () => {
 
     expect(result).toBeNull();
   });
+});
+
+describe("private resume evaluation snapshot", () => {
+  it.each([null, "五年以上招聘行业经验"])(
+    "uses saved criteria without reading the current job: %s",
+    async (internalCriteria) => {
+      const generateQualitative = vi.fn().mockResolvedValue({ recommendationLevel: "undecided" });
+      const loadJobDescription = vi.fn();
+      const loadJobDescriptionVersion = vi.fn().mockResolvedValue({
+        id: "version-1",
+        internalCriteria,
+        jobDescriptionId: "jd-1",
+        jobDescriptionName: "产品经理",
+        prompt: "负责招聘软件",
+      });
+      await generateResumeAssessment(
+        {
+          evaluationAsOf: "2026-09-14",
+          jobDescriptionId: "jd-1",
+          jobDescriptionVersionId: "version-1",
+          organizationId: "org-1",
+          resumeContentHash: null,
+          resumeInputHash: "resume-1",
+          resumeProfile: RESUME_PROFILE,
+          runId: "run-1",
+        },
+        { ...dependencies, generateQualitative, loadJobDescription, loadJobDescriptionVersion },
+      );
+      expect(generateQualitative).toHaveBeenCalledWith(
+        expect.objectContaining({ internalCriteria, jobDescriptionPrompt: "负责招聘软件" }),
+      );
+      expect(loadJobDescription).not.toHaveBeenCalled();
+    },
+  );
 });

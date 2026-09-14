@@ -16,6 +16,7 @@ export default defineConfig({
       /^@app\/resume-processing(?:\/|$)/,
       /^@app\/server\/human-interview-evaluation-ready$/,
       /^@app\/server\/ai-interview-report-notification$/,
+      /^@app\/server\/human-interview-attendance-reconciliation$/,
       /^@app\/server\/human-interview-recording$/,
       /^@app\/server\/initial-interview-evaluation$/,
       /^@app\/shared(?:\/|$)/,

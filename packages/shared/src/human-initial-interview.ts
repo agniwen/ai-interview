@@ -33,7 +33,14 @@ export const initialInterviewSnapshotSchema = z
     candidateName: z.string(),
     durationMs: z.number().nonnegative(),
     interviewQuestions: z.array(studioInterviewQuestionClientSchema),
-    job: z.object({ id: z.string(), prompt: z.string(), title: z.string() }).nullable(),
+    job: z
+      .object({
+        id: z.string(),
+        internalCriteria: z.string().nullable().optional(),
+        prompt: z.string(),
+        title: z.string(),
+      })
+      .nullable(),
     liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     qualitativeResumeEvaluation: qualitativeResumeEvaluationSchema.nullable(),
     recordedAt: z.string(),

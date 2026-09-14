@@ -36,9 +36,14 @@ describe("human interview evaluation input", () => {
         text: "项目介绍",
       },
     ];
-    const execute = vi
-      .spyOn(PgAsyncPreparedQuery.prototype, "execute")
-      .mockResolvedValue([{ candidateName: "测试候选人", jobDescription: "岗位", resume: "简历" }]);
+    const execute = vi.spyOn(PgAsyncPreparedQuery.prototype, "execute").mockResolvedValue([
+      {
+        candidateName: "测试候选人",
+        internalCriteria: "五年行业经验",
+        jobDescription: "岗位",
+        resume: "简历",
+      },
+    ]);
     const dao = createHumanInterviewEvaluationWorkerDao(database, {
       loadMeetingTranscriptForEvaluation: () => Promise.resolve({ id: "revision-1", turns }),
     });
@@ -49,6 +54,7 @@ describe("human interview evaluation input", () => {
       transcriptRevisionId: "revision-1",
     });
     expect(result?.turns).toEqual(turns);
+    expect(result?.internalCriteria).toBe("五年行业经验");
     expect(execute).toHaveBeenCalledOnce();
   });
 });

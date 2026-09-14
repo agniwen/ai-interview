@@ -1,6 +1,7 @@
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { ArcMessage, ArcMessageRole } from "./ai-message";
+import type { BackgroundCheckCollectionStatus, BackgroundCheckFormInput } from "./background-check";
 import type {
   CandidateFormDisplayMode,
   CandidateFormOption,
@@ -36,6 +37,7 @@ import type {
   InterviewNotificationEventStatus,
   InterviewNotificationEventType,
   InterviewNotificationPayloadSnapshot,
+  InterviewNotificationQueueNamespace,
   InterviewNotificationScopeType,
   InterviewNotificationTemplateStatus,
   InterviewNotificationTemplateVariable,
@@ -1727,6 +1729,7 @@ export const jobDescription = pgTable(
     }),
     feishuChatId: text("feishu_chat_id"),
     id: text("id").primaryKey(),
+    internalCriteria: text("internal_criteria"),
     lifecycleStatus: text("lifecycle_status")
       .$type<JobLifecycleStatus>()
       .notNull()
@@ -1830,6 +1833,7 @@ export const jobDescriptionVersion = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
+    internalCriteria: text("internal_criteria"),
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
@@ -4472,6 +4476,54 @@ export const recruitingFulfillment = pgTable(
   ],
 );
 
+// 候选人背调信息采集：公开链接只凭高熵 token 访问；提交后锁定，由 HR 在流程节点确认结果。
+export const recruitingBackgroundCheck = pgTable(
+  "recruiting_background_check",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by"),
+    emailRecipient: text("email_recipient"),
+    emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
+    formData: jsonb("form_data").$type<BackgroundCheckFormInput>(),
+    organizationId: text("organization_id").notNull(),
+    publicToken: text("public_token").notNull(),
+    recruitingRecordId: text("recruiting_record_id").primaryKey(),
+    status: text("status").$type<BackgroundCheckCollectionStatus>().notNull().default("pending"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    check(
+      "recruiting_background_check_status_check",
+      sql`${table.status} IN ('pending','sent','submitted')`,
+    ),
+    check(
+      "recruiting_background_check_submission_check",
+      sql`(${table.status} = 'submitted' AND ${table.formData} IS NOT NULL AND ${table.submittedAt} IS NOT NULL) OR (${table.status} <> 'submitted' AND ${table.formData} IS NULL AND ${table.submittedAt} IS NULL)`,
+    ),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "recruiting_background_check_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "recruiting_background_check_organization_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "recruiting_background_check_record_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recruiting_background_check_public_token_uq").on(table.publicToken),
+    index("recruiting_background_check_org_status_idx").on(table.organizationId, table.status),
+  ],
+);
+
 // 流程材料只存元数据；上传和下载权限必须按招聘记录检查，不能复用公开面试链接权限。
 export const recruitingMaterial = pgTable(
   "recruiting_material",
@@ -5349,6 +5401,9 @@ export const recruitingOffer = pgTable(
     candidateCounter: text("candidate_counter"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     currency: text("currency").notNull().default("CNY"),
+    declineReason: text("decline_reason"),
+    emailRecipient: text("email_recipient"),
+    emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     equity: text("equity"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     id: text("id").primaryKey(),
@@ -5356,8 +5411,13 @@ export const recruitingOffer = pgTable(
     notes: text("notes"),
     organizationId: text("organization_id").notNull(),
     position: text("position").notNull(),
+    publicToken: text("public_token"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by"),
     recruitingRecordId: text("recruiting_record_id").notNull(),
     responseAt: timestamp("response_at", { withTimezone: true }),
+    responseBy: text("response_by"),
+    responseSource: text("response_source").$type<"candidate" | "hr">(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     status: text("status").$type<OfferDraftStatus>().notNull().default("draft"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -5376,6 +5436,10 @@ export const recruitingOffer = pgTable(
       sql`${table.baseSalary} >= 0 AND (${table.bonus} IS NULL OR ${table.bonus} >= 0)`,
     ),
     check("recruiting_offer_version_check", sql`${table.version} > 0`),
+    check(
+      "recruiting_offer_response_source_check",
+      sql`${table.responseSource} IS NULL OR ${table.responseSource} IN ('candidate','hr')`,
+    ),
     foreignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
@@ -5392,6 +5456,7 @@ export const recruitingOffer = pgTable(
       table.organizationId,
     ),
     uniqueIndex("recruiting_offer_record_version_uniq").on(table.recruitingRecordId, table.version),
+    uniqueIndex("recruiting_offer_public_token_uniq").on(table.publicToken),
     index("recruiting_offer_org_idx").on(table.organizationId),
     index("recruiting_offer_status_idx").on(table.status),
   ],
@@ -6008,6 +6073,10 @@ export const recruitingNotificationEvent = pgTable(
     payloadSnapshot: jsonb("payload_snapshot")
       .$type<InterviewNotificationPayloadSnapshot>()
       .notNull(),
+    queueNamespace: text("queue_namespace")
+      .$type<InterviewNotificationQueueNamespace>()
+      .notNull()
+      .default("production"),
     recruitingRecordId: text("recruiting_record_id"),
     scopeType: text("scope_type").$type<InterviewNotificationScopeType>().notNull(),
     status: text("status").$type<InterviewNotificationEventStatus>().notNull().default("pending"),
@@ -6076,8 +6145,12 @@ export const recruitingNotificationEvent = pgTable(
       foreignColumns: [aiInterviewRound.id, aiInterviewRound.organizationId],
       name: "recruiting_notification_event_ai_round_id_org_fk",
     }).onDelete("cascade"),
-    uniqueIndex("recruiting_notification_event_dedupe_uq").on(table.dedupeKey),
+    uniqueIndex("recruiting_notification_event_namespace_dedupe_uq").on(
+      table.queueNamespace,
+      table.dedupeKey,
+    ),
     index("recruiting_notification_event_claim_idx").on(
+      table.queueNamespace,
       table.status,
       table.nextAttemptAt,
       table.availableAt,
@@ -6096,7 +6169,7 @@ export const recruitingNotificationEvent = pgTable(
     ),
     check(
       "recruiting_notification_event_status_check",
-      sql`${table.status} IN ('pending', 'processing', 'completed', 'failed', 'dead', 'cancelled')`,
+      sql`${table.status} IN ('pending', 'processing', 'completed', 'failed', 'dead', 'cancelled', 'isolated_pending', 'isolated_processing', 'isolated_completed', 'isolated_failed', 'isolated_dead')`,
     ),
     check(
       "recruiting_notification_event_scope_check",

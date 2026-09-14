@@ -10,6 +10,7 @@ import {
   recruitingNotificationDelivery,
 } from "@app/db-schema/schema";
 import { lockRecruitingRecord } from "@app/database/recruiting-records";
+import { activeInterviewNotificationEventStatuses } from "@app/db-schema/interview-notifications";
 import type { RecruitingTransaction } from "@app/database/recruiting-records";
 import {
   reopenRecruitingRecordTx,
@@ -163,7 +164,7 @@ export async function deleteAiRounds(
       .where(
         and(
           eq(recruitingNotificationEvent.aiRoundId, target.id),
-          inArray(recruitingNotificationEvent.status, ["pending", "processing", "failed"]),
+          inArray(recruitingNotificationEvent.status, activeInterviewNotificationEventStatuses),
         ),
       );
     const cancelledEvents = tx

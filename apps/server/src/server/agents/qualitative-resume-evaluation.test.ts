@@ -87,6 +87,22 @@ describe("qualitative resume evaluation prompt", () => {
     expect(prompt).not.toContain("优先条件");
   });
 
+  it("includes private criteria separately from the JD with evidence and personal-attribute safeguards", () => {
+    const prompt = buildQualitativeResumeEvaluationPrompt({
+      evaluationAsOf: "2026-09-14",
+      internalCriteria: "**行业要求**：招聘软件；年龄 35 以下",
+      jobDescriptionName: "产品经理",
+      jobDescriptionPrompt: "负责企业软件",
+      resumeProfile: profile,
+      resumeText: null,
+    });
+    expect(prompt).toContain("**行业要求**：招聘软件；年龄 35 以下");
+    expect(prompt).toContain("岗位内部标准（仅供招聘端评价）");
+    expect(prompt).toContain("不得依据年龄");
+    expect(prompt).toContain("没有证据时标注待确认");
+    expect(prompt).toContain("内部标准与 JD 冲突时标注待人工确认");
+  });
+
   it("validates the model output with the qualitative contract", async () => {
     const generate = vi.fn().mockResolvedValue(output);
     await expect(
@@ -105,7 +121,7 @@ describe("qualitative resume evaluation prompt", () => {
       expect.objectContaining({
         maxOutputTokens: 8192,
         normalizeInvalid: normalizeGeneratedQualitativeResumeEvaluation,
-        observabilityLabel: "qualitative-resume-v7",
+        observabilityLabel: "qualitative-resume-v8",
         temperature: 0,
       }),
     );

@@ -1,4 +1,5 @@
 import type { InterviewNotificationEventRecord } from "./dao";
+import { parseInterviewNotificationQueueNamespace } from "@app/db-schema/interview-notifications";
 
 // 未配置时每 5 秒尝试认领一批通知事件。 / Attempts to claim a notification batch every five seconds by default.
 const DEFAULT_INTERVAL_MS = 5000;
@@ -22,6 +23,7 @@ export interface InterviewNotificationSchedulerDependencies {
     leaseOwner: string;
     limit: number;
     now?: Date;
+    queueNamespace: string;
   }): Promise<InterviewNotificationEventRecord[]>;
   processEvent(event: InterviewNotificationEventRecord, leaseOwner: string): Promise<void>;
   reconcileHumanInterviewAttendance?(input: { now: Date }): Promise<void>;
@@ -91,6 +93,9 @@ export function startInterviewNotificationScheduler(
     100,
   );
   const leaseOwner = `notification-worker:${process.pid}:${crypto.randomUUID()}`;
+  const queueNamespace = parseInterviewNotificationQueueNamespace(
+    process.env.INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE,
+  );
   let closed = false;
   let running = false;
   let activeRun: Promise<void> | null = null;
@@ -131,6 +136,7 @@ export function startInterviewNotificationScheduler(
             leaseOwner,
             limit: 1,
             now: new Date(),
+            queueNamespace,
           });
           if (!event) {
             break;
@@ -160,7 +166,11 @@ export function startInterviewNotificationScheduler(
   const timer = setInterval(triggerRun, intervalMs);
   timer.unref();
   queueMicrotask(triggerRun);
-  console.info("[interview-notification-worker] scheduler started", { batchSize, intervalMs });
+  console.info("[interview-notification-worker] scheduler started", {
+    batchSize,
+    intervalMs,
+    queueNamespace,
+  });
 
   return {
     close: async () => {

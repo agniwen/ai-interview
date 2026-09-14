@@ -15,6 +15,7 @@ import {
   department,
   interviewer,
   jobDescription,
+  jobDescriptionVersion,
   member,
   organization,
   user,
@@ -183,6 +184,46 @@ describe("job-descriptions route index hooks", () => {
       lifecycleStatus: "published",
     });
     expect(hookCalls.enqueue).toEqual([{ jobDescriptionId: body.id, organizationId: ORG_ID }]);
+  });
+
+  it("saves, preserves, and clears private criteria with immutable snapshots", async () => {
+    const created = await client["job-descriptions"].$post({
+      json: { ...jobDescriptionPayload(), internalCriteria: "  **行业**：招聘软件  " },
+    });
+    expect(created.status).toBe(201);
+    const body = await created.json();
+    if (!("id" in body)) {
+      throw new Error("expected the created job");
+    }
+    expect(body).toMatchObject({ internalCriteria: "**行业**：招聘软件" });
+    const update = await client["job-descriptions"][":id"].$patch({
+      json: { ...jobDescriptionPayload(), internalCriteria: "五年行业经验" },
+      param: { id: body.id },
+    });
+    expect(update.status).toBe(200);
+    expect(await update.json()).toMatchObject({ internalCriteria: "五年行业经验" });
+    const omitted = await client["job-descriptions"][":id"].$patch({
+      json: jobDescriptionPayload(),
+      param: { id: body.id },
+    });
+    expect(omitted.status).toBe(200);
+    expect(await omitted.json()).toMatchObject({ internalCriteria: "五年行业经验" });
+    const cleared = await client["job-descriptions"][":id"].$patch({
+      json: { ...jobDescriptionPayload(), internalCriteria: " " },
+      param: { id: body.id },
+    });
+    expect(cleared.status).toBe(200);
+    expect(await cleared.json()).toMatchObject({ internalCriteria: null });
+    const history = await db
+      .select({
+        internalCriteria: jobDescriptionVersion.internalCriteria,
+        version: jobDescriptionVersion.version,
+      })
+      .from(jobDescriptionVersion)
+      .where(eq(jobDescriptionVersion.jobDescriptionId, body.id));
+    expect(
+      history.toSorted((a, b) => a.version - b.version).map((row) => row.internalCriteria),
+    ).toEqual(["**行业**：招聘软件", "五年行业经验", "五年行业经验", null]);
   });
 
   it("POST / rejects retired recruiter evaluation settings", async () => {

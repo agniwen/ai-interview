@@ -66,6 +66,7 @@ async function captureSnapshot(input: ImportRecordedInitialInterviewInput) {
     ? await db
         .select({
           id: jobDescription.id,
+          internalCriteria: jobDescription.internalCriteria,
           prompt: jobDescription.prompt,
           title: jobDescription.name,
         })

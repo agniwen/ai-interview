@@ -38,6 +38,7 @@ describe("Offer stage content", () => {
       candidateExpectationsMeta: null,
     });
     queryClient.setQueryData(["offer-drafts", "acme", "candidate"], []);
+    queryClient.setQueryData(["background-check", "acme", "candidate"], null);
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -96,6 +97,13 @@ describe("Offer stage content", () => {
       expect(Boolean(host.querySelector('[aria-label="删除 流水.pdf"]'))).toBe(
         stage === "income_proof",
       );
+      expect(host.textContent?.includes("背调信息采集")).toBe(stage === "background_check");
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "复制链接"),
+      ).toBe(stage === "background_check");
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "发送邮件"),
+      ).toBe(stage === "background_check");
       expect(host.querySelector("a[download]")).not.toBeNull();
       expect(
         [...host.querySelectorAll("button")].some((button) => button.textContent === "编辑"),
@@ -343,6 +351,85 @@ describe("Offer stage content", () => {
       );
       expect(host.textContent).toContain(label);
       expect(host.textContent).toContain(`审核说明：${reason}`);
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+      host.remove();
+    }
+  });
+
+  it("keeps the confirmed background check result in the Offer module after entering onboarding", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    queryClient.setQueryData(["recruiting-materials", "acme", "candidate"], []);
+    queryClient.setQueryData(["studio-resumes", "acme", "detail", "candidate"], {
+      candidateExpectationsMeta: null,
+    });
+    queryClient.setQueryData(["offer-drafts", "acme", "candidate"], []);
+    queryClient.setQueryData(["background-check", "acme", "candidate"], {
+      createdAt: "2026-09-11T06:00:00.000Z",
+      emailRecipient: "candidate@example.com",
+      emailSentAt: "2026-09-11T06:10:00.000Z",
+      formData: {
+        candidateName: "任杨帆",
+        consent: true,
+        employmentRecords: [],
+        gender: "male",
+        graduationCertificateNumber: "CERT-1",
+        idNumber: "ID-123456",
+        signatureName: "任杨帆",
+        signedDate: "2026-09-11",
+      },
+      publicPath: "/background-check/token",
+      status: "submitted",
+      submittedAt: "2026-09-11T07:00:00.000Z",
+      updatedAt: "2026-09-11T07:00:00.000Z",
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <WorkspaceSlugProvider id="org" slug="acme" memberRole="hr" permissions={{}}>
+              <OfferStagePanel
+                stage="onboarding"
+                candidateId="candidate"
+                candidateName="任杨帆"
+                candidateEmail="candidate@example.com"
+                nodeStates={[
+                  {
+                    completedAt: "2026-09-11T08:39:58.498Z",
+                    decidedAt: "2026-09-11T08:39:58.498Z",
+                    decidedBy: "hr-user",
+                    effectiveAiRoundId: null,
+                    effectiveHumanRoundId: null,
+                    effectiveOfferId: null,
+                    enteredAt: "2026-09-11T06:00:00.000Z",
+                    node: "background_check",
+                    reason: "合格",
+                    result: "pass",
+                    status: "completed",
+                  },
+                ]}
+              />
+            </WorkspaceSlugProvider>
+          </QueryClientProvider>,
+        ),
+      );
+      expect(host.querySelector('[aria-label="背调结果"]')).not.toBeNull();
+      expect(host.textContent).toContain("确认通过");
+      expect(host.textContent).toContain("确认说明：合格");
+      expect(host.textContent).toContain("确认时间");
+      expect(host.textContent).not.toContain("已提交，待确认结果");
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "复制链接"),
+      ).toBe(false);
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "发送邮件"),
+      ).toBe(false);
     } finally {
       act(() => root.unmount());
       queryClient.clear();

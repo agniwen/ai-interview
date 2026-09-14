@@ -45,6 +45,12 @@ function escapeHtml(value: string): string {
 }
 
 function actionLabel(input: NotificationPresentationInput): string {
+  if (input.type === "background_check_submitted") {
+    return "查看并确认背调结果";
+  }
+  if (input.type === "offer_accepted" || input.type === "offer_declined") {
+    return "查看候选人";
+  }
   if (input.type === "human_candidate_invitation_requested") {
     return "确认是否参加";
   }
@@ -95,6 +101,7 @@ function notificationTitle(input: NotificationPresentationInput): string {
     ai_invitation_declined: "候选人面试反馈通知",
     ai_invitation_exception: "面试接受异常告警",
     ai_report_ready: "AI 面试报告已生成",
+    background_check_submitted: "背景调查信息已提交",
     human_candidate_invitation_requested: "在线面试邀请",
     human_evaluation_summary_ready: "AI 评价待确认",
     human_interview_attendance_alert: "真人面试到场异常",
@@ -110,6 +117,8 @@ function notificationTitle(input: NotificationPresentationInput): string {
     human_invitation_accepted: "候选人已确认",
     human_invitation_declined: "候选人已拒绝",
     human_invitation_exception: "候选人面试接受异常",
+    offer_accepted: "候选人已接受 Offer",
+    offer_declined: "候选人已拒绝 Offer",
   } satisfies Partial<Record<InterviewNotificationEventType, string>>;
   return notificationCopy(titles, input.type) ?? input.renderedSubject?.trim() ?? "面试通知";
 }
@@ -119,6 +128,7 @@ function notificationStatus(type: InterviewNotificationEventType): string | null
     ai_interview_completed: "已结束",
     ai_invitation_accepted: "接受 第一轮 HR 面试",
     ai_invitation_declined: "拒绝 第一轮 HR 面试",
+    background_check_submitted: "待 HR 确认",
     human_candidate_invitation_requested: "待候选人确认",
     human_evaluation_summary_ready: "待确认",
     human_interview_attendance_alert: "入会异常",
@@ -134,6 +144,8 @@ function notificationStatus(type: InterviewNotificationEventType): string | null
     human_invitation_accepted: "候选人已接受",
     human_invitation_declined: "候选人已拒绝",
     human_invitation_exception: "接受异常",
+    offer_accepted: "已接受",
+    offer_declined: "已拒绝",
   } satisfies Partial<Record<InterviewNotificationEventType, string>>;
   return notificationCopy(statuses, type) ?? null;
 }
@@ -150,6 +162,7 @@ function notificationSummary(input: NotificationPresentationInput): string {
     ai_invitation_accepted: "候选人已确认参与面试，等待面试开展。",
     ai_invitation_declined: "候选人主动放弃本轮面试，面试流程终止。",
     ai_invitation_exception: "候选人未能完成面试确认，请及时查看异常原因并跟进。",
+    background_check_submitted: "候选人已提交背景调查信息，请核对并记录背调结果。",
     human_candidate_invitation_requested: "请在邀请有效期内确认是否参加本次面试。",
     human_evaluation_summary_ready:
       "AI 评价草稿已生成，请结合实际面试情况审核修改，并保存最终评价。",
@@ -165,6 +178,8 @@ function notificationSummary(input: NotificationPresentationInput): string {
     human_invitation_accepted: "候选人已确认参加，面试安排已生效并已通知面试官。",
     human_invitation_declined: "候选人拒绝本轮面试，请 HR 及时联系并跟进。",
     human_invitation_exception: "候选人未能完成面试确认，请及时查看异常原因并跟进。",
+    offer_accepted: "候选人已接受本次 Offer，请及时确认后续入职安排。",
+    offer_declined: "候选人已拒绝本次 Offer，请决定继续沟通或结束招聘流程。",
   } satisfies Partial<Record<InterviewNotificationEventType, string>>;
   return notificationCopy(summaries, input.type) ?? "请查看本次面试的最新状态与安排。";
 }
@@ -179,6 +194,8 @@ function buildNotificationFields(input: NotificationPresentationInput): Notifica
     input.type === "human_interview_reminder" ||
     input.type === "human_interview_rescheduled";
   const isCandidateFacing = input.audienceType === "candidate";
+  const isBackgroundCheckSubmission = input.type === "background_check_submitted";
+  const isOfferResponse = input.type === "offer_accepted" || input.type === "offer_declined";
   const fields: NotificationField[] = [];
   const add = (label: string, value: string | null | undefined) => {
     const normalized = value?.trim();
@@ -206,6 +223,9 @@ function buildNotificationFields(input: NotificationPresentationInput): Notifica
       formatInterviewNotificationDateTime(payload.invitationEndTime, payload.timeZone),
     );
   } else if (input.type === "ai_invitation_accepted" || input.type === "ai_invitation_declined") {
+    add("当前状态", notificationStatus(input.type));
+    add("反馈时间", formatInterviewNotificationDateTime(payload.responseTime, payload.timeZone));
+  } else if (isOfferResponse || isBackgroundCheckSubmission) {
     add("当前状态", notificationStatus(input.type));
     add("反馈时间", formatInterviewNotificationDateTime(payload.responseTime, payload.timeZone));
   } else if (
@@ -245,6 +265,10 @@ function buildNotificationFields(input: NotificationPresentationInput): Notifica
     add("当前状态", payload.attendanceStatus ?? notificationStatus(input.type));
     add("未入会人员", payload.missingParticipantNames?.join("、"));
     add("处理建议", payload.suggestedAction);
+  } else if (isOfferResponse || isBackgroundCheckSubmission) {
+    if (input.type === "offer_declined") {
+      add("拒绝原因", payload.changeReason);
+    }
   } else if (!(isCandidateFacing || usesUnifiedScheduleCopy)) {
     add("面试官", payload.interviewerNames?.join("、"));
     if (input.type !== "ai_invitation_accepted" && input.type !== "ai_invitation_declined") {

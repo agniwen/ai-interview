@@ -19,6 +19,54 @@ export interface InterviewNotificationTemplateContent {
 
 export const CORE_INTERVIEW_NOTIFICATION_TEMPLATES = [
   {
+    audienceType: "initiator_fallback",
+    channel: "feishu",
+    contentTemplate:
+      "候选人 {{candidateName}} 已提交 {{jobName}} 的背景调查信息。\n提交时间：{{responseTime}}\n请核对信息并记录背调结果。\n[查看并确认背调结果]({{interviewLink}})",
+    eventType: "background_check_submitted",
+    subjectTemplate: null,
+  },
+  {
+    audienceType: "initiator_fallback",
+    channel: "email",
+    contentTemplate:
+      "候选人 {{candidateName}} 已提交 {{jobName}} 的背景调查信息。\n提交时间：{{responseTime}}\n请核对信息并记录背调结果。\n查看候选人：{{interviewLink}}",
+    eventType: "background_check_submitted",
+    subjectTemplate: "{{candidateName}} 已提交背景调查信息",
+  },
+  {
+    audienceType: "initiator_fallback",
+    channel: "feishu",
+    contentTemplate:
+      "候选人 {{candidateName}} 已接受 {{jobName}} 的 Offer。\n反馈时间：{{responseTime}}\n[查看候选人]({{interviewLink}})",
+    eventType: "offer_accepted",
+    subjectTemplate: null,
+  },
+  {
+    audienceType: "initiator_fallback",
+    channel: "email",
+    contentTemplate:
+      "候选人 {{candidateName}} 已接受 {{jobName}} 的 Offer。\n反馈时间：{{responseTime}}\n查看候选人：{{interviewLink}}",
+    eventType: "offer_accepted",
+    subjectTemplate: "{{candidateName}} 已接受 Offer",
+  },
+  {
+    audienceType: "initiator_fallback",
+    channel: "feishu",
+    contentTemplate:
+      "候选人 {{candidateName}} 已拒绝 {{jobName}} 的 Offer。\n反馈时间：{{responseTime}}\n拒绝原因：{{changeReason}}\n请决定继续沟通或结束招聘流程。\n[查看候选人]({{interviewLink}})",
+    eventType: "offer_declined",
+    subjectTemplate: null,
+  },
+  {
+    audienceType: "initiator_fallback",
+    channel: "email",
+    contentTemplate:
+      "候选人 {{candidateName}} 已拒绝 {{jobName}} 的 Offer。\n反馈时间：{{responseTime}}\n拒绝原因：{{changeReason}}\n请决定继续沟通或结束招聘流程。\n查看候选人：{{interviewLink}}",
+    eventType: "offer_declined",
+    subjectTemplate: "{{candidateName}} 已拒绝 Offer",
+  },
+  {
     audienceType: "candidate",
     channel: "email",
     contentTemplate:

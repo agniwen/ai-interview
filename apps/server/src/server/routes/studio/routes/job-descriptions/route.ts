@@ -452,6 +452,7 @@ export function createJobDescriptionsRouter(
             feishuChatBoundBy: null,
             feishuChatId: null,
             id: crypto.randomUUID(),
+            internalCriteria: input.internalCriteria?.trim() || null,
             lifecycleStatus: "published",
             name: input.name.trim(),
             organizationId: activeOrg.id,
@@ -474,6 +475,7 @@ export function createJobDescriptionsRouter(
                 createdAt: now,
                 createdBy: c.var.user?.id ?? null,
                 id: crypto.randomUUID(),
+                internalCriteria: record.internalCriteria,
                 jobDescriptionId: record.id,
                 jobDescriptionName: record.name,
                 organizationId: activeOrg.id,
@@ -777,6 +779,7 @@ export function createJobDescriptionsRouter(
             const [lockedExisting] = await tx
               .select({
                 code: jobDescription.code,
+                internalCriteria: jobDescription.internalCriteria,
                 publishedAt: jobDescription.publishedAt,
               })
               .from(jobDescription)
@@ -795,6 +798,10 @@ export function createJobDescriptionsRouter(
                 code: input.code ?? lockedExisting.code,
                 departmentId: input.departmentId,
                 evaluationMode: "qualitative",
+                internalCriteria:
+                  input.internalCriteria === undefined
+                    ? lockedExisting.internalCriteria
+                    : input.internalCriteria || null,
                 lifecycleStatus: "published",
                 name: input.name,
                 prompt: input.prompt,
@@ -824,6 +831,10 @@ export function createJobDescriptionsRouter(
               createdAt: now,
               createdBy: c.var.user?.id ?? null,
               id: crypto.randomUUID(),
+              internalCriteria:
+                input.internalCriteria === undefined
+                  ? lockedExisting.internalCriteria
+                  : input.internalCriteria || null,
               jobDescriptionId: id,
               jobDescriptionName: input.name,
               organizationId: activeOrg.id,

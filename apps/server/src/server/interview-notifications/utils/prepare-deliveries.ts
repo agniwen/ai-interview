@@ -246,6 +246,9 @@ async function loadInitiatorUserId(
   event: InterviewNotificationEventRecord,
   records: RecordContext[],
 ): Promise<string | null> {
+  if (event.actorUserId) {
+    return event.actorUserId;
+  }
   if (event.aiRoundId) {
     const [row] = await database
       .select({ createdBy: aiInterviewRound.createdBy })

@@ -49,6 +49,7 @@ function job(id: string, name: string): JobDescriptionListRecord {
     evaluationUpgradedBy: null,
     hasEvaluationUpgradeDraft: false,
     id,
+    internalCriteria: null,
     interviewerIds: [],
     interviewers: [],
     lifecycleStatus: "published",

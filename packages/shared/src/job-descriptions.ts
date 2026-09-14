@@ -39,6 +39,12 @@ const operationalAssignmentSchema = z.object({
 export const jobDescriptionSaveSchema = operationalAssignmentSchema
   .extend({
     code: jobDescriptionCodeSchema,
+    internalCriteria: z
+      .string()
+      .trim()
+      .max(10_000, "内部标准不能超过 10000 字")
+      .nullable()
+      .optional(),
     name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
     prompt: z.string().trim().min(1, "请输入岗位 JD").max(10_000, "岗位 JD 不能超过 10000 字"),
   })
@@ -108,6 +114,7 @@ export interface JobDescriptionRecord {
   description: string | null;
   /** @deprecated Replaced by interview-question-templates. Read for legacy data only. */
   presetQuestions: string[];
+  internalCriteria: string | null;
   prompt: string;
   publishedAt: string | Date | null;
   resumeScreeningPolicy: ResumeScreeningPolicy;

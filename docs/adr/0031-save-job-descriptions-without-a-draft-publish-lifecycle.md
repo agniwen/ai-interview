@@ -15,3 +15,5 @@ The existing Communication Questions and Candidate Forms tabs remain because the
 Existing published jobs remain available. Existing legacy drafts are not activated automatically: they remain visible in job management as migration-pending, cannot receive new candidate bindings, and become immediately available with their first explicit Save under the new form, which creates the first JD snapshot. New jobs never enter a draft state.
 
 The existing `prompt` field—already labeled “岗位 JD” in the current structured-job form—is the sole canonical JD source. The legacy `description` field is retained only as historical data: it is not shown in the new form, copied into `prompt`, used as fallback, included in JD snapshots, or consumed by qualitative evaluation.
+
+The later [private internal criteria decision](0040-use-private-job-internal-criteria.md) supersedes the JD-only evaluation-input restriction; all other lifecycle and historical-result rules remain in force.

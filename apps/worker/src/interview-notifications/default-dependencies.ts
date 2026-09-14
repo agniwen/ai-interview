@@ -24,6 +24,7 @@ export function claimInterviewNotificationEvents(input: {
   leaseOwner: string;
   limit: number;
   now?: Date;
+  queueNamespace: string;
 }) {
   return db.transaction((tx) => claimPendingInterviewNotificationEvents(tx, input));
 }

@@ -332,14 +332,9 @@ function auditDetailString(detail: JsonObject, key: string): string | null {
   return nonEmptyStringSchema.safeParse(detail[key]).data ?? null;
 }
 
-function buildOperatorAuditedActionKeys(
-  auditLogs: { action: string; actorName: string | null; detail: JsonObject | null }[],
-) {
+function buildAuditedActionKeys(auditLogs: { action: string; detail: JsonObject | null }[]) {
   const keys = new Set<string>();
   for (const log of auditLogs) {
-    if (!log.actorName) {
-      continue;
-    }
     const detail = log.detail ?? {};
     const entityId =
       auditDetailString(detail, "roundId") ??
@@ -383,7 +378,7 @@ export async function loadCandidateTimeline(
   ] = await loadTimelineRows(interviewRecordId, organizationId);
 
   const events: CandidateTimelineEvent[] = [];
-  const operatorAuditedActionKeys = buildOperatorAuditedActionKeys(auditLogs);
+  const auditedActionKeys = buildAuditedActionKeys(auditLogs);
 
   addEvent(events, {
     actorImage: candidate.creatorImage,
@@ -405,7 +400,7 @@ export async function loadCandidateTimeline(
 
   if (
     candidate.closedAt &&
-    !hasOperatorAuditedAction(operatorAuditedActionKeys, "candidate_transition", "closed") &&
+    !hasOperatorAuditedAction(auditedActionKeys, "candidate_transition", "closed") &&
     !auditLogs.some((log) => log.action === "recruiting_closed")
   ) {
     addEvent(events, {
@@ -560,12 +555,12 @@ export async function loadCandidateTimeline(
 
   for (const round of humanRounds) {
     const hasCreatedAudit = hasOperatorAuditedAction(
-      operatorAuditedActionKeys,
+      auditedActionKeys,
       "human_interview_round_created",
       round.id,
     );
     const hasUpdatedAudit = hasOperatorAuditedAction(
-      operatorAuditedActionKeys,
+      auditedActionKeys,
       "human_interview_round_updated",
       round.id,
     );
@@ -600,11 +595,7 @@ export async function loadCandidateTimeline(
     }
     if (
       round.completedAt &&
-      !hasOperatorAuditedAction(
-        operatorAuditedActionKeys,
-        "human_interview_round_completed",
-        round.id,
-      )
+      !hasOperatorAuditedAction(auditedActionKeys, "human_interview_round_completed", round.id)
     ) {
       addEvent(events, {
         actorImage: null,
@@ -629,11 +620,7 @@ export async function loadCandidateTimeline(
     }
     if (
       round.cancelledAt &&
-      !hasOperatorAuditedAction(
-        operatorAuditedActionKeys,
-        "human_interview_round_cancelled",
-        round.id,
-      )
+      !hasOperatorAuditedAction(auditedActionKeys, "human_interview_round_cancelled", round.id)
     ) {
       addEvent(events, {
         actorImage: null,
@@ -652,7 +639,7 @@ export async function loadCandidateTimeline(
   for (const draft of offerDrafts) {
     const statusMeta = offerDraftStatusMeta[draft.status];
     const hasCreatedAudit = hasOperatorAuditedAction(
-      operatorAuditedActionKeys,
+      auditedActionKeys,
       "offer_draft_created",
       draft.id,
     );
@@ -671,8 +658,7 @@ export async function loadCandidateTimeline(
     }
     if (
       !(
-        hasCreatedAudit ||
-        hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_sent", draft.id)
+        hasCreatedAudit || hasOperatorAuditedAction(auditedActionKeys, "offer_draft_sent", draft.id)
       )
     ) {
       addEvent(events, {
@@ -690,7 +676,13 @@ export async function loadCandidateTimeline(
         tone: "info",
       });
     }
-    if (!hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_responded", draft.id)) {
+    const hasResponseAudit = [
+      "offer_draft_responded",
+      "offer_response_recorded_by_hr",
+      "offer_accepted_by_candidate",
+      "offer_declined_by_candidate",
+    ].some((action) => hasOperatorAuditedAction(auditedActionKeys, action, draft.id));
+    if (!hasResponseAudit) {
       addEvent(events, {
         actorImage: null,
         actorName: null,

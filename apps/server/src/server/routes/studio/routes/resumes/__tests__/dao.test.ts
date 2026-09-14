@@ -24,6 +24,7 @@ import {
   humanInterviewRound,
   aiInterviewRound,
   recruitingOffer,
+  recruitingEvent,
   studioOrgSkill,
   user,
 } from "@app/db-schema/schema";
@@ -208,6 +209,44 @@ afterAll(async () => {
 });
 
 describe("queryPaginatedResumeRecords", () => {
+  it("does not add a synthetic Offer response when the candidate response activity already exists", async () => {
+    const offerId = "offer_test_candidate_response";
+    const eventId = "event_test_candidate_offer_response";
+    const respondedAt = new Date("2026-05-13T12:30:00.000Z");
+    await db.insert(recruitingOffer).values({
+      baseSalary: 30_000,
+      id: offerId,
+      organizationId: ORG_A,
+      position: "前端工程师",
+      recruitingRecordId: "ri_test_a_1",
+      responseAt: respondedAt,
+      responseSource: "candidate",
+      sentAt: NOW,
+      status: "accepted",
+      version: 1,
+    });
+    await db.insert(recruitingEvent).values({
+      action: "offer_accepted_by_candidate",
+      createdAt: respondedAt,
+      detail: { draftId: offerId },
+      id: eventId,
+      operatorId: null,
+      organizationId: ORG_A,
+      recruitingRecordId: "ri_test_a_1",
+    });
+
+    try {
+      const timeline = await loadCandidateTimeline("ri_test_a_1", ORG_A);
+      expect(timeline?.events.some((event) => event.id === `audit:${eventId}`)).toBe(true);
+      expect(timeline?.events.some((event) => event.id === `offer:${offerId}:response`)).toBe(
+        false,
+      );
+    } finally {
+      await db.delete(recruitingEvent).where(eq(recruitingEvent.id, eventId));
+      await db.delete(recruitingOffer).where(eq(recruitingOffer.id, offerId));
+    }
+  });
+
   it("shows a declined AI interview invitation in the candidate timeline", async () => {
     const respondedAt = new Date("2026-05-13T12:00:00.000Z");
     await db.insert(aiInterviewRound).values({

@@ -10,6 +10,8 @@ import {
   globalConfig,
   recruitingNotificationDelivery,
   recruitingNotificationEvent,
+  recruitingOffer,
+  recruitingBackgroundCheck,
   organization,
   humanInterviewMeeting,
   humanInterviewMeetingInterviewer,
@@ -23,6 +25,7 @@ import type {
   AiInvitationExceptionType,
   InterviewNotificationEventType,
 } from "@app/db-schema/interview-notifications";
+import { activeInterviewNotificationEventStatuses } from "@app/db-schema/interview-notifications";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
 import { buildInterviewNotificationDedupeKey } from "@app/shared/interview-notifications";
 import {
@@ -40,8 +43,12 @@ import {
   buildCandidateInviteToken,
   hashInviteToken,
 } from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
-// 真人面试内部提醒在开始前 24 小时和 1 小时触发，已过期的时间点不再创建。
-const REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+// AI interview reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
+// AI 面试提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
+const AI_INTERVIEW_REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+
+// 真人面试已有日程安排，仅保留开始前 1 小时提醒，避免与日程的 24 小时提醒重复。
+const HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES = [60] as const;
 
 export const AI_INTERVIEW_COMPLETION_NOTICES = {
   complete: (candidateName: string) => `${candidateName} 已完成 AI 面试，报告生成后将另行通知。`,
@@ -137,17 +144,32 @@ export function buildHumanInterviewEvaluationSummary(
   return sections.join("\n\n");
 }
 
-export function buildInterviewReminderSchedule(
+function buildReminderSchedule(
   scheduledAt: Date | null,
-  now: Date = new Date(),
+  now: Date,
+  offsetsMinutes: readonly number[],
 ): { availableAt: Date; offsetMinutes: number }[] {
   if (!scheduledAt) {
     return [];
   }
-  return REMINDER_OFFSETS_MINUTES.flatMap((offsetMinutes) => {
+  return offsetsMinutes.flatMap((offsetMinutes) => {
     const availableAt = new Date(scheduledAt.getTime() - offsetMinutes * 60_000);
     return availableAt.getTime() > now.getTime() ? [{ availableAt, offsetMinutes }] : [];
   });
+}
+
+export function buildInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, AI_INTERVIEW_REMINDER_OFFSETS_MINUTES);
+}
+
+export function buildHumanInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES);
 }
 
 interface HumanInterviewRoundProgression {
@@ -265,6 +287,132 @@ export async function enqueueAiInvitationResponseEvent(
     scheduleEntryId: input.scheduleEntryId,
     scopeType: "ai_round",
     type,
+  });
+}
+
+export async function enqueueOfferResponseEvent(
+  tx: Transaction,
+  input: {
+    declineReason?: string | null;
+    offerId: string;
+    respondedAt: Date;
+    response: "accepted" | "declined";
+  },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      interviewRecordId: recruitingOffer.recruitingRecordId,
+      organizationId: recruitingOffer.organizationId,
+      organizationSlug: organization.slug,
+      position: recruitingOffer.position,
+      publishedBy: recruitingOffer.publishedBy,
+      workspaceName: organization.name,
+    })
+    .from(recruitingOffer)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingOffer.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingOffer.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, recruitingOffer.organizationId))
+    .where(eq(recruitingOffer.id, input.offerId))
+    .limit(1);
+  if (!context) {
+    throw new Error("Offer 响应通知缺少招聘上下文。");
+  }
+  const type = input.response === "accepted" ? "offer_accepted" : "offer_declined";
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.publishedBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.respondedAt.toISOString(),
+      scopeId: input.offerId,
+      type,
+      version: 1,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      changeReason: input.declineReason?.trim() || "未填写",
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(context.interviewRecordId, context.organizationSlug),
+      jobName: context.position,
+      responseTime: input.respondedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type,
+  });
+}
+
+export async function enqueueBackgroundCheckSubmittedEvent(
+  tx: Transaction,
+  input: { recruitingRecordId: string; submittedAt: Date },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      createdBy: recruitingBackgroundCheck.createdBy,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingBackgroundCheck.organizationId,
+      organizationSlug: organization.slug,
+      workspaceName: organization.name,
+    })
+    .from(recruitingBackgroundCheck)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingBackgroundCheck.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingBackgroundCheck.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingBackgroundCheck.organizationId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .where(eq(recruitingBackgroundCheck.recruitingRecordId, input.recruitingRecordId))
+    .limit(1);
+  if (!context) {
+    throw new Error("背调提交通知缺少招聘上下文。");
+  }
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.createdBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.submittedAt.toISOString(),
+      scopeId: input.recruitingRecordId,
+      type: "background_check_submitted",
+      version: 1,
+    }),
+    interviewRecordId: input.recruitingRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(input.recruitingRecordId, context.organizationSlug),
+      jobName: context.jobName ?? undefined,
+      responseTime: input.submittedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type: "background_check_submitted",
   });
 }
 
@@ -550,7 +698,7 @@ export async function cancelPendingHumanMeetingReminders(
           "human_interview_attendance_alert",
           "human_interview_not_held",
         ]),
-        inArray(recruitingNotificationEvent.status, ["pending", "processing", "failed"]),
+        inArray(recruitingNotificationEvent.status, activeInterviewNotificationEventStatuses),
       ),
     )
     .returning({ id: recruitingNotificationEvent.id });
@@ -771,7 +919,7 @@ export async function enqueueHumanMeetingEvents(
     if (!shouldScheduleReminders) {
       continue;
     }
-    for (const reminder of buildInterviewReminderSchedule(row.scheduledAt, now)) {
+    for (const reminder of buildHumanInterviewReminderSchedule(row.scheduledAt, now)) {
       const reminderType: InterviewNotificationEventType = "human_interview_reminder";
       await enqueuePreparedInterviewNotificationEvent(tx, {
         actorUserId: input.actorUserId,

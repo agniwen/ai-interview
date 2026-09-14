@@ -11,3 +11,5 @@ The fallback may produce a substantive positive, mixed, or uncertain dimension n
 The initial qualitative contract enforces dense, resume-factual, JD-aligned dimension narratives through the versioned prompt and normal result-shape validation. It does not add structured per-dimension evidence arrays or source-existence validation in this phase; those remain a possible later hardening step rather than a launch requirement.
 
 Prompt quality is exercised by an independent regression dataset and test script covering rich and sparse JDs, insufficient resumes, explicit core mismatches, bias-sensitive career histories, job-dependent outcomes, optional guidance, and forbidden scoring language. Real-model regression runs are offline release checks only: they do not execute in the production request path, gate user actions, or add product behavior.
+
+[ADR 0040](0040-use-private-job-internal-criteria.md) extends explicit job requirements to private, job-related internal criteria; the fallback applies when neither source states a relevant requirement.

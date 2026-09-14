@@ -23,6 +23,10 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
 } from "@app/db-schema/studio-interviews";
+import type {
+  BackgroundCheckCollectionStatus,
+  BackgroundCheckFormInput,
+} from "@app/db-schema/background-check";
 // 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
 // DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
 // Shared DTOs for the late-pipeline stages (human interview / offer / closed).
@@ -261,12 +265,68 @@ export interface OfferDraftRecord {
   position: string;
   joiningDate: string | null;
   expiresAt: string | null;
+  publishedAt: string | null;
+  publicPath: string | null;
+  publishedBy: string | null;
+  emailSentAt: string | null;
+  emailRecipient: string | null;
   sentAt: string | null;
   responseAt: string | null;
+  responseSource: "candidate" | "hr" | null;
+  responseBy: string | null;
+  declineReason: string | null;
   candidateCounter: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OfferEmailPreviewRecord {
+  content: string;
+  offerUrl: string;
+  subject: string;
+  to: string;
+}
+
+export interface PublicOfferRecord {
+  baseSalary: number;
+  bonus: number | null;
+  candidateName: string;
+  companyName: string;
+  currency: string;
+  declineReason: string | null;
+  equity: string | null;
+  expiresAt: string | null;
+  joiningDate: string | null;
+  position: string;
+  publishedAt: string;
+  responseAt: string | null;
+  status: OfferDraftStatus;
+}
+
+export interface BackgroundCheckCollectionRecord {
+  createdAt: string;
+  emailRecipient: string | null;
+  emailSentAt: string | null;
+  formData: BackgroundCheckFormInput | null;
+  publicPath: string;
+  status: BackgroundCheckCollectionStatus;
+  submittedAt: string | null;
+  updatedAt: string;
+}
+
+export interface BackgroundCheckEmailPreviewRecord {
+  content: string;
+  formUrl: string;
+  subject: string;
+  to: string;
+}
+
+export interface PublicBackgroundCheckRecord {
+  candidateName: string;
+  companyName: string;
+  jobName: string | null;
+  status: BackgroundCheckCollectionStatus;
 }
 
 export type { RecruitingNodeStateRecord } from "./studio-resumes";

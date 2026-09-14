@@ -73,6 +73,23 @@ const AUDIT_TITLES = new Map([
   ["offer_draft_responded", "候选人回复 Offer"],
   ["offer_draft_sent", "Offer 已发送"],
   ["offer_draft_updated", "更新 Offer"],
+  ["offer_published", "Offer 已发布"],
+  ["offer_email_send_requested", "请求发送 Offer 邮件"],
+  ["offer_email_sent", "Offer 邮件已发送"],
+  ["offer_email_send_failed", "Offer 邮件发送失败"],
+  ["offer_link_copied", "复制 Offer 链接"],
+  ["offer_link_accessed", "访问 Offer 链接"],
+  ["offer_link_revoked", "Offer 链接已作废"],
+  ["offer_accepted_by_candidate", "候选人接受 Offer"],
+  ["offer_declined_by_candidate", "候选人拒绝 Offer"],
+  ["offer_response_recorded_by_hr", "HR 记录 Offer 响应"],
+  ["background_check_collection_created", "创建背调信息采集"],
+  ["background_check_email_send_requested", "请求发送背调信息采集邮件"],
+  ["background_check_email_sent", "背调信息采集邮件已发送"],
+  ["background_check_email_send_failed", "背调信息采集邮件发送失败"],
+  ["background_check_link_copied", "复制背调信息采集链接"],
+  ["background_check_link_accessed", "访问背调信息采集链接"],
+  ["background_check_submitted_by_candidate", "候选人提交背调信息"],
   ["resume_evaluation_reset_for_job_change", "简历评估已重置"],
   ["resume_evaluation_submitted", "简历评估已提交"],
   ["resume_evaluation_updated", "简历评估状态变更"],
@@ -259,6 +276,59 @@ export function auditDescription(
       return `撤回 Offer`;
     }
   }
+  if (action === "offer_published") {
+    return `发布 Offer：${detail.position ?? "Offer"}`;
+  }
+  if (action === "offer_email_send_requested") {
+    return `准备向 ${String(detail.to ?? "候选人")} 发送 Offer 邮件`;
+  }
+  if (action === "offer_email_sent") {
+    return `已向 ${String(detail.to ?? "候选人")} 发送 Offer 邮件`;
+  }
+  if (action === "offer_email_send_failed") {
+    return `Offer 邮件发送失败：${String(detail.error ?? "未知原因")}`;
+  }
+  if (action === "offer_link_copied") {
+    return "HR 已复制 Offer 链接";
+  }
+  if (action === "offer_link_accessed") {
+    return "Offer 链接已被访问";
+  }
+  if (action === "offer_link_revoked") {
+    return `旧 Offer 链接已作废并生成新链接${detail.reason ? `，原因：${detail.reason}` : ""}`;
+  }
+  if (action === "offer_accepted_by_candidate") {
+    return "候选人在线接受 Offer";
+  }
+  if (action === "offer_declined_by_candidate") {
+    return detail.declineReason
+      ? `候选人在线拒绝 Offer，原因：${String(detail.declineReason)}`
+      : "候选人在线拒绝 Offer";
+  }
+  if (action === "offer_response_recorded_by_hr") {
+    return `HR 手动记录候选人 Offer 回复：${offerResponseLabel(detail.response)}`;
+  }
+  if (action === "background_check_collection_created") {
+    return "已生成候选人背景调查信息采集链接";
+  }
+  if (action === "background_check_email_send_requested") {
+    return `准备向 ${String(detail.to ?? "候选人")} 发送背调信息采集邮件`;
+  }
+  if (action === "background_check_email_sent") {
+    return `已向 ${String(detail.to ?? "候选人")} 发送背调信息采集邮件`;
+  }
+  if (action === "background_check_email_send_failed") {
+    return `背调信息采集邮件发送失败：${String(detail.error ?? "未知原因")}`;
+  }
+  if (action === "background_check_link_copied") {
+    return "HR 已复制背调信息采集链接";
+  }
+  if (action === "background_check_link_accessed") {
+    return "候选人已打开背景调查信息采集页面";
+  }
+  if (action === "background_check_submitted_by_candidate") {
+    return "候选人已在线提交背景调查信息，等待 HR 确认结果";
+  }
   if (action === "context_snapshot_refresh") {
     return "刷新 AI 面试上下文";
   }
@@ -309,8 +379,20 @@ export function auditTone(
   if (action === "human_interview_round_completed") {
     return resultTone(detail.outcome, "success");
   }
-  if (action === "offer_draft_responded") {
+  if (["offer_draft_responded", "offer_response_recorded_by_hr"].includes(action)) {
     return resultTone(detail.response, "info");
+  }
+  if (action === "offer_accepted_by_candidate") {
+    return "success";
+  }
+  if (["background_check_email_sent", "background_check_submitted_by_candidate"].includes(action)) {
+    return "success";
+  }
+  if (action === "background_check_email_send_failed") {
+    return "danger";
+  }
+  if (["offer_declined_by_candidate", "offer_email_send_failed"].includes(action)) {
+    return "danger";
   }
   if (["agent_report_received", "interview_questions_drafted"].includes(action)) {
     return "success";
@@ -322,6 +404,7 @@ export function auditTone(
       "round_reset",
       "resume_evaluation_reset_for_job_change",
       "offer_draft_cancelled",
+      "offer_link_revoked",
     ].includes(action)
   ) {
     return "warning";
