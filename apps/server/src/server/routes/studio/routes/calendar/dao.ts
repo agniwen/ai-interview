@@ -4,6 +4,7 @@ import {
   asc,
   count,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -21,6 +22,7 @@ import {
   aiInterviewConversationTurn,
   jobDescription,
   humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
   humanInterviewRound,
   humanInterviewRoundInterviewer,
@@ -35,6 +37,10 @@ import type {
 } from "@app/shared/studio-calendar";
 import { buildAiCalendarEvents, resolveHumanCalendarEventStatus } from "./events";
 import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
+import {
+  buildInterviewerInviteToken,
+  buildInviteExpiry,
+} from "../interviews/dao/human-interview-meeting-access";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;
 
@@ -64,6 +70,7 @@ interface ListStudioCalendarEventsInput {
   end: Date;
   organizationId: string;
   start: Date;
+  viewerUserId: string;
   visibilityScope: RecruitingVisibilityScope;
 }
 
@@ -78,10 +85,91 @@ function eventIdFor(row: { meetingId: string | null; roundId: string }) {
   return row.meetingId ?? row.roundId;
 }
 
+function canOpenRecruitingRecord(
+  createdBy: string | null,
+  visibilityScope: RecruitingVisibilityScope,
+): boolean {
+  return (
+    visibilityScope.kind === "all" ||
+    (visibilityScope.kind === "restricted" &&
+      createdBy !== null &&
+      visibilityScope.userIds.includes(createdBy))
+  );
+}
+
+function uniqueMeetingIds(rows: { meetingId: string | null }[]): string[] {
+  return [...new Set(rows.flatMap((row) => (row.meetingId ? [row.meetingId] : [])))];
+}
+
+function listViewerMeetingAssignments(
+  meetingIds: string[],
+  organizationId: string,
+  viewerUserId: string,
+) {
+  if (meetingIds.length === 0) {
+    return [];
+  }
+  return db
+    .select({
+      meetingId: humanInterviewMeetingInterviewer.meetingId,
+      role: humanInterviewMeetingInterviewer.role,
+    })
+    .from(humanInterviewMeetingInterviewer)
+    .where(
+      and(
+        inArray(humanInterviewMeetingInterviewer.meetingId, meetingIds),
+        eq(humanInterviewMeetingInterviewer.organizationId, organizationId),
+        eq(humanInterviewMeetingInterviewer.userId, viewerUserId),
+      ),
+    );
+}
+
+function listHumanRoundInterviewers(roundIds: string[]) {
+  if (roundIds.length === 0) {
+    return [];
+  }
+  return db
+    .select({
+      id: user.id,
+      name: user.name,
+      roundId: humanInterviewRoundInterviewer.roundId,
+    })
+    .from(humanInterviewRoundInterviewer)
+    .innerJoin(user, eq(user.id, humanInterviewRoundInterviewer.userId))
+    .where(
+      and(
+        inArray(humanInterviewRoundInterviewer.roundId, roundIds),
+        ne(humanInterviewRoundInterviewer.status, "declined"),
+      ),
+    )
+    .orderBy(asc(user.name));
+}
+
+function buildViewerInterviewerInviteToken({
+  meetingId,
+  role,
+  viewerUserId,
+}: {
+  meetingId: string | null;
+  role: "host" | "interviewer" | "observer" | undefined;
+  viewerUserId: string;
+}): string | null {
+  if (!(meetingId && role)) {
+    return null;
+  }
+  return buildInterviewerInviteToken({
+    exp: buildInviteExpiry(),
+    meetingId,
+    role,
+    userId: viewerUserId,
+  });
+}
+
 export async function listStudioCalendarEvents({
   end,
   organizationId,
   start,
+  viewerUserId,
   visibilityScope,
 }: ListStudioCalendarEventsInput): Promise<StudioCalendarEvent[]> {
   if (visibilityScope.kind === "none") {
@@ -92,6 +180,7 @@ export async function listStudioCalendarEvents({
     db
       .select({
         candidateName: recruitingRecordReadModel.candidateName,
+        createdBy: recruitingRecordReadModel.createdBy,
         endedAt: humanInterviewMeeting.endedAt,
         format: humanInterviewRound.format,
         interviewRecordId: recruitingRecordReadModel.id,
@@ -134,7 +223,36 @@ export async function listStudioCalendarEvents({
           gte(humanInterviewRound.scheduledAt, start),
           lt(humanInterviewRound.scheduledAt, end),
           visibilityScope.kind === "restricted"
-            ? inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds)
+            ? or(
+                inArray(recruitingRecordReadModel.createdBy, visibilityScope.userIds),
+                and(
+                  exists(
+                    db
+                      .select({ userId: humanInterviewRoundInterviewer.userId })
+                      .from(humanInterviewRoundInterviewer)
+                      .where(
+                        and(
+                          eq(humanInterviewRoundInterviewer.roundId, humanInterviewRound.id),
+                          eq(humanInterviewRoundInterviewer.organizationId, organizationId),
+                          eq(humanInterviewRoundInterviewer.userId, viewerUserId),
+                          ne(humanInterviewRoundInterviewer.status, "declined"),
+                        ),
+                      ),
+                  ),
+                  exists(
+                    db
+                      .select({ userId: humanInterviewMeetingInterviewer.userId })
+                      .from(humanInterviewMeetingInterviewer)
+                      .where(
+                        and(
+                          eq(humanInterviewMeetingInterviewer.meetingId, humanInterviewMeeting.id),
+                          eq(humanInterviewMeetingInterviewer.organizationId, organizationId),
+                          eq(humanInterviewMeetingInterviewer.userId, viewerUserId),
+                        ),
+                      ),
+                  ),
+                ),
+              )
             : undefined,
         ),
       )
@@ -215,20 +333,11 @@ export async function listStudioCalendarEvents({
   ]);
 
   const roundIds = candidateRows.map((row) => row.roundId);
+  const meetingIds = uniqueMeetingIds(candidateRows);
   const aiRoundIds = aiRows.map((row) => row.roundId);
-  const [interviewerRows, aiResultRoundRows] = await Promise.all([
-    roundIds.length === 0
-      ? []
-      : db
-          .select({
-            id: user.id,
-            name: user.name,
-            roundId: humanInterviewRoundInterviewer.roundId,
-          })
-          .from(humanInterviewRoundInterviewer)
-          .innerJoin(user, eq(user.id, humanInterviewRoundInterviewer.userId))
-          .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds))
-          .orderBy(asc(user.name)),
+  const [interviewerRows, viewerMeetingRows, aiResultRoundRows] = await Promise.all([
+    listHumanRoundInterviewers(roundIds),
+    listViewerMeetingAssignments(meetingIds, organizationId, viewerUserId),
     aiRoundIds.length === 0
       ? []
       : db
@@ -249,6 +358,7 @@ export async function listStudioCalendarEvents({
     const eventId = eventIdFor(row);
     const candidates = candidatesByEvent.get(eventId) ?? [];
     candidates.push({
+      canOpenRecruitingRecord: canOpenRecruitingRecord(row.createdBy, visibilityScope),
       candidateName: row.candidateName,
       interviewRecordId: row.interviewRecordId,
       jobDescriptionName: row.jobDescriptionName,
@@ -259,6 +369,9 @@ export async function listStudioCalendarEvents({
   }
 
   const eventIdByRound = new Map(candidateRows.map((row) => [row.roundId, eventIdFor(row)]));
+  const viewerMeetingRoleById = new Map(
+    viewerMeetingRows.map((row) => [row.meetingId, row.role] as const),
+  );
   const interviewersByEvent = new Map<string, StudioCalendarInterviewer[]>();
   for (const row of interviewerRows) {
     const eventId = eventIdByRound.get(row.roundId);
@@ -279,6 +392,7 @@ export async function listStudioCalendarEvents({
       continue;
     }
     const startAt = row.startedAt ?? row.scheduledAt;
+    const viewerMeetingRole = viewerMeetingRoleById.get(row.meetingId ?? "");
     events.set(eventId, {
       candidates: candidatesByEvent.get(eventId) ?? [],
       endAt: resolveEndAt(startAt, row.endedAt).toISOString(),
@@ -291,6 +405,11 @@ export async function listStudioCalendarEvents({
       startAt: startAt.toISOString(),
       status: resolveHumanCalendarEventStatus(row.meetingStatus, row.roundStatus),
       title: buildInterviewCalendarTitle(candidatesByEvent.get(eventId) ?? []),
+      viewerInterviewerInviteToken: buildViewerInterviewerInviteToken({
+        meetingId: row.meetingId,
+        role: viewerMeetingRole,
+        viewerUserId,
+      }),
     });
   }
 

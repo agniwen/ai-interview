@@ -71,6 +71,7 @@ export function buildAiCalendarEvents({
       {
         candidates: [
           {
+            canOpenRecruitingRecord: true,
             candidateName: row.candidateName,
             interviewRecordId: row.interviewRecordId,
             jobDescriptionName: row.jobDescriptionName ?? null,
@@ -101,6 +102,7 @@ export function buildAiCalendarEvents({
       {
         candidates: [
           {
+            canOpenRecruitingRecord: true,
             candidateName: row.candidateName,
             interviewRecordId: row.interviewRecordId,
             jobDescriptionName: row.jobDescriptionName ?? null,

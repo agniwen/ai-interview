@@ -95,6 +95,18 @@ function EventCalendarAgendaView({ className, render, ...props }: EventCalendarA
           {groups.map(({ day, bucket }) => {
             const items = [...(bucket?.allDay ?? []), ...(bucket?.timed ?? [])];
             const zoned = toZoned(day, settings.timeZone);
+            const defaultHeaderContent = (
+              <>
+                <span
+                  className={cn("text-foreground font-semibold", isToday(day) && "text-primary")}
+                >
+                  {format(zoned, "EEEE", { locale: settings.locale })}
+                </span>
+                <span className="text-muted-foreground font-medium tabular-nums">
+                  {format(zoned, "MMMM d, yyyy", { locale: settings.locale })}
+                </span>
+              </>
+            );
             return (
               <div
                 key={day.getTime()}
@@ -117,14 +129,13 @@ function EventCalendarAgendaView({ className, render, ...props }: EventCalendarA
                     viewConfig.classNames?.agendaDayHeader,
                   )}
                 >
-                  <span
-                    className={cn("text-foreground font-semibold", isToday(day) && "text-primary")}
-                  >
-                    {format(zoned, "EEEE", { locale: settings.locale })}
-                  </span>
-                  <span className="text-muted-foreground font-medium tabular-nums">
-                    {format(zoned, "MMMM d, yyyy", { locale: settings.locale })}
-                  </span>
+                  {viewConfig.renderAgendaDayHeader?.({
+                    collapsed: false,
+                    count: items.length,
+                    day: zoned,
+                    defaultContent: defaultHeaderContent,
+                    toggle: () => undefined,
+                  }) ?? defaultHeaderContent}
                 </div>
                 {items.map((segment) => (
                   <EventCalendarAgendaItem key={segment.occurrence.key} segment={segment} />

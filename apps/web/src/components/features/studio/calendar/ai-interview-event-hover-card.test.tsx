@@ -21,6 +21,7 @@ const getRevealState = () =>
 const event: StudioAiCalendarEvent = {
   candidates: [
     {
+      canOpenRecruitingRecord: true,
       candidateName: "张三",
       interviewRecordId: "candidate-1",
       roundId: "round-1",
