@@ -231,6 +231,21 @@ afterEach(() => {
 });
 
 describe("HumanMeetingReview", () => {
+  it("marks the fields required for saving or submitting a review", async () => {
+    const container = await renderReview();
+
+    expect(container.textContent).toContain("整体评价*");
+    expect(container.textContent).toContain("本轮结论（提交时必填）*");
+    await evaluationField(container);
+    expect(container.querySelector('[aria-label="整体评价"]')?.getAttribute("aria-required")).toBe(
+      "true",
+    );
+    const outcome = [...container.querySelectorAll<HTMLSelectElement>("select")].find((select) =>
+      [...select.options].some((option) => option.text === "通过"),
+    );
+    expect(outcome?.required).toBe(true);
+  });
+
   it.each(["back", "navigate"] as const)(
     "protects unsaved edits during %s navigation",
     async (navigation) => {

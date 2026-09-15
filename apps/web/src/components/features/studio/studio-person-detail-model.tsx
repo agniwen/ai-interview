@@ -88,7 +88,7 @@ export function shouldShowAiInterviewTab(
 // Human-interview tab is visible once the candidate has reached or passed that
 // stage; remains visible after close for HR audit and reactivation.
 export function shouldShowHumanInterviewTab(
-  record: { pipelineStage?: string } | null,
+  record: { hasHumanInterview?: boolean; pipelineStage?: string } | null,
   canReadHumanInterview: boolean,
 ): boolean {
   if (!canReadHumanInterview) {
@@ -96,6 +96,9 @@ export function shouldShowHumanInterviewTab(
   }
   if (!record?.pipelineStage) {
     return false;
+  }
+  if (record.hasHumanInterview) {
+    return true;
   }
   return [
     "second_interview",

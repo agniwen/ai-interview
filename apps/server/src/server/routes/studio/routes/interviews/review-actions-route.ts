@@ -2,6 +2,10 @@ import { zValidator } from "@hono/zod-validator";
 import type { Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import type {
+  HumanInterviewMeetingInterviewerRole,
+  HumanInterviewMeetingStatus,
+} from "@app/db-schema/studio-interviews";
 import {
   humanInterviewEvaluationSchema,
   humanInterviewFinalOutcomeSchema,
@@ -58,7 +62,17 @@ const humanInterviewEvaluationDraftSaveSchema = z
 
 export type HumanInterviewReviewScopeResolver = (
   context: Context<Env>,
-) => ReturnType<typeof resolveHumanInterviewMeetingInterviewerInviteToken>;
+) => Promise<HumanInterviewReviewScope | null>;
+
+export interface HumanInterviewReviewScope {
+  canManageReview?: boolean;
+  meetingId: string;
+  organizationId: string;
+  role: HumanInterviewMeetingInterviewerRole;
+  roundId: string;
+  status: HumanInterviewMeetingStatus;
+  userId: string;
+}
 
 // These endpoints use plain fetch in the public meeting board. Erasing their
 // route schema here prevents the already-large global Hono RPC type from

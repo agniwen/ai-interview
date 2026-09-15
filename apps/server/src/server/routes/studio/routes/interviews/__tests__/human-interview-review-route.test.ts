@@ -159,6 +159,14 @@ describe("system human interview review", () => {
     );
     expect(mocks.permissions).toContain("humanInterview:update");
   });
+  it("allows an HR with update permission to submit without meeting assignment", async () => {
+    mocks.load.mockResolvedValue({ ...scope, canManageReview: true, role: "observer" });
+    const response = await request("evaluation-submit", "pass");
+    expect(response.status).toBe(200);
+    expect(mocks.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ actorId: "reviewer", outcome: "pass", roundId }),
+    );
+  });
   it("denies unauthenticated users, missing scope and permission failures", async () => {
     const unauthorized = await request("review", null, false);
     expect(unauthorized.status).toBe(401);

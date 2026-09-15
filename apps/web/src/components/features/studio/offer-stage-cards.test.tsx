@@ -84,6 +84,19 @@ describe("OfferCard", () => {
     expect(host.textContent).toContain("删除 Offer");
     expect(host.textContent).not.toContain("v1");
     expect(host.textContent).toContain("确认并发布");
+    const editButton = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "编辑",
+    );
+    act(() => editButton?.click());
+    expect(host.textContent).toContain("职位*");
+    expect(host.textContent).toContain("Base 月薪 (¥)*");
+    expect(host.querySelector<HTMLInputElement>("#offer-offer-1-position")?.required).toBe(true);
+    expect(host.querySelector<HTMLInputElement>("#offer-offer-1-base")?.required).toBe(true);
+
+    const cancelEdit = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "取消",
+    );
+    act(() => cancelEdit?.click());
     const sendButton = [...host.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("确认并发布"),
     );

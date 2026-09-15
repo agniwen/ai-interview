@@ -197,25 +197,34 @@ export function RespondOfferDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <RadioGroup
-            className="grid gap-2"
-            onValueChange={(value) => {
-              const result = offerResponseSchema.safeParse(value);
-              if (result.success) {
-                setResponse(result.data);
-              }
-            }}
-            value={response}
-          >
-            {(["accepted", "declined", "counter"] as const).map((value) => (
-              <div className="flex items-center gap-2" key={value}>
-                <RadioGroupItem id={`resp-${value}`} value={value} />
-                <Label className="cursor-pointer text-sm" htmlFor={`resp-${value}`}>
-                  {offerResponseLabel(value)}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
+          <div className="grid gap-1.5">
+            <p className="text-sm">
+              候选人回应{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </p>
+            <RadioGroup
+              aria-required="true"
+              className="grid gap-2"
+              onValueChange={(value) => {
+                const result = offerResponseSchema.safeParse(value);
+                if (result.success) {
+                  setResponse(result.data);
+                }
+              }}
+              value={response}
+            >
+              {(["accepted", "declined", "counter"] as const).map((value) => (
+                <div className="flex items-center gap-2" key={value}>
+                  <RadioGroupItem id={`resp-${value}`} value={value} />
+                  <Label className="cursor-pointer text-sm" htmlFor={`resp-${value}`}>
+                    {offerResponseLabel(value)}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
 
           {response === "counter" ? (
             <div className="grid gap-1.5">

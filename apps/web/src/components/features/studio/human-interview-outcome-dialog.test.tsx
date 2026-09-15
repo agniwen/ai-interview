@@ -71,6 +71,8 @@ describe("historical outcome dialog", () => {
     async (outcome) => {
       api.resolveHumanInterviewRoundOutcome.mockResolvedValue({ ok: true });
       const { button, select, close, invalidate } = render();
+      expect(document.body.textContent).toContain("本轮结论 *");
+      expect(select.required).toBe(true);
       expect(select.value).toBe("");
       expect(button.disabled).toBe(true);
       expect([...select.options].map((option) => option.value)).toEqual(["", "pass", "fail"]);

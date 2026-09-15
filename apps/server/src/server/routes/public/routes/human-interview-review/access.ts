@@ -7,12 +7,13 @@ type HumanInterviewReviewMutation = "edit" | "submit";
 
 export function resolveHumanInterviewReviewMutationAccess(
   scope: {
+    canManageReview?: boolean;
     role: HumanInterviewMeetingInterviewerRole;
     status: HumanInterviewMeetingStatus;
   },
   mutation: HumanInterviewReviewMutation,
 ): { message: string; status: 403 | 409 } | null {
-  if (scope.role === "observer") {
+  if (scope.role === "observer" && !scope.canManageReview) {
     return { message: "旁听者只能查看真人复面内容。", status: 403 };
   }
   if (scope.status === "cancelled") {

@@ -213,6 +213,7 @@ export function useStudioPersonDetailController({
   const tabVisibilityRecord = hasRecord
     ? {
         closedFromNode: resumeRecord?.closedFromNode,
+        hasHumanInterview: Boolean(resumeRecord?.stageProgress.humanInterview?.totalRounds),
         hasInitialInterview: Boolean(resumeRecord?.stageProgress.initialInterview?.totalSnapshots),
         pipelineStage: visiblePipelineStage,
       }

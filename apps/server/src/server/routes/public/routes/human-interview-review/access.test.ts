@@ -11,6 +11,21 @@ describe("human interview review mutation access", () => {
     ).toEqual({ message: "旁听者只能查看真人复面内容。", status: 403 });
   });
 
+  it("allows a workspace review manager to edit or submit without a meeting assignment", () => {
+    expect(
+      resolveHumanInterviewReviewMutationAccess(
+        { canManageReview: true, role: "observer", status: "ended" },
+        "edit",
+      ),
+    ).toBeNull();
+    expect(
+      resolveHumanInterviewReviewMutationAccess(
+        { canManageReview: true, role: "observer", status: "ended" },
+        "submit",
+      ),
+    ).toBeNull();
+  });
+
   it("allows drafts during the meeting but only submits after it ended", () => {
     expect(
       resolveHumanInterviewReviewMutationAccess(

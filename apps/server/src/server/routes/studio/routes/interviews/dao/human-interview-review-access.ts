@@ -7,7 +7,6 @@ import {
 } from "@app/db-schema/schema";
 import { db } from "../../../../../../lib/server/db/index";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
-import { loadHumanInterviewMeetingInterviewerScope } from "./human-interview-meetings";
 
 export async function loadStudioHumanInterviewReviewScope(input: {
   candidateId: string;
@@ -26,6 +25,7 @@ export async function loadStudioHumanInterviewReviewScope(input: {
     .select({
       meetingId: humanInterviewMeeting.id,
       pipelineStage: recruitingRecordReadModel.pipelineStage,
+      status: humanInterviewMeeting.status,
     })
     .from(humanInterviewRound)
     .innerJoin(
@@ -61,11 +61,17 @@ export async function loadStudioHumanInterviewReviewScope(input: {
   if (!row) {
     return null;
   }
-  const scope = await loadHumanInterviewMeetingInterviewerScope({
+  return {
+    // The system route has already checked recruiting visibility; its mutation
+    // middleware separately requires humanInterview:update. Meeting assignment
+    // remains the access boundary for public interviewer links only.
+    canManageReview: true,
     meetingId: row.meetingId,
     organizationId: input.organizationId,
+    pipelineStage: row.pipelineStage,
+    role: "observer" as const,
     roundId: input.roundId,
+    status: row.status,
     userId: input.userId,
-  });
-  return scope ? { ...scope, pipelineStage: row.pipelineStage } : null;
+  };
 }
