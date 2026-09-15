@@ -172,7 +172,7 @@ describe("human interviewer assignment state", () => {
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "false";
   });
 
-  it("notifies only the candidate when HR first creates the meeting", async () => {
+  it("creates the meeting and confirms interviewers without automatic invitation events", async () => {
     await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.id, MEETING_ID));
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "true";
 
@@ -192,7 +192,7 @@ describe("human interviewer assignment state", () => {
       .select({ type: recruitingNotificationEvent.type })
       .from(recruitingNotificationEvent)
       .where(eq(recruitingNotificationEvent.humanMeetingId, created.id));
-    expect(events).toEqual([{ type: "human_candidate_invitation_requested" }]);
+    expect(events).toEqual([]);
     const assignments = await db
       .select({
         confirmedScheduleVersion: humanInterviewRoundInterviewer.confirmedScheduleVersion,

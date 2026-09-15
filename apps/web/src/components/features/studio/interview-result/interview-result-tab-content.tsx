@@ -107,6 +107,15 @@ export function InterviewResultTabContent({
               <InterviewResultOverviewSkeleton />
             ) : (
               <InterviewResultFrame
+                invitation={
+                  model.canUpdateInterview &&
+                  showRoundActions &&
+                  isLatestResultReportSelected &&
+                  record.roundId &&
+                  record.pipelineStage === "ai_interview"
+                    ? { roundId: record.roundId, slug: model.slug }
+                    : undefined
+                }
                 canEditQuestions={
                   model.mode === "resume" &&
                   Boolean(model.canUpdateResumeLibrary) &&

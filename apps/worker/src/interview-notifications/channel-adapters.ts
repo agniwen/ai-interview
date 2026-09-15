@@ -81,7 +81,7 @@ async function sendEmail(input: SendInterviewNotificationInput) {
     result = await getResendClient().emails.send(
       {
         from: buildSenderFromAddress(input.payload.companyName),
-        html: renderInterviewNotificationEmailHtml(input),
+        html: input.payload.manualAiInvitation?.html ?? renderInterviewNotificationEmailHtml(input),
         subject: input.renderedSubject,
         text: input.renderedContent,
         to: input.address,

@@ -11,9 +11,6 @@ import {
 import type { HumanInterviewMeetingScheduleUpdate } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
-  buildCandidateInviteToken,
-  buildInviteExpiry,
-  hashInviteToken,
   HumanInterviewMeetingError,
   resolveValidUntilInput,
 } from "./human-interview-meeting-access";
@@ -84,10 +81,6 @@ export async function updateHumanInterviewMeetingSchedule({
     const reopeningNotHeldMeeting = existing.status === "not_held";
     const roundLinks = await tx
       .select({
-        candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
-        candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
-        candidateRespondedAt: humanInterviewMeetingRound.candidateRespondedAt,
-        invitationVersion: humanInterviewMeetingRound.invitationVersion,
         roundId: humanInterviewMeetingRound.roundId,
       })
       .from(humanInterviewMeetingRound)
@@ -176,6 +169,7 @@ export async function updateHumanInterviewMeetingSchedule({
             roundLinks.map((round) => round.roundId),
           ),
         );
+      // 同一场会议改期只更新安排，不轮换邀请 Token 或重置候选人响应。
       await tx
         .update(humanInterviewMeetingRound)
         .set({ joinedAt: null, leftAt: null })
@@ -184,41 +178,6 @@ export async function updateHumanInterviewMeetingSchedule({
         .update(humanInterviewMeetingInterviewer)
         .set({ joinedAt: null, leftAt: null })
         .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
-      for (const roundLink of roundLinks) {
-        const candidateInviteExpiresAt = new Date(buildInviteExpiry(now.getTime()));
-        const candidateInviteTokenHash = roundLink.candidateInviteTokenHash
-          ? hashInviteToken(
-              buildCandidateInviteToken({
-                exp: candidateInviteExpiresAt.getTime(),
-                meetingId,
-                roundId: roundLink.roundId,
-              }),
-            )
-          : null;
-        await tx
-          .update(humanInterviewMeetingRound)
-          .set({
-            candidateDeclineReason:
-              roundLink.candidateInviteStatus === "declined" ? undefined : null,
-            candidateInviteExpiresAt: roundLink.candidateInviteTokenHash
-              ? candidateInviteExpiresAt
-              : null,
-            candidateInviteStatus: roundLink.candidateInviteStatus,
-            candidateInviteTokenHash,
-            candidateRespondedAt: roundLink.candidateRespondedAt,
-            invitationVersion:
-              roundLink.candidateInviteStatus === "accepted" ||
-              roundLink.candidateInviteStatus === "declined"
-                ? roundLink.invitationVersion
-                : sql`${humanInterviewMeetingRound.invitationVersion} + 1`,
-          })
-          .where(
-            and(
-              eq(humanInterviewMeetingRound.meetingId, meetingId),
-              eq(humanInterviewMeetingRound.roundId, roundLink.roundId),
-            ),
-          );
-      }
       const roundIds = roundLinks.map((round) => round.roundId);
       if (interviewerIds) {
         await tx
