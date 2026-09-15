@@ -24,10 +24,7 @@ import {
   focusJobDescriptionBasicTabOnInvalidSubmit,
   toDepartmentScopedFormValues,
 } from "./job-description-form-values";
-import type {
-  JobDescriptionFormTab,
-  JobDescriptionSubmitAction,
-} from "./job-description-form-values";
+import type { JobDescriptionFormTab } from "./job-description-form-values";
 import {
   LinkedFormsList,
   LinkedInterviewQuestionTemplatesList,
@@ -65,9 +62,7 @@ export function JobDescriptionFormDialog({
     suggestedName: string;
     supplementedItems: JobDescriptionSupplementedItem[];
   } | null>(null);
-  const submitRef = useRef<
-    ((value: JobDescriptionFormValues, action: JobDescriptionSubmitAction) => Promise<void>) | null
-  >(null);
+  const submitRef = useRef<((value: JobDescriptionFormValues) => Promise<void>) | null>(null);
   const resolvedInitialValues = useMemo(
     () =>
       record
@@ -77,10 +72,9 @@ export function JobDescriptionFormDialog({
   );
   const form = useForm({
     defaultValues: resolvedInitialValues,
-    onSubmit: ({ meta, value }) => submitRef.current?.(value, meta.action),
+    onSubmit: ({ value }) => submitRef.current?.(value),
     onSubmitInvalid: ({ formApi }) =>
       focusJobDescriptionBasicTabOnInvalidSubmit(formApi.store.state.fieldMeta, setActiveTab),
-    onSubmitMeta: { action: "save" as const },
     validators: { onSubmit: jobDescriptionFormSchema },
   });
   const actions = useJobDescriptionFormActions({

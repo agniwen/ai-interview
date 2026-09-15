@@ -86,11 +86,6 @@ export const PINNED_EDGE_START_BORDER_CLASS =
 export const PINNED_EDGE_END_BORDER_CLASS =
   "relative before:pointer-events-none before:absolute before:inset-y-0 before:start-0 before:z-[1] before:w-px before:bg-border";
 
-/** @deprecated Use PINNED_EDGE_START_BORDER_CLASS */
-export const PINNED_EDGE_LEFT_BORDER_CLASS = PINNED_EDGE_START_BORDER_CLASS;
-/** @deprecated Use PINNED_EDGE_END_BORDER_CLASS */
-export const PINNED_EDGE_RIGHT_BORDER_CLASS = PINNED_EDGE_END_BORDER_CLASS;
-
 /**
  * Pin-edge columns (without columnOrderingFeature):
  * - start group: last leaf is the inner edge

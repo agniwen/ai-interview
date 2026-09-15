@@ -12,7 +12,6 @@ export const JOB_SETTING_CONTROL_CLASS =
   "flex w-full flex-col gap-2 @md/field-group:basis-80 @md/field-group:shrink-0";
 
 export type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
-export type JobDescriptionSubmitAction = "save";
 // oxlint-disable no-explicit-any -- TanStack Form has 11 validator generics after TFormData; only the values type matters here.
 export type JobDescriptionFormApi = ReactFormExtendedApi<
   JobDescriptionFormValues,
@@ -29,22 +28,6 @@ export type JobDescriptionFormApi = ReactFormExtendedApi<
   any
 >;
 // oxlint-enable no-explicit-any
-
-export function recordEvaluationPreview(record: JobDescriptionRecord | null) {
-  if (record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash) {
-    return {
-      blueprint: record.evaluationBlueprintPreview,
-      blueprintHash: record.evaluationBlueprintPreviewHash,
-    };
-  }
-  if (record?.evaluationBlueprint && record.evaluationBlueprintHash) {
-    return {
-      blueprint: record.evaluationBlueprint,
-      blueprintHash: record.evaluationBlueprintHash,
-    };
-  }
-  return null;
-}
 
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
@@ -86,12 +69,6 @@ export function toFormValues(record: JobDescriptionRecord): JobDescriptionFormVa
     salaryMinK: record.salaryMinK,
     targetDate: record.targetDate,
   };
-}
-
-export function toStructuredDraftValues(
-  values: JobDescriptionFormValues,
-): JobDescriptionFormValues {
-  return values;
 }
 
 export function toDepartmentScopedFormValues(

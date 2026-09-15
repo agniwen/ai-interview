@@ -6,10 +6,7 @@ import { runAsyncAction } from "@/lib/client/async-control";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
-import type {
-  JobDescriptionFormApi,
-  JobDescriptionSubmitAction,
-} from "./job-description-form-values";
+import type { JobDescriptionFormApi } from "./job-description-form-values";
 
 interface PendingGeneratedJobDescription {
   jobDescription: string;
@@ -37,10 +34,7 @@ export function useJobDescriptionFormActions({
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = useState(false);
 
-  async function submitJobDescription(
-    value: JobDescriptionFormValues,
-    _action: JobDescriptionSubmitAction,
-  ) {
+  async function submitJobDescription(value: JobDescriptionFormValues) {
     const body = {
       allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
       code: value.code?.trim() || undefined,

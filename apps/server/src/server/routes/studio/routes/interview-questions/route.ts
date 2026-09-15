@@ -25,7 +25,7 @@ import {
   loadInterviewQuestionTemplateVersionById,
   resolveOrCreateInterviewQuestionTemplateVersion,
 } from "./dao/versions";
-import { listAllJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { listManagedJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import {
   resolveAiGenerateContext,
@@ -235,7 +235,7 @@ export const interviewQuestionTemplatesRouter = factory
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+    const jobDescriptions = await listManagedJobDescriptions(activeOrg.id);
     return c.json({ jobDescriptions }, 200);
   })
   .post(

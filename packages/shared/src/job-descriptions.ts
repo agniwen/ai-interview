@@ -12,10 +12,7 @@ import {
 import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
-import {
-  createDefaultResumeScreeningPolicy,
-  resumeScreeningPolicySchema,
-} from "./resume-screening";
+import { createDefaultResumeScreeningPolicy } from "./resume-screening";
 import type { ResumeScreeningPolicy } from "./resume-screening";
 import type { ResumePoolProfileHighlights } from "./resume-pool";
 
@@ -119,11 +116,6 @@ export const structuredJobDescriptionPublishSchema = z
   })
   .strict();
 export const publishedJobOperationalUpdateSchema = operationalAssignmentSchema.strict();
-export const legacyJobDescriptionUpdateSchema = structuredJobDescriptionCreateSchema
-  .extend({
-    resumeScreeningPolicy: resumeScreeningPolicySchema,
-  })
-  .strict();
 
 export const jobDescriptionFormSchema = jobDescriptionSaveSchema;
 export const jobDescriptionUpdateSchema = jobDescriptionSaveSchema;

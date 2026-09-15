@@ -8,7 +8,6 @@ import * as React from "react";
 import { DayPicker, getDefaultClassNames } from "react-day-picker";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { cn } from "@app/shared/utils";
 
 function Calendar({
@@ -67,7 +66,6 @@ function Calendar({
         disabled: cn("text-muted-foreground opacity-50", defaultClassNames.disabled),
         dropdown: cn("absolute inset-0 bg-popover opacity-0", defaultClassNames.dropdown),
         dropdown_root: cn(
-          cossControlOverlayClass,
           "relative rounded-md border border-input bg-background bg-clip-padding has-focus:border-ring has-focus:ring-1 has-focus:ring-ring dark:bg-input/30",
           defaultClassNames.dropdown_root,
         ),

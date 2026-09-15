@@ -32,9 +32,9 @@ import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { requirePermission } from "../../../../middlewares/permission";
 import {
-  listAllJobDescriptions,
+  listManagedJobDescriptions,
   listRecruitingJobDescriptions,
-  loadJobDescriptionById,
+  loadManagedJobDescriptionById,
   loadJobDescriptionMetrics,
   loadRecruitingJobDescriptionById,
   queryPaginatedJobDescriptions,
@@ -346,7 +346,7 @@ export function createJobDescriptionsRouter(
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const records = await listAllJobDescriptions(activeOrg.id);
+      const records = await listManagedJobDescriptions(activeOrg.id);
       return c.json({ records }, 200);
     })
     .get("/metrics", dependencies.requirePermission("jd", "read"), async (c) => {
@@ -646,7 +646,7 @@ export function createJobDescriptionsRouter(
             organizationId: activeOrg.id,
           });
           safeUpdateTag(`job-descriptions:${activeOrg.id}`);
-          const record = await loadJobDescriptionById(activeOrg.id, id);
+          const record = await loadManagedJobDescriptionById(activeOrg.id, id);
           if (!record) {
             return c.json({ error: "发布后的在招岗位读取失败。" }, 500);
           }
@@ -670,7 +670,7 @@ export function createJobDescriptionsRouter(
           return c.json({ message: "Unauthorized" }, 401);
         }
         const id = c.req.param("id");
-        const existing = await loadJobDescriptionById(activeOrg.id, id);
+        const existing = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!existing) {
           return c.json({ error: "在招岗位不存在。" }, 404);
         }
@@ -712,7 +712,7 @@ export function createJobDescriptionsRouter(
           jobDescriptionId: id,
           organizationId: activeOrg.id,
         });
-        const updated = await loadJobDescriptionById(activeOrg.id, id);
+        const updated = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!updated) {
           return c.json({ error: "更新后的在招岗位读取失败。" }, 500);
         }
@@ -745,7 +745,7 @@ export function createJobDescriptionsRouter(
         return c.json({ message: "Unauthorized" }, 401);
       }
       const id = c.req.param("id");
-      const record = await loadJobDescriptionById(activeOrg.id, id);
+      const record = await loadManagedJobDescriptionById(activeOrg.id, id);
       if (!record) {
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
@@ -800,7 +800,7 @@ export function createJobDescriptionsRouter(
           return c.json({ message: "Unauthorized" }, 401);
         }
         const id = c.req.param("id");
-        const existing = await loadJobDescriptionById(activeOrg.id, id);
+        const existing = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!existing) {
           return c.json({ error: "在招岗位不存在。" }, 404);
         }
@@ -911,7 +911,7 @@ export function createJobDescriptionsRouter(
           organizationId: activeOrg.id,
         });
 
-        const updated = await loadJobDescriptionById(activeOrg.id, id);
+        const updated = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!updated) {
           return c.json({ error: "保存后的在招岗位读取失败。" }, 500);
         }
@@ -924,7 +924,7 @@ export function createJobDescriptionsRouter(
         return c.json({ message: "Unauthorized" }, 401);
       }
       const id = c.req.param("id");
-      const existing = await loadJobDescriptionById(activeOrg.id, id);
+      const existing = await loadManagedJobDescriptionById(activeOrg.id, id);
       if (!existing) {
         return c.json({ error: "在招岗位不存在。" }, 404);
       }

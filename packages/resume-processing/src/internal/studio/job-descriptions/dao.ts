@@ -679,15 +679,6 @@ export async function loadRecruitingJobDescriptionById(
   return record?.lifecycleStatus === "published" ? record : null;
 }
 
-/** @deprecated Choose the explicit management or recruiting loader. */
-export const listAllJobDescriptions = listManagedJobDescriptions;
-/** @deprecated Choose the explicit management or recruiting loader. */
-export const loadJobDescriptionById = loadManagedJobDescriptionById;
-/** @deprecated Choose the explicit management or recruiting existence check. */
-export const jobDescriptionIdsExist = managedJobDescriptionIdsExist;
-/** @deprecated Recruiting ingestion must use published jobs only. */
-export const fetchJobDescriptionsByCodes = fetchPublishedJobDescriptionsByCodes;
-
 // =========================================================================
 // 头部 chart 聚合查询 / Header chart aggregations.
 // =========================================================================
