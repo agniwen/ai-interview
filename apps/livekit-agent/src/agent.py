@@ -310,6 +310,7 @@ def _build_session(
     if resolve_voice_mode() == "realtime":
         return AgentSession(
             llm=qwen_realtime.RealtimeModel.from_env(),
+            max_tool_steps=8,
             userdata=state,
             turn_handling={"turn_detection": "realtime_llm"},
         )
@@ -1014,7 +1015,7 @@ async def my_agent(ctx: JobContext) -> None:
 
     def _on_participant_disconnected(p: rtc.RemoteParticipant) -> None:
         nonlocal grace_task
-        if p.identity != candidate_identity:
+        if p.identity != candidate_identity or _session_already_closing():
             return
         if grace_task is not None and not grace_task.done():
             return
@@ -1079,7 +1080,11 @@ async def my_agent(ctx: JobContext) -> None:
 
     def _on_participant_connected(p: rtc.RemoteParticipant) -> None:
         nonlocal grace_task, resume_task
-        if p.identity != candidate_identity or grace_task is None:
+        if (
+            p.identity != candidate_identity
+            or grace_task is None
+            or _session_already_closing()
+        ):
             return
         logger.info("candidate %s reconnected; cancelling grace", p.identity)
         grace_task.cancel()

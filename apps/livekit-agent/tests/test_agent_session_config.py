@@ -56,6 +56,7 @@ def test_realtime_is_default_and_does_not_build_the_old_pipeline(monkeypatch):
     )
     assert session.kwargs == {
         "llm": "qwen-realtime",
+        "max_tool_steps": 8,
         "userdata": "state",
         "turn_handling": {"turn_detection": "realtime_llm"},
     }
@@ -349,3 +350,46 @@ def test_cloud_room_options_keep_noise_cancellation(monkeypatch):
     assert (
         options.audio_input.noise_cancellation is agent_module._pick_noise_cancellation
     )
+
+
+async def test_room_close_then_participant_disconnect_does_not_restart_reconnect(
+    monkeypatch,
+):
+    from dataclasses import replace
+    from unittest.mock import AsyncMock, Mock
+
+    from livekit.agents import CloseReason
+    from test_realtime_interview_agent import context
+
+    dispatch = context()
+    dispatch = replace(dispatch, recording=replace(dispatch.recording, enabled=False))
+    monkeypatch.setattr(agent_module, "parse_dispatch_context", lambda _: dispatch)
+    monkeypatch.setattr(agent_module.lkapi_module, "LiveKitAPI", lambda: None)
+    callbacks = {}
+    room_callbacks = {}
+    session = SimpleNamespace(start=AsyncMock(), interrupt=Mock())
+    session.on = lambda event: lambda callback: callbacks.__setitem__(event, callback)
+
+    def build_session(**kwargs):
+        session.userdata = kwargs["state"]
+        return session
+
+    monkeypatch.setattr(agent_module, "_build_session", build_session)
+    participant = SimpleNamespace(identity="candidate", metadata="{}")
+    ctx = SimpleNamespace(
+        proc=SimpleNamespace(),
+        room=SimpleNamespace(
+            name="test-room",
+            on=lambda event, callback: room_callbacks.__setitem__(event, callback),
+        ),
+        wait_for_participant=AsyncMock(return_value=participant),
+    )
+    await agent_module.my_agent(ctx)
+    closed = SimpleNamespace(reason=CloseReason.USER_INITIATED)
+    try:
+        callbacks["close"](closed)
+        room_callbacks["participant_disconnected"](participant)
+        session.interrupt.assert_not_called()
+        assert not session.userdata.clock.is_paused
+    finally:
+        callbacks["close"](closed)

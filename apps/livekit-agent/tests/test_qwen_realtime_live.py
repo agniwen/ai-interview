@@ -281,3 +281,88 @@ async def test_marks_a_topic_before_asking_without_inventing_an_answer():
         outcomes = {item.question_id: item for item in agent.question_outcomes}
         for question_id in state["active_question_ids"]:
             assert outcomes[question_id].status.value == "interrupted"
+
+
+async def test_tool_error_returns_to_model_and_valid_retry_can_continue():
+    interview = RealtimeInterviewAgent(context())
+    save_tool = next(
+        tool for tool in interview.tools if tool.info.name == "record_answer"
+    )
+    async with configured_model() as model, AgentSession(llm=model) as session:
+        await session.start(
+            Agent(
+                instructions=(
+                    "你在做工具校验测试。收到事实后，必须先用 question_id=unknown 调用 record_answer，"
+                    "status=answered，answer_summary=负责订单服务。收到题号校验错误后，"
+                    "改用 question_id=q1 重试，其他字段不变。保存成功后简短确认。"
+                ),
+                tools=[save_tool],
+            )
+        )
+        await asyncio.wait_for(
+            session.run(user_input="我负责订单服务，请开始测试。"), 90
+        )
+        outputs = [
+            item
+            for item in session.history.items
+            if isinstance(item, llm.FunctionCallOutput)
+        ]
+        assert any(item.is_error for item in outputs), outputs
+        assert any(not item.is_error for item in outputs), outputs
+        assert interview.question_outcomes[0].answer_summary == "负责订单服务"
+        assert (await interview.get_interview_state())["completed"] == 1
+
+
+async def test_complete_answers_are_final_even_when_candidate_wants_to_continue():
+    agent = RealtimeInterviewAgent(context())
+    async with (
+        configured_model() as model,
+        AgentSession(llm=model, max_tool_steps=8) as session,
+    ):
+        await session.start(agent)
+        await asyncio.wait_for(
+            session.run(
+                user_input="我准备好了。我负责订单系统后端开发和上线，将接口延迟从800毫秒优化到200毫秒。离职是因为团队解散。我还想聊聊，先不要结束。"
+            ),
+            90,
+        )
+        state = await agent.get_interview_state()
+        assert state["answered"] == 2, state
+        await asyncio.wait_for(
+            session.run(
+                user_input="更正一下，最终延迟是300毫秒，不是200毫秒，离职原因不变。没有其他内容，现在请结束。"
+            ),
+            90,
+        )
+        assert all(q.status.value == "answered" for q in agent.question_outcomes)
+        assert "300" in agent.question_outcomes[0].answer_summary
+        assert "解散" in agent.question_outcomes[1].answer_summary
+
+
+async def test_no_more_questions_is_saved_even_when_candidate_delays_hangup():
+    from dataclasses import replace
+
+    from dispatch_context import DispatchQuestion
+
+    dispatch = replace(
+        context(),
+        questions=(
+            DispatchQuestion("q1", "项目职责", "medium", "实际参与", "职责和成果"),
+            DispatchQuestion("q2", "您是否还有补充或想问的问题？", "easy", None, None),
+        ),
+    )
+    agent = RealtimeInterviewAgent(dispatch)
+    async with (
+        configured_model() as model,
+        AgentSession(llm=model, max_tool_steps=8) as session,
+    ):
+        await session.start(agent)
+        await asyncio.wait_for(
+            session.run(
+                user_input="我负责订单后端开发上线，延迟从800降到300毫秒。目前没有其他补充也没有问题，但先不要结束，我检查一下设备。"
+            ),
+            90,
+        )
+        state = await agent.get_interview_state()
+        assert state["answered"] == 2, state
+        assert agent.workflow_stop_reason is None

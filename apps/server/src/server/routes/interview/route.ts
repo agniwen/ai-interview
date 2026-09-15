@@ -1,4 +1,4 @@
-import { getInterviewLiveSession } from "./utils/live-session";
+import { getInterviewLiveSession, endInterviewLiveSession } from "./utils/live-session";
 import {
   lockAiRound,
   updateEffectiveAiProgress,
@@ -145,9 +145,15 @@ async function recordDirectAiInterviewVisit(
   });
 }
 
-const defaultInterviewDependencies = { getLiveSession: getInterviewLiveSession };
+const defaultInterviewDependencies = {
+  endLiveSession: endInterviewLiveSession,
+  getLiveSession: getInterviewLiveSession,
+};
 
-export function createInterviewRouter(dependencies = defaultInterviewDependencies) {
+export function createInterviewRouter(
+  overrides: Partial<typeof defaultInterviewDependencies> = {},
+) {
+  const dependencies = { ...defaultInterviewDependencies, ...overrides };
   return (
     factory
       .createApp()
@@ -637,7 +643,11 @@ export function createInterviewRouter(dependencies = defaultInterviewDependencie
               return { kind: "inactive" } as const;
             }
             if (entry.status === "completed") {
-              return { kind: "ok", organizationId: entry.organizationId } as const;
+              return {
+                kind: "ok",
+                organizationId: entry.organizationId,
+                roomToEnd: mode === "final" ? entry.liveKitRoomName : null,
+              } as const;
             }
             if (mode === "interrupt") {
               if (entry.status === "in_progress") {
@@ -678,7 +688,11 @@ export function createInterviewRouter(dependencies = defaultInterviewDependencie
               .set({ conversationId, status: "completed", updatedAt: now })
               .where(eq(aiInterviewRound.id, roundId));
             await updateEffectiveAiProgress(tx, roundId, "awaiting_review");
-            return { kind: "ok", organizationId: entry.organizationId } as const;
+            return {
+              kind: "ok",
+              organizationId: entry.organizationId,
+              roomToEnd: entry.liveKitRoomName,
+            } as const;
           });
           if (result.kind === "not_ended") {
             return c.json({ error: "面试结束状态正在同步，请稍后重试。" }, 409);
@@ -690,6 +704,13 @@ export function createInterviewRouter(dependencies = defaultInterviewDependencie
             return c.json({ error: "当前面试已失效，请联系招聘人员。" }, 409);
           }
           safeUpdateTag(cacheTags.studioInterviews(result.organizationId));
+          if ("roomToEnd" in result && result.roomToEnd) {
+            try {
+              await dependencies.endLiveSession(result.roomToEnd);
+            } catch {
+              return c.json({ error: "结束状态已保存，语音连接关闭失败，请重试。" }, 503);
+            }
+          }
           return c.json({ success: true }, 200);
         },
       )

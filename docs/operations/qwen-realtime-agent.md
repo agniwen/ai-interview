@@ -1,5 +1,7 @@
 # Qwen Realtime 适配器
 
+文中 `src/`、`tests/` 和 `.env` 路径相对于 `apps/livekit-agent/`；`make` 命令在仓库根目录运行。
+
 `src/qwen_realtime.py` 实现 LiveKit Agents 1.7 的 `llm.RealtimeModel` / `llm.RealtimeSession` 接口，直接连接百炼 WebSocket。它不依赖 OpenAI 插件的私有实现，也不包含逐题状态机或面试决策规则。
 
 ## 接入
@@ -41,10 +43,11 @@ agent = Agent(
 
 - `get_interview_state`：完整清单、总数、已处理数、充分回答数、当前话题及剩余时间。
 - `set_active_topics`：标记一个或多个正在聊的话题，不限制题目顺序。
-- `record_answer`：使用简单字段保存一项回答，跨题时连续调用；支持收集中、已回答、信息不足、跳过，校验题目 ID，重复保存不增加版本，更正增加版本。避免将复杂答案数组交给模型生成，降低参数格式错误。
+- `record_answer`：使用简单字段保存一项回答；支持收集中、已回答、信息不足、跳过，校验题目 ID，重复保存不增加版本，更正增加版本。
+- `record_answers`：批量保存一次回答覆盖的多个信息项，使用与单题工具相同的校验与版本规则；Realtime 会话连续工具调用上限为 8。
 - `finish_interview`：正常完成时可保存最后一项回答，再根据实际剩余信息判断完成度；提前退出或超时时两个 final 字段必须为空，已有事实先通过 record_answer 保存，工具拒绝把退出请求直接标为答案。接受候选人提前结束，交接给收尾 Agent，再通过 LiveKit `EndCallTool` 关闭房间。
 
-草稿通过 `in_progress` checkpoint 保存；不足/跳过的具体原因保存在回答摘要中。最终报告将未完成条目转换为中断/未提问，不自动补造答案。前后端与 agent 应一起更新，以支持新增草稿状态。
+草稿通过 `in_progress` checkpoint 保存；不足/跳过的具体原因保存在回答摘要中。最终报告保留已有终态；有事实的草稿转为信息不足，无答案的条目按是否问过区分中断/未提问，不自动补造答案。前后端与 agent 应一起更新，以支持新增草稿状态。
 
 候选人短暂离线时保留同一个 agent 的内存状态，并通过既有 checkpoint/报告路径持久化答案；刷新页面恢复转写、计时和麦克风状态。Realtime 重连后等待候选人继续，避免再次生成上一条回答。房间 `departureTimeout` 设置为重连宽限期加 60 秒，确保 LiveKit 默认 20 秒房间回收不会提前结束会话。进程退出或 Qwen WebSocket 断开会终止当前会话，不承诺跨进程恢复声学上下文。
 

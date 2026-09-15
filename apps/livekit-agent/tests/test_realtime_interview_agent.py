@@ -144,7 +144,7 @@ async def test_partial_answer_survives_disconnect_without_becoming_complete():
     assert state["active_question_ids"] == ["q1"]
     agent.finalize_missing_question_outcomes("reconnect_grace_expired")
     outcomes = {q.question_id: q for q in agent.question_outcomes}
-    assert outcomes["q1"].status.value == "interrupted"
+    assert outcomes["q1"].status.value == "insufficient"
     assert outcomes["q1"].answer_summary == "提到了订单项目"
     assert outcomes["q2"].status.value == "unasked"
 
@@ -172,6 +172,7 @@ def test_prompt_uses_information_goals_instead_of_old_pipeline_rules():
         "get_interview_state",
         "set_active_topics",
         "record_answer",
+        "record_answers",
         "finish_interview",
     }
 
@@ -192,3 +193,23 @@ async def test_early_exit_cannot_turn_the_exit_request_into_an_answer():
         final_answer_summary="",
     )
     assert agent.question_outcomes[0].status.value == "interrupted"
+
+
+async def test_stopped_draft_keeps_collected_facts_as_insufficient():
+    agent = RealtimeInterviewAgent(context())
+    await agent.record_answer(
+        question_id="q1", status="in_progress", answer_summary="负责订单服务"
+    )
+    await agent.finish_interview(
+        reason="candidate_requested", final_question_id="", final_answer_summary=""
+    )
+    assert agent.question_outcomes[0].status.value == "insufficient"
+    assert agent.question_outcomes[0].answer_summary == "负责订单服务"
+
+
+async def test_asked_topic_does_not_become_unasked_after_switching():
+    agent = RealtimeInterviewAgent(context())
+    await agent.set_active_topics(question_ids=["q1"])
+    await agent.set_active_topics(question_ids=["q2"])
+    agent.finalize_missing_question_outcomes("reconnect_grace_expired")
+    assert all(q.status.value == "interrupted" for q in agent.question_outcomes)

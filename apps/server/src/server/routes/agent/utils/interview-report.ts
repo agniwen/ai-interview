@@ -201,7 +201,7 @@ export function normalizeInterviewEvaluationOutput(
 }
 // oxlint-enable anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion
 
-const SCORABLE_OUTCOMES = new Set(["answered", "insufficient", "skipped"]);
+const SCORABLE_OUTCOMES = new Set(["answered", "insufficient"]);
 
 export function applyQuestionOutcomesToEvaluation(
   evaluation: InterviewEvaluation,
@@ -224,8 +224,8 @@ export function applyQuestionOutcomesToEvaluation(
     if (outcome.status === "skipped") {
       return {
         ...base,
-        assessment: "候选人明确跳过本题。",
-        score: 0,
+        assessment: "候选人明确跳过本题，不参与评分。",
+        score: null,
       };
     }
     if (outcome.status === "interrupted") {
@@ -255,7 +255,13 @@ export function applyQuestionOutcomesToEvaluation(
   });
   const scorableQuestionIds = new Set(
     dataCollectionResults.questions
-      .filter((outcome) => SCORABLE_OUTCOMES.has(outcome.status))
+      .filter(
+        (outcome) =>
+          SCORABLE_OUTCOMES.has(outcome.status) &&
+          questions.some(
+            (question) => question.questionId === outcome.questionId && question.score !== null,
+          ),
+      )
       .map((outcome) => outcome.questionId),
   );
   const scoreTotal = questions.reduce(
@@ -273,8 +279,15 @@ export function applyQuestionOutcomesToEvaluation(
       ? scorableQuestionIds.size / dataCollectionResults.questions.length
       : 0;
 
+  const answeredCount = dataCollectionResults.questions.filter(
+    (outcome) => outcome.status === "answered",
+  ).length;
+  const limitedAnswers = answeredCount < dataCollectionResults.questions.length / 2;
   return {
     ...evaluation,
+    overallAssessment: limitedAnswers
+      ? `本轮共 ${dataCollectionResults.questions.length} 项信息，已收集 ${answeredCount} 项充分回答；其余信息不足、跳过或未完成。现有证据不足以形成综合结论，请结合下方原话记录人工复核。`
+      : evaluation.overallAssessment,
     overallScore,
     questions,
     recommendation: coverage < 0.5 ? "待定" : evaluation.recommendation,
@@ -422,7 +435,7 @@ export function buildFallbackInterviewEvaluation(
       order: index + 1,
       question: outcome.question,
       questionId: outcome.questionId,
-      score: outcome.status === "skipped" ? 0 : null,
+      score: null,
     };
   });
 

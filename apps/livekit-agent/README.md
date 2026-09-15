@@ -190,3 +190,12 @@ lk docs get-page /agents/start/voice-ai-quickstart
 
 Or use the MCP server at <https://docs.livekit.io/mcp> for IDE integration.
 Submit doc feedback inline via `lk docs submit-feedback` if you hit gaps.
+
+## Realtime 文档与测试记录
+
+- [Qwen Realtime 适配器](../../docs/operations/qwen-realtime-agent.md)
+- [Realtime 本地端到端回归（2026-09-15）](../../docs/verification/realtime-e2e-2026-09-15.md)
+- [语音抢话与打断实测（2026-09-15）](../../docs/verification/voice-interruption-e2e-2026-09-15.md)
+- [中性音色与产品链路 E2E（2026-09-15）](../../docs/verification/neutral-voice-e2e-2026-09-15.md)
+- [Realtime 可见浏览器 E2E 复测](../../docs/verification/realtime-browser-followup-2026-09-15.md)
+- [Realtime 修复与网页复测（2026-09-15）](../../docs/verification/realtime-fix-2026-09-15.md)

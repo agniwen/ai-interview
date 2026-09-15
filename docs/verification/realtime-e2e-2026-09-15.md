@@ -1,5 +1,7 @@
 # Realtime 本地端到端回归（2026-09-15）
 
+文中 `src/`、`tests/` 和 `.env` 路径相对于 `apps/livekit-agent/`；`make` 命令在仓库根目录运行。
+
 ## 环境与范围
 
 - 分支：`feat/realtime-agent`，未提交、未推送。
@@ -47,6 +49,6 @@
 - 自托管 LiveKit 的云降噪插件不可用，日志显示禁用后继续运行；该环境问题未在本次改动中处理。
 - 模型偶尔仍会说“已记录”或使用较长问句，收尾交接也可能重复一句感谢；本轮验证的是信息收集和状态正确性，话术自然度仍有优化空间。
 
-协议能力和官方资料见 [Qwen Realtime 适配器](QWEN_REALTIME.md)。
+协议能力和官方资料见 [Qwen Realtime 适配器](../operations/qwen-realtime-agent.md)。
 
-后续真实音轨的抢话、打断与句中停顿测试见 [语音打断实测](VOICE_INTERRUPTION_E2E.md)，包含接收端录音和两种轮次模式的取舍。
+后续真实音轨的抢话、打断与句中停顿测试见 [语音打断实测](voice-interruption-e2e-2026-09-15.md)，包含接收端录音和两种轮次模式的取舍。
