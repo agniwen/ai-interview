@@ -1,11 +1,13 @@
 import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
 import { createdAtDateQuerySchema } from "@app/shared/date-range-filter";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
+import { dashboardRecruitingActionScopeValues } from "@app/shared/studio-dashboard";
 import { z } from "zod";
 
 export const resumeLibraryListQuerySchema = createdAtDateQuerySchema.safeExtend({
   boardView: recruitingBoardViewSchema.optional(),
   creatorIds: z.string().optional(),
+  dashboardAction: z.enum(dashboardRecruitingActionScopeValues).optional(),
   hrHandling: z.literal("true").optional(),
   jdIds: z.string().optional(),
   knownTotal: z.coerce.number().int().min(0).max(10_000_000).optional(),

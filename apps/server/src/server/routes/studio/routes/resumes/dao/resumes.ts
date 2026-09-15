@@ -1,6 +1,7 @@
 import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
 import { buildRecruitingBoardFilter } from "./board-filter";
+import { buildDashboardActionFilter } from "./dashboard-action-filter";
 import {
   aiInterviewRound,
   recruitingNodeState,
@@ -12,6 +13,7 @@ import {
 } from "@app/db-schema/schema";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
+import { dashboardRecruitingActionScopeValues } from "@app/shared/studio-dashboard";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
 import {
   and,
@@ -107,6 +109,7 @@ const filtersSchema = z.object({
   createdAtBefore: z.date().optional(),
   createdAtFrom: z.date().optional(),
   creatorIds: z.array(z.string()).max(50).optional().nullable(),
+  dashboardAction: z.enum(dashboardRecruitingActionScopeValues).optional(),
   hrHandling: z.boolean().optional(),
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
   nodeResults: z
@@ -343,6 +346,7 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
+    buildDashboardActionFilter(filters?.dashboardAction),
     buildHrHandlingCondition(filters?.hrHandling),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
@@ -794,6 +798,7 @@ export async function queryPaginatedResumeRecords(
     boardView?: RecruitingBoardView;
     createdAtBefore?: Date;
     createdAtFrom?: Date;
+    dashboardAction?: (typeof dashboardRecruitingActionScopeValues)[number];
     hrHandling?: boolean;
     search?: string | null;
     textFilters?: string;
@@ -905,6 +910,7 @@ export function listResumeRecords(
     boardView?: RecruitingBoardView;
     createdAtBefore?: Date;
     createdAtFrom?: Date;
+    dashboardAction?: (typeof dashboardRecruitingActionScopeValues)[number];
     hrHandling?: boolean;
     search?: string | null;
     textFilters?: string;

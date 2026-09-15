@@ -34,8 +34,11 @@ export { getResumeLibraryCardHeight } from "./resume-library-card-layout";
 export interface ResumeFilters extends Record<string, string> {
   createdAtRange: string;
   creatorIds: string;
+  dashboardAction: string;
   hrHandling: string;
   jdIds: string;
+  outcomes: string;
+  pipelineStages: string;
   skills: string;
   stage: string;
 }
@@ -50,10 +53,13 @@ export interface ResumeFilters extends Record<string, string> {
 export const EMPTY_FILTERS: ResumeFilters = {
   createdAtRange: "",
   creatorIds: "",
+  dashboardAction: "",
   hrHandling: "",
   jdIds: "",
   nodeResults: "",
   nodeStatuses: "",
+  outcomes: "",
+  pipelineStages: "",
   recommendationLevels: "",
   skills: "",
   stage: "",
@@ -65,7 +71,9 @@ export const RESUME_LIBRARY_FILTER_KEYS =
   // SAFETY: Object.keys returns own keys from the fixed ResumeFilters owner contract above.
   Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters & string)[];
 // Stage is URL/query state controlled by tabs, not a resettable toolbar condition.
-const resumeLibraryToolbarFilterKeys = RESUME_LIBRARY_FILTER_KEYS.filter((key) => key !== "stage");
+const resumeLibraryToolbarFilterKeys = RESUME_LIBRARY_FILTER_KEYS.filter(
+  (key) => key !== "dashboardAction" && key !== "stage",
+);
 const resumeLibraryFilterKeySet = new Set<string>(resumeLibraryToolbarFilterKeys);
 
 function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & string {
@@ -334,7 +342,11 @@ export function useResumeLibrarySearchState({
 
   const setFilter = useCallback(
     (key: keyof ResumeFilters & string, value: string) => {
-      updateRouteSearchAndResetPage({ [key]: value || undefined });
+      const updates = { [key]: value || undefined };
+      if (key === "stage") {
+        updates.dashboardAction = undefined;
+      }
+      updateRouteSearchAndResetPage(updates);
     },
     [updateRouteSearchAndResetPage],
   );
@@ -362,11 +374,13 @@ export function useResumeLibrarySearchState({
 
   const canResetFilters =
     query.search.trim() !== "" ||
+    query.filters.dashboardAction !== EMPTY_FILTERS.dashboardAction ||
     resumeLibraryToolbarFilterKeys.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
 
   const onResetFilters = useCallback(() => {
     setRowSelection({});
     updateRouteSearch({
+      dashboardAction: undefined,
       page: 1,
       search: undefined,
       ...Object.fromEntries(

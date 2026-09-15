@@ -202,6 +202,7 @@ export function buildRecruitingBoardSearch(
   preset?: (typeof recruitingBoardStagePresets)[number],
 ): SearchParamsRecord {
   const next = preservePrevious ? { ...previous } : {};
+  delete next.dashboardAction;
   next.boardPreset = preset?.id;
   next.page = 1;
   next.stage = preset?.view;

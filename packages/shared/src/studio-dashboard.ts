@@ -3,6 +3,15 @@ import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 
 export type DashboardActionSeverity = "info" | "warning" | "danger";
 
+export const dashboardRecruitingActionScopeValues = [
+  "screening",
+  "ai_pending",
+  "ai_interrupted",
+  "human_pending",
+  "offer_sent",
+] as const;
+export type DashboardRecruitingActionScope = (typeof dashboardRecruitingActionScopeValues)[number];
+
 export interface DashboardActionItem {
   key: string;
   label: string;
@@ -36,10 +45,46 @@ export interface DashboardOfferStatusRow {
 }
 
 export interface DashboardSummary {
+  activeJobs: number;
   formsSubmitted30d: number;
   aiCompleted30d: number;
   humanCompleted30d: number;
   offersSent30d: number;
+  progressing: number;
+  offerOnboarding: number;
+  hired: number;
+  negativeClosed: number;
+  vacancies: number;
+  unconfiguredHeadcount: number;
+}
+
+export interface DashboardCumulativeFunnel {
+  resumesAdded: number;
+  enteredInterview: number;
+  enteredSecondInterview: number;
+  enteredOffer: number;
+  hired: number;
+}
+
+export interface DashboardRecruiterProgressRow {
+  userId: string | null;
+  userName: string;
+  userImage: string | null;
+  userRemark: string | null;
+  total: number;
+  interviewing: number;
+  offerOnboarding: number;
+  hired: number;
+  pendingActions: number;
+}
+
+export interface DashboardVacancyRow {
+  id: string;
+  name: string;
+  departmentName: string | null;
+  headcount: number | null;
+  hired: number;
+  gap: number;
 }
 
 export interface RecruitingDashboardMetrics {
@@ -49,4 +94,7 @@ export interface RecruitingDashboardMetrics {
   jobPipeline: DashboardJobPipelineRow[];
   offerStatuses: DashboardOfferStatusRow[];
   summary: DashboardSummary;
+  cumulativeFunnel: DashboardCumulativeFunnel;
+  recruiterProgress: DashboardRecruiterProgressRow[];
+  vacancies: DashboardVacancyRow[];
 }
