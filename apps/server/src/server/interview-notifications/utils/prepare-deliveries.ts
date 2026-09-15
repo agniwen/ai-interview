@@ -30,6 +30,7 @@ import {
   buildInterviewerInviteToken,
   buildInviteExpiry,
 } from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
+import { absolutePublicAppUrl } from "../../../lib/server/public-app-url";
 
 const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
 
@@ -109,11 +110,6 @@ function providerRequestKey(eventId: string, channel: string, address: string): 
   return `${eventId}:${channel}:${recipientHash}`;
 }
 
-function absoluteAppUrl(path: string): string {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  return baseUrl ? `${baseUrl.replace(/\/$/, "")}${path}` : path;
-}
-
 async function loadInterviewerMeetingLink(
   database: NotificationDatabase,
   meetingId: string,
@@ -138,7 +134,7 @@ async function loadInterviewerMeetingLink(
     role: assignment.role,
     userId,
   });
-  return absoluteAppUrl(`/human-interview/interviewer/${encodeURIComponent(token)}`);
+  return absolutePublicAppUrl(`/human-interview/interviewer/${encodeURIComponent(token)}`);
 }
 
 async function loadRecordContexts(

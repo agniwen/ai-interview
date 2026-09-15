@@ -4,6 +4,53 @@ import { generateHumanInterviewEvaluation } from "./human-interview-evaluation-g
 const supportedReview = { generate: vi.fn(() => Promise.resolve({ text: '{"issues":[]}' })) };
 
 describe("generateHumanInterviewEvaluation", () => {
+  it("drops an extra untrusted citation when reliable candidate evidence remains", async () => {
+    const evaluation = {
+      detailedAnalysis: "候选人说明了系统架构设计与实施过程。",
+      evidenceTurnIds: ["candidate-turn", "interviewer-turn"],
+      overallEvaluation: "架构经验符合岗位要求。",
+      professionalSkill: "良",
+      rating: "A",
+      risks: "-",
+      rolePosition: "架构工程师",
+      salaryRecommendation: "-",
+      seniorityPosition: "-",
+      strengths: "具备系统架构实施经验。",
+    };
+    const generate = vi.fn(() => Promise.resolve({ text: JSON.stringify(evaluation) }));
+    const review = vi.fn(() => Promise.resolve({ text: '{"issues":[]}' }));
+
+    await expect(
+      generateHumanInterviewEvaluation(
+        {
+          candidateName: "候选人",
+          jobDescription: "负责核心系统架构。",
+          resume: "具有系统架构经验。",
+          salaryRange: null,
+          turns: [
+            {
+              attribution: { method: "track", role: "candidate" },
+              id: "candidate-turn",
+              speakerDisplayName: "候选人",
+              speakerKey: "candidate",
+              text: "我负责过核心系统架构。",
+            },
+            {
+              attribution: { method: "track", role: "interviewer" },
+              id: "interviewer-turn",
+              speakerDisplayName: "面试官",
+              speakerKey: "interviewer",
+              text: "请介绍核心系统架构经验。",
+            },
+          ],
+        },
+        { generate },
+        { generate: review },
+      ),
+    ).resolves.toMatchObject({ evidenceTurnIds: ["candidate-turn"] });
+    expect(review).toHaveBeenCalledOnce();
+  });
+
   it("retains a negative rating supported by an explicit business experience conflict", async () => {
     const evaluation = {
       detailedAnalysis: "岗位要求独立负责海外渠道，候选人明确表示从未做过海外渠道。",

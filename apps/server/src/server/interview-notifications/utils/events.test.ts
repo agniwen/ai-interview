@@ -197,6 +197,40 @@ describe("interview notification company name", () => {
 
 describe("human meeting event links", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("omits localhost links from outbound notifications", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3000");
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3000");
+
+    expect(
+      resolveHumanMeetingEventInterviewLink({
+        candidateInviteExpiresAt: null,
+        candidateInviteTokenHash: null,
+        humanRoundId: "round-2",
+        interviewRecordId: "candidate-1",
+        meetingId: "meeting-1",
+        organizationSlug: "team",
+        type: "human_evaluation_summary_ready",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("uses a configured public fallback when another base URL is localhost", () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3000");
+    vi.stubEnv("BETTER_AUTH_URL", "https://app.test");
+
+    expect(
+      resolveHumanMeetingEventInterviewLink({
+        candidateInviteExpiresAt: null,
+        candidateInviteTokenHash: null,
+        humanRoundId: "round-2",
+        interviewRecordId: "candidate-1",
+        meetingId: "meeting-1",
+        organizationSlug: "team",
+        type: "human_evaluation_summary_ready",
+      }),
+    ).toMatch(/^https:\/\/app\.test\//);
+  });
+
   it("opens the exact system review round even without a candidate invite", () => {
     vi.stubEnv("BETTER_AUTH_URL", "https://app.test");
     const link = resolveHumanMeetingEventInterviewLink({

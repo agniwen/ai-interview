@@ -1,12 +1,14 @@
 /* oxlint-disable prefer-response-static-json -- explicit response bodies mirror Feishu HTTP fixtures. */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildCalendarDescription,
   createFeishuHumanInterviewClient,
 } from "./feishu-human-interview-meeting";
 
 describe("Feishu interview calendar description", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("includes the bound jobs and keeps candidates, rounds and notes", () => {
     const description = buildCalendarDescription({
       candidates: [
@@ -34,6 +36,23 @@ describe("Feishu interview calendar description", () => {
         validUntil: new Date("2026-09-04T03:00:00Z"),
       }),
     ).toContain("面试岗位：未关联岗位");
+  });
+
+  it("refuses to publish a localhost interviewer link to Feishu", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3000");
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3000");
+
+    expect(() =>
+      buildCalendarDescription({
+        candidates: [
+          { candidateName: "张三", jobDescriptionName: "前端工程师", roundLabel: "业务一面" },
+        ],
+        interviewers: [{ id: "user-1", name: "面试官", role: "host" }],
+        meetingId: "meeting-1",
+        notes: null,
+        validUntil: new Date("2026-09-04T03:00:00Z"),
+      }),
+    ).toThrow("公网访问地址");
   });
 });
 

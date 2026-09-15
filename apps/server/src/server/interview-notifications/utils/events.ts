@@ -47,6 +47,7 @@ import {
   buildAiInterviewInvitationToken,
   hashAiInterviewInvitationToken,
 } from "../../routes/studio/routes/interviews/dao/ai-interview-invitation-access";
+import { absolutePublicAppUrl } from "../../../lib/server/public-app-url";
 
 // AI interview reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
 // AI 面试提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
@@ -93,13 +94,8 @@ async function enqueuePreparedInterviewNotificationEvent(
   return event;
 }
 
-function absoluteAppUrl(path: string): string | undefined {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  return baseUrl ? `${baseUrl.replace(/\/$/, "")}${path}` : undefined;
-}
-
 function reportUrl(roundId: string, organizationSlug: string): string | undefined {
-  return absoluteAppUrl(
+  return absolutePublicAppUrl(
     `/w/${encodeURIComponent(organizationSlug)}/studio/interviews?roundId=${encodeURIComponent(roundId)}`,
   );
 }
@@ -108,7 +104,7 @@ function humanInterviewRecordUrl(
   interviewRecordId: string,
   organizationSlug: string,
 ): string | undefined {
-  return absoluteAppUrl(
+  return absolutePublicAppUrl(
     `/w/${encodeURIComponent(organizationSlug)}/studio/resumes/${encodeURIComponent(interviewRecordId)}`,
   );
 }
@@ -269,7 +265,9 @@ export async function enqueueAiInterviewInvitedEvents(
       scheduleEntryId: input.scheduleEntryId,
     });
     if (hashAiInterviewInvitationToken(token) === context.candidateInviteTokenHash) {
-      candidateInvitationLink = absoluteAppUrl(`/ai-interview-invite/${encodeURIComponent(token)}`);
+      candidateInvitationLink = absolutePublicAppUrl(
+        `/ai-interview-invite/${encodeURIComponent(token)}`,
+      );
     }
   }
   const payloadSnapshot = {
@@ -282,7 +280,7 @@ export async function enqueueAiInterviewInvitedEvents(
     interviewEndTime: context.scheduledEndAt?.toISOString(),
     interviewLink:
       candidateInvitationLink ??
-      absoluteAppUrl(buildInterviewLink(context.interviewRecordId, input.scheduleEntryId)),
+      absolutePublicAppUrl(buildInterviewLink(context.interviewRecordId, input.scheduleEntryId)),
     interviewStartTime: context.scheduledAt?.toISOString(),
     interviewType: "ai" as const,
     invitationEndTime:
@@ -394,7 +392,7 @@ export async function enqueueAiInvitationResponseEvent(
         context.workspaceName,
       ),
       initiatorName: context.initiatorName ?? undefined,
-      interviewLink: absoluteAppUrl(
+      interviewLink: absolutePublicAppUrl(
         buildInterviewLink(context.interviewRecordId, input.scheduleEntryId),
       ),
       interviewStartTime: context.scheduledAt?.toISOString(),
@@ -767,7 +765,7 @@ export function resolveHumanMeetingEventInterviewLink(input: {
   type: HumanMeetingEventInput["type"];
 }): string | undefined {
   if (input.type === "human_evaluation_summary_ready") {
-    return absoluteAppUrl(
+    return absolutePublicAppUrl(
       humanInterviewReviewPath({
         candidateId: input.interviewRecordId,
         roundId: input.humanRoundId,
@@ -793,7 +791,7 @@ export function resolveHumanMeetingEventInterviewLink(input: {
   if (hashInviteToken(token) !== input.candidateInviteTokenHash) {
     return undefined;
   }
-  return absoluteAppUrl(`/human-interview/${encodeURIComponent(token)}`);
+  return absolutePublicAppUrl(`/human-interview/${encodeURIComponent(token)}`);
 }
 
 export async function cancelPendingHumanMeetingReminders(

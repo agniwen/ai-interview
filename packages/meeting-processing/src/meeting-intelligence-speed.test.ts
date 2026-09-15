@@ -31,12 +31,25 @@ it("keeps original evidence and independent facts while applying a later correct
       { evidenceTurnIds: ["other"], summary: "other" },
     ],
   });
-  expect(() =>
-    applyIntelligenceMergePlan([payload("old")], {
-      replacements: [{ keep: "missing", remove: ["0:topics:0"] }],
-      summary: "错误",
-    }),
-  ).toThrow();
+});
+
+it("preserves facts when the generated replacement relation is unsafe", () => {
+  const result = applyIntelligenceMergePlan([payload("old"), payload("new")], {
+    replacements: [
+      { keep: "0:topics:0", remove: ["1:topics:0"] },
+      { keep: "missing", remove: ["0:topics:0"] },
+    ],
+    summary: "合并总结",
+  });
+
+  expect(result.template).toBe("general");
+  if (result.template !== "general") {
+    throw new Error("Expected a general meeting intelligence payload");
+  }
+  expect(result.topics).toEqual([
+    { evidenceTurnIds: ["old"], summary: "old", title: "old" },
+    { evidenceTurnIds: ["new"], summary: "new", title: "new" },
+  ]);
 });
 
 it("runs at most three segments concurrently and reuses persisted content including context", async () => {

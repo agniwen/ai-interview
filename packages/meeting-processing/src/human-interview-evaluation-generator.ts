@@ -91,7 +91,7 @@ export async function generateHumanInterviewEvaluation(
   }
   let feedback = "";
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const evaluation = await generateStructuredWithMastraAgent({
+    const generatedEvaluation = await generateStructuredWithMastraAgent({
       agent,
       maxOutputTokens: 12_000,
       observabilityLabel: "human-interview-evaluation",
@@ -119,6 +119,7 @@ rating 必须根据已有可靠证据和岗位要求返回 S、A、B、C 中的�
 - 无法可靠归属给候选人的内容不得作为评价证据，也不得把面试官的问题、提示或陈述当作候选人能力；归属不明时必须写入不确定项；
 - 所有判断只允许来自输入的岗位 JD、内部标准、简历和转录，不得臆测；
 - evidenceTurnIds 必须是字符串数组，只能逐字使用转录 JSON 中的 id；没有可引用证据时返回 []，不得返回 - 或拼接后的字符串；
+- 允许引用的候选人发言 ID 仅限：${JSON.stringify([...evidenceTurnIds])}；
 - SABC 评级不得自动映射为通过、待定或不通过；
 - 不输出 0–100 数字评分；
 - professionalSkill 只能填写：优、良、中、差或 -；只给简短等级，不得附带原因、证据或详细描述；
@@ -144,12 +145,28 @@ ${feedback}`,
       schema: humanInterviewEvaluationSchema,
       temperature: 0.1,
       timeoutMs: 5 * 60 * 1000,
-      validate: (generatedEvaluation) => {
-        if (generatedEvaluation.evidenceTurnIds.some((turnId) => !evidenceTurnIds.has(turnId))) {
-          throw new Error("真人复面 AI 评价引用了未可靠归属给候选人的证据");
-        }
-      },
     });
+    const invalidEvidenceTurnIds = generatedEvaluation.evidenceTurnIds.filter(
+      (turnId) => !evidenceTurnIds.has(turnId),
+    );
+    const validEvidenceTurnIds = generatedEvaluation.evidenceTurnIds.filter((turnId) =>
+      evidenceTurnIds.has(turnId),
+    );
+
+    if (invalidEvidenceTurnIds.length > 0 && attempt === 0) {
+      feedback = `上一版引用了不允许的证据 ID：${invalidEvidenceTurnIds.join(
+        "、",
+      )}。只能引用允许列表中的候选人本人发言。`;
+      continue;
+    }
+    if (invalidEvidenceTurnIds.length > 0 && validEvidenceTurnIds.length === 0) {
+      throw new Error("真人复面 AI 评价引用了未可靠归属给候选人的证据");
+    }
+
+    const evaluation = {
+      ...generatedEvaluation,
+      evidenceTurnIds: validEvidenceTurnIds,
+    };
     const normalized = normalizeGeneratedEvaluation(evaluation);
     const review = await generateStructuredWithMastraAgent({
       agent: evidenceAgent,
