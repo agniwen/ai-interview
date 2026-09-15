@@ -115,14 +115,14 @@ ROLLBACK;
 
 Redis 使用各应用自己的 URL 和代码定义的队列作用域，以直接只读命令检查列表/有序集合及任务 payload 的类型。没有构造可能初始化队列元数据的 BullMQ Queue，没有重试、删除或重新入队。检查 wait、active、paused、delayed、prioritized、waiting-children、failed；未检查 completed 和其他未配置的作用域。仅输出聚合数，不输出任务 ID 或 payload 内容。
 
-| 检查项 | Server 配置作用域 | Worker 配置作用域 |
-| --- | --- | --- |
-| resume-review-generation 等待任务 | 24，全部为 resume_pool_import_questions | 0 |
-| resume-review-generation 失败任务 | 0 | 1，resume_upload |
-| 评价队列其他已检查状态 | 0 | 0 |
-| human-interview-recording 已检查状态 | 全部为 0 | 全部为 0 |
-| 数据库 queued/processing 评价 | 1 条 qualitative-v2 queued，缺少 JD 版本 | 1 条 qualitative-v2 queued，缺少 JD 版本 |
-| human_interview_meeting.recording_tracks 为 NULL | 68 条，其中 65 条没有 processing_meeting_session_id | 同左 |
+| 检查项                                           | Server 配置作用域                                   | Worker 配置作用域                        |
+| ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------- |
+| resume-review-generation 等待任务                | 24，全部为 resume_pool_import_questions             | 0                                        |
+| resume-review-generation 失败任务                | 0                                                   | 1，resume_upload                         |
+| 评价队列其他已检查状态                           | 0                                                   | 0                                        |
+| human-interview-recording 已检查状态             | 全部为 0                                            | 全部为 0                                 |
+| 数据库 queued/processing 评价                    | 1 条 qualitative-v2 queued，缺少 JD 版本            | 1 条 qualitative-v2 queued，缺少 JD 版本 |
+| human_interview_meeting.recording_tracks 为 NULL | 68 条，其中 65 条没有 processing_meeting_session_id | 同左                                     |
 
 数据库统计继续使用带超时的只读事务。这些查询不是跨 PostgreSQL/Redis 的原子快照。没有断言失败任务与 queued 评价是一对，也没有断言上述 65 条会议满足完整恢复条件；是否可恢复还取决于录音状态、文件完整性和终态错误标记。
 
@@ -144,11 +144,11 @@ Redis 使用各应用自己的 URL 和代码定义的队列作用域，以直接
 
 2026-09-15 17:06（Asia/Shanghai）只读检查用户指定的 24 个等待任务和 1 个失败任务；下面时间均为北京时间。
 
-| 对象 | 数量 | 入队时间 | 最后执行与当前状态 |
-| --- | ---: | --- | --- |
-| Server 面试题生成任务 | 4 | 2026-08-20 00:25:15–00:25:18 | 等待约 26.7 天；无开始/结束时间，启动及失败次数均为 0 |
-| Server 面试题生成任务 | 20 | 2026-08-21 00:11:22–00:53:19 | 等待约 25.7 天；无开始/结束时间，启动及失败次数均为 0 |
-| Worker 简历评价任务 | 1 | 2026-08-20 22:09:58 | 最后启动及失败于当日 22:14:06，之后约 25.8 天无执行；启动次数 3、失败计数 1 |
+| 对象                  | 数量 | 入队时间                     | 最后执行与当前状态                                                          |
+| --------------------- | ---: | ---------------------------- | --------------------------------------------------------------------------- |
+| Server 面试题生成任务 |    4 | 2026-08-20 00:25:15–00:25:18 | 等待约 26.7 天；无开始/结束时间，启动及失败次数均为 0                       |
+| Server 面试题生成任务 |   20 | 2026-08-21 00:11:22–00:53:19 | 等待约 25.7 天；无开始/结束时间，启动及失败次数均为 0                       |
+| Worker 简历评价任务   |    1 | 2026-08-20 22:09:58          | 最后启动及失败于当日 22:14:06，之后约 25.8 天无执行；启动次数 3、失败计数 1 |
 
 这些是 Redis 任务自身的 timestamp、processedOn、finishedOn、ats、atm 和 failed 集合时间，不是候选人创建时间。按用户提出的久置任务可视为无用的标准，这 25 个任务可列为过期清理候选，不再作为近期活跃消费者的证据；本次尚未删除或重试任务。其年龄不能单独证明旧生产代码及恢复链路已退出，也不能证明数据库中的 queued 评价就是同一批任务。
 
