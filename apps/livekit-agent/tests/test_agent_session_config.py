@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 import agent as agent_module
 from agent import (
     _build_reconnect_message,
@@ -7,6 +9,25 @@ from agent import (
     _build_session,
     prewarm,
 )
+
+
+async def test_failed_session_releases_job_and_deletes_room():
+    calls = []
+    callbacks = []
+
+    async def delete_room():
+        calls.append("room_deleted")
+
+    ctx = SimpleNamespace(
+        add_shutdown_callback=callbacks.append,
+        shutdown=lambda **kwargs: calls.append(kwargs["reason"]),
+        delete_room=delete_room,
+    )
+    agent_module._shutdown_failed_session(ctx)
+    assert calls == ["system_shutdown"]
+    assert len(callbacks) == 1
+    await callbacks[0]()
+    assert calls == ["system_shutdown", "room_deleted"]
 
 
 class _FakeAgentSession:
@@ -17,6 +38,27 @@ class _FakeAgentSession:
 class _FakeComponent:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+
+
+@pytest.fixture(autouse=True)
+def pipeline_rollback(monkeypatch):
+    monkeypatch.setenv("INTERVIEW_VOICE_MODE", "pipeline")
+
+
+def test_realtime_is_default_and_does_not_build_the_old_pipeline(monkeypatch):
+    monkeypatch.delenv("INTERVIEW_VOICE_MODE", raising=False)
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(
+        agent_module.qwen_realtime.RealtimeModel, "from_env", lambda: "qwen-realtime"
+    )
+    session = _build_session(
+        proc=SimpleNamespace(userdata={}), selected_voice="old-tts-voice", state="state"
+    )
+    assert session.kwargs == {
+        "llm": "qwen-realtime",
+        "userdata": "state",
+        "turn_handling": {"turn_detection": "realtime_llm"},
+    }
 
 
 def test_prewarm_balances_interview_pauses_with_response_latency(monkeypatch):

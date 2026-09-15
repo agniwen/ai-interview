@@ -41,7 +41,7 @@ export function resolveReportUpdate(
     if (
       old &&
       ["answered", "insufficient", "skipped"].includes(old.status) &&
-      ["unasked", "interrupted"].includes(outcome.status)
+      ["unasked", "interrupted", "in_progress"].includes(outcome.status)
     ) {
       continue;
     }

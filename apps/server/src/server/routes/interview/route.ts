@@ -3,7 +3,7 @@ import {
   lockAiRound,
   updateEffectiveAiProgress,
 } from "../studio/routes/interviews/dao/ai-round-lifecycle";
-import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
+import { buildInterviewRoomConfig } from "./utils/room-config";
 import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "../../../lib/server/db/index";
@@ -445,9 +445,7 @@ export function createInterviewRouter(dependencies = defaultInterviewDependencie
           });
 
           if (!isReconnect) {
-            at.roomConfig = new RoomConfiguration({
-              agents: [new RoomAgentDispatch({ agentName })],
-            });
+            at.roomConfig = buildInterviewRoomConfig(agentName);
           }
 
           const participantToken = await at.toJwt();

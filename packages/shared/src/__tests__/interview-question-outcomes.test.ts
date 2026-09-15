@@ -22,6 +22,12 @@ const OUTCOME = {
 };
 
 describe("interview question outcomes", () => {
+  it("persists a draft without treating the question set as complete", () => {
+    const draft = { ...OUTCOME, status: "in_progress" };
+    const results = { questions: [draft], schemaVersion: 2 };
+    expect(parseInterviewDataCollectionResults(results)).toEqual(results);
+    expect(isInterviewQuestionSetComplete(results)).toBe(false);
+  });
   it("parses V2 data collection results", () => {
     expect(
       parseInterviewDataCollectionResults({
