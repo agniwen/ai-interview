@@ -9,7 +9,7 @@ export function buildFeishuLoginButtonOptions(providerIds: FeishuLoginProviderId
   return providerIds.map((providerId) =>
     providerId === "feishu-jiguang-hr"
       ? {
-          label: "极光 HR 飞书登录",
+          label: "飞书/Lark 登陆",
           providerId,
           variant: "default" as const,
         }

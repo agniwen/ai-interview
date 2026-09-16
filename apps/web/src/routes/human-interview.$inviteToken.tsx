@@ -20,6 +20,9 @@ interface HumanInterviewCandidateState {
 const candidatePreviewSchema = z.object({
   candidateInviteStatus: candidateInterviewInvitationStatusSchema,
   candidateName: z.string(),
+  companyContext: z.string().nullable(),
+  jobDescriptionName: z.string().nullable(),
+  jobDescriptionPrompt: z.string().nullable(),
   meetingId: z.string(),
   recordingStatus: humanInterviewRecordingStatusSchema,
   roundLabel: z.string(),

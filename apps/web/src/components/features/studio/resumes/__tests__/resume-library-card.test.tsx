@@ -225,7 +225,7 @@ describe("ResumeLibraryCard", () => {
   });
 
   it.each(["development", "production", "test"])(
-    "shows HR badges only in development (%s)",
+    "does not show HR badges in any environment (%s)",
     (environment) => {
       vi.stubEnv("NODE_ENV", environment);
       const noop = vi.fn();
@@ -267,7 +267,7 @@ describe("ResumeLibraryCard", () => {
       );
 
       expect(content).toContain("人工初面 · 已生成");
-      expect(content.includes("HR处理 · 筛选简历")).toBe(environment === "development");
+      expect(content).not.toContain("HR处理");
       vi.unstubAllEnvs();
       expect(content.indexOf("简历筛选")).toBeLessThan(content.indexOf("重复简历 2 条"));
     },

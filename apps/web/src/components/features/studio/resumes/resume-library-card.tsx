@@ -17,7 +17,6 @@ import {
   describeResumeProgress,
   getHumanInterviewProgressForStage,
 } from "@app/shared/studio-resumes";
-import { getRecruitingHrAction } from "@app/shared/recruiting-hr-action";
 import type {
   ResumeLibraryListRecord,
   ResumeLibraryProfileSnapshot,
@@ -473,7 +472,6 @@ function ResumeLibraryCardComponent({
 }: ResumeLibraryCardProps) {
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
-  const hrAction = getRecruitingHrAction(record);
   const profileSnapshot = record.resumeProfileSnapshot;
   const skills = record.resumeSkills;
   const summary = record.resumeSummary;
@@ -595,11 +593,6 @@ function ResumeLibraryCardComponent({
                   record={record}
                   onOpen={() => onOpenDetail(record, "rounds")}
                 />
-                {process.env.NODE_ENV === "development" && hrAction ? (
-                  <Badge title={hrAction.description} variant="warning">
-                    HR处理 · {hrAction.label}
-                  </Badge>
-                ) : null}
                 {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
               </div>
 

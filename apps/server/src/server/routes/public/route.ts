@@ -233,6 +233,8 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         {
           candidateName: scope.candidateName,
           interviewerName: scope.interviewerName,
+          jobDescriptionName: scope.jobDescriptionName,
+          jobDescriptionPrompt: scope.jobDescriptionPrompt,
           meetingId: scope.meetingId,
           recordingStatus: scope.recordingStatus,
           role: scope.role,
@@ -361,6 +363,9 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         {
           candidateInviteStatus: scope.candidateInviteStatus,
           candidateName: scope.candidateName,
+          companyContext: scope.companyContext,
+          jobDescriptionName: scope.jobDescriptionName,
+          jobDescriptionPrompt: scope.jobDescriptionPrompt,
           meetingId: scope.meetingId,
           recordingStatus: scope.recordingStatus,
           roundLabel: scope.roundLabel,

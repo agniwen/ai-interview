@@ -202,6 +202,9 @@ export interface HumanInterviewMeetingTokenResponse {
 }
 
 export interface PublicHumanInterviewMeetingPreview {
+  companyContext: string | null;
+  jobDescriptionName: string | null;
+  jobDescriptionPrompt: string | null;
   candidateInviteStatus: CandidateInterviewInvitationStatus;
   candidateName: string;
   meetingId: string;
@@ -214,6 +217,8 @@ export interface PublicHumanInterviewMeetingPreview {
 }
 
 export interface PublicHumanInterviewInterviewerPreview {
+  jobDescriptionName: string | null;
+  jobDescriptionPrompt: string | null;
   candidateName: string;
   interviewerName: string;
   meetingId: string;

@@ -538,8 +538,10 @@ export async function resolveHumanInterviewMeetingInviteToken(
       candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
       candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
       candidateName: recruitingRecordReadModel.candidateName,
+      companyContext: globalConfig.companyContext,
       interviewRecordId: humanInterviewRound.recruitingRecordId,
       jobDescriptionName: jobDescription.name,
+      jobDescriptionPrompt: jobDescription.prompt,
       liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
       meetingId: humanInterviewMeeting.id,
       organizationId: humanInterviewMeeting.organizationId,
@@ -567,6 +569,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
         eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
       ),
     )
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, humanInterviewMeeting.organizationId))
     .where(
       and(
         eq(humanInterviewMeetingRound.meetingId, payload.meetingId),
@@ -588,7 +591,10 @@ export async function resolveHumanInterviewMeetingInviteToken(
     candidateInviteExpiresAt: row.candidateInviteExpiresAt.toISOString(),
     candidateInviteStatus: row.candidateInviteStatus,
     candidateName: row.candidateName,
+    companyContext: row.companyContext?.trim() || null,
     interviewRecordId: row.interviewRecordId,
+    jobDescriptionName: row.jobDescriptionName,
+    jobDescriptionPrompt: row.jobDescriptionPrompt,
     liveKitRoomName: row.liveKitRoomName,
     meetingId: row.meetingId,
     organizationId: row.organizationId,
@@ -650,6 +656,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
       candidateName: recruitingRecordReadModel.candidateName,
       jobDescriptionDepartmentName: department.name,
       jobDescriptionName: jobDescription.name,
+      jobDescriptionPrompt: jobDescription.prompt,
       resumeProfile: recruitingRecordReadModel.resumeProfile,
       roundId: humanInterviewRound.id,
       roundLabel: humanInterviewRound.label,
@@ -693,6 +700,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
     interviewerName: row.interviewerName ?? "未命名",
     jobDescriptionDepartmentName: context.jobDescriptionDepartmentName,
     jobDescriptionName: context.jobDescriptionName,
+    jobDescriptionPrompt: context.jobDescriptionPrompt,
     liveKitRoomName: row.liveKitRoomName,
     meetingId: row.meetingId,
     organizationId: row.organizationId,

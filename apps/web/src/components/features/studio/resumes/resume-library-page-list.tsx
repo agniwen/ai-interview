@@ -10,7 +10,6 @@ import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { Switch } from "@/components/ui/switch";
 import { ResumeUploadEntryButton } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { ResumeLibraryCard } from "@/components/features/studio/resumes/resume-library-card";
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
@@ -87,13 +86,11 @@ interface ResumeLibraryCardListProps {
   filters: ToolbarFilterConfig[];
   grid: ResumeLibraryGridState;
   hasNextPage: boolean;
-  hrHandling: boolean;
   onBulkDelete: () => void;
   onCopyDetailLink: (record: ResumeLibraryListRecord) => void;
   onDelete: (record: ResumeLibraryListRecord) => void;
   onEdit: (record: ResumeLibraryListRecord) => void;
   onForceReparse: (record: ResumeLibraryListRecord) => void;
-  onHrHandlingChange: (checked: boolean) => void;
   onLaunchInterview: (record: ResumeLibraryListRecord) => void;
   onOpenBatchList: () => void;
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
@@ -129,7 +126,6 @@ export function ResumeLibraryCardList({
   filters,
   grid,
   hasNextPage,
-  hrHandling,
   hasActiveUploadBatches,
   isFetchingNextPage,
   isInitialLoading,
@@ -139,7 +135,6 @@ export function ResumeLibraryCardList({
   onDelete,
   onEdit,
   onForceReparse,
-  onHrHandlingChange,
   onLaunchInterview,
   onOpenBatchList,
   onOpenDetail,
@@ -332,20 +327,6 @@ export function ResumeLibraryCardList({
         searchLoading={isInitialLoading}
         toolbarRight={
           <div className="flex items-center gap-3">
-            {process.env.NODE_ENV === "development" ? (
-              <label
-                className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm"
-                htmlFor="resume-hr-handling"
-              >
-                <Switch
-                  aria-label="HR处理"
-                  checked={hrHandling}
-                  id="resume-hr-handling"
-                  onCheckedChange={onHrHandlingChange}
-                />
-                <span>HR处理</span>
-              </label>
-            ) : null}
             {canUploadResumeLibrary || canReadResumeUploadBatch ? (
               <ButtonGroup>
                 {canUploadResumeLibrary ? (
