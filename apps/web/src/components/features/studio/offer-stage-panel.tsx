@@ -173,6 +173,9 @@ export function OfferStagePanel({
     queryKey: ["offer-drafts", slug, candidateId],
   });
 
+  const currentDrafts = drafts.filter((draft) => draft.status !== "superseded");
+  const historicalDrafts = drafts.filter((draft) => draft.status === "superseded");
+
   function invalidateDrafts() {
     void queryClient.invalidateQueries({ queryKey: ["offer-drafts", slug, candidateId] });
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
@@ -189,7 +192,7 @@ export function OfferStagePanel({
       return <Skeleton className="h-24 w-full" />;
     }
 
-    if (drafts.length === 0) {
+    if (currentDrafts.length === 0) {
       let emptyDescription = "你可以查看 Offer 记录，但不能创建 Offer。";
       if (disabled) {
         emptyDescription = "已结束候选人不可创建 Offer。";
@@ -211,7 +214,7 @@ export function OfferStagePanel({
 
     return (
       <div className="space-y-3">
-        {drafts.slice(0, 1).map((draft) => (
+        {currentDrafts.slice(0, 1).map((draft) => (
           <OfferCard
             canDelete={canDelete}
             canUpdate={canUpdate}
@@ -251,7 +254,7 @@ export function OfferStagePanel({
         <Frame>
           <FrameHeader className="h-auto min-h-10 justify-between gap-3 py-2">
             <FrameTitle>Offer 内容</FrameTitle>
-            {offerDisabled || !canCreate || !isSuccess || drafts.length > 0 ? null : (
+            {offerDisabled || !canCreate || !isSuccess || currentDrafts.length > 0 ? null : (
               <Button onClick={() => setCreateOpen(true)} size="sm">
                 <IconPlus className="size-4" />
                 创建 Offer
@@ -263,6 +266,37 @@ export function OfferStagePanel({
               管理 {candidateName} 的 Offer。确认发布后内容锁定，可发送邮件或复制链接。
             </p>
             {renderDraftsContent()}
+            <details
+              hidden={historicalDrafts.length === 0}
+              className="border-border/60 border-t pt-3"
+            >
+              <summary className="cursor-pointer text-muted-foreground text-sm">
+                历史 Offer（{historicalDrafts.length}）
+              </summary>
+              <p className="pt-3 text-muted-foreground text-xs">
+                以下 Offer 已失效，仅保留历史条款和响应记录。
+              </p>
+              <div className="divide-y divide-border/60">
+                {historicalDrafts.map((draft) => (
+                  <div className="py-4" key={draft.id}>
+                    <OfferCard
+                      canDelete={false}
+                      canUpdate={false}
+                      candidateId={candidateId}
+                      candidateEmail={candidateEmail}
+                      candidateName={candidateName}
+                      disabled
+                      draft={draft}
+                      onCancelled={invalidateDrafts}
+                      onRespond={() => {
+                        // Historical offers are read-only and cannot receive responses.
+                      }}
+                      onSaved={invalidateDrafts}
+                    />
+                  </div>
+                ))}
+              </div>
+            </details>
           </FramePanel>
         </Frame>
       )}

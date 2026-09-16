@@ -1,6 +1,6 @@
 import { RecruitingPipelineError } from "./recruiting-pipeline-errors";
 import { validateEvidence } from "./recruiting-pipeline-evidence";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import {
   humanInterviewRound,
   recruitingEvent,
@@ -208,7 +208,7 @@ function validateSkippedTransition(
   }
 }
 
-/** 进入发 Offer 时复用回填或回退保留的唯一 Offer，不创建新版本。 */
+/** 进入发 Offer 时只恢复当前有效记录，回退失效的历史 Offer 不再参与进度。 */
 async function getOfferEntryPatch(
   tx: RecruitingTransaction,
   input: RecruitingPipelineCommand,
@@ -220,6 +220,7 @@ async function getOfferEntryPatch(
       and(
         eq(recruitingOffer.recruitingRecordId, input.recordId),
         eq(recruitingOffer.organizationId, input.organizationId),
+        ne(recruitingOffer.status, "superseded"),
       ),
     )
     .limit(1);
@@ -344,6 +345,31 @@ export async function reopenRecruitingRecordTx(
     .from(recruitingFulfillment)
     .where(eq(recruitingFulfillment.recruitingRecordId, input.recordId));
   const now = input.now ?? new Date();
+  const invalidatedOffers =
+    targetIndex <= recruitingNodeValues.indexOf("offer")
+      ? await tx
+          .select()
+          .from(recruitingOffer)
+          .where(
+            and(
+              eq(recruitingOffer.recruitingRecordId, input.recordId),
+              eq(recruitingOffer.organizationId, input.organizationId),
+              ne(recruitingOffer.status, "superseded"),
+            ),
+          )
+      : [];
+  if (invalidatedOffers.length > 0) {
+    await tx
+      .update(recruitingOffer)
+      .set({ status: "superseded", updatedAt: now })
+      .where(
+        and(
+          eq(recruitingOffer.recruitingRecordId, input.recordId),
+          eq(recruitingOffer.organizationId, input.organizationId),
+          ne(recruitingOffer.status, "superseded"),
+        ),
+      );
+  }
   for (const node of affected) {
     await putNode(tx, input, node, {
       ...clearNodeEvidence,
@@ -386,6 +412,11 @@ export async function reopenRecruitingRecordTx(
     {
       cancelledNotificationIds,
       invalidatedNodes: nodes.filter((node) => affected.includes(node.node)).map(snapshotNode),
+      invalidatedOffers: invalidatedOffers.map((offer) => ({
+        id: offer.id,
+        status: offer.status,
+        version: offer.version,
+      })),
       previousClose: {
         closedAt: record.closedAt?.toISOString() ?? null,
         details: record.closeDetails,

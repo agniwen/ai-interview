@@ -1,3 +1,4 @@
+import { isOfferExpired, offerExpiryEndOfDay } from "@app/shared/offer-expiry";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
   globalConfig,
@@ -61,7 +62,7 @@ async function loadPublicOffer(token: string) {
 function toPublicRecord(
   row: NonNullable<Awaited<ReturnType<typeof loadPublicOffer>>>,
 ): PublicOfferRecord {
-  const expired = Boolean(row.expiresAt && row.expiresAt.getTime() < Date.now());
+  const expired = isOfferExpired(row.expiresAt);
   return {
     baseSalary: row.baseSalary,
     bonus: row.bonus,
@@ -70,7 +71,7 @@ function toPublicRecord(
     currency: row.currency,
     declineReason: row.declineReason,
     equity: row.equity,
-    expiresAt: row.expiresAt?.toISOString() ?? null,
+    expiresAt: row.expiresAt ? offerExpiryEndOfDay(row.expiresAt).toISOString() : null,
     joiningDate: row.joiningDate?.toISOString() ?? null,
     position: row.position,
     publishedAt: row.publishedAt?.toISOString() ?? new Date(0).toISOString(),
@@ -79,70 +80,89 @@ function toPublicRecord(
   };
 }
 
-export const publicOffersRouter = factory
-  .createApp()
-  // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Central Hono error mapping keeps public responses consistent.
-  .onError((error, c) => {
-    if (error instanceof OfferDraftError) {
-      return c.json({ error: error.message }, error.status);
-    }
-    throw error;
-  })
-  .get("/:token", async (c) => {
-    const row = await loadPublicOffer(c.req.param("token"));
-    if (!row?.publishedAt) {
-      return c.json({ error: "当前 Offer 链接不可用。" }, 404);
-    }
-    await db.insert(recruitingEvent).values({
-      action: "offer_link_accessed",
-      createdAt: new Date(),
-      detail: { draftId: row.id },
-      id: crypto.randomUUID(),
-      operatorId: null,
-      organizationId: row.organizationId,
-      recruitingRecordId: row.recruitingRecordId,
-    });
-    return c.json(toPublicRecord(row), 200);
-  })
-  .post(
-    "/:token/respond",
-    zValidator("json", responseSchema, jsonValidatorError("Offer 响应参数无效。")),
-    async (c) => {
-      const row = await loadPublicOffer(c.req.param("token"));
-      if (!row?.publishedAt) {
-        return c.json({ error: "当前 Offer 链接不可用。" }, 404);
-      }
-      if (row.expiresAt && row.expiresAt.getTime() < Date.now()) {
-        return c.json({ error: "当前 Offer 已过期，请联系招聘负责人。" }, 410);
-      }
-      const input = c.req.valid("json");
-      const updated = await respondOfferDraft({
-        declineReason: input.declineReason,
-        draftId: row.id,
-        onResponded: async (tx, context) => {
-          await tx.insert(recruitingEvent).values({
-            action:
-              input.response === "accepted"
-                ? "offer_accepted_by_candidate"
-                : "offer_declined_by_candidate",
-            createdAt: context.respondedAt,
-            detail: { declineReason: input.declineReason ?? null, draftId: row.id },
-            id: crypto.randomUUID(),
-            operatorId: null,
-            organizationId: row.organizationId,
-            recruitingRecordId: row.recruitingRecordId,
-          });
-          await enqueueOfferResponseEvent(tx, {
+async function recordAccess(row: NonNullable<Awaited<ReturnType<typeof loadPublicOffer>>>) {
+  await db.insert(recruitingEvent).values({
+    action: "offer_link_accessed",
+    createdAt: new Date(),
+    detail: { draftId: row.id },
+    id: crypto.randomUUID(),
+    operatorId: null,
+    organizationId: row.organizationId,
+    recruitingRecordId: row.recruitingRecordId,
+  });
+}
+const publicOfferDependencies = {
+  loadOffer: loadPublicOffer,
+  recordAccess,
+  respond: respondOfferDraft,
+};
+export type PublicOfferDependencies = typeof publicOfferDependencies;
+export function createPublicOffersRouter(
+  dependencies: PublicOfferDependencies = publicOfferDependencies,
+) {
+  return (
+    factory
+      .createApp()
+      // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Central Hono error mapping keeps public responses consistent.
+      .onError((error, c) => {
+        if (error instanceof OfferDraftError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      })
+      .get("/:token", async (c) => {
+        const row = await dependencies.loadOffer(c.req.param("token"));
+        if (!row?.publishedAt) {
+          return c.json({ error: "当前 Offer 链接不可用。" }, 404);
+        }
+        await dependencies.recordAccess(row);
+        return c.json(toPublicRecord(row), 200);
+      })
+      .post(
+        "/:token/respond",
+        zValidator("json", responseSchema, jsonValidatorError("Offer 响应参数无效。")),
+        async (c) => {
+          const row = await dependencies.loadOffer(c.req.param("token"));
+          if (!row?.publishedAt) {
+            return c.json({ error: "当前 Offer 链接不可用。" }, 404);
+          }
+          if (row.status === "superseded") {
+            return c.json({ error: "当前 Offer 已失效，请联系招聘负责人获取新的 Offer。" }, 410);
+          }
+          if (isOfferExpired(row.expiresAt)) {
+            return c.json({ error: "当前 Offer 已过期，请联系招聘负责人。" }, 410);
+          }
+          const input = c.req.valid("json");
+          const updated = await dependencies.respond({
             declineReason: input.declineReason,
-            offerId: context.offerId,
-            respondedAt: context.respondedAt,
+            draftId: row.id,
+            onResponded: async (tx, context) => {
+              await tx.insert(recruitingEvent).values({
+                action:
+                  input.response === "accepted"
+                    ? "offer_accepted_by_candidate"
+                    : "offer_declined_by_candidate",
+                createdAt: context.respondedAt,
+                detail: { declineReason: input.declineReason ?? null, draftId: row.id },
+                id: crypto.randomUUID(),
+                operatorId: null,
+                organizationId: row.organizationId,
+                recruitingRecordId: row.recruitingRecordId,
+              });
+              await enqueueOfferResponseEvent(tx, {
+                declineReason: input.declineReason,
+                offerId: context.offerId,
+                respondedAt: context.respondedAt,
+                response: input.response,
+              });
+            },
+            organizationId: row.organizationId,
             response: input.response,
+            responseSource: "candidate",
           });
+          return c.json({ status: updated.status }, 200);
         },
-        organizationId: row.organizationId,
-        response: input.response,
-        responseSource: "candidate",
-      });
-      return c.json({ status: updated.status }, 200);
-    },
+      )
   );
+}
+export const publicOffersRouter = createPublicOffersRouter();

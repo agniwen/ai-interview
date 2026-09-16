@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 function formatDate(value: string | null): string {
   return value
-    ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "long" }).format(new Date(value))
+    ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "long", timeZone: "Asia/Shanghai" }).format(
+        new Date(value),
+      )
     : "—";
 }
 
@@ -74,6 +76,7 @@ export function PublicOfferPage({
 
   const finished = offer.status === "accepted" || offer.status === "declined";
   const expired = offer.status === "expired";
+  const superseded = offer.status === "superseded";
   let statusLabel = "待确认";
   let statusVariant: "info" | "outline" | "success" = "info";
   if (offer.status === "accepted") {
@@ -81,6 +84,9 @@ export function PublicOfferPage({
     statusVariant = "success";
   } else if (offer.status === "declined") {
     statusLabel = "已拒绝";
+    statusVariant = "outline";
+  } else if (superseded) {
+    statusLabel = "已失效";
     statusVariant = "outline";
   } else if (expired) {
     statusLabel = "已过期";
@@ -107,6 +113,12 @@ export function PublicOfferPage({
         </p>
         <p className="mt-1 text-muted-foreground text-sm">招聘负责人已收到通知。</p>
       </div>
+    );
+  } else if (superseded) {
+    responsePanel = (
+      <p className="text-center text-muted-foreground text-sm">
+        当前 Offer 已失效，请联系招聘负责人获取新的 Offer。
+      </p>
     );
   } else if (expired) {
     responsePanel = (
@@ -186,7 +198,7 @@ export function PublicOfferPage({
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground text-xs">Offer 有效期至</dt>
+              <dt className="text-muted-foreground text-xs">Offer 有效期至（北京时间，含当天）</dt>
               <dd className="mt-1 font-medium">{formatDate(offer.expiresAt)}</dd>
             </div>
             <div>

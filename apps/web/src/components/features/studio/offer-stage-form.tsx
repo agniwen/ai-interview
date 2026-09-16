@@ -192,7 +192,7 @@ export function OfferDraftFormFields({
       </div>
       <div className="grid gap-1.5">
         <Label className="text-sm" htmlFor={`${idPrefix}-expires`}>
-          Offer 有效期至（可选）
+          Offer 有效期至（含当天，可选）
         </Label>
         <DatePicker
           id={`${idPrefix}-expires`}

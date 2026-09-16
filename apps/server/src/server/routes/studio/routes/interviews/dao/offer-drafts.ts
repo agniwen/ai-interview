@@ -1,8 +1,9 @@
+import { isOfferExpired, offerExpiryEndOfDay } from "@app/shared/offer-expiry";
 import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import type { RecruitingTransaction as Tx } from "@app/database/recruiting-records";
 import { lockRecruitingRecord } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-// 同一候选人只允许一份 Offer；未发送时可删除后重新创建，内部 version 固定为 1。
+// 每条招聘记录仅允许一份有效 Offer；回退失效版本保留为历史。
 
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
@@ -37,7 +38,7 @@ function toRecord(row: typeof recruitingOffer.$inferSelect): OfferDraftRecord {
     emailRecipient: row.emailRecipient,
     emailSentAt: serializeDate(row.emailSentAt),
     equity: row.equity,
-    expiresAt: serializeDate(row.expiresAt),
+    expiresAt: row.expiresAt ? offerExpiryEndOfDay(row.expiresAt).toISOString() : null,
     id: row.id,
     interviewRecordId: row.recruitingRecordId,
     joiningDate: serializeDate(row.joiningDate),
@@ -109,35 +110,43 @@ export interface CreateDraftOptions {
   operatorId?: string | null;
 }
 
+const offerDraftWriteDependencies = {
+  lockRecord: lockRecruitingRecord,
+  mergeExpectations: mergeCandidateExpectationsTx,
+  transaction: <T>(run: (tx: Tx) => Promise<T>): Promise<T> => db.transaction(run),
+  updateNode: updateRecruitingNodeTx,
+};
+export type OfferDraftWriteDependencies = typeof offerDraftWriteDependencies;
+
 // 锁定招聘主记录，串行化存在性检查与创建，防止并发创建第二份 Offer。
 // oxlint-disable-next-line complexity -- Creation validates the pipeline lock and writes the complete Offer snapshot atomically.
-export async function createOfferDraft({
-  interviewRecordId,
-  organizationId,
-  input,
-  sendImmediately,
-  operatorId,
-}: CreateDraftOptions): Promise<OfferDraftRecord> {
+export async function createOfferDraft(
+  { interviewRecordId, organizationId, input, sendImmediately, operatorId }: CreateDraftOptions,
+  dependencies: OfferDraftWriteDependencies = offerDraftWriteDependencies,
+): Promise<OfferDraftRecord> {
   const id = crypto.randomUUID();
   const now = new Date();
 
   // oxlint-disable-next-line complexity -- The transaction validates and writes the complete Offer snapshot atomically.
-  return await db.transaction(async (tx) => {
-    const parent = await lockRecruitingRecord(tx, interviewRecordId, organizationId);
+  return await dependencies.transaction(async (tx) => {
+    const parent = await dependencies.lockRecord(tx, interviewRecordId, organizationId);
     if (!parent || parent.currentStage !== "offer") {
       throw new OfferDraftError("请先完成谈薪并进入发 Offer 节点", 409);
     }
-    const [existing] = await tx
-      .select({ id: recruitingOffer.id })
+    const previousOffers = await tx
+      .select({
+        id: recruitingOffer.id,
+        status: recruitingOffer.status,
+        version: recruitingOffer.version,
+      })
       .from(recruitingOffer)
       .where(
         and(
           eq(recruitingOffer.recruitingRecordId, interviewRecordId),
           eq(recruitingOffer.organizationId, organizationId),
         ),
-      )
-      .limit(1);
-    if (existing) {
+      );
+    if (previousOffers.some((offer) => offer.status !== "superseded")) {
       throw new OfferDraftError(
         "该候选人已有 Offer，请编辑现有草稿；删除未发送的 Offer 后才能重新创建",
         409,
@@ -163,7 +172,7 @@ export async function createOfferDraft({
       createdAt: now,
       currency: input.currency ?? "CNY",
       equity: input.equity ?? null,
-      expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      expiresAt: input.expiresAt ? offerExpiryEndOfDay(input.expiresAt) : null,
       id,
       joiningDate: input.joiningDate ? new Date(input.joiningDate) : null,
       notes: input.notes ?? null,
@@ -176,12 +185,17 @@ export async function createOfferDraft({
       sentAt: sendImmediately ? now : null,
       status: sendImmediately ? "sent" : "draft",
       updatedAt: now,
-      version: 1,
+      version: Math.max(0, ...previousOffers.map((offer) => offer.version)) + 1,
     });
 
-    const expectations = await mergeCandidateExpectationsTx(tx, interviewRecordId, organizationId, {
-      agreedBaseSalary: input.baseSalary,
-    });
+    const expectations = await dependencies.mergeExpectations(
+      tx,
+      interviewRecordId,
+      organizationId,
+      {
+        agreedBaseSalary: input.baseSalary,
+      },
+    );
     if (!expectations) {
       throw new OfferDraftError("候选人记录不存在", 404);
     }
@@ -193,7 +207,7 @@ export async function createOfferDraft({
         set: { selectedOfferId: id, updatedAt: now },
         target: recruitingFulfillment.recruitingRecordId,
       });
-    await updateRecruitingNodeTx(tx, {
+    await dependencies.updateNode(tx, {
       effectiveOfferId: id,
       node: "offer",
       now,
@@ -223,7 +237,12 @@ export interface EditDraftOptions {
   input: Partial<OfferDraftInput>;
 }
 
-async function lockOfferContext(tx: Tx, draftId: string, organizationId: string) {
+async function lockOfferContext(
+  tx: Tx,
+  draftId: string,
+  organizationId: string,
+  lockRecord = lockRecruitingRecord,
+) {
   const [identity] = await tx
     .select({ recordId: recruitingOffer.recruitingRecordId })
     .from(recruitingOffer)
@@ -233,7 +252,7 @@ async function lockOfferContext(tx: Tx, draftId: string, organizationId: string)
   if (!identity) {
     throw new OfferDraftError("Offer 草稿不存在", 404);
   }
-  const record = await lockRecruitingRecord(tx, identity.recordId, organizationId);
+  const record = await lockRecord(tx, identity.recordId, organizationId);
   if (!record || record.currentStage !== "offer") {
     throw new OfferDraftError("请在当前 Offer 节点处理，历史 Offer 需重新激活后确认", 409);
   }
@@ -251,7 +270,7 @@ async function lockOfferContext(tx: Tx, draftId: string, organizationId: string)
         eq(recruitingNodeState.node, "offer"),
       ),
     );
-  if (!draft || node?.effectiveOfferId !== draftId) {
+  if (!draft || draft.status === "superseded" || node?.effectiveOfferId !== draftId) {
     throw new OfferDraftError("该 Offer 已不是当前有效 Offer", 409);
   }
   return { draft, record };
@@ -275,7 +294,7 @@ export async function editOfferDraft({
     }
     // existing.expiresAt / joiningDate 是 Date，resolveDateField 期待 string | null。
     // existing.expiresAt / joiningDate are Date columns; resolveDateField wants strings.
-    const existingExpiresAtIso = existing.expiresAt ? existing.expiresAt.toISOString() : null;
+    const expiresAt = input.expiresAt === undefined ? existing.expiresAt : input.expiresAt;
     const existingJoiningDateIso = existing.joiningDate ? existing.joiningDate.toISOString() : null;
     await tx
       .update(recruitingOffer)
@@ -284,7 +303,7 @@ export async function editOfferDraft({
         bonus: input.bonus ?? existing.bonus,
         currency: input.currency ?? existing.currency,
         equity: input.equity ?? existing.equity,
-        expiresAt: resolveDateField(input.expiresAt, existingExpiresAtIso),
+        expiresAt: expiresAt ? offerExpiryEndOfDay(expiresAt) : null,
         joiningDate: resolveDateField(input.joiningDate, existingJoiningDateIso),
         notes: input.notes ?? existing.notes,
         position: input.position ?? existing.position,
@@ -364,22 +383,33 @@ export interface RespondOfferOptions {
   ) => Promise<void>;
 }
 
-export async function respondOfferDraft({
-  draftId,
-  organizationId,
-  response,
-  candidateCounter,
-  declineReason,
-  responseBy,
-  responseSource = "hr",
-  onResponded,
-}: RespondOfferOptions): Promise<OfferDraftRecord> {
-  return await db.transaction(async (tx) => {
-    const { draft, record } = await lockOfferContext(tx, draftId, organizationId);
+export async function respondOfferDraft(
+  {
+    draftId,
+    organizationId,
+    response,
+    candidateCounter,
+    declineReason,
+    responseBy,
+    responseSource = "hr",
+    onResponded,
+  }: RespondOfferOptions,
+  dependencies: OfferDraftWriteDependencies = offerDraftWriteDependencies,
+): Promise<OfferDraftRecord> {
+  return await dependencies.transaction(async (tx) => {
+    const { draft, record } = await lockOfferContext(
+      tx,
+      draftId,
+      organizationId,
+      dependencies.lockRecord,
+    );
     if (draft.status !== "sent") {
       throw new OfferDraftError("只有已发布、待回复的 Offer 可以记录响应", 400);
     }
     const now = new Date();
+    if (isOfferExpired(draft.expiresAt, now)) {
+      throw new OfferDraftError("当前 Offer 已过期，请联系招聘负责人。", 409);
+    }
     const [updated] = await tx
       .update(recruitingOffer)
       .set({
@@ -393,7 +423,7 @@ export async function respondOfferDraft({
       })
       .where(eq(recruitingOffer.id, draftId))
       .returning();
-    await updateRecruitingNodeTx(tx, {
+    await dependencies.updateNode(tx, {
       effectiveOfferId: draftId,
       expectedEffectiveId: draftId,
       node: "offer",

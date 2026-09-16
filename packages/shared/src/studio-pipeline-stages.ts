@@ -248,7 +248,7 @@ export interface HumanInterviewReviewRecord {
 }
 
 /**
- * Offer 草稿单版本 DTO（DAO 返回 + 客户端消费）。
+ * Offer 草稿与历史版本 DTO（DAO 返回 + 客户端消费）。
  *
  * Offer draft DTO. Versioned per candidate; latest non-superseded is the
  * "current" offer in the UI.

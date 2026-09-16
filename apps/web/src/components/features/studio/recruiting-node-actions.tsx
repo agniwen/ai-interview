@@ -260,23 +260,17 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         {record.pipelineStage === "salary_negotiation" ? (
           <div className="grid gap-1.5">
             <Label htmlFor="salary-negotiation-base-salary">谈定 Base 月薪（税前）</Label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground text-sm">
-                ¥
-              </span>
-              <Input
-                aria-label="谈定 Base 月薪"
-                className="pl-7"
-                disabled={mutation.isPending}
-                id="salary-negotiation-base-salary"
-                inputMode="numeric"
-                min={1}
-                onChange={(event) => setAgreedBaseSalary(event.target.value)}
-                placeholder="如 28000"
-                type="number"
-                value={agreedBaseSalary}
-              />
-            </div>
+            <Input
+              aria-label="谈定 Base 月薪"
+              disabled={mutation.isPending}
+              id="salary-negotiation-base-salary"
+              inputMode="numeric"
+              min={1}
+              onChange={(event) => setAgreedBaseSalary(event.target.value)}
+              placeholder="如 28000"
+              type="number"
+              value={agreedBaseSalary}
+            />
             <p className="text-muted-foreground text-xs">单位：元/月，将自动带入 Offer。</p>
           </div>
         ) : null}

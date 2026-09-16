@@ -70,6 +70,9 @@ export async function resolveOfferPublicUrl(
   if (!offer) {
     throw new OfferDraftError("Offer 不存在", 404);
   }
+  if (offer.status === "superseded") {
+    throw new OfferDraftError("该 Offer 已失效，请创建新的 Offer", 409);
+  }
   if (!offer.publicPath || !offer.publishedAt) {
     throw new OfferDraftError("请先确认并发布 Offer", 409);
   }
@@ -83,6 +86,9 @@ export async function getOfferEmailPreview(
   const offer = await loadDraftById(draftId, organizationId);
   if (!offer?.publicPath || !offer.publishedAt) {
     throw new OfferDraftError(offer ? "请先确认并发布 Offer" : "Offer 不存在", offer ? 409 : 404);
+  }
+  if (offer.status === "superseded") {
+    throw new OfferDraftError("该 Offer 已失效，请创建新的 Offer", 409);
   }
   const [context] = await db
     .select({

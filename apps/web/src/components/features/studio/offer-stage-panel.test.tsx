@@ -296,7 +296,7 @@ describe("Offer stage content", () => {
       );
       expect(create).toBeDefined();
       await act(() => create?.click());
-      expect(document.querySelector<HTMLInputElement>("#offer-base")?.value).toBe("28000");
+      expect(document.querySelector<HTMLInputElement>("#offer-base")?.value).toBe("28_000");
     } finally {
       await act(() => root.unmount());
       queryClient.clear();
@@ -436,4 +436,77 @@ describe("Offer stage content", () => {
       host.remove();
     }
   });
+});
+
+it("回退后的历史 Offer 不阻止新建，也不再提供发送或响应操作", () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  });
+  queryClient.setQueryData(["recruiting-materials", "acme", "candidate"], []);
+  queryClient.setQueryData(["candidate-expectations", "acme", "candidate"], null);
+  queryClient.setQueryData(
+    ["offer-drafts", "acme", "candidate"],
+    [
+      {
+        baseSalary: 28_000,
+        bonus: null,
+        candidateCounter: null,
+        createdAt: "2026-09-16T00:00:00Z",
+        currency: "CNY",
+        declineReason: null,
+        emailRecipient: null,
+        emailSentAt: null,
+        equity: null,
+        expiresAt: null,
+        id: "old",
+        interviewRecordId: "candidate",
+        joiningDate: null,
+        notes: null,
+        organizationId: "org",
+        position: "旧版工程师",
+        publicPath: "/offer/old-token",
+        publishedAt: "2026-09-16T00:00:00Z",
+        responseAt: null,
+        responseSource: null,
+        sentAt: "2026-09-16T00:00:00Z",
+        status: "superseded",
+        updatedAt: "2026-09-16T00:00:00Z",
+        version: 1,
+      },
+    ],
+  );
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    act(() =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <WorkspaceSlugProvider id="org" slug="acme" memberRole="hr" permissions={{}}>
+            <OfferStagePanel
+              stage="offer"
+              candidateId="candidate"
+              candidateName="候选人"
+              candidateEmail={null}
+              nodeStates={[]}
+            />
+          </WorkspaceSlugProvider>
+        </QueryClientProvider>,
+      ),
+    );
+    expect(
+      [...host.querySelectorAll("button")].some(
+        (button) => button.textContent?.trim() === "创建 Offer",
+      ),
+    ).toBe(true);
+    expect(host.textContent).toContain("历史 Offer（1）");
+    expect(host.textContent).toContain("旧版工程师");
+    expect(host.textContent).not.toContain("复制 Offer 链接");
+    expect(host.textContent).not.toContain("记录响应");
+    expect(host.textContent).not.toContain("重新发送邮件");
+  } finally {
+    act(() => root.unmount());
+    queryClient.clear();
+    host.remove();
+  }
 });

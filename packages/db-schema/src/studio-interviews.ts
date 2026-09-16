@@ -440,7 +440,7 @@ export const offerDraftStatusMeta = {
   draft: { label: "草稿", tone: "outline" },
   expired: { label: "已过期", tone: "outline" },
   sent: { label: "已发布，待回复", tone: "info" },
-  superseded: { label: "已被新版替代", tone: "outline" },
+  superseded: { label: "已失效", tone: "outline" },
 } as const satisfies Record<
   OfferDraftStatus,
   { label: string; tone: "success" | "warning" | "info" | "outline" }
