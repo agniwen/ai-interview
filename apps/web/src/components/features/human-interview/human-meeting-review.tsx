@@ -12,10 +12,19 @@ import {
   humanInterviewRoundOutcomeSchema,
 } from "@app/db-schema/studio-interviews";
 import type {
-  HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Field as FormField, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { cn } from "@app/shared/utils";
 import {
@@ -30,12 +39,12 @@ import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/mark
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HumanMeetingTranscriptRecovery } from "./human-meeting-transcript-recovery";
 
-const EMPTY_EVALUATION: HumanInterviewEvaluation = {
+const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
   detailedAnalysis: "",
   evidenceTurnIds: [],
   overallEvaluation: "",
   professionalSkill: "",
-  rating: "B",
+  rating: null,
   risks: "",
   rolePosition: "",
   salaryRecommendation: "",
@@ -53,15 +62,53 @@ type EvaluationTextFieldKey =
   | "seniorityPosition"
   | "strengths";
 
-const EVALUATION_TEXT_FIELDS: { key: EvaluationTextFieldKey; label: string }[] = [
-  { key: "professionalSkill", label: "专业技能" },
-  { key: "seniorityPosition", label: "职级定位" },
-  { key: "rolePosition", label: "角色定位" },
-  { key: "strengths", label: "优势特点" },
-  { key: "risks", label: "劣势风险" },
-  { key: "salaryRecommendation", label: "薪资建议" },
-  { key: "overallEvaluation", label: "整体评价" },
-  { key: "detailedAnalysis", label: "完整详细分析" },
+const EVALUATION_TEXT_FIELDS: {
+  key: EvaluationTextFieldKey;
+  label: string;
+  minHeight: number;
+  placeholder: string;
+  wide?: boolean;
+}[] = [
+  {
+    key: "overallEvaluation",
+    label: "整体评价",
+    minHeight: 104,
+    placeholder: "概括岗位匹配情况，并说明主要判断依据",
+    wide: true,
+  },
+  {
+    key: "seniorityPosition",
+    label: "职级定位",
+    minHeight: 48,
+    placeholder: "填写职级及依据",
+  },
+  {
+    key: "rolePosition",
+    label: "角色定位",
+    minHeight: 48,
+    placeholder: "填写适合承担的角色",
+  },
+  {
+    key: "salaryRecommendation",
+    label: "薪资建议",
+    minHeight: 88,
+    placeholder: "选填，填写建议薪资范围及依据",
+  },
+  {
+    key: "professionalSkill",
+    label: "专业技能",
+    minHeight: 88,
+    placeholder: "记录面试中体现的专业能力与具体表现",
+  },
+  { key: "strengths", label: "优势特点", minHeight: 88, placeholder: "记录有具体事例支持的优势" },
+  { key: "risks", label: "劣势风险", minHeight: 88, placeholder: "记录能力短板或仍需核实的问题" },
+  {
+    key: "detailedAnalysis",
+    label: "完整详细分析",
+    minHeight: 160,
+    placeholder: "补充详细的分析过程与面试依据",
+    wide: true,
+  },
 ];
 
 const OUTCOME_LABELS = {
@@ -111,7 +158,7 @@ function describeEvaluationStatus(
     return `本轮评价已保存 · ${submittedOutcomeLabel}`;
   }
   if (review.evaluationStatus === "generating") {
-    return "正在整理会议内容并生成评价…";
+    return "AI 正在生成评价草稿，可先手动填写";
   }
   if (!review.transcript) {
     return review.transcriptionState === "failed"
@@ -157,8 +204,8 @@ function HumanMeetingReviewShell({
   return renderShell ? (
     renderShell(children, requestClose)
   ) : (
-    <div className="dark h-full overflow-y-auto bg-background p-4 text-foreground">
-      <div className="mx-auto max-w-5xl">{children}</div>
+    <div className="dark flex h-full min-h-0 flex-col overflow-hidden bg-background p-4 text-foreground">
+      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">{children}</div>
     </div>
   );
 }
@@ -178,10 +225,12 @@ function HumanMeetingReviewForm({
   renderShell?: ReviewProps["renderShell"];
 }) {
   const fieldId = useId();
+  const ratingTriggerRef = useRef<HTMLButtonElement>(null);
+  const outcomeTriggerRef = useRef<HTMLButtonElement>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [review, setReview] = useState<HumanInterviewReviewRecord | null>(null);
-  const [evaluation, setEvaluation] = useState<HumanInterviewEvaluation>(EMPTY_EVALUATION);
+  const [evaluation, setEvaluation] = useState<HumanInterviewEvaluationDraft>(EMPTY_EVALUATION);
   const [outcome, setOutcome] = useState<HumanInterviewRoundOutcome | "">("");
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
@@ -203,9 +252,10 @@ function HumanMeetingReviewForm({
     if (!evaluationDirtyRef.current) {
       setEvaluation(next.evaluation ?? EMPTY_EVALUATION);
       setOutcome(
-        next.outcome === "inconclusive" && next.roundStatus !== "completed"
-          ? ""
-          : (next.outcome ?? ""),
+        next.roundStatus === "completed" || next.evaluationStatus === "submitted"
+          ? (next.outcome ?? "")
+          : (next.evaluation?.draftOutcome ??
+              (next.outcome === "inconclusive" ? "" : (next.outcome ?? ""))),
       );
     }
   }, [basePath]);
@@ -332,22 +382,74 @@ function HumanMeetingReviewForm({
   const isSubmitted = review.evaluationStatus === "submitted" || review.roundStatus === "completed";
   const submittedOutcomeLabel = review.outcome ? OUTCOME_LABELS[review.outcome] : "已完成";
 
+  const hasDraftContent = Boolean(
+    evaluation.rating ||
+    outcome ||
+    EVALUATION_TEXT_FIELDS.some(({ key }) => evaluation[key].trim()),
+  );
+
+  function renderEditor(
+    key: EvaluationTextFieldKey,
+    label: string,
+    minHeight: number,
+    placeholder?: string,
+  ) {
+    if (key !== "overallEvaluation" && key !== "detailedAnalysis") {
+      return (
+        <Textarea
+          aria-label={label}
+          id={`${fieldId}-${key}`}
+          style={{ minHeight }}
+          placeholder={placeholder}
+          disabled={isSubmitted || Boolean(busy)}
+          onChange={(event) => {
+            const { value } = event.target;
+            evaluationDirtyRef.current = true;
+            setEvaluation((current) => ({ ...current, [key]: value }));
+          }}
+          value={evaluation[key]}
+        />
+      );
+    }
+    return (
+      <MarkdownEditor
+        aria-label={label}
+        aria-required={key === "overallEvaluation"}
+        id={`${fieldId}-${key}`}
+        minHeight={minHeight}
+        placeholder={placeholder}
+        toolbarMode="focus"
+        disabled={isSubmitted || Boolean(busy)}
+        onChange={(value) => {
+          evaluationDirtyRef.current = true;
+          setEvaluation((current) => ({ ...current, [key]: value }));
+        }}
+        value={evaluation[key]}
+      />
+    );
+  }
+
   return wrap(
-    <section className="flex min-h-0 flex-1 flex-col rounded-lg border bg-card text-card-foreground">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground">
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-medium text-lg">面试评价</h2>
-            <p className="text-muted-foreground text-xs">
+            <output className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
+              {!isSubmitted && review.evaluationStatus === "generating" ? (
+                <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+              ) : null}
               {describeEvaluationStatus(review, isSubmitted, submittedOutcomeLabel)}
-            </p>
+            </output>
           </div>
           <div className="flex items-center gap-2">
             {!isSubmitted && confirmRegenerate ? (
               <>
                 <span className="text-muted-foreground text-xs">将覆盖当前草稿</span>
                 <Button
-                  disabled={!review.transcript || Boolean(busy)}
+                  disabled={
+                    !review.transcript || review.evaluationStatus === "generating" || Boolean(busy)
+                  }
                   onClick={async () => {
                     await run("regenerate", async () => {
                       await requestJson<unknown>(`${basePath}/evaluation-regenerate`, {
@@ -372,7 +474,9 @@ function HumanMeetingReviewForm({
             ) : null}
             {!isSubmitted && !confirmRegenerate ? (
               <Button
-                disabled={!review.transcript || Boolean(busy)}
+                disabled={
+                  !review.transcript || review.evaluationStatus === "generating" || Boolean(busy)
+                }
                 onClick={() => setConfirmRegenerate(true)}
                 size="sm"
                 variant="outline"
@@ -383,52 +487,88 @@ function HumanMeetingReviewForm({
             ) : null}
           </div>
         </div>
-        <FieldGroup className="mt-4 grid gap-4 md:grid-cols-2">
-          <Field label="评级" id={`${fieldId}-rating`}>
-            <select
-              id={`${fieldId}-rating`}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+        <p className="mt-4 text-muted-foreground text-xs">
+          标 * 项提交时必填，草稿可暂存未完成内容。
+        </p>
+        <FieldGroup className="mt-4 grid gap-5 md:grid-cols-2">
+          <Field label="评级" id={`${fieldId}-rating`} required>
+            <Select
+              required
               disabled={isSubmitted || Boolean(busy)}
-              onChange={(event) => {
-                const rating = humanInterviewEvaluationRatingSchema.safeParse(event.target.value);
+              onValueChange={(value) => {
+                const rating = humanInterviewEvaluationRatingSchema.safeParse(value);
                 if (!rating.success) {
                   return;
                 }
                 evaluationDirtyRef.current = true;
-                setEvaluation((current) => ({
-                  ...current,
-                  rating: rating.data,
-                }));
+                setEvaluation((current) => ({ ...current, rating: rating.data }));
               }}
               value={evaluation.rating}
             >
-              {humanInterviewEvaluationRatingSchema.options.map((rating) => (
-                <option key={rating} value={rating}>
-                  {rating}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                ref={ratingTriggerRef}
+                id={`${fieldId}-rating`}
+                aria-label="评级"
+                aria-required="true"
+                className="w-full"
+              >
+                <SelectValue placeholder="请选择评级" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {humanInterviewEvaluationRatingSchema.options.map((rating) => (
+                    <SelectItem key={rating} value={rating}>
+                      {rating}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
-          {EVALUATION_TEXT_FIELDS.map(({ key, label }) => (
+          <Field label="本轮结论" id={`${fieldId}-outcome`} required>
+            <Select
+              disabled={isSubmitted || Boolean(busy)}
+              required
+              value={outcome || null}
+              onValueChange={(value) => {
+                const parsed = humanInterviewRoundOutcomeSchema.safeParse(value);
+                if (parsed.success) {
+                  evaluationDirtyRef.current = true;
+                  setOutcome(parsed.data);
+                }
+              }}
+            >
+              <SelectTrigger
+                ref={outcomeTriggerRef}
+                id={`${fieldId}-outcome`}
+                aria-label="本轮结论"
+                aria-required="true"
+                className="min-w-40"
+              >
+                <SelectValue placeholder="请选择通过或不通过" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="pass">通过</SelectItem>
+                  {isSubmitted && outcome === "inconclusive" ? (
+                    <SelectItem value="inconclusive">待定</SelectItem>
+                  ) : null}
+                  <SelectItem value="fail">不通过</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldGroup>
+        <FieldGroup className="mt-6 grid gap-5 md:grid-cols-2">
+          {EVALUATION_TEXT_FIELDS.map(({ key, label, minHeight, placeholder, wide }) => (
             <Field
               key={key}
               id={`${fieldId}-${key}`}
               label={label}
               required={key === "overallEvaluation"}
-              wide={key === "detailedAnalysis" || key === "overallEvaluation"}
+              wide={wide}
             >
-              <MarkdownEditor
-                aria-label={label}
-                aria-required={key === "overallEvaluation"}
-                id={`${fieldId}-${key}`}
-                minHeight={key === "detailedAnalysis" ? 280 : 160}
-                disabled={isSubmitted || Boolean(busy)}
-                onChange={(value) => {
-                  evaluationDirtyRef.current = true;
-                  setEvaluation((current) => ({ ...current, [key]: value }));
-                }}
-                value={evaluation[key]}
-              />
+              {renderEditor(key, label, minHeight, placeholder)}
             </Field>
           ))}
         </FieldGroup>
@@ -502,32 +642,6 @@ function HumanMeetingReviewForm({
         ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-3 border-t bg-card p-4">
-        <Field label="本轮结论（提交时必填）" id={`${fieldId}-outcome`} required>
-          <select
-            id={`${fieldId}-outcome`}
-            aria-required="true"
-            className="h-9 min-w-40 rounded-md border border-input bg-background px-3 text-sm"
-            disabled={isSubmitted || Boolean(busy)}
-            required
-            onChange={(event) => {
-              const parsed = humanInterviewRoundOutcomeSchema.safeParse(event.target.value);
-              if (parsed.success) {
-                evaluationDirtyRef.current = true;
-                setOutcome(parsed.data);
-              }
-            }}
-            value={outcome}
-          >
-            <option disabled value="">
-              请选择通过或不通过
-            </option>
-            <option value="pass">通过</option>
-            {isSubmitted && outcome === "inconclusive" ? (
-              <option value="inconclusive">待定</option>
-            ) : null}
-            <option value="fail">不通过</option>
-          </select>
-        </Field>
         {isSubmitted ? (
           <div className="flex items-center gap-2">
             <div className="rounded-md border bg-muted px-4 py-2 font-medium text-sm">
@@ -538,15 +652,21 @@ function HumanMeetingReviewForm({
             </Button>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="ml-auto flex gap-2">
+            <Button disabled={Boolean(busy)} onClick={requestClose} variant="ghost">
+              关闭
+            </Button>
             <Button
-              disabled={Boolean(busy) || !evaluation.overallEvaluation.trim()}
+              disabled={Boolean(busy) || (!hasDraftContent && !review.evaluation)}
               onClick={async () => {
                 const transcriptRevisionId = review.transcript?.id ?? null;
                 await run("save", async () => {
                   await requestJson<unknown>(`${basePath}/evaluation-draft`, {
                     body: JSON.stringify({
-                      evaluation,
+                      evaluation: {
+                        ...evaluation,
+                        draftOutcome: outcome === "pass" || outcome === "fail" ? outcome : null,
+                      },
                       transcriptRevisionId,
                     }),
                     headers: { "Content-Type": "application/json" },
@@ -560,20 +680,36 @@ function HumanMeetingReviewForm({
               }}
               variant="outline"
             >
-              保存
+              保存草稿
             </Button>
             <Button
-              disabled={Boolean(busy) || !evaluation.overallEvaluation.trim()}
+              disabled={Boolean(busy)}
               onClick={async () => {
                 const transcriptRevisionId = review.transcript?.id ?? null;
+                if (!evaluation.rating) {
+                  toast.error("提交前请选择评级");
+                  ratingTriggerRef.current?.focus();
+                  return;
+                }
                 if (outcome !== "pass" && outcome !== "fail") {
+                  outcomeTriggerRef.current?.focus();
                   toast.error("提交前请选择本轮结论：通过或不通过");
                   return;
                 }
+                if (!evaluation.overallEvaluation.trim()) {
+                  toast.error("提交前请填写整体评价");
+                  document
+                    .querySelector<HTMLElement>(
+                      `[id="${fieldId}-overallEvaluation"] [contenteditable="true"]`,
+                    )
+                    ?.focus();
+                  return;
+                }
+                const { draftOutcome: _draftOutcome, ...submittedEvaluation } = evaluation;
                 await run("submit", async () => {
                   await requestJson<unknown>(`${basePath}/evaluation-submit`, {
                     body: JSON.stringify({
-                      evaluation,
+                      evaluation: submittedEvaluation,
                       outcome,
                       transcriptRevisionId,
                     }),
@@ -587,10 +723,7 @@ function HumanMeetingReviewForm({
                 });
               }}
             >
-              提交
-            </Button>
-            <Button disabled={Boolean(busy)} onClick={requestClose} variant="outline">
-              关闭
+              提交评价
             </Button>
           </div>
         )}

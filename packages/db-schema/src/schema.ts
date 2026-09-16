@@ -67,6 +67,7 @@ import type {
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
   HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewEvaluationSnapshotSource,
   HumanInterviewEvaluationStatus,
   HumanInterviewFormat,
@@ -4935,7 +4936,7 @@ export const humanInterviewRound = pgTable(
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>(),
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluationDraft>(),
     evaluationError: text("evaluation_error"),
     evaluationStatus: text("evaluation_status")
       .$type<HumanInterviewEvaluationStatus>()

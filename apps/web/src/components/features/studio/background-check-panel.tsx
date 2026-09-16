@@ -53,24 +53,24 @@ type BackgroundCheckReview = Pick<
 
 function getBackgroundCheckReviewMeta(review?: BackgroundCheckReview) {
   if (review?.status === "completed" && review.result === "pass") {
-    return { label: "确认通过", statusLabel: "已确认通过", variant: "success" as const };
+    return { label: "确认通过", variant: "success" as const };
   }
   if (review?.status === "completed" && review.result === "fail") {
-    return { label: "确认未通过", statusLabel: "已确认未通过", variant: "destructive" as const };
+    return { label: "确认未通过", variant: "destructive" as const };
   }
   if (review?.status === "completed" && review.result === "withdrawn") {
-    return { label: "候选人放弃", statusLabel: "候选人已放弃", variant: "warning" as const };
+    return { label: "候选人放弃", variant: "warning" as const };
   }
   if (review?.status === "skipped") {
-    return { label: "已跳过", statusLabel: "已跳过", variant: "outline" as const };
+    return { label: "已跳过", variant: "outline" as const };
   }
-  return { label: "待确认", statusLabel: "已提交，待确认结果", variant: "warning" as const };
+  return { label: "待确认", variant: "warning" as const };
 }
 
 function BackgroundCheckReviewSummary({ review }: { review?: BackgroundCheckReview }) {
   const meta = getBackgroundCheckReviewMeta(review);
   return (
-    <div aria-label="背调结果" className="rounded-lg border bg-muted/30 px-3 py-2">
+    <div aria-label="背调结果" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">确认结果</span>
@@ -84,56 +84,13 @@ function BackgroundCheckReviewSummary({ review }: { review?: BackgroundCheckRevi
         ) : null}
       </div>
       {review?.reason ? (
-        <p aria-label="背调确认说明" className="mt-2 text-xs leading-relaxed whitespace-pre-wrap">
+        <p aria-label="背调确认说明" className="text-xs leading-relaxed whitespace-pre-wrap">
           <span className="font-medium">确认说明：</span>
           {review.reason}
         </p>
       ) : null}
     </div>
   );
-}
-
-function getBackgroundCheckPanelMeta(
-  status: BackgroundCheckCollectionRecord["status"] | undefined,
-  review?: BackgroundCheckReview,
-) {
-  const submitted = status === "submitted";
-  const reviewed = review?.status === "completed" || review?.status === "skipped";
-  const reviewMeta = getBackgroundCheckReviewMeta(review);
-  if (submitted && reviewed) {
-    return {
-      description: "以下为 HR 确认结果和候选人提交的背调信息。",
-      heading: "背景调查结果已确认",
-      statusLabel: reviewMeta.statusLabel,
-      statusVariant: reviewMeta.variant,
-      submitted,
-    };
-  }
-  if (submitted) {
-    return {
-      description: "请核对下方信息，然后使用页面底部的“确认背调结果”。",
-      heading: "候选人已提交背景调查信息",
-      statusLabel: reviewMeta.statusLabel,
-      statusVariant: "success" as const,
-      submitted,
-    };
-  }
-  if (status === "sent") {
-    return {
-      description: "可发送系统邮件，也可复制链接后通过其他方式发送。",
-      heading: "向候选人收集背景调查所需信息",
-      statusLabel: "已发送，待填写",
-      statusVariant: "info" as const,
-      submitted,
-    };
-  }
-  return {
-    description: "可发送系统邮件，也可复制链接后通过其他方式发送。",
-    heading: "向候选人收集背景调查所需信息",
-    statusLabel: "待发送",
-    statusVariant: "outline" as const,
-    submitted,
-  };
 }
 
 function BackgroundCheckSubmittedDetails({
@@ -146,7 +103,7 @@ function BackgroundCheckSubmittedDetails({
     return null;
   }
   return (
-    <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
+    <div className="flex flex-col gap-4 border-border/40 border-t pt-4">
       <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <dt className="text-muted-foreground text-xs">姓名</dt>
@@ -385,53 +342,62 @@ export function BackgroundCheckPanel({
     },
   });
   const collection = collectionQuery.data;
-  const { description, heading, statusLabel, statusVariant, submitted } =
-    getBackgroundCheckPanelMeta(collection?.status, review);
+  const submitted = collection?.status === "submitted";
+  const sent = collection?.status === "sent";
   return (
     <Frame>
       <FrameHeader className="h-auto min-h-10 justify-between gap-3 py-2">
-        <FrameTitle>背调信息采集</FrameTitle>
-        <Badge variant={statusVariant}>{statusLabel}</Badge>
+        <FrameTitle>{submitted ? "背景调查" : "背调信息采集"}</FrameTitle>
+        {submitted ? null : (
+          <Badge variant={sent ? "info" : "outline"}>{sent ? "已发送，待填写" : "待发送"}</Badge>
+        )}
       </FrameHeader>
       <FramePanel className="flex flex-col gap-4">
         {collectionQuery.isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : (
           <>
-            <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-muted/20 p-4">
-              <div className="flex gap-3">
-                <IconShieldCheck className="mt-0.5 size-5 text-primary" />
-                <div>
-                  <p className="font-medium text-sm">{heading}</p>
-                  <p className="mt-1 text-muted-foreground text-xs">{description}</p>
-                  {collection?.emailSentAt ? (
-                    <p className="mt-2 text-muted-foreground text-xs">
-                      发送至 {collection.emailRecipient} ·{" "}
-                      {new Date(collection.emailSentAt).toLocaleString("zh-CN")}
+            {submitted ? (
+              <BackgroundCheckReviewSummary review={review} />
+            ) : (
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex gap-3">
+                  <IconShieldCheck className="mt-0.5 size-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">向候选人收集背景调查所需信息</p>
+                    <p className="mt-1 text-muted-foreground text-xs">
+                      可发送系统邮件，也可复制链接后通过其他方式发送。
                     </p>
-                  ) : null}
+                    {collection?.emailSentAt ? (
+                      <p className="mt-2 text-muted-foreground text-xs">
+                        发送至 {collection.emailRecipient} ·{" "}
+                        {new Date(collection.emailSentAt).toLocaleString("zh-CN")}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
+                {disabled ? null : (
+                  <div className="flex gap-2">
+                    <Button
+                      disabled={copyMutation.isPending}
+                      onClick={() => copyMutation.mutate()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <IconCopy className="size-4" />
+                      复制链接
+                    </Button>
+                    <Button onClick={() => setEmailOpen(true)} size="sm">
+                      <IconMail className="size-4" />
+                      发送邮件
+                    </Button>
+                  </div>
+                )}
               </div>
-              {!submitted && !disabled ? (
-                <div className="flex gap-2">
-                  <Button
-                    disabled={copyMutation.isPending}
-                    onClick={() => copyMutation.mutate()}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <IconCopy className="size-4" />
-                    复制链接
-                  </Button>
-                  <Button onClick={() => setEmailOpen(true)} size="sm">
-                    <IconMail className="size-4" />
-                    发送邮件
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-            {submitted ? <BackgroundCheckReviewSummary review={review} /> : null}
-            {collection ? <BackgroundCheckSubmittedDetails collection={collection} /> : null}
+            )}
+            {submitted && collection ? (
+              <BackgroundCheckSubmittedDetails collection={collection} />
+            ) : null}
           </>
         )}
       </FramePanel>

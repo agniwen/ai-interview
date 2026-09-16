@@ -5,6 +5,7 @@ import { listFilterSelectionAtom } from "../filter-selection";
 
 import { act, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { formatDatePickerValue, parseDatePickerValue } from "@/lib/client/date-picker-value";
 import {
   enableReactActEnvironment,
   installNoopResizeObserver,
@@ -35,15 +36,14 @@ async function clickText(selector: string, text: string) {
   });
 }
 
-async function enterDate(value: string) {
-  const input = document.querySelector<HTMLInputElement>('input[type="date"]');
-  if (!input) {
-    throw new Error("Date input missing");
-  }
-  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+async function selectDate(value: string) {
+  const date = parseDatePickerValue(value);
+  const day = document.querySelector<HTMLButtonElement>(
+    `button[data-day="${date?.toLocaleDateString()}"]`,
+  );
+  expect(day, `Missing calendar day: ${value}`).not.toBeNull();
   await act(async () => {
-    setValue?.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    day?.click();
     await Promise.resolve();
   });
 }
@@ -349,10 +349,10 @@ describe("Toolbar filter editing", () => {
     expect(
       document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
     ).toBe(true);
-    await enterDate("2026-08-26");
+    await selectDate("2026-08-26");
     expect(document.querySelector('[role="alert"]')?.textContent).toContain("不能晚于");
     expect(onChange).not.toHaveBeenCalled();
-    await enterDate("2026-08-24");
+    await selectDate("2026-08-24");
     expect(document.querySelector('[role="alert"]')).toBeNull();
     await clickText("button", "应用");
     expect(onChange).toHaveBeenCalledExactlyOnceWith("from", "2026-08-24");
@@ -376,14 +376,79 @@ describe("Toolbar filter editing", () => {
     roots.push(root);
     await clickText("button", "添加筛选");
     await clickText('[role="option"]', "起始日期");
-    const input = document.querySelector('input[type="date"]');
-    expect(input).not.toBeNull();
-    expect(document.activeElement).toBe(input);
+    const calendar = document.querySelector('[data-slot="calendar"]');
+    expect(calendar).not.toBeNull();
+    expect(calendar?.contains(document.activeElement)).toBe(true);
+    expect(document.querySelector('input[type="date"]')).toBeNull();
     expect(document.querySelector('[data-slot="filter-chip"]')?.textContent).toContain("不早于");
     expect(onChange).not.toHaveBeenCalled();
-    await enterDate("2026-08-24");
+    const today = formatDatePickerValue(new Date());
+    await selectDate(today);
     await clickText("button", "应用");
-    expect(onChange).toHaveBeenCalledExactlyOnceWith("from", "2026-08-24");
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("from", today);
+  });
+
+  it("discards a calendar selection when the date filter is cancelled", async () => {
+    const onChange = vi.fn();
+    const { root } = await renderInAct(
+      <Toolbar
+        filters={[
+          { key: "extraA", label: "备注", type: "search" },
+          { key: "extraB", label: "编号", type: "search" },
+          { boundary: "from", key: "from", label: "起始日期", type: "date" },
+        ]}
+        filterValues={{ from: "2026-08-20" }}
+        onFilterChange={onChange}
+      />,
+    );
+    roots.push(root);
+    await clickText("button", "2026-08-20");
+    await selectDate("2026-08-24");
+    await clickText("button", "取消");
+    expect(onChange).not.toHaveBeenCalled();
+    await clickText("button", "2026-08-20");
+    const selected = document.querySelector<HTMLButtonElement>(
+      'button[data-selected-single="true"]',
+    );
+    expect(selected?.dataset.day).toBe(new Date(2026, 7, 20).toLocaleDateString());
+  });
+
+  it("keeps date bounds and clearing for a direct toolbar picker", async () => {
+    const onChange = vi.fn();
+    const { root } = await renderInAct(
+      <Toolbar
+        filters={[
+          {
+            boundary: "from",
+            key: "from",
+            label: "起始日期",
+            max: "2026-08-25",
+            min: "2026-08-20",
+            type: "date",
+          },
+        ]}
+        filterValues={{ from: "2026-08-22" }}
+        onFilterChange={onChange}
+      />,
+    );
+    roots.push(root);
+    await clickText("button", "起始日期");
+    for (const day of [19, 26]) {
+      expect(
+        document.querySelector<HTMLButtonElement>(
+          `button[data-day="${new Date(2026, 7, day).toLocaleDateString()}"]`,
+        )?.disabled,
+      ).toBe(true);
+    }
+    await selectDate("2026-08-25");
+    expect(onChange).not.toHaveBeenCalled();
+    await clickText("button", "确定");
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("from", "2026-08-25");
+    onChange.mockClear();
+    await clickText("button", "起始日期");
+    await clickText("button", "清除");
+    await clickText("button", "确定");
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("from", "");
   });
 
   it.each(["any", "all"] as const)(

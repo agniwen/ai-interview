@@ -35,6 +35,8 @@ interface PickerProps {
 }
 
 interface DatePickerProps extends PickerProps {
+  min?: string;
+  max?: string;
   onValueChange: (value: string) => void;
 }
 
@@ -80,6 +82,8 @@ function PickerTrigger({
 export function DatePicker({
   className,
   disabled,
+  min,
+  max,
   onValueChange,
   placeholder = "选择日期",
   value,
@@ -87,8 +91,14 @@ export function DatePicker({
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const selected = parseDatePickerValue(value);
+  const minDate = parseDatePickerValue(min ?? "");
+  const maxDate = parseDatePickerValue(max ?? "");
   const [draft, setDraft] = React.useState<Date | undefined>(selected);
   const displayValue = selected ? format(selected, "yyyy年M月d日", { locale: zhCN }) : undefined;
+
+  function isOutsideRange(date: Date) {
+    return Boolean((minDate && date < minDate) || (maxDate && date > maxDate));
+  }
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -112,7 +122,15 @@ export function DatePicker({
         }
       />
       <PopoverContent align="start" className="w-auto overflow-hidden bg-background p-0">
-        <Calendar autoFocus locale={zhCN} mode="single" onSelect={setDraft} selected={draft} />
+        <Calendar
+          autoFocus
+          defaultMonth={selected ?? minDate ?? maxDate}
+          disabled={isOutsideRange}
+          locale={zhCN}
+          mode="single"
+          onSelect={setDraft}
+          selected={draft}
+        />
         <Separator />
         <div className="flex justify-between gap-2 p-2">
           <Button
@@ -129,6 +147,7 @@ export function DatePicker({
               取消
             </Button>
             <Button
+              disabled={draft !== undefined && isOutsideRange(draft)}
               onClick={() => {
                 onValueChange(draft ? formatDatePickerValue(draft) : "");
                 setOpen(false);

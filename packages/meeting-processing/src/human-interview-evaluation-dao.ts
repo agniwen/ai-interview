@@ -20,9 +20,14 @@ import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type {
   HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
-import { humanInterviewEvaluationSchema } from "@app/db-schema/studio-interviews";
+import {
+  humanInterviewEvaluationDraftSchema,
+  humanInterviewEvaluationSubmissionSchema,
+  humanInterviewEvaluationSchema,
+} from "@app/db-schema/studio-interviews";
 import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { z } from "zod";
@@ -698,13 +703,13 @@ export function createHumanInterviewEvaluationDao(
 
   async function saveHumanInterviewEvaluationDraft(input: {
     actorId: string;
-    evaluation: HumanInterviewEvaluation;
+    evaluation: HumanInterviewEvaluationDraft;
     meetingSessionId: string | null;
     organizationId: string;
     roundId: string;
     transcriptRevisionId: string | null;
   }): Promise<boolean> {
-    const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
+    const evaluation = humanInterviewEvaluationDraftSchema.parse(input.evaluation);
     return await db.transaction(async (tx) => {
       const [context] = await tx
         .select({
@@ -773,7 +778,7 @@ export function createHumanInterviewEvaluationDao(
     if (input.outcome !== "pass" && input.outcome !== "fail") {
       return false;
     }
-    const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
+    const evaluation = humanInterviewEvaluationSubmissionSchema.parse(input.evaluation);
     const now = new Date();
     return await db.transaction(async (tx) => {
       // 招聘记录先锁，再锁会议/轮次，与流程回退、取消保持一致，避免旧结果覆盖当前节点。

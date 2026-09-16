@@ -35,7 +35,7 @@ import {
 } from "@app/shared/interview/question-outcomes";
 import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import type {
-  HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
@@ -113,7 +113,7 @@ export function buildHumanInterviewEvaluationSummary(
   rounds: {
     interviewerNames: string[];
     label: string;
-    evaluation: HumanInterviewEvaluation | null;
+    evaluation: HumanInterviewEvaluationDraft | null;
     outcome: HumanInterviewRoundOutcome | null;
   }[],
 ): string {

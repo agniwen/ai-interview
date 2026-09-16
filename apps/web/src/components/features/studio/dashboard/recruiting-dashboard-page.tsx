@@ -23,6 +23,8 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardActivityCard } from "./dashboard-activity-card";
+import { DASHBOARD_COLORS } from "./dashboard-colors";
 import { DashboardMetricDefinitionsDialog } from "./dashboard-metric-definitions-dialog";
 import { getDashboardFunnelRows } from "./dashboard-funnel";
 import { getDashboardJobSearch, getDashboardResumeSearch } from "./dashboard-navigation";
@@ -97,7 +99,7 @@ function FunnelCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
   return (
     <Card>
       <CardHeader className="border-b pb-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">转化漏斗</CardTitle>
             <p className="mt-1 text-muted-foreground text-xs">
@@ -109,14 +111,14 @@ function FunnelCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-5">
+      <CardContent className="flex flex-col gap-4 p-5">
         {rows.map((stage) => {
           const stageCount = stage.count;
           const width =
             total > 0 ? Math.max((stageCount / total) * 100, stageCount > 0 ? 3 : 0) : 0;
           return (
             <div
-              className="grid grid-cols-[5rem_minmax(0,1fr)_3.5rem_4.5rem] items-center gap-3"
+              className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem_3rem] items-center gap-2 sm:grid-cols-[5rem_minmax(0,1fr)_3rem_3.5rem] sm:gap-3"
               key={stage.key}
             >
               <span className="text-sm">{stage.label}</span>
@@ -148,9 +150,9 @@ function actionCountClassName(severity: DashboardActionSeverity) {
     return "bg-destructive/10 text-destructive";
   }
   if (severity === "warning") {
-    return "bg-amber-500/10 text-amber-700 dark:text-amber-400";
+    return "bg-warning/10 text-warning-foreground";
   }
-  return "bg-blue-500/10 text-blue-700 dark:text-blue-400";
+  return "bg-info/10 text-info-foreground";
 }
 
 function RiskCard({ metrics, slug }: { metrics: RecruitingDashboardMetrics; slug: string }) {
@@ -162,13 +164,13 @@ function RiskCard({ metrics, slug }: { metrics: RecruitingDashboardMetrics; slug
       <CardHeader className="border-b pb-4">
         <CardTitle className="text-base">风险与待办</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5 p-5">
+      <CardContent className="flex flex-col gap-5 p-5">
         <section>
           <div className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
-            <IconAlertTriangle className="size-4 text-amber-500" />
+            <IconAlertTriangle className="size-4 text-warning-foreground" />
             招聘待办
           </div>
-          <div className="space-y-2">
+          <div className="-mx-2 flex flex-col gap-1">
             {actions.length > 0 ? (
               actions.map((item) => {
                 const content = (
@@ -190,14 +192,14 @@ function RiskCard({ metrics, slug }: { metrics: RecruitingDashboardMetrics; slug
                   </>
                 );
                 const className =
-                  "flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm";
+                  "flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm";
                 return item.key === "notification_failed" ? (
                   <div className={className} key={item.key}>
                     {content}
                   </div>
                 ) : (
                   <Link
-                    className={`${className} transition-colors hover:bg-muted/50`}
+                    className={`${className} transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                     key={item.key}
                     params={{ slug }}
                     search={getDashboardResumeSearch(item.key)}
@@ -208,40 +210,38 @@ function RiskCard({ metrics, slug }: { metrics: RecruitingDashboardMetrics; slug
                 );
               })
             ) : (
-              <div className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-sm">
-                暂无招聘待办
-              </div>
+              <div className="px-2 py-4 text-muted-foreground text-sm">暂无招聘待办</div>
             )}
           </div>
         </section>
         <section>
           <div className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
-            <IconBriefcase className="size-4 text-rose-500" />
+            <IconBriefcase className="size-4 text-warning-foreground" />
             岗位缺口
           </div>
-          <div className="space-y-2">
+          <div className="-mx-2 flex flex-col gap-1">
             {gaps.length > 0 ? (
               gaps.map((job) => (
                 <Link
-                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-muted/50"
+                  className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   key={job.id}
                   params={{ slug }}
                   search={getDashboardJobSearch(job.id)}
                   to="/w/$slug/studio/job-descriptions"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate">{job.name}</span>
+                    <span className="block leading-relaxed wrap-anywhere">{job.name}</span>
                     <span className="text-muted-foreground text-xs">
                       {job.departmentName ?? "未设置部门"}
                     </span>
                   </span>
-                  <span className="shrink-0 font-medium text-rose-600 text-xs dark:text-rose-400">
+                  <span className="shrink-0 font-medium text-warning-foreground text-xs">
                     缺口 {job.gap}
                   </span>
                 </Link>
               ))
             ) : (
-              <div className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-sm">
+              <div className="px-2 py-4 text-muted-foreground text-sm">
                 {metrics.summary.unconfiguredHeadcount > 0 ? "缺口数据待完善" : "暂无岗位缺口"}
               </div>
             )}
@@ -332,71 +332,6 @@ function RecruiterProgressCard({ metrics }: { metrics: RecruitingDashboardMetric
   );
 }
 
-const ACTIVITY_SERIES = [
-  { color: "bg-blue-500", key: "resumesAdded", label: "新增简历" },
-  { color: "bg-violet-500", key: "aiCompleted", label: "AI 完成" },
-  { color: "bg-amber-500", key: "humanCompleted", label: "复面完成" },
-  { color: "bg-emerald-500", key: "offersSent", label: "Offer 发出" },
-] as const;
-
-function ActivityCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
-  const maxValue = Math.max(
-    1,
-    ...metrics.activity.flatMap((row) => ACTIVITY_SERIES.map((series) => row[series.key])),
-  );
-  return (
-    <Card>
-      <CardHeader className="border-b pb-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="text-base">近 30 天招聘活动</CardTitle>
-            <p className="mt-1 text-muted-foreground text-xs">按北京时间自然日统计</p>
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {ACTIVITY_SERIES.map((series) => (
-              <span
-                className="flex items-center gap-1.5 text-muted-foreground text-xs"
-                key={series.key}
-              >
-                <span className={cn("size-2 rounded-full", series.color)} />
-                {series.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-5">
-        <div className="flex h-52 items-end gap-1 border-b border-l px-2 pt-4">
-          {metrics.activity.map((row) => (
-            <div
-              className="group flex h-full min-w-0 flex-1 items-end justify-center gap-px"
-              key={row.day}
-              title={`${row.day}：新增简历 ${row.resumesAdded}，AI 完成 ${row.aiCompleted}，复面完成 ${row.humanCompleted}，Offer 发出 ${row.offersSent}`}
-            >
-              {ACTIVITY_SERIES.map((series) => (
-                <span
-                  className={cn(
-                    "w-1/4 min-w-px rounded-t-sm opacity-85 transition-opacity group-hover:opacity-100",
-                    series.color,
-                  )}
-                  key={series.key}
-                  style={{ height: `${(row[series.key] / maxValue) * 100}%` }}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex justify-between text-muted-foreground text-[11px]">
-          <span>{metrics.activity.at(0)?.day.slice(5)}</span>
-          <span>{metrics.activity.at(9)?.day.slice(5)}</span>
-          <span>{metrics.activity.at(19)?.day.slice(5)}</span>
-          <span>{metrics.activity.at(-1)?.day.slice(5)}</span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function ResultsCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
   const aiTotal =
     metrics.resume.conversion.withInterview + metrics.resume.conversion.withoutInterview;
@@ -415,10 +350,10 @@ function ResultsCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
       <CardHeader className="border-b pb-4">
         <CardTitle className="text-base">AI 与 Offer 效果</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5 p-5">
-        <div className="grid grid-cols-3 gap-2">
+      <CardContent className="flex flex-col gap-6 p-5">
+        <div className="grid grid-cols-3 gap-4">
           {rows.map((row) => (
-            <div className="rounded-lg border px-3 py-3" key={row.label}>
+            <div className="min-w-0" key={row.label}>
               <div className="truncate text-muted-foreground text-xs">{row.label}</div>
               <div className="mt-2 font-mono font-semibold text-xl tabular-nums">{row.value}</div>
             </div>
@@ -429,17 +364,17 @@ function ResultsCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
             <span className="font-medium">Offer 状态</span>
             <span className="text-muted-foreground text-xs">共 {offerTotal} 个</span>
           </div>
-          <div className="rounded-lg border px-3 py-3">
+          <div className="pt-2">
             <div className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-2 text-muted-foreground">
-                <IconCircleCheck className="size-4 text-emerald-500" />
+                <IconCircleCheck className="size-4 text-success-foreground" />
                 已接受
               </span>
               <span className="font-mono font-semibold tabular-nums">{acceptedOffers}</span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-emerald-500"
+                className={cn("h-full rounded-full", DASHBOARD_COLORS.hired.background)}
                 style={{ width: formatPercent(acceptedOffers, offerTotal) }}
               />
             </div>
@@ -473,7 +408,7 @@ export function RecruitingDashboardPage({
       <div className="-mt-3 text-muted-foreground text-sm">整体招聘进展与风险预警</div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
-          accent="bg-blue-500/10 text-blue-600"
+          accent={DASHBOARD_COLORS.resumes.accent}
           description="已发布"
           icon={IconBriefcase}
           label="在招岗位"
@@ -482,7 +417,7 @@ export function RecruitingDashboardPage({
           value={formatNumber(metrics.summary.activeJobs)}
         />
         <MetricCard
-          accent="bg-violet-500/10 text-violet-600"
+          accent={DASHBOARD_COLORS.ai.accent}
           description="招聘流程中"
           icon={IconUsers}
           label="推进中"
@@ -492,7 +427,7 @@ export function RecruitingDashboardPage({
           value={formatNumber(metrics.summary.progressing)}
         />
         <MetricCard
-          accent="bg-amber-500/10 text-amber-600"
+          accent={DASHBOARD_COLORS.offer.accent}
           description="定薪至入职"
           icon={IconFileDescription}
           label="Offer／待入职"
@@ -502,7 +437,7 @@ export function RecruitingDashboardPage({
           value={formatNumber(metrics.summary.offerOnboarding)}
         />
         <MetricCard
-          accent="bg-emerald-500/10 text-emerald-600"
+          accent={DASHBOARD_COLORS.hired.accent}
           description="累计"
           icon={IconCircleCheck}
           label="已入职"
@@ -512,7 +447,7 @@ export function RecruitingDashboardPage({
           value={formatNumber(metrics.summary.hired)}
         />
         <MetricCard
-          accent="bg-rose-500/10 text-rose-600"
+          accent="bg-destructive/10 text-destructive"
           description="淘汰或撤回"
           icon={IconCircleX}
           label="负向结案"
@@ -522,7 +457,7 @@ export function RecruitingDashboardPage({
           value={formatNumber(metrics.summary.negativeClosed)}
         />
         <MetricCard
-          accent="bg-orange-500/10 text-orange-600"
+          accent="bg-warning/10 text-warning-foreground"
           description={vacancyMetric.description}
           icon={IconChartFunnel}
           label="岗位缺口"
@@ -531,15 +466,13 @@ export function RecruitingDashboardPage({
           value={vacancyMetric.value}
         />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.8fr)]">
-        <FunnelCard metrics={metrics} />
+      <FunnelCard metrics={metrics} />
+      <div className="grid gap-4 lg:grid-cols-2">
         <RiskCard metrics={metrics} slug={slug} />
-      </div>
-      <RecruiterProgressCard metrics={metrics} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.8fr)]">
-        <ActivityCard metrics={metrics} />
         <ResultsCard metrics={metrics} />
       </div>
+      <RecruiterProgressCard metrics={metrics} />
+      <DashboardActivityCard activity={metrics.activity} />
       <DashboardMetricDefinitionsDialog open={definitionsOpen} onOpenChange={setDefinitionsOpen} />
     </div>
   );

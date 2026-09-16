@@ -88,13 +88,13 @@ function getIncomeProofReviewMeta(review?: IncomeProofReview) {
 function IncomeProofReviewSummary({ review }: { review?: IncomeProofReview }) {
   const meta = getIncomeProofReviewMeta(review);
   return (
-    <div className="rounded-lg border bg-muted/30 px-3 py-2" aria-label="流水审核结果">
+    <div className="flex flex-col gap-2" aria-label="流水审核结果">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-muted-foreground text-xs">审核结果</span>
         <Badge variant={meta.variant}>{meta.label}</Badge>
       </div>
       {review?.reason ? (
-        <p aria-label="流水审核说明" className="mt-2 text-xs leading-relaxed whitespace-pre-wrap">
+        <p aria-label="流水审核说明" className="text-xs leading-relaxed whitespace-pre-wrap">
           <span className="font-medium">审核说明：</span>
           {review.reason}
         </p>

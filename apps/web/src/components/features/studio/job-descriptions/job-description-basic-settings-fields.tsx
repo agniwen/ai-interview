@@ -6,6 +6,7 @@ import {
   filterInterviewerIdsByDepartment,
   getDepartmentSyncedInterviewerSelection,
 } from "@app/shared/job-description-interviewers";
+import { DatePicker } from "@/components/date-time-picker";
 import {
   Field,
   FieldContent,
@@ -264,7 +265,7 @@ export function JobDescriptionBasicSettingsFields({
                     field.handleChange(synced.interviewerIds);
                   }}
                   options={interviewerOptions}
-                  placeholder="选择面试官…"
+                  placeholder="选择面试官"
                   searchPlaceholder="搜索面试官…"
                   selectedFormat={(count) => `已选 ${count} 位面试官`}
                   selectedPreviewLimit={3}
@@ -440,11 +441,10 @@ export function JobDescriptionBasicSettingsFields({
             {(field) => (
               <Field>
                 <FieldLabel htmlFor={field.name}>目标日期</FieldLabel>
-                <Input
+                <DatePicker
                   id={field.name}
                   onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value || null)}
-                  type="date"
+                  onValueChange={(value) => field.handleChange(value || null)}
                   value={field.state.value ?? ""}
                 />
               </Field>
@@ -454,11 +454,10 @@ export function JobDescriptionBasicSettingsFields({
             {(field) => (
               <Field>
                 <FieldLabel htmlFor={field.name}>发布日期</FieldLabel>
-                <Input
+                <DatePicker
                   id={field.name}
                   onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value || null)}
-                  type="date"
+                  onValueChange={(value) => field.handleChange(value || null)}
                   value={field.state.value ?? ""}
                 />
               </Field>

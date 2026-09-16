@@ -7,7 +7,8 @@ import type {
   HumanInterviewMeetingStatus,
 } from "@app/db-schema/studio-interviews";
 import {
-  humanInterviewEvaluationSchema,
+  humanInterviewEvaluationDraftSchema,
+  humanInterviewEvaluationSubmissionSchema,
   humanInterviewFinalOutcomeSchema,
 } from "@app/db-schema/studio-interviews";
 import {
@@ -55,7 +56,7 @@ const liveTranscriptDraftSaveSchema = z.object({
 
 const humanInterviewEvaluationDraftSaveSchema = z
   .object({
-    evaluation: humanInterviewEvaluationSchema,
+    evaluation: humanInterviewEvaluationDraftSchema,
     transcriptRevisionId: z.uuid().nullable(),
   })
   .strict();
@@ -411,7 +412,7 @@ export function createHumanInterviewReviewActionsRouter(
       zValidator(
         "json",
         z.object({
-          evaluation: humanInterviewEvaluationSchema,
+          evaluation: humanInterviewEvaluationSubmissionSchema,
           outcome: humanInterviewFinalOutcomeSchema,
           transcriptRevisionId: z.uuid().nullable(),
         }),

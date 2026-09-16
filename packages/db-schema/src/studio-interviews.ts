@@ -356,6 +356,18 @@ export const humanInterviewEvaluationSchema = z
   .strict();
 export type HumanInterviewEvaluation = z.infer<typeof humanInterviewEvaluationSchema>;
 
+// Drafts may omit a judgment; generated and submitted evaluations still require a rating.
+export const humanInterviewEvaluationDraftSchema = humanInterviewEvaluationSchema.extend({
+  // Stored only in the draft JSON; never writes the round's official outcome.
+  draftOutcome: humanInterviewFinalOutcomeSchema.nullable().optional(),
+  rating: humanInterviewEvaluationRatingSchema.nullable(),
+});
+export type HumanInterviewEvaluationDraft = z.infer<typeof humanInterviewEvaluationDraftSchema>;
+
+export const humanInterviewEvaluationSubmissionSchema = humanInterviewEvaluationSchema.extend({
+  overallEvaluation: humanInterviewEvaluationTextSchema.min(1),
+});
+
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
 // 面试官可以暂为空，供“先创建会议，再由列表外人员接受邀请”流程使用；
 // 时间可空（未定档）。历史数字评分保留在读取模型中，新流程不再写入。

@@ -329,7 +329,7 @@ function AttendanceRow({
   const meta = participantStatusMeta(presence, meeting);
   const time = participantTime(presence, joinedAt, leftAt);
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border/50 bg-background px-3 py-2">
+    <div className="flex min-w-0 items-center justify-between gap-3 py-1">
       <div className="min-w-0 text-xs">
         <span className="font-medium text-foreground">{label}</span>
         <span className="ml-2 text-muted-foreground">{participantRole}</span>
@@ -350,7 +350,7 @@ function MeetingAttendanceSummary({
   note?: string | null;
 }) {
   return (
-    <section aria-label="参会情况" className="space-y-2 rounded-lg bg-muted/35 p-3">
+    <section aria-label="参会情况" className="flex flex-col gap-2 border-border/40 border-t pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h5 className="font-medium text-sm">参会情况</h5>
         {meeting.attendanceAlertedAt ? (
@@ -358,7 +358,7 @@ function MeetingAttendanceSummary({
         ) : null}
       </div>
       {note ? <p className="text-muted-foreground text-xs">{note}</p> : null}
-      <div className="grid gap-2 lg:grid-cols-2">
+      <div className="grid gap-x-6 gap-y-2 lg:grid-cols-2">
         {meeting.rounds.map((candidate) => (
           <AttendanceRow
             joinedAt={candidate.joinedAt}

@@ -1,11 +1,14 @@
+import { zhCN } from "date-fns/locale";
 import type { FilterEditorProps } from "@/components/reui/filters/filters-types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { formatDatePickerValue, parseDatePickerValue } from "@/lib/client/date-picker-value";
 import type { ToolbarFilterValue } from "./filter-config";
 
 export function ToolbarDateEditor(props: FilterEditorProps<ToolbarFilterValue>) {
   const { autoFocusProps, cancel, commit, field, labels, onValueChange, operator, value } = props;
   const date = Array.isArray(value) ? "" : (value ?? "");
+  const selected = parseDatePickerValue(date);
   const error = field.validate?.({
     arity: "one",
     field,
@@ -17,13 +20,16 @@ export function ToolbarDateEditor(props: FilterEditorProps<ToolbarFilterValue>) 
   });
   return (
     <div className="flex flex-col gap-3 p-3">
-      <Input
-        {...autoFocusProps}
+      <Calendar
+        autoFocus={autoFocusProps.autoFocus}
         aria-label={field.label}
         aria-invalid={Boolean(error)}
-        type="date"
-        value={date}
-        onChange={(event) => onValueChange(event.target.value)}
+        className="p-0"
+        defaultMonth={selected}
+        locale={zhCN}
+        mode="single"
+        selected={selected}
+        onSelect={(next) => onValueChange(next ? formatDatePickerValue(next) : "")}
       />
       {error ? (
         <p className="text-sm text-destructive" role="alert">

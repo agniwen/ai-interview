@@ -14,19 +14,18 @@ function formatDuration(durationMs: number): string {
 
 export function CandidateMeetingLinksView({ meetings }: { meetings: MeetingLibraryItem[] }) {
   return (
-    <section className="rounded-xl border border-border/60 bg-background p-4">
-      <div>
-        <h3 className="font-medium text-sm">关联会议</h3>
-        <p className="text-muted-foreground text-xs">
-          仅展示你有权限访问、且关联到这条 Candidate Recruiting Record 的 Meeting Session。
-        </p>
-      </div>
+    <section className="pt-6">
+      <h3 className="mb-3 font-medium text-sm">关联会议</h3>
+      <p className="text-muted-foreground text-xs">仅展示你有权限查看的关联会议。</p>
       {meetings.length === 0 ? (
-        <p className="mt-4 text-muted-foreground text-sm">暂无有权限访问的关联 Meeting Session。</p>
+        <p className="mt-4 text-muted-foreground text-sm">暂无关联会议。</p>
       ) : (
-        <div className="mt-4 divide-y rounded-lg border">
+        <div className="mt-4 divide-y divide-border/50">
           {meetings.map((meeting) => (
-            <article className="flex items-center justify-between gap-4 p-3" key={meeting.id}>
+            <article
+              className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              key={meeting.id}
+            >
               <div className="min-w-0">
                 <p className="truncate font-medium text-sm">{meeting.title}</p>
                 <p className="text-muted-foreground text-xs">

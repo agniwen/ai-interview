@@ -17,7 +17,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
       role="group"
       className={cn(
         cossFieldSurfaceClass,
-        "group/input-group flex w-full items-center [&>*]:relative [&>*]:z-10",
+        "group/input-group flex w-full items-center text-base md:text-sm [&>*]:relative [&>*]:z-10",
         "h-9 min-w-0 has-[>textarea]:h-auto",
 
         // Variants based on alignment.

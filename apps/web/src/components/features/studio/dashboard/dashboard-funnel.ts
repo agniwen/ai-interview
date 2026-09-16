@@ -1,11 +1,13 @@
 import type { DashboardCumulativeFunnel } from "@app/shared/studio-dashboard";
 
+import { DASHBOARD_COLORS } from "./dashboard-colors";
+
 const FUNNEL_META = [
-  { color: "bg-blue-500", key: "resumesAdded", label: "简历入库" },
-  { color: "bg-violet-500", key: "enteredInterview", label: "进入面试" },
-  { color: "bg-indigo-500", key: "enteredSecondInterview", label: "进入复面" },
-  { color: "bg-amber-500", key: "enteredOffer", label: "进入 Offer" },
-  { color: "bg-emerald-500", key: "hired", label: "已入职" },
+  { color: DASHBOARD_COLORS.resumes.background, key: "resumesAdded", label: "简历入库" },
+  { color: DASHBOARD_COLORS.ai.background, key: "enteredInterview", label: "进入面试" },
+  { color: DASHBOARD_COLORS.human.background, key: "enteredSecondInterview", label: "进入复面" },
+  { color: DASHBOARD_COLORS.offer.background, key: "enteredOffer", label: "进入 Offer" },
+  { color: DASHBOARD_COLORS.hired.background, key: "hired", label: "已入职" },
 ] as const;
 
 function formatConversion(part: number, total: number) {

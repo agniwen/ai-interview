@@ -488,6 +488,7 @@ export function InterviewerCandidateMaterials({
   });
   const candidates = listQuery.data?.candidates ?? [];
   const effectiveCandidateId = resolveEffectiveCandidateId(candidates, state.candidateId);
+  const currentCandidate = candidates.find((candidate) => candidate.id === effectiveCandidateId);
   const overviewQuery = useOverviewQuery(active, inviteToken, effectiveCandidateId);
   const aiQuery = useAiEvaluationQuery(active, inviteToken, effectiveCandidateId);
   const hrQuery = useHrInformationQuery(active, inviteToken, effectiveCandidateId);
@@ -507,33 +508,36 @@ export function InterviewerCandidateMaterials({
     <div className="dark flex h-full min-h-0 flex-col bg-background text-foreground">
       <div className="flex shrink-0 items-center gap-3 border-b px-3 py-2.5">
         <span className="shrink-0 text-muted-foreground text-xs">当前候选人</span>
-        <Select
-          onValueChange={(candidateId) =>
-            onStateChange({ ...state, candidateId: String(candidateId) })
-          }
-          value={effectiveCandidateId}
-        >
-          <SelectTrigger className="min-w-56 max-w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="start">
-            <SelectGroup>
-              {candidates.map((candidate) => (
-                <SelectItem key={candidate.id} value={candidate.id}>
-                  <span>{candidate.candidateName}</span>
-                  {candidate.targetRole ? (
-                    <span className="text-muted-foreground">· {candidate.targetRole}</span>
-                  ) : null}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        {candidates.length > 1 ? (
+          <Select
+            onValueChange={(candidateId) =>
+              onStateChange({ ...state, candidateId: String(candidateId) })
+            }
+            value={effectiveCandidateId}
+          >
+            <SelectTrigger className="min-w-56 max-w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectGroup>
+                {candidates.map((candidate) => (
+                  <SelectItem key={candidate.id} value={candidate.id}>
+                    <span>{candidate.candidateName}</span>
+                    {candidate.targetRole ? (
+                      <span className="text-muted-foreground">· {candidate.targetRole}</span>
+                    ) : null}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="min-w-0 truncate font-medium text-sm">
+            {currentCandidate?.candidateName}
+          </span>
+        )}
         <span className="hidden truncate text-muted-foreground text-xs sm:block">
-          {candidates
-            .find((candidate) => candidate.id === effectiveCandidateId)
-            ?.rounds.map((round) => round.label)
-            .join(" · ")}
+          {currentCandidate?.rounds.map((round) => round.label).join(" · ")}
         </span>
       </div>
 

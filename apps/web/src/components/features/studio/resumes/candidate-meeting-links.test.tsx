@@ -28,6 +28,6 @@ describe("Candidate Recruiting Record Meeting Sessions", () => {
 
   it("renders an explicit empty state without inventing a recruiting meeting", () => {
     const html = renderToStaticMarkup(<CandidateMeetingLinksView meetings={[]} />);
-    expect(html).toContain("暂无有权限访问的关联 Meeting Session");
+    expect(html).toContain("暂无关联会议");
   });
 });

@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("PublicBackgroundCheckPage", () => {
-  it("keeps the original collection fields and presents employment as a period", () => {
+  it("uses confirmed calendar dates and clears the end date when switching employment status", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -61,7 +61,44 @@ describe("PublicBackgroundCheckPage", () => {
     });
 
     expect(host.querySelector<HTMLSelectElement>("#employment-reason-0")?.disabled).toBe(false);
-    expect(host.querySelector<HTMLInputElement>("#employment-end-0")?.type).toBe("date");
+    expect(host.querySelector('input[type="date"]')).toBeNull();
+
+    const today = new Date();
+    const displayDate = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+    for (const id of ["employment-start-0", "employment-end-0", "background-signed-date"]) {
+      const trigger = host.querySelector<HTMLButtonElement>(`#${id}`);
+      expect(trigger?.getAttribute("aria-required")).toBe("true");
+      await act(() => trigger?.click());
+      const day = document.querySelector<HTMLButtonElement>(
+        `button[data-day="${today.toLocaleDateString()}"]`,
+      );
+      expect(day).not.toBeNull();
+      await act(() => day?.click());
+      expect(trigger?.textContent).toContain("选择日期");
+      await act(() => {
+        [...document.querySelectorAll<HTMLButtonElement>("button")]
+          .find((button) => button.textContent === "确定")
+          ?.click();
+      });
+      expect(trigger?.textContent).toContain(displayDate);
+    }
+
+    act(() => {
+      if (status) {
+        status.value = "no";
+        status.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    expect(host.querySelector("#employment-end-0")?.textContent).toBe("至今");
+    expect(host.querySelector<HTMLSelectElement>("#employment-reason-0")?.disabled).toBe(true);
+    act(() => {
+      if (status) {
+        status.value = "yes";
+        status.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    expect(host.querySelector("#employment-end-0")?.textContent).toBe("选择日期");
+    expect(host.querySelector("#employment-start-0")?.textContent).toContain(displayDate);
 
     act(() => root.unmount());
     host.remove();

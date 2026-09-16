@@ -14,6 +14,7 @@ import {
   backgroundCheckLeavingReasonSchema,
 } from "@app/db-schema/background-check";
 import type { PublicBackgroundCheckRecord } from "@app/shared/studio-pipeline-stages";
+import { DatePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -381,26 +382,24 @@ export function PublicBackgroundCheckPage({
                     <legend className="px-1 font-medium text-sm">在职时间</legend>
                     <div className="grid gap-1.5">
                       <Label htmlFor={`employment-start-${index}`}>开始时间</Label>
-                      <Input
+                      <DatePicker
                         id={`employment-start-${index}`}
                         required
-                        type="date"
                         value={record.employmentStart}
-                        onChange={(event) =>
-                          updateEmployment(index, { employmentStart: event.target.value })
+                        onValueChange={(value) =>
+                          updateEmployment(index, { employmentStart: value })
                         }
                       />
                     </div>
                     <div className="grid gap-1.5">
                       <Label htmlFor={`employment-end-${index}`}>结束时间</Label>
                       {record.hasLeftCompany === true ? (
-                        <Input
+                        <DatePicker
                           id={`employment-end-${index}`}
                           required
-                          type="date"
                           value={record.employmentEnd ?? ""}
-                          onChange={(event) =>
-                            updateEmployment(index, { employmentEnd: event.target.value })
+                          onValueChange={(value) =>
+                            updateEmployment(index, { employmentEnd: value })
                           }
                         />
                       ) : (
@@ -515,13 +514,12 @@ export function PublicBackgroundCheckPage({
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="background-signed-date">签署日期</Label>
-                <Input
+                <DatePicker
                   id="background-signed-date"
                   required
-                  type="date"
                   value={form.signedDate}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, signedDate: event.target.value }))
+                  onValueChange={(value) =>
+                    setForm((current) => ({ ...current, signedDate: value }))
                   }
                 />
               </div>

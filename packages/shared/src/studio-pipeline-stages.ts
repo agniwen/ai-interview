@@ -10,7 +10,7 @@ import type {
   ClosedMeta,
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
-  HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewEvaluationRating,
   HumanInterviewEvaluationStatus,
   HumanInterviewMeetingLifecycleSource,
@@ -70,7 +70,7 @@ export interface HumanInterviewRoundRecord {
   outcome: HumanInterviewRoundOutcome | null;
   score: number | null;
   feedback: string | null;
-  evaluation: HumanInterviewEvaluation | null;
+  evaluation: HumanInterviewEvaluationDraft | null;
   evaluationOverall: string | null;
   evaluationRating: HumanInterviewEvaluationRating | null;
   evaluationError: string | null;
@@ -232,7 +232,7 @@ export interface HumanInterviewReviewRecord {
     documentUrl: string | null;
     syncedAt: string | null;
   } | null;
-  evaluation: HumanInterviewEvaluation | null;
+  evaluation: HumanInterviewEvaluationDraft | null;
   evaluationError: string | null;
   evaluationStatus: HumanInterviewEvaluationStatus;
   evaluationUpdatedAt: string | null;

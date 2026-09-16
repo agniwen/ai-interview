@@ -82,6 +82,7 @@ it("opens history from the materials tab and isolates it when switching candidat
     );
   try {
     await render("candidate-1");
+    expect(container.querySelector('[role="combobox"]')).not.toBeNull();
     const selectedTab = container.querySelector('[role="tab"][aria-selected="true"]');
     expect(selectedTab?.textContent).toBe("历史评价");
     expect(container.textContent).toContain("第一位候选人的优势");
@@ -89,6 +90,45 @@ it("opens history from the materials tab and isolates it when switching candidat
     expect(container.textContent).not.toContain("第一位候选人的优势");
     expect(container.textContent).toContain("暂无已提交的业务面评价");
     expect(container.querySelector('button[aria-expanded="true"]')?.textContent).toBe("HR 初面");
+  } finally {
+    await act(() => root.unmount());
+    client.clear();
+    container.remove();
+  }
+});
+
+it("shows a single candidate and round as text even when the stored selection is stale", async () => {
+  const client = new QueryClient();
+  client.setQueryData(["human-interview-candidate-materials", "invite-single", "candidates"], {
+    candidates: [
+      {
+        candidateName: "测试候选人",
+        id: "candidate-only",
+        rounds: [{ id: "round-only", label: "业务二面" }],
+        targetRole: null,
+      },
+    ],
+    meetingId: "meeting-single",
+  });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <InterviewerCandidateMaterials
+            active={false}
+            inviteToken="invite-single"
+            onStateChange={() => {}}
+            state={{ candidateId: "stale-candidate", centerTab: "detail", leftTab: "ai" }}
+          />
+        </QueryClientProvider>,
+      ),
+    );
+    expect(container.querySelector('[role="combobox"]')).toBeNull();
+    expect(container.textContent).toContain("测试候选人");
+    expect(container.textContent).toContain("业务二面");
   } finally {
     await act(() => root.unmount());
     client.clear();
