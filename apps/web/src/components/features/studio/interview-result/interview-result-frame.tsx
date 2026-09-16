@@ -56,17 +56,13 @@ function InterviewResultActionRow({
 
   return (
     <>
-      <div
-        className={cn(
-          "mt-5 grid gap-2 border-border/50 border-t pt-5",
-          hasRecommendedQuestions && showCopyInterviewLink
-            ? "grid-cols-1 sm:grid-cols-2"
-            : "grid-cols-1",
-        )}
-      >
+      <div className="mt-5 flex flex-col gap-2 border-border/50 border-t pt-5 sm:flex-row">
+        {showCopyInterviewLink && invitation ? (
+          <SendInvitationButton {...invitation} disabled={record.roundStatus !== "pending"} />
+        ) : null}
         {hasRecommendedQuestions ? (
           <Button
-            className="w-full"
+            className="min-w-0 flex-1"
             onClick={() => setRecommendedQuestionsOpen(true)}
             type="button"
             variant="outline"
@@ -76,29 +72,24 @@ function InterviewResultActionRow({
           </Button>
         ) : null}
         {showCopyInterviewLink ? (
-          <div className="flex w-full gap-2">
-            <Button
-              className="min-w-0 flex-1"
-              disabled={!record.roundInterviewLink || interviewLinkState?.copyDisabled}
-              onClick={() => {
-                if (record.roundInterviewLink && record.roundStatus) {
-                  void copyInterviewLink({
-                    candidateInviteExpiresAt: record.roundCandidateInviteExpiresAt ?? null,
-                    interviewLink: record.roundInterviewLink,
-                    status: record.roundStatus,
-                  });
-                }
-              }}
-              type="button"
-              variant="outline"
-            >
-              <IconCopy className="size-4" />
-              复制面试链接
-            </Button>
-            {invitation ? (
-              <SendInvitationButton {...invitation} disabled={record.roundStatus !== "pending"} />
-            ) : null}
-          </div>
+          <Button
+            className="min-w-0 flex-1"
+            disabled={!record.roundInterviewLink || interviewLinkState?.copyDisabled}
+            onClick={() => {
+              if (record.roundInterviewLink && record.roundStatus) {
+                void copyInterviewLink({
+                  candidateInviteExpiresAt: record.roundCandidateInviteExpiresAt ?? null,
+                  interviewLink: record.roundInterviewLink,
+                  status: record.roundStatus,
+                });
+              }
+            }}
+            type="button"
+            variant="outline"
+          >
+            <IconCopy className="size-4" />
+            复制面试链接
+          </Button>
         ) : null}
       </div>
       {showCopyInterviewLink && interviewLinkState ? (
