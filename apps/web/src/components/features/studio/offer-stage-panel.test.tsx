@@ -296,7 +296,7 @@ describe("Offer stage content", () => {
       );
       expect(create).toBeDefined();
       await act(() => create?.click());
-      expect(document.querySelector<HTMLInputElement>("#offer-base")?.value).toBe("28_000");
+      expect(document.querySelector<HTMLInputElement>("#offer-base")?.value).toBe("28000");
     } finally {
       await act(() => root.unmount());
       queryClient.clear();
