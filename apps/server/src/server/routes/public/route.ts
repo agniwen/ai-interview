@@ -60,6 +60,7 @@ import {
   respondHumanInterviewCandidateInvitation,
 } from "../studio/routes/interviews/dao/human-interview-candidate-response";
 import { aiInterviewInvitationsRouter } from "./routes/ai-interview-invitations/route";
+import { authConfigRouter } from "./routes/auth-config/route";
 import { humanInterviewCandidateMaterialsRouter } from "./routes/human-interview-candidate-materials/route";
 import { humanInterviewLiveTranscriptRouter } from "./routes/human-interview-live-transcript/route";
 import { publicOffersRouter } from "./routes/offers/route";
@@ -105,6 +106,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
   const dependencies: PublicRouterDependencies = { ...defaultDependencies, ...overrides };
   return factory
     .createApp()
+    .route("/auth-config", authConfigRouter)
     .route("/background-checks", publicBackgroundChecksRouter)
     .route("/offers", publicOffersRouter)
     .route("/human-interview-candidate-materials", humanInterviewCandidateMaterialsRouter)

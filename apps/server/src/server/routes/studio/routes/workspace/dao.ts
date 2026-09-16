@@ -4,7 +4,10 @@ import { db } from "../../../../../lib/server/db/index";
 import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { serializeDate } from "../../../../../lib/server/db/serialize";
 import { startOfBeijingDay } from "@app/shared/beijing-calendar";
-import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  getPreferredFeishuProviderId,
+} from "../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
 import {
   account,
@@ -99,7 +102,8 @@ export async function listWorkspaceMembers(organizationId: string): Promise<Work
     return {
       createdAt: row.createdAt.toISOString(),
       email: row.email,
-      feishuProviderIds: feishuProviderIds.length > 0 ? feishuProviderIds : ["feishu-jiguang-hr"],
+      feishuProviderIds:
+        feishuProviderIds.length > 0 ? feishuProviderIds : [getPreferredFeishuProviderId()],
       id: row.id,
       image: row.image,
       memberId: row.memberId,

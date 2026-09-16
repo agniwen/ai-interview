@@ -12,6 +12,7 @@ import {
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
   humanInterviewRound,
+  recruitingEvaluationDocument,
   recruitingNotificationRecipient,
   aiInterviewRound,
   user,
@@ -31,8 +32,11 @@ import {
   buildInviteExpiry,
 } from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
 import { absolutePublicAppUrl } from "../../../lib/server/public-app-url";
-
-const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
+import {
+  FEISHU_PROVIDER_IDS,
+  isFeishuProviderId,
+  selectPreferredFeishuProviderId,
+} from "../../integrations/feishu/provider";
 
 export function resolvePreferredInternalNotificationChannel(
   hasFeishuAccount: boolean,
@@ -273,6 +277,7 @@ async function loadUserTargets(
   userIds: string[],
   channel: InterviewNotificationChannel,
   records: RecordContext[],
+  persistedProviderId: (typeof FEISHU_PROVIDER_IDS)[number] | null,
 ): Promise<RecipientTarget[]> {
   if (userIds.length === 0 || records.length === 0) {
     return [];
@@ -294,10 +299,21 @@ async function loadUserTargets(
       and(inArray(account.userId, userIds), inArray(account.providerId, [...FEISHU_PROVIDER_IDS])),
     )
     .orderBy(desc(account.updatedAt));
-  const accountByUserId = new Map<string, (typeof accounts)[number]>();
+  const accountsByUserId = new Map<string, (typeof accounts)[number][]>();
   for (const item of accounts) {
-    if (!accountByUserId.has(item.userId)) {
-      accountByUserId.set(item.userId, item);
+    const userAccounts = accountsByUserId.get(item.userId) ?? [];
+    userAccounts.push(item);
+    accountsByUserId.set(item.userId, userAccounts);
+  }
+  const accountByUserId = new Map<string, (typeof accounts)[number]>();
+  for (const [userId, userAccounts] of accountsByUserId) {
+    const providerId = selectPreferredFeishuProviderId(
+      userAccounts.map((item) => item.providerId),
+      persistedProviderId,
+    );
+    const selected = userAccounts.find((item) => item.providerId === providerId);
+    if (selected) {
+      accountByUserId.set(userId, selected);
     }
   }
   const preferredUserIds = userIds.filter(
@@ -346,6 +362,7 @@ async function loadTargets(
   records: RecordContext[],
   selectedUserIds: string[],
   initiatorUserId: string | null,
+  persistedProviderId: (typeof FEISHU_PROVIDER_IDS)[number] | null,
 ): Promise<RecipientTarget[]> {
   if (template.audienceType === "candidate") {
     return records.map((record) => {
@@ -379,6 +396,7 @@ async function loadTargets(
       }),
       template.channel,
       records,
+      persistedProviderId,
     );
   }
   if (template.audienceType === "initiator_fallback") {
@@ -394,6 +412,7 @@ async function loadTargets(
       }),
       template.channel,
       records,
+      persistedProviderId,
     );
   }
   if (!event.humanMeetingId) {
@@ -415,7 +434,42 @@ async function loadTargets(
     interviewers.map((item) => item.userId),
     template.channel,
     records,
+    persistedProviderId,
   );
+}
+
+async function loadPersistedFeishuProviderId(
+  database: NotificationDatabase,
+  event: InterviewNotificationEventRecord,
+  records: RecordContext[],
+): Promise<(typeof FEISHU_PROVIDER_IDS)[number] | null> {
+  if (event.humanMeetingId) {
+    const [meeting] = await database
+      .select({ providerId: humanInterviewMeeting.feishuProviderId })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, event.humanMeetingId))
+      .limit(1);
+    if (meeting?.providerId && isFeishuProviderId(meeting.providerId)) {
+      return meeting.providerId;
+    }
+  }
+  const [record] = records;
+  if (!record) {
+    return null;
+  }
+  const [document] = await database
+    .select({ providerId: recruitingEvaluationDocument.providerId })
+    .from(recruitingEvaluationDocument)
+    .where(
+      and(
+        eq(recruitingEvaluationDocument.organizationId, event.organizationId),
+        eq(recruitingEvaluationDocument.recruitingRecordId, record.id),
+      ),
+    )
+    .limit(1);
+  return document?.providerId && isFeishuProviderId(document.providerId)
+    ? document.providerId
+    : null;
 }
 
 export function usesInterviewerMeetingLink(
@@ -468,6 +522,9 @@ export async function prepareInterviewNotificationDeliveries(
         );
   const selectedUserIds = [...new Set(recipientRows.map((row) => row.userId))];
   const initiatorUserId = await loadInitiatorUserId(database, event, records);
+  const persistedProviderId = templates.some((template) => template.channel === "feishu")
+    ? await loadPersistedFeishuProviderId(database, event, records)
+    : null;
 
   for (const template of templates) {
     // 临时跳过候选人发送步骤，待 HRD 主动发送流程重新设计并验收后恢复。
@@ -481,6 +538,7 @@ export async function prepareInterviewNotificationDeliveries(
       records,
       selectedUserIds,
       initiatorUserId,
+      persistedProviderId,
     );
     for (const target of targets) {
       const rendered = renderInterviewNotificationTemplateContent(

@@ -3,7 +3,10 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section } from "chat";
 import { db } from "../../../../../../lib/server/db/index";
-import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  selectPreferredFeishuProviderId,
+} from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import { account, organization, user } from "@app/db-schema/schema";
 
@@ -61,7 +64,7 @@ async function loadNotificationContext(input: {
   joinedUserId: string;
   organizationId: string;
 }): Promise<WorkspaceMemberJoinedNotificationContext | null> {
-  const [creatorAccount] = await db
+  const creatorAccounts = await db
     .select({ openId: account.accountId, providerId: account.providerId })
     .from(account)
     .where(
@@ -70,8 +73,11 @@ async function loadNotificationContext(input: {
         inArray(account.providerId, [...FEISHU_PROVIDER_IDS]),
       ),
     )
-    .orderBy(desc(account.updatedAt))
-    .limit(1);
+    .orderBy(desc(account.updatedAt));
+  const selectedProviderId = selectPreferredFeishuProviderId(
+    creatorAccounts.map((item) => item.providerId),
+  );
+  const creatorAccount = creatorAccounts.find((item) => item.providerId === selectedProviderId);
   if (!(creatorAccount && isFeishuProviderId(creatorAccount.providerId))) {
     return null;
   }

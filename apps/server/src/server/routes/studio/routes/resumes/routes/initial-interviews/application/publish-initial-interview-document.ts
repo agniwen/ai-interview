@@ -8,7 +8,10 @@ import {
 } from "@app/db-schema/schema";
 import { db } from "../../../../../../../../lib/server/db";
 import { getRequiredEnv } from "../../../../../../../../lib/server/env";
-import { FEISHU_PROVIDER_IDS } from "../../../../../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  selectPreferredFeishuProviderId,
+} from "../../../../../../../integrations/feishu/provider";
 import {
   buildHrInterviewEvaluationBlock,
   buildInterviewEvaluationDocument,
@@ -73,7 +76,9 @@ export async function publishInitialInterviewDocument(
         )
         .orderBy(desc(account.updatedAt))
     : [];
-  const provider = existing?.providerId ?? accounts[0]?.providerId;
+  const provider =
+    existing?.providerId ??
+    selectPreferredFeishuProviderId(accounts.map((item) => item.providerId));
   if (!provider) {
     throw new InitialInterviewError("请招聘负责人或生成操作人先绑定飞书账号，再重试生成。");
   }

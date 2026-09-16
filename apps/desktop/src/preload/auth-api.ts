@@ -14,5 +14,6 @@ export interface AuthApi {
     providerId: string;
     callbackURL: string;
     errorCallbackURL: string;
+    mode?: "sign-in" | "link";
   }) => Promise<OAuthOpenResult>;
 }

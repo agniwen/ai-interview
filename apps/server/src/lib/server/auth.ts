@@ -12,6 +12,7 @@ import { z } from "zod";
 import { getAuthRequestHeaders } from "./auth-request-context";
 import { getRequiredEnv } from "./env";
 import { getFeishuTenantAccessToken } from "./feishu-access-token";
+import { feishuAccountLinking, validateFeishuAccountLinking } from "./feishu-account-linking";
 import { resolveSessionAuthProviderId } from "./session-auth-provider";
 import {
   canAssignWorkspaceRole,
@@ -271,6 +272,7 @@ const advanced =
     : undefined;
 
 export const auth = betterAuth({
+  account: { accountLinking: feishuAccountLinking },
   advanced,
   appName: "招聘 AI 协同工作台",
   baseURL,
@@ -584,5 +586,6 @@ export const auth = betterAuth({
         type: "string",
       },
     },
+    validateUserInfo: validateFeishuAccountLinking,
   },
 });

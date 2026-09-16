@@ -6,23 +6,27 @@
 import { toCardElement } from "chat";
 import type { Message, MessageContext, Thread } from "chat";
 import { GreeterCard } from "./greeter-card";
+import { getFeishuAppCredentials, getFeishuLoginProviderIds } from "./provider";
 
 // 中文：飞书 web_app applink — 直接以「网页应用」形态在飞书内打开，appId 见开放平台
 // English: Feishu web_app applink — opens the registered web app inside Feishu;
 // appId comes from the Feishu open platform.
-const GREETER_LINKS = [
-  {
-    label: "极光矩阵有限公司主体入口",
-    url: "https://applink.feishu.cn/client/web_app/open?appId=cli_a955211781785bd8",
-  },
-  {
-    label: "极光矩阵主体入口",
-    url: "https://applink.feishu.cn/client/web_app/open?appId=cli_a97aa896aab85bc2",
-  },
-];
+const PROVIDER_LABELS = {
+  feishu: "极光员工入口",
+  "feishu-jiguang-hr": "极光 HR 入口",
+} as const;
+
+function getGreeterLinks() {
+  return getFeishuLoginProviderIds().map((providerId) => ({
+    label: PROVIDER_LABELS[providerId],
+    url: `https://applink.feishu.cn/client/web_app/open?appId=${encodeURIComponent(
+      getFeishuAppCredentials(providerId).appId,
+    )}`,
+  }));
+}
 
 function createGreeterCard() {
-  const card = toCardElement(GreeterCard({ links: GREETER_LINKS }));
+  const card = toCardElement(GreeterCard({ links: getGreeterLinks() }));
   if (!card) {
     throw new Error("GreeterCard did not produce a Chat SDK card element");
   }

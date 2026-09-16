@@ -3,7 +3,11 @@ import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../lib/server/db/index";
-import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  getPreferredFeishuProviderId,
+  selectPreferredFeishuProviderId,
+} from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
@@ -222,7 +226,7 @@ export async function resolveHumanInterviewFeishuProviderId({
     const availableProviderIds =
       linkedProviderIds && linkedProviderIds.size > 0
         ? linkedProviderIds
-        : new Set<FeishuProviderId>(["feishu-jiguang-hr"]);
+        : new Set<FeishuProviderId>([getPreferredFeishuProviderId()]);
     commonProviderIds = new Set(
       [...commonProviderIds].filter((providerId) => availableProviderIds.has(providerId)),
     );
@@ -230,11 +234,9 @@ export async function resolveHumanInterviewFeishuProviderId({
   if (preferredProviderId && commonProviderIds.has(preferredProviderId)) {
     return preferredProviderId;
   }
-  if (commonProviderIds.has("feishu-jiguang-hr")) {
-    return "feishu-jiguang-hr";
-  }
-  if (commonProviderIds.has("feishu")) {
-    return "feishu";
+  const selectedProviderId = selectPreferredFeishuProviderId(commonProviderIds);
+  if (selectedProviderId) {
+    return selectedProviderId;
   }
   throw new HumanInterviewMeetingError("所选面试官不属于同一个飞书应用来源。", 400);
 }

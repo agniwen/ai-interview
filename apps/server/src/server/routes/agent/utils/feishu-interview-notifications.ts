@@ -1,10 +1,11 @@
 /* oxlint-disable max-lines -- legacy and Worker-compatible report delivery share one transition module during migration. */
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { and, desc, eq, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, notExists, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   account,
   aiInterviewConversation,
+  recruitingEvaluationDocument,
   recruitingNotificationDelivery,
   organization,
   aiInterviewRound,
@@ -15,7 +16,10 @@ import { buildSenderFromAddress, getResendClient } from "../../../../lib/server/
 import { getRequiredEnv } from "../../../../lib/server/env";
 import { InterviewSummaryCard } from "../../../integrations/feishu/interview-summary-card";
 import type { InterviewSummaryQuestionAnswer } from "../../../integrations/feishu/interview-summary-card";
-import { FEISHU_PROVIDER_IDS } from "../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  selectPreferredFeishuProviderId,
+} from "../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../integrations/feishu/provider";
 import { ensureInterviewEvaluationDocument } from "./feishu-interview-document";
 import { extractNotificationCardSupplement } from "./feishu-interview-notification-card";
@@ -26,15 +30,25 @@ import {
 import { getGlobalConfig } from "../../studio/routes/global-config/dao";
 import { renderInterviewSummaryEmail } from "../../studio/routes/interviews/routes/round-emails/utils/templates";
 import { isInterviewQuestionSetComplete } from "@app/shared/interview/question-outcomes";
+import { retryFeishuSummaryDelivery } from "./retry-feishu-summary-delivery";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const RETRY_BATCH_SIZE = 20;
 const GOOGLE_PROVIDER_ID = "google";
+const LEGACY_DELIVERY_LEASE_MS = 10 * 60_000;
+
+function legacyDeliveryLease() {
+  return {
+    leaseExpiresAt: new Date(Date.now() + LEGACY_DELIVERY_LEASE_MS),
+    leaseOwner: crypto.randomUUID(),
+  };
+}
 
 interface SummaryReadyNotificationOptions {
   allowIncomplete?: boolean;
   conversationId: string;
   interviewRecordId: string;
+  emailOnly?: boolean;
 }
 
 export interface SendInterviewReportReadyFeishuNotificationInput {
@@ -224,7 +238,21 @@ export async function sendInterviewReportReadyFeishuNotification(
   return { providerMessageId: sent.id ?? null };
 }
 
-async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]> {
+async function loadRecipientAccounts(
+  userId: string,
+  interviewRecordId: string,
+  organizationId: string,
+): Promise<RecipientAccount[]> {
+  const [document] = await db
+    .select({ providerId: recruitingEvaluationDocument.providerId })
+    .from(recruitingEvaluationDocument)
+    .where(
+      and(
+        eq(recruitingEvaluationDocument.organizationId, organizationId),
+        eq(recruitingEvaluationDocument.recruitingRecordId, interviewRecordId),
+      ),
+    )
+    .limit(1);
   const rows = await db
     .select({
       accountId: account.accountId,
@@ -243,7 +271,7 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
     )
     .orderBy(desc(account.updatedAt));
 
-  return rows.flatMap((row) => {
+  const accounts = rows.flatMap((row) => {
     if (!isFeishuProviderId(row.providerId)) {
       return [];
     }
@@ -255,6 +283,11 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
       },
     ];
   });
+  const providerId = selectPreferredFeishuProviderId(
+    accounts.map((item) => item.providerId),
+    document?.providerId,
+  );
+  return accounts.filter((item) => item.providerId === providerId);
 }
 
 function isGoogleLoginEnabled() {
@@ -329,8 +362,9 @@ async function claimNotification({
       .set({
         conversationId,
         error: null,
+        ...legacyDeliveryLease(),
         recipientOpenId: recipient.accountId,
-        status: "pending",
+        status: "sending",
       })
       .where(
         and(
@@ -347,12 +381,13 @@ async function claimNotification({
     .values({
       conversationId,
       id: crypto.randomUUID(),
+      ...legacyDeliveryLease(),
       organizationId,
       providerId: recipient.providerId,
       recipientOpenId: recipient.accountId,
       recipientUserId: recipient.userId,
       recruitingRecordId: interviewRecordId,
-      status: "pending",
+      status: "sending",
       type: "ai_report_ready",
     })
     .onConflictDoNothing({
@@ -381,6 +416,10 @@ async function markNotificationSent(notificationId: string, messageId: string | 
     .set({
       error: null,
       feishuMessageId: messageId,
+      lastErrorCode: null,
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      resultUnknownAt: null,
       sentAt: new Date(),
       status: "sent",
     })
@@ -393,9 +432,45 @@ async function markNotificationFailed(notificationId: string, error: Error) {
     .update(recruitingNotificationDelivery)
     .set({
       error: message,
+      leaseExpiresAt: null,
+      leaseOwner: null,
       status: "failed",
     })
     .where(eq(recruitingNotificationDelivery.id, notificationId));
+}
+
+function retryPersistedFeishuDelivery(row: {
+  conversationId: string | null;
+  interviewRecordId: string;
+  notificationId: string;
+  providerId: string;
+  recipientOpenId: string;
+}) {
+  if (!row.conversationId || !isFeishuProviderId(row.providerId)) {
+    return Promise.resolve(false);
+  }
+  return retryFeishuSummaryDelivery(
+    { ...row, conversationId: row.conversationId },
+    {
+      async claim(notificationId) {
+        const [claimed] = await db
+          .update(recruitingNotificationDelivery)
+          .set({ error: null, ...legacyDeliveryLease(), status: "sending" })
+          .where(
+            and(
+              eq(recruitingNotificationDelivery.id, notificationId),
+              inArray(recruitingNotificationDelivery.status, ["failed", "pending"]),
+              isNull(recruitingNotificationDelivery.eventId),
+            ),
+          )
+          .returning({ id: recruitingNotificationDelivery.id });
+        return Boolean(claimed);
+      },
+      markFailed: markNotificationFailed,
+      markSent: markNotificationSent,
+      send: sendInterviewReportReadyFeishuNotification,
+    },
+  );
 }
 
 async function sendGoogleSummaryEmail({
@@ -546,7 +621,38 @@ export async function notifyInterviewSummaryReady(
     return;
   }
 
-  const recipients = await loadRecipientAccounts(context.createdBy);
+  const persistedDeliveries = options.emailOnly
+    ? []
+    : await db
+        .select({
+          conversationId: recruitingNotificationDelivery.conversationId,
+          interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
+          notificationId: recruitingNotificationDelivery.id,
+          providerId: recruitingNotificationDelivery.providerId,
+          recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
+        })
+        .from(recruitingNotificationDelivery)
+        .where(
+          and(
+            eq(recruitingNotificationDelivery.recruitingRecordId, options.interviewRecordId),
+            eq(recruitingNotificationDelivery.organizationId, context.organizationId),
+            or(
+              eq(recruitingNotificationDelivery.conversationId, options.conversationId),
+              isNull(recruitingNotificationDelivery.conversationId),
+            ),
+            inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+            inArray(recruitingNotificationDelivery.providerId, [...FEISHU_PROVIDER_IDS]),
+            isNull(recruitingNotificationDelivery.eventId),
+          ),
+        );
+  const recipients =
+    options.emailOnly || persistedDeliveries.length > 0
+      ? []
+      : await loadRecipientAccounts(
+          context.createdBy,
+          options.interviewRecordId,
+          context.organizationId,
+        );
 
   // 没有 scheduleEntryId 时跳过通知 —— 链接会落到一个 404 的 dialog,不如不发,
   // 让 retryFailedInterviewSummaryNotifications 后续重试 (届时 schedule 可能已回填)。
@@ -555,6 +661,13 @@ export async function notifyInterviewSummaryReady(
   // picks it up once the schedule entry is backfilled.
   if (!context.scheduleEntryId) {
     return;
+  }
+
+  for (const delivery of persistedDeliveries) {
+    await retryPersistedFeishuDelivery({
+      ...delivery,
+      conversationId: options.conversationId,
+    });
   }
 
   const notificationInput = {
@@ -616,10 +729,34 @@ export async function notifyInterviewSummaryReady(
 export async function retryFailedInterviewSummaryNotifications(): Promise<{
   retried: number;
 }> {
+  // A crashed sender may already have delivered the card/email. Do not blindly
+  // resend an expired in-flight attempt; require reconciliation instead.
+  const now = new Date();
+  await db
+    .update(recruitingNotificationDelivery)
+    .set({
+      error: "发送进程中断，实际投递结果待核实，请核对消息后再重试。",
+      lastErrorCode: "legacy_delivery_result_unknown",
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      resultUnknownAt: now,
+      status: "unknown",
+    })
+    .where(
+      and(
+        eq(recruitingNotificationDelivery.status, "sending"),
+        isNull(recruitingNotificationDelivery.eventId),
+        lte(recruitingNotificationDelivery.leaseExpiresAt, now),
+        inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+      ),
+    );
   const failedRows = await db
     .select({
       conversationId: recruitingNotificationDelivery.conversationId,
       interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
+      notificationId: recruitingNotificationDelivery.id,
+      providerId: recruitingNotificationDelivery.providerId,
+      recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
     })
     .from(recruitingNotificationDelivery)
     .where(
@@ -630,8 +767,15 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
       ),
     )
     .limit(RETRY_BATCH_SIZE);
+  let retried = 0;
+  for (const row of failedRows) {
+    const attempted = await retryPersistedFeishuDelivery(row);
+    if (attempted) {
+      retried += 1;
+    }
+  }
   const failedTargets: NotificationTarget[] = failedRows.flatMap((row) =>
-    row.conversationId
+    row.conversationId && row.providerId === GOOGLE_PROVIDER_ID
       ? [
           {
             allowIncomplete: true,
@@ -643,7 +787,6 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
   );
   const missingGoogleEmailRows = await loadMissingGoogleEmailNotificationTargets(RETRY_BATCH_SIZE);
 
-  let retried = 0;
   const seen = new Set<string>();
   for (const row of [...failedTargets, ...missingGoogleEmailRows]) {
     if (!row.conversationId) {
@@ -657,6 +800,7 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
     await notifyInterviewSummaryReady({
       allowIncomplete: row.allowIncomplete,
       conversationId: row.conversationId,
+      emailOnly: true,
       interviewRecordId: row.interviewRecordId,
     });
     retried += 1;

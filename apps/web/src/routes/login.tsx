@@ -9,6 +9,7 @@ const loginSearchSchema = z.object({
   callbackURL: z.string().optional(),
   error: z.string().optional(),
   error_description: z.string().optional(),
+  feishuMigration: z.boolean().optional(),
   goto: z.enum(["agent", "studio"]).optional(),
   returnTo: z.string().optional(),
 });
@@ -22,6 +23,7 @@ function LoginRoute() {
       callbackURL={callbackURL}
       error={search.error}
       errorDescription={search.error_description}
+      feishuMigration={search.feishuMigration}
     />
   );
 }

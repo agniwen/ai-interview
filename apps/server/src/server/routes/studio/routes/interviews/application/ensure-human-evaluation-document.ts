@@ -14,7 +14,10 @@ import {
   buildInterviewEvaluationDocument,
   buildInterviewEvaluationStructureSections,
 } from "../../../../../integrations/feishu/interview-evaluation-doc";
-import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  selectPreferredFeishuProviderId,
+} from "../../../../../integrations/feishu/provider";
 import { grantFeishuInterviewEvaluationDocxAccess } from "../../../../../integrations/feishu/feishu-docx";
 import { loadResumeAttachment } from "../../../../agent/utils/feishu-resume-attachment";
 import type { HumanInterviewDocumentSyncJob } from "./sync-human-interview-document";
@@ -79,7 +82,10 @@ export async function ensureHumanEvaluationDocument(
       ),
     )
     .limit(1);
-  const provider = existing?.providerId ?? job.providerId ?? accounts[0]?.providerId;
+  const provider =
+    existing?.providerId ??
+    job.providerId ??
+    selectPreferredFeishuProviderId(accounts.map((item) => item.providerId));
   if (!provider) {
     throw new Error("无法创建飞书评价表：请招聘负责人或评价提交人先绑定飞书账号");
   }

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
-import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
+import { FeishuSignInButtons } from "@/components/features/auth/feishu-sign-in-buttons";
 import { SidebarAppUpdateButton } from "@/components/features/app-version/sidebar-app-update-button";
 import { useAppVersion } from "@/components/features/app-version/app-version-provider";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -227,13 +227,7 @@ export function SidebarUserSection({
       />
     ) : (
       <div className="flex w-full flex-col gap-2">
-        <FeishuSignInButton callbackURL={callbackURL} />
-        <FeishuSignInButton
-          variant="default"
-          callbackURL={callbackURL}
-          label="极光 HR 飞书登录"
-          providerId="feishu-jiguang-hr"
-        />
+        <FeishuSignInButtons callbackURL={callbackURL} />
       </div>
     );
   }

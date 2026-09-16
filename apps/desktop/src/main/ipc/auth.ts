@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
 import type { JsonValue } from "@app/db-schema/json";
 import { z } from "zod";
+import { desktopOAuthEndpoint } from "./oauth-endpoint";
 
 export type OAuthOpenResult =
   | { ok: true; reason: "success" | "closed" }
@@ -14,6 +15,7 @@ export interface OAuthOpenPayload {
   providerId: string;
   callbackURL: string;
   errorCallbackURL: string;
+  mode?: "sign-in" | "link";
 }
 
 const oauthOpenPayloadSchema = z.object({
@@ -22,6 +24,7 @@ const oauthOpenPayloadSchema = z.object({
   authBaseURL: z.string(),
   callbackURL: z.string(),
   errorCallbackURL: z.string(),
+  mode: z.enum(["sign-in", "link"]).optional(),
   providerId: z.string(),
 });
 
@@ -46,15 +49,6 @@ function parseUrl(url: string): URL | null {
   } catch {
     return null;
   }
-}
-
-/** Resolve social sign-in endpoint from VITE_BETTER_AUTH_URL-style base. */
-function socialSignInUrl(authBaseURL: string): string {
-  const base = authBaseURL.replace(/\/+$/, "");
-  if (base.endsWith("/api/auth")) {
-    return `${base}/sign-in/social`;
-  }
-  return `${base}/api/auth/sign-in/social`;
 }
 
 /** Extract error code from query or hash (`#/login?error=feishu`). */
@@ -160,6 +154,9 @@ function humanizeOAuthError(code: string): string {
     case "banned": {
       return "账号已被禁用";
     }
+    case "account_already_linked_to_different_user": {
+      return "该 HR 飞书账号已关联另一个用户，无法自动合并，请联系管理员处理";
+    }
     default: {
       return `登录失败（${code}）`;
     }
@@ -209,7 +206,7 @@ async function beginOAuthInWindow(
   authWin: BrowserWindow,
   payload: OAuthOpenPayload,
 ): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
-  const signInUrl = socialSignInUrl(payload.authBaseURL);
+  const signInUrl = desktopOAuthEndpoint(payload.authBaseURL, payload.mode);
 
   try {
     await authWin.loadURL(payload.authApiOrigin);
