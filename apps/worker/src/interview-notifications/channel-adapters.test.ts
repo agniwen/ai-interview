@@ -44,6 +44,32 @@ const baseInput = {
 };
 
 describe("interview notification channel adapters", () => {
+  it("sends the exact HTML approved in the manual preview", async () => {
+    mocks.resendSend.mockResolvedValue({ data: { id: "manual-message" }, error: null });
+    const manualAiInvitation = {
+      confirmedAt: "2026-09-10T00:00:00.000Z",
+      confirmedBy: "hr",
+      html: "<p>已确认的正文</p>",
+      organizationId: "org",
+      recipient: baseInput.address,
+      requestId: "4b21611a-c4e9-4c7a-8c0a-4fdd65dd0bf6",
+      roundId: "round",
+      subject: baseInput.renderedSubject,
+      text: baseInput.renderedContent,
+      version: 1 as const,
+    };
+    await sendInterviewNotification({
+      ...baseInput,
+      channel: "email",
+      payload: { ...baseInput.payload, manualAiInvitation },
+      providerId: "resend",
+      type: "ai_interview_invited",
+    });
+    expect(mocks.resendSend).toHaveBeenCalledWith(
+      expect.objectContaining({ html: manualAiInvitation.html }),
+      { idempotencyKey: baseInput.idempotencyKey },
+    );
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });

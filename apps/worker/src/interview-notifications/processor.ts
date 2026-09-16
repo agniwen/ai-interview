@@ -10,8 +10,10 @@ import {
   classifyInterviewNotificationFailure,
   getInterviewNotificationRetryAt,
   canSendInterviewNotificationToAudience,
+  isConfirmedManualAiInvitation,
 } from "@app/shared/interview-notifications";
 import { Context, Data, Effect, Layer } from "effect";
+import { isConfirmedManualHumanEmail } from "@app/shared/manual-human-email";
 
 export interface InterviewNotificationSendResult {
   providerMessageId: string | null;
@@ -80,6 +82,18 @@ class InterviewNotificationFailure extends Data.TaggedError("InterviewNotificati
 
 // 发送超过一分钟未提交时允许其他 Worker 接管，降低崩溃后的阻塞时间。 / Allows another worker to reclaim a send not committed within one minute after a crash.
 const DELIVERY_LEASE_DURATION_MS = 60_000;
+
+function canSendDelivery(
+  event: InterviewNotificationEventRecord,
+  delivery: InterviewNotificationDeliveryRecord,
+): boolean {
+  return (
+    (delivery.audienceType !== null &&
+      canSendInterviewNotificationToAudience(delivery.audienceType)) ||
+    isConfirmedManualAiInvitation(event, delivery) ||
+    isConfirmedManualHumanEmail(event, delivery)
+  );
+}
 
 function isRetiredHumanInterviewReminder(event: InterviewNotificationEventRecord): boolean {
   return (
@@ -199,7 +213,7 @@ async function processInterviewNotificationEventPromise(
 
     try {
       // 同时拦截已经入队的候选人邮件，旧的人工确认标记不绕过本次暂停。
-      if (!canSendInterviewNotificationToAudience(claimed.audienceType)) {
+      if (!canSendDelivery(event, claimed)) {
         const completed = await dependencies.markDeliveryFailed({
           code: "candidate-email-paused",
           deliveryId: claimed.id,

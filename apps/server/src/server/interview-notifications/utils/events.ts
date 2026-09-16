@@ -43,10 +43,6 @@ import {
   buildCandidateInviteToken,
   hashInviteToken,
 } from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
-import {
-  buildAiInterviewInvitationToken,
-  hashAiInterviewInvitationToken,
-} from "../../routes/studio/routes/interviews/dao/ai-interview-invitation-access";
 import { absolutePublicAppUrl } from "../../../lib/server/public-app-url";
 
 // AI interview reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
@@ -207,125 +203,6 @@ async function loadHumanInterviewRoundProgression(
     )
     .orderBy(asc(humanInterviewRound.sortOrder));
   return buildHumanInterviewRoundProgression(passedHumanRounds);
-}
-
-export async function enqueueAiInterviewInvitedEvents(
-  tx: Transaction,
-  input: { actorUserId: string | null; scheduleEntryId: string; now?: Date },
-): Promise<void> {
-  const [context] = await tx
-    .select({
-      candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
-      candidateInviteTokenHash: aiInterviewRound.candidateInviteTokenHash,
-      candidateName: recruitingRecordReadModel.candidateName,
-      configuredCompanyName: globalConfig.companyName,
-      initiatorEmail: user.email,
-      initiatorName: user.name,
-      interviewRecordId: recruitingRecordReadModel.id,
-      invitationVersion: aiInterviewRound.invitationVersion,
-      jobName: sql<
-        string | null
-      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
-      organizationId: recruitingRecordReadModel.organizationId,
-      roundLabel: aiInterviewRound.roundLabel,
-      scheduleCreatedAt: aiInterviewRound.createdAt,
-      scheduledAt: aiInterviewRound.scheduledAt,
-      scheduledEndAt: aiInterviewRound.scheduledEndAt,
-      workspaceName: organization.name,
-    })
-    .from(aiInterviewRound)
-    .innerJoin(
-      recruitingRecordReadModel,
-      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
-    )
-    .leftJoin(
-      jobDescription,
-      and(
-        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
-        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
-      ),
-    )
-    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
-    .leftJoin(
-      globalConfig,
-      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
-    )
-    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
-    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
-    .limit(1);
-  if (!context) {
-    throw new Error("AI 面试邀请通知事件缺少轮次上下文。");
-  }
-
-  const now = input.now ?? new Date();
-  let candidateInvitationLink: string | undefined;
-  if (context.candidateInviteExpiresAt) {
-    const token = buildAiInterviewInvitationToken({
-      exp: context.candidateInviteExpiresAt.getTime(),
-      scheduleEntryId: input.scheduleEntryId,
-    });
-    if (hashAiInterviewInvitationToken(token) === context.candidateInviteTokenHash) {
-      candidateInvitationLink = absolutePublicAppUrl(
-        `/ai-interview-invite/${encodeURIComponent(token)}`,
-      );
-    }
-  }
-  const payloadSnapshot = {
-    candidateName: context.candidateName,
-    companyName: resolveInterviewNotificationCompanyName(
-      context.configuredCompanyName,
-      context.workspaceName,
-    ),
-    initiatorName: context.initiatorName ?? undefined,
-    interviewEndTime: context.scheduledEndAt?.toISOString(),
-    interviewLink:
-      candidateInvitationLink ??
-      absolutePublicAppUrl(buildInterviewLink(context.interviewRecordId, input.scheduleEntryId)),
-    interviewStartTime: context.scheduledAt?.toISOString(),
-    interviewType: "ai" as const,
-    invitationEndTime:
-      context.candidateInviteExpiresAt?.toISOString() ?? context.scheduledEndAt?.toISOString(),
-    invitationStartTime: context.scheduleCreatedAt.toISOString(),
-    jobName: context.jobName ?? undefined,
-    roundName: context.roundLabel,
-    schemaVersion: 1 as const,
-    supportContact: context.initiatorEmail ?? undefined,
-    timeZone: "Asia/Shanghai",
-  };
-  await enqueuePreparedInterviewNotificationEvent(tx, {
-    actorUserId: input.actorUserId,
-    dedupeKey: buildInterviewNotificationDedupeKey({
-      scopeId: input.scheduleEntryId,
-      type: "ai_interview_invited",
-      version: context.invitationVersion,
-    }),
-    interviewRecordId: context.interviewRecordId,
-    organizationId: context.organizationId,
-    payloadSnapshot,
-    scheduleEntryId: input.scheduleEntryId,
-    scopeType: "ai_round",
-    type: "ai_interview_invited",
-  });
-
-  for (const reminder of buildInterviewReminderSchedule(context.scheduledAt, now)) {
-    await enqueuePreparedInterviewNotificationEvent(tx, {
-      actorUserId: input.actorUserId,
-      availableAt: reminder.availableAt,
-      dedupeKey: buildInterviewNotificationDedupeKey({
-        discriminator: reminder.offsetMinutes,
-        scopeId: input.scheduleEntryId,
-        type: "ai_interview_reminder",
-        version: context.invitationVersion,
-      }),
-      interviewRecordId: context.interviewRecordId,
-      nextAttemptAt: reminder.availableAt,
-      organizationId: context.organizationId,
-      payloadSnapshot,
-      scheduleEntryId: input.scheduleEntryId,
-      scopeType: "ai_round",
-      type: "ai_interview_reminder",
-    });
-  }
 }
 
 export async function enqueueAiInvitationResponseEvent(

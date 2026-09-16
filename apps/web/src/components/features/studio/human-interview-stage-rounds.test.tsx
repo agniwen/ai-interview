@@ -363,6 +363,48 @@ describe("RoundCard attendance status", () => {
 });
 
 describe("RoundCard interviewer arrangement", () => {
+  it.each([
+    ["pending", "scheduled", true, true],
+    ["cancelled", "cancelled", true, true],
+    ["completed", "ended", true, false],
+    ["pending", "scheduled", false, false],
+  ] as const)(
+    "email entry follows lifecycle and permissions (%s, %s, %s)",
+    (status, meetingStatus, canUpdate, visible) => {
+      const queryClient = new QueryClient();
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RoundCard
+              canCreate
+              canDelete
+              canUpdate={canUpdate}
+              dependencies={dependencies}
+              meeting={{ ...meeting, status: meetingStatus }}
+              round={{ ...round, status }}
+              roundNumber={2}
+              slug="light"
+              onCancel={vi.fn()}
+              onComplete={vi.fn()}
+              onCreateMeeting={vi.fn()}
+              onEndMeeting={vi.fn()}
+              onOpenLinks={vi.fn()}
+              onRescheduled={vi.fn()}
+              onReview={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "邮件通知"),
+      ).toBe(visible);
+      act(() => root.unmount());
+      queryClient.clear();
+    },
+  );
   it.each(["ended", "scheduled", "in_progress", "cancelled"] as const)(
     "exposes read-only meeting details only after ending (%s)",
     (status) => {
