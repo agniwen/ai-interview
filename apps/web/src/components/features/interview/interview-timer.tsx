@@ -1,5 +1,7 @@
 "use client";
 
+import { useAgent, useLocalParticipant } from "@livekit/components-react";
+import { readInterviewResumeState, writeInterviewResumeState } from "./interview-resume-state";
 import { IconClockHour3 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { cn } from "@app/shared/utils";
@@ -58,4 +60,36 @@ export function InterviewTimer({
       <span>{formatElapsed(elapsedSeconds)}</span>
     </div>
   );
+}
+
+export function AgentSpeechTimer({
+  roomName,
+  storageKey,
+}: {
+  roomName: string;
+  storageKey: string;
+}) {
+  const { state } = useAgent();
+  const { isMicrophoneEnabled } = useLocalParticipant();
+  const [startedAt, setStartedAt] = useState<number | null>(() => {
+    const saved = readInterviewResumeState(storageKey);
+    return saved?.roomName === roomName ? saved.startedAt : null;
+  });
+
+  useEffect(() => {
+    if (startedAt === null && state === "speaking") {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
+      setStartedAt(Date.now());
+    }
+  }, [state, startedAt]);
+
+  useEffect(() => {
+    writeInterviewResumeState(storageKey, {
+      microphoneEnabled: isMicrophoneEnabled,
+      roomName,
+      startedAt,
+    });
+  }, [isMicrophoneEnabled, roomName, startedAt, storageKey]);
+
+  return <InterviewTimer startedAt={startedAt} />;
 }

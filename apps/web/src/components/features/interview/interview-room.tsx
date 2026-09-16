@@ -4,7 +4,7 @@ import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/ic
 import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import type { CandidateInterviewFeedbackInput } from "@app/db-schema/studio-interviews";
 import { cn } from "@app/shared/utils";
-import { useAgent, useSession } from "@livekit/components-react";
+import { useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -31,28 +31,15 @@ import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewBackground } from "./interview-background";
-import { InterviewTimer } from "./interview-timer";
+import { AgentSpeechTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
 import { InterviewRules } from "./interview-rules";
 import { startInterviewSession } from "./interview-session-start";
+import { readInterviewResumeState } from "./interview-resume-state";
 import { DevicePreflightCard } from "./interview-device-preflight";
 import { fetchPreInterviewForms } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
 import { CandidateInterviewFeedbackPanel } from "./candidate-interview-feedback";
-
-function AgentSpeechTimer() {
-  const { state } = useAgent();
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (startedAt === null && state === "speaking") {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      setStartedAt(Date.now());
-    }
-  }, [state, startedAt]);
-
-  return <InterviewTimer startedAt={startedAt} />;
-}
 
 interface InterviewRoomProps {
   interviewId: string;
@@ -365,6 +352,7 @@ function WaitingView({
 }
 
 export default function InterviewRoom({ interviewId, roundId }: InterviewRoomProps) {
+  const resumeStorageKey = `interview-ui-v1:${interviewId}:${roundId}`;
   const interviewRecordingEnabled = env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING;
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
   const [formsPayload, setFormsPayload] = useState<FormsPayload | null>(null);
@@ -594,12 +582,17 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const handleStart = useCallback(
     async (options?: { muted?: boolean }) => {
       startRequestedRef.current = true;
-      setStartedMuted(!!options?.muted);
+      const muted =
+        options?.muted ??
+        (isRecoverable
+          ? !(readInterviewResumeState(resumeStorageKey)?.microphoneEnabled ?? false)
+          : false);
+      setStartedMuted(muted);
       try {
         await startInterviewSession({
           recordingEnabled: interviewRecordingEnabled,
           session,
-          startMuted: !!options?.muted,
+          startMuted: muted,
         });
       } catch (error) {
         // session.start 内部把 getUserMedia(摄像头/麦克风) 和 room.connect 一起跑.
@@ -638,7 +631,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         toast.error(message);
       }
     },
-    [interviewRecordingEnabled, session],
+    [interviewRecordingEnabled, isRecoverable, resumeStorageKey, session],
   );
 
   // 刷新返回时若 canResume 为 true：跳过 RuleItem 自动 handleStart 续连。
@@ -750,7 +743,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   return (
     <AgentSessionProvider session={session}>
       <div className="fixed top-4 left-4 z-20">
-        <AgentSpeechTimer />
+        <AgentSpeechTimer key={room.name} roomName={room.name} storageKey={resumeStorageKey} />
       </div>
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />

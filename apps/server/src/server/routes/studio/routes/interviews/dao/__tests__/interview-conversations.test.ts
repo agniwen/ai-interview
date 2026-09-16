@@ -375,3 +375,22 @@ describe("queryInterviewConversationReportsByRound", () => {
     expect(expectPresent(selectedReport).snapshotMetadata?.evidenceSnapshot?.id).toBe(EVIDENCE_ID);
   });
 });
+
+it("orders reports by interview start, regardless of delayed callbacks", async () => {
+  const newerId = `${CONVERSATION_ID}_newer`;
+  await db
+    .update(aiInterviewConversation)
+    .set({ startedAt: NOW, updatedAt: new Date("2026-06-28T10:00:00Z") })
+    .where(eq(aiInterviewConversation.conversationId, CONVERSATION_ID));
+  await db.insert(aiInterviewConversation).values({
+    aiRoundId: ROUND_ID,
+    conversationId: newerId,
+    organizationId: ORG_ID,
+    recruitingRecordId: INTERVIEW_ID,
+    startedAt: new Date("2026-06-27T10:00:00Z"),
+    status: "completed",
+    updatedAt: NOW,
+  });
+  const reports = await queryInterviewConversationReportsByRound(ROUND_ID);
+  expect(reports[0]?.conversationId).toBe(newerId);
+});

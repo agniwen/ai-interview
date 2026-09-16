@@ -2,10 +2,16 @@ import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "../../../../lib/server/db/index";
 import { aiInterviewConversation, organization, aiInterviewRound } from "@app/db-schema/schema";
-import { interviewRouter } from "../route";
+import { createInterviewRouter } from "../route";
+
+const endLiveSession = vi.fn(async (_room: string) => {});
+const interviewRouter = createInterviewRouter({
+  endLiveSession,
+  getLiveSession: () => Promise.resolve("active"),
+});
 
 const ORGANIZATION_ID = "test_candidate_end_reason_org";
 const INTERVIEW_ID = "test_candidate_end_reason_interview";
@@ -76,6 +82,7 @@ describe("POST /:id/:roundId/complete", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(endLiveSession).toHaveBeenCalledWith(CONVERSATION_ID);
     const [conversation] = await db
       .select({
         endedAt: aiInterviewConversation.endedAt,
@@ -91,4 +98,24 @@ describe("POST /:id/:roundId/complete", () => {
     });
     expect(conversation?.endedAt).toBeInstanceOf(Date);
   });
+});
+
+it("retries room closure after a transient failure without losing the explicit end", async () => {
+  endLiveSession.mockRejectedValueOnce(new Error("temporary transport failure"));
+  const path = `/${INTERVIEW_ID}/${ROUND_ID}/complete?mode=final`;
+  const failed = await interviewRouter.request(path, { method: "POST" });
+  expect(failed.status).toBe(503);
+  const retried = await interviewRouter.request(path, { method: "POST" });
+  expect(retried.status).toBe(200);
+  expect(endLiveSession).toHaveBeenLastCalledWith(CONVERSATION_ID);
+});
+
+it("does not close the room for a browser interrupt signal", async () => {
+  endLiveSession.mockClear();
+  const response = await interviewRouter.request(
+    `/${INTERVIEW_ID}/${ROUND_ID}/complete?mode=interrupt`,
+    { method: "POST" },
+  );
+  expect(response.status).toBe(200);
+  expect(endLiveSession).not.toHaveBeenCalled();
 });

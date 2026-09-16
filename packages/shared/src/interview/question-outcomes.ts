@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const interviewQuestionOutcomeStatusSchema = z.enum([
+  "in_progress",
   "answered",
   "insufficient",
   "skipped",

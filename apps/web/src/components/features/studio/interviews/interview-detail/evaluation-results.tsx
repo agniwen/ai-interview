@@ -44,6 +44,7 @@ type EvaluationPayload = z.infer<typeof evaluationPayloadSchema>;
 
 const QUESTION_STATUS_LABELS = {
   answered: "已回答",
+  in_progress: "收集中",
   insufficient: "信息不足",
   interrupted: "已中断",
   skipped: "已跳过",
@@ -52,6 +53,7 @@ const QUESTION_STATUS_LABELS = {
 
 const QUESTION_STATUS_VARIANTS = {
   answered: "secondary",
+  in_progress: "outline",
   insufficient: "outline",
   interrupted: "outline",
   skipped: "destructive",

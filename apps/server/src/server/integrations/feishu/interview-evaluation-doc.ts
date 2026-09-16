@@ -160,6 +160,7 @@ function buildCommunicationQuestionBlocks(
   }
   const statusText = {
     answered: "已回答",
+    in_progress: "收集中",
     insufficient: "信息不足",
     interrupted: "回答中断",
     skipped: "候选人跳过",

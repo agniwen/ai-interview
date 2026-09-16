@@ -1,5 +1,5 @@
 import { ParticipantInfo_Kind } from "@livekit/protocol";
-import { RoomServiceClient } from "livekit-server-sdk";
+import { RoomServiceClient, TwirpError } from "livekit-server-sdk";
 
 interface RoomProbe {
   listRooms: (names: string[]) => Promise<unknown[]>;
@@ -35,4 +35,27 @@ export function getInterviewLiveSession(room: string) {
     new RoomServiceClient(httpUrl, key, secret, { requestTimeout: 3000 }),
     room,
   );
+}
+
+// Persist the explicit end first, then close this exact room. Room deletion also
+// ends its Agent job, whose shutdown callback submits the final report.
+// https://docs.livekit.io/agents/server/job/
+export async function endInterviewLiveSession(room: string): Promise<void> {
+  const { LIVEKIT_URL: url, LIVEKIT_API_KEY: key, LIVEKIT_API_SECRET: secret } = process.env;
+  if (!url || !key || !secret) {
+    throw new Error("LiveKit is not configured");
+  }
+  const client = new RoomServiceClient(
+    url.replace(/^wss:/, "https:").replace(/^ws:/, "http:"),
+    key,
+    secret,
+    { requestTimeout: 3000 },
+  );
+  try {
+    await client.deleteRoom(room);
+  } catch (error) {
+    if (!(error instanceof TwirpError && error.code === "not_found")) {
+      throw error;
+    }
+  }
 }

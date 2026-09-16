@@ -30,6 +30,7 @@ from prompts import LANGUAGE_POLICY
 
 
 class QuestionOutcomeStatus(StrEnum):
+    IN_PROGRESS = "in_progress"
     ANSWERED = "answered"
     INSUFFICIENT = "insufficient"
     SKIPPED = "skipped"

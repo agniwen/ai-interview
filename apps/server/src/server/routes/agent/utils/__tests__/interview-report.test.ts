@@ -424,12 +424,12 @@ describe("generateInterviewReport", () => {
 
     const result = applyQuestionOutcomesToEvaluation(evaluation, outcomes);
 
-    expect(result.overallScore).toBe(40);
-    expect(result.questions.map((question) => question.score)).toEqual([8, 4, 0, null, null]);
+    expect(result.overallScore).toBe(60);
+    expect(result.questions.map((question) => question.score)).toEqual([8, 4, null, null, null]);
     expect(result.questions[2]?.evidence).toEqual(evaluation.questions[2]?.evidence);
     expect(result.questions[3]?.evidence).toEqual(evaluation.questions[3]?.evidence);
     expect(result.questions[4]?.evidence).toEqual([]);
-    expect(result.recommendation).toBe("建议进入下一轮");
+    expect(result.recommendation).toBe("待定");
   });
 
   it("forces a pending recommendation when fewer than half the required questions are scorable", () => {
@@ -480,6 +480,7 @@ describe("generateInterviewReport", () => {
     );
 
     expect(result.overallScore).toBe(80);
+    expect(result.overallAssessment).toContain("不足以形成综合结论");
     expect(result.recommendation).toBe("待定");
   });
 

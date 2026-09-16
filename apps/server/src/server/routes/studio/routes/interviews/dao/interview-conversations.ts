@@ -4,7 +4,7 @@ import type {
 } from "@app/db-schema/interview-session";
 import type { JsonValue } from "@app/db-schema/json";
 import { interviewKeyInformationSchema } from "@app/db-schema/interview-key-information";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { formatCandidateFormAnswer } from "@app/shared/candidate-form-answer";
 import { db } from "../../../../../../lib/server/db/index";
@@ -403,7 +403,12 @@ export async function queryInterviewConversationReports(
     .select(reportConversationColumns)
     .from(aiInterviewConversation)
     .where(eq(aiInterviewConversation.recruitingRecordId, interviewRecordId))
-    .orderBy(desc(aiInterviewConversation.updatedAt));
+    .orderBy(
+      desc(
+        sql`coalesce(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt})`,
+      ),
+      desc(aiInterviewConversation.conversationId),
+    );
 
   if (conversations.length === 0) {
     return [];
@@ -455,7 +460,12 @@ export async function queryInterviewConversationReportsByRound(
     .select(reportConversationColumns)
     .from(aiInterviewConversation)
     .where(eq(aiInterviewConversation.aiRoundId, scheduleEntryId))
-    .orderBy(desc(aiInterviewConversation.updatedAt));
+    .orderBy(
+      desc(
+        sql`coalesce(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt})`,
+      ),
+      desc(aiInterviewConversation.conversationId),
+    );
 
   if (conversations.length === 0) {
     return [];
