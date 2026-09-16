@@ -95,6 +95,7 @@ const emptyFeishuResponseSchema = z
 interface FeishuDocxAttachment {
   bytes: Uint8Array;
   fileName: string;
+  mediaType?: string;
 }
 
 interface FeishuRequestBody {
@@ -639,11 +640,11 @@ async function uploadFeishuDocxAttachment(
   body.append("parent_node", blockId);
   body.append("size", String(attachment.bytes.byteLength));
   body.append("extra", JSON.stringify({ drive_route_token: documentId }));
-  const pdfBytes = new Uint8Array(attachment.bytes.byteLength);
-  pdfBytes.set(attachment.bytes);
+  const fileBytes = new Uint8Array(attachment.bytes.byteLength);
+  fileBytes.set(attachment.bytes);
   body.append(
     "file",
-    new Blob([pdfBytes.buffer], { type: "application/pdf" }),
+    new Blob([fileBytes.buffer], { type: attachment.mediaType ?? "application/pdf" }),
     attachment.fileName,
   );
 

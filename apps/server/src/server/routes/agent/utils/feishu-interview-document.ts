@@ -12,7 +12,7 @@ import { getRequiredEnv } from "../../../../lib/server/env";
 import { captureBackendException } from "../../../../lib/server/sentry";
 import { generateFeishuHrEvaluationForInterview } from "./feishu-hr-evaluation";
 import { interviewEvaluationSchema } from "./interview-report";
-import { loadResumePdfAttachment } from "./feishu-resume-attachment";
+import { loadResumeAttachment } from "./feishu-resume-attachment";
 import {
   grantFeishuInterviewEvaluationDocxAccess,
   moveFeishuInterviewEvaluationDocx,
@@ -111,7 +111,7 @@ export async function ensureInterviewEvaluationDocument({
       });
       const communicationQuestionResults: InterviewDataCollectionResults | null =
         parseInterviewDataCollectionResults(context.dataCollectionResults);
-      const resumePdf = await loadResumePdfAttachment({
+      const resumeAttachment = await loadResumeAttachment({
         fileName: context.resumeFileName,
         storageKey: context.resumeStorageKey,
       });
@@ -120,7 +120,7 @@ export async function ensureInterviewEvaluationDocument({
         candidateName: input.candidateName,
         communicationQuestionResults,
         evaluation: { hrEvaluation },
-        includeResumeLink: !resumePdf,
+        includeResumeLink: !resumeAttachment,
         recommendedQuestions: structureSections.recommendedQuestionsBlock
           ? context.interviewQuestions
           : [],
@@ -130,12 +130,7 @@ export async function ensureInterviewEvaluationDocument({
         resumeUrl: buildResumeUrl(input.roundId, input.organizationSlug),
       });
       return {
-        attachment: resumePdf
-          ? {
-              bytes: resumePdf,
-              fileName: `${input.candidateName.slice(0, 200)}-简历.pdf`,
-            }
-          : undefined,
+        attachment: resumeAttachment ?? undefined,
         blocks: document.blocks,
         recipientOpenId,
         title: document.title,
