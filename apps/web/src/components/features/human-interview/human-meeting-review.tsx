@@ -78,16 +78,25 @@ function Field({
   children,
   label,
   id,
+  required = false,
   wide = false,
 }: {
   children: ReactNode;
   label: string;
   id: string;
+  required?: boolean;
   wide?: boolean;
 }) {
   return (
     <FormField className={cn("gap-2", wide && "md:col-span-2")}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>
+        {label}
+        {required ? (
+          <span aria-hidden="true" className="ml-1 text-destructive">
+            *
+          </span>
+        ) : null}
+      </FieldLabel>
       {children}
     </FormField>
   );
@@ -405,10 +414,12 @@ function HumanMeetingReviewForm({
               key={key}
               id={`${fieldId}-${key}`}
               label={label}
+              required={key === "overallEvaluation"}
               wide={key === "detailedAnalysis" || key === "overallEvaluation"}
             >
               <MarkdownEditor
                 aria-label={label}
+                aria-required={key === "overallEvaluation"}
                 id={`${fieldId}-${key}`}
                 minHeight={key === "detailedAnalysis" ? 280 : 160}
                 disabled={isSubmitted || Boolean(busy)}
@@ -491,11 +502,13 @@ function HumanMeetingReviewForm({
         ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-3 border-t bg-card p-4">
-        <Field label="本轮结论" id={`${fieldId}-outcome`}>
+        <Field label="本轮结论（提交时必填）" id={`${fieldId}-outcome`} required>
           <select
             id={`${fieldId}-outcome`}
+            aria-required="true"
             className="h-9 min-w-40 rounded-md border border-input bg-background px-3 text-sm"
             disabled={isSubmitted || Boolean(busy)}
+            required
             onChange={(event) => {
               const parsed = humanInterviewRoundOutcomeSchema.safeParse(event.target.value);
               if (parsed.success) {

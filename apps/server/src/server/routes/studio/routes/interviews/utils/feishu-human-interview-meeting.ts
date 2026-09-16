@@ -28,6 +28,7 @@ import {
   buildInterviewerInviteToken,
   buildInviteExpiry,
 } from "../dao/human-interview-meeting-access";
+import { requireAbsolutePublicAppUrl } from "../../../../../../lib/server/public-app-url";
 
 const FEISHU_OPEN_API_BASE_URL = "https://open.feishu.cn/open-apis";
 const FEISHU_SYNC_LEASE_DURATION_MS = 10 * 60 * 1000;
@@ -37,14 +38,6 @@ const interviewerRoleLabels = {
   interviewer: "面试官",
   observer: "观察员",
 } as const;
-
-function absoluteAppUrl(path: string): string {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (!baseUrl) {
-    throw new Error("未配置应用访问地址，无法生成飞书日程中的面试官入口。");
-  }
-  return `${baseUrl.replace(/\/$/, "")}${path}`;
-}
 
 export function buildCalendarDescription({
   candidates,
@@ -76,7 +69,9 @@ export function buildCalendarDescription({
       role: interviewer.role,
       userId: interviewer.id,
     });
-    const url = absoluteAppUrl(`/human-interview/interviewer/${encodeURIComponent(token)}`);
+    const url = requireAbsolutePublicAppUrl(
+      `/human-interview/interviewer/${encodeURIComponent(token)}`,
+    );
     return `${interviewer.name}（${interviewerRoleLabels[interviewer.role]}）：${url}`;
   });
   const sections = [

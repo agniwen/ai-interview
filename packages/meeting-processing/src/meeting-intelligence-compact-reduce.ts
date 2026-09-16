@@ -58,12 +58,12 @@ export function applyIntelligenceMergePlan(
   for (const replacement of plan.replacements) {
     const keep = byId.get(replacement.keep);
     if (!keep) {
-      throw new Error("总结合并引用未知条目");
+      continue;
     }
     for (const id of replacement.remove) {
       const remove = byId.get(id);
       if (!remove || remove.field !== keep.field || remove.part > keep.part || kept.has(id)) {
-        throw new Error("总结合并替换关系无效");
+        continue;
       }
       removed.add(id);
     }

@@ -80,7 +80,6 @@ export function buildInterviewContextSnapshotPayload(
     ...input,
     jobDescription: input.jobDescription
       ? {
-          description: input.jobDescription.description,
           id: input.jobDescription.id,
           name: input.jobDescription.name,
           prompt: input.jobDescription.prompt,

@@ -112,6 +112,7 @@ export const resumeLibraryReadRouter = factory
             createdAtBefore: q.createdTo ? nextShanghaiCalendarDayStart(q.createdTo) : undefined,
             createdAtFrom: q.createdFrom ? shanghaiCalendarDayStart(q.createdFrom) : undefined,
             creatorIds: parseCsvParam(q.creatorIds),
+            dashboardAction: q.dashboardAction,
             hrHandling: q.hrHandling === "true",
             jobDescriptionIds: parseCsvParam(q.jdIds),
             nodeResults: parseCsvParam(q.nodeResults),

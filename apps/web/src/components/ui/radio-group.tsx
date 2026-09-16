@@ -4,7 +4,6 @@ import { IconCircle } from "@tabler/icons-react";
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { cn } from "@app/shared/utils";
 
 function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
@@ -22,7 +21,6 @@ function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
     <RadioPrimitive.Root
       data-slot="radio-group-item"
       className={cn(
-        cossControlOverlayClass,
         "relative inline-flex aspect-square size-4 shrink-0 items-center justify-center rounded-full border border-input bg-background bg-clip-padding align-middle text-primary transition-[color,box-shadow] outline-none before:rounded-full focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring data-disabled:cursor-not-allowed data-disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40",
         className,
       )}

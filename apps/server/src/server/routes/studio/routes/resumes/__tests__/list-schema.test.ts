@@ -11,17 +11,24 @@ const app = new Hono().get("/resumes", zValidator("query", resumeLibraryListQuer
 describe("resume creation date query validation", () => {
   it("accepts dates together with stage, creator, and subsequent-page parameters", async () => {
     const response = await app.request(
-      "/resumes?createdFrom=2026-08-01&createdTo=2026-08-26&pipelineStages=ai_interview&creatorIds=user-1&page=2&knownTotal=120",
+      "/resumes?createdFrom=2026-08-01&createdTo=2026-08-26&pipelineStages=ai_interview&creatorIds=user-1&dashboardAction=ai_pending&page=2&knownTotal=120",
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       createdFrom: "2026-08-01",
       createdTo: "2026-08-26",
       creatorIds: "user-1",
+      dashboardAction: "ai_pending",
       knownTotal: 120,
       page: "2",
       pipelineStages: "ai_interview",
     });
+  });
+
+  it("rejects an unknown dashboard action scope", async () => {
+    const response = await app.request("/resumes?dashboardAction=unknown");
+
+    expect(response.status).toBe(400);
   });
 
   it.each([

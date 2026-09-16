@@ -9,6 +9,7 @@ import httpx
 
 from agent_config import resolve_agent_name
 from dispatch_context import InterviewDispatchContext
+from report_outbox import persist_report
 
 logger = logging.getLogger("agent")
 
@@ -30,6 +31,7 @@ async def send_question_checkpoint(
     interview_record_id: str,
     schedule_entry_id: str,
     outcome: dict,
+    agent_session_id: str | None = None,
 ) -> None:
     """Persist one completed question without blocking the interview workflow."""
     base_url = os.environ.get("CALLBACK_BASE_URL")
@@ -46,6 +48,7 @@ async def send_question_checkpoint(
         "interviewRecordId": interview_record_id,
         "scheduleEntryId": schedule_entry_id,
         "outcome": outcome,
+        **({"agentSessionId": agent_session_id} if agent_session_id else {}),
     }
     url = f"{base_url.rstrip('/')}/api/agent/checkpoint"
 
@@ -85,15 +88,10 @@ async def send_report(
     metrics: dict | None = None,
     data_collection_results: dict | None = None,
     livekit_close_reason: str | None = None,
+    agent_session_id: str | None = None,
 ) -> None:
-    """POST raw transcript to the backend. Summary + evaluation are generated
-    server-side asynchronously (fire-and-forget in the Node process), so this
-    call should return in well under a second.
-
-    Retries twice on transient failure; any remaining gap is handled by the
-    backend recovery endpoint (`/api/agent/retry-summaries`) or by re-POSTing
-    the payload manually. The backend upserts by conversationId, so retries
-    are idempotent.
+    """Persist raw evidence locally before sending; failed deliveries are replayed
+    by the supervisor process, including after an Agent restart.
     """
     base_url = os.environ.get("CALLBACK_BASE_URL")
     secret = os.environ.get("AGENT_CALLBACK_SECRET")
@@ -114,6 +112,7 @@ async def send_report(
         "endedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ended_at)),
         "metadata": {
             "roomName": room_name,
+            **({"agentSessionId": agent_session_id} if agent_session_id else {}),
             # closeReason: business-level reason when known (time_limit,
             # candidate_ended_round, task_completed, reconnect_grace_expired…).
             "closeReason": close_reason,
@@ -136,6 +135,13 @@ async def send_report(
 
     url = f"{base_url.rstrip('/')}/api/agent/report"
 
+    try:
+        receipt_path = persist_report(base_url, payload)
+    except OSError:
+        # Disk failure must not suppress the immediate network delivery attempt.
+        logger.exception("failed to spool interview report")
+        receipt_path = None
+
     # Short timeout — the backend is supposed to return as soon as the
     # transcript is saved; the LLM summary runs in the background.
     # 退避 1s / 2s: 总共 3 次尝试, 失败后不再 sleep 直接落到末尾错误日志.
@@ -151,7 +157,9 @@ async def send_report(
         for attempt in range(total_attempts):
             try:
                 resp = await client.post(url, json=payload, headers=headers)
-                if resp.status_code < 300:
+                if 200 <= resp.status_code < 300:
+                    if receipt_path is not None:
+                        receipt_path.unlink(missing_ok=True)
                     logger.info("report sent successfully: %s turns", len(turns))
                     return
                 logger.error(

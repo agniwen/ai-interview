@@ -73,9 +73,16 @@ export function HumanInterviewOutcomeDialog({
           </DialogDescription>
         </DialogHeader>
         <Field>
-          <FieldLabel htmlFor={id}>本轮结论</FieldLabel>
+          <FieldLabel htmlFor={id}>
+            本轮结论{" "}
+            <span aria-hidden="true" className="text-destructive">
+              *
+            </span>
+          </FieldLabel>
           <NativeSelect
+            aria-required="true"
             id={id}
+            required
             value={outcome}
             disabled={mutation.isPending}
             onChange={(event) => {

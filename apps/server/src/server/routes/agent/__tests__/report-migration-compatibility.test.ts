@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAgentRouter } from "../route";
 import type { AgentRouterDependencies } from "../route";
 
@@ -12,6 +12,7 @@ const calls = {
   tags,
 };
 
+const receiveReport = vi.fn(async () => {});
 let keyInformationColumnsAvailable = false;
 
 const dependencies: AgentRouterDependencies = {
@@ -34,8 +35,9 @@ const dependencies: AgentRouterDependencies = {
     if (!available) {
       calls.legacySql += 1;
     }
-    return Promise.resolve();
+    return Promise.resolve(true);
   },
+  receiveReport,
   resolveOrgFromInterview: () => Promise.resolve("org-1"),
   retryFailedInterviewSummaryNotifications: () => Promise.resolve({ retried: 0 }),
   runKeyInformationJob: (options) => {
@@ -76,42 +78,25 @@ function postReport() {
   });
 }
 
-describe("POST /report migration compatibility", () => {
+describe("POST /report durable receipt contract", () => {
   beforeEach(() => {
-    calls.evidenceSnapshots = 0;
-    calls.legacySql = 0;
-    calls.keyInformationJobs.length = 0;
-    calls.summaryJobs = 0;
-    calls.tags.length = 0;
+    receiveReport.mockReset();
     process.env.AGENT_CALLBACK_SECRET = "test-agent-secret";
     keyInformationColumnsAvailable = false;
   });
-
-  it("still ingests the report before key-information columns are migrated", async () => {
+  it("acknowledges through the durable receiver without querying optional projection columns", async () => {
     const response = await postReport();
-
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toEqual({
-      conversationId: "conversation-1",
-      success: true,
-    });
-    expect(calls.keyInformationJobs).toHaveLength(0);
-    expect(calls.legacySql).toBe(1);
-    expect(calls.evidenceSnapshots).toBe(1);
-  });
-
-  it("starts key-information extraction after the columns are available", async () => {
-    keyInformationColumnsAvailable = true;
-
-    const response = await postReport();
-
-    expect(response.status).toBe(201);
+    expect(receiveReport).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: "conversation-1" }),
+      dependencies,
+    );
     expect(calls.legacySql).toBe(0);
-    expect(calls.keyInformationJobs).toEqual([
-      {
-        conversationId: "conversation-1",
-        interviewRecordId: "interview-1",
-      },
-    ]);
+    expect(calls.evidenceSnapshots).toBe(0);
+  });
+  it("does not acknowledge when raw receipt persistence fails", async () => {
+    receiveReport.mockRejectedValueOnce(new Error("database unavailable"));
+    const response = await postReport();
+    expect(response.status).toBe(500);
   });
 });

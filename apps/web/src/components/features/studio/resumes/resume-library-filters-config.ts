@@ -27,6 +27,39 @@ export function buildResumeLibraryFiltersConfig({
   return [
     { key: "textFilters" as const, resource: "resumes" as const, type: "text-filters" as const },
     {
+      key: "pipelineStages",
+      label: "流程阶段",
+      options: [
+        { label: "简历筛选", value: "screening" },
+        { label: "AI 初面", value: "ai_interview" },
+        { label: "真人复面", value: "second_interview" },
+        { label: "真人终面", value: "final_interview" },
+        { label: "流水提供", value: "income_proof" },
+        { label: "谈薪", value: "salary_negotiation" },
+        { label: "发 Offer", value: "offer" },
+        { label: "背调", value: "background_check" },
+        { label: "入职办理", value: "onboarding" },
+        { label: "已结束", value: "closed" },
+      ],
+      placeholder: "按流程阶段筛选",
+      selectedFormat: (count: number) => `已选 ${count} 个阶段`,
+      type: "multi-select",
+    },
+    {
+      key: "outcomes",
+      label: "招聘结果",
+      options: [
+        { label: "推进中", value: "in_pipeline" },
+        { label: "已入职", value: "hired" },
+        { label: "已淘汰", value: "rejected" },
+        { label: "已撤回", value: "withdrawn" },
+        { label: "已归档", value: "archived" },
+      ],
+      placeholder: "按招聘结果筛选",
+      selectedFormat: (count: number) => `已选 ${count} 个结果`,
+      type: "multi-select",
+    },
+    {
       key: "nodeStatuses",
       label: "节点状态",
       options: [

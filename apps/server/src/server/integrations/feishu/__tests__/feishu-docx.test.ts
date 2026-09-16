@@ -346,76 +346,107 @@ describe("createFeishuDocx", () => {
     );
   });
 
-  it("embeds the PDF resume as the first document block", async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          code: 0,
-          data: { document: { document_id: "docx-with-resume" } },
-          msg: "success",
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          code: 0,
-          data: {
-            children: [
-              { block_id: "resume-view", children: ["resume-block"] },
-              { block_id: "heading-block" },
-            ],
+  it.each([
+    { expectedType: "application/pdf", fileName: "张三-简历.pdf", mediaType: undefined },
+    {
+      expectedType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      fileName: "钱壮.docx",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+    {
+      expectedType: "application/vnd.ms-powerpoint",
+      fileName: "简历.ppt",
+      mediaType: "application/vnd.ms-powerpoint",
+    },
+    {
+      expectedType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      fileName: "简历.pptx",
+      mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    },
+    { expectedType: "image/jpeg", fileName: "简历.jpg", mediaType: "image/jpeg" },
+    { expectedType: "image/png", fileName: "简历.png", mediaType: "image/png" },
+  ])(
+    "embeds $fileName as a native attachment with the correct MIME type",
+    async ({ fileName, mediaType, expectedType }) => {
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          jsonResponse({
+            code: 0,
+            data: { document: { document_id: "docx-with-resume" } },
+            msg: "success",
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            code: 0,
+            data: {
+              children: [
+                { block_id: "resume-view", children: ["resume-block"] },
+                { block_id: "heading-block" },
+              ],
+            },
+            msg: "success",
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({ code: 0, data: { file_token: "file-resume" }, msg: "success" }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ code: 0, data: {}, msg: "success" }))
+        .mockResolvedValueOnce(jsonResponse({ code: 0, data: { member: {} }, msg: "success" }));
+
+      await createFeishuDocx(
+        {
+          accessToken: "tenant-token",
+          attachment: {
+            bytes: new Uint8Array([37, 80, 68, 70]),
+            fileName,
+            mediaType,
           },
-          msg: "success",
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ code: 0, data: { file_token: "file-resume" }, msg: "success" }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {}, msg: "success" }))
-      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { member: {} }, msg: "success" }));
-
-    await createFeishuDocx(
-      {
-        accessToken: "tenant-token",
-        attachment: {
-          bytes: new Uint8Array([37, 80, 68, 70]),
-          fileName: "张三-简历.pdf",
+          blocks: [{ block_type: 4, heading2: { elements: [] } }],
+          recipientOpenId: "ou_hr",
+          title: "张三 - 面试评价表",
         },
-        blocks: [{ block_type: 4, heading2: { elements: [] } }],
-        recipientOpenId: "ou_hr",
-        title: "张三 - 面试评价表",
-      },
-      { fetcher, sleep: vi.fn(() => Promise.resolve()) },
-    );
+        { fetcher, sleep: vi.fn(() => Promise.resolve()) },
+      );
 
-    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
-      children: [
-        { block_type: 23, file: { token: "", view_type: 2 } },
-        { block_type: 4, heading2: { elements: [] } },
-      ],
-    });
-    expect(fetcher.mock.calls[2]?.[0]).toBe(
-      "https://open.feishu.cn/open-apis/drive/v1/medias/upload_all",
-    );
-    const uploadBody = fetcher.mock.calls[2]?.[1]?.body;
-    expect(uploadBody).toBeInstanceOf(FormData);
-    if (!(uploadBody instanceof FormData)) {
-      throw new Error("Expected Feishu resume upload to use FormData");
-    }
-    expect(uploadBody.get("file_name")).toBe("张三-简历.pdf");
-    expect(uploadBody.get("parent_type")).toBe("docx_file");
-    expect(uploadBody.get("parent_node")).toBe("resume-block");
-    expect(uploadBody.get("size")).toBe("4");
-    expect(uploadBody.get("extra")).toBe(JSON.stringify({ drive_route_token: "docx-with-resume" }));
-    expect(fetcher.mock.calls[3]?.[0]).toBe(
-      "https://open.feishu.cn/open-apis/docx/v1/documents/docx-with-resume/blocks/resume-block",
-    );
-    expect(fetcher.mock.calls[3]?.[1]?.method).toBe("PATCH");
-    expect(JSON.parse(String(fetcher.mock.calls[3]?.[1]?.body))).toEqual({
-      replace_file: { token: "file-resume" },
-    });
-    expect(fetcher).toHaveBeenCalledTimes(5);
-  });
+      expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+        children: [
+          { block_type: 23, file: { token: "", view_type: 2 } },
+          { block_type: 4, heading2: { elements: [] } },
+        ],
+      });
+      expect(fetcher.mock.calls[2]?.[0]).toBe(
+        "https://open.feishu.cn/open-apis/drive/v1/medias/upload_all",
+      );
+      const uploadBody = fetcher.mock.calls[2]?.[1]?.body;
+      expect(uploadBody).toBeInstanceOf(FormData);
+      if (!(uploadBody instanceof FormData)) {
+        throw new Error("Expected Feishu resume upload to use FormData");
+      }
+      expect(uploadBody.get("file_name")).toBe(fileName);
+      const file = uploadBody.get("file");
+      expect(file).toBeInstanceOf(Blob);
+      if (!(file instanceof Blob)) {
+        throw new Error("Expected uploaded file bytes");
+      }
+      expect(file.type).toBe(expectedType);
+      expect(uploadBody.get("parent_type")).toBe("docx_file");
+      expect(uploadBody.get("parent_node")).toBe("resume-block");
+      expect(uploadBody.get("size")).toBe("4");
+      expect(uploadBody.get("extra")).toBe(
+        JSON.stringify({ drive_route_token: "docx-with-resume" }),
+      );
+      expect(fetcher.mock.calls[3]?.[0]).toBe(
+        "https://open.feishu.cn/open-apis/docx/v1/documents/docx-with-resume/blocks/resume-block",
+      );
+      expect(fetcher.mock.calls[3]?.[1]?.method).toBe("PATCH");
+      expect(JSON.parse(String(fetcher.mock.calls[3]?.[1]?.body))).toEqual({
+        replace_file: { token: "file-resume" },
+      });
+      expect(fetcher).toHaveBeenCalledTimes(5);
+    },
+  );
 
   it("retries a rate-limited Feishu request", async () => {
     const fetcher = vi

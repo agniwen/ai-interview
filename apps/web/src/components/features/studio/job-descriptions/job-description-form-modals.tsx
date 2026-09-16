@@ -5,40 +5,6 @@ import { Modal } from "@/components/ui/modal";
 import { SUPPLEMENTED_SECTION_LABELS } from "./ai-job-description";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
 
-export function JobDescriptionRegeneratePreviewModal({
-  confirmGeneratePreview,
-  open,
-  setOpen,
-}: {
-  confirmGeneratePreview: () => void;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-}) {
-  return (
-    <Modal
-      description="重新生成会覆盖当前尚未保存的人工评分规则修改。"
-      footer={
-        <>
-          <Button onClick={() => setOpen(false)} type="button" variant="outline">
-            取消
-          </Button>
-          <Button onClick={confirmGeneratePreview} type="button">
-            确认重新生成
-          </Button>
-        </>
-      }
-      onOpenChange={setOpen}
-      open={open}
-      size="sm"
-      title="覆盖人工修改？"
-    >
-      <p className="text-muted-foreground text-sm">
-        岗位 JD、结构化设置和当前扣分配置会作为新的生成依据。
-      </p>
-    </Modal>
-  );
-}
-
 export function JobDescriptionAiSupplementModal({
   applyGeneratedJobDescription,
   pending,

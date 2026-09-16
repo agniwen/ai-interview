@@ -21,6 +21,7 @@ import { formatDocumentTitle } from "@/lib/start/document-title";
 
 const recruiterResumeListLocationStateSchema = z.object({
   fromRecruiterResumeList: z.literal(true).optional(),
+  fromStudioCalendar: z.literal(true).optional(),
 });
 
 function RecruiterResumeDetailRoute() {
@@ -28,13 +29,21 @@ function RecruiterResumeDetailRoute() {
   const { recordId, slug } = useParams({ from: "/w/$slug/studio/resumes/$recordId" });
   const router = useRouter();
   const routeSearch = useSearch({ from: "/w/$slug/studio/resumes/$recordId" });
+  const locationState = recruiterResumeListLocationStateSchema.safeParse(
+    router.state.location.state,
+  );
+  const fromStudioCalendar = locationState.data?.fromStudioCalendar === true;
 
   const navigateBackToList = useCallback(() => {
-    const locationState = recruiterResumeListLocationStateSchema.safeParse(
-      router.state.location.state,
-    );
-    if (locationState.data?.fromRecruiterResumeList && router.history.canGoBack()) {
+    if (
+      (locationState.data?.fromRecruiterResumeList || fromStudioCalendar) &&
+      router.history.canGoBack()
+    ) {
       router.history.back();
+      return;
+    }
+    if (fromStudioCalendar) {
+      void navigate({ params: { slug }, to: "/w/$slug/studio/calendar" });
       return;
     }
     void navigate({
@@ -42,7 +51,14 @@ function RecruiterResumeDetailRoute() {
       search: listSearchFromDetailSearch(routeSearch),
       to: "/w/$slug/studio/resumes",
     });
-  }, [navigate, routeSearch, router, slug]);
+  }, [
+    fromStudioCalendar,
+    locationState.data?.fromRecruiterResumeList,
+    navigate,
+    routeSearch,
+    router,
+    slug,
+  ]);
 
   const showAiInterview = useCallback(() => {
     void navigate({
@@ -64,6 +80,7 @@ function RecruiterResumeDetailRoute() {
 
   return (
     <RecruiterResumeDetailPage
+      backLabel={fromStudioCalendar ? "返回日程管理" : undefined}
       onBack={navigateBackToList}
       onShowAiInterview={showAiInterview}
       onTabChange={changeTab}

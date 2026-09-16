@@ -151,7 +151,13 @@ export function RecruiterResumeDetailSkeleton() {
   );
 }
 
-function RecruiterResumeDetailHeaderOverride({ onBack }: { onBack: () => void }) {
+function RecruiterResumeDetailHeaderOverride({
+  backLabel,
+  onBack,
+}: {
+  backLabel: string;
+  onBack: () => void;
+}) {
   const header = useMemo(
     () => (
       <div className="flex min-w-0 items-center gap-2">
@@ -163,11 +169,11 @@ function RecruiterResumeDetailHeaderOverride({ onBack }: { onBack: () => void })
           variant="ghost"
         >
           <IconArrowLeft className="size-4" />
-          <span className="hidden sm:inline">返回招聘台</span>
+          <span className="hidden sm:inline">{backLabel}</span>
         </Button>
       </div>
     ),
-    [onBack],
+    [backLabel, onBack],
   );
 
   useStudioHeaderOverride(header);
@@ -213,12 +219,14 @@ function RecruiterResumeDetailHeaderText({
 }
 
 export function RecruiterResumeDetailPage({
+  backLabel = "返回招聘台",
   onBack,
   onShowAiInterview,
   onTabChange,
   recordId,
   routeSearch,
 }: {
+  backLabel?: string;
   onBack: () => void;
   onShowAiInterview: () => void;
   onTabChange: (tab: StudioPersonDetailTab) => void;
@@ -346,7 +354,7 @@ export function RecruiterResumeDetailPage({
           recordId={recordId}
           shell={({ body, description, headerExtra, title }) => (
             <div className="flex min-w-0 flex-col gap-3">
-              <RecruiterResumeDetailHeaderOverride onBack={onBack} />
+              <RecruiterResumeDetailHeaderOverride backLabel={backLabel} onBack={onBack} />
               <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
                 <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">

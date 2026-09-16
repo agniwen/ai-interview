@@ -73,6 +73,9 @@ WORKDIR /app
 # Private/self-hosted LiveKit is the deployment default. Set to 0 explicitly
 # only when deploying this image against LiveKit Cloud.
 ENV INTERVIEW_SELF_HOSTED=1
+ENV AGENT_REPORT_OUTBOX_DIR=/app/.data/report-outbox
+RUN mkdir -p /app/.data/report-outbox && chown -R appuser:appuser /app/.data
+VOLUME ["/app/.data/report-outbox"]
 
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root

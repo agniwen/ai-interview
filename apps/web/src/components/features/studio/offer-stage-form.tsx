@@ -103,6 +103,14 @@ export function buildOfferDraftPayload(form: OfferFormState): OfferDraftInput {
   };
 }
 
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-1 text-destructive">
+      *
+    </span>
+  );
+}
+
 export function OfferDraftFormFields({
   form,
   idPrefix,
@@ -119,25 +127,31 @@ export function OfferDraftFormFields({
       <div className={`grid gap-1.5 ${fullSpanClassName}`}>
         <Label className="text-sm" htmlFor={`${idPrefix}-position`}>
           职位
+          <RequiredMark />
         </Label>
         <Input
           id={`${idPrefix}-position`}
+          aria-required="true"
           maxLength={200}
           onChange={(e) => onFieldChange("position", e.target.value)}
           placeholder="例如 高级前端工程师（L4）"
+          required
           value={form.position}
         />
       </div>
       <div className="grid gap-1.5">
         <Label className="text-sm" htmlFor={`${idPrefix}-base`}>
           Base 月薪 (¥)
+          <RequiredMark />
         </Label>
         <Input
           id={`${idPrefix}-base`}
+          aria-required="true"
           inputMode="numeric"
           min={0}
           onChange={(e) => onFieldChange("baseSalary", e.target.value)}
           type="number"
+          required
           value={form.baseSalary}
         />
       </div>

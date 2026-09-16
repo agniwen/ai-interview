@@ -105,6 +105,8 @@ describe("ScheduleRoundDialog", () => {
       });
 
       expect(document.body.textContent).toContain("邀请成员");
+      expect(document.body.textContent).toMatch(/面试时间\s*\*/);
+      expect(document.body.textContent).toMatch(/面试官\s*\*/);
       expect(document.querySelector<HTMLInputElement>("#round-label")?.placeholder).toBe(
         "业务一面",
       );

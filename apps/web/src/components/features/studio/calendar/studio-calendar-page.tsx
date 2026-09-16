@@ -1,16 +1,28 @@
 "use client";
 
-import { IconSparkles, IconUser } from "@tabler/icons-react";
-import { addDays, format, isFirstDayOfMonth, isLastDayOfMonth, startOfWeek } from "date-fns";
+import { IconChevronRight, IconSparkles, IconUser } from "@tabler/icons-react";
+import {
+  addDays,
+  format,
+  isFirstDayOfMonth,
+  isLastDayOfMonth,
+  isSameDay,
+  startOfDay,
+} from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { humanInterviewFormatMeta } from "@app/db-schema/studio-interviews";
-import type { StudioCalendarEvent } from "@app/shared/studio-calendar";
+import type {
+  StudioCalendarCandidate,
+  StudioCalendarEvent,
+  StudioCalendarEventStatus,
+} from "@app/shared/studio-calendar";
 import { interviewCalendarJobNames } from "@app/shared/interview-calendar";
 import { PageHeader } from "@/components/features/studio/page-header";
 import {
   EventCalendar,
+  useEventCalendarNavigation,
   useEventCalendarView,
 } from "@/components/reui/event-calendar/event-calendar";
 import type { EventCalendarRenderEventProps } from "@/components/reui/event-calendar/event-calendar";
@@ -31,7 +43,15 @@ import type {
   EventCalendarRangeInfo,
 } from "@/components/reui/event-calendar/event-calendar-types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Frame, FramePanel } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
@@ -58,7 +78,7 @@ const CALENDAR_I18N = {
   },
   viewNames: {
     ...DEFAULT_EVENT_CALENDAR_I18N.viewNames,
-    agenda: "议程",
+    agenda: "列表",
     day: "日",
     days: (count) => `${count} 日`,
     month: "月",
@@ -67,12 +87,114 @@ const CALENDAR_I18N = {
 } satisfies Partial<EventCalendarI18nConfig>;
 
 function initialRange(): EventCalendarDateRange {
-  const now = new Date();
-  const start = startOfWeek(now, { weekStartsOn: 1 });
+  const start = startOfDay(new Date());
   return {
-    end: addDays(start, 7),
+    end: addDays(start, 30),
     start,
   };
+}
+
+const EVENT_STATUS_META = {
+  ended: { label: "已结束", variant: "success" },
+  in_progress: { label: "进行中", variant: "warning" },
+  not_held: { label: "未进行", variant: "outline" },
+  scheduled: { label: "待开始", variant: "info" },
+} as const satisfies Record<
+  StudioCalendarEventStatus,
+  { label: string; variant: "success" | "warning" | "outline" | "info" }
+>;
+
+function uniqueText(values: (string | null | undefined)[]): string {
+  return [...new Set(values.filter((value): value is string => Boolean(value?.trim())))].join("、");
+}
+
+function agendaEventTypeText(event: StudioCalendarEvent): string {
+  if (event.kind === "ai") {
+    return event.source === "result" ? "AI 面试记录" : "AI 面试计划";
+  }
+  const formatLabel = humanInterviewFormatMeta[event.format].label;
+  if (event.format === "onsite" && event.location) {
+    return `真人面试 · ${formatLabel} · ${event.location}`;
+  }
+  return `真人面试 · ${formatLabel}`;
+}
+
+function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<StudioCalendarEvent>) {
+  const event = occurrence.event.data;
+  if (!event) {
+    return null;
+  }
+  const candidateNames = uniqueText(event.candidates.map((candidate) => candidate.candidateName));
+  const roundLabels = uniqueText(event.candidates.map((candidate) => candidate.roundLabel));
+  const jobNames = interviewCalendarJobNames(event.candidates) || "未关联岗位";
+  const interviewerNames =
+    event.kind === "human"
+      ? uniqueText(event.interviewers.map((interviewer) => interviewer.name)) || "面试官待确认"
+      : "AI 面试官";
+  const durationMinutes = Math.max(
+    1,
+    Math.round((occurrence.end.getTime() - occurrence.start.getTime()) / 60_000),
+  );
+  const status = EVENT_STATUS_META[event.status];
+  const typeText = agendaEventTypeText(event);
+
+  return (
+    <div className="grid w-full min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 lg:grid-cols-[5rem_minmax(12rem,1.4fr)_minmax(10rem,1fr)_minmax(8rem,0.9fr)_minmax(7rem,0.7fr)_auto]">
+      <div className="self-start tabular-nums">
+        <div className="font-semibold text-base leading-5">{format(occurrence.start, "HH:mm")}</div>
+        <div className="text-muted-foreground text-xs">{durationMinutes} 分钟</div>
+      </div>
+      <div className="min-w-0">
+        <div className="truncate font-medium" title={candidateNames || event.title}>
+          {candidateNames || event.title}
+          {roundLabels ? <span className="ms-2 text-primary text-xs">{roundLabels}</span> : null}
+        </div>
+        <div className="truncate text-muted-foreground text-xs lg:hidden">
+          {jobNames} · {interviewerNames} · {typeText}
+        </div>
+      </div>
+      <div className="hidden min-w-0 truncate text-muted-foreground lg:block" title={jobNames}>
+        {jobNames}
+      </div>
+      <div
+        className="hidden min-w-0 truncate text-muted-foreground lg:block"
+        title={interviewerNames}
+      >
+        {interviewerNames}
+      </div>
+      <div className="hidden min-w-0 truncate text-muted-foreground lg:block" title={typeText}>
+        {typeText}
+      </div>
+      <div className="col-start-2 flex w-fit items-center gap-1.5 lg:col-start-auto">
+        <Badge variant={status.variant}>{status.label}</Badge>
+        <IconChevronRight
+          aria-hidden="true"
+          className="size-4 text-muted-foreground transition-colors group-hover/ec-event:text-foreground"
+        />
+      </div>
+    </div>
+  );
+}
+
+function CalendarAgendaDayHeader({ count, day }: { count: number; day: Date }) {
+  const now = new Date();
+  let relativeLabel: "今天" | "明天" | null = null;
+  if (isSameDay(day, now)) {
+    relativeLabel = "今天";
+  } else if (isSameDay(day, addDays(now, 1))) {
+    relativeLabel = "明天";
+  }
+  const dateLabel = format(day, "M月d日（EEE）", { locale: zhCN });
+
+  return (
+    <div className="flex w-full items-baseline justify-between gap-3">
+      <span className="font-semibold">
+        {relativeLabel ? `${relativeLabel} · ` : ""}
+        {dateLabel}
+      </span>
+      <span className="text-muted-foreground font-normal text-xs">{count} 场</span>
+    </div>
+  );
 }
 
 function calendarEventColor(event: StudioCalendarEvent): string {
@@ -156,23 +278,57 @@ export function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | u
   );
 }
 
-function CalendarViewTabs() {
+function CalendarViewControls() {
   const { setView, view } = useEventCalendarView();
+  const { today } = useEventCalendarNavigation();
+  const lastCalendarView = useRef<"month" | "week" | "day">("week");
 
-  function handleValueChange(value: string | number) {
+  function handleCalendarValueChange(value: string | number) {
     if (value === "month" || value === "week" || value === "day") {
+      lastCalendarView.current = value;
       setView(value);
     }
   }
 
+  function handlePrimaryValueChange(value: string | number) {
+    if (value === "list") {
+      setView("agenda");
+      today();
+      return;
+    }
+    if (value === "calendar") {
+      setView(lastCalendarView.current);
+    }
+  }
+
   return (
-    <Tabs onValueChange={handleValueChange} value={view}>
-      <TabsList aria-label="日历视图">
-        <TabsTab value="month">月</TabsTab>
-        <TabsTab value="week">周</TabsTab>
-        <TabsTab value="day">日</TabsTab>
-      </TabsList>
-    </Tabs>
+    <div
+      className="flex min-w-0 flex-col items-end justify-center gap-1.5"
+      data-slot="calendar-view-controls"
+    >
+      <div data-slot="calendar-primary-view-row">
+        <Tabs
+          onValueChange={handlePrimaryValueChange}
+          value={view === "agenda" ? "list" : "calendar"}
+        >
+          <TabsList aria-label="日程展示方式">
+            <TabsTab value="list">列表</TabsTab>
+            <TabsTab value="calendar">日历</TabsTab>
+          </TabsList>
+        </Tabs>
+      </div>
+      {view === "agenda" ? null : (
+        <div data-slot="calendar-range-view-row">
+          <Tabs onValueChange={handleCalendarValueChange} value={view}>
+            <TabsList aria-label="日历范围">
+              <TabsTab value="month">月</TabsTab>
+              <TabsTab value="week">周</TabsTab>
+              <TabsTab value="day">日</TabsTab>
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -209,17 +365,25 @@ function CalendarDayHeader({
 }
 
 function CalendarNav() {
+  const { view } = useEventCalendarView();
+
   return (
     <EventCalendarNav>
       <TooltipProvider>
-        <EventCalendarNavToday />
-        <div className="flex items-center">
-          <EventCalendarNavPrev />
-          <EventCalendarNavNext />
-        </div>
-        <EventCalendarTitle className="ms-3" />
+        {view === "agenda" ? (
+          <div className="px-2 font-medium text-sm">今天起 · 未来 30 天</div>
+        ) : (
+          <>
+            <EventCalendarNavToday />
+            <div className="flex items-center">
+              <EventCalendarNavPrev />
+              <EventCalendarNavNext />
+            </div>
+            <EventCalendarTitle className="ms-3" />
+          </>
+        )}
         <div className="grow" />
-        <CalendarViewTabs />
+        <CalendarViewControls />
       </TooltipProvider>
     </EventCalendarNav>
   );
@@ -240,26 +404,22 @@ function CalendarSkeleton() {
         <Skeleton className="h-8 w-44" />
       </div>
       <FramePanel className="min-h-0 flex-1 overflow-hidden rounded-lg p-0">
-        <div className="grid grid-cols-[4rem_repeat(7,minmax(7rem,1fr))] border-b">
-          <div className="h-14 border-e" />
-          {Array.from({ length: 7 }, (_, index) => (
-            <div className="flex h-14 items-center justify-center border-e" key={index}>
-              <Skeleton className="h-4 w-16" />
-            </div>
-          ))}
-        </div>
-        <div className="grid h-full grid-cols-[4rem_repeat(7,minmax(7rem,1fr))]">
-          <div className="flex flex-col justify-around border-e px-3 py-4">
-            {Array.from({ length: 8 }, (_, index) => (
-              <Skeleton className="h-3 w-8" key={index} />
-            ))}
-          </div>
-          {Array.from({ length: 7 }, (_, column) => (
-            <div
-              className="border-e bg-[linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:100%_12.5%]"
-              key={column}
-            >
-              {column === 2 ? <Skeleton className="mx-1 mt-24 h-14" /> : null}
+        <div className="flex flex-col">
+          {Array.from({ length: 3 }, (_, group) => (
+            <div key={group}>
+              <div className="flex items-center justify-between border-b bg-muted/60 px-4 py-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-10" />
+              </div>
+              {Array.from({ length: group === 0 ? 2 : 1 }, (_value, row) => (
+                <div className="grid grid-cols-[5rem_1fr] gap-3 border-b px-4 py-3" key={row}>
+                  <Skeleton className="h-8 w-14" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-64 max-w-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -268,14 +428,59 @@ function CalendarSkeleton() {
   );
 }
 
+function CalendarCandidatePicker({
+  event,
+  onOpenChange,
+  onSelect,
+}: {
+  event: StudioCalendarEvent | null;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (candidate: StudioCalendarCandidate) => void;
+}) {
+  return (
+    <Dialog onOpenChange={onOpenChange} open={event !== null}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>选择要查看的候选人</DialogTitle>
+          <DialogDescription>这场面试包含多位候选人，请选择对应的招聘信息。</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          {event?.candidates.map((candidate) => (
+            <Button
+              className="h-auto justify-between gap-4 px-4 py-3 text-left"
+              key={candidate.roundId}
+              onClick={() => onSelect(candidate)}
+              type="button"
+              variant="outline"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{candidate.candidateName}</span>
+                <span className="block truncate text-muted-foreground text-xs">
+                  {candidate.jobDescriptionName || "未关联岗位"} · {candidate.roundLabel}
+                </span>
+              </span>
+              <IconChevronRight aria-hidden="true" className="size-4 shrink-0" />
+            </Button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function StudioCalendarPage({
   fetchCalendar = fetchStudioCalendar,
+  onOpenAgendaEvent,
   slug,
 }: {
   fetchCalendar?: typeof fetchStudioCalendar;
+  onOpenAgendaEvent: (event: StudioCalendarEvent, candidate: StudioCalendarCandidate) => void;
   slug: string;
 }) {
   const [range, setRange] = useState(initialRange);
+  const [candidatePickerEvent, setCandidatePickerEvent] = useState<StudioCalendarEvent | null>(
+    null,
+  );
   const start = range.start.toISOString();
   const end = range.end.toISOString();
   const calendarQuery = useQuery({
@@ -298,9 +503,24 @@ export function StudioCalendarPage({
     );
   }
 
+  function openAgendaEvent(event: StudioCalendarEvent) {
+    const [candidate] = event.candidates;
+    if (!candidate) {
+      return;
+    }
+    if (event.candidates.length === 1) {
+      onOpenAgendaEvent(event, candidate);
+      return;
+    }
+    setCandidatePickerEvent(event);
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-      <PageHeader description="日程只读；面试时间需在候选人详情中调整。" title="日程管理" />
+      <PageHeader
+        description="默认展示今天起未来 30 天的相关面试；日程只读，面试时间需在候选人详情中调整。"
+        title="日程管理"
+      />
       {calendarQuery.isError ? (
         <Alert variant="destructive">
           <AlertTitle>日程加载失败</AlertTitle>
@@ -323,16 +543,34 @@ export function StudioCalendarPage({
           skeleton={<CalendarSkeleton />}
         >
           <EventCalendar
+            agendaDayCount={30}
             className="h-[min(760px,calc(100vh-12rem))] min-h-[560px] overflow-hidden rounded-lg"
-            defaultView="week"
+            defaultView="agenda"
             events={events}
             eventTooltip
             i18n={CALENDAR_I18N}
             interactions={{ drag: false, resize: false, selectSlot: false }}
             loading={calendarQuery.isFetching}
             locale={zhCN}
+            onEventClick={(occurrence, clickEvent) => {
+              if (
+                !(clickEvent.currentTarget instanceof HTMLElement) ||
+                clickEvent.currentTarget.dataset.view !== "agenda"
+              ) {
+                return;
+              }
+              const event = occurrence.event.data;
+              if (event) {
+                clickEvent.preventDefault();
+                openAgendaEvent(event);
+              }
+            }}
             onRangeChange={handleRangeChange}
             renderEventIcon={(props) => <CalendarEventIcon {...props} />}
+            renderAgendaDayHeader={({ count, day }) => (
+              <CalendarAgendaDayHeader count={count} day={day} />
+            )}
+            renderAgendaEvent={(props) => <CalendarAgendaEvent {...props} />}
             renderEventPreview={({ occurrence, trigger }) =>
               occurrence.event.data?.kind === "ai" ? (
                 <AiInterviewEventHoverCard
@@ -347,7 +585,7 @@ export function StudioCalendarPage({
             )}
             renderDayHeader={(props) => <CalendarDayHeader {...props} />}
             scrollToHour={8}
-            views={["month", "week", "day"]}
+            views={["agenda", "month", "week", "day"]}
             weekStartsOn={1}
           >
             <CalendarNav />
@@ -357,6 +595,17 @@ export function StudioCalendarPage({
           </EventCalendar>
         </SkeletonReveal>
       </Frame>
+      <CalendarCandidatePicker
+        event={candidatePickerEvent}
+        onOpenChange={(open) => !open && setCandidatePickerEvent(null)}
+        onSelect={(candidate) => {
+          const event = candidatePickerEvent;
+          setCandidatePickerEvent(null);
+          if (event) {
+            onOpenAgendaEvent(event, candidate);
+          }
+        }}
+      />
     </div>
   );
 }

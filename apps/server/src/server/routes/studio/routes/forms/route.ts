@@ -18,7 +18,7 @@ import {
 } from "./dao/queries";
 import { loadSubmissionsByTemplate } from "./dao/submissions";
 import { loadCandidateFormTemplateVersionById } from "./dao/versions";
-import { listAllJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { listManagedJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { refreshEligibleCandidatesForFormTemplate } from "./dao/refresh-eligible";
@@ -119,7 +119,7 @@ export const candidateFormsRouter = factory
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+    const jobDescriptions = await listManagedJobDescriptions(activeOrg.id);
     return c.json({ jobDescriptions }, 200);
   })
   .post(

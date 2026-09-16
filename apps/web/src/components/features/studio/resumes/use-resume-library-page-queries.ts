@@ -14,6 +14,7 @@ import { useAtom } from "jotai";
 import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import { parseCsvParam } from "@app/shared/csv";
 import { dateRangeFilterBounds } from "@app/shared/date-range-filter";
+import { dashboardRecruitingActionScopeValues } from "@app/shared/studio-dashboard";
 import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@app/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
@@ -53,6 +54,7 @@ const recruitingJobDescriptionsPayloadSchema = z.object({
     }),
   ),
 });
+const dashboardRecruitingActionScopeSchema = z.enum(dashboardRecruitingActionScopeValues);
 
 interface ResumeLibraryPageParam {
   knownTotal: number | undefined;
@@ -91,13 +93,18 @@ export function useResumeLibraryPageQueries({
           createdFrom: bounds?.from,
           createdTo: bounds?.to,
           creatorIds: parseCsvParam(params.filters.creatorIds),
+          dashboardAction: dashboardRecruitingActionScopeSchema.safeParse(
+            params.filters.dashboardAction,
+          ).data,
           hrHandling: params.filters.hrHandling === "true",
           jobDescriptionIds: parseCsvParam(params.filters.jdIds),
           knownTotal: params.knownTotal,
           nodeResults: parseCsvParam(params.filters.nodeResults),
           nodeStatuses: parseCsvParam(params.filters.nodeStatuses),
+          outcomes: parseCsvParam(params.filters.outcomes),
           page: params.page,
           pageSize: params.pageSize,
+          pipelineStages: parseCsvParam(params.filters.pipelineStages),
           recommendationLevels: parseCsvParam(params.filters.recommendationLevels),
           search: params.search || undefined,
           skills: parseCsvParam(params.filters.skills),

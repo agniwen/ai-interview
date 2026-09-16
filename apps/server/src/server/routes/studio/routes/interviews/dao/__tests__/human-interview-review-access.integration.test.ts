@@ -105,23 +105,29 @@ describe("authenticated review database scope", () => {
       await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.id, cancelledId));
     }
   });
-  it("returns the requested candidate and round, not the first round linked to a meeting", async () => {
+  it("returns the requested round, not the first round linked to a meeting", async () => {
     const scope = await loadStudioHumanInterviewReviewScope(input);
     expect(scope).toMatchObject({
-      candidateName: candidates[1],
       meetingId,
       roundId: rounds[1],
       userId: reviewerId,
     });
   });
-  it("rejects another candidate, workspace, or unassigned actor", async () => {
+  it("allows a visible HR to review without a meeting assignment, but keeps candidate and workspace scope", async () => {
     expect(
       await loadStudioHumanInterviewReviewScope({ ...input, candidateId: candidates[0] }),
     ).toBeNull();
     expect(
       await loadStudioHumanInterviewReviewScope({ ...input, organizationId: "other_org" }),
     ).toBeNull();
-    expect(await loadStudioHumanInterviewReviewScope({ ...input, userId: creatorId })).toBeNull();
+    await expect(
+      loadStudioHumanInterviewReviewScope({ ...input, userId: creatorId }),
+    ).resolves.toMatchObject({
+      canManageReview: true,
+      role: "observer",
+      roundId: rounds[1],
+      userId: creatorId,
+    });
   });
   it("enforces recruiting visibility before exposing the evaluation", async () => {
     expect(

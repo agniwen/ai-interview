@@ -24,6 +24,7 @@ export interface MarkdownEditorProps {
   id?: string;
   "aria-invalid"?: boolean;
   "aria-label"?: string;
+  "aria-required"?: boolean;
 }
 
 const editorContentClassName = cn(
@@ -64,6 +65,7 @@ export function MarkdownEditor({
   id,
   "aria-invalid": ariaInvalid,
   "aria-label": ariaLabel,
+  "aria-required": ariaRequired,
 }: MarkdownEditorProps) {
   const { editor } = useMarkdownEditor({
     disabled,
@@ -78,6 +80,7 @@ export function MarkdownEditor({
     <div
       aria-invalid={ariaInvalid}
       aria-label={ariaLabel}
+      aria-required={ariaRequired}
       className={cn(
         cossFieldSurfaceClass,
         "flex flex-col overflow-hidden",

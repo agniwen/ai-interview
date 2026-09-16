@@ -110,3 +110,31 @@ describe("studioCalendarRouter AI event preview", () => {
     await expect(response.json()).resolves.toEqual({ error: "AI 面试事件不存在。" });
   });
 });
+
+describe("studioCalendarRouter event list", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.permissionChecks.length = 0;
+    mocks.resolveRecruitingVisibilityScope.mockResolvedValue({
+      kind: "restricted",
+      userIds: [USER_ID],
+    });
+    mocks.listStudioCalendarEvents.mockResolvedValue([]);
+  });
+
+  it("includes the signed-in user when loading interviewer-related schedules", async () => {
+    const response = await makeApp().request(
+      "/calendar?start=2026-09-15T00%3A00%3A00.000Z&end=2026-10-15T00%3A00%3A00.000Z",
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ events: [] });
+    expect(mocks.listStudioCalendarEvents).toHaveBeenCalledWith({
+      end: new Date("2026-10-15T00:00:00.000Z"),
+      organizationId: ORGANIZATION_ID,
+      start: new Date("2026-09-15T00:00:00.000Z"),
+      viewerUserId: USER_ID,
+      visibilityScope: { kind: "restricted", userIds: [USER_ID] },
+    });
+  });
+});

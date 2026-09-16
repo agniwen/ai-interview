@@ -6,6 +6,7 @@ import type {
 import type { InterviewSummaryStatus } from "@app/db-schema/db-enums";
 
 export interface StudioCalendarCandidate {
+  canOpenRecruitingRecord: boolean;
   candidateName: string;
   interviewRecordId: string;
   jobDescriptionName?: string | null;
@@ -53,6 +54,7 @@ export interface StudioHumanCalendarEvent extends StudioCalendarEventBase {
   location: string | null;
   meetingUrl: string | null;
   status: Exclude<HumanInterviewMeetingStatus, "cancelled">;
+  viewerInterviewerInviteToken: string | null;
 }
 
 export type StudioCalendarEvent = StudioAiCalendarEvent | StudioHumanCalendarEvent;

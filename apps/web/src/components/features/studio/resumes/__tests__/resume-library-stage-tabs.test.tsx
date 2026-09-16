@@ -114,6 +114,18 @@ afterEach(async () => {
 });
 
 describe("recruitment board filter state", () => {
+  it("preserves dashboard deep-link stage and outcome filters", async () => {
+    await renderPage({
+      outcomes: "in_pipeline",
+      page: 1,
+      pipelineStages: "offer,background_check,onboarding",
+    });
+
+    expect(currentGrid.filters.outcomes).toBe("in_pipeline");
+    expect(currentGrid.filters.pipelineStages).toBe("offer,background_check,onboarding");
+    expect(currentGrid.bind.canResetFilters).toBe(true);
+  });
+
   it("resets pagination and query cache when creation dates change while preserving stage", async () => {
     await renderPage({
       createdAtRange: "custom:2026-08-01:2026-08-20",
@@ -151,6 +163,20 @@ describe("recruitment board filter state", () => {
     await renderPage({ stage: "second_interview" });
     expect(currentGrid.bind.canResetFilters).toBe(false);
     expect(currentGrid.bind.filterValues).not.toHaveProperty("stage");
+  });
+
+  it("clears a dashboard action scope without exposing it as a toolbar filter", async () => {
+    await renderPage({ dashboardAction: "ai_pending", stage: "interview:ai" });
+
+    expect(currentGrid.bind.canResetFilters).toBe(true);
+    expect(currentGrid.bind.filterValues).not.toHaveProperty("dashboardAction");
+
+    act(() => currentGrid.bind.onResetFilters());
+    await flushReactUpdates();
+
+    expect(currentSearch.dashboardAction).toBeUndefined();
+    expect(currentSearch.stage).toBe("interview:ai");
+    expect(currentGrid.bind.canResetFilters).toBe(false);
   });
 
   it("hides the fixed sidebar stage while keeping its subflow filters available", async () => {

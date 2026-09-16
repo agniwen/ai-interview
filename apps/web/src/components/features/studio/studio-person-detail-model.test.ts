@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  shouldShowHumanInterviewTab,
   shouldShowOfferTab,
   shouldShowOnboardingTab,
   tabForPipelineStage,
@@ -27,6 +28,18 @@ describe("招聘子节点所属详情 tab", () => {
   it("Offer 之前不显示，结束后保留查看入口", () => {
     expect(shouldShowOfferTab({ pipelineStage: "final_interview" }, true)).toBe(false);
     expect(shouldShowOfferTab({ pipelineStage: "closed" }, true)).toBe(true);
+  });
+
+  it("存在真人面试记录时保留对应阶段入口", () => {
+    expect(
+      shouldShowHumanInterviewTab({ hasHumanInterview: true, pipelineStage: "ai_interview" }, true),
+    ).toBe(true);
+    expect(
+      shouldShowHumanInterviewTab(
+        { hasHumanInterview: true, pipelineStage: "ai_interview" },
+        false,
+      ),
+    ).toBe(false);
   });
 });
 

@@ -38,6 +38,23 @@ export type HumanInterviewCandidateMaterialsAuthorization =
   | { status: "not_found" }
   | { status: "unavailable" };
 
+// Candidate materials remain read-only available for a short period after the
+// meeting ends. This does not extend access to the meeting room or review APIs.
+export const HUMAN_INTERVIEW_CANDIDATE_MATERIALS_GRACE_MS = 60 * 60 * 1000;
+
+export function isHumanInterviewCandidateMaterialsAvailable(
+  scope: Pick<HumanInterviewCandidateMaterialsScope, "status" | "validUntil">,
+  now = Date.now(),
+): boolean {
+  if (scope.status === "cancelled" || !scope.validUntil) {
+    return false;
+  }
+  const validUntil = Date.parse(scope.validUntil);
+  return (
+    !Number.isNaN(validUntil) && validUntil + HUMAN_INTERVIEW_CANDIDATE_MATERIALS_GRACE_MS >= now
+  );
+}
+
 export async function authorizeHumanInterviewCandidateMaterials(input: {
   inviteToken: string;
 }): Promise<HumanInterviewCandidateMaterialsAuthorization> {
@@ -45,11 +62,7 @@ export async function authorizeHumanInterviewCandidateMaterials(input: {
   if (!scope) {
     return { status: "not_found" };
   }
-  if (
-    scope.status === "cancelled" ||
-    !scope.validUntil ||
-    Date.parse(scope.validUntil) < Date.now()
-  ) {
+  if (!isHumanInterviewCandidateMaterialsAvailable(scope)) {
     return { status: "unavailable" };
   }
 

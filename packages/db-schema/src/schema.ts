@@ -110,6 +110,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -1728,8 +1729,10 @@ export const jobDescription = pgTable(
       onDelete: "set null",
     }),
     feishuChatId: text("feishu_chat_id"),
+    headcount: integer("headcount"),
     id: text("id").primaryKey(),
     internalCriteria: text("internal_criteria"),
+    jobWeight: numeric("job_weight", { precision: 8, scale: 2 }),
     lifecycleStatus: text("lifecycle_status")
       .$type<JobLifecycleStatus>()
       .notNull()
@@ -1741,15 +1744,24 @@ export const jobDescription = pgTable(
         onDelete: "cascade",
       }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
+    priority: text("priority").$type<"high" | "medium" | "low">(),
     prompt: text("prompt").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedDate: date("published_date"),
+    referralChannels: text("referral_channels"),
+    reportingManagerUserId: text("reporting_manager_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     resumeScreeningPolicy: jsonb("resume_screening_policy").$type<JsonObject | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
+    salaryMaxK: numeric("salary_max_k", { precision: 10, scale: 2 }),
+    salaryMinK: numeric("salary_min_k", { precision: 10, scale: 2 }),
     structuredConfig: jsonb("structured_config")
       .$type<JobDescriptionStructuredConfig>()
       .notNull()
       .default(createDefaultJobDescriptionStructuredConfig()),
+    targetDate: date("target_date"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -1760,6 +1772,7 @@ export const jobDescription = pgTable(
     index("job_description_name_idx").on(table.name),
     index("job_description_created_at_idx").on(table.createdAt),
     index("job_description_organization_idx").on(table.organizationId),
+    index("job_description_priority_idx").on(table.organizationId, table.priority),
     uniqueIndex("job_description_org_code_uq")
       .on(table.organizationId, table.code)
       .where(sql`${table.code} IS NOT NULL`),
@@ -1770,6 +1783,10 @@ export const jobDescription = pgTable(
     check(
       "job_description_lifecycle_status_check",
       sql`${table.lifecycleStatus} IN ('draft', 'published')`,
+    ),
+    check(
+      "job_description_priority_check",
+      sql`${table.priority} IS NULL OR ${table.priority} IN ('high', 'medium', 'low')`,
     ),
     check(
       "job_description_evaluation_lifecycle_check",
@@ -6728,5 +6745,40 @@ export const recruitingDuplicateMatch = pgTable(
     ),
     index("recruiting_duplicate_match_org_level_idx").on(table.organizationId, table.level),
     index("recruiting_duplicate_match_org_status_idx").on(table.organizationId, table.status),
+  ],
+);
+
+// Immutable Agent callback payloads also serve as a durable processing inbox.
+export const aiInterviewReportReceipt = pgTable(
+  "ai_interview_report_receipt",
+  {
+    aiRoundId: text("ai_round_id").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    conversationId: text("conversation_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id").notNull(),
+    payload: jsonb("payload").$type<JsonObject>().notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    status: text("status")
+      .$type<"pending" | "applied" | "processed" | "archived">()
+      .default("pending")
+      .notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+      name: "ai_report_receipt_org_fk",
+    }).onDelete("cascade"),
+    index("ai_report_receipt_retry_idx").on(table.status, table.nextAttemptAt),
+    index("ai_report_receipt_conversation_idx").on(table.conversationId, table.createdAt),
+    check(
+      "ai_report_receipt_status_check",
+      sql`${table.status} in ('pending', 'applied', 'processed', 'archived')`,
+    ),
   ],
 );

@@ -1,4 +1,5 @@
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
 /**
  * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
@@ -48,6 +49,8 @@ export interface ResumeListParams {
   textFilters?: string;
   /** 创建人用户 id 列表。Creator user id filter (OR semantics). */
   creatorIds?: string[];
+  /** 数据看板待办项对应的候选人范围。 */
+  dashboardAction?: DashboardRecruitingActionScope;
   /** 任一匹配的技能（CSV-encoded on the wire）。Any-of skill filter. */
   skills?: string[];
   /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
@@ -71,6 +74,7 @@ interface ResumeListQuery {
   createdFrom?: string;
   createdTo?: string;
   creatorIds?: string;
+  dashboardAction?: DashboardRecruitingActionScope;
   hrHandling?: "true";
   jdIds?: string;
   knownTotal?: string;
@@ -94,6 +98,7 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
   const query: ResumeListQuery = {
     createdFrom: params.createdFrom,
     createdTo: params.createdTo,
+    dashboardAction: params.dashboardAction,
   };
   if (params.knownTotal !== undefined) {
     query.knownTotal = String(params.knownTotal);

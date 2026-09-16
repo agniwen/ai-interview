@@ -15,7 +15,7 @@ import {
 } from "../../../../../../../integrations/feishu/interview-evaluation-doc";
 import { replaceFeishuHrInitialInterview } from "../../../../../../../integrations/feishu/feishu-docx";
 import { ensureRecordEvaluationDocument } from "../../../../interviews/application/default-ensure-recruiting-evaluation-document";
-import { loadResumePdfAttachment } from "../../../../../../agent/utils/feishu-resume-attachment";
+import { loadResumeAttachment } from "../../../../../../agent/utils/feishu-resume-attachment";
 import { InitialInterviewError } from "../errors";
 import type { InitialInterviewEvaluation, InitialInterviewJob } from "./process-initial-interview";
 
@@ -85,13 +85,15 @@ export async function publishInitialInterviewDocument(
       if (!recipient) {
         throw new InitialInterviewError("缺少对应飞书应用的负责人账号，请绑定后重试。");
       }
-      const pdf = job.snapshot.resume ? await loadResumePdfAttachment(job.snapshot.resume) : null;
+      const resumeAttachment = job.snapshot.resume
+        ? await loadResumeAttachment(job.snapshot.resume)
+        : null;
       const base = getRequiredEnv("BETTER_AUTH_URL").replace(/\/$/, "");
       const built = buildInterviewEvaluationDocument({
         candidateName: job.snapshot.candidateName,
         communicationQuestionResults: null,
         evaluation: { hrEvaluation: evaluation },
-        includeResumeLink: !pdf && Boolean(job.snapshot.resume),
+        includeResumeLink: !resumeAttachment && Boolean(job.snapshot.resume),
         recommendedQuestions: job.snapshot.interviewQuestions,
         resumeEvaluation: job.snapshot.qualitativeResumeEvaluation,
         resumeUrl: `${base}/api/w/${encodeURIComponent(record.slug)}/studio/resumes/${encodeURIComponent(job.recruitingRecordId)}/initial-interviews/${encodeURIComponent(job.initialInterviewId)}/resume`,
@@ -99,9 +101,7 @@ export async function publishInitialInterviewDocument(
       initializedFromThisJob = true;
       return {
         ...built,
-        attachment: pdf
-          ? { bytes: pdf, fileName: `${job.snapshot.candidateName.slice(0, 200)}-简历.pdf` }
-          : undefined,
+        attachment: resumeAttachment ?? undefined,
         recipientOpenId: recipient.openId,
       };
     },

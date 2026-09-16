@@ -1,3 +1,5 @@
+import { resolveReportUpdate } from "./application/report-policy";
+import { receiveAgentReport } from "./report-inbox";
 import {
   lockAiRound,
   updateEffectiveAiProgress,
@@ -21,13 +23,8 @@ import {
 import { runKeyInformationJob } from "./utils/interview-key-information-job";
 import { runSummaryJob } from "./utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "./utils/evidence-snapshot";
-import { enqueueAiInterviewCompletedEvent } from "../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../interview-notifications/utils/feature-flags";
 import { mergeInterviewEndReasonMetadata } from "@app/shared/interview/end-reason";
-import {
-  mergeInterviewQuestionOutcome,
-  parseInterviewDataCollectionResults,
-} from "@app/shared/interview/question-outcomes";
+import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { createAgentRouter } from "./route";
 import type {
   AgentRouterDependencies,
@@ -104,21 +101,46 @@ async function persistCheckpoint(options: {
       return;
     }
     const [existing] = await tx
-      .select({ dataCollectionResults: aiInterviewConversation.dataCollectionResults })
+      .select()
       .from(aiInterviewConversation)
       .where(eq(aiInterviewConversation.conversationId, data.conversationId))
       .for("update")
       .limit(1);
+    if (
+      existing &&
+      (existing.recruitingRecordId !== data.interviewRecordId ||
+        existing.organizationId !== organizationId ||
+        existing.aiRoundId !== data.scheduleEntryId)
+    ) {
+      return;
+    }
+    if (
+      existing?.metadata?.agentSessionId &&
+      data.agentSessionId !== existing.metadata.agentSessionId
+    ) {
+      return;
+    }
+    const checkpointMetadata: JsonObject = { ...existing?.metadata };
+    if (data.agentSessionId) {
+      checkpointMetadata.agentSessionId = data.agentSessionId;
+    }
     const current = parseInterviewDataCollectionResults(existing?.dataCollectionResults) ?? {
       questions: [],
       schemaVersion: 2 as const,
     };
-    const merged = mergeInterviewQuestionOutcome(current, data.outcome);
+    const merged = resolveReportUpdate(
+      { dataCollectionResults: current, startedAt: null, transcript: [] },
+      { dataCollectionResults: { questions: [data.outcome], schemaVersion: 2 }, transcript: [] },
+    ).dataCollectionResults;
 
     if (existing) {
       await tx
         .update(aiInterviewConversation)
-        .set({ dataCollectionResults: jsonObjectSchema.parse(merged), lastSyncedAt: now })
+        .set({
+          dataCollectionResults: jsonObjectSchema.parse(merged),
+          lastSyncedAt: now,
+          metadata: checkpointMetadata,
+        })
         .where(eq(aiInterviewConversation.conversationId, data.conversationId));
       return;
     }
@@ -128,6 +150,7 @@ async function persistCheckpoint(options: {
       conversationId: data.conversationId,
       dataCollectionResults: jsonObjectSchema.parse(merged),
       lastSyncedAt: now,
+      metadata: checkpointMetadata,
       mode: "voice",
       organizationId,
       recruitingRecordId: data.interviewRecordId,
@@ -222,27 +245,44 @@ function upsertInterviewConversation(tx: Tx, options: UpsertOptions): Promise<vo
   return upsertMigratedInterviewConversation(tx, options);
 }
 
-async function persistReport(options: {
+function persistReport(options: {
   data: ReportPayload;
   isNewTranscript: boolean;
   keyInformationColumnsAvailable: boolean;
   now: Date;
   organizationId: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const { data, now, organizationId } = options;
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     const locked = await lockAiRound(tx, data.scheduleEntryId, organizationId);
     if (!locked || locked.record.id !== data.interviewRecordId) {
-      return;
+      return false;
     }
     const [existingConversation] = await tx
-      .select({ metadata: aiInterviewConversation.metadata })
+      .select()
       .from(aiInterviewConversation)
       .where(eq(aiInterviewConversation.conversationId, data.conversationId))
       .for("update")
       .limit(1);
+    if (
+      existingConversation &&
+      (existingConversation.recruitingRecordId !== data.interviewRecordId ||
+        existingConversation.organizationId !== organizationId ||
+        existingConversation.aiRoundId !== data.scheduleEntryId)
+    ) {
+      return false;
+    }
+    const policy = resolveReportUpdate(existingConversation, data);
+    if (!policy.accepted) {
+      return false;
+    }
     const metadata = mergeInterviewEndReasonMetadata(existingConversation?.metadata, data.metadata);
-    await upsertInterviewConversation(tx, { ...options, metadata });
+    await upsertInterviewConversation(tx, {
+      ...options,
+      data: { ...data, dataCollectionResults: policy.dataCollectionResults },
+      isNewTranscript: policy.transcriptChanged,
+      metadata,
+    });
     await tx
       .delete(aiInterviewConversationTurn)
       .where(eq(aiInterviewConversationTurn.conversationId, data.conversationId));
@@ -279,9 +319,6 @@ async function persistReport(options: {
     if (completedRounds.length && locked.isEffective) {
       await updateEffectiveAiProgress(tx, data.scheduleEntryId, "awaiting_review");
     }
-    if (completedRounds.length && locked.isEffective && isInterviewNotificationFlowEnabled()) {
-      await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: data.scheduleEntryId });
-    }
     await tx.insert(recruitingEvent).values({
       action: "agent_report_received",
       aiRoundId: data.scheduleEntryId,
@@ -296,6 +333,7 @@ async function persistReport(options: {
       organizationId,
       recruitingRecordId: data.interviewRecordId,
     });
+    return true;
   });
 }
 
@@ -359,6 +397,7 @@ export const agentRouterDependencies: AgentRouterDependencies = {
   notifyInterviewSummaryReady,
   persistCheckpoint,
   persistReport,
+  receiveReport: receiveAgentReport,
   resolveOrgFromInterview,
   retryFailedInterviewSummaryNotifications,
   runKeyInformationJob,

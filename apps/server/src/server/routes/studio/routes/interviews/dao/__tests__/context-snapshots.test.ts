@@ -3,6 +3,7 @@ import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
+import { jsonValueSchema } from "../../../../../../../lib/server/stable-stringify";
 import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
 import type { InterviewQuestionTemplateSnapshot } from "@app/db-schema/interview-question-templates";
 import {
@@ -114,6 +115,12 @@ describe("interview context snapshot payload", () => {
     });
 
     expect(payload.schemaVersion).toBe(1);
+    expect(() => hashSnapshotPayload(jsonValueSchema.parse(payload))).not.toThrow();
+    expect(payload.jobDescription).toStrictEqual({
+      id: "jd-1",
+      name: "Backend Engineer",
+      prompt: "JD prompt",
+    });
     expect(payload.forms[0]?.versionId).toBe("form-version-1");
     expect(payload.forms[0]?.snapshot.title).toBe("Candidate Form v1");
     expect(payload.questionTemplates[0]?.versionId).toBe("question-version-3");
@@ -203,10 +210,14 @@ beforeAll(async () => {
   await db.insert(jobDescription).values({
     createdAt: NOW,
     departmentId: DEPARTMENT_ID,
+    evaluationMode: "qualitative",
     id: JD_ID,
+    internalCriteria: null,
+    lifecycleStatus: "published",
     name: "Snapshot Backend",
     organizationId: ORG_ID,
     prompt: "Snapshot JD prompt",
+    publishedAt: NOW,
     updatedAt: NOW,
   });
   await createRecruitingRecords(db, {
@@ -301,6 +312,11 @@ describe("interview context snapshot DAO", () => {
       QUESTION_TEMPLATE_ID,
     ]);
     expect(snapshot.payload.globalConfig.companyContext).toBe("Company snapshot");
+    expect(snapshot.payload.jobDescription).toStrictEqual({
+      id: JD_ID,
+      name: "Snapshot Backend",
+      prompt: "Snapshot JD prompt",
+    });
 
     const active = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
     expect(active?.id).toBe(snapshot.id);

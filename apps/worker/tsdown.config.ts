@@ -14,6 +14,7 @@ export default defineConfig({
       /^@app\/object-storage(?:\/|$)/,
       /^@app\/resume-parse-queue(?:\/|$)/,
       /^@app\/resume-processing(?:\/|$)/,
+      /^@app\/server\/ai-interview-report-recovery$/,
       /^@app\/server\/human-interview-evaluation-ready$/,
       /^@app\/server\/ai-interview-report-notification$/,
       /^@app\/server\/human-interview-attendance-reconciliation$/,

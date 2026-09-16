@@ -14,7 +14,9 @@ import { ensureRecruitingEvaluationDocument } from "./ensure-recruiting-evaluati
 
 type CreateInput = Parameters<typeof createFeishuInterviewEvaluationDocx>[1];
 const initializationSchema = z.object({
-  attachment: z.object({ base64: z.string(), fileName: z.string() }).optional(),
+  attachment: z
+    .object({ base64: z.string(), fileName: z.string(), mediaType: z.string().optional() })
+    .optional(),
   blocks: z.array(z.custom<FeishuDocumentBlock>()),
   recipientOpenId: z.string(),
   title: z.string(),
@@ -71,6 +73,9 @@ export function ensureRecordEvaluationDocument(
             base64: Buffer.from(built.attachment.bytes).toString("base64"),
             fileName: built.attachment.fileName,
           };
+          if (built.attachment.mediaType) {
+            initialization.attachment.mediaType = built.attachment.mediaType;
+          }
         }
         [row] = await db
           .insert(table)
@@ -90,6 +95,7 @@ export function ensureRecordEvaluationDocument(
           ? {
               bytes: Buffer.from(payload.attachment.base64, "base64"),
               fileName: payload.attachment.fileName,
+              mediaType: payload.attachment.mediaType,
             }
           : undefined,
         existingDocumentId: row.documentId ?? undefined,

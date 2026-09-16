@@ -642,29 +642,50 @@ function OfferEmailDialog({
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor={`offer-email-to-${draft.id}`}>接收邮箱</Label>
+            <Label htmlFor={`offer-email-to-${draft.id}`}>
+              接收邮箱{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
             <Input
+              aria-required="true"
               id={`offer-email-to-${draft.id}`}
               onChange={(event) => setTo(event.target.value)}
               type="email"
+              required
               value={to}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`offer-email-subject-${draft.id}`}>邮件主题</Label>
+            <Label htmlFor={`offer-email-subject-${draft.id}`}>
+              邮件主题{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
             <Input
+              aria-required="true"
               id={`offer-email-subject-${draft.id}`}
               onChange={(event) => setSubject(event.target.value)}
+              required
               value={subject}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`offer-email-content-${draft.id}`}>邮件内容</Label>
+            <Label htmlFor={`offer-email-content-${draft.id}`}>
+              邮件内容{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
             <Textarea
               aria-invalid={!previewQuery.isPending && !offerLinkValid}
+              aria-required="true"
               id={`offer-email-content-${draft.id}`}
               onChange={(event) => setContent(event.target.value)}
               rows={9}
+              required
               value={content}
             />
             <p className={offerLinkHintClassName}>{offerLinkHint}</p>

@@ -29,18 +29,24 @@ describe("studio sidebar recruiting board presets", () => {
   });
 
   it("preserves normal recruiting filters while replacing the hidden preset", () => {
-    expect(
-      buildRecruitingBoardSearch(
-        { boardPreset: "screening", page: 4, skills: "React", stage: "screening:all" },
-        true,
-        recruitingBoardStagePresets[1],
-      ),
-    ).toEqual({
+    const nextSearch = buildRecruitingBoardSearch(
+      {
+        boardPreset: "screening",
+        dashboardAction: "ai_pending",
+        page: 4,
+        skills: "React",
+        stage: "screening:all",
+      },
+      true,
+      recruitingBoardStagePresets[1],
+    );
+    expect(nextSearch).toEqual({
       boardPreset: "interview",
       page: 1,
       skills: "React",
       stage: "interview:all",
     });
+    expect(nextSearch).not.toHaveProperty("dashboardAction");
     expect(
       buildRecruitingBoardSearch(
         { boardPreset: "interview", page: 3, skills: "React", stage: "interview:all" },

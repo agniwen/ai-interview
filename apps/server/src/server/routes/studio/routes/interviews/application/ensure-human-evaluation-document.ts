@@ -16,7 +16,7 @@ import {
 } from "../../../../../integrations/feishu/interview-evaluation-doc";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import { grantFeishuInterviewEvaluationDocxAccess } from "../../../../../integrations/feishu/feishu-docx";
-import { loadResumePdfAttachment } from "../../../../agent/utils/feishu-resume-attachment";
+import { loadResumeAttachment } from "../../../../agent/utils/feishu-resume-attachment";
 import type { HumanInterviewDocumentSyncJob } from "./sync-human-interview-document";
 
 const defaultDependencies = {
@@ -91,7 +91,7 @@ export async function ensureHumanEvaluationDocument(
         throw new Error("无法创建飞书评价表：缺少对应飞书应用的负责人账号");
       }
       const context = record.record;
-      const pdf = await loadResumePdfAttachment({
+      const resumeAttachment = await loadResumeAttachment({
         fileName: context.resumeFileName,
         storageKey: context.resumeStorageKey,
       });
@@ -101,7 +101,7 @@ export async function ensureHumanEvaluationDocument(
         // No AI interview: leave HR/communication evidence empty, never fabricate it.
         communicationQuestionResults: null,
         evaluation: { hrEvaluation: {} },
-        includeResumeLink: !pdf && Boolean(context.resumeStorageKey),
+        includeResumeLink: !resumeAttachment && Boolean(context.resumeStorageKey),
         recommendedQuestions: sections.recommendedQuestionsBlock ? context.interviewQuestions : [],
         resumeEvaluation: sections.resumeEvaluationBlock
           ? context.qualitativeResumeEvaluation
@@ -110,9 +110,7 @@ export async function ensureHumanEvaluationDocument(
       });
       return {
         ...base,
-        attachment: pdf
-          ? { bytes: pdf, fileName: `${context.candidateName.slice(0, 200)}-简历.pdf` }
-          : undefined,
+        attachment: resumeAttachment ?? undefined,
         recipientOpenId: recipients[0].openId,
       };
     },

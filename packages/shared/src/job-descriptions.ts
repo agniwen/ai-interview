@@ -12,12 +12,33 @@ import {
 import type { JobDescriptionStructuredConfig } from "@app/db-schema/job-description-structured-config";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
-import {
-  createDefaultResumeScreeningPolicy,
-  resumeScreeningPolicySchema,
-} from "./resume-screening";
+import { createDefaultResumeScreeningPolicy } from "./resume-screening";
 import type { ResumeScreeningPolicy } from "./resume-screening";
 import type { ResumePoolProfileHighlights } from "./resume-pool";
+
+export const jobDescriptionPrioritySchema = z.enum(["high", "medium", "low"]);
+export type JobDescriptionPriority = z.infer<typeof jobDescriptionPrioritySchema>;
+
+const optionalDateSchema = z.string().date("日期格式无效").nullable().optional();
+const optionalPositiveDecimalSchema = (scale: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .regex(new RegExp(`^(?:0|[1-9]\\d*)(?:\\.\\d{1,${scale}})?$`), `${label}格式无效`)
+    .refine((value) => value !== "0", `${label}必须大于 0`)
+    .nullable()
+    .optional();
+
+const optionalNonNegativeDecimalSchema = (scale: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .regex(new RegExp(`^(?:0|[1-9]\\d*)(?:\\.\\d{1,${scale}})?$`), `${label}格式无效`)
+    .nullable()
+    .optional();
+
+export const jobWeightSchema = optionalPositiveDecimalSchema(2, "岗位权重");
+const salaryKSchema = optionalNonNegativeDecimalSchema(2, "薪资");
 
 export const jobDescriptionCodeSchema = z
   .string()
@@ -39,16 +60,43 @@ const operationalAssignmentSchema = z.object({
 export const jobDescriptionSaveSchema = operationalAssignmentSchema
   .extend({
     code: jobDescriptionCodeSchema,
+    headcount: z.number().int().positive("招聘人数必须大于 0").nullable().optional(),
     internalCriteria: z
       .string()
       .trim()
       .max(10_000, "内部标准不能超过 10000 字")
       .nullable()
       .optional(),
+    jobWeight: jobWeightSchema,
     name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
+    priority: jobDescriptionPrioritySchema.nullable().optional(),
     prompt: z.string().trim().min(1, "请输入岗位 JD").max(10_000, "岗位 JD 不能超过 10000 字"),
+    publishedDate: optionalDateSchema,
+    referralChannels: z
+      .string()
+      .trim()
+      .max(500, "简历推荐渠道不能超过 500 个字符")
+      .nullable()
+      .optional(),
+    reportingManagerUserId: z.string().trim().min(1).nullable().optional(),
+    salaryMaxK: salaryKSchema,
+    salaryMinK: salaryKSchema,
+    targetDate: optionalDateSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.salaryMinK &&
+      value.salaryMaxK &&
+      Number(value.salaryMinK) > Number(value.salaryMaxK)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "薪资上限不能低于下限",
+        path: ["salaryMaxK"],
+      });
+    }
+  });
 
 const structuredJobOwnedFieldsSchema = z.object({
   code: jobDescriptionCodeSchema,
@@ -68,11 +116,6 @@ export const structuredJobDescriptionPublishSchema = z
   })
   .strict();
 export const publishedJobOperationalUpdateSchema = operationalAssignmentSchema.strict();
-export const legacyJobDescriptionUpdateSchema = structuredJobDescriptionCreateSchema
-  .extend({
-    resumeScreeningPolicy: resumeScreeningPolicySchema,
-  })
-  .strict();
 
 export const jobDescriptionFormSchema = jobDescriptionSaveSchema;
 export const jobDescriptionUpdateSchema = jobDescriptionSaveSchema;
@@ -111,6 +154,15 @@ export interface JobDescriptionRecord {
   interviewerIds: string[];
   lifecycleStatus: JobLifecycleStatus;
   name: string;
+  headcount?: number | null;
+  jobWeight?: string | null;
+  priority?: JobDescriptionPriority | null;
+  publishedDate?: string | null;
+  referralChannels?: string | null;
+  reportingManagerUserId?: string | null;
+  salaryMaxK?: string | null;
+  salaryMinK?: string | null;
+  targetDate?: string | null;
   description: string | null;
   /** @deprecated Replaced by interview-question-templates. Read for legacy data only. */
   presetQuestions: string[];
@@ -143,6 +195,7 @@ export type JobEvaluationPreviewStreamEvent =
 
 export interface JobDescriptionListRecord extends JobDescriptionRecord {
   departmentName: string | null;
+  reportingManagerName?: string | null;
   interviewers: JobDescriptionInterviewerSummary[];
   // 非归档候选人 / 简历计数；用于列表"简历关联"列。
   // Non-archived candidate count; powers the "resume association" column.

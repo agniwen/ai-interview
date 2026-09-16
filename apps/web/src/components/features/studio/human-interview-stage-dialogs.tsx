@@ -285,7 +285,10 @@ export function ScheduleRoundDialogView({
 
           <div className="grid gap-1.5">
             <Label className="text-sm" htmlFor="scheduled-at">
-              面试时间
+              面试时间{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
             </Label>
             <DateTimePicker
               id="scheduled-at"
@@ -303,7 +306,12 @@ export function ScheduleRoundDialogView({
           </div>
 
           <div className="grid gap-1.5">
-            <Label className="text-sm">面试官</Label>
+            <Label className="text-sm">
+              面试官{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
             <SearchableMultiSelect
               emptyMessage="找不到匹配的成员"
               onChange={setInterviewerIds}
@@ -453,8 +461,14 @@ export function CompleteRoundDialog({
 
         <div className="space-y-4 py-2">
           <div className="grid gap-1.5">
-            <Label className="text-sm">结果</Label>
+            <Label className="text-sm">
+              结果{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
             <RadioGroup
+              aria-required="true"
               className="grid grid-cols-3 gap-2"
               onValueChange={(v) => {
                 if (isHumanInterviewRoundOutcome(v)) {
@@ -478,11 +492,15 @@ export function CompleteRoundDialog({
 
           <div className="grid gap-1.5">
             <Label className="text-sm" htmlFor="round-feedback">
-              反馈
+              反馈{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
             </Label>
             <MarkdownEditor
               id="round-feedback"
               aria-label="反馈"
+              aria-required
               disabled={mutation.isPending}
               maxLength={5000}
               onChange={setFeedback}
