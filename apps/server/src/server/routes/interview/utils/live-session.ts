@@ -3,7 +3,37 @@ import { RoomServiceClient, TwirpError } from "livekit-server-sdk";
 
 interface RoomProbe {
   listRooms: (names: string[]) => Promise<unknown[]>;
-  listParticipants: (room: string) => Promise<{ kind: ParticipantInfo_Kind }[]>;
+  listParticipants: (room: string) => Promise<{ kind: ParticipantInfo_Kind; identity?: string }[]>;
+}
+
+export async function inspectCandidateConnection(
+  client: RoomProbe,
+  room: string,
+  identity: string,
+) {
+  try {
+    const participants = await client.listParticipants(room);
+    return (
+      participants.some((p) => p.kind === ParticipantInfo_Kind.AGENT) &&
+      participants.some((p) => p.kind === ParticipantInfo_Kind.STANDARD && p.identity === identity)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isInterviewCandidateConnected(room: string, identity: string) {
+  const { LIVEKIT_URL: url, LIVEKIT_API_KEY: key, LIVEKIT_API_SECRET: secret } = process.env;
+  if (!url || !key || !secret) {
+    return Promise.resolve(false);
+  }
+  return inspectCandidateConnection(
+    new RoomServiceClient(url.replace(/^wss:/, "https:").replace(/^ws:/, "http:"), key, secret, {
+      requestTimeout: 3000,
+    }),
+    room,
+    identity,
+  );
 }
 
 export async function inspectLiveSession(

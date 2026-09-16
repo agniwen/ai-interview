@@ -106,3 +106,13 @@ async def test_late_tool_call_cannot_reopen_or_mutate_closed_interview():
             question_id="q1", status="answered", answer_summary="迟到答案"
         )
     assert tuple(outcome.to_payload() for outcome in agent.question_outcomes) == saved
+
+
+def test_single_answer_coverage_uses_plain_array_schema_for_realtime_provider():
+    from qwen_realtime import _tool_schema
+
+    schema = _tool_schema(RealtimeInterviewAgent(context()).record_answer)
+    coverage = schema["function"]["parameters"]["properties"]["covered_topics"]
+    assert coverage["type"] == "array"
+    assert coverage["items"]["type"] == "string"
+    assert "anyOf" not in coverage

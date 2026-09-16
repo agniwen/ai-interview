@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ParticipantInfo_Kind } from "@livekit/protocol";
-import { inspectLiveSession } from "./live-session";
+import { inspectCandidateConnection, inspectLiveSession } from "./live-session";
 
 describe("interview reconnect requires the original agent", () => {
   it("detects a deleted room", async () => {
@@ -44,4 +44,19 @@ describe("interview reconnect requires the original agent", () => {
       ),
     ).toBe("unavailable");
   });
+});
+
+it("confirms only the original candidate together with the agent", async () => {
+  const agent = { identity: "agent", kind: ParticipantInfo_Kind.AGENT };
+  const candidate = { identity: "candidate", kind: ParticipantInfo_Kind.STANDARD };
+  const client = {
+    listParticipants: vi.fn(() => Promise.resolve([agent, candidate])),
+    listRooms: vi.fn(),
+  };
+  expect(await inspectCandidateConnection(client, "room", "candidate")).toBe(true);
+  expect(await inspectCandidateConnection(client, "room", "someone-else")).toBe(false);
+  client.listParticipants.mockResolvedValue([candidate]);
+  expect(await inspectCandidateConnection(client, "room", "candidate")).toBe(false);
+  client.listParticipants.mockRejectedValue(new Error("timeout"));
+  expect(await inspectCandidateConnection(client, "room", "candidate")).toBe(false);
 });

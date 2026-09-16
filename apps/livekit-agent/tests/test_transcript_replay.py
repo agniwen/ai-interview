@@ -151,3 +151,22 @@ async def test_replay_continues_after_individual_failure():
     )
     assert replayed == 2
     assert len(calls) == 3
+
+
+async def test_replay_marks_one_complete_snapshot_with_contiguous_indices():
+    participant, calls, _ = _make_local_participant()
+    await replay_turns_to(
+        participant,
+        turns=[
+            {"role": "agent", "message": "你好"},
+            {"role": "user", "message": " "},
+            {"role": "user", "message": "准备好了"},
+        ],
+        target_identity="c",
+        agent_identity="a",
+        candidate_identity="c",
+    )
+    attrs = [call["attributes"] for call in calls]
+    assert len({a["interview.replay_batch"] for a in attrs}) == 1
+    assert [a["interview.replay_index"] for a in attrs] == ["0", "1"]
+    assert [a["interview.replay_count"] for a in attrs] == ["2", "2"]

@@ -119,3 +119,47 @@ it("does not close the room for a browser interrupt signal", async () => {
   expect(response.status).toBe(200);
   expect(endLiveSession).not.toHaveBeenCalled();
 });
+
+it("starts a fresh grace period after a confirmed reconnect, but never revives a manual end", async () => {
+  const candidateConnected = vi.fn(() => Promise.resolve(true));
+  const router = createInterviewRouter({
+    endLiveSession,
+    isCandidateConnected: candidateConnected,
+  });
+  await db
+    .update(aiInterviewRound)
+    .set({
+      disconnectedAt: new Date(Date.now() - 120_000),
+      liveKitParticipantIdentity: "candidate-test",
+      status: "interrupted",
+    })
+    .where(eq(aiInterviewRound.id, ROUND_ID));
+  const connectedPath = `/${INTERVIEW_ID}/${ROUND_ID}/connected`;
+  const completePath = `/${INTERVIEW_ID}/${ROUND_ID}/complete`;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const confirmed = await router.request(connectedPath, { method: "POST" });
+    expect(confirmed.status).toBe(200);
+    const [connected] = await db
+      .select()
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, ROUND_ID));
+    expect(connected.status).toBe("in_progress");
+    expect(connected.disconnectedAt).toBeNull();
+    const leftAt = Date.now();
+    await router.request(`${completePath}?mode=interrupt`, { method: "POST" });
+    const [left] = await db
+      .select()
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, ROUND_ID));
+    expect(left.disconnectedAt?.getTime()).toBeGreaterThanOrEqual(leftAt);
+  }
+  candidateConnected.mockResolvedValue(false);
+  const absent = await router.request(connectedPath, { method: "POST" });
+  expect(absent.status).toBe(409);
+  candidateConnected.mockResolvedValue(true);
+  await router.request(`${completePath}?mode=final`, { method: "POST" });
+  const terminal = await router.request(connectedPath, { method: "POST" });
+  expect(terminal.status).toBe(409);
+  const [ended] = await db.select().from(aiInterviewRound).where(eq(aiInterviewRound.id, ROUND_ID));
+  expect(ended.status).toBe("completed");
+});

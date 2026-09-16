@@ -37,6 +37,10 @@ export const NO_CANDIDATE_ANSWER_SUMMARY =
 
 const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据以下面试对话记录和面试题目，对候选人的表现进行结构化评估。
 
+评估范围：下方“面试题目”是本轮唯一的信息收集要求。JSON Schema 的汇总字段只是存储位置，不是额外题目或必填问卷。
+未在本轮题目中要求、候选人也没有主动谈及的信息，留 null 即可；禁止在 overallAssessment 或任何 assessment 中把它描述为遗漏、未补充、沟通不足或未完成。
+例如：本轮只问工作经历、求职动机、薪酬、项目、绩效和 AI 工具时，不能因没有到岗时间、求职状态而评价信息不全。“还有补充吗”也不等于询问这些事项。
+
 ## 候选人面试前表单答复
 {formResponses}
 
@@ -82,7 +86,12 @@ const evidenceSchema = z.object({
 });
 
 const hrEvaluationSchema = z.object({
-  availability: z.string().nullable().describe("当前 base 地、求职状态及到岗时间"),
+  availability: z
+    .string()
+    .nullable()
+    .describe(
+      "候选人明确提供的当前 base 地、求职状态及到岗时间；未收集则 null，此通用字段不是本轮必问题，不得据此声称遗漏或影响综合评价",
+    ),
   careerProgression: z
     .string()
     .nullable()
@@ -102,7 +111,11 @@ const hrEvaluationSchema = z.object({
 
 export const interviewEvaluationSchema = z.object({
   hrEvaluation: hrEvaluationSchema,
-  overallAssessment: z.string().describe("候选人整体表现的综合评价，2-3 句话"),
+  overallAssessment: z
+    .string()
+    .describe(
+      "仅基于本轮题目和候选人实际回答的综合评价，2-3 句话；禁止把题目未要求的信息（例如到岗时间、求职状态）说成遗漏或沟通不足",
+    ),
   overallScore: z.number().int().min(0).max(100).nullable(),
   questions: z.array(
     z.object({

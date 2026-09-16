@@ -1,4 +1,8 @@
-import { getInterviewLiveSession, endInterviewLiveSession } from "./utils/live-session";
+import {
+  getInterviewLiveSession,
+  endInterviewLiveSession,
+  isInterviewCandidateConnected,
+} from "./utils/live-session";
 import {
   lockAiRound,
   updateEffectiveAiProgress,
@@ -148,6 +152,7 @@ async function recordDirectAiInterviewVisit(
 const defaultInterviewDependencies = {
   endLiveSession: endInterviewLiveSession,
   getLiveSession: getInterviewLiveSession,
+  isCandidateConnected: isInterviewCandidateConnected,
 };
 
 export function createInterviewRouter(
@@ -158,6 +163,42 @@ export function createInterviewRouter(
     factory
       .createApp()
       .route("/", candidateInterviewFeedbackRouter)
+      .post("/:id/:roundId/connected", async (c) => {
+        const result = await db.transaction(async (tx) => {
+          const locked = await lockAiRound(tx, c.req.param("roundId"));
+          if (!locked?.isEffective || locked.record.id !== c.req.param("id")) {
+            return false;
+          }
+          const entry = locked.round;
+          if (
+            entry.status === "completed" ||
+            !entry.liveKitRoomName ||
+            !entry.liveKitParticipantIdentity
+          ) {
+            return false;
+          }
+          // A token request is not a successful join. Verify both original peers
+          // before clearing a previous disconnect deadline, including RTC reconnects.
+          if (
+            !(await dependencies.isCandidateConnected(
+              entry.liveKitRoomName,
+              entry.liveKitParticipantIdentity,
+            ))
+          ) {
+            return false;
+          }
+          if (entry.status === "interrupted") {
+            await tx
+              .update(aiInterviewRound)
+              .set({ disconnectedAt: null, status: "in_progress", updatedAt: new Date() })
+              .where(eq(aiInterviewRound.id, entry.id));
+          }
+          return true;
+        });
+        return result
+          ? c.json({ success: true }, 200)
+          : c.json({ error: "当前连接尚未确认或本轮已结束。" }, 409);
+      })
       // oxlint-disable-next-line complexity -- Token issuance composes auth, form gate, and the hot-reconnect state machine in one flow.
       .post("/:id/:roundId/livekit-token", async (c) => {
         const id = c.req.param("id");

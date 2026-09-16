@@ -77,8 +77,14 @@ async def replay_turns_to(
     if not turns:
         return 0
 
+    snapshot = [
+        turn
+        for turn in turns
+        if turn.get("role") in ("user", "agent") and (turn.get("message") or "").strip()
+    ]
+    batch_id = uuid.uuid4().hex
     replayed = 0
-    for index, turn in enumerate(turns):
+    for index, turn in enumerate(snapshot):
         role = turn.get("role")
         message = (turn.get("message") or "").strip()
         if not message or role not in ("user", "agent"):
@@ -98,6 +104,9 @@ async def replay_turns_to(
                 attributes={
                     ATTR_TRANSCRIPTION_FINAL: "true",
                     ATTR_SEGMENT_ID: segment_id,
+                    "interview.replay_batch": batch_id,
+                    "interview.replay_index": str(index),
+                    "interview.replay_count": str(len(snapshot)),
                 },
             )
             await writer.write(message)

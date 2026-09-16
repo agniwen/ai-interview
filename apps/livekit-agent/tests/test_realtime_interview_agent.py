@@ -4,7 +4,11 @@ import pytest
 from livekit.agents import ToolError
 from test_interview_agent_init import _ctx
 
-from dispatch_context import DispatchQuestion
+from dispatch_context import (
+    DispatchFollowUpContract,
+    DispatchFollowUpFacet,
+    DispatchQuestion,
+)
 from realtime_interview_agent import AnswerUpdate, RealtimeInterviewAgent
 
 
@@ -145,6 +149,7 @@ async def test_partial_answer_survives_disconnect_without_becoming_complete():
     agent.finalize_missing_question_outcomes("reconnect_grace_expired")
     outcomes = {q.question_id: q for q in agent.question_outcomes}
     assert outcomes["q1"].status.value == "insufficient"
+    assert outcomes["q1"].to_payload()["reason"] is None
     assert outcomes["q1"].answer_summary == "提到了订单项目"
     assert outcomes["q2"].status.value == "unasked"
 
@@ -213,3 +218,79 @@ async def test_asked_topic_does_not_become_unasked_after_switching():
     await agent.set_active_topics(question_ids=["q2"])
     agent.finalize_missing_question_outcomes("reconnect_grace_expired")
     assert all(q.status.value == "interrupted" for q in agent.question_outcomes)
+
+
+async def test_required_topics_keep_partial_answers_open_until_all_are_covered():
+    question = DispatchQuestion(
+        "q1",
+        "近三年加薪、绩效、晋升和嘉奖？",
+        "medium",
+        None,
+        None,
+        DispatchFollowUpContract(
+            "all_required",
+            tuple(
+                DispatchFollowUpFacet(str(i), label)
+                for i, label in enumerate(["加薪", "绩效", "晋升", "嘉奖"])
+            ),
+        ),
+    )
+    agent = RealtimeInterviewAgent(replace(context(), questions=(question,)))
+    partial = AnswerUpdate(
+        question_id="q1",
+        status="answered",
+        answer_summary="没有晋升和嘉奖",
+        covered_topics=["晋升", "嘉奖"],
+    )
+    state = await agent.record_answers(updates=[partial])
+    assert state["completed"] == 0
+    assert state["questions"][0]["missing_topics"] == ["加薪", "绩效"]
+    assert agent.question_outcomes[0].answer_summary == "没有晋升和嘉奖"
+    assert agent.question_outcomes[0].status.value == "in_progress"
+    await agent.record_answers(updates=[partial])
+    assert agent.question_outcomes[0].revision == 1
+    await agent.record_answers(
+        updates=[
+            partial.model_copy(
+                update={
+                    "answer_summary": "每年加薪5%，绩效良好，无晋升和嘉奖",
+                    "covered_topics": ["加薪", "绩效", "晋升", "嘉奖"],
+                }
+            )
+        ]
+    )
+    assert agent.question_outcomes[0].status.value == "answered"
+    assert (await agent.get_interview_state())["completed"] == 1
+
+
+async def test_required_topics_allow_explicit_refusal_without_losing_partial_facts():
+    question = DispatchQuestion(
+        "q1",
+        "两份工作",
+        "medium",
+        None,
+        None,
+        DispatchFollowUpContract(
+            "all_required",
+            (
+                DispatchFollowUpFacet("a", "第一份"),
+                DispatchFollowUpFacet("b", "第二份"),
+            ),
+        ),
+    )
+    agent = RealtimeInterviewAgent(replace(context(), questions=(question,)))
+    await agent.record_answers(
+        updates=[
+            AnswerUpdate(
+                question_id="q1",
+                status="skipped",
+                answer_summary="第一份是运营",
+                covered_topics=["第一份"],
+                reason="第二份不方便透露",
+            )
+        ]
+    )
+    state = await agent.get_interview_state()
+    assert state["completed"] == 1
+    assert "运营" in agent.question_outcomes[0].answer_summary
+    assert "不方便" in agent.question_outcomes[0].answer_summary

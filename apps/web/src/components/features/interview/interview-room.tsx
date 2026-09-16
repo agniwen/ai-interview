@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmInterviewConnection } from "./use-confirm-interview-connection";
+
 import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import type { CandidateInterviewFeedbackInput } from "@app/db-schema/studio-interviews";
@@ -481,6 +483,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // updated isRoundCompleted is observable. The ref short-circuits both the
   // interrupt POST and the rejoin attempt synchronously.
   const agentEndedRef = useRef(false);
+  useConfirmInterviewConnection(session.connectionState, interviewId, roundId);
   const persistCompletion = useCallback(
     async (mode: "final" | "agent") => {
       await rpcFetch(

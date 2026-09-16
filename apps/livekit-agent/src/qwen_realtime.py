@@ -5,8 +5,8 @@ Events: https://help.aliyun.com/zh/model-studio/qwen-audio-realtime-server-event
 SDK: https://github.com/livekit/agents/blob/main/livekit-agents/livekit/agents/llm/realtime.py
 
 The adapter only translates protocol events. LiveKit executes tools; application
-tools own interview state. A lost connection fails closed instead of replaying
-possibly executed tools or silently discarding unacknowledged candidate audio.
+tools own interview state. Connection recovery restores confirmed history;
+unacknowledged mutations fail closed rather than replaying possibly executed tools.
 """
 
 from __future__ import annotations
@@ -162,6 +162,10 @@ class _Response:
         self.functions.close()
 
 
+class _IdleTimeoutError(Exception):
+    """The provider expired an idle connection with no unfinished work."""
+
+
 class RealtimeModel(llm.RealtimeModel):
     def __init__(
         self,
@@ -251,6 +255,9 @@ class RealtimeSession(llm.RealtimeSession):
         super().__init__(model)
         self._model = model
         self._manual = manual
+        self._instructions = ""
+        self._restoring = False
+        self._recovery_prompt: str | None = None
         self._chat = llm.ChatContext.empty()
         self._tools = llm.ToolContext.empty()
         self._tool_choice: str = "auto"
@@ -268,11 +275,13 @@ class RealtimeSession(llm.RealtimeSession):
         self._idle = asyncio.Event()
         self._idle.set()
         self._response: _Response | None = None
+        self._connection_timeout: asyncio.Future | None = None
         self._pending_reply: asyncio.Future | None = None
         self._reply_requested = False
         self._cancel_before_created = False
         self._cancel_requested = False
         self._temporary_instructions: str | None = None
+        self._recovery_instructions_active = False
         self._bootstrap_item: str | None = None
         self._speech_started: dict[str, float] = {}
         self._transcripts: dict[str, str] = {}
@@ -352,50 +361,30 @@ class RealtimeSession(llm.RealtimeSession):
 
     async def _run(self) -> None:
         http = self._model._http or aiohttp.ClientSession()
-        socket = None
-        tasks = []
+        attempts = 0
         try:
-            headers = {"Authorization": f"Bearer {self._model._api_key}"}
-            if self._model._workspace:
-                headers["X-DashScope-WorkSpace"] = self._model._workspace
-            started = time.monotonic()
-            socket = await asyncio.wait_for(
-                http.ws_connect(self._model._url, headers=headers, heartbeat=20),
-                self._model._timeout,
-            )
-            first = await asyncio.wait_for(socket.receive(), self._model._timeout)
-            if (
-                first.type != aiohttp.WSMsgType.TEXT
-                or json.loads(first.data).get("type") != "session.created"
-            ):
-                raise llm.RealtimeError("Qwen Realtime did not send session.created")
-            tasks = [
-                asyncio.create_task(self._send(socket)),
-                asyncio.create_task(self._receive(socket)),
-            ]
-            config = {
-                "modalities": ["text", "audio"],
-                "voice": self._model._voice,
-                "enable_speech_emotion": False,
-                "input_audio_format": "pcm",
-                "output_audio_format": "pcm",
-                "max_history_turns": self._model._history_turns,
-                "turn_detection": None
-                if self._manual
-                else {"type": self._model._turn_detection},
-            }
-            if self._model._turn_detection == "server_vad" and not self._manual:
-                config["turn_detection"]["silence_duration_ms"] = self._model._silence
-            # Send initialization directly: queued microphone frames must not
-            # race the first session.update (voice/turn mode are immutable later).
-            future = asyncio.get_running_loop().create_future()
-            self._acks[("session.updated", "")] = future
-            await socket.send_json({"type": "session.update", "session": config})
-            await asyncio.wait_for(future, self._model._timeout)
-            self._acks.pop(("session.updated", ""), None)
-            self._ready.set_result(None)
-            self._report_connection_acquired(time.monotonic() - started)
-            await asyncio.gather(*tasks)
+            while not self._closed:
+                connected_at = time.monotonic()
+                try:
+                    await self._run_connection(http)
+                    break
+                except (
+                    _IdleTimeoutError,
+                    aiohttp.ClientConnectionError,
+                    asyncio.TimeoutError,
+                ):
+                    if not self._ready.done() or not self._can_restore_connection():
+                        raise
+                    self._prepare_recovery()
+                    if time.monotonic() - connected_at > 60:
+                        attempts = 0
+                    attempts += 1
+                    if attempts > 3:
+                        raise llm.RealtimeError(
+                            "Qwen Realtime reconnect attempts exhausted"
+                        ) from None
+                    # Restore acknowledged history only; never execute tools again.
+                    await asyncio.sleep(0.2 * 2 ** (attempts - 1))
         except asyncio.CancelledError:
             pass
         except Exception as error:
@@ -410,15 +399,191 @@ class RealtimeSession(llm.RealtimeSession):
             )
             self._fail(safe)
         finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            if socket is not None:
-                await socket.close()
             if self._model._http is None:
                 await http.close()
             if not self._closed and self._failure is None:
                 self._fail(llm.RealtimeError("Qwen Realtime connection closed"))
+
+    async def _restore_request(self, socket, event, ack: str) -> None:
+        await socket.send_json(event)
+        message = await asyncio.wait_for(socket.receive(), self._model._timeout)
+        if message.type != aiohttp.WSMsgType.TEXT:
+            raise aiohttp.ServerDisconnectedError(
+                "Qwen Realtime history restore disconnected"
+            )
+        response = json.loads(message.data)
+        if response.get("type") != ack or (
+            ack == "conversation.item.created"
+            and response.get("item", {}).get("id") != event["item"]["id"]
+        ):
+            raise llm.RealtimeError(
+                "Qwen Realtime history restore was not acknowledged"
+            )
+
+    async def _run_connection(self, http) -> None:
+        socket = None
+        tasks = []
+        try:
+            headers = {"Authorization": f"Bearer {self._model._api_key}"}
+            if self._model._workspace:
+                headers["X-DashScope-WorkSpace"] = self._model._workspace
+            started = time.monotonic()
+            socket = await asyncio.wait_for(
+                http.ws_connect(self._model._url, headers=headers, heartbeat=20),
+                self._model._timeout,
+            )
+            first = await asyncio.wait_for(socket.receive(), self._model._timeout)
+            if first.type != aiohttp.WSMsgType.TEXT:
+                raise aiohttp.ServerDisconnectedError(
+                    "Qwen Realtime handshake disconnected"
+                )
+            if json.loads(first.data).get("type") != "session.created":
+                raise llm.RealtimeError("Qwen Realtime did not send session.created")
+            config = {
+                "modalities": ["text", "audio"],
+                "voice": self._model._voice,
+                "enable_speech_emotion": False,
+                "input_audio_format": "pcm",
+                "output_audio_format": "pcm",
+                "max_history_turns": self._model._history_turns,
+                "turn_detection": None
+                if self._manual
+                else {"type": self._model._turn_detection},
+            }
+            if self._model._turn_detection == "server_vad" and not self._manual:
+                config["turn_detection"]["silence_duration_ms"] = self._model._silence
+            restoring = self._ready.done()
+            if restoring:
+                config["instructions"] = self._instructions
+                config["tools"] = (
+                    [_tool_schema(t) for t in self._tools.flatten()]
+                    if self._tool_choice == "auto"
+                    else []
+                )
+            # Restore before draining newly queued microphone/configuration events.
+            # Read acknowledgements privately so history is not published twice.
+            await self._restore_request(
+                socket, {"type": "session.update", "session": config}, "session.updated"
+            )
+            if restoring:
+                for item in self._chat.items:
+                    wire = _wire_item(item)
+                    if wire is not None:
+                        await self._restore_request(
+                            socket,
+                            {"type": "conversation.item.create", "item": wire},
+                            "conversation.item.created",
+                        )
+            else:
+                self._ready.set_result(None)
+            if self._recovery_prompt:
+                if not any(
+                    isinstance(item, llm.ChatMessage)
+                    and item.role == "user"
+                    and item.text_content
+                    for item in self._chat.items
+                ):
+                    bootstrap = llm.ChatMessage(
+                        role="user",
+                        content=[
+                            "[系统恢复信号，不是候选人回答] 请按系统指令提示连接恢复。"
+                        ],
+                    )
+                    self._bootstrap_item = bootstrap.id
+                    await self._restore_request(
+                        socket,
+                        {
+                            "type": "conversation.item.create",
+                            "item": _wire_item(bootstrap),
+                        },
+                        "conversation.item.created",
+                    )
+                await self._restore_request(
+                    socket,
+                    {
+                        "type": "session.update",
+                        "session": {"instructions": self._recovery_prompt, "tools": []},
+                    },
+                    "session.updated",
+                )
+                self._recovery_instructions_active = True
+                await socket.send_json({"type": "response.create"})
+                self._idle.clear()
+                self._recovery_prompt = None
+            self._restoring = False
+            self._report_connection_acquired(time.monotonic() - started)
+            self._connection_timeout = asyncio.get_running_loop().create_future()
+            tasks = [
+                asyncio.create_task(self._send(socket)),
+                asyncio.create_task(self._receive(socket)),
+                self._connection_timeout,
+            ]
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            self._connection_timeout = None
+            if socket is not None:
+                await socket.close()
+
+    def _can_restore_connection(self) -> bool:
+        completed = {
+            item.call_id
+            for item in self._chat.items
+            if isinstance(item, llm.FunctionCallOutput)
+        }
+        return (
+            self._pending_reply is None
+            and not self._reply_requested
+            and not self._acks
+            and not self._manual
+            and self._temporary_instructions is None
+            and not self._recovery_instructions_active
+            and self._bootstrap_item is None
+            and all(
+                item.call_id in completed
+                for item in self._chat.items
+                if isinstance(item, llm.FunctionCall)
+            )
+        )
+
+    def _prepare_recovery(self) -> None:
+        self._restoring = True
+        interrupted = bool(self._speech_started or self._transcripts or self._response)
+        # Never replay an audio suffix as if it were a complete candidate answer.
+        while not self._outgoing.empty():
+            event = self._outgoing.get_nowait()
+            if event["type"] != "input_audio_buffer.append":
+                raise llm.RealtimeError("Qwen reconnect has an unconfirmed operation")
+        if self._response is not None:
+            self._response.close()
+            self._response = None
+        if self._speech_started or self._transcripts:
+            self.emit(
+                "input_speech_stopped",
+                llm.InputSpeechStoppedEvent(user_transcription_enabled=False),
+            )
+        self._speech_started.clear()
+        self._transcripts.clear()
+        self._input_buffer = utils.audio.AudioByteStream(
+            sample_rate=INPUT_SAMPLE_RATE, num_channels=1, samples_per_channel=320
+        )
+        self._resampler = None
+        self._input_rate = None
+        self._has_audio = False
+        self._cancel_requested = False
+        self._idle.set()
+        if interrupted:
+            self._recovery_prompt = (
+                "[连接恢复通知，不是候选人回答] 刚才网络连接短暂中断。"
+                "之前已确认的信息仍然有效，但最后一句可能没有完整传达。"
+                "你仍然是面试官，绝不是候选人。不得回答历史中的任何面试问题，"
+                "不得说我用过、我负责等候选人口吻的内容，不得编造经历。"
+                "本次只允许逐字输出这一句通知："
+                "刚才连接中断了，现在已恢复，麻烦您再说一遍最后一句。"
+                "不要添加其他内容，不要重新开场，不调用工具。说完等待候选人。"
+            )
 
     async def _send(self, socket) -> None:
         await self._ready
@@ -435,8 +600,8 @@ class RealtimeSession(llm.RealtimeSession):
                 aiohttp.WSMsgType.CLOSED,
                 aiohttp.WSMsgType.ERROR,
             ):
-                raise llm.RealtimeError(
-                    "Qwen Realtime WebSocket disconnected; tool execution was not replayed"
+                raise aiohttp.ServerDisconnectedError(
+                    "Qwen Realtime WebSocket disconnected"
                 )
 
     def _fail(self, error: llm.RealtimeError) -> None:
@@ -468,6 +633,7 @@ class RealtimeSession(llm.RealtimeSession):
                 {"type": "session.update", "session": {"instructions": instructions}},
                 "session.updated",
             )
+            self._instructions = instructions
 
     async def update_tools(self, tools: list[llm.Tool]) -> None:
         schemas = [_tool_schema(tool) for tool in tools]
@@ -582,6 +748,8 @@ class RealtimeSession(llm.RealtimeSession):
         self._chat.items.insert(index, item)
 
     def push_audio(self, frame: rtc.AudioFrame) -> None:
+        if self._restoring:
+            return
         if frame.num_channels != 1:
             raise ValueError("Qwen Realtime requires mono microphone audio")
         if self._input_rate != frame.sample_rate:
@@ -773,6 +941,11 @@ class RealtimeSession(llm.RealtimeSession):
             ):
                 self._cancel_requested = False
                 return
+            if (
+                code in {"response_idle_timeout", "user_idle_timeout"}
+                and self._can_restore_connection()
+            ):
+                raise _IdleTimeoutError
             # Without a reliable request correlation ID, continuing could apply
             # a tool result or configuration to the wrong request.
             raise llm.RealtimeError(
@@ -933,7 +1106,7 @@ class RealtimeSession(llm.RealtimeSession):
                 for item_id in (self._temporary_instructions, self._bootstrap_item)
                 if item_id is not None
             ]
-            if temporary_items:
+            if temporary_items or self._recovery_instructions_active:
                 self._spawn(self._finish_instructions(temporary_items))
                 self._temporary_instructions = None
                 self._bootstrap_item = None
@@ -999,6 +1172,23 @@ class RealtimeSession(llm.RealtimeSession):
                     "conversation.item.deleted",
                     item_id,
                 )
+            if self._recovery_instructions_active:
+                async with self._config_lock:
+                    await self._request(
+                        {
+                            "type": "session.update",
+                            "session": {
+                                "instructions": self._instructions,
+                                "tools": [
+                                    _tool_schema(t) for t in self._tools.flatten()
+                                ]
+                                if self._tool_choice == "auto"
+                                else [],
+                            },
+                        },
+                        "session.updated",
+                    )
+                    self._recovery_instructions_active = False
         except llm.RealtimeError as error:
             self._fail(error)
         finally:
@@ -1007,7 +1197,18 @@ class RealtimeSession(llm.RealtimeSession):
     async def _watch_response(self, response: _Response) -> None:
         await asyncio.sleep(self._model._response_timeout)
         if self._response is response:
-            self._fail(llm.RealtimeError("Qwen Realtime response completion timed out"))
+            if (
+                self._can_restore_connection()
+                and self._connection_timeout is not None
+                and not self._connection_timeout.done()
+            ):
+                # Let the transport recovery path close unfinished streams and
+                # restore confirmed history, without replaying candidate audio.
+                self._connection_timeout.set_exception(asyncio.TimeoutError())
+            else:
+                self._fail(
+                    llm.RealtimeError("Qwen Realtime response completion timed out")
+                )
 
     def _ack(self, kind: str, item_id: str = "") -> None:
         future = self._acks.get((kind, item_id))

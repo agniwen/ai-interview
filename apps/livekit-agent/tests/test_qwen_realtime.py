@@ -513,3 +513,246 @@ async def test_missing_response_done_does_not_hang_stream_consumers():
         assert errors and "completion timed out" in str(errors[-1].error)
     finally:
         await model.aclose()
+
+
+@pytest.mark.parametrize(
+    "failure", ["response_idle_timeout", "user_idle_timeout", "disconnect"]
+)
+async def test_idle_timeout_reconnects_history_without_replaying_tools_or_greeting(
+    failure,
+):
+    sockets = [Socket(), Socket(), Socket()]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, url, **kwargs):
+            socket = sockets[self.calls]
+            self.calls += 1
+            return socket
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http, request_timeout=0.5)
+    session = model.session()
+    errors = []
+    session.on("error", errors.append)
+    try:
+        await session.update_instructions("继续原来的面试")
+        chat = llm.ChatContext.empty()
+        chat.add_message(role="user", content="我使用豆包")
+        chat.items.append(
+            llm.FunctionCall(
+                id="f1", call_id="c1", name="record_answer", arguments="{}"
+            )
+        )
+        chat.items.append(
+            llm.FunctionCallOutput(
+                id="o1", call_id="c1", output="saved", is_error=False
+            )
+        )
+        chat.add_message(role="assistant", content="用于什么工作？")
+        await session.update_chat_ctx(chat)
+        for index in range(2):
+            if failure == "disconnect":
+                sockets[index].incoming.put_nowait(
+                    SimpleNamespace(type=aiohttp.WSMsgType.CLOSED)
+                )
+            else:
+                sockets[index].feed("error", error={"code": failure})
+            await eventually(lambda index=index: http.calls == index + 2)
+            await eventually(
+                lambda index=index: len(sockets[index + 1].sent) >= 1 + len(chat.items)
+            )
+            restored = sockets[index + 1].sent
+            assert restored[0]["session"]["instructions"] == "继续原来的面试"
+            assert [
+                event["item"]["id"]
+                for event in restored
+                if event["type"] == "conversation.item.create"
+            ] == [item.id for item in chat.items]
+            assert not any(event["type"] == "response.create" for event in restored)
+            assert not errors
+            assert [item.id for item in session.chat_ctx.items] == [
+                item.id for item in chat.items
+            ]
+        await begin_response(session, sockets[2], "continued")
+    finally:
+        await model.aclose()
+
+
+async def test_idle_timeout_with_unresolved_tool_still_fails_closed(connected):
+    session, socket, _ = connected
+    errors = []
+    session.on("error", errors.append)
+    chat = llm.ChatContext.empty()
+    chat.items.append(
+        llm.FunctionCall(id="pending", call_id="pending", name="save", arguments="{}")
+    )
+    await session.update_chat_ctx(chat)
+    socket.feed("error", error={"code": "response_idle_timeout"})
+    await eventually(lambda: bool(errors))
+    assert errors[0].recoverable is False
+
+
+@pytest.mark.parametrize("phase", ["user", "assistant", "first_user"])
+async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_repeat(
+    phase,
+):
+    sockets = [Socket(), Socket()]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            result = sockets[self.calls]
+            self.calls += 1
+            return result
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    session = model.session()
+    errors = []
+    session.on("error", errors.append)
+    try:
+        await session.update_instructions("继续面试")
+
+        @llm.function_tool
+        async def save_fact(value: str) -> str:
+            """Save a confirmed fact."""
+            return value
+
+        await session.update_tools([save_fact])
+        ctx = llm.ChatContext.empty()
+        if phase != "first_user":
+            ctx.add_message(role="user", content="我用豆包写初稿")
+        await session.update_chat_ctx(ctx)
+        if phase in {"user", "first_user"}:
+            sockets[0].feed("input_audio_buffer.speech_started", item_id="unfinished")
+            sockets[0].feed(
+                "conversation.item.input_audio_transcription.delta",
+                item_id="unfinished",
+                text="效率大概",
+            )
+            await eventually(lambda: bool(session._transcripts))
+        else:
+            generation = await begin_response(session, sockets[0])
+            sockets[0].feed(
+                "response.audio_transcript.delta",
+                response_id="r1",
+                item_id="a1",
+                delta="请问你的",
+            )
+            await eventually(lambda: bool(session._response.items))
+        sockets[0].incoming.put_nowait(SimpleNamespace(type=aiohttp.WSMsgType.CLOSED))
+        await eventually(lambda: http.calls == 2)
+        await eventually(
+            lambda: any(e["type"] == "response.create" for e in sockets[1].sent)
+        )
+        assert not errors
+        assert session.chat_ctx.get_by_id("unfinished") is None
+        restored = [
+            e["item"]
+            for e in sockets[1].sent
+            if e["type"] == "conversation.item.create"
+        ]
+        if phase == "first_user":
+            assert any(item.get("role") == "user" for item in restored)
+            assert not any(
+                getattr(item, "role", None) == "user" for item in session.chat_ctx.items
+            )
+        else:
+            assert any("我用豆包写初稿" in str(item) for item in restored)
+        recovery_config = next(
+            e["session"]
+            for e in sockets[1].sent
+            if e["type"] == "session.update"
+            and "再说一遍" in e["session"].get("instructions", "")
+        )
+        assert recovery_config["tools"] == []
+        if phase == "assistant":
+            assert [f async for f in generation.function_stream] == []
+        sockets[1].feed("response.created", response={"id": "recovered"})
+        sockets[1].feed(
+            "response.done", response={"id": "recovered", "status": "completed"}
+        )
+        await eventually(lambda: session._idle.is_set())
+        restored_config = [
+            e["session"] for e in sockets[1].sent if e["type"] == "session.update"
+        ][-1]
+        assert restored_config["tools"][0]["function"]["name"] == "save_fact"
+        assert [
+            e["session"]["instructions"]
+            for e in sockets[1].sent
+            if e["type"] == "session.update" and "instructions" in e["session"]
+        ][-1] == "继续面试"
+    finally:
+        await model.aclose()
+
+
+async def test_reconnect_retries_a_dropped_restore_connection():
+    sockets = [Socket(), Socket(), Socket()]
+    sockets[1].incoming = asyncio.Queue()
+    sockets[1].incoming.put_nowait(SimpleNamespace(type=aiohttp.WSMsgType.CLOSED))
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            socket = sockets[self.calls]
+            self.calls += 1
+            return socket
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    session = model.session()
+    errors = []
+    session.on("error", errors.append)
+    try:
+        await session.update_instructions("保留进度")
+        sockets[0].incoming.put_nowait(SimpleNamespace(type=aiohttp.WSMsgType.CLOSED))
+        await eventually(lambda: http.calls == 3)
+        await eventually(lambda: bool(sockets[2].sent))
+        assert sockets[2].sent[0]["session"]["instructions"] == "保留进度"
+        assert not errors
+    finally:
+        await model.aclose()
+
+
+async def test_automatic_response_timeout_restores_instead_of_ending_interview():
+    sockets = [Socket(), Socket()]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            socket = sockets[self.calls]
+            self.calls += 1
+            return socket
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http, response_timeout=0.05)
+    session = model.session()
+    errors, generations = [], []
+    session.on("error", errors.append)
+    session.on("generation_created", generations.append)
+    try:
+        await session.update_instructions("继续原来的面试")
+        chat = llm.ChatContext.empty()
+        chat.add_message(role="user", content="我用豆包写初稿")
+        await session.update_chat_ctx(chat)
+        sockets[0].feed("response.created", response={"id": "stalled"})
+        await eventually(lambda: len(generations) == 1)
+        await eventually(lambda: http.calls == 2)
+        await eventually(
+            lambda: any(e["type"] == "response.create" for e in sockets[1].sent)
+        )
+        assert [m async for m in generations[0].message_stream] == []
+        assert [f async for f in generations[0].function_stream] == []
+        assert not errors
+        assert [
+            item.text_content
+            for item in session.chat_ctx.items
+            if isinstance(item, llm.ChatMessage) and item.role == "user"
+        ] == ["我用豆包写初稿"]
+    finally:
+        await model.aclose()

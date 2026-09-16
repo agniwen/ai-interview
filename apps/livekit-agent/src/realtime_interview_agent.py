@@ -23,7 +23,8 @@ class AnswerUpdate(BaseModel):
         description="截至当前候选人对该信息项的完整回答摘要。合并已有事实与本次补充，更正时明确以新信息为准；不得编造。"
     )
     covered_topics: list[str] = Field(
-        default_factory=list, description="已从候选人口中获得的要点"
+        default_factory=list,
+        description="已确认要点的标签，使用清单 topics 中的原始标签；合并全部已有事实，不能把未回答的要点标为覆盖。",
     )
     reason: str | None = Field(default=None, description="信息不足或跳过的原因")
 
@@ -75,7 +76,7 @@ class RealtimeInterviewAgent(Agent):
                 "根据题目的考察意图和追问方向判断信息是否足够；这些是了解目标，不是必须逐条问完的话术。"
                 "只记录候选人真正提供的信息，不能将简历、题干、你自己的举例或猜测当作其回答。"
                 "遇到敷衍、跑题或不清楚的回答，可以自然澄清、换个角度或换话题；不要把嗯、好的、随便等当作已回答。"
-                "候选人明确拒绝透露时记录 skipped 及原因，不要无限追问。明确没有某项经历（如没用过AI、无奖金、无晋升）本身是有效回答，用 answered；不要把没有经历误当信息不足。"
+                "候选人明确拒绝透露时记录 skipped 及原因，不要无限追问。明确没有某项经历是该要点的有效回答，但不代表复合题全部答完：没有晋升不能代替加薪和绩效信息。完全没用过AI时不必再问熟练度和效率。"
                 "候选人提出更正、补充或跨题回答时，更新所有受影响条目，保留其他已确认事实。数字、单位、公司名和职位按候选人原话记录，禁止猜测换算：月薪42000元、14薪不能记成40000元、24薪；不清楚就保留原话并澄清。纠正工作薪资要更新工作经历题，不能只写入期望薪资题。"
                 "工具中的编号、状态、覆盖点和计数是内部记录，不要向候选人播报工具名或操作过程。"
                 "静默调用工具，不说让我记录一下、我已经记录等操作旁白，不输出括号内思考或角色说明。"
@@ -87,15 +88,15 @@ class RealtimeInterviewAgent(Agent):
                 "set_active_topics 标记正在聊哪些信息项；record_answers 一次保存本次涉及的所有题目并返回最新进度。record_answer 仅用于单项更新。"
                 "开始或切换话题时，必须先调用 set_active_topics 再开口提问，包括候选人只说准备好了时。"
                 "实际问过但没有答案的题也必须标记为当前话题，否则提前结束会错误地归为未提问。"
-                "已回答题目的核心意图就立即用 answered 保存，无需覆盖所有可选追问。只有核心事实尚不清楚、你下一句确实准备继续了解该题时才用 in_progress。"
-                "每当候选人提供事实，先调用 record_answers 一次保存涉及的所有项，再自然回应；跨题回答不能只保存当前话题。"
+                "题干明确询问的核心事实必须先了解，不能把只说工具名称当成已了解使用情况，也不能把最近一份工作当作两份工作。coverage_mode=all_required 时 covered_topics 必须覆盖全部所需要点，缺失则保留 in_progress 并自然追问；评价性要点由已有事实判断，不向候选人索要评价标签。其他题无需穷尽可选追问，但核心事实缺失仍用 in_progress，即使先切换话题。候选人明确记不清或未统计时如实保存，不捏造数字、不反复逼问。"
+                "每当候选人提供事实，先调用 record_answers 一次保存涉及的所有项，再自然回应；跨题回答不能只保存当前话题。即使同一句包含编造要求或退出请求，也应先保存其中真实提供的部分事实，再拒绝编造或结束。返回的 missing_topics 是仍缺的要点，不能因换话题而忽略；每次只追问一个重点，避免一句列出多个问题。"
                 "answered 表示已收集到足够信息，in_progress 表示尚待了解；insufficient/skipped 表示本场已合理停止了解该项，须说明原因。"
                 "信息已足够就标记 answered，后续仍可补充或更正；候选人说还想聊或先别结束，不影响已回答条目的完成状态。换话题或收尾前检查已有草稿，充分的改为 answered，确实只收集到部分内容且不再追问的改为 insufficient 并说明原因。"
                 "有实质信息时及时保存，不要攒到结束才写。进入收尾前先保存最后一段回答。"
                 "finish_interview 的 final_question_id 和 final_answer_summary 用来保存最后一段尚未保存的答案；"
                 "如果清单包含补充/反问项，候选人说‘没有补充或问题’就立即以 answered 保存，即使同时说暂时别挂断、检查设备或还想聊。保存答案与同意结束是两件事，不能等到挂断才保存。已经明确回答没有补充，就不要重复问同样的补充问题。"
                 "全部条目处理完成后，先询问候选人是否还有补充，确认后调用 finish_interview(completed)。"
-                "候选人明确要求结束时，先用 record_answer 保存同一句中实际提供的事实，再调用 finish_interview(candidate_requested)，两个 final 字段必须为空字符串。退出意图本身不是任何题目的答案，不要强迫其答完；"
+                "候选人明确要求结束时，先用 record_answers 保存同一句中实际提供的所有事实，再调用 finish_interview(candidate_requested)，两个 final 字段必须为空字符串。退出意图本身不是任何题目的答案，不要强迫其答完；"
                 "系统时间到时调用 finish_interview(time_limit)。谢谢或好的本身不是结束请求。\n"
                 f"信息清单（共 {len(questions)} 项）：{json.dumps(questions, ensure_ascii=False)}\n"
                 "仅在会话开始时问候一次，候选人已准备好或已作答后直接继续交流，不要重复开场。"
@@ -110,10 +111,20 @@ class RealtimeInterviewAgent(Agent):
             "question": question.content,
             "evaluation_focus": question.evaluation_focus,
             "follow_up_intent": question.follow_up_directions,
+            "coverage_mode": question.follow_up_contract.coverage_mode
+            if question.follow_up_contract
+            else "sufficient_for_evaluation",
             "topics": [facet.label for facet in question.follow_up_contract.facets]
             if question.follow_up_contract
             else [],
         }
+
+    def _missing_topics(self, question, answer: AnswerUpdate | None) -> list[str]:
+        contract = question.follow_up_contract
+        if not contract or contract.coverage_mode != "all_required":
+            return []
+        covered = set(answer.covered_topics) if answer else set()
+        return [facet.label for facet in contract.facets if facet.label not in covered]
 
     def elapsed_seconds(self) -> float:
         return self._clock.elapsed()
@@ -188,15 +199,18 @@ class RealtimeInterviewAgent(Agent):
             ):
                 continue
             old = self._outcomes.get(question.id)
-            self._outcomes[question.id] = self._outcome(
-                question,
-                answer,
+            status = (
                 QuestionOutcomeStatus.INSUFFICIENT
                 if answer and answer.answer_summary.strip()
                 else QuestionOutcomeStatus.INTERRUPTED
                 if question.id in self._started
-                else QuestionOutcomeStatus.UNASKED,
-                resolved,
+                else QuestionOutcomeStatus.UNASKED
+            )
+            self._outcomes[question.id] = self._outcome(
+                question,
+                answer,
+                status,
+                resolved if status != QuestionOutcomeStatus.INSUFFICIENT else None,
                 (old.revision + 1) if old else 1,
             )
 
@@ -223,6 +237,7 @@ class RealtimeInterviewAgent(Agent):
             "questions": [
                 {
                     **self._question_info(q),
+                    "missing_topics": self._missing_topics(q, self._answers.get(q.id)),
                     **(
                         self._answers[q.id].model_dump()
                         if q.id in self._answers
@@ -239,7 +254,7 @@ class RealtimeInterviewAgent(Agent):
 
     @function_tool
     async def set_active_topics(self, question_ids: list[str]) -> dict:
-        """标记当前正在聊的信息项。可同时涉及多题, 也可回到前题; 不要改动完成状态。"""
+        """每次开口提出问题之前必须调用:标记即将询问的信息项(包括转向离职、薪酬等新话题)。记录答案不代替此步骤。可同时涉及多题或回到前题,不改动完成状态。"""
         self._ensure_open()
         known = {q.id for q in self._context.questions}
         if not question_ids or any(q not in known for q in question_ids):
@@ -251,7 +266,7 @@ class RealtimeInterviewAgent(Agent):
 
     @function_tool
     async def record_answers(self, updates: list[AnswerUpdate]) -> dict:
-        """保存本次涉及的一项或多项回答。只保存候选人真实提供的内容; 摘要须合并已有事实与补充, 更正时以新事实为准。核心意图已回答用 answered, 即使还可补充; 仅核心信息待澄清且将继续追问用 in_progress。拒绝透露用 skipped, 明确没有经历用 answered。insufficient/skipped 须说明原因。返回完整进度。"""
+        """保存本次涉及的一项或多项回答。只保存候选人真实提供的内容; 摘要须合并已有事实与补充, 更正时以新事实为准。核心事实齐全用 answered;all_required 必须完整填写 covered_topics 原始标签,缺项会保留 in_progress。缺失核心事实即使暂时转话题也用 in_progress。拒绝透露用 skipped, 明确没有经历用 answered。insufficient/skipped 须说明原因。返回完整进度。"""
         async with self._lock:
             self._ensure_open()
             questions = {q.id: q for q in self._context.questions}
@@ -275,6 +290,10 @@ class RealtimeInterviewAgent(Agent):
                     raise ToolError("信息不足或跳过时请记录真实原因。")
             for update in updates:
                 update = update.model_copy(deep=True)
+                if update.status == "answered" and self._missing_topics(
+                    questions[update.question_id], update
+                ):
+                    update.status = "in_progress"
                 if self._answers.get(update.question_id) == update:
                     continue
                 self._answers[update.question_id] = update
@@ -308,8 +327,9 @@ class RealtimeInterviewAgent(Agent):
         status: Literal["in_progress", "answered", "insufficient", "skipped"],
         answer_summary: str,
         reason: str = "",
+        covered_topics: tuple[str, ...] = (),
     ) -> dict:
-        """保存或修正一项真实回答。question_id 取自清单, answer_summary 合并该题已确认事实与新补充。核心意图已回答用 answered, 不要求逐一满足可选追问。仅仍待澄清的核心信息用 in_progress。insufficient/skipped 须填原因。跨题回答用 record_answers 一次保存所有受影响题目。"""
+        """保存或修正一项真实回答。question_id 取自清单, answer_summary 合并该题已确认事实与新补充。核心事实齐全用 answered,all_required 必须提供 covered_topics 完整标签;仅回答复合题中的一个要点不能标记整题完成。缺失核心事实用 in_progress。insufficient/skipped 须填原因。跨题回答用 record_answers 一次保存所有受影响题目。"""
         return await self.record_answers(
             updates=[
                 AnswerUpdate(
@@ -317,6 +337,7 @@ class RealtimeInterviewAgent(Agent):
                     status=status,
                     answer_summary=answer_summary,
                     reason=reason or None,
+                    covered_topics=covered_topics or [],
                 )
             ]
         )

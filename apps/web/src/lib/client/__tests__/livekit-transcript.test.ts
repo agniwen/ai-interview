@@ -82,3 +82,61 @@ describe("coalesceSessionMessages", () => {
     expect(result).toHaveLength(2);
   });
 });
+
+function replay(
+  message: ReceivedMessage,
+  batch: string,
+  index: number,
+  count: number,
+): ReceivedMessage {
+  return {
+    ...message,
+    attributes: {
+      "interview.replay_batch": batch,
+      "interview.replay_count": String(count),
+      "interview.replay_index": String(index),
+    },
+  };
+}
+
+it("replaces retained transcript history with a complete reconnect snapshot", () => {
+  const messages = [
+    agentTranscript("a1", "你好"),
+    userTranscript("u1", "准备好了"),
+    replay(agentTranscript("r1", "你好"), "b1", 0, 2),
+    replay(userTranscript("r2", "准备好了"), "b1", 1, 2),
+    agentTranscript("a2", "第一份工作？"),
+  ];
+  expect(coalesceSessionMessages(messages).map((m) => m.message)).toEqual([
+    "你好",
+    "准备好了",
+    "第一份工作？",
+  ]);
+});
+
+it("preserves real repeated answers and live turns arriving during replay", () => {
+  const messages = [
+    agentTranscript("a1", "你好"),
+    replay(agentTranscript("r1", "你好"), "b1", 0, 3),
+    replay(userTranscript("r2", "不知道"), "b1", 1, 3),
+    agentTranscript("new", "还有补充吗？"),
+    replay(agentTranscript("r3", "不知道什么？"), "b1", 2, 3),
+    userTranscript("u2", "不知道"),
+  ];
+  expect(coalesceSessionMessages(messages).map((m) => m.message)).toEqual([
+    "你好",
+    "不知道",
+    "不知道什么？",
+    "还有补充吗？",
+    "不知道",
+  ]);
+});
+
+it("keeps existing history if replay is incomplete", () => {
+  const original = agentTranscript("a1", "你好");
+  const result = coalesceSessionMessages([
+    original,
+    replay(agentTranscript("r1", "你好"), "b1", 0, 2),
+  ]);
+  expect(result).toContainEqual(original);
+});
