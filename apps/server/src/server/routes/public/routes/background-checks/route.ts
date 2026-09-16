@@ -12,13 +12,19 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
 import { enqueueBackgroundCheckSubmittedEvent } from "../../../../interview-notifications/utils/events";
 import { factory, jsonValidatorError } from "../../../../factory";
-import { submitBackgroundCheck } from "../../../studio/routes/interviews/dao/background-check";
+import {
+  saveBackgroundCheckDraft,
+  submitBackgroundCheck,
+} from "../../../studio/routes/interviews/dao/background-check";
+import { createBackgroundCheckDraftRouter } from "./draft-route";
 
 async function loadPublicBackgroundCheck(token: string) {
   const [row] = await db
     .select({
       candidateName: recruitingRecordReadModel.candidateName,
       companyName: sql<string>`coalesce(nullif(trim(${globalConfig.companyName}), ''), ${organization.name})`,
+      draftData: recruitingBackgroundCheck.draftData,
+      draftSavedAt: recruitingBackgroundCheck.draftSavedAt,
       jobName: sql<
         string | null
       >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
@@ -51,6 +57,7 @@ async function loadPublicBackgroundCheck(token: string) {
 export const publicBackgroundChecksRouter = factory
   .createApp()
   .get("/:token", async (c) => {
+    c.header("Cache-Control", "no-store");
     const record = await loadPublicBackgroundCheck(c.req.param("token"));
     if (!record) {
       return c.json({ error: "当前背调链接不可用。" }, 404);
@@ -68,12 +75,16 @@ export const publicBackgroundChecksRouter = factory
       {
         candidateName: record.candidateName,
         companyName: record.companyName,
+        draftData: record.status === "submitted" ? null : record.draftData,
+        draftSavedAt:
+          record.status === "submitted" ? null : (record.draftSavedAt?.toISOString() ?? null),
         jobName: record.jobName,
         status: record.status,
       },
       200,
     );
   })
+  .route("/", createBackgroundCheckDraftRouter({ saveDraft: saveBackgroundCheckDraft }))
   .post(
     "/:token/submit",
     zValidator(

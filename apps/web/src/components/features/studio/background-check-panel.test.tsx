@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import type { BackgroundCheckCollectionRecord } from "@app/shared/studio-pipeline-stages";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
-import { BackgroundCheckPanel } from "./background-check-panel";
+import { BackgroundCheckPanel, buildBackgroundCheckLinkCopy } from "./background-check-panel";
 
 // SAFETY: React's test-only act environment flag.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -65,6 +65,13 @@ function renderPanel(status: BackgroundCheckCollectionRecord["status"], reviewed
 }
 
 describe("background check panel stages", () => {
+  it("copies candidate-facing instructions with the original background check link", () => {
+    const url = "https://example.com/background-check/test-token?source=copy";
+    expect(buildBackgroundCheckLinkCopy(url)).toBe(
+      `您好！\n\n请通过以下链接填写背景调查所需信息，并按页面提示完成确认和提交。如有疑问，请与 HR 联系。感谢您的配合！\n\n背调信息填写链接：\n${url}`,
+    );
+  });
+
   it.each(["pending", "sent"] as const)("keeps collection actions in the %s stage", (status) => {
     const { host, cleanup } = renderPanel(status);
     try {

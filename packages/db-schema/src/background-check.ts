@@ -86,5 +86,36 @@ export const backgroundCheckFormInputSchema = z
   });
 export type BackgroundCheckFormInput = z.infer<typeof backgroundCheckFormInputSchema>;
 
+const draftReferenceSchema = z.object({
+  contact: z.string().trim().max(200),
+  name: z.string().trim().max(100),
+});
+const draftDateSchema = z.union([z.literal(""), z.iso.date()]);
+const draftEmploymentSchema = z.object({
+  ...backgroundCheckEmploymentSchema.shape,
+  colleague: draftReferenceSchema,
+  companyName: z.string().trim().max(200),
+  contactPermission: z.boolean().nullable(),
+  disciplinaryRecord: z.string().trim().max(1000),
+  employmentEnd: draftDateSchema.nullable(),
+  employmentStart: draftDateSchema,
+  hasLeftCompany: z.boolean().nullable(),
+  hrContact: draftReferenceSchema,
+  lastPosition: z.string().trim().max(200),
+  lineManager: draftReferenceSchema,
+});
+
+// 草稿只校验字段类型和大小，不要求填写完整，也不保存正式授权勾选状态。
+export const backgroundCheckDraftInputSchema = z.object({
+  candidateName: z.string().trim().max(100),
+  employmentRecords: z.array(draftEmploymentSchema).min(1).max(2),
+  gender: z.union([z.literal(""), backgroundCheckFormInputSchema.shape.gender]),
+  graduationCertificateNumber: z.string().trim().max(100),
+  idNumber: z.string().trim().max(50),
+  signatureName: z.string().trim().max(100),
+  signedDate: draftDateSchema,
+});
+export type BackgroundCheckDraftInput = z.infer<typeof backgroundCheckDraftInputSchema>;
+
 export const backgroundCheckEmailInputSchema = offerEmailInputSchema;
 export type BackgroundCheckEmailInput = z.infer<typeof backgroundCheckEmailInputSchema>;

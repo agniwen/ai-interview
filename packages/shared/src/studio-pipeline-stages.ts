@@ -25,6 +25,7 @@ import type {
 } from "@app/db-schema/studio-interviews";
 import type {
   BackgroundCheckCollectionStatus,
+  BackgroundCheckDraftInput,
   BackgroundCheckFormInput,
 } from "@app/db-schema/background-check";
 // 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
@@ -325,6 +326,8 @@ export interface BackgroundCheckEmailPreviewRecord {
 export interface PublicBackgroundCheckRecord {
   candidateName: string;
   companyName: string;
+  draftData?: BackgroundCheckDraftInput | null;
+  draftSavedAt?: string | null;
   jobName: string | null;
   status: BackgroundCheckCollectionStatus;
 }

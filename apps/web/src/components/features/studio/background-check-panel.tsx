@@ -315,6 +315,10 @@ function BackgroundCheckEmailDialog({
   );
 }
 
+export function buildBackgroundCheckLinkCopy(url: string) {
+  return `您好！\n\n请通过以下链接填写背景调查所需信息，并按页面提示完成确认和提交。如有疑问，请与 HR 联系。感谢您的配合！\n\n背调信息填写链接：\n${url}`;
+}
+
 export function BackgroundCheckPanel({
   candidateId,
   disabled,
@@ -336,8 +340,8 @@ export function BackgroundCheckPanel({
     mutationFn: () => getBackgroundCheckPublicLink(slug, candidateId),
     onError: (error) => toast.error(error instanceof Error ? error.message : "复制链接失败"),
     onSuccess: async ({ url }) => {
-      await navigator.clipboard.writeText(url);
-      toast.success("背调信息采集链接已复制");
+      await navigator.clipboard.writeText(buildBackgroundCheckLinkCopy(url));
+      toast.success("背调文案和链接已复制，可直接转发给候选人");
       await queryClient.invalidateQueries({ queryKey });
     },
   });
@@ -366,7 +370,7 @@ export function BackgroundCheckPanel({
                   <div>
                     <p className="font-medium text-sm">向候选人收集背景调查所需信息</p>
                     <p className="mt-1 text-muted-foreground text-xs">
-                      可发送系统邮件，也可复制链接后通过其他方式发送。
+                      可发送系统邮件，也可复制文案和链接后直接转发给候选人。
                     </p>
                     {collection?.emailSentAt ? (
                       <p className="mt-2 text-muted-foreground text-xs">

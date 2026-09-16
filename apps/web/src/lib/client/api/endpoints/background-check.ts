@@ -2,8 +2,19 @@ import type {
   BackgroundCheckCollectionRecord,
   BackgroundCheckEmailPreviewRecord,
 } from "@app/shared/studio-pipeline-stages";
-import { backgroundCheckRpc } from "@/lib/client/rpc";
+import type { BackgroundCheckDraftInput } from "@app/db-schema/background-check";
+import { backgroundCheckRpc, rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
+
+export function savePublicBackgroundCheckDraft(
+  token: string,
+  input: BackgroundCheckDraftInput,
+): Promise<{ savedAt: string }> {
+  return rpcFetch(
+    rpc.api.public["background-checks"][":token"].draft.$post({ json: input, param: { token } }),
+    "保存背调草稿失败",
+  );
+}
 
 export function getBackgroundCheckCollection(
   slug: string,

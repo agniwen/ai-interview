@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 
-import { OfferCardView } from "./offer-stage-cards";
+import { buildOfferLinkCopy, OfferCardView } from "./offer-stage-cards";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,6 +53,19 @@ afterEach(() => {
 });
 
 describe("OfferCard", () => {
+  it("copies a forwardable offer invitation without exposing salary details", () => {
+    const url = "https://example.com/offer/test-token?source=copy";
+    expect(buildOfferLinkCopy({ candidateName: " 张三 ", position: " 产品经理 ", url })).toBe(
+      `张三，您好！\n\n您的「产品经理」岗位 Offer 已准备好，请通过以下链接查看详情，并在页面中确认是否接受。如有疑问，请与 HR 联系。\n\nOffer 查看与确认链接：\n${url}`,
+    );
+  });
+
+  it("uses a neutral greeting when candidate or position details are unavailable", () => {
+    expect(buildOfferLinkCopy({ candidateName: " ", position: "", url: "/offer/token" })).toBe(
+      "您好！\n\n您的 Offer 已准备好，请通过以下链接查看详情，并在页面中确认是否接受。如有疑问，请与 HR 联系。\n\nOffer 查看与确认链接：\n/offer/token",
+    );
+  });
+
   it("publishes a draft before exposing email and link actions", async () => {
     const host = document.createElement("div");
     document.body.append(host);

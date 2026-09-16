@@ -1,4 +1,7 @@
-import { backgroundCheckCollectionStatusSchema } from "@app/db-schema/background-check";
+import {
+  backgroundCheckCollectionStatusSchema,
+  backgroundCheckDraftInputSchema,
+} from "@app/db-schema/background-check";
 import type { PublicBackgroundCheckRecord } from "@app/shared/studio-pipeline-stages";
 import { createFileRoute, useLoaderData, useParams } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
@@ -10,6 +13,8 @@ import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 const publicBackgroundCheckSchema = z.object({
   candidateName: z.string(),
   companyName: z.string(),
+  draftData: backgroundCheckDraftInputSchema.nullable().optional(),
+  draftSavedAt: z.string().nullable().optional(),
   jobName: z.string().nullable(),
   status: backgroundCheckCollectionStatusSchema,
 });
@@ -46,7 +51,7 @@ function BackgroundCheckRoute() {
       </main>
     );
   }
-  return <PublicBackgroundCheckPage initialRecord={record} token={token} />;
+  return <PublicBackgroundCheckPage initialRecord={record} key={token} token={token} />;
 }
 
 export const Route = createFileRoute("/background-check/$token")({

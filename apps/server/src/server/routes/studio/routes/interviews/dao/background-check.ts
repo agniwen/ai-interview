@@ -7,6 +7,7 @@ import {
 } from "@app/db-schema/schema";
 import type {
   BackgroundCheckEmailInput,
+  BackgroundCheckDraftInput,
   BackgroundCheckFormInput,
 } from "@app/db-schema/background-check";
 import type {
@@ -245,6 +246,24 @@ export async function sendBackgroundCheckEmail(
   return { providerMessageId: result.data.id, sentAt: sentAt.toISOString(), url };
 }
 
+export async function saveBackgroundCheckDraft(
+  publicToken: string,
+  draftData: BackgroundCheckDraftInput,
+): Promise<{ savedAt: string } | null> {
+  const draftSavedAt = new Date();
+  const [updated] = await db
+    .update(recruitingBackgroundCheck)
+    .set({ draftData, draftSavedAt, updatedAt: draftSavedAt })
+    .where(
+      and(
+        eq(recruitingBackgroundCheck.publicToken, publicToken),
+        sql`${recruitingBackgroundCheck.status} IN ('pending', 'sent')`,
+      ),
+    )
+    .returning({ savedAt: recruitingBackgroundCheck.draftSavedAt });
+  return updated?.savedAt ? { savedAt: updated.savedAt.toISOString() } : null;
+}
+
 export function submitBackgroundCheck(
   publicToken: string,
   input: BackgroundCheckFormInput,
@@ -259,7 +278,14 @@ export function submitBackgroundCheck(
     const submittedAt = new Date();
     const [updated] = await tx
       .update(recruitingBackgroundCheck)
-      .set({ formData: input, status: "submitted", submittedAt, updatedAt: submittedAt })
+      .set({
+        draftData: null,
+        draftSavedAt: null,
+        formData: input,
+        status: "submitted",
+        submittedAt,
+        updatedAt: submittedAt,
+      })
       .where(
         and(
           eq(recruitingBackgroundCheck.publicToken, publicToken),

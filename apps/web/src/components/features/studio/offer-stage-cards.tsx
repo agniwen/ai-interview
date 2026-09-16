@@ -232,6 +232,20 @@ export interface OfferCardDependencies {
   slug: string;
 }
 
+export function buildOfferLinkCopy({
+  candidateName,
+  position,
+  url,
+}: {
+  candidateName: string;
+  position: string;
+  url: string;
+}) {
+  const greeting = candidateName.trim() ? `${candidateName.trim()}，您好！` : "您好！";
+  const role = position.trim() ? `「${position.trim()}」岗位` : "";
+  return `${greeting}\n\n您的${role} Offer 已准备好，请通过以下链接查看详情，并在页面中确认是否接受。如有疑问，请与 HR 联系。\n\nOffer 查看与确认链接：\n${url}`;
+}
+
 export function OfferCardView({
   dependencies,
   draft,
@@ -305,8 +319,10 @@ export function OfferCardView({
   async function copyOfferLink() {
     try {
       const { url } = await getOfferPublicLink(slug, candidateId, draft.id);
-      await navigator.clipboard.writeText(url);
-      toast.success("Offer 链接已复制");
+      await navigator.clipboard.writeText(
+        buildOfferLinkCopy({ candidateName, position: draft.position, url }),
+      );
+      toast.success("Offer 文案和链接已复制，可直接转发给候选人");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "复制链接失败");
     }

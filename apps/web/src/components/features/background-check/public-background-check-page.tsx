@@ -11,9 +11,11 @@ import type {
 } from "@app/db-schema/background-check";
 import {
   backgroundCheckFormInputSchema,
+  backgroundCheckDraftInputSchema,
   backgroundCheckLeavingReasonSchema,
 } from "@app/db-schema/background-check";
 import type { PublicBackgroundCheckRecord } from "@app/shared/studio-pipeline-stages";
+import { savePublicBackgroundCheckDraft } from "@/lib/client/api/endpoints/background-check";
 import { DatePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -75,6 +77,14 @@ function submissionErrorMessage(error: Error): string {
   return error.message;
 }
 
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="text-destructive">
+      *
+    </span>
+  );
+}
+
 function ReferenceFields({
   idPrefix,
   label,
@@ -89,7 +99,10 @@ function ReferenceFields({
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="grid gap-1.5">
-        <Label htmlFor={`${idPrefix}-name`}>{label}</Label>
+        <Label htmlFor={`${idPrefix}-name`}>
+          {label}
+          <RequiredMark />
+        </Label>
         <Input
           id={`${idPrefix}-name`}
           onChange={(event) => onChange({ ...value, name: event.target.value })}
@@ -99,7 +112,10 @@ function ReferenceFields({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor={`${idPrefix}-contact`}>{label}办公联系方式</Label>
+        <Label htmlFor={`${idPrefix}-contact`}>
+          {label}办公联系方式
+          <RequiredMark />
+        </Label>
         <Input
           id={`${idPrefix}-contact`}
           onChange={(event) => onChange({ ...value, contact: event.target.value })}
@@ -113,24 +129,58 @@ function ReferenceFields({
 }
 
 export function PublicBackgroundCheckPage({
+  dependencies = { saveDraft: savePublicBackgroundCheckDraft },
   initialRecord,
   token,
 }: {
+  dependencies?: { saveDraft: typeof savePublicBackgroundCheckDraft };
   initialRecord: PublicBackgroundCheckRecord;
   token: string;
 }) {
   const [submitted, setSubmitted] = useState(initialRecord.status === "submitted");
   const [pending, setPending] = useState(false);
-  const [form, setForm] = useState<BackgroundCheckDraft>({
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState(initialRecord.draftSavedAt ?? null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [form, setForm] = useState<BackgroundCheckDraft>(() => ({
     candidateName: initialRecord.candidateName,
-    consent: false,
     employmentRecords: [emptyEmployment()],
     gender: "",
     graduationCertificateNumber: "",
     idNumber: "",
     signatureName: "",
     signedDate: "",
-  });
+    ...initialRecord.draftData,
+    consent: false,
+  }));
+  const [savedForm, setSavedForm] = useState(() =>
+    initialRecord.draftData ? JSON.stringify(form) : null,
+  );
+  const hasUnsavedChanges = savedForm !== JSON.stringify({ ...form, consent: false });
+
+  async function saveDraft() {
+    if (saving || pending) {
+      return;
+    }
+    const snapshot = JSON.stringify({ ...form, consent: false });
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const input = backgroundCheckDraftInputSchema.parse(form);
+      const result = await dependencies.saveDraft(token, input);
+      setSavedAt(result.savedAt);
+      setSavedForm(snapshot);
+      toast.success("草稿已保存，可通过同一链接继续填写");
+    } catch (error) {
+      const message = submissionErrorMessage(
+        error instanceof Error ? error : new Error("保存草稿失败，请稍后重试"),
+      );
+      setSaveError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function updateEmployment(index: number, patch: Partial<DraftEmploymentRecord>) {
     setForm((current) => ({
@@ -143,6 +193,9 @@ export function PublicBackgroundCheckPage({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving || pending) {
+      return;
+    }
     if (!form.consent) {
       toast.error("请先确认授权背景调查");
       return;
@@ -192,12 +245,12 @@ export function PublicBackgroundCheckPage({
   }
 
   return (
-    <main className="min-h-dvh bg-muted/30 px-4 py-8 sm:py-12">
+    <main className="min-h-dvh bg-background sm:bg-muted/30 sm:px-4 sm:py-12">
       <form
-        className="mx-auto max-w-3xl overflow-hidden rounded-2xl border bg-background shadow-sm"
+        className="mx-auto max-w-3xl overflow-hidden bg-background sm:rounded-2xl sm:border sm:shadow-sm"
         onSubmit={submit}
       >
-        <header className="border-b bg-card px-6 py-7 sm:px-10">
+        <header className="border-b px-5 py-7 sm:px-10">
           <p className="font-semibold text-lg">{initialRecord.companyName}</p>
           <h1 className="mt-2 font-semibold text-2xl tracking-tight">背景调查信息采集</h1>
           <p className="mt-2 text-muted-foreground text-sm">
@@ -205,11 +258,14 @@ export function PublicBackgroundCheckPage({
             {initialRecord.jobName ? ` · ${initialRecord.jobName}` : ""}
           </p>
         </header>
-        <div className="space-y-8 px-6 py-7 sm:px-10">
-          <section className="rounded-xl border bg-muted/20 p-4 text-sm">
+        <div className="space-y-8 px-5 py-7 sm:px-10">
+          <section className="space-y-2 text-sm">
             <h2 className="font-medium">填写说明</h2>
             <p className="mt-1 text-muted-foreground">
               请确保所填信息真实有效。招聘方可能根据核实需要联系您提供的证明人，或补充核实其他可验证的证明信息。
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              标有 <span className="text-destructive">*</span> 的项目为必填项。
             </p>
           </section>
           <section className="space-y-4">
@@ -219,7 +275,10 @@ export function PublicBackgroundCheckPage({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="background-name">姓名</Label>
+                <Label htmlFor="background-name">
+                  姓名
+                  <RequiredMark />
+                </Label>
                 <Input
                   id="background-name"
                   required
@@ -230,7 +289,10 @@ export function PublicBackgroundCheckPage({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="background-gender">性别</Label>
+                <Label htmlFor="background-gender">
+                  性别
+                  <RequiredMark />
+                </Label>
                 <select
                   className="h-9 rounded-md border bg-background px-3 text-sm"
                   id="background-gender"
@@ -252,7 +314,10 @@ export function PublicBackgroundCheckPage({
                 </select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="background-id">证件号码</Label>
+                <Label htmlFor="background-id">
+                  证件号码
+                  <RequiredMark />
+                </Label>
                 <Input
                   id="background-id"
                   required
@@ -263,7 +328,10 @@ export function PublicBackgroundCheckPage({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="background-graduation">毕业证书编号</Label>
+                <Label htmlFor="background-graduation">
+                  毕业证书编号
+                  <RequiredMark />
+                </Label>
                 <Input
                   id="background-graduation"
                   required
@@ -310,8 +378,12 @@ export function PublicBackgroundCheckPage({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>公司名称</Label>
+                    <Label htmlFor={`employment-company-${index}`}>
+                      公司名称
+                      <RequiredMark />
+                    </Label>
                     <Input
+                      id={`employment-company-${index}`}
                       required
                       value={record.companyName}
                       onChange={(event) =>
@@ -320,8 +392,12 @@ export function PublicBackgroundCheckPage({
                     />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>最后职位</Label>
+                    <Label htmlFor={`employment-position-${index}`}>
+                      最后职位
+                      <RequiredMark />
+                    </Label>
                     <Input
+                      id={`employment-position-${index}`}
                       required
                       value={record.lastPosition}
                       onChange={(event) =>
@@ -330,7 +406,10 @@ export function PublicBackgroundCheckPage({
                     />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor={`employment-left-${index}`}>是否已离职</Label>
+                    <Label htmlFor={`employment-left-${index}`}>
+                      是否已离职
+                      <RequiredMark />
+                    </Label>
                     <select
                       className="h-9 rounded-md border bg-background px-3 text-sm"
                       id={`employment-left-${index}`}
@@ -353,7 +432,9 @@ export function PublicBackgroundCheckPage({
                     </select>
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor={`employment-reason-${index}`}>离职原因</Label>
+                    <Label htmlFor={`employment-reason-${index}`}>
+                      离职原因{record.hasLeftCompany === true ? <RequiredMark /> : null}
+                    </Label>
                     <select
                       className="h-9 rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={record.hasLeftCompany !== true}
@@ -378,10 +459,13 @@ export function PublicBackgroundCheckPage({
                       ))}
                     </select>
                   </div>
-                  <fieldset className="grid gap-3 rounded-lg border p-3 sm:col-span-2 sm:grid-cols-2">
-                    <legend className="px-1 font-medium text-sm">在职时间</legend>
+                  <fieldset className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                    <legend className="mb-2 font-medium text-sm">在职时间</legend>
                     <div className="grid gap-1.5">
-                      <Label htmlFor={`employment-start-${index}`}>开始时间</Label>
+                      <Label htmlFor={`employment-start-${index}`}>
+                        开始时间
+                        <RequiredMark />
+                      </Label>
                       <DatePicker
                         id={`employment-start-${index}`}
                         required
@@ -392,7 +476,9 @@ export function PublicBackgroundCheckPage({
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label htmlFor={`employment-end-${index}`}>结束时间</Label>
+                      <Label htmlFor={`employment-end-${index}`}>
+                        结束时间{record.hasLeftCompany === true ? <RequiredMark /> : null}
+                      </Label>
                       {record.hasLeftCompany === true ? (
                         <DatePicker
                           id={`employment-end-${index}`}
@@ -414,8 +500,12 @@ export function PublicBackgroundCheckPage({
                   </fieldset>
                   {record.leavingReason === "other" ? (
                     <div className="grid gap-1.5 sm:col-span-2">
-                      <Label>其他离职原因</Label>
+                      <Label htmlFor={`employment-reason-other-${index}`}>
+                        其他离职原因
+                        <RequiredMark />
+                      </Label>
                       <Input
+                        id={`employment-reason-other-${index}`}
                         required
                         value={record.leavingReasonOther ?? ""}
                         onChange={(event) =>
@@ -425,7 +515,10 @@ export function PublicBackgroundCheckPage({
                     </div>
                   ) : null}
                   <div className="grid gap-1.5 sm:col-span-2">
-                    <Label htmlFor={`disciplinary-record-${index}`}>违纪记录</Label>
+                    <Label htmlFor={`disciplinary-record-${index}`}>
+                      违纪记录
+                      <RequiredMark />
+                    </Label>
                     <Textarea
                       id={`disciplinary-record-${index}`}
                       placeholder="没有可填写“无”"
@@ -459,6 +552,7 @@ export function PublicBackgroundCheckPage({
                 <div className="grid gap-1.5">
                   <Label htmlFor={`contact-permission-${index}`}>
                     是否允许招聘方立即联系上述证明人
+                    <RequiredMark />
                   </Label>
                   <select
                     className="h-9 rounded-md border bg-background px-3 text-sm"
@@ -494,14 +588,17 @@ export function PublicBackgroundCheckPage({
               </Button>
             ) : null}
           </section>
-          <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
+          <section className="space-y-4 border-t pt-6">
             <div>
               <h2 className="font-semibold text-lg">确认与授权</h2>
               <p className="mt-1 text-muted-foreground text-sm">请本人签名并填写签署日期。</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="background-signature">本人签名</Label>
+                <Label htmlFor="background-signature">
+                  本人签名
+                  <RequiredMark />
+                </Label>
                 <Input
                   id="background-signature"
                   placeholder={form.candidateName}
@@ -513,7 +610,10 @@ export function PublicBackgroundCheckPage({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="background-signed-date">签署日期</Label>
+                <Label htmlFor="background-signed-date">
+                  签署日期
+                  <RequiredMark />
+                </Label>
                 <DatePicker
                   id="background-signed-date"
                   required
@@ -526,6 +626,7 @@ export function PublicBackgroundCheckPage({
             </div>
             <label className="flex cursor-pointer items-start gap-3 text-sm">
               <Checkbox
+                aria-required="true"
                 checked={form.consent}
                 onCheckedChange={(checked) =>
                   setForm((current) => ({ ...current, consent: checked === true }))
@@ -534,13 +635,38 @@ export function PublicBackgroundCheckPage({
               <span>
                 本人确认以上信息真实、准确，并授权 {initialRecord.companyName}{" "}
                 仅为本次招聘目的开展背景调查。
+                <RequiredMark />
               </span>
             </label>
           </section>
-          <div className="flex justify-end">
-            <Button disabled={pending || !form.consent} type="submit">
-              {pending ? "提交中…" : "确认并提交"}
-            </Button>
+          <div className="flex flex-col gap-3">
+            <p className="text-muted-foreground text-xs">
+              保存草稿不会正式提交，也无需先填完所有必填项。草稿保存在服务端，持有此专属链接的人可继续填写，请妥善保管链接。
+            </p>
+            {savedAt ? (
+              <p aria-live="polite" className="text-muted-foreground text-xs">
+                草稿保存于 {new Date(savedAt).toLocaleString("zh-CN")}
+                {hasUnsavedChanges ? " · 有修改尚未保存" : " · 已保存"}
+              </p>
+            ) : null}
+            {saveError ? (
+              <p role="alert" className="text-destructive text-xs">
+                {saveError}
+              </p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                disabled={saving || pending}
+                onClick={saveDraft}
+                type="button"
+                variant="outline"
+              >
+                {saving ? "保存中…" : "保存草稿"}
+              </Button>
+              <Button disabled={pending || saving || !form.consent} type="submit">
+                {pending ? "提交中…" : "确认并提交"}
+              </Button>
+            </div>
           </div>
         </div>
       </form>

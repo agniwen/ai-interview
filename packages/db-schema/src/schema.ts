@@ -1,7 +1,11 @@
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { ArcMessage, ArcMessageRole } from "./ai-message";
-import type { BackgroundCheckCollectionStatus, BackgroundCheckFormInput } from "./background-check";
+import type {
+  BackgroundCheckCollectionStatus,
+  BackgroundCheckDraftInput,
+  BackgroundCheckFormInput,
+} from "./background-check";
 import type {
   CandidateFormDisplayMode,
   CandidateFormOption,
@@ -4500,6 +4504,8 @@ export const recruitingBackgroundCheck = pgTable(
   {
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: text("created_by"),
+    draftData: jsonb("draft_data").$type<BackgroundCheckDraftInput>(),
+    draftSavedAt: timestamp("draft_saved_at", { withTimezone: true }),
     emailRecipient: text("email_recipient"),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     formData: jsonb("form_data").$type<BackgroundCheckFormInput>(),
