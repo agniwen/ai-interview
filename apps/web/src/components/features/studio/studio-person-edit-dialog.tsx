@@ -119,7 +119,6 @@ function getFirstResumeEditErrorMessage(meta: Partial<Record<string, { errors?: 
     "candidatePhone",
     "targetRole",
     "jobDescriptionId",
-    "resumeEvaluationStatus",
     "hrResumeAssessment",
   ];
   for (const field of fieldOrder) {
@@ -145,7 +144,6 @@ export function createResumeEditFormValues(
     hrResumeAssessment: detail.hrResumeAssessment ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
     notes: detail.notes ?? "",
-    resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
     targetRole: detail.targetRole ?? "",
   };
 }
@@ -231,7 +229,6 @@ function ResumeEditBody({
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
       formData.append("hrResumeAssessment", value.hrResumeAssessment);
-      formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
 
       try {
         await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes/${recordId}`, {
@@ -329,7 +326,6 @@ function ResumeEditBody({
             }}
             requireCandidateName
             resumeFile={null}
-            showResumeEvaluationStatus
             showResumeFile={false}
             showSystemNotes={false}
           />
@@ -413,7 +409,7 @@ function InterviewEditBody({
     setFormValues(createInterviewRoundFormValues(round));
   }, [round]);
 
-  // 当前轮次状态决定 allowTextInput 是否可改；AI 面试阶段内均可重置轮次。
+  // 当前轮次状态决定 allowTextInput 是否可改；AI初面阶段内均可重置轮次。
   // The current round status gates whether allowTextInput is editable; reset
   // is available throughout the AI interview pipeline stage.
   const isRoundCompleted = round?.status === "completed";
@@ -598,7 +594,7 @@ function InterviewEditBody({
       <AlertDialog onOpenChange={setResetConfirmOpen} open={resetConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>重置这轮 AI 面试？</AlertDialogTitle>
+            <AlertDialogTitle>重置这轮 AI初面？</AlertDialogTitle>
             <AlertDialogDescription>
               轮次会回到待开始状态，当前会话锚点和题目快照会重新生成，候选人需要重新进入面试。
             </AlertDialogDescription>
@@ -625,7 +621,7 @@ function InterviewEditBody({
 // ---------------------------------------------------------------------------
 
 /**
- * 统一的候选人记录编辑对话框，mode="resume" 编辑招聘台，mode="interview" 编辑 AI 面试。
+ * 统一的候选人记录编辑对话框，mode="resume" 编辑招聘台，mode="interview" 编辑 AI初面。
  * Unified edit dialog: mode="resume" edits a resume library record,
  * mode="interview" edits an AI interview record.
  */

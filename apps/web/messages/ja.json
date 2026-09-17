@@ -27,7 +27,7 @@
   "login_google_tab": "Google",
   "login_feishu_tab": "Feishu",
   "login_password_tab": "メールとパスワード",
-  "login_jiguang_hr_feishu": "Aurora HR Feishu で続行",
+  "login_jiguang_hr_feishu": "Feishu/Lark で続行",
   "login_jiguang_employee_feishu": "Aurora Employee Feishu で続行",
   "login_google_button": "Google で続行",
   "login_redirecting": "移動しています...",

@@ -4,7 +4,7 @@ import { db } from "../../../../../../lib/server/db/index";
 import { encryptMailIngestSecret } from "../../../../../../lib/server/mail-ingest-crypto";
 import {
   mailIngestAccount,
-  mailIngestMessage,
+  recruitingMailMessage,
   member,
   organization,
   user,
@@ -440,8 +440,8 @@ describe("mail ingest observability writers", () => {
     });
     const [row] = await db
       .select()
-      .from(mailIngestMessage)
-      .where(eq(mailIngestMessage.id, claim.id));
+      .from(recruitingMailMessage)
+      .where(eq(recruitingMailMessage.id, claim.id));
     expect(row.status).toBe("queued");
     expect(row.jdBindStatus).toBe("bound");
     expect(row.extractedJobCodes).toEqual(["AUR0001"]);
@@ -467,8 +467,8 @@ describe("mail ingest observability writers", () => {
     });
     const [row] = await db
       .select()
-      .from(mailIngestMessage)
-      .where(eq(mailIngestMessage.id, claim.id));
+      .from(recruitingMailMessage)
+      .where(eq(recruitingMailMessage.id, claim.id));
     expect(row.status).toBe("skipped");
     expect(row.skipReason).toBe("no_supported_attachment");
     expect(row.resumeAttachmentCount).toBe(0);
@@ -493,11 +493,43 @@ describe("mail ingest observability writers", () => {
     await finishMailIngestAccountRun(accountId, {
       counts: { failed: 1, matched: 3, queued: 2, received: 5, subjectSkipped: 2 },
     });
-    await db.insert(mailIngestMessage).values([
-      { accountId, id: "m_ok_1", mailbox: "INBOX", status: "queued", uid: "1", uidValidity: "1" },
-      { accountId, id: "m_ok_2", mailbox: "INBOX", status: "queued", uid: "2", uidValidity: "1" },
-      { accountId, id: "m_fail", mailbox: "INBOX", status: "failed", uid: "3", uidValidity: "1" },
-      { accountId, id: "m_skip", mailbox: "INBOX", status: "skipped", uid: "4", uidValidity: "1" },
+    await db.insert(recruitingMailMessage).values([
+      {
+        accountId,
+        id: "m_ok_1",
+        mailbox: "INBOX",
+        organizationId: OBS_ORG,
+        status: "queued",
+        uid: "1",
+        uidValidity: "1",
+      },
+      {
+        accountId,
+        id: "m_ok_2",
+        mailbox: "INBOX",
+        organizationId: OBS_ORG,
+        status: "queued",
+        uid: "2",
+        uidValidity: "1",
+      },
+      {
+        accountId,
+        id: "m_fail",
+        mailbox: "INBOX",
+        organizationId: OBS_ORG,
+        status: "failed",
+        uid: "3",
+        uidValidity: "1",
+      },
+      {
+        accountId,
+        id: "m_skip",
+        mailbox: "INBOX",
+        organizationId: OBS_ORG,
+        status: "skipped",
+        uid: "4",
+        uidValidity: "1",
+      },
     ]);
 
     const { records } = await queryPaginatedWorkspaceMailIngestAccounts(OBS_ORG);
@@ -538,11 +570,12 @@ describe("mail ingest observability writers", () => {
 
   it("platform rows also carry the new counts (mapper type parity)", async () => {
     const accountId = await insertTestAccount();
-    await db.insert(mailIngestMessage).values([
+    await db.insert(recruitingMailMessage).values([
       {
         accountId,
         id: "mp_fail",
         mailbox: "INBOX",
+        organizationId: OBS_ORG,
         status: "failed",
         uid: "9",
         uidValidity: "1",

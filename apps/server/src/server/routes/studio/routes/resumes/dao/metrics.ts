@@ -1,4 +1,5 @@
-import { and, count, desc, eq, exists, gte, isNotNull, ne, sql } from "drizzle-orm";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { and, count, desc, eq, exists, gte, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { startOfBeijingDay, toBeijingCalendarDate } from "@app/shared/beijing-calendar";
 import type {
@@ -7,21 +8,26 @@ import type {
   RecruitingDashboardMetrics,
 } from "@app/shared/studio-dashboard";
 import {
-  candidateFormSubmission,
+  recruitingFormSubmission,
   department,
-  interviewNotification,
+  recruitingNotificationDelivery,
   jobDescription,
-  studioHumanInterviewRound,
-  studioInterview,
-  studioInterviewSchedule,
-  studioOfferDraft,
+  humanInterviewRound,
+  aiInterviewRound,
+  recruitingOffer,
+  recruitingNodeState,
   user,
 } from "@app/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import {
+  getRecruitingBoardPresetStatusTabs,
+  recruitingBoardStagePresets,
+} from "@app/shared/recruiting-board";
+import { buildRecruitingBoardFilter } from "./board-filter";
+import { buildDashboardActionFilter } from "./dashboard-action-filter";
+import { buildNonArchivedRecruitingRecordFilter } from "./dashboard-metric-scope";
 import { candidateOutcomeSchema, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 
-// Dashboard activity uses 30 days; resume-library uploader rankings keep a
-// full-year daily window so all supported client-side ranges share one payload.
 const DASHBOARD_LOOKBACK_DAYS = 30;
 const DAILY_ADDED_LOOKBACK_DAYS = 365;
 
@@ -31,43 +37,71 @@ const DAILY_ADDED_LOOKBACK_DAYS = 365;
 // the one in dao/resumes.ts; duplicated to keep this metrics module standalone.
 const hasInterviewRoundsSql = exists(
   db
-    .select({ one: studioInterviewSchedule.id })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
+    .select({ one: aiInterviewRound.id })
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id)),
 );
 
 function resumeMetricsOrgFilters(organizationId: string, createdByUserId?: string) {
   return and(
-    eq(studioInterview.organizationId, organizationId),
-    createdByUserId ? eq(studioInterview.createdBy, createdByUserId) : undefined,
+    eq(recruitingRecordReadModel.organizationId, organizationId),
+    createdByUserId ? eq(recruitingRecordReadModel.createdBy, createdByUserId) : undefined,
   );
 }
 
-async function loadByPipeline(organizationId: string, createdByUserId?: string) {
-  // 漏斗分布：按 (pipelineStage, outcome) 分桶；outcome='archived' 排除，避免
-  // 冷藏长尾压扁主流程展示。其他 closed outcome（hired / rejected / withdrawn）保留。
-  // Pipeline funnel: bucket by (pipelineStage, outcome); archived outcomes are
-  // excluded so cold-storage long-tail doesn't crush the live funnel.
+async function loadByPipeline(
+  organizationId: string,
+  createdByUserId?: string,
+  boardPreset?: string,
+) {
+  const presetView = recruitingBoardStagePresets.find((preset) => preset.id === boardPreset)?.view;
+  // 漏斗分布：按 (pipelineStage, outcome) 分桶；常规视图排除 archived，避免冷藏长尾
+  // 压扁主流程。已结束子页面保留 archived，确保“已归档”二级 Tab 有对应分布。
+  // Pipeline funnel: bucket by (pipelineStage, outcome). Regular views exclude
+  // archived rows; the closed submenu keeps them for its archived child tab.
   const rows = await db
     .select({
       count: count(),
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        ne(studioInterview.outcome, "archived"),
+        presetView ? (buildRecruitingBoardFilter(presetView) ?? undefined) : undefined,
+        boardPreset === "closed" ? undefined : ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     )
-    .groupBy(studioInterview.pipelineStage, studioInterview.outcome);
+    .groupBy(recruitingRecordReadModel.pipelineStage, recruitingRecordReadModel.outcome);
 
   return rows.map((row) => ({
     count: row.count,
     outcome: candidateOutcomeSchema.parse(row.outcome),
     stage: pipelineStageSchema.parse(row.pipelineStage),
   }));
+}
+
+function loadBoardStatusCounts(
+  organizationId: string,
+  createdByUserId?: string,
+  boardPreset?: string,
+): Promise<NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>> {
+  const tabs = getRecruitingBoardPresetStatusTabs(boardPreset);
+  return Promise.all(
+    tabs.map(async (tab) => {
+      const [row] = await db
+        .select({ count: count() })
+        .from(recruitingRecordReadModel)
+        .where(
+          and(
+            resumeMetricsOrgFilters(organizationId, createdByUserId),
+            buildRecruitingBoardFilter(tab.value) ?? undefined,
+          ),
+        );
+      return { count: row?.count ?? 0, label: tab.label, view: tab.value };
+    }),
+  );
 }
 
 async function loadDailyAdded(
@@ -80,25 +114,25 @@ async function loadDailyAdded(
     new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
   );
 
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${recruitingRecordReadModel.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
       count: count(),
       day: dayExpr,
-      userId: studioInterview.createdBy,
+      userId: recruitingRecordReadModel.createdBy,
       userImage: user.image,
       userName: user.name,
     })
-    .from(studioInterview)
-    .leftJoin(user, eq(user.id, studioInterview.createdBy))
+    .from(recruitingRecordReadModel)
+    .leftJoin(user, eq(user.id, recruitingRecordReadModel.createdBy))
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        gte(studioInterview.createdAt, since),
+        gte(recruitingRecordReadModel.createdAt, since),
       ),
     )
-    .groupBy(dayExpr, studioInterview.createdBy, user.image, user.name)
+    .groupBy(dayExpr, recruitingRecordReadModel.createdBy, user.image, user.name)
     .orderBy(dayExpr);
 
   const byDay = new Map<
@@ -139,11 +173,11 @@ async function loadConversion(organizationId: string, createdByUserId?: string) 
         Number,
       ),
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
         resumeMetricsOrgFilters(organizationId, createdByUserId),
-        ne(studioInterview.outcome, "archived"),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     );
 
@@ -154,6 +188,8 @@ async function loadConversion(organizationId: string, createdByUserId?: string) 
 }
 
 export interface ResumeLibraryMetricsOptions {
+  /** Fixed recruiting-board stage used by sidebar submenu pages. */
+  boardPreset?: string;
   /** When set, only count candidates created by this user (personal scope). */
   createdByUserId?: string;
 }
@@ -163,12 +199,16 @@ async function queryResumeLibraryMetrics(
   options?: ResumeLibraryMetricsOptions,
 ): Promise<ResumeLibraryMetrics> {
   const createdByUserId = options?.createdByUserId;
-  const [byPipeline, dailyAdded, conversion] = await Promise.all([
-    loadByPipeline(organizationId, createdByUserId),
-    loadDailyAdded(organizationId, createdByUserId),
-    loadConversion(organizationId, createdByUserId),
+  const boardPreset = options?.boardPreset;
+  const [boardStatusCounts, byPipeline, dailyAdded, conversion] = await Promise.all([
+    loadBoardStatusCounts(organizationId, createdByUserId, boardPreset),
+    loadByPipeline(organizationId, createdByUserId, boardPreset),
+    boardPreset ? Promise.resolve([]) : loadDailyAdded(organizationId, createdByUserId),
+    boardPreset
+      ? Promise.resolve({ withInterview: 0, withoutInterview: 0 })
+      : loadConversion(organizationId, createdByUserId),
   ]);
-  return { byPipeline, conversion, dailyAdded };
+  return { boardStatusCounts, byPipeline, conversion, dailyAdded };
 }
 
 function makeLookbackStart(days = DASHBOARD_LOOKBACK_DAYS) {
@@ -213,11 +253,11 @@ async function loadDailyCountByDateExpr({
 }: {
   dayExpr: ReturnType<typeof sql<string>>;
   from:
-    | typeof candidateFormSubmission
-    | typeof studioHumanInterviewRound
-    | typeof studioInterview
-    | typeof studioInterviewSchedule
-    | typeof studioOfferDraft;
+    | typeof recruitingFormSubmission
+    | typeof humanInterviewRound
+    | typeof recruitingRecordReadModel
+    | typeof aiInterviewRound
+    | typeof recruitingOffer;
   where: ReturnType<typeof and> | ReturnType<typeof eq>;
 }) {
   const rows = await db
@@ -236,54 +276,59 @@ async function loadDashboardActivity(organizationId: string) {
   const since = makeLookbackStart();
   const rows = buildZeroActivityRows();
 
-  const resumeDay = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const aiDay = sql<string>`to_char(date_trunc('day', ${studioInterviewSchedule.updatedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const humanDay = sql<string>`to_char(date_trunc('day', ${studioHumanInterviewRound.completedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const offerDay = sql<string>`to_char(date_trunc('day', ${studioOfferDraft.sentAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-  const formDay = sql<string>`to_char(date_trunc('day', ${candidateFormSubmission.submittedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const resumeDay = sql<string>`to_char(date_trunc('day', ${recruitingRecordReadModel.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const aiDay = sql<string>`to_char(date_trunc('day', ${aiInterviewRound.updatedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const humanDay = sql<string>`to_char(date_trunc('day', ${humanInterviewRound.completedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const offerDay = sql<string>`to_char(date_trunc('day', ${recruitingOffer.sentAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const formDay = sql<string>`to_char(date_trunc('day', ${recruitingFormSubmission.submittedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const [resumeRows, aiRows, humanRows, offerRows, formRows] = await Promise.all([
     loadDailyCountByDateExpr({
       dayExpr: resumeDay,
-      from: studioInterview,
+      from: recruitingRecordReadModel,
       where: and(
-        eq(studioInterview.organizationId, organizationId),
-        gte(studioInterview.createdAt, since),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
+        gte(recruitingRecordReadModel.createdAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: aiDay,
-      from: studioInterviewSchedule,
+      from: aiInterviewRound,
       where: and(
-        eq(studioInterviewSchedule.organizationId, organizationId),
-        eq(studioInterviewSchedule.status, "completed"),
-        gte(studioInterviewSchedule.updatedAt, since),
+        eq(aiInterviewRound.organizationId, organizationId),
+        buildNonArchivedRecruitingRecordFilter(aiInterviewRound),
+        eq(aiInterviewRound.status, "completed"),
+        gte(aiInterviewRound.updatedAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: humanDay,
-      from: studioHumanInterviewRound,
+      from: humanInterviewRound,
       where: and(
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-        isNotNull(studioHumanInterviewRound.completedAt),
-        gte(studioHumanInterviewRound.completedAt, since),
+        eq(humanInterviewRound.organizationId, organizationId),
+        buildNonArchivedRecruitingRecordFilter(humanInterviewRound),
+        isNotNull(humanInterviewRound.completedAt),
+        gte(humanInterviewRound.completedAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: offerDay,
-      from: studioOfferDraft,
+      from: recruitingOffer,
       where: and(
-        eq(studioOfferDraft.organizationId, organizationId),
-        isNotNull(studioOfferDraft.sentAt),
-        gte(studioOfferDraft.sentAt, since),
+        eq(recruitingOffer.organizationId, organizationId),
+        buildNonArchivedRecruitingRecordFilter(recruitingOffer),
+        isNotNull(recruitingOffer.sentAt),
+        gte(recruitingOffer.sentAt, since),
       ),
     }),
     loadDailyCountByDateExpr({
       dayExpr: formDay,
-      from: candidateFormSubmission,
+      from: recruitingFormSubmission,
       where: and(
-        eq(candidateFormSubmission.organizationId, organizationId),
-        gte(candidateFormSubmission.submittedAt, since),
+        eq(recruitingFormSubmission.organizationId, organizationId),
+        buildNonArchivedRecruitingRecordFilter(recruitingFormSubmission),
+        gte(recruitingFormSubmission.submittedAt, since),
       ),
     }),
   ]);
@@ -307,73 +352,49 @@ async function loadDashboardActivity(organizationId: string) {
 async function loadActionItems(organizationId: string): Promise<DashboardActionItem[]> {
   const [candidateRow] = await db
     .select({
+      aiInterrupted:
+        sql<number>`COUNT(*) FILTER (WHERE ${buildDashboardActionFilter("ai_interrupted")})`.mapWith(
+          Number,
+        ),
+      aiPending:
+        sql<number>`COUNT(*) FILTER (WHERE ${buildDashboardActionFilter("ai_pending")})`.mapWith(
+          Number,
+        ),
+      humanPending:
+        sql<number>`COUNT(*) FILTER (WHERE ${buildDashboardActionFilter("human_pending")})`.mapWith(
+          Number,
+        ),
+      offerSent:
+        sql<number>`COUNT(*) FILTER (WHERE ${buildDashboardActionFilter("offer_sent")})`.mapWith(
+          Number,
+        ),
       screening:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'screening' AND ${studioInterview.outcome} = 'in_pipeline')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${buildDashboardActionFilter("screening")})`.mapWith(
           Number,
         ),
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.outcome, "archived"),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     );
-
-  const [aiRow] = await db
-    .select({
-      interrupted:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterviewSchedule.status} = 'interrupted')`.mapWith(
-          Number,
-        ),
-      pending:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterviewSchedule.status} = 'pending')`.mapWith(
-          Number,
-        ),
-    })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
-    .where(
-      and(
-        eq(studioInterviewSchedule.organizationId, organizationId),
-        eq(studioInterview.pipelineStage, "ai_interview"),
-      ),
-    );
-
-  const [humanRow] = await db
-    .select({
-      pending:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioHumanInterviewRound.status} = 'pending')`.mapWith(
-          Number,
-        ),
-    })
-    .from(studioHumanInterviewRound)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
-    .where(
-      and(
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-        eq(studioInterview.pipelineStage, "human_interview"),
-      ),
-    );
-
-  const [offerRow] = await db
-    .select({
-      sent: sql<number>`COUNT(*) FILTER (WHERE ${studioOfferDraft.status} = 'sent')`.mapWith(
-        Number,
-      ),
-    })
-    .from(studioOfferDraft)
-    .where(eq(studioOfferDraft.organizationId, organizationId));
 
   const [notificationRow] = await db
     .select({
       failed:
-        sql<number>`COUNT(*) FILTER (WHERE ${interviewNotification.status} = 'failed')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingNotificationDelivery.status} = 'failed')`.mapWith(
           Number,
         ),
     })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.organizationId, organizationId));
+    .from(recruitingNotificationDelivery)
+    .where(
+      and(
+        eq(recruitingNotificationDelivery.organizationId, organizationId),
+        buildNonArchivedRecruitingRecordFilter(recruitingNotificationDelivery),
+      ),
+    );
 
   return [
     {
@@ -384,28 +405,28 @@ async function loadActionItems(organizationId: string): Promise<DashboardActionI
       severity: "warning",
     },
     {
-      count: aiRow?.pending ?? 0,
-      description: "AI 面试阶段中尚未开始的轮次",
+      count: candidateRow?.aiPending ?? 0,
+      description: "AI 面试阶段中存在待开始轮次的候选人",
       key: "ai_pending",
       label: "AI 面试待进场",
       severity: "info",
     },
     {
-      count: aiRow?.interrupted ?? 0,
-      description: "候选人断连或通话被中断的 AI 轮次",
+      count: candidateRow?.aiInterrupted ?? 0,
+      description: "AI 面试阶段中存在中断轮次的候选人",
       key: "ai_interrupted",
       label: "AI 面试中断",
       severity: "danger",
     },
     {
-      count: humanRow?.pending ?? 0,
-      description: "真人复面阶段中待完成的轮次",
+      count: candidateRow?.humanPending ?? 0,
+      description: "真人复面阶段中存在待完成轮次的候选人",
       key: "human_pending",
       label: "真人复面待处理",
       severity: "warning",
     },
     {
-      count: offerRow?.sent ?? 0,
+      count: candidateRow?.offerSent ?? 0,
       description: "已发送但候选人尚未响应的 Offer",
       key: "offer_sent",
       label: "Offer 待响应",
@@ -426,45 +447,45 @@ async function loadJobPipeline(organizationId: string) {
   const rows = await db
     .select({
       aiInterview:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'ai_interview')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'ai_interview')`.mapWith(
           Number,
         ),
       departmentName: department.name,
       humanInterview:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'human_interview')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('second_interview', 'final_interview'))`.mapWith(
           Number,
         ),
       id: jobDescription.id,
       name: jobDescription.name,
       offer:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'offer')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding'))`.mapWith(
           Number,
         ),
       screening:
-        sql<number>`COUNT(*) FILTER (WHERE ${studioInterview.pipelineStage} = 'screening')`.mapWith(
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'screening')`.mapWith(
           Number,
         ),
       total: totalExpr,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .innerJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .leftJoin(
       department,
       and(
         eq(jobDescription.departmentId, department.id),
-        eq(department.organizationId, studioInterview.organizationId),
+        eq(department.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.outcome, "archived"),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     )
     .groupBy(jobDescription.id, jobDescription.name, department.name)
@@ -478,32 +499,270 @@ async function loadOfferStatuses(organizationId: string) {
   const rows = await db
     .select({
       count: count(),
-      status: studioOfferDraft.status,
+      status: recruitingOffer.status,
     })
-    .from(studioOfferDraft)
-    .where(eq(studioOfferDraft.organizationId, organizationId))
-    .groupBy(studioOfferDraft.status);
+    .from(recruitingOffer)
+    .where(
+      and(
+        eq(recruitingOffer.organizationId, organizationId),
+        buildNonArchivedRecruitingRecordFilter(recruitingOffer),
+      ),
+    )
+    .groupBy(recruitingOffer.status);
   return rows.map((row) => ({ count: row.count, status: row.status }));
+}
+
+const INTERVIEW_AND_LATER_STAGES = [
+  "ai_interview",
+  "second_interview",
+  "final_interview",
+  "income_proof",
+  "salary_negotiation",
+  "offer",
+  "background_check",
+  "onboarding",
+] as const;
+const SECOND_INTERVIEW_AND_LATER_STAGES = INTERVIEW_AND_LATER_STAGES.slice(1);
+const OFFER_AND_LATER_STAGES = INTERVIEW_AND_LATER_STAGES.slice(3);
+
+function hasReachedMilestone(nodes: readonly (typeof INTERVIEW_AND_LATER_STAGES)[number][]) {
+  return exists(
+    db
+      .select({ one: recruitingNodeState.recruitingRecordId })
+      .from(recruitingNodeState)
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, recruitingRecordReadModel.id),
+          inArray(recruitingNodeState.node, nodes),
+          or(isNotNull(recruitingNodeState.enteredAt), ne(recruitingNodeState.status, "inactive")),
+        ),
+      ),
+  );
+}
+
+async function loadDashboardOverview(organizationId: string) {
+  const [row] = await db
+    .select({
+      hired:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'hired')`.mapWith(
+          Number,
+        ),
+      negativeClosed:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} IN ('rejected', 'withdrawn'))`.mapWith(
+          Number,
+        ),
+      offerOnboarding:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'in_pipeline' AND ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding'))`.mapWith(
+          Number,
+        ),
+      progressing:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'in_pipeline')`.mapWith(
+          Number,
+        ),
+    })
+    .from(recruitingRecordReadModel)
+    .where(
+      and(
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
+      ),
+    );
+
+  return {
+    hired: row?.hired ?? 0,
+    negativeClosed: row?.negativeClosed ?? 0,
+    offerOnboarding: row?.offerOnboarding ?? 0,
+    progressing: row?.progressing ?? 0,
+  };
+}
+
+async function loadDashboardVacancies(organizationId: string) {
+  const rows = await db
+    .select({
+      departmentName: department.name,
+      headcount: jobDescription.headcount,
+      hired:
+        sql<number>`COUNT(${recruitingRecordReadModel.id}) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'hired')`.mapWith(
+          Number,
+        ),
+      id: jobDescription.id,
+      name: jobDescription.name,
+    })
+    .from(jobDescription)
+    .leftJoin(
+      department,
+      and(
+        eq(jobDescription.departmentId, department.id),
+        eq(jobDescription.organizationId, department.organizationId),
+      ),
+    )
+    .leftJoin(
+      recruitingRecordReadModel,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
+      ),
+    )
+    .where(
+      and(
+        eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
+      ),
+    )
+    .groupBy(jobDescription.id, jobDescription.name, jobDescription.headcount, department.name);
+
+  return rows
+    .map((row) => ({
+      ...row,
+      gap: row.headcount === null ? 0 : Math.max(row.headcount - row.hired, 0),
+    }))
+    .toSorted(
+      (left, right) => right.gap - left.gap || left.name.localeCompare(right.name, "zh-CN"),
+    );
+}
+
+async function loadCumulativeFunnel(organizationId: string) {
+  const enteredInterviewSql = hasReachedMilestone(INTERVIEW_AND_LATER_STAGES);
+  const enteredSecondInterviewSql = hasReachedMilestone(SECOND_INTERVIEW_AND_LATER_STAGES);
+  const enteredOfferSql = hasReachedMilestone(OFFER_AND_LATER_STAGES);
+  const [row] = await db
+    .select({
+      enteredInterview: sql<number>`COUNT(*) FILTER (WHERE ${enteredInterviewSql})`.mapWith(Number),
+      enteredOffer: sql<number>`COUNT(*) FILTER (WHERE ${enteredOfferSql})`.mapWith(Number),
+      enteredSecondInterview:
+        sql<number>`COUNT(*) FILTER (WHERE ${enteredSecondInterviewSql})`.mapWith(Number),
+      hired:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'hired')`.mapWith(
+          Number,
+        ),
+      resumesAdded: count(),
+    })
+    .from(recruitingRecordReadModel)
+    .where(
+      and(
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
+      ),
+    );
+
+  return {
+    enteredInterview: row?.enteredInterview ?? 0,
+    enteredOffer: row?.enteredOffer ?? 0,
+    enteredSecondInterview: row?.enteredSecondInterview ?? 0,
+    hired: row?.hired ?? 0,
+    resumesAdded: row?.resumesAdded ?? 0,
+  };
+}
+
+async function loadRecruiterProgress(organizationId: string) {
+  const hasPendingAiRoundSql = exists(
+    db
+      .select({ one: aiInterviewRound.id })
+      .from(aiInterviewRound)
+      .where(
+        and(
+          eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+          inArray(aiInterviewRound.status, ["pending", "interrupted"]),
+        ),
+      ),
+  );
+  const hasPendingHumanRoundSql = exists(
+    db
+      .select({ one: humanInterviewRound.id })
+      .from(humanInterviewRound)
+      .where(
+        and(
+          eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+          eq(humanInterviewRound.status, "pending"),
+        ),
+      ),
+  );
+  const rows = await db
+    .select({
+      hired:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'hired')`.mapWith(
+          Number,
+        ),
+      interviewing:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'in_pipeline' AND ${recruitingRecordReadModel.pipelineStage} IN ('ai_interview', 'second_interview', 'final_interview'))`.mapWith(
+          Number,
+        ),
+      offerOnboarding:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'in_pipeline' AND ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'salary_negotiation', 'offer', 'background_check', 'onboarding'))`.mapWith(
+          Number,
+        ),
+      pendingActions:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} = 'in_pipeline' AND (${recruitingRecordReadModel.pipelineStage} = 'screening' OR (${recruitingRecordReadModel.pipelineStage} = 'ai_interview' AND ${hasPendingAiRoundSql}) OR (${recruitingRecordReadModel.pipelineStage} IN ('second_interview', 'final_interview') AND ${hasPendingHumanRoundSql})))`.mapWith(
+          Number,
+        ),
+      total: count(),
+      userId: recruitingRecordReadModel.createdBy,
+      userImage: user.image,
+      userName: user.name,
+      userRemark: user.remark,
+    })
+    .from(recruitingRecordReadModel)
+    .leftJoin(user, eq(user.id, recruitingRecordReadModel.createdBy))
+    .where(
+      and(
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        ne(recruitingRecordReadModel.outcome, "archived"),
+      ),
+    )
+    .groupBy(recruitingRecordReadModel.createdBy, user.name, user.image, user.remark)
+    .orderBy(desc(sql`COUNT(*)`));
+
+  return rows.map((row) => ({
+    ...row,
+    userName: row.userName?.trim() || "未分配",
+  }));
 }
 
 export async function loadRecruitingDashboardMetrics(
   organizationId: string,
 ): Promise<RecruitingDashboardMetrics> {
-  const [resume, actions, activity, jobPipeline, offerStatuses] = await Promise.all([
+  const [
+    resume,
+    actions,
+    activity,
+    jobPipeline,
+    offerStatuses,
+    overview,
+    vacancies,
+    cumulativeFunnel,
+    recruiterProgress,
+  ] = await Promise.all([
     queryResumeLibraryMetrics(organizationId),
     loadActionItems(organizationId),
     loadDashboardActivity(organizationId),
     loadJobPipeline(organizationId),
     loadOfferStatuses(organizationId),
+    loadDashboardOverview(organizationId),
+    loadDashboardVacancies(organizationId),
+    loadCumulativeFunnel(organizationId),
+    loadRecruiterProgress(organizationId),
   ]);
 
   return {
     actions,
     activity: activity.rows,
+    cumulativeFunnel,
     jobPipeline,
     offerStatuses,
+    recruiterProgress,
     resume,
-    summary: activity.summary,
+    summary: {
+      ...activity.summary,
+      activeJobs: vacancies.length,
+      hired: overview.hired,
+      negativeClosed: overview.negativeClosed,
+      offerOnboarding: overview.offerOnboarding,
+      progressing: overview.progressing,
+      unconfiguredHeadcount: vacancies.filter((row) => row.headcount === null).length,
+      vacancies: vacancies.reduce((sum, row) => sum + row.gap, 0),
+    },
+    vacancies,
   };
 }
 

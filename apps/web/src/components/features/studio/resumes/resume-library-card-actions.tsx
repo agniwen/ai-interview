@@ -195,7 +195,11 @@ function resolveCardActionFlags({
     canEdit: canUpdateResumeLibrary && parseEditable,
     canLaunchInterview:
       canCreateInterview &&
-      canLaunchInterviewFromResume(record.resumeParseStatus) &&
+      canLaunchInterviewFromResume(
+        record.resumeParseStatus,
+        record.pipelineStage,
+        record.resumeEvaluationStatus,
+      ) &&
       !record.hasInterviewRounds &&
       !isClosed,
     canPreviewFromMenu: !parseEditable && record.hasResumeFile && previewable,

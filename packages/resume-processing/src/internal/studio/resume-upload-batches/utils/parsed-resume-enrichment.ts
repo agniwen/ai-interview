@@ -1,3 +1,5 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../lib/db";
 import { enqueueResumeSemanticIndexJobBestEffort } from "../../../lib/resume-semantic/enqueue";
@@ -11,7 +13,6 @@ import {
   enqueueResumeReviewGenerationForRecordBestEffort,
 } from "../../resumes/utils/review-queue";
 import { reassessResumeRecord } from "../../resumes/utils/review-worker";
-import { studioInterview } from "@app/db-schema/schema";
 
 export interface ParsedResumeEnrichmentDependencies extends CandidateQuestionGenerationDependencies {
   enqueueResumePoolReviewGenerationBestEffort: typeof enqueueResumePoolReviewGenerationBestEffort;
@@ -120,20 +121,19 @@ async function markParsedResumeRecordReady(input: {
     return;
   }
   const now = new Date();
-  await db
-    .update(studioInterview)
-    .set({
+  await updateRecruitingRecords(
+    db,
+    and(
+      eq(recruitingRecordReadModel.id, input.resumeRecordId),
+      eq(recruitingRecordReadModel.organizationId, input.organizationId),
+    ),
+    {
       resumeParseError: null,
       resumeParseStatus: "ready",
       resumeParsedAt: now,
       updatedAt: now,
-    })
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-      ),
-    );
+    },
+  );
 }
 
 export async function completeParsedResumeEnrichment(

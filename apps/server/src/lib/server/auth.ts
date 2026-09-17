@@ -1,3 +1,4 @@
+import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -11,6 +12,7 @@ import { z } from "zod";
 import { getAuthRequestHeaders } from "./auth-request-context";
 import { getRequiredEnv } from "./env";
 import { getFeishuTenantAccessToken } from "./feishu-access-token";
+import { feishuAccountLinking, validateFeishuAccountLinking } from "./feishu-account-linking";
 import { resolveSessionAuthProviderId } from "./session-auth-provider";
 import {
   canAssignWorkspaceRole,
@@ -172,6 +174,15 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
     // code_verifier field.
     pkce: false,
     scopes: ["contact:user.base:readonly", "contact:user.email:readonly"],
+    mapProfileToUser(profile) {
+      // Generic OAuth only forwards standard fields unless explicitly mapped.
+      return z
+        .object({
+          feishuTenantKey: z.string().optional(),
+          feishuTenantName: z.string().optional(),
+        })
+        .parse(profile);
+    },
     async getToken({ code, redirectURI }) {
       const res = await fetch("https://open.feishu.cn/open-apis/authen/v2/oauth/token", {
         body: JSON.stringify({
@@ -261,6 +272,7 @@ const advanced =
     : undefined;
 
 export const auth = betterAuth({
+  account: { accountLinking: feishuAccountLinking },
   advanced,
   appName: "招聘 AI 协同工作台",
   baseURL,
@@ -292,6 +304,17 @@ export const auth = betterAuth({
           return Promise.resolve({
             data: authProviderId ? { ...newSession, authProviderId } : newSession,
           });
+        },
+      },
+    },
+    user: {
+      delete: {
+        async before(deletingUser) {
+          if (await hasRecruitingReferences(db, "user", deletingUser.id)) {
+            throw new APIError("CONFLICT", {
+              message: "该账号仍被招聘数据引用，请先移交相关数据或停用账号。",
+            });
+          }
         },
       },
     },
@@ -415,6 +438,20 @@ export const auth = betterAuth({
           if (requestedRoles.length === 0 || allowed.some((ok) => !ok)) {
             throw new APIError("FORBIDDEN", {
               message: "只能邀请为低于自己级别的工作区角色。",
+            });
+          }
+        },
+        async beforeDeleteOrganization({ organization: deletingOrganization }) {
+          if (await hasRecruitingReferences(db, "organization", deletingOrganization.id)) {
+            throw new APIError("CONFLICT", {
+              message: "该工作区仍包含招聘数据，请先处理关联数据再删除。",
+            });
+          }
+        },
+        async beforeRemoveMember({ member: removingMember }) {
+          if (await hasRecruitingReferences(db, "member", removingMember.id)) {
+            throw new APIError("CONFLICT", {
+              message: "该成员仍被招聘数据引用，请先移交关联数据或设为无访问权限。",
             });
           }
         },
@@ -549,5 +586,6 @@ export const auth = betterAuth({
         type: "string",
       },
     },
+    validateUserInfo: validateFeishuAccountLinking,
   },
 });

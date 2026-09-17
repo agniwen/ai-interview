@@ -1,24 +1,40 @@
 import * as React from "react";
 
-/**
- * 视为"移动端"的视口宽度阈值（与 Tailwind `md` 断点对齐）。
- * Viewport-width threshold considered "mobile" — matches Tailwind's `md` breakpoint.
- */
+/** 与 Tailwind md 断点对齐；只在跨越断点时通知组件。 */
 const MOBILE_BREAKPOINT = 768;
+const listeners = new Set<() => void>();
+let mediaQuery: MediaQueryList | null = null;
 
-/**
- * 响应式判断当前是否是移动端宽度。SSR 阶段返回 `false`，水合后切换到真实值。
- * Reactively report whether the current viewport is mobile-sized. Returns `false`
- * during SSR and updates after hydration.
- */
+function notifyListeners() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function subscribe(onStoreChange: () => void) {
+  listeners.add(onStoreChange);
+  if (!mediaQuery) {
+    mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    mediaQuery.addEventListener("change", notifyListeners);
+  }
+  return () => {
+    listeners.delete(onStoreChange);
+    if (listeners.size === 0 && mediaQuery) {
+      mediaQuery.removeEventListener("change", notifyListeners);
+      mediaQuery = null;
+    }
+  };
+}
+
+function getSnapshot() {
+  return window.innerWidth < MOBILE_BREAKPOINT;
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
+/** SSR 使用桌面快照；水合后同步当前尺寸。所有调用共享一个媒体查询监听。 */
 export function useIsMobile() {
-  return React.useSyncExternalStore(
-    (onStoreChange) => {
-      const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-      mql.addEventListener("change", onStoreChange);
-      return () => mql.removeEventListener("change", onStoreChange);
-    },
-    () => window.innerWidth < MOBILE_BREAKPOINT,
-    () => false,
-  );
+  return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

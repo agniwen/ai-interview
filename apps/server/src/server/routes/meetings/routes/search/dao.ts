@@ -1,3 +1,4 @@
+import { meetingRecordingType } from "../../recording-type";
 import { and, asc, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
 import {
@@ -233,6 +234,7 @@ export async function searchMeetingSessionsForAccess(input: {
       .where(
         and(
           eq(meetingSearchProjection.organizationId, input.organizationId),
+          eq(meetingRecordingType, "voice_recording"),
           inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
           or(
             inArray(member.role, ["owner", "admin"]),
@@ -305,6 +307,7 @@ export async function searchMeetingSessionsForAccess(input: {
         limit 1
       )`,
         recordingAvailable: sql<boolean>`coalesce(bool_or(${meetingRecordingAsset.track} = 'playback' and ${meetingRecordingAsset.status} = 'ready'), false)`,
+        recordingType: meetingRecordingType,
         savedAt: meetingSession.savedAt,
         status: meetingSession.status,
         title: meetingSession.title,
@@ -336,6 +339,7 @@ export async function searchMeetingSessionsForAccess(input: {
       .where(
         and(
           eq(meetingSearchProjection.organizationId, input.organizationId),
+          eq(meetingRecordingType, "voice_recording"),
           inArray(
             meetingSession.id,
             candidateMeetings.map((meeting) => meeting.id),

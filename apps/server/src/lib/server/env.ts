@@ -14,9 +14,12 @@ export const SERVER_ENV_NAMES = [
   "FEISHU_APP_SECRET2",
   "FEISHU_EVALUATION_FOLDER_TOKEN",
   "FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN",
+  "FEISHU_LEGACY_LOGIN_ENABLED",
+  "FEISHU_PREFERRED_PROVIDER_ID",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "INTERVIEW_EVALUATION_MODEL",
+  "INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE",
   "MINIMAX_TTS_BASE_URL",
   "NEXT_PUBLIC_BASE_URL",
   "QWEN_OCR_BASE_URL",
@@ -46,9 +49,16 @@ const serverEnvSchema = {
   FEISHU_APP_SECRET2: nonEmptyString,
   FEISHU_EVALUATION_FOLDER_TOKEN: nonEmptyString.optional(),
   FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN: nonEmptyString.optional(),
+  FEISHU_LEGACY_LOGIN_ENABLED: z.enum(["1", "true", "yes", "0", "false", "no"]).optional(),
+  FEISHU_PREFERRED_PROVIDER_ID: z.enum(["feishu", "feishu-jiguang-hr"]).optional(),
   GOOGLE_CLIENT_ID: nonEmptyString,
   GOOGLE_CLIENT_SECRET: nonEmptyString,
   INTERVIEW_EVALUATION_MODEL: nonEmptyString,
+  INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
+    .optional(),
   MINIMAX_TTS_BASE_URL: z.url(),
   NEXT_PUBLIC_BASE_URL: z.url(),
   QWEN_OCR_BASE_URL: z.url(),

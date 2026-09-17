@@ -54,6 +54,7 @@ export function ResumeLibraryMetricsSection({
   isSwitching = false,
   isRefreshing = false,
   metrics,
+  fixedRecruitingGroup,
   onRefresh,
   onRetry,
 }: {
@@ -63,6 +64,7 @@ export function ResumeLibraryMetricsSection({
   isRefreshing?: boolean;
   isSwitching?: boolean;
   metrics: ResumeLibraryMetrics | undefined;
+  fixedRecruitingGroup?: string;
   onRefresh?: MetricsRetry;
   onRetry: MetricsRetry;
 }) {
@@ -72,7 +74,10 @@ export function ResumeLibraryMetricsSection({
 
   return (
     <MetricsErrorBoundary onReset={onRetry}>
-      <SkeletonReveal loading={!metrics} skeleton={<ResumeLibraryMetricsSkeleton />}>
+      <SkeletonReveal
+        loading={!metrics}
+        skeleton={<ResumeLibraryMetricsSkeleton compact={Boolean(fixedRecruitingGroup)} />}
+      >
         {metrics ? (
           <div
             aria-busy={isSwitching || undefined}
@@ -85,6 +90,7 @@ export function ResumeLibraryMetricsSection({
               chartKey={chartKey}
               isRefreshing={isRefreshing}
               metrics={metrics}
+              fixedRecruitingGroup={fixedRecruitingGroup}
               onRefresh={onRefresh}
             />
           </div>

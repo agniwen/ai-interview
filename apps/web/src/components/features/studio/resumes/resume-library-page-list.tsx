@@ -5,7 +5,6 @@ import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import type { ToolbarFilterConfig } from "@/components/features/data-grid";
 import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,6 @@ import {
 import { shouldShowStudioListLoadingState } from "@/components/features/studio/studio-list-loading-state";
 
 import {
-  formatResumeLibraryJobDescriptionLabel,
   useResumeLibraryCardHeight,
   useResumeLibraryInitialScrollOffset,
   useResumeLibraryScrollElement,
@@ -155,7 +153,7 @@ export function ResumeLibraryCardList({
   const virtualListRootRef = useRef<HTMLDivElement | null>(null);
   const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
-  const { setRowSelection } = grid;
+  const { updateRowSelection } = grid;
   const initialScrollOffset = useResumeLibraryInitialScrollOffset();
   const sortBy = getResumeLibrarySortBy(grid);
   const virtualRows = useMemo(
@@ -205,18 +203,9 @@ export function ResumeLibraryCardList({
   );
   const handleSelectionChange = useCallback(
     (recordId: string, checked: boolean) => {
-      setRowSelection((previous) => ({ ...previous, [recordId]: checked }));
+      updateRowSelection((previous) => ({ ...previous, [recordId]: checked }));
     },
-    [setRowSelection],
-  );
-  const selectedItems = useMemo(
-    () =>
-      selectedRows.map((record) => ({
-        id: record.id,
-        jobDescriptionLabel: formatResumeLibraryJobDescriptionLabel(record),
-        name: formatResumeCandidateTitle(record.candidateName, record.id),
-      })),
-    [selectedRows],
+    [updateRowSelection],
   );
   const hasLockedSelection = selectedRows.some(
     (record) => !canDeleteResumeRecord(record.resumeParseStatus),
@@ -337,21 +326,23 @@ export function ResumeLibraryCardList({
         refreshing={isRefetching}
         searchLoading={isInitialLoading}
         toolbarRight={
-          canUploadResumeLibrary || canReadResumeUploadBatch ? (
-            <ButtonGroup>
-              {canUploadResumeLibrary ? (
-                <ResumeUploadEntryButton
-                  disabled={uploadEntryDisabled}
-                  onClick={onOpenUploadEntry}
-                />
-              ) : null}
-              {canReadResumeUploadBatch && hasActiveUploadBatches ? (
-                <Button onClick={onOpenBatchList} type="button">
-                  <IconHistory className="size-4" />
-                </Button>
-              ) : null}
-            </ButtonGroup>
-          ) : null
+          <div className="flex items-center gap-3">
+            {canUploadResumeLibrary || canReadResumeUploadBatch ? (
+              <ButtonGroup>
+                {canUploadResumeLibrary ? (
+                  <ResumeUploadEntryButton
+                    disabled={uploadEntryDisabled}
+                    onClick={onOpenUploadEntry}
+                  />
+                ) : null}
+                {canReadResumeUploadBatch && hasActiveUploadBatches ? (
+                  <Button onClick={onOpenBatchList} type="button">
+                    <IconHistory className="size-4" />
+                  </Button>
+                ) : null}
+              </ButtonGroup>
+            ) : null}
+          </div>
         }
       />
 
@@ -370,17 +361,8 @@ export function ResumeLibraryCardList({
         <ResumeLibraryFloatingActionBar
           disabled={hasLockedSelection}
           disabledReason={bulkDeleteLockedReason}
-          onClearSelection={() => grid.setRowSelection({})}
           onBulkDelete={onBulkDelete}
-          onRemoveItem={(id) => grid.setRowSelection((prev) => ({ ...prev, [id]: false }))}
-          onViewItem={(id) => {
-            const record = records.find((item) => item.id === id);
-            if (record) {
-              onOpenDetail(record);
-            }
-          }}
           selectedCount={selectedIds.length}
-          selectedItems={selectedItems}
         />
       ) : null}
     </div>

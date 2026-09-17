@@ -265,7 +265,7 @@ export function MeetingSidebarSlots() {
                           <Input
                             aria-label={`编辑${meeting.title}的名称`}
                             autoFocus
-                            className="h-7 pr-12 text-sm"
+                            className="h-7 rounded-[calc(var(--radius-sm)-2px)] pr-12 text-sm"
                             disabled={renameMutation.isPending}
                             maxLength={RECORDING_TITLE_MAX_LENGTH}
                             onChange={(event) => setEditingTitle(event.currentTarget.value)}
@@ -417,7 +417,7 @@ export function MeetingSidebarSlots() {
                             <Input
                               aria-label={`编辑${title}的名称`}
                               autoFocus
-                              className="h-7 pr-12 text-sm"
+                              className="h-7 rounded-[calc(var(--radius-sm)-2px)] pr-12 text-sm"
                               disabled={renameMutation.isPending}
                               maxLength={RECORDING_TITLE_MAX_LENGTH}
                               onChange={(event) => setEditingTitle(event.currentTarget.value)}

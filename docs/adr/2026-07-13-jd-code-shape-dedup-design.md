@@ -110,10 +110,10 @@ export function buildJobCodeSubjectPattern(): RegExp {
 
 ## 验证
 
-- `pnpm --filter @app/shared test && pnpm --filter @app/shared typecheck`
-- `pnpm --filter @app/server test job-description-code && pnpm --filter @app/server typecheck`
-- `pnpm --filter @app/worker test message-filter && pnpm --filter @app/worker typecheck`
-- `pnpm fix`（oxlint/oxfmt 门）
+- `bun run --filter @app/shared test && bun run --filter @app/shared typecheck`
+- `bun run --filter @app/server test job-description-code && bun run --filter @app/server typecheck`
+- `bun run --filter @app/worker test message-filter && bun run --filter @app/worker typecheck`
+- `bun run fix`（oxlint/oxfmt 门）
 
 ## 风险
 

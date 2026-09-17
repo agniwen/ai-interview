@@ -2,6 +2,61 @@ import { describe, expect, it } from "vitest";
 import { renderInterviewSummaryEmail, renderRoundInviteEmail } from "../templates";
 
 describe("renderRoundInviteEmail", () => {
+  it("uses scoped manual invitation copy with the real expiry and job", async () => {
+    const result = await renderRoundInviteEmail({
+      candidateName: "张居正",
+      companyName: "ACE科技",
+      interviewUrl: "https://example.com/interview/current",
+      manualInvitation: {
+        expiresAt: new Date("2026-09-12T02:00:00Z"),
+        jobName: "高级前端开发工程师",
+      },
+      roundLabel: "内部轮次标签",
+      scheduledAt: new Date("2026-09-10T02:00:00Z"),
+    });
+    expect(result.subject).toBe("ACE科技 | AI HR 初面 邀请");
+    for (const body of [result.html, result.text]) {
+      expect(body).toContain("高级前端开发工程师");
+      expect(body).toContain("有效期至");
+      expect(body).toContain("2026年9月12日");
+      expect(body).toContain("查看面试邀请");
+      expect(body).toContain("请联系招聘负责人");
+      expect(body).not.toContain("内部轮次标签");
+      expect(body).not.toContain("随时");
+      expect(body).not.toContain("接受");
+      expect(body).not.toContain("拒绝");
+    }
+    expect(result.html).toContain('href="https://example.com/interview/current"');
+  });
+
+  it("does not invent a deadline or job for manual invitations", async () => {
+    const result = await renderRoundInviteEmail({
+      candidateName: "张居正",
+      companyName: "",
+      interviewUrl: "https://example.com/interview/current",
+      manualInvitation: { expiresAt: null, jobName: null },
+      roundLabel: "AI HR 初面",
+      scheduledAt: new Date("2026-09-10T02:00:00Z"),
+    });
+    expect(result.text).toContain("您的简历已通过筛选");
+    expect(result.text).not.toContain("有效期至");
+    expect(result.text).not.toContain("2026年9月10日");
+    expect(result.text).not.toContain("随时");
+    expect(result.text).not.toContain("永久");
+  });
+
+  it("preserves the legacy invitation wording without the manual option", async () => {
+    const result = await renderRoundInviteEmail({
+      candidateName: "张三",
+      interviewUrl: "https://example.com/interview/legacy",
+      roundLabel: "旧轮次",
+      scheduledAt: null,
+    });
+    expect(result.text).toContain("你的 AI 面试已准备好");
+    expect(result.text).toContain("准备好后随时");
+    expect(result.text).toContain("进入 AI 面试");
+    expect(result.text).not.toContain("查看面试邀请");
+  });
   it("uses companyName as subject + body prefix when provided", async () => {
     const result = await renderRoundInviteEmail({
       candidateName: "郭靖",

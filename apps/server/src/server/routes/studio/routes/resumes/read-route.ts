@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
   nextShanghaiCalendarDayStart,
   shanghaiCalendarDayStart,
@@ -7,10 +8,11 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { resolveRecruitingBoardStagePreset } from "@app/shared/recruiting-board";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { db } from "../../../../../lib/server/db/index";
 import { getObjectBytes, getObjectStream } from "@app/object-storage";
-import { studioInterview } from "@app/db-schema/schema";
+
 import { parseCsvParam } from "@app/shared/csv";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
@@ -106,10 +108,15 @@ export const resumeLibraryReadRouter = factory
         const result = await queryPaginatedResumeRecords(
           activeOrg.id,
           {
+            boardView: q.boardView,
             createdAtBefore: q.createdTo ? nextShanghaiCalendarDayStart(q.createdTo) : undefined,
             createdAtFrom: q.createdFrom ? shanghaiCalendarDayStart(q.createdFrom) : undefined,
             creatorIds: parseCsvParam(q.creatorIds),
+            dashboardAction: q.dashboardAction,
+            hrHandling: q.hrHandling === "true",
             jobDescriptionIds: parseCsvParam(q.jdIds),
+            nodeResults: parseCsvParam(q.nodeResults),
+            nodeStatuses: parseCsvParam(q.nodeStatuses),
             outcomes: parseCsvParam(q.outcomes),
             pipelineStages: parseCsvParam(q.pipelineStages),
             recommendationLevels: parseCsvParam(q.recommendationLevels),
@@ -168,17 +175,23 @@ export const resumeLibraryReadRouter = factory
     zValidator(
       "query",
       z.object({
+        boardPreset: z
+          .string()
+          .trim()
+          .refine((value) => Boolean(resolveRecruitingBoardStagePreset(value)))
+          .optional(),
         scope: z.enum(["team", "personal"]).optional().default("team"),
       }),
       jsonValidatorError("招聘指标参数无效。"),
     ),
     async (c) => {
       const { organization } = getWorkspaceRequestContext(c);
-      const { scope } = c.req.valid("query");
+      const { boardPreset, scope } = c.req.valid("query");
       if (scope === "personal" && !c.var.user?.id) {
         return c.json({ message: "Unauthorized" }, 401);
       }
       const metrics = await loadResumeLibraryMetrics(organization.id, {
+        boardPreset,
         createdByUserId: scope === "personal" ? c.var.user?.id : undefined,
       });
       return c.json(metrics, 200);
@@ -385,11 +398,16 @@ export const resumeLibraryReadRouter = factory
 
     const [row] = await db
       .select({
-        resumeFileName: studioInterview.resumeFileName,
-        resumeStorageKey: studioInterview.resumeStorageKey,
+        resumeFileName: recruitingRecordReadModel.resumeFileName,
+        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
       })
-      .from(studioInterview)
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .from(recruitingRecordReadModel)
+      .where(
+        and(
+          eq(recruitingRecordReadModel.id, id),
+          eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+        ),
+      )
       .limit(1);
 
     if (!row?.resumeStorageKey) {
@@ -429,11 +447,16 @@ export const resumeLibraryReadRouter = factory
 
     const [row] = await db
       .select({
-        resumeFileName: studioInterview.resumeFileName,
-        resumeStorageKey: studioInterview.resumeStorageKey,
+        resumeFileName: recruitingRecordReadModel.resumeFileName,
+        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
       })
-      .from(studioInterview)
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .from(recruitingRecordReadModel)
+      .where(
+        and(
+          eq(recruitingRecordReadModel.id, id),
+          eq(recruitingRecordReadModel.organizationId, activeOrg.id),
+        ),
+      )
       .limit(1);
 
     if (!row?.resumeStorageKey) {
@@ -454,6 +477,7 @@ export const resumeLibraryReadRouter = factory
   })
   .post(
     "/:id/review/evaluation",
+    requirePermission("resumeLibrary", "update"),
     zValidator("json", resumeEvaluationStatusSubmitSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg } = c.var;
@@ -561,6 +585,9 @@ export const resumeLibraryReadRouter = factory
               409,
             );
           }
+          case "screening_not_passed": {
+            return c.json({ error: "请先将简历筛选标记为通过，再发起 AI 面试。" }, 409);
+          }
           case "resume_not_ready": {
             return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);
           }
@@ -614,11 +641,11 @@ export const resumeLibraryReadRouter = factory
 
     const [row] = await db
       .select({
-        resumeFileName: studioInterview.resumeFileName,
-        resumeStorageKey: studioInterview.resumeStorageKey,
+        resumeFileName: recruitingRecordReadModel.resumeFileName,
+        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, id))
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, id))
       .limit(1);
 
     if (!row?.resumeStorageKey) {
@@ -663,11 +690,11 @@ export const resumeLibraryReadRouter = factory
 
     const [row] = await db
       .select({
-        resumeFileName: studioInterview.resumeFileName,
-        resumeStorageKey: studioInterview.resumeStorageKey,
+        resumeFileName: recruitingRecordReadModel.resumeFileName,
+        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, id))
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, id))
       .limit(1);
 
     if (!row?.resumeStorageKey) {

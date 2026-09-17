@@ -1,9 +1,7 @@
-import {
-  MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS,
-  MEETING_LIVE_SUMMARY_MAX_TURNS_PER_REQUEST,
-  meetingLiveSummarySnapshotSchema,
-} from "@app/shared/meeting-live-summary";
+import { selectSummarySegment, summarySegmentContext } from "@app/shared/meeting-summary-segments";
+import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import type {
+  MeetingLiveSummaryCheckpoint,
   MeetingLiveSummaryRequest,
   MeetingLiveSummarySnapshot,
   MeetingLiveSummaryTemplate,
@@ -22,6 +20,7 @@ export type MeetingLiveSummaryStatus =
 
 export interface MeetingLiveSummaryControllerSnapshot {
   captureId: string | null;
+  checkpoint?: MeetingLiveSummaryCheckpoint | null;
   error: string | null;
   pendingCharacters: number;
   status: MeetingLiveSummaryStatus;
@@ -31,6 +30,7 @@ export interface MeetingLiveSummaryControllerSnapshot {
 export interface MeetingLiveSummarySource {
   captureId: string;
   initialSummary?: MeetingLiveSummarySnapshot | null;
+  initialCheckpoint?: MeetingLiveSummaryCheckpoint | null;
   meetingStartedAt: string;
   template: MeetingLiveSummaryTemplate;
   transcript: LiveTranscriptDraftSnapshot;
@@ -67,7 +67,7 @@ function turnRange(turn: LiveTranscriptDraftSnapshot["turns"][number], sectionOf
 }
 
 export function buildMeetingLiveSummaryTurns(
-  snapshot: LiveTranscriptDraftSnapshot,
+  snapshot: Pick<LiveTranscriptDraftSnapshot, "sections" | "turns">,
   meetingStartedAt: string,
 ): MeetingLiveSummaryTurn[] {
   const meetingStartMs = Date.parse(meetingStartedAt);
@@ -103,24 +103,8 @@ export function buildMeetingLiveSummaryTurns(
     .toSorted((left, right) => left.startMs - right.startMs || left.id.localeCompare(right.id));
 }
 
-function boundedTurns(turns: MeetingLiveSummaryTurn[]): MeetingLiveSummaryTurn[] {
-  const selected: MeetingLiveSummaryTurn[] = [];
-  let characters = 0;
-  for (const turn of turns) {
-    if (
-      selected.length >= MEETING_LIVE_SUMMARY_MAX_TURNS_PER_REQUEST ||
-      characters + turn.text.length > MEETING_LIVE_SUMMARY_MAX_REQUEST_CHARACTERS
-    ) {
-      break;
-    }
-    selected.push(turn);
-    characters += turn.text.length;
-  }
-  return selected;
-}
-
-function turnFingerprint(turn: MeetingLiveSummaryTurn): string {
-  return `${turn.startMs}\0${turn.endMs}\0${turn.speakerKey}\0${turn.text}`;
+export function meetingLiveSummaryTurnFingerprint(turn: MeetingLiveSummaryTurn): string {
+  return `${turn.startMs}\0${turn.endMs}\0${turn.speakerKey}\0${turn.track}\0${turn.speakerDisplayName ?? ""}\0${turn.text}`;
 }
 
 function validateResult(
@@ -154,6 +138,7 @@ export function createMeetingLiveSummaryController(
   let requestAbort: AbortController | null = null;
   let runRequest: (() => Promise<void>) | null = null;
   const acknowledgedTurns = new Map<string, string>();
+  const confirmedTurns = new Map<string, string>();
   let disposed = false;
 
   const publish = (patch: Partial<MeetingLiveSummaryControllerSnapshot>) => {
@@ -173,7 +158,9 @@ export function createMeetingLiveSummaryController(
       return [];
     }
     const turns = buildMeetingLiveSummaryTurns(source.transcript, source.meetingStartedAt);
-    return turns.filter((turn) => acknowledgedTurns.get(turn.id) !== turnFingerprint(turn));
+    return turns.filter(
+      (turn) => acknowledgedTurns.get(turn.id) !== meetingLiveSummaryTurnFingerprint(turn),
+    );
   };
 
   const scheduleNext = (delayOverride?: number) => {
@@ -214,10 +201,17 @@ export function createMeetingLiveSummaryController(
     next: MeetingLiveSummarySource,
     summary: MeetingLiveSummarySnapshot,
   ) => {
+    if (next.initialCheckpoint?.revision === summary.revision) {
+      for (const [id, fingerprint] of Object.entries(next.initialCheckpoint.turns)) {
+        acknowledgedTurns.set(id, fingerprint);
+        confirmedTurns.set(id, fingerprint);
+      }
+      return;
+    }
     const turns = buildMeetingLiveSummaryTurns(next.transcript, next.meetingStartedAt);
     for (const turn of turns) {
       if (turn.endMs <= summary.coveredThroughMs || turn.id === summary.coveredThroughTurnId) {
-        acknowledgedTurns.set(turn.id, turnFingerprint(turn));
+        acknowledgedTurns.set(turn.id, meetingLiveSummaryTurnFingerprint(turn));
       }
     }
   };
@@ -228,7 +222,7 @@ export function createMeetingLiveSummaryController(
     }
     const requestSource = source;
     const baseSnapshot = state.summary;
-    const turns = boundedTurns(uncoveredTurns());
+    const turns = selectSummarySegment(uncoveredTurns());
     if (turns.length === 0) {
       return;
     }
@@ -242,6 +236,13 @@ export function createMeetingLiveSummaryController(
           {
             baseSnapshot,
             captureId: requestSource.captureId,
+            contextTurns: summarySegmentContext(
+              buildMeetingLiveSummaryTurns(
+                requestSource.transcript,
+                requestSource.meetingStartedAt,
+              ),
+              turns,
+            ),
             template: requestSource.template,
             turns,
           },
@@ -252,15 +253,18 @@ export function createMeetingLiveSummaryController(
         return;
       }
       validateResult(result, requestSource.captureId, baseSnapshot?.revision ?? 0);
+      for (const turn of turns) {
+        const fingerprint = meetingLiveSummaryTurnFingerprint(turn);
+        acknowledgedTurns.set(turn.id, fingerprint);
+        confirmedTurns.set(turn.id, fingerprint);
+      }
       publish({
+        checkpoint: { revision: result.revision, turns: Object.fromEntries(confirmedTurns) },
         error: null,
         pendingCharacters: 0,
         status: "ready",
         summary: result,
       });
-      for (const turn of turns) {
-        acknowledgedTurns.set(turn.id, turnFingerprint(turn));
-      }
       nextDelayMs = undefined;
     } catch (error) {
       if (!requestIsCurrent(controller, requestSource.captureId)) {
@@ -286,6 +290,7 @@ export function createMeetingLiveSummaryController(
     requestAbort?.abort();
     requestAbort = null;
     acknowledgedTurns.clear();
+    confirmedTurns.clear();
     source = next;
     const restoredSummary =
       next && next.initialSummary?.captureId === next.captureId ? next.initialSummary : null;
@@ -296,6 +301,7 @@ export function createMeetingLiveSummaryController(
     state = {
       ...initialSnapshot(),
       captureId: next?.captureId ?? null,
+      checkpoint: next?.initialCheckpoint ?? null,
       status,
       summary: restoredSummary,
     };
@@ -333,7 +339,12 @@ export function createMeetingLiveSummaryController(
           requestAbort?.abort();
           requestAbort = null;
           acknowledgeCoveredTurns(next, next.initialSummary);
-          publish({ error: null, status: "ready", summary: next.initialSummary });
+          publish({
+            checkpoint: next.initialCheckpoint ?? null,
+            error: null,
+            status: "ready",
+            summary: next.initialSummary,
+          });
         }
       } else {
         resetForSource(next);

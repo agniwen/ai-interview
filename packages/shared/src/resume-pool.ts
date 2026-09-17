@@ -17,11 +17,10 @@ import type {
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
 export const resumePoolStatusSchema = z.enum(["active", "archived"]);
-export const resumePoolInitialRecruitmentStageSchema = z.enum([
-  "screening",
-  "ai_interview",
-  "human_interview",
-]);
+// 旧客户端的真人复面名称只在入口兼容，内部统一使用复试节点。
+export const resumePoolInitialRecruitmentStageSchema = z
+  .enum(["screening", "ai_interview", "second_interview", "human_interview"])
+  .transform((stage) => (stage === "human_interview" ? "second_interview" : stage));
 
 export const resumePoolCreateSchema = z.object({
   candidateEmail: z.string().trim().max(200).nullable().optional(),
@@ -163,6 +162,8 @@ export interface ResumePoolUploaderOption {
 }
 
 export interface ResumePoolImportSuccessResult {
+  /** 招聘记录已创建，但 AI 面试轮次未能创建时的可恢复原因。 */
+  aiInterviewLaunchError?: string;
   resumeRecordId: string;
   status: "imported";
 }

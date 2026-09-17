@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   getPinnedEdgeClassName,
   PINNED_EDGE_END_BORDER_CLASS,
-  PINNED_EDGE_LEFT_BORDER_CLASS,
-  PINNED_EDGE_RIGHT_BORDER_CLASS,
   PINNED_EDGE_START_BORDER_CLASS,
   PINNED_HEADER_CLASS,
   readHorizontalScrollOverflow,
@@ -27,9 +25,6 @@ describe("pinned edge separators", () => {
     expect(PINNED_EDGE_END_BORDER_CLASS).toContain("before:bg-border");
     expect(PINNED_EDGE_START_BORDER_CLASS).not.toMatch(/shadow/);
     expect(PINNED_EDGE_END_BORDER_CLASS).not.toMatch(/shadow/);
-    // Legacy aliases kept for compatibility.
-    expect(PINNED_EDGE_LEFT_BORDER_CLASS).toBe(PINNED_EDGE_START_BORDER_CLASS);
-    expect(PINNED_EDGE_RIGHT_BORDER_CLASS).toBe(PINNED_EDGE_END_BORDER_CLASS);
   });
 
   it("only paints the pin-edge divider while scroll has content under that side", () => {

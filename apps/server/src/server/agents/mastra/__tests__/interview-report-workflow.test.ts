@@ -219,3 +219,18 @@ describe("runInterviewReportWorkflow", () => {
     );
   });
 });
+
+it("keeps a workflow failure readable when Mastra returns a serialized error", async () => {
+  const workflow = createInterviewReportWorkflow({
+    composeReport: vi.fn().mockImplementation(() => {
+      throw new Error("structured workflow failure");
+    }),
+    generateEvaluation: vi.fn().mockRejectedValue(new Error("provider failed")),
+    generateSummary: vi.fn().mockResolvedValue("摘要"),
+  });
+  const result = runInterviewReportWorkflow(
+    { candidateFormResponses: "", dataCollectionResults: null, questions: [], transcript: [] },
+    workflow,
+  );
+  await expect(result).rejects.toBeInstanceOf(Error);
+});

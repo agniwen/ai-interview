@@ -1,5 +1,6 @@
 /* oxlint-disable complexity -- query hook coordinates resolve, reports, forms, timeline, and record assembly. */
 "use client";
+import { findEffectiveAiRound } from "./effective-ai-round";
 
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
@@ -174,7 +175,10 @@ export function useStudioPersonDetailQueries({
     refetchOnWindowFocus: true,
   });
 
-  const latestCandidateRoundId = mode === "resume" ? (candidateRounds.at(-1)?.id ?? null) : null;
+  const latestCandidateRoundId =
+    mode === "resume"
+      ? (findEffectiveAiRound(candidateRounds, resumeRecord?.nodeStates)?.id ?? null)
+      : null;
 
   const shouldLoadResumeInterviewResult =
     enabled && mode === "resume" && activeTab === "rounds" && !!latestCandidateRoundId;

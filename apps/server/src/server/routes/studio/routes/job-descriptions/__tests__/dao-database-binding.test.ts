@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  fetchJobDescriptionsByCodes,
-  jobDescriptionIdsExist,
-  listAllJobDescriptions,
-  loadJobDescriptionById,
+  fetchPublishedJobDescriptionsByCodes,
+  managedJobDescriptionIdsExist,
+  listManagedJobDescriptions,
+  loadManagedJobDescriptionById,
 } from "../dao";
 
 interface EmptyQuery extends PromiseLike<never[]> {
@@ -18,7 +18,7 @@ interface EmptyQuery extends PromiseLike<never[]> {
 
 const mocks = vi.hoisted(() => {
   const emptyRows = Promise.resolve([]);
-  // SAFETY: This fixture implements every Drizzle chain method exercised by the four compatibility exports below.
+  // SAFETY: This fixture implements every Drizzle chain method exercised by the explicit DAO exports below.
   const query = {} as EmptyQuery;
   query.$dynamic = vi.fn(() => query);
   query.from = vi.fn(() => query);
@@ -39,11 +39,11 @@ const mocks = vi.hoisted(() => {
 // oxlint-disable-next-line anti-slop/no-module-mocking -- This facade test must replace the process-wide Server database while preserving the package's real AsyncLocalStorage boundary.
 vi.mock("../../../../../../lib/server/db", () => ({ db: mocks.database }));
 
-describe("job description DAO compatibility exports", () => {
+describe("job description DAO database-bound exports", () => {
   it("run inside the Server database scope", async () => {
-    await expect(loadJobDescriptionById("org-1", "missing")).resolves.toBeNull();
-    await expect(listAllJobDescriptions("org-1")).resolves.toEqual([]);
-    await expect(jobDescriptionIdsExist(["missing"], "org-1")).resolves.toBe(false);
-    await expect(fetchJobDescriptionsByCodes("org-1", ["JD-1"])).resolves.toEqual([]);
+    await expect(loadManagedJobDescriptionById("org-1", "missing")).resolves.toBeNull();
+    await expect(listManagedJobDescriptions("org-1")).resolves.toEqual([]);
+    await expect(managedJobDescriptionIdsExist(["missing"], "org-1")).resolves.toBe(false);
+    await expect(fetchPublishedJobDescriptionsByCodes("org-1", ["JD-1"])).resolves.toEqual([]);
   });
 });

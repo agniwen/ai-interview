@@ -4,7 +4,7 @@ import { build } from "vite";
 import { describe, expect, it } from "vitest";
 
 describe("production theme CSS", () => {
-  it("preserves the theme mask and primary sidebar focus rings after compilation", async () => {
+  it("preserves theme styles and opaque meeting placeholders after compilation", async () => {
     // The unencoded SVG filter URL used to be rewritten inside the data URL,
     // leaving quotes that made Lightning CSS reject the production stylesheet.
     const result = await build({
@@ -40,5 +40,8 @@ describe("production theme CSS", () => {
       ?.source.toString();
 
     expect(css?.match(/--sidebar-ring:var\(--primary\)/g)).toHaveLength(2);
+    // LiveKit's placeholder paths carry fillOpacity=0.25. The override must
+    // survive Tailwind compilation, otherwise light-mode silhouettes disappear.
+    expect(css).toMatch(/lk-participant-placeholder path\{[^}]*fill-opacity:1/);
   });
 });

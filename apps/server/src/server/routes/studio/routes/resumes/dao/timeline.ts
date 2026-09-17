@@ -10,15 +10,16 @@ import type {
   CandidateTimelineResponse,
 } from "@app/shared/studio-resumes";
 import {
-  candidateFormSubmission,
+  recruitingFormSubmission,
   candidateFormTemplate,
-  interviewAuditLog,
-  interviewConversation,
-  interviewNotification,
-  studioHumanInterviewRound,
-  studioInterviewSchedule,
-  studioOfferDraft,
-  studioRoundEmailLog,
+  recruitingEvent,
+  aiInterviewConversation,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
+  humanInterviewRound,
+  aiInterviewRound,
+  recruitingOffer,
+  recruitingRoundEmailLog,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -31,6 +32,8 @@ import {
 import { loadResumeDetail } from "./resumes";
 import { auditDescription, auditTitle, auditTone, stageLabel } from "./timeline-audit";
 import { z } from "zod";
+import { describeManualInvitationEmail } from "./timeline-manual-invitation";
+import { describeManualHumanEmail } from "./timeline-manual-human-email";
 
 type TimeValue = Date | string | null | undefined;
 
@@ -84,6 +87,7 @@ const NOTIFICATION_STATUS_LABEL = {
 } satisfies Record<string, string>;
 
 const NOTIFICATION_TYPE_LABEL = {
+  ai_report_ready: "报告完成通知",
   summary_ready: "报告完成通知",
 } satisfies Record<string, string>;
 
@@ -122,160 +126,183 @@ function loadTimelineRows(interviewRecordId: string, organizationId: string) {
   return Promise.all([
     db
       .select({
-        allowTextInput: studioInterviewSchedule.allowTextInput,
-        candidateDeclineReason: studioInterviewSchedule.candidateDeclineReason,
-        candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
-        candidateRespondedAt: studioInterviewSchedule.candidateRespondedAt,
-        createdAt: studioInterviewSchedule.createdAt,
+        allowTextInput: aiInterviewRound.allowTextInput,
+        candidateDeclineReason: aiInterviewRound.candidateDeclineReason,
+        candidateInviteStatus: aiInterviewRound.candidateInviteStatus,
+        candidateRespondedAt: aiInterviewRound.candidateRespondedAt,
+        createdAt: aiInterviewRound.createdAt,
         creatorImage: user.image,
         creatorName: user.name,
-        disconnectedAt: studioInterviewSchedule.disconnectedAt,
-        id: studioInterviewSchedule.id,
-        roundLabel: studioInterviewSchedule.roundLabel,
-        scheduledAt: studioInterviewSchedule.scheduledAt,
-        sessionStartedAt: studioInterviewSchedule.sessionStartedAt,
-        sortOrder: studioInterviewSchedule.sortOrder,
-        status: studioInterviewSchedule.status,
-        updatedAt: studioInterviewSchedule.updatedAt,
+        disconnectedAt: aiInterviewRound.disconnectedAt,
+        id: aiInterviewRound.id,
+        roundLabel: aiInterviewRound.roundLabel,
+        scheduledAt: aiInterviewRound.scheduledAt,
+        sessionStartedAt: aiInterviewRound.sessionStartedAt,
+        sortOrder: aiInterviewRound.sortOrder,
+        status: aiInterviewRound.status,
+        updatedAt: aiInterviewRound.updatedAt,
       })
-      .from(studioInterviewSchedule)
-      .leftJoin(user, eq(studioInterviewSchedule.createdBy, user.id))
+      .from(aiInterviewRound)
+      .leftJoin(user, eq(aiInterviewRound.createdBy, user.id))
       .where(
         and(
-          eq(studioInterviewSchedule.interviewRecordId, interviewRecordId),
-          eq(studioInterviewSchedule.organizationId, organizationId),
+          eq(aiInterviewRound.recruitingRecordId, interviewRecordId),
+          eq(aiInterviewRound.organizationId, organizationId),
         ),
       ),
     db
       .select({
-        callSuccessful: interviewConversation.callSuccessful,
-        conversationId: interviewConversation.conversationId,
-        createdAt: interviewConversation.createdAt,
-        endedAt: interviewConversation.endedAt,
-        lastSyncedAt: interviewConversation.lastSyncedAt,
-        scheduleEntryId: interviewConversation.scheduleEntryId,
-        startedAt: interviewConversation.startedAt,
-        status: interviewConversation.status,
-        transcriptSummary: interviewConversation.transcriptSummary,
-        updatedAt: interviewConversation.updatedAt,
+        callSuccessful: aiInterviewConversation.callSuccessful,
+        conversationId: aiInterviewConversation.conversationId,
+        createdAt: aiInterviewConversation.createdAt,
+        endedAt: aiInterviewConversation.endedAt,
+        lastSyncedAt: aiInterviewConversation.lastSyncedAt,
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
+        startedAt: aiInterviewConversation.startedAt,
+        status: aiInterviewConversation.status,
+        transcriptSummary: aiInterviewConversation.transcriptSummary,
+        updatedAt: aiInterviewConversation.updatedAt,
       })
-      .from(interviewConversation)
+      .from(aiInterviewConversation)
       .where(
         and(
-          eq(interviewConversation.interviewRecordId, interviewRecordId),
-          eq(interviewConversation.organizationId, organizationId),
+          eq(aiInterviewConversation.recruitingRecordId, interviewRecordId),
+          eq(aiInterviewConversation.organizationId, organizationId),
         ),
       ),
     db
       .select({
-        cancelledAt: studioHumanInterviewRound.cancelledAt,
-        completedAt: studioHumanInterviewRound.completedAt,
-        createdAt: studioHumanInterviewRound.createdAt,
-        id: studioHumanInterviewRound.id,
-        label: studioHumanInterviewRound.label,
-        outcome: studioHumanInterviewRound.outcome,
-        scheduledAt: studioHumanInterviewRound.scheduledAt,
-        score: studioHumanInterviewRound.score,
-        sortOrder: studioHumanInterviewRound.sortOrder,
-        status: studioHumanInterviewRound.status,
+        cancelledAt: humanInterviewRound.cancelledAt,
+        completedAt: humanInterviewRound.completedAt,
+        createdAt: humanInterviewRound.createdAt,
+        id: humanInterviewRound.id,
+        label: humanInterviewRound.label,
+        outcome: humanInterviewRound.outcome,
+        scheduledAt: humanInterviewRound.scheduledAt,
+        score: humanInterviewRound.score,
+        sortOrder: humanInterviewRound.sortOrder,
+        status: humanInterviewRound.status,
       })
-      .from(studioHumanInterviewRound)
+      .from(humanInterviewRound)
       .where(
         and(
-          eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
-          eq(studioHumanInterviewRound.organizationId, organizationId),
+          eq(humanInterviewRound.recruitingRecordId, interviewRecordId),
+          eq(humanInterviewRound.organizationId, organizationId),
         ),
       ),
     db
       .select({
-        createdAt: studioOfferDraft.createdAt,
-        currency: studioOfferDraft.currency,
-        id: studioOfferDraft.id,
-        position: studioOfferDraft.position,
-        responseAt: studioOfferDraft.responseAt,
-        sentAt: studioOfferDraft.sentAt,
-        status: studioOfferDraft.status,
-        updatedAt: studioOfferDraft.updatedAt,
-        version: studioOfferDraft.version,
+        createdAt: recruitingOffer.createdAt,
+        currency: recruitingOffer.currency,
+        id: recruitingOffer.id,
+        position: recruitingOffer.position,
+        responseAt: recruitingOffer.responseAt,
+        sentAt: recruitingOffer.sentAt,
+        status: recruitingOffer.status,
+        updatedAt: recruitingOffer.updatedAt,
+        version: recruitingOffer.version,
       })
-      .from(studioOfferDraft)
+      .from(recruitingOffer)
       .where(
         and(
-          eq(studioOfferDraft.interviewRecordId, interviewRecordId),
-          eq(studioOfferDraft.organizationId, organizationId),
+          eq(recruitingOffer.recruitingRecordId, interviewRecordId),
+          eq(recruitingOffer.organizationId, organizationId),
         ),
       ),
     db
       .select({
-        id: candidateFormSubmission.id,
-        submittedAt: candidateFormSubmission.submittedAt,
+        id: recruitingFormSubmission.id,
+        submittedAt: recruitingFormSubmission.submittedAt,
         title: candidateFormTemplate.title,
       })
-      .from(candidateFormSubmission)
+      .from(recruitingFormSubmission)
       .leftJoin(
         candidateFormTemplate,
-        eq(candidateFormSubmission.templateId, candidateFormTemplate.id),
+        eq(recruitingFormSubmission.templateId, candidateFormTemplate.id),
       )
       .where(
         and(
-          eq(candidateFormSubmission.interviewRecordId, interviewRecordId),
-          eq(candidateFormSubmission.organizationId, organizationId),
+          eq(recruitingFormSubmission.recruitingRecordId, interviewRecordId),
+          eq(recruitingFormSubmission.organizationId, organizationId),
         ),
       ),
     db
       .select({
-        createdAt: studioRoundEmailLog.createdAt,
-        errorMessage: studioRoundEmailLog.errorMessage,
-        id: studioRoundEmailLog.id,
-        roundId: studioRoundEmailLog.roundId,
-        status: studioRoundEmailLog.status,
-        subject: studioRoundEmailLog.subject,
-        toEmail: studioRoundEmailLog.toEmail,
+        createdAt: recruitingRoundEmailLog.createdAt,
+        errorMessage: recruitingRoundEmailLog.errorMessage,
+        id: recruitingRoundEmailLog.id,
+        roundId: recruitingRoundEmailLog.roundId,
+        status: recruitingRoundEmailLog.status,
+        subject: recruitingRoundEmailLog.subject,
+        toEmail: recruitingRoundEmailLog.toEmail,
       })
-      .from(studioRoundEmailLog)
+      .from(recruitingRoundEmailLog)
       .where(
         and(
-          eq(studioRoundEmailLog.interviewRecordId, interviewRecordId),
-          eq(studioRoundEmailLog.organizationId, organizationId),
+          eq(recruitingRoundEmailLog.recruitingRecordId, interviewRecordId),
+          eq(recruitingRoundEmailLog.organizationId, organizationId),
         ),
       ),
     db
       .select({
-        createdAt: interviewNotification.createdAt,
-        error: interviewNotification.error,
-        id: interviewNotification.id,
-        providerId: interviewNotification.providerId,
-        sentAt: interviewNotification.sentAt,
-        status: interviewNotification.status,
-        type: interviewNotification.type,
-        updatedAt: interviewNotification.updatedAt,
-      })
-      .from(interviewNotification)
-      .where(
-        and(
-          eq(interviewNotification.interviewRecordId, interviewRecordId),
-          eq(interviewNotification.organizationId, organizationId),
-        ),
-      ),
-    db
-      .select({
-        action: interviewAuditLog.action,
         actorImage: user.image,
         actorName: user.name,
-        createdAt: interviewAuditLog.createdAt,
-        detail: interviewAuditLog.detail,
-        id: interviewAuditLog.id,
-        scheduleEntryId: interviewAuditLog.scheduleEntryId,
+        audienceType: recruitingNotificationDelivery.audienceType,
+        channel: recruitingNotificationDelivery.channel,
+        createdAt: recruitingNotificationDelivery.createdAt,
+        error: recruitingNotificationDelivery.error,
+        id: recruitingNotificationDelivery.id,
+        payloadSnapshot: recruitingNotificationEvent.payloadSnapshot,
+        providerId: recruitingNotificationDelivery.providerId,
+        recipientAddress: recruitingNotificationDelivery.recipientAddress,
+        recipientDisplayName: recruitingNotificationDelivery.recipientDisplayName,
+        renderedSubject: recruitingNotificationDelivery.renderedSubject,
+        sentAt: recruitingNotificationDelivery.sentAt,
+        status: recruitingNotificationDelivery.status,
+        type: recruitingNotificationDelivery.type,
+        updatedAt: recruitingNotificationDelivery.updatedAt,
       })
-      .from(interviewAuditLog)
-      .leftJoin(user, eq(interviewAuditLog.operatorId, user.id))
-      .where(
+      .from(recruitingNotificationDelivery)
+      .leftJoin(
+        recruitingNotificationEvent,
         and(
-          eq(interviewAuditLog.interviewRecordId, interviewRecordId),
-          eq(interviewAuditLog.organizationId, organizationId),
+          eq(recruitingNotificationEvent.id, recruitingNotificationDelivery.eventId),
+          eq(
+            recruitingNotificationEvent.organizationId,
+            recruitingNotificationDelivery.organizationId,
+          ),
         ),
       )
-      .orderBy(desc(interviewAuditLog.createdAt)),
+      .leftJoin(user, eq(user.id, recruitingNotificationEvent.actorUserId))
+      .where(
+        and(
+          eq(recruitingNotificationDelivery.recruitingRecordId, interviewRecordId),
+          eq(recruitingNotificationDelivery.organizationId, organizationId),
+        ),
+      ),
+    db
+      .select({
+        action: recruitingEvent.action,
+        actorImage: user.image,
+        actorName: user.name,
+        createdAt: recruitingEvent.createdAt,
+        detail: recruitingEvent.detail,
+        fromStage: recruitingEvent.fromStage,
+        id: recruitingEvent.id,
+        reasonCode: recruitingEvent.reasonCode,
+        scheduleEntryId: recruitingEvent.aiRoundId,
+        toOutcome: recruitingEvent.toOutcome,
+        toStage: recruitingEvent.toStage,
+      })
+      .from(recruitingEvent)
+      .leftJoin(user, eq(recruitingEvent.operatorId, user.id))
+      .where(
+        and(
+          eq(recruitingEvent.recruitingRecordId, interviewRecordId),
+          eq(recruitingEvent.organizationId, organizationId),
+        ),
+      )
+      .orderBy(desc(recruitingEvent.createdAt)),
   ]);
 }
 
@@ -305,14 +332,9 @@ function auditDetailString(detail: JsonObject, key: string): string | null {
   return nonEmptyStringSchema.safeParse(detail[key]).data ?? null;
 }
 
-function buildOperatorAuditedActionKeys(
-  auditLogs: { action: string; actorName: string | null; detail: JsonObject | null }[],
-) {
+function buildAuditedActionKeys(auditLogs: { action: string; detail: JsonObject | null }[]) {
   const keys = new Set<string>();
   for (const log of auditLogs) {
-    if (!log.actorName) {
-      continue;
-    }
     const detail = log.detail ?? {};
     const entityId =
       auditDetailString(detail, "roundId") ??
@@ -356,7 +378,7 @@ export async function loadCandidateTimeline(
   ] = await loadTimelineRows(interviewRecordId, organizationId);
 
   const events: CandidateTimelineEvent[] = [];
-  const operatorAuditedActionKeys = buildOperatorAuditedActionKeys(auditLogs);
+  const auditedActionKeys = buildAuditedActionKeys(auditLogs);
 
   addEvent(events, {
     actorImage: candidate.creatorImage,
@@ -378,7 +400,8 @@ export async function loadCandidateTimeline(
 
   if (
     candidate.closedAt &&
-    !hasOperatorAuditedAction(operatorAuditedActionKeys, "candidate_transition", "closed")
+    !hasOperatorAuditedAction(auditedActionKeys, "candidate_transition", "closed") &&
+    !auditLogs.some((log) => log.action === "recruiting_closed")
   ) {
     addEvent(events, {
       actorImage: null,
@@ -532,12 +555,12 @@ export async function loadCandidateTimeline(
 
   for (const round of humanRounds) {
     const hasCreatedAudit = hasOperatorAuditedAction(
-      operatorAuditedActionKeys,
+      auditedActionKeys,
       "human_interview_round_created",
       round.id,
     );
     const hasUpdatedAudit = hasOperatorAuditedAction(
-      operatorAuditedActionKeys,
+      auditedActionKeys,
       "human_interview_round_updated",
       round.id,
     );
@@ -572,11 +595,7 @@ export async function loadCandidateTimeline(
     }
     if (
       round.completedAt &&
-      !hasOperatorAuditedAction(
-        operatorAuditedActionKeys,
-        "human_interview_round_completed",
-        round.id,
-      )
+      !hasOperatorAuditedAction(auditedActionKeys, "human_interview_round_completed", round.id)
     ) {
       addEvent(events, {
         actorImage: null,
@@ -601,11 +620,7 @@ export async function loadCandidateTimeline(
     }
     if (
       round.cancelledAt &&
-      !hasOperatorAuditedAction(
-        operatorAuditedActionKeys,
-        "human_interview_round_cancelled",
-        round.id,
-      )
+      !hasOperatorAuditedAction(auditedActionKeys, "human_interview_round_cancelled", round.id)
     ) {
       addEvent(events, {
         actorImage: null,
@@ -624,7 +639,7 @@ export async function loadCandidateTimeline(
   for (const draft of offerDrafts) {
     const statusMeta = offerDraftStatusMeta[draft.status];
     const hasCreatedAudit = hasOperatorAuditedAction(
-      operatorAuditedActionKeys,
+      auditedActionKeys,
       "offer_draft_created",
       draft.id,
     );
@@ -632,14 +647,10 @@ export async function loadCandidateTimeline(
       addEvent(events, {
         actorImage: null,
         actorName: null,
-        description: `${draft.position} Offer v${draft.version} 已创建`,
+        description: `${draft.position} Offer 已创建`,
         id: `offer:${draft.id}:created`,
         kind: "offer",
-        metadata: compactMeta([
-          textMeta("职位", draft.position),
-          textMeta("版本", `v${draft.version}`),
-          textMeta("币种", draft.currency),
-        ]),
+        metadata: compactMeta([textMeta("职位", draft.position), textMeta("币种", draft.currency)]),
         occurredAt: draft.createdAt,
         title: "创建 Offer",
         tone: "info",
@@ -647,19 +658,17 @@ export async function loadCandidateTimeline(
     }
     if (
       !(
-        hasCreatedAudit ||
-        hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_sent", draft.id)
+        hasCreatedAudit || hasOperatorAuditedAction(auditedActionKeys, "offer_draft_sent", draft.id)
       )
     ) {
       addEvent(events, {
         actorImage: null,
         actorName: null,
-        description: `Offer v${draft.version} 已发送，当前状态：${statusMeta.label}`,
+        description: `Offer 已发送，当前状态：${statusMeta.label}`,
         id: `offer:${draft.id}:sent`,
         kind: "offer",
         metadata: compactMeta([
           textMeta("职位", draft.position),
-          textMeta("版本", `v${draft.version}`),
           textMeta("状态", statusMeta.label),
         ]),
         occurredAt: draft.sentAt,
@@ -667,16 +676,21 @@ export async function loadCandidateTimeline(
         tone: "info",
       });
     }
-    if (!hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_responded", draft.id)) {
+    const hasResponseAudit = [
+      "offer_draft_responded",
+      "offer_response_recorded_by_hr",
+      "offer_accepted_by_candidate",
+      "offer_declined_by_candidate",
+    ].some((action) => hasOperatorAuditedAction(auditedActionKeys, action, draft.id));
+    if (!hasResponseAudit) {
       addEvent(events, {
         actorImage: null,
         actorName: null,
-        description: `候选人对 Offer v${draft.version} 的反馈：${statusMeta.label}`,
+        description: `候选人对 Offer 的反馈：${statusMeta.label}`,
         id: `offer:${draft.id}:response`,
         kind: "offer",
         metadata: compactMeta([
           textMeta("职位", draft.position),
-          textMeta("版本", `v${draft.version}`),
           textMeta("状态", statusMeta.label),
         ]),
         occurredAt: draft.responseAt,
@@ -719,11 +733,26 @@ export async function loadCandidateTimeline(
       occurredAt: notification.sentAt ?? notification.updatedAt ?? notification.createdAt,
       title: notificationTitle(notification.status),
       tone: notificationTone(notification.status),
+      ...(describeManualInvitationEmail(notification) ?? describeManualHumanEmail(notification)),
     });
   }
 
   for (const log of auditLogs) {
-    const description = auditDescription(log.detail ?? {}, log.action);
+    // 新流程将流转前后状态存储为独立列；旧事件继续读取 detail 中的历史字段。
+    const auditDetail: JsonObject = { ...log.detail };
+    if (log.fromStage) {
+      auditDetail.fromStage = log.fromStage;
+    }
+    if (log.toStage) {
+      auditDetail.toStage = log.toStage;
+    }
+    if (log.toOutcome) {
+      auditDetail.toOutcome = log.toOutcome;
+    }
+    if (log.reasonCode) {
+      auditDetail.reasonCode = log.reasonCode;
+    }
+    const description = auditDescription(auditDetail, log.action);
     if (!description) {
       continue;
     }
@@ -734,7 +763,7 @@ export async function loadCandidateTimeline(
       id: `audit:${log.id}`,
       kind: "audit",
       metadata: compactMeta([
-        textMeta("动作", auditTitle(log.action, log.detail ?? {})),
+        textMeta("动作", auditTitle(log.action, auditDetail)),
         textMeta("轮次 ID", log.scheduleEntryId),
         textMeta(
           "重新激活原因",
@@ -744,8 +773,8 @@ export async function loadCandidateTimeline(
         ),
       ]),
       occurredAt: log.createdAt,
-      title: auditTitle(log.action, log.detail ?? {}),
-      tone: auditTone(log.action),
+      title: auditTitle(log.action, auditDetail),
+      tone: auditTone(log.action, auditDetail),
     });
   }
 

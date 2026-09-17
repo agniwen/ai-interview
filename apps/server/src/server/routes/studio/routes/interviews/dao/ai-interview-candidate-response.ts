@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
@@ -6,12 +7,7 @@ import {
   enqueueAiInvitationResponseEvent,
   resolveInterviewNotificationCompanyName,
 } from "../../../../../interview-notifications/utils/events";
-import {
-  globalConfig,
-  organization,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@app/db-schema/schema";
+import { globalConfig, organization, aiInterviewRound } from "@app/db-schema/schema";
 import type { AiInvitationExceptionType } from "@app/db-schema/interview-notifications";
 import type { PublicAiInterviewInvitationPreview } from "@app/shared/studio-pipeline-stages";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
@@ -57,9 +53,9 @@ export async function recordAiInterviewInvitationException(input: {
   const tokenHash = hashAiInterviewInvitationToken(input.token);
   return await db.transaction(async (tx) => {
     const [row] = await tx
-      .select({ tokenHash: studioInterviewSchedule.candidateInviteTokenHash })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, payload.scheduleEntryId))
+      .select({ tokenHash: aiInterviewRound.candidateInviteTokenHash })
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, payload.scheduleEntryId))
       .limit(1)
       .for("update");
     if (row?.tokenHash !== tokenHash) {
@@ -83,21 +79,24 @@ export async function previewAiInterviewInvitation(
   }
   const [row] = await db
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       configuredCompanyName: globalConfig.companyName,
-      expiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-      jobName: studioInterview.targetRole,
-      roundName: studioInterviewSchedule.roundLabel,
-      scheduledAt: studioInterviewSchedule.scheduledAt,
-      status: studioInterviewSchedule.candidateInviteStatus,
-      tokenHash: studioInterviewSchedule.candidateInviteTokenHash,
+      expiresAt: aiInterviewRound.candidateInviteExpiresAt,
+      jobName: recruitingRecordReadModel.targetRole,
+      roundName: aiInterviewRound.roundLabel,
+      scheduledAt: aiInterviewRound.scheduledAt,
+      status: aiInterviewRound.candidateInviteStatus,
+      tokenHash: aiInterviewRound.candidateInviteTokenHash,
       workspaceName: organization.name,
     })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
-    .innerJoin(organization, eq(organization.id, studioInterviewSchedule.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterviewSchedule.organizationId))
-    .where(eq(studioInterviewSchedule.id, payload.scheduleEntryId))
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, aiInterviewRound.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, aiInterviewRound.organizationId))
+    .where(eq(aiInterviewRound.id, payload.scheduleEntryId))
     .limit(1);
   if (!row?.expiresAt || row.tokenHash !== hashAiInterviewInvitationToken(token)) {
     return null;
@@ -144,14 +143,14 @@ export async function respondAiInterviewInvitation(input: {
   const result = await db.transaction(async (tx) => {
     const [row] = await tx
       .select({
-        expiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-        interviewRecordId: studioInterviewSchedule.interviewRecordId,
-        invitationVersion: studioInterviewSchedule.invitationVersion,
-        status: studioInterviewSchedule.candidateInviteStatus,
-        tokenHash: studioInterviewSchedule.candidateInviteTokenHash,
+        expiresAt: aiInterviewRound.candidateInviteExpiresAt,
+        interviewRecordId: aiInterviewRound.recruitingRecordId,
+        invitationVersion: aiInterviewRound.invitationVersion,
+        status: aiInterviewRound.candidateInviteStatus,
+        tokenHash: aiInterviewRound.candidateInviteTokenHash,
       })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, payload.scheduleEntryId))
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, payload.scheduleEntryId))
       .limit(1)
       .for("update");
     if (
@@ -176,7 +175,7 @@ export async function respondAiInterviewInvitation(input: {
         throw new AiInterviewInvitationError(message, 409, "response_conflict");
       }
       await tx
-        .update(studioInterviewSchedule)
+        .update(aiInterviewRound)
         .set({
           candidateDeclineReason:
             input.action === "decline" ? input.declineReason?.trim() || null : null,
@@ -186,8 +185,8 @@ export async function respondAiInterviewInvitation(input: {
         })
         .where(
           and(
-            eq(studioInterviewSchedule.id, payload.scheduleEntryId),
-            eq(studioInterviewSchedule.invitationVersion, row.invitationVersion),
+            eq(aiInterviewRound.id, payload.scheduleEntryId),
+            eq(aiInterviewRound.invitationVersion, row.invitationVersion),
           ),
         );
       if (isInterviewNotificationFlowEnabled()) {

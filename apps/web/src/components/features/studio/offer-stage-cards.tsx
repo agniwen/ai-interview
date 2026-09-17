@@ -1,27 +1,23 @@
 "use client";
 
-import { IconBan, IconCircleCheck, IconMail, IconPencil } from "@tabler/icons-react";
+import { IconCircleCheck, IconCopy, IconMail, IconPencil } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
-// Offer 阶段的详情面板内容：
-//   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
-//   - 下方：Offer 草稿版本时间线（version desc）
-//   - 新建 Offer / 编辑 draft / 记录响应 / 撤回
-//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结束 hired」流程
-//
-// Offer-stage panel: candidate expectations inline form + offer draft
-// timeline. Draft → sent → respond / cancel flows; on "accepted" we prompt
-// the caller to launch the close flow.
+// Offer 接受后完成协商，后续继续背调与入职。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@app/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import {
-  cancelOfferDraft,
+  deleteOfferDraft,
   fetchStudioResume,
+  getOfferEmailPreview,
+  getOfferPublicLink,
   patchOfferDraft,
+  sendOfferEmail,
+  sendOfferDraft,
   updateCandidateExpectations,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -29,7 +25,7 @@ import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import {
   Dialog,
   DialogContent,
@@ -108,11 +104,13 @@ export function CandidateExpectationsBlock({
     },
   });
 
-  if (editing) {
+  if (editing && !disabled) {
     return (
-      <Card className="gap-0 rounded-lg py-0">
-        <CardContent className="p-4">
-          <h4 className="mb-3 font-medium text-sm">编辑候选人期望</h4>
+      <Frame>
+        <FrameHeader className="h-auto min-h-10 py-2">
+          <FrameTitle>编辑候选人期望</FrameTitle>
+        </FrameHeader>
+        <FramePanel>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label className="text-sm" htmlFor="exp-salary">
@@ -179,28 +177,24 @@ export function CandidateExpectationsBlock({
               {mutation.isPending ? "保存中…" : "保存"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </FramePanel>
+      </Frame>
     );
   }
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h4 className="font-medium text-sm">候选人期望</h4>
-            <p className="text-muted-foreground text-xs">
-              发 Offer 前先收集候选人期望，做议价参考。
-            </p>
-          </div>
-          {disabled ? null : (
-            <Button onClick={startEditing} size="sm" variant="ghost">
-              <IconPencil className="size-3.5" />
-              编辑
-            </Button>
-          )}
-        </div>
+    <Frame>
+      <FrameHeader className="h-auto min-h-10 justify-between gap-3 py-2">
+        <FrameTitle>候选人期望</FrameTitle>
+        {disabled ? null : (
+          <Button onClick={startEditing} size="sm" variant="ghost">
+            <IconPencil data-icon="inline-start" />
+            编辑
+          </Button>
+        )}
+      </FrameHeader>
+      <FramePanel>
+        <p className="text-muted-foreground text-xs">发 Offer 前先收集候选人期望，做议价参考。</p>
         <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <ExpectationField
             label="期望月薪"
@@ -210,11 +204,15 @@ export function CandidateExpectationsBlock({
             label="当前月薪"
             value={meta?.currentSalary ? `¥ ${meta.currentSalary.toLocaleString()}` : null}
           />
+          <ExpectationField
+            label="谈定 Base 月薪"
+            value={meta?.agreedBaseSalary ? `¥ ${meta.agreedBaseSalary.toLocaleString()}` : null}
+          />
           <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
           <ExpectationField label="备注" value={meta?.notes ?? null} />
         </dl>
-      </CardContent>
-    </Card>
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -234,12 +232,28 @@ export interface OfferCardDependencies {
   slug: string;
 }
 
+export function buildOfferLinkCopy({
+  candidateName,
+  position,
+  url,
+}: {
+  candidateName: string;
+  position: string;
+  url: string;
+}) {
+  const greeting = candidateName.trim() ? `${candidateName.trim()}，您好！` : "您好！";
+  const role = position.trim() ? `「${position.trim()}」岗位` : "";
+  return `${greeting}\n\n您的${role} Offer 已准备好，请通过以下链接查看详情，并在页面中确认是否接受。如有疑问，请与 HR 联系。\n\nOffer 查看与确认链接：\n${url}`;
+}
+
 export function OfferCardView({
   dependencies,
   draft,
   canDelete,
   canUpdate,
   candidateId,
+  candidateEmail,
+  candidateName,
   disabled,
   onRespond,
   onSaved,
@@ -250,6 +264,8 @@ export function OfferCardView({
   canDelete: boolean;
   canUpdate: boolean;
   candidateId: string;
+  candidateEmail: string | null;
+  candidateName: string;
   disabled?: boolean;
   onRespond: () => void;
   onSaved: () => void;
@@ -258,14 +274,25 @@ export function OfferCardView({
   const { slug } = dependencies;
   const meta = offerDraftStatusMeta[draft.status];
   const [editing, setEditing] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
 
-  const cancelMutation = useMutation({
-    mutationFn: () => cancelOfferDraft(slug, candidateId, draft.id),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "撤回失败"),
+  const publishMutation = useMutation({
+    mutationFn: () => sendOfferDraft(slug, candidateId, draft.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "更新失败"),
     onSuccess: () => {
-      toast.success("已撤回 Offer");
+      setPublishOpen(false);
+      toast.success("Offer 已发布，可发送邮件或复制链接");
+      onSaved();
+    },
+  });
+  const cancelMutation = useMutation({
+    mutationFn: () => deleteOfferDraft(slug, candidateId, draft.id),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "删除失败"),
+    onSuccess: () => {
+      toast.success("已删除 Offer");
       onCancelled();
     },
   });
@@ -289,13 +316,25 @@ export function OfferCardView({
     setEditing(true);
   }
 
-  if (editing && canUpdate && draft.status === "draft") {
+  async function copyOfferLink() {
+    try {
+      const { url } = await getOfferPublicLink(slug, candidateId, draft.id);
+      await navigator.clipboard.writeText(
+        buildOfferLinkCopy({ candidateName, position: draft.position, url }),
+      );
+      toast.success("Offer 文案和链接已复制，可直接转发给候选人");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "复制链接失败");
+    }
+  }
+
+  if (editing && !disabled && canUpdate && draft.status === "draft") {
     return (
-      <Card className="gap-0 rounded-lg py-0">
-        <CardContent className="p-4">
+      <div className="min-w-0">
+        <div>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">v{draft.version} · 编辑 Offer 草稿</span>
+              <span className="font-medium text-sm">编辑 Offer 草稿</span>
               <Badge variant={meta.tone}>{meta.label}</Badge>
             </div>
           </div>
@@ -323,22 +362,36 @@ export function OfferCardView({
               {saveMutation.isPending ? "保存中…" : "保存"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="p-4">
+    <div className="min-w-0">
+      <div>
         <div className="space-y-4">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">
-              v{draft.version} · {draft.position}
-            </span>
+            <span className="font-medium text-sm">{draft.position}</span>
             <Badge variant={meta.tone}>{meta.label}</Badge>
           </div>
 
+          <PublishOfferConfirmDialog
+            isPending={publishMutation.isPending}
+            onConfirm={() => publishMutation.mutate()}
+            onOpenChange={setPublishOpen}
+            open={publishOpen && !disabled && canUpdate}
+          />
+          <OfferEmailDialog
+            candidateEmail={candidateEmail}
+            candidateId={candidateId}
+            candidateName={candidateName}
+            draft={draft}
+            onOpenChange={setEmailOpen}
+            onSent={onSaved}
+            open={emailOpen && !disabled && canUpdate}
+            slug={slug}
+          />
           <OfferDraftReadonlyFields draft={draft} />
 
           {disabled ? null : (
@@ -348,14 +401,17 @@ export function OfferCardView({
                 canUpdate={canUpdate}
                 cancelMutation={cancelMutation}
                 draft={draft}
+                onEmail={() => setEmailOpen(true)}
+                onPublish={() => setPublishOpen(true)}
+                onCopyLink={copyOfferLink}
                 onEdit={startEditing}
                 onRespond={onRespond}
               />
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -364,6 +420,9 @@ function OfferCardActions({
   canDelete,
   canUpdate,
   onEdit,
+  onPublish,
+  onEmail,
+  onCopyLink,
   onRespond,
   cancelMutation,
 }: {
@@ -371,46 +430,55 @@ function OfferCardActions({
   canDelete: boolean;
   canUpdate: boolean;
   onEdit: () => void;
+  onPublish: () => void;
+  onEmail: () => void;
+  onCopyLink: () => void;
   onRespond: () => void;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
-    if (!canUpdate) {
-      return null;
-    }
     return (
       <div className="flex flex-wrap justify-end gap-2">
-        <Button onClick={onEdit} size="sm" variant="ghost">
-          <IconPencil className="size-4" />
-          编辑
-        </Button>
-      </div>
-    );
-  }
-  if (draft.status === "sent") {
-    const hasActions = canUpdate || canDelete;
-    if (!hasActions) {
-      return null;
-    }
-    return (
-      <div className="flex flex-wrap justify-end gap-2">
-        {canUpdate ? (
-          <Button onClick={onRespond} size="sm">
-            <IconCircleCheck className="size-4" />
-            记录响应
-          </Button>
-        ) : null}
-        {canDelete ? (
+        {canDelete && draft.sentAt === null && (
           <Button
             disabled={cancelMutation.isPending}
             onClick={() => cancelMutation.mutate()}
             size="sm"
             variant="outline"
           >
-            <IconBan className="size-4" />
-            撤回
+            删除 Offer
           </Button>
-        ) : null}
+        )}
+        {canUpdate && (
+          <>
+            <Button disabled={cancelMutation.isPending} onClick={onPublish} size="sm">
+              <IconCircleCheck className="size-4" />
+              确认并发布
+            </Button>
+            <Button disabled={cancelMutation.isPending} onClick={onEdit} size="sm" variant="ghost">
+              <IconPencil className="size-4" />
+              编辑
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  }
+  if (draft.status === "sent" && canUpdate) {
+    return (
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button onClick={onCopyLink} size="sm" variant="outline">
+          <IconCopy className="size-4" />
+          复制 Offer 链接
+        </Button>
+        <Button onClick={onEmail} size="sm" variant="outline">
+          <IconMail className="size-4" />
+          {draft.emailSentAt ? "重新发送邮件" : "发送邮件"}
+        </Button>
+        <Button onClick={onRespond} size="sm">
+          <IconCircleCheck className="size-4" />
+          记录响应
+        </Button>
       </div>
     );
   }
@@ -435,7 +503,28 @@ function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
         label="Offer 有效期至"
         value={draft.expiresAt ? formatIsoDateOnly(draft.expiresAt) : null}
       />
-      {draft.sentAt ? <ReadonlyOfferField label="发送于" value={formatDate(draft.sentAt)} /> : null}
+      {draft.publishedAt ? (
+        <ReadonlyOfferField label="发布于" value={formatDate(draft.publishedAt)} />
+      ) : null}
+      {draft.emailSentAt ? (
+        <ReadonlyOfferField
+          label="邮件状态"
+          value={`已发送至 ${draft.emailRecipient ?? "候选人"} · ${formatDate(draft.emailSentAt)}`}
+        />
+      ) : null}
+      {draft.responseSource ? (
+        <ReadonlyOfferField
+          label="响应来源"
+          value={draft.responseSource === "candidate" ? "候选人在线确认" : "HR 手动记录"}
+        />
+      ) : null}
+      {draft.declineReason ? (
+        <ReadonlyOfferField
+          className="col-span-2 lg:col-span-4"
+          label="拒绝原因"
+          value={draft.declineReason}
+        />
+      ) : null}
       {draft.candidateCounter ? (
         <ReadonlyOfferField
           className="col-span-2 lg:col-span-4"
@@ -465,47 +554,179 @@ function ReadonlyOfferField({
   );
 }
 
-export function SendOfferConfirmDialog({
-  candidateEmail,
+export function PublishOfferConfirmDialog({
   isPending,
   onConfirm,
   onOpenChange,
   open,
 }: {
-  candidateEmail: string | null;
   isPending: boolean;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
-  const email = candidateEmail?.trim() || "";
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>确认发送 Offer</DialogTitle>
+          <DialogTitle>确认并发布 Offer</DialogTitle>
           <DialogDescription>
-            发送前请确认候选人邮箱。确认后该 Offer 会进入「已发送」状态。
+            发布后内容将锁定，并生成候选人确认链接。之后可发送邮件或复制链接。
           </DialogDescription>
         </DialogHeader>
-
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs">
-            <IconMail className="size-3.5" />
-            即将发送至
-          </div>
-          <div className="mt-1 font-medium text-sm">
-            {email || <span className="text-muted-foreground">未填写候选人邮箱</span>}
-          </div>
-        </div>
 
         <DialogFooter>
           <Button disabled={isPending} onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
-          <Button disabled={isPending || !email} onClick={onConfirm}>
-            {isPending ? "发送中…" : "确认发送"}
+          <Button disabled={isPending} onClick={onConfirm}>
+            {isPending ? "处理中…" : "确认"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OfferEmailDialog({
+  candidateEmail,
+  candidateId,
+  candidateName,
+  draft,
+  onOpenChange,
+  onSent,
+  open,
+  slug,
+}: {
+  candidateEmail: string | null;
+  candidateId: string;
+  candidateName: string;
+  draft: OfferDraftRecord;
+  onOpenChange: (open: boolean) => void;
+  onSent: () => void;
+  open: boolean;
+  slug: string;
+}) {
+  const [to, setTo] = useState(candidateEmail ?? "");
+  const [subject, setSubject] = useState(`Offer 通知｜${draft.position}`);
+  const [content, setContent] = useState(
+    `${candidateName}，您好：\n\n我们诚挚邀请您加入，以下是本次 Offer 的确认链接：\n{{offerLink}}\n\n请在有效期内查看并选择接受或拒绝。`,
+  );
+  const previewQuery = useQuery({
+    enabled: open,
+    queryFn: () => getOfferEmailPreview(slug, candidateId, draft.id),
+    queryKey: ["offer-email-preview", slug, candidateId, draft.id],
+    staleTime: 0,
+  });
+  useEffect(() => {
+    if (!open || !previewQuery.data) {
+      return;
+    }
+    // oxlint-disable-next-line react/set-state-in-effect -- Server defaults reflect current company and linked-job configuration each time the dialog opens.
+    setTo(previewQuery.data.to);
+    setSubject(previewQuery.data.subject);
+    setContent(previewQuery.data.content);
+  }, [open, previewQuery.data]);
+  const expectedOfferUrl = previewQuery.data?.offerUrl;
+  const exactOfferLinkCount = expectedOfferUrl ? content.split(expectedOfferUrl).length - 1 : 0;
+  const offerPathCount = content.match(/\/offer\/[A-Za-z0-9_-]+/g)?.length ?? 0;
+  const offerLinkValid = exactOfferLinkCount === 1 && offerPathCount === 1;
+  let offerLinkHint = "Offer 链接由系统生成，请勿修改。";
+  let offerLinkHintClassName = "text-muted-foreground text-xs";
+  if (previewQuery.isError) {
+    offerLinkHint = "无法加载系统 Offer 链接，请关闭后重试。";
+    offerLinkHintClassName = "text-destructive text-xs";
+  } else if (!previewQuery.isPending && !offerLinkValid) {
+    offerLinkHint = "Offer 链接缺失或已被修改，请关闭后重新打开弹窗恢复。";
+    offerLinkHintClassName = "text-destructive text-xs";
+  }
+  const mutation = useMutation({
+    mutationFn: () => sendOfferEmail(slug, candidateId, draft.id, { content, subject, to }),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "邮件发送失败"),
+    onSuccess: () => {
+      toast.success("Offer 邮件已发送");
+      onOpenChange(false);
+      onSent();
+    },
+  });
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>发送 Offer 邮件</DialogTitle>
+          <DialogDescription>邮件发送成功后会标记为已发送，并保留活动记录。</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor={`offer-email-to-${draft.id}`}>
+              接收邮箱{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
+            <Input
+              aria-required="true"
+              id={`offer-email-to-${draft.id}`}
+              onChange={(event) => setTo(event.target.value)}
+              type="email"
+              required
+              value={to}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`offer-email-subject-${draft.id}`}>
+              邮件主题{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
+            <Input
+              aria-required="true"
+              id={`offer-email-subject-${draft.id}`}
+              onChange={(event) => setSubject(event.target.value)}
+              required
+              value={subject}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`offer-email-content-${draft.id}`}>
+              邮件内容{" "}
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </Label>
+            <Textarea
+              aria-invalid={!previewQuery.isPending && !offerLinkValid}
+              aria-required="true"
+              id={`offer-email-content-${draft.id}`}
+              onChange={(event) => setContent(event.target.value)}
+              rows={9}
+              required
+              value={content}
+            />
+            <p className={offerLinkHintClassName}>{offerLinkHint}</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={mutation.isPending}
+            onClick={() => onOpenChange(false)}
+            variant="outline"
+          >
+            取消
+          </Button>
+          <Button
+            disabled={
+              mutation.isPending ||
+              previewQuery.isPending ||
+              !offerLinkValid ||
+              !to.trim() ||
+              !subject.trim() ||
+              !content.trim()
+            }
+            onClick={() => mutation.mutate()}
+          >
+            {mutation.isPending ? "发送中…" : "发送邮件"}
           </Button>
         </DialogFooter>
       </DialogContent>

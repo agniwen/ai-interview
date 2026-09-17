@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
@@ -16,7 +17,6 @@ import {
   loadRecruitingJobDescriptionById,
 } from "../../../studio/routes/job-descriptions/dao";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
-import { studioInterview } from "@app/db-schema/schema";
 
 const streamHeaders = {
   "Cache-Control": "no-cache",
@@ -103,12 +103,12 @@ export const interviewAnalysisRouter = factory
 
       if (interviewRecordId) {
         const [record] = await db
-          .select({ id: studioInterview.id })
-          .from(studioInterview)
+          .select({ id: recruitingRecordReadModel.id })
+          .from(recruitingRecordReadModel)
           .where(
             and(
-              eq(studioInterview.id, interviewRecordId),
-              eq(studioInterview.organizationId, activeOrg.id),
+              eq(recruitingRecordReadModel.id, interviewRecordId),
+              eq(recruitingRecordReadModel.organizationId, activeOrg.id),
             ),
           )
           .limit(1);

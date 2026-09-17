@@ -22,14 +22,17 @@ import { SummaryMetric } from "../studio-person-detail-skeletons";
 import { compactText } from "../studio-person-detail-sections";
 import type { StudioPersonDetailViewModel } from "../studio-person-detail-controller";
 import { RecommendedQuestionsDialog } from "./recommended-questions-dialog";
+import { SendInvitationButton } from "./send-invitation-button";
 
 type InterviewResultRecord = NonNullable<StudioPersonDetailViewModel["record"]>;
 
 function InterviewResultActionRow({
+  invitation,
   canEditQuestions,
   onSaveQuestions,
   record,
 }: {
+  invitation?: { slug: string; roundId: string };
   canEditQuestions: boolean;
   onSaveQuestions: (
     questions: NonNullable<InterviewResultRecord["interviewQuestions"]>,
@@ -53,17 +56,13 @@ function InterviewResultActionRow({
 
   return (
     <>
-      <div
-        className={cn(
-          "mt-5 grid gap-2 border-border/50 border-t pt-5",
-          hasRecommendedQuestions && showCopyInterviewLink
-            ? "grid-cols-1 sm:grid-cols-2"
-            : "grid-cols-1",
-        )}
-      >
+      <div className="mt-5 flex flex-col gap-2 border-border/50 border-t pt-5 sm:flex-row">
+        {showCopyInterviewLink && invitation ? (
+          <SendInvitationButton {...invitation} disabled={record.roundStatus !== "pending"} />
+        ) : null}
         {hasRecommendedQuestions ? (
           <Button
-            className="w-full"
+            className="min-w-0 flex-1"
             onClick={() => setRecommendedQuestionsOpen(true)}
             type="button"
             variant="outline"
@@ -74,7 +73,7 @@ function InterviewResultActionRow({
         ) : null}
         {showCopyInterviewLink ? (
           <Button
-            className="w-full"
+            className="min-w-0 flex-1"
             disabled={!record.roundInterviewLink || interviewLinkState?.copyDisabled}
             onClick={() => {
               if (record.roundInterviewLink && record.roundStatus) {
@@ -117,12 +116,14 @@ function InterviewResultActionRow({
 }
 
 export function InterviewResultFrame({
+  invitation,
   canEditQuestions,
   evaluationSummary,
   onSaveQuestions,
   record,
   report,
 }: {
+  invitation?: { slug: string; roundId: string };
   canEditQuestions: boolean;
   evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
   onSaveQuestions: (
@@ -192,6 +193,7 @@ export function InterviewResultFrame({
           </div>
         ) : null}
         <InterviewResultActionRow
+          invitation={invitation}
           canEditQuestions={canEditQuestions}
           onSaveQuestions={onSaveQuestions}
           record={record}

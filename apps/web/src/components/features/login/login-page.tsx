@@ -1,20 +1,31 @@
 import { IconArrowLeft } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 import { SignInTabs } from "@/components/features/auth/sign-in-tabs";
+import { FeishuAccountMigration } from "@/components/features/auth/feishu-account-migration";
+import { isFeishuMigrationEnabled } from "@/components/features/auth/feishu-sign-in-buttons";
 import { BackgroundLayers } from "@/components/features/home/background-layers";
 import { LoginErrorToast } from "@/components/features/login/login-error-toast";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { Button } from "@/components/ui/button";
+import { useFeishuLoginProviderIds } from "@/lib/client/feishu-auth-config";
 import * as m from "@/paraglide/messages";
 
 interface LoginPageProps {
   callbackURL: string;
   error?: string;
   errorDescription?: string;
+  feishuMigration?: boolean;
 }
 
-export function LoginPage({ callbackURL, error, errorDescription }: LoginPageProps) {
+export function LoginPage({
+  callbackURL,
+  error,
+  errorDescription,
+  feishuMigration,
+}: LoginPageProps) {
+  const providerIds = useFeishuLoginProviderIds();
+  const showMigration = Boolean(feishuMigration && isFeishuMigrationEnabled(providerIds));
   return (
     <main className="relative min-h-dvh overflow-hidden" id="main-content">
       <BackgroundLayers />
@@ -46,13 +57,19 @@ export function LoginPage({ callbackURL, error, errorDescription }: LoginPagePro
             </div>
 
             <div className="mt-8">
-              <SignInTabs callbackURL={callbackURL} />
+              {showMigration ? (
+                <FeishuAccountMigration callbackURL={callbackURL} error={error} />
+              ) : (
+                <SignInTabs callbackURL={callbackURL} />
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {error ? <LoginErrorToast errorCode={error} errorDescription={errorDescription} /> : null}
+      {error && !showMigration ? (
+        <LoginErrorToast errorCode={error} errorDescription={errorDescription} />
+      ) : null}
     </main>
   );
 }

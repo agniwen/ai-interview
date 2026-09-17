@@ -1,3 +1,5 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { CANDIDATE_INTERVIEW_EMAILS_ENABLED } from "@app/shared/interview-notifications";
 // round-emails 子路由：POST /:roundId/send 发送邀请邮件，GET /summary 查询发送摘要。
 // round-emails subrouter: POST /:roundId/send sends invite email, GET /summary queries send summary.
 
@@ -9,12 +11,19 @@ import { db } from "../../../../../../../lib/server/db/index";
 import { buildSenderFromAddress, getResendClient } from "../../../../../../../lib/server/resend";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import { getGlobalConfig } from "../../../global-config/dao";
 import { insertRoundEmailLog, summarizeRoundEmailLogs } from "./dao";
 import { renderRoundInviteEmail } from "./utils/templates";
+import { createManualHumanEmailRouter } from "./human-route";
 import type { SendRoundEmailResponse } from "@app/db-schema/round-email-log";
 import { summaryQuerySchema } from "@app/db-schema/round-email-log";
-import { studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
+import { aiInterviewRound } from "@app/db-schema/schema";
+import {
+  previewManualAiInvitation,
+  confirmManualAiInvitation,
+  ManualInvitationError,
+} from "./application/default-manual-ai-invitation";
 
 const sendParamsSchema = z.object({ roundId: z.string().min(1) });
 
@@ -22,6 +31,9 @@ type SendEmailInput = Parameters<ReturnType<typeof getResendClient>["emails"]["s
 type SendEmailResult = Awaited<ReturnType<ReturnType<typeof getResendClient>["emails"]["send"]>>;
 
 export interface RoundEmailsRouterDependencies {
+  visibility?: typeof resolveRecruitingVisibilityScope;
+  previewManualAiInvitation?: typeof previewManualAiInvitation;
+  confirmManualAiInvitation?: typeof confirmManualAiInvitation;
   buildSenderFromAddress: typeof buildSenderFromAddress;
   requirePermission: typeof requirePermission;
   sendEmail: (input: SendEmailInput) => Promise<SendEmailResult>;
@@ -48,6 +60,78 @@ export function createRoundEmailsRouter(
 ) {
   return factory
     .createApp()
+    .route("/human", createManualHumanEmailRouter())
+    .get(
+      "/:roundId/preview-invitation",
+      dependencies.requirePermission("interview", "update"),
+      dependencies.requirePermission("resumeLibrary", "read"),
+      async (c) => {
+        c.header("Cache-Control", "no-store");
+        const { activeOrg, user } = c.var;
+        if (!activeOrg || !user) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        try {
+          return c.json(
+            await (dependencies.previewManualAiInvitation ?? previewManualAiInvitation)({
+              actorUserId: user.id,
+              organizationId: activeOrg.id,
+              roundId: c.req.param("roundId"),
+              visibility: await (dependencies.visibility ?? resolveRecruitingVisibilityScope)({
+                currentRole: c.var.member?.role,
+                organizationId: activeOrg.id,
+                userId: user.id,
+              }),
+            }),
+            200,
+          );
+        } catch (error) {
+          if (error instanceof ManualInvitationError) {
+            return c.json({ error: error.message }, error.status);
+          }
+          throw error;
+        }
+      },
+    )
+    .post(
+      "/:roundId/confirm-invitation",
+      dependencies.requirePermission("interview", "update"),
+      dependencies.requirePermission("resumeLibrary", "read"),
+      zValidator(
+        "json",
+        z.object({ confirmationToken: z.string().min(1).max(4096), confirmed: z.literal(true) }),
+        jsonValidatorError("请预览邮件并确认发送"),
+      ),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!activeOrg || !user) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        try {
+          const result = await (
+            dependencies.confirmManualAiInvitation ?? confirmManualAiInvitation
+          )(
+            {
+              actorUserId: user.id,
+              organizationId: activeOrg.id,
+              roundId: c.req.param("roundId"),
+              visibility: await (dependencies.visibility ?? resolveRecruitingVisibilityScope)({
+                currentRole: c.var.member?.role,
+                organizationId: activeOrg.id,
+                userId: user.id,
+              }),
+            },
+            c.req.valid("json").confirmationToken,
+          );
+          return c.json(result, 202);
+        } catch (error) {
+          if (error instanceof ManualInvitationError) {
+            return c.json({ error: error.message }, error.status);
+          }
+          throw error;
+        }
+      },
+    )
     .post(
       "/:roundId/send",
       dependencies.requirePermission("interview", "update"),
@@ -57,28 +141,32 @@ export function createRoundEmailsRouter(
         if (!activeOrg) {
           return c.json({ error: "Unauthorized" }, 401);
         }
+        // 旧版直发接口同样暂停，防止绕过通知队列的止血限制。
+        if (!CANDIDATE_INTERVIEW_EMAILS_ENABLED) {
+          return c.json({ error: "候选人面试邮件暂时停用，请复制面试链接人工联系候选人。" }, 503);
+        }
         const { roundId } = c.req.valid("param");
 
         // 联查轮次 + 候选人邮箱 + pipelineStage（用于阶段守卫）。
         // Join round with candidate email + pipelineStage for the stage guard.
         const [row] = await db
           .select({
-            candidateEmail: studioInterview.candidateEmail,
-            candidateName: studioInterview.candidateName,
-            interviewRecordId: studioInterviewSchedule.interviewRecordId,
-            pipelineStage: studioInterview.pipelineStage,
-            roundLabel: studioInterviewSchedule.roundLabel,
-            scheduledAt: studioInterviewSchedule.scheduledAt,
+            candidateEmail: recruitingRecordReadModel.candidateEmail,
+            candidateName: recruitingRecordReadModel.candidateName,
+            interviewRecordId: aiInterviewRound.recruitingRecordId,
+            pipelineStage: recruitingRecordReadModel.pipelineStage,
+            roundLabel: aiInterviewRound.roundLabel,
+            scheduledAt: aiInterviewRound.scheduledAt,
           })
-          .from(studioInterviewSchedule)
+          .from(aiInterviewRound)
           .innerJoin(
-            studioInterview,
-            eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
+            recruitingRecordReadModel,
+            eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
           )
           .where(
             and(
-              eq(studioInterviewSchedule.id, roundId),
-              eq(studioInterviewSchedule.organizationId, activeOrg.id),
+              eq(aiInterviewRound.id, roundId),
+              eq(aiInterviewRound.organizationId, activeOrg.id),
             ),
           )
           .limit(1);

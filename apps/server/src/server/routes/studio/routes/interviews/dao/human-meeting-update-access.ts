@@ -1,9 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-} from "@app/db-schema/schema";
+import { humanInterviewMeeting, humanInterviewMeetingInterviewer } from "@app/db-schema/schema";
 
 export async function isHumanMeetingInterviewer(input: {
   meetingId: string;
@@ -11,17 +8,17 @@ export async function isHumanMeetingInterviewer(input: {
   userId: string;
 }): Promise<boolean> {
   const [row] = await db
-    .select({ userId: studioHumanInterviewMeetingInterviewer.userId })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .select({ userId: humanInterviewMeetingInterviewer.userId })
+    .from(humanInterviewMeetingInterviewer)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingInterviewer.meetingId),
+      humanInterviewMeeting,
+      eq(humanInterviewMeeting.id, humanInterviewMeetingInterviewer.meetingId),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId),
-        eq(studioHumanInterviewMeetingInterviewer.userId, input.userId),
-        eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
+        eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId),
+        eq(humanInterviewMeetingInterviewer.userId, input.userId),
+        eq(humanInterviewMeeting.organizationId, input.organizationId),
       ),
     )
     .limit(1);

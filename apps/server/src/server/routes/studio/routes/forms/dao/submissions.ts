@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import type {
   CandidateFormSubmissionRecord,
   CandidateFormSubmissionWithSnapshot,
@@ -5,11 +6,7 @@ import type {
 } from "@app/db-schema/candidate-forms";
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import {
-  candidateFormSubmission,
-  candidateFormTemplateVersion,
-  studioInterview,
-} from "@app/db-schema/schema";
+import { recruitingFormSubmission, candidateFormTemplateVersion } from "@app/db-schema/schema";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 
 // 默认 / 上限的页大小。Drawer 一次加载 20 条已经够；100 是 hard cap，给 API
@@ -27,12 +24,12 @@ export async function loadSubmittedTemplateIds(
     return new Set();
   }
   const rows = await db
-    .select({ templateId: candidateFormSubmission.templateId })
-    .from(candidateFormSubmission)
+    .select({ templateId: recruitingFormSubmission.templateId })
+    .from(recruitingFormSubmission)
     .where(
       and(
-        eq(candidateFormSubmission.interviewRecordId, interviewRecordId),
-        inArray(candidateFormSubmission.templateId, templateIds),
+        eq(recruitingFormSubmission.recruitingRecordId, interviewRecordId),
+        inArray(recruitingFormSubmission.templateId, templateIds),
       ),
     );
   return new Set(rows.map((row) => row.templateId));
@@ -43,22 +40,22 @@ export async function loadSubmissionsByInterview(
 ): Promise<CandidateFormSubmissionWithSnapshot[]> {
   const rows = await db
     .select({
-      answers: candidateFormSubmission.answers,
-      id: candidateFormSubmission.id,
-      interviewRecordId: candidateFormSubmission.interviewRecordId,
+      answers: recruitingFormSubmission.answers,
+      id: recruitingFormSubmission.id,
+      interviewRecordId: recruitingFormSubmission.recruitingRecordId,
       snapshot: candidateFormTemplateVersion.snapshot,
-      submittedAt: candidateFormSubmission.submittedAt,
-      templateId: candidateFormSubmission.templateId,
+      submittedAt: recruitingFormSubmission.submittedAt,
+      templateId: recruitingFormSubmission.templateId,
       version: candidateFormTemplateVersion.version,
-      versionId: candidateFormSubmission.versionId,
+      versionId: recruitingFormSubmission.versionId,
     })
-    .from(candidateFormSubmission)
+    .from(recruitingFormSubmission)
     .innerJoin(
       candidateFormTemplateVersion,
-      eq(candidateFormSubmission.versionId, candidateFormTemplateVersion.id),
+      eq(recruitingFormSubmission.versionId, candidateFormTemplateVersion.id),
     )
-    .where(eq(candidateFormSubmission.interviewRecordId, interviewRecordId))
-    .orderBy(asc(candidateFormSubmission.submittedAt));
+    .where(eq(recruitingFormSubmission.recruitingRecordId, interviewRecordId))
+    .orderBy(asc(recruitingFormSubmission.submittedAt));
 
   return rows.map((row) => ({
     answers: row.answers,
@@ -101,30 +98,33 @@ export async function loadSubmissionsByTemplate(
   const [rows, [countRow]] = await Promise.all([
     db
       .select({
-        answers: candidateFormSubmission.answers,
-        candidateName: studioInterview.candidateName,
-        id: candidateFormSubmission.id,
-        interviewRecordId: candidateFormSubmission.interviewRecordId,
+        answers: recruitingFormSubmission.answers,
+        candidateName: recruitingRecordReadModel.candidateName,
+        id: recruitingFormSubmission.id,
+        interviewRecordId: recruitingFormSubmission.recruitingRecordId,
         snapshot: candidateFormTemplateVersion.snapshot,
-        submittedAt: candidateFormSubmission.submittedAt,
-        templateId: candidateFormSubmission.templateId,
+        submittedAt: recruitingFormSubmission.submittedAt,
+        templateId: recruitingFormSubmission.templateId,
         version: candidateFormTemplateVersion.version,
-        versionId: candidateFormSubmission.versionId,
+        versionId: recruitingFormSubmission.versionId,
       })
-      .from(candidateFormSubmission)
+      .from(recruitingFormSubmission)
       .innerJoin(
         candidateFormTemplateVersion,
-        eq(candidateFormSubmission.versionId, candidateFormTemplateVersion.id),
+        eq(recruitingFormSubmission.versionId, candidateFormTemplateVersion.id),
       )
-      .leftJoin(studioInterview, eq(candidateFormSubmission.interviewRecordId, studioInterview.id))
-      .where(eq(candidateFormSubmission.templateId, templateId))
-      .orderBy(desc(candidateFormSubmission.submittedAt))
+      .leftJoin(
+        recruitingRecordReadModel,
+        eq(recruitingFormSubmission.recruitingRecordId, recruitingRecordReadModel.id),
+      )
+      .where(eq(recruitingFormSubmission.templateId, templateId))
+      .orderBy(desc(recruitingFormSubmission.submittedAt))
       .limit(limit)
       .offset(offset),
     db
       .select({ count: count() })
-      .from(candidateFormSubmission)
-      .where(eq(candidateFormSubmission.templateId, templateId)),
+      .from(recruitingFormSubmission)
+      .where(eq(recruitingFormSubmission.templateId, templateId)),
   ]);
 
   return {

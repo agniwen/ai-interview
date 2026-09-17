@@ -6,9 +6,6 @@
 const cossWhisperShadowClass =
   "shadow-[0_4px_24px_rgb(0_0_0/0.05)] dark:shadow-[0_4px_24px_rgb(0_0_0/0.2)]";
 
-/** @deprecated Kept for call-site compatibility; Yohaku resting surfaces use border only. */
-const cossControlOverlayClass = "";
-
 const cossFieldFocusClass =
   "has-focus-visible:shadow-[0_1px_1px_0_--theme(--color-foreground/16%)]";
 
@@ -49,7 +46,6 @@ const cossMenuItemClass =
 
 export {
   cossAnchoredPopupMotionClass,
-  cossControlOverlayClass,
   cossFieldFocusClass,
   cossFieldSurfaceClass,
   cossMenuItemClass,

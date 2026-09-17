@@ -254,6 +254,7 @@ export async function createMultipartSavedMeeting(
       manifestSha256: input.input.manifestSha256,
       organizationId: input.organizationId,
       ownerId: input.ownerId,
+      processingOwnership: input.input.processingOwnership,
       savedAt: input.input.savedAt,
       startedAt: input.input.startedAt,
       title: input.input.title,
@@ -284,7 +285,10 @@ export async function createMultipartSavedMeeting(
         organizationId: input.organizationId,
         ownerId: input.ownerId,
       }));
-    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
+    if (
+      meeting.processingOwner !== "device" &&
+      shouldAutomaticallyEnqueuePlayback(meeting.status)
+    ) {
       await enqueueMeetingPlaybackBestEffort(
         {
           meetingId: meeting.id,
@@ -430,7 +434,10 @@ export async function completeSmallSavedMeeting(
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
       meeting.recoveryCopyDeleteAfter ?? (await dependencies.markMeetingSessionVerified(input));
-    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
+    if (
+      meeting.processingOwner !== "device" &&
+      shouldAutomaticallyEnqueuePlayback(meeting.status)
+    ) {
       await enqueueMeetingPlaybackBestEffort(
         {
           meetingId: meeting.id,
@@ -519,13 +526,15 @@ export async function completeSmallSavedMeeting(
     return { error: "源音轨尚未通过对象完整性校验", status: 409 };
   }
   const recoveryCopyDeleteAfter = await dependencies.markMeetingSessionVerified(input);
-  await enqueueMeetingPlaybackBestEffort(
-    {
-      meetingId: meeting.id,
-      organizationId: input.organizationId,
-    },
-    dependencies,
-  );
+  if (meeting.processingOwner !== "device") {
+    await enqueueMeetingPlaybackBestEffort(
+      {
+        meetingId: meeting.id,
+        organizationId: input.organizationId,
+      },
+      dependencies,
+    );
+  }
   return {
     completed: true,
     meetingId: meeting.id,
@@ -583,11 +592,19 @@ export async function listSavedMeetings(
       id: row.id,
       processingState: processingState(row.status),
       recordingAvailable: row.recordingAvailable,
+      recordingType: row.recordingType,
       savedAt: row.savedAt.toISOString(),
       title: row.title,
       workspaceCustodied: row.workspaceCustodied,
     };
   });
+}
+
+function meetingSummaryState(status?: string): "ready" | "failed" | "processing" | undefined {
+  if (status === "ready" || status === "failed") {
+    return status;
+  }
+  return status ? "processing" : undefined;
 }
 
 export async function getSavedMeetingDetail(
@@ -641,8 +658,10 @@ export async function getSavedMeetingDetail(
       meeting.status === "trashed" ? (meeting.trashedFromStatus ?? "ready") : meeting.status,
     ),
     recordingAvailable: Boolean(playback),
+    recordingType: meeting.recordingType ?? "voice_recording",
     savedAt: meeting.savedAt.toISOString(),
     startedAt: meeting.startedAt.toISOString(),
+    summaryState: meetingSummaryState(meeting.intelligenceStatus),
     title: meeting.title ?? "",
     verifiedAt: meeting.verifiedAt?.toISOString() ?? null,
     workspaceCustodied: meeting.workspaceCustodied,

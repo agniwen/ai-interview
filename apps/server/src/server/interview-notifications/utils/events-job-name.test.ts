@@ -1,17 +1,18 @@
-import { eq } from "drizzle-orm";
+import { createRecruitingRecords } from "@app/database/recruiting-records";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   department,
-  interviewNotificationEvent,
+  recruitingNotificationEvent,
   jobDescription,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  recruitingOffer,
 } from "@app/db-schema/schema";
 import { db } from "../../../lib/server/db/index";
-import { enqueueHumanMeetingEvents } from "./events";
+import { enqueueHumanMeetingEvents, enqueueOfferResponseEvent } from "./events";
 
 const id = `notification-job-${crypto.randomUUID()}`;
 
@@ -25,7 +26,7 @@ beforeAll(async () => {
     organizationId: id,
     prompt: "岗位 JD",
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "测试候选人",
     id,
     interviewQuestions: [],
@@ -33,17 +34,20 @@ beforeAll(async () => {
     organizationId: id,
     targetRole: "前端开发",
   });
-  await db.insert(studioHumanInterviewRound).values({
+  await db.insert(humanInterviewRound).values({
     format: "online",
     id,
-    interviewRecordId: id,
     label: "业务二面",
     organizationId: id,
     outcome: "pass",
+    recruitingRecordId: id,
+    roundKind: "second_interview",
     status: "completed",
   });
-  await db.insert(studioHumanInterviewMeeting).values({ id, organizationId: id, title: "测试" });
-  await db.insert(studioHumanInterviewMeetingRound).values({ meetingId: id, roundId: id });
+  await db.insert(humanInterviewMeeting).values({ id, organizationId: id, title: "测试" });
+  await db
+    .insert(humanInterviewMeetingRound)
+    .values({ meetingId: id, organizationId: id, roundId: id });
 });
 
 afterAll(async () => {
@@ -62,8 +66,8 @@ describe("notification job context", () => {
     const readEvents = () =>
       db
         .select()
-        .from(interviewNotificationEvent)
-        .where(eq(interviewNotificationEvent.organizationId, id));
+        .from(recruitingNotificationEvent)
+        .where(eq(recruitingNotificationEvent.organizationId, id));
     const created = await readEvents();
     expect(created[0]?.payloadSnapshot.jobName).toBe("【测试2】前端技术经理");
 
@@ -75,5 +79,39 @@ describe("notification job context", () => {
     const retried = await readEvents();
     expect(retried).toHaveLength(1);
     expect(retried[0]?.payloadSnapshot.jobName).toBe("【测试2】前端技术经理");
+  });
+
+  it("freezes the position entered on the Offer for an Offer response", async () => {
+    const offerId = `${id}-offer`;
+    await db.insert(recruitingOffer).values({
+      baseSalary: 30_000,
+      id: offerId,
+      organizationId: id,
+      position: "Offer 手填职位",
+      recruitingRecordId: id,
+      status: "accepted",
+      version: 1,
+    });
+
+    await db.transaction((tx) =>
+      enqueueOfferResponseEvent(tx, {
+        offerId,
+        respondedAt: new Date("2026-09-11T06:42:20.015Z"),
+        response: "accepted",
+      }),
+    );
+
+    const [created] = await db
+      .select({ payloadSnapshot: recruitingNotificationEvent.payloadSnapshot })
+      .from(recruitingNotificationEvent)
+      .where(
+        and(
+          eq(recruitingNotificationEvent.organizationId, id),
+          eq(recruitingNotificationEvent.type, "offer_accepted"),
+        ),
+      );
+
+    expect(created?.payloadSnapshot.jobName).toBe("Offer 手填职位");
+    expect(created?.payloadSnapshot.companyName).toBe("测试");
   });
 });

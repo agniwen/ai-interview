@@ -298,7 +298,7 @@ export function ResumeProfileView({
           <ul className="flex flex-col gap-3">
             {projectExperiences.map((proj) => (
               <li
-                className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
+                className="rounded-xl bg-muted/30 px-4 py-3 border-border border"
                 key={[
                   proj.name,
                   proj.role,

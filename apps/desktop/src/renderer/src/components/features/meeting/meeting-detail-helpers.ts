@@ -10,6 +10,8 @@ import type { WorkspaceSavePhase } from "../../../../../preload/meeting-capture"
 
 const LOCAL_WORKSPACE_SAVE_LABEL = {
   "action-required": "上传需要处理",
+  summarizing: "录音已保存，总结补齐中",
+  "summary-pending": "总结待重试",
   uploading: "正在上传",
   verifying: "正在验证",
   "waiting-for-network": "等待网络后自动上传",
@@ -123,7 +125,11 @@ export function sessionDetailStatus(input: {
 export function meetingDetailRefetchInterval(
   meeting: MeetingDetail | null | undefined,
 ): number | false {
-  if (meeting?.processingState === "processing") {
+  if (
+    meeting?.summaryState === "processing" ||
+    meeting?.summaryState === "pending" ||
+    meeting?.processingState === "processing"
+  ) {
     return 5000;
   }
   if (meeting?.processingState === "failed") {

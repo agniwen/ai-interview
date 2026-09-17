@@ -10,13 +10,14 @@ export interface InterviewSummaryQuestionAnswer {
 export interface InterviewSummaryCardProps {
   assessment: string | null;
   candidateName: string;
-  detailUrl: string;
   duration: string;
+  evaluationDocumentUrl: string;
   interviewQuestions: string[];
   interviewStartedAt: string;
   overallScore: string;
   questionAnswers: InterviewSummaryQuestionAnswer[];
   recommendation: string;
+  reportUrl: string;
   resumeEvaluation: string | null;
   summary: string | null;
   targetRole: string | null;
@@ -25,13 +26,14 @@ export interface InterviewSummaryCardProps {
 export function InterviewSummaryCard({
   assessment,
   candidateName,
-  detailUrl,
   duration,
+  evaluationDocumentUrl,
   interviewQuestions,
   interviewStartedAt,
   overallScore,
   questionAnswers,
   recommendation,
+  reportUrl,
   resumeEvaluation,
   summary,
   targetRole,
@@ -88,9 +90,10 @@ export function InterviewSummaryCard({
       ) : null}
       <Divider />
       <Actions>
-        <LinkButton style="primary" url={detailUrl}>
+        <LinkButton style="primary" url={evaluationDocumentUrl}>
           查看飞书评价表
         </LinkButton>
+        <LinkButton url={reportUrl}>查看面试报告</LinkButton>
       </Actions>
     </Card>
   );

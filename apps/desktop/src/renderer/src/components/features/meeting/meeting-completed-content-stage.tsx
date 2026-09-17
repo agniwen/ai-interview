@@ -1,6 +1,8 @@
+import { cn } from "@app/shared/utils";
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,12 +11,6 @@ import { MeetingLiveSummaryDocument } from "./meeting-live-summary-document";
 import { MeetingLiveSummaryPanel } from "./meeting-live-summary-panel";
 
 type CompletedContentView = "document" | "mind-map" | "transcript";
-
-const completedContentViewTitles = {
-  document: "Markdown 总结",
-  "mind-map": "思维导图",
-  transcript: "实时字幕",
-} satisfies Record<CompletedContentView, string>;
 
 const noDragStyle: CSSProperties & { WebkitAppRegion: "no-drag" } = {
   WebkitAppRegion: "no-drag",
@@ -34,28 +30,84 @@ function controllerSnapshot(
 
 export function MeetingCompletedContentStage({
   summary,
+  summaryState,
+  onRetrySummary,
+  retrying,
   transcript,
+  children,
 }: {
+  onRetrySummary?: () => void;
+  retrying?: boolean;
+  summaryState?: "pending" | "processing" | "ready" | "failed";
   summary: MeetingLiveSummarySnapshot | null;
   transcript: ReactNode;
+  children: (slots: { toolbar: ReactNode; content: ReactNode; scrollable: boolean }) => ReactNode;
 }) {
   const [selectedView, setSelectedView] = useState<CompletedContentView | null>(null);
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
   const view = selectedView ?? (summary ? "document" : "transcript");
   const snapshot = controllerSnapshot(summary);
   const showTranscriptEvidence = () => setSelectedView("transcript");
 
-  return (
-    <section
-      className="flex min-h-full w-full flex-col pb-10"
-      data-slot="meeting-completed-content-stage"
-    >
+  return children({
+    content: (
+      <section
+        className={cn(
+          "flex w-full flex-col",
+          view === "mind-map" ? "h-full min-h-0" : "min-h-full pb-10",
+        )}
+        data-slot="meeting-completed-content-stage"
+      >
+        <div className="min-h-0 flex-1">
+          {view === "document" ? (
+            <MeetingLiveSummaryDocument
+              highlightedNodeId={highlightedNodeId}
+              onEvidence={showTranscriptEvidence}
+              snapshot={snapshot}
+            />
+          ) : null}
+          {view === "mind-map" ? (
+            <div className="h-full min-h-0 w-full" data-slot="meeting-completed-mind-map">
+              <MeetingLiveSummaryPanel
+                onEvidence={showTranscriptEvidence}
+                onNodeSelect={(nodeId) => {
+                  setHighlightedNodeId(nodeId);
+                  setSelectedView("document");
+                }}
+                snapshot={snapshot}
+              />
+            </div>
+          ) : null}
+          {view === "transcript" ? (
+            <div
+              className="mx-auto w-full max-w-3xl px-4 sm:px-6"
+              data-slot="meeting-completed-transcript"
+            >
+              {transcript}
+            </div>
+          ) : null}
+        </div>
+      </section>
+    ),
+    scrollable: view !== "mind-map",
+    toolbar: (
       <header
-        className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-between gap-3 px-4 sm:px-6"
+        className="mx-auto flex h-11 w-full max-w-3xl shrink-0 items-center justify-start px-4 sm:px-6"
         data-slot="meeting-completed-content-header"
       >
-        <h2 className="font-semibold text-sm" data-slot="meeting-completed-content-title">
-          {completedContentViewTitles[view]}
-        </h2>
+        {summaryState === "processing" || summaryState === "pending" ? (
+          <output className="mr-3 text-xs text-muted-foreground">总结更新中</output>
+        ) : null}
+        {summaryState === "failed" ? (
+          <output className="mr-3 text-xs text-muted-foreground">
+            总结生成失败，已有内容已保留
+          </output>
+        ) : null}
+        {summaryState === "failed" && onRetrySummary ? (
+          <Button size="sm" variant="text" disabled={retrying} onClick={onRetrySummary}>
+            重试总结
+          </Button>
+        ) : null}
         <TooltipProvider delay={200}>
           <ToggleGroup
             aria-label="会议内容显示方式"
@@ -63,6 +115,7 @@ export function MeetingCompletedContentStage({
             onValueChange={(value) => {
               const [next] = value;
               if (next === "document" || next === "mind-map" || next === "transcript") {
+                setHighlightedNodeId(null);
                 setSelectedView(next);
               }
             }}
@@ -103,27 +156,6 @@ export function MeetingCompletedContentStage({
           </ToggleGroup>
         </TooltipProvider>
       </header>
-      <div className="min-h-0 flex-1">
-        {view === "document" ? (
-          <MeetingLiveSummaryDocument onEvidence={showTranscriptEvidence} snapshot={snapshot} />
-        ) : null}
-        {view === "mind-map" ? (
-          <div
-            className="h-[min(42rem,70vh)] min-h-[32rem] w-full"
-            data-slot="meeting-completed-mind-map"
-          >
-            <MeetingLiveSummaryPanel onEvidence={showTranscriptEvidence} snapshot={snapshot} />
-          </div>
-        ) : null}
-        {view === "transcript" ? (
-          <div
-            className="mx-auto w-full max-w-3xl px-4 sm:px-6"
-            data-slot="meeting-completed-transcript"
-          >
-            {transcript}
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
+    ),
+  });
 }

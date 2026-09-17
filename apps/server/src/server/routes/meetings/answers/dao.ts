@@ -40,6 +40,7 @@ async function hasMeetingAccess(
       activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
       custodianId: meetingSession.custodianId,
       ownerId: meetingSession.ownerId,
+      processingOwner: meetingSession.processingOwner,
       status: meetingSession.status,
       visibility: meetingSession.visibility,
     })
@@ -247,10 +248,12 @@ export async function createMeetingAnswerExchange(input: {
   organizationId: string;
   promptVersion: string;
   provider: string;
+  processingOwner?: "device" | "worker";
   question: string;
   requestId: string;
   threadId: string;
 }): Promise<CreateMeetingAnswerExchangeResult> {
+  const processingOwner = input.processingOwner ?? "worker";
   return await db.transaction(async (tx) => {
     const meeting = await hasMeetingAccess(tx, {
       lockMemberForUpdate: true,
@@ -258,7 +261,7 @@ export async function createMeetingAnswerExchange(input: {
       organizationId: input.organizationId,
       userId: input.createdBy,
     });
-    if (!meeting) {
+    if (!meeting || meeting.processingOwner !== processingOwner) {
       return "not-authorized";
     }
     if (!(meeting.activeTranscriptRevisionId && meeting.status === "ready")) {
@@ -306,7 +309,7 @@ export async function createMeetingAnswerExchange(input: {
     if (activeInThread) {
       return "active-question";
     }
-    const [activeForUser] = await tx
+    const [{ value: activeCount } = { value: 0 }] = await tx
       .select({ value: count() })
       .from(meetingQuestionExchange)
       .where(
@@ -316,7 +319,7 @@ export async function createMeetingAnswerExchange(input: {
           inArray(meetingQuestionExchange.status, ["pending", "processing"]),
         ),
       );
-    if (Number(activeForUser?.value ?? 0) >= MAX_ACTIVE_QUESTIONS_PER_USER) {
+    if (Number(activeCount) >= MAX_ACTIVE_QUESTIONS_PER_USER) {
       return "rate-limited";
     }
     const [recentForUser] = await tx

@@ -109,14 +109,43 @@ function loadMeetingSession(id: string) {
   return db.query.meetingSession.findFirst({ where: { id }, with: { assets: true } });
 }
 
+type NewMeetingSession = Omit<CreateSmallSavedMeetingInput, "assets" | "id"> & {
+  id: string;
+  organizationId: string;
+  ownerId: string;
+};
+function newMeetingSessionValues(
+  meeting: NewMeetingSession,
+  now: Date,
+): typeof meetingSession.$inferInsert {
+  return {
+    id: meeting.id,
+    liveSummary: meeting.liveSummary ?? null,
+    liveTranscriptDraft: meeting.liveTranscriptDraft ?? null,
+    manifestSha256: meeting.manifestSha256,
+    organizationId: meeting.organizationId,
+    ownerId: meeting.ownerId,
+    processingAccountId: meeting.processingOwnership?.accountId ?? null,
+    processingDeviceId: meeting.processingOwnership?.deviceId ?? null,
+    processingOwner: "device",
+    savedAt: new Date(meeting.savedAt),
+    startedAt: new Date(meeting.startedAt),
+    status: "uploading",
+    title: meeting.title ?? defaultMeetingTitle(meeting.startedAt),
+    uploadLeaseExpiresAt: meetingDirectUploadLeaseExpiresAt(now),
+  };
+}
+
 export async function createOrLoadMeetingSession(input: {
   assets: NewMeetingAsset[];
-  meeting: Omit<CreateSmallSavedMeetingInput, "assets" | "id"> & {
-    id: string;
-    organizationId: string;
-    ownerId: string;
-  };
+  meeting: NewMeetingSession;
 }) {
+  if (
+    input.meeting.processingOwnership &&
+    input.meeting.processingOwnership.accountId !== input.meeting.ownerId
+  ) {
+    throw new Error("录音任务账号与当前登录账号不一致");
+  }
   const created = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.meeting.id}))`);
     const tombstone = await tx.query.meetingPurgeTombstone.findFirst({
@@ -192,19 +221,7 @@ export async function createOrLoadMeetingSession(input: {
     }
     const inserted = await tx
       .insert(meetingSession)
-      .values({
-        id: input.meeting.id,
-        liveSummary: input.meeting.liveSummary ?? null,
-        liveTranscriptDraft: input.meeting.liveTranscriptDraft ?? null,
-        manifestSha256: input.meeting.manifestSha256,
-        organizationId: input.meeting.organizationId,
-        ownerId: input.meeting.ownerId,
-        savedAt: new Date(input.meeting.savedAt),
-        startedAt: new Date(input.meeting.startedAt),
-        status: "uploading",
-        title: input.meeting.title ?? defaultMeetingTitle(input.meeting.startedAt),
-        uploadLeaseExpiresAt: meetingDirectUploadLeaseExpiresAt(now),
-      })
+      .values(newMeetingSessionValues(input.meeting, now))
       .onConflictDoNothing({ target: meetingSession.id })
       .returning({ id: meetingSession.id });
     if (inserted.length === 0) {

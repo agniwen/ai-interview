@@ -26,6 +26,7 @@ export { apiFetch, type ApiFetchOptions } from "./client";
 export { rpcFetch } from "./rpc-fetch";
 export { extractResumeDedupConflictMatches } from "./resume-dedup-conflict";
 export * from "./endpoints/chat";
+export * from "./endpoints/background-check";
 export * from "./endpoints/public-interview";
 export * from "./endpoints/studio-interviews";
 export * from "./endpoints/studio-calendar";

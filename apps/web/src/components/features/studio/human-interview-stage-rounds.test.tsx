@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/client/api";
 
 const patchRoundMock = vi.fn<RoundCardDependencies["patchHumanInterviewRound"]>();
 const updateMeetingMock = vi.fn<RoundCardDependencies["updateHumanInterviewMeeting"]>();
+const loadWorkspaceMembersMock = vi.fn<RoundCardDependencies["loadWorkspaceMembers"]>();
 const toastMocks = {
   error: vi.fn(),
   success: vi.fn(),
@@ -27,6 +28,7 @@ const originalTimeZone = process.env.TZ;
 
 const dependencies: RoundCardDependencies = {
   isApiError: (error): error is ApiError => error instanceof ApiError,
+  loadWorkspaceMembers: loadWorkspaceMembersMock,
   notifyError: toastMocks.error,
   notifySuccess: toastMocks.success,
   notifyWarning: toastMocks.warning,
@@ -74,12 +76,13 @@ const round: HumanInterviewRoundRecord = {
       status: "pending",
     },
   ],
-  label: "真人复面",
+  label: "真人面试",
   location: null,
   meetingUrl: "https://vc.feishu.cn/j/123456789",
   notes: null,
   organizationId: "org-1",
   outcome: null,
+  roundKind: "second_interview",
   scheduledAt: "2026-08-05T09:30:00.000Z",
   score: null,
   sortOrder: 0,
@@ -88,10 +91,12 @@ const round: HumanInterviewRoundRecord = {
 };
 
 const meeting: HumanInterviewMeetingRecord = {
+  attendanceAlertedAt: null,
   cancelledAt: null,
   createdAt: "2026-08-05T09:00:00.000Z",
   createdBy: "operator-1",
   endedAt: null,
+  establishedAt: null,
   feishu: {
     appLink: "https://applink.feishu.cn/client/video/123456789",
     calendarEventUrl: "https://applink.feishu.cn/client/calendar/event/event-1",
@@ -118,7 +123,7 @@ const meeting: HumanInterviewMeetingRecord = {
   scheduledAt: "2026-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
-  title: "张三 - 真人复面",
+  title: "张三 - 真人面试",
   updatedAt: "2026-08-05T09:00:00.000Z",
   validUntil: "2026-08-05T10:30:00.000Z",
 };
@@ -129,6 +134,18 @@ if (!baseAssignment) {
 
 beforeEach(() => {
   process.env.TZ = "Asia/Shanghai";
+  loadWorkspaceMembersMock.mockResolvedValue({
+    feishuHumanInterviewEnabled: true,
+    records: [
+      {
+        email: "guang@example.com",
+        feishuProviderIds: ["feishu-jiguang-hr"],
+        id: "interviewer-1",
+        image: null,
+        name: "光芒",
+      },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -175,7 +192,7 @@ describe("RoundCard rescheduling", () => {
     });
 
     act(() => {
-      document.querySelector<HTMLButtonElement>('[aria-label="调整面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="修改会议时间和面试官"]')?.click();
     });
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const scheduledAtInput = document.querySelector(
@@ -194,12 +211,13 @@ describe("RoundCard rescheduling", () => {
       await Promise.resolve();
     });
     await act(async () => {
-      document.querySelector<HTMLButtonElement>('[aria-label="保存面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="保存会议安排"]')?.click();
       await Promise.resolve();
     });
 
     await vi.waitFor(() => {
       expect(updateMeetingMock).toHaveBeenCalledWith("test-workspace", "meeting-1", {
+        interviewerIds: ["interviewer-1"],
         scheduledAt: "2026-08-05T10:30:00.000Z",
         validUntil: "2026-08-05T11:30:00.000Z",
       });
@@ -252,10 +270,10 @@ describe("RoundCard rescheduling", () => {
       );
     });
     act(() => {
-      document.querySelector<HTMLButtonElement>('[aria-label="调整面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="修改会议时间和面试官"]')?.click();
     });
     await act(async () => {
-      document.querySelector<HTMLButtonElement>('[aria-label="保存面试时间"]')?.click();
+      document.querySelector<HTMLButtonElement>('[aria-label="保存会议安排"]')?.click();
       await Promise.resolve();
     });
 
@@ -272,7 +290,121 @@ describe("RoundCard rescheduling", () => {
   });
 });
 
+describe("RoundCard attendance status", () => {
+  it("keeps the candidate, interviewer, and meeting presence visible", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const attendanceMeeting: HumanInterviewMeetingRecord = {
+      ...meeting,
+      attendanceAlertedAt: "2026-08-05T09:33:00.000Z",
+      interviewers: [
+        {
+          id: "interviewer-1",
+          image: null,
+          joinedAt: "2026-08-05T09:31:00.000Z",
+          leftAt: null,
+          name: "光芒",
+          role: "host",
+        },
+      ],
+      rounds: [
+        {
+          candidateInviteExpiresAt: null,
+          candidateInviteStatus: "accepted",
+          candidateName: "张三",
+          hasCandidateInvite: true,
+          interviewRecordId: "candidate-1",
+          joinedAt: null,
+          label: "真人面试",
+          leftAt: null,
+          roundId: "round-1",
+          sortOrder: 0,
+          status: "pending",
+        },
+      ],
+      validUntil: "2099-08-05T10:30:00.000Z",
+    };
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RoundCard
+            canCreate
+            canDelete
+            canUpdate
+            dependencies={dependencies}
+            meeting={attendanceMeeting}
+            onCancel={vi.fn()}
+            onComplete={vi.fn()}
+            onCreateMeeting={vi.fn()}
+            onEndMeeting={vi.fn()}
+            onOpenLinks={vi.fn()}
+            onRescheduled={vi.fn()}
+            onReview={vi.fn()}
+            round={round}
+            roundNumber={2}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(host.textContent).toContain("等待候选人");
+    expect(host.textContent).toContain("参会情况");
+    expect(host.textContent).toContain("张三候选人未入会");
+    expect(host.textContent).toContain("光芒面试官在会");
+    expect(host.textContent).toContain("未入会提醒已发送给会议创建人");
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+});
+
 describe("RoundCard interviewer arrangement", () => {
+  it.each([
+    ["pending", "scheduled", true, true],
+    ["cancelled", "cancelled", true, true],
+    ["completed", "ended", true, false],
+    ["pending", "scheduled", false, false],
+  ] as const)(
+    "email entry follows lifecycle and permissions (%s, %s, %s)",
+    (status, meetingStatus, canUpdate, visible) => {
+      const queryClient = new QueryClient();
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RoundCard
+              canCreate
+              canDelete
+              canUpdate={canUpdate}
+              dependencies={dependencies}
+              meeting={{ ...meeting, status: meetingStatus }}
+              round={{ ...round, status }}
+              roundNumber={2}
+              slug="light"
+              onCancel={vi.fn()}
+              onComplete={vi.fn()}
+              onCreateMeeting={vi.fn()}
+              onEndMeeting={vi.fn()}
+              onOpenLinks={vi.fn()}
+              onRescheduled={vi.fn()}
+              onReview={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "邮件通知"),
+      ).toBe(visible);
+      act(() => root.unmount());
+      queryClient.clear();
+    },
+  );
   it.each(["ended", "scheduled", "in_progress", "cancelled"] as const)(
     "exposes read-only meeting details only after ending (%s)",
     (status) => {
@@ -585,7 +717,7 @@ describe("RoundCard interviewer arrangement", () => {
     });
     expect(host.textContent).not.toContain("确认安排");
     expect(host.textContent).not.toContain("无法参加");
-    expect(host.querySelector('[aria-label="调整面试时间"]')).toBeNull();
+    expect(host.querySelector('[aria-label="修改会议时间和面试官"]')).toBeNull();
 
     act(() => root.unmount());
     queryClient.clear();

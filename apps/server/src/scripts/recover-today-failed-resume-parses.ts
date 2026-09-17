@@ -1,3 +1,5 @@
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
 import { loadStandaloneEnv } from "../standalone/env";
 
@@ -137,14 +139,7 @@ async function main(options: RecoveryOptions) {
 
   const [
     { closeDatabase, db },
-    {
-      member,
-      organization,
-      resumePoolItem,
-      resumeUploadBatch,
-      resumeUploadBatchItem,
-      studioInterview,
-    },
+    { member, organization, resumePoolItem, recruitingUploadBatch, recruitingUploadBatchItem },
     { closeResumeParseQueue, enqueueResumeParseJobs },
     { closeResumeReviewGenerationQueue },
     { closeResumeSemanticIndexQueue },
@@ -186,26 +181,26 @@ async function main(options: RecoveryOptions) {
     const [studioRows, poolRows] = await Promise.all([
       db
         .select({
-          candidateName: studioInterview.candidateName,
-          contentHash: studioInterview.resumeContentHash,
-          createdAt: studioInterview.createdAt,
-          createdBy: studioInterview.createdBy,
-          fileName: studioInterview.resumeFileName,
-          id: studioInterview.id,
-          jobDescriptionId: studioInterview.jobDescriptionId,
-          parseError: studioInterview.resumeParseError,
-          storageKey: studioInterview.resumeStorageKey,
+          candidateName: recruitingRecordReadModel.candidateName,
+          contentHash: recruitingRecordReadModel.resumeContentHash,
+          createdAt: recruitingRecordReadModel.createdAt,
+          createdBy: recruitingRecordReadModel.createdBy,
+          fileName: recruitingRecordReadModel.resumeFileName,
+          id: recruitingRecordReadModel.id,
+          jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+          parseError: recruitingRecordReadModel.resumeParseError,
+          storageKey: recruitingRecordReadModel.resumeStorageKey,
         })
-        .from(studioInterview)
+        .from(recruitingRecordReadModel)
         .where(
           and(
-            eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-            gte(studioInterview.updatedAt, from),
-            lt(studioInterview.updatedAt, to),
-            eq(studioInterview.resumeParseStatus, "failed"),
+            eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+            gte(recruitingRecordReadModel.updatedAt, from),
+            lt(recruitingRecordReadModel.updatedAt, to),
+            eq(recruitingRecordReadModel.resumeParseStatus, "failed"),
           ),
         )
-        .orderBy(asc(studioInterview.createdAt)),
+        .orderBy(asc(recruitingRecordReadModel.createdAt)),
       db
         .select({
           candidateName: resumePoolItem.candidateName,
@@ -275,19 +270,21 @@ async function main(options: RecoveryOptions) {
     }[] = [];
     for (const target of targets) {
       const claim = await db.transaction(async (tx) => {
+        if (target.kind === "studio") {
+          await lockRecruitingRecord(tx, target.id, TARGET_WORKSPACE_ID);
+        }
         const targetRows =
           target.kind === "studio"
             ? await tx
-                .select({ status: studioInterview.resumeParseStatus })
-                .from(studioInterview)
+                .select({ status: recruitingRecordReadModel.resumeParseStatus })
+                .from(recruitingRecordReadModel)
                 .where(
                   and(
-                    eq(studioInterview.id, target.id),
-                    eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
+                    eq(recruitingRecordReadModel.id, target.id),
+                    eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
                   ),
                 )
                 .limit(1)
-                .for("update")
             : await tx
                 .select({ status: resumePoolItem.resumeParseStatus })
                 .from(resumePoolItem)
@@ -308,7 +305,7 @@ async function main(options: RecoveryOptions) {
         const batchId = crypto.randomUUID();
         const itemId = crypto.randomUUID();
         const userId = target.createdBy ?? fallbackMember.userId;
-        await tx.insert(resumeUploadBatch).values({
+        await tx.insert(recruitingUploadBatch).values({
           createdAt: now,
           createdBy: userId,
           dedupPolicy: "create",
@@ -322,7 +319,7 @@ async function main(options: RecoveryOptions) {
           totalCount: 1,
           updatedAt: now,
         });
-        await tx.insert(resumeUploadBatchItem).values({
+        await tx.insert(recruitingUploadBatchItem).values({
           batchId,
           contentHash: target.contentHash,
           fileSize: 0,
@@ -332,16 +329,17 @@ async function main(options: RecoveryOptions) {
           originalFileName: target.fileName ?? "resume.pdf",
           poolItemId: target.kind === "pool" ? target.id : null,
           queuedAt: now,
-          resumeRecordId: target.kind === "studio" ? target.id : null,
+          recruitingRecordId: target.kind === "studio" ? target.id : null,
           status: "pending",
           storageKey: target.storageKey,
         });
 
         await (target.kind === "studio"
-          ? tx
-              .update(studioInterview)
-              .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })
-              .where(eq(studioInterview.id, target.id))
+          ? updateRecruitingRecords(tx, eq(recruitingRecordReadModel.id, target.id), {
+              resumeParseError: null,
+              resumeParseStatus: "queued",
+              updatedAt: now,
+            })
           : tx
               .update(resumePoolItem)
               .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })

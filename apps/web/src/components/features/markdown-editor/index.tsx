@@ -20,10 +20,12 @@ export interface MarkdownEditorProps {
   disabled?: boolean;
   className?: string;
   minHeight?: number;
+  toolbarMode?: "always" | "focus";
   height?: number;
   id?: string;
   "aria-invalid"?: boolean;
   "aria-label"?: string;
+  "aria-required"?: boolean;
 }
 
 const editorContentClassName = cn(
@@ -60,10 +62,12 @@ export function MarkdownEditor({
   disabled,
   className,
   minHeight = 240,
+  toolbarMode = "always",
   height,
   id,
   "aria-invalid": ariaInvalid,
   "aria-label": ariaLabel,
+  "aria-required": ariaRequired,
 }: MarkdownEditorProps) {
   const { editor } = useMarkdownEditor({
     disabled,
@@ -78,18 +82,21 @@ export function MarkdownEditor({
     <div
       aria-invalid={ariaInvalid}
       aria-label={ariaLabel}
+      aria-required={ariaRequired}
       className={cn(
         cossFieldSurfaceClass,
-        "flex flex-col overflow-hidden",
+        "group/editor flex flex-col overflow-hidden",
         "aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-[3px] aria-[invalid=true]:ring-destructive/20 aria-[invalid=true]:shadow-none aria-[invalid=true]:before:shadow-none dark:aria-[invalid=true]:ring-destructive/40",
         disabled && "opacity-60",
         className,
       )}
       id={id}
     >
-      <div className="relative z-10">
-        <MarkdownEditorToolbar disabled={disabled} editor={editor} />
-      </div>
+      {toolbarMode === "always" ? (
+        <div className="relative z-10">
+          <MarkdownEditorToolbar disabled={disabled} editor={editor} />
+        </div>
+      ) : null}
 
       <div
         className={cn("relative z-10 min-h-0 flex-1 bg-transparent overflow-y-auto")}
@@ -98,6 +105,12 @@ export function MarkdownEditor({
         <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
         <MarkdownEditorBubbleMenu editor={editor} />
       </div>
+
+      {toolbarMode === "focus" && !disabled ? (
+        <div className="invisible relative z-10 group-focus-within/editor:visible">
+          <MarkdownEditorToolbar compact editor={editor} />
+        </div>
+      ) : null}
 
       {maxLength !== undefined && (
         <div

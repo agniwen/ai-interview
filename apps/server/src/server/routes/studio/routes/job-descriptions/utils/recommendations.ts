@@ -1,10 +1,11 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import type {
   JobDescriptionTalentRecommendation,
   JobDescriptionTalentRecommendationResult,
 } from "@app/shared/job-descriptions";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import { jobDescription, studioInterview } from "@app/db-schema/schema";
+import { jobDescription } from "@app/db-schema/schema";
 import { db } from "../../../../../../lib/server/db/index";
 import { QdrantResumeVectorStore } from "../../../../../../lib/server/qdrant/resume-vector-store";
 import {
@@ -284,9 +285,9 @@ export function recommendationCandidateWhere(
   includeClosed: boolean,
 ) {
   return and(
-    eq(studioInterview.organizationId, organizationId),
-    inArray(studioInterview.id, ids),
-    includeClosed ? undefined : ne(studioInterview.pipelineStage, "closed"),
+    eq(recruitingRecordReadModel.organizationId, organizationId),
+    inArray(recruitingRecordReadModel.id, ids),
+    includeClosed ? undefined : ne(recruitingRecordReadModel.pipelineStage, "closed"),
   );
 }
 
@@ -300,26 +301,26 @@ export async function loadRecommendationCandidates(
   }
   const rows = await db
     .select({
-      candidateEmail: studioInterview.candidateEmail,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
-      createdAt: studioInterview.createdAt,
-      currentJobDescriptionId: studioInterview.jobDescriptionId,
+      candidateEmail: recruitingRecordReadModel.candidateEmail,
+      candidateName: recruitingRecordReadModel.candidateName,
+      candidatePhone: recruitingRecordReadModel.candidatePhone,
+      createdAt: recruitingRecordReadModel.createdAt,
+      currentJobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       currentJobDescriptionName: jobDescription.name,
-      id: studioInterview.id,
-      notes: studioInterview.notes,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeParseStatus: studioInterview.resumeParseStatus,
-      resumeProfile: studioInterview.resumeProfile,
-      skillsNormalized: studioInterview.skillsNormalized,
-      targetRole: studioInterview.targetRole,
+      id: recruitingRecordReadModel.id,
+      notes: recruitingRecordReadModel.notes,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      skillsNormalized: recruitingRecordReadModel.skillsNormalized,
+      targetRole: recruitingRecordReadModel.targetRole,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(recommendationCandidateWhere(organizationId, ids, opts.includeClosed ?? false));

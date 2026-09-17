@@ -12,7 +12,6 @@ export const JOB_SETTING_CONTROL_CLASS =
   "flex w-full flex-col gap-2 @md/field-group:basis-80 @md/field-group:shrink-0";
 
 export type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
-export type JobDescriptionSubmitAction = "save";
 // oxlint-disable no-explicit-any -- TanStack Form has 11 validator generics after TFormData; only the values type matters here.
 export type JobDescriptionFormApi = ReactFormExtendedApi<
   JobDescriptionFormValues,
@@ -30,30 +29,24 @@ export type JobDescriptionFormApi = ReactFormExtendedApi<
 >;
 // oxlint-enable no-explicit-any
 
-export function recordEvaluationPreview(record: JobDescriptionRecord | null) {
-  if (record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash) {
-    return {
-      blueprint: record.evaluationBlueprintPreview,
-      blueprintHash: record.evaluationBlueprintPreviewHash,
-    };
-  }
-  if (record?.evaluationBlueprint && record.evaluationBlueprintHash) {
-    return {
-      blueprint: record.evaluationBlueprint,
-      blueprintHash: record.evaluationBlueprintHash,
-    };
-  }
-  return null;
-}
-
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
     allowCrossDepartmentInterviewers: false,
     code: "",
     departmentId: "",
+    headcount: null,
+    internalCriteria: "",
     interviewerIds: [],
+    jobWeight: "1.00",
     name: "",
+    priority: "medium",
     prompt: "",
+    publishedDate: null,
+    referralChannels: "",
+    reportingManagerUserId: null,
+    salaryMaxK: null,
+    salaryMinK: null,
+    targetDate: null,
   };
 }
 
@@ -62,16 +55,20 @@ export function toFormValues(record: JobDescriptionRecord): JobDescriptionFormVa
     allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
     code: record.code ?? "",
     departmentId: record.departmentId,
+    headcount: record.headcount,
+    internalCriteria: record.internalCriteria ?? "",
     interviewerIds: [...record.interviewerIds],
+    jobWeight: record.jobWeight ?? null,
     name: record.name,
+    priority: record.priority ?? "medium",
     prompt: record.prompt,
+    publishedDate: record.publishedDate,
+    referralChannels: record.referralChannels ?? "",
+    reportingManagerUserId: record.reportingManagerUserId,
+    salaryMaxK: record.salaryMaxK,
+    salaryMinK: record.salaryMinK,
+    targetDate: record.targetDate,
   };
-}
-
-export function toStructuredDraftValues(
-  values: JobDescriptionFormValues,
-): JobDescriptionFormValues {
-  return values;
 }
 
 export function toDepartmentScopedFormValues(
@@ -107,7 +104,17 @@ const JOB_DESCRIPTION_BASIC_FIELDS = [
   "departmentId",
   "allowCrossDepartmentInterviewers",
   "interviewerIds",
+  "reportingManagerUserId",
+  "salaryMinK",
+  "salaryMaxK",
+  "headcount",
+  "jobWeight",
+  "priority",
+  "targetDate",
+  "publishedDate",
+  "referralChannels",
   "prompt",
+  "internalCriteria",
 ] as const;
 
 export function focusJobDescriptionBasicTabOnInvalidSubmit(

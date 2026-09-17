@@ -34,7 +34,7 @@ import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { hashTemplateSourceSnapshot } from "../../../../../../lib/server/interview-question-templates-hash";
 import {
   interviewQuestionTemplate,
-  interviewQuestionTemplateBinding,
+  recruitingQuestionTemplateBinding,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
@@ -306,11 +306,11 @@ async function loadBindingCountsByTemplate(templateIds: string[]): Promise<Map<s
   const rows = await db
     .select({
       count: count(),
-      templateId: interviewQuestionTemplateBinding.templateId,
+      templateId: recruitingQuestionTemplateBinding.templateId,
     })
-    .from(interviewQuestionTemplateBinding)
-    .where(inArray(interviewQuestionTemplateBinding.templateId, templateIds))
-    .groupBy(interviewQuestionTemplateBinding.templateId);
+    .from(recruitingQuestionTemplateBinding)
+    .where(inArray(recruitingQuestionTemplateBinding.templateId, templateIds))
+    .groupBy(recruitingQuestionTemplateBinding.templateId);
   for (const row of rows) {
     map.set(row.templateId, row.count);
   }

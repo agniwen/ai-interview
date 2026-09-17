@@ -1,28 +1,31 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- Notification event builders share one audited transactional boundary. */
 import type { Transaction } from "../dao";
 import { humanInterviewReviewPath } from "@app/shared/human-interview-review-link";
 import { enqueueInterviewNotificationEvent } from "../dao";
 import { prepareInterviewNotificationDeliveries } from "./prepare-deliveries";
 import {
-  interviewConversation,
+  aiInterviewConversation,
   jobDescription,
   globalConfig,
-  interviewNotification,
-  interviewNotificationEvent,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
+  recruitingOffer,
+  recruitingBackgroundCheck,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-  studioInterview,
-  studioInterviewSchedule,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type {
   AiInvitationExceptionType,
   InterviewNotificationEventType,
 } from "@app/db-schema/interview-notifications";
+import { activeInterviewNotificationEventStatuses } from "@app/db-schema/interview-notifications";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
 import { buildInterviewNotificationDedupeKey } from "@app/shared/interview-notifications";
 import {
@@ -32,7 +35,7 @@ import {
 } from "@app/shared/interview/question-outcomes";
 import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import type {
-  HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
@@ -40,14 +43,14 @@ import {
   buildCandidateInviteToken,
   hashInviteToken,
 } from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
-import {
-  buildAiInterviewInvitationToken,
-  hashAiInterviewInvitationToken,
-} from "../../routes/studio/routes/interviews/dao/ai-interview-invitation-access";
+import { absolutePublicAppUrl } from "../../../lib/server/public-app-url";
 
-// Candidate reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
-// 候选人提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
-const REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+// AI interview reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
+// AI 面试提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
+const AI_INTERVIEW_REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+
+// 真人面试已有日程安排，仅保留开始前 1 小时提醒，避免与日程的 24 小时提醒重复。
+const HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES = [60] as const;
 
 export const AI_INTERVIEW_COMPLETION_NOTICES = {
   complete: (candidateName: string) => `${candidateName} 已完成 AI 面试，报告生成后将另行通知。`,
@@ -87,13 +90,8 @@ async function enqueuePreparedInterviewNotificationEvent(
   return event;
 }
 
-function absoluteAppUrl(path: string): string | undefined {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  return baseUrl ? `${baseUrl.replace(/\/$/, "")}${path}` : undefined;
-}
-
 function reportUrl(roundId: string, organizationSlug: string): string | undefined {
-  return absoluteAppUrl(
+  return absolutePublicAppUrl(
     `/w/${encodeURIComponent(organizationSlug)}/studio/interviews?roundId=${encodeURIComponent(roundId)}`,
   );
 }
@@ -102,7 +100,7 @@ function humanInterviewRecordUrl(
   interviewRecordId: string,
   organizationSlug: string,
 ): string | undefined {
-  return absoluteAppUrl(
+  return absolutePublicAppUrl(
     `/w/${encodeURIComponent(organizationSlug)}/studio/resumes/${encodeURIComponent(interviewRecordId)}`,
   );
 }
@@ -115,7 +113,7 @@ export function buildHumanInterviewEvaluationSummary(
   rounds: {
     interviewerNames: string[];
     label: string;
-    evaluation: HumanInterviewEvaluation | null;
+    evaluation: HumanInterviewEvaluationDraft | null;
     outcome: HumanInterviewRoundOutcome | null;
   }[],
 ): string {
@@ -143,17 +141,32 @@ export function buildHumanInterviewEvaluationSummary(
   return sections.join("\n\n");
 }
 
-export function buildInterviewReminderSchedule(
+function buildReminderSchedule(
   scheduledAt: Date | null,
-  now: Date = new Date(),
+  now: Date,
+  offsetsMinutes: readonly number[],
 ): { availableAt: Date; offsetMinutes: number }[] {
   if (!scheduledAt) {
     return [];
   }
-  return REMINDER_OFFSETS_MINUTES.flatMap((offsetMinutes) => {
+  return offsetsMinutes.flatMap((offsetMinutes) => {
     const availableAt = new Date(scheduledAt.getTime() - offsetMinutes * 60_000);
     return availableAt.getTime() > now.getTime() ? [{ availableAt, offsetMinutes }] : [];
   });
+}
+
+export function buildInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, AI_INTERVIEW_REMINDER_OFFSETS_MINUTES);
+}
+
+export function buildHumanInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES);
 }
 
 interface HumanInterviewRoundProgression {
@@ -178,127 +191,18 @@ async function loadHumanInterviewRoundProgression(
   input: { currentSortOrder: number; interviewRecordId: string },
 ) {
   const passedHumanRounds = await tx
-    .select({ label: studioHumanInterviewRound.label })
-    .from(studioHumanInterviewRound)
+    .select({ label: humanInterviewRound.label })
+    .from(humanInterviewRound)
     .where(
       and(
-        eq(studioHumanInterviewRound.interviewRecordId, input.interviewRecordId),
-        lt(studioHumanInterviewRound.sortOrder, input.currentSortOrder),
-        eq(studioHumanInterviewRound.status, "completed"),
-        eq(studioHumanInterviewRound.outcome, "pass"),
+        eq(humanInterviewRound.recruitingRecordId, input.interviewRecordId),
+        lt(humanInterviewRound.sortOrder, input.currentSortOrder),
+        eq(humanInterviewRound.status, "completed"),
+        eq(humanInterviewRound.outcome, "pass"),
       ),
     )
-    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+    .orderBy(asc(humanInterviewRound.sortOrder));
   return buildHumanInterviewRoundProgression(passedHumanRounds);
-}
-
-export async function enqueueAiInterviewInvitedEvents(
-  tx: Transaction,
-  input: { actorUserId: string | null; scheduleEntryId: string; now?: Date },
-): Promise<void> {
-  const [context] = await tx
-    .select({
-      candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-      candidateInviteTokenHash: studioInterviewSchedule.candidateInviteTokenHash,
-      candidateName: studioInterview.candidateName,
-      configuredCompanyName: globalConfig.companyName,
-      initiatorEmail: user.email,
-      initiatorName: user.name,
-      interviewRecordId: studioInterview.id,
-      invitationVersion: studioInterviewSchedule.invitationVersion,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
-      organizationId: studioInterview.organizationId,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      scheduleCreatedAt: studioInterviewSchedule.createdAt,
-      scheduledAt: studioInterviewSchedule.scheduledAt,
-      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
-      workspaceName: organization.name,
-    })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
-    .leftJoin(
-      jobDescription,
-      and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
-      ),
-    )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
-    .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
-    .where(eq(studioInterviewSchedule.id, input.scheduleEntryId))
-    .limit(1);
-  if (!context) {
-    throw new Error("AI 面试邀请通知事件缺少轮次上下文。");
-  }
-
-  const now = input.now ?? new Date();
-  let candidateInvitationLink: string | undefined;
-  if (context.candidateInviteExpiresAt) {
-    const token = buildAiInterviewInvitationToken({
-      exp: context.candidateInviteExpiresAt.getTime(),
-      scheduleEntryId: input.scheduleEntryId,
-    });
-    if (hashAiInterviewInvitationToken(token) === context.candidateInviteTokenHash) {
-      candidateInvitationLink = absoluteAppUrl(`/ai-interview-invite/${encodeURIComponent(token)}`);
-    }
-  }
-  const payloadSnapshot = {
-    candidateName: context.candidateName,
-    companyName: resolveInterviewNotificationCompanyName(
-      context.configuredCompanyName,
-      context.workspaceName,
-    ),
-    initiatorName: context.initiatorName ?? undefined,
-    interviewEndTime: context.scheduledEndAt?.toISOString(),
-    interviewLink:
-      candidateInvitationLink ??
-      absoluteAppUrl(buildInterviewLink(context.interviewRecordId, input.scheduleEntryId)),
-    interviewStartTime: context.scheduledAt?.toISOString(),
-    interviewType: "ai" as const,
-    invitationEndTime:
-      context.candidateInviteExpiresAt?.toISOString() ?? context.scheduledEndAt?.toISOString(),
-    invitationStartTime: context.scheduleCreatedAt.toISOString(),
-    jobName: context.jobName ?? undefined,
-    roundName: context.roundLabel,
-    schemaVersion: 1 as const,
-    supportContact: context.initiatorEmail ?? undefined,
-    timeZone: "Asia/Shanghai",
-  };
-  await enqueuePreparedInterviewNotificationEvent(tx, {
-    actorUserId: input.actorUserId,
-    dedupeKey: buildInterviewNotificationDedupeKey({
-      scopeId: input.scheduleEntryId,
-      type: "ai_interview_invited",
-      version: context.invitationVersion,
-    }),
-    interviewRecordId: context.interviewRecordId,
-    organizationId: context.organizationId,
-    payloadSnapshot,
-    scheduleEntryId: input.scheduleEntryId,
-    scopeType: "ai_round",
-    type: "ai_interview_invited",
-  });
-
-  for (const reminder of buildInterviewReminderSchedule(context.scheduledAt, now)) {
-    await enqueuePreparedInterviewNotificationEvent(tx, {
-      actorUserId: input.actorUserId,
-      availableAt: reminder.availableAt,
-      dedupeKey: buildInterviewNotificationDedupeKey({
-        discriminator: reminder.offsetMinutes,
-        scopeId: input.scheduleEntryId,
-        type: "ai_interview_reminder",
-        version: context.invitationVersion,
-      }),
-      interviewRecordId: context.interviewRecordId,
-      nextAttemptAt: reminder.availableAt,
-      organizationId: context.organizationId,
-      payloadSnapshot,
-      scheduleEntryId: input.scheduleEntryId,
-      scopeType: "ai_round",
-      type: "ai_interview_reminder",
-    });
-  }
 }
 
 export async function enqueueAiInvitationResponseEvent(
@@ -312,30 +216,38 @@ export async function enqueueAiInvitationResponseEvent(
 ): Promise<void> {
   const [context] = await tx
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       configuredCompanyName: globalConfig.companyName,
       initiatorEmail: user.email,
       initiatorName: user.name,
-      interviewRecordId: studioInterview.id,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
-      organizationId: studioInterview.organizationId,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      scheduledAt: studioInterviewSchedule.scheduledAt,
+      interviewRecordId: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduledAt: aiInterviewRound.scheduledAt,
       workspaceName: organization.name,
     })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
-    .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
-    .where(eq(studioInterviewSchedule.id, input.scheduleEntryId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
+    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
     .limit(1);
   if (!context) {
     throw new Error("AI 面试邀请响应缺少轮次上下文。");
@@ -357,7 +269,7 @@ export async function enqueueAiInvitationResponseEvent(
         context.workspaceName,
       ),
       initiatorName: context.initiatorName ?? undefined,
-      interviewLink: absoluteAppUrl(
+      interviewLink: absolutePublicAppUrl(
         buildInterviewLink(context.interviewRecordId, input.scheduleEntryId),
       ),
       interviewStartTime: context.scheduledAt?.toISOString(),
@@ -372,6 +284,132 @@ export async function enqueueAiInvitationResponseEvent(
     scheduleEntryId: input.scheduleEntryId,
     scopeType: "ai_round",
     type,
+  });
+}
+
+export async function enqueueOfferResponseEvent(
+  tx: Transaction,
+  input: {
+    declineReason?: string | null;
+    offerId: string;
+    respondedAt: Date;
+    response: "accepted" | "declined";
+  },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      interviewRecordId: recruitingOffer.recruitingRecordId,
+      organizationId: recruitingOffer.organizationId,
+      organizationSlug: organization.slug,
+      position: recruitingOffer.position,
+      publishedBy: recruitingOffer.publishedBy,
+      workspaceName: organization.name,
+    })
+    .from(recruitingOffer)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingOffer.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingOffer.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, recruitingOffer.organizationId))
+    .where(eq(recruitingOffer.id, input.offerId))
+    .limit(1);
+  if (!context) {
+    throw new Error("Offer 响应通知缺少招聘上下文。");
+  }
+  const type = input.response === "accepted" ? "offer_accepted" : "offer_declined";
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.publishedBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.respondedAt.toISOString(),
+      scopeId: input.offerId,
+      type,
+      version: 1,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      changeReason: input.declineReason?.trim() || "未填写",
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(context.interviewRecordId, context.organizationSlug),
+      jobName: context.position,
+      responseTime: input.respondedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type,
+  });
+}
+
+export async function enqueueBackgroundCheckSubmittedEvent(
+  tx: Transaction,
+  input: { recruitingRecordId: string; submittedAt: Date },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      createdBy: recruitingBackgroundCheck.createdBy,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingBackgroundCheck.organizationId,
+      organizationSlug: organization.slug,
+      workspaceName: organization.name,
+    })
+    .from(recruitingBackgroundCheck)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingBackgroundCheck.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingBackgroundCheck.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingBackgroundCheck.organizationId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .where(eq(recruitingBackgroundCheck.recruitingRecordId, input.recruitingRecordId))
+    .limit(1);
+  if (!context) {
+    throw new Error("背调提交通知缺少招聘上下文。");
+  }
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.createdBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.submittedAt.toISOString(),
+      scopeId: input.recruitingRecordId,
+      type: "background_check_submitted",
+      version: 1,
+    }),
+    interviewRecordId: input.recruitingRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(input.recruitingRecordId, context.organizationSlug),
+      jobName: context.jobName ?? undefined,
+      responseTime: input.submittedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type: "background_check_submitted",
   });
 }
 
@@ -400,30 +438,38 @@ export async function enqueueAiInvitationExceptionEvent(
 ): Promise<void> {
   const [context] = await tx
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       configuredCompanyName: globalConfig.companyName,
       initiatorEmail: user.email,
       initiatorName: user.name,
-      interviewRecordId: studioInterview.id,
-      invitationVersion: studioInterviewSchedule.invitationVersion,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
-      organizationId: studioInterview.organizationId,
-      roundLabel: studioInterviewSchedule.roundLabel,
+      interviewRecordId: recruitingRecordReadModel.id,
+      invitationVersion: aiInterviewRound.invitationVersion,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
+      roundLabel: aiInterviewRound.roundLabel,
       workspaceName: organization.name,
     })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
-    .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
-    .where(eq(studioInterviewSchedule.id, input.scheduleEntryId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
+    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
     .limit(1);
   if (!context) {
     return;
@@ -469,42 +515,50 @@ export async function enqueueAiInterviewCompletedEvent(
 ): Promise<void> {
   const [context] = await tx
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       configuredCompanyName: globalConfig.companyName,
-      conversationId: studioInterviewSchedule.conversationId,
-      createdBy: studioInterviewSchedule.createdBy,
-      interviewRecordId: studioInterview.id,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
-      organizationId: studioInterview.organizationId,
+      conversationId: aiInterviewRound.conversationId,
+      createdBy: aiInterviewRound.createdBy,
+      interviewRecordId: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
       organizationSlug: organization.slug,
-      roundLabel: studioInterviewSchedule.roundLabel,
+      roundLabel: aiInterviewRound.roundLabel,
       workspaceName: organization.name,
     })
-    .from(studioInterviewSchedule)
-    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
-    .where(eq(studioInterviewSchedule.id, input.scheduleEntryId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
     .limit(1);
   if (!context) {
     throw new Error("AI 面试完成通知缺少轮次上下文。");
   }
   const [conversation] = await tx
-    .select({ dataCollectionResults: interviewConversation.dataCollectionResults })
-    .from(interviewConversation)
+    .select({ dataCollectionResults: aiInterviewConversation.dataCollectionResults })
+    .from(aiInterviewConversation)
     .where(
       context.conversationId
-        ? eq(interviewConversation.conversationId, context.conversationId)
-        : eq(interviewConversation.scheduleEntryId, input.scheduleEntryId),
+        ? eq(aiInterviewConversation.conversationId, context.conversationId)
+        : eq(aiInterviewConversation.aiRoundId, input.scheduleEntryId),
     )
-    .orderBy(desc(interviewConversation.updatedAt))
+    .orderBy(desc(aiInterviewConversation.updatedAt))
     .limit(1);
   const dataCollectionResults = parseInterviewDataCollectionResults(
     conversation?.dataCollectionResults,
@@ -547,11 +601,13 @@ export async function enqueueAiInterviewCompletedEvent(
 
 interface HumanMeetingEventInput {
   actorUserId: string | null;
+  attendanceStatus?: string;
   changeReason?: string | null;
   dedupeDiscriminator?: string;
   exceptionType?: string;
   humanRoundId?: string;
   meetingId: string;
+  missingParticipantNames?: string[];
   now?: Date;
   oldScheduledAt?: Date | null;
   oldValidUntil?: Date | null;
@@ -571,6 +627,8 @@ interface HumanMeetingEventInput {
     | "human_interviewer_added"
     | "human_interview_cancelled"
     | "human_interview_completed"
+    | "human_interview_attendance_alert"
+    | "human_interview_not_held"
     | "human_evaluation_summary_ready";
 }
 
@@ -584,7 +642,7 @@ export function resolveHumanMeetingEventInterviewLink(input: {
   type: HumanMeetingEventInput["type"];
 }): string | undefined {
   if (input.type === "human_evaluation_summary_ready") {
-    return absoluteAppUrl(
+    return absolutePublicAppUrl(
       humanInterviewReviewPath({
         candidateId: input.interviewRecordId,
         roundId: input.humanRoundId,
@@ -592,7 +650,11 @@ export function resolveHumanMeetingEventInterviewLink(input: {
       }),
     );
   }
-  if (input.type === "human_interview_completed") {
+  if (
+    input.type === "human_interview_completed" ||
+    input.type === "human_interview_attendance_alert" ||
+    input.type === "human_interview_not_held"
+  ) {
     return humanInterviewRecordUrl(input.interviewRecordId, input.organizationSlug);
   }
   if (!(input.candidateInviteExpiresAt && input.candidateInviteTokenHash)) {
@@ -606,7 +668,7 @@ export function resolveHumanMeetingEventInterviewLink(input: {
   if (hashInviteToken(token) !== input.candidateInviteTokenHash) {
     return undefined;
   }
-  return absoluteAppUrl(`/human-interview/${encodeURIComponent(token)}`);
+  return absolutePublicAppUrl(`/human-interview/${encodeURIComponent(token)}`);
 }
 
 export async function cancelPendingHumanMeetingReminders(
@@ -615,7 +677,7 @@ export async function cancelPendingHumanMeetingReminders(
 ): Promise<void> {
   const now = new Date();
   const cancelledEvents = await tx
-    .update(interviewNotificationEvent)
+    .update(recruitingNotificationEvent)
     .set({
       completedAt: now,
       lastErrorCode: "notification-superseded",
@@ -627,17 +689,21 @@ export async function cancelPendingHumanMeetingReminders(
     })
     .where(
       and(
-        eq(interviewNotificationEvent.humanMeetingId, meetingId),
-        eq(interviewNotificationEvent.type, "human_interview_reminder"),
-        inArray(interviewNotificationEvent.status, ["pending", "processing", "failed"]),
+        eq(recruitingNotificationEvent.humanMeetingId, meetingId),
+        inArray(recruitingNotificationEvent.type, [
+          "human_interview_reminder",
+          "human_interview_attendance_alert",
+          "human_interview_not_held",
+        ]),
+        inArray(recruitingNotificationEvent.status, activeInterviewNotificationEventStatuses),
       ),
     )
-    .returning({ id: interviewNotificationEvent.id });
+    .returning({ id: recruitingNotificationEvent.id });
   if (cancelledEvents.length === 0) {
     return;
   }
   await tx
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: "会议时间或状态已变更，旧提醒已取消。",
       leaseExpiresAt: null,
@@ -648,7 +714,7 @@ export async function cancelPendingHumanMeetingReminders(
     })
     .where(
       inArray(
-        interviewNotification.eventId,
+        recruitingNotificationDelivery.eventId,
         cancelledEvents.map((event) => event.id),
       ),
     );
@@ -664,60 +730,58 @@ export async function enqueueHumanMeetingEvents(
   if (
     input.type === "human_interview_rescheduled" ||
     input.type === "human_interview_cancelled" ||
-    input.type === "human_interview_completed"
+    input.type === "human_interview_completed" ||
+    input.type === "human_interview_not_held"
   ) {
     await cancelPendingHumanMeetingReminders(tx, input.meetingId);
   }
 
   const rows = await tx
     .select({
-      candidateInviteExpiresAt: studioHumanInterviewMeetingRound.candidateInviteExpiresAt,
-      candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-      candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
-      candidateName: studioInterview.candidateName,
+      candidateInviteExpiresAt: humanInterviewMeetingRound.candidateInviteExpiresAt,
+      candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+      candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
+      candidateName: recruitingRecordReadModel.candidateName,
       configuredCompanyName: globalConfig.companyName,
-      humanRoundId: studioHumanInterviewRound.id,
+      humanRoundId: humanInterviewRound.id,
       initiatorEmail: user.email,
       initiatorName: user.name,
-      interviewRecordId: studioInterview.id,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
-      organizationId: studioHumanInterviewMeeting.organizationId,
+      interviewRecordId: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: humanInterviewMeeting.organizationId,
       organizationSlug: organization.slug,
-      roundName: studioHumanInterviewRound.label,
-      roundSortOrder: studioHumanInterviewRound.sortOrder,
-      scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-      validUntil: studioHumanInterviewMeeting.validUntil,
+      roundName: humanInterviewRound.label,
+      roundSortOrder: humanInterviewRound.sortOrder,
+      scheduledAt: humanInterviewMeeting.scheduledAt,
+      validUntil: humanInterviewMeeting.validUntil,
       workspaceName: organization.name,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+      humanInterviewMeeting,
+      eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
     )
+    .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
     )
-    .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(organization, eq(organization.id, studioHumanInterviewMeeting.organizationId))
-    .leftJoin(
-      globalConfig,
-      eq(globalConfig.organizationId, studioHumanInterviewMeeting.organizationId),
-    )
-    .leftJoin(user, eq(user.id, studioHumanInterviewMeeting.createdBy))
+    .innerJoin(organization, eq(organization.id, humanInterviewMeeting.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, humanInterviewMeeting.organizationId))
+    .leftJoin(user, eq(user.id, humanInterviewMeeting.createdBy))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.meetingId),
-        input.humanRoundId
-          ? eq(studioHumanInterviewMeetingRound.roundId, input.humanRoundId)
-          : undefined,
+        eq(humanInterviewMeetingRound.meetingId, input.meetingId),
+        input.humanRoundId ? eq(humanInterviewMeetingRound.roundId, input.humanRoundId) : undefined,
       ),
     );
   if (rows.length === 0) {
@@ -726,9 +790,9 @@ export async function enqueueHumanMeetingEvents(
 
   const interviewerRows = await tx
     .select({ name: user.name })
-    .from(studioHumanInterviewMeetingInterviewer)
-    .innerJoin(user, eq(user.id, studioHumanInterviewMeetingInterviewer.userId))
-    .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId));
+    .from(humanInterviewMeetingInterviewer)
+    .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+    .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId));
   const interviewerNames = interviewerRows.map((row) => row.name).filter(Boolean);
   const now = input.now ?? new Date();
 
@@ -750,22 +814,22 @@ export async function enqueueHumanMeetingEvents(
     if (input.type === "human_interview_completed") {
       const completedRounds = await tx
         .select({
-          evaluation: studioHumanInterviewRound.evaluation,
-          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
-          id: studioHumanInterviewRound.id,
-          label: studioHumanInterviewRound.label,
-          outcome: studioHumanInterviewRound.outcome,
+          evaluation: humanInterviewRound.evaluation,
+          evaluationStatus: humanInterviewRound.evaluationStatus,
+          id: humanInterviewRound.id,
+          label: humanInterviewRound.label,
+          outcome: humanInterviewRound.outcome,
         })
-        .from(studioHumanInterviewRound)
+        .from(humanInterviewRound)
         .where(
           and(
-            eq(studioHumanInterviewRound.interviewRecordId, row.interviewRecordId),
-            eq(studioHumanInterviewRound.organizationId, row.organizationId),
-            eq(studioHumanInterviewRound.status, "completed"),
-            eq(studioHumanInterviewRound.id, row.humanRoundId),
+            eq(humanInterviewRound.recruitingRecordId, row.interviewRecordId),
+            eq(humanInterviewRound.organizationId, row.organizationId),
+            eq(humanInterviewRound.status, "completed"),
+            eq(humanInterviewRound.id, row.humanRoundId),
           ),
         )
-        .orderBy(asc(studioHumanInterviewRound.sortOrder));
+        .orderBy(asc(humanInterviewRound.sortOrder));
       const roundIds = completedRounds.map((round) => round.id);
       const roundInterviewerRows =
         roundIds.length === 0
@@ -773,11 +837,11 @@ export async function enqueueHumanMeetingEvents(
           : await tx
               .select({
                 name: user.name,
-                roundId: studioHumanInterviewRoundInterviewer.roundId,
+                roundId: humanInterviewRoundInterviewer.roundId,
               })
-              .from(studioHumanInterviewRoundInterviewer)
-              .innerJoin(user, eq(user.id, studioHumanInterviewRoundInterviewer.userId))
-              .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
+              .from(humanInterviewRoundInterviewer)
+              .innerJoin(user, eq(user.id, humanInterviewRoundInterviewer.userId))
+              .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
       evaluationSummary = buildHumanInterviewEvaluationSummary(
         completedRounds.map((round) => ({
           evaluation: round.evaluationStatus === "submitted" ? round.evaluation : null,
@@ -791,6 +855,7 @@ export async function enqueueHumanMeetingEvents(
       );
     }
     const payloadSnapshot = {
+      attendanceStatus: input.attendanceStatus,
       candidateName: row.candidateName,
       changeReason: input.changeReason?.trim() || undefined,
       companyName: resolveInterviewNotificationCompanyName(
@@ -810,6 +875,7 @@ export async function enqueueHumanMeetingEvents(
       invitationEndTime: row.candidateInviteExpiresAt?.toISOString(),
       invitationStartTime: now.toISOString(),
       jobName: row.jobName ?? undefined,
+      missingParticipantNames: input.missingParticipantNames,
       occurredAt: input.type === "human_invitation_exception" ? now.toISOString() : undefined,
       oldInterviewEndTime: input.oldValidUntil?.toISOString(),
       oldInterviewStartTime: input.oldScheduledAt?.toISOString(),
@@ -850,7 +916,7 @@ export async function enqueueHumanMeetingEvents(
     if (!shouldScheduleReminders) {
       continue;
     }
-    for (const reminder of buildInterviewReminderSchedule(row.scheduledAt, now)) {
+    for (const reminder of buildHumanInterviewReminderSchedule(row.scheduledAt, now)) {
       const reminderType: InterviewNotificationEventType = "human_interview_reminder";
       await enqueuePreparedInterviewNotificationEvent(tx, {
         actorUserId: input.actorUserId,
@@ -885,34 +951,39 @@ export async function enqueueAiReportReadyEvent(
 ) {
   const [context] = await tx
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       configuredCompanyName: globalConfig.companyName,
-      createdBy: studioInterviewSchedule.createdBy,
+      createdBy: aiInterviewRound.createdBy,
       initiatorName: user.name,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
-      organizationId: studioInterview.organizationId,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
       organizationSlug: organization.slug,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      scheduleEntryId: interviewConversation.scheduleEntryId,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduleEntryId: aiInterviewConversation.aiRoundId,
       workspaceName: organization.name,
     })
-    .from(interviewConversation)
-    .innerJoin(studioInterview, eq(studioInterview.id, interviewConversation.interviewRecordId))
+    .from(aiInterviewConversation)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewConversation.recruitingRecordId),
+    )
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(
-      studioInterviewSchedule,
-      eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
+    .innerJoin(aiInterviewRound, eq(aiInterviewRound.id, aiInterviewConversation.aiRoundId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
     )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
-    .leftJoin(user, eq(user.id, studioInterviewSchedule.createdBy))
-    .where(eq(interviewConversation.conversationId, input.conversationId))
+    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
+    .where(eq(aiInterviewConversation.conversationId, input.conversationId))
     .limit(1);
 
   if (!context?.scheduleEntryId) {
@@ -925,7 +996,7 @@ export async function enqueueAiReportReadyEvent(
       discriminator: input.conversationId,
       scopeId: context.scheduleEntryId,
       type: "ai_report_ready",
-      version: 1,
+      version: 2,
     }),
     interviewRecordId: input.interviewRecordId,
     organizationId: context.organizationId,

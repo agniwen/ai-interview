@@ -1,12 +1,12 @@
+import { createRecruitingRecords } from "@app/database/recruiting-records";
 import { createHumanInterviewEvaluationDao } from "@app/meeting-processing/human-interview";
 import {
   meetingSession,
   meetingTranscriptRevision,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { eq, sql } from "drizzle-orm";
@@ -36,16 +36,21 @@ beforeAll(async () => {
   await db
     .insert(organization)
     .values({ createdAt: new Date(), id, name: "并发评价测试", slug: id });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "测试候选人",
     createdBy: id,
     id,
     interviewQuestions: [],
     organizationId: id,
   });
-  await db
-    .insert(studioHumanInterviewRound)
-    .values({ format: "online", id, interviewRecordId: id, label: "一面", organizationId: id });
+  await db.insert(humanInterviewRound).values({
+    format: "online",
+    id,
+    label: "一面",
+    organizationId: id,
+    recruitingRecordId: id,
+    roundKind: "second_interview",
+  });
   await db.insert(meetingSession).values({
     id,
     manifestSha256: "a".repeat(64),
@@ -75,14 +80,16 @@ beforeAll(async () => {
     .update(meetingSession)
     .set({ activeTranscriptRevisionId: oldRevision })
     .where(eq(meetingSession.id, id));
-  await db.insert(studioHumanInterviewMeeting).values({
+  await db.insert(humanInterviewMeeting).values({
     id,
     organizationId: id,
     processingMeetingSessionId: id,
     status: "ended",
     title: "并发提交测试",
   });
-  await db.insert(studioHumanInterviewMeetingRound).values({ meetingId: id, roundId: id });
+  await db
+    .insert(humanInterviewMeetingRound)
+    .values({ meetingId: id, organizationId: id, roundId: id });
 });
 
 afterAll(async () => {

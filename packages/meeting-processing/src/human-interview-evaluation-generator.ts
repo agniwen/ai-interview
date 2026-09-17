@@ -1,3 +1,4 @@
+import { formatJobInternalCriteria } from "@app/shared/job-internal-criteria";
 import {
   generateStructuredWithMastraAgent,
   humanInterviewEvaluationAgent,
@@ -53,6 +54,7 @@ export async function generateHumanInterviewEvaluation(
   input: {
     candidateName: string;
     jobDescription: string;
+    internalCriteria?: string | null;
     resume: string;
     salaryRange: null;
     turns: EvaluationTurn[];
@@ -89,7 +91,7 @@ export async function generateHumanInterviewEvaluation(
   }
   let feedback = "";
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const evaluation = await generateStructuredWithMastraAgent({
+    const generatedEvaluation = await generateStructuredWithMastraAgent({
       agent,
       maxOutputTokens: 12_000,
       observabilityLabel: "human-interview-evaluation",
@@ -115,8 +117,9 @@ rating 必须根据已有可靠证据和岗位要求返回 S、A、B、C 中的�
 - risks 只写有可靠证据支持的实质性岗位风险；没有时必须返回 -。不得用“尚未验证”“项目名称不明”“面试覆盖不足”“真实性待确认”等材料局限填充 risks，这些仅可在 detailedAnalysis 中作为后续核实事项中性说明。也不得把这些材料局限移到 overallEvaluation 中作为负面评价；
 - 不得根据转录字数猜测面试或录音时长；不得编造发言条数。名称存疑时使用“项目（转录用词待核实）”，不要把误识别的名称作为已证实经历反复写入 strengths 或 overallEvaluation；
 - 无法可靠归属给候选人的内容不得作为评价证据，也不得把面试官的问题、提示或陈述当作候选人能力；归属不明时必须写入不确定项；
-- 所有判断只允许来自输入的岗位 JD、简历和转录，不得臆测；
+- 所有判断只允许来自输入的岗位 JD、内部标准、简历和转录，不得臆测；
 - evidenceTurnIds 必须是字符串数组，只能逐字使用转录 JSON 中的 id；没有可引用证据时返回 []，不得返回 - 或拼接后的字符串；
+- 允许引用的候选人发言 ID 仅限：${JSON.stringify([...evidenceTurnIds])}；
 - SABC 评级不得自动映射为通过、待定或不通过；
 - 不输出 0–100 数字评分；
 - professionalSkill 只能填写：优、良、中、差或 -；只给简短等级，不得附带原因、证据或详细描述；
@@ -129,6 +132,8 @@ rating 必须根据已有可靠证据和岗位要求返回 S、A、B、C 中的�
 岗位 JD：
 ${input.jobDescription || "未提供"}
 
+${formatJobInternalCriteria(input.internalCriteria)}
+
 候选人简历：
 ${input.resume || "未提供"}
 
@@ -140,12 +145,28 @@ ${feedback}`,
       schema: humanInterviewEvaluationSchema,
       temperature: 0.1,
       timeoutMs: 5 * 60 * 1000,
-      validate: (generatedEvaluation) => {
-        if (generatedEvaluation.evidenceTurnIds.some((turnId) => !evidenceTurnIds.has(turnId))) {
-          throw new Error("真人复面 AI 评价引用了未可靠归属给候选人的证据");
-        }
-      },
     });
+    const invalidEvidenceTurnIds = generatedEvaluation.evidenceTurnIds.filter(
+      (turnId) => !evidenceTurnIds.has(turnId),
+    );
+    const validEvidenceTurnIds = generatedEvaluation.evidenceTurnIds.filter((turnId) =>
+      evidenceTurnIds.has(turnId),
+    );
+
+    if (invalidEvidenceTurnIds.length > 0 && attempt === 0) {
+      feedback = `上一版引用了不允许的证据 ID：${invalidEvidenceTurnIds.join(
+        "、",
+      )}。只能引用允许列表中的候选人本人发言。`;
+      continue;
+    }
+    if (invalidEvidenceTurnIds.length > 0 && validEvidenceTurnIds.length === 0) {
+      throw new Error("真人复面 AI 评价引用了未可靠归属给候选人的证据");
+    }
+
+    const evaluation = {
+      ...generatedEvaluation,
+      evidenceTurnIds: validEvidenceTurnIds,
+    };
     const normalized = normalizeGeneratedEvaluation(evaluation);
     const review = await generateStructuredWithMastraAgent({
       agent: evidenceAgent,
@@ -156,7 +177,8 @@ ${feedback}`,
 1. 把项目名/术语误识别、重复确认名称、漏录、漏问、未覆盖的能力或简历尚未验证，当作沟通、理解、诚信或专业能力差的证据，或据此降低评级；
 2. risks 含“未验证”“未展示”“覆盖不足”等材料局限，而非可靠事实支持的实质岗位风险；无可靠风险应为 -。材料局限只能在 detailedAnalysis 中中性说明；
 3. C 或“差/明显不匹配”等结论没有可靠发言或简历中的明确实质冲突支持。输入没有证明符合要求，不等于证明不符合；
-4. 把面试官说的话、身份不明发言或简历内容写成候选人在面试中已展示的表现。
+4. 根据年龄、性别、婚育等个人属性降低评级或作出推荐；把内部标准当作候选人事实，或忽略内部标准与 JD 的冲突；
+5. 把面试官说的话、身份不明发言或简历内容写成候选人在面试中已展示的表现。
 不要因为评级为 B、评价中有正面判断或详细分析中中性说明待核实事项而拒绝。若有实质负面证据，应允许如实评价。
 反例：“面试未问团队管理，所以不具备管理能力、评级 C”必须指出违规；“候选人明确说从未管理团队，而岗位必须具备管理经验”可以是真实风险。
 只返回下面 Schema 的 JSON，issues 写明违规字段、具体判断和修改理由，没有违规返回空数组：

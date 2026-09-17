@@ -5,10 +5,9 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useLoaderData,
   useRouter,
-  useRouterState,
 } from "@tanstack/react-router";
-import { cn } from "@app/shared/utils";
 import "overlayscrollbars/overlayscrollbars.css";
 import "../styles/globals.css";
 import { NotFoundPage } from "@/components/layout/not-found-view";
@@ -17,21 +16,19 @@ import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-body";
+import { SidebarPersistenceProvider } from "@/components/layout/sidebar-persistence-context";
 import type { getQueryClient } from "@/lib/client/query-client";
 import { AppWatermark } from "@/components/features/watermark/app-watermark";
 import { env } from "@/env/client";
 import { ROOT_DOCUMENT_TITLE, documentTitleMeta } from "@/lib/start/document-title";
-import { isHumanInterviewPage, resolveForcedPageTheme } from "@/lib/client/fixed-page-theme";
 import { getLocale, getTextDirection } from "@/paraglide/runtime";
+import { getSidebarInitialState } from "@/lib/start/sidebar-preferences";
 
 const ROOT_DESCRIPTION =
   "面向招聘团队的 AI 协同工作台，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。AI Hiring Copilot — one connected hiring workflow.";
 const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString();
 
-function RootDocument({
-  bodyClassName,
-  children,
-}: Readonly<{ bodyClassName?: string; children: ReactNode }>) {
+function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html
       data-overlayscrollbars-initialize=""
@@ -42,10 +39,7 @@ function RootDocument({
       <head>
         <HeadContent />
       </head>
-      <body
-        data-overlayscrollbars-initialize=""
-        className={cn("min-h-dvh antialiased", bodyClassName)}
-      >
+      <body data-overlayscrollbars-initialize="" className="min-h-dvh antialiased">
         <OverlayScrollbarsBody />
         {children}
         <Scripts />
@@ -55,8 +49,7 @@ function RootDocument({
 }
 
 function RootComponent() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const forcedTheme = resolveForcedPageTheme(pathname);
+  const sidebarInitialState = useLoaderData({ from: "__root__" });
   const {
     options: {
       context: { queryClient },
@@ -64,9 +57,7 @@ function RootComponent() {
   } = useRouter();
 
   return (
-    <RootDocument
-      bodyClassName={isHumanInterviewPage(pathname) ? "human-interview-palette" : undefined}
-    >
+    <RootDocument>
       <MotionConfig reducedMotion="user">
         <LazyMotion features={domAnimation}>
           <ThemeProvider
@@ -74,14 +65,15 @@ function RootComponent() {
             defaultTheme="system"
             disableTransitionOnChange
             enableSystem
-            forcedTheme={forcedTheme}
           >
             <QueryProvider queryClient={queryClient}>
-              <TooltipProvider>
-                <Outlet />
-                <AppWatermark />
-                <Toaster />
-              </TooltipProvider>
+              <SidebarPersistenceProvider value={sidebarInitialState}>
+                <TooltipProvider>
+                  <Outlet />
+                  <AppWatermark />
+                  <Toaster />
+                </TooltipProvider>
+              </SidebarPersistenceProvider>
             </QueryProvider>
           </ThemeProvider>
         </LazyMotion>
@@ -98,6 +90,7 @@ export const Route = createRootRouteWithContext<{
   queryClient: ReturnType<typeof getQueryClient>;
 }>()({
   component: RootComponent,
+  loader: () => getSidebarInitialState(),
   head: ({ matches }) => ({
     links: [
       {

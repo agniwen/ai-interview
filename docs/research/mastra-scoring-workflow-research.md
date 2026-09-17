@@ -4,7 +4,7 @@
 
 范围：Mastra 官方文档、Mastra 官方仓库，以及本仓库当前的结构化简历评分实现。重点核对 workflow step 的 input/context/事件传递、Agent/Tool 调用、workflow 与 agent loop 的边界、状态与暂停恢复、结构化输出和上下文长度控制。
 
-版本说明：本仓库当前锁定 `@mastra/core@1.50.1`（见 [backend/package.json](../../apps/server/package.json) 和 [pnpm-lock.yaml](../../pnpm-lock.yaml)）。Mastra 官方文档是当前在线版本；涉及实现细节时，同时参考了对应的官方源码标签 [`@mastra/core@1.50.1`](https://github.com/mastra-ai/mastra/tree/%40mastra%2Fcore%401.50.1)。因此，若文档已描述更新的 API，应以本仓库锁定版本的源码和类型为准，并在升级 Mastra 时重新核对。
+版本说明：本仓库当前锁定 `@mastra/core@1.50.1`（见 [backend/package.json](../../apps/server/package.json) 和 [bun.lock](../../bun.lock)）。Mastra 官方文档是当前在线版本；涉及实现细节时，同时参考了对应的官方源码标签 [`@mastra/core@1.50.1`](https://github.com/mastra-ai/mastra/tree/%40mastra%2Fcore%401.50.1)。因此，若文档已描述更新的 API，应以本仓库锁定版本的源码和类型为准，并在升级 Mastra 时重新核对。
 
 ## 结论先行
 

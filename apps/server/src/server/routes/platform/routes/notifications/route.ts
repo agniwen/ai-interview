@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { factory, jsonValidatorError } from "../../../../factory";
-import { resendInterviewSummaryNotification } from "../../../agent/utils/feishu-interview-notifications";
+import { resendPlatformReportNotification } from "./application/resend-report-notification";
 import {
   platformNotificationProviderFilterValues,
   platformNotificationStatusFilterValues,
@@ -22,7 +22,7 @@ export interface PlatformNotificationsRouterDependencies {
   listRecipients: typeof listPlatformNotificationResendRecipients;
   previewNotification: typeof previewPlatformFeishuNotification;
   queryNotifications: typeof queryPaginatedPlatformNotifications;
-  resendNotification: typeof resendInterviewSummaryNotification;
+  resendNotification: typeof resendPlatformReportNotification;
   updateDocumentStructure: typeof updatePlatformNotificationDocumentStructure;
 }
 
@@ -31,7 +31,7 @@ const defaultDependencies: PlatformNotificationsRouterDependencies = {
   listRecipients: listPlatformNotificationResendRecipients,
   previewNotification: previewPlatformFeishuNotification,
   queryNotifications: queryPaginatedPlatformNotifications,
-  resendNotification: resendInterviewSummaryNotification,
+  resendNotification: resendPlatformReportNotification,
   updateDocumentStructure: updatePlatformNotificationDocumentStructure,
 };
 

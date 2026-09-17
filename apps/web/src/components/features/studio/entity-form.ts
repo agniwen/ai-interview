@@ -1,7 +1,7 @@
 "use client";
 
 import { useForm, useStore } from "@tanstack/react-form";
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 // Standard Schema v1 协议（Zod 4 实现该协议）；@standard-schema/spec 不是直接 dep，
 // 这里只取 TanStack Form 验证器需要的最小 shape。
@@ -62,20 +62,12 @@ export function useEntityForm<TValues>({
   });
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
 
-  // 用 ref 把最新的 buildValues 透到 useEffect 里，让依赖数组只跟 open 变化。
-  // 调用方传入的箭头函数每次渲染都是新引用，直接放进 deps 会导致每渲染 reset 一次。
-  // Hold the latest buildValues in a ref so the effect can depend solely on `open` —
-  // the inline arrow passed by callers is fresh per render and would otherwise
-  // re-fire reset every commit.
-  const buildValuesRef = useRef(buildValues);
-
-  useEffect(() => {
-    buildValuesRef.current = buildValues;
-  }, [buildValues]);
+  // Reopening reads the latest defaults without resetting an in-progress edit on rerender.
+  const onOpen = useEffectEvent(() => form.reset(buildValues()));
 
   useEffect(() => {
     if (open) {
-      form.reset(buildValuesRef.current());
+      onOpen();
     }
   }, [open, form]);
 

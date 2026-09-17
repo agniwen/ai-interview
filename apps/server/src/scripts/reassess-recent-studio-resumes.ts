@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
@@ -175,7 +176,7 @@ async function main(): Promise<void> {
 
   const [
     { db },
-    { jobDescription, organization, studioInterview },
+    { jobDescription, organization },
     { and, desc, eq },
     { enqueueResumeReassessmentForRecord },
     { reassessResumeRecord },
@@ -202,41 +203,41 @@ async function main(): Promise<void> {
 
   const selection = {
     blueprintHash: jobDescription.evaluationBlueprintHash,
-    candidateName: studioInterview.candidateName,
-    createdAt: studioInterview.createdAt,
+    candidateName: recruitingRecordReadModel.candidateName,
+    createdAt: recruitingRecordReadModel.createdAt,
     evaluationMode: jobDescription.evaluationMode,
-    id: studioInterview.id,
-    jobDescriptionId: studioInterview.jobDescriptionId,
+    id: recruitingRecordReadModel.id,
+    jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
     jobDescriptionName: jobDescription.name,
     lifecycleStatus: jobDescription.lifecycleStatus,
-    outcome: studioInterview.outcome,
-    pipelineStage: studioInterview.pipelineStage,
-    resumeContentHash: studioInterview.resumeContentHash,
-    resumeParseStatus: studioInterview.resumeParseStatus,
-    resumeProfile: studioInterview.resumeProfile,
-    resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
-    resumeReviewStatus: studioInterview.resumeReviewStatus,
-    resumeText: studioInterview.resumeText,
+    outcome: recruitingRecordReadModel.outcome,
+    pipelineStage: recruitingRecordReadModel.pipelineStage,
+    resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+    resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+    resumeProfile: recruitingRecordReadModel.resumeProfile,
+    resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
+    resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+    resumeText: recruitingRecordReadModel.resumeText,
     ruleSetVersion: jobDescription.deductionRuleSetVersion,
-    structuredCompositeScore: studioInterview.structuredCompositeScore,
-    structuredGateStatus: studioInterview.structuredGateStatus,
-    structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
-    structuredScoreGrade: studioInterview.structuredScoreGrade,
+    structuredCompositeScore: recruitingRecordReadModel.structuredCompositeScore,
+    structuredGateStatus: recruitingRecordReadModel.structuredGateStatus,
+    structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
+    structuredScoreGrade: recruitingRecordReadModel.structuredScoreGrade,
   };
   // SAFETY: the explicit Drizzle selection above maps every selected column to TargetRecord;
   // nullable joined job fields are represented by the nullable fields in that contract.
   const recentTargets = (await db
     .select(selection)
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, jobDescription.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
       ),
     )
-    .where(eq(studioInterview.organizationId, TARGET_WORKSPACE_ID))
-    .orderBy(desc(studioInterview.createdAt), desc(studioInterview.id))
+    .where(eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID))
+    .orderBy(desc(recruitingRecordReadModel.createdAt), desc(recruitingRecordReadModel.id))
     .limit(targetLimit)) as TargetRecord[];
   if (recentTargets.length !== targetLimit) {
     throw new Error(`招聘台记录不足 ${targetLimit} 条，实际 ${recentTargets.length} 条。`);
@@ -330,18 +331,18 @@ async function main(): Promise<void> {
         // SAFETY: this query reuses the same TargetRecord selection contract validated above.
         const [after] = (await db
           .select(selection)
-          .from(studioInterview)
+          .from(recruitingRecordReadModel)
           .leftJoin(
             jobDescription,
             and(
-              eq(studioInterview.jobDescriptionId, jobDescription.id),
-              eq(studioInterview.organizationId, jobDescription.organizationId),
+              eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+              eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
             ),
           )
           .where(
             and(
-              eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-              eq(studioInterview.id, target.id),
+              eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+              eq(recruitingRecordReadModel.id, target.id),
             ),
           )
           .limit(1)) as TargetRecord[];

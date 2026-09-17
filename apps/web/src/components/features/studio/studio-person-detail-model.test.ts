@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import {
+  shouldShowHumanInterviewTab,
+  shouldShowOfferTab,
+  shouldShowOnboardingTab,
+  tabForPipelineStage,
+} from "./studio-person-detail-model";
+
+describe("招聘子节点所属详情 tab", () => {
+  it.each(["income_proof", "offer", "background_check"] as const)(
+    "%s 显示并定位到 Offer tab",
+    (pipelineStage) => {
+      expect(shouldShowOfferTab({ pipelineStage }, true)).toBe(true);
+      expect(shouldShowOfferTab({ pipelineStage }, false)).toBe(false);
+      expect(tabForPipelineStage(pipelineStage)).toBe("offer");
+    },
+  );
+  it.each([
+    ["screening", "overview"],
+    ["ai_interview", "rounds"],
+    ["second_interview", "human-interview"],
+    ["final_interview", "human-interview"],
+    ["onboarding", "onboarding"],
+    ["closed", "overview"],
+  ] as const)("%s 定位到 %s", (stage, tab) => {
+    expect(tabForPipelineStage(stage)).toBe(tab);
+  });
+  it("Offer 之前不显示，结束后保留查看入口", () => {
+    expect(shouldShowOfferTab({ pipelineStage: "final_interview" }, true)).toBe(false);
+    expect(shouldShowOfferTab({ pipelineStage: "closed" }, true)).toBe(true);
+  });
+
+  it("存在真人面试记录时保留对应阶段入口", () => {
+    expect(
+      shouldShowHumanInterviewTab({ hasHumanInterview: true, pipelineStage: "ai_interview" }, true),
+    ).toBe(true);
+    expect(
+      shouldShowHumanInterviewTab(
+        { hasHumanInterview: true, pipelineStage: "ai_interview" },
+        false,
+      ),
+    ).toBe(false);
+  });
+});
+
+it("入职 tab 仅在入职阶段及其结束记录展示", () => {
+  expect(shouldShowOnboardingTab({ pipelineStage: "onboarding" })).toBe(true);
+  expect(shouldShowOnboardingTab({ closedFromNode: "onboarding", pipelineStage: "closed" })).toBe(
+    true,
+  );
+  expect(shouldShowOnboardingTab({ closedFromNode: "screening", pipelineStage: "closed" })).toBe(
+    false,
+  );
+  expect(shouldShowOnboardingTab({ pipelineStage: "background_check" })).toBe(false);
+});

@@ -112,6 +112,7 @@ export function getStoredInterviewQuestions(
 }
 
 interface HumanInterviewQuestionDialogProps {
+  targetStage?: "second_interview" | "final_interview";
   open: boolean;
   recordId: string | null;
   candidateName: string | null;
@@ -181,7 +182,7 @@ async function streamGenerateQuestions(
 export function HumanInterviewQuestionDialog({
   open,
   recordId,
-  candidateName,
+  targetStage = "second_interview",
   onOpenChange,
   onConfirmed,
 }: HumanInterviewQuestionDialogProps) {
@@ -312,12 +313,7 @@ export function HumanInterviewQuestionDialog({
         value={activeTab}
       >
         <Modal
-          description={
-            candidateName
-              ? `确认 ${candidateName} 的面试官参考题，确认后进入真人复面阶段`
-              : "确认面试官参考题，确认后进入真人复面阶段"
-          }
-          dismissible={!isBusy}
+          dismissible={!submitting}
           headerExtra={
             // 与详情弹窗 headerExtra 结构对齐：外层 flex row 让 TabsList 在桌面
             // 端按内容自适应；不裸放 TabsList，否则 Modal 的 stack 列容器会把
@@ -358,19 +354,19 @@ export function HumanInterviewQuestionDialog({
             </div>
           }
           onOpenChange={(next) => {
-            if (!next && isBusy) {
+            if (!next && submitting) {
               return;
             }
             onOpenChange(next);
           }}
           open={open}
-          showCloseButton={!isBusy}
+          showCloseButton={!submitting}
           size="lg"
-          title="准备真人面试"
+          title={targetStage === "final_interview" ? "准备终试" : "准备复试"}
           footer={
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button
-                disabled={isBusy}
+                disabled={submitting}
                 onClick={() => onOpenChange(false)}
                 type="button"
                 variant="outline"
@@ -385,7 +381,7 @@ export function HumanInterviewQuestionDialog({
                 type="button"
               >
                 {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-                确认并进入真人复面
+                {targetStage === "final_interview" ? "进入终试" : "进入复试"}
               </Button>
             </div>
           }
@@ -523,6 +519,10 @@ export function LaunchInterviewDialog({
     if (!recordId || isLoading || submitting) {
       return;
     }
+    if (detail?.resumeEvaluationStatus !== "pass") {
+      toast.error("请先将简历筛选标记为通过，再发起 AI 面试");
+      return;
+    }
     setSubmitting(true);
     await runAsyncAction({
       cleanup: () => setSubmitting(false),
@@ -548,7 +548,7 @@ export function LaunchInterviewDialog({
           <AlertDialogTitle>确认发起 AI 面试？</AlertDialogTitle>
           <AlertDialogDescription>
             {riskyEvaluation
-              ? `AI 评估显示${candidateName ?? "该候选人"}未通过门槛或综合等级为不匹配。该结果仅供参考，确认后仍会创建 AI 面试并将最终筛选状态记为通过。`
+              ? `AI 评估显示${candidateName ?? "该候选人"}未通过门槛或综合等级为不匹配。该结果仅供参考，确认后仍会创建 AI 面试。`
               : `确认后将为${candidateName ?? "该候选人"}创建 AI 面试。`}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -580,7 +580,10 @@ export function LaunchInterviewDialog({
         </Field>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={submitting}>取消</AlertDialogCancel>
-          <AlertDialogAction disabled={isLoading || submitting} onClick={handleConfirm}>
+          <AlertDialogAction
+            disabled={isLoading || submitting || detail?.resumeEvaluationStatus !== "pass"}
+            onClick={handleConfirm}
+          >
             {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {confirmLabel}
           </AlertDialogAction>

@@ -44,7 +44,8 @@ export function useMarkdownEditor({ value, onChange, maxLength, placeholder, dis
   });
 
   useEffect(() => {
-    editor?.setEditable(!disabled);
+    // 切换只读状态不属于内容编辑，避免触发表单未保存提示。
+    editor?.setEditable(!disabled, false);
   }, [disabled, editor]);
 
   useEffect(() => {

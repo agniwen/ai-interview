@@ -19,6 +19,8 @@ interface HumanInterviewInterviewerState {
 const interviewerPreviewSchema = z.object({
   candidateName: z.string(),
   interviewerName: z.string(),
+  jobDescriptionName: z.string().nullable(),
+  jobDescriptionPrompt: z.string().nullable(),
   meetingId: z.string(),
   recordingStatus: humanInterviewRecordingStatusSchema,
   role: humanInterviewMeetingInterviewerRoleSchema,

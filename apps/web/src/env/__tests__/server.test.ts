@@ -69,6 +69,26 @@ describe("server env", () => {
     });
   });
 
+  it("validates and forwards the Feishu provider rollout policy", () => {
+    const env = createServerEnv({
+      ...configuredEnv,
+      FEISHU_LEGACY_LOGIN_ENABLED: "false",
+      FEISHU_PREFERRED_PROVIDER_ID: "feishu-jiguang-hr",
+    });
+    const target: Record<string, string | undefined> = {};
+
+    applyServerEnv(target, env);
+
+    expect(target.FEISHU_LEGACY_LOGIN_ENABLED).toBe("false");
+    expect(target.FEISHU_PREFERRED_PROVIDER_ID).toBe("feishu-jiguang-hr");
+    expectEnvValidationToThrow(() =>
+      createServerEnv({
+        ...configuredEnv,
+        FEISHU_PREFERRED_PROVIDER_ID: "unknown",
+      }),
+    );
+  });
+
   it("reads process env at call time instead of module load time", () => {
     const target: Record<string, string | undefined> = {};
 

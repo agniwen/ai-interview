@@ -2,7 +2,7 @@ import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
   studioInterviewQuestionClientSchema,
-  HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import { z } from "zod";
@@ -81,7 +81,7 @@ export interface HumanInterviewCandidateHrInformationResponse {
     submittedAt: string | null;
     submittedBy: string | null;
     values: Pick<
-      HumanInterviewEvaluation,
+      HumanInterviewEvaluationDraft,
       | "rating"
       | "seniorityPosition"
       | "rolePosition"

@@ -1,4 +1,8 @@
 import {
+  resolveRecruitingBoardStagePreset,
+  resolveRecruitingBoardView,
+} from "@app/shared/recruiting-board";
+import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
@@ -10,6 +14,7 @@ import { useAtom } from "jotai";
 import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import { parseCsvParam } from "@app/shared/csv";
 import { dateRangeFilterBounds } from "@app/shared/date-range-filter";
+import { dashboardRecruitingActionScopeValues } from "@app/shared/studio-dashboard";
 import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@app/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
@@ -30,6 +35,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { jobDescriptionKeys, studioResumeKeys } from "@/lib/client/api/query-keys";
 import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope";
+import { firstSearchValue } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useResumeLibrarySearchState } from "./resume-library-page-model";
 import type {
@@ -48,6 +54,7 @@ const recruitingJobDescriptionsPayloadSchema = z.object({
     }),
   ),
 });
+const dashboardRecruitingActionScopeSchema = z.enum(dashboardRecruitingActionScopeValues);
 
 interface ResumeLibraryPageParam {
   knownTotal: number | undefined;
@@ -82,14 +89,22 @@ export function useResumeLibraryPageQueries({
       (params: FetchParams): Promise<PaginatedResumeLibraryResult> => {
         const bounds = dateRangeFilterBounds(params.filters.createdAtRange);
         return fetchStudioResumes(slug, {
+          boardView: resolveRecruitingBoardView(params.filters.stage),
           createdFrom: bounds?.from,
           createdTo: bounds?.to,
           creatorIds: parseCsvParam(params.filters.creatorIds),
+          dashboardAction: dashboardRecruitingActionScopeSchema.safeParse(
+            params.filters.dashboardAction,
+          ).data,
+          hrHandling: params.filters.hrHandling === "true",
           jobDescriptionIds: parseCsvParam(params.filters.jdIds),
           knownTotal: params.knownTotal,
+          nodeResults: parseCsvParam(params.filters.nodeResults),
+          nodeStatuses: parseCsvParam(params.filters.nodeStatuses),
+          outcomes: parseCsvParam(params.filters.outcomes),
           page: params.page,
           pageSize: params.pageSize,
-          pipelineStages: parseCsvParam(params.filters.stage),
+          pipelineStages: parseCsvParam(params.filters.pipelineStages),
           recommendationLevels: parseCsvParam(params.filters.recommendationLevels),
           search: params.search || undefined,
           skills: parseCsvParam(params.filters.skills),
@@ -198,17 +213,18 @@ export function useResumeLibraryPageQueries({
   });
 
   const [metricsScope, setMetricsScope] = useAtom(resumeMetricsScopeAtom);
+  const boardPreset = resolveRecruitingBoardStagePreset(firstSearchValue(routeSearch.boardPreset));
   const metricsQuery = useQuery({
     placeholderData: keepPreviousData,
-    queryFn: () => fetchStudioResumeMetrics(slug, metricsScope),
-    queryKey: studioResumeKeys.metrics(slug, metricsScope),
+    queryFn: () => fetchStudioResumeMetrics(slug, metricsScope, boardPreset),
+    queryKey: studioResumeKeys.metrics(slug, metricsScope, boardPreset),
     structuralSharing: false,
   });
   /** Dim charts only while switching scope and the previous scope is still shown. */
   const metricsSwitching = metricsQuery.isPlaceholderData;
   const metricsChartKey = metricsQuery.isPlaceholderData
-    ? `pending:${metricsScope}`
-    : `${metricsScope}:${metricsQuery.dataUpdatedAt}`;
+    ? `pending:${metricsScope}:${boardPreset ?? "all"}`
+    : `${metricsScope}:${boardPreset ?? "all"}:${metricsQuery.dataUpdatedAt}`;
 
   const retryParseMutation = useMutation({
     mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),

@@ -8,10 +8,20 @@ export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) 
   return createEnv({
     emptyStringAsUndefined: true,
     runtimeEnvStrict: {
+      BETTER_AUTH_URL: runtimeEnv.BETTER_AUTH_URL,
       DATABASE_URL: runtimeEnv.DATABASE_URL,
+      FEISHU_APP_ID: runtimeEnv.FEISHU_APP_ID,
+      FEISHU_APP_ID2: runtimeEnv.FEISHU_APP_ID2,
+      FEISHU_APP_SECRET: runtimeEnv.FEISHU_APP_SECRET,
+      FEISHU_APP_SECRET2: runtimeEnv.FEISHU_APP_SECRET2,
+      FEISHU_EVALUATION_FOLDER_TOKEN: runtimeEnv.FEISHU_EVALUATION_FOLDER_TOKEN,
+      FEISHU_HUMAN_INTERVIEW_ENABLED: runtimeEnv.FEISHU_HUMAN_INTERVIEW_ENABLED,
+      FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN:
+        runtimeEnv.FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN,
       INTERVIEW_NOTIFICATION_BATCH_SIZE: runtimeEnv.INTERVIEW_NOTIFICATION_BATCH_SIZE,
       INTERVIEW_NOTIFICATION_FLOW_ENABLED: runtimeEnv.INTERVIEW_NOTIFICATION_FLOW_ENABLED,
       INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS: runtimeEnv.INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS,
+      INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE: runtimeEnv.INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE,
       INTERVIEW_NOTIFICATION_WORKER_ENABLED: runtimeEnv.INTERVIEW_NOTIFICATION_WORKER_ENABLED,
       POSTGRES_CONNECT_TIMEOUT_SECONDS: runtimeEnv.POSTGRES_CONNECT_TIMEOUT_SECONDS,
       POSTGRES_IDLE_TIMEOUT_SECONDS: runtimeEnv.POSTGRES_IDLE_TIMEOUT_SECONDS,
@@ -25,10 +35,23 @@ export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) 
       WORKER_PORT: runtimeEnv.WORKER_PORT,
     },
     server: {
+      BETTER_AUTH_URL: z.url().optional(),
       DATABASE_URL: z.url().optional(),
+      FEISHU_APP_ID: z.string().trim().min(1).optional(),
+      FEISHU_APP_ID2: z.string().trim().min(1).optional(),
+      FEISHU_APP_SECRET: z.string().trim().min(1).optional(),
+      FEISHU_APP_SECRET2: z.string().trim().min(1).optional(),
+      FEISHU_EVALUATION_FOLDER_TOKEN: z.string().trim().min(1).optional(),
+      FEISHU_HUMAN_INTERVIEW_ENABLED: booleanString.optional(),
+      FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN: z.string().trim().min(1).optional(),
       INTERVIEW_NOTIFICATION_BATCH_SIZE: positiveIntegerString.optional(),
       INTERVIEW_NOTIFICATION_FLOW_ENABLED: booleanString.optional(),
       INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS: positiveIntegerString.optional(),
+      INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE: z
+        .string()
+        .trim()
+        .regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
+        .optional(),
       INTERVIEW_NOTIFICATION_WORKER_ENABLED: booleanString.optional(),
       POSTGRES_CONNECT_TIMEOUT_SECONDS: positiveIntegerString.optional(),
       POSTGRES_IDLE_TIMEOUT_SECONDS: positiveIntegerString.optional(),

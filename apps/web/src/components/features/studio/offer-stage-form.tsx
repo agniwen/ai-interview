@@ -1,15 +1,7 @@
 "use client";
 
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
-// Offer 阶段的详情面板内容：
-//   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
-//   - 下方：Offer 草稿版本时间线（version desc）
-//   - 新建 Offer / 编辑 draft / 发送 / 记录响应 / 撤回
-//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结束 hired」流程
-//
-// Offer-stage panel: candidate expectations inline form + offer draft
-// timeline. Draft → sent → respond / cancel flows; on "accepted" we prompt
-// the caller to launch the close flow.
+// Offer 接受后完成协商，后续继续背调与入职。
 
 import type { Dispatch, SetStateAction } from "react";
 import type { OfferDraftInput } from "@app/db-schema/studio-interviews";
@@ -61,9 +53,9 @@ export interface OfferFormState {
   notes: string;
 }
 
-export function createBlankOfferFormState(): OfferFormState {
+export function createBlankOfferFormState(initialBaseSalary?: number | null): OfferFormState {
   return {
-    baseSalary: "",
+    baseSalary: initialBaseSalary ? String(initialBaseSalary) : "",
     bonus: "",
     equity: "",
     expiresAt: "",
@@ -111,6 +103,14 @@ export function buildOfferDraftPayload(form: OfferFormState): OfferDraftInput {
   };
 }
 
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-1 text-destructive">
+      *
+    </span>
+  );
+}
+
 export function OfferDraftFormFields({
   form,
   idPrefix,
@@ -127,25 +127,31 @@ export function OfferDraftFormFields({
       <div className={`grid gap-1.5 ${fullSpanClassName}`}>
         <Label className="text-sm" htmlFor={`${idPrefix}-position`}>
           职位
+          <RequiredMark />
         </Label>
         <Input
           id={`${idPrefix}-position`}
+          aria-required="true"
           maxLength={200}
           onChange={(e) => onFieldChange("position", e.target.value)}
           placeholder="例如 高级前端工程师（L4）"
+          required
           value={form.position}
         />
       </div>
       <div className="grid gap-1.5">
         <Label className="text-sm" htmlFor={`${idPrefix}-base`}>
           Base 月薪 (¥)
+          <RequiredMark />
         </Label>
         <Input
           id={`${idPrefix}-base`}
+          aria-required="true"
           inputMode="numeric"
           min={0}
           onChange={(e) => onFieldChange("baseSalary", e.target.value)}
           type="number"
+          required
           value={form.baseSalary}
         />
       </div>
@@ -186,7 +192,7 @@ export function OfferDraftFormFields({
       </div>
       <div className="grid gap-1.5">
         <Label className="text-sm" htmlFor={`${idPrefix}-expires`}>
-          Offer 有效期至（可选）
+          Offer 有效期至（含当天，可选）
         </Label>
         <DatePicker
           id={`${idPrefix}-expires`}

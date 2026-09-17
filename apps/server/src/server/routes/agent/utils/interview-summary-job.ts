@@ -2,7 +2,7 @@ import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../lib/server/db/index";
 import { captureBackendException } from "../../../../lib/server/sentry";
-import { interviewConversation } from "@app/db-schema/schema";
+import { aiInterviewConversation } from "@app/db-schema/schema";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import { notifyInterviewSummaryReady } from "./feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "../../../cache-tags";
@@ -87,28 +87,28 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     // /retry-summaries concurrently picks up the same row.
     const staleRunningThreshold = new Date(Date.now() - RUNNING_STALE_MINUTES * 60 * 1000);
     const claimed = await db
-      .update(interviewConversation)
+      .update(aiInterviewConversation)
       .set({
-        summaryAttempts: sql`${interviewConversation.summaryAttempts} + 1`,
+        summaryAttempts: sql`${aiInterviewConversation.summaryAttempts} + 1`,
         summaryStartedAt: startedAt,
         summaryStatus: "running",
       })
       .where(
         and(
-          eq(interviewConversation.conversationId, conversationId),
+          eq(aiInterviewConversation.conversationId, conversationId),
           or(
-            inArray(interviewConversation.summaryStatus, ["pending", "failed"]),
+            inArray(aiInterviewConversation.summaryStatus, ["pending", "failed"]),
             // Orphaned run (crash mid-LLM): claim it back.
             and(
-              eq(interviewConversation.summaryStatus, "running"),
-              lt(interviewConversation.summaryStartedAt, staleRunningThreshold),
+              eq(aiInterviewConversation.summaryStatus, "running"),
+              lt(aiInterviewConversation.summaryStartedAt, staleRunningThreshold),
             ),
           ),
         ),
       )
       .returning({
-        dataCollectionResults: interviewConversation.dataCollectionResults,
-        transcript: interviewConversation.transcript,
+        dataCollectionResults: aiInterviewConversation.dataCollectionResults,
+        transcript: aiInterviewConversation.transcript,
       });
 
     if (claimed.length === 0) {
@@ -121,12 +121,12 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
 
     if (!transcript || transcript.length === 0) {
       await db
-        .update(interviewConversation)
+        .update(aiInterviewConversation)
         .set({
           summaryError: "empty transcript",
           summaryStatus: "failed",
         })
-        .where(eq(interviewConversation.conversationId, conversationId));
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
       return;
     }
 
@@ -164,7 +164,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
         interviewRecordId,
       });
       await db
-        .update(interviewConversation)
+        .update(aiInterviewConversation)
         .set({
           evaluationCriteriaResults: report.evaluation
             ? jsonObjectSchema.parse(report.evaluation)
@@ -173,13 +173,13 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
           summaryStatus: "failed",
           transcriptSummary: report.summary ?? undefined,
         })
-        .where(eq(interviewConversation.conversationId, conversationId));
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
       return;
     }
 
     await db.transaction(async (tx) => {
       await tx
-        .update(interviewConversation)
+        .update(aiInterviewConversation)
         .set({
           evaluationCriteriaResults: jsonObjectSchema.parse(report.evaluation),
           // Reset attempts on success so a future manual re-run has a full
@@ -190,7 +190,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
           summaryStatus: "ready",
           transcriptSummary: report.summary,
         })
-        .where(eq(interviewConversation.conversationId, conversationId));
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
 
       if (shouldAutomaticallyGenerateEvaluationDocument && isInterviewNotificationFlowEnabled()) {
         await enqueueAiReportReadyEvent(tx, { conversationId, interviewRecordId });
@@ -216,12 +216,12 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     console.error(`${LOG_PREFIX} failed for ${conversationId}:`, error);
 
     await db
-      .update(interviewConversation)
+      .update(aiInterviewConversation)
       .set({
         summaryError: message,
         summaryStatus: "failed",
       })
-      .where(eq(interviewConversation.conversationId, conversationId))
+      .where(eq(aiInterviewConversation.conversationId, conversationId))
       .catch((updateError) => {
         // eslint-disable-next-line no-console
         console.error(`${LOG_PREFIX} failed to mark failure state:`, updateError);

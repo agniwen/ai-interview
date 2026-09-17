@@ -6,6 +6,9 @@ import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { matchesDetailRefresh } from "./detail-refresh";
+import { isCurrentInterviewResultSelected } from "./interview-result/selection";
 import { useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -14,6 +17,7 @@ import {
   shouldShowAiInterviewTab,
   shouldShowHumanInterviewTab,
   shouldShowOfferTab,
+  shouldShowOnboardingTab,
   tabForPipelineStage,
 } from "./studio-person-detail-model";
 import type {
@@ -84,7 +88,9 @@ export function useStudioPersonDetailController({
     null,
   );
   const [humanInterviewQuestionDialogOpen, setHumanInterviewQuestionDialogOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const tabContentRootRef = useRef<HTMLDivElement>(null);
+  const previousStageRef = useRef<{ id: string; stage: PipelineStage } | null>(null);
   const {
     pendingResetSubmissionId,
     resettingRoundId,
@@ -102,14 +108,16 @@ export function useStudioPersonDetailController({
     [onTabChange],
   );
 
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
+  const detailContextKey = JSON.stringify([defaultTab, mode, recordId, roundId]);
+  const [previousDetailContextKey, setPreviousDetailContextKey] = useState(detailContextKey);
+  if (previousDetailContextKey !== detailContextKey) {
+    setPreviousDetailContextKey(detailContextKey);
     setActiveTabState(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
     setHumanInterviewQuestionDialogOpen(false);
     setSelectedResultConversationId(null);
-  }, [defaultTab, mode, recordId, roundId]);
+  }
 
   useEffect(() => {
     tabContentRootRef.current?.scrollTo({ top: 0 });
@@ -203,7 +211,14 @@ export function useStudioPersonDetailController({
 
   const visiblePipelineStage = optimisticPipelineStage ?? record?.pipelineStage;
   const hasRecord = record !== null;
-  const tabVisibilityRecord = hasRecord ? { pipelineStage: visiblePipelineStage } : null;
+  const tabVisibilityRecord = hasRecord
+    ? {
+        closedFromNode: resumeRecord?.closedFromNode,
+        hasHumanInterview: Boolean(resumeRecord?.stageProgress.humanInterview?.totalRounds),
+        hasInitialInterview: Boolean(resumeRecord?.stageProgress.initialInterview?.totalSnapshots),
+        pipelineStage: visiblePipelineStage,
+      }
+    : null;
   const showAgentInstructions = import.meta.env.DEV && mode === "interview" && !isPublic;
 
   const availableTabs = (() => {
@@ -220,6 +235,9 @@ export function useStudioPersonDetailController({
       return tabs;
     }
     tabs.add("ai-analysis");
+    if (shouldShowOnboardingTab(tabVisibilityRecord)) {
+      tabs.add("onboarding");
+    }
     if (shouldShowAiInterviewTab(tabVisibilityRecord)) {
       tabs.add("rounds");
     }
@@ -233,11 +251,26 @@ export function useStudioPersonDetailController({
   })();
 
   useEffect(() => {
+    if (mode === "resume" && record?.pipelineStage) {
+      const previous = previousStageRef.current;
+      previousStageRef.current = { id: record.id, stage: record.pipelineStage };
+      if (previous?.id === record.id && previous.stage !== record.pipelineStage) {
+        const targetTab = availableTabs.has("onboarding")
+          ? "onboarding"
+          : tabForPipelineStage(record.pipelineStage);
+        if (availableTabs.has(targetTab) && activeTab !== targetTab) {
+          // 同步确认、回退等操作刷新后的真实节点；初次打开仍尊重 URL 指定的 tab。
+          // oxlint-disable-next-line react/set-state-in-effect -- 同步服务端节点变化到受控 tab 与 URL。
+          setActiveTab(targetTab);
+          return;
+        }
+      }
+    }
     if (record && !availableTabs.has(activeTab)) {
       // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setActiveTab("overview");
     }
-  }, [activeTab, availableTabs, record, setActiveTab]);
+  }, [activeTab, availableTabs, mode, record, setActiveTab]);
 
   const selectedResultEvaluationSummary = getEvaluationSummary(
     selectedResultReport?.evaluationCriteriaResults,
@@ -248,24 +281,24 @@ export function useStudioPersonDetailController({
     evaluation: null,
     formSubmissions: currentResultFormSubmissions,
   }).formItems;
+  const isLatestResultReportSelected = isCurrentInterviewResultSelected(
+    effectiveSelectedResultConversationId,
+    latestResultReport?.conversationId,
+  );
   const selectedResultFormItems =
     getReportFormItems(selectedResultReport) ??
-    (effectiveSelectedResultConversationId === latestResultReport?.conversationId
-      ? currentResultFormItems
-      : []);
+    (isLatestResultReportSelected ? currentResultFormItems : []);
   const selectedResultInterviewItems = getCollectedCandidateInfoItems({
     evaluation: selectedResultReport?.evaluationCriteriaResults,
     formSubmissions: [],
   }).interviewItems;
-  const isLatestResultReportSelected =
-    effectiveSelectedResultConversationId === latestResultReport?.conversationId;
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
 
   const actionBarPipelineStage = visiblePipelineStage ?? record?.pipelineStage;
   async function requestPipelineStageAdvance(target: PipelineStage): Promise<void> {
-    if (target === "human_interview") {
+    if (target === "second_interview") {
       setHumanInterviewQuestionDialogOpen(true);
       return;
     }
@@ -275,7 +308,32 @@ export function useStudioPersonDetailController({
   function confirmHumanInterviewQuestions(
     interviewQuestions: InterviewQuestion[],
   ): Promise<boolean> {
-    return handleAdvancePipelineStage("human_interview", interviewQuestions);
+    return handleAdvancePipelineStage("second_interview", interviewQuestions);
+  }
+  async function refreshCurrentTab() {
+    if (!effectiveRecordId || isRefreshing) {
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      await queryClient.refetchQueries(
+        {
+          predicate: (query) =>
+            matchesDetailRefresh(query.queryKey, {
+              recordId: effectiveRecordId,
+              roundIds: candidateRounds.map((candidateRound) => candidateRound.id),
+              slug,
+              tab: activeTab,
+            }),
+          type: "active",
+        },
+        { throwOnError: true },
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "刷新失败，请重试");
+    } finally {
+      setIsRefreshing(false);
+    }
   }
   const header = buildStudioPersonDetailHeader({
     actionBarPipelineStage,
@@ -290,15 +348,23 @@ export function useStudioPersonDetailController({
     effectiveRecordId,
     isLoading,
     isPublic,
+    isRefreshing,
     isReview,
     isRoundsLoading,
     layoutMode,
     mode,
     onAdvancePipelineStage: requestPipelineStageAdvance,
     onClose,
+    onInterviewStageReady: (target) => {
+      setOptimisticPipelineStage(target);
+      setActiveTab(tabForPipelineStage(target));
+    },
     onLaunchInterview,
     onNavigateToInterviews: () => {
       void navigate({ params: { slug }, to: "/w/$slug/studio/interviews" });
+    },
+    onRefresh: () => {
+      void refreshCurrentTab();
     },
     onRequestClose,
     onRequestReactivate,
@@ -331,6 +397,7 @@ export function useStudioPersonDetailController({
     canReadOffer,
     canResetAiRound,
     canUpdateHumanInterview,
+    canUpdateInterview,
     canUpdateOffer,
     canUpdateResumeLibrary,
     canUseManagementActions,

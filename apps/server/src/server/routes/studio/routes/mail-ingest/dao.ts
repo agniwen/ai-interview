@@ -1,3 +1,4 @@
+import { assertNoRecruitingReferences } from "@app/database/recruiting-reference-retention";
 import {
   buildWorkspaceMailIngestFilters,
   buildPlatformMailIngestFilters,
@@ -180,8 +181,8 @@ function listWorkspaceMailIngestAccountRows({
       lastRunReceived: mailIngestAccount.lastRunReceived,
       lastRunSubjectSkipped: mailIngestAccount.lastRunSubjectSkipped,
       memberRole: member.role,
-      messageCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id})`,
-      problemCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
+      messageCount: sql<number>`(select count(*)::int from recruiting_mail_message where account_id = ${mailIngestAccount.id})`,
+      problemCount: sql<number>`(select count(*)::int from recruiting_mail_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
       userEmail: userTable.email,
       userId: userTable.id,
       userImage: userTable.image,
@@ -251,11 +252,11 @@ function listPlatformMailIngestAccountRows({
       lastRunReceived: mailIngestAccount.lastRunReceived,
       lastRunSubjectSkipped: mailIngestAccount.lastRunSubjectSkipped,
       memberRole: member.role,
-      messageCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id})`,
+      messageCount: sql<number>`(select count(*)::int from recruiting_mail_message where account_id = ${mailIngestAccount.id})`,
       organizationId: organization.id,
       organizationName: organization.name,
       organizationSlug: organization.slug,
-      problemCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
+      problemCount: sql<number>`(select count(*)::int from recruiting_mail_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
       userEmail: userTable.email,
       userId: userTable.id,
       userImage: userTable.image,
@@ -643,17 +644,28 @@ export async function deleteMailIngestAccount({
   organizationId: string;
   userId: string;
 }): Promise<boolean> {
-  const rows = await db
-    .delete(mailIngestAccount)
-    .where(
-      and(
-        eq(mailIngestAccount.id, id),
-        eq(mailIngestAccount.organizationId, organizationId),
-        eq(mailIngestAccount.userId, userId),
-      ),
-    )
-    .returning({ id: mailIngestAccount.id });
-  return rows.length > 0;
+  return await db.transaction(async (tx) => {
+    const condition = and(
+      eq(mailIngestAccount.id, id),
+      eq(mailIngestAccount.organizationId, organizationId),
+      eq(mailIngestAccount.userId, userId),
+    );
+    const [account] = await tx
+      .select({ id: mailIngestAccount.id })
+      .from(mailIngestAccount)
+      .where(condition)
+      .for("update")
+      .limit(1);
+    if (!account) {
+      return false;
+    }
+    await assertNoRecruitingReferences(tx, "mail_ingest_account", id);
+    const rows = await tx
+      .delete(mailIngestAccount)
+      .where(condition)
+      .returning({ id: mailIngestAccount.id });
+    return rows.length > 0;
+  });
 }
 
 export function listEnabledMailIngestAccounts(

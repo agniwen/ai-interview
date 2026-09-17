@@ -88,6 +88,9 @@ export function createMeetingRecordingStateBridge(
       active && latestTranscript.captureId === active.captureId
         ? {
             captureId: active.captureId,
+            initialCheckpoint: latestCapture.localSessions.find(
+              (session) => session.id === active.captureId,
+            )?.liveSummaryCheckpoint,
             initialSummary: localSummary,
             meetingStartedAt: active.startedAt,
             template: active.recruitingRecordId ? "recruiting-interview" : "general",

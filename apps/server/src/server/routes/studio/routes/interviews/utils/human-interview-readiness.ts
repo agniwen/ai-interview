@@ -7,6 +7,8 @@ export const HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE =
   "请先完成所有真人面试轮次，并补全每轮面试评价。";
 
 export interface HumanInterviewRoundReadiness {
+  secondInterviewPassed?: boolean;
+  finalInterviewPassed?: boolean;
   completedRoundsMissingFeedback: number;
   pendingRounds: number;
   totalRounds: number;
@@ -21,7 +23,9 @@ export const humanInterviewFeedbackSchema = z
 export function getHumanInterviewOfferReadinessError(
   readiness: HumanInterviewRoundReadiness,
 ): string | null {
-  return readiness.totalRounds > 0 &&
+  return readiness.secondInterviewPassed === true &&
+    readiness.finalInterviewPassed === true &&
+    readiness.totalRounds >= 2 &&
     readiness.pendingRounds === 0 &&
     readiness.completedRoundsMissingFeedback === 0
     ? null

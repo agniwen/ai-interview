@@ -26,7 +26,7 @@ import {
   renewMeetingDirectUploadLease,
 } from "./dao";
 import { loadAuthorizedMeeting } from "./authorized-meeting";
-import type { MeetingGrantRole } from "@app/shared/meeting-recording";
+import type { MeetingGrantRole, MeetingRecordingType } from "@app/shared/meeting-recording";
 
 export interface MeetingServiceAsset {
   contentType: string;
@@ -58,6 +58,9 @@ export interface MeetingServiceUser {
 }
 
 export interface MeetingServiceSession {
+  processingOwner?: string;
+  processingDeviceId?: string | null;
+  processingAccountId?: string | null;
   assets: MeetingServiceAsset[];
   id: string;
   liveSummary?: unknown;
@@ -81,6 +84,8 @@ export interface MeetingAuthorizedAsset {
 }
 
 export interface MeetingAuthorizedSession {
+  intelligenceStatus?: string;
+  recordingType?: MeetingRecordingType;
   accessGrantRole?: MeetingGrantRole | null;
   assets: MeetingAuthorizedAsset[];
   custodian?: MeetingServiceUser | null;
@@ -102,6 +107,7 @@ export interface MeetingAuthorizedSession {
 }
 
 export interface MeetingLibraryRow {
+  recordingType: MeetingRecordingType;
   controllerId: string;
   creatorId: string;
   creatorImage: string | null;

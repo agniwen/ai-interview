@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
 // Round-keyed DAO for AI 面试 列表与详情。
 // 主查询：FROM studio_interview_schedule LEFT JOIN studio_interview
@@ -20,10 +21,9 @@ import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-v
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
 import {
   department,
-  interviewConversation,
+  aiInterviewConversation,
   jobDescription,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
@@ -44,10 +44,10 @@ import { loadRoundFeishuEvaluationDocuments } from "./evaluation-documents";
 const SORT_COLUMNS = ["scheduledAt", "createdAt", "candidateName", "roundLabel"] as const;
 
 const ORDER_COLUMNS = {
-  candidateName: studioInterview.candidateName,
-  createdAt: studioInterviewSchedule.createdAt,
-  roundLabel: studioInterviewSchedule.roundLabel,
-  scheduledAt: studioInterviewSchedule.scheduledAt,
+  candidateName: recruitingRecordReadModel.candidateName,
+  createdAt: aiInterviewRound.createdAt,
+  roundLabel: aiInterviewRound.roundLabel,
+  scheduledAt: aiInterviewRound.scheduledAt,
 } as const;
 
 const roundsPaginationSchema = makePaginationSchema(SORT_COLUMNS, {
@@ -102,35 +102,35 @@ function buildWhere(
     return sql`false`;
   }
   const conditions: ReturnType<typeof eq | typeof or | typeof inArray>[] = [
-    eq(studioInterviewSchedule.organizationId, organizationId),
+    eq(aiInterviewRound.organizationId, organizationId),
   ];
   if (filters?.search) {
     const term = `%${filters.search}%`;
     const searchOr = or(
-      ilike(studioInterview.candidateName, term),
-      ilike(studioInterview.candidateEmail, term),
-      ilike(studioInterview.targetRole, term),
-      ilike(studioInterview.resumeFileName, term),
-      ilike(studioInterviewSchedule.roundLabel, term),
+      ilike(recruitingRecordReadModel.candidateName, term),
+      ilike(recruitingRecordReadModel.candidateEmail, term),
+      ilike(recruitingRecordReadModel.targetRole, term),
+      ilike(recruitingRecordReadModel.resumeFileName, term),
+      ilike(aiInterviewRound.roundLabel, term),
     );
     if (searchOr) {
       conditions.push(searchOr);
     }
   }
   if (filters?.statuses && filters.statuses.length > 0) {
-    conditions.push(inArray(studioInterviewSchedule.status, filters.statuses));
+    conditions.push(inArray(aiInterviewRound.status, filters.statuses));
   }
   if (filters?.creatorIds && filters.creatorIds.length > 0) {
-    conditions.push(inArray(studioInterviewSchedule.createdBy, filters.creatorIds));
+    conditions.push(inArray(aiInterviewRound.createdBy, filters.creatorIds));
   }
   return and(
     ...conditions,
     buildListTextFilterWhere("interviews", filters?.textFilters, {
-      candidateName: studioInterview.candidateName,
-      email: studioInterview.candidateEmail,
-      resumeFileName: studioInterview.resumeFileName,
-      targetRole: studioInterview.targetRole,
-      title: studioInterviewSchedule.roundLabel,
+      candidateName: recruitingRecordReadModel.candidateName,
+      email: recruitingRecordReadModel.candidateEmail,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      targetRole: recruitingRecordReadModel.targetRole,
+      title: aiInterviewRound.roundLabel,
     }),
   );
 }
@@ -167,15 +167,15 @@ async function loadRoundDerivedFields(
     .select({
       lastInterviewAt: sql<
         Date | string | null
-      >`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt}))`.as(
+      >`MAX(COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}))`.as(
         "last_interview_at",
       ),
       reportCount: count(),
-      scheduleEntryId: interviewConversation.scheduleEntryId,
+      scheduleEntryId: aiInterviewConversation.aiRoundId,
     })
-    .from(interviewConversation)
-    .where(inArray(interviewConversation.scheduleEntryId, ids))
-    .groupBy(interviewConversation.scheduleEntryId);
+    .from(aiInterviewConversation)
+    .where(inArray(aiInterviewConversation.aiRoundId, ids))
+    .groupBy(aiInterviewConversation.aiRoundId);
 
   for (const row of rows) {
     if (!row.scheduleEntryId) {
@@ -230,62 +230,65 @@ export async function queryPaginatedInterviewRounds(
     search || filters?.textFilters
       ? db
           .select({ count: count() })
-          .from(studioInterviewSchedule)
+          .from(aiInterviewRound)
           .leftJoin(
-            studioInterview,
-            eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
+            recruitingRecordReadModel,
+            eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
           )
           .where(where)
-      : db.select({ count: count() }).from(studioInterviewSchedule).where(where);
+      : db.select({ count: count() }).from(aiInterviewRound).where(where);
 
   const [rows, [totalRow]] = await Promise.all([
     db
       .select({
-        allowTextInput: studioInterviewSchedule.allowTextInput,
-        candidateEmail: studioInterview.candidateEmail,
-        candidateId: studioInterview.id,
-        candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-        candidateName: studioInterview.candidateName,
-        candidatePhone: studioInterview.candidatePhone,
-        conversationId: studioInterviewSchedule.conversationId,
-        createdAt: studioInterviewSchedule.createdAt,
-        createdBy: studioInterviewSchedule.createdBy,
+        allowTextInput: aiInterviewRound.allowTextInput,
+        candidateEmail: recruitingRecordReadModel.candidateEmail,
+        candidateId: recruitingRecordReadModel.id,
+        candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
+        candidateName: recruitingRecordReadModel.candidateName,
+        candidatePhone: recruitingRecordReadModel.candidatePhone,
+        conversationId: aiInterviewRound.conversationId,
+        createdAt: aiInterviewRound.createdAt,
+        createdBy: aiInterviewRound.createdBy,
         creatorImage: user.image,
         creatorName: user.name,
         creatorOrganizationName: user.feishuTenantName,
-        id: studioInterviewSchedule.id,
+        id: aiInterviewRound.id,
         jobDescriptionDepartmentName: department.name,
-        jobDescriptionId: studioInterview.jobDescriptionId,
+        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
         jobDescriptionName: jobDescription.name,
-        outcome: studioInterview.outcome,
-        pipelineStage: studioInterview.pipelineStage,
-        resumeFileName: studioInterview.resumeFileName,
-        resumeStorageKey: studioInterview.resumeStorageKey,
-        roundLabel: studioInterviewSchedule.roundLabel,
-        scheduledAt: studioInterviewSchedule.scheduledAt,
-        scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
-        sortOrder: studioInterviewSchedule.sortOrder,
-        status: studioInterviewSchedule.status,
-        targetRole: studioInterview.targetRole,
-        updatedAt: studioInterviewSchedule.updatedAt,
+        outcome: recruitingRecordReadModel.outcome,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
+        resumeFileName: recruitingRecordReadModel.resumeFileName,
+        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+        roundLabel: aiInterviewRound.roundLabel,
+        scheduledAt: aiInterviewRound.scheduledAt,
+        scheduledEndAt: aiInterviewRound.scheduledEndAt,
+        sortOrder: aiInterviewRound.sortOrder,
+        status: aiInterviewRound.status,
+        targetRole: recruitingRecordReadModel.targetRole,
+        updatedAt: aiInterviewRound.updatedAt,
       })
-      .from(studioInterviewSchedule)
-      .leftJoin(studioInterview, eq(studioInterviewSchedule.interviewRecordId, studioInterview.id))
+      .from(aiInterviewRound)
+      .leftJoin(
+        recruitingRecordReadModel,
+        eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+      )
       .leftJoin(
         jobDescription,
         and(
-          eq(studioInterview.jobDescriptionId, jobDescription.id),
-          eq(jobDescription.organizationId, studioInterview.organizationId),
+          eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+          eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
         ),
       )
       .leftJoin(
         department,
         and(
           eq(jobDescription.departmentId, department.id),
-          eq(department.organizationId, studioInterview.organizationId),
+          eq(department.organizationId, recruitingRecordReadModel.organizationId),
         ),
       )
-      .leftJoin(user, eq(studioInterviewSchedule.createdBy, user.id))
+      .leftJoin(user, eq(aiInterviewRound.createdBy, user.id))
       .where(where)
       .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
       .limit(pageSize)
@@ -369,58 +372,61 @@ export async function listInterviewRoundsForCandidate(
 ): Promise<StudioInterviewRoundListRecord[]> {
   const rows = await db
     .select({
-      allowTextInput: studioInterviewSchedule.allowTextInput,
-      candidateEmail: studioInterview.candidateEmail,
-      candidateId: studioInterview.id,
-      candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
-      conversationId: studioInterviewSchedule.conversationId,
-      createdAt: studioInterviewSchedule.createdAt,
-      createdBy: studioInterviewSchedule.createdBy,
+      allowTextInput: aiInterviewRound.allowTextInput,
+      candidateEmail: recruitingRecordReadModel.candidateEmail,
+      candidateId: recruitingRecordReadModel.id,
+      candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
+      candidateName: recruitingRecordReadModel.candidateName,
+      candidatePhone: recruitingRecordReadModel.candidatePhone,
+      conversationId: aiInterviewRound.conversationId,
+      createdAt: aiInterviewRound.createdAt,
+      createdBy: aiInterviewRound.createdBy,
       creatorImage: user.image,
       creatorName: user.name,
       creatorOrganizationName: user.feishuTenantName,
-      id: studioInterviewSchedule.id,
+      id: aiInterviewRound.id,
       jobDescriptionDepartmentName: department.name,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      scheduledAt: studioInterviewSchedule.scheduledAt,
-      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
-      sortOrder: studioInterviewSchedule.sortOrder,
-      status: studioInterviewSchedule.status,
-      targetRole: studioInterview.targetRole,
-      updatedAt: studioInterviewSchedule.updatedAt,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduledAt: aiInterviewRound.scheduledAt,
+      scheduledEndAt: aiInterviewRound.scheduledEndAt,
+      sortOrder: aiInterviewRound.sortOrder,
+      status: aiInterviewRound.status,
+      targetRole: recruitingRecordReadModel.targetRole,
+      updatedAt: aiInterviewRound.updatedAt,
     })
-    .from(studioInterviewSchedule)
-    .leftJoin(studioInterview, eq(studioInterviewSchedule.interviewRecordId, studioInterview.id))
+    .from(aiInterviewRound)
+    .leftJoin(
+      recruitingRecordReadModel,
+      eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+    )
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .leftJoin(
       department,
       and(
         eq(jobDescription.departmentId, department.id),
-        eq(department.organizationId, studioInterview.organizationId),
+        eq(department.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .leftJoin(user, eq(studioInterviewSchedule.createdBy, user.id))
+    .leftJoin(user, eq(aiInterviewRound.createdBy, user.id))
     .where(
       and(
-        eq(studioInterviewSchedule.interviewRecordId, candidateId),
-        eq(studioInterviewSchedule.organizationId, organizationId),
+        eq(aiInterviewRound.recruitingRecordId, candidateId),
+        eq(aiInterviewRound.organizationId, organizationId),
       ),
     )
-    .orderBy(asc(studioInterviewSchedule.sortOrder));
+    .orderBy(asc(aiInterviewRound.sortOrder));
 
   const { byRoundId: roundDerived, evaluationDocumentsByRoundId } =
     await loadRoundListDerivedFields(rows, organizationId);
@@ -474,35 +480,35 @@ export async function loadInterviewRoundDetail(
   }
   const visibilityCondition =
     visibilityScope?.kind === "restricted"
-      ? inArray(studioInterviewSchedule.createdBy, visibilityScope.userIds)
+      ? inArray(aiInterviewRound.createdBy, visibilityScope.userIds)
       : null;
   const conditions = [
-    eq(studioInterviewSchedule.id, roundId),
-    eq(studioInterviewSchedule.organizationId, organizationId),
+    eq(aiInterviewRound.id, roundId),
+    eq(aiInterviewRound.organizationId, organizationId),
     visibilityCondition,
   ].filter((condition) => condition !== null);
   const [row] = await db
     .select({
-      allowTextInput: studioInterviewSchedule.allowTextInput,
-      candidateFeedbackCategories: studioInterviewSchedule.candidateFeedbackCategories,
-      candidateFeedbackDetail: studioInterviewSchedule.candidateFeedbackDetail,
-      candidateFeedbackSubmittedAt: studioInterviewSchedule.candidateFeedbackSubmittedAt,
-      candidateId: studioInterviewSchedule.interviewRecordId,
-      candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
-      conversationId: studioInterviewSchedule.conversationId,
-      createdAt: studioInterviewSchedule.createdAt,
-      disconnectedAt: studioInterviewSchedule.disconnectedAt,
-      id: studioInterviewSchedule.id,
-      notes: studioInterviewSchedule.notes,
-      roundLabel: studioInterviewSchedule.roundLabel,
-      scheduledAt: studioInterviewSchedule.scheduledAt,
-      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
-      sessionStartedAt: studioInterviewSchedule.sessionStartedAt,
-      sortOrder: studioInterviewSchedule.sortOrder,
-      status: studioInterviewSchedule.status,
-      updatedAt: studioInterviewSchedule.updatedAt,
+      allowTextInput: aiInterviewRound.allowTextInput,
+      candidateFeedbackCategories: aiInterviewRound.candidateFeedbackCategories,
+      candidateFeedbackDetail: aiInterviewRound.candidateFeedbackDetail,
+      candidateFeedbackSubmittedAt: aiInterviewRound.candidateFeedbackSubmittedAt,
+      candidateId: aiInterviewRound.recruitingRecordId,
+      candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
+      conversationId: aiInterviewRound.conversationId,
+      createdAt: aiInterviewRound.createdAt,
+      disconnectedAt: aiInterviewRound.disconnectedAt,
+      id: aiInterviewRound.id,
+      notes: aiInterviewRound.notes,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduledAt: aiInterviewRound.scheduledAt,
+      scheduledEndAt: aiInterviewRound.scheduledEndAt,
+      sessionStartedAt: aiInterviewRound.sessionStartedAt,
+      sortOrder: aiInterviewRound.sortOrder,
+      status: aiInterviewRound.status,
+      updatedAt: aiInterviewRound.updatedAt,
     })
-    .from(studioInterviewSchedule)
+    .from(aiInterviewRound)
     .where(and(...conditions))
     .limit(1);
 
@@ -532,9 +538,9 @@ export async function loadInterviewRoundDetail(
   }
 
   const [reportRow] = await db
-    .select({ id: interviewConversation.conversationId })
-    .from(interviewConversation)
-    .where(eq(interviewConversation.scheduleEntryId, row.id))
+    .select({ id: aiInterviewConversation.conversationId })
+    .from(aiInterviewConversation)
+    .where(eq(aiInterviewConversation.aiRoundId, row.id))
     .limit(1);
 
   return {
@@ -584,17 +590,17 @@ export async function summarizeInterviewRoundCounts(
   }
   const visibilityCondition =
     visibilityScope?.kind === "restricted"
-      ? inArray(studioInterviewSchedule.createdBy, visibilityScope.userIds)
+      ? inArray(aiInterviewRound.createdBy, visibilityScope.userIds)
       : null;
   const conditions = [
-    eq(studioInterviewSchedule.organizationId, organizationId),
+    eq(aiInterviewRound.organizationId, organizationId),
     visibilityCondition,
   ].filter((condition) => condition !== null);
   const rows = await db
-    .select({ count: count(), status: studioInterviewSchedule.status })
-    .from(studioInterviewSchedule)
+    .select({ count: count(), status: aiInterviewRound.status })
+    .from(aiInterviewRound)
     .where(and(...conditions))
-    .groupBy(studioInterviewSchedule.status);
+    .groupBy(aiInterviewRound.status);
 
   let total = 0;
   let pending = 0;
@@ -632,13 +638,10 @@ export async function resolveRoundIdFromRecordId(
   organizationId: string,
 ): Promise<string | null> {
   const [asRound] = await db
-    .select({ id: studioInterviewSchedule.id })
-    .from(studioInterviewSchedule)
+    .select({ id: aiInterviewRound.id })
+    .from(aiInterviewRound)
     .where(
-      and(
-        eq(studioInterviewSchedule.id, recordId),
-        eq(studioInterviewSchedule.organizationId, organizationId),
-      ),
+      and(eq(aiInterviewRound.id, recordId), eq(aiInterviewRound.organizationId, organizationId)),
     )
     .limit(1);
   if (asRound) {
@@ -646,15 +649,15 @@ export async function resolveRoundIdFromRecordId(
   }
 
   const [asCandidate] = await db
-    .select({ id: studioInterviewSchedule.id })
-    .from(studioInterviewSchedule)
+    .select({ id: aiInterviewRound.id })
+    .from(aiInterviewRound)
     .where(
       and(
-        eq(studioInterviewSchedule.interviewRecordId, recordId),
-        eq(studioInterviewSchedule.organizationId, organizationId),
+        eq(aiInterviewRound.recruitingRecordId, recordId),
+        eq(aiInterviewRound.organizationId, organizationId),
       ),
     )
-    .orderBy(desc(studioInterviewSchedule.sortOrder), desc(studioInterviewSchedule.createdAt))
+    .orderBy(desc(aiInterviewRound.sortOrder), desc(aiInterviewRound.createdAt))
     .limit(1);
   return asCandidate?.id ?? null;
 }
@@ -673,16 +676,16 @@ export async function resolveCandidateIdForRound(
   }
   const visibilityCondition =
     visibilityScope?.kind === "restricted"
-      ? inArray(studioInterviewSchedule.createdBy, visibilityScope.userIds)
+      ? inArray(aiInterviewRound.createdBy, visibilityScope.userIds)
       : null;
   const conditions = [
-    eq(studioInterviewSchedule.id, roundId),
-    eq(studioInterviewSchedule.organizationId, organizationId),
+    eq(aiInterviewRound.id, roundId),
+    eq(aiInterviewRound.organizationId, organizationId),
     visibilityCondition,
   ].filter((condition) => condition !== null);
   const [row] = await db
-    .select({ candidateId: studioInterviewSchedule.interviewRecordId })
-    .from(studioInterviewSchedule)
+    .select({ candidateId: aiInterviewRound.recruitingRecordId })
+    .from(aiInterviewRound)
     .where(and(...conditions))
     .limit(1);
   return row?.candidateId ?? null;
@@ -703,12 +706,12 @@ export async function resolvePublicInterviewScope(id: string): Promise<{
 } | null> {
   const [asRound] = await db
     .select({
-      candidateId: studioInterviewSchedule.interviewRecordId,
-      id: studioInterviewSchedule.id,
-      organizationId: studioInterviewSchedule.organizationId,
+      candidateId: aiInterviewRound.recruitingRecordId,
+      id: aiInterviewRound.id,
+      organizationId: aiInterviewRound.organizationId,
     })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.id, id))
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.id, id))
     .limit(1);
   if (asRound) {
     return {
@@ -720,13 +723,13 @@ export async function resolvePublicInterviewScope(id: string): Promise<{
 
   const [asCandidate] = await db
     .select({
-      candidateId: studioInterviewSchedule.interviewRecordId,
-      id: studioInterviewSchedule.id,
-      organizationId: studioInterviewSchedule.organizationId,
+      candidateId: aiInterviewRound.recruitingRecordId,
+      id: aiInterviewRound.id,
+      organizationId: aiInterviewRound.organizationId,
     })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, id))
-    .orderBy(desc(studioInterviewSchedule.sortOrder), desc(studioInterviewSchedule.createdAt))
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.recruitingRecordId, id))
+    .orderBy(desc(aiInterviewRound.sortOrder), desc(aiInterviewRound.createdAt))
     .limit(1);
   return asCandidate
     ? {
@@ -743,9 +746,9 @@ export async function resolvePublicInterviewScope(id: string): Promise<{
  */
 export async function resolvePublicResumeOrgId(candidateId: string): Promise<string | null> {
   const [row] = await db
-    .select({ organizationId: studioInterview.organizationId })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, candidateId))
+    .select({ organizationId: recruitingRecordReadModel.organizationId })
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, candidateId))
     .limit(1);
   return row?.organizationId ?? null;
 }

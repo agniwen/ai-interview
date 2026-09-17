@@ -9,11 +9,15 @@
     "./web/document-sync": "./src/server/routes/studio/routes/interviews/adapters/default-document-sync-scheduler.ts",
     "./env": "./src/lib/server/env.ts",
     "./human-interview-evaluation-ready": "./src/server/interview-notifications/human-evaluation-ready.ts",
+    "./human-interview-attendance-reconciliation": "./src/exports/worker/human-interview-attendance-reconciliation.ts",
+    "./ai-interview-report-recovery": "./src/exports/worker/ai-interview-report-recovery.ts",
+    "./ai-interview-report-notification": "./src/exports/worker/ai-interview-report-notification.ts",
     "./rpc-client": {
       "types": "./dist/rpc-client.d.ts",
       "default": "./src/rpc-client.ts"
     },
-    "./web/runtime": "./src/exports/web/runtime.ts"
+    "./web/runtime": "./src/exports/web/runtime.ts",
+    "./initial-interview-evaluation": "./src/exports/worker/initial-interview-evaluation.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.rpc-client.json",

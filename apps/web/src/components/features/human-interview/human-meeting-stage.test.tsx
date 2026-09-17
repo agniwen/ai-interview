@@ -3,24 +3,48 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HumanMeetingStage } from "./human-meeting-stage";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const mediaState = vi.hoisted(() => ({ sharing: false, source: "camera" }));
+
 vi.mock("@livekit/components-react", () => ({
+  ConnectionQualityIndicator: () => <span aria-label="连接质量" />,
   DisconnectButton: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
-  ParticipantTile: () => <div />,
-  TrackLoop: () => null,
+  FocusLayoutContainer: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
+  ParticipantName: ({ participant }: { participant: { name: string } }) => (
+    <span>{participant.name}</span>
+  ),
+  ParticipantTile: ({ className }: { className: string }) => (
+    <div data-testid="participant-tile" className={className} />
+  ),
+  StartAudio: ({ label }: { label: string }) => <button>{label}</button>,
+  TrackLoop: ({
+    children,
+    tracks,
+  }: {
+    children: React.ReactNode;
+    tracks: { source: string }[];
+  }) => <div data-track-sources={tracks.map((track) => track.source).join(",")}>{children}</div>,
+  TrackMutedIndicator: () => <span aria-label="已静音" />,
   TrackToggle: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
   useParticipants: () => [],
   useTrackRefContext: () => ({
-    participant: { identity: "interviewer-1", isLocal: true, metadata: "", name: "面试官" },
-    source: "camera",
+    participant: { identity: "interviewer", isLocal: true, metadata: "", name: "面试官" },
+    source: mediaState.source,
   }),
-  useTracks: () => [],
+  useTracks: () =>
+    mediaState.sharing
+      ? [
+          { participant: { identity: "candidate", isLocal: false }, source: "screen_share" },
+          { participant: { identity: "candidate", isLocal: false }, source: "camera" },
+          { participant: { identity: "interviewer", isLocal: true }, source: "camera" },
+        ]
+      : [],
 }));
 
 vi.mock("./human-meeting-audio-controls", () => ({
@@ -32,70 +56,163 @@ vi.mock("./interviewer-candidate-materials", () => ({
   InterviewerCandidateMaterials: () => null,
 }));
 
-vi.mock("./human-meeting-review", () => ({
-  HumanMeetingReview: () => null,
-}));
-
 vi.mock("./human-meeting-live-transcript", () => ({
   HumanMeetingLiveTranscript: () => <div>自动实时转录窗口</div>,
 }));
 
 const roots: ReturnType<typeof createRoot>[] = [];
 
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", () => ({
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    matches: false,
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
+  }));
+});
+
 afterEach(() => {
   for (const root of roots.splice(0)) {
     act(() => root.unmount());
   }
   document.body.innerHTML = "";
+  vi.unstubAllGlobals();
+  mediaState.source = "camera";
+  mediaState.sharing = false;
 });
 
 describe("HumanMeetingStage realtime transcript", () => {
-  it("mounts the interviewer transcript automatically without an opt-in control", () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    roots.push(root);
+  it.each([437, 1024])(
+    "preserves the stage and shows responsive end confirmation at width %s",
+    (width) => {
+      vi.stubGlobal("innerWidth", width);
+      const container = document.createElement("div");
+      document.body.append(container);
+      const root = createRoot(container);
+      roots.push(root);
 
-    const renderStage = (viewMode: HumanMeetingViewMode) =>
+      const renderStage = (viewMode: HumanMeetingViewMode, canEndMeeting = true) =>
+        act(() =>
+          root.render(
+            <HumanMeetingStage
+              canEndMeeting={canEndMeeting}
+              canPublish
+              canUseLiveTranscript
+              canUseVoiceEffects={false}
+              candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
+              inviteToken="invite-1"
+              isEnding={false}
+              onCandidateMaterialsStateChange={() => {}}
+              onEndMeeting={() => {}}
+              onViewModeChange={() => {}}
+              title="真人复面"
+              viewMode={viewMode}
+            />,
+          ),
+        );
+      renderStage("meeting");
       act(() =>
-        root.render(
-          <HumanMeetingStage
-            canEndMeeting
-            canPublish
-            canUseLiveTranscript
-            canUseVoiceEffects={false}
-            candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
-            inviteToken="invite-1"
-            isEnding={false}
-            onCandidateMaterialsStateChange={() => {}}
-            onEndMeeting={() => {}}
-            onViewModeChange={() => {}}
-            participantName="面试官"
-            recordingStatus="active"
-            title="真人复面"
-            viewMode={viewMode}
-          />,
-        ),
+        [...container.querySelectorAll("button")]
+          .find((button) => button.textContent === "结束会议")
+          ?.click(),
       );
-    renderStage("meeting");
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain("结束这场会议？");
+      expect(Boolean(document.querySelector("[data-vaul-drawer]"))).toBe(width < 768);
+      act(() =>
+        [...document.querySelectorAll("button")]
+          .find((button) => button.textContent === "取消")
+          ?.click(),
+      );
 
-    expect(container.textContent).toContain("自动实时转录窗口");
-    expect(container.textContent).not.toContain("试试实时转录");
-    expect(container.textContent).not.toContain("关闭实时转录");
-    const workspace = container.querySelector('[data-slot="meeting-workspace"]');
-    const mainPanels = container.querySelector('[data-slot="meeting-main-panels"]');
-    expect(workspace).not.toBeNull();
-    expect(mainPanels).not.toBeNull();
-    const transcriptPanel = [...(workspace?.children ?? [])].find((element) =>
-      element.textContent?.includes("自动实时转录窗口"),
-    );
-    expect(transcriptPanel).toBeDefined();
-    expect(mainPanels?.contains(transcriptPanel ?? null)).toBe(false);
-    for (const viewMode of ["materials", "review", "meeting"] as const) {
-      renderStage(viewMode);
-      expect(transcriptPanel?.parentElement).toBe(workspace);
-      expect(transcriptPanel?.isConnected).toBe(true);
-      expect(mainPanels?.textContent).not.toContain("自动实时转录窗口");
-    }
-  });
+      expect(container.textContent).not.toContain("面试评价");
+      expect(container.textContent).toContain("切换到信息");
+      expect(container.textContent).toContain("结束会议");
+      expect(container.textContent).not.toContain("离开");
+      expect(container.textContent).toContain("开启声音");
+      const details = container.querySelector('[data-slot="participant-details"]');
+      expect(details?.textContent).toBe("面试官面试官");
+      expect(details?.className).toContain("z-20");
+      expect(details?.querySelector('[aria-label="已静音"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="participant-tile"]')?.className).toContain(
+        "[&_video]:object-cover",
+      );
+      mediaState.source = "screen_share";
+      renderStage("meeting");
+      expect(container.querySelector('[data-testid="participant-tile"]')?.className).toContain(
+        "[&_video]:object-contain",
+      );
+      expect(container.querySelector('[data-testid="participant-tile"]')?.className).not.toContain(
+        "[&_video]:object-cover",
+      );
+
+      expect(container.textContent).toContain("自动实时转录窗口");
+      expect(container.textContent).not.toContain("试试实时转录");
+      expect(container.textContent).not.toContain("关闭实时转录");
+      const workspace = container.querySelector('[data-slot="meeting-workspace"]');
+      const mainPanels = container.querySelector('[data-slot="meeting-main-panels"]');
+      expect(workspace).not.toBeNull();
+      expect(mainPanels).not.toBeNull();
+      const transcriptPanel = [...(workspace?.children ?? [])].find((element) =>
+        element.textContent?.includes("自动实时转录窗口"),
+      );
+      expect(transcriptPanel).toBeDefined();
+      expect(mainPanels?.contains(transcriptPanel ?? null)).toBe(false);
+      for (const viewMode of ["materials", "meeting"] as const) {
+        renderStage(viewMode);
+        expect(transcriptPanel?.parentElement).toBe(workspace);
+        expect(transcriptPanel?.isConnected).toBe(true);
+        expect(mainPanels?.textContent).not.toContain("自动实时转录窗口");
+      }
+      renderStage("meeting", false);
+      expect(container.textContent).toContain("离开");
+      expect(container.textContent).not.toContain("结束会议");
+      mediaState.sharing = true;
+      mediaState.source = "camera";
+      renderStage("meeting");
+      expect(container.querySelector('[data-slot="meeting-grid-layout"]')).toBeNull();
+      expect(
+        container.querySelector<HTMLElement>(
+          '[data-slot="meeting-share-main"] [data-track-sources]',
+        )?.dataset.trackSources,
+      ).toBe("screen_share");
+      expect(
+        container.querySelector<HTMLElement>(
+          '[data-slot="meeting-share-sidebar"] [data-track-sources]',
+        )?.dataset.trackSources,
+      ).toBe("camera,camera");
+      const thumbnail = container.querySelector<HTMLButtonElement>(
+        '[data-slot="meeting-share-sidebar"] button[title="设为主画面"]',
+      );
+      expect(thumbnail).not.toBeNull();
+      act(() => thumbnail?.click());
+      expect(
+        container.querySelector<HTMLElement>(
+          '[data-slot="meeting-share-main"] [data-track-sources]',
+        )?.dataset.trackSources,
+      ).toBe("camera");
+      const resetFocus = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "自动布局",
+      );
+      expect(resetFocus).toBeDefined();
+      act(() => resetFocus?.click());
+      expect(
+        container.querySelector<HTMLElement>(
+          '[data-slot="meeting-share-main"] [data-track-sources]',
+        )?.dataset.trackSources,
+      ).toBe("screen_share");
+      act(() =>
+        container
+          .querySelector<HTMLButtonElement>(
+            '[data-slot="meeting-share-sidebar"] button[title="设为主画面"]',
+          )
+          ?.click(),
+      );
+      mediaState.sharing = false;
+      renderStage("meeting");
+      expect(container.textContent).not.toContain("自动布局");
+      expect(container.querySelector('[data-slot="meeting-share-layout"]')).toBeNull();
+      expect(container.querySelector('[data-slot="meeting-grid-layout"]')).not.toBeNull();
+    },
+  );
 });

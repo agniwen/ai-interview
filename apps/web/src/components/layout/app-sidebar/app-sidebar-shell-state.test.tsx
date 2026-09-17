@@ -2,9 +2,12 @@
 
 import { act } from "react";
 import type { Root } from "react-dom/client";
-import { Provider, createStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PersistedSidebarProvider } from "@/components/layout/persisted-sidebar-provider";
+import {
+  SidebarPersistenceProvider,
+  useSidebarPersistence,
+} from "@/components/layout/sidebar-persistence-context";
 import { Sidebar, SidebarRail } from "@/components/ui/sidebar";
 import { enableReactActEnvironment, renderInAct, unmountInAct } from "@/test-utils/react-act";
 
@@ -18,6 +21,11 @@ const storage = {
   removeItem: (key: string) => storedValues.delete(key),
   setItem: (key: string, value: string) => storedValues.set(key, value),
 };
+
+function MenuStateProbe() {
+  const { menuOpen } = useSidebarPersistence();
+  return <output data-menu-open={String(menuOpen["/studio/resumes"])} />;
+}
 
 beforeEach(() => {
   Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
@@ -42,17 +50,39 @@ afterEach(async () => {
 });
 
 describe("AppSidebarShell persisted state", () => {
-  it("restores the collapsed state and persists the next toggle", async () => {
+  it("uses the server-provided state on the first render", async () => {
     window.localStorage.setItem(STORAGE_KEY, "false");
-    const store = createStore();
+    window.localStorage.setItem(
+      "arc:sidebar-menu-open",
+      JSON.stringify({ "/studio/resumes": false }),
+    );
+
     const { root } = await renderInAct(
-      <Provider store={store}>
+      <SidebarPersistenceProvider value={{ menuOpen: { "/studio/resumes": false }, open: false }}>
+        <PersistedSidebarProvider>
+          <Sidebar collapsible="icon">
+            <MenuStateProbe />
+          </Sidebar>
+        </PersistedSidebarProvider>
+      </SidebarPersistenceProvider>,
+    );
+    roots.push(root);
+
+    expect(document.querySelector<HTMLElement>('[data-slot="sidebar"]')?.dataset.state).toBe(
+      "collapsed",
+    );
+    expect(document.querySelector("output")?.dataset.menuOpen).toBe("false");
+  });
+
+  it("persists the next toggle from the server-provided state", async () => {
+    const { root } = await renderInAct(
+      <SidebarPersistenceProvider value={{ menuOpen: {}, open: false }}>
         <PersistedSidebarProvider>
           <Sidebar collapsible="icon">
             <SidebarRail aria-label="测试侧边栏开关" />
           </Sidebar>
         </PersistedSidebarProvider>
-      </Provider>,
+      </SidebarPersistenceProvider>,
     );
     roots.push(root);
 

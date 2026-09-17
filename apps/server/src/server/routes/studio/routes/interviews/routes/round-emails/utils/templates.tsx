@@ -15,6 +15,8 @@ import {
 import { render } from "@react-email/render";
 
 interface RoundInviteEmailProps {
+  /** 仅新人工 AI 邀请启用此文案；旧直发模板保持不变。 */
+  manualInvitation?: { jobName: string | null; expiresAt: Date | null };
   candidateName: string;
   /** 中文：上下文设置里的公司名称，可为空。/ English: company name from global config, optional. */
   companyName?: string;
@@ -147,9 +149,13 @@ function RoundInviteEmail({
   interviewUrl,
   roundLabel,
   scheduledAt,
+  manualInvitation,
 }: RoundInviteEmailProps) {
   const company = companyName?.trim();
-  const subject = buildSubject(companyName, roundLabel);
+  const subject = manualInvitation
+    ? buildSubject(companyName, "AI HR 初面")
+    : buildSubject(companyName, roundLabel);
+  const displayDate = manualInvitation ? manualInvitation.expiresAt : scheduledAt;
   const heroLabel = company ? `${company} · AI 招聘` : "AI 招聘";
 
   return (
@@ -202,7 +208,7 @@ function RoundInviteEmail({
                 margin: "0 0 12px",
               }}
             >
-              你的 AI 面试已准备好。
+              {manualInvitation ? "AI HR 初面邀请" : "你的 AI 面试已准备好。"}
             </Heading>
 
             <Text
@@ -213,7 +219,7 @@ function RoundInviteEmail({
                 margin: "0 0 18px",
               }}
             >
-              你好，{candidateName}。
+              {manualInvitation ? `${candidateName}，您好！` : `你好，${candidateName}。`}
             </Text>
 
             <Text
@@ -224,9 +230,21 @@ function RoundInviteEmail({
                 margin: "0 0 28px",
               }}
             >
-              {company ? `${company} 邀请你参加 ` : "邀请你参加 "}
-              <strong>「{roundLabel}」</strong>
-              AI 轮面试。本轮由 AI 面试官全程主持，无需双方协调时间——你在准备好后随时进入即可。
+              {manualInvitation ? (
+                <>
+                  {manualInvitation.jobName?.trim()
+                    ? `您应聘的「${manualInvitation.jobName.trim()}」岗位简历已通过筛选，`
+                    : "您的简历已通过筛选，"}
+                  {company ? `${company}邀请您参加 AI HR 初面。` : "现邀请您参加 AI HR 初面。"}
+                  本次面试由 AI 面试官进行，请准备好麦克风并选择安静的环境。
+                </>
+              ) : (
+                <>
+                  {company ? `${company} 邀请你参加 ` : "邀请你参加 "}
+                  <strong>「{roundLabel}」</strong>
+                  AI 轮面试。本轮由 AI 面试官全程主持，无需双方协调时间——你在准备好后随时进入即可。
+                </>
+              )}
             </Text>
 
             {/* 信息卡片 / Info card */}
@@ -249,7 +267,7 @@ function RoundInviteEmail({
                       margin: 0,
                     }}
                   >
-                    面试轮次
+                    {manualInvitation ? "面试内容" : "面试轮次"}
                   </Text>
                 </Column>
                 <Column style={{ paddingBottom: "8px" }}>
@@ -261,11 +279,11 @@ function RoundInviteEmail({
                       margin: 0,
                     }}
                   >
-                    {roundLabel}
+                    {manualInvitation ? "AI HR 初面" : roundLabel}
                   </Text>
                 </Column>
               </Row>
-              {scheduledAt ? (
+              {displayDate ? (
                 <Row>
                   <Column style={{ width: "84px" }}>
                     <Text
@@ -276,7 +294,7 @@ function RoundInviteEmail({
                         margin: 0,
                       }}
                     >
-                      预计时间
+                      {manualInvitation ? "有效期至" : "预计时间"}
                     </Text>
                   </Column>
                   <Column>
@@ -288,7 +306,7 @@ function RoundInviteEmail({
                         margin: 0,
                       }}
                     >
-                      {formatScheduledAt(scheduledAt)}
+                      {formatScheduledAt(displayDate)}
                     </Text>
                   </Column>
                 </Row>
@@ -303,7 +321,7 @@ function RoundInviteEmail({
                         margin: 0,
                       }}
                     >
-                      开始方式
+                      {manualInvitation ? "参与方式" : "开始方式"}
                     </Text>
                   </Column>
                   <Column>
@@ -315,7 +333,9 @@ function RoundInviteEmail({
                         margin: 0,
                       }}
                     >
-                      准备好后随时点击下方按钮开始
+                      {manualInvitation
+                        ? "通过下方入口查看面试邀请"
+                        : "准备好后随时点击下方按钮开始"}
                     </Text>
                   </Column>
                 </Row>
@@ -337,7 +357,7 @@ function RoundInviteEmail({
                   textDecoration: "none",
                 }}
               >
-                进入 AI 面试 →
+                {manualInvitation ? "查看面试邀请" : "进入 AI 面试 →"}
               </Button>
             </Section>
 
@@ -409,6 +429,11 @@ function RoundInviteEmail({
                 {tip}
               </Text>
             ))}
+            {manualInvitation ? (
+              <Text style={{ color: tokens.textMuted, fontSize: "13px", lineHeight: 1.7 }}>
+                如链接失效或您需要协调面试安排，请联系招聘负责人。
+              </Text>
+            ) : null}
             <EmailFooter companyName={companyName} />
           </Section>
         </Container>
@@ -657,7 +682,10 @@ export async function renderRoundInviteEmail(
   const [html, text] = await Promise.all([render(node), render(node, { plainText: true })]);
   return {
     html,
-    subject: buildSubject(props.companyName, props.roundLabel),
+    subject: buildSubject(
+      props.companyName,
+      props.manualInvitation ? "AI HR 初面" : props.roundLabel,
+    ),
     text,
   };
 }

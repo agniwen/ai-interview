@@ -1,7 +1,9 @@
 import type { Database } from "../../lib/server/db/index";
 import {
   interviewNotificationEventTypeSchema,
+  interviewNotificationEventStatusForQueue,
   interviewNotificationPayloadSnapshotSchema,
+  parseInterviewNotificationQueueNamespace,
   interviewNotificationScopeTypeSchema,
 } from "@app/db-schema/interview-notifications";
 import type {
@@ -12,8 +14,8 @@ import type {
   InterviewNotificationPayloadSnapshot,
   InterviewNotificationScopeType,
 } from "@app/db-schema/interview-notifications";
-import { interviewNotification, interviewNotificationEvent } from "@app/db-schema/schema";
-import { eq } from "drizzle-orm";
+import { recruitingNotificationDelivery, recruitingNotificationEvent } from "@app/db-schema/schema";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -32,6 +34,7 @@ const enqueueNotificationEventInputSchema = z
     nextAttemptAt: z.date().optional(),
     organizationId: z.string().trim().min(1),
     payloadSnapshot: interviewNotificationPayloadSnapshotSchema,
+    queueNamespace: z.string().trim().optional(),
     scheduleEntryId: z.string().trim().min(1).nullable().optional(),
     scopeType: interviewNotificationScopeTypeSchema,
     type: interviewNotificationEventTypeSchema,
@@ -63,13 +66,15 @@ export interface EnqueueInterviewNotificationEventInput {
   nextAttemptAt?: Date;
   organizationId: string;
   payloadSnapshot: InterviewNotificationPayloadSnapshot;
+  queueNamespace?: string;
   scheduleEntryId?: string | null;
   scopeType: InterviewNotificationScopeType;
   type: InterviewNotificationEventType;
 }
 
-export type InterviewNotificationEventRecord = typeof interviewNotificationEvent.$inferSelect;
-export type InterviewNotificationDeliveryRecord = typeof interviewNotification.$inferSelect;
+export type InterviewNotificationEventRecord = typeof recruitingNotificationEvent.$inferSelect;
+export type InterviewNotificationDeliveryRecord =
+  typeof recruitingNotificationDelivery.$inferSelect;
 
 export function validateInterviewNotificationEventInput(
   input: EnqueueInterviewNotificationEventInput,
@@ -83,25 +88,32 @@ export async function enqueueInterviewNotificationEvent(
 ): Promise<InterviewNotificationEventRecord> {
   const parsed = validateInterviewNotificationEventInput(input);
   const now = new Date();
+  const queueNamespace = parseInterviewNotificationQueueNamespace(
+    parsed.queueNamespace ?? process.env.INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE,
+  );
   const [created] = await tx
-    .insert(interviewNotificationEvent)
+    .insert(recruitingNotificationEvent)
     .values({
       actorUserId: parsed.actorUserId ?? null,
+      aiRoundId: parsed.scheduleEntryId ?? null,
       availableAt: parsed.availableAt ?? now,
       conversationId: parsed.conversationId ?? null,
       dedupeKey: parsed.dedupeKey,
       humanMeetingId: parsed.humanMeetingId ?? null,
       humanRoundId: parsed.humanRoundId ?? null,
       id: parsed.id ?? crypto.randomUUID(),
-      interviewRecordId: parsed.interviewRecordId ?? null,
       nextAttemptAt: parsed.nextAttemptAt ?? parsed.availableAt ?? now,
       organizationId: parsed.organizationId,
       payloadSnapshot: parsed.payloadSnapshot,
-      scheduleEntryId: parsed.scheduleEntryId ?? null,
+      queueNamespace,
+      recruitingRecordId: parsed.interviewRecordId ?? null,
       scopeType: parsed.scopeType,
+      status: interviewNotificationEventStatusForQueue(queueNamespace, "pending"),
       type: parsed.type,
     })
-    .onConflictDoNothing({ target: interviewNotificationEvent.dedupeKey })
+    .onConflictDoNothing({
+      target: [recruitingNotificationEvent.queueNamespace, recruitingNotificationEvent.dedupeKey],
+    })
     .returning();
 
   if (created) {
@@ -110,13 +122,22 @@ export async function enqueueInterviewNotificationEvent(
 
   const [existing] = await tx
     .select()
-    .from(interviewNotificationEvent)
-    .where(eq(interviewNotificationEvent.dedupeKey, parsed.dedupeKey))
+    .from(recruitingNotificationEvent)
+    .where(
+      and(
+        eq(recruitingNotificationEvent.queueNamespace, queueNamespace),
+        eq(recruitingNotificationEvent.dedupeKey, parsed.dedupeKey),
+      ),
+    )
     .limit(1);
   if (!existing) {
     throw new Error("通知事件写入冲突后无法读取现有记录。");
   }
-  if (existing.organizationId !== parsed.organizationId || existing.type !== parsed.type) {
+  if (
+    existing.organizationId !== parsed.organizationId ||
+    existing.type !== parsed.type ||
+    existing.queueNamespace !== queueNamespace
+  ) {
     throw new Error("通知事件去重键与现有事件不一致。");
   }
   return existing;
@@ -128,8 +149,8 @@ export async function loadInterviewNotificationEvent(
 ): Promise<InterviewNotificationEventRecord | null> {
   const [event] = await database
     .select()
-    .from(interviewNotificationEvent)
-    .where(eq(interviewNotificationEvent.id, eventId))
+    .from(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.id, eventId))
     .limit(1);
   return event ?? null;
 }
@@ -137,6 +158,7 @@ export async function loadInterviewNotificationEvent(
 export interface CreateInterviewNotificationDeliveryInput {
   audienceType: InterviewNotificationAudienceType;
   channel: InterviewNotificationChannel;
+  conversationId?: string | null;
   error?: string | null;
   eventId: string;
   id?: string;
@@ -152,7 +174,7 @@ export interface CreateInterviewNotificationDeliveryInput {
   renderedContent: string;
   renderedSubject?: string | null;
   status?: InterviewNotificationDeliveryStatus;
-  templateVersionId: string;
+  templateVersionId: string | null;
   type: InterviewNotificationEventType;
 }
 
@@ -161,14 +183,14 @@ export async function createInterviewNotificationDelivery(
   input: CreateInterviewNotificationDeliveryInput,
 ): Promise<InterviewNotificationDeliveryRecord> {
   const [created] = await database
-    .insert(interviewNotification)
+    .insert(recruitingNotificationDelivery)
     .values({
       audienceType: input.audienceType,
       channel: input.channel,
+      conversationId: input.conversationId ?? null,
       error: input.error ?? null,
       eventId: input.eventId,
       id: input.id ?? crypto.randomUUID(),
-      interviewRecordId: input.interviewRecordId,
       lastErrorCode: input.lastErrorCode ?? null,
       nextAttemptAt: input.nextAttemptAt ?? new Date(),
       organizationId: input.organizationId,
@@ -178,6 +200,7 @@ export async function createInterviewNotificationDelivery(
       recipientDisplayName: input.recipientDisplayName ?? null,
       recipientOpenId: input.recipientAddress,
       recipientUserId: input.recipientUserId ?? null,
+      recruitingRecordId: input.interviewRecordId,
       renderedContent: input.renderedContent,
       renderedSubject: input.renderedSubject ?? null,
       status: input.status ?? "pending",
@@ -196,8 +219,8 @@ export async function createInterviewNotificationDelivery(
   }
   const [existing] = await database
     .select()
-    .from(interviewNotification)
-    .where(eq(interviewNotification.providerRequestKey, input.providerRequestKey))
+    .from(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.providerRequestKey, input.providerRequestKey))
     .limit(1);
   if (!existing || existing.eventId !== input.eventId) {
     throw new Error("通知投递去重键与现有记录不一致。");

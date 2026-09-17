@@ -1,8 +1,9 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
 import { db } from "../../../../../../lib/server/db/index";
-import { jobDescription, studioInterview, user } from "@app/db-schema/schema";
+import { jobDescription, user } from "@app/db-schema/schema";
 import type { ResumeSemanticSourceType } from "@app/db-schema/schema";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 
@@ -50,38 +51,41 @@ export async function loadStudioCandidate(
 ): Promise<StudioCandidateRecord | null> {
   const [row] = await db
     .select({
-      candidateEmail: studioInterview.candidateEmail,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
-      createdAt: studioInterview.createdAt,
-      createdBy: studioInterview.createdBy,
+      candidateEmail: recruitingRecordReadModel.candidateEmail,
+      candidateName: recruitingRecordReadModel.candidateName,
+      candidatePhone: recruitingRecordReadModel.candidatePhone,
+      createdAt: recruitingRecordReadModel.createdAt,
+      createdBy: recruitingRecordReadModel.createdBy,
       creatorName: user.name,
       creatorOrganizationName: user.feishuTenantName,
-      id: studioInterview.id,
-      interviewQuestions: studioInterview.interviewQuestions,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      id: recruitingRecordReadModel.id,
+      interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
-      notes: studioInterview.notes,
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
-      resumeContentHash: studioInterview.resumeContentHash,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      targetRole: studioInterview.targetRole,
-      updatedAt: studioInterview.updatedAt,
+      notes: recruitingRecordReadModel.notes,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      targetRole: recruitingRecordReadModel.targetRole,
+      updatedAt: recruitingRecordReadModel.updatedAt,
     })
-    .from(studioInterview)
-    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .from(recruitingRecordReadModel)
+    .leftJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
-      and(eq(studioInterview.id, candidateId), eq(studioInterview.organizationId, organizationId)),
+      and(
+        eq(recruitingRecordReadModel.id, candidateId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+      ),
     )
     .limit(1);
 

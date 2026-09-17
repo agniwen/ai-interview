@@ -9,8 +9,8 @@ describe("toLarkInteractiveCard", () => {
       InterviewSummaryCard({
         assessment: "整体匹配度较高。",
         candidateName: "张三",
-        detailUrl: "https://example.com/studio/interviews?roundId=round-1",
         duration: "18 分钟",
+        evaluationDocumentUrl: "https://example.feishu.cn/docx/evaluation-1",
         interviewQuestions: [
           "请说明你如何定位一次线上性能问题？（业务水平）",
           "请介绍你主导的跨团队项目。（项目管理）",
@@ -24,6 +24,7 @@ describe("toLarkInteractiveCard", () => {
           { answer: "我会从渲染次数和资源加载两个方向排查。", question: "React 性能优化" },
         ],
         recommendation: "推荐进入下一轮",
+        reportUrl: "https://example.com/studio/interviews?roundId=round-1",
         resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
         summary: "候选人对项目经历说明完整。",
         targetRole: "前端工程师",
@@ -79,6 +80,10 @@ describe("toLarkInteractiveCard", () => {
     expect(JSON.stringify(larkCard)).toContain("整体匹配度较高。");
     expect(JSON.stringify(larkCard)).toContain('"tag":"button"');
     expect(JSON.stringify(larkCard)).toContain("查看飞书评价表");
+    expect(JSON.stringify(larkCard)).toContain("查看面试报告");
+    expect(JSON.stringify(larkCard)).toContain(
+      '"url":"https://example.feishu.cn/docx/evaluation-1"',
+    );
     expect(JSON.stringify(larkCard)).toContain(
       '"url":"https://example.com/studio/interviews?roundId=round-1"',
     );
@@ -96,13 +101,14 @@ describe("toLarkInteractiveCard", () => {
       InterviewSummaryCard({
         assessment: null,
         candidateName: "张三",
-        detailUrl: "https://example.com/studio/interviews?roundId=round-1",
         duration: "18 分钟",
+        evaluationDocumentUrl: "https://example.feishu.cn/docx/evaluation-1",
         interviewQuestions: [],
         interviewStartedAt: "2026/07/07 14:20",
         overallScore: "86/100",
         questionAnswers: [],
         recommendation,
+        reportUrl: "https://example.com/studio/interviews?roundId=round-1",
         resumeEvaluation: null,
         summary: null,
         targetRole: "前端工程师",

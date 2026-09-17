@@ -35,7 +35,7 @@ export function StudioPersonDetailDialog({
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
   /**
-   * 简历模式下点「发起 AI 面试」时调用；提供后改为 in-place 弹出
+   * 简历模式下点「发起 AI初面」时调用；提供后改为 in-place 弹出
    * LaunchInterviewDialog，不再 router.push 到 /studio/interviews。
    *
    * Resume-mode "launch AI interview" callback. When provided, the button
@@ -81,7 +81,7 @@ export function StudioPersonDetailDialog({
             onOpenChangeComplete={onOpenChangeComplete}
             open
             size={mode === "resume" ? "2xl" : "full"}
-            title={mode === "resume" ? "候选人详情" : "AI 面试详情"}
+            title={mode === "resume" ? "候选人详情" : "AI初面详情"}
           >
             <StudioPersonDetailPanelFallback />
           </Modal>

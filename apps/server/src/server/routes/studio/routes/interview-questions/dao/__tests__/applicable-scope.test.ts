@@ -1,13 +1,14 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq, inArray, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
-  interviewQuestionTemplateBinding,
+  recruitingQuestionTemplateBinding,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
   organization,
-  studioInterview,
 } from "@app/db-schema/schema";
 import { ensureApplicableBindings, loadInterviewQuestionTemplateBindings } from "../bindings";
 
@@ -19,11 +20,11 @@ const TEMPLATE_IDS = ["test_questions_scope_a_global", "test_questions_scope_b_g
 
 async function cleanup() {
   await db
-    .delete(interviewQuestionTemplateBinding)
+    .delete(recruitingQuestionTemplateBinding)
     .where(
       or(
-        eq(interviewQuestionTemplateBinding.interviewRecordId, INTERVIEW_ID),
-        inArray(interviewQuestionTemplateBinding.templateId, TEMPLATE_IDS),
+        eq(recruitingQuestionTemplateBinding.recruitingRecordId, INTERVIEW_ID),
+        inArray(recruitingQuestionTemplateBinding.templateId, TEMPLATE_IDS),
       ),
     );
   await db
@@ -35,8 +36,8 @@ async function cleanup() {
   await db
     .delete(interviewQuestionTemplate)
     .where(inArray(interviewQuestionTemplate.id, TEMPLATE_IDS));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await db.delete(organization).where(eq(organization.id, ORG_A));
   await db.delete(organization).where(eq(organization.id, ORG_B));
 }
@@ -47,7 +48,7 @@ beforeAll(async () => {
     { createdAt: NOW, id: ORG_A, name: "Questions Scope Org A", slug: ORG_A },
     { createdAt: NOW, id: ORG_B, name: "Questions Scope Org B", slug: ORG_B },
   ]);
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "questions-scope@example.com",
     candidateName: "Questions Scope",
     candidatePhone: "",

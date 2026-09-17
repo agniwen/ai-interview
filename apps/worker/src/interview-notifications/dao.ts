@@ -1,11 +1,16 @@
 import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { interviewNotification, interviewNotificationEvent } from "@app/db-schema/schema";
+import { recruitingNotificationDelivery, recruitingNotificationEvent } from "@app/db-schema/schema";
 import type { InterviewNotificationDeliveryStatus } from "@app/db-schema/interview-notifications";
+import {
+  interviewNotificationEventStatusForQueue,
+  parseInterviewNotificationQueueNamespace,
+} from "@app/db-schema/interview-notifications";
 import type { Database } from "../db";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-export type InterviewNotificationEventRecord = typeof interviewNotificationEvent.$inferSelect;
-export type InterviewNotificationDeliveryRecord = typeof interviewNotification.$inferSelect;
+export type InterviewNotificationEventRecord = typeof recruitingNotificationEvent.$inferSelect;
+export type InterviewNotificationDeliveryRecord =
+  typeof recruitingNotificationDelivery.$inferSelect;
 
 // 在事务中以 SKIP LOCKED 认领到期事件，允许多个 Worker 无阻塞分片消费。 / Claims due events with SKIP LOCKED so multiple workers can partition consumption without blocking.
 export async function claimPendingInterviewNotificationEvents(
@@ -15,37 +20,50 @@ export async function claimPendingInterviewNotificationEvents(
     leaseOwner: string;
     limit?: number;
     now?: Date;
+    queueNamespace: string;
   },
 ): Promise<InterviewNotificationEventRecord[]> {
   const limit = Math.min(Math.max(Math.trunc(input.limit ?? 20), 1), 100);
   const leaseOwner = input.leaseOwner.trim();
-  if (!(leaseOwner && Number.isFinite(input.leaseDurationMs) && input.leaseDurationMs > 0)) {
+  const queueNamespace = parseInterviewNotificationQueueNamespace(input.queueNamespace);
+  if (
+    !(
+      leaseOwner &&
+      queueNamespace &&
+      Number.isFinite(input.leaseDurationMs) &&
+      input.leaseDurationMs > 0
+    )
+  ) {
     throw new Error("通知事件租约参数无效。");
   }
 
   const now = input.now ?? new Date();
+  const pendingStatus = interviewNotificationEventStatusForQueue(queueNamespace, "pending");
+  const failedStatus = interviewNotificationEventStatusForQueue(queueNamespace, "failed");
+  const processingStatus = interviewNotificationEventStatusForQueue(queueNamespace, "processing");
   const rows = await tx
     .select()
-    .from(interviewNotificationEvent)
+    .from(recruitingNotificationEvent)
     .where(
       and(
-        lte(interviewNotificationEvent.availableAt, now),
-        lte(interviewNotificationEvent.nextAttemptAt, now),
+        eq(recruitingNotificationEvent.queueNamespace, queueNamespace),
+        lte(recruitingNotificationEvent.availableAt, now),
+        lte(recruitingNotificationEvent.nextAttemptAt, now),
         or(
-          inArray(interviewNotificationEvent.status, ["pending", "failed"]),
+          inArray(recruitingNotificationEvent.status, [pendingStatus, failedStatus]),
           and(
-            eq(interviewNotificationEvent.status, "processing"),
+            eq(recruitingNotificationEvent.status, processingStatus),
             or(
-              isNull(interviewNotificationEvent.leaseExpiresAt),
-              lte(interviewNotificationEvent.leaseExpiresAt, now),
+              isNull(recruitingNotificationEvent.leaseExpiresAt),
+              lte(recruitingNotificationEvent.leaseExpiresAt, now),
             ),
           ),
         ),
       ),
     )
     .orderBy(
-      asc(interviewNotificationEvent.nextAttemptAt),
-      asc(interviewNotificationEvent.createdAt),
+      asc(recruitingNotificationEvent.nextAttemptAt),
+      asc(recruitingNotificationEvent.createdAt),
     )
     .limit(limit)
     .for("update", { skipLocked: true });
@@ -56,19 +74,19 @@ export async function claimPendingInterviewNotificationEvents(
 
   const leaseExpiresAt = new Date(now.getTime() + input.leaseDurationMs);
   const claimed = await tx
-    .update(interviewNotificationEvent)
+    .update(recruitingNotificationEvent)
     .set({
-      attemptCount: sql`${interviewNotificationEvent.attemptCount} + 1`,
+      attemptCount: sql`${recruitingNotificationEvent.attemptCount} + 1`,
       lastErrorCode: null,
       lastErrorMessage: null,
       leaseExpiresAt,
       leaseOwner,
-      status: "processing",
+      status: processingStatus,
       updatedAt: now,
     })
     .where(
       inArray(
-        interviewNotificationEvent.id,
+        recruitingNotificationEvent.id,
         rows.map((row) => row.id),
       ),
     )
@@ -88,9 +106,9 @@ export function listInterviewNotificationDeliveries(
 ): Promise<InterviewNotificationDeliveryRecord[]> {
   return database
     .select()
-    .from(interviewNotification)
-    .where(eq(interviewNotification.eventId, eventId))
-    .orderBy(asc(interviewNotification.createdAt))
+    .from(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.eventId, eventId))
+    .orderBy(asc(recruitingNotificationDelivery.createdAt))
     .execute();
 }
 
@@ -110,9 +128,9 @@ export async function claimInterviewNotificationDelivery(
     throw new Error("通知投递租约参数无效。");
   }
   const [claimed] = await database
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
-      attemptCount: sql`${interviewNotification.attemptCount} + 1`,
+      attemptCount: sql`${recruitingNotificationDelivery.attemptCount} + 1`,
       error: null,
       lastErrorCode: null,
       leaseExpiresAt: new Date(now.getTime() + input.leaseDurationMs),
@@ -122,18 +140,19 @@ export async function claimInterviewNotificationDelivery(
     })
     .where(
       and(
-        eq(interviewNotification.id, input.deliveryId),
+        eq(recruitingNotificationDelivery.id, input.deliveryId),
+        sql`exists (select 1 from ${recruitingNotificationEvent} where ${recruitingNotificationEvent.id} = ${recruitingNotificationDelivery.eventId} and ${recruitingNotificationEvent.status} in ('processing', 'isolated_processing'))`,
         or(
           and(
-            inArray(interviewNotification.status, ["pending", "failed"]),
+            inArray(recruitingNotificationDelivery.status, ["pending", "failed"]),
             or(
-              isNull(interviewNotification.nextAttemptAt),
-              lte(interviewNotification.nextAttemptAt, now),
+              isNull(recruitingNotificationDelivery.nextAttemptAt),
+              lte(recruitingNotificationDelivery.nextAttemptAt, now),
             ),
           ),
           and(
-            eq(interviewNotification.status, "sending"),
-            lte(interviewNotification.leaseExpiresAt, now),
+            eq(recruitingNotificationDelivery.status, "sending"),
+            lte(recruitingNotificationDelivery.leaseExpiresAt, now),
           ),
         ),
       ),
@@ -154,7 +173,7 @@ export async function markInterviewNotificationDeliverySent(
 ): Promise<boolean> {
   const sentAt = input.sentAt ?? new Date();
   const [updated] = await database
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: null,
       lastErrorCode: null,
@@ -168,12 +187,12 @@ export async function markInterviewNotificationDeliverySent(
     })
     .where(
       and(
-        eq(interviewNotification.id, input.deliveryId),
-        eq(interviewNotification.leaseOwner, input.leaseOwner),
-        eq(interviewNotification.status, "sending"),
+        eq(recruitingNotificationDelivery.id, input.deliveryId),
+        eq(recruitingNotificationDelivery.leaseOwner, input.leaseOwner),
+        eq(recruitingNotificationDelivery.status, "sending"),
       ),
     )
-    .returning({ id: interviewNotification.id });
+    .returning({ id: recruitingNotificationDelivery.id });
   return Boolean(updated);
 }
 
@@ -191,7 +210,7 @@ export async function markInterviewNotificationDeliveryFailed(
 ): Promise<boolean> {
   const now = new Date();
   const [updated] = await database
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: input.message,
       lastErrorCode: input.code,
@@ -204,12 +223,12 @@ export async function markInterviewNotificationDeliveryFailed(
     })
     .where(
       and(
-        eq(interviewNotification.id, input.deliveryId),
-        eq(interviewNotification.leaseOwner, input.leaseOwner),
-        eq(interviewNotification.status, "sending"),
+        eq(recruitingNotificationDelivery.id, input.deliveryId),
+        eq(recruitingNotificationDelivery.leaseOwner, input.leaseOwner),
+        eq(recruitingNotificationDelivery.status, "sending"),
       ),
     )
-    .returning({ id: interviewNotification.id });
+    .returning({ id: recruitingNotificationDelivery.id });
   return Boolean(updated);
 }
 
@@ -224,11 +243,14 @@ export async function updateInterviewNotificationEventState(
     lastErrorMessage?: string | null;
     nextAttemptAt?: Date;
     status: "completed" | "dead" | "failed";
+    queueNamespace: string;
   },
 ): Promise<boolean> {
   const now = new Date();
+  const queueNamespace = parseInterviewNotificationQueueNamespace(input.queueNamespace);
+  const processingStatus = interviewNotificationEventStatusForQueue(queueNamespace, "processing");
   const [updated] = await database
-    .update(interviewNotificationEvent)
+    .update(recruitingNotificationEvent)
     .set({
       completedAt: input.completedAt ?? (input.status === "completed" ? now : null),
       lastErrorCode: input.lastErrorCode ?? null,
@@ -236,16 +258,16 @@ export async function updateInterviewNotificationEventState(
       leaseExpiresAt: null,
       leaseOwner: null,
       nextAttemptAt: input.nextAttemptAt ?? now,
-      status: input.status,
+      status: interviewNotificationEventStatusForQueue(queueNamespace, input.status),
       updatedAt: now,
     })
     .where(
       and(
-        eq(interviewNotificationEvent.id, input.eventId),
-        eq(interviewNotificationEvent.leaseOwner, input.leaseOwner),
-        eq(interviewNotificationEvent.status, "processing"),
+        eq(recruitingNotificationEvent.id, input.eventId),
+        eq(recruitingNotificationEvent.leaseOwner, input.leaseOwner),
+        eq(recruitingNotificationEvent.status, processingStatus),
       ),
     )
-    .returning({ id: interviewNotificationEvent.id });
+    .returning({ id: recruitingNotificationEvent.id });
   return Boolean(updated);
 }

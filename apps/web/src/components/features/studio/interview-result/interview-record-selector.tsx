@@ -111,7 +111,9 @@ export function InterviewRecordSelector({
   if (!(reports.length > 1) || !value) {
     return null;
   }
-  const completedCount = reports.filter((report) => report.status === "done").length;
+  const completedCount = reports.filter(
+    (report) => report.status === "completed" || report.status === "done",
+  ).length;
   const failedCount = reports.filter((report) => report.status === "failed").length;
   const totalTurnCount = reports.reduce(
     (total, report) => total + countDisplayInterviewTurns(report.turns).turnCount,

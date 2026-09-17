@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../lib/server/db/index";
@@ -6,8 +8,7 @@ import {
   jobDescription,
   organization,
   resumePoolItem,
-  resumePoolImport,
-  studioInterview,
+  recruitingPoolImport,
   user,
 } from "@app/db-schema/schema";
 import { loadResumePoolItem } from "../server/routes/studio/routes/resume-pool/dao";
@@ -24,7 +25,7 @@ const NOW = new Date("2026-08-05T09:00:00.000Z");
 
 async function cleanup(): Promise<void> {
   await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_ID));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_ID));
   await db.delete(department).where(eq(department.organizationId, ORG_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
@@ -105,7 +106,7 @@ beforeAll(async () => {
       updatedAt: NOW,
     },
   ]);
-  await db.insert(studioInterview).values([
+  await createRecruitingRecords(db, [
     {
       candidateName: "待回填候选人-旧岗位",
       createdAt: new Date("2026-08-01T09:00:00.000Z"),
@@ -139,38 +140,38 @@ beforeAll(async () => {
       updatedAt: NOW,
     },
   ]);
-  await db.insert(resumePoolImport).values([
+  await db.insert(recruitingPoolImport).values([
     {
       id: "resume_pool_job_repair_import_old",
       importedAt: new Date("2026-08-01T09:00:00.000Z"),
       importedBy: USER_ID,
-      importedResumeRecordId: "resume_pool_job_repair_record_old",
       organizationId: ORG_ID,
       poolItemId: TARGET_POOL_ID,
+      recruitingRecordId: "resume_pool_job_repair_record_old",
     },
     {
       id: "resume_pool_job_repair_import_new",
       importedAt: new Date("2026-08-02T09:00:00.000Z"),
       importedBy: USER_ID,
-      importedResumeRecordId: "resume_pool_job_repair_record_new",
       organizationId: ORG_ID,
       poolItemId: TARGET_POOL_ID,
+      recruitingRecordId: "resume_pool_job_repair_record_new",
     },
     {
       id: "resume_pool_job_repair_import_none",
       importedAt: new Date("2026-08-03T09:00:00.000Z"),
       importedBy: USER_ID,
-      importedResumeRecordId: "resume_pool_job_repair_record_none",
       organizationId: ORG_ID,
       poolItemId: TARGET_POOL_ID,
+      recruitingRecordId: "resume_pool_job_repair_record_none",
     },
     {
       id: "resume_pool_job_repair_import_bound",
       importedAt: new Date("2026-08-04T09:00:00.000Z"),
       importedBy: USER_ID,
-      importedResumeRecordId: "resume_pool_job_repair_record_bound",
       organizationId: ORG_ID,
       poolItemId: BOUND_POOL_ID,
+      recruitingRecordId: "resume_pool_job_repair_record_bound",
     },
   ]);
 });

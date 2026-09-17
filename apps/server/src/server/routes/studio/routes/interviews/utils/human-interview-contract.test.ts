@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  humanInterviewEvaluationDraftSchema,
   humanInterviewEvaluationSchema,
+  humanInterviewEvaluationSubmissionSchema,
   humanInterviewMeetingInputSchema,
 } from "@app/db-schema/studio-interviews";
 
@@ -55,6 +57,24 @@ describe("human interview contract", () => {
       strengths: "架构思路清晰。",
     };
     expect(humanInterviewEvaluationSchema.parse(evaluation)).toEqual(evaluation);
+    const unratedDraft = { ...evaluation, rating: null };
+    expect(humanInterviewEvaluationDraftSchema.parse(unratedDraft)).toEqual(unratedDraft);
+    expect(humanInterviewEvaluationSchema.safeParse(unratedDraft).success).toBe(false);
+    const partialDraft = {
+      ...evaluation,
+      draftOutcome: "pass",
+      overallEvaluation: "",
+      rating: null,
+    };
+    expect(humanInterviewEvaluationDraftSchema.parse(partialDraft)).toEqual(partialDraft);
+    expect(
+      humanInterviewEvaluationSubmissionSchema.safeParse({ ...evaluation, overallEvaluation: "  " })
+        .success,
+    ).toBe(false);
+    expect(
+      humanInterviewEvaluationSubmissionSchema.safeParse({ ...evaluation, draftOutcome: "pass" })
+        .success,
+    ).toBe(false);
     const { salaryRecommendation: _salaryRecommendation, ...withoutSalary } = evaluation;
     expect(humanInterviewEvaluationSchema.safeParse(withoutSalary).success).toBe(false);
   });

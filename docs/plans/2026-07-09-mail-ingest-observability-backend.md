@@ -6,7 +6,7 @@
 
 **Architecture:** 就地增强 `mail_ingest_message`（加列）+ worker 采集点改造（`processor.ts`）+ DAO 写入/查询 + 工作区/平台两个 messages 端点。前端日志 UI 是独立的后续 Plan B（消费本 API）。
 
-**Tech Stack:** TypeScript、Drizzle ORM（PostgreSQL）、Hono、Vitest、pnpm monorepo（`@app/db-schema`、后端 `@app/server`、worker `apps/worker`）。
+**Tech Stack:** TypeScript、Drizzle ORM（PostgreSQL）、Hono、Vitest、Bun monorepo（`@app/db-schema`、后端 `@app/server`、worker `apps/worker`）。
 
 **Spec:** `docs/adr/2026-07-09-mail-ingest-observability-design.md`
 
@@ -21,7 +21,7 @@
 - 排序 `receivedAt DESC NULLS LAST, id DESC`。
 - 权限沿用 `mailIngestAccount`；org 作用域施加到所有涉及表（message/batch/pool）。
 - 提交用 conventional commits；每任务结束跑对应测试到绿。
-- 数据库迁移：改 `packages/db-schema/src/schema.ts` 后用 `pnpm db:generate` 生成迁移文件（勿手写 SQL）。
+- 数据库迁移：改 `packages/db-schema/src/schema.ts` 后用 `bun run db:generate` 生成迁移文件（勿手写 SQL）。
 
 ---
 
@@ -106,8 +106,8 @@ export type MailIngestJdBindStatus = "bound" | "unmatched" | "ambiguous" | "fall
 Run:
 
 ```bash
-pnpm db:generate
-pnpm --filter @app/db-schema typecheck
+bun run db:generate
+bun run --filter @app/db-schema typecheck
 ```
 
 Expected: 在 drizzle 迁移目录生成一个新迁移（`ALTER TABLE ... ADD COLUMN` + `CREATE INDEX`）；typecheck 通过。
@@ -119,7 +119,7 @@ git add packages/db-schema/src/schema.ts apps/web/drizzle
 git commit -m "feat(db): mail_ingest 观测列（message 终态/JD绑定/附件数 + account 上轮计数）"
 ```
 
-（迁移目录路径以 `pnpm db:generate` 实际输出为准；一并 `git add`。）
+（迁移目录路径以 `bun run db:generate` 实际输出为准；一并 `git add`。）
 
 ---
 
@@ -162,7 +162,7 @@ describe("deriveJdBindStatus", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/worker exec vitest run src/mail-ingest/job-binding.test.ts`
+Run: `bun run --filter @app/worker exec vitest run src/mail-ingest/job-binding.test.ts`
 Expected: FAIL —「Cannot find module './job-binding'」。
 
 - [ ] **Step 3: 实现**
@@ -191,7 +191,7 @@ export function deriveJdBindStatus(input: {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/worker exec vitest run src/mail-ingest/job-binding.test.ts`
+Run: `bun run --filter @app/worker exec vitest run src/mail-ingest/job-binding.test.ts`
 Expected: PASS（4 用例）。
 
 - [ ] **Step 5: 提交**
@@ -307,7 +307,7 @@ describe("mail ingest observability writers", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+Run: `bun run --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 Expected: FAIL —`markMailIngestMessageSkipped` 未导出 / `finishMailIngestAccountRun` 不接受 `counts` / 新字段未写入。
 
 - [ ] **Step 3: 改 `updateMailIngestMessageResult`**（`dao.ts:947`）
@@ -408,7 +408,7 @@ export async function finishMailIngestAccountRun(
 
 - [ ] **Step 6: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+Run: `bun run --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 Expected: PASS。
 
 - [ ] **Step 7: 提交**
@@ -480,7 +480,7 @@ it("finishMailIngestAccountRun receives per-account counts", async () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/worker exec vitest run src/mail-ingest/processor-run.test.ts`
+Run: `bun run --filter @app/worker exec vitest run src/mail-ingest/processor-run.test.ts`
 Expected: FAIL（`markMailIngestMessageSkipped` 未被调用；jdBindStatus 未传）。
 
 - [ ] **Step 3: `resolveMailJobBinding` 返回观测数据**
@@ -667,8 +667,8 @@ async function finishAccounts(accounts, tallies: Map<string, MailAccountTally>, 
 Run:
 
 ```bash
-pnpm --filter @app/worker exec vitest run src/mail-ingest/processor-run.test.ts
-pnpm --filter @app/worker test
+bun run --filter @app/worker exec vitest run src/mail-ingest/processor-run.test.ts
+bun run --filter @app/worker test
 ```
 
 Expected: 新用例 + 存量用例全绿（注意存量用例可能断言旧 `finishMailIngestAccountRun(id, error)` 签名 —— 若失败，按新 `opts` 签名更新存量断言）。
@@ -726,7 +726,7 @@ it("listAccountMailMessages returns per-message rows with attachment expansion +
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts -t listAccountMailMessages`
+Run: `bun run --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts -t listAccountMailMessages`
 Expected: FAIL —`listAccountMailMessages` 未定义。
 
 - [ ] **Step 3: 实现 `listAccountMailMessages`（两步）**
@@ -814,7 +814,7 @@ export async function listAccountMailMessages(input: {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+Run: `bun run --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 Expected: PASS。
 
 - [ ] **Step 5: 提交**
@@ -882,12 +882,12 @@ export const listMailMessagesQuerySchema = z.object({
 
 - [ ] **Step 5: 跑测试确认通过**
 
-Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts`
+Run: `bun run --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts`
 Expected: PASS。
 
 - [ ] **Step 6: 类型检查 + 提交**
 
-Run: `pnpm --filter @app/server typecheck`
+Run: `bun run --filter @app/server typecheck`
 
 ```bash
 git add apps/server/src/server/routes/studio/routes/mail-ingest/schema.ts apps/server/src/server/routes/studio/routes/mail-ingest/route.ts apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts apps/web/src/lib/start/platform/mail-ingest-accounts.functions.ts
@@ -902,7 +902,7 @@ git commit -m "feat(mail-ingest): 信件日志查询端点（工作区自助 + �
 
 - [ ] **Step 1: 迁移落库（本地）**
 
-Run: `pnpm db:migrate`
+Run: `bun run db:migrate`
 Expected: Task 1 的迁移应用成功。
 
 - [ ] **Step 2: 全量测试 + 类型检查 + 格式化**
@@ -910,13 +910,13 @@ Expected: Task 1 的迁移应用成功。
 Run:
 
 ```bash
-pnpm fix
-pnpm --filter @app/db-schema typecheck
-pnpm --filter @app/worker test
-pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest
+bun run fix
+bun run --filter @app/db-schema typecheck
+bun run --filter @app/worker test
+bun run --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest
 ```
 
-Expected: 全绿；`pnpm fix` 无遗留改动未提交。
+Expected: 全绿；`bun run fix` 无遗留改动未提交。
 
 - [ ] **Step 3: 提交**
 

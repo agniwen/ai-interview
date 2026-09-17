@@ -18,6 +18,7 @@ import {
   publishMeetingIntelligence,
   requestMeetingIntelligenceRun,
   saveMeetingIntelligenceCheckpoint,
+  saveMeetingIntelligenceProgress,
 } from "./dao";
 
 const TEST_SUFFIX = String(process.pid);
@@ -150,6 +151,19 @@ describe("Meeting Intelligence publication", () => {
       template: "general" as const,
       topics: [],
     };
+    await saveMeetingIntelligenceProgress({
+      executionToken: firstToken,
+      processingRunId: first.processingRunId,
+      progress: {
+        completed: [firstContent],
+        kind: "progress",
+        maxReduceChars: 24_000,
+        maxTranscriptChars: 8000,
+        phase: "map",
+        segmentCache: [{ content: firstContent, key: "a".repeat(64) }],
+        version: "map-reduce-v1",
+      },
+    });
     await expect(
       saveMeetingIntelligenceCheckpoint({
         content: firstContent,
@@ -164,6 +178,12 @@ describe("Meeting Intelligence publication", () => {
       }),
     ).resolves.toBe(true);
 
+    const persisted = await db.query.meetingProcessingRun.findFirst({
+      where: { id: first.processingRunId },
+    });
+    expect(persisted?.result).toMatchObject({
+      segmentCache: [{ content: firstContent, key: "a".repeat(64) }],
+    });
     const second = await requestMeetingIntelligenceRun({
       actorId: USER_ID,
       meetingId: MEETING_ID,

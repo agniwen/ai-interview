@@ -1,12 +1,12 @@
 import { and, asc, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import type { ResumeStageProgress } from "@app/shared/studio-resumes";
+import type { HumanInterviewStageProgress, ResumeStageProgress } from "@app/shared/studio-resumes";
 import { db } from "../../database";
 import {
-  interviewConversation,
-  studioHumanInterviewRound,
-  studioInterviewSchedule,
-  studioOfferDraft,
+  aiInterviewConversation,
+  humanInterviewRound,
+  aiInterviewRound,
+  recruitingOffer,
 } from "@app/db-schema/schema";
 
 // 兜底默认值：候选人完全没有任何子表数据时返回（虽然聚合 SQL 总会返回一个对象，
@@ -57,62 +57,57 @@ export async function loadResumeStageProgress(
   const [aiRows, humanRows, offerRows, lastInterviewRows] = await Promise.all([
     db
       .select({
-        interviewRecordId: studioInterviewSchedule.interviewRecordId,
-        roundLabel: studioInterviewSchedule.roundLabel,
-        sortOrder: studioInterviewSchedule.sortOrder,
-        status: studioInterviewSchedule.status,
+        interviewRecordId: aiInterviewRound.recruitingRecordId,
+        roundLabel: aiInterviewRound.roundLabel,
+        sortOrder: aiInterviewRound.sortOrder,
+        status: aiInterviewRound.status,
       })
-      .from(studioInterviewSchedule)
-      .where(inArray(studioInterviewSchedule.interviewRecordId, ids))
-      .orderBy(
-        asc(studioInterviewSchedule.interviewRecordId),
-        asc(studioInterviewSchedule.sortOrder),
-      ),
+      .from(aiInterviewRound)
+      .where(inArray(aiInterviewRound.recruitingRecordId, ids))
+      .orderBy(asc(aiInterviewRound.recruitingRecordId), asc(aiInterviewRound.sortOrder)),
     db
       .select({
-        feedback: studioHumanInterviewRound.feedback,
-        id: studioHumanInterviewRound.id,
-        interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-        label: studioHumanInterviewRound.label,
-        outcome: studioHumanInterviewRound.outcome,
-        scheduledAt: studioHumanInterviewRound.scheduledAt,
-        sortOrder: studioHumanInterviewRound.sortOrder,
-        status: studioHumanInterviewRound.status,
+        feedback: humanInterviewRound.feedback,
+        id: humanInterviewRound.id,
+        interviewRecordId: humanInterviewRound.recruitingRecordId,
+        label: humanInterviewRound.label,
+        outcome: humanInterviewRound.outcome,
+        roundKind: humanInterviewRound.roundKind,
+        scheduledAt: humanInterviewRound.scheduledAt,
+        sortOrder: humanInterviewRound.sortOrder,
+        status: humanInterviewRound.status,
       })
-      .from(studioHumanInterviewRound)
-      .where(inArray(studioHumanInterviewRound.interviewRecordId, ids))
-      .orderBy(
-        asc(studioHumanInterviewRound.interviewRecordId),
-        asc(studioHumanInterviewRound.sortOrder),
-      ),
+      .from(humanInterviewRound)
+      .where(inArray(humanInterviewRound.recruitingRecordId, ids))
+      .orderBy(asc(humanInterviewRound.recruitingRecordId), asc(humanInterviewRound.sortOrder)),
     db
       .select({
-        id: studioOfferDraft.id,
-        interviewRecordId: studioOfferDraft.interviewRecordId,
-        responseAt: studioOfferDraft.responseAt,
-        sentAt: studioOfferDraft.sentAt,
-        status: studioOfferDraft.status,
-        version: studioOfferDraft.version,
+        id: recruitingOffer.id,
+        interviewRecordId: recruitingOffer.recruitingRecordId,
+        responseAt: recruitingOffer.responseAt,
+        sentAt: recruitingOffer.sentAt,
+        status: recruitingOffer.status,
+        version: recruitingOffer.version,
       })
-      .from(studioOfferDraft)
-      .where(inArray(studioOfferDraft.interviewRecordId, ids))
-      .orderBy(asc(studioOfferDraft.interviewRecordId), asc(studioOfferDraft.version)),
+      .from(recruitingOffer)
+      .where(inArray(recruitingOffer.recruitingRecordId, ids))
+      .orderBy(asc(recruitingOffer.recruitingRecordId), asc(recruitingOffer.version)),
     db
       .select({
-        interviewRecordId: interviewConversation.interviewRecordId,
+        interviewRecordId: aiInterviewConversation.recruitingRecordId,
         lastInterviewAt:
-          sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt}))`.as(
+          sql<Date | null>`MAX(COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}))`.as(
             "last_interview_at",
           ),
       })
-      .from(interviewConversation)
+      .from(aiInterviewConversation)
       .where(
         and(
-          inArray(interviewConversation.interviewRecordId, ids),
-          inArray(interviewConversation.status, ["completed", "done"]),
+          inArray(aiInterviewConversation.recruitingRecordId, ids),
+          inArray(aiInterviewConversation.status, ["completed", "done"]),
         ),
       )
-      .groupBy(interviewConversation.interviewRecordId),
+      .groupBy(aiInterviewConversation.recruitingRecordId),
   ]);
 
   const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();
@@ -141,20 +136,14 @@ export async function loadResumeStageProgress(
     };
   }
 
-  const humanByCandidate = new Map<string, (typeof humanRows)[number][]>();
-  for (const row of humanRows) {
-    const current = humanByCandidate.get(row.interviewRecordId) ?? [];
-    current.push(row);
-    humanByCandidate.set(row.interviewRecordId, current);
-  }
-  for (const [id, rows] of humanByCandidate) {
-    const derived = result.get(id);
+  type HumanRow = (typeof humanRows)[number];
+  const summarizeHumanRows = (rows: HumanRow[]): HumanInterviewStageProgress | null => {
     const countedRows = rows.filter((row) => row.status !== "cancelled");
-    if (!derived || countedRows.length === 0) {
-      continue;
+    if (countedRows.length === 0) {
+      return null;
     }
-    const activeRound = rows.find((row) => row.status === "pending") ?? null;
-    derived.stageProgress.humanInterview = {
+    const activeRound = countedRows.find((row) => row.status === "pending") ?? null;
+    return {
       activeRound: activeRound
         ? {
             id: activeRound.id,
@@ -176,6 +165,30 @@ export async function loadResumeStageProgress(
         (row) => row.status === "completed" && row.outcome === "pass",
       ).length,
       totalRounds: countedRows.length,
+    };
+  };
+  const humanByCandidate = new Map<string, HumanRow[]>();
+  for (const row of humanRows) {
+    const current = humanByCandidate.get(row.interviewRecordId) ?? [];
+    current.push(row);
+    humanByCandidate.set(row.interviewRecordId, current);
+  }
+  for (const [id, rows] of humanByCandidate) {
+    const derived = result.get(id);
+    const aggregate = summarizeHumanRows(rows);
+    if (!derived || !aggregate) {
+      continue;
+    }
+    derived.stageProgress.humanInterview = {
+      ...aggregate,
+      byRoundKind: {
+        final_interview: summarizeHumanRows(
+          rows.filter((row) => row.roundKind === "final_interview"),
+        ),
+        second_interview: summarizeHumanRows(
+          rows.filter((row) => row.roundKind === "second_interview"),
+        ),
+      },
     };
   }
 

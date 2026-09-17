@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
-import { buildLiveSummaryGraph } from "./meeting-live-summary-panel";
+import { buildLiveSummaryFlowNode, buildLiveSummaryGraph } from "./meeting-live-summary-panel";
 
 const snapshot: MeetingLiveSummarySnapshot = {
   captureId: "00000000-0000-4000-8000-000000000077",
@@ -59,6 +59,35 @@ describe("buildLiveSummaryGraph", () => {
         source: "topic-project",
         target: "point-scale",
       },
+    ]);
+  });
+});
+
+describe("summary node connection endpoints", () => {
+  it("only gives internal nodes both endpoints", () => {
+    const graph = buildLiveSummaryGraph(snapshot);
+    expect(graph.nodes.map(buildLiveSummaryFlowNode).map((node) => node.type)).toEqual([
+      "input",
+      "default",
+      "output",
+    ]);
+  });
+
+  it("omits the source endpoint on a topic without points", () => {
+    const graph = buildLiveSummaryGraph({
+      ...snapshot,
+      topics: snapshot.topics.map((topic) => ({ ...topic, points: [] })),
+    });
+    expect(graph.nodes.map(buildLiveSummaryFlowNode).map((node) => node.type)).toEqual([
+      "input",
+      "output",
+    ]);
+  });
+
+  it("renders no endpoints when the summary has no topics", () => {
+    const graph = buildLiveSummaryGraph({ ...snapshot, topics: [] });
+    expect(graph.nodes.map(buildLiveSummaryFlowNode).map((node) => node.type)).toEqual([
+      "standalone",
     ]);
   });
 });

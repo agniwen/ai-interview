@@ -71,6 +71,20 @@ const aiInterviewCompletionCopyMigration = readFileSync(
   ),
   "utf-8",
 );
+const humanInterviewAttendanceMigration = readFileSync(
+  new URL(
+    "../../../../web/drizzle/20260910092712_spooky_jamie_braddock/migration.sql",
+    import.meta.url,
+  ),
+  "utf-8",
+);
+const humanInterviewAttendanceReliabilityMigration = readFileSync(
+  new URL(
+    "../../../../web/drizzle/20260911023305_flashy_pete_wisdom/migration.sql",
+    import.meta.url,
+  ),
+  "utf-8",
+);
 
 describe("interview notification foundation migration", () => {
   it("adds the outbox, template, and recipient boundaries", () => {
@@ -168,6 +182,44 @@ describe("AI interview completion notification migration", () => {
     );
     expect(aiInterviewCompletionCopyMigration).toContain("system_ai_completed_initiator_feishu_v3");
     expect(aiInterviewCompletionCopyMigration).not.toMatch(/DROP (?:TABLE|COLUMN|CONSTRAINT)/);
+  });
+});
+
+describe("human interview attendance notification migration", () => {
+  it("records meeting establishment and publishes creator Feishu alerts", () => {
+    expect(humanInterviewAttendanceMigration).toContain('ADD COLUMN "attendance_alerted_at"');
+    expect(humanInterviewAttendanceMigration).toContain('ADD COLUMN "established_at"');
+    expect(humanInterviewAttendanceMigration).toContain(
+      "system_human_attendance_alert_initiator_feishu_v1",
+    );
+    expect(humanInterviewAttendanceMigration).toContain(
+      "system_human_not_held_initiator_feishu_v1",
+    );
+    expect(humanInterviewAttendanceMigration).toContain("{{missingParticipantNames}}");
+    expect(humanInterviewAttendanceMigration).toContain(
+      'WHERE "status" = \'ended\' AND "started_at" IS NOT NULL',
+    );
+    expect(humanInterviewAttendanceMigration).not.toMatch(/DROP (?:TABLE|COLUMN|CONSTRAINT)/);
+  });
+
+  it("normalizes legacy meetings before enabling indexed reconciliation", () => {
+    expect(humanInterviewAttendanceReliabilityMigration).toContain(
+      'WHERE "started_at" IS NOT NULL\n  AND "established_at" IS NULL',
+    );
+    expect(humanInterviewAttendanceReliabilityMigration).toContain(
+      "\"status\" IN ('scheduled', 'in_progress')",
+    );
+    expect(humanInterviewAttendanceReliabilityMigration).toContain('AND "valid_until" <= now()');
+    expect(humanInterviewAttendanceReliabilityMigration).toContain("\"status\" = 'not_held'");
+    expect(humanInterviewAttendanceReliabilityMigration).toContain(
+      '"human_interview_meeting_attendance_expiry_idx"',
+    );
+    expect(humanInterviewAttendanceReliabilityMigration).toContain(
+      '"human_interview_meeting_attendance_late_idx"',
+    );
+    expect(humanInterviewAttendanceReliabilityMigration).toContain(
+      '"human_interview_meeting_cancelled_feishu_retry_idx"',
+    );
   });
 });
 

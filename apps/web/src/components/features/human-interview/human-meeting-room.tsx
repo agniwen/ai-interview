@@ -1,13 +1,7 @@
 "use client";
+import { InterviewEntryShell } from "./interview-entry-shell";
 
-import {
-  IconCheck,
-  IconFileDescription,
-  IconLoader2,
-  IconLogin,
-  IconVideo,
-  IconX,
-} from "@tabler/icons-react";
+import { IconLoader2, IconLogin, IconVideo } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
 import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from "@livekit/components-react";
@@ -22,8 +16,11 @@ import type {
   PublicHumanInterviewMeetingPreview,
 } from "@app/shared/studio-pipeline-stages";
 import { humanInterviewRecordingStatusSchema } from "@app/db-schema/studio-interviews";
-import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
+import { notifyMeetingMediaError, notifyMeetingMediaFailure } from "./human-meeting-media-errors";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { CandidateInterviewOverview } from "./candidate-interview-overview";
+import { CandidateInvitation } from "./candidate-invitation";
 import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
@@ -181,13 +178,6 @@ function getRoomTitle(props: HumanMeetingRoomProps): string {
     return props.preview.title;
   }
   return props.preview.title;
-}
-
-function getRoomSubtitle(props: HumanMeetingRoomProps): string {
-  if (props.mode === "candidate") {
-    return `${props.preview.candidateName} · ${props.preview.roundLabel} · ${formatDateTime(props.preview.scheduledAt)}`;
-  }
-  return `${props.preview.interviewerName} · ${interviewerRoleLabel[props.preview.role]} · ${formatDateTime(props.preview.scheduledAt)}`;
 }
 
 function getScheduledStartTimestamp(
@@ -428,61 +418,39 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   if (props.mode === "candidate" && candidateInviteStatus !== "accepted") {
     const canRespond = candidateInviteStatus === "pending" || candidateInviteStatus === "sent";
     return (
-      <main className="dark mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center bg-background px-6 py-16 text-foreground">
-        <p className="mb-3 text-muted-foreground text-sm">{props.preview.roundLabel}</p>
-        <h1 className="text-2xl font-semibold">{props.preview.title}</h1>
-        <p className="mt-2 text-muted-foreground">
-          {props.preview.candidateName}，请确认是否参加本次面试。
-        </p>
-        <div className="mt-8 border-border border-y py-5 font-medium">
-          {formatDateTime(props.preview.scheduledAt)}
-        </div>
-        {canRespond ? (
-          <div className="mt-8 flex gap-3">
-            <Button
-              disabled={candidateResponsePending}
-              onClick={async () => {
-                await respondToInvitation("accept");
-              }}
-            >
-              <IconCheck className="size-4" />
-              {candidateResponsePending ? "处理中…" : "确认参加"}
-            </Button>
-            <Button
-              disabled={candidateResponsePending}
-              onClick={async () => {
-                await respondToInvitation("decline");
-              }}
-              variant="outline"
-            >
-              <IconX className="size-4" />
-              无法参加
-            </Button>
-          </div>
-        ) : (
-          <p className="mt-8 text-muted-foreground text-sm">
-            {candidateInviteStatus === "declined"
-              ? "你已拒绝本次面试，如需变更请联系 HR。"
-              : "该邀请已失效，请联系 HR。"}
-          </p>
-        )}
-      </main>
+      <CandidateInvitation
+        candidateName={props.preview.candidateName}
+        companyContext={props.preview.companyContext}
+        jobDescriptionName={props.preview.jobDescriptionName}
+        jobDescriptionPrompt={props.preview.jobDescriptionPrompt}
+        roundLabel={props.preview.roundLabel}
+        scheduledAt={props.preview.scheduledAt}
+        canRespond={canRespond}
+        pending={candidateResponsePending}
+        onRespond={respondToInvitation}
+        message={
+          candidateInviteStatus === "declined"
+            ? "你已拒绝本次面试，如需变更请联系 HR。"
+            : "该邀请已失效，请联系 HR。"
+        }
+      />
     );
   }
 
   if (!token) {
     if (props.mode === "interviewer" && viewMode !== "meeting") {
       return (
-        <main className="dark flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-950 text-white">
-          <header className="flex shrink-0 items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
+        <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
+          <header className="flex shrink-0 items-center justify-between gap-3 border-border border-b px-4 py-3">
             <div>
-              <h1 className="font-medium text-white text-xl tracking-normal">
+              <h1 className="font-medium text-foreground text-xl tracking-normal">
                 {getRoomTitle(props)}
               </h1>
-              <p className="text-white/60 text-xs">
+              <p className="text-muted-foreground text-xs">
                 {viewMode === "materials" ? "面试准备 · 候选人资料" : "面试评价"}
               </p>
             </div>
+            <ThemeToggle className="shrink-0" />
           </header>
           <div className="min-h-0 flex-1">
             {viewMode === "materials" ? (
@@ -500,7 +468,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               />
             )}
           </div>
-          <footer className="flex shrink-0 items-center justify-center border-white/10 border-t px-4 py-3">
+          <footer className="flex shrink-0 items-center justify-center border-border border-t px-4 py-3">
             <button
               className={humanMeetingControlButtonClass}
               onClick={() => setViewMode("meeting")}
@@ -515,64 +483,67 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     }
     const entryMessage = startBlockMessage ?? joinError;
     const joinButtonText = getJoinButtonText(startBlockMessage, isJoining);
+    const joinButton = (
+      <Button
+        className="h-11 w-full md:h-10 md:w-fit md:min-w-36"
+        size="lg"
+        disabled={isJoining || Boolean(startBlockMessage)}
+        onClick={joinMeeting}
+      >
+        {isJoining ? (
+          <IconLoader2 className="animate-spin" data-icon="inline-start" />
+        ) : (
+          <IconLogin data-icon="inline-start" />
+        )}
+        {joinButtonText}
+      </Button>
+    );
+
+    if (props.mode === "candidate") {
+      return (
+        <InterviewEntryShell mobileAction={joinButton}>
+          <CandidateInterviewOverview
+            candidateName={props.preview.candidateName}
+            companyContext={props.preview.companyContext}
+            jobDescriptionName={props.preview.jobDescriptionName}
+            jobDescriptionPrompt={props.preview.jobDescriptionPrompt}
+            roundLabel={props.preview.roundLabel}
+            scheduledAt={props.preview.scheduledAt}
+            message={entryMessage ?? "你已确认参加，请在约定时间进入会议。"}
+          >
+            <div className="hidden md:block">{joinButton}</div>
+          </CandidateInterviewOverview>
+        </InterviewEntryShell>
+      );
+    }
 
     return (
-      <main className="dark flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground">
-        <section className="w-full max-w-lg space-y-6 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-muted/60 bg-muted/30">
-            <IconVideo className="size-6 text-foreground" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="font-semibold text-2xl tracking-normal">{getRoomTitle(props)}</h1>
-            <p className="text-muted-foreground text-sm">{getRoomSubtitle(props)}</p>
-          </div>
-          {entryMessage ? (
-            <p
-              className={cn(
-                "text-sm",
-                startBlockMessage ? "text-muted-foreground" : "text-destructive",
-              )}
-            >
-              {entryMessage}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button
-              className="min-w-36"
-              disabled={isJoining || Boolean(startBlockMessage)}
-              onClick={joinMeeting}
-              size="lg"
-            >
-              {isJoining ? (
-                <IconLoader2 className="size-4 animate-spin" />
-              ) : (
-                <IconLogin className="size-4" />
-              )}
-              {joinButtonText}
-            </Button>
-            {props.mode === "interviewer" ? (
-              <>
-                <Button onClick={() => setViewMode("materials")} size="lg" variant="outline">
-                  <IconFileDescription className="size-4" />
-                  候选人资料
-                </Button>
-                <Button onClick={() => setViewMode("review")} size="lg" variant="outline">
-                  面试评价
-                </Button>
-              </>
-            ) : null}
-          </div>
-        </section>
-      </main>
+      <InterviewEntryShell mobileAction={joinButton}>
+        <CandidateInterviewOverview
+          candidateName={props.preview.candidateName}
+          jobDescriptionName={props.preview.jobDescriptionName}
+          jobDescriptionPrompt={props.preview.jobDescriptionPrompt}
+          roundLabel={props.preview.roundLabel}
+          scheduledAt={props.preview.scheduledAt}
+          interviewer={{
+            name: props.preview.interviewerName,
+            role: interviewerRoleLabel[props.preview.role],
+          }}
+          message={entryMessage ?? undefined}
+        >
+          <div className="hidden md:block">{joinButton}</div>
+        </CandidateInterviewOverview>
+      </InterviewEntryShell>
     );
   }
 
   return (
     <LiveKitRoom
       audio={false}
-      className="dark h-dvh overflow-hidden bg-zinc-950 text-white"
+      className="h-dvh overflow-hidden bg-background text-foreground"
       connect
       onDisconnected={() => dispatch({ type: "disconnected" })}
+      onMediaDeviceFailure={notifyMeetingMediaFailure}
       onError={(e) => {
         dispatch({ message: e.message, type: "roomError" });
         toast.error(e.message);
@@ -583,6 +554,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     >
       <DefaultMicrophoneStarter enabled={token.participantRole !== "observer"} />
       <HumanMeetingStage
+        candidateName={props.preview.candidateName}
+        jobDescriptionName={props.preview.jobDescriptionName}
+        roundLabel={props.preview.roundLabel}
         canPublish={token.participantRole !== "observer"}
         canUseLiveTranscript={props.mode === "interviewer" && token.participantRole !== "observer"}
         canUseVoiceEffects={props.mode === "interviewer" && token.participantRole !== "observer"}
@@ -593,8 +567,6 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
         candidateMaterialsState={candidateMaterialsState}
         onCandidateMaterialsStateChange={setCandidateMaterialsState}
         onViewModeChange={setViewMode}
-        participantName={token.participantName}
-        recordingStatus={recordingStatus}
         title={getRoomTitle(props)}
         viewMode={props.mode === "interviewer" ? viewMode : "meeting"}
       />
@@ -628,7 +600,11 @@ function DefaultMicrophoneStarter({ enabled }: { enabled: boolean }) {
         await room.localParticipant.setMicrophoneEnabled(true, { deviceId: "default" });
       } catch (error) {
         hasTriedStart.current = false;
-        toast.error(error instanceof Error ? error.message : "默认麦克风启用失败");
+        if (error instanceof Error) {
+          notifyMeetingMediaError(error);
+        } else {
+          notifyMeetingMediaFailure();
+        }
       }
     }
 

@@ -3,6 +3,7 @@ import {
   platformSidebarNavSections,
   resolvePlatformSidebarNavItem,
 } from "../platform-sidebar-navigation";
+import { PLATFORM_SIDEBAR_MENU_BUTTON_CLASS } from "../platform-sidebar-styles";
 
 describe("PlatformSidebarSlots", () => {
   it("resolves active menu items from nested paths", () => {
@@ -25,5 +26,12 @@ describe("PlatformSidebarSlots", () => {
       "实时房间",
       "运行指标",
     ]);
+  });
+
+  it("keeps an active menu background stable while the hover highlight moves", () => {
+    expect(PLATFORM_SIDEBAR_MENU_BUTTON_CLASS).toContain(
+      "data-[active=false]:hover:bg-transparent!",
+    );
+    expect(PLATFORM_SIDEBAR_MENU_BUTTON_CLASS).not.toMatch(/(?:^|\s)hover:bg-transparent!/);
   });
 });

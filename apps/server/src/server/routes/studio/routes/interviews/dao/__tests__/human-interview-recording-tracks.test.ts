@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { organization, user, studioHumanInterviewMeeting } from "@app/db-schema/schema";
+import { organization, user, humanInterviewMeeting } from "@app/db-schema/schema";
 import type { HumanInterviewRecordingTrack } from "@app/db-schema/human-interview-recording";
 import { db } from "../../../../../../../lib/server/db/index";
 import { claimTrackRecordings, updateTrackRecording } from "../human-interview-recording-tracks";
@@ -30,7 +30,7 @@ beforeAll(async () => {
     .values({ email: `${id}@example.test`, emailVerified: false, id, name: "test" });
   await db.insert(organization).values({ createdAt: new Date(), id, name: "test", slug: id });
   await db
-    .insert(studioHumanInterviewMeeting)
+    .insert(humanInterviewMeeting)
     .values({ createdBy: id, id, organizationId: id, status: "in_progress", title: "track test" });
 });
 afterAll(async () => {
@@ -62,7 +62,7 @@ it("concurrent webhook claims start one recording and preserve completed state a
     meetingId: id,
     patch: { durationMs: 0, status: "active" },
   });
-  const row = await db.query.studioHumanInterviewMeeting.findFirst({ where: { id } });
+  const row = await db.query.humanInterviewMeeting.findFirst({ where: { id } });
   expect(row?.recordingTracks?.[0]).toMatchObject({ durationMs: 1000, status: "completed" });
   const reconnect = {
     ...descriptor,
@@ -74,9 +74,9 @@ it("concurrent webhook claims start one recording and preserve completed state a
     await claimTrackRecordings({ meetingId: id, organizationId: id, proposed: [reconnect] }),
   ).toHaveLength(1);
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({ status: "ended" })
-    .where(eq(studioHumanInterviewMeeting.id, id));
+    .where(eq(humanInterviewMeeting.id, id));
   expect(
     await claimTrackRecordings({
       meetingId: id,

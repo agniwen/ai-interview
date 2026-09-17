@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // Real-DB integration test: 验证 loadResumeDetail 暴露 interviewQuestions
 // 字段。POST handler 接 resumePayload 后会把 questions 写进同一行 JSON 列。
 //
@@ -8,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
-import { member, organization, studioInterview, user } from "@app/db-schema/schema";
+import { member, organization, user } from "@app/db-schema/schema";
 import { loadResumeDetail } from "../dao/resumes";
 
 const ORG = "test_org_resume_payload";
@@ -16,7 +18,7 @@ const USER_ID = "test_user_resume_payload";
 const NOW = new Date("2026-05-13T12:00:00.000Z");
 
 async function cleanup() {
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
   await db.delete(organization).where(eq(organization.id, ORG));
   await db.delete(user).where(eq(user.id, USER_ID));
@@ -52,7 +54,7 @@ afterAll(cleanup);
 describe("loadResumeDetail interviewQuestions surfacing", () => {
   it("returns generated questions when the row has them", async () => {
     const recordId = "rp-with-questions";
-    await db.insert(studioInterview).values({
+    await createRecruitingRecords(db, {
       candidateName: "郭靖",
       createdAt: NOW,
       createdBy: USER_ID,
@@ -87,7 +89,7 @@ describe("loadResumeDetail interviewQuestions surfacing", () => {
 
   it("returns empty array for rows without questions", async () => {
     const recordId = "rp-no-questions";
-    await db.insert(studioInterview).values({
+    await createRecruitingRecords(db, {
       candidateName: "李四",
       createdAt: NOW,
       createdBy: USER_ID,

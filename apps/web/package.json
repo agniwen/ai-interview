@@ -72,12 +72,14 @@
     "@tiptap/pm": "^3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "@xyflow/react": "^12.11.6",
     "ai": "catalog:",
     "better-auth": "^1.7.2",
     "blobatar": "2.7.0",
     "border-beam": "^1.0.1",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
+    "d3-hierarchy": "^3.1.2",
     "d3-scale": "^4.0.2",
     "d3-shape": "^3.2.0",
     "d3-time": "^3.1.0",
@@ -105,7 +107,6 @@
     "react": "catalog:",
     "react-day-picker": "^9.14.0",
     "react-dom": "catalog:",
-    "react-hook-form": "^7.75.0",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.4.1",
     "react-resizable-panels": "^4.11.0",
@@ -121,8 +122,7 @@
     "use-sync-external-store": "^1.6.0",
     "vaul": "^1.1.2",
     "watermark-js-plus": "^1.6.4",
-    "zod": "catalog:",
-    "zustand": "^5.0.12"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",

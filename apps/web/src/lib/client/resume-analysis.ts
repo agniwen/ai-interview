@@ -321,7 +321,6 @@ export function formValuesFromResumeProfile(
     hrResumeAssessment: "",
     jobDescriptionId: "",
     notes: "",
-    resumeEvaluationStatus: "unreviewed" as const,
     targetRole: resumeProfile.targetRoles[0] ?? "",
     ...overrides,
   };
@@ -338,7 +337,6 @@ function appendCandidateFields(fd: FormData, value: ResumeLibraryFormValues) {
   fd.append("targetRole", value.targetRole);
   fd.append("jobDescriptionId", value.jobDescriptionId);
   fd.append("notes", value.notes);
-  fd.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
 }
 
 export function buildSaveOnlyResumeFormData(

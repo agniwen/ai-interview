@@ -1,6 +1,6 @@
 import { db } from "../../../../../../lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
-import { interviewAuditLog } from "@app/db-schema/schema";
+import { recruitingEvent } from "@app/db-schema/schema";
 
 export async function recordCandidateActivity({
   action,
@@ -17,14 +17,14 @@ export async function recordCandidateActivity({
   organizationId: string;
   scheduleEntryId?: string | null;
 }) {
-  await db.insert(interviewAuditLog).values({
+  await db.insert(recruitingEvent).values({
     action,
+    aiRoundId: scheduleEntryId,
     createdAt: new Date(),
     detail,
     id: crypto.randomUUID(),
-    interviewRecordId,
     operatorId,
     organizationId,
-    scheduleEntryId,
+    recruitingRecordId: interviewRecordId,
   });
 }

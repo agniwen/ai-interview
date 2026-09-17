@@ -1,14 +1,44 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHumanInterviewMeetingTitle,
+  canCancelHumanInterviewRound,
   canCompleteHumanInterviewRound,
+  canRescheduleHumanInterviewRound,
+  canShowHumanInterviewScheduleAction,
   getHumanInterviewBusinessRoundNumbers,
   getHumanInterviewScheduleBlockReason,
 } from "./human-interview-stage-utils";
 
+describe("canShowHumanInterviewScheduleAction", () => {
+  it("shows the action for an existing human-interview stage without requiring screening state", () => {
+    expect(canShowHumanInterviewScheduleAction("second_interview", true, true)).toBe(true);
+    expect(canShowHumanInterviewScheduleAction("final_interview", true, true)).toBe(true);
+  });
+
+  it("keeps permission and stage boundaries", () => {
+    expect(canShowHumanInterviewScheduleAction("ai_interview", true, true)).toBe(false);
+    expect(canShowHumanInterviewScheduleAction("second_interview", false, true)).toBe(false);
+    expect(canShowHumanInterviewScheduleAction("second_interview", true, false)).toBe(false);
+  });
+});
+
 describe("canCompleteHumanInterviewRound", () => {
   it("does not expose the retired direct-completion action after a meeting ends", () => {
     expect(canCompleteHumanInterviewRound({ status: "pending" }, { status: "ended" })).toBe(false);
+  });
+});
+
+describe("not-held meeting recovery", () => {
+  it("allows HR to reschedule or cancel a pending round after the meeting was not held", () => {
+    // SAFETY: These guards read only the status fields provided by the focused fixtures.
+    const round = { status: "pending" } as Parameters<typeof canRescheduleHumanInterviewRound>[0];
+    // SAFETY: These guards read only the status fields provided by the focused fixtures.
+    const meeting = { status: "not_held" } as Parameters<
+      typeof canRescheduleHumanInterviewRound
+    >[1];
+
+    expect(canRescheduleHumanInterviewRound(round, meeting)).toBe(true);
+    expect(canCancelHumanInterviewRound(round, meeting)).toBe(true);
   });
 });
 

@@ -5,10 +5,16 @@
   "description": "Shared Drizzle database factory and database type used by server, worker, and reusable processing packages",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./recruiting-read-model": "./src/recruiting-read-model.ts",
+    "./recruiting-records": "./src/recruiting-records.ts",
+    "./recruiting-pipeline": "./src/recruiting-pipeline.ts",
+    "./recruiting-ai-review": "./src/recruiting-ai-review.ts",
+    "./recruiting-reference-retention": "./src/recruiting-reference-retention.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@app/db-schema": "workspace:*",
@@ -16,6 +22,8 @@
     "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@types/node": "24.11.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

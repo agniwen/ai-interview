@@ -39,7 +39,7 @@ export function RoundEvaluation({
   const details = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-5">
-        <EvaluationField label="评级" value={evaluation.rating} />
+        <EvaluationField label="评级" value={evaluation.rating ?? "未评级"} />
         <EvaluationField
           label="专业技能"
           value={normalizeHumanInterviewProfessionalSkill(evaluation.professionalSkill)}
@@ -69,7 +69,9 @@ export function RoundEvaluation({
           <Badge variant="warning">评价 · {statusLabel}</Badge>
         )}
         {compact ? (
-          <span className="text-muted-foreground text-xs">评级 · {evaluation.rating}</span>
+          <span className="text-muted-foreground text-xs">
+            评级 · {evaluation.rating ?? "未评级"}
+          </span>
         ) : null}
       </div>
       {compact ? <EvaluationField label="整体评价" value={evaluation.overallEvaluation} /> : null}

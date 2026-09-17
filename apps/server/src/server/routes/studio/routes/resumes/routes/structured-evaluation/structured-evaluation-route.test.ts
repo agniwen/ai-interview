@@ -8,7 +8,7 @@ describe("structured resume evaluation correction boundary", () => {
     expect(routeSource).toContain('requirePermission("resumeLibrary", "update")');
     expect(routeSource).toContain("activeOrg.id");
     expect(routeSource).toContain("visibilityCondition");
-    expect(routeSource).toContain('for("update")');
+    expect(routeSource).toContain("lockRecruitingRecord(tx, recordId, activeOrg.id)");
     expect(routeSource).toContain("input.expectedRunId");
   });
 

@@ -1,3 +1,5 @@
+import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
@@ -9,15 +11,16 @@ import {
   department,
   interviewer,
   jobDescription,
+  member,
   jobDescriptionInterviewer,
   jobDescriptionVersion,
-  studioInterview,
 } from "@app/db-schema/schema";
 import {
   jobDescriptionSaveSchema,
   publishedJobOperationalUpdateSchema,
   structuredJobDescriptionPublishSchema,
 } from "@app/shared/job-descriptions";
+import type { JobDescriptionFormValues } from "@app/shared/job-descriptions";
 import { jobEvaluationRuleDraftSchema } from "@app/db-schema/job-description-evaluation";
 import {
   createDefaultJobDescriptionStructuredConfig,
@@ -29,9 +32,9 @@ import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { requirePermission } from "../../../../middlewares/permission";
 import {
-  listAllJobDescriptions,
+  listManagedJobDescriptions,
   listRecruitingJobDescriptions,
-  loadJobDescriptionById,
+  loadManagedJobDescriptionById,
   loadJobDescriptionMetrics,
   loadRecruitingJobDescriptionById,
   queryPaginatedJobDescriptions,
@@ -87,8 +90,9 @@ async function validateReferences(
   departmentId: string,
   interviewerIds: string[],
   allowCrossDepartmentInterviewers: boolean,
+  reportingManagerUserId?: string | null,
 ) {
-  const [[departmentRow], interviewerRows] = await Promise.all([
+  const [[departmentRow], interviewerRows, [reportingManagerRow]] = await Promise.all([
     db
       .select({ id: department.id })
       .from(department)
@@ -111,6 +115,18 @@ async function validateReferences(
             ),
           )
       : Promise.resolve<JobDescriptionInterviewerRow[]>([]),
+    reportingManagerUserId
+      ? db
+          .select({ userId: member.userId })
+          .from(member)
+          .where(
+            and(
+              eq(member.organizationId, organizationId),
+              eq(member.userId, reportingManagerUserId),
+            ),
+          )
+          .limit(1)
+      : Promise.resolve([]),
   ]);
 
   if (!departmentRow) {
@@ -118,6 +134,9 @@ async function validateReferences(
   }
   if (interviewerRows.length !== interviewerIds.length) {
     return { error: "存在无效的面试官，请刷新后重试。" as const };
+  }
+  if (reportingManagerUserId && !reportingManagerRow) {
+    return { error: "所选汇报上级不属于当前工作区。" as const };
   }
   return {
     error: validateJobDescriptionInterviewerDepartments({
@@ -130,6 +149,20 @@ async function validateReferences(
 
 function dedupeInterviewerIds(ids: string[]): string[] {
   return uniq(ids.map((id) => id.trim()).filter(Boolean));
+}
+
+function toJobDescriptionRecruitingFields(input: JobDescriptionFormValues) {
+  return {
+    headcount: input.headcount ?? null,
+    jobWeight: input.jobWeight ?? null,
+    priority: input.priority ?? "medium",
+    publishedDate: input.publishedDate ?? null,
+    referralChannels: input.referralChannels?.trim() || null,
+    reportingManagerUserId: input.reportingManagerUserId ?? null,
+    salaryMaxK: input.salaryMaxK ?? null,
+    salaryMinK: input.salaryMinK ?? null,
+    targetDate: input.targetDate ?? null,
+  };
 }
 
 const jobCodeConflictErrorSchema = z.object({
@@ -228,6 +261,20 @@ const defaultDependencies: JobDescriptionsRouterDependencies = {
   requirePermission,
 };
 
+async function enqueueJobDescriptionIndexInBackground(
+  dependencies: JobDescriptionsRouterDependencies,
+  input: { jobDescriptionId: string | null | undefined; organizationId: string },
+) {
+  try {
+    await dependencies.enqueueJobDescriptionIndexJobBestEffort(input);
+  } catch (error) {
+    console.warn("[jd-semantic-index] background enqueue failed", {
+      jobDescriptionId: input.jobDescriptionId,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 // Keeps JD CRUD, AI generation, evaluation lifecycle, and referral-link endpoints behind the matching JD permission boundary.
 // 将岗位 CRUD、AI 生成、评价生命周期及内推链接端点置于对应的岗位权限边界之后。
 export function createJobDescriptionsRouter(
@@ -299,7 +346,7 @@ export function createJobDescriptionsRouter(
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const records = await listAllJobDescriptions(activeOrg.id);
+      const records = await listManagedJobDescriptions(activeOrg.id);
       return c.json({ records }, 200);
     })
     .get("/metrics", dependencies.requirePermission("jd", "read"), async (c) => {
@@ -413,6 +460,7 @@ export function createJobDescriptionsRouter(
           input.departmentId,
           interviewerIds,
           input.allowCrossDepartmentInterviewers,
+          input.reportingManagerUserId,
         );
         if (referenceError) {
           return c.json({ error: referenceError }, 400);
@@ -450,7 +498,9 @@ export function createJobDescriptionsRouter(
             feishuChatBoundAt: null,
             feishuChatBoundBy: null,
             feishuChatId: null,
+            ...toJobDescriptionRecruitingFields(input),
             id: crypto.randomUUID(),
+            internalCriteria: input.internalCriteria?.trim() || null,
             lifecycleStatus: "published",
             name: input.name.trim(),
             organizationId: activeOrg.id,
@@ -473,6 +523,7 @@ export function createJobDescriptionsRouter(
                 createdAt: now,
                 createdBy: c.var.user?.id ?? null,
                 id: crypto.randomUUID(),
+                internalCriteria: record.internalCriteria,
                 jobDescriptionId: record.id,
                 jobDescriptionName: record.name,
                 organizationId: activeOrg.id,
@@ -490,7 +541,7 @@ export function createJobDescriptionsRouter(
 
             safeUpdateTag(`job-descriptions:${activeOrg.id}`);
             safeUpdateTag(`interviewers:${activeOrg.id}`);
-            await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+            enqueueJobDescriptionIndexInBackground(dependencies, {
               jobDescriptionId: record.id,
               organizationId: activeOrg.id,
             });
@@ -590,12 +641,12 @@ export function createJobDescriptionsRouter(
             jobDescriptionId: id,
             organizationId: activeOrg.id,
           });
-          await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+          enqueueJobDescriptionIndexInBackground(dependencies, {
             jobDescriptionId: id,
             organizationId: activeOrg.id,
           });
           safeUpdateTag(`job-descriptions:${activeOrg.id}`);
-          const record = await loadJobDescriptionById(activeOrg.id, id);
+          const record = await loadManagedJobDescriptionById(activeOrg.id, id);
           if (!record) {
             return c.json({ error: "发布后的在招岗位读取失败。" }, 500);
           }
@@ -619,7 +670,7 @@ export function createJobDescriptionsRouter(
           return c.json({ message: "Unauthorized" }, 401);
         }
         const id = c.req.param("id");
-        const existing = await loadJobDescriptionById(activeOrg.id, id);
+        const existing = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!existing) {
           return c.json({ error: "在招岗位不存在。" }, 404);
         }
@@ -657,11 +708,11 @@ export function createJobDescriptionsRouter(
         });
         safeUpdateTag(`job-descriptions:${activeOrg.id}`);
         safeUpdateTag(`interviewers:${activeOrg.id}`);
-        await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+        enqueueJobDescriptionIndexInBackground(dependencies, {
           jobDescriptionId: id,
           organizationId: activeOrg.id,
         });
-        const updated = await loadJobDescriptionById(activeOrg.id, id);
+        const updated = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!updated) {
           return c.json({ error: "更新后的在招岗位读取失败。" }, 500);
         }
@@ -694,7 +745,7 @@ export function createJobDescriptionsRouter(
         return c.json({ message: "Unauthorized" }, 401);
       }
       const id = c.req.param("id");
-      const record = await loadJobDescriptionById(activeOrg.id, id);
+      const record = await loadManagedJobDescriptionById(activeOrg.id, id);
       if (!record) {
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
@@ -749,7 +800,7 @@ export function createJobDescriptionsRouter(
           return c.json({ message: "Unauthorized" }, 401);
         }
         const id = c.req.param("id");
-        const existing = await loadJobDescriptionById(activeOrg.id, id);
+        const existing = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!existing) {
           return c.json({ error: "在招岗位不存在。" }, 404);
         }
@@ -765,6 +816,7 @@ export function createJobDescriptionsRouter(
           input.departmentId,
           interviewerIds,
           input.allowCrossDepartmentInterviewers,
+          input.reportingManagerUserId,
         );
         if (error) {
           return c.json({ error }, 400);
@@ -776,6 +828,7 @@ export function createJobDescriptionsRouter(
             const [lockedExisting] = await tx
               .select({
                 code: jobDescription.code,
+                internalCriteria: jobDescription.internalCriteria,
                 publishedAt: jobDescription.publishedAt,
               })
               .from(jobDescription)
@@ -794,6 +847,11 @@ export function createJobDescriptionsRouter(
                 code: input.code ?? lockedExisting.code,
                 departmentId: input.departmentId,
                 evaluationMode: "qualitative",
+                ...toJobDescriptionRecruitingFields(input),
+                internalCriteria:
+                  input.internalCriteria === undefined
+                    ? lockedExisting.internalCriteria
+                    : input.internalCriteria || null,
                 lifecycleStatus: "published",
                 name: input.name,
                 prompt: input.prompt,
@@ -823,6 +881,10 @@ export function createJobDescriptionsRouter(
               createdAt: now,
               createdBy: c.var.user?.id ?? null,
               id: crypto.randomUUID(),
+              internalCriteria:
+                input.internalCriteria === undefined
+                  ? lockedExisting.internalCriteria
+                  : input.internalCriteria || null,
               jobDescriptionId: id,
               jobDescriptionName: input.name,
               organizationId: activeOrg.id,
@@ -844,12 +906,12 @@ export function createJobDescriptionsRouter(
 
         safeUpdateTag(`job-descriptions:${activeOrg.id}`);
         safeUpdateTag(`interviewers:${activeOrg.id}`);
-        await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+        enqueueJobDescriptionIndexInBackground(dependencies, {
           jobDescriptionId: id,
           organizationId: activeOrg.id,
         });
 
-        const updated = await loadJobDescriptionById(activeOrg.id, id);
+        const updated = await loadManagedJobDescriptionById(activeOrg.id, id);
         if (!updated) {
           return c.json({ error: "保存后的在招岗位读取失败。" }, 500);
         }
@@ -862,39 +924,54 @@ export function createJobDescriptionsRouter(
         return c.json({ message: "Unauthorized" }, 401);
       }
       const id = c.req.param("id");
-      const existing = await loadJobDescriptionById(activeOrg.id, id);
+      const existing = await loadManagedJobDescriptionById(activeOrg.id, id);
       if (!existing) {
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
 
-      // 有非归档候选人关联到该岗位时禁止删除：候选人是业务实体，外键的 SET NULL
-      // 行为会让简历挂在"未知岗位"上，难以追溯，因此前置拦截。
-      // Block delete when non-archived candidates still reference this JD —
-      // SET NULL would orphan candidates onto an empty job-description column
-      // and make follow-up triage hard. Force the user to deal with them first.
-      const [resumeRow] = await db
-        .select({ count: count() })
-        .from(studioInterview)
-        .where(
-          and(
-            eq(studioInterview.jobDescriptionId, id),
-            ne(studioInterview.pipelineStage, "closed"),
-          ),
+      const deletion = await db.transaction(async (tx) => {
+        const condition = and(
+          eq(jobDescription.id, id),
+          eq(jobDescription.organizationId, activeOrg.id),
         );
-      const resumeCount = resumeRow?.count ?? 0;
-      if (resumeCount > 0) {
-        return c.json(
-          {
+        const [locked] = await tx
+          .select({ id: jobDescription.id })
+          .from(jobDescription)
+          .where(condition)
+          .for("update")
+          .limit(1);
+        if (!locked) {
+          return { error: "在招岗位不存在。", status: 404 as const };
+        }
+        // 锁住岗位后检查引用，避免新关联在检查和删除之间被级联清除。
+        const [resumeRow] = await tx
+          .select({ count: count() })
+          .from(recruitingRecordReadModel)
+          .where(
+            and(
+              eq(recruitingRecordReadModel.jobDescriptionId, id),
+              ne(recruitingRecordReadModel.pipelineStage, "closed"),
+            ),
+          );
+        const resumeCount = resumeRow?.count ?? 0;
+        if (resumeCount > 0) {
+          return {
             error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在招聘台中调整或删除这些候选人。`,
-          },
-          409,
-        );
+            status: 409 as const,
+          };
+        }
+        if (await hasRecruitingReferences(tx, "job_description", id)) {
+          return {
+            error: "该岗位仍被招聘数据引用，请先解除关联或停止招聘。",
+            status: 409 as const,
+          };
+        }
+        await tx.delete(jobDescription).where(condition);
+        return null;
+      });
+      if (deletion) {
+        return c.json({ error: deletion.error }, deletion.status);
       }
-
-      // jobDescriptionInterviewer cascades on JD delete; studio_interview.job_description_id → SET NULL.
-      await db
-        .delete(jobDescription)
-        .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       safeUpdateTag(cacheTags.studioInterviews(activeOrg.id));
       safeUpdateTag(`interviewers:${activeOrg.id}`);

@@ -52,6 +52,101 @@ describe("ResumeLibraryMetricsSection", () => {
     expect(getRevealState()).toBe("loading");
   });
 
+  it("matches the compact submenu card height while metrics are loading", async () => {
+    const { root } = await renderInAct(
+      <ResumeLibraryMetricsSection
+        error={null}
+        fixedRecruitingGroup="offer"
+        metrics={undefined}
+        onRetry={vi.fn(async () => {})}
+      />,
+    );
+    roots.push(root);
+
+    const cardBodies = document.querySelectorAll<HTMLElement>(
+      '[data-slot="metrics-card-body-skeleton"]',
+    );
+    expect(cardBodies).toHaveLength(2);
+    for (const cardBody of cardBodies) {
+      expect(cardBody.className).toContain("h-[208px]");
+      expect(cardBody.className).not.toContain("h-[260px]");
+    }
+  });
+
+  it("keeps only the stage distribution and status-share cards for a submenu", async () => {
+    const submenuMetrics: ResumeLibraryMetrics = {
+      boardStatusCounts: [
+        { count: 2, label: "流水提供", view: "offer:income" },
+        { count: 3, label: "谈薪", view: "offer:negotiating" },
+        { count: 4, label: "发 Offer", view: "offer:send" },
+        { count: 1, label: "背调", view: "offer:background" },
+      ],
+      byPipeline: [{ count: 10, outcome: "in_pipeline", stage: "offer" }],
+      conversion: { withInterview: 0, withoutInterview: 0 },
+      dailyAdded: [],
+    };
+    const { root } = await renderInAct(
+      <ResumeLibraryMetricsSection
+        error={null}
+        fixedRecruitingGroup="offer"
+        metrics={submenuMetrics}
+        onRetry={vi.fn(async () => {})}
+      />,
+    );
+    roots.push(root);
+
+    const firstCard = document.querySelector<HTMLElement>('[data-slot="card"]');
+    expect(document.body.textContent).toContain("Offer协商 · 流程分布");
+    expect(document.body.textContent).toContain("Offer协商状态占比");
+    expect(document.body.textContent).toContain("发 Offer4 · 40%");
+    expect(firstCard?.textContent).toContain("流水提供2");
+    expect(firstCard?.textContent).toContain("谈薪3");
+    expect(firstCard?.textContent).toContain("发 Offer4");
+    expect(firstCard?.textContent).toContain("背调1");
+    expect(firstCard?.textContent).not.toContain("简历筛选");
+    expect(document.body.textContent).not.toContain("入库排行榜");
+    expect(document.body.textContent).not.toContain("AI 面试转化");
+    const cardBodies = document.querySelectorAll<HTMLElement>(
+      '[data-slot="card"] [data-slot="scroll-area"]',
+    );
+    expect(cardBodies).toHaveLength(2);
+    for (const cardBody of cardBodies) {
+      expect(cardBody.className).toContain("h-[208px]");
+      expect(cardBody.className).not.toContain("h-[260px]");
+    }
+  });
+
+  it("uses the top-level recruiting stages for the main board distribution", async () => {
+    const mainMetrics: ResumeLibraryMetrics = {
+      byPipeline: [
+        { count: 5, outcome: "in_pipeline", stage: "screening" },
+        { count: 4, outcome: "in_pipeline", stage: "ai_interview" },
+        { count: 3, outcome: "in_pipeline", stage: "offer" },
+        { count: 2, outcome: "in_pipeline", stage: "onboarding" },
+        { count: 1, outcome: "hired", stage: "closed" },
+      ],
+      conversion: { withInterview: 4, withoutInterview: 11 },
+      dailyAdded: [],
+    };
+    const { root } = await renderInAct(
+      <ResumeLibraryMetricsSection
+        error={null}
+        metrics={mainMetrics}
+        onRetry={vi.fn(async () => {})}
+      />,
+    );
+    roots.push(root);
+
+    const firstCard = document.querySelector<HTMLElement>('[data-slot="card"]');
+    expect(firstCard?.textContent).toContain("招聘流程分布");
+    expect(firstCard?.textContent).toContain("简历筛选5");
+    expect(firstCard?.textContent).toContain("面试4");
+    expect(firstCard?.textContent).toContain("Offer协商3");
+    expect(firstCard?.textContent).toContain("入职办理2");
+    expect(firstCard?.textContent).toContain("已结束1");
+    expect(firstCard?.textContent).not.toContain("复试 / 终试");
+  });
+
   it("reveals initial metrics once and keeps existing charts revealed during refresh", async () => {
     const onRetry = vi.fn(async () => {});
     const renderSection = (nextMetrics?: ResumeLibraryMetrics, isRefreshing = false) => (

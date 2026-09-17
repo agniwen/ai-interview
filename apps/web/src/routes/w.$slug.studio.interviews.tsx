@@ -18,11 +18,11 @@ function StudioInterviewsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
   validateSearch: (search) => coerceStudioInterviewsSearch(search),
   head: () => ({
-    meta: [{ title: formatDocumentTitle("AI 面试") }],
+    meta: [{ title: formatDocumentTitle("AI初面") }],
   }),
   component: StudioInterviewsRoute,
   pendingComponent: () => (
-    <StudioTablePageSkeleton columnCount={12} filterCount={3} label="AI 面试" summary />
+    <StudioTablePageSkeleton columnCount={12} filterCount={3} label="AI初面" summary />
   ),
   shouldReload: false,
 });

@@ -188,7 +188,14 @@ export async function runInterviewReportWorkflow(
     return interviewReportOutputSchema.parse(result.result);
   }
   if (result.status === "failed") {
-    throw result.error;
+    if (result.error instanceof Error) {
+      throw result.error;
+    }
+    const serialized = z.object({ message: z.string() }).safeParse(result.error);
+    throw new Error(
+      serialized.success ? serialized.data.message : "Interview report workflow failed.",
+      { cause: result.error },
+    );
   }
   throw new Error(`Interview report workflow ended with status ${result.status}.`);
 }

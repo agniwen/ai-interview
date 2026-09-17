@@ -1,7 +1,16 @@
 import { hierarchy, tree } from "d3-hierarchy";
-import { Background, Controls, MarkerType, ReactFlow } from "@xyflow/react";
-import type { Edge, Node, NodeMouseHandler } from "@xyflow/react";
-import { useMemo } from "react";
+import {
+  Background,
+  Controls,
+  MarkerType,
+  Position,
+  ReactFlow,
+  useStore,
+  useNodesInitialized,
+  useReactFlow,
+} from "@xyflow/react";
+import type { Edge, Node, NodeMouseHandler, NodeProps } from "@xyflow/react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import type { MeetingLiveSummaryControllerSnapshot } from "@/lib/meeting-capture/live-summary-controller";
@@ -70,6 +79,12 @@ type FlowNodeData = Record<string, ReactNode | string | null> & {
   label: ReactNode;
 };
 
+function StandaloneSummaryNode({ data }: NodeProps<Node<FlowNodeData>>) {
+  return <>{data.label}</>;
+}
+
+const summaryNodeTypes = { standalone: StandaloneSummaryNode };
+
 function iconForKind(kind: LiveSummaryTreeDatum["kind"]): string {
   if (kind === "root") {
     return "ph:sparkle-fill";
@@ -95,7 +110,9 @@ function nodeLabel(node: LiveSummaryGraphNode) {
   return (
     <div className="grid gap-1 text-left">
       <div className="flex items-center gap-1.5">
-        <Icon aria-hidden className="size-3.5 shrink-0" icon={iconForKind(node.kind)} />
+        {node.kind === "point" ? null : (
+          <Icon aria-hidden className="size-3.5 shrink-0" icon={iconForKind(node.kind)} />
+        )}
         <span className="font-medium text-xs leading-snug">{node.title}</span>
       </div>
       {node.subtitle ? (
@@ -112,7 +129,12 @@ function nodeLabel(node: LiveSummaryGraphNode) {
   );
 }
 
-function flowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
+export function buildLiveSummaryFlowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
+  const hasChildren = Boolean(node.children?.length);
+  let type = hasChildren ? "default" : "output";
+  if (node.kind === "root") {
+    type = hasChildren ? "input" : "standalone";
+  }
   return {
     ariaLabel: node.evidenceTurnId ? `${node.title}，点击查看字幕证据` : node.title,
     data: {
@@ -123,6 +145,7 @@ function flowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
     id: node.id,
     position: { x: node.x, y: node.y },
     selectable: Boolean(node.evidenceTurnId),
+    sourcePosition: Position.Right,
     style: {
       background: nodeBackground(node.kind),
       border: node.kind === "topic" ? "1px solid var(--border)" : "1px solid transparent",
@@ -135,6 +158,8 @@ function flowNode(node: LiveSummaryGraphNode): Node<FlowNodeData> {
       padding: node.kind === "point" ? "9px 12px" : "12px 14px",
       width: nodeWidth(node.kind),
     },
+    targetPosition: Position.Left,
+    type,
   };
 }
 
@@ -144,7 +169,7 @@ export function MeetingLiveSummaryEmpty({
   status: MeetingLiveSummaryControllerSnapshot["status"];
 }) {
   return (
-    <div className="flex h-full min-h-[30rem] flex-col items-center justify-center gap-3 px-8 text-center">
+    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 px-8 text-center">
       <Icon
         aria-hidden
         className={cn("size-7 text-muted-foreground", status === "updating" && "animate-pulse")}
@@ -162,18 +187,49 @@ export function MeetingLiveSummaryEmpty({
   );
 }
 
+// React Flow already observes its container, including sidebar and split-pane resizing.
+function SummaryViewport({ graphKey }: { graphKey: string }) {
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  const initialized = useNodesInitialized();
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (!initialized || width <= 0 || height <= 0) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      void fitView({ maxZoom: 1, minZoom: 0.05, padding: 0.18 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fitView, graphKey, height, initialized, width]);
+  return null;
+}
+
 export function MeetingLiveSummaryPanel({
   onEvidence,
+  onNodeSelect,
   snapshot,
 }: {
   onEvidence: (turnId: string) => void;
+  onNodeSelect?: (nodeId: string) => void;
   snapshot: MeetingLiveSummaryControllerSnapshot;
 }) {
   const graph = useMemo(
     () => (snapshot.summary ? buildLiveSummaryGraph(snapshot.summary) : null),
     [snapshot.summary],
   );
-  const nodes = useMemo(() => graph?.nodes.map(flowNode) ?? [], [graph]);
+  const nodes = useMemo(
+    () =>
+      graph?.nodes.map((node) => {
+        const flowNode = buildLiveSummaryFlowNode(node);
+        if (onNodeSelect) {
+          flowNode.ariaLabel = `${node.title}，点击查看对应总结`;
+          flowNode.selectable = true;
+        }
+        return flowNode;
+      }) ?? [],
+    [graph, onNodeSelect],
+  );
   const edges = useMemo<Edge[]>(
     () =>
       graph?.edges.map((edge) => ({
@@ -185,13 +241,15 @@ export function MeetingLiveSummaryPanel({
     [graph],
   );
   const handleNodeClick: NodeMouseHandler<Node<FlowNodeData>> = (_event, node) => {
-    if (node.data.evidenceTurnId) {
+    if (onNodeSelect) {
+      onNodeSelect(node.id);
+    } else if (node.data.evidenceTurnId) {
       onEvidence(node.data.evidenceTurnId);
     }
   };
 
   return (
-    <div className="h-full min-h-[32rem]">
+    <div className="h-full min-h-0 min-w-0">
       {graph ? (
         <div className="h-full overflow-hidden bg-transparent">
           <ReactFlow
@@ -200,14 +258,16 @@ export function MeetingLiveSummaryPanel({
             fitView
             fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
             maxZoom={1.5}
-            minZoom={0.25}
+            minZoom={0.05}
             nodes={nodes}
+            nodeTypes={summaryNodeTypes}
             nodesConnectable={false}
             nodesDraggable={false}
             onNodeClick={handleNodeClick}
             panOnScroll
             proOptions={{ hideAttribution: true }}
           >
+            <SummaryViewport graphKey={nodes.map((node) => node.id).join("|")} />
             <Background color="var(--border)" gap={24} size={1} />
             <Controls position="bottom-right" showInteractive={false} />
           </ReactFlow>

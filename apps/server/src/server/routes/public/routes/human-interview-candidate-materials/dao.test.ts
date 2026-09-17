@@ -1,12 +1,13 @@
+import { createRecruitingRecords, deleteRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
-  interviewConversation,
+  aiInterviewConversation,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { db } from "../../../../../lib/server/db/index";
@@ -42,7 +43,8 @@ beforeAll(async () => {
     .values(
       [org, otherOrg].map((id) => ({ createdAt: new Date(), id, name: "历史评价测试", slug: id })),
     );
-  await db.insert(studioInterview).values(
+  await createRecruitingRecords(
+    db,
     [candidate, otherCandidate].map((id) => ({
       candidateName: "测试候选人",
       createdBy: actor,
@@ -50,6 +52,11 @@ beforeAll(async () => {
       organizationId: org,
     })),
   );
+  await createRecruitingRecords(db, {
+    candidateName: "另一工作区人才",
+    id: `${otherOrg}-tenant-candidate`,
+    organizationId: otherOrg,
+  });
   const rounds = [
     { id: "first", label: "自定义技术面", sortOrder: 0 },
     { id: "second", label: "业务二面", outcome: "fail" as const, sortOrder: 1 },
@@ -58,37 +65,48 @@ beforeAll(async () => {
     { evaluation: null, evaluationStatus: "not_started" as const, id: "legacy", sortOrder: 4 },
     { id: "current", sortOrder: 5 },
     { id: "future", sortOrder: 6 },
-    { id: "other-record", interviewRecordId: otherCandidate, sortOrder: 0 },
-    { id: "other-org", organizationId: otherOrg, sortOrder: 0 },
+    { id: "other-record", recruitingRecordId: otherCandidate, sortOrder: 0 },
+    {
+      id: "other-org",
+      organizationId: otherOrg,
+      recruitingRecordId: `${otherOrg}-tenant-candidate`,
+      sortOrder: 0,
+    },
   ];
   for (const round of rounds) {
-    await db.insert(studioHumanInterviewRound).values({
+    await db.insert(humanInterviewRound).values({
       evaluation,
       evaluationStatus: "submitted",
       evaluationSubmittedAt: submittedAt,
       evaluationUpdatedBy: actor,
       format: "online",
-      interviewRecordId: candidate,
       label: round.id,
       organizationId: org,
       outcome: "pass",
+      recruitingRecordId: candidate,
+      roundKind: "second_interview",
       status: "completed",
       ...round,
       id: `${org}-${round.id}`,
     });
   }
-  await db.insert(studioHumanInterviewMeeting).values({
+  await db.insert(humanInterviewMeeting).values({
     id: meeting,
     organizationId: org,
     title: "测试会议",
   });
-  await db.insert(studioHumanInterviewMeetingRound).values({
+  await db.insert(humanInterviewMeetingRound).values({
     meetingId: meeting,
+    organizationId: org,
     roundId: `${org}-current`,
   });
 });
 
 afterAll(async () => {
+  await deleteRecruitingRecords(
+    db,
+    inArray(recruitingRecordReadModel.organizationId, [org, otherOrg]),
+  );
   await db.delete(organization).where(inArray(organization.id, [org, otherOrg]));
   await db.delete(user).where(eq(user.id, actor));
 });
@@ -105,11 +123,11 @@ describe("interviewer candidate evaluation history", () => {
       recentWork: null,
     };
     const conversationId = `${org}-hr`;
-    await db.insert(interviewConversation).values({
+    await db.insert(aiInterviewConversation).values({
       conversationId,
       evaluationCriteriaResults: { hrEvaluation: values },
-      interviewRecordId: candidate,
       organizationId: org,
+      recruitingRecordId: candidate,
       summaryStatus: "ready",
       updatedAt: submittedAt,
     });
@@ -130,8 +148,8 @@ describe("interviewer candidate evaluation history", () => {
       ]);
     } finally {
       await db
-        .delete(interviewConversation)
-        .where(eq(interviewConversation.conversationId, conversationId));
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
     }
   });
 
@@ -150,11 +168,11 @@ describe("interviewer candidate evaluation history", () => {
   it("keeps an old first-round link empty even after subsequent rounds are submitted", async () => {
     const firstMeeting = `${org}-first-meeting`;
     await db
-      .insert(studioHumanInterviewMeeting)
+      .insert(humanInterviewMeeting)
       .values({ id: firstMeeting, organizationId: org, title: "一面会议" });
     await db
-      .insert(studioHumanInterviewMeetingRound)
-      .values({ meetingId: firstMeeting, roundId: `${org}-first` });
+      .insert(humanInterviewMeetingRound)
+      .values({ meetingId: firstMeeting, organizationId: org, roundId: `${org}-first` });
     expect(
       await loadHumanInterviewCandidateHrInformation({
         candidateId: candidate,

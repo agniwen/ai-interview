@@ -392,12 +392,6 @@ function DocxPageNumberControl({
   const [draftPage, setDraftPage] = React.useState(() => String(displayPage));
 
   React.useEffect(() => {
-    if (!isEditing) {
-      setDraftPage(String(displayPage));
-    }
-  }, [displayPage, isEditing]);
-
-  React.useEffect(() => {
     if (!isEditing) return;
 
     inputRef.current?.focus();

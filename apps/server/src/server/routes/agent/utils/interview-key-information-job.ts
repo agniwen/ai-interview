@@ -1,6 +1,6 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../../../../lib/server/db/index";
-import { interviewConversation } from "@app/db-schema/schema";
+import { aiInterviewConversation } from "@app/db-schema/schema";
 import { cacheTags, safeUpdateTag } from "../../../cache-tags";
 import { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
 import { generateInterviewKeyInformation } from "./interview-key-information";
@@ -12,49 +12,49 @@ const productionDependencies: KeyInformationJobDependencies = {
   buildQuestions: buildInterviewReportQuestionsFromContext,
   claim: ({ conversationId, startedAt, staleRunningThreshold }) =>
     db
-      .update(interviewConversation)
+      .update(aiInterviewConversation)
       .set({
-        keyInformationAttempts: sql`${interviewConversation.keyInformationAttempts} + 1`,
+        keyInformationAttempts: sql`${aiInterviewConversation.keyInformationAttempts} + 1`,
         keyInformationStartedAt: startedAt,
         keyInformationStatus: "running",
       })
       .where(
         and(
-          eq(interviewConversation.conversationId, conversationId),
+          eq(aiInterviewConversation.conversationId, conversationId),
           or(
-            inArray(interviewConversation.keyInformationStatus, ["pending", "failed"]),
+            inArray(aiInterviewConversation.keyInformationStatus, ["pending", "failed"]),
             and(
-              eq(interviewConversation.keyInformationStatus, "running"),
-              lt(interviewConversation.keyInformationStartedAt, staleRunningThreshold),
+              eq(aiInterviewConversation.keyInformationStatus, "running"),
+              lt(aiInterviewConversation.keyInformationStartedAt, staleRunningThreshold),
             ),
           ),
         ),
       )
       .returning({
-        keyInformationStartedAt: interviewConversation.keyInformationStartedAt,
-        transcript: interviewConversation.transcript,
+        keyInformationStartedAt: aiInterviewConversation.keyInformationStartedAt,
+        transcript: aiInterviewConversation.transcript,
       }),
   createEvidence: createInterviewEvidenceSnapshot,
   generate: generateInterviewKeyInformation,
   markFailed: async ({ conversationId, message, startedAt }) => {
     await db
-      .update(interviewConversation)
+      .update(aiInterviewConversation)
       .set({
         keyInformationError: message,
         keyInformationStatus: "failed",
       })
       .where(
         and(
-          eq(interviewConversation.conversationId, conversationId),
-          eq(interviewConversation.keyInformationStatus, "running"),
-          eq(interviewConversation.keyInformationStartedAt, startedAt),
+          eq(aiInterviewConversation.conversationId, conversationId),
+          eq(aiInterviewConversation.keyInformationStatus, "running"),
+          eq(aiInterviewConversation.keyInformationStartedAt, startedAt),
         ),
       )
-      .returning({ conversationId: interviewConversation.conversationId });
+      .returning({ conversationId: aiInterviewConversation.conversationId });
   },
   persist: ({ conversationId, keyInformation, startedAt }) =>
     db
-      .update(interviewConversation)
+      .update(aiInterviewConversation)
       .set({
         keyInformation,
         keyInformationAttempts: 0,
@@ -63,12 +63,12 @@ const productionDependencies: KeyInformationJobDependencies = {
       })
       .where(
         and(
-          eq(interviewConversation.conversationId, conversationId),
-          eq(interviewConversation.keyInformationStatus, "running"),
-          eq(interviewConversation.keyInformationStartedAt, startedAt),
+          eq(aiInterviewConversation.conversationId, conversationId),
+          eq(aiInterviewConversation.keyInformationStatus, "running"),
+          eq(aiInterviewConversation.keyInformationStartedAt, startedAt),
         ),
       )
-      .returning({ conversationId: interviewConversation.conversationId }),
+      .returning({ conversationId: aiInterviewConversation.conversationId }),
   publish: (interviewRecordId) => {
     safeUpdateTag(cacheTags.interviewConversations);
     safeUpdateTag(cacheTags.interviewConversationsByRecord(interviewRecordId));

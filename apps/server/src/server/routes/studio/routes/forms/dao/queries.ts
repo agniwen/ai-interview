@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import type {
@@ -19,12 +20,11 @@ import {
 import type { PaginatedResult, PaginationParams } from "../../../../../../lib/server/db/pagination";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import {
-  candidateFormSubmission,
+  recruitingFormSubmission,
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
   jobDescription,
-  studioInterview,
 } from "@app/db-schema/schema";
 
 // =====================================================================
@@ -289,11 +289,11 @@ async function loadSubmissionCountsByTemplate(templateIds: string[]): Promise<Ma
   const rows = await db
     .select({
       count: count(),
-      templateId: candidateFormSubmission.templateId,
+      templateId: recruitingFormSubmission.templateId,
     })
-    .from(candidateFormSubmission)
-    .where(inArray(candidateFormSubmission.templateId, templateIds))
-    .groupBy(candidateFormSubmission.templateId);
+    .from(recruitingFormSubmission)
+    .where(inArray(recruitingFormSubmission.templateId, templateIds))
+    .groupBy(recruitingFormSubmission.templateId);
   for (const row of rows) {
     map.set(row.templateId, row.count);
   }
@@ -533,11 +533,11 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
 }> {
   const [interviewRow] = await db
     .select({
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      organizationId: studioInterview.organizationId,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      organizationId: recruitingRecordReadModel.organizationId,
     })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, interviewRecordId))
     .limit(1);
 
   if (!interviewRow) {

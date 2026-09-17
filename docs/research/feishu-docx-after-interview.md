@@ -16,7 +16,7 @@
 
 本项目已经具备复用飞书开放应用的基础：
 
-- 技术栈是 pnpm/Turborepo monorepo：React 19 + TanStack Start/Router/Query 前端，Hono 后端，PostgreSQL + Drizzle 数据层，Better Auth 登录与组织权限，Python LiveKit Agents 语音面试，以及 Mastra 驱动的面试总结/结构化评价工作流。
+- 技术栈是 Bun/Turborepo monorepo：React 19 + TanStack Start/Router/Query 前端，Hono 后端，PostgreSQL + Drizzle 数据层，Better Auth 登录与组织权限，Python LiveKit Agents 语音面试，以及 Mastra 驱动的面试总结/结构化评价工作流。
 - 后端是 Hono，认证使用 Better Auth `genericOAuth`；飞书 OAuth 使用 v2 token 端点 `https://open.feishu.cn/open-apis/authen/v2/oauth/token`。
 - 当前两个飞书 provider 的用户登录 scope 仍只申请 `contact:user.base:readonly` 和 `contact:user.email:readonly`；文档生成使用应用身份的 `tenant_access_token`，因此不需要把 Docx 权限加入用户登录 scope。飞书开发者后台仍须为应用身份开通并发布相应权限。
 - OAuth 返回的 `access_token`、`refresh_token`、各自过期时间与 `scope` 已映射给 Better Auth；数据库 `account` 表也有对应列。见 `apps/server/src/lib/server/auth.ts` 与 `packages/db-schema/src/schema.ts`。

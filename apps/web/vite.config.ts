@@ -70,8 +70,6 @@ export default defineConfig(({ mode }) => {
         "sonner",
         "tailwind-merge",
         "zod",
-        "zustand",
-        "zustand/middleware",
       ],
     },
     plugins: [

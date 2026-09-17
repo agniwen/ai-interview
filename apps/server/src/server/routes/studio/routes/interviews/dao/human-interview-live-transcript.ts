@@ -1,9 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-} from "@app/db-schema/schema";
+import { humanInterviewMeeting, humanInterviewMeetingInterviewer } from "@app/db-schema/schema";
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 
 export async function loadHumanInterviewLiveTranscriptDraft(input: {
@@ -12,14 +9,14 @@ export async function loadHumanInterviewLiveTranscriptDraft(input: {
 }): Promise<{ draft: MeetingLiveTranscriptDraft | null; version: number }> {
   const [row] = await db
     .select({
-      draft: studioHumanInterviewMeetingInterviewer.liveTranscriptDraft,
-      version: studioHumanInterviewMeetingInterviewer.liveTranscriptDraftVersion,
+      draft: humanInterviewMeetingInterviewer.liveTranscriptDraft,
+      version: humanInterviewMeetingInterviewer.liveTranscriptDraftVersion,
     })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .from(humanInterviewMeetingInterviewer)
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId),
-        eq(studioHumanInterviewMeetingInterviewer.userId, input.userId),
+        eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId),
+        eq(humanInterviewMeetingInterviewer.userId, input.userId),
       ),
     )
     .limit(1);
@@ -35,13 +32,13 @@ export async function saveHumanInterviewLiveTranscriptDraft(input: {
 }): Promise<{ version: number } | null> {
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
-      .select({ status: studioHumanInterviewMeeting.status })
-      .from(studioHumanInterviewMeeting)
+      .select({ status: humanInterviewMeeting.status })
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, input.meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
-          inArray(studioHumanInterviewMeeting.status, ["scheduled", "in_progress"]),
+          eq(humanInterviewMeeting.id, input.meetingId),
+          eq(humanInterviewMeeting.organizationId, input.organizationId),
+          inArray(humanInterviewMeeting.status, ["scheduled", "in_progress"]),
         ),
       )
       .for("share")
@@ -50,23 +47,20 @@ export async function saveHumanInterviewLiveTranscriptDraft(input: {
       return null;
     }
     const [saved] = await tx
-      .update(studioHumanInterviewMeetingInterviewer)
+      .update(humanInterviewMeetingInterviewer)
       .set({
         liveTranscriptDraft: input.draft,
-        liveTranscriptDraftVersion: sql`${studioHumanInterviewMeetingInterviewer.liveTranscriptDraftVersion} + 1`,
+        liveTranscriptDraftVersion: sql`${humanInterviewMeetingInterviewer.liveTranscriptDraftVersion} + 1`,
       })
       .where(
         and(
-          eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId),
-          eq(studioHumanInterviewMeetingInterviewer.userId, input.userId),
-          eq(
-            studioHumanInterviewMeetingInterviewer.liveTranscriptDraftVersion,
-            input.expectedVersion,
-          ),
-          inArray(studioHumanInterviewMeetingInterviewer.role, ["host", "interviewer"]),
+          eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId),
+          eq(humanInterviewMeetingInterviewer.userId, input.userId),
+          eq(humanInterviewMeetingInterviewer.liveTranscriptDraftVersion, input.expectedVersion),
+          inArray(humanInterviewMeetingInterviewer.role, ["host", "interviewer"]),
         ),
       )
-      .returning({ version: studioHumanInterviewMeetingInterviewer.liveTranscriptDraftVersion });
+      .returning({ version: humanInterviewMeetingInterviewer.liveTranscriptDraftVersion });
     return saved ?? null;
   });
 }

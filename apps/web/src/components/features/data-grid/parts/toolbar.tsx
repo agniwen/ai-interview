@@ -9,7 +9,7 @@ import {
   serializeListTextFilters,
 } from "@app/shared/list-text-filters";
 import { parseCsvParam } from "@app/shared/csv";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/date-time-picker";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -90,7 +90,7 @@ export function Toolbar({
       Boolean(filterValues[filter.key]) &&
       filterValues[filter.key] !== filter.unfilteredValue,
   );
-  const canClear = expanded.length ? activeFields.length > 0 : canResetFilters;
+  const canClear = activeFields.length > 0 || Boolean(canResetFilters);
   function clearFilterValues() {
     if (advanced) {
       const selectedKeys = new Set(selected);
@@ -171,18 +171,14 @@ export function Toolbar({
             }
             if (filter.type === "date") {
               return (
-                <Input
+                <DatePicker
                   key={filter.key}
                   aria-label={filter.label ?? filter.placeholder}
-                  type="date"
+                  placeholder={filter.label ?? filter.placeholder}
                   min={filter.min}
                   max={filter.max}
                   value={filterValues[filter.key] ?? ""}
-                  onChange={(event) => {
-                    if (event.currentTarget.validity.valid) {
-                      onFilterChange(filter.key, event.target.value);
-                    }
-                  }}
+                  onValueChange={(value) => onFilterChange(filter.key, value)}
                 />
               );
             }

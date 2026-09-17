@@ -1,12 +1,12 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   meetingSession,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewMeetingDetail } from "@app/shared/human-interview-meeting-detail";
@@ -34,22 +34,22 @@ async function loadVisibleMeetingCandidate(input: MeetingDetailInput) {
   // before returning a transcript that may include all of their voices.
   const linked = await db
     .select({
-      candidateId: studioInterview.id,
-      candidateName: studioInterview.candidateName,
-      createdBy: studioInterview.createdBy,
-      roundId: studioHumanInterviewRound.id,
+      candidateId: recruitingRecordReadModel.id,
+      candidateName: recruitingRecordReadModel.candidateName,
+      createdBy: recruitingRecordReadModel.createdBy,
+      roundId: humanInterviewRound.id,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
     )
-    .innerJoin(studioInterview, eq(studioInterview.id, studioHumanInterviewRound.interviewRecordId))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.meetingId),
-        eq(studioHumanInterviewRound.organizationId, input.organizationId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, input.meetingId),
+        eq(humanInterviewRound.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
       ),
     );
   const candidate = linked.find(
@@ -67,7 +67,7 @@ async function loadVisibleMeetingCandidate(input: MeetingDetailInput) {
 }
 
 function recordingNotice(
-  meeting: typeof studioHumanInterviewMeeting.$inferSelect,
+  meeting: typeof humanInterviewMeeting.$inferSelect,
   finalTranscriptReady: boolean,
 ) {
   // Final transcription carries unresolved loss or attribution warnings.
@@ -87,9 +87,7 @@ function recordingNotice(
   return null;
 }
 
-function transcriptionStateBeforeProcessing(
-  meeting: typeof studioHumanInterviewMeeting.$inferSelect,
-) {
+function transcriptionStateBeforeProcessing(meeting: typeof humanInterviewMeeting.$inferSelect) {
   if (meeting.recordingError) {
     return "failed";
   }
@@ -133,34 +131,31 @@ export async function loadHumanInterviewMeetingDetail(
   const [row] = await db
     .select({
       activeRevisionId: meetingSession.activeTranscriptRevisionId,
-      meeting: studioHumanInterviewMeeting,
-      round: studioHumanInterviewRound,
+      meeting: humanInterviewMeeting,
+      round: humanInterviewRound,
       transcriptionError: meetingSession.transcriptionError,
       transcriptionState: meetingSession.transcriptionStatus,
     })
-    .from(studioHumanInterviewMeeting)
+    .from(humanInterviewMeeting)
     .innerJoin(
-      studioHumanInterviewMeetingRound,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeetingRound,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
-    .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
-    )
+    .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId))
     .leftJoin(
       meetingSession,
       and(
-        eq(meetingSession.id, studioHumanInterviewMeeting.processingMeetingSessionId),
+        eq(meetingSession.id, humanInterviewMeeting.processingMeetingSessionId),
         eq(meetingSession.organizationId, input.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, input.meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
-        eq(studioHumanInterviewMeeting.status, "ended"),
-        eq(studioHumanInterviewRound.id, input.roundId),
-        eq(studioHumanInterviewRound.organizationId, input.organizationId),
+        eq(humanInterviewMeeting.id, input.meetingId),
+        eq(humanInterviewMeeting.organizationId, input.organizationId),
+        eq(humanInterviewMeeting.status, "ended"),
+        eq(humanInterviewRound.id, input.roundId),
+        eq(humanInterviewRound.organizationId, input.organizationId),
       ),
     )
     .limit(1);
@@ -184,9 +179,9 @@ export async function loadHumanInterviewMeetingDetail(
       : Promise.resolve(null),
     db
       .select({ id: user.id, name: user.name })
-      .from(studioHumanInterviewMeetingInterviewer)
-      .innerJoin(user, eq(user.id, studioHumanInterviewMeetingInterviewer.userId))
-      .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, input.meetingId)),
+      .from(humanInterviewMeetingInterviewer)
+      .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+      .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId)),
   ]);
   const transcriptionNotice =
     row.transcriptionState === "ready"

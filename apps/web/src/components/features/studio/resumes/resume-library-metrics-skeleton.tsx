@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function MetricsCardBodySkeleton({ index }: { index: number }) {
+function MetricsCardBodySkeleton({ compact, index }: { compact: boolean; index: number }) {
+  const bodyHeightClass = compact ? "min-h-[176px]" : "min-h-[228px]";
+
   if (index === 1) {
     return (
-      <div className="flex min-h-[228px] flex-col gap-4">
+      <div className={`flex flex-col gap-4 ${bodyHeightClass}`}>
         <div className="flex items-center justify-between gap-3">
           <Skeleton className="h-7 w-48 max-w-[75%]" />
           <Skeleton className="h-7 w-16" />
@@ -31,7 +33,9 @@ function MetricsCardBodySkeleton({ index }: { index: number }) {
 
   if (index === 2) {
     return (
-      <div className="grid min-h-[228px] grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3">
+      <div
+        className={`grid grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3 ${bodyHeightClass}`}
+      >
         <div className="flex flex-col gap-3">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-4/5" />
@@ -42,7 +46,7 @@ function MetricsCardBodySkeleton({ index }: { index: number }) {
   }
 
   return (
-    <div className="flex min-h-[228px] flex-col justify-center gap-4">
+    <div className={`flex flex-col justify-center gap-4 ${bodyHeightClass}`}>
       <Skeleton className="h-[86px] w-full" />
       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
         {Array.from({ length: 6 }, (_, rowIndex) => (
@@ -57,7 +61,7 @@ function MetricsCardBodySkeleton({ index }: { index: number }) {
   );
 }
 
-function MetricsCardSkeleton({ index }: { index: number }) {
+function MetricsCardSkeleton({ compact, index }: { compact: boolean; index: number }) {
   return (
     <Card
       className="h-full gap-0 overflow-hidden rounded-xl py-0"
@@ -79,20 +83,24 @@ function MetricsCardSkeleton({ index }: { index: number }) {
         ))}
       </div>
       <CardContent className="p-0">
-        <div className="h-[260px] overflow-hidden p-4" data-slot="metrics-card-body-skeleton">
-          <MetricsCardBodySkeleton index={index} />
+        <div
+          className={`${compact ? "h-[208px]" : "h-[260px]"} overflow-hidden p-4`}
+          data-slot="metrics-card-body-skeleton"
+        >
+          <MetricsCardBodySkeleton compact={compact} index={index} />
         </div>
       </CardContent>
     </Card>
   );
 }
 
-export function ResumeLibraryMetricsSkeleton() {
+export function ResumeLibraryMetricsSkeleton({ compact = false }: { compact?: boolean }) {
+  const cardIndexes = compact ? [0, 2] : [0, 1, 2];
   return (
     <output aria-label="招聘指标加载中" className="block">
-      <div className="grid gap-4 lg:grid-cols-3">
-        {Array.from({ length: 3 }, (_, index) => (
-          <MetricsCardSkeleton index={index} key={index} />
+      <div className={`grid gap-4 ${compact ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+        {cardIndexes.map((index) => (
+          <MetricsCardSkeleton compact={compact} index={index} key={index} />
         ))}
       </div>
     </output>

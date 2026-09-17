@@ -9,6 +9,11 @@ const mainDir = import.meta.dirname;
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
 let currentMainWindow: BrowserWindow | null = null;
+let quitting = false;
+
+export function prepareMainWindowQuit(): void {
+  quitting = true;
+}
 
 export function getMainWindowWebContents(): WebContents | null {
   if (!currentMainWindow || currentMainWindow.isDestroyed()) {
@@ -82,6 +87,12 @@ export function createMainWindow(): BrowserWindow {
     ...platformWindowOptions(),
   });
   currentMainWindow = mainWindow;
+  mainWindow.on("close", (event) => {
+    if (!quitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 
   mainWindow.on("closed", () => {
     if (currentMainWindow === mainWindow) {

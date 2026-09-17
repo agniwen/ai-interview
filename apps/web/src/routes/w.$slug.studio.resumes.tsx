@@ -1,4 +1,5 @@
 import { formatDocumentTitle } from "@/lib/start/document-title";
+import { getRecruitingBoardPageTitle } from "@app/shared/recruiting-board";
 import {
   Outlet,
   createFileRoute,
@@ -9,7 +10,7 @@ import {
 } from "@tanstack/react-router";
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
-import { coerceSearchParams } from "@/lib/client/data-grid-search";
+import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
 
 const studioResumesRouteApi = getRouteApi("/w/$slug/studio/resumes");
 
@@ -61,8 +62,14 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     }
     return state;
   },
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("招聘台") }],
+  head: ({ match }) => ({
+    meta: [
+      {
+        title: formatDocumentTitle(
+          getRecruitingBoardPageTitle(firstSearchValue(match.search.boardPreset)),
+        ),
+      },
+    ],
   }),
   component: StudioResumesRoute,
   shouldReload: false,

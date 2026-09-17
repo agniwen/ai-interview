@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
 
-import { getAiRoundResetBehavior } from "../pipeline-stage-action-bar";
+import { PipelineStageActionBar, getAiRoundResetBehavior } from "../pipeline-stage-action-bar";
 
 describe("getAiRoundResetBehavior", () => {
   it("resets a pending round directly", () => {
@@ -17,4 +19,91 @@ describe("getAiRoundResetBehavior", () => {
       expect(getAiRoundResetBehavior(status)).toBe("disabled");
     },
   );
+});
+
+describe("流程回退入口", () => {
+  it.each(["screening", "second_interview", "onboarding", "closed"] as const)(
+    "%s 阶段按规则显示回退入口，不依赖推进权限",
+    (pipelineStage) => {
+      const markup = renderToStaticMarkup(
+        createElement(PipelineStageActionBar, {
+          canCreateHumanInterview: false,
+          canCreateOffer: false,
+          onAdvance: vi.fn(),
+          onRequestClose: vi.fn(),
+          onRequestReactivate: vi.fn(),
+          onViewCurrentStage: vi.fn(),
+          pipelineStage,
+        }),
+      );
+      if (pipelineStage === "screening") {
+        expect(markup).not.toContain("回到之前节点");
+      } else {
+        expect(markup).toContain("回到之前节点");
+      }
+      expect(markup).not.toContain("直接安排复试");
+    },
+  );
+});
+
+describe("真实节点推进与状态标签区分", () => {
+  it("复试阶段无需复试结论即可进入终试", () => {
+    const markup = renderToStaticMarkup(
+      createElement(PipelineStageActionBar, {
+        canCreateHumanInterview: true,
+        currentNodePassed: false,
+        hasJobDescription: true,
+        onAdvance: vi.fn(),
+        onRequestClose: vi.fn(),
+        onRequestReactivate: vi.fn(),
+        onViewCurrentStage: vi.fn(),
+        pipelineStage: "second_interview",
+      }),
+    );
+
+    expect(markup).toContain("进入终试");
+    expect(markup).not.toContain('aria-disabled="true"');
+  });
+
+  it.each([
+    ["income_proof", "进入谈薪"],
+    ["offer", "进入背调"],
+    ["background_check", "进入入职"],
+  ] as const)("%s 只推进到下一真实节点", (pipelineStage, label) => {
+    const markup = renderToStaticMarkup(
+      createElement(PipelineStageActionBar, {
+        canCreateHumanInterview: true,
+        canCreateOffer: true,
+        currentNodePassed: true,
+        hasJobDescription: true,
+        onAdvance: vi.fn(),
+        onRequestClose: vi.fn(),
+        onRequestReactivate: vi.fn(),
+        onViewCurrentStage: vi.fn(),
+        pipelineStage,
+      }),
+    );
+    expect(markup).toContain(label);
+    expect(markup).not.toContain("进入谈薪发 Offer");
+    expect(markup).not.toContain("进入已入职");
+  });
+
+  it("终试通过后以 Offer 协商呈现，并从流水提供开始", () => {
+    const markup = renderToStaticMarkup(
+      createElement(PipelineStageActionBar, {
+        canCreateHumanInterview: true,
+        canCreateOffer: true,
+        currentNodePassed: true,
+        hasJobDescription: true,
+        onAdvance: vi.fn(),
+        onRequestClose: vi.fn(),
+        onRequestReactivate: vi.fn(),
+        onViewCurrentStage: vi.fn(),
+        pipelineStage: "final_interview",
+      }),
+    );
+
+    expect(markup).toContain("面试结束，进入 Offer 协商");
+    expect(markup).not.toContain("进入流水提供");
+  });
 });

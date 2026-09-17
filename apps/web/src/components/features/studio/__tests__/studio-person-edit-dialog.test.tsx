@@ -11,7 +11,6 @@ describe("StudioPersonEditDialog resume form values", () => {
       hrResumeAssessment: "",
       jobDescriptionId: "",
       notes: "",
-      resumeEvaluationStatus: "unreviewed",
       targetRole: "",
     });
   });
@@ -36,7 +35,6 @@ describe("StudioPersonEditDialog resume form values", () => {
       hrResumeAssessment: "",
       jobDescriptionId: "",
       notes: "",
-      resumeEvaluationStatus: "unreviewed",
       targetRole: "",
     });
   });

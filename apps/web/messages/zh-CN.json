@@ -27,7 +27,7 @@
   "login_google_tab": "Google 登录",
   "login_feishu_tab": "飞书登录",
   "login_password_tab": "账号密码登录",
-  "login_jiguang_hr_feishu": "极光 HR 飞书登录",
+  "login_jiguang_hr_feishu": "飞书/Lark 登陆",
   "login_jiguang_employee_feishu": "极光员工飞书登录",
   "login_google_button": "使用 Google 账号登录",
   "login_redirecting": "跳转中...",

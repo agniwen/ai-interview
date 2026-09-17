@@ -2,12 +2,15 @@
 
 import { listTextQuery } from "@app/shared/list-text-filters";
 import type { AgentNotificationType } from "@app/db-schema/db-enums";
-import type { InterviewNotificationEventType } from "@app/db-schema/interview-notifications";
+import type {
+  InterviewNotificationEventType,
+  InterviewNotificationDeliveryStatus,
+} from "@app/db-schema/interview-notifications";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +41,9 @@ import {
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { openNotificationDocument } from "./open-notification-document";
 
-type NotificationStatus = "pending" | "sent" | "failed";
+type NotificationStatus = InterviewNotificationDeliveryStatus;
 type NotificationProvider = "feishu" | "feishu-jiguang-hr";
 type NotificationProviderFilter = "all" | NotificationProvider;
 type NotificationStatusFilter = "all" | NotificationStatus;
@@ -108,14 +112,6 @@ interface PlatformNotificationRecord {
   updatedAt: string;
 }
 
-interface NotificationsResult {
-  page: number;
-  pageSize: number;
-  records: PlatformNotificationRecord[];
-  total: number;
-  totalPages: number;
-}
-
 interface ResendRecipientRecord {
   email: string;
   id: string;
@@ -161,6 +157,10 @@ const STATUS_OPTIONS = [
   { label: "待发送", value: "pending" },
   { label: "已发送", value: "sent" },
   { label: "发送失败", value: "failed" },
+  { label: "发送中", value: "sending" },
+  { label: "结果未知", value: "unknown" },
+  { label: "已停止重试", value: "dead" },
+  { label: "已取消", value: "cancelled" },
 ];
 
 const PROVIDER_OPTIONS = [
@@ -175,9 +175,13 @@ const PROVIDER_LABEL = {
 } satisfies Record<NotificationProvider, string>;
 
 const STATUS_LABEL = {
+  cancelled: "已取消",
+  dead: "已停止重试",
   failed: "发送失败",
   pending: "待发送",
+  sending: "发送中",
   sent: "已发送",
+  unknown: "结果未知",
 } satisfies Record<NotificationStatus, string>;
 
 function structureSectionLabel(section: "recommendedQuestions" | "resumeEvaluation") {
@@ -252,34 +256,43 @@ function FeishuPreviewLine({ block }: { block: FeishuPreviewBlock }) {
   );
 }
 
-function FeishuNotificationPreviewDialog({
-  onOpenChange,
-  record,
-}: {
-  onOpenChange: (open: boolean) => void;
-  record: PlatformNotificationRecord | null;
-}) {
-  const previewMutation = useMutation({
-    mutationFn: (notificationId: string) =>
-      rpcFetch(
-        rpc.api.platform.notifications[":id"]["debug-preview"].$post({
-          param: { id: notificationId },
-        }),
-        "生成飞书通知预览失败",
-      ),
-    retry: false,
-  });
-  const { mutate: generatePreview, reset: resetPreview } = previewMutation;
+function generateFeishuPreview(notificationId: string) {
+  return rpcFetch(
+    rpc.api.platform.notifications[":id"]["debug-preview"].$post({
+      param: { id: notificationId },
+    }),
+    "生成飞书通知预览失败",
+  );
+}
 
-  useEffect(() => {
-    resetPreview();
-    if (record?.id) {
-      generatePreview(record.id);
+export function useFeishuNotificationPreview(generate = generateFeishuPreview) {
+  const [open, setOpen] = useState(false);
+  const mutation = useMutation({ mutationFn: generate, retry: false });
+
+  function show(notificationId: string) {
+    setOpen(true);
+    mutation.mutate(notificationId);
+  }
+
+  function onOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      mutation.reset();
     }
-  }, [generatePreview, record?.id, resetPreview]);
+  }
+
+  return { mutation, onOpenChange, open, show };
+}
+
+function FeishuNotificationPreviewDialog({
+  preview,
+}: {
+  preview: ReturnType<typeof useFeishuNotificationPreview>;
+}) {
+  const { mutation: previewMutation, onOpenChange, open } = preview;
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={Boolean(record)}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{previewMutation.data?.title ?? "调试飞书通知"}</DialogTitle>
@@ -408,6 +421,9 @@ function FeishuNotificationResendDialog({
           <DialogTitle>重新发送飞书通知</DialogTitle>
           <DialogDescription>
             默认发送给原接收人，也可以选择同一工作区内已绑定对应飞书机器人的其他用户。
+            {record?.status === "unknown"
+              ? "上次投递结果未知，请先确认飞书是否已收到；继续重发可能产生重复消息。"
+              : null}
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
@@ -457,7 +473,7 @@ function FeishuNotificationResendDialog({
 
 export function NotificationsGrid() {
   const queryClient = useQueryClient();
-  const [previewRecord, setPreviewRecord] = useState<PlatformNotificationRecord | null>(null);
+  const preview = useFeishuNotificationPreview();
   const [resendRecord, setResendRecord] = useState<PlatformNotificationRecord | null>(null);
   const [updatingStructureId, setUpdatingStructureId] = useState<string | null>(null);
 
@@ -468,7 +484,7 @@ export function NotificationsGrid() {
     filters: NotificationFilters;
     sortBy?: string;
     sortOrder?: "asc" | "desc";
-  }): Promise<NotificationsResult> {
+  }) {
     const query: NotificationQuery = {
       ...listTextQuery(params),
       page: String(params.page),
@@ -666,29 +682,27 @@ export function NotificationsGrid() {
     actionsColumn<PlatformNotificationRecord>({
       menu: [
         {
+          disabled: (record) => !record.conversationId,
+          disabledReason: () => "该历史通知没有关联面试会话",
           label: "调试飞书通知",
-          onClick: (record) => setPreviewRecord(record),
+          onClick: (record) => preview.show(record.id),
         },
         {
           disabled: (record) => !record.feishuDocumentUrl,
           disabledReason: () => "文档尚未生成，请先重新发送通知",
           label: "打开飞书文档",
-          onClick: (record) => {
-            if (record.feishuDocumentUrl) {
-              window.open(record.feishuDocumentUrl, "_blank", "noopener,noreferrer");
-            }
-          },
+          onClick: openNotificationDocument,
         },
         {
           disabled: (record) =>
             !record.feishuDocumentUrl ||
-            record.type !== "summary_ready" ||
+            !["summary_ready", "ai_report_ready"].includes(record.type) ||
             (updateStructureMutation.isPending && updatingStructureId === record.id),
           disabledReason: (record) => {
             if (!record.feishuDocumentUrl) {
               return "文档尚未生成，请先重新发送通知";
             }
-            if (record.type !== "summary_ready") {
+            if (!["summary_ready", "ai_report_ready"].includes(record.type)) {
               return "只有 AI 面试报告通知支持更新结构";
             }
             return "正在更新文档结构";
@@ -705,8 +719,15 @@ export function NotificationsGrid() {
           },
         },
         {
-          disabled: (record) => resendMutation.isPending && resendRecord?.id === record.id,
-          disabledReason: () => "正在重新发送",
+          disabled: (record) =>
+            !record.conversationId ||
+            record.status === "sending" ||
+            record.status === "pending" ||
+            (resendMutation.isPending && resendRecord?.id === record.id),
+          disabledReason: (record) =>
+            record.conversationId
+              ? "正在投递或等待自动重试，请等待结果"
+              : "该历史通知没有关联面试会话",
           label: "重新发送通知",
           onClick: (record) => setResendRecord(record),
         },
@@ -753,14 +774,7 @@ export function NotificationsGrid() {
         ]}
         getRowId={(record) => record.id}
       />
-      <FeishuNotificationPreviewDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreviewRecord(null);
-          }
-        }}
-        record={previewRecord}
-      />
+      <FeishuNotificationPreviewDialog preview={preview} />
       <FeishuNotificationResendDialog
         key={resendRecord?.id ?? "closed"}
         onOpenChange={(open) => {

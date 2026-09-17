@@ -1,3 +1,4 @@
+import type { EchoProcessingOwner } from "./echo-processing-api";
 import type {
   AppendLocalFragmentInput,
   BeginLocalCaptureInput,
@@ -27,12 +28,14 @@ export interface MeetingCaptureApi {
   resumeInterrupted: (
     captureId: string,
     trackContentTypes: Record<"microphone" | "system", string>,
+    owner?: EchoProcessingOwner,
   ) => Promise<void>;
   rollbackInterruptedResume: (captureId: string) => Promise<void>;
   save: (
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
     liveSummary?: MeetingLiveSummarySnapshot | null,
+    owner?: EchoProcessingOwner,
   ) => Promise<LocalSavedMeeting>;
   uploadSmall: (captureId: string, instructions: SmallMeetingUploadInstruction[]) => Promise<void>;
   uploadMultipart: (
@@ -44,7 +47,13 @@ export interface MeetingCaptureApi {
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        | "endedAt"
+        | "liveSummary"
+        | "liveSummaryCheckpoint"
+        | "liveTranscriptDraft"
+        | "segmentCount"
+        | "state"
+        | "title"
       >
     >,
   ) => Promise<LocalMeetingSession>;

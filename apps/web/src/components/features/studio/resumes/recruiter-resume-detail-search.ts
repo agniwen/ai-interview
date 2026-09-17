@@ -8,6 +8,7 @@ const RESUME_DETAIL_TABS = [
   "rounds",
   "human-interview",
   "offer",
+  "onboarding",
 ] as const satisfies readonly StudioPersonDetailTab[];
 
 const resumeDetailPageSearchValueSchema = z.union([z.boolean(), z.number(), z.string()]);

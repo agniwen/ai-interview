@@ -14,14 +14,18 @@ Simplified Chinese.
   Drizzle ORM, PostgreSQL, Better Auth, object storage, email, and server-side
   AI utilities. It can be mounted by the web app at `/api` or started as a
   standalone Bun service.
-- **Resume worker** (`apps/worker/`): asynchronous resume
-  parsing worker for queued PDF/OCR processing.
-- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI,
-  Google, ElevenLabs, Minimax, Silero VAD, and turn detector plugins.
-- **Shared packages** (`packages/`): `@app/shared`, `@app/db-schema`, and
-  `@app/resume-parse-queue`.
+- **Resume worker** (`apps/worker/`): background processing for resume
+  parsing, meeting transcription, and notification/queue reconciliation.
+- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with a
+  DashScope (Alibaba) streaming STT adapter, an OpenAI-compatible LLM pointed at
+  the DashScope endpoint, and MiniMax TTS.
+- **Shared packages** (`packages/`): `@app/shared` (isomorphic contracts and
+  schemas), `@app/db-schema` (Drizzle schema and relations), `@app/database`
+  (database factory), and `@app/resume-parse-queue`.
 - **Application runtime packages** (`packages/`): `@app/ai-runtime`,
-  `@app/meeting-media`, and `@app/object-storage`.
+  `@app/object-storage`, `@app/meeting-media`, `@app/meeting-live-transcript`,
+  `@app/meeting-processing`, `@app/meeting-processing-queue`, and
+  `@app/resume-processing`.
 
 Two package managers are used: **Bun 1.4.0** for TypeScript apps/packages and **uv**
 for the Python agent. Do not mix them.
@@ -77,9 +81,9 @@ Key requirements:
 - **Database**: `DATABASE_URL`
 - **Better Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
   `NEXT_PUBLIC_BASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
-- **LLM providers**: `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`,
-  `ALIBABA_API_KEY`, `AI_GATEWAY_API_KEY`
-- **Voice providers**: `ELEVENLABS_API_KEY`, `MINIMAX_API_KEY`
+- **LLM providers**: `OPENAI_API_KEY`, `ALIBABA_API_KEY` (DashScope OCR and
+  structured extraction), `DASHSCOPE_API_KEY` (voice-agent LLM/STT)
+- **Voice providers**: `MINIMAX_API_KEY` (TTS)
 - **LiveKit**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
   `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`; private/self-hosted deployment is the
   default, and LiveKit Cloud requires `INTERVIEW_SELF_HOSTED=0`
@@ -156,17 +160,25 @@ apps/
     src/lib/server/             backend runtime helpers
     src/index.ts                standalone Bun entrypoint
   desktop/
-    src/main/                    Electron main process
-    src/renderer/                desktop renderer
+    src/main/                   Electron main process (Echo capture, SQLite)
+    src/renderer/               Echo renderer (local-first meeting capture)
   worker/
-    src/                        async resume parsing worker
+    src/                        background queues, schedulers, and readiness
   livekit-agent/
     src/agent.py                Python LiveKit agent entrypoint
     tests/                      pytest suite
 packages/
-  shared/
-  db-schema/
-  resume-parse-queue/
+  shared/                     isomorphic contracts, schemas, state machines
+  db-schema/                  Drizzle PostgreSQL schema, relations, enums
+  database/                   shared Drizzle database factory and type
+  ai-runtime/                 provider-neutral server-side model primitives
+  object-storage/             S3-compatible client, keys, upload/download/copy
+  resume-parse-queue/         BullMQ contracts for resume parse/review/index
+  resume-processing/          resume ingest, parsing, review, semantic workflows
+  meeting-media/              recording normalization and audio preparation
+  meeting-live-transcript/    live-transcript capture/correction/relay contracts
+  meeting-processing/         meeting transcription/intelligence/purge workflows
+  meeting-processing-queue/   BullMQ contracts for meeting jobs
 ```
 
 ## Frontend Data Flow

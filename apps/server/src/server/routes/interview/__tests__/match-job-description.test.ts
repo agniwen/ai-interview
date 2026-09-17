@@ -41,6 +41,7 @@ const jobDescriptions: JobDescriptionListRecord[] = [
     evaluationUpgradedBy: null,
     hasEvaluationUpgradeDraft: false,
     id: "jd-1",
+    internalCriteria: null,
     interviewerIds: [],
     interviewers: [],
     lifecycleStatus: "published",

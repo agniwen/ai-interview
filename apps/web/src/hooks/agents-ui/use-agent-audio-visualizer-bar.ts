@@ -1,5 +1,5 @@
 import type { AgentState } from "@livekit/components-react";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useSequenceStepper } from "./_internals/use-sequence-stepper";
 
 /**
@@ -36,17 +36,15 @@ export function useAgentAudioVisualizerBarAnimator(
   columns: number,
   interval: number,
 ): number[] {
-  const [sequence, setSequence] = useState<number[][]>([[]]);
-
-  useEffect(() => {
+  const sequence = useMemo(() => {
     if (state === "thinking" || state === "listening") {
-      setSequence(generateListeningSequenceBar(columns));
+      return generateListeningSequenceBar(columns);
     } else if (state === "connecting" || state === "initializing") {
-      setSequence(generateConnectingSequenceBar(columns));
+      return generateConnectingSequenceBar(columns);
     } else if (state === undefined || state === "speaking") {
-      setSequence([Array.from({ length: columns }, (_, idx) => idx)]);
+      return [Array.from({ length: columns }, (_, idx) => idx)];
     } else {
-      setSequence([[]]);
+      return [[]];
     }
   }, [state, columns]);
 

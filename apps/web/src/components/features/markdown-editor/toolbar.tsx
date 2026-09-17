@@ -22,6 +22,7 @@ import { cn } from "@app/shared/utils";
 interface Props {
   editor: Editor | null;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 function IconBtn({
@@ -49,7 +50,7 @@ function Divider() {
   return <span className="mx-1 h-4 w-px bg-border" />;
 }
 
-export function MarkdownEditorToolbar({ editor, disabled }: Props) {
+export function MarkdownEditorToolbar({ editor, disabled, compact = false }: Props) {
   const editDisabled = !editor || disabled;
 
   const activeState = useEditorState({
@@ -67,7 +68,12 @@ export function MarkdownEditorToolbar({ editor, disabled }: Props) {
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b bg-background px-3 py-1.5">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-0.5 px-3 py-1.5",
+        compact ? "border-t bg-transparent" : "border-b bg-background",
+      )}
+    >
       <IconBtn
         aria-label="撤销"
         disabled={editDisabled}
@@ -99,40 +105,44 @@ export function MarkdownEditorToolbar({ editor, disabled }: Props) {
       >
         <IconItalic className="size-4" />
       </IconBtn>
-      <IconBtn
-        active={activeState?.code}
-        aria-label="行内代码"
-        disabled={editDisabled}
-        onClick={() => editor?.chain().focus().toggleCode().run()}
-      >
-        <IconCode className="size-4" />
-      </IconBtn>
-      <Divider />
-      <IconBtn
-        active={activeState?.h1}
-        aria-label="H1"
-        disabled={editDisabled}
-        onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-      >
-        <IconH1 className="size-4" />
-      </IconBtn>
-      <IconBtn
-        active={activeState?.h2}
-        aria-label="H2"
-        disabled={editDisabled}
-        onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        <IconH2 className="size-4" />
-      </IconBtn>
-      <IconBtn
-        active={activeState?.h3}
-        aria-label="H3"
-        disabled={editDisabled}
-        onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-      >
-        <IconH3 className="size-4" />
-      </IconBtn>
-      <Divider />
+      {compact ? null : (
+        <>
+          <IconBtn
+            active={activeState?.code}
+            aria-label="行内代码"
+            disabled={editDisabled}
+            onClick={() => editor?.chain().focus().toggleCode().run()}
+          >
+            <IconCode className="size-4" />
+          </IconBtn>
+          <Divider />
+          <IconBtn
+            active={activeState?.h1}
+            aria-label="H1"
+            disabled={editDisabled}
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+          >
+            <IconH1 className="size-4" />
+          </IconBtn>
+          <IconBtn
+            active={activeState?.h2}
+            aria-label="H2"
+            disabled={editDisabled}
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+          >
+            <IconH2 className="size-4" />
+          </IconBtn>
+          <IconBtn
+            active={activeState?.h3}
+            aria-label="H3"
+            disabled={editDisabled}
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+          >
+            <IconH3 className="size-4" />
+          </IconBtn>
+          <Divider />
+        </>
+      )}
       <IconBtn
         active={activeState?.bulletList}
         aria-label="无序列表"

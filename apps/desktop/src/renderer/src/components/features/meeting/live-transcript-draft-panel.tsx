@@ -154,13 +154,6 @@ export function LiveTranscriptDraftPanel({
     }
   }, [snapshot.turns]);
 
-  const droppedWarning =
-    snapshot.droppedPcmFrames > 0 ? (
-      <p className="text-[11px] text-muted-foreground">
-        本段实时字幕可能遗漏约 {Math.round(snapshot.droppedAudioMs)} ms；本地录音未受影响。
-      </p>
-    ) : null;
-
   if (embedded) {
     if (snapshot.turns.length === 0) {
       return (
@@ -176,7 +169,6 @@ export function LiveTranscriptDraftPanel({
             </p>
           ) : null}
           <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
-          {droppedWarning}
         </div>
       );
     }
@@ -191,7 +183,6 @@ export function LiveTranscriptDraftPanel({
             turn={turn}
           />
         ))}
-        {droppedWarning}
       </div>
     );
   }
@@ -268,14 +259,12 @@ export function LiveTranscriptDraftPanel({
                 turn={turn}
               />
             ))}
-            {droppedWarning}
           </LiveTranscriptScrollContent>
         ) : (
           <LiveTranscriptScrollContent className="flex min-h-full flex-col">
             <div className="flex flex-1 items-center justify-center py-16">
               <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
             </div>
-            {droppedWarning}
           </LiveTranscriptScrollContent>
         )}
       </ScrollArea>

@@ -5,7 +5,7 @@ import type {
   JobDescriptionRecommendationResult,
 } from "@app/shared/job-descriptions";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import { department, jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
+import { department, jobDescription, recruitingSearchIndex } from "@app/db-schema/schema";
 import { db } from "../../../lib/db";
 import { QdrantResumeVectorStore } from "../../../lib/qdrant/resume-vector-store";
 import {
@@ -336,12 +336,12 @@ export async function recommendJobDescriptionsForResume(
 async function countIndexedJdVectors(organizationId: string): Promise<number> {
   const [row] = await db
     .select({ total: count() })
-    .from(resumeSemanticIndex)
+    .from(recruitingSearchIndex)
     .where(
       and(
-        eq(resumeSemanticIndex.organizationId, organizationId),
-        eq(resumeSemanticIndex.sourceType, "job_description"),
-        eq(resumeSemanticIndex.status, "indexed"),
+        eq(recruitingSearchIndex.organizationId, organizationId),
+        eq(recruitingSearchIndex.sourceType, "job_description"),
+        eq(recruitingSearchIndex.status, "indexed"),
       ),
     );
   return row?.total ?? 0;

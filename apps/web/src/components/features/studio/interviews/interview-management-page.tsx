@@ -73,6 +73,7 @@ import { useHasPermission } from "@/hooks/use-has-permission";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { CandidateEvaluationDocumentCell } from "@/components/features/studio/interviews/candidate-evaluation-document-cell";
+import { useEvaluationDocumentGenerationPoll } from "@/components/features/studio/interviews/use-evaluation-document-generation-poll";
 
 interface FetchParams {
   page: number;
@@ -90,7 +91,7 @@ const AI_INTERVIEW_SORTABLE_COLUMN_IDS = [
   "roundLabel",
 ] as const;
 
-// AI 阶段锁：候选人推进到真人复面/Offer/已结束后，AI 面试相关写动作禁用。
+// AI 阶段锁：候选人推进到真人面试/Offer/已结束后，AI初面相关写动作禁用。
 // AI-stage lock: once the candidate moves past ai_interview, AI round write actions are disabled.
 function isAiStageLocked(row: StudioInterviewRoundListRecord): boolean {
   return row.pipelineStage !== "screening" && row.pipelineStage !== "ai_interview";
@@ -100,7 +101,7 @@ function aiStageLockedReason(row: StudioInterviewRoundListRecord): string | null
   if (!isAiStageLocked(row)) {
     return null;
   }
-  return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`;
+  return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI初面相关操作已锁定。如需修改请先回退阶段或重新激活。`;
 }
 
 export function InterviewManagementPage() {
@@ -153,6 +154,7 @@ export function InterviewManagementPage() {
     queryFn: fetchRounds,
     queryKeyBase: ["studio-interviews", slug],
   });
+  const evaluationDocumentPoll = useEvaluationDocumentGenerationPoll(grid.queryKey);
 
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
@@ -245,8 +247,8 @@ export function InterviewManagementPage() {
     }
   }, [navigate, routeSearch, slug]);
 
-  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变招聘台的
-  // hasInterviewRounds 标记和简历详情弹窗里的「AI 面试」tab，所以同步失效
+  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI初面列表，也会改变招聘台的
+  // hasInterviewRounds 标记和简历详情弹窗里的「AI初面」tab，所以同步失效
   // studio-resumes / studio-resume-rounds，确保用户切回招聘台立即看到更新。
   //
   // Writes on this page (delete / reset / round toggle) can flip
@@ -275,9 +277,13 @@ export function InterviewManagementPage() {
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "生成候选人评价表失败");
     },
-    onSuccess: () => {
-      toast.success("候选人评价表已生成");
-      invalidateAll();
+    onSuccess: (result, roundId) => {
+      if (result.feishuDocumentUrl) {
+        toast.success("候选人评价表已生成");
+        invalidateAll();
+        return;
+      }
+      evaluationDocumentPoll.start(roundId);
     },
   });
 
@@ -414,7 +420,8 @@ export function InterviewManagementPage() {
           <CandidateEvaluationDocumentCell
             canGenerate={canUpdateInterview}
             generating={
-              isGeneratingEvaluationDocument && generatingEvaluationDocumentRoundId === r.id
+              (isGeneratingEvaluationDocument && generatingEvaluationDocumentRoundId === r.id) ||
+              evaluationDocumentPoll.queuedRoundIds.has(r.id)
             }
             onGenerate={generateEvaluationDocument}
             row={r}
@@ -480,6 +487,7 @@ export function InterviewManagementPage() {
       generateEvaluationDocument,
       generatingEvaluationDocumentRoundId,
       isGeneratingEvaluationDocument,
+      evaluationDocumentPoll.queuedRoundIds,
     ],
   );
 
@@ -598,7 +606,7 @@ export function InterviewManagementPage() {
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader title="AI 面试" />
+        <PageHeader title="AI初面" />
         <DataGrid<StudioInterviewRoundListRecord>
           {...grid.bind}
           columns={columns}

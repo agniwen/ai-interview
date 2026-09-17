@@ -1,7 +1,7 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray } from "drizzle-orm";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import { db } from "../../../../../lib/server/db/index";
-import { studioInterview } from "@app/db-schema/schema";
 
 export async function loadResumeRecordFocus(input: {
   organizationId: string;
@@ -13,15 +13,15 @@ export async function loadResumeRecordFocus(input: {
   }
   const visibilityCondition =
     input.visibilityScope.kind === "restricted"
-      ? inArray(studioInterview.createdBy, input.visibilityScope.userIds)
+      ? inArray(recruitingRecordReadModel.createdBy, input.visibilityScope.userIds)
       : undefined;
   const [row] = await db
-    .select({ id: studioInterview.id })
-    .from(studioInterview)
+    .select({ id: recruitingRecordReadModel.id })
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
         visibilityCondition,
       ),
     )

@@ -1,3 +1,4 @@
+import { formatJobInternalCriteria } from "@app/shared/job-internal-criteria";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import {
   QUALITATIVE_RESUME_EVALUATION_SCHEMA_VERSION,
@@ -9,7 +10,7 @@ import {
   resumeReviewQualitativeAgent,
 } from "@app/ai-runtime/simple-generators";
 
-export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v7";
+export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v8";
 
 const generatedQualitativeResumeEvaluationSchema = qualitativeResumeEvaluationV2Schema
   .omit({ schemaVersion: true })
@@ -51,6 +52,7 @@ export interface QualitativeResumeEvaluationInput {
   evaluationAsOf: string;
   jobDescriptionName: string;
   jobDescriptionPrompt: string;
+  internalCriteria?: string | null;
   resumeProfile: ResumeProfile;
   resumeText: string | null;
 }
@@ -60,13 +62,15 @@ type QualitativeGenerator = typeof generateStructuredWithMastraAgent;
 export function buildQualitativeResumeEvaluationPrompt(
   input: QualitativeResumeEvaluationInput,
 ): string {
-  return `你正在执行候选人简历的六维定性评价。只可使用下面给出的岗位 JD 快照和候选人简历事实，不得引用旧评分配置、硬性规则、权重或任何外部资料。
+  return `你正在执行候选人简历的六维定性评价。只可使用下面给出的岗位 JD 快照、岗位内部标准快照和候选人简历事实，不得引用旧评分配置、硬性规则、权重或任何外部资料。
 
 评价日期：${input.evaluationAsOf}
 岗位名称：${input.jobDescriptionName}
 
 岗位 JD 快照：
 ${input.jobDescriptionPrompt}
+
+${formatJobInternalCriteria(input.internalCriteria)}
 
 候选人结构化简历：
 ${JSON.stringify(input.resumeProfile)}
@@ -76,9 +80,9 @@ ${input.resumeText ?? "未提供"}
 
 输出要求：
 1. 综合评价和六个维度都使用四档等级，依次为不推荐、待定、推荐、非常推荐，对应 not_recommended、undecided、recommended、highly_recommended。recommendationLevel 是综合等级；每个 dimensions.*.level 是该维度自己的等级，必须独立依据该维度证据判断，不得机械复制综合等级。
-2. 综合或任一维度使用“不推荐”，都必须有岗位 JD 核心要求与简历明确事实之间的直接冲突。证据缺失、模糊或矛盾时使用“待定”，不得把猜测写成事实。
+2. 综合或任一维度使用“不推荐”，都必须有岗位 JD 或内部标准中的岗位相关核心要求与简历明确事实之间的直接冲突。证据缺失、模糊或矛盾时使用“待定”，不得把猜测写成事实。
 3. 六个维度均输出 level 和高信息密度 evaluation 文本，每项 2–4 句。优先引用简历中的公司、角色、项目、职责、成果、技能和时间等具体事实，并明确这些事实如何符合或不符合岗位要求。
-4. 每个维度标注 basis：job 表示只依据岗位要求；general 表示岗位 JD 未提出要求，只能使用审慎的普适职业标准；both 表示两者兼有。普适职业标准不能单独导致“不推荐”，不得对学历、空档期、流动性或个人背景作未经岗位要求支持的偏见判断。
+4. 每个维度标注 basis：job 表示只依据岗位要求；general 表示岗位 JD 未提出要求且内部标准也未提出岗位相关要求，只能使用审慎的普适职业标准；both 表示两者兼有。普适职业标准不能单独导致“不推荐”，不得对学历、空档期、流动性或个人背景作未经岗位要求支持的偏见判断。
 5. conciseOverall 为 1–2 句、约 50–100 个中文字符的短结论。detailedOverall 必须分别给出判断、匹配证据和风险/待确认点。其中 detailedOverall.judgment 是完整的长结论，目标为 200–300 个中文字符；必须讲清推荐等级的判断依据，引用候选人的具体经历、项目、职责、技能或量化成果，并说明这些证据如何符合或不符合岗位 JD、如何支持综合判断。不得只复述 conciseOverall、只写推荐等级或使用没有候选人事实支撑的通用表述。
 6. 六个维度是 skillMatch（技能匹配）、experienceRelevance（经验相关性）、projectMatch（项目匹配）、educationBackground（教育/背景）、potential（潜力）、stability（稳定性）。只输出四档 level，不要输出任何数值分数、权重或条件命中列表；前端会直接依据 level 绘制定性雷达图。
 7. 只有简历事实足以支持时才给 seniorityRecommendation 和 teamPositioning，否则返回 null，不得省略字段。seniorityRecommendation 只能是 null 或 {"level":"职级建议","rationale":"依据"}；teamPositioning 只能是 null 或 {"suggestion":"团队定位建议","rationale":"依据"}。

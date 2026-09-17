@@ -6,10 +6,7 @@ import { runAsyncAction } from "@/lib/client/async-control";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
-import type {
-  JobDescriptionFormApi,
-  JobDescriptionSubmitAction,
-} from "./job-description-form-values";
+import type { JobDescriptionFormApi } from "./job-description-form-values";
 
 interface PendingGeneratedJobDescription {
   jobDescription: string;
@@ -37,17 +34,24 @@ export function useJobDescriptionFormActions({
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = useState(false);
 
-  async function submitJobDescription(
-    value: JobDescriptionFormValues,
-    _action: JobDescriptionSubmitAction,
-  ) {
+  async function submitJobDescription(value: JobDescriptionFormValues) {
     const body = {
       allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
       code: value.code?.trim() || undefined,
       departmentId: value.departmentId,
+      headcount: value.headcount,
+      internalCriteria: value.internalCriteria?.trim() || null,
       interviewerIds: value.interviewerIds,
+      jobWeight: value.jobWeight,
       name: value.name.trim(),
+      priority: value.priority,
       prompt: value.prompt.trim(),
+      publishedDate: value.publishedDate,
+      referralChannels: value.referralChannels?.trim() || null,
+      reportingManagerUserId: value.reportingManagerUserId,
+      salaryMaxK: value.salaryMaxK,
+      salaryMinK: value.salaryMinK,
+      targetDate: value.targetDate,
     };
     await runAsyncAction({
       onError: (error) => toast.error(error.message),

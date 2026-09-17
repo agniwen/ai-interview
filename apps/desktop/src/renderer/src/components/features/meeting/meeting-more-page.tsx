@@ -1,3 +1,5 @@
+import { EchoProcessingPanel } from "./echo-processing-panel";
+import { hasEchoProcessing } from "@/lib/client/echo-processing";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useReducer, useState } from "react";
@@ -26,7 +28,8 @@ import { MeetingMorePageSkeleton } from "./meeting-page-skeletons";
 import { MeetingDeleteAction, canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
 import { MeetingDetailTitle } from "./meeting-detail-title";
 import { MEETING_SESSION_TOP_INSET_PX } from "./meeting-recording-session-layout";
-import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
+import { MeetingInitialInterviewAction } from "./meeting-initial-interview-action";
+import { SettingsRow } from "@/components/settings/settings-ui";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
 function MeetingMoreStatus({ children }: { children: ReactNode }) {
@@ -179,14 +182,22 @@ export function MeetingMorePage({
           className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-10 sm:px-6"
           style={{ paddingTop: MEETING_SESSION_TOP_INSET_PX }}
         >
+          <EchoProcessingPanel
+            slug={workspaceSlug}
+            meetingId={meetingId}
+            accessRole={meeting.accessRole}
+          />
           <MeetingDetailView
             additionalRows={
               <>
-                <MeetingRecruitingContextPanel
-                  accessRole={meeting.accessRole}
-                  meetingId={meetingId}
-                  slug={workspaceSlug}
-                />
+                <SettingsRow label="人工初面" description="用当前录音在招聘台生成独立评价资料">
+                  <MeetingInitialInterviewAction
+                    accessRole={meeting.accessRole}
+                    meetingId={meetingId}
+                    slug={workspaceSlug}
+                    ready={meeting.recordingAvailable && meeting.processingState === "ready"}
+                  />
+                </SettingsRow>
                 <MeetingDeleteAction
                   accessRole={meeting.accessRole}
                   meetingId={meetingId}
@@ -199,7 +210,7 @@ export function MeetingMorePage({
               void playbackQuery.refetch();
             }}
             onRetryProcessing={
-              canRetryMeetingProcessing(meeting.accessRole)
+              hasEchoProcessing() && canRetryMeetingProcessing(meeting.accessRole)
                 ? () => retryMutation.mutate()
                 : undefined
             }

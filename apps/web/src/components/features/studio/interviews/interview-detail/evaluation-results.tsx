@@ -44,6 +44,7 @@ type EvaluationPayload = z.infer<typeof evaluationPayloadSchema>;
 
 const QUESTION_STATUS_LABELS = {
   answered: "已回答",
+  in_progress: "收集中",
   insufficient: "信息不足",
   interrupted: "已中断",
   skipped: "已跳过",
@@ -52,6 +53,7 @@ const QUESTION_STATUS_LABELS = {
 
 const QUESTION_STATUS_VARIANTS = {
   answered: "secondary",
+  in_progress: "outline",
   insufficient: "outline",
   interrupted: "outline",
   skipped: "destructive",
@@ -147,7 +149,7 @@ function OverallEvaluation({
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-muted/60 bg-muted/30 px-4 py-3">
+      <div className="flex items-center gap-3 border-border/50 border-t pt-4">
         <span className="font-medium text-2xl text-primary tabular-nums">
           {data.overallScore ?? "—"}
         </span>
@@ -191,7 +193,7 @@ function QuestionCoverageResults({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-xl border border-border/70">
+      <div className="flex flex-col">
         {outcomes.map((outcome, index) => {
           const evaluation = evaluationById.get(outcome.questionId);
           const evidence = evaluation?.evidence ?? [];
@@ -206,7 +208,7 @@ function QuestionCoverageResults({
 
           return (
             <article
-              className={index === 0 ? "p-4" : "border-border/60 border-t p-4"}
+              className="border-border/60 border-t py-4 first:border-t-0 first:pt-0 last:pb-0"
               key={outcome.questionId}
             >
               <div className="flex items-start gap-3">
@@ -241,20 +243,21 @@ function QuestionCoverageResults({
                     </span>
                   </div>
                   {outcome.evaluationFocus ? (
-                    <div className="mt-3 rounded-lg bg-muted/35 px-3 py-2">
-                      <p className="font-medium text-foreground text-xs">考核意图</p>
-                      <p className="mt-1 text-muted-foreground text-xs leading-5">
-                        {outcome.evaluationFocus}
-                      </p>
-                    </div>
+                    <p className="mt-3 text-muted-foreground text-xs leading-5">
+                      <span className="font-medium">考核意图：</span>
+                      {outcome.evaluationFocus}
+                    </p>
                   ) : null}
                   {evaluation?.assessment ? (
-                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                      <HighlightedText
-                        enabledCategories={enabledCategories}
-                        text={evaluation.assessment}
-                      />
-                    </p>
+                    <div className="mt-3 flex flex-col gap-1.5">
+                      <p className="font-medium text-foreground text-xs">AI 评价</p>
+                      <p className="text-foreground text-sm leading-6">
+                        <HighlightedText
+                          enabledCategories={enabledCategories}
+                          text={evaluation.assessment}
+                        />
+                      </p>
+                    </div>
                   ) : null}
                   {evidence.length > 0 && outcome.status !== "unasked" ? (
                     <div className="mt-3">
@@ -326,7 +329,7 @@ export function EvaluationResults({
   return (
     <div className="space-y-3">
       {evaluation.overallScore !== null && evaluation.overallScore !== undefined && (
-        <div className="flex items-center gap-3 rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border">
+        <div className="flex items-center gap-3">
           <span className="font-medium text-2xl text-primary tabular-nums">
             {evaluation.overallScore}
           </span>
@@ -367,9 +370,12 @@ export function EvaluationResults({
                 </span>
               </div>
               {q.assessment && (
-                <p className="mt-1.5 text-muted-foreground leading-normal">
-                  <HighlightedText enabledCategories={enabledCategories} text={q.assessment} />
-                </p>
+                <div className="mt-3 flex flex-col gap-1.5">
+                  <p className="font-medium text-foreground text-xs">AI 评价</p>
+                  <p className="text-foreground text-sm leading-6">
+                    <HighlightedText enabledCategories={enabledCategories} text={q.assessment} />
+                  </p>
+                </div>
               )}
               {Array.isArray(q.evidence) ? (
                 <EvidenceList

@@ -117,8 +117,8 @@ const { formItems, interviewItems } = getCollectedCandidateInfoItems({
 
 ## 验证标准
 
-1. `pnpm --filter @app/web test` 通过(更新后的守卫测试)
-2. `pnpm --filter @app/web typecheck` 通过
+1. `bun run --filter @app/web test` 通过(更新后的守卫测试)
+2. `bun run --filter @app/web typecheck` 通过
 3. 手工验证:
    - 桌面端两栏左右并排,移动端上下堆叠
    - 每栏序号各自从 1 开始

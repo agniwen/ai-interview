@@ -1,3 +1,4 @@
+import { launchImportedAiInterviewBestEffort } from "./application/launch-imported-ai-interview-best-effort";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { db as defaultDb } from "../../../../../lib/server/db/index";
@@ -656,20 +657,20 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
               reimport: input.reimport === true,
             });
             if (result.status === "imported" && input.initialRecruitmentStage === "ai_interview") {
-              const visibilityScope = await resolveRecruitingVisibilityScope({
-                currentRole: c.var.member?.role,
-                organizationId: activeOrg.id,
-                userId: user.id,
-              });
-              const launchResult = await launchAiInterviewRound({
-                actorId: user.id,
-                interviewRecordId: result.resumeRecordId,
-                organizationId: activeOrg.id,
-                visibilityScope,
-              });
-              if (!launchResult.ok) {
-                throw new Error("AI 面试轮次创建失败，请进入招聘台后重试。");
-              }
+              result.aiInterviewLaunchError = await launchImportedAiInterviewBestEffort(
+                result.resumeRecordId,
+                async () =>
+                  launchAiInterviewRound({
+                    actorId: user.id,
+                    interviewRecordId: result.resumeRecordId,
+                    organizationId: activeOrg.id,
+                    visibilityScope: await resolveRecruitingVisibilityScope({
+                      currentRole: c.var.member?.role,
+                      organizationId: activeOrg.id,
+                      userId: user.id,
+                    }),
+                  }),
+              );
             }
             if (result.status === "imported") {
               await enqueueCandidateQuestionGenerationForRecordBestEffort({

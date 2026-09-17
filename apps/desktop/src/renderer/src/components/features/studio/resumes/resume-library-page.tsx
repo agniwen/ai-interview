@@ -54,7 +54,7 @@ export function ResumeLibraryPage({ isDetailOpen }: { isDetailOpen: boolean }) {
       <div className="px-6 py-16 text-center">
         <p className="font-medium text-sm">未加入工作区</p>
         <p className="mt-1 text-muted-foreground text-xs">
-          请先在网页端加入或创建工作区，再回到 Meeting Buddy 查看招聘台
+          请先在网页端加入或创建工作区，再回到 Echo 查看招聘台
         </p>
       </div>
     );

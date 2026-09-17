@@ -3,10 +3,7 @@ import { db } from "../../../../../../lib/server/db/index";
 import { createInternalErrorResponse } from "../../../../../error-handler";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
-import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-} from "@app/db-schema/schema";
+import { humanInterviewMeeting, humanInterviewMeetingRound } from "@app/db-schema/schema";
 import type {
   AiInvitationExceptionType,
   CandidateInterviewInvitationStatus,
@@ -41,12 +38,12 @@ export async function isCurrentHumanInterviewInvitationToken(
     return false;
   }
   const [row] = await db
-    .select({ tokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash })
-    .from(studioHumanInterviewMeetingRound)
+    .select({ tokenHash: humanInterviewMeetingRound.candidateInviteTokenHash })
+    .from(humanInterviewMeetingRound)
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
-        eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
+        eq(humanInterviewMeetingRound.meetingId, payload.meetingId),
+        eq(humanInterviewMeetingRound.roundId, payload.roundId),
       ),
     )
     .limit(1);
@@ -67,19 +64,19 @@ export async function recordHumanInterviewInvitationException(input: {
   return await db.transaction(async (tx) => {
     const [row] = await tx
       .select({
-        invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
-        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-        tokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
+        invitationVersion: humanInterviewMeetingRound.invitationVersion,
+        scheduleVersion: humanInterviewMeeting.scheduleVersion,
+        tokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
       })
-      .from(studioHumanInterviewMeetingRound)
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
       )
       .where(
         and(
-          eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
-          eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
+          eq(humanInterviewMeetingRound.meetingId, payload.meetingId),
+          eq(humanInterviewMeetingRound.roundId, payload.roundId),
         ),
       )
       .limit(1)
@@ -170,23 +167,23 @@ export function respondHumanInterviewCandidateInvitation(input: {
   return db.transaction(async (tx) => {
     const [row] = await tx
       .select({
-        expiresAt: studioHumanInterviewMeetingRound.candidateInviteExpiresAt,
-        invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
-        meetingStatus: studioHumanInterviewMeeting.status,
-        organizationId: studioHumanInterviewMeeting.organizationId,
-        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-        status: studioHumanInterviewMeetingRound.candidateInviteStatus,
-        tokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
+        expiresAt: humanInterviewMeetingRound.candidateInviteExpiresAt,
+        invitationVersion: humanInterviewMeetingRound.invitationVersion,
+        meetingStatus: humanInterviewMeeting.status,
+        organizationId: humanInterviewMeeting.organizationId,
+        scheduleVersion: humanInterviewMeeting.scheduleVersion,
+        status: humanInterviewMeetingRound.candidateInviteStatus,
+        tokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
       })
-      .from(studioHumanInterviewMeetingRound)
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewMeeting,
-        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
       )
       .where(
         and(
-          eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
-          eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
+          eq(humanInterviewMeetingRound.meetingId, payload.meetingId),
+          eq(humanInterviewMeetingRound.roundId, payload.roundId),
         ),
       )
       .limit(1)
@@ -211,7 +208,7 @@ export function respondHumanInterviewCandidateInvitation(input: {
       throw new HumanInterviewMeetingError("候选人已提交邀请响应，不能重复变更。", 409);
     }
     await tx
-      .update(studioHumanInterviewMeetingRound)
+      .update(humanInterviewMeetingRound)
       .set({
         candidateDeclineReason:
           input.action === "decline" ? input.declineReason?.trim() || null : null,
@@ -220,8 +217,8 @@ export function respondHumanInterviewCandidateInvitation(input: {
       })
       .where(
         and(
-          eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
-          eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
+          eq(humanInterviewMeetingRound.meetingId, payload.meetingId),
+          eq(humanInterviewMeetingRound.roundId, payload.roundId),
         ),
       );
     if (isInterviewNotificationFlowEnabled()) {

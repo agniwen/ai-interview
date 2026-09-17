@@ -20,10 +20,12 @@ import { Route as StudioRouteImport } from './routes/studio'
 import { Route as WaitRouteImport } from './routes/wait'
 import { Route as AiInterviewInviteInviteTokenRouteImport } from './routes/ai-interview-invite.$inviteToken'
 import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as BackgroundCheckTokenRouteImport } from './routes/background-check.$token'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
+import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as PlatformLivekitRouteImport } from './routes/platform.livekit'
 import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
 import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
@@ -132,6 +134,11 @@ const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
   path: '/api/app-version',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BackgroundCheckTokenRoute = BackgroundCheckTokenRouteImport.update({
+  id: '/background-check/$token',
+  path: '/background-check/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HumanInterviewInviteTokenRoute =
   HumanInterviewInviteTokenRouteImport.update({
     id: '/human-interview/$inviteToken',
@@ -151,6 +158,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
 const JoinCodeRoute = JoinCodeRouteImport.update({
   id: '/join/$code',
   path: '/join/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfferTokenRoute = OfferTokenRouteImport.update({
+  id: '/offer/$token',
+  path: '/offer/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlatformLivekitRoute = PlatformLivekitRouteImport.update({
@@ -440,10 +452,12 @@ export interface FileRoutesByFullPath {
   '/wait': typeof WaitRoute
   '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
+  '/background-check/$token': typeof BackgroundCheckTokenRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/offer/$token': typeof OfferTokenRoute
   '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/notifications': typeof PlatformNotificationsRoute
@@ -508,10 +522,12 @@ export interface FileRoutesByTo {
   '/wait': typeof WaitRoute
   '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
+  '/background-check/$token': typeof BackgroundCheckTokenRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/offer/$token': typeof OfferTokenRoute
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
@@ -574,10 +590,12 @@ export interface FileRoutesById {
   '/wait': typeof WaitRoute
   '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
+  '/background-check/$token': typeof BackgroundCheckTokenRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/offer/$token': typeof OfferTokenRoute
   '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/notifications': typeof PlatformNotificationsRoute
@@ -644,10 +662,12 @@ export interface FileRouteTypes {
     | '/wait'
     | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
+    | '/background-check/$token'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/offer/$token'
     | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
     | '/platform/notifications'
@@ -712,10 +732,12 @@ export interface FileRouteTypes {
     | '/wait'
     | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
+    | '/background-check/$token'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/offer/$token'
     | '/platform/mail-ingest-accounts'
     | '/platform/notifications'
     | '/platform/organizations'
@@ -777,10 +799,12 @@ export interface FileRouteTypes {
     | '/wait'
     | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
+    | '/background-check/$token'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/offer/$token'
     | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
     | '/platform/notifications'
@@ -846,9 +870,11 @@ export interface RootRouteChildren {
   WaitRoute: typeof WaitRoute
   AiInterviewInviteInviteTokenRoute: typeof AiInterviewInviteInviteTokenRoute
   ApiAppVersionRoute: typeof ApiAppVersionRoute
+  BackgroundCheckTokenRoute: typeof BackgroundCheckTokenRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   JoinCodeRoute: typeof JoinCodeRoute
+  OfferTokenRoute: typeof OfferTokenRoute
   RRoundIdRoute: typeof RRoundIdRoute
   ReferralsTokenRoute: typeof ReferralsTokenRoute
   WSlugRoute: typeof WSlugRouteWithChildren
@@ -935,6 +961,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAppVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/background-check/$token': {
+      id: '/background-check/$token'
+      path: '/background-check/$token'
+      fullPath: '/background-check/$token'
+      preLoaderRoute: typeof BackgroundCheckTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/human-interview/$inviteToken': {
       id: '/human-interview/$inviteToken'
       path: '/human-interview/$inviteToken'
@@ -961,6 +994,13 @@ declare module '@tanstack/react-router' {
       path: '/join/$code'
       fullPath: '/join/$code'
       preLoaderRoute: typeof JoinCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offer/$token': {
+      id: '/offer/$token'
+      path: '/offer/$token'
+      fullPath: '/offer/$token'
+      preLoaderRoute: typeof OfferTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/platform/livekit': {
@@ -1564,9 +1604,11 @@ const rootRouteChildren: RootRouteChildren = {
   WaitRoute: WaitRoute,
   AiInterviewInviteInviteTokenRoute: AiInterviewInviteInviteTokenRoute,
   ApiAppVersionRoute: ApiAppVersionRoute,
+  BackgroundCheckTokenRoute: BackgroundCheckTokenRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   JoinCodeRoute: JoinCodeRoute,
+  OfferTokenRoute: OfferTokenRoute,
   RRoundIdRoute: RRoundIdRoute,
   ReferralsTokenRoute: ReferralsTokenRoute,
   WSlugRoute: WSlugRouteWithChildren,

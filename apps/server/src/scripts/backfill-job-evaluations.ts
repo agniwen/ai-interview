@@ -1,3 +1,5 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import "../standalone/preload";
 
 import { createHash } from "node:crypto";
@@ -291,7 +293,7 @@ async function upgradeLegacyJob(job: BackfillJobRow, actorId: string) {
 async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh: boolean) {
   const [
     { db },
-    { jobDescription, jobDescriptionEvaluationUpgradeAudit, studioInterview },
+    { jobDescription, jobDescriptionEvaluationUpgradeAudit },
     { and, eq, inArray, sql },
     { compileDefaultJobEvaluationDraft },
     { computeJobEvaluationPayloadHash },
@@ -377,26 +379,24 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
           eq(jobDescription.organizationId, TARGET_WORKSPACE_ID),
         ),
       );
-    const invalidated = await tx
-      .update(studioInterview)
-      .set({
+    const invalidated = await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+        eq(recruitingRecordReadModel.jobDescriptionId, current.id),
+        inArray(recruitingRecordReadModel.resumeReviewStatus, ["queued", "processing"]),
+      ),
+      {
         resumeEvaluationAttemptMode: null,
         resumeReviewError: null,
         resumeReviewQueuedAt: null,
         resumeReviewRunId: null,
-        resumeReviewStatus: sql`case when ${studioInterview.resumeEvaluationArtifactMode} is not null then 'ready' else 'idle' end`,
+        resumeReviewStatus: sql`case when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is not null then 'ready' else 'idle' end`,
         resumeScreeningError: null,
-        resumeScreeningStatus: sql`case when ${studioInterview.resumeEvaluationArtifactMode} is not null then 'ready' else 'idle' end`,
+        resumeScreeningStatus: sql`case when ${recruitingRecordReadModel.resumeEvaluationArtifactMode} is not null then 'ready' else 'idle' end`,
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-          eq(studioInterview.jobDescriptionId, current.id),
-          inArray(studioInterview.resumeReviewStatus, ["queued", "processing"]),
-        ),
-      )
-      .returning({ id: studioInterview.id });
+      },
+    );
     return {
       invalidatedLegacyAttemptCount: invalidated.length,
       status: "published" as const,

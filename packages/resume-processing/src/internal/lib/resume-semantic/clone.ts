@@ -1,5 +1,6 @@
+import { toRecruitingSearchSource } from "./db-source";
 import { and, eq } from "drizzle-orm";
-import { resumeSemanticIndex } from "@app/db-schema/schema";
+import { recruitingSearchIndex } from "@app/db-schema/schema";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import { getResumeEmbeddingConfig } from "../../../semantic/resume/embedding";
 import type {
@@ -62,19 +63,19 @@ async function loadSemanticIndexState(
   const { db } = await import("../db");
   const [row] = await db
     .select({
-      contentHash: resumeSemanticIndex.contentHash,
-      embeddingModel: resumeSemanticIndex.embeddingModel,
-      embeddingVersion: resumeSemanticIndex.embeddingVersion,
-      profileHash: resumeSemanticIndex.profileHash,
-      status: resumeSemanticIndex.status,
+      contentHash: recruitingSearchIndex.contentHash,
+      embeddingModel: recruitingSearchIndex.embeddingModel,
+      embeddingVersion: recruitingSearchIndex.embeddingVersion,
+      profileHash: recruitingSearchIndex.profileHash,
+      status: recruitingSearchIndex.status,
     })
-    .from(resumeSemanticIndex)
+    .from(recruitingSearchIndex)
     .where(
       and(
-        eq(resumeSemanticIndex.organizationId, input.organizationId),
-        eq(resumeSemanticIndex.sourceType, input.sourceType),
-        eq(resumeSemanticIndex.sourceId, input.sourceId),
-        eq(resumeSemanticIndex.embeddingVersion, input.embeddingVersion),
+        eq(recruitingSearchIndex.organizationId, input.organizationId),
+        eq(recruitingSearchIndex.sourceType, toRecruitingSearchSource(input.sourceType)),
+        eq(recruitingSearchIndex.sourceId, input.sourceId),
+        eq(recruitingSearchIndex.embeddingVersion, input.embeddingVersion),
       ),
     )
     .limit(1);

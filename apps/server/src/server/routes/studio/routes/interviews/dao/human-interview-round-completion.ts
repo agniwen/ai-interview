@@ -2,10 +2,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import type { db } from "../../../../../../lib/server/db/index";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
-import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-} from "@app/db-schema/schema";
+import { humanInterviewMeeting, humanInterviewMeetingRound } from "@app/db-schema/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -23,22 +20,22 @@ export async function enqueueHumanInterviewRoundCompletion(
   }
   const [meeting] = await tx
     .select({
-      id: studioHumanInterviewMeeting.id,
-      scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
+      id: humanInterviewMeeting.id,
+      scheduleVersion: humanInterviewMeeting.scheduleVersion,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.roundId, input.roundId),
-        eq(studioHumanInterviewMeeting.organizationId, input.organizationId),
-        ne(studioHumanInterviewMeeting.status, "cancelled"),
+        eq(humanInterviewMeetingRound.roundId, input.roundId),
+        eq(humanInterviewMeeting.organizationId, input.organizationId),
+        ne(humanInterviewMeeting.status, "cancelled"),
       ),
     )
-    .orderBy(desc(studioHumanInterviewMeeting.createdAt))
+    .orderBy(desc(humanInterviewMeeting.createdAt))
     .limit(1);
   if (!meeting) {
     return;

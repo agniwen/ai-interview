@@ -117,6 +117,65 @@ beforeEach(() => {
   mocks.submit.mockResolvedValue(true);
 });
 describe("system human interview review", () => {
+  it.each(["studio", "invitation"])(
+    "rejects an empty overall evaluation through %s",
+    async (entry) => {
+      const init = {
+        body: JSON.stringify({
+          evaluation: { ...evaluation, overallEvaluation: "  " },
+          outcome: "pass",
+          transcriptRevisionId: null,
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      };
+      const response =
+        entry === "studio"
+          ? await app().request(
+              `/${candidateId}/human-interview-rounds/review/${roundId}/evaluation-submit`,
+              init,
+            )
+          : await humanInterviewReviewRouter.request(
+              "/human-interview-meetings/interviewer/signed-invite/evaluation-submit",
+              init,
+            );
+      expect(response.status).toBe(400);
+      expect(mocks.submit).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["studio", "invitation"])(
+    "accepts unrated drafts but rejects unrated submissions through %s",
+    async (entry) => {
+      const send = (action: string) => {
+        const body = JSON.stringify({
+          evaluation: { ...evaluation, draftOutcome: "pass", overallEvaluation: "", rating: null },
+          outcome: action === "evaluation-submit" ? "pass" : undefined,
+          transcriptRevisionId: null,
+        });
+        const init = { body, headers: { "content-type": "application/json" }, method: "POST" };
+        return entry === "studio"
+          ? app().request(
+              `/${candidateId}/human-interview-rounds/review/${roundId}/${action}`,
+              init,
+            )
+          : humanInterviewReviewRouter.request(
+              `/human-interview-meetings/interviewer/signed-invite/${action}`,
+              init,
+            );
+      };
+      const draftResponse = await send("evaluation-draft");
+      expect(draftResponse.status).toBe(200);
+      expect(mocks.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evaluation: { ...evaluation, draftOutcome: "pass", overallEvaluation: "", rating: null },
+        }),
+      );
+      const submitResponse = await send("evaluation-submit");
+      expect(submitResponse.status).toBe(400);
+      expect(mocks.submit).not.toHaveBeenCalled();
+    },
+  );
+
   it("scopes reads to the logged-in actor, workspace, candidate and exact round", async () => {
     const response = await request("review");
     expect(response.status).toBe(200);
@@ -158,6 +217,14 @@ describe("system human interview review", () => {
       }),
     );
     expect(mocks.permissions).toContain("humanInterview:update");
+  });
+  it("allows an HR with update permission to submit without meeting assignment", async () => {
+    mocks.load.mockResolvedValue({ ...scope, canManageReview: true, role: "observer" });
+    const response = await request("evaluation-submit", "pass");
+    expect(response.status).toBe(200);
+    expect(mocks.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ actorId: "reviewer", outcome: "pass", roundId }),
+    );
   });
   it("denies unauthenticated users, missing scope and permission failures", async () => {
     const unauthorized = await request("review", null, false);

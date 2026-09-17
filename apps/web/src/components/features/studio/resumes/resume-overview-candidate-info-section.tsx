@@ -1,11 +1,7 @@
 /* oxlint-disable complexity -- candidate info section hosts identity edit form with validation branches. */
 "use client";
 
-import {
-  canEditResumeRecord,
-  describeResumeEvaluationStatus,
-  resumeEvaluationStatusFormValueSchema,
-} from "@app/shared/studio-resumes";
+import { canEditResumeRecord } from "@app/shared/studio-resumes";
 import type { ResumeIdentityUpdateInput, ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,13 +14,6 @@ import { JobDescriptionSelectField } from "@/components/features/studio/intervie
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { updateStudioResumeIdentity } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 
@@ -35,7 +24,6 @@ interface OverviewIdentityDraft {
   candidatePhone: string;
   gender: string;
   jobDescriptionId: string;
-  resumeEvaluationStatus: "fail" | "pass" | "unreviewed";
   workYears: string;
 }
 
@@ -49,7 +37,6 @@ function toOverviewIdentityDraft(detail: ResumeLibraryDetail): OverviewIdentityD
     candidatePhone: detail.candidatePhone ?? profile?.phone ?? "",
     gender: profile?.gender ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
-    resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
     workYears:
       profile?.workYears === null || profile?.workYears === undefined
         ? ""
@@ -86,7 +73,6 @@ export function ResumeOverviewCandidateInfoSection({
 
   // Match 招聘台列表 card 编辑按钮：resumeLibrary:update（via canEdit）+ 解析 ready。
   const showEdit = Boolean(canEdit && slug && canEditResumeRecord(detail.resumeParseStatus));
-  const resumeEvaluation = describeResumeEvaluationStatus(detail.resumeEvaluationStatus);
   const displayName = detail.candidateName || detail.resumeProfile?.name || null;
   const displayEmail = detail.candidateEmail ?? detail.resumeProfile?.email ?? null;
   const displayPhone = detail.candidatePhone ?? detail.resumeProfile?.phone ?? null;
@@ -152,7 +138,6 @@ export function ResumeOverviewCandidateInfoSection({
           candidatePhone: draft.candidatePhone.trim(),
           gender: draft.gender.trim(),
           jobDescriptionId: draft.jobDescriptionId.trim(),
-          resumeEvaluationStatus: draft.resumeEvaluationStatus,
           // Keep existing target role (not shown in this section).
           targetRole: detail.targetRole ?? "",
           workYears,
@@ -249,28 +234,6 @@ export function ResumeOverviewCandidateInfoSection({
           </div>
           {targetRolesField}
           <Field>
-            <FieldLabel htmlFor="overview-resume-evaluation">简历评估</FieldLabel>
-            <Select
-              disabled={saving}
-              onValueChange={(next) => {
-                const status = resumeEvaluationStatusFormValueSchema.safeParse(next);
-                if (status.success) {
-                  setDraft((current) => ({ ...current, resumeEvaluationStatus: status.data }));
-                }
-              }}
-              value={draft.resumeEvaluationStatus}
-            >
-              <SelectTrigger className="w-full" id="overview-resume-evaluation" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unreviewed">未评估</SelectItem>
-                <SelectItem value="pass">通过</SelectItem>
-                <SelectItem value="fail">不通过</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
             <FieldLabel htmlFor="overview-gender">性别</FieldLabel>
             <Input
               className="h-8"
@@ -347,7 +310,6 @@ export function ResumeOverviewCandidateInfoSection({
             valueClassName="font-medium"
           />
           {targetRolesField}
-          <DataField label="简历评估" value={resumeEvaluation.label} valueClassName="font-medium" />
           <DataField label="性别" value={detail.resumeProfile?.gender} />
           <DataField kind="number" label="年龄" value={detail.resumeProfile?.age} />
           <DataField kind="number" label="工作年限" value={detail.resumeProfile?.workYears} />

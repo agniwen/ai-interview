@@ -1,4 +1,5 @@
 import type { InterviewNotificationEventRecord } from "./dao";
+import { parseInterviewNotificationQueueNamespace } from "@app/db-schema/interview-notifications";
 
 // 未配置时每 5 秒尝试认领一批通知事件。 / Attempts to claim a notification batch every five seconds by default.
 const DEFAULT_INTERVAL_MS = 5000;
@@ -22,8 +23,11 @@ export interface InterviewNotificationSchedulerDependencies {
     leaseOwner: string;
     limit: number;
     now?: Date;
+    queueNamespace: string;
   }): Promise<InterviewNotificationEventRecord[]>;
   processEvent(event: InterviewNotificationEventRecord, leaseOwner: string): Promise<void>;
+  reconcileHumanInterviewAttendance?(input: { now: Date }): Promise<void>;
+  retryCancelledHumanInterviewCalendars?(input: { now: Date }): Promise<void>;
 }
 
 // 进程内诊断快照由每轮轮询更新，并通过受保护端点读取。 / In-process diagnostics updated each poll and exposed through the protected operations endpoint.
@@ -40,11 +44,16 @@ function truthy(value: string | undefined): boolean {
   return value === "1" || value === "true" || value === "yes";
 }
 
-// 仅在流程与 Worker 开关同时开启时启用调度。 / Enables scheduling only when both flow and Worker flags are on.
-function enabledFromEnv(): boolean {
+// 通知投递和飞书取消重试独立启用，共用同一单飞轮询。 / Notification delivery and Feishu cancellation retries opt in independently while sharing one single-flight poller.
+function capabilitiesFromEnv() {
   const worker = process.env.INTERVIEW_NOTIFICATION_WORKER_ENABLED?.trim().toLowerCase();
   const flow = process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED?.trim().toLowerCase();
-  return truthy(flow) && truthy(worker);
+  return {
+    cancelledCalendarRetry: truthy(
+      process.env.FEISHU_HUMAN_INTERVIEW_ENABLED?.trim().toLowerCase(),
+    ),
+    notifications: truthy(flow) && truthy(worker),
+  };
 }
 
 function positiveInteger(raw: string | undefined, fallback: number): number {
@@ -66,10 +75,11 @@ export interface InterviewNotificationScheduler {
 export function startInterviewNotificationScheduler(
   dependencies: InterviewNotificationSchedulerDependencies,
 ): InterviewNotificationScheduler | null {
-  if (!enabledFromEnv()) {
+  const capabilities = capabilitiesFromEnv();
+  if (!(capabilities.notifications || capabilities.cancelledCalendarRetry)) {
     snapshot = { ...snapshot, enabled: false, running: false };
     console.info(
-      "[interview-notification-worker] disabled; enable both notification flow and Worker flags to start polling",
+      "[interview-notification-worker] disabled; enable notifications or Feishu meeting sync to start polling",
     );
     return null;
   }
@@ -83,6 +93,9 @@ export function startInterviewNotificationScheduler(
     100,
   );
   const leaseOwner = `notification-worker:${process.pid}:${crypto.randomUUID()}`;
+  const queueNamespace = parseInterviewNotificationQueueNamespace(
+    process.env.INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE,
+  );
   let closed = false;
   let running = false;
   let activeRun: Promise<void> | null = null;
@@ -96,13 +109,34 @@ export function startInterviewNotificationScheduler(
       const runAt = new Date();
       snapshot = { ...snapshot, enabled: true, lastRunAt: runAt.toISOString(), running: true };
       try {
+        if (capabilities.notifications) {
+          try {
+            await dependencies.reconcileHumanInterviewAttendance?.({ now: runAt });
+          } catch (error) {
+            snapshot = { ...snapshot, lastErrorAt: new Date().toISOString() };
+            console.error("[interview-notification-worker] attendance reconciliation failed", {
+              errorName: error instanceof Error ? error.name : "UnknownError",
+            });
+          }
+        }
+        if (capabilities.cancelledCalendarRetry) {
+          try {
+            await dependencies.retryCancelledHumanInterviewCalendars?.({ now: runAt });
+          } catch (error) {
+            snapshot = { ...snapshot, lastErrorAt: new Date().toISOString() };
+            console.error("[interview-notification-worker] cancelled calendar retry failed", {
+              errorName: error instanceof Error ? error.name : "UnknownError",
+            });
+          }
+        }
         let claimed = 0;
-        while (claimed < batchSize) {
+        while (capabilities.notifications && claimed < batchSize) {
           const [event] = await dependencies.claimEvents({
             leaseDurationMs: EVENT_LEASE_DURATION_MS,
             leaseOwner,
             limit: 1,
             now: new Date(),
+            queueNamespace,
           });
           if (!event) {
             break;
@@ -132,7 +166,11 @@ export function startInterviewNotificationScheduler(
   const timer = setInterval(triggerRun, intervalMs);
   timer.unref();
   queueMicrotask(triggerRun);
-  console.info("[interview-notification-worker] scheduler started", { batchSize, intervalMs });
+  console.info("[interview-notification-worker] scheduler started", {
+    batchSize,
+    intervalMs,
+    queueNamespace,
+  });
 
   return {
     close: async () => {

@@ -20,6 +20,18 @@ describe("resume semantic index queue payload", () => {
     });
   });
 
+  it("normalizes new recruiting labels without creating a second queued identity", () => {
+    const input = {
+      organizationId: "org-1",
+      sourceId: "candidate:1",
+      sourceType: "recruiting_record" as const,
+    };
+    expect(resumeSemanticIndexJobSchema.parse(input).sourceType).toBe("studio_interview");
+    expect(buildResumeSemanticIndexJobId(input)).toBe(
+      buildResumeSemanticIndexJobId({ ...input, sourceType: "studio_interview" }),
+    );
+  });
+
   it("builds stable job ids by source", () => {
     expect(
       buildResumeSemanticIndexJobId({

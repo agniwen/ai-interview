@@ -14,7 +14,6 @@ import type {
 import { cn } from "@app/shared/utils";
 import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import type { CapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
-import { formatAppDateTime } from "@/lib/client/datetime";
 
 const HEALTH_LABEL = {
   checking: "检测中",
@@ -31,10 +30,6 @@ function formatElapsed(milliseconds: number): string {
   const remainingSeconds = seconds % 60;
   const parts = hours > 0 ? [hours, minutes, remainingSeconds] : [minutes, remainingSeconds];
   return parts.map((value) => String(value).padStart(2, "0")).join(":");
-}
-
-function formatRecoveryDeadline(value: string): string {
-  return formatAppDateTime(value);
 }
 
 export function useElapsed(active?: ActiveMeetingCapture | null) {
@@ -208,6 +203,14 @@ const WORKSPACE_SAVE_COPY = {
     description: "本地录音仍然安全，可检查网络或工作区后重试。",
     title: "保存到工作区需要处理",
   },
+  summarizing: {
+    description: "最后一段字幕正在补齐到总结，完成后自动同步到工作区。",
+    title: "录音已保存，总结补齐中",
+  },
+  "summary-pending": {
+    description: "录音已安全保存，总结将在后台重试，也可以手动重试。",
+    title: "总结待补齐",
+  },
   uploading: { description: "正在把麦克风与系统音轨直接上传到录音存储。", title: "正在上传" },
   verifying: { description: "服务器正在核对两条源音轨的对象与完整性。", title: "正在验证" },
   "waiting-for-network": {
@@ -238,7 +241,7 @@ function localSaveDescription(
     return workspaceSave.error;
   }
   if (workspaceSave?.state === "workspace-verified" && workspaceSave.recoveryCopyDeleteAfter) {
-    return `双轨源音频已验证；本地 Recovery Copy 将在 ${formatRecoveryDeadline(workspaceSave.recoveryCopyDeleteAfter)} 后自动清理。`;
+    return "双轨源音频已验证并同步，本地录音和处理结果继续保留。";
   }
   return copy?.description ?? "双轨清单和保存意图已冻结，尚未保存到工作区。";
 }
@@ -262,7 +265,8 @@ export function MeetingLocalSaveStatus({
   }
   const workspaceSave = snapshot.workspaceSaves.find((item) => item.captureId === captureId);
   const copy = workspaceSave ? WORKSPACE_SAVE_COPY[workspaceSave.state] : null;
-  const needsRetry = workspaceSave?.state === "action-required";
+  const needsRetry =
+    workspaceSave?.state === "action-required" || workspaceSave?.state === "summary-pending";
   return (
     <div className={cn("grid gap-3 rounded-xl border border-border bg-muted/20 p-4", className)}>
       <div className="flex items-start gap-2">
@@ -330,8 +334,15 @@ export function MeetingCaptureComposer({
   if (!snapshot.active) {
     return null;
   }
+  if (snapshot.phase === "saving") {
+    return (
+      <output className="block px-3 py-4 text-center text-sm text-muted-foreground">
+        录制已结束，正在后台保存录音…
+      </output>
+    );
+  }
   const transitioning = snapshot.phase === "pausing" || snapshot.phase === "resuming";
-  const busy = snapshot.phase === "saving" || snapshot.phase === "discarding" || transitioning;
+  const busy = snapshot.phase === "discarding" || transitioning;
   const paused = snapshot.phase === "paused";
   let captureActionIcon = paused ? "ph:play-fill" : "ph:pause-fill";
   let captureActionLabel = paused ? "继续录制" : "暂停录制";
@@ -399,10 +410,7 @@ export function MeetingCaptureComposer({
             title="结束并保存录制"
             variant="ghost"
           >
-            <Icon
-              className={cn("size-4", snapshot.phase === "saving" && "animate-spin")}
-              icon={snapshot.phase === "saving" ? "ph:circle-notch" : "ph:stop-fill"}
-            />
+            <Icon className="size-4" icon="ph:stop-fill" />
           </Button>
         </div>
         {snapshot.error ? (

@@ -1,207 +1,221 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { transitionCandidateStage } from "./candidate-stage-transition";
-import type { CandidateStageTransitionDependencies } from "./candidate-stage-transition";
+import { describe, expect, it, vi } from "vitest";
+import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
+import {
+  reviewIncomeProofAndAdvanceTx,
+  reviewSalaryNegotiationAndAdvanceTx,
+  transitionCandidateStage,
+} from "./candidate-stage-transition";
 
-type TransactionValueRecord = Readonly<Record<string, string | number | null>>;
-type TransactionValue = TransactionValueRecord | string | number | null;
-interface AuditDetail {
-  copilotActionProposalId?: string;
-  source?: string;
-}
-
-// oxlint-disable promise/prefer-await-to-callbacks -- the fake transaction must execute Drizzle's callback.
-
-const mocks = {
-  getReadinessError: vi.fn(),
-  invalidateCaches: vi.fn(),
-  loadReadiness: vi.fn(),
-  transaction: vi.fn(),
+const base = {
+  candidateId: "record",
+  operatorId: null,
+  organizationId: "org",
+  provenance: { kind: "manual" as const },
 };
 
-const dependencies: CandidateStageTransitionDependencies = mocks;
-
-function transition(command: Parameters<typeof transitionCandidateStage>[0]) {
-  return transitionCandidateStage(command, dependencies);
-}
-
-function createTransaction(existing: {
-  closedMeta: null;
-  jobDescriptionId: string;
-  outcome: "in_pipeline";
-  pipelineStage: "human_interview" | "screening";
-}) {
-  const insertedValues = vi.fn(async (_value: TransactionValue) => {});
-  const updatedWhere = vi.fn(async (_value: TransactionValue) => {});
-  const updatedValues = vi.fn((_value: TransactionValue) => ({ where: updatedWhere }));
-  const tx = {
-    insert: vi.fn(() => ({ values: insertedValues })),
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          for: vi.fn(() => ({ limit: vi.fn().mockResolvedValue([existing]) })),
-        })),
-      })),
-    })),
-    update: vi.fn(() => ({
-      set: updatedValues,
-    })),
-  };
-  return { insertedValues, tx, updatedValues, updatedWhere };
-}
-
-describe("transitionCandidateStage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("authorizes protected target stages before opening the transaction", async () => {
-    const authorize = vi.fn().mockResolvedValue(false);
-
-    await expect(
-      transition({
-        authorize,
-        candidateId: "candidate-a",
-        input: { pipelineStage: "offer" },
-        operatorId: "user-a",
-        organizationId: "org-a",
-        provenance: { kind: "manual" },
-      }),
-    ).resolves.toEqual({ kind: "forbidden" });
-    expect(authorize).toHaveBeenCalledWith({ action: "create", resource: "offer" });
-    expect(mocks.transaction).not.toHaveBeenCalled();
-    expect(mocks.invalidateCaches).not.toHaveBeenCalled();
-  });
-
-  it("checks offer readiness inside the locked transaction and records copilot provenance", async () => {
-    const { insertedValues, tx, updatedWhere } = createTransaction({
-      closedMeta: null,
-      jobDescriptionId: "jd-a",
-      outcome: "in_pipeline",
-      pipelineStage: "human_interview",
-    });
-    mocks.transaction.mockImplementation(async (callback) => await callback(tx));
-    mocks.loadReadiness.mockResolvedValue({
-      completedRoundsMissingFeedback: 0,
-      pendingRounds: 0,
-      totalRounds: 1,
-    });
-    mocks.getReadinessError.mockReturnValue(null);
-    const authorize = vi.fn().mockResolvedValue(true);
-
-    await expect(
-      transition({
-        authorize,
-        candidateId: "candidate-a",
-        input: { pipelineStage: "offer" },
-        operatorId: "user-a",
-        organizationId: "org-a",
-        provenance: {
-          kind: "workspace_recruiting_copilot",
-          proposalId: "proposal-a",
-          proposalTitle: "推进到 Offer",
+describe("招聘动作入口权限与错误映射", () => {
+  it.each(["advance", "screening_advance"] as const)(
+    "%s 真人权限不足时不打开事务",
+    async (action) => {
+      const transaction = vi.fn(() => Promise.reject(new Error("不得执行")));
+      const result = await transitionCandidateStage(
+        {
+          ...base,
+          authorize: () => Promise.resolve(false),
+          input: { action, expectedVersion: 1, targetNode: "second_interview" },
         },
-      }),
-    ).resolves.toEqual({ kind: "ok" });
+        { invalidateCaches: vi.fn(), transaction },
+      );
+      expect(result.kind).toBe("forbidden");
+      expect(transaction).not.toHaveBeenCalled();
+    },
+  );
+  it("流水和背调属于Offer权限范围", async () => {
+    const authorize = vi.fn(() => Promise.resolve(false));
+    const transaction = vi.fn(() => Promise.reject(new Error("不得执行")));
+    await transitionCandidateStage(
+      {
+        ...base,
+        authorize,
+        input: {
+          action: "update_node",
+          expectedVersion: 1,
+          node: "background_check",
+          result: "pass",
+          targetStatus: "completed",
+        },
+      },
+      { invalidateCaches: vi.fn(), transaction },
+    );
+    expect(authorize).toHaveBeenCalledWith({ action: "create", resource: "offer" });
+  });
+  it.each(["invalid", "conflict", "not_found"] as const)("映射%s且不失效缓存", async (code) => {
+    const invalidateCaches = vi.fn();
+    const transaction = vi.fn(() => Promise.reject(new RecruitingPipelineError("测试错误", code)));
+    const result = await transitionCandidateStage(
+      {
+        ...base,
+        authorize: () => Promise.resolve(true),
+        input: { action: "close", closeReason: "other", expectedVersion: 1, outcome: "archived" },
+      },
+      { invalidateCaches, transaction },
+    );
+    expect(result.kind).toBe(code);
+    expect(invalidateCaches).not.toHaveBeenCalled();
+  });
+  it("流水审核通过与进入谈薪在同一事务内连续完成", async () => {
+    const tx = {};
+    const updateNode = vi.fn().mockResolvedValue({
+      changed: true,
+      currentStage: "income_proof",
+      outcome: "in_pipeline",
+      version: 2,
+    });
+    const advanceNode = vi.fn().mockResolvedValue({
+      changed: true,
+      currentStage: "salary_negotiation",
+      outcome: "in_pipeline",
+      version: 3,
+    });
+    // SAFETY: 测试通过注入的操作函数隔离事务实现，伪事务对象不会被直接访问。
+    const result = await reviewIncomeProofAndAdvanceTx(
+      tx as never,
+      {
+        expectedVersion: 1,
+        operatorId: null,
+        organizationId: "org",
+        recordId: "record",
+      },
+      {
+        action: "review_income_proof",
+        expectedVersion: 1,
+        reason: "流水真实有效",
+        result: "pass",
+      },
+      { advanceNode, updateNode },
+    );
 
-    expect(mocks.loadReadiness).toHaveBeenCalledWith("candidate-a", "org-a", tx);
-    expect(updatedWhere).toHaveBeenCalledOnce();
-    expect(insertedValues).toHaveBeenCalledWith(
+    expect(updateNode).toHaveBeenCalledWith(
+      tx,
       expect.objectContaining({
-        action: "candidate_transition",
-        detail: expect.objectContaining({
-          copilotActionProposalId: "proposal-a",
-          copilotActionTitle: "推进到 Offer",
-          source: "workspace_recruiting_copilot",
-        }),
-        interviewRecordId: "candidate-a",
-        operatorId: "user-a",
-        organizationId: "org-a",
+        expectedVersion: 1,
+        node: "income_proof",
+        reason: "流水真实有效",
+        result: "pass",
+        status: "completed",
       }),
     );
-    expect(mocks.invalidateCaches).toHaveBeenCalledWith("org-a");
-  });
-
-  it("keeps no-op transitions free of writes, audit noise, and cache invalidation", async () => {
-    const { insertedValues, tx, updatedWhere } = createTransaction({
-      closedMeta: null,
-      jobDescriptionId: "jd-a",
-      outcome: "in_pipeline",
-      pipelineStage: "screening",
-    });
-    mocks.transaction.mockImplementation(async (callback) => await callback(tx));
-
-    await expect(
-      transition({
-        authorize: vi.fn(),
-        candidateId: "candidate-a",
-        input: { pipelineStage: "screening" },
-        operatorId: "user-a",
-        organizationId: "org-a",
-        provenance: { kind: "manual" },
-      }),
-    ).resolves.toEqual({ kind: "noop" });
-
-    expect(updatedWhere).not.toHaveBeenCalled();
-    expect(insertedValues).not.toHaveBeenCalled();
-    expect(mocks.invalidateCaches).not.toHaveBeenCalled();
-  });
-
-  it("keeps manual transition audit detail free of copilot provenance", async () => {
-    const { insertedValues, tx } = createTransaction({
-      closedMeta: null,
-      jobDescriptionId: "jd-a",
-      outcome: "in_pipeline",
-      pipelineStage: "screening",
-    });
-    mocks.transaction.mockImplementation(async (callback) => await callback(tx));
-
-    await expect(
-      transition({
-        authorize: vi.fn(),
-        candidateId: "candidate-a",
-        input: { pipelineStage: "ai_interview" },
-        operatorId: "user-a",
-        organizationId: "org-a",
-        provenance: { kind: "manual" },
-      }),
-    ).resolves.toEqual({ kind: "ok" });
-
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    const audit = insertedValues.mock.calls[0]?.[0] as { detail?: AuditDetail };
-    expect(audit.detail).not.toHaveProperty("source");
-    expect(audit.detail).not.toHaveProperty("copilotActionProposalId");
-  });
-
-  it("atomically saves interviewer reference questions when entering human interview", async () => {
-    const { insertedValues, tx, updatedValues } = createTransaction({
-      closedMeta: null,
-      jobDescriptionId: "jd-a",
-      outcome: "in_pipeline",
-      pipelineStage: "screening",
-    });
-    mocks.transaction.mockImplementation(async (callback) => await callback(tx));
-    const interviewQuestions = [
-      { difficulty: "medium" as const, order: 1, question: "请讲一次关键技术决策。" },
-    ];
-
-    await expect(
-      transition({
-        authorize: vi.fn().mockResolvedValue(true),
-        candidateId: "candidate-a",
-        input: { interviewQuestions, pipelineStage: "human_interview" },
-        operatorId: "user-a",
-        organizationId: "org-a",
-        provenance: { kind: "manual" },
-      }),
-    ).resolves.toEqual({ kind: "ok" });
-
-    expect(updatedValues).toHaveBeenCalledWith(
-      expect.objectContaining({ interviewQuestions, pipelineStage: "human_interview" }),
-    );
-    expect(insertedValues).toHaveBeenCalledWith(
+    expect(advanceNode).toHaveBeenCalledWith(
+      tx,
       expect.objectContaining({
-        detail: expect.objectContaining({ interviewerReferenceQuestionCount: 1 }),
+        expectedVersion: 2,
+        targetNode: "salary_negotiation",
       }),
     );
+    expect(result).toMatchObject({ currentStage: "salary_negotiation", version: 3 });
+  });
+  it("谈薪通过时保存谈定月薪并在同一事务进入发 Offer", async () => {
+    const tx = {};
+    const updateExpectations = vi.fn().mockResolvedValue({
+      next: { agreedBaseSalary: 28_000 },
+      previous: { agreedBaseSalary: 26_000 },
+    });
+    const recordAudit = vi.fn(() => Promise.resolve());
+    const updateNode = vi.fn().mockResolvedValue({
+      changed: true,
+      currentStage: "salary_negotiation",
+      outcome: "in_pipeline",
+      version: 2,
+    });
+    const advanceNode = vi.fn().mockResolvedValue({
+      changed: true,
+      currentStage: "offer",
+      outcome: "in_pipeline",
+      version: 3,
+    });
+    // SAFETY: 测试通过注入的操作函数隔离事务实现，伪事务对象不会被直接访问。
+    const result = await reviewSalaryNegotiationAndAdvanceTx(
+      tx as never,
+      {
+        expectedVersion: 1,
+        operatorId: null,
+        organizationId: "org",
+        recordId: "record",
+      },
+      {
+        action: "review_salary_negotiation",
+        agreedBaseSalary: 28_000,
+        expectedVersion: 1,
+        reason: "双方已确认薪资方案",
+        result: "pass",
+      },
+      { advanceNode, recordAudit, updateExpectations, updateNode },
+    );
+
+    expect(updateExpectations).toHaveBeenCalledWith(tx, "record", "org", {
+      agreedBaseSalary: 28_000,
+    });
+    expect(recordAudit).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ operatorId: null, organizationId: "org", recordId: "record" }),
+      { agreedBaseSalary: 28_000, previousAgreedBaseSalary: 26_000 },
+    );
+    expect(updateNode).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        node: "salary_negotiation",
+        reason: "双方已确认薪资方案",
+        result: "pass",
+        status: "completed",
+      }),
+    );
+    expect(advanceNode).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ expectedVersion: 2, targetNode: "offer" }),
+    );
+    expect(result).toMatchObject({ currentStage: "offer", version: 3 });
+  });
+  it("谈薪淘汰时不保存薪资或推进阶段", async () => {
+    const tx = {};
+    const updateExpectations = vi.fn();
+    const recordAudit = vi.fn();
+    const advanceNode = vi.fn();
+    const updateNode = vi.fn().mockResolvedValue({
+      changed: true,
+      currentStage: "closed",
+      outcome: "rejected",
+      version: 2,
+    });
+    // SAFETY: 测试通过注入的操作函数隔离事务实现，伪事务对象不会被直接访问。
+    const result = await reviewSalaryNegotiationAndAdvanceTx(
+      tx as never,
+      {
+        expectedVersion: 1,
+        operatorId: null,
+        organizationId: "org",
+        recordId: "record",
+      },
+      {
+        action: "review_salary_negotiation",
+        expectedVersion: 1,
+        reason: "双方未就薪资达成一致",
+        result: "fail",
+      },
+      { advanceNode, recordAudit, updateExpectations, updateNode },
+    );
+
+    expect(updateExpectations).not.toHaveBeenCalled();
+    expect(recordAudit).not.toHaveBeenCalled();
+    expect(advanceNode).not.toHaveBeenCalled();
+    expect(updateNode).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        node: "salary_negotiation",
+        reason: "双方未就薪资达成一致",
+        result: "fail",
+        status: "completed",
+      }),
+    );
+    expect(result).toMatchObject({ currentStage: "closed", outcome: "rejected" });
   });
 });

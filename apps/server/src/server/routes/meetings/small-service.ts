@@ -81,6 +81,7 @@ export async function createSmallSavedMeeting(
         manifestSha256: input.input.manifestSha256,
         organizationId: input.organizationId,
         ownerId: input.ownerId,
+        processingOwnership: input.input.processingOwnership,
         savedAt: input.input.savedAt,
         startedAt: input.input.startedAt,
         title: input.input.title,
@@ -110,7 +111,10 @@ export async function createSmallSavedMeeting(
         organizationId: input.organizationId,
         ownerId: input.ownerId,
       }));
-    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
+    if (
+      meeting.processingOwner !== "device" &&
+      shouldAutomaticallyEnqueuePlayback(meeting.status)
+    ) {
       await dependencies.enqueueMeetingPlaybackJobs([
         { meetingId: meeting.id, organizationId: input.organizationId },
       ]);

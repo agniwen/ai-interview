@@ -9,8 +9,11 @@ import type {
 import {
   classifyInterviewNotificationFailure,
   getInterviewNotificationRetryAt,
+  canSendInterviewNotificationToAudience,
+  isConfirmedManualAiInvitation,
 } from "@app/shared/interview-notifications";
 import { Context, Data, Effect, Layer } from "effect";
+import { isConfirmedManualHumanEmail } from "@app/shared/manual-human-email";
 
 export interface InterviewNotificationSendResult {
   providerMessageId: string | null;
@@ -42,7 +45,10 @@ export interface InterviewNotificationProcessorDependencies {
     address: string;
     audienceType: InterviewNotificationAudienceType;
     channel: InterviewNotificationChannel;
+    conversationId: string | null;
+    deliveryId: string;
     idempotencyKey: string;
+    interviewRecordId: string;
     providerId: string;
     payload: InterviewNotificationPayloadSnapshot;
     renderedContent: string;
@@ -56,6 +62,7 @@ export interface InterviewNotificationProcessorDependencies {
     lastErrorCode?: string | null;
     lastErrorMessage?: string | null;
     nextAttemptAt?: Date;
+    queueNamespace: string;
     status: "completed" | "dead" | "failed";
   }): Promise<boolean>;
 }
@@ -76,6 +83,26 @@ class InterviewNotificationFailure extends Data.TaggedError("InterviewNotificati
 // 发送超过一分钟未提交时允许其他 Worker 接管，降低崩溃后的阻塞时间。 / Allows another worker to reclaim a send not committed within one minute after a crash.
 const DELIVERY_LEASE_DURATION_MS = 60_000;
 
+function canSendDelivery(
+  event: InterviewNotificationEventRecord,
+  delivery: InterviewNotificationDeliveryRecord,
+): boolean {
+  return (
+    (delivery.audienceType !== null &&
+      canSendInterviewNotificationToAudience(delivery.audienceType)) ||
+    isConfirmedManualAiInvitation(event, delivery) ||
+    isConfirmedManualHumanEmail(event, delivery)
+  );
+}
+
+function isRetiredHumanInterviewReminder(event: InterviewNotificationEventRecord): boolean {
+  return (
+    event.scopeType === "human_meeting" &&
+    event.type === "human_interview_reminder" &&
+    event.payloadSnapshot.reminderLeadTime === "24 小时"
+  );
+}
+
 // 用最早投递重试时间驱动父事件再次可用；没有计划时间时立即重试。 / Drives parent-event availability from the earliest delivery retry, falling back to immediate retry.
 function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now: Date): Date {
   const timestamps = deliveries.flatMap((delivery) =>
@@ -86,18 +113,19 @@ function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now:
 
 // 聚合所有收件人结果：有待处理则重试、有未知/死信则转人工，否则完成事件。 / Aggregates recipients: retry while pending, require manual action for unknown/dead, otherwise complete the event.
 async function finalizeEvent(
-  eventId: string,
+  event: InterviewNotificationEventRecord,
   leaseOwner: string,
   now: Date,
   dependencies: InterviewNotificationProcessorDependencies,
 ): Promise<void> {
-  const deliveries = await dependencies.listDeliveries(eventId);
+  const deliveries = await dependencies.listDeliveries(event.id);
   if (deliveries.length === 0) {
     await dependencies.updateEventState({
-      eventId,
+      eventId: event.id,
       lastErrorCode: "notification-no-delivery",
       lastErrorMessage: "通知事件没有可发送的接收人或模板。",
       leaseOwner,
+      queueNamespace: event.queueNamespace,
       status: "dead",
     });
     return;
@@ -108,11 +136,12 @@ async function finalizeEvent(
   );
   if (retryable.length > 0) {
     await dependencies.updateEventState({
-      eventId,
+      eventId: event.id,
       lastErrorCode: "notification-delivery-pending",
       lastErrorMessage: "通知事件仍有待发送或待重试的投递。",
       leaseOwner,
       nextAttemptAt: earliestRetryAt(retryable, now),
+      queueNamespace: event.queueNamespace,
       status: "failed",
     });
     return;
@@ -121,10 +150,11 @@ async function finalizeEvent(
   const manual = deliveries.find((delivery) => ["dead", "unknown"].includes(delivery.status));
   if (manual) {
     await dependencies.updateEventState({
-      eventId,
+      eventId: event.id,
       lastErrorCode: manual.lastErrorCode ?? "notification-manual-action-required",
       lastErrorMessage: manual.error ?? "通知投递需要人工处理。",
       leaseOwner,
+      queueNamespace: event.queueNamespace,
       status: "dead",
     });
     return;
@@ -132,8 +162,9 @@ async function finalizeEvent(
 
   await dependencies.updateEventState({
     completedAt: now,
-    eventId,
+    eventId: event.id,
     leaseOwner,
+    queueNamespace: event.queueNamespace,
     status: "completed",
   });
 }
@@ -145,6 +176,16 @@ async function processInterviewNotificationEventPromise(
   dependencies: InterviewNotificationProcessorDependencies,
 ): Promise<void> {
   const now = input.now ?? new Date();
+  if (isRetiredHumanInterviewReminder(event)) {
+    await dependencies.updateEventState({
+      completedAt: now,
+      eventId: event.id,
+      leaseOwner: input.leaseOwner,
+      queueNamespace: event.queueNamespace,
+      status: "completed",
+    });
+    return;
+  }
   const deliveries = await dependencies.listDeliveries(event.id);
   // Delivery preparation may insert rows a few milliseconds after the event's
   // claim timestamp. Use a fresh claim time so those new rows are immediately
@@ -171,11 +212,29 @@ async function processInterviewNotificationEventPromise(
     }
 
     try {
+      // 同时拦截已经入队的候选人邮件，旧的人工确认标记不绕过本次暂停。
+      if (!canSendDelivery(event, claimed)) {
+        const completed = await dependencies.markDeliveryFailed({
+          code: "candidate-email-paused",
+          deliveryId: claimed.id,
+          leaseOwner: input.leaseOwner,
+          message: "候选人面试邮件暂时停用，待 HRD 主动发送流程验收后恢复。",
+          nextAttemptAt: null,
+          status: "dead",
+        });
+        if (!completed) {
+          return;
+        }
+        continue;
+      }
       const result = await dependencies.send({
         address: claimed.recipientAddress,
         audienceType: claimed.audienceType,
         channel: claimed.channel,
+        conversationId: event.conversationId,
+        deliveryId: claimed.id,
         idempotencyKey: claimed.providerRequestKey,
+        interviewRecordId: claimed.recruitingRecordId,
         payload: event.payloadSnapshot,
         providerId: claimed.providerId,
         renderedContent: claimed.renderedContent ?? "",
@@ -217,7 +276,7 @@ async function processInterviewNotificationEventPromise(
     }
   }
 
-  await finalizeEvent(event.id, input.leaseOwner, now, dependencies);
+  await finalizeEvent(event, input.leaseOwner, now, dependencies);
 }
 
 export function processInterviewNotificationEventEffect(

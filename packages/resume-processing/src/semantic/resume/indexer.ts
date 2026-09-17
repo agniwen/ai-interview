@@ -1,6 +1,11 @@
+import {
+  toRecruitingSearchSource,
+  vectorSourceColumn,
+} from "../../internal/lib/resume-semantic/db-source";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "../../database";
-import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@app/db-schema/schema";
+import { resumePoolItem, recruitingSearchIndex } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
 import { getCandidateActivityStatus } from "@app/shared/candidate-pipeline-machine";
@@ -154,19 +159,19 @@ export async function listRecoverableResumeSemanticIndexJobs(
   const config = getResumeSemanticIndexConfig();
   const rows = await db
     .select({
-      organizationId: resumeSemanticIndex.organizationId,
-      sourceId: resumeSemanticIndex.sourceId,
-      sourceType: resumeSemanticIndex.sourceType,
+      organizationId: recruitingSearchIndex.organizationId,
+      sourceId: recruitingSearchIndex.sourceId,
+      sourceType: vectorSourceColumn(recruitingSearchIndex.sourceType),
     })
-    .from(resumeSemanticIndex)
+    .from(recruitingSearchIndex)
     .where(
       and(
-        eq(resumeSemanticIndex.embeddingVersion, config.embeddingVersion),
+        eq(recruitingSearchIndex.embeddingVersion, config.embeddingVersion),
         or(
-          inArray(resumeSemanticIndex.status, ["pending", "failed"]),
+          inArray(recruitingSearchIndex.status, ["pending", "failed"]),
           and(
-            eq(resumeSemanticIndex.sourceType, "job_description"),
-            eq(resumeSemanticIndex.status, "stale"),
+            eq(recruitingSearchIndex.sourceType, "job_description"),
+            eq(recruitingSearchIndex.status, "stale"),
           ),
         ),
       ),
@@ -282,16 +287,16 @@ async function loadResumeSemanticSource(
   if (job.sourceType === "studio_interview") {
     const [row] = await db
       .select({
-        contentHash: studioInterview.resumeContentHash,
-        parseStatus: studioInterview.resumeParseStatus,
-        pipelineStage: studioInterview.pipelineStage,
-        profile: studioInterview.resumeProfile,
+        contentHash: recruitingRecordReadModel.resumeContentHash,
+        parseStatus: recruitingRecordReadModel.resumeParseStatus,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
+        profile: recruitingRecordReadModel.resumeProfile,
       })
-      .from(studioInterview)
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, job.sourceId),
-          eq(studioInterview.organizationId, job.organizationId),
+          eq(recruitingRecordReadModel.id, job.sourceId),
+          eq(recruitingRecordReadModel.organizationId, job.organizationId),
         ),
       )
       .limit(1);
@@ -338,15 +343,15 @@ async function readSemanticIndexState(input: {
 }): Promise<ExistingIndexState | null> {
   const [row] = await db
     .select({
-      profileHash: resumeSemanticIndex.profileHash,
-      status: resumeSemanticIndex.status,
+      profileHash: recruitingSearchIndex.profileHash,
+      status: recruitingSearchIndex.status,
     })
-    .from(resumeSemanticIndex)
+    .from(recruitingSearchIndex)
     .where(
       and(
-        eq(resumeSemanticIndex.sourceType, input.sourceType),
-        eq(resumeSemanticIndex.sourceId, input.sourceId),
-        eq(resumeSemanticIndex.embeddingVersion, input.embeddingVersion),
+        eq(recruitingSearchIndex.sourceType, toRecruitingSearchSource(input.sourceType)),
+        eq(recruitingSearchIndex.sourceId, input.sourceId),
+        eq(recruitingSearchIndex.embeddingVersion, input.embeddingVersion),
       ),
     )
     .limit(1);
@@ -366,7 +371,7 @@ export async function upsertResumeSemanticIndexState(input: {
 }): Promise<void> {
   const now = new Date();
   await db
-    .insert(resumeSemanticIndex)
+    .insert(recruitingSearchIndex)
     .values({
       contentHash: input.contentHash,
       embeddingModel: input.embeddingModel,
@@ -377,7 +382,7 @@ export async function upsertResumeSemanticIndexState(input: {
       organizationId: input.organizationId,
       profileHash: input.profileHash,
       sourceId: input.sourceId,
-      sourceType: input.sourceType,
+      sourceType: toRecruitingSearchSource(input.sourceType),
       status: input.status,
       updatedAt: now,
     })
@@ -392,9 +397,9 @@ export async function upsertResumeSemanticIndexState(input: {
         updatedAt: now,
       },
       target: [
-        resumeSemanticIndex.sourceType,
-        resumeSemanticIndex.sourceId,
-        resumeSemanticIndex.embeddingVersion,
+        recruitingSearchIndex.sourceType,
+        recruitingSearchIndex.sourceId,
+        recruitingSearchIndex.embeddingVersion,
       ],
     });
 }

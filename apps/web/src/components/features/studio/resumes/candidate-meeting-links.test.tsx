@@ -10,6 +10,7 @@ const meeting: MeetingLibraryItem = {
   id: "meeting-79",
   processingState: "ready",
   recordingAvailable: true,
+  recordingType: "voice_recording",
   savedAt: "2026-08-09T10:30:00.000Z",
   title: "候选人沟通会",
   workspaceCustodied: false,
@@ -27,6 +28,6 @@ describe("Candidate Recruiting Record Meeting Sessions", () => {
 
   it("renders an explicit empty state without inventing a recruiting meeting", () => {
     const html = renderToStaticMarkup(<CandidateMeetingLinksView meetings={[]} />);
-    expect(html).toContain("暂无有权限访问的关联 Meeting Session");
+    expect(html).toContain("暂无关联会议");
   });
 });

@@ -9,6 +9,7 @@ import {
 import { useMediaDeviceSelect, useRoomContext } from "@livekit/components-react";
 import { LocalAudioTrack, Track } from "livekit-client";
 import type { Room } from "livekit-client";
+import { cn } from "@app/shared/utils";
 import { useState } from "react";
 import { toast } from "sonner";
 import { runAsyncAction } from "@/lib/client/async-control";
@@ -33,7 +34,7 @@ const voiceEffectOptions = [
 ] satisfies { id: VoiceEffectId; label: string }[];
 
 const deviceButtonClass =
-  "inline-flex h-9 max-w-48 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 max-w-48 items-center gap-2 rounded-md border border-border bg-secondary px-3 text-sm text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60";
 
 function getDeviceLabel(device: MediaDeviceInfo, index: number): string {
   if (device.label) {
@@ -45,7 +46,13 @@ function getDeviceLabel(device: MediaDeviceInfo, index: number): string {
   return `麦克风 ${index + 1}`;
 }
 
-export function MicrophoneDeviceMenu() {
+export function MicrophoneDeviceMenu({
+  className,
+  compactMobile = false,
+}: {
+  className?: string;
+  compactMobile?: boolean;
+}) {
   const { activeDeviceId, devices, setActiveMediaDevice } = useMediaDeviceSelect({
     kind: "audioinput",
     requestPermissions: false,
@@ -68,10 +75,19 @@ export function MicrophoneDeviceMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button className={deviceButtonClass} type="button">
+          <button
+            className={cn(deviceButtonClass, className)}
+            type="button"
+            aria-label={`当前麦克风：${selectedLabel}`}
+          >
             <IconMicrophone className="size-4" />
-            <span className="max-w-36 truncate">{selectedLabel}</span>
-            <IconChevronDown className="size-3.5 opacity-70" />
+            {compactMobile ? <span className="md:hidden">当前麦克风</span> : null}
+            <span className={cn("max-w-36 truncate", compactMobile && "hidden md:inline")}>
+              {selectedLabel}
+            </span>
+            <IconChevronDown
+              className={cn("size-3.5 opacity-70", compactMobile && "hidden md:block")}
+            />
           </button>
         }
       />

@@ -100,6 +100,7 @@ describe("studio interview timestamp input schemas", () => {
         format: "online",
         interviewerIds: ["u_1"],
         label: "一面",
+        roundKind: "second_interview",
         scheduledAt: "2026-06-02T17:30",
       }).success,
     ).toBe(false);
@@ -109,6 +110,7 @@ describe("studio interview timestamp input schemas", () => {
         format: "online",
         interviewerIds: ["u_1"],
         label: "一面",
+        roundKind: "second_interview",
         scheduledAt: "2026-06-02T09:30:00.000Z",
       }).success,
     ).toBe(true);

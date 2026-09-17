@@ -1,3 +1,4 @@
+import { hasEchoProcessing } from "@/lib/client/echo-processing";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
@@ -203,7 +204,13 @@ export function MeetingQuestionsPanel({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (selectedThreadId && question.trim() && !askMutation.isPending && !hasActiveQuestion) {
+    if (
+      hasEchoProcessing() &&
+      selectedThreadId &&
+      question.trim() &&
+      !askMutation.isPending &&
+      !hasActiveQuestion
+    ) {
       askMutation.mutate();
     }
   }
@@ -221,7 +228,7 @@ export function MeetingQuestionsPanel({
         </FrameHeading>
         <Button
           className="shrink-0"
-          disabled={createMutation.isPending}
+          disabled={!hasEchoProcessing() || createMutation.isPending}
           onClick={() => createMutation.mutate()}
           size="sm"
           type="button"

@@ -236,10 +236,17 @@ export const interviewReportEvaluationAgent = new Agent({
   name: "InterviewReportEvaluationAgent",
 });
 
+export const meetingSummaryAgent = new Agent({
+  id: "meeting-summary-fast",
+  instructions: "根据提供的字幕整理有证据的事实和未明确问题。不得推测或自动作出招聘决策。",
+  model: withThinkingDisabled(mastraModels.fastModel),
+  name: "Meeting Summary",
+});
+
 export const meetingIntelligenceAgent = new Agent({
   id: "meeting-intelligence-agent",
   instructions:
-    "你是 Meeting Buddy 的会议信息整理助手，只能根据带稳定 turn ID 的转录生成结构化结果，并为每条事实保留原文证据。",
+    "你是 Echo 的会议信息整理助手，只能根据带稳定 turn ID 的转录生成结构化结果，并为每条事实保留原文证据。",
   maxRetries: 1,
   model: withThinkingDisabled(mastraModels.structuredModel),
   name: "MeetingIntelligenceAgent",
@@ -257,7 +264,7 @@ export const meetingIntelligenceDecisionPolicyAgent = new Agent({
 export const meetingAnswerAgent = new Agent({
   id: "meeting-answer-agent",
   instructions:
-    "你是 Meeting Buddy 的单会议问答助手。只能使用本次请求提供的当前会议资料；事实回答必须引用输入中的稳定 transcript turn ID，证据不足时明确返回 insufficient-evidence。",
+    "你是 Echo 的单会议问答助手。只能使用本次请求提供的当前会议资料；事实回答必须引用输入中的稳定 transcript turn ID，证据不足时明确返回 insufficient-evidence。",
   maxRetries: 1,
   model: withThinkingDisabled(mastraModels.structuredModel),
   name: "MeetingAnswerAgent",
@@ -266,7 +273,7 @@ export const meetingAnswerAgent = new Agent({
 export const humanInterviewEvaluationAgent = new Agent({
   id: "human-interview-evaluation-agent",
   instructions:
-    "你是真人面试评价助手。只根据完整面试转录、岗位 JD 与候选人简历生成可由面试官复核的结构化 SABC 评价，并保留稳定转录证据 ID。",
+    "你是真人面试评价助手。只根据完整面试转录、岗位 JD、岗位内部标准与候选人简历生成可由面试官复核的结构化 SABC 评价，并保留稳定转录证据 ID。",
   maxRetries: 1,
   model: withThinkingDisabled(mastraModels.structuredModel),
   name: "HumanInterviewEvaluationAgent",

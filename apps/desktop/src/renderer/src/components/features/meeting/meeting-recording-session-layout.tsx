@@ -13,18 +13,22 @@ export function MeetingRecordingSessionLayout({
   composer,
   composerClassName,
   header,
+  toolbar,
   main,
   className,
   overlay,
   scrollFade,
+  scrollable = true,
 }: {
   composer?: ReactNode;
   composerClassName?: string;
   header?: ReactNode;
+  toolbar?: ReactNode;
   main: ReactNode;
   className?: string;
   overlay?: ReactNode;
   scrollFade?: boolean;
+  scrollable?: boolean;
 }) {
   return (
     <div
@@ -41,15 +45,22 @@ export function MeetingRecordingSessionLayout({
           {header}
         </div>
       ) : null}
-      <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade={scrollFade}>
-        <div
-          className="box-border h-full min-h-full"
-          data-slot="meeting-session-scroll-content"
-          style={{ paddingTop: header ? undefined : MEETING_SESSION_TOP_INSET_PX }}
-        >
+      {toolbar}
+      {scrollable ? (
+        <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade={scrollFade}>
+          <div
+            className="box-border h-full min-h-full"
+            data-slot="meeting-session-scroll-content"
+            style={{ paddingTop: header ? undefined : MEETING_SESSION_TOP_INSET_PX }}
+          >
+            {main}
+          </div>
+        </ScrollArea>
+      ) : (
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden" data-slot="meeting-session-canvas">
           {main}
         </div>
-      </ScrollArea>
+      )}
       {composer ? (
         <div
           className="shrink-0 bg-background px-4 pt-2 pb-5 sm:px-6"

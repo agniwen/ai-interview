@@ -1,5 +1,6 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { studioInterview } from "@app/db-schema/schema";
+
 import { db } from "../../lib/server/db/index";
 import { labelKey } from "./labels";
 import type { PositiveLabel } from "./types";
@@ -28,17 +29,17 @@ export function isMinedPositive(row: {
 export async function mineLabels(organizationId: string): Promise<PositiveLabel[]> {
   const rows = await db
     .select({
-      closedMeta: studioInterview.closedMeta,
-      id: studioInterview.id,
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
+      closedMeta: recruitingRecordReadModel.closedMeta,
+      id: recruitingRecordReadModel.id,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        isNotNull(studioInterview.jobDescriptionId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        isNotNull(recruitingRecordReadModel.jobDescriptionId),
       ),
     );
   return rows.flatMap((row) => {
@@ -65,13 +66,16 @@ export async function mineLabels(organizationId: string): Promise<PositiveLabel[
 
 export async function loadValidLabelKeys(organizationId: string): Promise<Set<string>> {
   const rows = await db
-    .select({ id: studioInterview.id, jobDescriptionId: studioInterview.jobDescriptionId })
-    .from(studioInterview)
+    .select({
+      id: recruitingRecordReadModel.id,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+    })
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
-        isNotNull(studioInterview.jobDescriptionId),
-        eq(studioInterview.resumeParseStatus, "ready"),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+        isNotNull(recruitingRecordReadModel.jobDescriptionId),
+        eq(recruitingRecordReadModel.resumeParseStatus, "ready"),
       ),
     );
   const keys = new Set<string>();

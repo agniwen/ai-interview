@@ -24,10 +24,7 @@ import {
   focusJobDescriptionBasicTabOnInvalidSubmit,
   toDepartmentScopedFormValues,
 } from "./job-description-form-values";
-import type {
-  JobDescriptionFormTab,
-  JobDescriptionSubmitAction,
-} from "./job-description-form-values";
+import type { JobDescriptionFormTab } from "./job-description-form-values";
 import {
   LinkedFormsList,
   LinkedInterviewQuestionTemplatesList,
@@ -65,9 +62,7 @@ export function JobDescriptionFormDialog({
     suggestedName: string;
     supplementedItems: JobDescriptionSupplementedItem[];
   } | null>(null);
-  const submitRef = useRef<
-    ((value: JobDescriptionFormValues, action: JobDescriptionSubmitAction) => Promise<void>) | null
-  >(null);
+  const submitRef = useRef<((value: JobDescriptionFormValues) => Promise<void>) | null>(null);
   const resolvedInitialValues = useMemo(
     () =>
       record
@@ -77,10 +72,9 @@ export function JobDescriptionFormDialog({
   );
   const form = useForm({
     defaultValues: resolvedInitialValues,
-    onSubmit: ({ meta, value }) => submitRef.current?.(value, meta.action),
+    onSubmit: ({ value }) => submitRef.current?.(value),
     onSubmitInvalid: ({ formApi }) =>
       focusJobDescriptionBasicTabOnInvalidSubmit(formApi.store.state.fieldMeta, setActiveTab),
-    onSubmitMeta: { action: "save" as const },
     validators: { onSubmit: jobDescriptionFormSchema },
   });
   const actions = useJobDescriptionFormActions({
@@ -107,6 +101,25 @@ export function JobDescriptionFormDialog({
       setPendingGeneratedJobDescription(null);
     }
   }, [form, open, resolvedInitialValues]);
+
+  const { data: workspaceMembers } = useQuery({
+    enabled: open,
+    queryFn: () =>
+      rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
+        "加载工作区成员失败",
+      ),
+    queryKey: ["workspace-members", slug],
+    staleTime: 60_000,
+  });
+  const reportingManagerOptions = useMemo(
+    () =>
+      (workspaceMembers?.records ?? []).map((member) => ({
+        label: member.name,
+        value: member.id,
+      })),
+    [workspaceMembers?.records],
+  );
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && !!record?.id,
@@ -174,7 +187,7 @@ export function JobDescriptionFormDialog({
     >
       <Modal
         bodyClassName="px-5 py-3"
-        description="岗位 JD 是 AI 评价的唯一岗位要求来源；内容较少时仍可保存，但建议写清职责和核心要求。"
+        description="岗位 JD 用于描述职责和核心要求；内部标准可补充仅供招聘端使用的评价依据。"
         footer={
           <>
             <Button
@@ -230,6 +243,7 @@ export function JobDescriptionFormDialog({
                 interviewers={interviewers}
                 interviewerOptions={interviewerOptions}
                 isGeneratingCode={actions.isGeneratingCode}
+                reportingManagerOptions={reportingManagerOptions}
                 selectedDepartmentId={selectedDepartmentId}
                 selectedInterviewerIds={selectedInterviewerIds}
               />

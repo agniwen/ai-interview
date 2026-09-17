@@ -1,3 +1,4 @@
+import { meetingRecordingType } from "./recording-type";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
@@ -6,7 +7,7 @@ import {
   meetingAuditLog,
   meetingRecordingAsset,
   meetingProcessingRun,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSession,
   meetingTranscriptRevision,
   meetingTranscriptTurn,
@@ -104,6 +105,7 @@ export async function markMeetingSessionVerified(input: {
         activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
         liveTranscriptDraft: meetingSession.liveTranscriptDraft,
         manifestSha256: meetingSession.manifestSha256,
+        processingOwner: meetingSession.processingOwner,
         startedAt: meetingSession.startedAt,
       })
       .from(meetingSession)
@@ -126,7 +128,12 @@ export async function markMeetingSessionVerified(input: {
     let promotedRevisionId: string | null = null;
     const draft = meetingLiveTranscriptDraftSchema.safeParse(meeting.liveTranscriptDraft);
     let unusableDeepgramDraft = false;
-    if (draft.success && draft.data.provider === "deepgram" && draft.data.model) {
+    if (
+      meeting.processingOwner === "worker" &&
+      draft.success &&
+      draft.data.provider === "deepgram" &&
+      draft.data.model
+    ) {
       const [existing] = await tx
         .select({ id: meetingTranscriptRevision.id })
         .from(meetingTranscriptRevision)
@@ -286,6 +293,7 @@ export async function listMeetingSessionsForAccess(input: {
       grantRole: meetingAccessGrant.role,
       id: meetingSession.id,
       recordingAvailable: sql<boolean>`coalesce(bool_or(${meetingRecordingAsset.track} = 'playback' and ${meetingRecordingAsset.status} = 'ready'), false)`,
+      recordingType: meetingRecordingType,
       savedAt: meetingSession.savedAt,
       status: meetingSession.status,
       title: meetingSession.title,
@@ -308,18 +316,19 @@ export async function listMeetingSessionsForAccess(input: {
       ),
     )
     .leftJoin(
-      meetingRecruitingContext,
+      recruitingMeetingContext,
       and(
-        eq(meetingRecruitingContext.meetingId, meetingSession.id),
-        eq(meetingRecruitingContext.organizationId, input.organizationId),
+        eq(recruitingMeetingContext.meetingId, meetingSession.id),
+        eq(recruitingMeetingContext.organizationId, input.organizationId),
       ),
     )
     .where(
       and(
         access,
+        eq(meetingRecordingType, "voice_recording"),
         inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
         input.recruitingRecordId
-          ? eq(meetingRecruitingContext.recruitingRecordId, input.recruitingRecordId)
+          ? eq(recruitingMeetingContext.recruitingRecordId, input.recruitingRecordId)
           : undefined,
       ),
     )
@@ -353,6 +362,7 @@ export async function loadMeetingSessionForAccess(input: {
   const [authorized] = await db
     .select({
       grantRole: meetingAccessGrant.role,
+      recordingType: meetingRecordingType,
       workspaceCustodied: sql<boolean>`not exists (
         select 1 from ${member}
         where ${member.organizationId} = ${meetingSession.organizationId}
@@ -398,6 +408,7 @@ export async function loadMeetingSessionForAccess(input: {
     ? {
         ...meeting,
         accessGrantRole: parseMeetingGrantRole(authorized.grantRole),
+        recordingType: authorized.recordingType,
         workspaceCustodied: authorized.workspaceCustodied,
       }
     : null;

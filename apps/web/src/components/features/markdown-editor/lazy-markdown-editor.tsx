@@ -14,7 +14,8 @@ function MarkdownEditorFallback({
   className,
   height,
   minHeight = 240,
-}: Pick<MarkdownEditorProps, "className" | "height" | "minHeight">) {
+  toolbarMode = "always",
+}: Pick<MarkdownEditorProps, "className" | "height" | "minHeight" | "toolbarMode">) {
   return (
     <output
       aria-busy="true"
@@ -22,10 +23,12 @@ function MarkdownEditorFallback({
       className={cn("flex flex-col overflow-hidden rounded-md border bg-background", className)}
       style={{ height, minHeight }}
     >
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
-        <Skeleton className="h-5 w-16" />
-        <Skeleton className="h-5 w-20" />
-      </div>
+      {toolbarMode === "always" ? (
+        <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+      ) : null}
       <div className="space-y-3 p-3">
         <Skeleton className="h-4 w-4/5" />
         <Skeleton className="h-4 w-3/5" />

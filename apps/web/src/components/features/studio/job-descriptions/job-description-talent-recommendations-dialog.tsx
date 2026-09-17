@@ -90,12 +90,12 @@ function CandidateHighlight({
   label: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border-muted/60 border bg-muted/30 px-2.5 py-2">
+    <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>
       </div>
-      <div className="mt-1 whitespace-pre-wrap wrap-break-word text-foreground leading-5">
+      <div className="whitespace-pre-wrap wrap-break-word text-foreground leading-5">
         {children}
       </div>
     </div>
@@ -118,7 +118,10 @@ function CandidateEducationHighlight({
         <ul className="flex flex-col gap-1">
           {educationItems.map((item) => (
             <li key={`${item.level ?? "education"}-${item.school}-${item.major ?? ""}`}>
-              <ResumeEducationDisplayLine item={item} />
+              <ResumeEducationDisplayLine
+                className="[&_[data-slot=badge]]:px-1.5 [&_[data-slot=badge]]:py-0"
+                item={item}
+              />
             </li>
           ))}
         </ul>
@@ -135,13 +138,13 @@ function CandidateRecommendationReasons({
   reasons: JobDescriptionTalentRecommendation["reasons"];
 }) {
   return (
-    <div className="min-w-0 rounded-md border-muted/60 border bg-background px-3 py-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <IconUserCheck className="size-3.5 shrink-0" />
         <span className="text-xs">推荐理由</span>
       </div>
       {reasons.length > 0 ? (
-        <ul className="mt-2 flex min-w-0 flex-col gap-1.5 text-xs leading-5">
+        <ul className="flex min-w-0 flex-col gap-1.5 text-xs leading-5">
           {reasons.map((reason) => (
             <li className="flex min-w-0 gap-2" key={reason}>
               <span className="mt-2 size-1 shrink-0 rounded-full bg-primary/70" />
@@ -150,7 +153,7 @@ function CandidateRecommendationReasons({
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-muted-foreground text-xs leading-5">暂无明确推荐理由</p>
+        <p className="text-muted-foreground text-xs leading-5">暂无明确推荐理由</p>
       )}
     </div>
   );
@@ -208,7 +211,7 @@ function CandidateRecommendationCard({
               </div>
             </div>
 
-            <div className="flex px-3 flex-col gap-1.5 border-border/70 border-t pt-3">
+            <div className="flex flex-col gap-3 border-border/70 border-t px-4 pt-3">
               <CandidateEducationHighlight candidate={candidate} />
               {candidate.profileHighlights.latestCompany ? (
                 <CandidateHighlight icon={IconBuilding} label="最近公司">
@@ -223,7 +226,7 @@ function CandidateRecommendationCard({
             </div>
 
             {skills.length > 0 ? (
-              <div className="flex px-3 flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 px-4">
                 {skills.map((skill) => (
                   <Badge className="min-w-0 max-w-full truncate" key={skill} variant="outline">
                     {skill}
@@ -233,7 +236,7 @@ function CandidateRecommendationCard({
             ) : null}
 
             {note ? (
-              <p className="line-clamp-3 px-3 wrap-break-word text-muted-foreground leading-5">
+              <p className="line-clamp-3 px-4 wrap-break-word text-muted-foreground leading-5">
                 {note}
               </p>
             ) : null}

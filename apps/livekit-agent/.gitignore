@@ -31,3 +31,6 @@ KMS
 
 # GitHub CLI
 .github/personal-instructions.md
+
+# Undelivered private interview reports
+.data/

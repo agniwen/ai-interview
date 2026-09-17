@@ -27,6 +27,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from livekit import api as lkapi_module
@@ -53,7 +54,8 @@ from livekit.plugins import (
 )
 
 import aliyun_stt
-from agent_config import resolve_agent_name, resolve_self_hosted
+import qwen_realtime
+from agent_config import resolve_agent_name, resolve_self_hosted, resolve_voice_mode
 from dispatch_context import (
     DispatchContextError,
     InterviewDispatchContext,
@@ -66,11 +68,13 @@ from interview_clock import (
     PausableInterviewClock,
 )
 from interview_question_task import InterviewQuestionOutcome
+from realtime_interview_agent import RealtimeInterviewAgent
 from recording import (
     start_room_recording,
     stop_recording,
 )
 from report import send_question_checkpoint, send_report
+from report_outbox import report_recovery_process
 from sentry_setup import initialize_sentry
 from transcript_replay import replay_turns_to
 
@@ -199,6 +203,7 @@ class SessionState:
     recording_info: dict[str, Any]
     started_at: float
     clock: PausableInterviewClock
+    agent_session_id: str = field(default_factory=lambda: str(uuid4()))
     turns: list[dict[str, Any]] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=_empty_metrics_state)
     close_reason: CloseReason | None = None
@@ -215,7 +220,7 @@ class SessionState:
     # doesn't garbage-collect it mid-flight.
     eager_stop_task: asyncio.Task[None] | None = None
     checkpoint_tasks: set[asyncio.Task[None]] = field(default_factory=set)
-    interview_agent: InterviewAgent | None = None
+    interview_agent: InterviewAgent | RealtimeInterviewAgent | None = None
     completion_status: str | None = None
 
 
@@ -249,6 +254,8 @@ def prewarm(proc: JobProcess) -> None:
         saw deceptively "complete" text and either responded too fast or chained
         broken sentences into long user turns.
     """
+    if resolve_voice_mode() == "realtime":
+        return
     proc.userdata["vad"] = inference.VAD(
         model="silero",
         activation_threshold=0.5,
@@ -300,6 +307,13 @@ def _build_session(
     专注于生命周期编排, 不再淹没在长字面量参数里. 注意 stt/llm/tts 的具体
     参数若要调整, 务必参考 https://docs.livekit.io/agents/ 的最新签名.
     """
+    if resolve_voice_mode() == "realtime":
+        return AgentSession(
+            llm=qwen_realtime.RealtimeModel.from_env(),
+            max_tool_steps=8,
+            userdata=state,
+            turn_handling={"turn_detection": "realtime_llm"},
+        )
     return AgentSession(
         stt=aliyun_stt.STT(
             language="zh",
@@ -596,6 +610,7 @@ async def _on_session_end(ctx: JobContext) -> None:
             metrics=state.metrics,
             data_collection_results=data_collection_results,
             livekit_close_reason=livekit_close_reason,
+            agent_session_id=state.agent_session_id,
         ),
         _stop_recording_best_effort(state.lkapi, recording_info, state.eager_stop_task),
     )
@@ -609,6 +624,19 @@ async def _on_session_end(ctx: JobContext) -> None:
 # --------------------------------------------------------------------------- #
 # 入口协程 / Entrypoint coroutine
 # --------------------------------------------------------------------------- #
+
+
+def _shutdown_failed_session(ctx: JobContext) -> None:
+    """A closed provider session must also release the job and candidate room."""
+
+    async def delete_failed_room() -> None:
+        try:
+            await ctx.delete_room()
+        except Exception:
+            logger.exception("failed to delete room after provider failure")
+
+    ctx.add_shutdown_callback(delete_failed_room)
+    ctx.shutdown(reason="system_shutdown")
 
 
 @server.rtc_session(agent_name=AGENT_NAME, on_session_end=_on_session_end)
@@ -682,6 +710,12 @@ async def my_agent(ctx: JobContext) -> None:
     # ---- 2) 装配 session + 监听 --------------------------------------------
     # ---- 2) Build session + register listeners
     session = _build_session(proc=ctx.proc, selected_voice=selected_voice, state=state)
+    # Startup itself can emit close(error), before any timer has been created.
+    timeout_task: asyncio.Task[None] | None = None
+    final_wrap_task: asyncio.Task[None] | None = None
+    kill_task: asyncio.Task[None] | None = None
+    grace_task: asyncio.Task[None] | None = None
+    resume_task: asyncio.Task[None] | None = None
 
     # session.on(...) 注册的回调由框架同步派发, 不能是 async def. 需要做异步
     # 动作时在回调里 asyncio.create_task 起后台 task 并把引用挂到 state 上避免
@@ -728,6 +762,9 @@ async def my_agent(ctx: JobContext) -> None:
         # don't keep recording an empty room while framework drains internally.
         state.ended_at = time.time()
         state.close_reason = event.reason
+        if event.reason == CloseReason.ERROR:
+            state.business_close_reason = "system_shutdown"
+            _shutdown_failed_session(ctx)
         logger.info(
             "session closed: reason=%s, turns=%d",
             event.reason.value if event.reason else "unknown",
@@ -760,12 +797,16 @@ async def my_agent(ctx: JobContext) -> None:
                 interview_record_id=interview_context.session.interview_record_id,
                 schedule_entry_id=interview_context.session.round_id,
                 outcome=outcome.to_payload(),
+                agent_session_id=state.agent_session_id,
             )
         )
         state.checkpoint_tasks.add(task)
         task.add_done_callback(state.checkpoint_tasks.discard)
 
-    interview_agent = InterviewAgent(
+    agent_type = (
+        RealtimeInterviewAgent if resolve_voice_mode() == "realtime" else InterviewAgent
+    )
+    interview_agent = agent_type(
         interview_context,
         clock=clock,
         on_question_completed=_on_question_completed,
@@ -781,6 +822,8 @@ async def my_agent(ctx: JobContext) -> None:
             allow_text_input=interview_context.session.allow_text_input
         ),
     )
+    if state.close_reason is not None:
+        return
 
     # ---- 4) Active-time timers + hot reconnect ------------------------------
 
@@ -789,13 +832,6 @@ async def my_agent(ctx: JobContext) -> None:
     # Idempotency guard for _finalize_via_shutdown — multiple fallback paths
     # can race and ctx.shutdown is not safe to call twice.
     shutdown_initiated = False
-    timeout_task: asyncio.Task[None] | None = None
-    final_wrap_task: asyncio.Task[None] | None = None
-    kill_task: asyncio.Task[None] | None = None
-    grace_task: asyncio.Task[None] | None = None
-    # Post-reconnect resume task (replay history + welcome line). Hold the
-    # ref to keep asyncio's weakref registry from GCing it mid-flight.
-    resume_task: asyncio.Task[None] | None = None
 
     async def _finalize_via_shutdown(reason: str) -> None:
         """走 LiveKit 框架完整 shutdown 序列, 触发 on_session_end.
@@ -845,20 +881,10 @@ async def my_agent(ctx: JobContext) -> None:
     async def _say_fixed_cue(
         text: str, *, allow_interruptions: bool, playout_timeout: float
     ) -> None:
-        """绕过 LLM 直接 TTS 播一句固定话术 + 抢占 pipeline + 超时兜底.
+        """Speak a bounded system cue through the selected voice mode.
 
-        Speak a fixed cue via TTS (no LLM call), pre-empting any in-flight
-        pipeline work and bounding the playout window.
-
-        Why bypass LLM: 兜底路径需要"100% 可控"的告别词. generate_reply 的
-        instructions 会被注入 role="system", 在压缩时间线 + 多个 system
-        overlay 叠加下, fast LLM 容易角色错乱回成候选人. 固定字面话术杜绝
-        漂移; bounded wait 防止 TTS 卡死时连带阻塞 shutdown.
-
-        Fallback paths need a 100% controllable goodbye. Generate_reply's
-        instructions land as role="system" and a fast LLM under context
-        pressure can flip into the candidate role; literal say() avoids the
-        LLM. Bounded wait keeps a hung TTS from blocking shutdown.
+        Pipeline mode uses literal TTS. Realtime mode generates a short cue
+        with tools disabled; the same timeout bounds both shutdown paths.
         """
         # 1) 抢占 pipeline: 打断进行中的 agent 语音, 清空 user turn 缓冲.
         #    否则 say() 会被 enqueue 到下一个 turn, 实测可能永远播不到.
@@ -874,7 +900,15 @@ async def my_agent(ctx: JobContext) -> None:
             logger.exception("session.clear_user_turn() before fixed cue failed")
 
         try:
-            handle = session.say(text, allow_interruptions=allow_interruptions)
+            handle = (
+                session.generate_reply(
+                    instructions=f"系统通知：请用面试官身份简短表达以下内容，不要继续提问：{text}",
+                    allow_interruptions=allow_interruptions,
+                    tool_choice="none",
+                )
+                if resolve_voice_mode() == "realtime"
+                else session.say(text, allow_interruptions=allow_interruptions)
+            )
             await asyncio.wait_for(handle.wait_for_playout(), timeout=playout_timeout)
         except asyncio.TimeoutError:
             logger.warning(
@@ -981,7 +1015,7 @@ async def my_agent(ctx: JobContext) -> None:
 
     def _on_participant_disconnected(p: rtc.RemoteParticipant) -> None:
         nonlocal grace_task
-        if p.identity != candidate_identity:
+        if p.identity != candidate_identity or _session_already_closing():
             return
         if grace_task is not None and not grace_task.done():
             return
@@ -1028,26 +1062,29 @@ async def my_agent(ctx: JobContext) -> None:
             )
         except Exception:
             logger.exception("transcript replay coroutine failed")
-        # 用 say() 直接 TTS, 不走 generate_reply: 小模型 (Qwen-turbo /
-        # deepseek-v4-flash-0731 等) 会把"候选人刚才因网络问题短暂离线"这种元指令
-        # 当成候选人在反思, 进而切换到候选人口吻. say() 跳过 LLM 杜绝漂移.
-        # Bypass LLM-driven greet: small models misread the meta-instruction
-        # as the candidate's own utterance and flip role.
-        try:
-            session.say(
-                _build_reconnect_message(
-                    has_active_question=(
-                        interview_agent.current_question_text is not None
-                    )
-                ),
-                allow_interruptions=True,
-            )
-        except Exception:
-            logger.exception("re-greeting after reconnect failed")
+        # Realtime retains the same agent and Qwen history. Replaying the
+        # transcript is enough: generating again would answer the previous
+        # user turn twice. Wait for the candidate to continue naturally.
+        if resolve_voice_mode() == "pipeline":
+            try:
+                session.say(
+                    _build_reconnect_message(
+                        has_active_question=(
+                            interview_agent.current_question_text is not None
+                        )
+                    ),
+                    allow_interruptions=True,
+                )
+            except Exception:
+                logger.exception("re-greeting after reconnect failed")
 
     def _on_participant_connected(p: rtc.RemoteParticipant) -> None:
         nonlocal grace_task, resume_task
-        if p.identity != candidate_identity or grace_task is None:
+        if (
+            p.identity != candidate_identity
+            or grace_task is None
+            or _session_already_closing()
+        ):
             return
         logger.info("candidate %s reconnected; cancelling grace", p.identity)
         grace_task.cancel()
@@ -1060,4 +1097,5 @@ async def my_agent(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
-    cli.run_app(server)
+    with report_recovery_process():
+        cli.run_app(server)

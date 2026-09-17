@@ -6,6 +6,7 @@ import {
   filterInterviewerIdsByDepartment,
   getDepartmentSyncedInterviewerSelection,
 } from "@app/shared/job-description-interviewers";
+import { DatePicker } from "@/components/date-time-picker";
 import {
   Field,
   FieldContent,
@@ -42,6 +43,7 @@ export function JobDescriptionBasicSettingsFields({
   interviewers,
   interviewerOptions,
   isGeneratingCode,
+  reportingManagerOptions,
   selectedDepartmentId,
   selectedInterviewerIds,
 }: {
@@ -54,6 +56,7 @@ export function JobDescriptionBasicSettingsFields({
   interviewers: InterviewerListRecord[];
   interviewerOptions: { label: string; value: string }[];
   isGeneratingCode: boolean;
+  reportingManagerOptions: { label: string; value: string }[];
   selectedDepartmentId: string;
   selectedInterviewerIds: string[];
 }) {
@@ -262,7 +265,7 @@ export function JobDescriptionBasicSettingsFields({
                     field.handleChange(synced.interviewerIds);
                   }}
                   options={interviewerOptions}
-                  placeholder="选择面试官…"
+                  placeholder="选择面试官"
                   searchPlaceholder="搜索面试官…"
                   selectedFormat={(count) => `已选 ${count} 位面试官`}
                   selectedPreviewLimit={3}
@@ -274,6 +277,217 @@ export function JobDescriptionBasicSettingsFields({
           );
         }}
       </form.Field>
+
+      <form.Field name="reportingManagerUserId">
+        {(field) => (
+          <Field className={JOB_SETTING_FIELD_CLASS} orientation="responsive">
+            <FieldContent className="min-w-0 gap-0.5">
+              <FieldLabel htmlFor={field.name}>汇报上级</FieldLabel>
+              <FieldDescription className="text-xs leading-relaxed">
+                选择该岗位的直属汇报对象，可不填。
+              </FieldDescription>
+            </FieldContent>
+            <div className={JOB_SETTING_CONTROL_CLASS}>
+              <SearchableSelect
+                emptyMessage="没有匹配的成员"
+                id={field.name}
+                onChange={(value) => field.handleChange(value)}
+                options={reportingManagerOptions}
+                placeholder="选择汇报上级"
+                searchPlaceholder="搜索成员…"
+                value={field.state.value}
+              />
+            </div>
+          </Field>
+        )}
+      </form.Field>
+
+      <div className="space-y-4 px-3.5 py-4">
+        <div>
+          <p className="font-medium text-sm">薪资与需求</p>
+          <p className="mt-1 text-muted-foreground text-xs">薪资单位为 K，用于组成岗位薪资区间。</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <form.Field name="salaryMinK">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                  <FieldLabel htmlFor={field.name}>薪资下限（K）</FieldLabel>
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    inputMode="decimal"
+                    min="0"
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value || null)}
+                    placeholder="如：20"
+                    step="0.01"
+                    type="number"
+                    value={field.state.value ?? ""}
+                  />
+                  <FieldError errors={errors} />
+                </Field>
+              );
+            }}
+          </form.Field>
+          <form.Field name="salaryMaxK">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                  <FieldLabel htmlFor={field.name}>薪资上限（K）</FieldLabel>
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    inputMode="decimal"
+                    min="0"
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value || null)}
+                    placeholder="如：35"
+                    step="0.01"
+                    type="number"
+                    value={field.state.value ?? ""}
+                  />
+                  <FieldError errors={errors} />
+                </Field>
+              );
+            }}
+          </form.Field>
+          <form.Field name="headcount">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                  <FieldLabel htmlFor={field.name}>招聘人数</FieldLabel>
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    min="1"
+                    onBlur={field.handleBlur}
+                    onChange={(event) =>
+                      field.handleChange(event.target.value ? Number(event.target.value) : null)
+                    }
+                    placeholder="如：2"
+                    step="1"
+                    type="number"
+                    value={field.state.value ?? ""}
+                  />
+                  <FieldError errors={errors} />
+                </Field>
+              );
+            }}
+          </form.Field>
+          <form.Field name="jobWeight">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                  <FieldLabel htmlFor={field.name}>岗位权重（两位小数）</FieldLabel>
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    inputMode="decimal"
+                    min="0.01"
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value || null)}
+                    placeholder="默认 1.00"
+                    step="0.01"
+                    type="number"
+                    value={field.state.value ?? ""}
+                  />
+                  <FieldError errors={errors} />
+                </Field>
+              );
+            }}
+          </form.Field>
+        </div>
+      </div>
+
+      <div className="space-y-4 px-3.5 py-4">
+        <div>
+          <p className="font-medium text-sm">招聘设置</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            设置当前岗位的招聘节奏和主要推荐渠道。
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <form.Field name="priority">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor={field.name}>优先级</FieldLabel>
+                <SearchableSelect
+                  id={field.name}
+                  onChange={(value) =>
+                    field.handleChange(
+                      value === "high" || value === "low" || value === "medium" ? value : "medium",
+                    )
+                  }
+                  options={[
+                    { label: "高", value: "high" },
+                    { label: "中", value: "medium" },
+                    { label: "低", value: "low" },
+                  ]}
+                  placeholder="选择优先级"
+                  value={field.state.value}
+                />
+                <FieldDescription className="text-xs leading-relaxed">
+                  标记当前岗位的招聘优先程度。
+                </FieldDescription>
+              </Field>
+            )}
+          </form.Field>
+          <form.Field name="targetDate">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor={field.name}>目标日期</FieldLabel>
+                <DatePicker
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onValueChange={(value) => field.handleChange(value || null)}
+                  value={field.state.value ?? ""}
+                />
+              </Field>
+            )}
+          </form.Field>
+          <form.Field name="publishedDate">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor={field.name}>发布日期</FieldLabel>
+                <DatePicker
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onValueChange={(value) => field.handleChange(value || null)}
+                  value={field.state.value ?? ""}
+                />
+              </Field>
+            )}
+          </form.Field>
+          <form.Field name="referralChannels">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field
+                  className="md:col-span-2"
+                  data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                >
+                  <FieldLabel htmlFor={field.name}>简历推荐渠道</FieldLabel>
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    maxLength={500}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="如：内推、技术招聘群、猎头"
+                    value={field.state.value ?? ""}
+                  />
+                  <FieldError errors={errors} />
+                </Field>
+              );
+            }}
+          </form.Field>
+        </div>
+      </div>
     </div>
   );
 }

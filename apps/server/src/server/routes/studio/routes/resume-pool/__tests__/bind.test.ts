@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- binding, auto-match, HR-race, and import scenarios share one database fixture. */
 // POST /:id/bind 集成测试（直接连接真实 PG 数据库，不 mock db/dao）。
 // Integration tests for the bind endpoint — hit the real Postgres dev database
@@ -16,12 +18,11 @@ import {
   resumeEvaluationVersion,
   resumePoolEvent,
   resumePoolItem,
-  resumeJobMatchCandidate,
-  resumeJobMatchRun,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
-  studioInterviewSchedule,
+  recruitingJobMatchCandidate,
+  recruitingJobMatchRun,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
@@ -162,7 +163,7 @@ async function seedPoolItem(overrides: {
 async function seedMailMatchBatch(poolItemId: string, requested: boolean): Promise<string> {
   const batchId = crypto.randomUUID();
   const batchItemId = crypto.randomUUID();
-  await db.insert(resumeUploadBatch).values({
+  await db.insert(recruitingUploadBatch).values({
     createdAt: NOW,
     createdBy: USER_A,
     dedupPolicy: "skip",
@@ -177,7 +178,7 @@ async function seedMailMatchBatch(poolItemId: string, requested: boolean): Promi
     totalCount: 1,
     updatedAt: NOW,
   });
-  await db.insert(resumeUploadBatchItem).values({
+  await db.insert(recruitingUploadBatchItem).values({
     batchId,
     fileSize: 100,
     id: batchItemId,
@@ -255,8 +256,8 @@ async function cleanup() {
     organizationIds: [ORG_A, ORG_B],
     userIds: [USER_A, USER_B],
   });
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_B));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
@@ -528,8 +529,8 @@ describe("new mail resume automatic job matching", () => {
     expect(detail?.jobBindingMode).toBe("automatic");
     const [run] = await db
       .select()
-      .from(resumeJobMatchRun)
-      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+      .from(recruitingJobMatchRun)
+      .where(eq(recruitingJobMatchRun.poolItemId, poolItemId));
     expect(run).toMatchObject({
       model: expect.any(String),
       promptVersion: "mail-resume-job-rerank-v1",
@@ -539,8 +540,8 @@ describe("new mail resume automatic job matching", () => {
     });
     const candidates = await db
       .select()
-      .from(resumeJobMatchCandidate)
-      .where(eq(resumeJobMatchCandidate.runId, run?.id ?? "missing"));
+      .from(recruitingJobMatchCandidate)
+      .where(eq(recruitingJobMatchCandidate.runId, run?.id ?? "missing"));
     expect(candidates).toHaveLength(2);
     expect(candidates).toEqual(
       expect.arrayContaining([
@@ -585,8 +586,8 @@ describe("new mail resume automatic job matching", () => {
     expect(dependencies.rankCandidates).not.toHaveBeenCalled();
     const [run] = await db
       .select()
-      .from(resumeJobMatchRun)
-      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+      .from(recruitingJobMatchRun)
+      .where(eq(recruitingJobMatchRun.poolItemId, poolItemId));
     expect(run).toMatchObject({
       model: null,
       promptVersion: null,
@@ -640,8 +641,8 @@ describe("new mail resume automatic job matching", () => {
     expect(result).toEqual({ handled: true, jobDescriptionId: JD_A_REPLACEMENT });
     const [run] = await db
       .select()
-      .from(resumeJobMatchRun)
-      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+      .from(recruitingJobMatchRun)
+      .where(eq(recruitingJobMatchRun.poolItemId, poolItemId));
     expect(run).toMatchObject({
       model: expect.any(String),
       promptVersion: "mail-resume-job-rerank-v1",
@@ -678,8 +679,8 @@ describe("new mail resume automatic job matching", () => {
     expect(dependencies.listPublishedJobs).not.toHaveBeenCalled();
     const runs = await db
       .select()
-      .from(resumeJobMatchRun)
-      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+      .from(recruitingJobMatchRun)
+      .where(eq(recruitingJobMatchRun.poolItemId, poolItemId));
     expect(runs).toHaveLength(0);
   });
 
@@ -705,9 +706,9 @@ describe("new mail resume automatic job matching", () => {
 
     expect(result).toEqual({ handled: true, jobDescriptionId: JD_A });
     const [run] = await db
-      .select({ status: resumeJobMatchRun.status })
-      .from(resumeJobMatchRun)
-      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+      .select({ status: recruitingJobMatchRun.status })
+      .from(recruitingJobMatchRun)
+      .where(eq(recruitingJobMatchRun.poolItemId, poolItemId));
     expect(run?.status).toBe("superseded");
   });
 
@@ -838,8 +839,8 @@ describe("POST /:id/import job association", () => {
     }
     const [record] = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, result.resumeRecordId));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, result.resumeRecordId));
     const history = await db
       .select()
       .from(resumeEvaluationVersion)
@@ -877,15 +878,18 @@ describe("POST /:id/import job association", () => {
 
     expect(response.status).toBe(201);
     const [record] = await db
-      .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
-      .from(studioInterview)
-      .where(eq(studioInterview.resumeSourcePoolItemId, poolItemId));
+      .select({
+        id: recruitingRecordReadModel.id,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
+      })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.resumeSourcePoolItemId, poolItemId));
     expect(record?.pipelineStage).toBe("ai_interview");
     const rounds = record
       ? await db
-          .select({ status: studioInterviewSchedule.status })
-          .from(studioInterviewSchedule)
-          .where(eq(studioInterviewSchedule.interviewRecordId, record.id))
+          .select({ status: aiInterviewRound.status })
+          .from(aiInterviewRound)
+          .where(eq(aiInterviewRound.recruitingRecordId, record.id))
       : [];
     expect(rounds).toEqual([{ status: "pending" }]);
   });

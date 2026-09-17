@@ -1,3 +1,6 @@
+import { advanceScreeningRecruitingNodeTx } from "@app/database/recruiting-pipeline";
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- resume-pool persistence keeps list/detail/write transactions co-located. */
 import {
   and,
@@ -21,22 +24,20 @@ import { omit } from "lodash-es";
 import { db } from "../../lib/db";
 import {
   jobDescription,
-  mailIngestMessage,
+  recruitingMailMessage,
   member,
   organization,
   resumePoolEvent,
-  resumeEvaluationVersion,
-  resumePoolImport,
+  recruitingPoolImport,
   resumePoolItem,
-  resumeJobMatchCandidate,
-  resumeJobMatchRun,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingJobMatchCandidate,
+  recruitingJobMatchRun,
+  recruitingUploadBatchItem,
   user,
 } from "@app/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@app/db-schema/schema";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
-import type { JsonObject, JsonValue } from "@app/db-schema/json";
+import type { JsonObject } from "@app/db-schema/json";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { RecruitingVisibilityScope } from "../../access/recruiting-visibility";
 import type {
@@ -516,18 +517,18 @@ async function loadImportsForOrg(
     .select({
       creatorImage: user.image,
       creatorName: user.name,
-      importedAt: resumePoolImport.importedAt,
-      resumeRecordId: resumePoolImport.importedResumeRecordId,
+      importedAt: recruitingPoolImport.importedAt,
+      resumeRecordId: recruitingPoolImport.recruitingRecordId,
     })
-    .from(resumePoolImport)
-    .leftJoin(user, eq(resumePoolImport.importedBy, user.id))
+    .from(recruitingPoolImport)
+    .leftJoin(user, eq(recruitingPoolImport.importedBy, user.id))
     .where(
       and(
-        eq(resumePoolImport.poolItemId, poolItemId),
-        eq(resumePoolImport.organizationId, organizationId),
+        eq(recruitingPoolImport.poolItemId, poolItemId),
+        eq(recruitingPoolImport.organizationId, organizationId),
       ),
     )
-    .orderBy(desc(resumePoolImport.importedAt), desc(resumePoolImport.id));
+    .orderBy(desc(recruitingPoolImport.importedAt), desc(recruitingPoolImport.id));
 }
 
 async function loadImportsForPoolItems(
@@ -551,19 +552,19 @@ async function loadImportsForPoolItems(
     .select({
       creatorImage: user.image,
       creatorName: user.name,
-      importedAt: resumePoolImport.importedAt,
-      poolItemId: resumePoolImport.poolItemId,
-      resumeRecordId: resumePoolImport.importedResumeRecordId,
+      importedAt: recruitingPoolImport.importedAt,
+      poolItemId: recruitingPoolImport.poolItemId,
+      resumeRecordId: recruitingPoolImport.recruitingRecordId,
     })
-    .from(resumePoolImport)
-    .leftJoin(user, eq(resumePoolImport.importedBy, user.id))
+    .from(recruitingPoolImport)
+    .leftJoin(user, eq(recruitingPoolImport.importedBy, user.id))
     .where(
       and(
-        inArray(resumePoolImport.poolItemId, poolItemIds),
-        eq(resumePoolImport.organizationId, organizationId),
+        inArray(recruitingPoolImport.poolItemId, poolItemIds),
+        eq(recruitingPoolImport.organizationId, organizationId),
       ),
     )
-    .orderBy(desc(resumePoolImport.importedAt), desc(resumePoolImport.id));
+    .orderBy(desc(recruitingPoolImport.importedAt), desc(recruitingPoolImport.id));
   const imports = new Map<
     string,
     {
@@ -594,12 +595,12 @@ function buildResumePoolImportStatusWhere(
     return undefined;
   }
   const importsForItem = db
-    .select({ id: resumePoolImport.id })
-    .from(resumePoolImport)
+    .select({ id: recruitingPoolImport.id })
+    .from(recruitingPoolImport)
     .where(
       and(
-        eq(resumePoolImport.poolItemId, resumePoolItem.id),
-        eq(resumePoolImport.organizationId, organizationId),
+        eq(recruitingPoolImport.poolItemId, resumePoolItem.id),
+        eq(recruitingPoolImport.organizationId, organizationId),
       ),
     );
   return importStatus === "imported" ? exists(importsForItem) : notExists(importsForItem);
@@ -631,13 +632,16 @@ async function loadSourceChannels(
     return new Map();
   }
   const rows = await db
-    .select({ poolItemId: resumeUploadBatchItem.poolItemId })
-    .from(resumeUploadBatchItem)
-    .innerJoin(mailIngestMessage, eq(mailIngestMessage.batchId, resumeUploadBatchItem.batchId))
+    .select({ poolItemId: recruitingUploadBatchItem.poolItemId })
+    .from(recruitingUploadBatchItem)
+    .innerJoin(
+      recruitingMailMessage,
+      eq(recruitingMailMessage.batchId, recruitingUploadBatchItem.batchId),
+    )
     .where(
       and(
-        inArray(resumeUploadBatchItem.poolItemId, poolItemIds),
-        eq(mailIngestMessage.status, "queued"),
+        inArray(recruitingUploadBatchItem.poolItemId, poolItemIds),
+        eq(recruitingMailMessage.status, "queued"),
       ),
     );
   return new Map(
@@ -896,12 +900,6 @@ const defaultImportPoolItemDependencies: ImportPoolItemDependencies = {
   findDuplicateMatches: findSemanticResumeDuplicates,
 };
 
-function resolveImportedRecordPipelineStage(
-  initialRecruitmentStage: ResumePoolInitialRecruitmentStage | undefined,
-) {
-  return initialRecruitmentStage === "human_interview" ? "human_interview" : "screening";
-}
-
 // Serializes imports per organization and pool item with a PostgreSQL advisory lock, reuses an existing admission when possible, and records provenance with the new resume.
 // 通过 PostgreSQL advisory lock 串行化同组织同简历池条目的导入；可复用既有准入记录，并随新简历保存来源链路。
 export async function importPoolItemToResumeLibrary(
@@ -919,39 +917,36 @@ export async function importPoolItemToResumeLibrary(
     ensureAdmissionRecord: async ({ admission, source }) => {
       let resumeRecordId = "";
       await db.transaction(async (tx) => {
-        const pipelineStage = resolveImportedRecordPipelineStage(admission.initialRecruitmentStage);
         const lockKey = `resume-pool-import:${admission.organizationId}:${source.id}`;
         await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
         if (!admission.reimport) {
           const [existing] = await tx
-            .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
-            .from(resumePoolImport)
+            .select({ resumeRecordId: recruitingPoolImport.recruitingRecordId })
+            .from(recruitingPoolImport)
             .where(
               and(
-                eq(resumePoolImport.poolItemId, source.id),
-                eq(resumePoolImport.organizationId, admission.organizationId),
+                eq(recruitingPoolImport.poolItemId, source.id),
+                eq(recruitingPoolImport.organizationId, admission.organizationId),
               ),
             )
-            .orderBy(desc(resumePoolImport.importedAt))
+            .orderBy(desc(recruitingPoolImport.importedAt))
             .limit(1);
           if (existing) {
             ({ resumeRecordId } = existing);
-            await tx
-              .update(studioInterview)
-              .set({
+            await updateRecruitingRecords(
+              tx,
+              and(
+                eq(recruitingRecordReadModel.id, resumeRecordId),
+                eq(recruitingRecordReadModel.organizationId, admission.organizationId),
+                ne(recruitingRecordReadModel.resumeParseStatus, "ready"),
+              ),
+              {
                 jobDescriptionId: admission.jobDescriptionId,
-                pipelineStage,
                 resumeParseError: null,
                 resumeParseStatus: "processing",
                 updatedAt: new Date(),
-              })
-              .where(
-                and(
-                  eq(studioInterview.id, resumeRecordId),
-                  eq(studioInterview.organizationId, admission.organizationId),
-                  ne(studioInterview.resumeParseStatus, "ready"),
-                ),
-              );
+              },
+            );
             return;
           }
         }
@@ -970,7 +965,7 @@ export async function importPoolItemToResumeLibrary(
             jobDescriptionId: admission.jobDescriptionId,
             notes: source.notes,
             organizationId: admission.organizationId,
-            pipelineStage,
+            pipelineStage: "screening",
             qualitativeEvaluation: reusableEvaluation,
             resumeFileName: source.resumeFileName,
             resumeParseStatus: "processing",
@@ -988,29 +983,26 @@ export async function importPoolItemToResumeLibrary(
           },
           tx,
         );
-        if (reusableEvaluation) {
-          // SAFETY: selectReusableResumePoolEvaluation parsed this value through the strict
-          // qualitative-v2 schema, whose output is JSON-compatible.
-          await tx.insert(resumeEvaluationVersion).values({
-            artifact: reusableEvaluation.evaluation as JsonValue,
-            contractVersion: reusableEvaluation.contractVersion,
-            createdAt: reusableEvaluation.generatedAt,
-            id: crypto.randomUUID(),
-            jobDescriptionVersionId: reusableEvaluation.jobDescriptionVersionId,
-            numericScore: null,
+        // 与招聘台的直接推进使用相同命令，保留筛选通过及跳过 AI 的事实和活动记录。
+        if (
+          admission.initialRecruitmentStage === "ai_interview" ||
+          admission.initialRecruitmentStage === "second_interview"
+        ) {
+          await advanceScreeningRecruitingNodeTx(tx, {
+            now: importedAt,
+            operatorId: admission.importedBy,
             organizationId: admission.organizationId,
-            recommendationLevel: reusableEvaluation.evaluation.recommendationLevel,
-            resumeRecordId,
-            runId: `pool:${source.id}:${reusableEvaluation.jobDescriptionVersionId}`,
+            recordId: resumeRecordId,
+            targetNode: admission.initialRecruitmentStage,
           });
         }
-        await tx.insert(resumePoolImport).values({
+        await tx.insert(recruitingPoolImport).values({
           id: crypto.randomUUID(),
           importedAt,
           importedBy: admission.importedBy,
-          importedResumeRecordId: resumeRecordId,
           organizationId: admission.organizationId,
           poolItemId: source.id,
+          recruitingRecordId: resumeRecordId,
         });
         await writeResumePoolEvent(tx, {
           actorId: admission.importedBy,
@@ -1038,15 +1030,15 @@ export async function importPoolItemToResumeLibrary(
     },
     loadExistingAdmissionRecord: async (admission) => {
       const [existing] = await db
-        .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
-        .from(resumePoolImport)
+        .select({ resumeRecordId: recruitingPoolImport.recruitingRecordId })
+        .from(recruitingPoolImport)
         .where(
           and(
-            eq(resumePoolImport.poolItemId, admission.poolItemId),
-            eq(resumePoolImport.organizationId, admission.organizationId),
+            eq(recruitingPoolImport.poolItemId, admission.poolItemId),
+            eq(recruitingPoolImport.organizationId, admission.organizationId),
           ),
         )
-        .orderBy(desc(resumePoolImport.importedAt))
+        .orderBy(desc(recruitingPoolImport.importedAt))
         .limit(1);
       return existing?.resumeRecordId ?? null;
     },
@@ -1057,37 +1049,35 @@ export async function importPoolItemToResumeLibrary(
         userId: admission.importedBy,
       }),
     markAdmissionFailed: async (admission) => {
-      await db
-        .update(studioInterview)
-        .set({
+      await updateRecruitingRecords(
+        db,
+        and(
+          eq(recruitingRecordReadModel.id, admission.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, admission.organizationId),
+          ne(recruitingRecordReadModel.resumeParseStatus, "ready"),
+        ),
+        {
           resumeParseError: admission.errorMessage.slice(0, 1000),
           resumeParseStatus: "failed",
           updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(studioInterview.id, admission.resumeRecordId),
-            eq(studioInterview.organizationId, admission.organizationId),
-            ne(studioInterview.resumeParseStatus, "ready"),
-          ),
-        );
+        },
+      );
     },
     markAdmissionReady: async (admission) => {
       const now = new Date();
-      await db
-        .update(studioInterview)
-        .set({
+      await updateRecruitingRecords(
+        db,
+        and(
+          eq(recruitingRecordReadModel.id, admission.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, admission.organizationId),
+        ),
+        {
           resumeParseError: null,
           resumeParseStatus: "ready",
           resumeParsedAt: now,
           updatedAt: now,
-        })
-        .where(
-          and(
-            eq(studioInterview.id, admission.resumeRecordId),
-            eq(studioInterview.organizationId, admission.organizationId),
-          ),
-        );
+        },
+      );
     },
     replaceDuplicateSnapshot: async (admission) => {
       await replaceDuplicateMatchesForSource({
@@ -1134,7 +1124,9 @@ export async function deleteOwnPoolItem(
   dependencies = defaultDeleteOwnPoolItemDependencies,
 ): Promise<void> {
   const deleted = await db
-    .delete(resumePoolItem)
+    .update(resumePoolItem)
+    // 共享人才库父记录保留，避免旧招聘附属表的 cascade / SET NULL 改写迁移源数据。
+    .set({ status: "archived", updatedAt: new Date() })
     .where(
       and(
         eq(resumePoolItem.id, input.poolItemId),
@@ -1186,27 +1178,27 @@ export async function bindResumePoolItemJobDescription(
       return true;
     }
     const [latestRun] = await tx
-      .select({ id: resumeJobMatchRun.id })
-      .from(resumeJobMatchRun)
+      .select({ id: recruitingJobMatchRun.id })
+      .from(recruitingJobMatchRun)
       .where(
         and(
-          eq(resumeJobMatchRun.poolItemId, input.poolItemId),
-          eq(resumeJobMatchRun.organizationId, input.organizationId),
+          eq(recruitingJobMatchRun.poolItemId, input.poolItemId),
+          eq(recruitingJobMatchRun.organizationId, input.organizationId),
         ),
       )
-      .orderBy(desc(resumeJobMatchRun.createdAt))
+      .orderBy(desc(recruitingJobMatchRun.createdAt))
       .limit(1);
     const [candidate] = latestRun
       ? await tx
           .select({
-            aiRank: resumeJobMatchCandidate.aiRank,
-            recallRank: resumeJobMatchCandidate.recallRank,
+            aiRank: recruitingJobMatchCandidate.aiRank,
+            recallRank: recruitingJobMatchCandidate.recallRank,
           })
-          .from(resumeJobMatchCandidate)
+          .from(recruitingJobMatchCandidate)
           .where(
             and(
-              eq(resumeJobMatchCandidate.runId, latestRun.id),
-              eq(resumeJobMatchCandidate.jobDescriptionId, input.jobDescriptionId),
+              eq(recruitingJobMatchCandidate.runId, latestRun.id),
+              eq(recruitingJobMatchCandidate.jobDescriptionId, input.jobDescriptionId),
             ),
           )
           .limit(1)
@@ -1249,20 +1241,20 @@ export async function loadResumePoolJobMatchResult(input: {
 }): Promise<ResumePoolJobMatchResult | null> {
   const [run] = await db
     .select({
-      createdAt: resumeJobMatchRun.createdAt,
-      id: resumeJobMatchRun.id,
-      selectedJobDescriptionId: resumeJobMatchRun.selectedJobDescriptionId,
-      selectionMethod: resumeJobMatchRun.selectionMethod,
-      status: resumeJobMatchRun.status,
+      createdAt: recruitingJobMatchRun.createdAt,
+      id: recruitingJobMatchRun.id,
+      selectedJobDescriptionId: recruitingJobMatchRun.selectedJobDescriptionId,
+      selectionMethod: recruitingJobMatchRun.selectionMethod,
+      status: recruitingJobMatchRun.status,
     })
-    .from(resumeJobMatchRun)
+    .from(recruitingJobMatchRun)
     .where(
       and(
-        eq(resumeJobMatchRun.organizationId, input.organizationId),
-        eq(resumeJobMatchRun.poolItemId, input.poolItemId),
+        eq(recruitingJobMatchRun.organizationId, input.organizationId),
+        eq(recruitingJobMatchRun.poolItemId, input.poolItemId),
       ),
     )
-    .orderBy(desc(resumeJobMatchRun.createdAt))
+    .orderBy(desc(recruitingJobMatchRun.createdAt))
     .limit(1);
   if (!run) {
     return null;
@@ -1280,22 +1272,22 @@ export async function loadResumePoolJobMatchResult(input: {
       .limit(1),
     db
       .select({
-        aiRank: resumeJobMatchCandidate.aiRank,
-        aiReason: resumeJobMatchCandidate.aiReason,
-        aiScore: resumeJobMatchCandidate.aiScore,
+        aiRank: recruitingJobMatchCandidate.aiRank,
+        aiReason: recruitingJobMatchCandidate.aiReason,
+        aiScore: recruitingJobMatchCandidate.aiScore,
         currentLifecycleStatus: jobDescription.lifecycleStatus,
         currentOrganizationId: jobDescription.organizationId,
-        jobDescriptionId: resumeJobMatchCandidate.jobDescriptionId,
-        jobSnapshot: resumeJobMatchCandidate.jobSnapshot,
-        recallRank: resumeJobMatchCandidate.recallRank,
-        vectorScore: resumeJobMatchCandidate.vectorScore,
+        jobDescriptionId: recruitingJobMatchCandidate.jobDescriptionId,
+        jobSnapshot: recruitingJobMatchCandidate.jobSnapshot,
+        recallRank: recruitingJobMatchCandidate.recallRank,
+        vectorScore: recruitingJobMatchCandidate.vectorScore,
       })
-      .from(resumeJobMatchCandidate)
-      .leftJoin(jobDescription, eq(resumeJobMatchCandidate.jobDescriptionId, jobDescription.id))
-      .where(eq(resumeJobMatchCandidate.runId, run.id))
+      .from(recruitingJobMatchCandidate)
+      .leftJoin(jobDescription, eq(recruitingJobMatchCandidate.jobDescriptionId, jobDescription.id))
+      .where(eq(recruitingJobMatchCandidate.runId, run.id))
       .orderBy(
-        sql`${resumeJobMatchCandidate.aiRank} asc nulls last`,
-        sql`${resumeJobMatchCandidate.recallRank} asc nulls last`,
+        sql`${recruitingJobMatchCandidate.aiRank} asc nulls last`,
+        sql`${recruitingJobMatchCandidate.recallRank} asc nulls last`,
       ),
   ]);
   const currentJobDescriptionId = poolItem[0]?.jobDescriptionId ?? null;

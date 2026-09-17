@@ -1,197 +1,207 @@
 import { describe, expect, it } from "vitest";
-import {
-  getCandidateReactivationError,
-  getCandidateStageTransitionError,
-  resolveCandidateTransitionPatch,
-} from "./candidate-transition";
+import { candidateTransitionInputSchema } from "./candidate-transition";
 
-const now = new Date("2026-06-21T12:00:00.000Z");
-
-describe("getCandidateReactivationError", () => {
-  it("requires a non-blank reason when restoring a closed candidate", () => {
+describe("招聘动作输入", () => {
+  it("筛选显式推进只允许 AI 初面或复试，且必须带版本", () => {
+    for (const targetNode of ["ai_interview", "second_interview"]) {
+      expect(
+        candidateTransitionInputSchema.safeParse({
+          action: "screening_advance",
+          expectedVersion: 0,
+          targetNode,
+        }).success,
+      ).toBe(true);
+    }
     expect(
-      getCandidateReactivationError({
-        from: "closed",
-        reactivationReason: undefined,
-        to: "human_interview",
-      }),
-    ).toBe("请填写重新激活原因。");
+      candidateTransitionInputSchema.safeParse({
+        action: "screening_advance",
+        expectedVersion: 0,
+        targetNode: "final_interview",
+      }).success,
+    ).toBe(false);
     expect(
-      getCandidateReactivationError({
-        from: "closed",
-        reactivationReason: "   ",
-        to: "screening",
-      }),
-    ).toBe("请填写重新激活原因。");
+      candidateTransitionInputSchema.safeParse({
+        action: "screening_advance",
+        targetNode: "ai_interview",
+      }).success,
+    ).toBe(false);
   });
-
-  it("allows a reasoned reactivation and transitions that are not reactivations", () => {
+  it("要求显式动作和当前版本，不接受旧宽表patch", () => {
     expect(
-      getCandidateReactivationError({
-        from: "closed",
-        reactivationReason: "候选人补充了新的项目经历",
-        to: "human_interview",
-      }),
-    ).toBeNull();
+      candidateTransitionInputSchema.safeParse({ pipelineStage: "human_interview" }).success,
+    ).toBe(false);
     expect(
-      getCandidateReactivationError({
-        from: "screening",
-        to: "human_interview",
-      }),
-    ).toBeNull();
+      candidateTransitionInputSchema.safeParse({ action: "advance", targetNode: "ai_interview" })
+        .success,
+    ).toBe(false);
     expect(
-      getCandidateReactivationError({
-        from: "closed",
-        to: "closed",
-      }),
-    ).toBeNull();
+      candidateTransitionInputSchema.safeParse({
+        action: "advance",
+        expectedVersion: 2,
+        targetNode: "ai_interview",
+      }).success,
+    ).toBe(true);
+  });
+  it("允许显式跳过复试直接进入终试", () => {
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        action: "advance",
+        expectedVersion: 2,
+        reason: "直接进入终试，复试节点明确跳过",
+        skipNodes: ["second_interview"],
+        targetNode: "final_interview",
+      }).success,
+    ).toBe(true);
+  });
+  it("不允许跳过流水和谈薪直接进入 Offer", () => {
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        action: "advance",
+        expectedVersion: 2,
+        skipNodes: ["income_proof", "salary_negotiation"],
+        targetNode: "offer",
+      }).success,
+    ).toBe(false);
+  });
+  it("流水审核通过或驳回必须使用专用动作并填写说明", () => {
+    const base = {
+      action: "review_income_proof",
+      expectedVersion: 2,
+      reason: "已核验近六个月流水",
+    };
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "pass" }).success).toBe(
+      true,
+    );
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "fail" }).success).toBe(
+      true,
+    );
+    expect(
+      candidateTransitionInputSchema.safeParse({ ...base, reason: " ", result: "pass" }).success,
+    ).toBe(false);
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "withdrawn" }).success).toBe(
+      false,
+    );
+  });
+  it("谈薪通过必须填写谈定月薪，淘汰时不接受薪资", () => {
+    const base = {
+      action: "review_salary_negotiation",
+      expectedVersion: 2,
+      reason: "双方已确认薪资方案",
+    };
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        agreedBaseSalary: 28_000,
+        result: "pass",
+      }).success,
+    ).toBe(true);
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "pass" }).success).toBe(
+      false,
+    );
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        agreedBaseSalary: 0,
+        result: "pass",
+      }).success,
+    ).toBe(false);
+    expect(candidateTransitionInputSchema.safeParse({ ...base, result: "fail" }).success).toBe(
+      true,
+    );
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        agreedBaseSalary: 28_000,
+        result: "fail",
+      }).success,
+    ).toBe(false);
+  });
+  it("回开必须填写原因，并只恢复待处理状态", () => {
+    const base = {
+      action: "reopen",
+      expectedVersion: 3,
+      reason: "重新面试",
+      targetNode: "second_interview",
+    };
+    expect(
+      candidateTransitionInputSchema.safeParse({ ...base, targetStatus: "pending" }).success,
+    ).toBe(true);
+    expect(
+      candidateTransitionInputSchema.safeParse({ ...base, targetStatus: "completed" }).success,
+    ).toBe(false);
+    expect(
+      candidateTransitionInputSchema.safeParse({ ...base, reason: " ", targetStatus: "pending" })
+        .success,
+    ).toBe(false);
+  });
+  it("完成节点必须有结论，处理中不能伪造通过", () => {
+    const base = { action: "update_node", expectedVersion: 1, node: "background_check" };
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        result: "pass",
+        targetStatus: "completed",
+      }).success,
+    ).toBe(true);
+    expect(
+      candidateTransitionInputSchema.safeParse({ ...base, targetStatus: "completed" }).success,
+    ).toBe(false);
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        ...base,
+        result: "pass",
+        targetStatus: "in_progress",
+      }).success,
+    ).toBe(false);
+  });
+  it("关闭须指定终局与原因码", () => {
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        action: "close",
+        closeReason: "other",
+        expectedVersion: 0,
+        outcome: "in_pipeline",
+      }).success,
+    ).toBe(false);
+    expect(
+      candidateTransitionInputSchema.safeParse({
+        action: "close",
+        closeReason: "candidate_withdrew",
+        expectedVersion: 0,
+        outcome: "withdrawn",
+      }).success,
+    ).toBe(true);
   });
 });
 
-describe("resolveCandidateTransitionPatch", () => {
-  it("builds a close patch with server-controlled previousStage", () => {
-    const result = resolveCandidateTransitionPatch({
-      existing: {
-        closedMeta: { internalNotes: "keep", previousStage: "screening" },
-        outcome: "in_pipeline",
-        pipelineStage: "ai_interview",
-      },
-      input: {
-        closedMeta: { category: "skills_mismatch" },
-        closedReason: "技能匹配度不够",
-        outcome: "rejected",
-        pipelineStage: "closed",
-      },
-      now,
-    });
-
-    expect(result.patch).toMatchObject({
-      closedAt: now,
-      closedMeta: {
-        category: "skills_mismatch",
-        internalNotes: "keep",
-        previousStage: "ai_interview",
-      },
-      closedReason: "技能匹配度不够",
-      outcome: "rejected",
-      pipelineStage: "closed",
-      updatedAt: now,
-    });
-    expect(result.auditDetail).toEqual({
-      closedMeta: {
-        category: "skills_mismatch",
-        internalNotes: "keep",
-        previousStage: "ai_interview",
-      },
-      fromOutcome: "in_pipeline",
-      fromStage: "ai_interview",
-      reactivationReason: null,
-      reason: "技能匹配度不够",
-      toOutcome: "rejected",
-      toStage: "closed",
-    });
+it("仅入职办理接受有效的到岗日期", () => {
+  const input = {
+    action: "update_node",
+    actualJoiningDate: "2026-09-18",
+    expectedVersion: 1,
+    node: "onboarding",
+    result: "pass",
+    targetStatus: "completed",
+  };
+  expect(candidateTransitionInputSchema.parse(input)).toMatchObject({
+    actualJoiningDate: "2026-09-18",
   });
-
-  it("builds a reactivate patch that clears closed and legacy stage fields", () => {
-    const result = resolveCandidateTransitionPatch({
-      existing: {
-        closedMeta: { previousStage: "offer" },
-        outcome: "hired",
-        pipelineStage: "closed",
-      },
-      input: {
-        outcome: "in_pipeline",
-        pipelineStage: "human_interview",
-        reactivationReason: "候选人补充了新的项目经历",
-      },
-      now,
-    });
-
-    expect(result.patch).toMatchObject({
-      closedAt: null,
-      closedMeta: null,
-      closedReason: null,
-      humanInterviewScheduledAt: null,
-      humanInterviewerId: null,
-      offerAcceptedAt: null,
-      offerSentAt: null,
-      outcome: "in_pipeline",
-      pipelineStage: "human_interview",
-      resumeEvaluationStatus: null,
-      updatedAt: now,
-      writtenTestScheduledAt: null,
-      writtenTestScore: null,
-    });
-    expect(result.auditDetail.closedMeta).toBeNull();
-    expect(result.auditDetail.fromStage).toBe("closed");
-    expect(result.auditDetail.reactivationReason).toBe("候选人补充了新的项目经历");
-    expect(result.auditDetail.toStage).toBe("human_interview");
-  });
+  expect(
+    candidateTransitionInputSchema.safeParse({ ...input, actualJoiningDate: "2026-02-30" }).success,
+  ).toBe(false);
+  expect(
+    candidateTransitionInputSchema.safeParse({ ...input, node: "background_check" }).success,
+  ).toBe(false);
 });
 
-describe("getCandidateStageTransitionError", () => {
-  it("rejects direct offer transitions before human interview", () => {
-    expect(
-      getCandidateStageTransitionError({
-        from: "screening",
-        hasJobDescription: true,
-        humanInterviewReadyForOffer: true,
-        to: "offer",
-      }),
-    ).toBe("当前招聘阶段不能直接推进到目标阶段。");
-    expect(
-      getCandidateStageTransitionError({
-        from: "ai_interview",
-        hasJobDescription: true,
-        humanInterviewReadyForOffer: true,
-        to: "offer",
-      }),
-    ).toBe("当前招聘阶段不能直接推进到目标阶段。");
-  });
-
-  it("requires human interview readiness for offer transition", () => {
-    expect(
-      getCandidateStageTransitionError({
-        from: "human_interview",
-        hasJobDescription: true,
-        humanInterviewReadyForOffer: false,
-        to: "offer",
-      }),
-    ).toBe("请先完成所有真人面试轮次，并补全每轮面试评价");
-    expect(
-      getCandidateStageTransitionError({
-        from: "human_interview",
-        hasJobDescription: true,
-        humanInterviewReadyForOffer: true,
-        to: "offer",
-      }),
-    ).toBeNull();
-  });
-
-  it("requires a bound job description before entering human interview", () => {
-    expect(
-      getCandidateStageTransitionError({
-        from: "screening",
-        hasJobDescription: false,
-        humanInterviewReadyForOffer: false,
-        to: "human_interview",
-      }),
-    ).toBe("请先绑定在招岗位后再安排真人面试");
-    expect(
-      getCandidateStageTransitionError({
-        from: "ai_interview",
-        hasJobDescription: false,
-        humanInterviewReadyForOffer: false,
-        to: "human_interview",
-      }),
-    ).toBe("请先绑定在招岗位后再安排真人面试");
-    expect(
-      getCandidateStageTransitionError({
-        from: "screening",
-        hasJobDescription: true,
-        humanInterviewReadyForOffer: false,
-        to: "human_interview",
-      }),
-    ).toBeNull();
-  });
+it("确认入职需要到岗日期，淘汰不需要", () => {
+  const input = {
+    action: "update_node",
+    expectedVersion: 1,
+    node: "onboarding",
+    result: "pass",
+    targetStatus: "completed",
+  };
+  expect(candidateTransitionInputSchema.safeParse(input).success).toBe(false);
+  expect(candidateTransitionInputSchema.safeParse({ ...input, result: "fail" }).success).toBe(true);
 });

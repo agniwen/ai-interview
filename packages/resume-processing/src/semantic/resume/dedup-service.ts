@@ -1,8 +1,9 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../database";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import { jobDescription, resumePoolItem, studioInterview, user } from "@app/db-schema/schema";
+import { jobDescription, resumePoolItem, user } from "@app/db-schema/schema";
 import type { ResumePoolScope, ResumeSemanticSourceType } from "@app/db-schema/schema";
 import { getCandidateActivityStatus } from "@app/shared/candidate-pipeline-machine";
 import type { DedupMatchRecord } from "./types";
@@ -265,31 +266,31 @@ async function loadSemanticDedupCandidates(
       ? []
       : await db
           .select({
-            candidateEmail: studioInterview.candidateEmail,
-            candidateName: studioInterview.candidateName,
-            candidatePhone: studioInterview.candidatePhone,
-            createdAt: studioInterview.createdAt,
-            id: studioInterview.id,
+            candidateEmail: recruitingRecordReadModel.candidateEmail,
+            candidateName: recruitingRecordReadModel.candidateName,
+            candidatePhone: recruitingRecordReadModel.candidatePhone,
+            createdAt: recruitingRecordReadModel.createdAt,
+            id: recruitingRecordReadModel.id,
             jobDescriptionName: jobDescription.name,
-            pipelineStage: studioInterview.pipelineStage,
-            resumeProfile: studioInterview.resumeProfile,
-            targetRole: studioInterview.targetRole,
+            pipelineStage: recruitingRecordReadModel.pipelineStage,
+            resumeProfile: recruitingRecordReadModel.resumeProfile,
+            targetRole: recruitingRecordReadModel.targetRole,
             uploaderImage: user.image,
             uploaderName: user.name,
           })
-          .from(studioInterview)
-          .leftJoin(user, eq(studioInterview.createdBy, user.id))
+          .from(recruitingRecordReadModel)
+          .leftJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(
-              eq(studioInterview.jobDescriptionId, jobDescription.id),
-              eq(jobDescription.organizationId, studioInterview.organizationId),
+              eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+              eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
             ),
           )
           .where(
             and(
-              eq(studioInterview.organizationId, organizationId),
-              inArray(studioInterview.id, studioIds),
+              eq(recruitingRecordReadModel.organizationId, organizationId),
+              inArray(recruitingRecordReadModel.id, studioIds),
             ),
           );
 

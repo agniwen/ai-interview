@@ -1,3 +1,9 @@
+import {
+  deleteRecruitingRecords,
+  createRecruitingRecords,
+  updateRecruitingRecords,
+} from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // Verify that PATCH /api/w/:slug/studio/interviews/:id ignores candidate
 // fields in the request body. Candidate identity is now owned by the
 // resume library; leaving this path writable would let bugs in the editor
@@ -7,13 +13,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
-import {
-  member,
-  organization,
-  studioInterview,
-  studioInterviewSchedule,
-  user,
-} from "@app/db-schema/schema";
+import { member, organization, aiInterviewRound, user } from "@app/db-schema/schema";
 
 const ORG = "test_org_patch_whitelist";
 const USER_ID = "test_user_patch_whitelist";
@@ -21,10 +21,8 @@ const RECORD_ID = "ri_patch_whitelist_1";
 const NOW = new Date("2026-05-13T12:00:00.000Z");
 
 async function cleanup() {
-  await db
-    .delete(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, RECORD_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
+  await db.delete(aiInterviewRound).where(eq(aiInterviewRound.recruitingRecordId, RECORD_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
   await db.delete(organization).where(eq(organization.id, ORG));
   await db.delete(user).where(eq(user.id, USER_ID));
@@ -53,7 +51,7 @@ beforeAll(async () => {
     role: "owner",
     userId: USER_ID,
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "original@example.com",
     candidateName: "原始姓名",
     candidatePhone: "13800000000",
@@ -88,22 +86,19 @@ describe("interview PATCH whitelist (R7)", () => {
     // real safety is in the handler code; this test guards regression.
     const before = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, RECORD_ID))
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID))
       .limit(1);
     expect(before[0]?.candidateName).toBe("原始姓名");
     // Force a write through the same Drizzle update shape the handler uses.
-    await db
-      .update(studioInterview)
-      .set({
-        interviewQuestions: [{ difficulty: "easy", order: 1, question: "test" }],
-        updatedAt: new Date(),
-      })
-      .where(eq(studioInterview.id, RECORD_ID));
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
+      interviewQuestions: [{ difficulty: "easy", order: 1, question: "test" }],
+      updatedAt: new Date(),
+    });
     const after = await db
       .select()
-      .from(studioInterview)
-      .where(eq(studioInterview.id, RECORD_ID))
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID))
       .limit(1);
     expect(after[0]?.candidateName).toBe("原始姓名");
     expect(after[0]?.candidateEmail).toBe("original@example.com");

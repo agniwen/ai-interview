@@ -31,7 +31,7 @@ Mastra owns semantic judgment and narrative generation. It never loads live job 
 - [ ] Commit the accepted design, ADR, glossary, and this plan as a docs-only commit before implementation. Start Task 0 from a clean worktree so implementation commits cannot accidentally absorb documentation edits.
 - [ ] Record the implementation base commit in the PR description.
 - [ ] Do not execute the superseded `2026-07-17-resume-scoring-policy-p1.md` plan.
-- [ ] If a task starts changing TanStack Start or Router interfaces rather than only feature components, run the matching `pnpm dlx @tanstack/intent@latest load ...` command from `AGENTS.md` before editing.
+- [ ] If a task starts changing TanStack Start or Router interfaces rather than only feature components, run the matching `bunx @tanstack/intent@latest load ...` command from `AGENTS.md` before editing.
 
 ## Non-negotiable contracts
 
@@ -190,8 +190,8 @@ management-year scope; do not infer links to unrelated gates.
 Run and confirm failure:
 
 ```bash
-pnpm --filter @app/shared test structured-resume
-pnpm --filter @app/db-schema typecheck
+bun run --filter @app/shared test structured-resume
+bun run --filter @app/db-schema typecheck
 ```
 
 **Step 2: Implement the product-owned V1 deduction semantics and job-owned values**
@@ -213,9 +213,9 @@ pnpm --filter @app/db-schema typecheck
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @app/shared test structured-resume
-pnpm --filter @app/shared typecheck
-pnpm --filter @app/db-schema typecheck
+bun run --filter @app/shared test structured-resume
+bun run --filter @app/shared typecheck
+bun run --filter @app/db-schema typecheck
 ```
 
 **Step 5: Commit**
@@ -246,7 +246,7 @@ git commit -m "feat(resume-evaluation): add structured evaluation contracts and 
 **Step 2: Generate the migration**
 
 ```bash
-pnpm db:generate
+bun run db:generate
 ```
 
 **Step 3: Correctly order the migration backfill**
@@ -269,8 +269,8 @@ The generated SQL must be reviewed and, if necessary, edited so it:
 Create an isolated disposable PostgreSQL database containing an upgraded-data fixture with at least one existing legacy job and legacy resume result. Pass its URL explicitly; never run this task against the application `.env` database:
 
 ```bash
-pnpm --filter @app/db-schema typecheck
-env DATABASE_URL="$STRUCTURED_EVAL_MIGRATION_DATABASE_URL" pnpm db:migrate
+bun run --filter @app/db-schema typecheck
+env DATABASE_URL="$STRUCTURED_EVAL_MIGRATION_DATABASE_URL" bun run db:migrate
 ```
 
 - [ ] Assert the seeded job/result survives with `legacy + published` identity and unchanged legacy JSON.
@@ -368,9 +368,9 @@ All Agent calls, canonicalization, hashing, row locks, stale checks, and persist
 **Step 4: Implement and verify**
 
 ```bash
-pnpm --filter @app/server test evaluation-blueprint
-pnpm --filter @app/server test job-evaluation-lifecycle
-pnpm --filter @app/server typecheck
+bun run --filter @app/server test evaluation-blueprint
+bun run --filter @app/server test job-evaluation-lifecycle
+bun run --filter @app/server typecheck
 ```
 
 **Step 5: Commit**
@@ -439,10 +439,10 @@ Communication questions and candidate forms remain owned by their existing `inte
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @app/server test job-descriptions
-pnpm --filter @app/web test job-description
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web typecheck
+bun run --filter @app/server test job-descriptions
+bun run --filter @app/web test job-description
+bun run --filter @app/server typecheck
+bun run --filter @app/web typecheck
 ```
 
 **Step 5: Commit**
@@ -526,11 +526,11 @@ Do not add an `includeDrafts` boolean to one generic loader.
 **Step 3: Verify**
 
 ```bash
-pnpm --filter @app/server test job-description
-pnpm --filter @app/server test referral
-pnpm --filter @app/server test resume-pool
-pnpm --filter @app/server test resume-upload-batches
-pnpm --filter @app/worker test
+bun run --filter @app/server test job-description
+bun run --filter @app/server test referral
+bun run --filter @app/server test resume-pool
+bun run --filter @app/server test resume-upload-batches
+bun run --filter @app/worker test
 ```
 
 **Step 4: Commit**
@@ -628,9 +628,9 @@ No organization ID is needed by workflow logic, and no step may query the databa
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @app/server test structured-resume-review-workflow
-pnpm --filter @app/server test resume-review-workflow
-pnpm --filter @app/server typecheck
+bun run --filter @app/server test structured-resume-review-workflow
+bun run --filter @app/server test resume-review-workflow
+bun run --filter @app/server typecheck
 ```
 
 **Step 5: Commit**
@@ -713,10 +713,10 @@ Within one database transaction:
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @app/server test review-lifecycle
-pnpm --filter @app/server test review-generation
-pnpm --filter @app/server test review-worker
-pnpm --filter @app/server typecheck
+bun run --filter @app/server test review-lifecycle
+bun run --filter @app/server test review-generation
+bun run --filter @app/server test review-worker
+bun run --filter @app/server typecheck
 ```
 
 **Step 5: Commit**
@@ -792,10 +792,10 @@ Create one mode-aware invalidation helper used by all candidate mutations:
 **Step 5: Verify**
 
 ```bash
-pnpm --filter @app/server test route-behavior
-pnpm --filter @app/server test resume-pool
-pnpm --filter @app/server test review-queue
-pnpm --filter @app/resume-parse-queue test
+bun run --filter @app/server test route-behavior
+bun run --filter @app/server test resume-pool
+bun run --filter @app/server test review-queue
+bun run --filter @app/resume-parse-queue test
 ```
 
 **Step 6: Commit**
@@ -852,9 +852,9 @@ Keep legacy `resumeReviewBaseScore`/next-step fields for legacy cards.
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @app/server test resumes/dao
-pnpm --filter @app/web test resume-library
-pnpm --filter @app/shared typecheck
+bun run --filter @app/server test resumes/dao
+bun run --filter @app/web test resume-library
+bun run --filter @app/shared typecheck
 ```
 
 **Step 5: Commit**
@@ -916,9 +916,9 @@ git commit -m "feat(resumes): add structured score ordering and filters"
 **Step 3: Verify**
 
 ```bash
-pnpm --filter @app/server test structured-evaluation
-pnpm --filter @app/web test structured-resume
-pnpm --filter @app/web typecheck
+bun run --filter @app/server test structured-evaluation
+bun run --filter @app/web test structured-resume
+bun run --filter @app/web typecheck
 ```
 
 **Step 4: Commit**
@@ -985,10 +985,10 @@ Replace separate `commit` then `createSnapshot` dependencies with one persistenc
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @app/server test launch-ai-interview-round
-pnpm --filter @app/server test context-snapshots
-pnpm --filter @app/server test context-snapshot-boundary-source
-pnpm --filter @app/web test launch-interview
+bun run --filter @app/server test launch-ai-interview-round
+bun run --filter @app/server test context-snapshots
+bun run --filter @app/server test context-snapshot-boundary-source
+bun run --filter @app/web test launch-interview
 ```
 
 **Step 5: Commit**
@@ -1039,7 +1039,7 @@ For the first V1 release, derive expected score/grade from human-approved gold r
 **Step 3: Add the CLI/report**
 
 ```bash
-pnpm --filter @app/server eval:structured-resumes -- \
+bun run --filter @app/server eval:structured-resumes -- \
   --corpus <versioned-corpus-path> \
   --candidate <pending-engine-candidate-output-path> \
   --output <report-path>
@@ -1058,8 +1058,8 @@ AI may prepare sanitized/synthetic cases and the tooling, but must not self-appr
 **Step 5: Verify**
 
 ```bash
-pnpm --filter @app/server test structured-resume-eval
-pnpm --filter @app/server typecheck
+bun run --filter @app/server test structured-resume-eval
+bun run --filter @app/server typecheck
 ```
 
 **Step 6: Commit**
@@ -1076,18 +1076,18 @@ git commit -m "feat(evals): add structured resume calibration gate"
 **Automated verification:**
 
 ```bash
-pnpm --filter @app/db-schema typecheck
-pnpm --filter @app/shared test
-pnpm --filter @app/shared typecheck
-pnpm --filter @app/resume-parse-queue test
-pnpm --filter @app/resume-parse-queue typecheck
-pnpm --filter @app/server test
-pnpm --filter @app/server typecheck
-pnpm --filter @app/web test
-pnpm --filter @app/web typecheck
-pnpm --filter @app/worker test
-pnpm typecheck
-pnpm check
+bun run --filter @app/db-schema typecheck
+bun run --filter @app/shared test
+bun run --filter @app/shared typecheck
+bun run --filter @app/resume-parse-queue test
+bun run --filter @app/resume-parse-queue typecheck
+bun run --filter @app/server test
+bun run --filter @app/server typecheck
+bun run --filter @app/web test
+bun run --filter @app/web typecheck
+bun run --filter @app/worker test
+bun run typecheck
+bun run check
 git diff --check
 ```
 

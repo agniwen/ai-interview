@@ -1,3 +1,4 @@
+import { echoProcessingOwnershipSchema } from "./meeting-device-processing";
 import { z } from "zod";
 import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcription";
 import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
@@ -64,6 +65,7 @@ export const createSmallSavedMeetingSchema = z
     liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
+    processingOwnership: echoProcessingOwnershipSchema.optional(),
     savedAt: z.string().datetime({ offset: true }),
     startedAt: z.string().datetime({ offset: true }),
     title: z.string().trim().min(1).max(RECORDING_TITLE_MAX_LENGTH).optional(),
@@ -136,6 +138,7 @@ export const createMultipartSavedMeetingSchema = z
     liveSummary: meetingLiveSummarySnapshotSchema.nullable().optional(),
     liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
+    processingOwnership: echoProcessingOwnershipSchema.optional(),
     savedAt: z.string().datetime({ offset: true }),
     startedAt: z.string().datetime({ offset: true }),
     title: z.string().trim().min(1).max(RECORDING_TITLE_MAX_LENGTH).optional(),
@@ -279,7 +282,14 @@ export interface MeetingCreatorSummary {
   name: string;
 }
 
+export type MeetingRecordingType = "human_interview" | "voice_recording";
+export const MEETING_RECORDING_TYPE_LABELS = {
+  human_interview: "真人面试",
+  voice_recording: "语音记录",
+} satisfies Record<MeetingRecordingType, string>;
+
 export interface MeetingLibraryItem {
+  recordingType: MeetingRecordingType;
   accessRole: MeetingAccessRole;
   creator: MeetingCreatorSummary;
   durationMs: number;
@@ -292,6 +302,7 @@ export interface MeetingLibraryItem {
 }
 
 export interface MeetingDetail extends MeetingLibraryItem {
+  summaryState?: "pending" | "processing" | "ready" | "failed";
   archived: boolean;
   liveSummary: MeetingLiveSummarySnapshot | null;
   startedAt: string;

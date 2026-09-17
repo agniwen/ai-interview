@@ -1,12 +1,14 @@
 /* oxlint-disable prefer-response-static-json -- explicit response bodies mirror Feishu HTTP fixtures. */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildCalendarDescription,
   createFeishuHumanInterviewClient,
 } from "./feishu-human-interview-meeting";
 
 describe("Feishu interview calendar description", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("includes the bound jobs and keeps candidates, rounds and notes", () => {
     const description = buildCalendarDescription({
       candidates: [
@@ -34,6 +36,23 @@ describe("Feishu interview calendar description", () => {
         validUntil: new Date("2026-09-04T03:00:00Z"),
       }),
     ).toContain("面试岗位：未关联岗位");
+  });
+
+  it("refuses to publish a localhost interviewer link to Feishu", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3000");
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3000");
+
+    expect(() =>
+      buildCalendarDescription({
+        candidates: [
+          { candidateName: "张三", jobDescriptionName: "前端工程师", roundLabel: "业务一面" },
+        ],
+        interviewers: [{ id: "user-1", name: "面试官", role: "host" }],
+        meetingId: "meeting-1",
+        notes: null,
+        validUntil: new Date("2026-09-04T03:00:00Z"),
+      }),
+    ).toThrow("公网访问地址");
   });
 });
 
@@ -202,6 +221,66 @@ describe("Feishu human interview HTTP contract", () => {
       ],
       need_notification: true,
     });
+  });
+
+  it("removes replaced interviewers from the calendar with notifications", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    const client = createFeishuHumanInterviewClient({
+      accessToken: "tenant-token",
+      fetch: fetchMock,
+    });
+
+    await client.removeCalendarAttendees({
+      attendeeOpenIds: ["ou_old_interviewer", "ou_old_interviewer"],
+      calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+      eventId: "event_1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1/attendees/batch_delete?user_id_type=open_id",
+      {
+        body: JSON.stringify({
+          delete_ids: [{ type: "user", user_id: "ou_old_interviewer" }],
+          need_notification: true,
+        }),
+        headers: {
+          authorization: "Bearer tenant-token",
+          "content-type": "application/json; charset=utf-8",
+        },
+        method: "POST",
+      },
+    );
+  });
+
+  it("deletes a cancelled calendar event with notifications", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    const client = createFeishuHumanInterviewClient({
+      accessToken: "tenant-token",
+      fetch: fetchMock,
+    });
+
+    await client.deleteCalendarEvent({
+      calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+      eventId: "event_1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1?need_notification=true",
+      {
+        headers: { authorization: "Bearer tenant-token" },
+        method: "DELETE",
+      },
+    );
   });
 
   it("resolves app-scoped open ids from member emails", async () => {

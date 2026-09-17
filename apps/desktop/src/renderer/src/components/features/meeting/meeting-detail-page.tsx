@@ -1,7 +1,14 @@
+import {
+  EchoProcessingPanel,
+  useEchoLocalProcessing,
+  localTranscriptResult,
+} from "./echo-processing-panel";
+import { hasEchoProcessing } from "@/lib/client/echo-processing";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { MeetingInitialInterviewAction } from "./meeting-initial-interview-action";
 import { toast } from "sonner";
 import { RECORDING_TITLE_MAX_LENGTH } from "@app/shared/meeting-recording";
 import {
@@ -18,6 +25,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   desktopMeetingKeys,
   fetchMeetingDetail,
+  fetchMeetingIntelligence,
+  regenerateMeetingIntelligence,
   fetchMeetingPlayback,
   fetchMeetingTranscript,
   renameMeeting,
@@ -156,7 +165,19 @@ function sessionStatusAlertTitle(id: MeetingPostSaveStep["id"]): string {
   return "转录失败";
 }
 
-function MeetingMoreEntryButton({ meetingId }: { meetingId: string }) {
+function MeetingSessionEntryButton({
+  meetingId,
+  label,
+  icon,
+  onClick,
+  disabled,
+}: {
+  meetingId?: string;
+  label: string;
+  icon: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
   const [trigger, setTrigger] = useState<HTMLElement | null>(null);
   const [showsLabel, setShowsLabel] = useState(false);
   useEffect(() => {
@@ -178,24 +199,27 @@ function MeetingMoreEntryButton({ meetingId }: { meetingId: string }) {
         <TooltipTrigger
           render={
             <Button
-              aria-label="查看更多"
-              className="absolute top-12 right-4 z-20 inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 font-normal text-[13px] leading-none text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:bg-background dark:hover:bg-sidebar-accent @[62rem]:border-transparent @[62rem]:px-2.5 [&_svg]:block"
-              nativeButton={false}
+              aria-label={label}
+              className="inline-flex h-7 w-full items-center justify-start gap-1.5 rounded-md border border-border bg-background px-2 font-normal text-[13px] leading-none text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:bg-background dark:hover:bg-sidebar-accent @[62rem]:border-transparent @[62rem]:px-2.5 [&_svg]:block"
+              nativeButton={!meetingId}
+              disabled={disabled}
+              onClick={onClick}
               ref={setTrigger}
-              render={<Link params={{ meetingId }} to="/meetings/$meetingId/more" />}
+              render={
+                meetingId ? (
+                  <Link params={{ meetingId }} to="/meetings/$meetingId/more" />
+                ) : undefined
+              }
               size="sm"
               variant="outline"
             />
           }
         >
-          <Icon
-            className="flex size-3.5 shrink-0 items-center justify-center"
-            icon="ph:squares-four"
-          />
-          <span className="hidden leading-none @[62rem]:inline">查看更多</span>
+          <Icon className="flex size-3.5 shrink-0 items-center justify-center" icon={icon} />
+          <span className="hidden leading-none @[62rem]:inline">{label}</span>
         </TooltipTrigger>
         <TooltipContent align="end" hidden={showsLabel} side="bottom">
-          查看更多
+          {label}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -291,7 +315,7 @@ function MeetingDetailHeader({
           <Icon icon="ph:warning-circle" />
           <AlertTitle>{sessionStatusAlertTitle(status.id)}</AlertTitle>
           <AlertDescription>{status.label}</AlertDescription>
-          {canRetry && status.retryLabel ? (
+          {hasEchoProcessing() && canRetry && status.retryLabel ? (
             <AlertAction>
               <AlertActionButton disabled={isRetryPending()} onClick={retry}>
                 {retryButtonLabel()}
@@ -340,6 +364,7 @@ export function MeetingDetailPage({
   });
   const workspace = workspaceQuery.data;
   const workspaceSlug = workspace?.slug ?? "";
+  const localProcessing = useEchoLocalProcessing(workspaceSlug, meetingId, !isActiveCapture);
   const detailQuery = useQuery({
     enabled: Boolean(workspace) && !isActiveCapture,
     queryFn: () => fetchMeetingDetail(workspaceSlug, meetingId),
@@ -422,6 +447,23 @@ export function MeetingDetailPage({
     },
   });
 
+  const retrySummaryMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspace) {
+        throw new Error("请先选择工作区");
+      }
+      const result = await fetchMeetingIntelligence(workspace.slug, meetingId);
+      return await regenerateMeetingIntelligence(
+        workspace.slug,
+        meetingId,
+        result.current?.template ?? result.suggestedTemplate,
+      );
+    },
+    onError: (error) => toast.error(error.message),
+    onSuccess: async () => {
+      await detailQuery.refetch();
+    },
+  });
   const meeting = detailQuery.data;
   const title = resolvedMeetingTitle({
     localTitle: localSession?.title,
@@ -529,7 +571,17 @@ export function MeetingDetailPage({
   const remoteLiveDraft = transcriptQuery.data?.draft
     ? storedDraftSnapshot(meetingId, transcriptQuery.data.draft, "saved-local")
     : null;
-  const completedSummary = meeting?.liveSummary ?? localSession?.liveSummary ?? null;
+  const pendingLocalSummary = localProcessing.data?.status.tasks.some(
+    (task) =>
+      (task.kind === "sync-intelligence" || task.kind === "sync-regeneration") &&
+      task.state !== "succeeded",
+  );
+  const completedSummary =
+    (pendingLocalSummary ? localProcessing.data?.results.liveSummary : null) ??
+    meeting?.liveSummary ??
+    localProcessing.data?.results.liveSummary ??
+    localSession?.liveSummary ??
+    null;
   const isCompletedSession = Boolean(
     meeting ||
     (localSession && !["recording", "paused", "interrupted"].includes(localSession.state)),
@@ -544,11 +596,19 @@ export function MeetingDetailPage({
   const status = sessionDetailStatus({
     playbackState: meeting?.processingState,
     transcript: transcriptQuery.data,
-    uploadFailed: workspaceSave?.state === "action-required",
+    uploadFailed:
+      workspaceSave?.state === "action-required" || workspaceSave?.state === "summary-pending",
     uploadLabel,
   });
   let completedTranscript: ReactNode = <MeetingLocalTranscriptStage localDraft={localDraft} />;
-  if (remoteLiveDraft) {
+  if (!transcriptQuery.data?.revision && localProcessing.data?.results.transcript) {
+    completedTranscript = (
+      <MeetingTranscriptStage
+        result={localTranscriptResult(localProcessing.data.results.transcript)}
+        speakerScopeId={meetingId}
+      />
+    );
+  } else if (remoteLiveDraft) {
     completedTranscript = <LiveTranscriptDraftPanel embedded snapshot={remoteLiveDraft} />;
   } else if (meeting) {
     completedTranscript = (
@@ -563,34 +623,81 @@ export function MeetingDetailPage({
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
       {isInitialLoading ? null : (
-        <MeetingRecordingSessionLayout
-          composerClassName="max-w-2xl"
-          composer={sessionComposer({
-            interrupted: isInterruptedSession,
-            onContinueInterrupted: () => {
-              continueInterruptedRecording(meetingId);
-            },
-            onPlaybackError: playbackQuery.refetch,
-            onSaveInterrupted: () => {
-              saveRecording(meetingId);
-            },
-            playback,
-            seekToSeconds,
-          })}
-          header={renderDetailHeader(status)}
-          overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
-          main={
-            isInterruptedSession && localDraft ? (
-              <LiveTranscriptDraftPanel snapshot={localDraft} />
-            ) : (
-              <MeetingCompletedContentStage
-                summary={completedSummary}
-                transcript={completedTranscript}
-              />
-            )
+        <MeetingCompletedContentStage
+          summary={completedSummary}
+          summaryState={meeting?.summaryState}
+          retrying={retrySummaryMutation.isPending}
+          onRetrySummary={
+            meeting && hasEchoProcessing() && canRetryMeetingProcessing(meeting.accessRole)
+              ? () => retrySummaryMutation.mutate()
+              : undefined
           }
-          scrollFade={isCompletedSession}
-        />
+          transcript={completedTranscript}
+        >
+          {({ toolbar, content, scrollable }) => (
+            <MeetingRecordingSessionLayout
+              scrollable={isInterruptedSession ? true : scrollable}
+              toolbar={isInterruptedSession && localDraft ? undefined : toolbar}
+              composerClassName="max-w-2xl"
+              composer={sessionComposer({
+                interrupted: isInterruptedSession,
+                onContinueInterrupted: () => {
+                  continueInterruptedRecording(meetingId);
+                },
+                onPlaybackError: playbackQuery.refetch,
+                onSaveInterrupted: () => {
+                  saveRecording(meetingId);
+                },
+                playback,
+                seekToSeconds,
+              })}
+              header={renderDetailHeader(status)}
+              overlay={
+                meeting ? (
+                  <div className="absolute top-12 right-4 z-20 flex flex-col items-stretch gap-1">
+                    <MeetingSessionEntryButton
+                      meetingId={meetingId}
+                      label="查看更多"
+                      icon="ph:squares-four"
+                    />
+                    {isActiveCapture ? null : (
+                      <MeetingInitialInterviewAction
+                        accessRole={meeting.accessRole}
+                        meetingId={meetingId}
+                        slug={workspaceSlug}
+                        ready={meeting.recordingAvailable && meeting.processingState === "ready"}
+                        trigger={(props) => (
+                          <MeetingSessionEntryButton
+                            {...props}
+                            label="生成评价表"
+                            icon="ph:file-text"
+                          />
+                        )}
+                      />
+                    )}
+                  </div>
+                ) : null
+              }
+              main={
+                isInterruptedSession && localDraft ? (
+                  <LiveTranscriptDraftPanel snapshot={localDraft} />
+                ) : (
+                  <>
+                    <div className="mx-auto mb-3 w-full max-w-3xl px-4 sm:px-6">
+                      <EchoProcessingPanel
+                        slug={workspaceSlug}
+                        meetingId={meetingId}
+                        accessRole={meeting?.accessRole}
+                      />
+                    </div>
+                    {content}
+                  </>
+                )
+              }
+              scrollFade={isCompletedSession}
+            />
+          )}
+        </MeetingCompletedContentStage>
       )}
     </SkeletonReveal>
   );

@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import type {
   InterviewQuestionTemplateQuestionRecord,
   InterviewQuestionTemplateRecord,
@@ -7,12 +8,11 @@ import { and, asc, desc, eq, exists, inArray, isNull, or } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
-  interviewQuestionTemplateBinding,
+  recruitingQuestionTemplateBinding,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
   jobDescription,
-  studioInterview,
 } from "@app/db-schema/schema";
 import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { loadJobDescriptionsByTemplate, mapQuestionRow } from "./queries";
@@ -30,11 +30,11 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
 }> {
   const [interviewRow] = await db
     .select({
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      organizationId: studioInterview.organizationId,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      organizationId: recruitingRecordReadModel.organizationId,
     })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, interviewRecordId))
     .limit(1);
 
   if (!interviewRow) {
@@ -236,9 +236,9 @@ export async function autoBindApplicableTemplates(
   // Parent row missing → throw. Inserting bindings without a real parent would
   // orphan the rows and faking organizationId would poison cross-tenant queries.
   const [parent] = await tx
-    .select({ organizationId: studioInterview.organizationId })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
+    .select({ organizationId: recruitingRecordReadModel.organizationId })
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, interviewRecordId))
     .limit(1);
   if (!parent) {
     throw new Error(`autoBindApplicableTemplates: studio_interview ${interviewRecordId} not found`);
@@ -251,18 +251,18 @@ export async function autoBindApplicableTemplates(
   }
 
   const existingBindings = await tx
-    .select({ templateId: interviewQuestionTemplateBinding.templateId })
-    .from(interviewQuestionTemplateBinding)
-    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId));
+    .select({ templateId: recruitingQuestionTemplateBinding.templateId })
+    .from(recruitingQuestionTemplateBinding)
+    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, interviewRecordId));
   const existingSet = new Set(existingBindings.map((b) => b.templateId));
 
   // Find the next sortOrder slot to append from. Existing rows keep their
   // sortOrder; new rows are appended at the tail (higher numbers).
   const [maxRow] = await tx
-    .select({ maxOrder: interviewQuestionTemplateBinding.sortOrder })
-    .from(interviewQuestionTemplateBinding)
-    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId))
-    .orderBy(desc(interviewQuestionTemplateBinding.sortOrder))
+    .select({ maxOrder: recruitingQuestionTemplateBinding.sortOrder })
+    .from(recruitingQuestionTemplateBinding)
+    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, interviewRecordId))
+    .orderBy(desc(recruitingQuestionTemplateBinding.sortOrder))
     .limit(1);
   let nextOrder = (maxRow?.maxOrder ?? -1) + 1;
 
@@ -271,12 +271,12 @@ export async function autoBindApplicableTemplates(
       continue;
     }
     const version = await resolveOrCreateInterviewQuestionTemplateVersion(tx, meta.id);
-    await tx.insert(interviewQuestionTemplateBinding).values({
+    await tx.insert(recruitingQuestionTemplateBinding).values({
       createdAt: new Date(),
       disabledByUser: false,
       id: crypto.randomUUID(),
-      interviewRecordId,
       organizationId,
+      recruitingRecordId: interviewRecordId,
       sortOrder: nextOrder,
       templateId: meta.id,
       versionId: version.id,
@@ -296,9 +296,9 @@ export async function autoBindApplicableTemplates(
  */
 export async function ensureApplicableBindings(interviewRecordId: string): Promise<void> {
   const [row] = await db
-    .select({ jobDescriptionId: studioInterview.jobDescriptionId })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
+    .select({ jobDescriptionId: recruitingRecordReadModel.jobDescriptionId })
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, interviewRecordId))
     .limit(1);
   if (!row) {
     return;
@@ -328,18 +328,18 @@ export async function replaceInterviewBindings(
   const enabledSet = new Set(enabledTemplateIds);
   const all = await tx
     .select({
-      id: interviewQuestionTemplateBinding.id,
-      templateId: interviewQuestionTemplateBinding.templateId,
+      id: recruitingQuestionTemplateBinding.id,
+      templateId: recruitingQuestionTemplateBinding.templateId,
     })
-    .from(interviewQuestionTemplateBinding)
-    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId));
+    .from(recruitingQuestionTemplateBinding)
+    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, interviewRecordId));
 
   for (const row of all) {
     const shouldBeDisabled = !enabledSet.has(row.templateId);
     await tx
-      .update(interviewQuestionTemplateBinding)
+      .update(recruitingQuestionTemplateBinding)
       .set({ disabledByUser: shouldBeDisabled })
-      .where(eq(interviewQuestionTemplateBinding.id, row.id));
+      .where(eq(recruitingQuestionTemplateBinding.id, row.id));
   }
 }
 
@@ -374,12 +374,12 @@ export async function refreshInterviewBindingsToLatest(
 
   const bindings = await tx
     .select({
-      id: interviewQuestionTemplateBinding.id,
-      templateId: interviewQuestionTemplateBinding.templateId,
-      versionId: interviewQuestionTemplateBinding.versionId,
+      id: recruitingQuestionTemplateBinding.id,
+      templateId: recruitingQuestionTemplateBinding.templateId,
+      versionId: recruitingQuestionTemplateBinding.versionId,
     })
-    .from(interviewQuestionTemplateBinding)
-    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId));
+    .from(recruitingQuestionTemplateBinding)
+    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, interviewRecordId));
 
   for (const row of bindings) {
     const latest = await resolveOrCreateInterviewQuestionTemplateVersion(tx, row.templateId);
@@ -387,9 +387,9 @@ export async function refreshInterviewBindingsToLatest(
       continue;
     }
     await tx
-      .update(interviewQuestionTemplateBinding)
+      .update(recruitingQuestionTemplateBinding)
       .set({ versionId: latest.id })
-      .where(eq(interviewQuestionTemplateBinding.id, row.id));
+      .where(eq(recruitingQuestionTemplateBinding.id, row.id));
   }
 }
 
@@ -412,17 +412,17 @@ export async function loadInterviewQuestionTemplateBindings(interviewRecordId: s
 
   const bindingRows = await db
     .select({
-      disabledByUser: interviewQuestionTemplateBinding.disabledByUser,
-      templateId: interviewQuestionTemplateBinding.templateId,
+      disabledByUser: recruitingQuestionTemplateBinding.disabledByUser,
+      templateId: recruitingQuestionTemplateBinding.templateId,
       version: interviewQuestionTemplateVersion.version,
-      versionId: interviewQuestionTemplateBinding.versionId,
+      versionId: recruitingQuestionTemplateBinding.versionId,
     })
-    .from(interviewQuestionTemplateBinding)
+    .from(recruitingQuestionTemplateBinding)
     .innerJoin(
       interviewQuestionTemplateVersion,
-      eq(interviewQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
+      eq(recruitingQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
     )
-    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId));
+    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, interviewRecordId));
 
   return { applicable, bindings: bindingRows };
 }

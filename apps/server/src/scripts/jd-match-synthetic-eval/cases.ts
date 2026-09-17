@@ -35,6 +35,7 @@ function job(input: {
     evaluationUpgradedBy: null,
     hasEvaluationUpgradeDraft: false,
     id: input.id,
+    internalCriteria: null,
     interviewerIds: [],
     interviewers: [],
     lifecycleStatus: "published",

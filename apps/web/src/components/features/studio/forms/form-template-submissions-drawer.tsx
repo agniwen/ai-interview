@@ -75,17 +75,10 @@ function renderAnswer(
       </div>
     );
   }
-  // 自由文本：套一层 bg-muted/30 软容器（沿用 parsed-resume-button.tsx 里 ChipList
-  // 同款底色），多行内容有视觉框，跟"标签+值"的简短回答形成分级。
-  // Free-form text gets a soft container (same tonal family as the
-  // chip-list background elsewhere), giving multi-line answers a visual
-  // boundary that sets them apart from short option-style answers.
   return (
-    <Card className="gap-0 rounded-md py-0 shadow-none">
-      <CardContent className="whitespace-pre-wrap bg-muted/30 px-3 py-2 text-foreground text-sm leading-relaxed">
-        {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
-      </CardContent>
-    </Card>
+    <p className="whitespace-pre-wrap wrap-break-word text-foreground text-sm leading-relaxed">
+      {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
+    </p>
   );
 }
 

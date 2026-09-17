@@ -1,5 +1,6 @@
 // oxlint-disable class-methods-use-this, max-classes-per-file, require-await, typescript/no-this-alias, typescript/parameter-properties, unicorn/consistent-function-scoping, unicorn/no-this-assignment -- Browser media fakes intentionally mirror constructable DOM classes and callback APIs.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { LiveTranscriptDraftSnapshot } from "./live-transcript-draft";
 import { BrowserDualTrackCaptureSource } from "./browser-dual-track-capture-source";
 
 interface FakeMediaTrack {
@@ -218,12 +219,35 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     const correctionFlush = new Promise<void>((resolve) => {
       resolveCorrectionFlush = resolve;
     });
+    let transcriptStopped = false;
+    const finalSnapshot: LiveTranscriptDraftSnapshot = {
+      captureId: "00000000-0000-4000-8000-000000000072",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      queuePeakAudioMs: 0,
+      queuedAudioMs: 0,
+      queuedPcmBytes: 0,
+      sections: [
+        { id: "section", sequence: 0, startedAt: "2026-09-07T00:00:00.000Z", track: "system" },
+      ],
+      status: "live",
+      trackDroppedAudioMs: { microphone: 0, system: 0 },
+      trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+      trackQueuedAudioMs: { microphone: 0, system: 0 },
+      trackStatus: { microphone: "live", system: "live" },
+      turns: [],
+    };
     const sidecar = {
       flushCorrections: vi.fn(() => correctionFlush),
+      getSnapshot: () =>
+        transcriptStopped ? { ...finalSnapshot, captureId: null, turns: [] } : finalSnapshot,
       pause: vi.fn(),
       resume: vi.fn(),
       start: vi.fn().mockRejectedValue(new Error("provider disconnected")),
-      stop: vi.fn(),
+      stop: vi.fn(() => {
+        transcriptStopped = true;
+      }),
     };
     const prepared = await new BrowserDualTrackCaptureSource(sidecar).acquire();
     expect(processedMicrophoneTrack.applyConstraints).not.toHaveBeenCalled();
@@ -279,7 +303,23 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     });
     expect(sidecar.start).toHaveBeenCalledOnce();
 
-    await prepared.stop();
+    const finalization = Promise.withResolvers<null>();
+    sidecar.flushCorrections.mockImplementationOnce(async () => {
+      await finalization.promise;
+    });
+    const stopping = prepared.stop();
+    expect(recorders.map((recorder) => recorder.state)).toEqual(["inactive", "inactive"]);
+    expect(sidecar.stop).not.toHaveBeenCalled();
+    finalSnapshot.turns.push({
+      final: true,
+      id: "tail",
+      sectionId: "section",
+      text: "收尾时返回的字幕",
+      track: "system",
+    });
+    finalization.resolve(null);
+    await stopping;
+    expect(prepared.getLiveTranscriptDraft?.()?.turns[0]?.text).toBe("收尾时返回的字幕");
     expect(sidecar.flushCorrections).toHaveBeenCalledTimes(2);
     expect(sidecar.stop).toHaveBeenCalledOnce();
   });

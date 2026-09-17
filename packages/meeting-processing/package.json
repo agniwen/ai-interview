@@ -5,6 +5,7 @@
   "description": "Reusable meeting transcription, intelligence, purge, search projection, and human-interview processing workflows",
   "type": "module",
   "exports": {
+    "./answer": "./src/answer.ts",
     "./human-interview": "./src/human-interview.ts",
     "./intelligence": "./src/intelligence.ts",
     "./purge": "./src/purge.ts",

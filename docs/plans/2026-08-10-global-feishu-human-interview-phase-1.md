@@ -121,9 +121,9 @@ FEISHU_HUMAN_INTERVIEW_ENABLED=true
 ### 完整验证
 
 ```bash
-pnpm check
-pnpm typecheck
-pnpm test
+bun run check
+bun run typecheck
+bun run test
 cd apps/livekit-agent && uv run ruff check
 cd apps/livekit-agent && uv run ruff format --check
 cd apps/livekit-agent && uv run python -m pytest

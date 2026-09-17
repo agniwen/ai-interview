@@ -1,3 +1,5 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { canSendInterviewNotificationToAudience } from "@app/shared/interview-notifications";
 import { createHash } from "node:crypto";
 import {
   account,
@@ -6,13 +8,13 @@ import {
   interviewNotificationTemplate,
   interviewNotificationTemplateVersion,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
-  studioInterviewNotificationRecipient,
-  studioInterviewSchedule,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  recruitingEvaluationDocument,
+  recruitingNotificationRecipient,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type {
@@ -29,8 +31,12 @@ import {
   buildInterviewerInviteToken,
   buildInviteExpiry,
 } from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
-
-const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
+import { absolutePublicAppUrl } from "../../../lib/server/public-app-url";
+import {
+  FEISHU_PROVIDER_IDS,
+  isFeishuProviderId,
+  selectPreferredFeishuProviderId,
+} from "../../integrations/feishu/provider";
 
 export function resolvePreferredInternalNotificationChannel(
   hasFeishuAccount: boolean,
@@ -108,23 +114,18 @@ function providerRequestKey(eventId: string, channel: string, address: string): 
   return `${eventId}:${channel}:${recipientHash}`;
 }
 
-function absoluteAppUrl(path: string): string {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  return baseUrl ? `${baseUrl.replace(/\/$/, "")}${path}` : path;
-}
-
 async function loadInterviewerMeetingLink(
   database: NotificationDatabase,
   meetingId: string,
   userId: string,
 ): Promise<string | undefined> {
   const [assignment] = await database
-    .select({ role: studioHumanInterviewMeetingInterviewer.role })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .select({ role: humanInterviewMeetingInterviewer.role })
+    .from(humanInterviewMeetingInterviewer)
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),
-        eq(studioHumanInterviewMeetingInterviewer.userId, userId),
+        eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+        eq(humanInterviewMeetingInterviewer.userId, userId),
       ),
     )
     .limit(1);
@@ -137,31 +138,31 @@ async function loadInterviewerMeetingLink(
     role: assignment.role,
     userId,
   });
-  return absoluteAppUrl(`/human-interview/interviewer/${encodeURIComponent(token)}`);
+  return absolutePublicAppUrl(`/human-interview/interviewer/${encodeURIComponent(token)}`);
 }
 
 async function loadRecordContexts(
   database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
 ): Promise<RecordContext[]> {
-  let recordIds = event.interviewRecordId ? [event.interviewRecordId] : [];
-  if (recordIds.length === 0 && event.scheduleEntryId) {
+  let recordIds = event.recruitingRecordId ? [event.recruitingRecordId] : [];
+  if (recordIds.length === 0 && event.aiRoundId) {
     const [schedule] = await database
-      .select({ interviewRecordId: studioInterviewSchedule.interviewRecordId })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, event.scheduleEntryId))
+      .select({ interviewRecordId: aiInterviewRound.recruitingRecordId })
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, event.aiRoundId))
       .limit(1);
     recordIds = schedule ? [schedule.interviewRecordId] : [];
   }
   if (recordIds.length === 0 && event.humanMeetingId) {
     const rows = await database
-      .select({ interviewRecordId: studioHumanInterviewRound.interviewRecordId })
-      .from(studioHumanInterviewMeetingRound)
+      .select({ interviewRecordId: humanInterviewRound.recruitingRecordId })
+      .from(humanInterviewMeetingRound)
       .innerJoin(
-        studioHumanInterviewRound,
-        eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
+        humanInterviewRound,
+        eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
       )
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, event.humanMeetingId));
+      .where(eq(humanInterviewMeetingRound.meetingId, event.humanMeetingId));
     recordIds = [...new Set(rows.map((row) => row.interviewRecordId))];
   }
   if (recordIds.length === 0) {
@@ -169,29 +170,34 @@ async function loadRecordContexts(
   }
   const rows = await database
     .select({
-      candidateEmail: studioInterview.candidateEmail,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
+      candidateEmail: recruitingRecordReadModel.candidateEmail,
+      candidateName: recruitingRecordReadModel.candidateName,
+      candidatePhone: recruitingRecordReadModel.candidatePhone,
       configuredCompanyName: globalConfig.companyName,
-      createdBy: studioInterview.createdBy,
-      id: studioInterview.id,
-      jobName: sql<string | null>`coalesce(${jobDescription.name}, ${studioInterview.targetRole})`,
+      createdBy: recruitingRecordReadModel.createdBy,
+      id: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
       workspaceName: organization.name,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
-    .innerJoin(organization, eq(organization.id, studioInterview.organizationId))
-    .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterview.organizationId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
     .where(
       and(
-        eq(studioInterview.organizationId, event.organizationId),
-        inArray(studioInterview.id, recordIds),
+        eq(recruitingRecordReadModel.organizationId, event.organizationId),
+        inArray(recruitingRecordReadModel.id, recordIds),
       ),
     );
   return rows.map(({ configuredCompanyName, workspaceName, ...record }) => ({
@@ -240,11 +246,14 @@ async function loadInitiatorUserId(
   event: InterviewNotificationEventRecord,
   records: RecordContext[],
 ): Promise<string | null> {
-  if (event.scheduleEntryId) {
+  if (event.actorUserId) {
+    return event.actorUserId;
+  }
+  if (event.aiRoundId) {
     const [row] = await database
-      .select({ createdBy: studioInterviewSchedule.createdBy })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, event.scheduleEntryId))
+      .select({ createdBy: aiInterviewRound.createdBy })
+      .from(aiInterviewRound)
+      .where(eq(aiInterviewRound.id, event.aiRoundId))
       .limit(1);
     if (row?.createdBy) {
       return row.createdBy;
@@ -252,9 +261,9 @@ async function loadInitiatorUserId(
   }
   if (event.humanMeetingId) {
     const [row] = await database
-      .select({ createdBy: studioHumanInterviewMeeting.createdBy })
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, event.humanMeetingId))
+      .select({ createdBy: humanInterviewMeeting.createdBy })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, event.humanMeetingId))
       .limit(1);
     if (row?.createdBy) {
       return row.createdBy;
@@ -268,6 +277,7 @@ async function loadUserTargets(
   userIds: string[],
   channel: InterviewNotificationChannel,
   records: RecordContext[],
+  persistedProviderId: (typeof FEISHU_PROVIDER_IDS)[number] | null,
 ): Promise<RecipientTarget[]> {
   if (userIds.length === 0 || records.length === 0) {
     return [];
@@ -289,10 +299,21 @@ async function loadUserTargets(
       and(inArray(account.userId, userIds), inArray(account.providerId, [...FEISHU_PROVIDER_IDS])),
     )
     .orderBy(desc(account.updatedAt));
-  const accountByUserId = new Map<string, (typeof accounts)[number]>();
+  const accountsByUserId = new Map<string, (typeof accounts)[number][]>();
   for (const item of accounts) {
-    if (!accountByUserId.has(item.userId)) {
-      accountByUserId.set(item.userId, item);
+    const userAccounts = accountsByUserId.get(item.userId) ?? [];
+    userAccounts.push(item);
+    accountsByUserId.set(item.userId, userAccounts);
+  }
+  const accountByUserId = new Map<string, (typeof accounts)[number]>();
+  for (const [userId, userAccounts] of accountsByUserId) {
+    const providerId = selectPreferredFeishuProviderId(
+      userAccounts.map((item) => item.providerId),
+      persistedProviderId,
+    );
+    const selected = userAccounts.find((item) => item.providerId === providerId);
+    if (selected) {
+      accountByUserId.set(userId, selected);
     }
   }
   const preferredUserIds = userIds.filter(
@@ -341,6 +362,7 @@ async function loadTargets(
   records: RecordContext[],
   selectedUserIds: string[],
   initiatorUserId: string | null,
+  persistedProviderId: (typeof FEISHU_PROVIDER_IDS)[number] | null,
 ): Promise<RecipientTarget[]> {
   if (template.audienceType === "candidate") {
     return records.map((record) => {
@@ -374,6 +396,7 @@ async function loadTargets(
       }),
       template.channel,
       records,
+      persistedProviderId,
     );
   }
   if (template.audienceType === "initiator_fallback") {
@@ -389,19 +412,20 @@ async function loadTargets(
       }),
       template.channel,
       records,
+      persistedProviderId,
     );
   }
   if (!event.humanMeetingId) {
     return [];
   }
   const interviewers = await database
-    .select({ userId: studioHumanInterviewMeetingInterviewer.userId })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .select({ userId: humanInterviewMeetingInterviewer.userId })
+    .from(humanInterviewMeetingInterviewer)
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, event.humanMeetingId),
+        eq(humanInterviewMeetingInterviewer.meetingId, event.humanMeetingId),
         event.type === "human_evaluation_summary_ready"
-          ? ne(studioHumanInterviewMeetingInterviewer.role, "observer")
+          ? ne(humanInterviewMeetingInterviewer.role, "observer")
           : undefined,
       ),
     );
@@ -410,7 +434,42 @@ async function loadTargets(
     interviewers.map((item) => item.userId),
     template.channel,
     records,
+    persistedProviderId,
   );
+}
+
+async function loadPersistedFeishuProviderId(
+  database: NotificationDatabase,
+  event: InterviewNotificationEventRecord,
+  records: RecordContext[],
+): Promise<(typeof FEISHU_PROVIDER_IDS)[number] | null> {
+  if (event.humanMeetingId) {
+    const [meeting] = await database
+      .select({ providerId: humanInterviewMeeting.feishuProviderId })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, event.humanMeetingId))
+      .limit(1);
+    if (meeting?.providerId && isFeishuProviderId(meeting.providerId)) {
+      return meeting.providerId;
+    }
+  }
+  const [record] = records;
+  if (!record) {
+    return null;
+  }
+  const [document] = await database
+    .select({ providerId: recruitingEvaluationDocument.providerId })
+    .from(recruitingEvaluationDocument)
+    .where(
+      and(
+        eq(recruitingEvaluationDocument.organizationId, event.organizationId),
+        eq(recruitingEvaluationDocument.recruitingRecordId, record.id),
+      ),
+    )
+    .limit(1);
+  return document?.providerId && isFeishuProviderId(document.providerId)
+    ? document.providerId
+    : null;
 }
 
 export function usesInterviewerMeetingLink(
@@ -453,18 +512,25 @@ export async function prepareInterviewNotificationDeliveries(
   const recipientRows = event.humanMeetingId
     ? []
     : await database
-        .select({ userId: studioInterviewNotificationRecipient.userId })
-        .from(studioInterviewNotificationRecipient)
+        .select({ userId: recruitingNotificationRecipient.userId })
+        .from(recruitingNotificationRecipient)
         .where(
           inArray(
-            studioInterviewNotificationRecipient.interviewRecordId,
+            recruitingNotificationRecipient.recruitingRecordId,
             records.map((record) => record.id),
           ),
         );
   const selectedUserIds = [...new Set(recipientRows.map((row) => row.userId))];
   const initiatorUserId = await loadInitiatorUserId(database, event, records);
+  const persistedProviderId = templates.some((template) => template.channel === "feishu")
+    ? await loadPersistedFeishuProviderId(database, event, records)
+    : null;
 
   for (const template of templates) {
+    // 临时跳过候选人发送步骤，待 HRD 主动发送流程重新设计并验收后恢复。
+    if (!canSendInterviewNotificationToAudience(template.audienceType)) {
+      continue;
+    }
     const targets = await loadTargets(
       database,
       event,
@@ -472,6 +538,7 @@ export async function prepareInterviewNotificationDeliveries(
       records,
       selectedUserIds,
       initiatorUserId,
+      persistedProviderId,
     );
     for (const target of targets) {
       const rendered = renderInterviewNotificationTemplateContent(
@@ -481,6 +548,7 @@ export async function prepareInterviewNotificationDeliveries(
       await createInterviewNotificationDelivery(database, {
         audienceType: template.audienceType,
         channel: template.channel,
+        conversationId: event.conversationId,
         error: target.errorMessage,
         eventId: event.id,
         interviewRecordId: target.record.id,

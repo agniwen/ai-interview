@@ -1,5 +1,6 @@
+import { createRecruitingRecords } from "@app/database/recruiting-records";
 import { db } from "../../../lib/db";
-import { studioInterview } from "@app/db-schema/schema";
+
 import type { StudioInterviewResumeSourceType } from "@app/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeReview } from "@app/db-schema/resume-review";
@@ -49,18 +50,20 @@ export interface CreateResumeRecordFromStorageInput {
 }
 
 export interface CreateResumeRecordFromStorageDependencies {
+  createRecords: typeof createRecruitingRecords;
   syncSkills: typeof syncResumeSkills;
 }
 
 const defaultCreateResumeRecordFromStorageDependencies: CreateResumeRecordFromStorageDependencies =
   {
+    createRecords: createRecruitingRecords,
     syncSkills: syncResumeSkills,
   };
 
-// 仅"从已经上传好的简历文件 + 已经解析过的 profile"装配一行 studio_interview。
+// 仅"从已经上传好的简历文件 + 已经解析过的 profile"装配一行 recruiting_record。
 // 不做：dedup / JD 匹配 / 上传 / 解析——由调用方负责。
 //
-// Assemble a single studio_interview row from an already-uploaded resume +
+// Assemble a single recruiting_record row from an already-uploaded resume +
 // already-parsed profile. Does NOT do dedup / JD-matching / upload / parsing —
 // the caller is responsible for those.
 // oxlint-disable-next-line complexity -- central data mapper for the resume-library row.
@@ -81,7 +84,7 @@ export async function createResumeRecordFromStorage(
   }
   // oxlint-disable-next-line complexity -- central data mapper for the resume-library row.
   const write = async (executor: Tx) => {
-    await executor.insert(studioInterview).values({
+    await dependencies.createRecords(executor, {
       candidateEmail,
       candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
       candidatePhone,

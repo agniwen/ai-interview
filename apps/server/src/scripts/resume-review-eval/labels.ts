@@ -16,9 +16,9 @@ export type DerivedOutcomeLabel =
   | { excluded: LabelExclusionReason };
 
 const ADVANCED_STAGES = new Set<PipelineStage>([
-  "written_test",
+  "final_interview",
   "ai_interview",
-  "human_interview",
+  "second_interview",
   "offer",
 ]);
 

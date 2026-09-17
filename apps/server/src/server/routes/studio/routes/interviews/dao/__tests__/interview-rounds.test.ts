@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 真实 DB 集成测试：按轮次维度查询 + 详情 + 计数聚合。
 // Per project memory: 用真实数据库，不 mock。
 //
@@ -8,12 +10,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
-  interviewConversation,
-  interviewNotification,
+  aiInterviewConversation,
+  recruitingNotificationDelivery,
+  recruitingEvaluationDocument,
   member,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -29,8 +31,8 @@ const USER_ID_ALT = "test_user_interview_rounds_alt";
 const NOW = new Date("2026-05-13T15:00:00.000Z");
 
 async function cleanup() {
-  await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.organizationId, ORG));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
+  await db.delete(aiInterviewRound).where(eq(aiInterviewRound.organizationId, ORG));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
   await db.delete(member).where(eq(member.userId, USER_ID_ALT));
   await db.delete(organization).where(eq(organization.id, ORG));
@@ -82,7 +84,7 @@ beforeAll(async () => {
   ]);
 
   // Candidate A with 2 rounds
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "郭靖",
     createdAt: NOW,
     createdBy: USER_ID,
@@ -93,14 +95,14 @@ beforeAll(async () => {
     targetRole: "前端工程师",
     updatedAt: NOW,
   });
-  await db.insert(studioInterviewSchedule).values([
+  await db.insert(aiInterviewRound).values([
     {
       allowTextInput: true,
       createdAt: NOW,
       createdBy: USER_ID,
       id: "rnd-a1",
-      interviewRecordId: "cand-a",
       organizationId: ORG,
+      recruitingRecordId: "cand-a",
       roundLabel: "一面",
       scheduledAt: new Date("2026-05-14T10:00:00.000Z"),
       sortOrder: 0,
@@ -112,8 +114,8 @@ beforeAll(async () => {
       createdAt: NOW,
       createdBy: USER_ID,
       id: "rnd-a2",
-      interviewRecordId: "cand-a",
       organizationId: ORG,
+      recruitingRecordId: "cand-a",
       roundLabel: "二面",
       scheduledAt: null,
       sortOrder: 1,
@@ -123,7 +125,7 @@ beforeAll(async () => {
   ]);
 
   // Candidate B with 1 round (completed)
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "李四",
     createdAt: NOW,
     createdBy: USER_ID,
@@ -134,13 +136,13 @@ beforeAll(async () => {
     targetRole: "后端工程师",
     updatedAt: NOW,
   });
-  await db.insert(studioInterviewSchedule).values({
+  await db.insert(aiInterviewRound).values({
     allowTextInput: true,
     createdAt: NOW,
     createdBy: USER_ID_ALT,
     id: "rnd-b1",
-    interviewRecordId: "cand-b",
     organizationId: ORG,
+    recruitingRecordId: "cand-b",
     roundLabel: "一面",
     scheduledAt: new Date("2026-05-12T10:00:00.000Z"),
     sortOrder: 0,
@@ -209,13 +211,13 @@ describe("queryPaginatedInterviewRounds", () => {
 
   it("serializes lastInterviewAt from conversation timestamps without timezone loss", async () => {
     const startedAt = new Date("2026-05-13T10:00:00.000Z");
-    await db.insert(interviewConversation).values({
+    await db.insert(aiInterviewConversation).values({
+      aiRoundId: "rnd-a1",
       conversationId: "conv_rounds_dao_last_interview_at",
       createdAt: new Date("2026-05-13T09:00:00.000Z"),
-      interviewRecordId: "cand-a",
       lastSyncedAt: NOW,
       organizationId: ORG,
-      scheduleEntryId: "rnd-a1",
+      recruitingRecordId: "cand-a",
       startedAt,
       status: "completed",
       updatedAt: NOW,
@@ -226,14 +228,15 @@ describe("queryPaginatedInterviewRounds", () => {
       expect(row?.lastInterviewAt).toBe(startedAt.toISOString());
     } finally {
       await db
-        .delete(interviewConversation)
-        .where(eq(interviewConversation.conversationId, "conv_rounds_dao_last_interview_at"));
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, "conv_rounds_dao_last_interview_at"));
     }
   });
 
   it("returns the Feishu document for the round conversation", async () => {
     const conversationId = "conv_rounds_dao_feishu_document";
-    await db.insert(interviewConversation).values({
+    await db.insert(aiInterviewConversation).values({
+      aiRoundId: "rnd-a1",
       conversationId,
       createdAt: NOW,
       dataCollectionResults: {
@@ -256,30 +259,37 @@ describe("queryPaginatedInterviewRounds", () => {
         schemaVersion: 2,
       },
       endedAt: NOW,
-      interviewRecordId: "cand-a",
       lastSyncedAt: NOW,
       organizationId: ORG,
-      scheduleEntryId: "rnd-a1",
+      recruitingRecordId: "cand-a",
       status: "completed",
       summaryStatus: "ready",
       updatedAt: NOW,
     });
     await db
-      .update(studioInterviewSchedule)
+      .update(aiInterviewRound)
       .set({ conversationId })
-      .where(eq(studioInterviewSchedule.id, "rnd-a1"));
-    await db.insert(interviewNotification).values({
+      .where(eq(aiInterviewRound.id, "rnd-a1"));
+    await db.insert(recruitingNotificationDelivery).values({
       conversationId,
       createdAt: NOW,
       feishuDocumentUrl: "https://example.feishu.cn/docx/round-a1",
       id: "notification_rounds_dao_feishu_document",
-      interviewRecordId: "cand-a",
       organizationId: ORG,
       providerId: "feishu:test",
       recipientOpenId: "ou_test",
+      recruitingRecordId: "cand-a",
       status: "sent",
       type: "summary_ready",
       updatedAt: NOW,
+    });
+    await db.insert(recruitingEvaluationDocument).values({
+      documentId: "round-a1",
+      documentUrl: "https://example.feishu.cn/docx/round-a1",
+      organizationId: ORG,
+      providerId: "feishu",
+      recruitingRecordId: "cand-a",
+      status: "ready",
     });
 
     try {
@@ -288,21 +298,28 @@ describe("queryPaginatedInterviewRounds", () => {
       const withoutDocument = result.records.find((record) => record.id === "rnd-a2");
       expect(withDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
       expect(withDocument?.feishuEvaluationDocumentStatus).toBe("generated");
-      expect(withoutDocument?.feishuDocumentUrl).toBeNull();
+      expect(withoutDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
     } finally {
       await db
-        .update(studioInterviewSchedule)
-        .set({ conversationId: null })
-        .where(eq(studioInterviewSchedule.id, "rnd-a1"));
+        .delete(recruitingEvaluationDocument)
+        .where(eq(recruitingEvaluationDocument.recruitingRecordId, "cand-a"));
       await db
-        .delete(interviewConversation)
-        .where(eq(interviewConversation.conversationId, conversationId));
+        .delete(recruitingNotificationDelivery)
+        .where(eq(recruitingNotificationDelivery.id, "notification_rounds_dao_feishu_document"));
+      await db
+        .update(aiInterviewRound)
+        .set({ conversationId: null })
+        .where(eq(aiInterviewRound.id, "rnd-a1"));
+      await db
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
     }
   });
 
   it("offers manual generation from the latest ended partial interview", async () => {
     const conversationId = "conv_rounds_dao_partial_evaluation";
-    await db.insert(interviewConversation).values({
+    await db.insert(aiInterviewConversation).values({
+      aiRoundId: "rnd-b1",
       conversationId,
       createdAt: new Date("2026-05-13T13:00:00.000Z"),
       dataCollectionResults: {
@@ -339,10 +356,9 @@ describe("queryPaginatedInterviewRounds", () => {
         schemaVersion: 2,
       },
       endedAt: new Date("2026-05-13T14:00:00.000Z"),
-      interviewRecordId: "cand-b",
       lastSyncedAt: NOW,
       organizationId: ORG,
-      scheduleEntryId: "rnd-b1",
+      recruitingRecordId: "cand-b",
       status: "completed",
       summaryStatus: "ready",
       updatedAt: NOW,
@@ -355,8 +371,8 @@ describe("queryPaginatedInterviewRounds", () => {
       expect(row?.feishuEvaluationDocumentStatus).toBe("answers_available");
     } finally {
       await db
-        .delete(interviewConversation)
-        .where(eq(interviewConversation.conversationId, conversationId));
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
     }
   });
 });

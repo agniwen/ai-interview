@@ -117,6 +117,15 @@ export type MeetingIntelligencePayload = z.infer<typeof meetingIntelligencePaylo
 export const MEETING_INTELLIGENCE_DECISION_POLICY_VERSION = "hiring-decision-v1" as const;
 export const MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION = "map-reduce-v1" as const;
 
+const segmentCacheSchema = z
+  .array(
+    z.object({
+      content: meetingIntelligencePayloadSchema,
+      key: z.string().length(64),
+    }),
+  )
+  .max(10_000);
+
 export const meetingIntelligenceCheckpointSchema = z
   .object({
     content: meetingIntelligencePayloadSchema,
@@ -124,6 +133,7 @@ export const meetingIntelligenceCheckpointSchema = z
       classification: z.literal("allowed"),
       version: z.literal(MEETING_INTELLIGENCE_DECISION_POLICY_VERSION),
     }),
+    segmentCache: segmentCacheSchema.optional(),
   })
   .strict();
 export type MeetingIntelligenceCheckpoint = z.infer<typeof meetingIntelligenceCheckpointSchema>;
@@ -132,6 +142,7 @@ const meetingIntelligenceProgressBaseSchema = z.object({
   kind: z.literal("progress"),
   maxReduceChars: z.number().int().positive(),
   maxTranscriptChars: z.number().int().positive(),
+  segmentCache: segmentCacheSchema.optional(),
   version: z.literal(MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION),
 });
 

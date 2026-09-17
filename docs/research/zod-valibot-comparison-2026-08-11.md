@@ -24,8 +24,8 @@
 - 53 个后端路由模块直接使用 `@hono/zod-validator`。
 - 直接使用主要分布为：backend 95 个文件、`packages/shared` 16 个、web 16 个、`packages/db-schema` 13 个、meeting queue 5 个、desktop 4 个、resume queue 3 个。
 - 至少 111 个文件使用了需要逐项核对语义的 API/模式，例如 `ZodType`/`ZodTypeAny`、`ZodIssueCode`、`ZodError`、`refine`/`superRefine`、transform/default/catch 和对象 strictness。
-- workspace catalog 已固定 `zod: ^4.4.3`。[pnpm-workspace.yaml](../../pnpm-workspace.yaml)
-- Web 的 vendored Mastra Studio 另外固定 `zod3: npm:zod@3.25.76`，并包含读取 Zod v3/v4 内部结构的 auto-form compatibility provider。[package.json](../../apps/web/package.json) [compat.ts](../../apps/web/src/components/features/mastra-studio/upstream/lib/form/zod-provider/compat.ts)
+- workspace catalog 已固定 `zod: ^4.4.3`。[package.json](../../package.json)
+- Web 曾 vendored 一套 Mastra Studio（额外固定 `zod3: npm:zod@3.25.76`，并带读取 Zod v3/v4 内部结构的 auto-form compatibility provider）；该 vendored Studio 现已移除，因此这部分 Zod 体积约束不再适用。[apps/web/package.json](../../apps/web/package.json)
 
 因此，“把业务 schema 换完”也不会自动让 Zod 从依赖图或浏览器产物消失。AI SDK、Mastra、现有 Hono adapter 和 vendored Studio 仍可能保留 Zod；必须以最终 chunk diff，而不是 `package.json` 是否还存在 Zod，判断收益。
 
@@ -69,7 +69,7 @@ Valibot 更小、schema 初始化工作更少，因此浏览器 TTI、Edge isola
 
 没有找到 Valibot 1.x 与 Zod 4.4 的一方、同版本、同 schema 的可信 typecheck benchmark，因此不应承诺切换后 `tsc` 会更快。Zod 4 已经针对泛型爆炸重写：官方的 `.extend()` 示例从 Zod 3 的约 25,000 次 type instantiation 降至约 175 次，并建议对象 spread 获得更好的 typecheck 表现。[Zod 4 TypeScript benchmark](https://zod.dev/v4?id=100x-reduction-in-tsc-instantiations)
 
-本项目应该以 `pnpm typecheck` 的 `--extendedDiagnostics`、编辑器 completion 延迟和真实复杂 schema 为准。大量 codemod 生成的深层 `v.pipe(...)` 也未必天然优于当前 Zod 4。
+本项目应该以 `bun run typecheck` 的 `--extendedDiagnostics`、编辑器 completion 延迟和真实复杂 schema 为准。大量 codemod 生成的深层 `v.pipe(...)` 也未必天然优于当前 Zod 4。
 
 ## Valibot 做不了、或没有 Zod 同等级一等支持的能力
 
@@ -130,7 +130,7 @@ TypeBox 的 JSON Schema/JIT 定位和自测数据见[官方仓库](https://githu
 先运行官方 codemod dry-run：
 
 ```bash
-npx @valibot/zod-to-valibot 'path/to/candidate/**/*' --dry
+bunx @valibot/zod-to-valibot 'path/to/candidate/**/*' --dry
 ```
 
 官方明确标注 codemod 仍是 beta，可能漏掉 edge cases，不能直接全仓应用。[Valibot 迁移指南](https://valibot.dev/guides/migrate-from-zod/)

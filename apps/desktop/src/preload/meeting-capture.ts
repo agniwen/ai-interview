@@ -1,8 +1,10 @@
+import type { EchoProcessingOwner } from "./echo-processing-api";
 // oxlint-disable max-lines, promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptHints,
 } from "@app/shared/meeting-transcription";
+import { MeetingSummaryPendingError } from "@app/shared/meeting-live-summary";
 import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summary";
 import type { LocalMeetingSession } from "./local-meeting-session";
 
@@ -87,6 +89,8 @@ export interface MeetingCaptureSnapshot {
 
 export type WorkspaceSavePhase =
   | "waiting-for-network"
+  | "summarizing"
+  | "summary-pending"
   | "uploading"
   | "verifying"
   | "workspace-verified"
@@ -103,7 +107,7 @@ export interface WorkspaceRecordingPort {
   persist: (input: {
     captureId: string;
     manifestSha256: string;
-    report: (state: Extract<WorkspaceSavePhase, "uploading" | "verifying">) => void;
+    report: (state: Extract<WorkspaceSavePhase, "summarizing" | "uploading" | "verifying">) => void;
   }) => Promise<{ recoveryCopyDeleteAfter: string }>;
   reportRecoveryCopyCleanup?: (
     captureId: string,
@@ -134,7 +138,6 @@ export interface CaptureSink {
 
 export interface PreparedCapture {
   dispose: () => Promise<void>;
-  flushLiveTranscriptDraft?: () => Promise<void>;
   getLiveTranscriptDraft?: () => MeetingLiveTranscriptDraft | null;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
@@ -156,6 +159,7 @@ export interface MeetingCaptureSource {
 }
 
 export interface BeginLocalCaptureInput {
+  owner?: EchoProcessingOwner;
   captureId: string;
   recruitingRecordId: string | null;
   startedAt: string;
@@ -191,7 +195,13 @@ export interface MeetingRecordingStore {
     patch: Partial<
       Pick<
         LocalMeetingSession,
-        "endedAt" | "liveSummary" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+        | "endedAt"
+        | "liveSummary"
+        | "liveSummaryCheckpoint"
+        | "liveTranscriptDraft"
+        | "segmentCount"
+        | "state"
+        | "title"
       >
     >,
   ) => LocalMeetingSession | Promise<LocalMeetingSession>;
@@ -321,7 +331,6 @@ export function createMeetingCapture({
   const pendingFragments = new Set<Promise<void>>();
   const listeners = new Set<(next: MeetingCaptureSnapshot) => void>();
   const workspaceOperations = new Map<string, Promise<void>>();
-  const recoveryCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const reportSavedMetric = (saved: LocalSavedMeeting): void => {
     diagnostics({
@@ -388,58 +397,6 @@ export function createMeetingCapture({
     });
   };
 
-  const clearRecoveryCleanup = (captureId: string) => {
-    const timer = recoveryCleanupTimers.get(captureId);
-    if (timer) {
-      clearTimeout(timer);
-      recoveryCleanupTimers.delete(captureId);
-    }
-  };
-
-  const reportRecoveryCopyCleanup = async (
-    captureId: string,
-    manifestSha256: string,
-    status: "deleted" | "failed",
-  ): Promise<void> => {
-    try {
-      await workspace?.reportRecoveryCopyCleanup?.(captureId, manifestSha256, status);
-    } catch (reportError) {
-      console.warn("[meeting-capture] local recovery cleanup report failed", {
-        errorName: reportError instanceof Error ? reportError.name : "UnknownError",
-      });
-    }
-  };
-
-  const scheduleRecoveryCleanup = (captureId: string, deadline: string): void => {
-    clearRecoveryCleanup(captureId);
-    const remainingMs = Date.parse(deadline) - now().getTime();
-    const delayMs = Math.max(0, Math.min(remainingMs, 2_147_000_000));
-    const timer = setTimeout(() => {
-      recoveryCleanupTimers.delete(captureId);
-      if (remainingMs > delayMs) {
-        scheduleRecoveryCleanup(captureId, deadline);
-        return;
-      }
-      void store
-        .discard(captureId)
-        .then(() => {
-          patch({
-            phase: snapshot.active ? snapshot.phase : "idle",
-            recoverable: snapshot.recoverable.filter((item) => item.captureId !== captureId),
-            saved: snapshot.saved?.captureId === captureId ? null : snapshot.saved,
-            workspaceSaves: snapshot.workspaceSaves.filter((item) => item.captureId !== captureId),
-          });
-        })
-        .catch((error) => {
-          patch({
-            error:
-              error instanceof Error ? error.message : "Local Recording Recovery Copy 自动清理失败",
-          });
-        });
-    }, delayMs);
-    recoveryCleanupTimers.set(captureId, timer);
-  };
-
   const persistToWorkspace = (saved: LocalSavedMeeting): void => {
     // 工作区保存是本地提交后的可重试副作用，不属于录音成功的提交条件。
     // Workspace persistence is a retryable post-commit side effect, not a prerequisite for local capture success.
@@ -459,7 +416,10 @@ export function createMeetingCapture({
       .persist({
         captureId: saved.captureId,
         manifestSha256: saved.manifestSha256,
-        report: (state) => patchWorkspaceSave(saved.captureId, { error: null, state }),
+        report: (state) => {
+          patchWorkspaceSave(saved.captureId, { error: null, state });
+          void refreshLocalSessions();
+        },
       })
       .then(async (result) => {
         await store.markWorkspaceVerified(saved.captureId, result.recoveryCopyDeleteAfter);
@@ -488,7 +448,8 @@ export function createMeetingCapture({
         }
         patchWorkspaceSave(saved.captureId, {
           error: error instanceof Error ? error.message : "保存到工作区失败",
-          state: "action-required",
+          state:
+            error instanceof MeetingSummaryPendingError ? "summary-pending" : "action-required",
         });
       })
       .finally(() => {
@@ -588,9 +549,6 @@ export function createMeetingCapture({
       patch({ recoverable: retained, recoveryComplete: true });
       await refreshLocalSessions();
       for (const capture of retained) {
-        if (capture.recoveryCopyDeleteAfter) {
-          scheduleRecoveryCleanup(capture.captureId, capture.recoveryCopyDeleteAfter);
-        }
         if (capture.status === "saved-local" && !capture.recoveryCopyDeleteAfter) {
           persistToWorkspace(await store.save(capture.captureId));
         }
@@ -757,7 +715,6 @@ export function createMeetingCapture({
       try {
         await store.discard(captureId);
         await refreshLocalSessions();
-        clearRecoveryCleanup(captureId);
       } catch {
         // Best effort when begin did not reach durable spool creation.
       }
@@ -1008,16 +965,24 @@ export function createMeetingCapture({
     clearSilenceTimer();
     clearDurationTimer();
     terminalOperation = "save";
-    patch({ error: null, phase: "saving" });
+    const stoppedAtMs = now().getTime();
+    const stoppedActive = {
+      ...active,
+      elapsedMs:
+        active.elapsedMs +
+        (active.resumedAt ? Math.max(0, stoppedAtMs - Date.parse(active.resumedAt)) : 0),
+      resumedAt: null,
+    };
+    patch({ active: stoppedActive, error: null, phase: "saving" });
     savePromise = (async () => {
       try {
         const saveStartedAt = Date.now();
-        await capture.flushLiveTranscriptDraft?.();
+        // Stop recording synchronously before any network-backed transcript finalization.
+        await capture.stop();
         const liveTranscriptDraft =
           input.liveTranscriptDraft === undefined
             ? (capture.getLiveTranscriptDraft?.() ?? null)
             : input.liveTranscriptDraft;
-        await capture.stop();
         const stopElapsedMs = Date.now() - saveStartedAt;
         console.info("[meeting-capture-renderer] save: capture stopped", {
           pendingFragments: pendingFragments.size,
@@ -1040,7 +1005,7 @@ export function createMeetingCapture({
         return saved;
       } catch (error) {
         const message = error instanceof Error ? error.message : "保存本地录音失败";
-        patch({ active, error: message, phase: "error" });
+        patch({ active: stoppedActive, error: message, phase: "error" });
         throw error;
       } finally {
         savePromise = null;
@@ -1105,14 +1070,7 @@ export function createMeetingCapture({
 
   return {
     acknowledgeRemoteVisibility: async (captureId) => {
-      const manifestSha256 =
-        snapshot.saved?.captureId === captureId
-          ? snapshot.saved.manifestSha256
-          : snapshot.recoverable.find((item) => item.captureId === captureId)?.manifestSha256;
       await store.acknowledgeRemoteVisibility?.(captureId);
-      if (manifestSha256) {
-        await reportRecoveryCopyCleanup(captureId, manifestSha256, "deleted");
-      }
       await refreshLocalSessions();
       patch({
         phase: snapshot.active ? snapshot.phase : "idle",

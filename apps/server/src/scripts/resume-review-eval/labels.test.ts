@@ -8,7 +8,7 @@ describe("deriveOutcomeLabel", () => {
     ).toEqual({ label: "positive", reason: "hired", strength: "strong" });
   });
 
-  it.each(["written_test", "ai_interview", "human_interview", "offer"] as const)(
+  it.each(["final_interview", "ai_interview", "second_interview", "offer"] as const)(
     "treats progression to %s as a weak positive",
     (pipelineStage) => {
       expect(
@@ -20,7 +20,7 @@ describe("deriveOutcomeLabel", () => {
   it("keeps candidates rejected after advancing as weak resume-stage positives", () => {
     expect(
       deriveOutcomeLabel({
-        closedMeta: { previousStage: "human_interview" },
+        closedMeta: { previousStage: "second_interview" },
         outcome: "rejected",
         pipelineStage: "closed",
       }),

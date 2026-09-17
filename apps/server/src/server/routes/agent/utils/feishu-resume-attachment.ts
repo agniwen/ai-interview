@@ -1,6 +1,9 @@
 import type { getObjectBytes } from "@app/object-storage";
-import type { convertPptxToPdf } from "../../studio/utils/pptx-preview";
-import { getResumeDocumentKind } from "@app/shared/resume-documents";
+import {
+  getResumeDocumentExtension,
+  getResumeDocumentKind,
+  resumeDocumentFormats,
+} from "@app/shared/resume-documents";
 
 function isPdf(bytes: Uint8Array): boolean {
   return (
@@ -13,23 +16,18 @@ function isPdf(bytes: Uint8Array): boolean {
   );
 }
 
-export interface ResumePdfAttachmentDependencies {
-  convertPptxToPdf: typeof convertPptxToPdf;
+export interface ResumeAttachmentDependencies {
   getObjectBytes: typeof getObjectBytes;
 }
 
-const defaultDependencies: ResumePdfAttachmentDependencies = {
-  convertPptxToPdf: async (bytes) => {
-    const { convertPptxToPdf: convert } = await import("../../studio/utils/pptx-preview");
-    return convert(bytes);
-  },
+const defaultDependencies: ResumeAttachmentDependencies = {
   getObjectBytes: async (storageKey) => {
     const { getObjectBytes: loadObject } = await import("@app/object-storage");
     return loadObject(storageKey);
   },
 };
 
-export async function loadResumePdfAttachment(
+export async function loadResumeAttachment(
   {
     fileName,
     storageKey,
@@ -37,29 +35,30 @@ export async function loadResumePdfAttachment(
     fileName: string | null;
     storageKey: string | null;
   },
-  dependencies: ResumePdfAttachmentDependencies = defaultDependencies,
-): Promise<Uint8Array | null> {
+  dependencies: ResumeAttachmentDependencies = defaultDependencies,
+): Promise<{ bytes: Uint8Array; fileName: string; mediaType: string } | null> {
   const resume = storageKey ? await dependencies.getObjectBytes(storageKey) : null;
   if (!resume) {
     return null;
   }
 
-  const kind = getResumeDocumentKind({
+  const input = {
     fileName: fileName ?? undefined,
     mediaType: resume.contentType ?? undefined,
-  });
-  if (kind === "pdf") {
-    return isPdf(resume.bytes) ? resume.bytes : null;
-  }
-  if (kind !== "pptx") {
+  };
+  const kind = getResumeDocumentKind(input);
+  if (!kind || kind === "html" || (kind === "pdf" && !isPdf(resume.bytes))) {
     return null;
   }
 
-  try {
-    const pdf = await dependencies.convertPptxToPdf(resume.bytes);
-    return isPdf(pdf) ? pdf : null;
-  } catch (error) {
-    console.warn("[feishu-interview-notification] failed to convert resume PDF:", error);
-    return null;
+  const extension = getResumeDocumentExtension(input);
+  let [mediaType] = resumeDocumentFormats[kind].mediaTypes;
+  if (kind === "image") {
+    mediaType = extension === "png" ? "image/png" : "image/jpeg";
   }
+  return {
+    bytes: resume.bytes,
+    fileName: fileName || `简历.${extension}`,
+    mediaType,
+  };
 }

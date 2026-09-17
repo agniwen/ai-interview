@@ -192,6 +192,9 @@ export function ImportResumePoolDialog({
         return;
       }
       dependencies.notifySuccess(isReimport ? "已再次创建招聘记录" : "已创建招聘记录");
+      if (result.aiInterviewLaunchError) {
+        dependencies.notifyError(result.aiInterviewLaunchError);
+      }
       onImported();
       onOpenChange(false);
     },
@@ -336,7 +339,7 @@ export function ImportResumePoolDialog({
                       if (
                         value === "screening" ||
                         value === "ai_interview" ||
-                        value === "human_interview"
+                        value === "second_interview"
                       ) {
                         updateDialogState({ initialRecruitmentStage: value });
                       }
@@ -352,7 +355,7 @@ export function ImportResumePoolDialog({
                       <span>AI 面试</span>
                     </FieldLabel>
                     <FieldLabel className="w-full rounded-md border p-3">
-                      <RadioGroupItem value="human_interview" />
+                      <RadioGroupItem value="second_interview" />
                       <span>真人复面</span>
                     </FieldLabel>
                   </RadioGroup>

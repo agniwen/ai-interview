@@ -4,8 +4,11 @@ import {
   RESUME_LIBRARY_INFINITE_PAGE_SIZE,
   resumeLibrarySortIds,
 } from "@app/shared/studio-resumes";
+import {
+  resolveRecruitingBoardPresetView,
+  resolveRecruitingBoardStagePreset,
+} from "@app/shared/recruiting-board";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
-import { pipelineStageValues } from "@app/db-schema/studio-interviews";
 
 import {
   useCallback,
@@ -15,7 +18,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { RefObject } from "react";
 import { toast } from "sonner";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
@@ -31,7 +34,11 @@ export { getResumeLibraryCardHeight } from "./resume-library-card-layout";
 export interface ResumeFilters extends Record<string, string> {
   createdAtRange: string;
   creatorIds: string;
+  dashboardAction: string;
+  hrHandling: string;
   jdIds: string;
+  outcomes: string;
+  pipelineStages: string;
   skills: string;
   stage: string;
 }
@@ -46,7 +53,13 @@ export interface ResumeFilters extends Record<string, string> {
 export const EMPTY_FILTERS: ResumeFilters = {
   createdAtRange: "",
   creatorIds: "",
+  dashboardAction: "",
+  hrHandling: "",
   jdIds: "",
+  nodeResults: "",
+  nodeStatuses: "",
+  outcomes: "",
+  pipelineStages: "",
   recommendationLevels: "",
   skills: "",
   stage: "",
@@ -58,7 +71,9 @@ export const RESUME_LIBRARY_FILTER_KEYS =
   // SAFETY: Object.keys returns own keys from the fixed ResumeFilters owner contract above.
   Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters & string)[];
 // Stage is URL/query state controlled by tabs, not a resettable toolbar condition.
-const resumeLibraryToolbarFilterKeys = RESUME_LIBRARY_FILTER_KEYS.filter((key) => key !== "stage");
+const resumeLibraryToolbarFilterKeys = RESUME_LIBRARY_FILTER_KEYS.filter(
+  (key) => key !== "dashboardAction" && key !== "stage",
+);
 const resumeLibraryFilterKeySet = new Set<string>(resumeLibraryToolbarFilterKeys);
 
 function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & string {
@@ -108,13 +123,6 @@ export function firstSearchValue(value: SearchParamsRecord[string]): string | un
   return firstValue === undefined ? undefined : String(firstValue);
 }
 
-// 笔试阶段暂未启用对应的入口/元数据 UI，先在 tabs 中隐藏，避免点进去发现啥也没有。
-// schema、后端 API 仍保留，把 UI 建出来后只要从这里删掉对应 key 即可。
-// Stages without a working entry UI are hidden from the tabs to avoid empty
-// drilldowns. Schema + backend support stays; remove from this set once the
-// stage's UI is built.
-export const HIDDEN_PIPELINE_STAGE_TABS = new Set<string>(["written_test"]);
-
 export async function copyResumeDetailLink(slug: string, record: ResumeLibraryListRecord) {
   const fullLink = toAbsoluteUrl(`/resume-review/${slug}/${record.id}`);
   try {
@@ -132,10 +140,6 @@ export async function copyResumeDetailLink(slug: string, record: ResumeLibraryLi
     toast.error("复制失败，请手动复制");
   }
 }
-
-export const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
-  (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
-);
 
 export function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null {
   let parent = node?.parentElement ?? null;
@@ -233,8 +237,11 @@ export interface ResumeLibraryGridState {
   filters: ResumeFilters;
   rowSelection: ResumeLibraryRowSelection;
   setFilter: (key: keyof ResumeFilters & string, value: string) => void;
-  setRowSelection: Dispatch<SetStateAction<ResumeLibraryRowSelection>>;
+  setRowSelection: (value: ResumeLibraryRowSelection) => void;
   sorting: { desc: boolean; id: string }[];
+  updateRowSelection: (
+    update: (previous: ResumeLibraryRowSelection) => ResumeLibraryRowSelection,
+  ) => void;
 }
 
 export { coerceSearchParams } from "@/lib/client/data-grid-search";
@@ -247,7 +254,7 @@ export interface UseResumeLibrarySearchStateOptions {
 }
 
 export function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibraryQueryState {
-  return parseDataGridSearchParams(
+  const query = parseDataGridSearchParams(
     { ...searchParams, search: undefined },
     {
       allowedSortIds: resumeLibrarySortIds,
@@ -256,6 +263,17 @@ export function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibrar
       initialFilters: EMPTY_FILTERS,
     },
   );
+  const preset = resolveRecruitingBoardStagePreset(firstSearchValue(searchParams.boardPreset));
+  if (!preset) {
+    return query;
+  }
+  return {
+    ...query,
+    filters: {
+      ...query.filters,
+      stage: resolveRecruitingBoardPresetView(preset, query.filters.stage),
+    },
+  };
 }
 
 export function useResumeLibrarySearchState({
@@ -266,7 +284,30 @@ export function useResumeLibrarySearchState({
   const navigate = useNavigate({ from: "/w/$slug/studio/resumes" });
   const query = useMemo(() => parseResumeQuery(routeSearch), [routeSearch]);
   const deferredSearch = useDeferredValue(query.search);
-  const [rowSelection, setRowSelection] = useState<ResumeLibraryRowSelection>({});
+  const activeStage = query.filters.stage;
+  const [rowSelectionState, setRowSelectionState] = useState<{
+    stage: string;
+    value: ResumeLibraryRowSelection;
+  }>(() => ({ stage: activeStage, value: {} }));
+  const rowSelection = useMemo(
+    () => (rowSelectionState.stage === activeStage ? rowSelectionState.value : {}),
+    [activeStage, rowSelectionState],
+  );
+  const setRowSelection = useCallback(
+    (value: ResumeLibraryRowSelection) => {
+      setRowSelectionState({ stage: activeStage, value });
+    },
+    [activeStage],
+  );
+  const updateRowSelection = useCallback(
+    (update: (previous: ResumeLibraryRowSelection) => ResumeLibraryRowSelection) => {
+      setRowSelectionState((current) => ({
+        stage: activeStage,
+        value: update(current.stage === activeStage ? current.value : {}),
+      }));
+    },
+    [activeStage],
+  );
 
   const updateRouteSearch = useCallback(
     (updates: Record<string, number | string | undefined>) => {
@@ -296,12 +337,16 @@ export function useResumeLibrarySearchState({
       setRowSelection({});
       updateRouteSearch({ ...updates, page: 1 });
     },
-    [updateRouteSearch],
+    [setRowSelection, updateRouteSearch],
   );
 
   const setFilter = useCallback(
     (key: keyof ResumeFilters & string, value: string) => {
-      updateRouteSearchAndResetPage({ [key]: value || undefined });
+      const updates = { [key]: value || undefined };
+      if (key === "stage") {
+        updates.dashboardAction = undefined;
+      }
+      updateRouteSearchAndResetPage(updates);
     },
     [updateRouteSearchAndResetPage],
   );
@@ -329,18 +374,20 @@ export function useResumeLibrarySearchState({
 
   const canResetFilters =
     query.search.trim() !== "" ||
+    query.filters.dashboardAction !== EMPTY_FILTERS.dashboardAction ||
     resumeLibraryToolbarFilterKeys.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
 
   const onResetFilters = useCallback(() => {
     setRowSelection({});
     updateRouteSearch({
+      dashboardAction: undefined,
       page: 1,
       search: undefined,
       ...Object.fromEntries(
         resumeLibraryToolbarFilterKeys.map((key) => [key, EMPTY_FILTERS[key] || undefined]),
       ),
     });
-  }, [updateRouteSearch]);
+  }, [setRowSelection, updateRouteSearch]);
 
   const sorting = useMemo(
     () => (query.sortBy ? [{ desc: query.sortOrder === "desc", id: query.sortBy }] : []),
@@ -368,7 +415,17 @@ export function useResumeLibrarySearchState({
       setFilter,
       setRowSelection,
       sorting,
+      updateRowSelection,
     }),
-    [bind, deferredSearch, query.filters, rowSelection, setFilter, setRowSelection, sorting],
+    [
+      bind,
+      deferredSearch,
+      query.filters,
+      rowSelection,
+      setFilter,
+      setRowSelection,
+      sorting,
+      updateRowSelection,
+    ],
   );
 }

@@ -1,5 +1,5 @@
 import type { Database } from "@app/database";
-import { jobDescription, mailIngestAccount, mailIngestMessage } from "@app/db-schema/schema";
+import { jobDescription, mailIngestAccount, recruitingMailMessage } from "@app/db-schema/schema";
 import type {
   MailIngestJdBindStatus,
   MailIngestMessageStatus,
@@ -131,16 +131,25 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
       uid: string;
       uidValidity: string;
     }): Promise<MailIngestMessageClaim> {
+      const [account] = await database
+        .select({ organizationId: mailIngestAccount.organizationId })
+        .from(mailIngestAccount)
+        .where(eq(mailIngestAccount.id, input.accountId))
+        .limit(1);
+      if (!account) {
+        throw new Error("邮箱接收账户不存在");
+      }
       const now = new Date();
       const staleBefore = new Date(now.getTime() - MESSAGE_PROCESSING_STALE_MS);
       const [row] = await database
-        .insert(mailIngestMessage)
+        .insert(recruitingMailMessage)
         .values({
           accountId: input.accountId,
           fromAddress: input.fromAddress,
           id: crypto.randomUUID(),
           mailbox: input.mailbox,
           messageId: input.messageId,
+          organizationId: account.organizationId,
           processedAt: now,
           receivedAt: input.receivedAt,
           status: "processing",
@@ -150,30 +159,30 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
         })
         .onConflictDoNothing({
           target: [
-            mailIngestMessage.accountId,
-            mailIngestMessage.mailbox,
-            mailIngestMessage.uidValidity,
-            mailIngestMessage.uid,
+            recruitingMailMessage.accountId,
+            recruitingMailMessage.mailbox,
+            recruitingMailMessage.uidValidity,
+            recruitingMailMessage.uid,
           ],
         })
-        .returning({ id: mailIngestMessage.id, status: mailIngestMessage.status });
+        .returning({ id: recruitingMailMessage.id, status: recruitingMailMessage.status });
       if (row) {
         return { id: row.id, moveTo: null, shouldProcess: true, status: row.status };
       }
 
       const [existing] = await database
         .select({
-          id: mailIngestMessage.id,
-          processedAt: mailIngestMessage.processedAt,
-          status: mailIngestMessage.status,
+          id: recruitingMailMessage.id,
+          processedAt: recruitingMailMessage.processedAt,
+          status: recruitingMailMessage.status,
         })
-        .from(mailIngestMessage)
+        .from(recruitingMailMessage)
         .where(
           and(
-            eq(mailIngestMessage.accountId, input.accountId),
-            eq(mailIngestMessage.mailbox, input.mailbox),
-            eq(mailIngestMessage.uidValidity, input.uidValidity),
-            eq(mailIngestMessage.uid, input.uid),
+            eq(recruitingMailMessage.accountId, input.accountId),
+            eq(recruitingMailMessage.mailbox, input.mailbox),
+            eq(recruitingMailMessage.uidValidity, input.uidValidity),
+            eq(recruitingMailMessage.uid, input.uid),
           ),
         )
         .limit(1);
@@ -190,19 +199,19 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
       }
 
       const [staleRow] = await database
-        .update(mailIngestMessage)
+        .update(recruitingMailMessage)
         .set({ batchId: null, errorMessage: null, processedAt: now, status: "processing" })
         .where(
           and(
-            eq(mailIngestMessage.id, existing.id),
-            eq(mailIngestMessage.status, "processing"),
+            eq(recruitingMailMessage.id, existing.id),
+            eq(recruitingMailMessage.status, "processing"),
             or(
-              isNull(mailIngestMessage.processedAt),
-              lt(mailIngestMessage.processedAt, staleBefore),
+              isNull(recruitingMailMessage.processedAt),
+              lt(recruitingMailMessage.processedAt, staleBefore),
             ),
           ),
         )
-        .returning({ id: mailIngestMessage.id, status: mailIngestMessage.status });
+        .returning({ id: recruitingMailMessage.id, status: recruitingMailMessage.status });
       return staleRow
         ? { id: staleRow.id, moveTo: null, shouldProcess: true, status: staleRow.status }
         : { id: existing.id, moveTo: null, shouldProcess: false, status: existing.status };
@@ -296,7 +305,7 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
       extra?: { attachmentCount?: number | null; resumeAttachmentCount?: number | null },
     ): Promise<void> {
       await database
-        .update(mailIngestMessage)
+        .update(recruitingMailMessage)
         .set({
           attachmentCount: extra?.attachmentCount ?? null,
           processedAt: new Date(),
@@ -304,7 +313,7 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
           skipReason,
           status: "skipped",
         })
-        .where(eq(mailIngestMessage.id, id));
+        .where(eq(recruitingMailMessage.id, id));
     },
 
     async updateMessageResult(
@@ -321,7 +330,7 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
       },
     ): Promise<void> {
       await database
-        .update(mailIngestMessage)
+        .update(recruitingMailMessage)
         .set({
           attachmentCount: result.attachmentCount ?? null,
           batchId: result.batchId ?? null,
@@ -333,7 +342,7 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
           resumeAttachmentCount: result.resumeAttachmentCount ?? null,
           status: result.status,
         })
-        .where(eq(mailIngestMessage.id, id));
+        .where(eq(recruitingMailMessage.id, id));
     },
   };
 }

@@ -2,9 +2,9 @@ import { and, eq, ne } from "drizzle-orm";
 import type { Transaction } from "../../../../../interview-notifications/dao";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
 } from "@app/db-schema/schema";
 
 export async function enqueueHumanMeetingConfirmedIfReady(
@@ -13,12 +13,12 @@ export async function enqueueHumanMeetingConfirmedIfReady(
 ): Promise<boolean> {
   const [meeting] = await tx
     .select({
-      scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-      scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-      status: studioHumanInterviewMeeting.status,
+      scheduleVersion: humanInterviewMeeting.scheduleVersion,
+      scheduledAt: humanInterviewMeeting.scheduledAt,
+      status: humanInterviewMeeting.status,
     })
-    .from(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.id, input.meetingId))
+    .from(humanInterviewMeeting)
+    .where(eq(humanInterviewMeeting.id, input.meetingId))
     .limit(1);
   if (!(meeting && meeting.status === "scheduled" && meeting.scheduledAt)) {
     return false;
@@ -26,18 +26,15 @@ export async function enqueueHumanMeetingConfirmedIfReady(
 
   const activeRounds = await tx
     .select({
-      candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-      roundId: studioHumanInterviewMeetingRound.roundId,
+      candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+      roundId: humanInterviewMeetingRound.roundId,
     })
-    .from(studioHumanInterviewMeetingRound)
-    .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewRound.id, studioHumanInterviewMeetingRound.roundId),
-    )
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, input.meetingId),
-        ne(studioHumanInterviewRound.status, "cancelled"),
+        eq(humanInterviewMeetingRound.meetingId, input.meetingId),
+        ne(humanInterviewRound.status, "cancelled"),
       ),
     );
   if (

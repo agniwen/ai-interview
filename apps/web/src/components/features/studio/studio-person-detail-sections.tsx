@@ -1,4 +1,6 @@
 "use client";
+
+import { buildRecruitingAdvanceCommand } from "./recruiting-advance-command";
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
 // shell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
@@ -14,6 +16,7 @@ import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
 import {
+  fetchStudioResume,
   deleteStudioInterviewFormSubmission,
   resetStudioInterviewRound,
   transitionInterviewRecord,
@@ -444,7 +447,17 @@ export async function advancePipelineStage({
   target: PipelineStage;
 }): Promise<string | null> {
   try {
-    await transitionInterviewRecord(slug, recordId, { interviewQuestions, pipelineStage: target });
+    if (target === "closed") {
+      throw new Error("请使用结束流程操作");
+    }
+    const current =
+      queryClient.getQueryData<ResumeLibraryDetail>(["studio-resumes", slug, "detail", recordId]) ??
+      (await fetchStudioResume(slug, recordId));
+    if (!current) {
+      throw new Error("招聘记录不存在");
+    }
+    const command = buildRecruitingAdvanceCommand(current, target, interviewQuestions);
+    await transitionInterviewRecord(slug, recordId, command);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
       queryClient.invalidateQueries({

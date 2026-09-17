@@ -1,10 +1,10 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, asc, count, desc, eq, gt, lt, or } from "drizzle-orm";
 import { db } from "../../../../../../../lib/server/db/index";
 import {
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
-  studioInterview,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
 } from "@app/db-schema/schema";
 import { UPLOAD_TASK_INBOX_PAGE_SIZE } from "@app/shared/upload-task-inbox";
 import { decodeUploadTaskInboxCursor, encodeUploadTaskInboxCursor } from "./cursor";
@@ -15,82 +15,88 @@ export async function queryUploadTaskInbox(input: {
   userId: string;
 }) {
   const baseFilter = and(
-    eq(resumeUploadBatch.organizationId, input.organizationId),
-    eq(resumeUploadBatch.createdBy, input.userId),
+    eq(recruitingUploadBatch.organizationId, input.organizationId),
+    eq(recruitingUploadBatch.createdBy, input.userId),
   );
   const cursor = input.cursor ? decodeUploadTaskInboxCursor(input.cursor) : null;
   const cursorFilter = cursor
     ? or(
-        lt(resumeUploadBatch.createdAt, cursor.batchCreatedAt),
+        lt(recruitingUploadBatch.createdAt, cursor.batchCreatedAt),
         and(
-          eq(resumeUploadBatch.createdAt, cursor.batchCreatedAt),
-          lt(resumeUploadBatch.id, cursor.batchId),
+          eq(recruitingUploadBatch.createdAt, cursor.batchCreatedAt),
+          lt(recruitingUploadBatch.id, cursor.batchId),
         ),
         and(
-          eq(resumeUploadBatch.createdAt, cursor.batchCreatedAt),
-          eq(resumeUploadBatch.id, cursor.batchId),
-          gt(resumeUploadBatchItem.orderIndex, cursor.orderIndex),
+          eq(recruitingUploadBatch.createdAt, cursor.batchCreatedAt),
+          eq(recruitingUploadBatch.id, cursor.batchId),
+          gt(recruitingUploadBatchItem.orderIndex, cursor.orderIndex),
         ),
         and(
-          eq(resumeUploadBatch.createdAt, cursor.batchCreatedAt),
-          eq(resumeUploadBatch.id, cursor.batchId),
-          eq(resumeUploadBatchItem.orderIndex, cursor.orderIndex),
-          gt(resumeUploadBatchItem.id, cursor.itemId),
+          eq(recruitingUploadBatch.createdAt, cursor.batchCreatedAt),
+          eq(recruitingUploadBatch.id, cursor.batchId),
+          eq(recruitingUploadBatchItem.orderIndex, cursor.orderIndex),
+          gt(recruitingUploadBatchItem.id, cursor.itemId),
         ),
       )
     : undefined;
   const [rows, [{ total }]] = await Promise.all([
     db
       .select({
-        attemptCount: resumeUploadBatchItem.attemptCount,
-        batchCreatedAt: resumeUploadBatch.createdAt,
-        batchId: resumeUploadBatchItem.batchId,
-        errorMessage: resumeUploadBatchItem.errorMessage,
-        fileSize: resumeUploadBatchItem.fileSize,
-        finishedAt: resumeUploadBatchItem.finishedAt,
-        id: resumeUploadBatchItem.id,
-        orderIndex: resumeUploadBatchItem.orderIndex,
-        originalFileName: resumeUploadBatchItem.originalFileName,
+        attemptCount: recruitingUploadBatchItem.attemptCount,
+        batchCreatedAt: recruitingUploadBatch.createdAt,
+        batchId: recruitingUploadBatchItem.batchId,
+        errorMessage: recruitingUploadBatchItem.errorMessage,
+        fileSize: recruitingUploadBatchItem.fileSize,
+        finishedAt: recruitingUploadBatchItem.finishedAt,
+        id: recruitingUploadBatchItem.id,
+        orderIndex: recruitingUploadBatchItem.orderIndex,
+        originalFileName: recruitingUploadBatchItem.originalFileName,
         poolCandidateName: resumePoolItem.candidateName,
-        poolItemId: resumeUploadBatchItem.poolItemId,
+        poolItemId: recruitingUploadBatchItem.poolItemId,
         poolItemStatus: resumePoolItem.status,
         poolTargetRole: resumePoolItem.targetRole,
-        queuedAt: resumeUploadBatchItem.queuedAt,
-        resumeRecordId: resumeUploadBatchItem.resumeRecordId,
-        startedAt: resumeUploadBatchItem.startedAt,
-        status: resumeUploadBatchItem.status,
-        studioCandidateName: studioInterview.candidateName,
-        studioTargetRole: studioInterview.targetRole,
-        target: resumeUploadBatch.target,
+        queuedAt: recruitingUploadBatchItem.queuedAt,
+        resumeRecordId: recruitingUploadBatchItem.recruitingRecordId,
+        startedAt: recruitingUploadBatchItem.startedAt,
+        status: recruitingUploadBatchItem.status,
+        studioCandidateName: recruitingRecordReadModel.candidateName,
+        studioTargetRole: recruitingRecordReadModel.targetRole,
+        target: recruitingUploadBatch.target,
       })
-      .from(resumeUploadBatchItem)
-      .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
+      .from(recruitingUploadBatchItem)
+      .innerJoin(
+        recruitingUploadBatch,
+        eq(recruitingUploadBatch.id, recruitingUploadBatchItem.batchId),
+      )
       .leftJoin(
-        studioInterview,
+        recruitingRecordReadModel,
         and(
-          eq(studioInterview.id, resumeUploadBatchItem.resumeRecordId),
-          eq(studioInterview.organizationId, resumeUploadBatch.organizationId),
+          eq(recruitingRecordReadModel.id, recruitingUploadBatchItem.recruitingRecordId),
+          eq(recruitingRecordReadModel.organizationId, recruitingUploadBatch.organizationId),
         ),
       )
       .leftJoin(
         resumePoolItem,
         and(
-          eq(resumePoolItem.id, resumeUploadBatchItem.poolItemId),
-          eq(resumePoolItem.organizationId, resumeUploadBatch.organizationId),
+          eq(resumePoolItem.id, recruitingUploadBatchItem.poolItemId),
+          eq(resumePoolItem.organizationId, recruitingUploadBatch.organizationId),
         ),
       )
       .where(and(baseFilter, cursorFilter))
       .orderBy(
-        desc(resumeUploadBatch.createdAt),
-        desc(resumeUploadBatch.id),
-        asc(resumeUploadBatchItem.orderIndex),
-        asc(resumeUploadBatchItem.id),
+        desc(recruitingUploadBatch.createdAt),
+        desc(recruitingUploadBatch.id),
+        asc(recruitingUploadBatchItem.orderIndex),
+        asc(recruitingUploadBatchItem.id),
       )
       .limit(UPLOAD_TASK_INBOX_PAGE_SIZE + 1),
     db
       .select({ total: count() })
-      .from(resumeUploadBatchItem)
-      .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
+      .from(recruitingUploadBatchItem)
+      .innerJoin(
+        recruitingUploadBatch,
+        eq(recruitingUploadBatch.id, recruitingUploadBatchItem.batchId),
+      )
       .where(baseFilter),
   ]);
   const records = rows.slice(0, UPLOAD_TASK_INBOX_PAGE_SIZE);

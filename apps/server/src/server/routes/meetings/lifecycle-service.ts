@@ -1,3 +1,4 @@
+import { RecruitingReferenceRetentionError } from "@app/database/recruiting-reference-retention";
 import {
   enqueueMeetingPurgeJobs,
   isMeetingPurgeQueueConfigured,
@@ -116,8 +117,13 @@ export async function permanentlyPurgeSavedMeeting(
   },
   dependencies: MeetingLifecycleDependencies = defaultDependencies,
 ) {
-  const result = await dependencies.requestMeetingPurge(input);
-  if (result.state === "purging") {
+  const result = await dependencies.requestMeetingPurge(input).catch((error: Error) => {
+    if (error instanceof RecruitingReferenceRetentionError) {
+      return { state: "recruiting-referenced" as const };
+    }
+    throw error;
+  });
+  if (result.state === "purging" && result.processingOwner !== "device") {
     await enqueueMeetingPurgeBestEffort(
       {
         meetingId: input.meetingId,

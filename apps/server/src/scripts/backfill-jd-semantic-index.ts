@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, notExists, sql } from "drizzle-orm";
-import { jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
+import { jobDescription, recruitingSearchIndex } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
 import type { Database } from "../lib/server/db/index";
 import type { JdSemanticIndexJob } from "../lib/server/jd-semantic/indexer";
@@ -144,11 +144,11 @@ function notAlreadyIndexedCondition(
   return notExists(
     sql`(
       select 1
-      from ${resumeSemanticIndex}
-      where ${resumeSemanticIndex.sourceType} = ${sourceType}
-        and ${resumeSemanticIndex.sourceId} = ${sourceIdColumn}
-        and ${resumeSemanticIndex.embeddingVersion} = ${process.env.RESUME_EMBEDDING_VERSION || "dashscope-text-embedding-v4-1024-v1"}
-        and ${resumeSemanticIndex.status} = 'indexed'
+      from ${recruitingSearchIndex}
+      where ${recruitingSearchIndex.sourceType} = ${sourceType}
+        and ${recruitingSearchIndex.sourceId} = ${sourceIdColumn}
+        and ${recruitingSearchIndex.embeddingVersion} = ${process.env.RESUME_EMBEDDING_VERSION || "dashscope-text-embedding-v4-1024-v1"}
+        and ${recruitingSearchIndex.status} = 'indexed'
     )`,
   );
 }
@@ -184,7 +184,7 @@ async function loadSemanticBackfillRecords(
 }
 
 async function countCurrentSemanticIndexRows(db: Database): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(resumeSemanticIndex);
+  const [row] = await db.select({ value: count() }).from(recruitingSearchIndex);
   return row?.value ?? 0;
 }
 

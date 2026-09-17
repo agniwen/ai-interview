@@ -26,6 +26,7 @@ export interface MeetingIntelligenceDependencies {
     transcriptRevisionId: string;
   }) => Promise<
     | {
+        livePrefix?: { content: MeetingIntelligencePayload; turnCount: number };
         turns: {
           endMs: number;
           id: string;
@@ -119,6 +120,7 @@ async function runMeetingIntelligenceProcessingPromise(
               executionToken,
               processingRunId: input.processingRunId,
             }),
+          livePrefix: transcript.livePrefix,
           progress: claim.progress,
           saveProgress: (progress) =>
             dependencies.saveProgress({

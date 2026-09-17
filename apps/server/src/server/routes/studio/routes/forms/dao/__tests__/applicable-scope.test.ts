@@ -1,7 +1,9 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
-import { candidateFormTemplate, organization, studioInterview } from "@app/db-schema/schema";
+import { candidateFormTemplate, organization } from "@app/db-schema/schema";
 import { loadApplicableCandidateFormTemplates } from "../queries";
 
 const ORG_A = "test_forms_scope_org_a";
@@ -12,8 +14,8 @@ const NOW = new Date("2026-05-26T10:00:00.000Z");
 async function cleanup() {
   await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.organizationId, ORG_A));
   await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.organizationId, ORG_B));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_B));
   await db.delete(organization).where(eq(organization.id, ORG_A));
   await db.delete(organization).where(eq(organization.id, ORG_B));
 }
@@ -24,7 +26,7 @@ beforeAll(async () => {
     { createdAt: NOW, id: ORG_A, name: "Forms Scope Org A", slug: ORG_A },
     { createdAt: NOW, id: ORG_B, name: "Forms Scope Org B", slug: ORG_B },
   ]);
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateEmail: "forms-scope@example.com",
     candidateName: "Forms Scope",
     candidatePhone: "",

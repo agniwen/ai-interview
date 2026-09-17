@@ -136,7 +136,6 @@ export function MeetingRecruitingContextPanel({
     queryFn: () => fetchMeetingRecruitingContext(slug, meetingId),
     queryKey: contextKey,
   });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDebouncedMeetingRecruitingSearch(search);
   const canManage =
@@ -147,15 +146,9 @@ export function MeetingRecruitingContextPanel({
       fetchMeetingRecruitingContextCandidates(slug, meetingId, deferredSearch, signal),
     queryKey: desktopMeetingKeys.recruitingContextCandidates(slug, meetingId, deferredSearch),
   });
-  useEffect(() => {
-    setSelectedId(contextQuery.data?.link?.record.id ?? null);
-  }, [contextQuery.data?.link?.record.id]);
   const mutation = useMutation({
     mutationFn: (recruitingRecordId: string | null) =>
       updateMeetingRecruitingContext(slug, meetingId, recruitingRecordId),
-    onError: () => {
-      setSelectedId(contextQuery.data?.link?.record.id ?? null);
-    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: contextKey });
     },
@@ -185,12 +178,13 @@ export function MeetingRecruitingContextPanel({
       error={candidatesQuery.error ?? mutation.error}
       loadingCandidates={candidatesQuery.isFetching}
       onSearch={setSearch}
-      onSelectedIdChange={(id) => {
-        setSelectedId(id);
-        mutation.mutate(id);
-      }}
+      onSelectedIdChange={(id) => mutation.mutate(id)}
       saving={mutation.isPending}
-      selectedId={selectedId}
+      selectedId={
+        mutation.isPending
+          ? (mutation.variables ?? null)
+          : (contextQuery.data.link?.record.id ?? null)
+      }
       settings={contextQuery.data}
     />
   );

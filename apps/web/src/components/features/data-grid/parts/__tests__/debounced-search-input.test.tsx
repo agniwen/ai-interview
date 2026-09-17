@@ -148,4 +148,39 @@ describe("DebouncedSearchInput", () => {
     expect(getInput(container).value).toBe("");
     expect(onValueChange).not.toHaveBeenCalled();
   });
+  it("uses the latest callback without restarting a pending debounce", () => {
+    const original = vi.fn();
+    const latest = vi.fn();
+    act(() => root.render(<DebouncedSearchInput onValueChange={original} value="" />));
+    const input = getInput(container);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "候选人",
+      );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => vi.advanceTimersByTime(200));
+    act(() => root.render(<DebouncedSearchInput onValueChange={latest} value="" />));
+    act(() => vi.advanceTimersByTime(DEFAULT_SEARCH_DEBOUNCE_MS - 200));
+    expect(original).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledExactlyOnceWith("候选人");
+  });
+
+  it("cancels an uncommitted draft when an external value replaces it", () => {
+    const onValueChange = vi.fn();
+    act(() => root.render(<DebouncedSearchInput onValueChange={onValueChange} value="原筛选" />));
+    const input = getInput(container);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "待提交",
+      );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => root.render(<DebouncedSearchInput onValueChange={onValueChange} value="" />));
+    act(() => vi.advanceTimersByTime(DEFAULT_SEARCH_DEBOUNCE_MS));
+    expect(input.value).toBe("");
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
 });

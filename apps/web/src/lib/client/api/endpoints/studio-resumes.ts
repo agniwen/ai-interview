@@ -1,3 +1,5 @@
+import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
 /**
  * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
@@ -39,21 +41,28 @@ export interface ResumeListParams {
   createdTo?: string;
   /** 已知的列表总数；后续分页用于跳过重复 COUNT。 */
   knownTotal?: number;
+  /** 仅显示当前存在明确 HR 作业的候选人。 */
+  hrHandling?: boolean;
   page?: number;
   pageSize?: number;
   search?: string;
   textFilters?: string;
   /** 创建人用户 id 列表。Creator user id filter (OR semantics). */
   creatorIds?: string[];
+  /** 数据看板待办项对应的候选人范围。 */
+  dashboardAction?: DashboardRecruitingActionScope;
   /** 任一匹配的技能（CSV-encoded on the wire）。Any-of skill filter. */
   skills?: string[];
   /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
   jobDescriptionIds?: string[];
   /** pipeline 阶段过滤（任一匹配）。Pipeline stage filter (OR semantics). */
+  boardView?: RecruitingBoardView;
   pipelineStages?: string[];
   /** 候选人最终结论过滤（任一匹配）。Outcome filter (OR semantics). */
   outcomes?: string[];
   recommendationLevels?: string[];
+  nodeStatuses?: string[];
+  nodeResults?: string[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   structuredMaxScore?: number;
@@ -61,13 +70,18 @@ export interface ResumeListParams {
 }
 
 interface ResumeListQuery {
+  boardView?: RecruitingBoardView;
   createdFrom?: string;
   createdTo?: string;
   creatorIds?: string;
+  dashboardAction?: DashboardRecruitingActionScope;
+  hrHandling?: "true";
   jdIds?: string;
   knownTotal?: string;
   outcomes?: string;
   recommendationLevels?: string;
+  nodeStatuses?: string;
+  nodeResults?: string;
   page?: string;
   pageSize?: string;
   pipelineStages?: string;
@@ -84,9 +98,13 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
   const query: ResumeListQuery = {
     createdFrom: params.createdFrom,
     createdTo: params.createdTo,
+    dashboardAction: params.dashboardAction,
   };
   if (params.knownTotal !== undefined) {
     query.knownTotal = String(params.knownTotal);
+  }
+  if (params.hrHandling) {
+    query.hrHandling = "true";
   }
   if (params.page !== undefined) {
     query.page = String(params.page);
@@ -117,6 +135,12 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
 
 function buildResumeListQuery(params: ResumeListParams): ResumeListQuery {
   const query = buildResumeScalarQuery(params);
+  if (params.nodeStatuses?.length) {
+    query.nodeStatuses = params.nodeStatuses.join(",");
+  }
+  if (params.nodeResults?.length) {
+    query.nodeResults = params.nodeResults.join(",");
+  }
   if (params.creatorIds?.length) {
     query.creatorIds = params.creatorIds.join(",");
   }
@@ -125,6 +149,9 @@ function buildResumeListQuery(params: ResumeListParams): ResumeListQuery {
   }
   if (params.outcomes?.length) {
     query.outcomes = params.outcomes.join(",");
+  }
+  if (params.boardView) {
+    query.boardView = params.boardView;
   }
   if (params.pipelineStages?.length) {
     query.pipelineStages = params.pipelineStages.join(",");
@@ -158,11 +185,12 @@ export function fetchStudioResumes(
 export function fetchStudioResumeMetrics(
   slug: string,
   scope: "team" | "personal" = "team",
+  boardPreset?: string,
 ): Promise<ResumeLibraryMetrics> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.resumes.metrics.$get({
       param: { slug },
-      query: { scope },
+      query: { boardPreset, scope },
     }),
     "加载招聘指标失败",
   );

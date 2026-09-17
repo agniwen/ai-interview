@@ -20,6 +20,8 @@ const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请只根据以�
 - 不得使用简历、岗位描述、面试前表单、常识或通用面试套话填补信息空白。
 - 不得将未提问的问题描述为候选人跳过；只有候选人明确表示拒绝回答或跳过时，才能写为“候选人跳过”。
 - 没有直接证据时，不得评价候选人的态度、表达流畅度、准备程度、能力、潜力、亮点或不足。
+- 候选人明确更正口误时以最后确认的信息为准；不得将口误更正推断为诉求变化、诚信或稳定性风险。拒答、网络故障或提前结束仅说明信息未收集，不直接代表能力或态度不足。
+- “没有补充，可以结束”是正常收尾，不能据此声称中途退出或提前结束；仅在候选人明确表示无法继续、另有事情等时描述提前退出。
 - 若有效回答较少，应明确说明证据有限，只总结实际收集到的内容，不得为了达到篇幅要求扩写。
 
 内容要求：
@@ -34,6 +36,10 @@ export const NO_CANDIDATE_ANSWER_SUMMARY =
   "本次面试未收集到候选人的有效回答，无法基于对话记录评价其表现、能力、亮点或不足，请人工复核。";
 
 const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据以下面试对话记录和面试题目，对候选人的表现进行结构化评估。
+
+评估范围：下方“面试题目”是本轮唯一的信息收集要求。JSON Schema 的汇总字段只是存储位置，不是额外题目或必填问卷。
+未在本轮题目中要求、候选人也没有主动谈及的信息，留 null 即可；禁止在 overallAssessment 或任何 assessment 中把它描述为遗漏、未补充、沟通不足或未完成。
+例如：本轮只问工作经历、求职动机、薪酬、项目、绩效和 AI 工具时，不能因没有到岗时间、求职状态而评价信息不全。“还有补充吗”也不等于询问这些事项。
 
 ## 候选人面试前表单答复
 {formResponses}
@@ -64,6 +70,11 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 - unasked 不生成 evidence；skipped、interrupted、unasked 的评分由系统按流程结果统一处理
 - score 范围 0-10，overallScore 范围 0-100
 - 评价要客观具体，引用候选人的实际回答
+- 候选人明确更正口误时，所有汇总字段以最后确认的信息为准；仅凭数值更正不得推断薪资诉求变化、诚信或稳定性风险
+- 拒答、网络故障、提前结束和未收集的信息不是负面表现证据；综合评价应说明证据范围，不从流程状态推断能力或态度
+- 不得仅凭口误更正推断“态度负责”等正面人格结论。
+- “没有补充，可以结束”是正常收尾；题目均已回答时不得描述为中途结束。只有明确无法继续、另有事情等证据才说明提前退出。
+- 缺失信息只对照本次题目要求说明；hrEvaluation 的通用字段为空（例如未要求的到岗时间）不代表本次面试未完成，不得自行增加考察项。
 - overallAssessment、assessment 等自由文本字段请使用面试对话的主要语言；recommendation 必须保持指定的中文枚举值
 - 面试记录每行包含 turnIndex 和可能存在的 time；每题 evidence 最多给 2 条候选人原话证据
 - evidence.quote 必须来自候选人的实际回答，turnIndex / timeInCallSecs 能定位时必须填写，无法定位时可留空`;
@@ -75,7 +86,12 @@ const evidenceSchema = z.object({
 });
 
 const hrEvaluationSchema = z.object({
-  availability: z.string().nullable().describe("当前 base 地、求职状态及到岗时间"),
+  availability: z
+    .string()
+    .nullable()
+    .describe(
+      "候选人明确提供的当前 base 地、求职状态及到岗时间；未收集则 null，此通用字段不是本轮必问题，不得据此声称遗漏或影响综合评价",
+    ),
   careerProgression: z
     .string()
     .nullable()
@@ -95,7 +111,11 @@ const hrEvaluationSchema = z.object({
 
 export const interviewEvaluationSchema = z.object({
   hrEvaluation: hrEvaluationSchema,
-  overallAssessment: z.string().describe("候选人整体表现的综合评价，2-3 句话"),
+  overallAssessment: z
+    .string()
+    .describe(
+      "仅基于本轮题目和候选人实际回答的综合评价，2-3 句话；禁止把题目未要求的信息（例如到岗时间、求职状态）说成遗漏或沟通不足",
+    ),
   overallScore: z.number().int().min(0).max(100).nullable(),
   questions: z.array(
     z.object({
@@ -194,7 +214,7 @@ export function normalizeInterviewEvaluationOutput(
 }
 // oxlint-enable anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion
 
-const SCORABLE_OUTCOMES = new Set(["answered", "insufficient", "skipped"]);
+const SCORABLE_OUTCOMES = new Set(["answered", "insufficient"]);
 
 export function applyQuestionOutcomesToEvaluation(
   evaluation: InterviewEvaluation,
@@ -217,8 +237,8 @@ export function applyQuestionOutcomesToEvaluation(
     if (outcome.status === "skipped") {
       return {
         ...base,
-        assessment: "候选人明确跳过本题。",
-        score: 0,
+        assessment: "候选人明确跳过本题，不参与评分。",
+        score: null,
       };
     }
     if (outcome.status === "interrupted") {
@@ -248,7 +268,13 @@ export function applyQuestionOutcomesToEvaluation(
   });
   const scorableQuestionIds = new Set(
     dataCollectionResults.questions
-      .filter((outcome) => SCORABLE_OUTCOMES.has(outcome.status))
+      .filter(
+        (outcome) =>
+          SCORABLE_OUTCOMES.has(outcome.status) &&
+          questions.some(
+            (question) => question.questionId === outcome.questionId && question.score !== null,
+          ),
+      )
       .map((outcome) => outcome.questionId),
   );
   const scoreTotal = questions.reduce(
@@ -266,8 +292,15 @@ export function applyQuestionOutcomesToEvaluation(
       ? scorableQuestionIds.size / dataCollectionResults.questions.length
       : 0;
 
+  const answeredCount = dataCollectionResults.questions.filter(
+    (outcome) => outcome.status === "answered",
+  ).length;
+  const limitedAnswers = answeredCount < dataCollectionResults.questions.length / 2;
   return {
     ...evaluation,
+    overallAssessment: limitedAnswers
+      ? `本轮共 ${dataCollectionResults.questions.length} 项信息，已收集 ${answeredCount} 项充分回答；其余信息不足、跳过或未完成。现有证据不足以形成综合结论，请结合下方原话记录人工复核。`
+      : evaluation.overallAssessment,
     overallScore,
     questions,
     recommendation: coverage < 0.5 ? "待定" : evaluation.recommendation,
@@ -415,7 +448,7 @@ export function buildFallbackInterviewEvaluation(
       order: index + 1,
       question: outcome.question,
       questionId: outcome.questionId,
-      score: outcome.status === "skipped" ? 0 : null,
+      score: null,
     };
   });
 

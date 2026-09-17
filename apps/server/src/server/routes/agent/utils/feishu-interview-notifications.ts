@@ -1,13 +1,14 @@
-import { and, desc, eq, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
+/* oxlint-disable max-lines -- legacy and Worker-compatible report delivery share one transition module during migration. */
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, notExists, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   account,
-  interviewConversation,
-  interviewNotification,
-  member,
+  aiInterviewConversation,
+  recruitingEvaluationDocument,
+  recruitingNotificationDelivery,
   organization,
-  studioInterview,
-  studioInterviewSchedule,
+  aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import { db } from "../../../../lib/server/db/index";
@@ -15,7 +16,10 @@ import { buildSenderFromAddress, getResendClient } from "../../../../lib/server/
 import { getRequiredEnv } from "../../../../lib/server/env";
 import { InterviewSummaryCard } from "../../../integrations/feishu/interview-summary-card";
 import type { InterviewSummaryQuestionAnswer } from "../../../integrations/feishu/interview-summary-card";
-import { FEISHU_PROVIDER_IDS } from "../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  selectPreferredFeishuProviderId,
+} from "../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../integrations/feishu/provider";
 import { ensureInterviewEvaluationDocument } from "./feishu-interview-document";
 import { extractNotificationCardSupplement } from "./feishu-interview-notification-card";
@@ -26,20 +30,33 @@ import {
 import { getGlobalConfig } from "../../studio/routes/global-config/dao";
 import { renderInterviewSummaryEmail } from "../../studio/routes/interviews/routes/round-emails/utils/templates";
 import { isInterviewQuestionSetComplete } from "@app/shared/interview/question-outcomes";
+import { retryFeishuSummaryDelivery } from "./retry-feishu-summary-delivery";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const RETRY_BATCH_SIZE = 20;
 const GOOGLE_PROVIDER_ID = "google";
+const LEGACY_DELIVERY_LEASE_MS = 10 * 60_000;
+
+function legacyDeliveryLease() {
+  return {
+    leaseExpiresAt: new Date(Date.now() + LEGACY_DELIVERY_LEASE_MS),
+    leaseOwner: crypto.randomUUID(),
+  };
+}
 
 interface SummaryReadyNotificationOptions {
   allowIncomplete?: boolean;
   conversationId: string;
   interviewRecordId: string;
+  emailOnly?: boolean;
 }
 
-export interface ResendInterviewSummaryNotificationResult {
+export interface SendInterviewReportReadyFeishuNotificationInput {
+  conversationId: string;
+  interviewRecordId: string;
   notificationId: string;
-  sentAt: string;
+  providerId: string;
+  recipientOpenId: string;
 }
 
 interface RecipientAccount {
@@ -122,19 +139,20 @@ function buildSummaryPayload(input: NotificationCardInput) {
   return { assessment, overallScore, recommendation };
 }
 
-function buildNotificationCard(input: NotificationCardInput, detailUrl?: string) {
+function buildNotificationCard(input: NotificationCardInput, evaluationDocumentUrl: string) {
   const { assessment, overallScore, recommendation } = buildSummaryPayload(input);
 
   const card = InterviewSummaryCard({
     assessment,
     candidateName: input.candidateName,
-    detailUrl: detailUrl ?? buildStudioUrl(input.roundId, input.organizationSlug),
     duration: input.duration,
+    evaluationDocumentUrl,
     interviewQuestions: input.interviewQuestions,
     interviewStartedAt: input.interviewStartedAt,
     overallScore,
     questionAnswers: input.questionAnswers,
     recommendation,
+    reportUrl: buildStudioUrl(input.roundId, input.organizationSlug),
     resumeEvaluation: input.resumeEvaluation,
     summary: input.summary,
     targetRole: input.targetRole,
@@ -146,34 +164,95 @@ function buildNotificationCard(input: NotificationCardInput, detailUrl?: string)
 async function loadNotificationContext(options: SummaryReadyNotificationOptions) {
   const [row] = await db
     .select({
-      candidateName: studioInterview.candidateName,
-      createdBy: studioInterview.createdBy,
-      dataCollectionResults: interviewConversation.dataCollectionResults,
-      endedAt: interviewConversation.endedAt,
-      evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
-      interviewQuestions: studioInterview.interviewQuestions,
-      organizationId: studioInterview.organizationId,
+      candidateName: recruitingRecordReadModel.candidateName,
+      createdBy: recruitingRecordReadModel.createdBy,
+      dataCollectionResults: aiInterviewConversation.dataCollectionResults,
+      endedAt: aiInterviewConversation.endedAt,
+      evaluationCriteriaResults: aiInterviewConversation.evaluationCriteriaResults,
+      interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+      organizationId: recruitingRecordReadModel.organizationId,
       organizationSlug: organization.slug,
-      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-      resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeStorageKey: studioInterview.resumeStorageKey,
-      scheduleEntryId: interviewConversation.scheduleEntryId,
-      startedAt: interviewConversation.startedAt,
-      summaryStatus: interviewConversation.summaryStatus,
-      targetRole: studioInterview.targetRole,
-      transcriptSummary: interviewConversation.transcriptSummary,
+      qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+      resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      scheduleEntryId: aiInterviewConversation.aiRoundId,
+      startedAt: aiInterviewConversation.startedAt,
+      summaryStatus: aiInterviewConversation.summaryStatus,
+      targetRole: recruitingRecordReadModel.targetRole,
+      transcriptSummary: aiInterviewConversation.transcriptSummary,
     })
-    .from(interviewConversation)
-    .innerJoin(studioInterview, eq(interviewConversation.interviewRecordId, studioInterview.id))
-    .leftJoin(organization, eq(studioInterview.organizationId, organization.id))
-    .where(eq(interviewConversation.conversationId, options.conversationId))
+    .from(aiInterviewConversation)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(aiInterviewConversation.recruitingRecordId, recruitingRecordReadModel.id),
+    )
+    .leftJoin(organization, eq(recruitingRecordReadModel.organizationId, organization.id))
+    .where(
+      and(
+        eq(aiInterviewConversation.conversationId, options.conversationId),
+        eq(aiInterviewConversation.recruitingRecordId, options.interviewRecordId),
+      ),
+    )
     .limit(1);
 
   return row ?? null;
 }
 
-async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]> {
+export async function sendInterviewReportReadyFeishuNotification(
+  options: SendInterviewReportReadyFeishuNotificationInput,
+): Promise<{ providerMessageId: string | null }> {
+  if (!isFeishuProviderId(options.providerId)) {
+    throw new Error("飞书通知供应商配置无效。");
+  }
+  const context = await loadNotificationContext(options);
+  if (!context || context.summaryStatus !== "ready" || !context.scheduleEntryId) {
+    throw new Error("面试报告尚未生成完成，无法创建飞书评价表。");
+  }
+  const notificationInput = {
+    candidateName: context.candidateName,
+    duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
+    evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
+    ...extractNotificationCardSupplement(context),
+    interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
+    organizationSlug: context.organizationSlug ?? null,
+    roundId: context.scheduleEntryId,
+    summary: context.transcriptSummary,
+    targetRole: context.targetRole,
+  };
+  const documentUrl = await ensureInterviewEvaluationDocument({
+    context,
+    conversationId: options.conversationId,
+    input: notificationInput,
+    interviewRecordId: options.interviewRecordId,
+    notificationId: options.notificationId,
+    providerId: options.providerId,
+    recipientOpenId: options.recipientOpenId,
+  });
+  const { card } = buildNotificationCard(notificationInput, documentUrl);
+  const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
+  const sent = await postFeishuDirectCard(options.providerId, options.recipientOpenId, card);
+  if (!sent.id) {
+    throw new Error("飞书卡片发送未返回消息 ID，请先核对实际投递结果。");
+  }
+  return { providerMessageId: sent.id ?? null };
+}
+
+async function loadRecipientAccounts(
+  userId: string,
+  interviewRecordId: string,
+  organizationId: string,
+): Promise<RecipientAccount[]> {
+  const [document] = await db
+    .select({ providerId: recruitingEvaluationDocument.providerId })
+    .from(recruitingEvaluationDocument)
+    .where(
+      and(
+        eq(recruitingEvaluationDocument.organizationId, organizationId),
+        eq(recruitingEvaluationDocument.recruitingRecordId, interviewRecordId),
+      ),
+    )
+    .limit(1);
   const rows = await db
     .select({
       accountId: account.accountId,
@@ -192,7 +271,7 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
     )
     .orderBy(desc(account.updatedAt));
 
-  return rows.flatMap((row) => {
+  const accounts = rows.flatMap((row) => {
     if (!isFeishuProviderId(row.providerId)) {
       return [];
     }
@@ -204,6 +283,11 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
       },
     ];
   });
+  const providerId = selectPreferredFeishuProviderId(
+    accounts.map((item) => item.providerId),
+    document?.providerId,
+  );
+  return accounts.filter((item) => item.providerId === providerId);
 }
 
 function isGoogleLoginEnabled() {
@@ -249,64 +333,74 @@ async function claimNotification({
 }) {
   const [existing] = await db
     .select({
-      id: interviewNotification.id,
-      status: interviewNotification.status,
+      id: recruitingNotificationDelivery.id,
+      status: recruitingNotificationDelivery.status,
     })
-    .from(interviewNotification)
+    .from(recruitingNotificationDelivery)
     .where(
       and(
-        eq(interviewNotification.interviewRecordId, interviewRecordId),
+        eq(recruitingNotificationDelivery.recruitingRecordId, interviewRecordId),
         or(
-          eq(interviewNotification.conversationId, conversationId),
-          isNull(interviewNotification.conversationId),
+          eq(recruitingNotificationDelivery.conversationId, conversationId),
+          isNull(recruitingNotificationDelivery.conversationId),
         ),
-        eq(interviewNotification.type, "summary_ready"),
-        eq(interviewNotification.recipientUserId, recipient.userId),
-        eq(interviewNotification.providerId, recipient.providerId),
+        inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+        eq(recruitingNotificationDelivery.recipientUserId, recipient.userId),
+        eq(recruitingNotificationDelivery.providerId, recipient.providerId),
+        isNull(recruitingNotificationDelivery.eventId),
       ),
     )
     .limit(1);
 
-  if (existing?.status === "sent") {
+  if (existing && ["sent", "sending", "unknown", "dead", "cancelled"].includes(existing.status)) {
     return null;
   }
 
   if (existing) {
-    await db
-      .update(interviewNotification)
+    const [claimed] = await db
+      .update(recruitingNotificationDelivery)
       .set({
         conversationId,
         error: null,
+        ...legacyDeliveryLease(),
         recipientOpenId: recipient.accountId,
-        status: "pending",
+        status: "sending",
       })
-      .where(eq(interviewNotification.id, existing.id));
-    return existing.id;
+      .where(
+        and(
+          eq(recruitingNotificationDelivery.id, existing.id),
+          eq(recruitingNotificationDelivery.status, existing.status),
+        ),
+      )
+      .returning({ id: recruitingNotificationDelivery.id });
+    return claimed?.id ?? null;
   }
 
   const [row] = await db
-    .insert(interviewNotification)
+    .insert(recruitingNotificationDelivery)
     .values({
       conversationId,
       id: crypto.randomUUID(),
-      interviewRecordId,
+      ...legacyDeliveryLease(),
       organizationId,
       providerId: recipient.providerId,
       recipientOpenId: recipient.accountId,
       recipientUserId: recipient.userId,
-      status: "pending",
-      type: "summary_ready",
+      recruitingRecordId: interviewRecordId,
+      status: "sending",
+      type: "ai_report_ready",
     })
     .onConflictDoNothing({
       target: [
-        interviewNotification.interviewRecordId,
-        interviewNotification.conversationId,
-        interviewNotification.type,
-        interviewNotification.recipientUserId,
-        interviewNotification.providerId,
+        recruitingNotificationDelivery.recruitingRecordId,
+        recruitingNotificationDelivery.conversationId,
+        recruitingNotificationDelivery.type,
+        recruitingNotificationDelivery.recipientUserId,
+        recruitingNotificationDelivery.providerId,
       ],
+      where: isNull(recruitingNotificationDelivery.eventId),
     })
-    .returning({ id: interviewNotification.id });
+    .returning({ id: recruitingNotificationDelivery.id });
 
   return row?.id ?? null;
 }
@@ -318,25 +412,65 @@ function buildPublicAssetUrl(path: string): string {
 
 async function markNotificationSent(notificationId: string, messageId: string | null) {
   await db
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: null,
       feishuMessageId: messageId,
+      lastErrorCode: null,
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      resultUnknownAt: null,
       sentAt: new Date(),
       status: "sent",
     })
-    .where(eq(interviewNotification.id, notificationId));
+    .where(eq(recruitingNotificationDelivery.id, notificationId));
 }
 
 async function markNotificationFailed(notificationId: string, error: Error) {
   const { message } = error;
   await db
-    .update(interviewNotification)
+    .update(recruitingNotificationDelivery)
     .set({
       error: message,
+      leaseExpiresAt: null,
+      leaseOwner: null,
       status: "failed",
     })
-    .where(eq(interviewNotification.id, notificationId));
+    .where(eq(recruitingNotificationDelivery.id, notificationId));
+}
+
+function retryPersistedFeishuDelivery(row: {
+  conversationId: string | null;
+  interviewRecordId: string;
+  notificationId: string;
+  providerId: string;
+  recipientOpenId: string;
+}) {
+  if (!row.conversationId || !isFeishuProviderId(row.providerId)) {
+    return Promise.resolve(false);
+  }
+  return retryFeishuSummaryDelivery(
+    { ...row, conversationId: row.conversationId },
+    {
+      async claim(notificationId) {
+        const [claimed] = await db
+          .update(recruitingNotificationDelivery)
+          .set({ error: null, ...legacyDeliveryLease(), status: "sending" })
+          .where(
+            and(
+              eq(recruitingNotificationDelivery.id, notificationId),
+              inArray(recruitingNotificationDelivery.status, ["failed", "pending"]),
+              isNull(recruitingNotificationDelivery.eventId),
+            ),
+          )
+          .returning({ id: recruitingNotificationDelivery.id });
+        return Boolean(claimed);
+      },
+      markFailed: markNotificationFailed,
+      markSent: markNotificationSent,
+      send: sendInterviewReportReadyFeishuNotification,
+    },
+  );
 }
 
 async function sendGoogleSummaryEmail({
@@ -399,174 +533,6 @@ async function sendGoogleSummaryEmail({
   }
 }
 
-export async function resendInterviewSummaryNotification(
-  notificationId: string,
-  recipientUserId?: string,
-): Promise<ResendInterviewSummaryNotificationResult> {
-  const [notification] = await db
-    .select({
-      conversationId: interviewNotification.conversationId,
-      id: interviewNotification.id,
-      interviewRecordId: interviewNotification.interviewRecordId,
-      organizationId: interviewNotification.organizationId,
-      providerId: interviewNotification.providerId,
-      recipientOpenId: interviewNotification.recipientOpenId,
-      recipientUserId: interviewNotification.recipientUserId,
-      type: interviewNotification.type,
-    })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.id, notificationId))
-    .limit(1);
-
-  if (!notification) {
-    throw new Error("通知记录不存在");
-  }
-  if (notification.type !== "summary_ready") {
-    throw new Error("暂不支持重发该类型通知");
-  }
-  if (!notification.conversationId) {
-    throw new Error("通知缺少面试会话，无法重发");
-  }
-  if (!isFeishuProviderId(notification.providerId)) {
-    throw new Error("只支持重发飞书机器人通知");
-  }
-
-  const context = await loadNotificationContext({
-    conversationId: notification.conversationId,
-    interviewRecordId: notification.interviewRecordId,
-  });
-  if (!context || context.summaryStatus !== "ready") {
-    throw new Error("面试报告还未生成完成，无法重发");
-  }
-  if (!context.scheduleEntryId) {
-    throw new Error("通知缺少面试轮次，无法生成报告链接");
-  }
-
-  const notificationInput = {
-    candidateName: context.candidateName,
-    duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
-    evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
-    ...extractNotificationCardSupplement(context),
-    interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
-    organizationSlug: context.organizationSlug ?? null,
-    roundId: context.scheduleEntryId,
-    summary: context.transcriptSummary,
-    targetRole: context.targetRole,
-  };
-
-  let resendNotificationId = notification.id;
-  let resendRecipientOpenId = notification.recipientOpenId;
-  let resendRecipientUserId = notification.recipientUserId;
-  if (recipientUserId && recipientUserId !== notification.recipientUserId) {
-    const [recipient] = await db
-      .select({ accountId: account.accountId })
-      .from(member)
-      .innerJoin(
-        account,
-        and(eq(account.userId, member.userId), eq(account.providerId, notification.providerId)),
-      )
-      .where(
-        and(
-          eq(member.organizationId, notification.organizationId),
-          eq(member.userId, recipientUserId),
-        ),
-      )
-      .orderBy(desc(account.updatedAt))
-      .limit(1);
-    if (!recipient) {
-      throw new Error("所选用户不是当前工作区内已绑定对应飞书机器人的成员");
-    }
-
-    const insertedId = crypto.randomUUID();
-    const [inserted] = await db
-      .insert(interviewNotification)
-      .values({
-        conversationId: notification.conversationId,
-        id: insertedId,
-        interviewRecordId: notification.interviewRecordId,
-        organizationId: notification.organizationId,
-        providerId: notification.providerId,
-        recipientOpenId: recipient.accountId,
-        recipientUserId,
-        status: "pending",
-        type: notification.type,
-      })
-      .onConflictDoNothing({
-        target: [
-          interviewNotification.interviewRecordId,
-          interviewNotification.conversationId,
-          interviewNotification.type,
-          interviewNotification.recipientUserId,
-          interviewNotification.providerId,
-        ],
-      })
-      .returning({ id: interviewNotification.id });
-    if (inserted) {
-      resendNotificationId = inserted.id;
-    } else {
-      const [existing] = await db
-        .select({ id: interviewNotification.id })
-        .from(interviewNotification)
-        .where(
-          and(
-            eq(interviewNotification.interviewRecordId, notification.interviewRecordId),
-            eq(interviewNotification.conversationId, notification.conversationId),
-            eq(interviewNotification.type, notification.type),
-            eq(interviewNotification.recipientUserId, recipientUserId),
-            eq(interviewNotification.providerId, notification.providerId),
-          ),
-        )
-        .limit(1);
-      if (!existing) {
-        throw new Error("无法创建所选接收人的飞书通知记录");
-      }
-      resendNotificationId = existing.id;
-    }
-    resendRecipientOpenId = recipient.accountId;
-    resendRecipientUserId = recipientUserId;
-  }
-
-  await db
-    .update(interviewNotification)
-    .set({
-      error: null,
-      recipientOpenId: resendRecipientOpenId,
-      recipientUserId: resendRecipientUserId,
-      status: "pending",
-    })
-    .where(eq(interviewNotification.id, resendNotificationId));
-
-  try {
-    const documentUrl = await ensureInterviewEvaluationDocument({
-      context,
-      conversationId: notification.conversationId,
-      input: notificationInput,
-      interviewRecordId: notification.interviewRecordId,
-      notificationId: resendNotificationId,
-      providerId: notification.providerId,
-      recipientOpenId: resendRecipientOpenId,
-    });
-    const { card } = buildNotificationCard(notificationInput, documentUrl);
-    const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
-    const sent = await postFeishuDirectCard(notification.providerId, resendRecipientOpenId, card);
-    const sentAt = new Date();
-    await db
-      .update(interviewNotification)
-      .set({
-        error: null,
-        feishuMessageId: sent.id ?? null,
-        sentAt,
-        status: "sent",
-      })
-      .where(eq(interviewNotification.id, resendNotificationId));
-    return { notificationId: resendNotificationId, sentAt: sentAt.toISOString() };
-  } catch (error) {
-    const notificationError = error instanceof Error ? error : new Error(String(error));
-    await markNotificationFailed(resendNotificationId, notificationError);
-    throw error;
-  }
-}
-
 async function loadMissingGoogleEmailNotificationTargets(
   limit: number,
 ): Promise<NotificationTarget[]> {
@@ -576,49 +542,58 @@ async function loadMissingGoogleEmailNotificationTargets(
 
   const rows = await db
     .select({
-      conversationId: interviewConversation.conversationId,
-      interviewRecordId: interviewConversation.interviewRecordId,
+      conversationId: aiInterviewConversation.conversationId,
+      interviewRecordId: aiInterviewConversation.recruitingRecordId,
     })
-    .from(interviewConversation)
-    .innerJoin(studioInterview, eq(interviewConversation.interviewRecordId, studioInterview.id))
+    .from(aiInterviewConversation)
     .innerJoin(
-      studioInterviewSchedule,
+      recruitingRecordReadModel,
+      eq(aiInterviewConversation.recruitingRecordId, recruitingRecordReadModel.id),
+    )
+    .innerJoin(
+      aiInterviewRound,
       and(
-        eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
-        eq(studioInterviewSchedule.conversationId, interviewConversation.conversationId),
+        eq(aiInterviewRound.id, aiInterviewConversation.aiRoundId),
+        eq(aiInterviewRound.conversationId, aiInterviewConversation.conversationId),
       ),
     )
     .innerJoin(
       account,
       and(
-        eq(account.userId, studioInterview.createdBy),
+        eq(account.userId, recruitingRecordReadModel.createdBy),
         eq(account.providerId, GOOGLE_PROVIDER_ID),
       ),
     )
-    .innerJoin(user, eq(studioInterview.createdBy, user.id))
+    .innerJoin(user, eq(recruitingRecordReadModel.createdBy, user.id))
     .where(
       and(
-        eq(interviewConversation.summaryStatus, "ready"),
-        isNotNull(interviewConversation.interviewRecordId),
-        isNotNull(studioInterview.createdBy),
+        eq(aiInterviewConversation.summaryStatus, "ready"),
+        isNotNull(aiInterviewConversation.recruitingRecordId),
+        isNotNull(recruitingRecordReadModel.createdBy),
         isNotNull(user.email),
         notExists(
           db
-            .select({ id: interviewNotification.id })
-            .from(interviewNotification)
+            .select({ id: recruitingNotificationDelivery.id })
+            .from(recruitingNotificationDelivery)
             .where(
               and(
-                eq(interviewNotification.interviewRecordId, studioInterview.id),
-                eq(interviewNotification.conversationId, interviewConversation.conversationId),
-                eq(interviewNotification.type, "summary_ready"),
-                eq(interviewNotification.recipientUserId, studioInterview.createdBy),
-                eq(interviewNotification.providerId, GOOGLE_PROVIDER_ID),
+                eq(recruitingNotificationDelivery.recruitingRecordId, recruitingRecordReadModel.id),
+                eq(
+                  recruitingNotificationDelivery.conversationId,
+                  aiInterviewConversation.conversationId,
+                ),
+                inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+                eq(
+                  recruitingNotificationDelivery.recipientUserId,
+                  recruitingRecordReadModel.createdBy,
+                ),
+                eq(recruitingNotificationDelivery.providerId, GOOGLE_PROVIDER_ID),
               ),
             ),
         ),
       ),
     )
-    .orderBy(desc(interviewConversation.updatedAt))
+    .orderBy(desc(aiInterviewConversation.updatedAt))
     .limit(limit);
 
   return rows.flatMap((row) => {
@@ -646,7 +621,38 @@ export async function notifyInterviewSummaryReady(
     return;
   }
 
-  const recipients = await loadRecipientAccounts(context.createdBy);
+  const persistedDeliveries = options.emailOnly
+    ? []
+    : await db
+        .select({
+          conversationId: recruitingNotificationDelivery.conversationId,
+          interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
+          notificationId: recruitingNotificationDelivery.id,
+          providerId: recruitingNotificationDelivery.providerId,
+          recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
+        })
+        .from(recruitingNotificationDelivery)
+        .where(
+          and(
+            eq(recruitingNotificationDelivery.recruitingRecordId, options.interviewRecordId),
+            eq(recruitingNotificationDelivery.organizationId, context.organizationId),
+            or(
+              eq(recruitingNotificationDelivery.conversationId, options.conversationId),
+              isNull(recruitingNotificationDelivery.conversationId),
+            ),
+            inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+            inArray(recruitingNotificationDelivery.providerId, [...FEISHU_PROVIDER_IDS]),
+            isNull(recruitingNotificationDelivery.eventId),
+          ),
+        );
+  const recipients =
+    options.emailOnly || persistedDeliveries.length > 0
+      ? []
+      : await loadRecipientAccounts(
+          context.createdBy,
+          options.interviewRecordId,
+          context.organizationId,
+        );
 
   // 没有 scheduleEntryId 时跳过通知 —— 链接会落到一个 404 的 dialog,不如不发,
   // 让 retryFailedInterviewSummaryNotifications 后续重试 (届时 schedule 可能已回填)。
@@ -655,6 +661,13 @@ export async function notifyInterviewSummaryReady(
   // picks it up once the schedule entry is backfilled.
   if (!context.scheduleEntryId) {
     return;
+  }
+
+  for (const delivery of persistedDeliveries) {
+    await retryPersistedFeishuDelivery({
+      ...delivery,
+      conversationId: options.conversationId,
+    });
   }
 
   const notificationInput = {
@@ -671,8 +684,6 @@ export async function notifyInterviewSummaryReady(
   const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
 
   if (recipients.length > 0) {
-    const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
-
     for (const recipient of recipients) {
       const notificationId = await claimNotification({
         conversationId: options.conversationId,
@@ -685,18 +696,14 @@ export async function notifyInterviewSummaryReady(
       }
 
       try {
-        const documentUrl = await ensureInterviewEvaluationDocument({
-          context,
+        const sent = await sendInterviewReportReadyFeishuNotification({
           conversationId: options.conversationId,
-          input: notificationInput,
           interviewRecordId: options.interviewRecordId,
           notificationId,
           providerId: recipient.providerId,
           recipientOpenId: recipient.accountId,
         });
-        const { card } = buildNotificationCard(notificationInput, documentUrl);
-        const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card);
-        await markNotificationSent(notificationId, sent.id ?? null);
+        await markNotificationSent(notificationId, sent.providerMessageId);
       } catch (error) {
         const notificationError = error instanceof Error ? error : new Error(String(error));
         await markNotificationFailed(notificationId, notificationError);
@@ -722,21 +729,53 @@ export async function notifyInterviewSummaryReady(
 export async function retryFailedInterviewSummaryNotifications(): Promise<{
   retried: number;
 }> {
-  const failedRows = await db
-    .select({
-      conversationId: interviewNotification.conversationId,
-      interviewRecordId: interviewNotification.interviewRecordId,
+  // A crashed sender may already have delivered the card/email. Do not blindly
+  // resend an expired in-flight attempt; require reconciliation instead.
+  const now = new Date();
+  await db
+    .update(recruitingNotificationDelivery)
+    .set({
+      error: "发送进程中断，实际投递结果待核实，请核对消息后再重试。",
+      lastErrorCode: "legacy_delivery_result_unknown",
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      resultUnknownAt: now,
+      status: "unknown",
     })
-    .from(interviewNotification)
     .where(
       and(
-        eq(interviewNotification.type, "summary_ready"),
-        inArray(interviewNotification.status, ["failed", "pending"]),
+        eq(recruitingNotificationDelivery.status, "sending"),
+        isNull(recruitingNotificationDelivery.eventId),
+        lte(recruitingNotificationDelivery.leaseExpiresAt, now),
+        inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+      ),
+    );
+  const failedRows = await db
+    .select({
+      conversationId: recruitingNotificationDelivery.conversationId,
+      interviewRecordId: recruitingNotificationDelivery.recruitingRecordId,
+      notificationId: recruitingNotificationDelivery.id,
+      providerId: recruitingNotificationDelivery.providerId,
+      recipientOpenId: recruitingNotificationDelivery.recipientOpenId,
+    })
+    .from(recruitingNotificationDelivery)
+    .where(
+      and(
+        inArray(recruitingNotificationDelivery.type, ["ai_report_ready", "summary_ready"]),
+        inArray(recruitingNotificationDelivery.status, ["failed", "pending"]),
+        isNull(recruitingNotificationDelivery.eventId),
       ),
     )
     .limit(RETRY_BATCH_SIZE);
+  let retried = 0;
+  for (const row of failedRows) {
+    const attempted = await retryPersistedFeishuDelivery(row);
+    if (attempted) {
+      retried += 1;
+    }
+  }
   const failedTargets: NotificationTarget[] = failedRows.flatMap((row) =>
-    row.conversationId
+    row.conversationId && row.providerId === GOOGLE_PROVIDER_ID
       ? [
           {
             allowIncomplete: true,
@@ -748,7 +787,6 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
   );
   const missingGoogleEmailRows = await loadMissingGoogleEmailNotificationTargets(RETRY_BATCH_SIZE);
 
-  let retried = 0;
   const seen = new Set<string>();
   for (const row of [...failedTargets, ...missingGoogleEmailRows]) {
     if (!row.conversationId) {
@@ -762,6 +800,7 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
     await notifyInterviewSummaryReady({
       allowIncomplete: row.allowIncomplete,
       conversationId: row.conversationId,
+      emailOnly: true,
       interviewRecordId: row.interviewRecordId,
     });
     retried += 1;

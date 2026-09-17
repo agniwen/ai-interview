@@ -1,3 +1,4 @@
+import { meetingDeviceRouter } from "./routes/device/route";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import {
@@ -123,6 +124,16 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
         if (!(activeOrg && user)) {
           return c.json({ message: "Unauthorized" }, 401);
         }
+        const ownership = c.req.valid("json").processingOwnership;
+        if (!ownership) {
+          return c.json({ error: "请更新 Echo 后保存录音" }, 409);
+        }
+        if (
+          ownership.accountId !== user.id ||
+          c.req.header("X-Echo-Workspace-Id") !== activeOrg.id
+        ) {
+          return c.json({ error: "请登录创建此录音的账号" }, 403);
+        }
         const result = await createMeeting({
           input: c.req.valid("json"),
           organizationId: activeOrg.id,
@@ -152,6 +163,16 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
         const { activeOrg, user } = c.var;
         if (!(activeOrg && user)) {
           return c.json({ message: "Unauthorized" }, 401);
+        }
+        const ownership = c.req.valid("json").processingOwnership;
+        if (!ownership) {
+          return c.json({ error: "请更新 Echo 后保存录音" }, 409);
+        }
+        if (
+          ownership.accountId !== user.id ||
+          c.req.header("X-Echo-Workspace-Id") !== activeOrg.id
+        ) {
+          return c.json({ error: "请登录创建此录音的账号" }, 403);
         }
         const result = await createMultipartMeeting({
           input: c.req.valid("json"),
@@ -217,6 +238,7 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
         );
       },
     )
+    .route("/:id/device", meetingDeviceRouter)
     .route("/:id/playback", playbackRouter)
     .route("/:id/exports", exportsRouter)
     .route("/:id/questions", questionsRouter)
@@ -265,6 +287,9 @@ export function createMeetingsRouter(overrides: Partial<MeetingsRouterDependenci
           meetingId: c.req.param("id"),
           organizationId: activeOrg.id,
         });
+        if (result.state === "recruiting-referenced") {
+          return c.json({ error: "会议仍被招聘数据引用，请先解除关联再永久清除。" }, 409);
+        }
         if (result.state === "forbidden") {
           return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以永久清除会议" }, 403);
         }

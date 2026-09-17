@@ -6,7 +6,7 @@ import { factory } from "../../../../../../factory";
 import { createInternalErrorResponse } from "../../../../../../error-handler";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { resolveCandidateIdForRound } from "../../dao/interview-rounds";
-import { interviewConversation } from "@app/db-schema/schema";
+import { aiInterviewConversation } from "@app/db-schema/schema";
 
 interface RecordingRow {
   recordingFileKey: string | null;
@@ -28,15 +28,15 @@ const defaultDependencies: RecordingsRouterDependencies = {
   async loadConversation(input) {
     const [conversation] = await db
       .select({
-        recordingFileKey: interviewConversation.recordingFileKey,
-        recordingStatus: interviewConversation.recordingStatus,
-        scheduleEntryId: interviewConversation.scheduleEntryId,
+        recordingFileKey: aiInterviewConversation.recordingFileKey,
+        recordingStatus: aiInterviewConversation.recordingStatus,
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
       })
-      .from(interviewConversation)
+      .from(aiInterviewConversation)
       .where(
         and(
-          eq(interviewConversation.conversationId, input.conversationId),
-          eq(interviewConversation.organizationId, input.organizationId),
+          eq(aiInterviewConversation.conversationId, input.conversationId),
+          eq(aiInterviewConversation.organizationId, input.organizationId),
         ),
       )
       .limit(1);

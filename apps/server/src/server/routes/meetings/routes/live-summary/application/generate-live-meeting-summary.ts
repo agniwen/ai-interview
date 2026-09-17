@@ -1,3 +1,4 @@
+import { extendSummaryFingerprint } from "@app/shared/meeting-summary-fingerprint";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
@@ -5,6 +6,7 @@ import {
   MEETING_LIVE_SUMMARY_MAX_EVIDENCE_TURNS,
   MEETING_LIVE_SUMMARY_MAX_TOPICS,
   meetingLiveSummarySnapshotSchema,
+  meetingSummaryPendingThoughtSchema,
 } from "@app/shared/meeting-live-summary";
 import type {
   MeetingLiveSummaryPoint,
@@ -18,6 +20,7 @@ const candidatePointSchema = z
     evidenceTurnIds: z.array(z.string().min(1).max(512)).min(1).max(30),
     id: z.string().min(1).max(128),
     kind: z.enum(["fact", "question"]),
+    replacesPointIds: z.array(z.string().min(1).max(128)).max(8).optional(),
     text: z.string().trim().min(1).max(1000),
   })
   .strict();
@@ -35,6 +38,7 @@ const candidateTopicSchema = z
 export const meetingLiveSummaryCandidateSchema = z
   .object({
     activeTopicId: z.string().min(1).max(128).nullable(),
+    pendingThoughts: z.array(meetingSummaryPendingThoughtSchema).max(5).optional(),
     summary: z.string().trim().min(1).max(4000),
     topics: z.array(candidateTopicSchema).min(1).max(MEETING_LIVE_SUMMARY_MAX_TOPICS),
   })
@@ -79,6 +83,14 @@ function stableNodeId(input: {
 
 function evidenceRanges(request: MeetingLiveSummaryRequest): Map<string, EvidenceRange> {
   const ranges = new Map<string, EvidenceRange>();
+  for (const thought of request.baseSnapshot?.pendingThoughts ?? []) {
+    for (const id of thought.evidenceTurnIds) {
+      ranges.set(id, {
+        endMs: thought.endMs ?? request.baseSnapshot?.coveredThroughMs ?? 0,
+        startMs: thought.startMs ?? 0,
+      });
+    }
+  }
   for (const topic of request.baseSnapshot?.topics ?? []) {
     for (const id of topic.evidenceTurnIds) {
       ranges.set(id, { endMs: topic.endMs, startMs: topic.startMs });
@@ -89,7 +101,7 @@ function evidenceRanges(request: MeetingLiveSummaryRequest): Map<string, Evidenc
       }
     }
   }
-  for (const turn of request.turns) {
+  for (const turn of [...(request.contextTurns ?? []), ...request.turns]) {
     ranges.set(turn.id, { endMs: turn.endMs, startMs: turn.startMs });
   }
   return ranges;
@@ -141,13 +153,6 @@ function firstEvidenceId(ids: string[]): string {
   return first;
 }
 
-function capTopics(topics: MeetingLiveSummaryTopic[]): void {
-  while (topics.length > MEETING_LIVE_SUMMARY_MAX_TOPICS) {
-    const removable = topics.findIndex((topic) => topic.status === "completed");
-    topics.splice(removable === -1 ? 0 : removable, 1);
-  }
-}
-
 function resolvePoint(input: {
   candidate: MeetingLiveSummaryCandidate["topics"][number]["points"][number];
   captureId: string;
@@ -195,18 +200,23 @@ function resolveTopic(input: {
     }),
   );
   const resolvedPointIds = new Set(resolvedPoints.map((point) => point.id));
+  const replacedIds = new Set(
+    input.candidate.points.flatMap((point) => point.replacesPointIds ?? []),
+  );
+  for (const id of replacedIds) {
+    if (!existingPointsById.has(id)) {
+      throw new Error("总结修正引用了未知观点");
+    }
+  }
   for (const point of input.existing?.points ?? []) {
-    if (
-      !resolvedPointIds.has(point.id) &&
-      resolvedPoints.length < MEETING_LIVE_SUMMARY_MAX_POINTS_PER_TOPIC
-    ) {
+    if (!resolvedPointIds.has(point.id) && !replacedIds.has(point.id)) {
       resolvedPoints.push(point);
     }
   }
   const pointEvidence = uniqueEvidence(...resolvedPoints.map((point) => point.evidenceTurnIds));
   const evidenceTurnIds = boundedEvidence({
     groups: [input.existing?.evidenceTurnIds ?? [], input.candidate.evidenceTurnIds, pointEvidence],
-    max: MEETING_LIVE_SUMMARY_MAX_EVIDENCE_TURNS,
+    max: Math.max(MEETING_LIVE_SUMMARY_MAX_EVIDENCE_TURNS, pointEvidence.length),
     required: pointEvidence,
   });
   return {
@@ -227,6 +237,7 @@ function resolveTopic(input: {
   };
 }
 
+// oxlint-disable-next-line complexity -- Validates evidence, merges revisions, and preserves the durable cursor in one publication boundary.
 export async function generateLiveMeetingSummary(
   request: MeetingLiveSummaryRequest,
   dependencies: GenerateLiveMeetingSummaryDependencies,
@@ -235,6 +246,9 @@ export async function generateLiveMeetingSummary(
     await dependencies.generateCandidate({ request }),
   );
   const ranges = evidenceRanges(request);
+  for (const thought of candidate.pendingThoughts ?? request.baseSnapshot?.pendingThoughts ?? []) {
+    rangeFor(thought.evidenceTurnIds, ranges);
+  }
   const previous = request.baseSnapshot?.topics ?? [];
   const previousById = new Map(previous.map((topic) => [topic.id, topic]));
   const previousByTitle = new Map(previous.map((topic) => [normalized(topic.title), topic]));
@@ -266,7 +280,6 @@ export async function generateLiveMeetingSummary(
   for (const topic of topics) {
     topic.status = topic.id === activeTopicId ? "active" : "completed";
   }
-  capTopics(topics);
   const lastTurn = request.turns.at(-1);
   if (!lastTurn) {
     throw new Error("实时总结请求缺少字幕");
@@ -283,8 +296,18 @@ export async function generateLiveMeetingSummary(
       : (request.baseSnapshot?.coveredThroughTurnId ?? lastTurn.id),
     generatedAt: dependencies.now().toISOString(),
     model: generator.model,
+    pendingThoughts: (candidate.pendingThoughts ?? request.baseSnapshot?.pendingThoughts ?? []).map(
+      (thought) => ({
+        ...thought,
+        ...rangeFor(thought.evidenceTurnIds, ranges),
+      }),
+    ),
     provider: generator.provider,
     revision: (request.baseSnapshot?.revision ?? 0) + 1,
+    sourceFingerprint:
+      !request.baseSnapshot || request.baseSnapshot.sourceFingerprint
+        ? await extendSummaryFingerprint(request.baseSnapshot?.sourceFingerprint, request.turns)
+        : undefined,
     summary: candidate.summary,
     template: request.template,
     topics,

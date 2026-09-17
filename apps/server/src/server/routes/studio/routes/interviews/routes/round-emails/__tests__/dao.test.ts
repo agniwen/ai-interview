@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 真实 DB 集成测试：邮件日志插入 + 轮次摘要聚合。
 // Per project memory: 用真实数据库，不 mock。
 //
@@ -9,9 +11,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../../lib/server/db/index";
 import {
   organization,
-  studioInterview,
-  studioInterviewSchedule,
-  studioRoundEmailLog,
+  aiInterviewRound,
+  recruitingRoundEmailLog,
   user,
 } from "@app/db-schema/schema";
 import { insertRoundEmailLog, summarizeRoundEmailLogs } from "../dao";
@@ -26,11 +27,11 @@ const NOW = new Date("2026-05-19T12:00:00.000Z");
 
 async function cleanup() {
   for (const orgId of [ORG, ORG_OTHER]) {
-    await db.delete(studioRoundEmailLog).where(eq(studioRoundEmailLog.organizationId, orgId));
     await db
-      .delete(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.organizationId, orgId));
-    await db.delete(studioInterview).where(eq(studioInterview.organizationId, orgId));
+      .delete(recruitingRoundEmailLog)
+      .where(eq(recruitingRoundEmailLog.organizationId, orgId));
+    await db.delete(aiInterviewRound).where(eq(aiInterviewRound.organizationId, orgId));
+    await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, orgId));
     await db.delete(organization).where(eq(organization.id, orgId));
   }
   await db.delete(user).where(eq(user.id, USER_ID));
@@ -54,19 +55,19 @@ beforeAll(async () => {
       slug: orgId,
     });
   }
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "Test",
     createdAt: NOW,
     id: INTERVIEW_ID,
     organizationId: ORG,
     updatedAt: NOW,
   });
-  await db.insert(studioInterviewSchedule).values([
+  await db.insert(aiInterviewRound).values([
     {
       createdAt: NOW,
       id: ROUND_A,
-      interviewRecordId: INTERVIEW_ID,
       organizationId: ORG,
+      recruitingRecordId: INTERVIEW_ID,
       roundLabel: "Round A",
       sortOrder: 0,
       updatedAt: NOW,
@@ -74,8 +75,8 @@ beforeAll(async () => {
     {
       createdAt: NOW,
       id: ROUND_B,
-      interviewRecordId: INTERVIEW_ID,
       organizationId: ORG,
+      recruitingRecordId: INTERVIEW_ID,
       roundLabel: "Round B",
       sortOrder: 1,
       updatedAt: NOW,

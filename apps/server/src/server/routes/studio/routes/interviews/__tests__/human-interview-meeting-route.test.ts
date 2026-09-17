@@ -1,3 +1,5 @@
+import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines, prefer-response-static-json, require-await -- end-to-end route scenarios keep sequential Feishu checkpoints readable. */
 
 import { eq } from "drizzle-orm";
@@ -8,15 +10,19 @@ import { publicRouter } from "../../../../public/route";
 import { issueHumanInterviewMeetingLinks } from "../dao/human-interview-meetings";
 import {
   account,
-  interviewAuditLog,
+  department,
+  globalConfig,
+  jobDescription,
+  recruitingEvent,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
   member,
   organization,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
   user,
 } from "@app/db-schema/schema";
 import { createStudioInterviewCollectionRouter } from "../collection-route";
@@ -27,6 +33,7 @@ const studioInterviewCollectionRouter = createStudioInterviewCollectionRouter({
 });
 
 const INTERVIEWER_ID = "test_feishu_meeting_interviewer";
+const JOB_DESCRIPTION_ID = "test_feishu_meeting_job_description";
 const INTERVIEW_ID = "test_feishu_meeting_candidate";
 const NOW = new Date("2026-08-05T09:00:00.000Z");
 const OPERATOR_ID = "test_feishu_meeting_operator";
@@ -40,10 +47,11 @@ const SECONDARY_INTERVIEWER_ID = "test_feishu_meeting_secondary_interviewer";
 
 async function setRoundInterviewers(userIds: string[]) {
   await db
-    .delete(studioHumanInterviewRoundInterviewer)
-    .where(eq(studioHumanInterviewRoundInterviewer.roundId, ROUND_ID));
-  await db.insert(studioHumanInterviewRoundInterviewer).values(
+    .delete(humanInterviewRoundInterviewer)
+    .where(eq(humanInterviewRoundInterviewer.roundId, ROUND_ID));
+  await db.insert(humanInterviewRoundInterviewer).values(
     userIds.map((userId) => ({
+      organizationId: ORG_ID,
       roundId: ROUND_ID,
       userId,
     })),
@@ -51,18 +59,18 @@ async function setRoundInterviewers(userIds: string[]) {
 }
 
 async function seedReadyFeishuMeeting(meetingId: string, roundIds = [ROUND_ID]) {
-  await db.insert(studioHumanInterviewMeeting).values({
+  await db.insert(humanInterviewMeeting).values({
     createdAt: NOW,
     createdBy: OPERATOR_ID,
     feishuAppLink: "https://applink.feishu.cn/client/video/123456789",
-    feishuAttendeeOpenIds: ["ou_interviewer_secondary"],
+    feishuAttendeeOpenIds: ["ou_operator_secondary", "ou_interviewer_secondary"],
     feishuCalendarEventId: "event_route_schedule_update",
     feishuCalendarEventUrl:
       "https://applink.feishu.cn/client/calendar/event/detail?key=event_retry",
     feishuCalendarId: "feishu.cn_bot@group.calendar.feishu.cn",
     feishuMeetingNo: "123456789",
     feishuMeetingUrl: "https://vc.feishu.cn/j/123456789",
-    feishuOwnerOpenId: "ou_interviewer_secondary",
+    feishuOwnerOpenId: "ou_operator_secondary",
     feishuProviderId: "feishu-jiguang-hr",
     feishuReserveId: "reserve_route_schedule_update",
     feishuSyncStatus: "ready",
@@ -77,11 +85,12 @@ async function seedReadyFeishuMeeting(meetingId: string, roundIds = [ROUND_ID]) 
     validUntil: new Date("2026-08-05T10:30:00.000Z"),
   });
   await db
-    .insert(studioHumanInterviewMeetingRound)
-    .values(roundIds.map((roundId) => ({ meetingId, roundId })));
-  await db.insert(studioHumanInterviewMeetingInterviewer).values({
+    .insert(humanInterviewMeetingRound)
+    .values(roundIds.map((roundId) => ({ meetingId, organizationId: ORG_ID, roundId })));
+  await db.insert(humanInterviewMeetingInterviewer).values({
     feishuOpenId: "ou_interviewer_secondary",
     meetingId,
+    organizationId: ORG_ID,
     role: "host",
     userId: INTERVIEWER_ID,
   });
@@ -89,12 +98,14 @@ async function seedReadyFeishuMeeting(meetingId: string, roundIds = [ROUND_ID]) 
 
 async function cleanup() {
   await db
-    .delete(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
+    .delete(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.organizationId, ORG_ID));
   await db
-    .delete(studioHumanInterviewRound)
-    .where(eq(studioHumanInterviewRound.organizationId, ORG_ID));
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_ID));
+    .delete(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.organizationId, ORG_ID));
+  await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.organizationId, ORG_ID));
+  await db.delete(humanInterviewRound).where(eq(humanInterviewRound.organizationId, ORG_ID));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_ID));
   await db.delete(account).where(eq(account.userId, OPERATOR_ID));
   await db.delete(account).where(eq(account.userId, INTERVIEWER_ID));
   await db.delete(account).where(eq(account.userId, PRIMARY_INTERVIEWER_ID));
@@ -237,6 +248,23 @@ beforeAll(async () => {
       userId: SECONDARY_INTERVIEWER_ID,
     },
   ]);
+  await db.insert(department).values({
+    id: "test_feishu_meeting_department",
+    name: "研发部",
+    organizationId: ORG_ID,
+  });
+  await db.insert(jobDescription).values({
+    departmentId: "test_feishu_meeting_department",
+    id: JOB_DESCRIPTION_ID,
+    name: "前端技术经理",
+    organizationId: ORG_ID,
+    prompt: "负责前端团队与技术架构。",
+  });
+  await db.insert(globalConfig).values({
+    companyName: "示例科技",
+    id: "test_feishu_meeting_global_config",
+    organizationId: ORG_ID,
+  });
   await db.insert(account).values([
     {
       accountId: "ou_operator_primary",
@@ -293,12 +321,13 @@ beforeAll(async () => {
       userId: SECONDARY_INTERVIEWER_ID,
     },
   ]);
-  await db.insert(studioInterview).values([
+  await createRecruitingRecords(db, [
     {
       candidateName: "张三",
       createdAt: NOW,
       createdBy: OPERATOR_ID,
       id: INTERVIEW_ID,
+      jobDescriptionId: JOB_DESCRIPTION_ID,
       organizationId: ORG_ID,
       updatedAt: NOW,
     },
@@ -311,14 +340,15 @@ beforeAll(async () => {
       updatedAt: NOW,
     },
   ]);
-  await db.insert(studioHumanInterviewRound).values([
+  await db.insert(humanInterviewRound).values([
     {
       createdAt: NOW,
       format: "online",
       id: ROUND_ID,
-      interviewRecordId: INTERVIEW_ID,
       label: "真人复面",
       organizationId: ORG_ID,
+      recruitingRecordId: INTERVIEW_ID,
+      roundKind: "second_interview",
       scheduledAt: new Date("2026-08-05T09:30:00.000Z"),
       sortOrder: 0,
       status: "pending",
@@ -328,9 +358,10 @@ beforeAll(async () => {
       createdAt: NOW,
       format: "online",
       id: SECOND_ROUND_ID,
-      interviewRecordId: SECOND_INTERVIEW_ID,
       label: "真人复面",
       organizationId: ORG_ID,
+      recruitingRecordId: SECOND_INTERVIEW_ID,
+      roundKind: "second_interview",
       scheduledAt: new Date("2026-08-05T09:30:00.000Z"),
       sortOrder: 0,
       status: "pending",
@@ -346,10 +377,14 @@ beforeEach(async () => {
   process.env.FEISHU_APP_ID = "cli_test_feishu_primary";
   process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary";
   process.env.FEISHU_HUMAN_INTERVIEW_ENABLED = "true";
-  await db.delete(interviewAuditLog).where(eq(interviewAuditLog.organizationId, ORG_ID));
   await db
-    .delete(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
+    .delete(recruitingNotificationDelivery)
+    .where(eq(recruitingNotificationDelivery.organizationId, ORG_ID));
+  await db
+    .delete(recruitingNotificationEvent)
+    .where(eq(recruitingNotificationEvent.organizationId, ORG_ID));
+  await db.delete(recruitingEvent).where(eq(recruitingEvent.organizationId, ORG_ID));
+  await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.organizationId, ORG_ID));
   await setRoundInterviewers([INTERVIEWER_ID]);
 });
 
@@ -359,17 +394,21 @@ describe("LiveKit entry with synchronized Feishu meetings", () => {
     await seedReadyFeishuMeeting(meetingId);
     const currentTime = new Date();
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         scheduledAt: currentTime,
         validUntil: new Date(currentTime.getTime() + 60 * 60 * 1000),
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     process.env.LIVEKIT_API_KEY = "test-livekit-key";
     process.env.LIVEKIT_API_SECRET = "test-livekit-secret";
     process.env.LIVEKIT_URL = "wss://livekit.example.test";
 
     const links = await issueHumanInterviewMeetingLinks({ meetingId, organizationId: ORG_ID });
+    expect(links.candidateLinks[0]).toMatchObject({
+      companyName: "示例科技",
+      jobDescriptionName: "前端技术经理",
+    });
     const interviewerUrl = links.interviewerLinks[0]?.url;
     expect(interviewerUrl).toBeDefined();
     const inviteToken = interviewerUrl?.split("/").at(-1);
@@ -416,7 +455,7 @@ describe("POST /human-interview-meetings", () => {
     expect((await response.json()) as { feishu: unknown }).toMatchObject({ feishu: null });
   });
 
-  it("creates only a Feishu calendar event with each interviewer's own system link", async () => {
+  it("creates a Feishu calendar event for the HR and interviewers", async () => {
     process.env.BETTER_AUTH_URL = "https://interview.example.test";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -470,7 +509,10 @@ describe("POST /human-interview-meetings", () => {
           JSON.stringify({
             code: 0,
             data: {
-              attendees: [{ user_id: "ou_interviewer_secondary" }],
+              attendees: [
+                { user_id: "ou_operator_secondary" },
+                { user_id: "ou_interviewer_secondary" },
+              ],
             },
             msg: "success",
           }),
@@ -525,7 +567,10 @@ describe("POST /human-interview-meetings", () => {
       String(url).includes("/attendees"),
     );
     expect(JSON.parse(String(attendeeRequest?.[1]?.body))).toEqual({
-      attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
+      attendees: [
+        { type: "user", user_id: "ou_operator_secondary" },
+        { type: "user", user_id: "ou_interviewer_secondary" },
+      ],
       need_notification: true,
     });
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -582,9 +627,9 @@ describe("POST /human-interview-meetings", () => {
     const meetingId = "test_feishu_schedule_update";
     await seedReadyFeishuMeeting(meetingId);
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ feishuSyncStatus: "failed", feishuSyncedAt: null })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     process.env.FEISHU_APP_ID2 = "cli_test_feishu_schedule_update";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -639,16 +684,214 @@ describe("POST /human-interview-meetings", () => {
       end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
       need_notification: true,
       start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
-      summary: "张三-未关联岗位-真人复面",
+      summary: "张三-前端技术经理-真人复面",
     });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/reserves/apply"))).toBe(
       false,
     );
     const [updatedRound] = await db
-      .select({ scheduledAt: studioHumanInterviewRound.scheduledAt })
-      .from(studioHumanInterviewRound)
-      .where(eq(studioHumanInterviewRound.id, ROUND_ID));
+      .select({ scheduledAt: humanInterviewRound.scheduledAt })
+      .from(humanInterviewRound)
+      .where(eq(humanInterviewRound.id, ROUND_ID));
     expect(updatedRound?.scheduledAt?.toISOString()).toBe("2026-08-05T10:30:00.000Z");
+  });
+
+  it("replaces the interviewer in both the meeting and Feishu calendar", async () => {
+    process.env.BETTER_AUTH_URL = "https://interview.example.test";
+    const meetingId = "test_feishu_interviewer_update";
+    await seedReadyFeishuMeeting(meetingId);
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_interviewer_update";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            expire: 7200,
+            msg: "success",
+            tenant_access_token: "interviewer-update-token",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: { attendees: [{ user_id: "ou_secondary_interviewer" }] },
+            msg: "success",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      );
+
+    const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+      body: JSON.stringify({
+        interviewerIds: [SECONDARY_INTERVIEWER_ID],
+        scheduledAt: "2026-08-05T09:30:00.000Z",
+        validUntil: "2026-08-05T10:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(200);
+    const attendeeDeletion = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/attendees/batch_delete"),
+    );
+    expect(JSON.parse(String(attendeeDeletion?.[1]?.body))).toEqual({
+      delete_ids: [{ type: "user", user_id: "ou_interviewer_secondary" }],
+      need_notification: true,
+    });
+    const attendeeAddition = fetchMock.mock.calls.find(
+      ([url]) => String(url).includes("/attendees?") && !String(url).includes("batch_delete"),
+    );
+    expect(JSON.parse(String(attendeeAddition?.[1]?.body))).toEqual({
+      attendees: [{ type: "user", user_id: "ou_secondary_interviewer" }],
+      need_notification: true,
+    });
+    const meetingInterviewers = await db
+      .select({
+        role: humanInterviewMeetingInterviewer.role,
+        userId: humanInterviewMeetingInterviewer.userId,
+      })
+      .from(humanInterviewMeetingInterviewer)
+      .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
+    expect(meetingInterviewers).toEqual([{ role: "host", userId: SECONDARY_INTERVIEWER_ID }]);
+    const roundInterviewers = await db
+      .select({ userId: humanInterviewRoundInterviewer.userId })
+      .from(humanInterviewRoundInterviewer)
+      .where(eq(humanInterviewRoundInterviewer.roundId, ROUND_ID));
+    expect(roundInterviewers).toEqual([{ userId: SECONDARY_INTERVIEWER_ID }]);
+  });
+
+  it("rejects changing interviewers across Feishu app sources", async () => {
+    const meetingId = "test_feishu_cross_provider_interviewer_update";
+    await seedReadyFeishuMeeting(meetingId);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+      body: JSON.stringify({
+        interviewerIds: [PRIMARY_INTERVIEWER_ID],
+        scheduledAt: "2026-08-05T09:30:00.000Z",
+        validUntil: "2026-08-05T10:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "所选面试官与当前会议不属于同一个飞书应用来源，请取消后重新创建会议。",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    const interviewers = await db
+      .select({ userId: humanInterviewMeetingInterviewer.userId })
+      .from(humanInterviewMeetingInterviewer)
+      .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
+    expect(interviewers).toEqual([{ userId: INTERVIEWER_ID }]);
+  });
+
+  it("deletes the Feishu calendar event when a meeting is cancelled", async () => {
+    const meetingId = "test_feishu_calendar_cancel";
+    await seedReadyFeishuMeeting(meetingId);
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_calendar_cancel";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("tenant_access_token/internal")) {
+        return new Response(
+          JSON.stringify({
+            code: 0,
+            expire: 7200,
+            msg: "success",
+            tenant_access_token: "calendar-cancel-token",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      });
+    });
+
+    const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+      method: "DELETE",
+    });
+
+    expect(response.status).toBe(200);
+    const deleteRequest = fetchMock.mock.calls.find(([, init]) => init?.method === "DELETE");
+    expect(String(deleteRequest?.[0])).toContain(
+      "/events/event_route_schedule_update?need_notification=true",
+    );
+    const [cancelledMeeting] = await db
+      .select({
+        attendeeOpenIds: humanInterviewMeeting.feishuAttendeeOpenIds,
+        eventId: humanInterviewMeeting.feishuCalendarEventId,
+        status: humanInterviewMeeting.status,
+        syncStatus: humanInterviewMeeting.feishuSyncStatus,
+      })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meetingId));
+    expect(cancelledMeeting).toEqual({
+      attendeeOpenIds: [],
+      eventId: null,
+      status: "cancelled",
+      syncStatus: "ready",
+    });
+  });
+
+  it("keeps local cancellation successful while a failed calendar deletion retries", async () => {
+    const meetingId = "test_feishu_calendar_cancel_retry";
+    await seedReadyFeishuMeeting(meetingId);
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_calendar_cancel_retry";
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            expire: 7200,
+            msg: "success",
+            tenant_access_token: "calendar-cancel-retry-token",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 1, data: {}, msg: "temporary failure" }), {
+          headers: { "content-type": "application/json" },
+          status: 503,
+        }),
+      );
+
+    const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+      method: "DELETE",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      feishuSync: { meetingId, status: "retrying" },
+      ok: true,
+    });
+    const [cancelledMeeting] = await db
+      .select({
+        status: humanInterviewMeeting.status,
+        syncStatus: humanInterviewMeeting.feishuSyncStatus,
+      })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meetingId));
+    expect(cancelledMeeting).toEqual({ status: "cancelled", syncStatus: "failed" });
   });
 
   it("records a reschedule activity for the meeting candidate", async () => {
@@ -687,13 +930,13 @@ describe("POST /human-interview-meetings", () => {
     expect(response.status).toBe(200);
     const activities = await db
       .select({
-        action: interviewAuditLog.action,
-        detail: interviewAuditLog.detail,
-        interviewRecordId: interviewAuditLog.interviewRecordId,
-        operatorId: interviewAuditLog.operatorId,
+        action: recruitingEvent.action,
+        detail: recruitingEvent.detail,
+        interviewRecordId: recruitingEvent.recruitingRecordId,
+        operatorId: recruitingEvent.operatorId,
       })
-      .from(interviewAuditLog)
-      .where(eq(interviewAuditLog.organizationId, ORG_ID));
+      .from(recruitingEvent)
+      .where(eq(recruitingEvent.organizationId, ORG_ID));
     expect(activities).toEqual([
       {
         action: "human_interview_round_updated",
@@ -750,22 +993,22 @@ describe("POST /human-interview-meetings", () => {
     });
     const [failedMeeting] = await db
       .select({
-        scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-        status: studioHumanInterviewMeeting.feishuSyncStatus,
-        validUntil: studioHumanInterviewMeeting.validUntil,
+        scheduledAt: humanInterviewMeeting.scheduledAt,
+        status: humanInterviewMeeting.feishuSyncStatus,
+        validUntil: humanInterviewMeeting.validUntil,
       })
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meetingId));
     expect(failedMeeting).toMatchObject({ status: "failed" });
     expect(failedMeeting?.scheduledAt?.toISOString()).toBe("2026-08-05T10:30:00.000Z");
     expect(failedMeeting?.validUntil?.toISOString()).toBe("2026-08-05T11:30:00.000Z");
     const failedSyncActivities = await db
       .select({
-        action: interviewAuditLog.action,
-        interviewRecordId: interviewAuditLog.interviewRecordId,
+        action: recruitingEvent.action,
+        interviewRecordId: recruitingEvent.recruitingRecordId,
       })
-      .from(interviewAuditLog)
-      .where(eq(interviewAuditLog.organizationId, ORG_ID));
+      .from(recruitingEvent)
+      .where(eq(recruitingEvent.organizationId, ORG_ID));
     expect(failedSyncActivities).toEqual([
       {
         action: "human_interview_round_updated",
@@ -892,12 +1135,12 @@ describe("POST /human-interview-meetings", () => {
     });
 
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         feishuSyncStatus: "creating",
         updatedAt: new Date("2026-08-05T08:00:00.000Z"),
       })
-      .where(eq(studioHumanInterviewMeeting.id, failureBody.meetingId));
+      .where(eq(humanInterviewMeeting.id, failureBody.meetingId));
     await db
       .update(account)
       .set({ accountId: "ou_operator_secondary_changed" })
@@ -929,7 +1172,10 @@ describe("POST /human-interview-meetings", () => {
           JSON.stringify({
             code: 0,
             data: {
-              attendees: [{ user_id: "ou_interviewer_secondary" }],
+              attendees: [
+                { user_id: "ou_operator_secondary" },
+                { user_id: "ou_interviewer_secondary" },
+              ],
             },
             msg: "success",
           }),
@@ -968,7 +1214,10 @@ describe("POST /human-interview-meetings", () => {
       String(url).includes("/attendees"),
     );
     expect(JSON.parse(String(attendeeRequest?.[1]?.body))).toEqual({
-      attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
+      attendees: [
+        { type: "user", user_id: "ou_operator_secondary" },
+        { type: "user", user_id: "ou_interviewer_secondary" },
+      ],
       need_notification: true,
     });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/"))).toBe(false);
@@ -1010,8 +1259,8 @@ describe("POST /human-interview-meetings", () => {
       });
       const [persisted] = await db
         .select()
-        .from(studioHumanInterviewMeeting)
-        .where(eq(studioHumanInterviewMeeting.id, failureBody.meetingId));
+        .from(humanInterviewMeeting)
+        .where(eq(humanInterviewMeeting.id, failureBody.meetingId));
       expect(persisted?.feishuSyncStatus).toBe("failed");
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
@@ -1132,9 +1381,9 @@ describe("POST /human-interview-meetings", () => {
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const failureBody = (await response.json()) as { meetingId: string };
       const [persisted] = await db
-        .select({ attendeeOpenIds: studioHumanInterviewMeeting.feishuAttendeeOpenIds })
-        .from(studioHumanInterviewMeeting)
-        .where(eq(studioHumanInterviewMeeting.id, failureBody.meetingId));
+        .select({ attendeeOpenIds: humanInterviewMeeting.feishuAttendeeOpenIds })
+        .from(humanInterviewMeeting)
+        .where(eq(humanInterviewMeeting.id, failureBody.meetingId));
       expect(persisted?.attendeeOpenIds).toEqual(["ou_interviewer_secondary"]);
 
       fetchMock.mockReset().mockImplementation(async (input, init) => {
@@ -1148,11 +1397,19 @@ describe("POST /human-interview-meetings", () => {
         const body = JSON.parse(String(init?.body)) as {
           attendees: { user_id: string }[];
         };
-        expect(body.attendees).toEqual([{ type: "user", user_id: "ou_secondary_interviewer" }]);
+        expect(body.attendees).toEqual([
+          { type: "user", user_id: "ou_operator_secondary" },
+          { type: "user", user_id: "ou_secondary_interviewer" },
+        ]);
         return new Response(
           JSON.stringify({
             code: 0,
-            data: { attendees: [{ user_id: "ou_secondary_interviewer" }] },
+            data: {
+              attendees: [
+                { user_id: "ou_operator_secondary" },
+                { user_id: "ou_secondary_interviewer" },
+              ],
+            },
             msg: "success",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
@@ -1238,7 +1495,12 @@ describe("POST /human-interview-meetings", () => {
         .mockResolvedValueOnce(
           Response.json({
             code: 0,
-            data: { attendees: [{ user_id: "ou_interviewer_secondary" }] },
+            data: {
+              attendees: [
+                { user_id: "ou_operator_secondary" },
+                { user_id: "ou_interviewer_secondary" },
+              ],
+            },
             msg: "success",
           }),
         );
@@ -1329,7 +1591,10 @@ describe("POST /human-interview-meetings", () => {
             JSON.stringify({
               code: 0,
               data: {
-                attendees: [{ user_id: "ou_interviewer_secondary" }],
+                attendees: [
+                  { user_id: "ou_operator_secondary" },
+                  { user_id: "ou_interviewer_secondary" },
+                ],
               },
               msg: "success",
             }),
@@ -1383,12 +1648,12 @@ describe("POST /human-interview-meetings", () => {
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const { meetingId } = (await createResponse.json()) as { meetingId: string };
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({
           feishuSyncStatus: "creating",
           updatedAt: new Date("2026-08-05T08:00:00.000Z"),
         })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
 
       fetchMock
         .mockReset()
@@ -1422,7 +1687,12 @@ describe("POST /human-interview-meetings", () => {
         .mockResolvedValueOnce(
           Response.json({
             code: 0,
-            data: { attendees: [{ user_id: "ou_interviewer_secondary" }] },
+            data: {
+              attendees: [
+                { user_id: "ou_operator_secondary" },
+                { user_id: "ou_interviewer_secondary" },
+              ],
+            },
             msg: "success",
           }),
         );
@@ -1437,9 +1707,9 @@ describe("POST /human-interview-meetings", () => {
         id: meetingId,
       });
       const [persisted] = await db
-        .select({ status: studioHumanInterviewMeeting.feishuSyncStatus })
-        .from(studioHumanInterviewMeeting)
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .select({ status: humanInterviewMeeting.feishuSyncStatus })
+        .from(humanInterviewMeeting)
+        .where(eq(humanInterviewMeeting.id, meetingId));
       expect(persisted?.status).toBe("ready");
       expect(
         fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/v1/reserves/apply")),

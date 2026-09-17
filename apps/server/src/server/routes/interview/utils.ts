@@ -1,14 +1,11 @@
+import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import type { parseScheduleEntriesInput } from "@app/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, getColumns } from "drizzle-orm";
 import { db } from "../../../lib/server/db/index";
-import {
-  globalConfig,
-  jobDescription,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@app/db-schema/schema";
+import { globalConfig, jobDescription, aiInterviewRound } from "@app/db-schema/schema";
 import {
   buildCandidateInterviewView,
   pickCurrentScheduleEntry,
@@ -42,8 +39,8 @@ import type {
   ResumeUploadStorageResult,
 } from "./resume-upload-storage";
 
-export type StudioInterviewRow = typeof studioInterview.$inferSelect;
-export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
+export type StudioInterviewRow = RecruitingRecordRead;
+export type StudioInterviewScheduleRow = typeof aiInterviewRound.$inferSelect;
 
 // =====================================================================
 // Candidate interview record loaders
@@ -52,8 +49,8 @@ export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSe
 export async function loadCandidateInterviewRecord(id: string, roundId: string) {
   const [record] = await db
     .select()
-    .from(studioInterview)
-    .where(eq(studioInterview.id, id))
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, id))
     .limit(1);
 
   // 候选人侧入口的 stage 守卫：
@@ -68,10 +65,16 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 
   const scheduleEntries = await db
     .select()
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, id));
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.recruitingRecordId, id));
 
-  const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
+  const view = buildCandidateInterviewView(
+    record,
+    sortScheduleEntries(
+      scheduleEntries.map((entry) => ({ ...entry, interviewRecordId: entry.recruitingRecordId })),
+    ),
+    roundId,
+  );
 
   const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
   if (!contextSnapshot) {
@@ -103,11 +106,11 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 export async function loadScheduleEntriesForRedirect(id: string) {
   const [record] = await db
     .select({
-      id: studioInterview.id,
-      pipelineStage: studioInterview.pipelineStage,
+      id: recruitingRecordReadModel.id,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
     })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, id))
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, id))
     .limit(1);
 
   // 与 loadCandidateInterviewRecord 同步的 stage 守卫；详见上方注释。
@@ -118,8 +121,8 @@ export async function loadScheduleEntriesForRedirect(id: string) {
 
   const entries = await db
     .select()
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, id));
+    .from(aiInterviewRound)
+    .where(eq(aiInterviewRound.recruitingRecordId, id));
 
   const sorted = sortScheduleEntries(entries);
   const active = pickCurrentScheduleEntry(sorted);
@@ -194,11 +197,11 @@ function buildSingleScheduleRow(
     createdBy: existing?.createdBy ?? createdBy ?? null,
     disconnectedAt: existing?.disconnectedAt ?? null,
     id: entry.id?.trim() || crypto.randomUUID(),
-    interviewRecordId,
     liveKitParticipantIdentity: existing?.liveKitParticipantIdentity ?? null,
     liveKitRoomName: existing?.liveKitRoomName ?? null,
     notes: entry.notes?.trim() || null,
     organizationId: existing?.organizationId ?? orgId,
+    recruitingRecordId: interviewRecordId,
     roundLabel: entry.roundLabel.trim(),
     scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
     scheduledEndAt: entry.scheduledEndAt ? new Date(entry.scheduledEndAt) : null,
@@ -231,8 +234,8 @@ export function loadScheduleEntries(interviewIds: string[]): Promise<StudioInter
 
   return db
     .select()
-    .from(studioInterviewSchedule)
-    .where(inArray(studioInterviewSchedule.interviewRecordId, interviewIds));
+    .from(aiInterviewRound)
+    .where(inArray(aiInterviewRound.recruitingRecordId, interviewIds));
 }
 
 // serializeRecord は候補者レベルのフィールドのみ返す（scheduleEntries・interviewLink は round 側）。
@@ -269,20 +272,23 @@ export function serializeRecord(
 
 export async function loadRecordById(id: string, organizationId?: string) {
   const where = organizationId
-    ? and(eq(studioInterview.id, id), eq(studioInterview.organizationId, organizationId))
-    : eq(studioInterview.id, id);
+    ? and(
+        eq(recruitingRecordReadModel.id, id),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
+      )
+    : eq(recruitingRecordReadModel.id, id);
 
   const [row] = await db
     .select({
       jobDescriptionName: jobDescription.name,
-      record: studioInterview,
+      record: getColumns(recruitingRecordReadModel),
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(where)

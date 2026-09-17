@@ -1,17 +1,16 @@
-// 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
-// DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
-// Shared DTOs for the late-pipeline stages (human interview / offer / closed).
-// Imported by both DAO and client; single source of truth.
-
-import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
 import type {
-  FinalMeetingTranscriptRevision,
-  MeetingTranscriptState,
-} from "./meeting-transcription";
+  RecruitingNode,
+  RecruitingNodeStatus,
+  RecruitingNodeResult,
+  RecruitingCloseReason,
+} from "@app/db-schema/schema";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type {
+  CandidateOutcome,
+  ClosedMeta,
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
-  HumanInterviewEvaluation,
+  HumanInterviewEvaluationDraft,
   HumanInterviewEvaluationRating,
   HumanInterviewEvaluationStatus,
   HumanInterviewMeetingLifecycleSource,
@@ -24,6 +23,21 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
 } from "@app/db-schema/studio-interviews";
+import type {
+  BackgroundCheckCollectionStatus,
+  BackgroundCheckDraftInput,
+  BackgroundCheckFormInput,
+} from "@app/db-schema/background-check";
+// 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
+// DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
+// Shared DTOs for the late-pipeline stages (human interview / offer / closed).
+// Imported by both DAO and client; single source of truth.
+
+import type { CandidateInterviewInvitationStatus } from "@app/db-schema/interview-notifications";
+import type {
+  FinalMeetingTranscriptRevision,
+  MeetingTranscriptState,
+} from "./meeting-transcription";
 
 export interface PublicAiInterviewInvitationPreview {
   candidateName: string;
@@ -43,6 +57,7 @@ export interface PublicAiInterviewInvitationPreview {
  * interviewers are pre-joined user info.
  */
 export interface HumanInterviewRoundRecord {
+  roundKind: "second_interview" | "final_interview";
   id: string;
   interviewRecordId: string;
   organizationId: string;
@@ -56,7 +71,7 @@ export interface HumanInterviewRoundRecord {
   outcome: HumanInterviewRoundOutcome | null;
   score: number | null;
   feedback: string | null;
-  evaluation: HumanInterviewEvaluation | null;
+  evaluation: HumanInterviewEvaluationDraft | null;
   evaluationOverall: string | null;
   evaluationRating: HumanInterviewEvaluationRating | null;
   evaluationError: string | null;
@@ -117,6 +132,7 @@ export interface FeishuHumanInterviewMeetingSync {
 }
 
 export interface HumanInterviewMeetingRecord {
+  attendanceAlertedAt: string | null;
   id: string;
   organizationId: string;
   title: string;
@@ -127,6 +143,7 @@ export interface HumanInterviewMeetingRecord {
   status: HumanInterviewMeetingStatus;
   startedAt: string | null;
   endedAt: string | null;
+  establishedAt: string | null;
   validUntil: string | null;
   cancelledAt: string | null;
   recordingEgressId: string | null;
@@ -148,8 +165,10 @@ export interface HumanInterviewMeetingRecord {
 
 export interface HumanInterviewMeetingCandidateLinkRecord {
   candidateName: string;
+  companyName: string;
   expiresAt: string;
   interviewRecordId: string;
+  jobDescriptionName: string | null;
   roundId: string;
   roundLabel: string;
   url: string;
@@ -183,6 +202,9 @@ export interface HumanInterviewMeetingTokenResponse {
 }
 
 export interface PublicHumanInterviewMeetingPreview {
+  companyContext: string | null;
+  jobDescriptionName: string | null;
+  jobDescriptionPrompt: string | null;
   candidateInviteStatus: CandidateInterviewInvitationStatus;
   candidateName: string;
   meetingId: string;
@@ -195,6 +217,8 @@ export interface PublicHumanInterviewMeetingPreview {
 }
 
 export interface PublicHumanInterviewInterviewerPreview {
+  jobDescriptionName: string | null;
+  jobDescriptionPrompt: string | null;
   candidateName: string;
   interviewerName: string;
   meetingId: string;
@@ -214,7 +238,7 @@ export interface HumanInterviewReviewRecord {
     documentUrl: string | null;
     syncedAt: string | null;
   } | null;
-  evaluation: HumanInterviewEvaluation | null;
+  evaluation: HumanInterviewEvaluationDraft | null;
   evaluationError: string | null;
   evaluationStatus: HumanInterviewEvaluationStatus;
   evaluationUpdatedAt: string | null;
@@ -229,7 +253,7 @@ export interface HumanInterviewReviewRecord {
 }
 
 /**
- * Offer 草稿单版本 DTO（DAO 返回 + 客户端消费）。
+ * Offer 草稿与历史版本 DTO（DAO 返回 + 客户端消费）。
  *
  * Offer draft DTO. Versioned per candidate; latest non-superseded is the
  * "current" offer in the UI.
@@ -247,10 +271,131 @@ export interface OfferDraftRecord {
   position: string;
   joiningDate: string | null;
   expiresAt: string | null;
+  publishedAt: string | null;
+  publicPath: string | null;
+  publishedBy: string | null;
+  emailSentAt: string | null;
+  emailRecipient: string | null;
   sentAt: string | null;
   responseAt: string | null;
+  responseSource: "candidate" | "hr" | null;
+  responseBy: string | null;
+  declineReason: string | null;
   candidateCounter: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface OfferEmailPreviewRecord {
+  content: string;
+  offerUrl: string;
+  subject: string;
+  to: string;
+}
+
+export interface PublicOfferRecord {
+  baseSalary: number;
+  bonus: number | null;
+  candidateName: string;
+  companyName: string;
+  currency: string;
+  declineReason: string | null;
+  equity: string | null;
+  expiresAt: string | null;
+  joiningDate: string | null;
+  position: string;
+  publishedAt: string;
+  responseAt: string | null;
+  status: OfferDraftStatus;
+}
+
+export interface BackgroundCheckCollectionRecord {
+  createdAt: string;
+  emailRecipient: string | null;
+  emailSentAt: string | null;
+  formData: BackgroundCheckFormInput | null;
+  publicPath: string;
+  status: BackgroundCheckCollectionStatus;
+  submittedAt: string | null;
+  updatedAt: string;
+}
+
+export interface BackgroundCheckEmailPreviewRecord {
+  content: string;
+  formUrl: string;
+  subject: string;
+  to: string;
+}
+
+export interface PublicBackgroundCheckRecord {
+  candidateName: string;
+  companyName: string;
+  draftData?: BackgroundCheckDraftInput | null;
+  draftSavedAt?: string | null;
+  jobName: string | null;
+  status: BackgroundCheckCollectionStatus;
+}
+
+export type { RecruitingNodeStateRecord } from "./studio-resumes";
+export {
+  pipelineStageMeta,
+  recruitingNodeStatusMeta,
+  recruitingNodeResultMeta,
+} from "@app/db-schema/studio-interviews";
+
+export type RecruitingPipelineAction =
+  | {
+      action: "screening_advance";
+      expectedVersion: number;
+      targetNode: "ai_interview" | "second_interview";
+    }
+  | {
+      action: "advance";
+      expectedVersion: number;
+      interviewQuestions?: InterviewQuestion[];
+      reason?: string;
+      skipNodes?: ("screening" | "ai_interview" | "second_interview")[];
+      targetNode: RecruitingNode;
+    }
+  | {
+      action: "review_income_proof";
+      expectedVersion: number;
+      reason: string;
+      result: "pass" | "fail";
+    }
+  | {
+      action: "review_salary_negotiation";
+      agreedBaseSalary?: number;
+      expectedVersion: number;
+      reason: string;
+      result: "pass" | "fail";
+    }
+  | {
+      action: "reopen";
+      expectedVersion: number;
+      reason: string;
+      targetNode: RecruitingNode;
+      targetStatus: "pending";
+    }
+  | {
+      action: "update_node";
+      actualJoiningDate?: string;
+      closeReason?: RecruitingCloseReason;
+      effectiveAiRoundId?: string | null;
+      effectiveHumanRoundId?: string | null;
+      effectiveOfferId?: string | null;
+      expectedVersion: number;
+      node: RecruitingNode;
+      reason?: string;
+      result?: RecruitingNodeResult | null;
+      targetStatus: Exclude<RecruitingNodeStatus, "inactive" | "skipped">;
+    }
+  | {
+      action: "close";
+      closeReason: RecruitingCloseReason;
+      details?: Omit<ClosedMeta, "previousStage">;
+      expectedVersion: number;
+      outcome: Exclude<CandidateOutcome, "in_pipeline">;
+      reason?: string;
+    };

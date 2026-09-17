@@ -15,8 +15,8 @@ describe("desktop app icon", () => {
     expect(mainSource).toMatch(
       /if \(process\.platform === "darwin" && !app\.isPackaged\) \{\s*app\.dock\?\.setIcon\(macIcon\);\s*\}/,
     );
-    expect(builderConfig).toMatch(/mac:\s+icon: meeting-buddy\.icon/);
-    expect(builderConfig).toMatch(/win:\s+executableName: arc-desktop\s+icon: icon\.png/);
+    expect(builderConfig).toMatch(/mac:\s+icon: echo\.icon/);
+    expect(builderConfig).toMatch(/win:\s+executableName: echo\s+icon: icon\.png/);
     expect(dockIcon.equals(legacyMacIcon)).toBe(true);
     expect(dockIcon.equals(composerExport)).toBe(false);
     expect(dockIcon.readUInt32BE(16)).toBe(1024);

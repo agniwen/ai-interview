@@ -1,0 +1,281 @@
+{
+  "checkedAt": "2026-09-05T12:04:13.190Z",
+  "main": {
+    "id": "b212f1da-6898-4fbf-8c47-10e346c4d173",
+    "current_stage": "closed",
+    "outcome": "hired",
+    "version": 28,
+    "closed_from_node": "onboarding",
+    "close_reason": "onboarded"
+  },
+  "nodes": [
+    {
+      "node": "ai_interview",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": "b212f1da-6898-4fbf-8c47-10e346c4d173-e2e-ai_interview",
+      "effective_human_round_id": null,
+      "effective_offer_id": null
+    },
+    {
+      "node": "background_check",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": null,
+      "effective_offer_id": null
+    },
+    {
+      "node": "final_interview",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": "b212f1da-6898-4fbf-8c47-10e346c4d173-e2e-final_interview",
+      "effective_offer_id": null
+    },
+    {
+      "node": "income_proof",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": null,
+      "effective_offer_id": null
+    },
+    {
+      "node": "offer",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": null,
+      "effective_offer_id": "9f4f403e-150c-48d4-8422-53fceb0b4e0b"
+    },
+    {
+      "node": "onboarding",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": null,
+      "effective_offer_id": null
+    },
+    {
+      "node": "screening",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": null,
+      "effective_offer_id": null
+    },
+    {
+      "node": "second_interview",
+      "status": "completed",
+      "result": "pass",
+      "effective_ai_round_id": null,
+      "effective_human_round_id": "b212f1da-6898-4fbf-8c47-10e346c4d173-e2e-second_interview",
+      "effective_offer_id": null
+    }
+  ],
+  "events": [
+    {
+      "action": "offer_draft_created",
+      "count": 2
+    },
+    {
+      "action": "offer_draft_responded",
+      "count": 2
+    },
+    {
+      "action": "offer_draft_sent",
+      "count": 2
+    },
+    {
+      "action": "recruiting_closed",
+      "count": 2
+    },
+    {
+      "action": "recruiting_node_advanced",
+      "count": 9
+    },
+    {
+      "action": "recruiting_node_updated",
+      "count": 15
+    },
+    {
+      "action": "recruiting_reopened",
+      "count": 2
+    }
+  ],
+  "eventCount": 34,
+  "offers": [
+    {
+      "version": 1,
+      "status": "superseded",
+      "base_salary": 20000,
+      "currency": "CNY"
+    },
+    {
+      "version": 2,
+      "status": "accepted",
+      "base_salary": 22000,
+      "currency": "CNY"
+    }
+  ],
+  "notificationCounts": {
+    "recruiting_notification_recipient": 0,
+    "recruiting_notification_event": 0,
+    "recruiting_notification_delivery": 0
+  },
+  "sentDeliveries": 0,
+  "deleted": {
+    "id": "d108f357-152e-4177-b80f-4ee5d25a55de",
+    "recordCount": 0,
+    "children": {
+      "ai_interview_round": 0,
+      "ai_interview_conversation": 0,
+      "ai_interview_conversation_turn": 0,
+      "human_interview_round": 0,
+      "recruiting_context_snapshot": 0,
+      "recruiting_event": 0,
+      "recruiting_evidence_snapshot": 0,
+      "recruiting_form_submission": 0,
+      "recruiting_fulfillment": 0,
+      "recruiting_offer": 0,
+      "recruiting_interview_preparation": 0,
+      "recruiting_upload_batch_item": 0,
+      "recruiting_material": 0,
+      "recruiting_meeting_context": 0,
+      "recruiting_node_state": 0,
+      "recruiting_notification_delivery": 0,
+      "recruiting_notification_event": 0,
+      "recruiting_notification_recipient": 0,
+      "recruiting_pool_import": 0,
+      "recruiting_question_template_binding": 0,
+      "recruiting_resume_evaluation": 0,
+      "recruiting_round_email_log": 0
+    },
+    "candidateCount": 1,
+    "resumeCount": 1,
+    "assetRetentionNote": "删除招聘记录保留人才身份与简历资产，属于当前设计语义；招聘记录及专属关联已清除。"
+  },
+  "negotiatingRestored": {
+    "current_stage": "offer",
+    "outcome": "in_pipeline",
+    "status": "negotiating",
+    "result": null
+  },
+  "stageFixtures": {
+    "retained": 21,
+    "profilesValid": 21,
+    "dao": {
+      "screening:all": {
+        "matched": 4,
+        "total": 4,
+        "ok": true
+      },
+      "screening:pending": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "screening:fail": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "screening:pass": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "interview:all": {
+        "matched": 6,
+        "total": 6,
+        "ok": true
+      },
+      "interview:ai": {
+        "matched": 2,
+        "total": 2,
+        "ok": true
+      },
+      "interview:second": {
+        "matched": 2,
+        "total": 2,
+        "ok": true
+      },
+      "interview:final": {
+        "matched": 2,
+        "total": 2,
+        "ok": true
+      },
+      "offer:all": {
+        "matched": 8,
+        "total": 8,
+        "ok": true
+      },
+      "offer:income": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "offer:negotiating": {
+        "matched": 2,
+        "total": 2,
+        "ok": true
+      },
+      "offer:send": {
+        "matched": 3,
+        "total": 3,
+        "ok": true
+      },
+      "offer:background": {
+        "matched": 2,
+        "total": 2,
+        "ok": true
+      },
+      "onboarding:all": {
+        "matched": 3,
+        "total": 3,
+        "ok": true
+      },
+      "onboarding:pending": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "onboarding:withdrawn": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "onboarding:hired": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "closed:all": {
+        "matched": 9,
+        "total": 9,
+        "ok": true
+      },
+      "closed:rejected": {
+        "matched": 5,
+        "total": 5,
+        "ok": true
+      },
+      "closed:withdrawn": {
+        "matched": 2,
+        "total": 2,
+        "ok": true
+      },
+      "closed:hired": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      },
+      "closed:archived": {
+        "matched": 1,
+        "total": 1,
+        "ok": true
+      }
+    }
+  }
+}

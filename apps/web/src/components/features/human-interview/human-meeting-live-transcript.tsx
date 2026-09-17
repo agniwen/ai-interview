@@ -1,7 +1,6 @@
 "use client";
 /* oxlint-disable react-doctor/no-fetch-in-effect -- The invite-scoped draft is restored only after browser hydration and cannot be loaded server-side. */
 
-import { IconAlertTriangle, IconSparkles } from "@tabler/icons-react";
 import { useTracks } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import {
@@ -13,7 +12,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { Ref } from "react";
+import type { Ref, ReactNode } from "react";
+import { OverlayScrollbars } from "overlayscrollbars";
 import {
   createBrowserPcmSidecar,
   connectHumanInterviewTranscriptRelay,
@@ -28,12 +28,23 @@ import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcript
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
 import { cn } from "@app/shared/utils";
 import { z } from "zod";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Message, MessageContent, MessageHeader } from "@/components/ui/message";
+import {
+  MessageScroller,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerButton,
+} from "@/components/ui/message-scroller";
 import { createHumanMeetingAudioMix } from "./human-meeting-audio-mix";
 import type { HumanMeetingAudioMix } from "./human-meeting-audio-mix";
 
 interface HumanMeetingLiveTranscriptProps {
   inviteToken: string;
+  candidateName?: string;
   ref?: Ref<HumanMeetingLiveTranscriptHandle>;
 }
 
@@ -140,8 +151,42 @@ const statusText = {
   starting: "正在连接",
 } satisfies Record<LiveTranscriptDraftSnapshot["status"], string>;
 
+// Keep the message scroller's own viewport so history browsing and auto-follow share one scroll position.
+function TranscriptScrollArea({ children }: { children: ReactNode }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const target = hostRef.current;
+    const viewport = viewportRef.current;
+    if (!target || !viewport) {
+      return;
+    }
+    const instance = OverlayScrollbars(
+      { elements: { viewport }, target },
+      { scrollbars: { autoHide: "leave", autoHideDelay: 600, theme: "os-theme-app" } },
+    );
+    return () => instance.destroy();
+  }, []);
+  return (
+    <div ref={hostRef} className="relative h-full min-h-0 w-full" data-slot="scroll-area">
+      <MessageScrollerViewport
+        ref={viewportRef}
+        className="scroll-fade [--scroll-fade-reveal:0.5rem] md:[--scroll-fade-reveal:1.5rem]"
+        aria-label="实时转录内容"
+      >
+        {children}
+      </MessageScrollerViewport>
+    </div>
+  );
+}
+
 // oxlint-disable-next-line complexity -- Automatic capture, draft recovery, and persistence share one panel lifecycle.
-export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiveTranscriptProps) {
+export function HumanMeetingLiveTranscript({
+  inviteToken,
+  candidateName = "候选人",
+  ref,
+}: HumanMeetingLiveTranscriptProps) {
+  const isMobile = useIsMobile();
   const draft = useMemo(() => createDraft(inviteToken), [inviteToken]);
   const snapshot = useSyncExternalStore(draft.observe, draft.getSnapshot, () => fallbackSnapshot);
   const audioTracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: false }], {
@@ -159,7 +204,6 @@ export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiv
   const persistConflictRef = useRef(false);
   const persistQueueRef = useRef<Promise<void>>(Promise.resolve());
   const persistedVersionRef = useRef(0);
-  const scrollEndRef = useRef<HTMLDivElement | null>(null);
   const startInFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const draftReady = loadedDraft?.inviteToken === inviteToken;
@@ -266,10 +310,6 @@ export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiv
   }, [inviteToken]);
 
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ block: "end" });
-  }, [snapshot.turns]);
-
-  useEffect(() => {
     const mix = mixRef.current;
     if (!mix) {
       return;
@@ -371,9 +411,6 @@ export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiv
 
   const hasStarted = snapshot.captureId !== null;
   const prerequisiteReady = Boolean(localTrack && remoteTracks.length > 0) || hasStarted;
-  const prerequisiteMessage = localTrack
-    ? "等待候选人或其他参会者开启麦克风，检测到音频后会自动开始转录。"
-    : "正在等待面试官麦克风，检测到音频后会自动开始转录。";
   let status = statusText[snapshot.status];
   if (operationError) {
     status = "启动异常，正在自动重试";
@@ -382,73 +419,130 @@ export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiv
     status = "正在恢复实时字幕";
   }
 
+  let mobileNotice: string | null = null;
+  if (operationError || snapshot.error) {
+    mobileNotice = "转录暂时中断，正在重试";
+  } else if (persistenceError) {
+    mobileNotice = "字幕暂未同步，录音不受影响";
+  }
+  let mobilePlaceholder = "等待发言…";
+  if (!draftReady) {
+    mobilePlaceholder = "正在恢复字幕…";
+  } else if (!prerequisiteReady) {
+    mobilePlaceholder = localTrack ? "等待对方开启麦克风…" : "请开启麦克风…";
+  }
+
   return (
     <aside
       aria-label="实时转录"
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden border-t bg-background lg:border-t-0 lg:border-l"
+      className="flex h-[61px] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-t bg-background md:h-auto lg:border-t-0 lg:border-l"
     >
-      <header className="flex shrink-0 items-center justify-between border-white/10 border-b px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2 font-medium text-sm text-white">
-            <IconSparkles className="size-4 text-sky-300" />
-            实时转录
+      {isMobile ? null : (
+        <>
+          <div className="flex shrink-0 items-center gap-2 border-border border-b px-3 py-1 text-[10px] md:px-4 md:py-2.5 md:text-xs">
+            <span
+              className={cn(
+                "size-2 rounded-full bg-muted-foreground/30",
+                snapshot.status === "live" && "animate-pulse bg-success",
+                ["buffering", "reconnecting", "starting"].includes(snapshot.status) && "bg-warning",
+                ["degraded", "interrupted"].includes(snapshot.status) && "bg-destructive",
+              )}
+            />
+            <span className="text-muted-foreground">{status}</span>
           </div>
-          <p className="mt-1 text-[11px] text-white/50">已自动开启 · 最终结果以会后转录为准</p>
-        </div>
-      </header>
 
-      <div className="flex shrink-0 items-center gap-2 border-white/10 border-b px-4 py-2.5 text-xs">
-        <span
-          className={cn(
-            "size-2 rounded-full bg-white/30",
-            snapshot.status === "live" && "animate-pulse bg-emerald-400",
-            ["buffering", "reconnecting", "starting"].includes(snapshot.status) && "bg-amber-400",
-            ["degraded", "interrupted"].includes(snapshot.status) && "bg-red-400",
-          )}
-        />
-        <span className="text-white/70">{status}</span>
-      </div>
+          {(operationError ?? snapshot.error) ? (
+            <div className="mx-4 mt-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-destructive text-xs">
+              {operationError ?? snapshot.error}
+            </div>
+          ) : null}
 
-      {prerequisiteReady ? null : (
-        <div className="m-4 flex gap-2 rounded-lg border border-amber-300/20 bg-amber-400/10 p-3 text-amber-100 text-xs">
-          <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>{prerequisiteMessage}</span>
-        </div>
+          {persistenceError ? (
+            <div className="mx-4 mt-3 rounded-lg border border-warning/20 bg-warning/10 p-3 text-warning-foreground text-xs">
+              {persistenceError}
+            </div>
+          ) : null}
+        </>
       )}
 
-      {(operationError ?? snapshot.error) ? (
-        <div className="mx-4 mt-3 rounded-lg border border-red-300/20 bg-red-400/10 p-3 text-red-100 text-xs">
-          {operationError ?? snapshot.error}
+      {isMobile ? (
+        <div className="min-h-0 px-3">
+          <MessageScrollerProvider autoScroll key={inviteToken}>
+            <MessageScroller className="h-15">
+              <TranscriptScrollArea>
+                <MessageScrollerContent className="text-xs leading-5" aria-live="off">
+                  {snapshot.turns.length === 0 ? (
+                    <MessageScrollerItem messageId="empty">
+                      <p className="truncate text-muted-foreground">
+                        {mobileNotice ?? mobilePlaceholder}
+                      </p>
+                    </MessageScrollerItem>
+                  ) : (
+                    snapshot.turns.map((turn) => (
+                      <MessageScrollerItem
+                        key={turn.id}
+                        messageId={turn.id}
+                        className="[contain-intrinsic-size:auto_1.25rem]"
+                      >
+                        <p data-slot="mobile-transcript-line" className="truncate">
+                          <span className="font-medium">
+                            {turn.track === "microphone" ? "我" : candidateName}：
+                          </span>
+                          {turn.text}
+                        </p>
+                      </MessageScrollerItem>
+                    ))
+                  )}
+                  {mobileNotice && snapshot.turns.length > 0 ? (
+                    <MessageScrollerItem messageId="notice">
+                      <output className="block truncate text-muted-foreground">
+                        {mobileNotice}
+                      </output>
+                    </MessageScrollerItem>
+                  ) : null}
+                </MessageScrollerContent>
+              </TranscriptScrollArea>
+            </MessageScroller>
+          </MessageScrollerProvider>
         </div>
-      ) : null}
-
-      {persistenceError ? (
-        <div className="mx-4 mt-3 rounded-lg border border-amber-300/20 bg-amber-400/10 p-3 text-amber-100 text-xs">
-          {persistenceError}
-        </div>
-      ) : null}
-
-      <ScrollArea className="min-h-0 flex-1 px-4 py-3">
-        {snapshot.turns.length === 0 ? (
-          <div className="grid min-h-48 place-items-center text-center text-white/40 text-xs">
-            <p>双方开始交谈后，这里会自动显示实时字幕。</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {snapshot.turns.map((turn) => (
-              <div className="text-sm" key={turn.id}>
-                <div className="mb-1 text-[11px] text-white/40">
-                  {turn.track === "microphone" ? "我" : "远端"}
-                </div>
-                <p className={cn("leading-6 text-white/90", !turn.final && "text-white/55")}>
-                  {turn.text}
-                </p>
-              </div>
-            ))}
-            <div ref={scrollEndRef} />
-          </div>
-        )}
-      </ScrollArea>
+      ) : (
+        <MessageScrollerProvider autoScroll key={inviteToken}>
+          <MessageScroller className="min-h-0 flex-1">
+            <TranscriptScrollArea>
+              <MessageScrollerContent
+                className="gap-2 px-3 py-2 md:gap-4 md:px-4 md:py-3"
+                aria-live="off"
+              >
+                {snapshot.turns.length === 0 ? (
+                  <MessageScrollerItem messageId="empty">
+                    <div className="grid min-h-48 place-items-center text-center text-muted-foreground text-xs">
+                      <p>双方开始交谈后，这里会自动显示实时字幕。</p>
+                    </div>
+                  </MessageScrollerItem>
+                ) : (
+                  snapshot.turns.map((turn) => (
+                    <MessageScrollerItem key={turn.id} messageId={turn.id}>
+                      <Message align={turn.track === "microphone" ? "end" : "start"}>
+                        <MessageContent className="gap-1 md:gap-2.5">
+                          <MessageHeader className="text-[10px] md:text-xs">
+                            {turn.track === "microphone" ? "我" : "远端"}
+                          </MessageHeader>
+                          <Bubble variant={turn.track === "microphone" ? "secondary" : "outline"}>
+                            <BubbleContent className="whitespace-pre-wrap px-2 py-1 text-xs leading-5 md:px-3 md:py-2 md:text-sm md:leading-relaxed">
+                              {turn.text}
+                            </BubbleContent>
+                          </Bubble>
+                        </MessageContent>
+                      </Message>
+                    </MessageScrollerItem>
+                  ))
+                )}
+              </MessageScrollerContent>
+            </TranscriptScrollArea>
+            <MessageScrollerButton aria-label="回到最新字幕" />
+          </MessageScroller>
+        </MessageScrollerProvider>
+      )}
     </aside>
   );
 }

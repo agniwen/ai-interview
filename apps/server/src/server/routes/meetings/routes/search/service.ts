@@ -69,6 +69,7 @@ export async function searchSavedMeetings(input: {
         match: row.match,
         processingState: processingState(row.status),
         recordingAvailable: row.recordingAvailable,
+        recordingType: row.recordingType,
         savedAt: row.savedAt.toISOString(),
         title: row.title,
         workspaceCustodied: row.workspaceCustodied,

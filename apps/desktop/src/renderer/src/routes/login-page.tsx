@@ -1,4 +1,4 @@
-import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
+import { FeishuSignInButtons } from "@/components/features/auth/feishu-sign-in-buttons";
 import { LoginChromeBar } from "@/components/layout/login-chrome-bar";
 import { TITLE_BAR_HEIGHT_PX } from "@/components/layout/chrome";
 
@@ -15,17 +15,12 @@ export function LoginPage(): React.JSX.Element {
           <div className="space-y-2 text-center">
             <h1 className="font-medium text-2xl text-foreground tracking-tight">登录</h1>
             <p className="text-muted-foreground text-sm leading-6">
-              使用飞书账号登录后继续使用 Meeting Buddy。
+              使用飞书账号登录后继续使用 Echo。
             </p>
           </div>
 
           <div className="flex w-full flex-col items-center gap-3">
-            <FeishuSignInButton
-              label="极光 HR 飞书登录"
-              providerId="feishu-jiguang-hr"
-              variant="default"
-            />
-            <FeishuSignInButton />
+            <FeishuSignInButtons />
           </div>
         </div>
       </div>

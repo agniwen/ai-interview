@@ -4,8 +4,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RecruitingActionButton as Button } from "./recruiting-action-button";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { invalidateHumanInterviewCandidateQueries } from "@/lib/client/api/query-keys";
 import { ScheduleRoundDialog } from "./human-interview-stage-dialogs";
@@ -15,7 +14,11 @@ import { useHumanInterviewStageQueries } from "./use-human-interview-stage-queri
 export function ScheduleHumanInterviewButton({
   candidateId,
   candidateName,
+  onScheduled,
+  targetStage = "second_interview",
 }: {
+  onScheduled?: () => void;
+  targetStage?: "second_interview" | "final_interview";
   candidateId: string;
   candidateName: string;
 }) {
@@ -29,7 +32,7 @@ export function ScheduleHumanInterviewButton({
   }
   const button = (
     <Button
-      aria-disabled={disabledReason !== null}
+      disabledReason={disabledReason}
       className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:shadow-none aria-disabled:active:scale-100"
       onClick={() => {
         if (disabledReason) {
@@ -41,19 +44,12 @@ export function ScheduleHumanInterviewButton({
       type="button"
     >
       <IconPlus data-icon="inline-start" />
-      安排真人复面
+      {targetStage === "final_interview" ? "安排终试" : "安排复试"}
     </Button>
   );
   return (
     <>
-      {disabledReason ? (
-        <Tooltip>
-          <TooltipTrigger render={button} />
-          <TooltipContent>{disabledReason}</TooltipContent>
-        </Tooltip>
-      ) : (
-        button
-      )}
+      {button}
       {open ? (
         <ScheduleRoundDialog
           candidateId={candidateId}
@@ -68,8 +64,9 @@ export function ScheduleHumanInterviewButton({
             ).length
           }
           onOpenChange={setOpen}
-          onScheduled={() => {
-            void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
+          onScheduled={async () => {
+            await invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
+            onScheduled?.();
           }}
           open={open}
         />

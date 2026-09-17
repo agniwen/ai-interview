@@ -1,13 +1,19 @@
-import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
+import { resolveReportUpdate } from "./application/report-policy";
+import { receiveAgentReport } from "./report-inbox";
+import {
+  lockAiRound,
+  updateEffectiveAiProgress,
+} from "../studio/routes/interviews/dao/ai-round-lifecycle";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { and, eq, inArray, isNotNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
 import {
-  interviewAuditLog,
-  interviewConversation,
-  interviewConversationTurn,
-  studioInterview,
-  studioInterviewSchedule,
+  recruitingEvent,
+  aiInterviewConversation,
+  aiInterviewConversationTurn,
+  aiInterviewRound,
 } from "@app/db-schema/schema";
 import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import {
@@ -17,13 +23,8 @@ import {
 import { runKeyInformationJob } from "./utils/interview-key-information-job";
 import { runSummaryJob } from "./utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "./utils/evidence-snapshot";
-import { enqueueAiInterviewCompletedEvent } from "../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../interview-notifications/utils/feature-flags";
 import { mergeInterviewEndReasonMetadata } from "@app/shared/interview/end-reason";
-import {
-  mergeInterviewQuestionOutcome,
-  parseInterviewDataCollectionResults,
-} from "@app/shared/interview/question-outcomes";
+import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { createAgentRouter } from "./route";
 import type {
   AgentRouterDependencies,
@@ -51,9 +52,9 @@ function isUndefinedColumnError(error: z.output<typeof undefinedColumnErrorSchem
 
 async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
   const [row] = await db
-    .select({ organizationId: studioInterview.organizationId })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
+    .select({ organizationId: recruitingRecordReadModel.organizationId })
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.id, interviewRecordId))
     .limit(1);
   if (!row) {
     throw new Error(`resolveOrgFromInterview: studio_interview ${interviewRecordId} not found`);
@@ -64,8 +65,8 @@ async function resolveOrgFromInterview(interviewRecordId: string): Promise<strin
 async function hasKeyInformationColumns(): Promise<boolean> {
   try {
     await db
-      .select({ keyInformationStatus: interviewConversation.keyInformationStatus })
-      .from(interviewConversation)
+      .select({ keyInformationStatus: aiInterviewConversation.keyInformationStatus })
+      .from(aiInterviewConversation)
       .limit(0);
     return true;
   } catch (error) {
@@ -79,9 +80,9 @@ async function hasKeyInformationColumns(): Promise<boolean> {
 
 async function findExistingTranscript(conversationId: string): Promise<ReportTranscript | null> {
   const [row] = await db
-    .select({ transcript: interviewConversation.transcript })
-    .from(interviewConversation)
-    .where(eq(interviewConversation.conversationId, conversationId))
+    .select({ transcript: aiInterviewConversation.transcript })
+    .from(aiInterviewConversation)
+    .where(eq(aiInterviewConversation.conversationId, conversationId))
     .limit(1);
   return row?.transcript ?? null;
 }
@@ -95,34 +96,64 @@ async function persistCheckpoint(options: {
 }): Promise<void> {
   const { data, now, organizationId } = options;
   await db.transaction(async (tx) => {
+    const locked = await lockAiRound(tx, data.scheduleEntryId, organizationId);
+    if (!locked || locked.record.id !== data.interviewRecordId) {
+      return;
+    }
     const [existing] = await tx
-      .select({ dataCollectionResults: interviewConversation.dataCollectionResults })
-      .from(interviewConversation)
-      .where(eq(interviewConversation.conversationId, data.conversationId))
+      .select()
+      .from(aiInterviewConversation)
+      .where(eq(aiInterviewConversation.conversationId, data.conversationId))
       .for("update")
       .limit(1);
+    if (
+      existing &&
+      (existing.recruitingRecordId !== data.interviewRecordId ||
+        existing.organizationId !== organizationId ||
+        existing.aiRoundId !== data.scheduleEntryId)
+    ) {
+      return;
+    }
+    if (
+      existing?.metadata?.agentSessionId &&
+      data.agentSessionId !== existing.metadata.agentSessionId
+    ) {
+      return;
+    }
+    const checkpointMetadata: JsonObject = { ...existing?.metadata };
+    if (data.agentSessionId) {
+      checkpointMetadata.agentSessionId = data.agentSessionId;
+    }
     const current = parseInterviewDataCollectionResults(existing?.dataCollectionResults) ?? {
       questions: [],
       schemaVersion: 2 as const,
     };
-    const merged = mergeInterviewQuestionOutcome(current, data.outcome);
+    const merged = resolveReportUpdate(
+      { dataCollectionResults: current, startedAt: null, transcript: [] },
+      { dataCollectionResults: { questions: [data.outcome], schemaVersion: 2 }, transcript: [] },
+    ).dataCollectionResults;
 
     if (existing) {
       await tx
-        .update(interviewConversation)
-        .set({ dataCollectionResults: jsonObjectSchema.parse(merged), lastSyncedAt: now })
-        .where(eq(interviewConversation.conversationId, data.conversationId));
+        .update(aiInterviewConversation)
+        .set({
+          dataCollectionResults: jsonObjectSchema.parse(merged),
+          lastSyncedAt: now,
+          metadata: checkpointMetadata,
+        })
+        .where(eq(aiInterviewConversation.conversationId, data.conversationId));
       return;
     }
 
-    await tx.insert(interviewConversation).values({
+    await tx.insert(aiInterviewConversation).values({
+      aiRoundId: data.scheduleEntryId,
       conversationId: data.conversationId,
       dataCollectionResults: jsonObjectSchema.parse(merged),
-      interviewRecordId: data.interviewRecordId,
       lastSyncedAt: now,
+      metadata: checkpointMetadata,
       mode: "voice",
       organizationId,
-      scheduleEntryId: data.scheduleEntryId,
+      recruitingRecordId: data.interviewRecordId,
       status: "in_progress",
     });
   });
@@ -135,57 +166,6 @@ interface UpsertOptions {
   metadata: JsonObject;
   now: Date;
   organizationId: string;
-}
-
-async function upsertLegacyInterviewConversation(tx: Tx, options: UpsertOptions): Promise<void> {
-  const { data, isNewTranscript, metadata, now, organizationId } = options;
-  await tx.execute(sql`
-      insert into "interview_conversation" (
-        "agent_id", "conversation_id", "interview_record_id", "mode",
-        "organization_id", "schedule_entry_id"
-      ) values (
-        ${data.agentId ?? null}, ${data.conversationId}, ${data.interviewRecordId}, 'voice',
-        ${organizationId}, ${data.scheduleEntryId}
-      ) on conflict ("conversation_id") do nothing
-    `);
-  const updateValues = {
-    callSuccessful: data.callSuccessful ?? null,
-    endedAt: data.endedAt ? new Date(data.endedAt) : null,
-    lastSyncedAt: now,
-    metadata,
-    metrics: data.metrics ?? {},
-    startedAt: data.startedAt ? new Date(data.startedAt) : null,
-    status: data.status,
-    transcript: data.transcript,
-    webhookReceivedAt: now,
-  };
-  if (isNewTranscript) {
-    Object.assign(updateValues, {
-      evaluationCriteriaResults: {},
-      summaryAttempts: 0,
-      summaryError: null,
-      summaryStartedAt: null,
-      summaryStatus: "pending" as const,
-      transcriptSummary: null,
-    });
-  }
-  if (data.recording) {
-    Object.assign(updateValues, {
-      recordingDurationSecs: data.recording.durationSecs ?? null,
-      recordingEgressId: data.recording.egressId,
-      recordingFileKey: data.recording.fileKey,
-      recordingStatus: data.recording.status,
-    });
-  }
-  if (data.dataCollectionResults) {
-    Object.assign(updateValues, {
-      dataCollectionResults: jsonObjectSchema.parse(data.dataCollectionResults),
-    });
-  }
-  await tx
-    .update(interviewConversation)
-    .set(updateValues)
-    .where(eq(interviewConversation.conversationId, data.conversationId));
 }
 
 async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOptions): Promise<void> {
@@ -218,9 +198,10 @@ async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOption
     : {};
 
   await tx
-    .insert(interviewConversation)
+    .insert(aiInterviewConversation)
     .values({
       agentId: data.agentId ?? null,
+      aiRoundId: data.scheduleEntryId,
       callSuccessful: data.callSuccessful ?? null,
       conversationId: data.conversationId,
       dataCollectionResults: data.dataCollectionResults
@@ -228,13 +209,12 @@ async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOption
         : {},
       dynamicVariables: {},
       endedAt: data.endedAt ? new Date(data.endedAt) : null,
-      interviewRecordId: data.interviewRecordId,
       lastSyncedAt: now,
       metadata,
       metrics: data.metrics ?? {},
       mode: "voice",
       organizationId,
-      scheduleEntryId: data.scheduleEntryId,
+      recruitingRecordId: data.interviewRecordId,
       startedAt: data.startedAt ? new Date(data.startedAt) : null,
       status: data.status,
       summaryStatus: "pending",
@@ -257,49 +237,66 @@ async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOption
         ...recordingFields,
         ...dataCollectionFields,
       },
-      target: interviewConversation.conversationId,
+      target: aiInterviewConversation.conversationId,
     });
 }
 
-async function upsertInterviewConversation(tx: Tx, options: UpsertOptions): Promise<void> {
-  if (options.keyInformationColumnsAvailable) {
-    await upsertMigratedInterviewConversation(tx, options);
-    return;
-  }
-  await upsertLegacyInterviewConversation(tx, options);
+function upsertInterviewConversation(tx: Tx, options: UpsertOptions): Promise<void> {
+  return upsertMigratedInterviewConversation(tx, options);
 }
 
-async function persistReport(options: {
+function persistReport(options: {
   data: ReportPayload;
   isNewTranscript: boolean;
   keyInformationColumnsAvailable: boolean;
   now: Date;
   organizationId: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const { data, now, organizationId } = options;
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
+    const locked = await lockAiRound(tx, data.scheduleEntryId, organizationId);
+    if (!locked || locked.record.id !== data.interviewRecordId) {
+      return false;
+    }
     const [existingConversation] = await tx
-      .select({ metadata: interviewConversation.metadata })
-      .from(interviewConversation)
-      .where(eq(interviewConversation.conversationId, data.conversationId))
+      .select()
+      .from(aiInterviewConversation)
+      .where(eq(aiInterviewConversation.conversationId, data.conversationId))
       .for("update")
       .limit(1);
+    if (
+      existingConversation &&
+      (existingConversation.recruitingRecordId !== data.interviewRecordId ||
+        existingConversation.organizationId !== organizationId ||
+        existingConversation.aiRoundId !== data.scheduleEntryId)
+    ) {
+      return false;
+    }
+    const policy = resolveReportUpdate(existingConversation, data);
+    if (!policy.accepted) {
+      return false;
+    }
     const metadata = mergeInterviewEndReasonMetadata(existingConversation?.metadata, data.metadata);
-    await upsertInterviewConversation(tx, { ...options, metadata });
+    await upsertInterviewConversation(tx, {
+      ...options,
+      data: { ...data, dataCollectionResults: policy.dataCollectionResults },
+      isNewTranscript: policy.transcriptChanged,
+      metadata,
+    });
     await tx
-      .delete(interviewConversationTurn)
-      .where(eq(interviewConversationTurn.conversationId, data.conversationId));
+      .delete(aiInterviewConversationTurn)
+      .where(eq(aiInterviewConversationTurn.conversationId, data.conversationId));
     if (data.transcript.length > 0) {
       const callStart = data.startedAt ? new Date(data.startedAt) : now;
-      await tx.insert(interviewConversationTurn).values(
+      await tx.insert(aiInterviewConversationTurn).values(
         data.transcript.map((turn, index) => ({
           conversationId: data.conversationId,
           createdAt: new Date(callStart.getTime() + (turn.timeInCallSecs ?? 0) * 1000),
           id: `${data.conversationId}:turn:${index}`,
-          interviewRecordId: data.interviewRecordId,
           message: turn.message,
           organizationId,
           receivedAt: now,
+          recruitingRecordId: data.interviewRecordId,
           role: turn.role,
           source: "agent_report" as const,
           timeInCallSecs:
@@ -309,20 +306,22 @@ async function persistReport(options: {
         })),
       );
     }
-    await tx
-      .update(studioInterviewSchedule)
+    const completedRounds = await tx
+      .update(aiInterviewRound)
       .set({ conversationId: data.conversationId, status: "completed", updatedAt: now })
       .where(
         and(
-          eq(studioInterviewSchedule.id, data.scheduleEntryId),
-          eq(studioInterviewSchedule.liveKitRoomName, data.conversationId),
+          eq(aiInterviewRound.id, data.scheduleEntryId),
+          eq(aiInterviewRound.liveKitRoomName, data.conversationId),
         ),
-      );
-    if (isInterviewNotificationFlowEnabled()) {
-      await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: data.scheduleEntryId });
+      )
+      .returning({ id: aiInterviewRound.id });
+    if (completedRounds.length && locked.isEffective) {
+      await updateEffectiveAiProgress(tx, data.scheduleEntryId, "awaiting_review");
     }
-    await tx.insert(interviewAuditLog).values({
+    await tx.insert(recruitingEvent).values({
       action: "agent_report_received",
+      aiRoundId: data.scheduleEntryId,
       createdAt: now,
       detail: {
         callSuccessful: data.callSuccessful,
@@ -330,33 +329,33 @@ async function persistReport(options: {
         turnCount: data.transcript.length,
       },
       id: crypto.randomUUID(),
-      interviewRecordId: data.interviewRecordId,
       operatorId: null,
       organizationId,
-      scheduleEntryId: data.scheduleEntryId,
+      recruitingRecordId: data.interviewRecordId,
     });
+    return true;
   });
 }
 
 function listSummaryRetryCandidates(staleThreshold: Date): Promise<RetrySummaryCandidate[]> {
   return db
     .select({
-      conversationId: interviewConversation.conversationId,
-      interviewRecordId: interviewConversation.interviewRecordId,
+      conversationId: aiInterviewConversation.conversationId,
+      interviewRecordId: aiInterviewConversation.recruitingRecordId,
     })
-    .from(interviewConversation)
+    .from(aiInterviewConversation)
     .where(
       and(
         or(
-          inArray(interviewConversation.summaryStatus, ["pending", "failed"]),
+          inArray(aiInterviewConversation.summaryStatus, ["pending", "failed"]),
           and(
-            eq(interviewConversation.summaryStatus, "running"),
-            lt(interviewConversation.summaryStartedAt, staleThreshold),
+            eq(aiInterviewConversation.summaryStatus, "running"),
+            lt(aiInterviewConversation.summaryStartedAt, staleThreshold),
           ),
         ),
-        lt(interviewConversation.updatedAt, staleThreshold),
-        isNotNull(interviewConversation.interviewRecordId),
-        lt(interviewConversation.summaryAttempts, RECOVERY_MAX_ATTEMPTS),
+        lt(aiInterviewConversation.updatedAt, staleThreshold),
+        isNotNull(aiInterviewConversation.recruitingRecordId),
+        lt(aiInterviewConversation.summaryAttempts, RECOVERY_MAX_ATTEMPTS),
       ),
     )
     .limit(RECOVERY_BATCH_SIZE);
@@ -365,28 +364,28 @@ function listSummaryRetryCandidates(staleThreshold: Date): Promise<RetrySummaryC
 function listKeyInformationRetryCandidates(staleThreshold: Date): Promise<RetrySummaryCandidate[]> {
   return db
     .select({
-      conversationId: interviewConversation.conversationId,
-      interviewRecordId: interviewConversation.interviewRecordId,
+      conversationId: aiInterviewConversation.conversationId,
+      interviewRecordId: aiInterviewConversation.recruitingRecordId,
     })
-    .from(interviewConversation)
+    .from(aiInterviewConversation)
     .where(
       and(
         or(
-          inArray(interviewConversation.keyInformationStatus, ["pending", "failed"]),
+          inArray(aiInterviewConversation.keyInformationStatus, ["pending", "failed"]),
           and(
-            eq(interviewConversation.keyInformationStatus, "running"),
-            lt(interviewConversation.keyInformationStartedAt, staleThreshold),
+            eq(aiInterviewConversation.keyInformationStatus, "running"),
+            lt(aiInterviewConversation.keyInformationStartedAt, staleThreshold),
           ),
         ),
-        lt(interviewConversation.updatedAt, staleThreshold),
-        isNotNull(interviewConversation.interviewRecordId),
-        lt(interviewConversation.keyInformationAttempts, RECOVERY_MAX_ATTEMPTS),
+        lt(aiInterviewConversation.updatedAt, staleThreshold),
+        isNotNull(aiInterviewConversation.recruitingRecordId),
+        lt(aiInterviewConversation.keyInformationAttempts, RECOVERY_MAX_ATTEMPTS),
       ),
     )
     .limit(RECOVERY_BATCH_SIZE);
 }
 
-const dependencies: AgentRouterDependencies = {
+export const agentRouterDependencies: AgentRouterDependencies = {
   cacheTags,
   createInterviewEvidenceSnapshot: async (options) => {
     await createInterviewEvidenceSnapshot(options);
@@ -398,6 +397,7 @@ const dependencies: AgentRouterDependencies = {
   notifyInterviewSummaryReady,
   persistCheckpoint,
   persistReport,
+  receiveReport: receiveAgentReport,
   resolveOrgFromInterview,
   retryFailedInterviewSummaryNotifications,
   runKeyInformationJob,
@@ -405,4 +405,4 @@ const dependencies: AgentRouterDependencies = {
   safeUpdateTag,
 };
 
-export const agentRouter = createAgentRouter(dependencies);
+export const agentRouter = createAgentRouter(agentRouterDependencies);

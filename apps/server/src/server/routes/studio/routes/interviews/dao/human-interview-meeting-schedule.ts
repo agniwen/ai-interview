@@ -1,23 +1,23 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+/* oxlint-disable complexity -- one transaction keeps meeting, rounds, interviewers, invitations, and notification state atomic. */
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import {
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
 } from "@app/db-schema/schema";
 import type { HumanInterviewMeetingScheduleUpdate } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
-  buildCandidateInviteToken,
-  buildInviteExpiry,
-  hashInviteToken,
   HumanInterviewMeetingError,
   resolveValidUntilInput,
 } from "./human-interview-meeting-access";
 import { loadHumanInterviewMeetingById } from "./human-interview-meetings";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
+import { validateHumanInterviewMeetingInterviewerIds } from "./human-interview-meeting-input";
 
 export async function updateHumanInterviewMeetingSchedule({
   actorUserId,
@@ -34,15 +34,21 @@ export async function updateHumanInterviewMeetingSchedule({
   if (Number.isNaN(scheduledAt.getTime())) {
     throw new HumanInterviewMeetingError("请输入有效的面试时间。", 400);
   }
+  const interviewerIds = input.interviewerIds
+    ? await validateHumanInterviewMeetingInterviewerIds({
+        interviewerIds: input.interviewerIds,
+        organizationId,
+      })
+    : null;
 
   await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          eq(humanInterviewMeeting.id, meetingId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
         ),
       )
       .for("update")
@@ -50,7 +56,7 @@ export async function updateHumanInterviewMeetingSchedule({
     if (!existing) {
       throw new HumanInterviewMeetingError("真人复面会议不存在。", 404);
     }
-    if (existing.status !== "scheduled") {
+    if (existing.status !== "scheduled" && existing.status !== "not_held") {
       throw new HumanInterviewMeetingError("已开始、已结束或已取消的会议不能调整时间。", 400);
     }
     if (existing.feishuProviderId && existing.feishuSyncStatus === "pending") {
@@ -72,77 +78,143 @@ export async function updateHumanInterviewMeetingSchedule({
       validUntil: input.validUntil,
     });
     const now = new Date();
+    const reopeningNotHeldMeeting = existing.status === "not_held";
     const roundLinks = await tx
       .select({
-        candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-        candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
-        candidateRespondedAt: studioHumanInterviewMeetingRound.candidateRespondedAt,
-        invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
-        roundId: studioHumanInterviewMeetingRound.roundId,
+        roundId: humanInterviewMeetingRound.roundId,
       })
-      .from(studioHumanInterviewMeetingRound)
-      .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId));
+      .from(humanInterviewMeetingRound)
+      .where(eq(humanInterviewMeetingRound.meetingId, meetingId));
 
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
+        attendanceAlertedAt: null,
+        endedAt: reopeningNotHeldMeeting ? null : existing.endedAt,
+        establishedAt: null,
         feishuLastError: null,
         feishuSyncStatus: existing.feishuProviderId ? "pending" : null,
-        scheduleVersion: sql`${studioHumanInterviewMeeting.scheduleVersion} + 1`,
+        lifecycleOccurredAt: reopeningNotHeldMeeting ? null : existing.lifecycleOccurredAt,
+        lifecycleSource: reopeningNotHeldMeeting ? null : existing.lifecycleSource,
+        scheduleVersion: sql`${humanInterviewMeeting.scheduleVersion} + 1`,
         scheduledAt,
+        startedAt: reopeningNotHeldMeeting ? null : existing.startedAt,
+        status: reopeningNotHeldMeeting ? "scheduled" : existing.status,
         updatedAt: now,
         validUntil,
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     if (roundLinks.length > 0) {
       const nextScheduleVersion = existing.scheduleVersion + 1;
+      if (interviewerIds) {
+        const currentMeetingInterviewers = await tx
+          .select({
+            role: humanInterviewMeetingInterviewer.role,
+            userId: humanInterviewMeetingInterviewer.userId,
+          })
+          .from(humanInterviewMeetingInterviewer)
+          .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
+        const currentMeetingInterviewerIds = new Set(
+          currentMeetingInterviewers.map((interviewer) => interviewer.userId),
+        );
+        await tx
+          .delete(humanInterviewMeetingInterviewer)
+          .where(
+            and(
+              eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+              notInArray(humanInterviewMeetingInterviewer.userId, interviewerIds),
+            ),
+          );
+        const addedMeetingInterviewerIds = interviewerIds.filter(
+          (interviewerId) => !currentMeetingInterviewerIds.has(interviewerId),
+        );
+        if (addedMeetingInterviewerIds.length > 0) {
+          await tx.insert(humanInterviewMeetingInterviewer).values(
+            addedMeetingInterviewerIds.map((userId) => ({
+              meetingId,
+              organizationId,
+              role: "interviewer" as const,
+              userId,
+            })),
+          );
+        }
+        const retainedHost = currentMeetingInterviewers.find(
+          (interviewer) =>
+            interviewer.role === "host" && interviewerIds.includes(interviewer.userId),
+        );
+        if (!retainedHost) {
+          const currentRoles = new Map(
+            currentMeetingInterviewers.map((interviewer) => [interviewer.userId, interviewer.role]),
+          );
+          const nextHostId =
+            interviewerIds.find((userId) => currentRoles.get(userId) !== "observer") ??
+            interviewerIds[0];
+          await tx
+            .update(humanInterviewMeetingInterviewer)
+            .set({ role: "host" })
+            .where(
+              and(
+                eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+                eq(humanInterviewMeetingInterviewer.userId, nextHostId),
+              ),
+            );
+        }
+      }
       await tx
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({ scheduledAt, updatedAt: now })
         .where(
           inArray(
-            studioHumanInterviewRound.id,
+            humanInterviewRound.id,
             roundLinks.map((round) => round.roundId),
           ),
         );
-      for (const roundLink of roundLinks) {
-        const candidateInviteExpiresAt = new Date(buildInviteExpiry(now.getTime()));
-        const candidateInviteTokenHash = roundLink.candidateInviteTokenHash
-          ? hashInviteToken(
-              buildCandidateInviteToken({
-                exp: candidateInviteExpiresAt.getTime(),
-                meetingId,
-                roundId: roundLink.roundId,
-              }),
-            )
-          : null;
+      // 同一场会议改期只更新安排，不轮换邀请 Token 或重置候选人响应。
+      await tx
+        .update(humanInterviewMeetingRound)
+        .set({ joinedAt: null, leftAt: null })
+        .where(eq(humanInterviewMeetingRound.meetingId, meetingId));
+      await tx
+        .update(humanInterviewMeetingInterviewer)
+        .set({ joinedAt: null, leftAt: null })
+        .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
+      const roundIds = roundLinks.map((round) => round.roundId);
+      if (interviewerIds) {
         await tx
-          .update(studioHumanInterviewMeetingRound)
-          .set({
-            candidateDeclineReason:
-              roundLink.candidateInviteStatus === "declined" ? undefined : null,
-            candidateInviteExpiresAt: roundLink.candidateInviteTokenHash
-              ? candidateInviteExpiresAt
-              : null,
-            candidateInviteStatus: roundLink.candidateInviteStatus,
-            candidateInviteTokenHash,
-            candidateRespondedAt: roundLink.candidateRespondedAt,
-            invitationVersion:
-              roundLink.candidateInviteStatus === "accepted" ||
-              roundLink.candidateInviteStatus === "declined"
-                ? roundLink.invitationVersion
-                : sql`${studioHumanInterviewMeetingRound.invitationVersion} + 1`,
-          })
+          .delete(humanInterviewRoundInterviewer)
           .where(
             and(
-              eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
-              eq(studioHumanInterviewMeetingRound.roundId, roundLink.roundId),
+              inArray(humanInterviewRoundInterviewer.roundId, roundIds),
+              notInArray(humanInterviewRoundInterviewer.userId, interviewerIds),
             ),
           );
+        for (const roundId of roundIds) {
+          const currentAssignments = await tx
+            .select({ userId: humanInterviewRoundInterviewer.userId })
+            .from(humanInterviewRoundInterviewer)
+            .where(eq(humanInterviewRoundInterviewer.roundId, roundId));
+          const currentAssignmentIds = new Set(
+            currentAssignments.map((assignment) => assignment.userId),
+          );
+          const addedAssignmentIds = interviewerIds.filter(
+            (interviewerId) => !currentAssignmentIds.has(interviewerId),
+          );
+          if (addedAssignmentIds.length > 0) {
+            await tx.insert(humanInterviewRoundInterviewer).values(
+              addedAssignmentIds.map((userId) => ({
+                confirmedAt: now,
+                confirmedScheduleVersion: nextScheduleVersion,
+                organizationId,
+                roundId,
+                status: "confirmed" as const,
+                userId,
+              })),
+            );
+          }
+        }
       }
-      const roundIds = roundLinks.map((round) => round.roundId);
       await tx
-        .update(studioHumanInterviewRoundInterviewer)
+        .update(humanInterviewRoundInterviewer)
         .set({
           confirmedAt: now,
           confirmedScheduleVersion: nextScheduleVersion,
@@ -150,7 +222,7 @@ export async function updateHumanInterviewMeetingSchedule({
           declinedAt: null,
           status: "confirmed",
         })
-        .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
+        .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
     }
     if (isInterviewNotificationFlowEnabled()) {
       await enqueueHumanMeetingEvents(tx, {

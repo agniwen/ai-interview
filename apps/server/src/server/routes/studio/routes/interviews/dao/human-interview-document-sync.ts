@@ -1,19 +1,19 @@
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, lt, lte, ne, sql } from "drizzle-orm";
 import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import type { Database } from "@app/database";
 import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interviews";
 import {
-  humanInterviewDocumentSync,
-  interviewNotification,
-  studioHumanInterviewEvaluationSnapshot,
-  studioHumanInterviewRound,
+  humanInterviewEvaluationDocumentSync,
+  recruitingEvaluationDocument,
+  humanInterviewEvaluationSnapshot,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewDocumentSyncJob } from "../application/sync-human-interview-document";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import { resolveFeishuDocxDocumentId } from "../../../../../integrations/feishu/feishu-docx";
 
-const jobs = humanInterviewDocumentSync;
+const jobs = humanInterviewEvaluationDocumentSync;
 const LEASE_MS = 10 * 60_000;
 
 function documentDecision(
@@ -44,6 +44,23 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
       eq(jobs.status, "syncing"),
     );
   return {
+    async bindDocument(
+      job: HumanInterviewDocumentSyncJob,
+      document: { documentId: string; documentUrl: string; providerId: string },
+    ) {
+      const [saved] = await db
+        .update(jobs)
+        .set({
+          documentId: document.documentId,
+          documentUrl: document.documentUrl,
+          providerId: document.providerId,
+        })
+        .where(owned(job))
+        .returning({ id: jobs.snapshotId });
+      if (!saved) {
+        throw new Error("评价表同步任务已由其他进程接管");
+      }
+    },
     async claim(): Promise<HumanInterviewDocumentSyncJob | "deferred" | null> {
       return await db.transaction(async (tx) => {
         const now = new Date();
@@ -59,22 +76,23 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         }
         const [context] = await tx
           .select({
-            evaluation: studioHumanInterviewEvaluationSnapshot.evaluation,
-            interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-            outcome: studioHumanInterviewRound.outcome,
-            roundLabel: studioHumanInterviewRound.label,
-            sortOrder: studioHumanInterviewRound.sortOrder,
-            submittedAt: studioHumanInterviewEvaluationSnapshot.createdAt,
+            evaluation: humanInterviewEvaluationSnapshot.evaluation,
+            interviewRecordId: humanInterviewRound.recruitingRecordId,
+            outcome: humanInterviewRound.outcome,
+            roundLabel: humanInterviewRound.label,
+            sortOrder: humanInterviewRound.sortOrder,
+            submittedAt: humanInterviewEvaluationSnapshot.createdAt,
             submittedBy: user.name,
-            submittedOutcome: studioHumanInterviewEvaluationSnapshot.outcome,
+            submittedByUserId: humanInterviewEvaluationSnapshot.createdBy,
+            submittedOutcome: humanInterviewEvaluationSnapshot.outcome,
           })
-          .from(studioHumanInterviewEvaluationSnapshot)
-          .innerJoin(studioHumanInterviewRound, eq(studioHumanInterviewRound.id, job.roundId))
-          .leftJoin(user, eq(user.id, studioHumanInterviewEvaluationSnapshot.createdBy))
+          .from(humanInterviewEvaluationSnapshot)
+          .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, job.roundId))
+          .leftJoin(user, eq(user.id, humanInterviewEvaluationSnapshot.createdBy))
           .where(
             and(
-              eq(studioHumanInterviewEvaluationSnapshot.id, job.snapshotId),
-              eq(studioHumanInterviewEvaluationSnapshot.source, "human_submitted"),
+              eq(humanInterviewEvaluationSnapshot.id, job.snapshotId),
+              eq(humanInterviewEvaluationSnapshot.source, "human_submitted"),
             ),
           )
           .limit(1);
@@ -87,14 +105,14 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (context.roundLabel !== "CEO面试") {
           const [previous] = await tx
             .select({ total: count() })
-            .from(studioHumanInterviewRound)
+            .from(humanInterviewRound)
             .where(
               and(
-                eq(studioHumanInterviewRound.organizationId, job.organizationId),
-                eq(studioHumanInterviewRound.interviewRecordId, context.interviewRecordId),
-                lt(studioHumanInterviewRound.sortOrder, context.sortOrder),
-                ne(studioHumanInterviewRound.status, "cancelled"),
-                ne(studioHumanInterviewRound.label, "CEO面试"),
+                eq(humanInterviewRound.organizationId, job.organizationId),
+                eq(humanInterviewRound.recruitingRecordId, context.interviewRecordId),
+                lt(humanInterviewRound.sortOrder, context.sortOrder),
+                ne(humanInterviewRound.status, "cancelled"),
+                ne(humanInterviewRound.label, "CEO面试"),
               ),
             );
           roundLabel = formatBusinessInterviewLabel(previous.total + 1);
@@ -108,20 +126,18 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (!target.documentId) {
           const [notification] = await tx
             .select({
-              documentId: interviewNotification.feishuDocumentId,
-              documentUrl: interviewNotification.feishuDocumentUrl,
-              providerId: interviewNotification.providerId,
+              documentId: recruitingEvaluationDocument.documentId,
+              documentUrl: recruitingEvaluationDocument.documentUrl,
+              providerId: recruitingEvaluationDocument.providerId,
             })
-            .from(interviewNotification)
+            .from(recruitingEvaluationDocument)
             .where(
               and(
-                eq(interviewNotification.organizationId, job.organizationId),
-                eq(interviewNotification.interviewRecordId, context.interviewRecordId),
-                eq(interviewNotification.type, "summary_ready"),
-                isNotNull(interviewNotification.feishuDocumentUrl),
+                eq(recruitingEvaluationDocument.organizationId, job.organizationId),
+                eq(recruitingEvaluationDocument.recruitingRecordId, context.interviewRecordId),
+                eq(recruitingEvaluationDocument.status, "ready"),
               ),
             )
-            .orderBy(desc(interviewNotification.updatedAt), desc(interviewNotification.id))
             .limit(1);
           target = {
             documentId: notification?.documentUrl
@@ -133,31 +149,28 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           };
         }
         const providerId = FEISHU_PROVIDER_IDS.find((id) => id === target.providerId);
-        if (!target.documentId || !target.documentUrl || !providerId) {
-          await tx
-            .update(jobs)
-            .set({
-              error: target.documentUrl
-                ? "评价表地址或飞书应用无效"
-                : "暂无飞书评价表，生成后将自动同步",
-              leaseOwner: null,
-              nextAttemptAt: new Date(now.getTime() + 60_000),
-              status: target.documentUrl ? "failed" : "waiting_document",
-            })
-            .where(eq(jobs.snapshotId, job.snapshotId));
-          return "deferred";
-        }
-
-        // Serialize claims for one document; no database connection is held during Feishu I/O.
+        // Serialize all rounds of one recruiting record, including human-only records
+        // that do not have an external document yet.
         await tx.execute(
-          sql`select pg_advisory_xact_lock(hashtextextended(${`human-evaluation:${target.documentId}`}, 0))`,
+          sql`select pg_advisory_xact_lock(hashtextextended(${`human-evaluation:${context.interviewRecordId}`}, 0))`,
         );
         const [active] = await tx
           .select({ id: jobs.snapshotId })
           .from(jobs)
           .where(
             and(
-              eq(jobs.documentId, target.documentId),
+              inArray(
+                jobs.roundId,
+                tx
+                  .select({ id: humanInterviewRound.id })
+                  .from(humanInterviewRound)
+                  .where(
+                    and(
+                      eq(humanInterviewRound.recruitingRecordId, context.interviewRecordId),
+                      eq(humanInterviewRound.organizationId, job.organizationId),
+                    ),
+                  ),
+              ),
               ne(jobs.snapshotId, job.snapshotId),
               eq(jobs.status, "syncing"),
               gt(jobs.nextAttemptAt, now),
@@ -189,6 +202,8 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           .where(eq(jobs.snapshotId, job.snapshotId));
         return {
           ...job,
+          recruitingRecordId: context.interviewRecordId,
+          submittedByUserId: context.submittedByUserId,
           ...target,
           attemptCount: job.attemptCount + 1,
           deadlineAt: now.getTime() + 5 * 60_000,
@@ -197,7 +212,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           evaluation: context.evaluation,
           leaseOwner,
           ...decision,
-          providerId,
+          providerId: providerId ?? null,
           roundLabel,
           submittedAt: context.submittedAt.toISOString(),
           submittedBy: context.submittedBy ?? "面试官",

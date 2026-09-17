@@ -1,12 +1,12 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { pathToFileURL } from "node:url";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Database } from "../lib/server/db/index";
 import {
   jobDescription,
   resumePoolEvent,
-  resumePoolImport,
+  recruitingPoolImport,
   resumePoolItem,
-  studioInterview,
 } from "@app/db-schema/schema";
 import { loadStandaloneEnv } from "../standalone/env";
 
@@ -33,48 +33,48 @@ async function loadRepairCandidates(
   organizationId?: string,
 ): Promise<RepairCandidateRow[]> {
   const rows = await db
-    .selectDistinctOn([resumePoolImport.poolItemId], {
+    .selectDistinctOn([recruitingPoolImport.poolItemId], {
       candidateName: resumePoolItem.candidateName,
-      importedBy: resumePoolImport.importedBy,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      importedBy: recruitingPoolImport.importedBy,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
-      organizationId: resumePoolImport.organizationId,
-      poolItemId: resumePoolImport.poolItemId,
+      organizationId: recruitingPoolImport.organizationId,
+      poolItemId: recruitingPoolImport.poolItemId,
     })
-    .from(resumePoolImport)
+    .from(recruitingPoolImport)
     .innerJoin(
       resumePoolItem,
       and(
-        eq(resumePoolItem.id, resumePoolImport.poolItemId),
-        eq(resumePoolItem.organizationId, resumePoolImport.organizationId),
+        eq(resumePoolItem.id, recruitingPoolImport.poolItemId),
+        eq(resumePoolItem.organizationId, recruitingPoolImport.organizationId),
       ),
     )
     .innerJoin(
-      studioInterview,
+      recruitingRecordReadModel,
       and(
-        eq(studioInterview.id, resumePoolImport.importedResumeRecordId),
-        eq(studioInterview.organizationId, resumePoolImport.organizationId),
+        eq(recruitingRecordReadModel.id, recruitingPoolImport.recruitingRecordId),
+        eq(recruitingRecordReadModel.organizationId, recruitingPoolImport.organizationId),
       ),
     )
     .innerJoin(
       jobDescription,
       and(
-        eq(jobDescription.id, studioInterview.jobDescriptionId),
-        eq(jobDescription.organizationId, resumePoolImport.organizationId),
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingPoolImport.organizationId),
       ),
     )
     .where(
       and(
         eq(resumePoolItem.status, "active"),
         isNull(resumePoolItem.jobDescriptionId),
-        isNotNull(studioInterview.jobDescriptionId),
-        organizationId ? eq(resumePoolImport.organizationId, organizationId) : undefined,
+        isNotNull(recruitingRecordReadModel.jobDescriptionId),
+        organizationId ? eq(recruitingPoolImport.organizationId, organizationId) : undefined,
       ),
     )
     .orderBy(
-      resumePoolImport.poolItemId,
-      desc(resumePoolImport.importedAt),
-      desc(resumePoolImport.id),
+      recruitingPoolImport.poolItemId,
+      desc(recruitingPoolImport.importedAt),
+      desc(recruitingPoolImport.id),
     );
 
   return rows.flatMap((row) =>

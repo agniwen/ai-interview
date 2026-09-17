@@ -9,7 +9,7 @@ import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { env } from "@/env/client";
 import * as messages from "@/paraglide/messages";
 import { EmailPasswordSignInForm } from "./email-password-sign-in-form";
-import { FeishuSignInButton } from "./feishu-sign-in-button";
+import { FeishuSignInButtons } from "./feishu-sign-in-buttons";
 import { GoogleSignInButton } from "./google-sign-in-button";
 
 const SHOW_GOOGLE_LOGIN = env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN;
@@ -83,13 +83,7 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
     }
     return (
       <TabsContent className="mt-4 space-y-3" value="feishu">
-        <FeishuSignInButton
-          callbackURL={callbackURL}
-          label={messages.login_jiguang_hr_feishu()}
-          providerId="feishu-jiguang-hr"
-          variant="default"
-        />
-        <FeishuSignInButton callbackURL={callbackURL} />
+        <FeishuSignInButtons callbackURL={callbackURL} />
       </TabsContent>
     );
   }

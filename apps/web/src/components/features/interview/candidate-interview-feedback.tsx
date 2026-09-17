@@ -7,6 +7,7 @@ import type {
 } from "@app/db-schema/studio-interviews";
 import {
   candidateInterviewFeedbackCategoryMeta,
+  candidateInterviewFeedbackCategorySchema,
   candidateInterviewFeedbackCategoryValues,
   candidateInterviewFeedbackInputSchema,
 } from "@app/db-schema/studio-interviews";
@@ -18,6 +19,7 @@ import {
   IconCircleCheck,
   IconMessageCircle,
 } from "@tabler/icons-react";
+import { z } from "zod";
 import { useState } from "react";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import {
@@ -75,10 +77,17 @@ export function CandidateInterviewFeedbackContent({
   );
 }
 
+const draftSchema = z.object({
+  categories: z.array(candidateInterviewFeedbackCategorySchema),
+  detail: z.string().max(2000),
+});
+
 export function CandidateInterviewFeedbackPanel({
+  draftKey,
   feedback,
   onSubmit,
 }: {
+  draftKey?: string | null;
   feedback: CandidateInterviewFeedback | null;
   onSubmit: (input: CandidateInterviewFeedbackInput) => Promise<void>;
 }) {
@@ -113,10 +122,40 @@ export function CandidateInterviewFeedbackPanel({
   const input = { categories, detail };
   const validation = candidateInterviewFeedbackInputSchema.safeParse(input);
 
+  function saveDraft(next: { categories: CandidateInterviewFeedbackCategory[]; detail: string }) {
+    if (!draftKey) {
+      return;
+    }
+    try {
+      sessionStorage.setItem(`interview-feedback:${draftKey}`, JSON.stringify(next));
+    } catch {
+      /* Storage may be unavailable in private browsing. */
+    }
+  }
+
+  function openFeedback() {
+    if (draftKey) {
+      try {
+        const draft = draftSchema.safeParse(
+          JSON.parse(sessionStorage.getItem(`interview-feedback:${draftKey}`) ?? "null"),
+        );
+        if (draft.success) {
+          setCategories(draft.data.categories);
+          setDetail(draft.data.detail);
+        }
+      } catch {
+        /* Ignore an invalid or unavailable draft. */
+      }
+    }
+    setOpen(true);
+  }
+
   function toggleCategory(category: CandidateInterviewFeedbackCategory, checked: boolean) {
-    setCategories((current) =>
-      checked ? [...current, category] : current.filter((value) => value !== category),
-    );
+    const next = checked
+      ? [...categories, category]
+      : categories.filter((value) => value !== category);
+    setCategories(next);
+    saveDraft({ categories: next, detail });
     setError(null);
   }
 
@@ -130,6 +169,9 @@ export function CandidateInterviewFeedbackPanel({
   }
 
   function handleOpenChange(nextOpen: boolean) {
+    if (isSubmitting) {
+      return;
+    }
     setOpen(nextOpen);
     if (!nextOpen) {
       setIsDrawerExpanded(false);
@@ -143,15 +185,28 @@ export function CandidateInterviewFeedbackPanel({
       setError(parsed.error.issues[0]?.message ?? "请完整填写反馈内容。");
       return;
     }
+    if (isSubmitting) {
+      return;
+    }
+    setError(null);
     setIsSubmitting(true);
     try {
       await onSubmit(parsed.data);
       setConfirmOpen(false);
       setOpen(false);
+      if (draftKey) {
+        try {
+          sessionStorage.removeItem(`interview-feedback:${draftKey}`);
+        } catch {
+          /* Best effort cleanup. */
+        }
+      }
     } catch (submissionError) {
-      setConfirmOpen(false);
       setError(
-        submissionError instanceof Error ? submissionError.message : "提交反馈失败，请重试。",
+        submissionError instanceof Error &&
+          !["TimeoutError", "AbortError"].includes(submissionError.name)
+          ? submissionError.message
+          : "提交暂未成功，请检查网络后重试，已填写的内容会保留。",
       );
     } finally {
       setIsSubmitting(false);
@@ -173,7 +228,7 @@ export function CandidateInterviewFeedbackPanel({
           <ItemActions className="order-1 basis-full md:order-none md:basis-auto md:self-center">
             <Button
               className="w-full md:h-8 md:w-auto md:gap-1.5 md:px-3 md:has-[>svg]:px-2.5"
-              onClick={() => setOpen(true)}
+              onClick={openFeedback}
               size="lg"
               type="button"
               variant="secondary"
@@ -245,6 +300,7 @@ export function CandidateInterviewFeedbackPanel({
                 maxLength={2000}
                 onChange={(event) => {
                   setDetail(event.target.value);
+                  saveDraft({ categories, detail: event.target.value });
                   setError(null);
                 }}
                 placeholder="请描述问题发生的时间、表现，以及是否影响您继续面试……"
@@ -253,7 +309,11 @@ export function CandidateInterviewFeedbackPanel({
               />
               <p className="text-muted-foreground text-xs">请填写 10–2000 个字。</p>
             </div>
-            {error ? <p className="text-destructive text-sm">{error}</p> : null}
+            {error && !confirmOpen ? (
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
@@ -266,7 +326,15 @@ export function CandidateInterviewFeedbackPanel({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
+      <AlertDialog
+        onOpenChange={(nextOpen) => {
+          if (!isSubmitting) {
+            setConfirmOpen(nextOpen);
+            setError(null);
+          }
+        }}
+        open={confirmOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认提交反馈？</AlertDialogTitle>
@@ -274,12 +342,17 @@ export function CandidateInterviewFeedbackPanel({
               每轮 AI 面试只能提交一次，提交后无法修改。请确认内容无误后继续。
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {error ? (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>返回修改</AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
               onClick={() => {
-                confirmSubmission();
+                void confirmSubmission();
               }}
             >
               {isSubmitting ? "提交中..." : "确认提交"}

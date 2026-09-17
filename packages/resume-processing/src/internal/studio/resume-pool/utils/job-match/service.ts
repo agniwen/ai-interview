@@ -8,13 +8,13 @@ import { listRecruitingJobDescriptions } from "../../../job-descriptions/dao";
 import { recommendJobDescriptionsForResume } from "../jd-recommendations";
 import {
   jobDescription,
-  mailIngestMessage,
-  resumeJobMatchCandidate,
-  resumeJobMatchRun,
+  recruitingMailMessage,
+  recruitingJobMatchCandidate,
+  recruitingJobMatchRun,
   resumePoolEvent,
   resumePoolItem,
-  resumeUploadBatch,
-  resumeUploadBatchItem,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
 } from "@app/db-schema/schema";
 import type { ResumeJobMatchJobSnapshot } from "@app/db-schema/schema";
 import type { JsonObject } from "@app/db-schema/json";
@@ -58,28 +58,31 @@ async function loadMailMatchContext(input: {
 }): Promise<MailMatchContext | null> {
   const [row] = await db
     .select({
-      batchItemId: resumeUploadBatchItem.id,
-      batchJobDescriptionId: resumeUploadBatch.jobDescriptionId,
+      batchItemId: recruitingUploadBatchItem.id,
+      batchJobDescriptionId: recruitingUploadBatch.jobDescriptionId,
       currentJobDescriptionId: resumePoolItem.jobDescriptionId,
-      jdBindStatus: mailIngestMessage.jdBindStatus,
-      jdMode: resumeUploadBatch.jdMode,
-      jobMatchRequestedAt: resumeUploadBatch.jobMatchRequestedAt,
-      mailMessageId: mailIngestMessage.id,
-      organizationId: resumeUploadBatch.organizationId,
+      jdBindStatus: recruitingMailMessage.jdBindStatus,
+      jdMode: recruitingUploadBatch.jdMode,
+      jobMatchRequestedAt: recruitingUploadBatch.jobMatchRequestedAt,
+      mailMessageId: recruitingMailMessage.id,
+      organizationId: recruitingUploadBatch.organizationId,
       poolItemId: resumePoolItem.id,
       resumeFileName: resumePoolItem.resumeFileName,
       resumeProfile: resumePoolItem.resumeProfile,
       sourceChannel: resumePoolItem.sourceChannel,
-      subjectJobCodes: mailIngestMessage.extractedJobCodes,
+      subjectJobCodes: recruitingMailMessage.extractedJobCodes,
     })
-    .from(resumeUploadBatchItem)
-    .innerJoin(resumeUploadBatch, eq(resumeUploadBatchItem.batchId, resumeUploadBatch.id))
-    .innerJoin(resumePoolItem, eq(resumeUploadBatchItem.poolItemId, resumePoolItem.id))
-    .leftJoin(mailIngestMessage, eq(mailIngestMessage.batchId, resumeUploadBatch.id))
+    .from(recruitingUploadBatchItem)
+    .innerJoin(
+      recruitingUploadBatch,
+      eq(recruitingUploadBatchItem.batchId, recruitingUploadBatch.id),
+    )
+    .innerJoin(resumePoolItem, eq(recruitingUploadBatchItem.poolItemId, resumePoolItem.id))
+    .leftJoin(recruitingMailMessage, eq(recruitingMailMessage.batchId, recruitingUploadBatch.id))
     .where(
       and(
-        eq(resumeUploadBatchItem.id, input.batchItemId),
-        eq(resumeUploadBatch.organizationId, input.organizationId),
+        eq(recruitingUploadBatchItem.id, input.batchItemId),
+        eq(recruitingUploadBatch.organizationId, input.organizationId),
         eq(resumePoolItem.id, input.poolItemId),
       ),
     )
@@ -152,20 +155,20 @@ async function persistMatchOutcome(
   const usedAi = usesAiSelection(outcome.selectionMethod);
   const staleSelectedJob = await db.transaction(async (tx) => {
     const [existingRun] = await tx
-      .select({ id: resumeJobMatchRun.id })
-      .from(resumeJobMatchRun)
+      .select({ id: recruitingJobMatchRun.id })
+      .from(recruitingJobMatchRun)
       .where(
         and(
-          eq(resumeJobMatchRun.poolItemId, context.poolItemId),
-          eq(resumeJobMatchRun.batchItemId, context.batchItemId),
-          eq(resumeJobMatchRun.matcherVersion, MATCHER_VERSION),
+          eq(recruitingJobMatchRun.poolItemId, context.poolItemId),
+          eq(recruitingJobMatchRun.batchItemId, context.batchItemId),
+          eq(recruitingJobMatchRun.matcherVersion, MATCHER_VERSION),
         ),
       )
       .limit(1);
     const desiredRunId = existingRun?.id ?? crypto.randomUUID();
     const resumeInputHash = hashResumeProfileForSemanticIndex(context.resumeProfile);
     const [upsertedRun] = await tx
-      .insert(resumeJobMatchRun)
+      .insert(recruitingJobMatchRun)
       .values({
         batchItemId: context.batchItemId,
         completedAt: now,
@@ -196,12 +199,12 @@ async function persistMatchOutcome(
           status: outcome.status,
         },
         target: [
-          resumeJobMatchRun.poolItemId,
-          resumeJobMatchRun.batchItemId,
-          resumeJobMatchRun.matcherVersion,
+          recruitingJobMatchRun.poolItemId,
+          recruitingJobMatchRun.batchItemId,
+          recruitingJobMatchRun.matcherVersion,
         ],
       })
-      .returning({ id: resumeJobMatchRun.id });
+      .returning({ id: recruitingJobMatchRun.id });
     if (!upsertedRun) {
       throw new Error("岗位匹配结果写入失败");
     }
@@ -217,9 +220,11 @@ async function persistMatchOutcome(
         .where(inArray(jobDescription.id, candidateIds));
     }
     const existingCandidateIds = new Set(existingCandidateRows.map((row) => row.id));
-    await tx.delete(resumeJobMatchCandidate).where(eq(resumeJobMatchCandidate.runId, runId));
+    await tx
+      .delete(recruitingJobMatchCandidate)
+      .where(eq(recruitingJobMatchCandidate.runId, runId));
     if (outcome.candidates.length > 0) {
-      await tx.insert(resumeJobMatchCandidate).values(
+      await tx.insert(recruitingJobMatchCandidate).values(
         outcome.candidates.map((candidate) => ({
           aiRank: candidate.aiRank,
           aiReason: candidate.aiReason,
@@ -229,6 +234,7 @@ async function persistMatchOutcome(
             ? candidate.jobDescriptionId
             : null,
           jobSnapshot: snapshotJob(candidate.jobDescription),
+          organizationId: context.organizationId,
           overviewScore: candidate.overviewScore,
           recallRank: candidate.recallRank,
           recallSource: candidate.recallSource,
@@ -256,9 +262,9 @@ async function persistMatchOutcome(
       .limit(1);
     if (!selectedJob) {
       await tx
-        .update(resumeJobMatchRun)
+        .update(recruitingJobMatchRun)
         .set({ errorMessage: "选中岗位已停止招聘，请重试匹配。", status: "failed" })
-        .where(eq(resumeJobMatchRun.id, runId));
+        .where(eq(recruitingJobMatchRun.id, runId));
       return true;
     }
     const [current] = await tx
@@ -293,9 +299,9 @@ async function persistMatchOutcome(
       .limit(1);
     if (afterBinding?.jobDescriptionId !== outcome.selectedJobDescriptionId) {
       await tx
-        .update(resumeJobMatchRun)
+        .update(recruitingJobMatchRun)
         .set({ status: "superseded" })
-        .where(eq(resumeJobMatchRun.id, runId));
+        .where(eq(recruitingJobMatchRun.id, runId));
       return false;
     }
     const wasPreboundByMail =

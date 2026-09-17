@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LiveTranscriptDraftSnapshot } from "./live-transcript-draft";
 import {
   buildMeetingLiveSummaryTurns,
+  meetingLiveSummaryTurnFingerprint,
   createMeetingLiveSummaryController,
 } from "./live-summary-controller";
 
@@ -232,6 +233,15 @@ describe("meeting live summary controller", () => {
     scheduled.shift()?.();
     await vi.waitFor(() => expect(controller.getSnapshot().status).toBe("ready"));
     expect(request).toHaveBeenCalledTimes(1);
+    const { checkpoint } = controller.getSnapshot();
+    expect(checkpoint).toEqual({
+      revision: 1,
+      turns: Object.fromEntries(
+        buildMeetingLiveSummaryTurns(transcriptSnapshot(), "2026-09-04T03:00:00.000Z").map(
+          (turn) => [turn.id, meetingLiveSummaryTurnFingerprint(turn)],
+        ),
+      ),
+    });
 
     request.mockRejectedValueOnce(new Error("network down"));
     const changed = transcriptSnapshot();
@@ -253,6 +263,7 @@ describe("meeting live summary controller", () => {
     scheduled.shift()?.();
     await vi.waitFor(() => expect(controller.getSnapshot().status).toBe("degraded"));
     expect(controller.getSnapshot().summary?.summary).toBe("讨论了两段内容。");
+    expect(controller.getSnapshot().checkpoint).toEqual(checkpoint);
     expect(scheduled).toHaveLength(1);
 
     controller.update({

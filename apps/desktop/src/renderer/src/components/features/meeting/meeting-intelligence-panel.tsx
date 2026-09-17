@@ -1,3 +1,4 @@
+import { hasEchoProcessing } from "@/lib/client/echo-processing";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -404,6 +405,7 @@ export function MeetingIntelligencePanel({
             result={{
               ...intelligenceQuery.data,
               canRegenerate:
+                hasEchoProcessing() &&
                 intelligenceQuery.data.canRegenerate &&
                 canRegenerateMeetingIntelligence(accessRole),
               current: displayedRevision,

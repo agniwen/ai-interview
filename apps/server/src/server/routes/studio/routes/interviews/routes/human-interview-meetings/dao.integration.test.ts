@@ -1,3 +1,9 @@
+import {
+  createRecruitingRecords,
+  updateRecruitingRecords,
+  deleteRecruitingRecords,
+} from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadHumanInterviewRecognitionDocuments } from "@app/meeting-processing/human-interview";
@@ -6,10 +12,9 @@ import {
   jobDescription,
   organization,
   user,
-  studioInterview,
-  studioHumanInterviewRound,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
   meetingSession,
   meetingTranscriptRevision,
   meetingTranscriptTurn,
@@ -69,7 +74,7 @@ beforeAll(async () => {
     })),
   );
   await db.insert(organization).values({ createdAt: now, id: orgId, name: orgId, slug: orgId });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "测试候选人",
     createdBy: creatorId,
     id: candidateId,
@@ -140,20 +145,21 @@ beforeAll(async () => {
     .update(meetingSession)
     .set({ activeTranscriptRevisionId: correctedId })
     .where(eq(meetingSession.id, sessionId));
-  await db.insert(studioHumanInterviewRound).values({
+  await db.insert(humanInterviewRound).values({
     evaluation,
     evaluationStatus: "submitted",
     evaluationSubmittedAt: now,
     evaluationTranscriptRevisionId: sourceId,
     format: "online",
     id: roundId,
-    interviewRecordId: candidateId,
     label: "业务一面",
     organizationId: orgId,
     outcome: "pass",
+    recruitingRecordId: candidateId,
+    roundKind: "second_interview",
     status: "completed",
   });
-  await db.insert(studioHumanInterviewMeeting).values({
+  await db.insert(humanInterviewMeeting).values({
     endedAt: now,
     id: meetingId,
     organizationId: orgId,
@@ -161,7 +167,7 @@ beforeAll(async () => {
     status: "ended",
     title: "测试面试",
   });
-  await db.insert(studioHumanInterviewMeetingRound).values({ meetingId, roundId });
+  await db.insert(humanInterviewMeetingRound).values({ meetingId, organizationId: orgId, roundId });
 });
 afterAll(cleanup);
 
@@ -178,15 +184,12 @@ describe("human interview recognition context", () => {
       organizationId: orgId,
       prompt: "负责投放归因与留存",
     });
-    await db
-      .update(studioInterview)
-      .set({
-        interviewQuestions: [{ difficulty: "medium", order: 1, question: "如何衡量转化率？" }],
-        jobDescriptionId: jobId,
-        resumeText: "做过 IM 即时通信项目",
-      })
-      .where(eq(studioInterview.id, candidateId));
-    await db.insert(studioInterview).values({
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, candidateId), {
+      interviewQuestions: [{ difficulty: "medium", order: 1, question: "如何衡量转化率？" }],
+      jobDescriptionId: jobId,
+      resumeText: "做过 IM 即时通信项目",
+    });
+    await createRecruitingRecords(db, {
       candidateName: "其他候选人",
       id: `${prefix}unlinked`,
       interviewQuestions: [],
@@ -213,11 +216,12 @@ describe("human interview recognition context", () => {
       const documents = await loadHumanInterviewRecognitionDocuments(db, scope);
       expect(documents.join("\n")).not.toContain("不得使用的旧描述");
     } finally {
-      await db
-        .update(studioInterview)
-        .set({ interviewQuestions: [], jobDescriptionId: null, resumeText: null })
-        .where(eq(studioInterview.id, candidateId));
-      await db.delete(studioInterview).where(eq(studioInterview.id, `${prefix}unlinked`));
+      await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, candidateId), {
+        interviewQuestions: [],
+        jobDescriptionId: null,
+        resumeText: null,
+      });
+      await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, `${prefix}unlinked`));
       await db.delete(jobDescription).where(eq(jobDescription.id, jobId));
       await db.delete(department).where(eq(department.id, departmentId));
     }
@@ -227,12 +231,12 @@ describe("human interview recognition context", () => {
 describe("meeting detail database boundary", () => {
   it("does not show an ingest recovery warning after final transcription succeeds", async () => {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         recordingError: "部分录音不完整，已保留可用音轨；全场补救中的身份不明内容需要人工确认。",
         recordingStatus: "completed",
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     try {
       const detail = await loadHumanInterviewMeetingDetail(input);
       expect(detail).toMatchObject({
@@ -243,12 +247,12 @@ describe("meeting detail database boundary", () => {
       });
     } finally {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({
           recordingError: null,
           recordingStatus: "pending",
         })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
     }
   });
 
@@ -259,9 +263,9 @@ describe("meeting detail database boundary", () => {
     "shows one accurate notice when transcription is %s",
     async (transcriptionStatus, notice) => {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({ recordingError: "录音补救提示" })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
       await db
         .update(meetingSession)
         .set({ transcriptionError: "内部处理详情", transcriptionStatus })
@@ -275,9 +279,9 @@ describe("meeting detail database boundary", () => {
         });
       } finally {
         await db
-          .update(studioHumanInterviewMeeting)
+          .update(humanInterviewMeeting)
           .set({ recordingError: null })
-          .where(eq(studioHumanInterviewMeeting.id, meetingId));
+          .where(eq(humanInterviewMeeting.id, meetingId));
         await db
           .update(meetingSession)
           .set({ transcriptionError: null, transcriptionStatus: "ready" })
@@ -305,12 +309,12 @@ describe("meeting detail database boundary", () => {
 
   it("keeps a recording failure visible when a saved transcript is available", async () => {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         recordingError: "录音文件丢失",
         recordingStatus: "failed",
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     try {
       expect(await loadHumanInterviewMeetingDetail(input)).toMatchObject({
         recordingNotice: "录音处理未完成，当前展示已保存的内容，可能存在遗漏。",
@@ -319,12 +323,12 @@ describe("meeting detail database boundary", () => {
       });
     } finally {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({
           recordingError: null,
           recordingStatus: "pending",
         })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
     }
   });
   it("uses the evaluation's transcript in sequence order, including unknown voices", async () => {
@@ -340,9 +344,9 @@ describe("meeting detail database boundary", () => {
   });
   it("does not pair the retained draft with the new transcript during or after a failed regeneration", async () => {
     await db
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({ evaluationStatus: "draft", status: "pending" })
-      .where(eq(studioHumanInterviewRound.id, roundId));
+      .where(eq(humanInterviewRound.id, roundId));
     try {
       const job = await requestHumanInterviewEvaluation({
         force: true,
@@ -369,14 +373,14 @@ describe("meeting detail database boundary", () => {
       }
     } finally {
       await db
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({
           evaluationError: null,
           evaluationStatus: "submitted",
           evaluationTranscriptRevisionId: sourceId,
           status: "completed",
         })
-        .where(eq(studioHumanInterviewRound.id, roundId));
+        .where(eq(humanInterviewRound.id, roundId));
     }
   });
   it("rejects other workspaces, candidates, rounds, meetings and hidden records", async () => {
@@ -401,21 +405,24 @@ describe("meeting detail database boundary", () => {
   it("does not expose a historical group transcript containing an inaccessible candidate", async () => {
     const hiddenCandidate = `${prefix}hidden_candidate`;
     const hiddenRound = `${prefix}hidden_round`;
-    await db.insert(studioInterview).values({
+    await createRecruitingRecords(db, {
       candidateName: "另一候选人",
       createdBy: otherId,
       id: hiddenCandidate,
       interviewQuestions: [],
       organizationId: orgId,
     });
-    await db.insert(studioHumanInterviewRound).values({
+    await db.insert(humanInterviewRound).values({
       format: "online",
       id: hiddenRound,
-      interviewRecordId: hiddenCandidate,
       label: "旧群面",
       organizationId: orgId,
+      recruitingRecordId: hiddenCandidate,
+      roundKind: "second_interview",
     });
-    await db.insert(studioHumanInterviewMeetingRound).values({ meetingId, roundId: hiddenRound });
+    await db
+      .insert(humanInterviewMeetingRound)
+      .values({ meetingId, organizationId: orgId, roundId: hiddenRound });
     try {
       expect(
         await loadHumanInterviewMeetingDetail({
@@ -426,11 +433,11 @@ describe("meeting detail database boundary", () => {
       expect(await loadHumanInterviewMeetingDetail(input)).not.toBeNull();
     } finally {
       await db
-        .delete(studioHumanInterviewMeetingRound)
+        .delete(humanInterviewMeetingRound)
         .where(
           and(
-            eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
-            eq(studioHumanInterviewMeetingRound.roundId, hiddenRound),
+            eq(humanInterviewMeetingRound.meetingId, meetingId),
+            eq(humanInterviewMeetingRound.roundId, hiddenRound),
           ),
         );
     }
@@ -439,24 +446,24 @@ describe("meeting detail database boundary", () => {
     "does not show %s meetings",
     async (status) => {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({ status })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
       try {
         expect(await loadHumanInterviewMeetingDetail(input)).toBeNull();
       } finally {
         await db
-          .update(studioHumanInterviewMeeting)
+          .update(humanInterviewMeeting)
           .set({ status: "ended" })
-          .where(eq(studioHumanInterviewMeeting.id, meetingId));
+          .where(eq(humanInterviewMeeting.id, meetingId));
       }
     },
   );
   it("keeps legacy evaluation readable and labels its unlinked transcript", async () => {
     await db
-      .update(studioHumanInterviewRound)
+      .update(humanInterviewRound)
       .set({ evaluationTranscriptRevisionId: null })
-      .where(eq(studioHumanInterviewRound.id, roundId));
+      .where(eq(humanInterviewRound.id, roundId));
     try {
       const detail = await loadHumanInterviewMeetingDetail(input);
       expect(detail?.transcript?.id).toBe(correctedId);
@@ -464,16 +471,16 @@ describe("meeting detail database boundary", () => {
       expect(detail?.transcriptNotice).toContain("历史评价");
     } finally {
       await db
-        .update(studioHumanInterviewRound)
+        .update(humanInterviewRound)
         .set({ evaluationTranscriptRevisionId: sourceId })
-        .where(eq(studioHumanInterviewRound.id, roundId));
+        .where(eq(humanInterviewRound.id, roundId));
     }
   });
   it("keeps an evaluation visible when the meeting has no transcript storage", async () => {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ processingMeetingSessionId: null, recordingError: "录音缺失" })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     try {
       expect(await loadHumanInterviewMeetingDetail(input)).toMatchObject({
         evaluation,
@@ -482,16 +489,16 @@ describe("meeting detail database boundary", () => {
       });
     } finally {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({ processingMeetingSessionId: sessionId, recordingError: null })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
     }
   });
   it("reports no transcript when an ended meeting never recorded or queued processing", async () => {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ processingMeetingSessionId: null })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
     try {
       expect(await loadHumanInterviewMeetingDetail(input)).toMatchObject({
         evaluation,
@@ -500,18 +507,18 @@ describe("meeting detail database boundary", () => {
       });
     } finally {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({ processingMeetingSessionId: sessionId })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
     }
   });
   it.each(["starting", "active", "completed"] as const)(
     "keeps waiting when recording is %s and processing has not created a session yet",
     async (recordingStatus) => {
       await db
-        .update(studioHumanInterviewMeeting)
+        .update(humanInterviewMeeting)
         .set({ processingMeetingSessionId: null, recordingStatus })
-        .where(eq(studioHumanInterviewMeeting.id, meetingId));
+        .where(eq(humanInterviewMeeting.id, meetingId));
       try {
         expect(await loadHumanInterviewMeetingDetail(input)).toMatchObject({
           transcript: null,
@@ -519,9 +526,9 @@ describe("meeting detail database boundary", () => {
         });
       } finally {
         await db
-          .update(studioHumanInterviewMeeting)
+          .update(humanInterviewMeeting)
           .set({ processingMeetingSessionId: sessionId, recordingStatus: "pending" })
-          .where(eq(studioHumanInterviewMeeting.id, meetingId));
+          .where(eq(humanInterviewMeeting.id, meetingId));
       }
     },
   );

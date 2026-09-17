@@ -6,7 +6,7 @@ import { getResumeSemanticIndexConfig, upsertResumeSemanticIndexState } from "..
 import { buildJobDescriptionSemanticTexts } from "../resume/text-builders";
 import type { JobDescriptionSemanticInput } from "../resume/text-builders";
 import type { ResumeEmbeddingChunk, ResumeVectorStore } from "../resume/vector-store";
-import { department, jobDescription, resumeSemanticIndex } from "@app/db-schema/schema";
+import { department, jobDescription, recruitingSearchIndex } from "@app/db-schema/schema";
 import { hashJobDescriptionForSemanticIndex } from "./hash";
 
 export interface JdSemanticIndexJob {
@@ -120,15 +120,15 @@ async function readJdSemanticIndexState(input: {
 }): Promise<ExistingIndexState | null> {
   const [row] = await db
     .select({
-      profileHash: resumeSemanticIndex.profileHash,
-      status: resumeSemanticIndex.status,
+      profileHash: recruitingSearchIndex.profileHash,
+      status: recruitingSearchIndex.status,
     })
-    .from(resumeSemanticIndex)
+    .from(recruitingSearchIndex)
     .where(
       and(
-        eq(resumeSemanticIndex.sourceType, input.sourceType),
-        eq(resumeSemanticIndex.sourceId, input.sourceId),
-        eq(resumeSemanticIndex.embeddingVersion, input.embeddingVersion),
+        eq(recruitingSearchIndex.sourceType, input.sourceType),
+        eq(recruitingSearchIndex.sourceId, input.sourceId),
+        eq(recruitingSearchIndex.embeddingVersion, input.embeddingVersion),
       ),
     )
     .limit(1);
@@ -141,7 +141,7 @@ async function updateJdSemanticIndexStateUnlessDeleted(
 ): Promise<boolean> {
   const now = new Date();
   const [updated] = await db
-    .update(resumeSemanticIndex)
+    .update(recruitingSearchIndex)
     .set({
       contentHash: input.contentHash,
       embeddingModel: input.embeddingModel,
@@ -153,14 +153,14 @@ async function updateJdSemanticIndexStateUnlessDeleted(
     })
     .where(
       and(
-        eq(resumeSemanticIndex.sourceType, "job_description"),
-        eq(resumeSemanticIndex.sourceId, input.sourceId),
-        eq(resumeSemanticIndex.organizationId, input.organizationId),
-        eq(resumeSemanticIndex.embeddingVersion, input.embeddingVersion),
-        notInArray(resumeSemanticIndex.status, ["stale", "deleted"]),
+        eq(recruitingSearchIndex.sourceType, "job_description"),
+        eq(recruitingSearchIndex.sourceId, input.sourceId),
+        eq(recruitingSearchIndex.organizationId, input.organizationId),
+        eq(recruitingSearchIndex.embeddingVersion, input.embeddingVersion),
+        notInArray(recruitingSearchIndex.status, ["stale", "deleted"]),
       ),
     )
-    .returning({ id: resumeSemanticIndex.id });
+    .returning({ id: recruitingSearchIndex.id });
   return Boolean(updated);
 }
 

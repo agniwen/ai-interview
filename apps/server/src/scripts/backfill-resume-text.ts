@@ -1,16 +1,12 @@
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { pathToFileURL } from "node:url";
 import { and, asc, desc, eq, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import {
-  chatAttachment,
-  resumeEvaluationVersion,
-  resumePoolItem,
-  studioInterview,
-} from "@app/db-schema/schema";
+import { chatAttachment, resumePoolItem } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
 import type { Database } from "../lib/server/db/index";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
-import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export type ResumeTextBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
@@ -124,7 +120,7 @@ function loadScriptEnv(): void {
   loadStandaloneEnv();
 }
 
-function resumeTextMissingCondition(column: typeof studioInterview.resumeText): SQL {
+function resumeTextMissingCondition(column: typeof recruitingRecordReadModel.resumeText): SQL {
   return sql`(${column} is null or btrim(${column}) = '')`;
 }
 
@@ -138,21 +134,21 @@ async function loadStudioRecords(
 ): Promise<ResumeTextBackfillRecord[]> {
   const query = db
     .select({
-      contentHash: studioInterview.resumeContentHash,
-      id: studioInterview.id,
-      storageKey: studioInterview.resumeStorageKey,
+      contentHash: recruitingRecordReadModel.resumeContentHash,
+      id: recruitingRecordReadModel.id,
+      storageKey: recruitingRecordReadModel.resumeStorageKey,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        resumeTextMissingCondition(studioInterview.resumeText),
+        resumeTextMissingCondition(recruitingRecordReadModel.resumeText),
         or(
-          isNotNull(studioInterview.resumeStorageKey),
-          isNotNull(studioInterview.resumeContentHash),
+          isNotNull(recruitingRecordReadModel.resumeStorageKey),
+          isNotNull(recruitingRecordReadModel.resumeContentHash),
         ),
       ),
     )
-    .orderBy(asc(studioInterview.createdAt));
+    .orderBy(asc(recruitingRecordReadModel.createdAt));
 
   const rows = limit ? await query.limit(limit) : await query;
   return rows.map((row) => ({
@@ -264,45 +260,18 @@ async function updateResumeText(
   const now = new Date();
   if (record.recordType === "studio_interview") {
     await db.transaction(async (tx) => {
-      const [current] = await tx
-        .select({
-          notes: studioInterview.notes,
-          organizationId: studioInterview.organizationId,
-          qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
-          qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-          resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-          resumeReview: studioInterview.resumeReview,
-          resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
-          structuredCompositeScore: studioInterview.structuredCompositeScore,
-          structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
-        })
-        .from(studioInterview)
-        .where(eq(studioInterview.id, record.id))
-        .limit(1)
-        .for("update");
-      if (current) {
-        const archive = buildPreQualitativeEvaluationArchive({
-          organizationId: current.organizationId,
-          record: current,
-          resumeRecordId: record.id,
-        });
-        if (archive) {
-          await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
-        }
-      }
-      await tx
-        .update(studioInterview)
-        .set({
+      await updateRecruitingRecords(
+        tx,
+        and(
+          eq(recruitingRecordReadModel.id, record.id),
+          resumeTextMissingCondition(recruitingRecordReadModel.resumeText),
+        ),
+        {
           ...INVALIDATED_AI_RESUME_ASSESSMENT,
           resumeText,
           updatedAt: now,
-        })
-        .where(
-          and(
-            eq(studioInterview.id, record.id),
-            resumeTextMissingCondition(studioInterview.resumeText),
-          ),
-        );
+        },
+      );
     });
     return;
   }

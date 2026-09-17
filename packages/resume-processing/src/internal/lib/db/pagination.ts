@@ -1,5 +1,5 @@
 import { asc, desc } from "drizzle-orm";
-import type { Column, SQL } from "drizzle-orm";
+import type { SQL, SQLWrapper } from "drizzle-orm";
 import type { SortOrder } from "@app/shared/pagination";
 
 export {
@@ -18,7 +18,7 @@ export type { PaginatedResult, PaginationParams, SortOrder } from "@app/shared/p
 // 排序方向辅助：根据 columnMap 选出 Drizzle Column 并包裹 asc/desc。
 // Resolve a Drizzle Column from columnMap and wrap it with asc/desc.
 export function buildOrderBy<TSort extends string>(
-  columnMap: Record<TSort, Column>,
+  columnMap: Record<TSort, SQLWrapper>,
   sortBy: TSort,
   sortOrder: SortOrder,
 ): SQL {

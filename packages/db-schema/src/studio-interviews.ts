@@ -1,3 +1,8 @@
+import {
+  pipelineStageSchema,
+  legacyPipelineStageSchema,
+  normalizeLegacyPipelineStage,
+} from "./recruiting-contracts";
 import { interviewQuestionDimensionSchema } from "./interview/types";
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
@@ -71,33 +76,24 @@ export function buildCandidateInterviewFeedback(input: {
 // Candidate lifecycle uses an explicit "where in the hiring pipeline" stage
 // plus a separate "what's the verdict" outcome.
 
-// 顺序对应招聘漏斗：简历筛选 → 笔试 → AI 面试 → 真人复面 → offer → 结束。
-// closed 是终态，outcome 字段决定具体结局（hired/rejected/withdrawn/archived）。
-// Funnel order: screening → written_test → ai_interview → human_interview →
-// offer → closed (terminal; outcome describes the verdict).
-export const pipelineStageValues = [
-  "screening",
-  "written_test",
-  "ai_interview",
-  "human_interview",
-  "offer",
-  "closed",
-] as const;
-
-export const pipelineStageSchema = z.enum(pipelineStageValues);
-export type PipelineStage = z.infer<typeof pipelineStageSchema>;
-
-export const pipelineStageMeta = {
-  ai_interview: { label: "AI 面试", tone: "warning" },
-  closed: { label: "已结束", tone: "outline" },
-  human_interview: { label: "真人复面", tone: "warning" },
-  offer: { label: "Offer", tone: "info" },
-  screening: { label: "简历筛选", tone: "outline" },
-  written_test: { label: "笔试", tone: "info" },
-} as const satisfies Record<
-  PipelineStage,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
->;
+export {
+  legacyPipelineStageValues,
+  legacyPipelineStageSchema,
+  recruitingPipelineNodeValues,
+  recruitingPipelineNodeSchema,
+  pipelineStageValues,
+  pipelineStageSchema,
+  pipelineStageMeta,
+  recruitingNodeStatusValues,
+  recruitingNodeStatusSchema,
+  recruitingNodeStatusMeta,
+  recruitingNodeResultSchema,
+  recruitingNodeResultMeta,
+  recruitingCloseReasonValues,
+  recruitingCloseReasonSchema,
+  normalizeLegacyPipelineStage,
+} from "./recruiting-contracts";
+export type { LegacyPipelineStage, PipelineStage } from "./recruiting-contracts";
 
 // 候选人最终结论：in_pipeline 表示还在流程中（默认），其余四种都对应 pipelineStage='closed'。
 // withdrawn = 候选人主动撤回；archived = 冷藏（不删但不在主视图）。
@@ -116,7 +112,7 @@ export type CandidateOutcome = z.infer<typeof candidateOutcomeSchema>;
 
 export const candidateOutcomeMeta = {
   archived: { label: "已归档", tone: "outline" },
-  hired: { label: "已录用", tone: "success" },
+  hired: { label: "已入职", tone: "success" },
   in_pipeline: { label: "进行中", tone: "info" },
   rejected: { label: "已淘汰", tone: "outline" },
   withdrawn: { label: "已撤回", tone: "outline" },
@@ -262,6 +258,7 @@ export const humanInterviewMeetingStatusValues = [
   "in_progress",
   "ended",
   "cancelled",
+  "not_held",
 ] as const;
 export const humanInterviewMeetingStatusSchema = z.enum(humanInterviewMeetingStatusValues);
 export type HumanInterviewMeetingStatus = z.infer<typeof humanInterviewMeetingStatusSchema>;
@@ -359,11 +356,24 @@ export const humanInterviewEvaluationSchema = z
   .strict();
 export type HumanInterviewEvaluation = z.infer<typeof humanInterviewEvaluationSchema>;
 
+// Drafts may omit a judgment; generated and submitted evaluations still require a rating.
+export const humanInterviewEvaluationDraftSchema = humanInterviewEvaluationSchema.extend({
+  // Stored only in the draft JSON; never writes the round's official outcome.
+  draftOutcome: humanInterviewFinalOutcomeSchema.nullable().optional(),
+  rating: humanInterviewEvaluationRatingSchema.nullable(),
+});
+export type HumanInterviewEvaluationDraft = z.infer<typeof humanInterviewEvaluationDraftSchema>;
+
+export const humanInterviewEvaluationSubmissionSchema = humanInterviewEvaluationSchema.extend({
+  overallEvaluation: humanInterviewEvaluationTextSchema.min(1),
+});
+
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
 // 面试官可以暂为空，供“先创建会议，再由列表外人员接受邀请”流程使用；
 // 时间可空（未定档）。历史数字评分保留在读取模型中，新流程不再写入。
 // Interviewers may be empty while an external interviewer invitation is pending.
 export const humanInterviewRoundInputSchema = z.object({
+  expectedVersion: z.number().int().min(0).optional(),
   feedback: z.string().trim().max(5000, "面试反馈不能超过 5000 字").nullable().optional(),
   format: humanInterviewFormatSchema,
   interviewerIds: z.array(z.string().trim().min(1)).max(10, "面试官最多 10 人"),
@@ -372,6 +382,7 @@ export const humanInterviewRoundInputSchema = z.object({
   meetingUrl: z.string().trim().max(500).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   outcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
+  roundKind: z.enum(["second_interview", "final_interview"]),
   scheduledAt: nullableInstantDateTimeInputSchema,
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -389,6 +400,11 @@ export const humanInterviewMeetingInputSchema = z.object({
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
 
 export const humanInterviewMeetingScheduleUpdateSchema = z.object({
+  interviewerIds: z
+    .array(z.string().trim().min(1))
+    .min(1, "请至少选择一位面试官")
+    .max(10, "面试官最多 10 人")
+    .optional(),
   reason: z.string().trim().max(500, "改期原因不能超过 500 字").nullable().optional(),
   scheduledAt: z
     .string()
@@ -423,8 +439,8 @@ export const offerDraftStatusMeta = {
   declined: { label: "已拒绝", tone: "outline" },
   draft: { label: "草稿", tone: "outline" },
   expired: { label: "已过期", tone: "outline" },
-  sent: { label: "已发送", tone: "info" },
-  superseded: { label: "已被新版替代", tone: "outline" },
+  sent: { label: "已发布，待回复", tone: "info" },
+  superseded: { label: "已失效", tone: "outline" },
 } as const satisfies Record<
   OfferDraftStatus,
   { label: string; tone: "success" | "warning" | "info" | "outline" }
@@ -449,8 +465,16 @@ export type OfferDraftInput = z.infer<typeof offerDraftInputSchema>;
 // HR records the candidate's response to a sent offer.
 export const offerResponseInputSchema = z.object({
   candidateCounter: z.string().trim().max(2000).nullable().optional(),
+  declineReason: z.string().trim().max(1000).nullable().optional(),
   response: z.enum(["accepted", "declined", "counter"]),
 });
+
+export const offerEmailInputSchema = z.object({
+  content: z.string().trim().min(1, "请填写邮件内容").max(10_000),
+  subject: z.string().trim().min(1, "请填写邮件主题").max(300),
+  to: z.string().trim().email("请输入有效邮箱"),
+});
+export type OfferEmailInput = z.infer<typeof offerEmailInputSchema>;
 export type OfferResponseInput = z.infer<typeof offerResponseInputSchema>;
 
 // ── 候选人期望 / 结束元数据（单行 JSONB，不需要子表）──
@@ -458,6 +482,7 @@ export type OfferResponseInput = z.infer<typeof offerResponseInputSchema>;
 // 候选人期望（在 offer 阶段录入，后续 dialog prefill 用）。
 // Candidate expectations; populated during the offer flow and used to prefill.
 export const candidateExpectationsMetaSchema = z.object({
+  agreedBaseSalary: z.number().int().positive().nullable().optional(),
   currentSalary: z.number().int().min(0).nullable().optional(),
   earliestJoiningDate: z.string().trim().nullable().optional(),
   expectedSalary: z.number().int().min(0).nullable().optional(),
@@ -513,7 +538,11 @@ export const closedMetaSchema = z.object({
   feedbackToCandidate: z.string().trim().max(5000).nullable().optional(),
   hiredDetails: closedHiredDetailsSchema.nullable().optional(),
   internalNotes: z.string().trim().max(5000).nullable().optional(),
-  previousStage: pipelineStageSchema.nullable().optional(),
+  previousStage: z
+    .union([pipelineStageSchema, legacyPipelineStageSchema])
+    .transform(normalizeLegacyPipelineStage)
+    .nullable()
+    .optional(),
   rejectionDetails: closedRejectionDetailsSchema.nullable().optional(),
 });
 export type ClosedMeta = z.infer<typeof closedMetaSchema>;

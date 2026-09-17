@@ -1,11 +1,12 @@
+import { lockRecruitingRecord } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { db } from "../../../../../../../lib/server/db/index";
 import { FEISHU_PROVIDER_IDS } from "../../../../../../integrations/feishu/provider";
 import {
   account,
-  interviewAuditLog,
+  recruitingEvent,
   member,
-  studioInterview,
-  studioInterviewNotificationRecipient,
+  recruitingNotificationRecipient,
   user,
 } from "@app/db-schema/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -24,12 +25,12 @@ export async function interviewRecordExists(
   interviewRecordId: string,
 ): Promise<boolean> {
   const [record] = await db
-    .select({ id: studioInterview.id })
-    .from(studioInterview)
+    .select({ id: recruitingRecordReadModel.id })
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.id, interviewRecordId),
-        eq(studioInterview.organizationId, organizationId),
+        eq(recruitingRecordReadModel.id, interviewRecordId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -48,16 +49,16 @@ export async function listInterviewNotificationRecipients(
       providerId: account.providerId,
       userId: user.id,
     })
-    .from(studioInterviewNotificationRecipient)
-    .innerJoin(user, eq(user.id, studioInterviewNotificationRecipient.userId))
+    .from(recruitingNotificationRecipient)
+    .innerJoin(user, eq(user.id, recruitingNotificationRecipient.userId))
     .leftJoin(
       account,
       and(eq(account.userId, user.id), inArray(account.providerId, [...FEISHU_PROVIDER_IDS])),
     )
     .where(
       and(
-        eq(studioInterviewNotificationRecipient.organizationId, organizationId),
-        eq(studioInterviewNotificationRecipient.interviewRecordId, interviewRecordId),
+        eq(recruitingNotificationRecipient.organizationId, organizationId),
+        eq(recruitingNotificationRecipient.recruitingRecordId, interviewRecordId),
       ),
     )
     .orderBy(asc(user.name), asc(account.providerId));
@@ -88,16 +89,17 @@ export function replaceInterviewNotificationRecipients(input: {
   userIds: string[];
 }): Promise<"not-found" | "ok" | "users-not-members"> {
   return db.transaction(async (tx) => {
+    await lockRecruitingRecord(tx, input.interviewRecordId, input.organizationId);
     const [record] = await tx
-      .select({ id: studioInterview.id })
-      .from(studioInterview)
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, input.interviewRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.id, input.interviewRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
-      .for("update")
+
       .limit(1);
     if (!record) {
       return "not-found";
@@ -119,32 +121,32 @@ export function replaceInterviewNotificationRecipients(input: {
     }
 
     const previous = await tx
-      .select({ userId: studioInterviewNotificationRecipient.userId })
-      .from(studioInterviewNotificationRecipient)
-      .where(eq(studioInterviewNotificationRecipient.interviewRecordId, input.interviewRecordId));
+      .select({ userId: recruitingNotificationRecipient.userId })
+      .from(recruitingNotificationRecipient)
+      .where(eq(recruitingNotificationRecipient.recruitingRecordId, input.interviewRecordId));
     await tx
-      .delete(studioInterviewNotificationRecipient)
-      .where(eq(studioInterviewNotificationRecipient.interviewRecordId, input.interviewRecordId));
+      .delete(recruitingNotificationRecipient)
+      .where(eq(recruitingNotificationRecipient.recruitingRecordId, input.interviewRecordId));
     if (input.userIds.length > 0) {
-      await tx.insert(studioInterviewNotificationRecipient).values(
+      await tx.insert(recruitingNotificationRecipient).values(
         input.userIds.map((userId) => ({
           createdBy: input.actorUserId,
-          interviewRecordId: input.interviewRecordId,
           organizationId: input.organizationId,
+          recruitingRecordId: input.interviewRecordId,
           userId,
         })),
       );
     }
-    await tx.insert(interviewAuditLog).values({
+    await tx.insert(recruitingEvent).values({
       action: "notification_recipients_replaced",
       detail: {
         nextUserIds: input.userIds,
         previousUserIds: previous.map((item) => item.userId),
       },
       id: crypto.randomUUID(),
-      interviewRecordId: input.interviewRecordId,
       operatorId: input.actorUserId,
       organizationId: input.organizationId,
+      recruitingRecordId: input.interviewRecordId,
     });
     return "ok";
   });

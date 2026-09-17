@@ -55,7 +55,7 @@ export function createStudioHumanInterviewReviewRouter(dependencies = defaultDep
           return null;
         }
         if (
-          scope.role === "observer" ||
+          (scope.role === "observer" && !scope.canManageReview) ||
           (c.req.method !== "GET" && scope.pipelineStage === "closed")
         ) {
           throw new HTTPException(403, {

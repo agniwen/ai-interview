@@ -1,10 +1,12 @@
 "use client";
 
+import { useConfirmInterviewConnection } from "./use-confirm-interview-connection";
+
 import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import type { CandidateInterviewFeedbackInput } from "@app/db-schema/studio-interviews";
 import { cn } from "@app/shared/utils";
-import { useAgent, useSession } from "@livekit/components-react";
+import { useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -27,32 +29,19 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { ApiError, rpcFetch } from "@/lib/client/api";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewBackground } from "./interview-background";
-import { InterviewTimer } from "./interview-timer";
+import { AgentSpeechTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
 import { InterviewRules } from "./interview-rules";
 import { startInterviewSession } from "./interview-session-start";
+import { readInterviewResumeState } from "./interview-resume-state";
 import { DevicePreflightCard } from "./interview-device-preflight";
 import { fetchPreInterviewForms } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
 import { CandidateInterviewFeedbackPanel } from "./candidate-interview-feedback";
-
-function AgentSpeechTimer() {
-  const { state } = useAgent();
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (startedAt === null && state === "speaking") {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      setStartedAt(Date.now());
-    }
-  }, [state, startedAt]);
-
-  return <InterviewTimer startedAt={startedAt} />;
-}
 
 interface InterviewRoomProps {
   interviewId: string;
@@ -211,6 +200,7 @@ function InterviewNoticeDialog({
 }
 
 function WaitingView({
+  roundId,
   hasForms,
   interviewView,
   isConnecting,
@@ -222,6 +212,7 @@ function WaitingView({
   onSubmitFeedback,
   recordingEnabled,
 }: {
+  roundId: string;
   hasForms: boolean;
   interviewView: CandidateInterviewView | null;
   isConnecting: boolean;
@@ -304,6 +295,7 @@ function WaitingView({
           {isRoundCompleted ? (
             <div className="mt-auto pt-8 md:mt-8 md:pt-0">
               <CandidateInterviewFeedbackPanel
+                draftKey={roundId}
                 feedback={interviewView?.currentRoundFeedback ?? null}
                 onSubmit={onSubmitFeedback}
               />
@@ -362,6 +354,7 @@ function WaitingView({
 }
 
 export default function InterviewRoom({ interviewId, roundId }: InterviewRoomProps) {
+  const resumeStorageKey = `interview-ui-v1:${interviewId}:${roundId}`;
   const interviewRecordingEnabled = env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING;
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
   const [formsPayload, setFormsPayload] = useState<FormsPayload | null>(null);
@@ -433,45 +426,44 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // Custom token source so that token-endpoint errors (403/409/410) can flip
   // the page into the appropriate state instead of letting the LiveKit
   // session silently fail.
-  const tokenSource = useMemo(
-    () =>
-      TokenSource.custom(async () => {
-        // 阻塞 mount 期 prepareConnection 的预热请求，等 fetchStatus 拿到状态后
-        // 再签 token。否则会让 pending 轮次过早被改成 in_progress 并自动续连。
-        // Block useSession's mount-time prepareConnection until fetchStatus
-        // settles; otherwise it preemptively flips pending → in_progress.
-        if (isLoadingStatus) {
-          throw new Error("interview status not loaded yet");
-        }
-        const response = await rpc.api.interview[":id"][":roundId"]["livekit-token"].$post({
-          param: { id: interviewId, roundId },
-        });
+  const startRequestedRef = useRef(false);
+  const fetchInterviewToken = useCallback(async () => {
+    // 阻塞 mount 期 prepareConnection 的预热请求，等 fetchStatus 拿到状态后
+    // 再签 token。否则会让 pending 轮次过早被改成 in_progress 并自动续连。
+    // Block useSession's mount-time prepareConnection until fetchStatus
+    // settles; otherwise it preemptively flips pending → in_progress.
+    if (isLoadingStatus || !startRequestedRef.current) {
+      throw new Error("interview start not requested yet");
+    }
+    const response = await rpc.api.interview[":id"][":roundId"]["livekit-token"].$post({
+      param: { id: interviewId, roundId },
+    });
 
-        if (!response.ok) {
-          const body = livekitTokenErrorSchema.safeParse(await response.json().catch(() => null));
-          const errorMessage = body.success ? body.data.error : undefined;
-          // 403: 轮次已结束；410: 重连超过 3 分钟宽限。两者最终都置 completed。
-          // 409: 另一窗口/设备占用，留在 WaitingView 由 toast 引导用户。
-          // 403/410 → completed; 409 → toast and stay in WaitingView.
-          if (response.status === 403 || response.status === 410) {
-            setRoundStatus("completed");
-          } else if (response.status === 409) {
-            toast.error(
-              errorMessage ??
-                "检测到本轮面试已在其他窗口打开。如非本人操作，请稍后重试或联系招聘负责人。",
-            );
-          }
-          throw new Error(errorMessage ?? `livekit-token 请求失败（${response.status}）`);
-        }
+    if (!response.ok) {
+      const body = livekitTokenErrorSchema.safeParse(await response.json().catch(() => null));
+      const errorMessage = body.success ? body.data.error : undefined;
+      // 403: 轮次已结束；410: 重连超过 3 分钟宽限。两者最终都置 completed。
+      // 409: 另一窗口/设备占用，留在 WaitingView 由 toast 引导用户。
+      // 403/410 → completed; 409 → toast and stay in WaitingView.
+      if (response.status === 403 || response.status === 410) {
+        setRoundStatus("completed");
+      } else if (response.status === 409) {
+        toast.error(
+          errorMessage ??
+            "检测到本轮面试已在其他窗口打开。如非本人操作，请稍后重试或联系招聘负责人。",
+        );
+      }
+      throw new Error(errorMessage ?? `livekit-token 请求失败（${response.status}）`);
+    }
 
-        const payload = livekitTokenSchema.safeParse(await response.json());
-        if (!payload.success) {
-          throw new Error("livekit-token 响应格式无效");
-        }
-        return payload.data;
-      }),
-    [interviewId, isLoadingStatus, roundId],
-  );
+    const payload = livekitTokenSchema.safeParse(await response.json());
+    if (!payload.success) {
+      throw new Error("livekit-token 响应格式无效");
+    }
+    return payload.data;
+  }, [interviewId, isLoadingStatus, roundId]);
+  // oxlint-disable-next-line react/refs -- TokenSource.custom stores this callback; only LiveKit invokes it later, after an explicit start/rejoin event.
+  const tokenSource = useMemo(() => TokenSource.custom(fetchInterviewToken), [fetchInterviewToken]);
 
   const session = useSession(tokenSource, { agentName: env.NEXT_PUBLIC_AGENT_NAME });
 
@@ -491,6 +483,19 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // updated isRoundCompleted is observable. The ref short-circuits both the
   // interrupt POST and the rejoin attempt synchronously.
   const agentEndedRef = useRef(false);
+  useConfirmInterviewConnection(session.connectionState, interviewId, roundId);
+  const persistCompletion = useCallback(
+    async (mode: "final" | "agent") => {
+      await rpcFetch(
+        rpc.api.interview[":id"][":roundId"].complete.$post(
+          { param: { id: interviewId, roundId }, query: { mode } },
+          { init: { keepalive: true, signal: AbortSignal.timeout(15_000) } },
+        ),
+        "面试结束状态尚未同步，请稍后重试。",
+      );
+    },
+    [interviewId, roundId],
+  );
 
   // 订阅 Room 的 disconnected 事件以拿到 reason: agent 调 end_call(delete_room=True)
   // 触发 LiveKit Cloud DeleteRoom, 候选人侧收到 reason=ROOM_DELETED;
@@ -512,13 +517,17 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       ) {
         agentEndedRef.current = true;
         setRoundStatus("completed");
+        // oxlint-disable-next-line promise/prefer-await-to-then -- LiveKit event handlers must return synchronously; surface asynchronous persistence failure.
+        void persistCompletion("agent").catch(() => {
+          toast.error("面试已结束，结束状态暂未同步。提交反馈时将自动重试。");
+        });
       }
     };
     room.on(RoomEvent.Disconnected, onDisconnected);
     return () => {
       room.off(RoomEvent.Disconnected, onDisconnected);
     };
-  }, [room]);
+  }, [room, persistCompletion]);
 
   // 监听硬断连：
   // - 主动结束（userEndedRef=true）：handleEndInterview 已经发过 final，这里跳过；
@@ -534,9 +543,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     if (session.connectionState === ConnectionState.Disconnected && wasConnectedRef.current) {
       wasConnectedRef.current = false;
       if (userEndedRef.current) {
-        // 主动结束：完成态由 handleEndInterview 写入，这里只清标记。
-        // Deliberate end: final state already persisted, just clear the flag.
-        userEndedRef.current = false;
+        // Keep the terminal flag latched through unload and feedback retries.
         return;
       }
       if (agentEndedRef.current) {
@@ -559,14 +566,14 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // disconnect handler above. Skipped for deliberate-end flow.
   useEffect(() => {
     const onBeforeUnload = () => {
-      if (userEndedRef.current) {
+      if (userEndedRef.current || agentEndedRef.current || isRoundCompleted) {
         return;
       }
       navigator.sendBeacon(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [interviewId, roundId]);
+  }, [interviewId, roundId, isRoundCompleted]);
 
   const [startedMuted, setStartedMuted] = useState(false);
   // 自动续连只触发一次：避免 connectionState 变化或 fetchStatus 重跑时反复 session.start。
@@ -577,12 +584,18 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
 
   const handleStart = useCallback(
     async (options?: { muted?: boolean }) => {
-      setStartedMuted(!!options?.muted);
+      startRequestedRef.current = true;
+      const muted =
+        options?.muted ??
+        (isRecoverable
+          ? !(readInterviewResumeState(resumeStorageKey)?.microphoneEnabled ?? false)
+          : false);
+      setStartedMuted(muted);
       try {
         await startInterviewSession({
           recordingEnabled: interviewRecordingEnabled,
           session,
-          startMuted: !!options?.muted,
+          startMuted: muted,
         });
       } catch (error) {
         // session.start 内部把 getUserMedia(摄像头/麦克风) 和 room.connect 一起跑.
@@ -621,7 +634,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         toast.error(message);
       }
     },
-    [interviewRecordingEnabled, session],
+    [interviewRecordingEnabled, isRecoverable, resumeStorageKey, session],
   );
 
   // 刷新返回时若 canResume 为 true：跳过 RuleItem 自动 handleStart 续连。
@@ -653,31 +666,18 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     session.connectionState,
   ]);
 
-  // 用户主动结束面试：先把轮次标 final 落库，再断开 LiveKit。
-  // 立刻同步置 roundStatus=completed 与 autoRejoinTriggeredRef=true，
-  // 避免 await session.end() 触发 Disconnected 时让 auto-rejoin useEffect
-  // 抢先看到 isRecoverable=true（interviewView 还没刷新）误触发恢复流程，
-  // 出现"标题：正在恢复 + 副标题：已结束"这种自相矛盾的中间态。
-  // userEndedRef 让断连 useEffect 跳过 ?mode=interrupt POST，否则会把刚刚
-  // final 的轮次又改回 interrupted。
-  // Sync-flush completed state and latch the auto-rejoin guard *before*
-  // session.end() to prevent the brief "recovering" UI flash. userEndedRef
-  // suppresses the interrupt POST in the disconnect handler.
+  // Persist the terminal state before disconnecting; feedback retries a failed write.
   const handleEndInterview = useCallback(async () => {
     userEndedRef.current = true;
     setRoundStatus("completed");
     setAutoRejoinTriggered(true);
     try {
-      await rpc.api.interview[":id"][":roundId"].complete.$post(
-        { param: { id: interviewId, roundId }, query: { mode: "final" } },
-        { init: { keepalive: true } },
-      );
+      await persistCompletion("final");
     } catch {
-      // 上报失败不阻断 session.end —— agent 端 grace 超时仍会兜底落 completed。
-      // Report failure must not block teardown; agent's grace timeout finalises.
+      toast.error("面试已结束，结束状态暂未同步。提交反馈时将自动重试。");
     }
     await session.end();
-  }, [interviewId, roundId, session]);
+  }, [persistCompletion, session]);
 
   // isRecovering 决定 WaitingView 是否展示「正在恢复连接」。已结束态强制 false，
   // 避免主动结束流程出现「标题：恢复中 / 副标题：已结束」自相矛盾的中间帧。
@@ -687,31 +687,31 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
 
   const handleSubmitFeedback = useCallback(
     async (input: CandidateInterviewFeedbackInput) => {
-      try {
-        const { feedback } = await rpcFetch(
-          rpc.api.interview[":id"][":roundId"].feedback.$post({
+      if (userEndedRef.current || agentEndedRef.current) {
+        await persistCompletion(userEndedRef.current ? "final" : "agent");
+      }
+      const { feedback } = await rpcFetch(
+        rpc.api.interview[":id"][":roundId"].feedback.$post(
+          {
             json: input,
             param: { id: interviewId, roundId },
-          }),
-          "提交反馈失败，请重试。",
-        );
-        setInterviewView((current) =>
-          current ? { ...current, currentRoundFeedback: feedback } : current,
-        );
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 409) {
-          void loadEntryData();
-        }
-        throw error;
-      }
+          },
+          { init: { signal: AbortSignal.timeout(15_000) } },
+        ),
+        "提交反馈失败，请重试。",
+      );
+      setInterviewView((current) =>
+        current ? { ...current, currentRoundFeedback: feedback } : current,
+      );
     },
-    [interviewId, loadEntryData, roundId],
+    [interviewId, persistCompletion, roundId],
   );
 
   if (isDisconnected || isConnecting) {
     const hasForms = (formsPayload?.required.length ?? 0) > 0;
     const waitingView = (
       <WaitingView
+        roundId={roundId}
         hasForms={hasForms}
         interviewView={interviewView}
         isConnecting={isConnecting}
@@ -746,7 +746,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   return (
     <AgentSessionProvider session={session}>
       <div className="fixed top-4 left-4 z-20">
-        <AgentSpeechTimer />
+        <AgentSpeechTimer key={room.name} roomName={room.name} storageKey={resumeStorageKey} />
       </div>
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />

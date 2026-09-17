@@ -1,12 +1,17 @@
+import { ScreeningAdvanceActions } from "./screening-advance-actions";
+import { findEffectiveAiRound } from "./effective-ai-round";
+import { RecruitingNodeActions } from "./recruiting-node-actions";
 /* oxlint-disable complexity -- header builder composes title, tabs, action bar, and layout classes. */
-"use client";
 
-import { IconExternalLink, IconRobot } from "@tabler/icons-react";
+import { IconExternalLink, IconRobot, IconRefresh } from "@tabler/icons-react";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
 } from "@app/shared/studio-interview-rounds";
-import { canLaunchInterviewFromResume } from "@app/shared/studio-resumes";
+import {
+  canLaunchInterviewFromResume,
+  getHumanInterviewProgressForStage,
+} from "@app/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
 import type { QueryClient } from "@tanstack/react-query";
@@ -14,13 +19,13 @@ import type { ReactNode } from "react";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { RecruitingActionButton as Button } from "./recruiting-action-button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
+import { canShowHumanInterviewScheduleAction } from "./human-interview-stage-utils";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import {
@@ -29,6 +34,7 @@ import {
   shouldShowAiInterviewTab,
   shouldShowHumanInterviewTab,
   shouldShowOfferTab,
+  shouldShowOnboardingTab,
 } from "./studio-person-detail-model";
 import type {
   StudioPersonDetailLayoutMode,
@@ -54,6 +60,9 @@ export interface BuildStudioPersonDetailHeaderParams {
   isRoundsLoading: boolean;
   layoutMode: StudioPersonDetailLayoutMode;
   mode: StudioPersonDetailMode;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  onInterviewStageReady: (target: PipelineStage) => void;
   onAdvancePipelineStage: (target: PipelineStage) => Promise<void>;
   onClose?: () => void;
   onLaunchInterview?: (candidate: { candidateName: string | null; id: string }) => void;
@@ -69,7 +78,11 @@ export interface BuildStudioPersonDetailHeaderParams {
   round: StudioInterviewRoundDetail | null | undefined;
   showAgentInstructions: boolean;
   slug: string;
-  tabVisibilityRecord: { pipelineStage?: PipelineStage } | null;
+  tabVisibilityRecord: {
+    pipelineStage?: PipelineStage;
+    closedFromNode?: string | null;
+    hasInitialInterview?: boolean;
+  } | null;
 }
 
 export interface StudioPersonDetailHeaderResult {
@@ -101,7 +114,10 @@ export function buildStudioPersonDetailHeader({
   isRoundsLoading,
   layoutMode,
   mode,
+  isRefreshing,
+  onRefresh,
   onAdvancePipelineStage,
+  onInterviewStageReady,
   onClose,
   onLaunchInterview,
   onNavigateToInterviews,
@@ -122,18 +138,24 @@ export function buildStudioPersonDetailHeader({
     canUseManagementActions &&
     (mode !== "resume" || !record?.resumeParseStatus
       ? true
-      : canLaunchInterviewFromResume(record.resumeParseStatus));
+      : canLaunchInterviewFromResume(
+          record.resumeParseStatus,
+          record.pipelineStage,
+          resumeRecord?.resumeEvaluationStatus ?? null,
+        ));
   const showLaunchButton =
     mode === "resume" &&
-    record?.pipelineStage === "screening" &&
+    record?.pipelineStage === "ai_interview" &&
     canLaunchResumeModeRecord &&
     !isRoundsLoading &&
-    candidateRounds.length === 0;
+    !resumeRecord?.nodeStates.some(
+      (node) => node.node === "ai_interview" && node.effectiveAiRoundId,
+    );
   const launchResumeModeDisabledReason =
-    showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI 面试" : null;
+    showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI初面" : null;
   const launchResumeModeButtonContent = showLaunchButton ? (
     <Button
-      aria-disabled={Boolean(launchResumeModeDisabledReason)}
+      disabledReason={launchResumeModeDisabledReason}
       className={cn(launchResumeModeDisabledReason && "opacity-50")}
       size="sm"
       onClick={() => {
@@ -157,19 +179,11 @@ export function buildStudioPersonDetailHeader({
       type="button"
     >
       <IconRobot className="size-4" />
-      发起 AI 面试
+      发起 AI初面
       {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
-  const launchResumeModeButton =
-    launchResumeModeButtonContent && launchResumeModeDisabledReason ? (
-      <Tooltip>
-        <TooltipTrigger render={launchResumeModeButtonContent} />
-        <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
-      </Tooltip>
-    ) : (
-      launchResumeModeButtonContent
-    );
+  const launchResumeModeButton = launchResumeModeButtonContent;
 
   const cachedResumeCandidateName =
     mode === "resume" ? findCachedResumeCandidateName(queryClient, effectiveRecordId) : null;
@@ -212,8 +226,17 @@ export function buildStudioPersonDetailHeader({
     const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
+  const currentHumanInterviewProgress =
+    resumeRecord &&
+    (resumeRecord.pipelineStage === "second_interview" ||
+      resumeRecord.pipelineStage === "final_interview")
+      ? getHumanInterviewProgressForStage(
+          resumeRecord.stageProgress.humanInterview,
+          resumeRecord.pipelineStage,
+        )
+      : null;
 
-  const actionBarAiRound = candidateRounds.at(-1);
+  const actionBarAiRound = findEffectiveAiRound(candidateRounds, resumeRecord?.nodeStates);
   const actionBar =
     mode === "resume" &&
     record &&
@@ -222,13 +245,13 @@ export function buildStudioPersonDetailHeader({
     record.outcome ? (
       <PipelineStageActionBar
         humanInterviewDone={Boolean(
-          resumeRecord?.stageProgress.humanInterview &&
-          resumeRecord.stageProgress.humanInterview.totalRounds > 0 &&
-          resumeRecord.stageProgress.humanInterview.activeRound === null,
+          currentHumanInterviewProgress &&
+          currentHumanInterviewProgress.totalRounds > 0 &&
+          currentHumanInterviewProgress.activeRound === null,
         )}
         humanInterviewFeedbackComplete={Boolean(
-          resumeRecord?.stageProgress.humanInterview &&
-          resumeRecord.stageProgress.humanInterview.completedRoundsMissingFeedback === 0,
+          currentHumanInterviewProgress &&
+          currentHumanInterviewProgress.completedRoundsMissingFeedback === 0,
         )}
         aiRoundInterviewLink={
           layoutMode === "page" &&
@@ -256,8 +279,13 @@ export function buildStudioPersonDetailHeader({
               }
             : undefined
         }
-        canCreateHumanInterview={canCreateHumanInterview}
+        canCreateHumanInterview={actionBarPipelineStage !== "screening" && canCreateHumanInterview}
         canCreateOffer={canCreateOffer}
+        currentNodePassed={
+          resumeRecord?.nodeResult === "pass" ||
+          (actionBarPipelineStage === "ai_interview" &&
+            resumeRecord?.stageProgress.initialInterview?.latestStatus === "ready")
+        }
         hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}
         onAdvance={onAdvancePipelineStage}
         onRequestClose={() =>
@@ -269,16 +297,41 @@ export function buildStudioPersonDetailHeader({
         onViewCurrentStage={onViewCurrentStage}
         pipelineStage={actionBarPipelineStage}
         primaryAction={
-          actionBarPipelineStage === "human_interview" &&
-          canCreateHumanInterview &&
-          canReadHumanInterview ? (
-            <ScheduleHumanInterviewButton
-              candidateId={record.id}
-              candidateName={record.candidateName}
-            />
-          ) : (
-            launchResumeModeButton
-          )
+          <>
+            {actionBarPipelineStage === "screening" && resumeRecord ? (
+              <ScreeningAdvanceActions
+                onAdvanced={onInterviewStageReady}
+                key={`screening:${resumeRecord.id}:${resumeRecord.version}`}
+                record={resumeRecord}
+              />
+            ) : null}
+            {resumeRecord &&
+              canUpdateInterview &&
+              (canCreateOffer ||
+                ![
+                  "income_proof",
+                  "salary_negotiation",
+                  "offer",
+                  "background_check",
+                  "onboarding",
+                ].includes(actionBarPipelineStage)) && (
+                <RecruitingNodeActions key={`node:${resumeRecord.id}`} record={resumeRecord} />
+              )}
+            {canShowHumanInterviewScheduleAction(
+              actionBarPipelineStage,
+              canCreateHumanInterview,
+              canReadHumanInterview,
+            ) ? (
+              <ScheduleHumanInterviewButton
+                onScheduled={() => onInterviewStageReady(actionBarPipelineStage)}
+                targetStage={actionBarPipelineStage}
+                candidateId={record.id}
+                candidateName={record.candidateName}
+              />
+            ) : (
+              actionBarPipelineStage !== "screening" && launchResumeModeButton
+            )}
+          </>
         }
       />
     ) : null;
@@ -287,52 +340,76 @@ export function buildStudioPersonDetailHeader({
   const floatingActionBar = layoutMode === "page" ? actionBar : null;
 
   const headerControls = record ? (
-    <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <TabsList className="mt-0 w-full sm:w-auto">
-        <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
-          {mode === "interview" ? "结果" : "概览"}
-        </TabsTrigger>
-        {mode === "interview" ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
-            经历
+    <div className="mt-2 flex flex-col gap-3">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <TabsList className="mt-0 w-full sm:w-auto">
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
+            {mode === "interview" ? "结果" : "概览"}
           </TabsTrigger>
-        ) : null}
-        {mode === "resume" ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-            AI评价
-          </TabsTrigger>
-        ) : null}
-        {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
-            AI 面试
-          </TabsTrigger>
-        ) : null}
-        {mode === "resume" &&
-        shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
-            真人复面
-          </TabsTrigger>
-        ) : null}
-        {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
-            Offer
-          </TabsTrigger>
-        ) : null}
-        {showAgentInstructions ? (
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
-            Agent 提示词
-          </TabsTrigger>
-        ) : null}
-      </TabsList>
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-        {headerActionBar}
-        <ResumeDocumentPreviewButton
-          className="w-full sm:w-auto"
-          disabled={!record.hasResumeFile}
-          filename={record.resumeFileName ?? undefined}
-          label="预览简历"
-          url={resumePreviewUrl}
-        />
+          {mode === "interview" ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
+              经历
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+              AI评价
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
+              AI初面
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" &&
+          shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
+              真人面试
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
+              Offer
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" && shouldShowOnboardingTab(tabVisibilityRecord) ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="onboarding">
+              入职办理
+            </TabsTrigger>
+          ) : null}
+          {showAgentInstructions ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+              Agent 提示词
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {headerActionBar}
+          <div className="flex items-center gap-2">
+            <ResumeDocumentPreviewButton
+              className="flex-1 sm:flex-none"
+              disabled={!record.hasResumeFile}
+              filename={record.resumeFileName ?? undefined}
+              label="预览简历"
+              url={resumePreviewUrl}
+            />
+            {mode === "resume" && (
+              <Button
+                className="h-8 shrink-0 gap-1.5"
+                size="sm"
+                variant="ghost"
+                isLoading={isRefreshing}
+                onClick={onRefresh}
+              >
+                <IconRefresh
+                  className={cn("size-3.5", isRefreshing && "animate-spin")}
+                  data-icon="inline-start"
+                />
+                {isRefreshing ? "刷新中…" : "刷新信息"}
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   ) : null;

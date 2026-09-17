@@ -5,6 +5,10 @@ import {
   pipelineStageMeta,
   pipelineStageSchema,
   resumeEvaluationStatusSchema,
+  recruitingNodeStatusSchema,
+  recruitingNodeStatusMeta,
+  recruitingNodeResultSchema,
+  recruitingNodeResultMeta,
 } from "@app/db-schema/studio-interviews";
 import type { CandidateTimelineEventTone } from "@app/shared/studio-resumes";
 import { describeResumeEvaluationStatus } from "@app/shared/studio-resumes";
@@ -23,19 +27,24 @@ const auditDetailSchema = z
     fromJobDescriptionId: optionalAuditStringSchema,
     fromJobDescriptionName: optionalAuditStringSchema,
     fromStage: optionalAuditStringSchema,
-    fromStatus: resumeEvaluationStatusSchema.nullable().optional(),
+    fromStatus: optionalAuditStringSchema,
+    node: optionalAuditStringSchema,
     outcome: optionalAuditStringSchema,
     position: optionalAuditStringSchema,
     questionCount: optionalAuditNumberSchema,
     reactivationReason: optionalAuditStringSchema,
     reason: optionalAuditStringSchema,
+    reasonCode: optionalAuditStringSchema,
     response: optionalAuditStringSchema,
+    result: optionalAuditStringSchema,
     roundLabel: optionalAuditStringSchema,
+    skippedNodes: z.array(z.string()).nullish(),
+    status: optionalAuditStringSchema,
     toJobDescriptionId: optionalAuditStringSchema,
     toJobDescriptionName: optionalAuditStringSchema,
     toOutcome: optionalAuditStringSchema,
     toStage: optionalAuditStringSchema,
-    toStatus: resumeEvaluationStatusSchema.nullable().optional(),
+    toStatus: optionalAuditStringSchema,
     turnCount: optionalAuditNumberSchema,
     version: optionalAuditNumberSchema,
   })
@@ -44,6 +53,11 @@ const auditDetailSchema = z
 type AuditDetail = z.output<typeof auditDetailSchema>;
 
 const AUDIT_TITLES = new Map([
+  ["recruiting_evaluation_invalidated", "历史简历分析已失效"],
+  ["recruiting_node_advanced", "招聘阶段推进"],
+  ["recruiting_node_updated", "招聘节点更新"],
+  ["recruiting_reopened", "招聘流程回退／重新激活"],
+  ["recruiting_closed", "招聘流程已结束"],
   ["agent_report_received", "AI 报告已接收"],
   ["ai_interview_launched", "发起 AI 面试"],
   ["context_snapshot_refresh", "上下文已刷新"],
@@ -54,10 +68,28 @@ const AUDIT_TITLES = new Map([
   ["interview_questions_drafted", "面试题草稿已生成"],
   ["job_description_changed", "关联岗位已变更"],
   ["offer_draft_cancelled", "Offer 已撤回"],
+  ["offer_draft_deleted", "Offer 已删除"],
   ["offer_draft_created", "创建 Offer"],
   ["offer_draft_responded", "候选人回复 Offer"],
   ["offer_draft_sent", "Offer 已发送"],
   ["offer_draft_updated", "更新 Offer"],
+  ["offer_published", "Offer 已发布"],
+  ["offer_email_send_requested", "请求发送 Offer 邮件"],
+  ["offer_email_sent", "Offer 邮件已发送"],
+  ["offer_email_send_failed", "Offer 邮件发送失败"],
+  ["offer_link_copied", "复制 Offer 链接"],
+  ["offer_link_accessed", "访问 Offer 链接"],
+  ["offer_link_revoked", "Offer 链接已作废"],
+  ["offer_accepted_by_candidate", "候选人接受 Offer"],
+  ["offer_declined_by_candidate", "候选人拒绝 Offer"],
+  ["offer_response_recorded_by_hr", "HR 记录 Offer 响应"],
+  ["background_check_collection_created", "创建背调信息采集"],
+  ["background_check_email_send_requested", "请求发送背调信息采集邮件"],
+  ["background_check_email_sent", "背调信息采集邮件已发送"],
+  ["background_check_email_send_failed", "背调信息采集邮件发送失败"],
+  ["background_check_link_copied", "复制背调信息采集链接"],
+  ["background_check_link_accessed", "访问背调信息采集链接"],
+  ["background_check_submitted_by_candidate", "候选人提交背调信息"],
   ["resume_evaluation_reset_for_job_change", "简历评估已重置"],
   ["resume_evaluation_submitted", "简历评估已提交"],
   ["resume_evaluation_updated", "简历评估状态变更"],
@@ -65,18 +97,25 @@ const AUDIT_TITLES = new Map([
 ]);
 
 export function stageLabel(value: string | undefined): string {
+  if (value === "human_interview") {
+    return "真人面试";
+  }
+  if (value === "written_test") {
+    return "笔试";
+  }
   const result = pipelineStageSchema.safeParse(value);
   return result.success ? pipelineStageMeta[result.data].label : "未知阶段";
 }
 
 function outcomeLabel(value: string | undefined): string {
+  if (value === "hired") {
+    return "已入职";
+  }
   const result = candidateOutcomeSchema.safeParse(value);
   return result.success ? candidateOutcomeMeta[result.data].label : "进行中";
 }
 
-function resumeEvaluationLabel(
-  value: z.input<typeof resumeEvaluationStatusSchema> | null | undefined,
-): string {
+function resumeEvaluationLabel(value: string | null | undefined): string {
   const result = resumeEvaluationStatusSchema.nullable().safeParse(value);
   return result.success ? describeResumeEvaluationStatus(result.data).label : "未知状态";
 }
@@ -89,12 +128,73 @@ function jobDescriptionChangeLabel(
   return detail[nameKey]?.trim() || detail[idKey]?.trim() || "未绑定岗位";
 }
 
+const CLOSE_REASON_LABELS = new Map([
+  ["background_check_failed", "背调异常"],
+  ["candidate_withdrew", "候选人放弃"],
+  ["interview_failed", "面试淘汰"],
+  ["offer_declined", "候选人拒绝 Offer"],
+  ["onboarded", "已入职"],
+  ["onboarding_no_show", "候选人爽约"],
+  ["other", "其他原因"],
+  ["position_closed", "岗位关闭"],
+  ["resume_rejected", "简历淘汰"],
+  ["salary_disagreement", "谈薪失败"],
+]);
+function decisionLabel(value: string): string {
+  const parsed = recruitingNodeResultSchema.safeParse(value);
+  return parsed.success ? recruitingNodeResultMeta[parsed.data].label : "待确认";
+}
+function offerResponseLabel(value: string | undefined): string {
+  if (value === "accepted") {
+    return "已接受";
+  }
+  if (value === "declined") {
+    return "已拒绝";
+  }
+  if (value === "counter") {
+    return "继续谈薪";
+  }
+  return "已响应";
+}
+function pipelineDescription(detail: AuditDetail, action: string): string | null {
+  const reason = detail.reason ? `，原因：${detail.reason}` : "";
+  if (action === "recruiting_evaluation_invalidated") {
+    return "关联岗位变更，历史简历分析已失效，等待重新评估";
+  }
+  if (action === "recruiting_node_advanced") {
+    const skipped = detail.skippedNodes?.length
+      ? `，跳过：${detail.skippedNodes.map(stageLabel).join("、")}`
+      : "";
+    return `${stageLabel(detail.fromStage)} → ${stageLabel(detail.toStage)}${skipped}${reason}`;
+  }
+  if (action === "recruiting_reopened") {
+    return `${stageLabel(detail.fromStage)} → ${stageLabel(detail.toStage)}，恢复为待处理${reason}`;
+  }
+  if (action === "recruiting_closed") {
+    const closeReason = detail.reasonCode ? CLOSE_REASON_LABELS.get(detail.reasonCode) : undefined;
+    return `${stageLabel(detail.fromStage)} → 已结束，结论：${outcomeLabel(detail.toOutcome)}${closeReason && closeReason !== outcomeLabel(detail.toOutcome) ? `（${closeReason}）` : ""}${reason}`;
+  }
+  if (action === "recruiting_node_updated") {
+    const status = recruitingNodeStatusSchema.safeParse(detail.status);
+    let label = status.success ? recruitingNodeStatusMeta[status.data].label : "状态已更新";
+    if (detail.result) {
+      label = decisionLabel(detail.result);
+    }
+    return `${stageLabel(detail.node ?? detail.toStage)}：${label}${reason}`;
+  }
+  return null;
+}
+
 // oxlint-disable-next-line complexity -- Audit copy stays centralized by action.
 export function auditDescription(
   detailInput: z.input<typeof auditDetailSchema>,
   action: string,
 ): string | null {
   const detail = auditDetailSchema.parse(detailInput);
+  const pipeline = pipelineDescription(detail, action);
+  if (pipeline) {
+    return pipeline;
+  }
   if (action === "candidate_transition") {
     const from = stageLabel(detail.fromStage);
     const to = stageLabel(detail.toStage);
@@ -148,7 +248,7 @@ export function auditDescription(
     }
     if (action === "human_interview_round_completed") {
       return detail.outcome
-        ? `完成真人复面：${label}，结果：${detail.outcome}`
+        ? `完成真人复面：${label}，结果：${decisionLabel(detail.outcome)}`
         : `完成真人复面：${label}`;
     }
     if (action === "human_interview_round_cancelled") {
@@ -157,22 +257,77 @@ export function auditDescription(
     }
   }
   if (action.startsWith("offer_draft_")) {
-    const version = detail.version === undefined ? "" : ` v${detail.version}`;
     if (action === "offer_draft_created") {
-      return `创建 Offer${version}：${detail.position ?? "Offer"}`;
+      return `创建 Offer：${detail.position ?? "Offer"}`;
     }
     if (action === "offer_draft_updated") {
-      return `更新 Offer${version}`;
+      return `更新 Offer`;
     }
     if (action === "offer_draft_sent") {
-      return `发送 Offer${version}`;
+      return `发送 Offer`;
     }
     if (action === "offer_draft_responded") {
-      return `记录候选人 Offer${version} 回复：${detail.response ?? "已响应"}`;
+      return `记录候选人 Offer 回复：${offerResponseLabel(detail.response)}`;
+    }
+    if (action === "offer_draft_deleted") {
+      return "删除 Offer";
     }
     if (action === "offer_draft_cancelled") {
-      return `撤回 Offer${version}`;
+      return `撤回 Offer`;
     }
+  }
+  if (action === "offer_published") {
+    return `发布 Offer：${detail.position ?? "Offer"}`;
+  }
+  if (action === "offer_email_send_requested") {
+    return `准备向 ${String(detail.to ?? "候选人")} 发送 Offer 邮件`;
+  }
+  if (action === "offer_email_sent") {
+    return `已向 ${String(detail.to ?? "候选人")} 发送 Offer 邮件`;
+  }
+  if (action === "offer_email_send_failed") {
+    return `Offer 邮件发送失败：${String(detail.error ?? "未知原因")}`;
+  }
+  if (action === "offer_link_copied") {
+    return "HR 已复制 Offer 链接";
+  }
+  if (action === "offer_link_accessed") {
+    return "Offer 链接已被访问";
+  }
+  if (action === "offer_link_revoked") {
+    return `旧 Offer 链接已作废并生成新链接${detail.reason ? `，原因：${detail.reason}` : ""}`;
+  }
+  if (action === "offer_accepted_by_candidate") {
+    return "候选人在线接受 Offer";
+  }
+  if (action === "offer_declined_by_candidate") {
+    return detail.declineReason
+      ? `候选人在线拒绝 Offer，原因：${String(detail.declineReason)}`
+      : "候选人在线拒绝 Offer";
+  }
+  if (action === "offer_response_recorded_by_hr") {
+    return `HR 手动记录候选人 Offer 回复：${offerResponseLabel(detail.response)}`;
+  }
+  if (action === "background_check_collection_created") {
+    return "已生成候选人背景调查信息采集链接";
+  }
+  if (action === "background_check_email_send_requested") {
+    return `准备向 ${String(detail.to ?? "候选人")} 发送背调信息采集邮件`;
+  }
+  if (action === "background_check_email_sent") {
+    return `已向 ${String(detail.to ?? "候选人")} 发送背调信息采集邮件`;
+  }
+  if (action === "background_check_email_send_failed") {
+    return `背调信息采集邮件发送失败：${String(detail.error ?? "未知原因")}`;
+  }
+  if (action === "background_check_link_copied") {
+    return "HR 已复制背调信息采集链接";
+  }
+  if (action === "background_check_link_accessed") {
+    return "候选人已打开背景调查信息采集页面";
+  }
+  if (action === "background_check_submitted_by_candidate") {
+    return "候选人已在线提交背景调查信息，等待 HR 确认结果";
   }
   if (action === "context_snapshot_refresh") {
     return "刷新 AI 面试上下文";
@@ -197,35 +352,65 @@ export function auditTitle(
   return AUDIT_TITLES.get(action) ?? "系统操作";
 }
 
-export function auditTone(action: string): CandidateTimelineEventTone {
-  if (
-    action === "agent_report_received" ||
-    action === "interview_questions_drafted" ||
-    action === "human_interview_round_completed"
-  ) {
+function resultTone(
+  value: string | undefined,
+  fallback: CandidateTimelineEventTone,
+): CandidateTimelineEventTone {
+  if (["hired", "pass", "accepted"].includes(value ?? "")) {
+    return "success";
+  }
+  if (["rejected", "fail", "declined"].includes(value ?? "")) {
+    return "danger";
+  }
+  return fallback;
+}
+
+export function auditTone(
+  action: string,
+  detailInput: z.input<typeof auditDetailSchema> = {},
+): CandidateTimelineEventTone {
+  const detail = auditDetailSchema.parse(detailInput);
+  if (action === "recruiting_closed") {
+    return resultTone(detail.toOutcome, "warning");
+  }
+  if (action === "recruiting_node_updated") {
+    return resultTone(detail.result, "info");
+  }
+  if (action === "human_interview_round_completed") {
+    return resultTone(detail.outcome, "success");
+  }
+  if (["offer_draft_responded", "offer_response_recorded_by_hr"].includes(action)) {
+    return resultTone(detail.response, "info");
+  }
+  if (action === "offer_accepted_by_candidate") {
+    return "success";
+  }
+  if (["background_check_email_sent", "background_check_submitted_by_candidate"].includes(action)) {
+    return "success";
+  }
+  if (action === "background_check_email_send_failed") {
+    return "danger";
+  }
+  if (["offer_declined_by_candidate", "offer_email_send_failed"].includes(action)) {
+    return "danger";
+  }
+  if (["agent_report_received", "interview_questions_drafted"].includes(action)) {
     return "success";
   }
   if (
-    action === "round_reset" ||
-    action === "resume_evaluation_reset_for_job_change" ||
-    action === "offer_draft_cancelled"
+    [
+      "recruiting_reopened",
+      "recruiting_evaluation_invalidated",
+      "round_reset",
+      "resume_evaluation_reset_for_job_change",
+      "offer_draft_cancelled",
+      "offer_link_revoked",
+    ].includes(action)
   ) {
     return "warning";
   }
   if (action === "human_interview_round_cancelled") {
     return "muted";
   }
-  if (
-    action === "candidate_transition" ||
-    action === "ai_interview_launched" ||
-    action === "resume_evaluation_submitted" ||
-    action === "resume_evaluation_updated" ||
-    action === "job_description_changed" ||
-    action.startsWith("human_interview_round_") ||
-    action.startsWith("offer_draft_") ||
-    action === "context_snapshot_refresh"
-  ) {
-    return "info";
-  }
-  return "muted";
+  return AUDIT_TITLES.has(action) || action === "candidate_transition" ? "info" : "muted";
 }

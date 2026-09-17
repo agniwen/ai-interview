@@ -1,11 +1,15 @@
+import { meetingRecordingType } from "./recording-type";
 /* oxlint-disable max-lines -- lifecycle commands and the two-phase purge state machine share transactional invariants. */
 import { and, asc, count, desc, eq, ilike, isNotNull, sql } from "drizzle-orm";
-import { createMeetingPurgeDao } from "@app/meeting-processing/purge";
+import {
+  assertMeetingRecruitingReferences,
+  createMeetingPurgeDao,
+} from "@app/meeting-processing/purge";
 import { buildOrderBy } from "../../../lib/server/db/pagination";
 import { db } from "../../../lib/server/db/index";
 import {
   meetingAuditLog,
-  meetingRecruitingContext,
+  recruitingMeetingContext,
   meetingSearchProjection,
   meetingSession,
   member,
@@ -120,8 +124,8 @@ export async function trashMeetingSession(input: {
       .where(eq(meetingSession.id, input.meetingId));
     await Promise.all([
       tx
-        .delete(meetingRecruitingContext)
-        .where(eq(meetingRecruitingContext.meetingId, input.meetingId)),
+        .delete(recruitingMeetingContext)
+        .where(eq(recruitingMeetingContext.meetingId, input.meetingId)),
       tx
         .delete(meetingSearchProjection)
         .where(eq(meetingSearchProjection.meetingId, input.meetingId)),
@@ -167,6 +171,7 @@ export async function listTrashedMeetingSessions(
     const where = and(
       eq(meetingSession.organizationId, input.organizationId),
       eq(meetingSession.status, "trashed"),
+      eq(meetingRecordingType, "voice_recording"),
       isNotNull(meetingSession.purgeAfter),
       isNotNull(meetingSession.trashedAt),
       administrator
@@ -285,13 +290,14 @@ export async function requestMeetingPurge(input: {
   meetingId: string;
   now?: Date;
   organizationId: string;
-}): Promise<{ state: "forbidden" | "not-found" | "purging" }> {
+}): Promise<{ state: "forbidden" | "not-found" | "purging"; processingOwner?: string }> {
   const now = input.now ?? new Date();
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
         custodianId: meetingSession.custodianId,
         ownerId: meetingSession.ownerId,
+        processingOwner: meetingSession.processingOwner,
         status: meetingSession.status,
         trashedAt: meetingSession.trashedAt,
         trashedFromStatus: meetingSession.trashedFromStatus,
@@ -312,8 +318,9 @@ export async function requestMeetingPurge(input: {
     if (lifecycleAuthorization(meeting, currentMember, input.actorId) === "forbidden") {
       return { state: "forbidden" } as const;
     }
+    await assertMeetingRecruitingReferences(tx, input.meetingId);
     if (meeting.status === "purging") {
-      return { state: "purging" } as const;
+      return { processingOwner: meeting.processingOwner, state: "purging" } as const;
     }
     if (meeting.status !== "trashed" && !isTrashableStatus(meeting.status)) {
       return { state: "not-found" } as const;
@@ -326,19 +333,23 @@ export async function requestMeetingPurge(input: {
     await tx
       .update(meetingSession)
       .set({
+        intelligenceRunId: null,
+        processingEpoch: sql`${meetingSession.processingEpoch} + 1`,
+        processingRunId: null,
         purgeAfter,
         purgeClaimToken: null,
         purgeInitialSweepCompletedAt: null,
         purgeLeaseExpiresAt: null,
         status: "purging",
+        transcriptionRunId: null,
         trashedAt: meeting.trashedAt ?? now,
         trashedFromStatus: previousStatus,
       })
       .where(eq(meetingSession.id, input.meetingId));
     await Promise.all([
       tx
-        .delete(meetingRecruitingContext)
-        .where(eq(meetingRecruitingContext.meetingId, input.meetingId)),
+        .delete(recruitingMeetingContext)
+        .where(eq(recruitingMeetingContext.meetingId, input.meetingId)),
       tx
         .delete(meetingSearchProjection)
         .where(eq(meetingSearchProjection.meetingId, input.meetingId)),
@@ -354,36 +365,25 @@ export async function requestMeetingPurge(input: {
       meetingId: input.meetingId,
       organizationId: input.organizationId,
     });
-    return { state: "purging" } as const;
+    return { processingOwner: meeting.processingOwner, state: "purging" } as const;
   });
 }
 
-// Tells a recording device to delete local recovery data once either the live row or its tombstone proves purge intent.
-// 当活动记录或 tombstone 已确认清理意图时，通知录制设备删除本地恢复数据。
+// Echo releases local data only after the cloud tombstone confirms completed cleanup.
 export async function loadMeetingLocalRecoveryDirective(input: {
   actorId: string;
   manifestSha256: string;
   meetingId: string;
 }): Promise<"delete" | "retain"> {
-  const [meeting, tombstone] = await Promise.all([
-    db.query.meetingSession.findFirst({
-      columns: { status: true },
-      where: {
-        id: input.meetingId,
-        manifestSha256: input.manifestSha256,
-        ownerId: input.actorId,
-      },
-    }),
-    db.query.meetingPurgeTombstone.findFirst({
-      columns: { meetingId: true },
-      where: {
-        manifestSha256: input.manifestSha256,
-        meetingId: input.meetingId,
-        ownerId: input.actorId,
-      },
-    }),
-  ]);
-  return meeting?.status === "purging" || tombstone ? "delete" : "retain";
+  const tombstone = await db.query.meetingPurgeTombstone.findFirst({
+    columns: { meetingId: true },
+    where: {
+      manifestSha256: input.manifestSha256,
+      meetingId: input.meetingId,
+      ownerId: input.actorId,
+    },
+  });
+  return tombstone ? "delete" : "retain";
 }
 
 export async function recordMeetingLocalRecoveryCleanup(input: {

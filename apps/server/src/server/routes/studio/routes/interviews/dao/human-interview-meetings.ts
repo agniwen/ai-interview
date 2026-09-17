@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -5,13 +6,14 @@ import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
+  globalConfig,
   jobDescription,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioHumanInterviewRoundInterviewer,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
+  organization,
   user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewMeetingInput } from "@app/db-schema/studio-interviews";
@@ -39,7 +41,10 @@ import {
   applyHumanInterviewMeetingLifecycleEvent,
   forceEndHumanInterviewMeeting,
 } from "./human-interview-meeting-lifecycle";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import {
+  enqueueHumanMeetingEvents,
+  resolveInterviewNotificationCompanyName,
+} from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 
 export {
@@ -48,7 +53,7 @@ export {
   isHumanInterviewMeetingBeforeScheduledStart,
 } from "./human-interview-meeting-access";
 
-type MeetingRow = typeof studioHumanInterviewMeeting.$inferSelect;
+type MeetingRow = typeof humanInterviewMeeting.$inferSelect;
 const serializeDate = (value: Date | null): string | null => value?.toISOString() ?? null;
 
 function toRecord({
@@ -61,10 +66,12 @@ function toRecord({
   interviewers: HumanInterviewMeetingRecord["interviewers"];
 }): HumanInterviewMeetingRecord {
   return {
+    attendanceAlertedAt: serializeDate(meeting.attendanceAlertedAt),
     cancelledAt: serializeDate(meeting.cancelledAt),
     createdAt: serializeDate(meeting.createdAt) ?? new Date().toISOString(),
     createdBy: meeting.createdBy,
     endedAt: serializeDate(meeting.endedAt),
+    establishedAt: serializeDate(meeting.establishedAt),
     feishu:
       meeting.feishuProviderId && meeting.feishuSyncStatus
         ? {
@@ -108,41 +115,41 @@ async function hydrateMeetings(meetings: MeetingRow[]): Promise<HumanInterviewMe
   const meetingIds = meetings.map((m) => m.id);
   const roundRows = await db
     .select({
-      candidateInviteExpiresAt: studioHumanInterviewMeetingRound.candidateInviteExpiresAt,
-      candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-      candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
-      candidateName: studioInterview.candidateName,
-      interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-      joinedAt: studioHumanInterviewMeetingRound.joinedAt,
-      label: studioHumanInterviewRound.label,
-      leftAt: studioHumanInterviewMeetingRound.leftAt,
-      meetingId: studioHumanInterviewMeetingRound.meetingId,
-      roundId: studioHumanInterviewMeetingRound.roundId,
-      sortOrder: studioHumanInterviewRound.sortOrder,
-      status: studioHumanInterviewRound.status,
+      candidateInviteExpiresAt: humanInterviewMeetingRound.candidateInviteExpiresAt,
+      candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+      candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
+      candidateName: recruitingRecordReadModel.candidateName,
+      interviewRecordId: humanInterviewRound.recruitingRecordId,
+      joinedAt: humanInterviewMeetingRound.joinedAt,
+      label: humanInterviewRound.label,
+      leftAt: humanInterviewMeetingRound.leftAt,
+      meetingId: humanInterviewMeetingRound.meetingId,
+      roundId: humanInterviewMeetingRound.roundId,
+      sortOrder: humanInterviewRound.sortOrder,
+      status: humanInterviewRound.status,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
-    .where(inArray(studioHumanInterviewMeetingRound.meetingId, meetingIds))
-    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+    .where(inArray(humanInterviewMeetingRound.meetingId, meetingIds))
+    .orderBy(asc(humanInterviewRound.sortOrder));
 
   const interviewerRows = await db
     .select({
       image: user.image,
-      joinedAt: studioHumanInterviewMeetingInterviewer.joinedAt,
-      leftAt: studioHumanInterviewMeetingInterviewer.leftAt,
-      meetingId: studioHumanInterviewMeetingInterviewer.meetingId,
+      joinedAt: humanInterviewMeetingInterviewer.joinedAt,
+      leftAt: humanInterviewMeetingInterviewer.leftAt,
+      meetingId: humanInterviewMeetingInterviewer.meetingId,
       name: user.name,
-      role: studioHumanInterviewMeetingInterviewer.role,
+      role: humanInterviewMeetingInterviewer.role,
       userId: user.id,
     })
-    .from(studioHumanInterviewMeetingInterviewer)
-    .innerJoin(user, eq(studioHumanInterviewMeetingInterviewer.userId, user.id))
-    .where(inArray(studioHumanInterviewMeetingInterviewer.meetingId, meetingIds));
+    .from(humanInterviewMeetingInterviewer)
+    .innerJoin(user, eq(humanInterviewMeetingInterviewer.userId, user.id))
+    .where(inArray(humanInterviewMeetingInterviewer.meetingId, meetingIds));
 
   const roundsByMeeting = new Map<string, HumanInterviewMeetingRecord["rounds"]>();
   for (const row of roundRows) {
@@ -196,30 +203,24 @@ export async function listHumanInterviewMeetings({
   if (!interviewRecordId) {
     const meetings = await db
       .select()
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.organizationId, organizationId))
-      .orderBy(
-        asc(studioHumanInterviewMeeting.scheduledAt),
-        asc(studioHumanInterviewMeeting.createdAt),
-      );
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.organizationId, organizationId))
+      .orderBy(asc(humanInterviewMeeting.scheduledAt), asc(humanInterviewMeeting.createdAt));
     return hydrateMeetings(meetings);
   }
 
   const rows = await db
-    .select({ meetingId: studioHumanInterviewMeetingRound.meetingId })
-    .from(studioHumanInterviewMeetingRound)
+    .select({ meetingId: humanInterviewMeetingRound.meetingId })
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
-    )
-    .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
-        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewRound.recruitingRecordId, interviewRecordId),
       ),
     );
   const meetingIds = uniq(rows.map((row) => row.meetingId));
@@ -228,12 +229,9 @@ export async function listHumanInterviewMeetings({
   }
   const meetings = await db
     .select()
-    .from(studioHumanInterviewMeeting)
-    .where(inArray(studioHumanInterviewMeeting.id, meetingIds))
-    .orderBy(
-      asc(studioHumanInterviewMeeting.scheduledAt),
-      asc(studioHumanInterviewMeeting.createdAt),
-    );
+    .from(humanInterviewMeeting)
+    .where(inArray(humanInterviewMeeting.id, meetingIds))
+    .orderBy(asc(humanInterviewMeeting.scheduledAt), asc(humanInterviewMeeting.createdAt));
   return hydrateMeetings(meetings);
 }
 
@@ -243,11 +241,11 @@ export async function loadHumanInterviewMeetingById(
 ): Promise<HumanInterviewMeetingRecord | null> {
   const [meeting] = await db
     .select()
-    .from(studioHumanInterviewMeeting)
+    .from(humanInterviewMeeting)
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -273,17 +271,17 @@ export async function createHumanInterviewMeeting({
   });
 
   const existingLinks = await db
-    .select({ roundId: studioHumanInterviewMeetingRound.roundId })
-    .from(studioHumanInterviewMeetingRound)
+    .select({ roundId: humanInterviewMeetingRound.roundId })
+    .from(humanInterviewMeetingRound)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
     .where(
       and(
-        inArray(studioHumanInterviewMeetingRound.roundId, uniqueRoundIds),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
-        ne(studioHumanInterviewMeeting.status, "cancelled"),
+        inArray(humanInterviewMeetingRound.roundId, uniqueRoundIds),
+        eq(humanInterviewMeeting.organizationId, organizationId),
+        ne(humanInterviewMeeting.status, "cancelled"),
       ),
     )
     .limit(1);
@@ -304,7 +302,7 @@ export async function createHumanInterviewMeeting({
     ? new Date(buildInviteExpiry(now.getTime()))
     : null;
   await db.transaction(async (tx) => {
-    await tx.insert(studioHumanInterviewMeeting).values({
+    await tx.insert(humanInterviewMeeting).values({
       createdAt: now,
       createdBy,
       feishuProviderId,
@@ -319,7 +317,7 @@ export async function createHumanInterviewMeeting({
       updatedAt: now,
       validUntil,
     });
-    await tx.insert(studioHumanInterviewMeetingRound).values(
+    await tx.insert(humanInterviewMeetingRound).values(
       uniqueRoundIds.map((roundId) => ({
         candidateInviteExpiresAt,
         candidateInviteTokenHash: candidateInviteExpiresAt
@@ -332,19 +330,21 @@ export async function createHumanInterviewMeeting({
             )
           : null,
         meetingId: id,
+        organizationId,
         roundId,
       })),
     );
     if (uniqueInterviewerIds.length > 0) {
-      await tx.insert(studioHumanInterviewMeetingInterviewer).values(
+      await tx.insert(humanInterviewMeetingInterviewer).values(
         uniqueInterviewerIds.map((userId, index) => ({
           meetingId: id,
+          organizationId,
           role: index === 0 ? ("host" as const) : ("interviewer" as const),
           userId,
         })),
       );
       await tx
-        .update(studioHumanInterviewRoundInterviewer)
+        .update(humanInterviewRoundInterviewer)
         .set({
           confirmedAt: now,
           confirmedScheduleVersion: 1,
@@ -354,20 +354,19 @@ export async function createHumanInterviewMeeting({
         })
         .where(
           and(
-            inArray(studioHumanInterviewRoundInterviewer.roundId, uniqueRoundIds),
-            inArray(studioHumanInterviewRoundInterviewer.userId, uniqueInterviewerIds),
+            inArray(humanInterviewRoundInterviewer.roundId, uniqueRoundIds),
+            inArray(humanInterviewRoundInterviewer.userId, uniqueInterviewerIds),
           ),
         );
     }
-    if (notificationFlowEnabled) {
+    // 已安排时间的候选人邀请由 HRD 手动确认发送；保留未排期待办通知。
+    if (notificationFlowEnabled && !scheduledAt) {
       await enqueueHumanMeetingEvents(tx, {
         actorUserId: createdBy,
         meetingId: id,
         now,
         scheduleVersion: 1,
-        type: scheduledAt
-          ? "human_candidate_invitation_requested"
-          : "human_interview_pending_schedule",
+        type: "human_interview_pending_schedule",
       });
     }
   });
@@ -393,22 +392,37 @@ export async function issueHumanInterviewMeetingLinks({
 
   const rows = await db
     .select({
-      candidateInviteExpiresAt: studioHumanInterviewMeetingRound.candidateInviteExpiresAt,
-      candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-      candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
-      candidateName: studioInterview.candidateName,
-      interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-      label: studioHumanInterviewRound.label,
-      roundId: studioHumanInterviewMeetingRound.roundId,
+      candidateInviteExpiresAt: humanInterviewMeetingRound.candidateInviteExpiresAt,
+      candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+      candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      interviewRecordId: humanInterviewRound.recruitingRecordId,
+      jobDescriptionName: jobDescription.name,
+      label: humanInterviewRound.label,
+      roundId: humanInterviewMeetingRound.roundId,
+      workspaceName: organization.name,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
-    .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId))
-    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
+      ),
+    )
+    .innerJoin(organization, eq(organization.id, humanInterviewMeetingRound.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, humanInterviewMeetingRound.organizationId),
+    )
+    .where(eq(humanInterviewMeetingRound.meetingId, meetingId))
+    .orderBy(asc(humanInterviewRound.sortOrder));
 
   const now = Date.now();
   const candidateLinks: HumanInterviewMeetingCandidateLinkRecord[] = [];
@@ -441,23 +455,28 @@ export async function issueHumanInterviewMeetingLinks({
 
     if (row.candidateInviteTokenHash !== tokenHash || row.candidateInviteExpiresAt !== expiresAt) {
       await db
-        .update(studioHumanInterviewMeetingRound)
+        .update(humanInterviewMeetingRound)
         .set({
           candidateInviteExpiresAt: expiresAt,
           candidateInviteTokenHash: tokenHash,
         })
         .where(
           and(
-            eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
-            eq(studioHumanInterviewMeetingRound.roundId, row.roundId),
+            eq(humanInterviewMeetingRound.meetingId, meetingId),
+            eq(humanInterviewMeetingRound.roundId, row.roundId),
           ),
         );
     }
 
     candidateLinks.push({
       candidateName: row.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        row.configuredCompanyName,
+        row.workspaceName,
+      ),
       expiresAt: expiresAt.toISOString(),
       interviewRecordId: row.interviewRecordId,
+      jobDescriptionName: row.jobDescriptionName,
       roundId: row.roundId,
       roundLabel: row.label,
       url: `/human-interview/${encodeURIComponent(token)}`,
@@ -515,44 +534,47 @@ export async function resolveHumanInterviewMeetingInviteToken(
 
   const [row] = await db
     .select({
-      candidateInviteExpiresAt: studioHumanInterviewMeetingRound.candidateInviteExpiresAt,
-      candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
-      candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
-      candidateName: studioInterview.candidateName,
-      interviewRecordId: studioHumanInterviewRound.interviewRecordId,
+      candidateInviteExpiresAt: humanInterviewMeetingRound.candidateInviteExpiresAt,
+      candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+      candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
+      candidateName: recruitingRecordReadModel.candidateName,
+      companyContext: globalConfig.companyContext,
+      interviewRecordId: humanInterviewRound.recruitingRecordId,
       jobDescriptionName: jobDescription.name,
-      liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
-      meetingId: studioHumanInterviewMeeting.id,
-      organizationId: studioHumanInterviewMeeting.organizationId,
-      recordingStatus: studioHumanInterviewMeeting.recordingStatus,
-      roundId: studioHumanInterviewRound.id,
-      roundLabel: studioHumanInterviewRound.label,
-      scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-      status: studioHumanInterviewMeeting.status,
-      validUntil: studioHumanInterviewMeeting.validUntil,
+      jobDescriptionPrompt: jobDescription.prompt,
+      liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
+      meetingId: humanInterviewMeeting.id,
+      organizationId: humanInterviewMeeting.organizationId,
+      recordingStatus: humanInterviewMeeting.recordingStatus,
+      roundId: humanInterviewRound.id,
+      roundLabel: humanInterviewRound.label,
+      scheduledAt: humanInterviewMeeting.scheduledAt,
+      status: humanInterviewMeeting.status,
+      validUntil: humanInterviewMeeting.validUntil,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, jobDescription.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
       ),
     )
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, humanInterviewMeeting.organizationId))
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
-        eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
-        eq(studioHumanInterviewMeetingRound.candidateInviteTokenHash, hashInviteToken(inviteToken)),
+        eq(humanInterviewMeetingRound.meetingId, payload.meetingId),
+        eq(humanInterviewMeetingRound.roundId, payload.roundId),
+        eq(humanInterviewMeetingRound.candidateInviteTokenHash, hashInviteToken(inviteToken)),
       ),
     )
     .limit(1);
@@ -569,7 +591,10 @@ export async function resolveHumanInterviewMeetingInviteToken(
     candidateInviteExpiresAt: row.candidateInviteExpiresAt.toISOString(),
     candidateInviteStatus: row.candidateInviteStatus,
     candidateName: row.candidateName,
+    companyContext: row.companyContext?.trim() || null,
     interviewRecordId: row.interviewRecordId,
+    jobDescriptionName: row.jobDescriptionName,
+    jobDescriptionPrompt: row.jobDescriptionPrompt,
     liveKitRoomName: row.liveKitRoomName,
     meetingId: row.meetingId,
     organizationId: row.organizationId,
@@ -593,30 +618,30 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
   const [row] = await db
     .select({
       interviewerName: user.name,
-      liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
-      meetingId: studioHumanInterviewMeeting.id,
-      organizationId: studioHumanInterviewMeeting.organizationId,
-      recordingStatus: studioHumanInterviewMeeting.recordingStatus,
-      role: studioHumanInterviewMeetingInterviewer.role,
-      scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-      scheduledAt: studioHumanInterviewMeeting.scheduledAt,
-      status: studioHumanInterviewMeeting.status,
-      userId: studioHumanInterviewMeetingInterviewer.userId,
-      validUntil: studioHumanInterviewMeeting.validUntil,
+      liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
+      meetingId: humanInterviewMeeting.id,
+      organizationId: humanInterviewMeeting.organizationId,
+      recordingStatus: humanInterviewMeeting.recordingStatus,
+      role: humanInterviewMeetingInterviewer.role,
+      scheduleVersion: humanInterviewMeeting.scheduleVersion,
+      scheduledAt: humanInterviewMeeting.scheduledAt,
+      status: humanInterviewMeeting.status,
+      userId: humanInterviewMeetingInterviewer.userId,
+      validUntil: humanInterviewMeeting.validUntil,
     })
-    .from(studioHumanInterviewMeetingInterviewer)
+    .from(humanInterviewMeetingInterviewer)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingInterviewer.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingInterviewer.meetingId, humanInterviewMeeting.id),
     )
-    .innerJoin(user, eq(studioHumanInterviewMeetingInterviewer.userId, user.id))
+    .innerJoin(user, eq(humanInterviewMeetingInterviewer.userId, user.id))
     .where(
       and(
-        eq(studioHumanInterviewMeetingInterviewer.meetingId, payload.meetingId),
-        eq(studioHumanInterviewMeetingInterviewer.userId, payload.userId),
-        payload.role ? eq(studioHumanInterviewMeetingInterviewer.role, payload.role) : undefined,
+        eq(humanInterviewMeetingInterviewer.meetingId, payload.meetingId),
+        eq(humanInterviewMeetingInterviewer.userId, payload.userId),
+        payload.role ? eq(humanInterviewMeetingInterviewer.role, payload.role) : undefined,
         payload.organizationId
-          ? eq(studioHumanInterviewMeeting.organizationId, payload.organizationId)
+          ? eq(humanInterviewMeeting.organizationId, payload.organizationId)
           : undefined,
       ),
     )
@@ -628,42 +653,43 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
 
   const contexts = await db
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       jobDescriptionDepartmentName: department.name,
       jobDescriptionName: jobDescription.name,
-      resumeProfile: studioInterview.resumeProfile,
-      roundId: studioHumanInterviewRound.id,
-      roundLabel: studioHumanInterviewRound.label,
-      targetRole: studioInterview.targetRole,
+      jobDescriptionPrompt: jobDescription.prompt,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      roundId: humanInterviewRound.id,
+      roundLabel: humanInterviewRound.label,
+      targetRole: recruitingRecordReadModel.targetRole,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, jobDescription.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
       ),
     )
     .leftJoin(
       department,
       and(
         eq(jobDescription.departmentId, department.id),
-        eq(studioInterview.organizationId, department.organizationId),
+        eq(recruitingRecordReadModel.organizationId, department.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId),
-        payload.roundId ? eq(studioHumanInterviewRound.id, payload.roundId) : undefined,
-        eq(studioHumanInterviewRound.organizationId, row.organizationId),
+        eq(humanInterviewMeetingRound.meetingId, row.meetingId),
+        payload.roundId ? eq(humanInterviewRound.id, payload.roundId) : undefined,
+        eq(humanInterviewRound.organizationId, row.organizationId),
       ),
     )
-    .orderBy(asc(studioHumanInterviewRound.sortOrder));
+    .orderBy(asc(humanInterviewRound.sortOrder));
   const [context] = contexts;
   if (!context) {
     return null;
@@ -674,6 +700,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
     interviewerName: row.interviewerName ?? "未命名",
     jobDescriptionDepartmentName: context.jobDescriptionDepartmentName,
     jobDescriptionName: context.jobDescriptionName,
+    jobDescriptionPrompt: context.jobDescriptionPrompt,
     liveKitRoomName: row.liveKitRoomName,
     meetingId: row.meetingId,
     organizationId: row.organizationId,
@@ -700,9 +727,9 @@ export function resolveHumanInterviewMeetingInterviewerInviteToken(
 
 async function loadMeetingIdByRoomName(roomName: string): Promise<string | null> {
   const [meeting] = await db
-    .select({ id: studioHumanInterviewMeeting.id })
-    .from(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
+    .select({ id: humanInterviewMeeting.id })
+    .from(humanInterviewMeeting)
+    .where(eq(humanInterviewMeeting.liveKitRoomName, roomName))
     .limit(1);
   return meeting?.id ?? null;
 }
@@ -722,14 +749,14 @@ export async function claimHumanInterviewRecordingStartByRoomName(
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
-        id: studioHumanInterviewMeeting.id,
-        organizationId: studioHumanInterviewMeeting.organizationId,
-        recordingStatus: studioHumanInterviewMeeting.recordingStatus,
-        status: studioHumanInterviewMeeting.status,
-        updatedAt: studioHumanInterviewMeeting.updatedAt,
+        id: humanInterviewMeeting.id,
+        organizationId: humanInterviewMeeting.organizationId,
+        recordingStatus: humanInterviewMeeting.recordingStatus,
+        status: humanInterviewMeeting.status,
+        updatedAt: humanInterviewMeeting.updatedAt,
       })
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.liveKitRoomName, roomName))
       .for("update")
       .limit(1);
     const now = new Date();
@@ -746,36 +773,33 @@ export async function claimHumanInterviewRecordingStartByRoomName(
     const [candidate, interviewer] = await Promise.all([
       tx
         .select({
-          joinedAt: studioHumanInterviewMeetingRound.joinedAt,
-          roundId: studioHumanInterviewMeetingRound.roundId,
+          joinedAt: humanInterviewMeetingRound.joinedAt,
+          roundId: humanInterviewMeetingRound.roundId,
         })
-        .from(studioHumanInterviewMeetingRound)
+        .from(humanInterviewMeetingRound)
         .where(
           and(
-            eq(studioHumanInterviewMeetingRound.meetingId, meeting.id),
-            isNotNull(studioHumanInterviewMeetingRound.joinedAt),
+            eq(humanInterviewMeetingRound.meetingId, meeting.id),
+            isNotNull(humanInterviewMeetingRound.joinedAt),
             or(
-              isNull(studioHumanInterviewMeetingRound.leftAt),
-              gt(
-                studioHumanInterviewMeetingRound.joinedAt,
-                studioHumanInterviewMeetingRound.leftAt,
-              ),
+              isNull(humanInterviewMeetingRound.leftAt),
+              gt(humanInterviewMeetingRound.joinedAt, humanInterviewMeetingRound.leftAt),
             ),
           ),
         )
         .limit(1),
       tx
-        .select({ joinedAt: studioHumanInterviewMeetingInterviewer.joinedAt })
-        .from(studioHumanInterviewMeetingInterviewer)
+        .select({ joinedAt: humanInterviewMeetingInterviewer.joinedAt })
+        .from(humanInterviewMeetingInterviewer)
         .where(
           and(
-            eq(studioHumanInterviewMeetingInterviewer.meetingId, meeting.id),
-            isNotNull(studioHumanInterviewMeetingInterviewer.joinedAt),
+            eq(humanInterviewMeetingInterviewer.meetingId, meeting.id),
+            isNotNull(humanInterviewMeetingInterviewer.joinedAt),
             or(
-              isNull(studioHumanInterviewMeetingInterviewer.leftAt),
+              isNull(humanInterviewMeetingInterviewer.leftAt),
               gt(
-                studioHumanInterviewMeetingInterviewer.joinedAt,
-                studioHumanInterviewMeetingInterviewer.leftAt,
+                humanInterviewMeetingInterviewer.joinedAt,
+                humanInterviewMeetingInterviewer.leftAt,
               ),
             ),
           ),
@@ -786,7 +810,7 @@ export async function claimHumanInterviewRecordingStartByRoomName(
       return null;
     }
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         candidateRecordingError: null,
         candidateRecordingStatus: "starting",
@@ -794,7 +818,7 @@ export async function claimHumanInterviewRecordingStartByRoomName(
         recordingStatus: "starting",
         updatedAt: now,
       })
-      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+      .where(eq(humanInterviewMeeting.id, meeting.id));
     return {
       candidateIdentity: `candidate_${candidate[0].roundId}`,
       meetingId: meeting.id,
@@ -812,7 +836,7 @@ export async function markHumanInterviewRecordingStarted(input: {
   meetingId: string;
 }): Promise<boolean> {
   const [meeting] = await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       candidateRecordingEgressId: input.candidateEgressId,
       candidateRecordingError: null,
@@ -826,11 +850,11 @@ export async function markHumanInterviewRecordingStarted(input: {
     })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, input.meetingId),
-        eq(studioHumanInterviewMeeting.recordingStatus, "starting"),
+        eq(humanInterviewMeeting.id, input.meetingId),
+        eq(humanInterviewMeeting.recordingStatus, "starting"),
       ),
     )
-    .returning({ status: studioHumanInterviewMeeting.status });
+    .returning({ status: humanInterviewMeeting.status });
   return Boolean(meeting && ["scheduled", "in_progress"].includes(meeting.status));
 }
 
@@ -843,7 +867,7 @@ export async function markHumanInterviewRecordingFailed(input: {
   meetingId: string;
 }): Promise<void> {
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       candidateRecordingEgressId: input.candidateEgressId,
       candidateRecordingError: input.error,
@@ -857,8 +881,8 @@ export async function markHumanInterviewRecordingFailed(input: {
     })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, input.meetingId),
-        inArray(studioHumanInterviewMeeting.recordingStatus, ["starting", "active"]),
+        eq(humanInterviewMeeting.id, input.meetingId),
+        inArray(humanInterviewMeeting.recordingStatus, ["starting", "active"]),
       ),
     );
 }
@@ -871,18 +895,18 @@ export async function markHumanInterviewRecordingEgressFailed(input: {
   await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
-        candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
-        id: studioHumanInterviewMeeting.id,
+        candidateEgressId: humanInterviewMeeting.candidateRecordingEgressId,
+        id: humanInterviewMeeting.id,
       })
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         or(
-          eq(studioHumanInterviewMeeting.recordingEgressId, input.egressId),
-          eq(studioHumanInterviewMeeting.candidateRecordingEgressId, input.egressId),
+          eq(humanInterviewMeeting.recordingEgressId, input.egressId),
+          eq(humanInterviewMeeting.candidateRecordingEgressId, input.egressId),
           input.roomName
             ? and(
-                eq(studioHumanInterviewMeeting.liveKitRoomName, input.roomName),
-                eq(studioHumanInterviewMeeting.recordingStatus, "starting"),
+                eq(humanInterviewMeeting.liveKitRoomName, input.roomName),
+                eq(humanInterviewMeeting.recordingStatus, "starting"),
               )
             : undefined,
         ),
@@ -894,7 +918,7 @@ export async function markHumanInterviewRecordingEgressFailed(input: {
     }
     const candidate = meeting.candidateEgressId === input.egressId;
     await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set(
         candidate
           ? {
@@ -914,7 +938,7 @@ export async function markHumanInterviewRecordingEgressFailed(input: {
               updatedAt: new Date(),
             },
       )
-      .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+      .where(eq(humanInterviewMeeting.id, meeting.id));
   });
 }
 
@@ -928,15 +952,15 @@ export async function markHumanInterviewRecordingCompleted(input: {
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         or(
-          eq(studioHumanInterviewMeeting.recordingEgressId, input.egressId),
-          eq(studioHumanInterviewMeeting.candidateRecordingEgressId, input.egressId),
+          eq(humanInterviewMeeting.recordingEgressId, input.egressId),
+          eq(humanInterviewMeeting.candidateRecordingEgressId, input.egressId),
           input.roomName
             ? and(
-                eq(studioHumanInterviewMeeting.liveKitRoomName, input.roomName),
-                eq(studioHumanInterviewMeeting.recordingStatus, "starting"),
+                eq(humanInterviewMeeting.liveKitRoomName, input.roomName),
+                eq(humanInterviewMeeting.recordingStatus, "starting"),
               )
             : undefined,
         ),
@@ -948,7 +972,7 @@ export async function markHumanInterviewRecordingCompleted(input: {
     }
     const candidate = meeting.candidateRecordingEgressId === input.egressId;
     const [updated] = await tx
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set(
         candidate
           ? {
@@ -970,7 +994,7 @@ export async function markHumanInterviewRecordingCompleted(input: {
               updatedAt: new Date(),
             },
       )
-      .where(eq(studioHumanInterviewMeeting.id, meeting.id))
+      .where(eq(humanInterviewMeeting.id, meeting.id))
       .returning();
     if (
       !updated ||
@@ -1007,12 +1031,12 @@ export async function loadActiveHumanInterviewRecordingEgressId(
 ): Promise<string[]> {
   const [meeting] = await db
     .select({
-      candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
-      egressId: studioHumanInterviewMeeting.recordingEgressId,
-      tracks: studioHumanInterviewMeeting.recordingTracks,
+      candidateEgressId: humanInterviewMeeting.candidateRecordingEgressId,
+      egressId: humanInterviewMeeting.recordingEgressId,
+      tracks: humanInterviewMeeting.recordingTracks,
     })
-    .from(studioHumanInterviewMeeting)
-    .where(and(eq(studioHumanInterviewMeeting.id, meetingId)))
+    .from(humanInterviewMeeting)
+    .where(and(eq(humanInterviewMeeting.id, meetingId)))
     .limit(1);
   if (meeting?.tracks) {
     return meeting.tracks.flatMap((track) =>
@@ -1031,13 +1055,13 @@ export async function loadActiveHumanInterviewRecordingByRoomName(
 ): Promise<{ egressIds: string[]; meetingId: string } | null> {
   const [meeting] = await db
     .select({
-      candidateEgressId: studioHumanInterviewMeeting.candidateRecordingEgressId,
-      egressId: studioHumanInterviewMeeting.recordingEgressId,
-      meetingId: studioHumanInterviewMeeting.id,
-      tracks: studioHumanInterviewMeeting.recordingTracks,
+      candidateEgressId: humanInterviewMeeting.candidateRecordingEgressId,
+      egressId: humanInterviewMeeting.recordingEgressId,
+      meetingId: humanInterviewMeeting.id,
+      tracks: humanInterviewMeeting.recordingTracks,
     })
-    .from(studioHumanInterviewMeeting)
-    .where(and(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName)))
+    .from(humanInterviewMeeting)
+    .where(and(eq(humanInterviewMeeting.liveKitRoomName, roomName)))
     .limit(1);
   if (!meeting) {
     return null;
@@ -1092,19 +1116,19 @@ export async function endHumanInterviewMeetingsByRound({
 }): Promise<(string | null)[]> {
   const meetingRows = await db
     .select({
-      id: studioHumanInterviewMeeting.id,
-      liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
+      id: humanInterviewMeeting.id,
+      liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
     .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      humanInterviewMeeting,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeeting.id),
     )
     .where(
       and(
-        eq(studioHumanInterviewMeetingRound.roundId, roundId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
-        inArray(studioHumanInterviewMeeting.status, ["scheduled", "in_progress"]),
+        eq(humanInterviewMeetingRound.roundId, roundId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
+        inArray(humanInterviewMeeting.status, ["scheduled", "in_progress"]),
       ),
     );
   const meetingIds = uniq(meetingRows.map((meeting) => meeting.id));
@@ -1145,30 +1169,90 @@ export async function markHumanInterviewParticipantJoined({
   }
 
   const now = new Date();
-  if (identity.startsWith("candidate_")) {
-    await db
-      .update(studioHumanInterviewMeetingRound)
-      .set({ joinedAt: now, leftAt: null })
-      .where(
-        and(
-          eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
-          eq(studioHumanInterviewMeetingRound.roundId, identity.slice("candidate_".length)),
-        ),
-      );
-    return;
-  }
+  await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({
+        establishedAt: humanInterviewMeeting.establishedAt,
+        status: humanInterviewMeeting.status,
+      })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meetingId))
+      .for("update")
+      .limit(1);
+    if (!meeting || ["cancelled", "ended", "not_held"].includes(meeting.status)) {
+      return;
+    }
 
-  if (identity.startsWith("interviewer_")) {
-    await db
-      .update(studioHumanInterviewMeetingInterviewer)
-      .set({ joinedAt: now, leftAt: null })
-      .where(
-        and(
-          eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),
-          eq(studioHumanInterviewMeetingInterviewer.userId, identity.slice("interviewer_".length)),
-        ),
-      );
-  }
+    if (identity.startsWith("candidate_")) {
+      await tx
+        .update(humanInterviewMeetingRound)
+        .set({ joinedAt: now, leftAt: null })
+        .where(
+          and(
+            eq(humanInterviewMeetingRound.meetingId, meetingId),
+            eq(humanInterviewMeetingRound.roundId, identity.slice("candidate_".length)),
+          ),
+        );
+    } else if (identity.startsWith("interviewer_")) {
+      await tx
+        .update(humanInterviewMeetingInterviewer)
+        .set({ joinedAt: now, leftAt: null })
+        .where(
+          and(
+            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+            eq(humanInterviewMeetingInterviewer.userId, identity.slice("interviewer_".length)),
+          ),
+        );
+    } else {
+      return;
+    }
+
+    if (meeting.establishedAt) {
+      return;
+    }
+    const [candidatePresent, interviewerPresent] = await Promise.all([
+      tx
+        .select({ roundId: humanInterviewMeetingRound.roundId })
+        .from(humanInterviewMeetingRound)
+        .where(
+          and(
+            eq(humanInterviewMeetingRound.meetingId, meetingId),
+            isNotNull(humanInterviewMeetingRound.joinedAt),
+            or(
+              isNull(humanInterviewMeetingRound.leftAt),
+              gt(humanInterviewMeetingRound.joinedAt, humanInterviewMeetingRound.leftAt),
+            ),
+          ),
+        )
+        .limit(1),
+      tx
+        .select({ userId: humanInterviewMeetingInterviewer.userId })
+        .from(humanInterviewMeetingInterviewer)
+        .where(
+          and(
+            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+            ne(humanInterviewMeetingInterviewer.role, "observer"),
+            isNotNull(humanInterviewMeetingInterviewer.joinedAt),
+            or(
+              isNull(humanInterviewMeetingInterviewer.leftAt),
+              gt(
+                humanInterviewMeetingInterviewer.joinedAt,
+                humanInterviewMeetingInterviewer.leftAt,
+              ),
+            ),
+          ),
+        )
+        .limit(1),
+    ]);
+    if (candidatePresent.length > 0 && interviewerPresent.length > 0) {
+      await tx
+        .update(humanInterviewMeeting)
+        .set({ establishedAt: now, updatedAt: now })
+        .where(
+          and(eq(humanInterviewMeeting.id, meetingId), isNull(humanInterviewMeeting.establishedAt)),
+        );
+    }
+  });
 }
 
 export async function markHumanInterviewParticipantLeft({
@@ -1186,12 +1270,12 @@ export async function markHumanInterviewParticipantLeft({
   const now = new Date();
   if (identity.startsWith("candidate_")) {
     await db
-      .update(studioHumanInterviewMeetingRound)
+      .update(humanInterviewMeetingRound)
       .set({ leftAt: now })
       .where(
         and(
-          eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
-          eq(studioHumanInterviewMeetingRound.roundId, identity.slice("candidate_".length)),
+          eq(humanInterviewMeetingRound.meetingId, meetingId),
+          eq(humanInterviewMeetingRound.roundId, identity.slice("candidate_".length)),
         ),
       );
     return;
@@ -1199,12 +1283,12 @@ export async function markHumanInterviewParticipantLeft({
 
   if (identity.startsWith("interviewer_")) {
     await db
-      .update(studioHumanInterviewMeetingInterviewer)
+      .update(humanInterviewMeetingInterviewer)
       .set({ leftAt: now })
       .where(
         and(
-          eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),
-          eq(studioHumanInterviewMeetingInterviewer.userId, identity.slice("interviewer_".length)),
+          eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+          eq(humanInterviewMeetingInterviewer.userId, identity.slice("interviewer_".length)),
         ),
       );
   }

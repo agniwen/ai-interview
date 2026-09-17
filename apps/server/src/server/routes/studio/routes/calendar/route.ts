@@ -72,6 +72,7 @@ export function createStudioCalendarRouter(
           end: new Date(query.end),
           organizationId: activeOrg.id,
           start: new Date(query.start),
+          viewerUserId: user.id,
           visibilityScope,
         });
         return c.json({ events }, 200);

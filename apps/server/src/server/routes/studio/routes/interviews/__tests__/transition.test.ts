@@ -1,3 +1,9 @@
+import {
+  deleteRecruitingRecords,
+  createRecruitingRecords,
+  updateRecruitingRecords,
+} from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 候选人阶段流转的集成测试：直接对 DAO/DB 写入做断言，覆盖：
 //   1. CHECK 约束：outcome 与 pipelineStage 的不变量在 DB 层强制
 //   2. close + reactivate 的 closedAt / closedReason 维护
@@ -10,7 +16,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../lib/server/db/index";
-import { member, organization, studioInterview, user } from "@app/db-schema/schema";
+import { member, organization, user } from "@app/db-schema/schema";
 
 const ORG = "test_org_transition";
 const USER_ID = "test_user_transition";
@@ -18,7 +24,7 @@ const RECORD_ID = "ri_transition_1";
 const NOW = new Date("2026-05-22T08:00:00.000Z");
 
 async function cleanup() {
-  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
+  await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
   await db.delete(organization).where(eq(organization.id, ORG));
   await db.delete(user).where(eq(user.id, USER_ID));
@@ -47,7 +53,7 @@ beforeAll(async () => {
     role: "owner",
     userId: USER_ID,
   });
-  await db.insert(studioInterview).values({
+  await createRecruitingRecords(db, {
     candidateName: "结束测试",
     createdAt: NOW,
     createdBy: USER_ID,
@@ -95,41 +101,39 @@ async function expectCheckViolation(promise: Promise<unknown>) {
 describe("candidate transition invariants", () => {
   it("DB CHECK 拒绝 outcome=hired 配 pipelineStage=ai_interview（违反不变量）", async () => {
     await expectCheckViolation(
-      db.update(studioInterview).set({ outcome: "hired" }).where(eq(studioInterview.id, RECORD_ID)),
+      updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
+        outcome: "hired",
+      }),
     );
   });
 
   it("DB CHECK 拒绝 pipelineStage=closed 配 outcome=in_pipeline（违反不变量）", async () => {
     await expectCheckViolation(
-      db
-        .update(studioInterview)
-        .set({ pipelineStage: "closed" })
-        .where(eq(studioInterview.id, RECORD_ID)),
+      updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
+        pipelineStage: "closed",
+      }),
     );
   });
 
   it("结束：原子写入 pipelineStage + outcome + closedAt + closedReason", async () => {
     const closedAt = new Date("2026-05-22T09:00:00.000Z");
-    await db
-      .update(studioInterview)
-      .set({
-        closedAt,
-        closedReason: "技能匹配度不够",
-        outcome: "rejected",
-        pipelineStage: "closed",
-        updatedAt: closedAt,
-      })
-      .where(eq(studioInterview.id, RECORD_ID));
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
+      closedAt,
+      closedReason: "技能匹配度不够",
+      outcome: "rejected",
+      pipelineStage: "closed",
+      updatedAt: closedAt,
+    });
 
     const [row] = await db
       .select({
-        closedAt: studioInterview.closedAt,
-        closedReason: studioInterview.closedReason,
-        outcome: studioInterview.outcome,
-        pipelineStage: studioInterview.pipelineStage,
+        closedAt: recruitingRecordReadModel.closedAt,
+        closedReason: recruitingRecordReadModel.closedReason,
+        outcome: recruitingRecordReadModel.outcome,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, RECORD_ID));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
 
     expect(row).toEqual({
       closedAt,
@@ -141,26 +145,23 @@ describe("candidate transition invariants", () => {
 
   it("重新激活：清空 closedAt + closedReason，回到 ai_interview / in_pipeline", async () => {
     const reactivatedAt = new Date("2026-05-22T10:00:00.000Z");
-    await db
-      .update(studioInterview)
-      .set({
-        closedAt: null,
-        closedReason: null,
-        outcome: "in_pipeline",
-        pipelineStage: "ai_interview",
-        updatedAt: reactivatedAt,
-      })
-      .where(eq(studioInterview.id, RECORD_ID));
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
+      closedAt: null,
+      closedReason: null,
+      outcome: "in_pipeline",
+      pipelineStage: "ai_interview",
+      updatedAt: reactivatedAt,
+    });
 
     const [row] = await db
       .select({
-        closedAt: studioInterview.closedAt,
-        closedReason: studioInterview.closedReason,
-        outcome: studioInterview.outcome,
-        pipelineStage: studioInterview.pipelineStage,
+        closedAt: recruitingRecordReadModel.closedAt,
+        closedReason: recruitingRecordReadModel.closedReason,
+        outcome: recruitingRecordReadModel.outcome,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
       })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, RECORD_ID));
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
 
     expect(row).toEqual({
       closedAt: null,

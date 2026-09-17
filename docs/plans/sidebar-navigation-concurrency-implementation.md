@@ -45,16 +45,16 @@ React 官方建议支持 Suspense 的 Router 默认把页面导航标记为 Tran
 
 当前安装的 TanStack Router React 适配层已将 Router 的 transition wrapper 实现为 `React.startTransition`：
 
-- `node_modules/.pnpm/@tanstack+react-router@1.170.17_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/@tanstack/react-router/src/Transitioner.tsx:26`
+- `node_modules/@tanstack/react-router/src/Transitioner.tsx:26`
 
 Router core 在加载新 location 和提交 ready matches 时都会调用该 wrapper：
 
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/router.ts:2474`
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/router.ts:2507`
+- `node_modules/@tanstack/router-core/src/router.ts:2474`
+- `node_modules/@tanstack/router-core/src/router.ts:2507`
 
 同一安装版本的导航选项已经把 `startTransition` 标记为 deprecated，原因是所有导航都会在内部使用它：
 
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/link.ts:324`
+- `node_modules/@tanstack/router-core/src/link.ts:324`
 
 因此 tabs 点击处理器不应再写：
 
@@ -90,7 +90,7 @@ TanStack Router 官方定义的 intent preload 由 `Link` 的 hover 和 touch-st
 对于不是 `Link` 的交互控件，官方提供 `router.preloadRoute()`；它接受标准 navigate options，并返回预加载完成的 Promise。来源：
 
 - [TanStack Router Preloading：Preloading Manually](https://tanstack.com/router/latest/docs/guide/preloading#preloading-manually)
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/router.ts:2889`
+- `node_modules/@tanstack/router-core/src/router.ts:2889`
 
 结论：Base UI tabs 通过 `useNavigate()` 切换时不会仅凭 `defaultPreload: "intent"` 自动获得 `Link` 的 hover/touch 预加载。第一阶段应该补的是 `router.preloadRoute()`，不是额外的 `startTransition`。
 
@@ -100,8 +100,8 @@ TanStack Router 默认只在 loader 超过 `pendingMs` 后显示 `pendingCompone
 
 - [TanStack Router Data Loading：Showing a pending component](https://tanstack.com/router/latest/docs/guide/data-loading#showing-a-pending-component)
 - [TanStack Router Data Loading：Avoiding Pending Component Flash](https://tanstack.com/router/latest/docs/guide/data-loading#avoiding-pending-component-flash)
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/load-matches.ts:322`
-- `node_modules/.pnpm/@tanstack+react-router@1.170.17_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/@tanstack/react-router/src/Match.tsx:445`
+- `node_modules/@tanstack/router-core/src/load-matches.ts:322`
+- `node_modules/@tanstack/react-router/src/Match.tsx:445`
 
 项目使用 `350ms / 300ms`，比官方文档描述的默认 `1000ms / 500ms` 更早显示、也更快退出。因此第一轮不调整这两个值；先减少实际等待并记录 navigation timing。过早降低 `pendingMs` 会增加短导航展示 fallback 的概率，增大视觉噪音。
 
@@ -118,7 +118,7 @@ TanStack Router 的自动代码分割会把 route component、error component �
 
 当前安装的 Start plugin 同时安装 client/server route code splitter：
 
-- `node_modules/.pnpm/@tanstack+start-plugin-core@1.171.19_@tanstack+react-router@1.170.17_react-dom@19.2.7_r_c92ded7735bcf31765b6c3873532c2ff/node_modules/@tanstack/start-plugin-core/src/vite/start-router-plugin/plugin.ts:145`
+- `node_modules/@tanstack/start-plugin-core/src/vite/start-router-plugin/plugin.ts:145`
 
 这意味着 `preloadRoute()` 不只是预先跑数据生命周期，也可以提前加载目标 route 的按需组件 chunk。第一阶段不需要新增 `React.lazy` 或手写 `.lazy.tsx` 拆分；先验证现有 route chunk 是否在 tab intent 时被提前请求。
 
@@ -179,8 +179,8 @@ tab 导航。实现 preload 时必须保留这个模式，不能仅为了获得 
 `permissions`。当前 Router loader context 也提供 `parentMatchPromise`，父 match
 包含 `loaderData`：
 
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/route.ts:1512`
-- `node_modules/.pnpm/@tanstack+router-core@1.171.14/node_modules/@tanstack/router-core/src/Matches.ts:154`
+- `node_modules/@tanstack/router-core/src/route.ts:1512`
+- `node_modules/@tanstack/router-core/src/Matches.ts:154`
 
 因此 Studio layout 的页面级判断可以复用父 match 的服务端产出，不需要再次调用
 `getStudioPageAccessState`。但 `loadStudioResumesState` 是独立 HTTP/server-function
@@ -605,7 +605,7 @@ React 还指出，首次挂载前 suspend 的树不会保留 state，而会在�
 若某个一次性 loader 数据不适合进入 Query cache，可以返回未等待 Promise，通过 Router `<Await>` 或 React 19 `use()` 解包。`Await` 会触发最近的 Suspense boundary，reject 则抛给最近的 error boundary。来源：
 
 - [TanStack Router Deferred Data Loading：Await](https://tanstack.com/router/latest/docs/guide/deferred-data-loading#deferred-data-loading-with-await)
-- `node_modules/.pnpm/@tanstack+react-router@1.170.17_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/@tanstack/react-router/src/awaited.tsx:11`
+- `node_modules/@tanstack/react-router/src/awaited.tsx:11`
 
 同一数据不要同时进入 loader Promise 和 Query cache，避免双重数据所有权。
 
@@ -624,7 +624,7 @@ React 还指出，首次挂载前 suspend 的树不会保留 state，而会在�
 
 当前 React adapter 汇总 `isLoading`、内部 `isTransitioning` 和 pending matches：
 
-- `node_modules/.pnpm/@tanstack+react-router@1.170.17_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/@tanstack/react-router/src/Transitioner.tsx:13`
+- `node_modules/@tanstack/react-router/src/Transitioner.tsx:13`
 
 实现原则：
 
@@ -724,9 +724,9 @@ React 还指出，首次挂载前 suspend 的树不会保留 state，而会在�
 验证命令建议：
 
 ```bash
-pnpm --filter @app/web exec vitest run <focused-test-files>
-pnpm --filter @app/web typecheck
-pnpm check
+bun run --filter @app/web exec vitest run <focused-test-files>
+bun run --filter @app/web typecheck
+bun run check
 git diff --check
 ```
 

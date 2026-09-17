@@ -1,3 +1,6 @@
+import type { RecruitingPipelineAction } from "@app/shared/studio-pipeline-stages";
+import { updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../../../lib/server/db/index";
@@ -12,7 +15,7 @@ import { transitionCandidateStage } from "../../../studio/routes/interviews/util
 import { loadRecruitingJobDescriptionById } from "../../../studio/routes/job-descriptions/dao";
 import { loadResumePoolItem } from "../../../studio/routes/resume-pool/dao";
 import { normalizeResumePoolItemId } from "../../../../agents/mastra/tools/resume-pool-id";
-import { interviewAuditLog, studioInterview } from "@app/db-schema/schema";
+import { recruitingEvent } from "@app/db-schema/schema";
 import {
   patchRecruitingActionConfirmationInConversation,
   upsertConversationContextJobBinding,
@@ -49,12 +52,12 @@ const defaultDependencies: RecruitingActionDependencies = {
   patchConfirmation: patchRecruitingActionConfirmationInConversation,
   async resumeRecordExists(input) {
     const [existing] = await db
-      .select({ id: studioInterview.id })
-      .from(studioInterview)
+      .select({ id: recruitingRecordReadModel.id })
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
+          eq(recruitingRecordReadModel.id, input.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
         ),
       )
       .limit(1);
@@ -272,10 +275,62 @@ async function confirmAdvanceCandidateStage(input: {
   proposalId: string;
   proposalTitle: string;
 }): Promise<ConfirmRecruitingActionResult> {
+  const [current] = await db
+    .select({
+      stage: recruitingRecordReadModel.pipelineStage,
+      version: recruitingRecordReadModel.version,
+    })
+    .from(recruitingRecordReadModel)
+    .where(
+      and(
+        eq(recruitingRecordReadModel.id, input.payload.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!current) {
+    throw new Error("招聘记录不存在");
+  }
+  let command: RecruitingPipelineAction;
+  if (input.payload.pipelineStage === "closed") {
+    const { outcome } = input.payload;
+    if (!outcome || outcome === "in_pipeline") {
+      throw new Error("请选择结束结果");
+    }
+    command = {
+      action: "close",
+      closeReason: (
+        {
+          archived: "other",
+          hired: "onboarded",
+          rejected: "other",
+          withdrawn: "candidate_withdrew",
+        } as const
+      )[outcome],
+      details: input.payload.closedMeta,
+      expectedVersion: current.version,
+      outcome,
+      reason: input.payload.closedReason ?? undefined,
+    };
+  } else if (current.stage === "closed" || input.payload.reactivationReason) {
+    command = {
+      action: "reopen",
+      expectedVersion: current.version,
+      reason: input.payload.reactivationReason ?? "按已确认的招聘助手建议回退流程",
+      targetNode: input.payload.pipelineStage,
+      targetStatus: "pending",
+    };
+  } else {
+    command = {
+      action: "advance",
+      expectedVersion: current.version,
+      targetNode: input.payload.pipelineStage,
+    };
+  }
   const result = await transitionCandidateStage({
     authorize: input.authorize,
     candidateId: input.payload.resumeRecordId,
-    input: input.payload,
+    input: command,
     operatorId: input.operatorId,
     organizationId: input.organizationId,
     provenance: {
@@ -319,12 +374,12 @@ async function confirmGenerateInterviewQuestions(input: {
   proposalTitle: string;
 }): Promise<ConfirmRecruitingActionResult> {
   const [existing] = await db
-    .select({ resumeProfile: studioInterview.resumeProfile })
-    .from(studioInterview)
+    .select({ resumeProfile: recruitingRecordReadModel.resumeProfile })
+    .from(recruitingRecordReadModel)
     .where(
       and(
-        eq(studioInterview.id, input.payload.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
+        eq(recruitingRecordReadModel.id, input.payload.resumeRecordId),
+        eq(recruitingRecordReadModel.organizationId, input.organizationId),
       ),
     )
     .limit(1);
@@ -343,16 +398,15 @@ async function confirmGenerateInterviewQuestions(input: {
     }
     const now = new Date();
     await db.transaction(async (tx) => {
-      await tx
-        .update(studioInterview)
-        .set({ interviewQuestions: questions, updatedAt: now })
-        .where(
-          and(
-            eq(studioInterview.id, input.payload.resumeRecordId),
-            eq(studioInterview.organizationId, input.organizationId),
-          ),
-        );
-      await tx.insert(interviewAuditLog).values({
+      await updateRecruitingRecords(
+        tx,
+        and(
+          eq(recruitingRecordReadModel.id, input.payload.resumeRecordId),
+          eq(recruitingRecordReadModel.organizationId, input.organizationId),
+        ),
+        { interviewQuestions: questions, updatedAt: now },
+      );
+      await tx.insert(recruitingEvent).values({
         action: "interview_questions_drafted",
         createdAt: now,
         detail: {
@@ -362,9 +416,9 @@ async function confirmGenerateInterviewQuestions(input: {
           source: "workspace_recruiting_copilot",
         },
         id: crypto.randomUUID(),
-        interviewRecordId: input.payload.resumeRecordId,
         operatorId: input.operatorId,
         organizationId: input.organizationId,
+        recruitingRecordId: input.payload.resumeRecordId,
       });
     });
     invalidateStudioInterviewCaches(input.organizationId);

@@ -1,13 +1,10 @@
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable import/consistent-type-specifier-style -- value and type imports share review-lifecycle to avoid duplicate module imports. */
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../../../lib/db";
-import {
-  jobDescription,
-  resumeEvaluationFailure,
-  resumeEvaluationVersion,
-  resumePoolItem,
-  studioInterview,
-} from "@app/db-schema/schema";
+import { jobDescription, resumePoolItem } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
 import type {
   ResumeReviewGenerationJobContext,
@@ -35,21 +32,25 @@ import {
   type GeneratedResumeAssessment,
   type ResumeAssessmentLifecycleDeps,
 } from "./review-lifecycle";
-import { buildPreQualitativeEvaluationArchive } from "./resume-evaluation-history";
 import { ensureCurrentJobDescriptionVersion } from "./job-description-version";
 
 function recordWhere(input: { organizationId: string; resumeRecordId: string }) {
   return and(
-    eq(studioInterview.id, input.resumeRecordId),
-    eq(studioInterview.organizationId, input.organizationId),
+    eq(recruitingRecordReadModel.id, input.resumeRecordId),
+    eq(recruitingRecordReadModel.organizationId, input.organizationId),
   );
 }
 
 function reviewRunWhere(runId: string | null | undefined) {
   if (runId === null) {
-    return isNull(studioInterview.resumeReviewRunId);
+    return isNull(recruitingRecordReadModel.resumeReviewRunId);
   }
-  return runId ? eq(studioInterview.resumeReviewRunId, runId) : undefined;
+  return runId
+    ? and(
+        eq(recruitingRecordReadModel.resumeReviewRunId, runId),
+        isNotNull(recruitingRecordReadModel.activeEvaluationId),
+      )
+    : undefined;
 }
 
 function parseResumeScreeningResult(value: JsonValue | null): ResumeScreeningResult | null {
@@ -66,8 +67,8 @@ function guardedRecordWhere(input: {
   return and(
     recordWhere(input),
     input.expectedJobDescriptionId
-      ? eq(studioInterview.jobDescriptionId, input.expectedJobDescriptionId)
-      : isNull(studioInterview.jobDescriptionId),
+      ? eq(recruitingRecordReadModel.jobDescriptionId, input.expectedJobDescriptionId)
+      : isNull(recruitingRecordReadModel.jobDescriptionId),
     reviewRunWhere(input.runId),
   );
 }
@@ -81,26 +82,26 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
     const [record] = await db
       .select({
         evaluationMode: jobDescription.evaluationMode,
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        outcome: studioInterview.outcome,
-        pipelineStage: studioInterview.pipelineStage,
+        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+        outcome: recruitingRecordReadModel.outcome,
+        pipelineStage: recruitingRecordReadModel.pipelineStage,
         qualitativeAttemptJobDescriptionVersionId:
-          studioInterview.qualitativeAttemptJobDescriptionVersionId,
-        qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-        resumeContentHash: studioInterview.resumeContentHash,
-        resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-        resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
-        resumeParseStatus: studioInterview.resumeParseStatus,
-        resumeProfile: studioInterview.resumeProfile,
-        resumeReview: studioInterview.resumeReview,
-        resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
-        resumeReviewRunId: studioInterview.resumeReviewRunId,
-        resumeScreeningResult: studioInterview.resumeScreeningResult,
-        resumeText: studioInterview.resumeText,
-        structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+          recruitingRecordReadModel.qualitativeAttemptJobDescriptionVersionId,
+        qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+        resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+        resumeEvaluationAttemptMode: recruitingRecordReadModel.resumeEvaluationAttemptMode,
+        resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+        resumeProfile: recruitingRecordReadModel.resumeProfile,
+        resumeReview: recruitingRecordReadModel.resumeReview,
+        resumeReviewQueuedAt: recruitingRecordReadModel.resumeReviewQueuedAt,
+        resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+        resumeScreeningResult: recruitingRecordReadModel.resumeScreeningResult,
+        resumeText: recruitingRecordReadModel.resumeText,
+        structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
       })
-      .from(studioInterview)
-      .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+      .from(recruitingRecordReadModel)
+      .leftJoin(jobDescription, eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id))
       .where(recordWhere(input))
       .limit(1);
     return record
@@ -121,9 +122,10 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
               : ("idle" as const),
           }
         : {};
-    const updated = await db
-      .update(studioInterview)
-      .set({
+    const updated = await updateRecruitingRecords(
+      db,
+      guardedRecordWhere({ ...input, runId: null }),
+      {
         resumeEvaluationArtifactMode: input.mode,
         resumeEvaluationAttemptMode: input.mode,
         resumeReviewError: null,
@@ -131,9 +133,8 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
         resumeReviewStatus: "ready",
         ...lifecycleValues,
         updatedAt: now,
-      })
-      .where(guardedRecordWhere({ ...input, runId: null }))
-      .returning({ id: studioInterview.id });
+      },
+    );
     return updated.length > 0;
   },
   markFailed: async (input) => {
@@ -141,40 +142,24 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
     const { runId } = input;
     if (input.mode === "qualitative" && runId) {
       return db.transaction(async (tx) => {
+        await lockRecruitingRecord(tx, input.resumeRecordId, input.organizationId);
         const [current] = await tx
           .select({
-            jobDescriptionVersionId: studioInterview.qualitativeAttemptJobDescriptionVersionId,
+            jobDescriptionVersionId:
+              recruitingRecordReadModel.qualitativeAttemptJobDescriptionVersionId,
           })
-          .from(studioInterview)
+          .from(recruitingRecordReadModel)
           .where(guardedRecordWhere({ ...input, runId }))
-          .limit(1)
-          .for("update");
+          .limit(1);
         if (!current?.jobDescriptionVersionId) {
           return false;
         }
-        await tx
-          .insert(resumeEvaluationFailure)
-          .values({
-            contractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-            createdAt: new Date(),
-            errorMessage,
-            id: crypto.randomUUID(),
-            jobDescriptionVersionId: current.jobDescriptionVersionId,
-            organizationId: input.organizationId,
-            resumeRecordId: input.resumeRecordId,
-            runId,
-          })
-          .onConflictDoNothing();
-        const updated = await tx
-          .update(studioInterview)
-          .set({
-            qualitativeAttemptJobDescriptionVersionId: null,
-            resumeReviewError: errorMessage,
-            resumeReviewStatus: "failed",
-            updatedAt: new Date(),
-          })
-          .where(guardedRecordWhere({ ...input, runId }))
-          .returning({ id: studioInterview.id });
+        const updated = await updateRecruitingRecords(tx, guardedRecordWhere({ ...input, runId }), {
+          qualitativeAttemptJobDescriptionVersionId: null,
+          resumeReviewError: errorMessage,
+          resumeReviewStatus: "failed",
+          updatedAt: new Date(),
+        });
         return updated.length > 0;
       });
     }
@@ -185,17 +170,17 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
             resumeScreeningStatus: "failed" as const,
           }
         : {};
-    const updated = await db
-      .update(studioInterview)
-      .set({
+    const updated = await updateRecruitingRecords(
+      db,
+      guardedRecordWhere({ ...input, runId: input.runId ?? null }),
+      {
         qualitativeAttemptJobDescriptionVersionId: input.mode === "qualitative" ? null : undefined,
         resumeReviewError: errorMessage,
         resumeReviewStatus: "failed",
         ...modeValues,
         updatedAt: new Date(),
-      })
-      .where(guardedRecordWhere({ ...input, runId: input.runId ?? null }))
-      .returning({ id: studioInterview.id });
+      },
+    );
     return updated.length > 0;
   },
   markProcessing: async (input) => {
@@ -207,16 +192,12 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
             resumeScreeningStatus: "processing" as const,
           }
         : {};
-    const updated = await db
-      .update(studioInterview)
-      .set({
-        resumeReviewError: null,
-        resumeReviewStatus: "processing",
-        ...modeValues,
-        updatedAt: now,
-      })
-      .where(guardedRecordWhere(input))
-      .returning({ id: studioInterview.id });
+    const updated = await updateRecruitingRecords(db, guardedRecordWhere(input), {
+      resumeReviewError: null,
+      resumeReviewStatus: "processing",
+      ...modeValues,
+      updatedAt: now,
+    });
     return updated.length > 0;
   },
   markReady: async (input) => {
@@ -224,24 +205,25 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
     if (input.assessment.mode === "qualitative") {
       const { assessment } = input;
       return db.transaction(async (tx) => {
+        await lockRecruitingRecord(tx, input.resumeRecordId, input.organizationId);
         const [current] = await tx
           .select({
-            notes: studioInterview.notes,
+            notes: recruitingRecordReadModel.notes,
             qualitativeAttemptJobDescriptionVersionId:
-              studioInterview.qualitativeAttemptJobDescriptionVersionId,
-            qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
-            qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
-            resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
-            resumeReview: studioInterview.resumeReview,
-            resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
-            resumeReviewRunId: studioInterview.resumeReviewRunId,
-            structuredCompositeScore: studioInterview.structuredCompositeScore,
-            structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+              recruitingRecordReadModel.qualitativeAttemptJobDescriptionVersionId,
+            qualitativeJobDescriptionVersionId:
+              recruitingRecordReadModel.qualitativeJobDescriptionVersionId,
+            qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+            resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+            resumeReview: recruitingRecordReadModel.resumeReview,
+            resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
+            resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+            structuredCompositeScore: recruitingRecordReadModel.structuredCompositeScore,
+            structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
           })
-          .from(studioInterview)
+          .from(recruitingRecordReadModel)
           .where(recordWhere(input))
-          .limit(1)
-          .for("update");
+          .limit(1);
         if (
           !current ||
           current.resumeReviewRunId !== input.runId ||
@@ -251,74 +233,61 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
         }
 
         const evaluation = qualitativeResumeEvaluationV2Schema.parse(assessment.evaluation);
-        if (current.resumeEvaluationArtifactMode !== "qualitative") {
-          const archive = buildPreQualitativeEvaluationArchive({
-            organizationId: input.organizationId,
-            record: current,
-            resumeRecordId: input.resumeRecordId,
-          });
-          if (archive) {
-            await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
-          }
-        }
-        await tx.insert(resumeEvaluationVersion).values({
-          // SAFETY: The strict qualitative schema has already parsed this JSON-compatible object.
-          artifact: evaluation as JsonValue,
-          contractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-          createdAt: now,
-          id: crypto.randomUUID(),
-          jobDescriptionVersionId: assessment.jobDescriptionVersionId,
-          numericScore: null,
-          organizationId: input.organizationId,
-          recommendationLevel: evaluation.recommendationLevel,
-          resumeRecordId: input.resumeRecordId,
-          runId: input.runId,
+        const updated = await updateRecruitingRecords(tx, guardedRecordWhere(input), {
+          qualitativeAttemptJobDescriptionVersionId: null,
+          qualitativeJobDescriptionVersionId: assessment.jobDescriptionVersionId,
+          qualitativeRecommendationLevel: evaluation.recommendationLevel,
+          qualitativeResumeEvaluation: evaluation,
+          resumeEvaluationArtifactMode: "qualitative",
+          resumeEvaluationAttemptMode: "qualitative",
+          resumeReview: null,
+          resumeReviewError: null,
+          resumeReviewGeneratedAt: now,
+          resumeReviewRunId: null,
+          resumeReviewStatus: "ready",
+          resumeScreeningError: null,
+          resumeScreeningEvaluatedAt: null,
+          resumeScreeningResult: null,
+          resumeScreeningStatus: "idle",
+          structuredCompositeScore: null,
+          structuredGateSortRank: null,
+          structuredGateStatus: null,
+          structuredResumeEvaluation: null,
+          structuredScoreGrade: null,
+          updatedAt: now,
         });
-        const updated = await tx
-          .update(studioInterview)
-          .set({
-            qualitativeAttemptJobDescriptionVersionId: null,
-            qualitativeJobDescriptionVersionId: assessment.jobDescriptionVersionId,
-            qualitativeRecommendationLevel: evaluation.recommendationLevel,
-            qualitativeResumeEvaluation: evaluation,
-            resumeEvaluationArtifactMode: "qualitative",
-            resumeEvaluationAttemptMode: "qualitative",
-            resumeReview: null,
-            resumeReviewError: null,
-            resumeReviewGeneratedAt: now,
-            resumeReviewRunId: null,
-            resumeReviewStatus: "ready",
-            resumeScreeningError: null,
-            resumeScreeningEvaluatedAt: null,
-            resumeScreeningResult: null,
-            resumeScreeningStatus: "idle",
-            structuredCompositeScore: null,
-            structuredGateSortRank: null,
-            structuredGateStatus: null,
-            structuredResumeEvaluation: null,
-            structuredScoreGrade: null,
-            updatedAt: now,
-          })
-          .where(guardedRecordWhere(input))
-          .returning({ id: studioInterview.id });
         return updated.length > 0;
       });
     }
     if (input.assessment.mode === "structured") {
       const { assessment } = input;
       return db.transaction(async (tx) => {
+        if (!input.expectedJobDescriptionId) {
+          return false;
+        }
+        // 与岗位升级和评估排队保持 JD → 招聘记录的锁顺序，避免两个事务互相等待。
+        await tx
+          .select({ id: jobDescription.id })
+          .from(jobDescription)
+          .where(
+            and(
+              eq(jobDescription.id, input.expectedJobDescriptionId),
+              eq(jobDescription.organizationId, input.organizationId),
+            ),
+          )
+          .for("update");
+        await lockRecruitingRecord(tx, input.resumeRecordId, input.organizationId);
         const [current] = await tx
           .select({
-            jobDescriptionId: studioInterview.jobDescriptionId,
-            resumeContentHash: studioInterview.resumeContentHash,
-            resumeProfile: studioInterview.resumeProfile,
-            resumeReviewRunId: studioInterview.resumeReviewRunId,
-            resumeText: studioInterview.resumeText,
+            jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+            resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+            resumeProfile: recruitingRecordReadModel.resumeProfile,
+            resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+            resumeText: recruitingRecordReadModel.resumeText,
           })
-          .from(studioInterview)
+          .from(recruitingRecordReadModel)
           .where(recordWhere(input))
-          .limit(1)
-          .for("update");
+          .limit(1);
         if (
           !current?.resumeProfile ||
           current.jobDescriptionId !== input.expectedJobDescriptionId ||
@@ -363,52 +332,44 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
           return false;
         }
         const summaries = deriveStructuredResumeSummaries(evaluation);
-        const updated = await tx
-          .update(studioInterview)
-          .set({
-            notes: null,
-            resumeEvaluationArtifactMode: "structured",
-            resumeEvaluationAttemptMode: "structured",
-            resumeReview: null,
-            resumeReviewError: null,
-            resumeReviewGeneratedAt: now,
-            resumeReviewRunId: null,
-            resumeReviewStatus: "ready",
-            resumeScreeningError: null,
-            resumeScreeningEvaluatedAt: null,
-            resumeScreeningResult: null,
-            resumeScreeningStatus: "idle",
-            structuredCompositeScore: summaries.compositeScore,
-            structuredGateSortRank: summaries.gateSortRank,
-            structuredGateStatus: summaries.gateStatus,
-            structuredResumeEvaluation: evaluation,
-            structuredScoreGrade: summaries.grade,
-            updatedAt: now,
-          })
-          .where(guardedRecordWhere(input))
-          .returning({ id: studioInterview.id });
+        const updated = await updateRecruitingRecords(tx, guardedRecordWhere(input), {
+          notes: null,
+          resumeEvaluationArtifactMode: "structured",
+          resumeEvaluationAttemptMode: "structured",
+          resumeReview: null,
+          resumeReviewError: null,
+          resumeReviewGeneratedAt: now,
+          resumeReviewRunId: null,
+          resumeReviewStatus: "ready",
+          resumeScreeningError: null,
+          resumeScreeningEvaluatedAt: null,
+          resumeScreeningResult: null,
+          resumeScreeningStatus: "idle",
+          structuredCompositeScore: summaries.compositeScore,
+          structuredGateSortRank: summaries.gateSortRank,
+          structuredGateStatus: summaries.gateStatus,
+          structuredResumeEvaluation: evaluation,
+          structuredScoreGrade: summaries.grade,
+          updatedAt: now,
+        });
         return updated.length > 0;
       });
     }
-    const updated = await db
-      .update(studioInterview)
-      .set({
-        notes: input.assessment.review,
-        resumeEvaluationArtifactMode: "legacy",
-        resumeEvaluationAttemptMode: "legacy",
-        resumeReview: input.assessment.resumeReview,
-        resumeReviewError: null,
-        resumeReviewGeneratedAt: now,
-        resumeReviewRunId: null,
-        resumeReviewStatus: "ready",
-        resumeScreeningError: null,
-        resumeScreeningEvaluatedAt: now,
-        resumeScreeningResult: input.assessment.screeningResult,
-        resumeScreeningStatus: "ready",
-        updatedAt: now,
-      })
-      .where(guardedRecordWhere(input))
-      .returning({ id: studioInterview.id });
+    const updated = await updateRecruitingRecords(db, guardedRecordWhere(input), {
+      notes: input.assessment.review,
+      resumeEvaluationArtifactMode: "legacy",
+      resumeEvaluationAttemptMode: "legacy",
+      resumeReview: input.assessment.resumeReview,
+      resumeReviewError: null,
+      resumeReviewGeneratedAt: now,
+      resumeReviewRunId: null,
+      resumeReviewStatus: "ready",
+      resumeScreeningError: null,
+      resumeScreeningEvaluatedAt: now,
+      resumeScreeningResult: input.assessment.screeningResult,
+      resumeScreeningStatus: "ready",
+      updatedAt: now,
+    });
     return updated.length > 0;
   },
 };
@@ -427,7 +388,7 @@ export function reassessResumeRecord(input: { organizationId: string; resumeReco
 async function matchJobDescriptionId(input: {
   organizationId: string;
   resumeFileName: string | null;
-  resumeProfile: NonNullable<typeof studioInterview.$inferSelect.resumeProfile>;
+  resumeProfile: NonNullable<RecruitingRecordRead["resumeProfile"]>;
 }): Promise<string | null> {
   try {
     const jobDescriptions = await listRecruitingJobDescriptions(input.organizationId);
@@ -452,11 +413,11 @@ async function resolveRecordJobDescriptionId(
   }
   const [record] = await db
     .select({
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      resumeFileName: studioInterview.resumeFileName,
-      resumeProfile: studioInterview.resumeProfile,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      resumeFileName: recruitingRecordReadModel.resumeFileName,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .where(recordWhere(input))
     .limit(1);
   if (!record?.resumeProfile || record.jobDescriptionId) {
@@ -470,17 +431,17 @@ async function resolveRecordJobDescriptionId(
   if (!matchedId) {
     return null;
   }
-  const updated = await db
-    .update(studioInterview)
-    .set({ jobDescriptionId: matchedId, updatedAt: new Date() })
-    .where(and(recordWhere(input), isNull(studioInterview.jobDescriptionId)))
-    .returning({ jobDescriptionId: studioInterview.jobDescriptionId });
+  const updated = await updateRecruitingRecords(
+    db,
+    and(recordWhere(input), isNull(recruitingRecordReadModel.jobDescriptionId)),
+    { jobDescriptionId: matchedId, updatedAt: new Date() },
+  );
   if (updated[0]?.jobDescriptionId) {
     return updated[0].jobDescriptionId;
   }
   const [current] = await db
-    .select({ jobDescriptionId: studioInterview.jobDescriptionId })
-    .from(studioInterview)
+    .select({ jobDescriptionId: recruitingRecordReadModel.jobDescriptionId })
+    .from(recruitingRecordReadModel)
     .where(recordWhere(input))
     .limit(1);
   return current?.jobDescriptionId ?? null;

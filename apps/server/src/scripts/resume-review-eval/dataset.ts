@@ -1,3 +1,4 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
   getResumeReviewBaseScore,
   getResumeReviewDimension,
@@ -138,28 +139,27 @@ export function buildResumeReviewEvalDataset(rows: ResumeReviewEvalRow[]): Resum
 export async function loadResumeReviewEvalRows(
   organizationId: string,
 ): Promise<ResumeReviewEvalRow[]> {
-  const [{ db }, { studioInterview }, { asc, eq }] = await Promise.all([
+  const [{ db }, { asc, eq }] = await Promise.all([
     import("../../lib/server/db/index"),
-    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   return db
     .select({
-      candidateId: studioInterview.id,
-      closedMeta: studioInterview.closedMeta,
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      organizationId: studioInterview.organizationId,
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
-      resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
-      resumeReview: studioInterview.resumeReview,
-      resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
-      resumeReviewRunId: studioInterview.resumeReviewRunId,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
-      resumeScreeningResult: studioInterview.resumeScreeningResult,
-      resumeScreeningStatus: studioInterview.resumeScreeningStatus,
+      candidateId: recruitingRecordReadModel.id,
+      closedMeta: recruitingRecordReadModel.closedMeta,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+      organizationId: recruitingRecordReadModel.organizationId,
+      outcome: recruitingRecordReadModel.outcome,
+      pipelineStage: recruitingRecordReadModel.pipelineStage,
+      resumeEvaluationStatus: recruitingRecordReadModel.resumeEvaluationStatus,
+      resumeReview: recruitingRecordReadModel.resumeReview,
+      resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
+      resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+      resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+      resumeScreeningResult: recruitingRecordReadModel.resumeScreeningResult,
+      resumeScreeningStatus: recruitingRecordReadModel.resumeScreeningStatus,
     })
-    .from(studioInterview)
-    .where(eq(studioInterview.organizationId, organizationId))
-    .orderBy(asc(studioInterview.id));
+    .from(recruitingRecordReadModel)
+    .where(eq(recruitingRecordReadModel.organizationId, organizationId))
+    .orderBy(asc(recruitingRecordReadModel.id));
 }

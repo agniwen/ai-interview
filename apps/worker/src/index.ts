@@ -1,3 +1,7 @@
+import { recoverAiInterviewReports } from "@app/server/ai-interview-report-recovery";
+/* oxlint-disable max-lines -- Worker bootstrap owns process-wide resource lifecycles. */
+import { startInitialInterviewProcessing } from "./initial-interview-evaluation/start";
+
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import {
@@ -475,6 +479,16 @@ async function main() {
         defaultInterviewNotificationProcessorDependencies,
       );
     },
+    reconcileHumanInterviewAttendance: async ({ now }) => {
+      const { reconcileDueHumanInterviewAttendance } =
+        await import("@app/server/human-interview-attendance-reconciliation");
+      await reconcileDueHumanInterviewAttendance({ now });
+    },
+    retryCancelledHumanInterviewCalendars: async ({ now }) => {
+      const { retryFailedCancelledHumanInterviewMeetingCalendars } =
+        await import("@app/server/human-interview-attendance-reconciliation");
+      await retryFailedCancelledHumanInterviewMeetingCalendars({ now });
+    },
   });
   if (interviewNotificationScheduler) {
     triggerLifecycle.addFinalizer("interview-notification-scheduler", () =>
@@ -502,6 +516,36 @@ async function main() {
     typeof createHumanInterviewEvaluationWorker
   > | null = null;
   let humanInterviewEvaluationRecoveryTimer: NodeJS.Timeout | null = null;
+  if (backgroundProcessingEnabled) {
+    let reportRecoveryRunning = false;
+    const recoverReports = async () => {
+      if (reportRecoveryRunning) {
+        return;
+      }
+      reportRecoveryRunning = true;
+      try {
+        await recoverAiInterviewReports();
+      } catch (error) {
+        captureWorkerException(error, "worker.ai-interview-report-recovery");
+      } finally {
+        reportRecoveryRunning = false;
+      }
+    };
+    void trackRecoveryRun(recoverReports);
+    const reportRecoveryTimer = setInterval(() => {
+      void trackRecoveryRun(recoverReports);
+    }, 30_000);
+    reportRecoveryTimer.unref();
+    triggerLifecycle.addFinalizer("ai-interview-report-recovery", () => {
+      clearInterval(reportRecoveryTimer);
+    });
+    await startInitialInterviewProcessing({
+      onFailure: reportQueueFailure("initial-interview-evaluation"),
+      resourceLifecycle,
+      trackRecoveryRun,
+      triggerLifecycle,
+    });
+  }
   if (backgroundProcessingEnabled && isHumanInterviewEvaluationQueueConfigured()) {
     humanInterviewEvaluationWorker = createHumanInterviewEvaluationWorker(
       async (payload, context) => {
@@ -778,7 +822,9 @@ try {
 } catch (error) {
   captureWorkerException(error, "worker.startup");
   console.error("[worker] fatal startup failure", {
+    errorMessage: error instanceof Error ? error.message : String(error),
     errorName: error instanceof Error ? error.name : "UnknownError",
+    errorStack: error instanceof Error ? error.stack : undefined,
   });
   await closeWorkerLifecycles(Exit.fail(error));
   await flushWorkerSentry();

@@ -49,6 +49,16 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { toast } from "sonner";
 import { z } from "zod";
 
+function getPriorityBadgeVariant(priority: "high" | "medium" | "low") {
+  if (priority === "high") {
+    return "destructive" as const;
+  }
+  if (priority === "medium") {
+    return "warning" as const;
+  }
+  return "secondary" as const;
+}
+
 interface JobDescriptionListQuery {
   departmentId?: string;
   interviewerId?: string;
@@ -98,7 +108,7 @@ export function JobDescriptionManagementPage({
         ...listTextQuery(params),
         page: String(params.page),
         pageSize: String(params.pageSize),
-        sortBy: params.sortBy ?? "createdAt",
+        sortBy: params.sortBy ?? "priority",
         sortOrder: params.sortOrder ?? "desc",
       };
       if (params.search) {
@@ -138,8 +148,8 @@ export function JobDescriptionManagementPage({
     JobDescriptionListRecord,
     { departmentId: string; interviewerId: string }
   >({
-    allowedSortIds: ["createdAt", "name", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
+    allowedSortIds: ["priority", "createdAt", "name", "updatedAt"],
+    defaultSorting: [{ desc: true, id: "priority" }],
     initialFilters: { departmentId: "", interviewerId: "" },
     queryFn: fetchJobDescriptions,
     queryKeyBase: ["job-descriptions", slug],
@@ -263,6 +273,46 @@ export function JobDescriptionManagementPage({
           r.departmentName ?? <span className="text-muted-foreground text-xs">未知</span>,
         key: "departmentName",
         title: "部门",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) => {
+          const labels = { high: "高", low: "低", medium: "中" };
+          return r.priority ? (
+            <Badge variant={getPriorityBadgeVariant(r.priority)}>{labels[r.priority]}</Badge>
+          ) : (
+            <span className="text-muted-foreground text-xs">未设置</span>
+          );
+        },
+        key: "priority",
+        title: "优先级",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) =>
+          r.reportingManagerName ?? <span className="text-muted-foreground text-xs">—</span>,
+        key: "reportingManagerName",
+        title: "汇报上级",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) =>
+          r.salaryMinK || r.salaryMaxK ? (
+            <span className="text-sm">
+              {r.salaryMinK ?? "—"}–{r.salaryMaxK ?? "—"}K
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
+        key: "salaryRange",
+        title: "薪资区间",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) => r.headcount ?? <span className="text-muted-foreground text-xs">—</span>,
+        key: "headcount",
+        title: "需求人数",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) => r.referralChannels ?? <span className="text-muted-foreground text-xs">—</span>,
+        key: "referralChannels",
+        title: "简历推荐渠道",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {

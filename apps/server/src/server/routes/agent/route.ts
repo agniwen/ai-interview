@@ -20,7 +20,7 @@ const recordingPayloadSchema = z
   })
   .nullish();
 
-const reportPayloadSchema = z.object({
+export const reportPayloadSchema = z.object({
   agentId: z.string().nullish(),
   callSuccessful: z.string().nullish(),
   conversationId: z.string().min(1),
@@ -60,6 +60,7 @@ export interface RetrySummaryCandidate {
 }
 
 export interface AgentRouterDependencies {
+  receiveReport: (data: ReportPayload, dependencies: AgentRouterDependencies) => Promise<void>;
   cacheTags: {
     interviewConversations: string;
     interviewConversationsByRecord: (id: string) => string;
@@ -88,7 +89,7 @@ export interface AgentRouterDependencies {
     keyInformationColumnsAvailable: boolean;
     now: Date;
     organizationId: string;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
   resolveOrgFromInterview: (interviewRecordId: string) => Promise<string>;
   retryFailedInterviewSummaryNotifications: () => Promise<{ retried: number }>;
   runKeyInformationJob: (options: {
@@ -141,64 +142,7 @@ export function createAgentRouter(dependencies: AgentRouterDependencies) {
         }
 
         const { data } = body;
-        const now = new Date();
-
-        // Resolve organization from the interview record so all child rows carry
-        // the correct tenant scope even though this webhook has no user session.
-        const orgId = await dependencies.resolveOrgFromInterview(data.interviewRecordId);
-
-        // Look up the existing conversation (if any) to decide whether the
-        // incoming POST is a fresh transcript or an idempotent re-delivery.
-        // - Fresh transcript → reset summary state so LLM re-runs.
-        // - Same transcript as stored → leave summary state alone so a previously
-        //   generated summary isn't clobbered by a retry / manual re-POST.
-        const existingTranscript = await dependencies.findExistingTranscript(data.conversationId);
-
-        const isNewTranscript =
-          !existingTranscript ||
-          JSON.stringify(existingTranscript) !== JSON.stringify(data.transcript);
-        const keyInformationColumnsAvailable = await dependencies.hasKeyInformationColumns();
-
-        await dependencies.persistReport({
-          data,
-          isNewTranscript,
-          keyInformationColumnsAvailable,
-          now,
-          organizationId: orgId,
-        });
-
-        await dependencies.createInterviewEvidenceSnapshot({
-          conversationId: data.conversationId,
-          interviewRecordId: data.interviewRecordId,
-        });
-
-        // studio-interviews 已按 org 隔离（见 cache-tags.ts）；interview-conversations
-        // 仍是全局 + record-id 两条，本来就足够 specific 无需 org 后缀。
-        // studio-interviews is org-scoped now; interview-conversations stays
-        // global + record-id (already specific enough).
-        dependencies.safeUpdateTag(dependencies.cacheTags.studioInterviews(orgId));
-        dependencies.safeUpdateTag(dependencies.cacheTags.interviewConversations);
-        dependencies.safeUpdateTag(
-          dependencies.cacheTags.interviewConversationsByRecord(data.interviewRecordId),
-        );
-
-        // 6. Fire-and-forget summary generation, but only when the transcript
-        //    actually changed — skip for idempotent re-POSTs of an already-
-        //    processed conversation. `runSummaryJob` has its own conditional
-        //    claim, so even without this guard it would be safe; this just
-        //    avoids an extra DB roundtrip for obvious duplicates.
-        if (isNewTranscript) {
-          void dependencies.runSummaryJob({
-            conversationId: data.conversationId,
-            interviewRecordId: data.interviewRecordId,
-          });
-          if (keyInformationColumnsAvailable) {
-            void dependencies.runKeyInformationJob({
-              conversationId: data.conversationId,
-              interviewRecordId: data.interviewRecordId,
-            });
-          }
-        }
+        await dependencies.receiveReport(data, dependencies);
 
         return c.json({ conversationId: data.conversationId, success: true }, 201);
       })

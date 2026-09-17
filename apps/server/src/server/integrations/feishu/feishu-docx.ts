@@ -95,6 +95,7 @@ const emptyFeishuResponseSchema = z
 interface FeishuDocxAttachment {
   bytes: Uint8Array;
   fileName: string;
+  mediaType?: string;
 }
 
 interface FeishuRequestBody {
@@ -121,6 +122,9 @@ interface CreateFeishuDocxOptions {
   folderToken?: string;
   recipientOpenId: string;
   title: string;
+  existingDocumentId?: string;
+  onDocumentCreated?: (documentId: string) => Promise<void>;
+  initializationKey?: string;
 }
 
 interface GrantFeishuDocxAccessOptions {
@@ -636,11 +640,11 @@ async function uploadFeishuDocxAttachment(
   body.append("parent_node", blockId);
   body.append("size", String(attachment.bytes.byteLength));
   body.append("extra", JSON.stringify({ drive_route_token: documentId }));
-  const pdfBytes = new Uint8Array(attachment.bytes.byteLength);
-  pdfBytes.set(attachment.bytes);
+  const fileBytes = new Uint8Array(attachment.bytes.byteLength);
+  fileBytes.set(attachment.bytes);
   body.append(
     "file",
-    new Blob([pdfBytes.buffer], { type: "application/pdf" }),
+    new Blob([fileBytes.buffer], { type: attachment.mediaType ?? "application/pdf" }),
     attachment.fileName,
   );
 
@@ -725,16 +729,22 @@ export async function createFeishuDocx(
   options: CreateFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
 ): Promise<{ documentId: string; documentUrl: string }> {
-  const created = await requestFeishu(
-    "/docx/v1/documents",
-    options.accessToken,
-    { title: options.title },
-    createDocumentResponseSchema,
-    dependencies,
-  );
+  const created = options.existingDocumentId
+    ? { document: { document_id: options.existingDocumentId } }
+    : await requestFeishu(
+        "/docx/v1/documents",
+        options.accessToken,
+        { title: options.title },
+        createDocumentResponseSchema,
+        dependencies,
+      );
   const documentId = created.document?.document_id;
   if (!documentId) {
     throw new Error("Feishu create document response did not include document_id");
+  }
+  // Persist external identity before any potentially slow document edits.
+  if (!options.existingDocumentId) {
+    await options.onDocumentCreated?.(documentId);
   }
   await dependencies.sleep(EDIT_THROTTLE_MS);
 
@@ -751,6 +761,8 @@ export async function createFeishuDocx(
     documentBlocks,
     options.accessToken,
     dependencies,
+    undefined,
+    options.initializationKey ? `${options.initializationKey}:top-level` : undefined,
   );
 
   if (options.attachment) {
@@ -782,6 +794,7 @@ export async function createFeishuDocx(
     topLevelBlocks,
     options.accessToken,
     dependencies,
+    options.initializationKey ? { clientTokenSeed: options.initializationKey } : undefined,
   );
 
   await grantFeishuDocxAccess(
@@ -1268,6 +1281,46 @@ export async function createFeishuInterviewEvaluationDocx(
   const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
   const folderToken = getFeishuEvaluationFolderToken(providerId);
   return await createFeishuDocx({ ...options, accessToken, folderToken });
+}
+
+export async function replaceFeishuDocxHrInitialInterview(
+  input: { accessToken: string; documentId: string; block: FeishuDocumentBlock },
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<void> {
+  await serializeDocumentStructureUpdate(input.documentId, async () => {
+    const blocks = await listDocumentBlocks(input.documentId, input.accessToken, dependencies);
+    const blocksById = new Map(blocks.map((block) => [block.block_id, block]));
+    const matches = blocks.filter(
+      (block) =>
+        block.block_type === 19 &&
+        isHrEvaluationTitle(plainText(blocksById.get(block.children?.[0] ?? ""))),
+    );
+    const [target] = matches;
+    if (matches.length !== 1 || !target) {
+      throw new Error(
+        "无法唯一定位飞书评价表的 HR 初面区域，请检查文档结构后重试；未覆盖其他区域。",
+      );
+    }
+    await syncCalloutContent(
+      {
+        ...input,
+        blocksById,
+        desiredCallout: input.block,
+        existingCallout: target,
+        section: "hr-initial-interview",
+      },
+      dependencies,
+    );
+  });
+}
+
+export async function replaceFeishuHrInitialInterview(
+  providerId: FeishuProviderId,
+  input: { documentId: string; block: FeishuDocumentBlock },
+): Promise<void> {
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
+  const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
+  await replaceFeishuDocxHrInitialInterview({ ...input, accessToken });
 }
 
 export async function moveFeishuInterviewEvaluationDocx(

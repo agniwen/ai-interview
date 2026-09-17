@@ -1,3 +1,5 @@
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import "../standalone/preload";
 
 import { createHash } from "node:crypto";
@@ -222,54 +224,53 @@ export async function loadRecentRows(
   jobId?: string,
   resumeId?: string,
 ): Promise<RecentResumeRow[]> {
-  const [{ db }, { jobDescription, studioInterview }, { and, desc, eq, gte, lt, lte }] =
-    await Promise.all([
-      import("../lib/server/db"),
-      import("@app/db-schema/schema"),
-      import("drizzle-orm"),
-    ]);
+  const [{ db }, { jobDescription }, { and, desc, eq, gte, lt, lte }] = await Promise.all([
+    import("../lib/server/db"),
+    import("@app/db-schema/schema"),
+    import("drizzle-orm"),
+  ]);
   const dateWindow = date ? buildChinaDateWindow(date) : null;
   return db
     .select({
-      candidateName: studioInterview.candidateName,
-      createdAt: studioInterview.createdAt,
+      candidateName: recruitingRecordReadModel.candidateName,
+      createdAt: recruitingRecordReadModel.createdAt,
       deductionRuleSetVersion: jobDescription.deductionRuleSetVersion,
       evaluationBlueprint: jobDescription.evaluationBlueprint,
       evaluationBlueprintHash: jobDescription.evaluationBlueprintHash,
       evaluationMode: jobDescription.evaluationMode,
-      id: studioInterview.id,
-      jobDescriptionId: studioInterview.jobDescriptionId,
+      id: recruitingRecordReadModel.id,
+      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
       lifecycleStatus: jobDescription.lifecycleStatus,
-      resumeContentHash: studioInterview.resumeContentHash,
-      resumeParseStatus: studioInterview.resumeParseStatus,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
-      resumeReviewRunId: studioInterview.resumeReviewRunId,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
-      resumeText: studioInterview.resumeText,
+      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+      resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+      resumeProfile: recruitingRecordReadModel.resumeProfile,
+      resumeReviewQueuedAt: recruitingRecordReadModel.resumeReviewQueuedAt,
+      resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+      resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+      resumeText: recruitingRecordReadModel.resumeText,
       structuredConfig: jobDescription.structuredConfig,
-      structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+      structuredResumeEvaluation: recruitingRecordReadModel.structuredResumeEvaluation,
     })
-    .from(studioInterview)
+    .from(recruitingRecordReadModel)
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
       ),
     )
     .where(
       and(
-        eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-        asOf ? lte(studioInterview.createdAt, new Date(asOf)) : undefined,
-        dateWindow ? gte(studioInterview.createdAt, dateWindow.from) : undefined,
-        dateWindow ? lt(studioInterview.createdAt, dateWindow.to) : undefined,
-        jobId ? eq(studioInterview.jobDescriptionId, jobId) : undefined,
-        resumeId ? eq(studioInterview.id, resumeId) : undefined,
+        eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+        asOf ? lte(recruitingRecordReadModel.createdAt, new Date(asOf)) : undefined,
+        dateWindow ? gte(recruitingRecordReadModel.createdAt, dateWindow.from) : undefined,
+        dateWindow ? lt(recruitingRecordReadModel.createdAt, dateWindow.to) : undefined,
+        jobId ? eq(recruitingRecordReadModel.jobDescriptionId, jobId) : undefined,
+        resumeId ? eq(recruitingRecordReadModel.id, resumeId) : undefined,
       ),
     )
-    .orderBy(desc(studioInterview.createdAt), desc(studioInterview.id))
+    .orderBy(desc(recruitingRecordReadModel.createdAt), desc(recruitingRecordReadModel.id))
     .limit(limit);
 }
 
@@ -290,30 +291,42 @@ async function assertTargetWorkspace(): Promise<void> {
 }
 
 async function claimTarget(row: RecentResumeRow, campaign: string) {
-  const [{ db }, { jobDescription, studioInterview }, { and, eq }] = await Promise.all([
+  const [{ db }, { jobDescription }, { and, eq }] = await Promise.all([
     import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   return db.transaction(async (tx) => {
+    if (row.jobDescriptionId) {
+      await tx
+        .select({ id: jobDescription.id })
+        .from(jobDescription)
+        .where(
+          and(
+            eq(jobDescription.id, row.jobDescriptionId),
+            eq(jobDescription.organizationId, TARGET_WORKSPACE_ID),
+          ),
+        )
+        .for("update");
+    }
+    await lockRecruitingRecord(tx, row.id, TARGET_WORKSPACE_ID);
     const [current] = await tx
       .select({
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        resumeContentHash: studioInterview.resumeContentHash,
-        resumeParseStatus: studioInterview.resumeParseStatus,
-        resumeProfile: studioInterview.resumeProfile,
-        resumeReviewStatus: studioInterview.resumeReviewStatus,
-        resumeText: studioInterview.resumeText,
+        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+        resumeParseStatus: recruitingRecordReadModel.resumeParseStatus,
+        resumeProfile: recruitingRecordReadModel.resumeProfile,
+        resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
+        resumeText: recruitingRecordReadModel.resumeText,
       })
-      .from(studioInterview)
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, row.id),
-          eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
+          eq(recruitingRecordReadModel.id, row.id),
+          eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
         ),
       )
-      .limit(1)
-      .for("update");
+      .limit(1);
     if (
       !current?.resumeProfile ||
       current.resumeParseStatus !== "ready" ||
@@ -350,23 +363,22 @@ async function claimTarget(row: RecentResumeRow, campaign: string) {
     }
     const now = new Date();
     const runId = `${campaign}:${crypto.randomUUID()}`;
-    await tx
-      .update(studioInterview)
-      .set({
+    await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, row.id),
+        eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescriptionId),
+      ),
+      {
         resumeEvaluationAttemptMode: "structured",
         resumeReviewError: null,
         resumeReviewQueuedAt: now,
         resumeReviewRunId: runId,
         resumeReviewStatus: "processing",
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, row.id),
-          eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-          eq(studioInterview.jobDescriptionId, jobDescriptionId),
-        ),
-      );
+      },
+    );
     return {
       evaluationAsOf: now.toISOString().slice(0, 10),
       expectedBlueprintHash: job.evaluationBlueprintHash,
@@ -392,29 +404,41 @@ async function commitAssessment(
   if (assessment.mode !== "structured") {
     throw new Error("评估结果不是结构化新版本。");
   }
-  const [{ db }, { jobDescription, studioInterview }, { and, eq }] = await Promise.all([
+  const [{ db }, { jobDescription }, { and, eq, isNotNull }] = await Promise.all([
     import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
   return db.transaction(async (tx) => {
+    if (claim.jobDescriptionId) {
+      await tx
+        .select({ id: jobDescription.id })
+        .from(jobDescription)
+        .where(
+          and(
+            eq(jobDescription.id, claim.jobDescriptionId),
+            eq(jobDescription.organizationId, TARGET_WORKSPACE_ID),
+          ),
+        )
+        .for("update");
+    }
+    await lockRecruitingRecord(tx, row.id, TARGET_WORKSPACE_ID);
     const [current] = await tx
       .select({
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        resumeContentHash: studioInterview.resumeContentHash,
-        resumeProfile: studioInterview.resumeProfile,
-        resumeReviewRunId: studioInterview.resumeReviewRunId,
-        resumeText: studioInterview.resumeText,
+        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+        resumeProfile: recruitingRecordReadModel.resumeProfile,
+        resumeReviewRunId: recruitingRecordReadModel.resumeReviewRunId,
+        resumeText: recruitingRecordReadModel.resumeText,
       })
-      .from(studioInterview)
+      .from(recruitingRecordReadModel)
       .where(
         and(
-          eq(studioInterview.id, row.id),
-          eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
+          eq(recruitingRecordReadModel.id, row.id),
+          eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
         ),
       )
-      .limit(1)
-      .for("update");
+      .limit(1);
     if (
       !current?.resumeProfile ||
       current.jobDescriptionId !== claim.jobDescriptionId ||
@@ -455,9 +479,16 @@ async function commitAssessment(
       return false;
     }
     const summaries = deriveStructuredResumeSummaries(evaluation);
-    const [updated] = await tx
-      .update(studioInterview)
-      .set({
+    const [updated] = await updateRecruitingRecords(
+      tx,
+      and(
+        eq(recruitingRecordReadModel.id, row.id),
+        eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+        eq(recruitingRecordReadModel.jobDescriptionId, claim.jobDescriptionId),
+        eq(recruitingRecordReadModel.resumeReviewRunId, claim.runId),
+        isNotNull(recruitingRecordReadModel.activeEvaluationId),
+      ),
+      {
         notes: null,
         resumeEvaluationArtifactMode: "structured",
         resumeEvaluationAttemptMode: "structured",
@@ -476,16 +507,8 @@ async function commitAssessment(
         structuredResumeEvaluation: evaluation,
         structuredScoreGrade: summaries.grade,
         updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(studioInterview.id, row.id),
-          eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-          eq(studioInterview.jobDescriptionId, claim.jobDescriptionId),
-          eq(studioInterview.resumeReviewRunId, claim.runId),
-        ),
-      )
-      .returning({ id: studioInterview.id });
+      },
+    );
     return Boolean(updated);
   });
 }
@@ -495,25 +518,24 @@ async function markFailed(
   runId: string,
   errorMessage: string,
 ): Promise<void> {
-  const [{ db }, { studioInterview }, { and, eq }] = await Promise.all([
+  const [{ db }, { and, eq, isNotNull }] = await Promise.all([
     import("../lib/server/db"),
-    import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
-  await db
-    .update(studioInterview)
-    .set({
+  await updateRecruitingRecords(
+    db,
+    and(
+      eq(recruitingRecordReadModel.id, row.id),
+      eq(recruitingRecordReadModel.organizationId, TARGET_WORKSPACE_ID),
+      eq(recruitingRecordReadModel.resumeReviewRunId, runId),
+      isNotNull(recruitingRecordReadModel.activeEvaluationId),
+    ),
+    {
       resumeReviewError: errorMessage.slice(0, 1000),
       resumeReviewStatus: "failed",
       updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(studioInterview.id, row.id),
-        eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
-        eq(studioInterview.resumeReviewRunId, runId),
-      ),
-    );
+    },
+  );
 }
 
 async function processTarget(row: RecentResumeRow, campaign: string) {

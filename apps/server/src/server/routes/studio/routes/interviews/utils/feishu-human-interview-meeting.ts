@@ -1,8 +1,13 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- Feishu sync checkpoints stay together so retry state remains auditable. */
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../../lib/server/db/index";
-import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  getPreferredFeishuProviderId,
+  selectPreferredFeishuProviderId,
+} from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
@@ -13,11 +18,10 @@ import {
   account,
   jobDescription,
   member,
-  studioHumanInterviewMeeting,
-  studioHumanInterviewMeetingInterviewer,
-  studioHumanInterviewMeetingRound,
-  studioHumanInterviewRound,
-  studioInterview,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import {
@@ -28,6 +32,7 @@ import {
   buildInterviewerInviteToken,
   buildInviteExpiry,
 } from "../dao/human-interview-meeting-access";
+import { requireAbsolutePublicAppUrl } from "../../../../../../lib/server/public-app-url";
 
 const FEISHU_OPEN_API_BASE_URL = "https://open.feishu.cn/open-apis";
 const FEISHU_SYNC_LEASE_DURATION_MS = 10 * 60 * 1000;
@@ -37,14 +42,6 @@ const interviewerRoleLabels = {
   interviewer: "面试官",
   observer: "观察员",
 } as const;
-
-function absoluteAppUrl(path: string): string {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (!baseUrl) {
-    throw new Error("未配置应用访问地址，无法生成飞书日程中的面试官入口。");
-  }
-  return `${baseUrl.replace(/\/$/, "")}${path}`;
-}
 
 export function buildCalendarDescription({
   candidates,
@@ -76,7 +73,9 @@ export function buildCalendarDescription({
       role: interviewer.role,
       userId: interviewer.id,
     });
-    const url = absoluteAppUrl(`/human-interview/interviewer/${encodeURIComponent(token)}`);
+    const url = requireAbsolutePublicAppUrl(
+      `/human-interview/interviewer/${encodeURIComponent(token)}`,
+    );
     return `${interviewer.name}（${interviewerRoleLabels[interviewer.role]}）：${url}`;
   });
   const sections = [
@@ -192,9 +191,11 @@ export function isFeishuSyncConflictError(error: unknown): error is FeishuSyncCo
 export async function resolveHumanInterviewFeishuProviderId({
   interviewerIds,
   organizationId,
+  preferredProviderId,
 }: {
   interviewerIds: string[];
   organizationId: string;
+  preferredProviderId?: FeishuProviderId | null;
 }): Promise<FeishuProviderId> {
   const uniqueInterviewerIds = [...new Set(interviewerIds)];
   const rows = await db
@@ -225,16 +226,17 @@ export async function resolveHumanInterviewFeishuProviderId({
     const availableProviderIds =
       linkedProviderIds && linkedProviderIds.size > 0
         ? linkedProviderIds
-        : new Set<FeishuProviderId>(["feishu-jiguang-hr"]);
+        : new Set<FeishuProviderId>([getPreferredFeishuProviderId()]);
     commonProviderIds = new Set(
       [...commonProviderIds].filter((providerId) => availableProviderIds.has(providerId)),
     );
   }
-  if (commonProviderIds.has("feishu-jiguang-hr")) {
-    return "feishu-jiguang-hr";
+  if (preferredProviderId && commonProviderIds.has(preferredProviderId)) {
+    return preferredProviderId;
   }
-  if (commonProviderIds.has("feishu")) {
-    return "feishu";
+  const selectedProviderId = selectPreferredFeishuProviderId(commonProviderIds);
+  if (selectedProviderId) {
+    return selectedProviderId;
   }
   throw new HumanInterviewMeetingError("所选面试官不属于同一个飞书应用来源。", 400);
 }
@@ -326,6 +328,25 @@ export function createFeishuHumanInterviewClient({
         eventId: event.event_id,
       };
     },
+    async deleteCalendarEvent({
+      calendarId,
+      eventId,
+    }: {
+      calendarId: string;
+      eventId: string;
+    }): Promise<void> {
+      const response = await fetchImplementation(
+        `${FEISHU_OPEN_API_BASE_URL}/calendar/v4/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?need_notification=true`,
+        {
+          headers: { authorization: `Bearer ${accessToken}` },
+          method: "DELETE",
+        },
+      );
+      const result = emptyFeishuResponseSchema.parse(await response.json());
+      if (!response.ok || result.code !== 0) {
+        throw new Error(`飞书日程取消失败：${result.msg || result.code || response.status}`);
+      }
+    },
     async getPrimaryCalendarId(): Promise<string> {
       const response = await fetchImplementation(
         `${FEISHU_OPEN_API_BASE_URL}/calendar/v4/calendars/primary?user_id_type=open_id`,
@@ -340,6 +361,35 @@ export function createFeishuHumanInterviewClient({
         throw new Error(`飞书主日历查询失败：${result.msg || result.code || response.status}`);
       }
       return calendarId;
+    },
+    async removeCalendarAttendees({
+      attendeeOpenIds,
+      calendarId,
+      eventId,
+    }: {
+      attendeeOpenIds: string[];
+      calendarId: string;
+      eventId: string;
+    }): Promise<void> {
+      const uniqueOpenIds = [...new Set(attendeeOpenIds)];
+      const response = await fetchImplementation(
+        `${FEISHU_OPEN_API_BASE_URL}/calendar/v4/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}/attendees/batch_delete?user_id_type=open_id`,
+        {
+          body: JSON.stringify({
+            delete_ids: uniqueOpenIds.map((openId) => ({ type: "user", user_id: openId })),
+            need_notification: true,
+          }),
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json; charset=utf-8",
+          },
+          method: "POST",
+        },
+      );
+      const result = emptyFeishuResponseSchema.parse(await response.json());
+      if (!response.ok || result.code !== 0) {
+        throw new Error(`飞书日程参与人移除失败：${result.msg || result.code || response.status}`);
+      }
     },
     async resolveOpenIdsByEmail(emails: string[]): Promise<Map<string, string>> {
       const response = await fetchImplementation(
@@ -409,11 +459,11 @@ export async function syncHumanInterviewMeetingToFeishu({
 }): Promise<HumanInterviewMeetingRecord> {
   let [meeting] = await db
     .select()
-    .from(studioHumanInterviewMeeting)
+    .from(humanInterviewMeeting)
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -423,16 +473,10 @@ export async function syncHumanInterviewMeetingToFeishu({
   if (meeting.feishuSyncStatus === "ready") {
     return loadSyncedMeeting(meetingId, organizationId);
   }
-  if (!meeting.scheduledAt) {
-    throw new Error("请先设置真人复面时间，再创建飞书日程。");
-  }
-  const { scheduledAt } = meeting;
-  const endAt = meeting.validUntil ?? new Date(scheduledAt.getTime() + 60 * 60 * 1000);
-
   const claimTime = new Date();
   const staleBefore = new Date(claimTime.getTime() - FEISHU_SYNC_LEASE_DURATION_MS);
   const [claimedMeeting] = await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       feishuLastError: null,
       feishuSyncStatus: "creating",
@@ -440,13 +484,13 @@ export async function syncHumanInterviewMeetingToFeishu({
     })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
         or(
-          inArray(studioHumanInterviewMeeting.feishuSyncStatus, ["pending", "failed"]),
+          inArray(humanInterviewMeeting.feishuSyncStatus, ["pending", "failed"]),
           and(
-            eq(studioHumanInterviewMeeting.feishuSyncStatus, "creating"),
-            lt(studioHumanInterviewMeeting.updatedAt, staleBefore),
+            eq(humanInterviewMeeting.feishuSyncStatus, "creating"),
+            lt(humanInterviewMeeting.updatedAt, staleBefore),
           ),
         ),
       ),
@@ -455,11 +499,11 @@ export async function syncHumanInterviewMeetingToFeishu({
   if (!claimedMeeting) {
     const [currentMeeting] = await db
       .select()
-      .from(studioHumanInterviewMeeting)
+      .from(humanInterviewMeeting)
       .where(
         and(
-          eq(studioHumanInterviewMeeting.id, meetingId),
-          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          eq(humanInterviewMeeting.id, meetingId),
+          eq(humanInterviewMeeting.organizationId, organizationId),
         ),
       )
       .limit(1);
@@ -476,28 +520,58 @@ export async function syncHumanInterviewMeetingToFeishu({
   }
   meeting = claimedMeeting;
 
+  const client = createFeishuHumanInterviewClient({ accessToken });
+  if (meeting.status === "cancelled") {
+    if (meeting.feishuCalendarId && meeting.feishuCalendarEventId) {
+      await client.deleteCalendarEvent({
+        calendarId: meeting.feishuCalendarId,
+        eventId: meeting.feishuCalendarEventId,
+      });
+    }
+    await db
+      .update(humanInterviewMeeting)
+      .set({
+        feishuAttendeeOpenIds: [],
+        feishuCalendarEventId: null,
+        feishuCalendarEventUrl: null,
+        feishuLastError: null,
+        feishuSyncStatus: "ready",
+        feishuSyncedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(humanInterviewMeeting.id, meetingId));
+    return loadSyncedMeeting(meetingId, organizationId);
+  }
+  if (!meeting.scheduledAt) {
+    throw new Error("请先设置真人复面时间，再创建飞书日程。");
+  }
+  const { scheduledAt } = meeting;
+  const endAt = meeting.validUntil ?? new Date(scheduledAt.getTime() + 60 * 60 * 1000);
+
   const interviewerRows = await db
     .select({
-      feishuOpenId: studioHumanInterviewMeetingInterviewer.feishuOpenId,
+      feishuOpenId: humanInterviewMeetingInterviewer.feishuOpenId,
       name: user.name,
-      role: studioHumanInterviewMeetingInterviewer.role,
-      userId: studioHumanInterviewMeetingInterviewer.userId,
+      role: humanInterviewMeetingInterviewer.role,
+      userId: humanInterviewMeetingInterviewer.userId,
     })
-    .from(studioHumanInterviewMeetingInterviewer)
-    .innerJoin(user, eq(studioHumanInterviewMeetingInterviewer.userId, user.id))
-    .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId));
+    .from(humanInterviewMeetingInterviewer)
+    .innerJoin(user, eq(humanInterviewMeetingInterviewer.userId, user.id))
+    .where(eq(humanInterviewMeetingInterviewer.meetingId, meetingId));
   const interviewerIds = interviewerRows.map((row) => row.userId);
-  const client = createFeishuHumanInterviewClient({ accessToken });
-  const hostOpenIds: string[] = [];
-  if (interviewerRows.every((interviewer) => interviewer.feishuOpenId)) {
-    for (const interviewerRow of interviewerRows) {
-      if (!interviewerRow.feishuOpenId) {
-        throw new Error("飞书日程检查点缺少面试官身份，不能安全继续同步。");
-      }
-      hostOpenIds.push(interviewerRow.feishuOpenId);
-    }
-  } else {
-    const participantIds = interviewerIds;
+  const participantIds: string[] = [
+    ...new Set([...(meeting.createdBy ? [meeting.createdBy] : []), ...interviewerIds]),
+  ];
+  const interviewerOpenIds = new Map(
+    interviewerRows.flatMap((interviewer) =>
+      interviewer.feishuOpenId ? ([[interviewer.userId, interviewer.feishuOpenId]] as const) : [],
+    ),
+  );
+  let ownerOpenId = meeting.feishuOwnerOpenId;
+  if (
+    (meeting.createdBy !== null && !ownerOpenId) ||
+    interviewerOpenIds.size !== interviewerIds.length
+  ) {
     const participants = await db
       .select({
         email: user.email,
@@ -526,60 +600,71 @@ export async function syncHumanInterviewMeetingToFeishu({
             participantsMissingOpenId.map((participant) => participant.email),
           )
         : new Map<string, string>();
-    const participantOpenIds = new Map(
+    const resolvedParticipantOpenIds = new Map(
       participants.map((participant) => [
         participant.id,
         participant.openId ?? openIdsByEmail.get(participant.email),
       ]),
     );
     const unresolvedNames = participants
-      .filter((participant) => !participantOpenIds.get(participant.id))
+      .filter((participant) => !resolvedParticipantOpenIds.get(participant.id))
       .map((participant) => participant.name);
     if (unresolvedNames.length > 0) {
       throw new Error(`以下人员未找到飞书账号：${unresolvedNames.join("、")}`);
     }
 
+    if (meeting.createdBy) {
+      ownerOpenId = resolvedParticipantOpenIds.get(meeting.createdBy) ?? null;
+      if (!ownerOpenId) {
+        throw new Error("会议创建人未找到飞书账号。");
+      }
+    }
     for (const interviewerId of interviewerIds) {
-      const hostOpenId = participantOpenIds.get(interviewerId);
-      if (!hostOpenId) {
+      const interviewerOpenId = resolvedParticipantOpenIds.get(interviewerId);
+      if (!interviewerOpenId) {
         throw new Error("部分面试官未找到飞书账号。");
       }
-      hostOpenIds.push(hostOpenId);
-    }
-
-    for (const interviewerId of interviewerIds) {
+      interviewerOpenIds.set(interviewerId, interviewerOpenId);
       await db
-        .update(studioHumanInterviewMeetingInterviewer)
-        .set({ feishuOpenId: participantOpenIds.get(interviewerId) })
+        .update(humanInterviewMeetingInterviewer)
+        .set({ feishuOpenId: interviewerOpenId })
         .where(
           and(
-            eq(studioHumanInterviewMeetingInterviewer.meetingId, meetingId),
-            eq(studioHumanInterviewMeetingInterviewer.userId, interviewerId),
+            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+            eq(humanInterviewMeetingInterviewer.userId, interviewerId),
           ),
         );
     }
+    await db
+      .update(humanInterviewMeeting)
+      .set({ feishuOwnerOpenId: ownerOpenId, updatedAt: new Date() })
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
+  const desiredAttendeeOpenIds = [
+    ownerOpenId,
+    ...interviewerIds.map((interviewerId) => interviewerOpenIds.get(interviewerId)),
+  ].filter((openId): openId is string => typeof openId === "string");
 
   const candidateRows = await db
     .select({
-      candidateName: studioInterview.candidateName,
+      candidateName: recruitingRecordReadModel.candidateName,
       jobDescriptionName: jobDescription.name,
-      roundLabel: studioHumanInterviewRound.label,
+      roundLabel: humanInterviewRound.label,
     })
-    .from(studioHumanInterviewMeetingRound)
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
     .innerJoin(
-      studioHumanInterviewRound,
-      eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
-    .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
     .leftJoin(
       jobDescription,
       and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(studioInterview.organizationId, jobDescription.organizationId),
+        eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
+        eq(recruitingRecordReadModel.organizationId, jobDescription.organizationId),
       ),
     )
-    .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId));
+    .where(eq(humanInterviewMeetingRound.meetingId, meetingId));
   const description = buildCalendarDescription({
     candidates: candidateRows,
     interviewers: interviewerRows.map((interviewer) => ({
@@ -595,9 +680,9 @@ export async function syncHumanInterviewMeetingToFeishu({
   const calendarId = meeting.feishuCalendarId ?? (await client.getPrimaryCalendarId());
   if (!meeting.feishuCalendarId) {
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ feishuCalendarId: calendarId, updatedAt: new Date() })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
 
   let eventId = meeting.feishuCalendarEventId;
@@ -621,18 +706,35 @@ export async function syncHumanInterviewMeetingToFeishu({
     });
     ({ eventId } = event);
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({
         feishuCalendarEventId: event.eventId,
         feishuCalendarEventUrl: event.calendarEventUrl,
         updatedAt: new Date(),
       })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
 
-  const attendeeOpenIds = hostOpenIds;
   const alreadyAddedOpenIds = new Set(meeting.feishuAttendeeOpenIds);
-  const missingAttendeeOpenIds = attendeeOpenIds.filter(
+  const desiredAttendeeOpenIdSet = new Set(desiredAttendeeOpenIds);
+  const staleAttendeeOpenIds = [...alreadyAddedOpenIds].filter(
+    (openId) => !desiredAttendeeOpenIdSet.has(openId),
+  );
+  if (staleAttendeeOpenIds.length > 0) {
+    await client.removeCalendarAttendees({
+      attendeeOpenIds: staleAttendeeOpenIds,
+      calendarId,
+      eventId,
+    });
+    for (const openId of staleAttendeeOpenIds) {
+      alreadyAddedOpenIds.delete(openId);
+    }
+    await db
+      .update(humanInterviewMeeting)
+      .set({ feishuAttendeeOpenIds: [...alreadyAddedOpenIds], updatedAt: new Date() })
+      .where(eq(humanInterviewMeeting.id, meetingId));
+  }
+  const missingAttendeeOpenIds = desiredAttendeeOpenIds.filter(
     (openId) => !alreadyAddedOpenIds.has(openId),
   );
   if (missingAttendeeOpenIds.length > 0) {
@@ -649,9 +751,9 @@ export async function syncHumanInterviewMeetingToFeishu({
           alreadyAddedOpenIds.add(openId);
         }
         await db
-          .update(studioHumanInterviewMeeting)
+          .update(humanInterviewMeeting)
           .set({ feishuAttendeeOpenIds: [...alreadyAddedOpenIds], updatedAt: new Date() })
-          .where(eq(studioHumanInterviewMeeting.id, meetingId));
+          .where(eq(humanInterviewMeeting.id, meetingId));
       }
       throw error;
     }
@@ -659,20 +761,20 @@ export async function syncHumanInterviewMeetingToFeishu({
       alreadyAddedOpenIds.add(openId);
     }
     await db
-      .update(studioHumanInterviewMeeting)
+      .update(humanInterviewMeeting)
       .set({ feishuAttendeeOpenIds: [...alreadyAddedOpenIds], updatedAt: new Date() })
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+      .where(eq(humanInterviewMeeting.id, meetingId));
   }
 
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       feishuLastError: null,
       feishuSyncStatus: "ready",
       feishuSyncedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    .where(eq(humanInterviewMeeting.id, meetingId));
 
   return loadSyncedMeeting(meetingId, organizationId);
 }
@@ -689,7 +791,7 @@ export async function recordFeishuHumanInterviewSyncFailure({
   const message = error instanceof Error ? error.message : "飞书日程同步失败。";
   const status = "failed" as const;
   await db
-    .update(studioHumanInterviewMeeting)
+    .update(humanInterviewMeeting)
     .set({
       feishuLastError: message.slice(0, 1000),
       feishuSyncStatus: status,
@@ -697,8 +799,8 @@ export async function recordFeishuHumanInterviewSyncFailure({
     })
     .where(
       and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        eq(humanInterviewMeeting.id, meetingId),
+        eq(humanInterviewMeeting.organizationId, organizationId),
       ),
     );
   return { message, status } as const;
