@@ -10,7 +10,7 @@
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import { AnimatePresence, m } from "motion/react";
+import { CandidateActionDock } from "./candidate-action-dock/candidate-action-dock";
 import { createPortal } from "react-dom";
 import { cn } from "@app/shared/utils";
 
@@ -27,7 +27,6 @@ import {
 import { Tabs } from "@/components/ui/tabs";
 import { useHydrated } from "@/hooks/use-hydrated";
 
-import { DETAIL_PAGE_FLOATING_ACTION_CLASS } from "./studio-person-detail-model";
 import type { StudioPersonDetailSlots, StudioPersonDetailTab } from "./studio-person-detail-model";
 import { InterviewReportMetadataDialog } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
@@ -68,7 +67,6 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     onConfirmHumanInterviewQuestions,
     onHumanInterviewQuestionDialogOpenChange,
     pendingResetSubmissionId,
-    reduceMotion,
     setActiveTab,
     setMetadataReport,
     shell,
@@ -111,28 +109,21 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
       </Tabs>
       {isHydrated
         ? createPortal(
-            <AnimatePresence>
-              {floatingActionBar ? (
-                <m.div
-                  animate={{ opacity: 1, y: 0 }}
-                  className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center"
-                  exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
-                  initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
-                  transition={
-                    reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
-                  }
-                >
-                  <div
-                    className={cn(
-                      "pointer-events-auto flex w-full max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl p-2 md:w-auto md:rounded-md md:p-1",
-                      DETAIL_PAGE_FLOATING_ACTION_CLASS,
-                    )}
-                  >
-                    {floatingActionBar}
-                  </div>
-                </m.div>
-              ) : null}
-            </AnimatePresence>,
+            floatingActionBar ? (
+              <CandidateActionDock
+                key={`${model.slug}:${model.record?.id}`}
+                candidateName={model.record?.candidateName ?? "候选人"}
+              >
+                {floatingActionBar}
+                <HumanInterviewQuestionDialog
+                  candidateName={model.record?.candidateName ?? null}
+                  onConfirmed={onConfirmHumanInterviewQuestions}
+                  onOpenChange={onHumanInterviewQuestionDialogOpenChange}
+                  open={humanInterviewQuestionDialogOpen}
+                  recordId={model.record?.id ?? null}
+                />
+              </CandidateActionDock>
+            ) : null,
             document.body,
           )
         : null}
@@ -146,7 +137,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
           report={metadataReport}
         />
       ) : null}
-      {mode === "resume" ? (
+      {mode === "resume" && !floatingActionBar ? (
         <HumanInterviewQuestionDialog
           candidateName={model.record?.candidateName ?? null}
           onConfirmed={onConfirmHumanInterviewQuestions}

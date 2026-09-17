@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  useActionRecordVersion,
+  useActionFlowCompletion,
+} from "../candidate-action-dock/candidate-action-dock";
+import { ActionFlowSurface } from "../candidate-action-dock/action-flow-surface";
+
 /* oxlint-disable no-use-before-define -- helper components defined below export */
 // 「标记结束」/「重新激活」二合一对话框。
 //   - mode='close'：HR 选 outcome（录用/淘汰/撤回/归档）+ 可选的录用 / 淘汰细节
@@ -38,14 +44,6 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DatePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -132,6 +130,7 @@ function CloseDialog({
   initialOutcome,
   onCompleted,
 }: Omit<TransitionCandidateDialogProps, "mode">) {
+  const complete = useActionFlowCompletion("close-candidate");
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const { data: resume } = useQuery({
@@ -158,7 +157,9 @@ function CloseDialog({
   const [category, setCategory] = useState<CloseCategory | "">("");
   const [talentPoolEligible, setTalentPoolEligible] = useState(false);
   const [revisitAfter, setRevisitAfter] = useState("");
+  const expectedVersion = useActionRecordVersion(open, resume?.version);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setError] = useState<string | null>(null);
 
   // 打开对话框时根据 initialOutcome / 已有 Offer 信息预填。
   // Sync form on open; prefill from the latest accepted offer when present.
@@ -166,6 +167,8 @@ function CloseDialog({
     if (!open) {
       return;
     }
+    // oxlint-disable-next-line react/set-state-in-effect -- reset previous submission error on a fresh flow.
+    setError(null);
     // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setOutcome(initialOutcome ?? "rejected");
     setInternalNotes("");
@@ -183,11 +186,16 @@ function CloseDialog({
     if (!candidate || !resume) {
       return;
     }
+    if (submitting) {
+      return;
+    }
+    setError(null);
     setSubmitting(true);
     await runAsyncAction({
       cleanup: () => setSubmitting(false),
       onError: (error) => {
         const message = error instanceof Error ? error.message : "操作失败";
+        setError(message);
         toast.error(message);
       },
       operation: async () => {
@@ -220,16 +228,17 @@ function CloseDialog({
           action: "close",
           closeReason: closeReasonForOutcome(outcome, resume.pipelineStage),
           details: closedMeta,
-          expectedVersion: resume?.version ?? -1,
+          expectedVersion: expectedVersion ?? -1,
           outcome,
           reason: internalNotes.trim() || undefined,
         });
         toast.success(`已标记为「${candidateOutcomeMeta[outcome].label}」`);
         // 详情面板缓存也刷一下，让 action bar 立刻显示「重新激活」。
         // Invalidate detail cache so the action bar swaps to "reactivate".
-        await queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ["studio-resumes", slug, "detail", candidate.id],
         });
+        complete(`已标记为「${candidateOutcomeMeta[outcome].label}」`);
         onCompleted();
         onOpenChange(false);
       },
@@ -239,195 +248,197 @@ function CloseDialog({
   const candidateLabel = candidate?.candidateName || "该候选人";
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>标记结束：{candidateLabel}</DialogTitle>
-          <DialogDescription>
-            选择候选人的最终结论。所在阶段会被同步置为「已结束」，便于人才库归类与统计。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <RadioGroup
-            className="grid grid-cols-2 gap-2"
-            onValueChange={(value) => {
-              const parsed = closeOutcomeSchema.safeParse(value);
-              if (parsed.success) {
-                setOutcome(parsed.data);
-              }
-            }}
-            value={outcome}
-          >
-            {CLOSE_OUTCOMES.filter(
-              (value) => value !== "hired" || resume?.pipelineStage === "onboarding",
-            ).map((value) => (
-              <div className="flex items-center gap-2" key={value}>
-                <RadioGroupItem id={`outcome-${value}`} value={value} />
-                <Label className="cursor-pointer text-sm" htmlFor={`outcome-${value}`}>
-                  {candidateOutcomeMeta[value].label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-
-          {outcome === "hired" ? (
-            <Card className="gap-0 rounded-lg py-0">
-              <CardContent className="grid gap-3 bg-muted/30 p-3 sm:grid-cols-2">
-                <div className="grid gap-1.5 sm:col-span-2">
-                  <Label className="text-xs" htmlFor="hired-position">
-                    最终职位（可选）
-                  </Label>
-                  <Input
-                    id="hired-position"
-                    maxLength={200}
-                    onChange={(e) => setFinalPosition(e.target.value)}
-                    placeholder="例如 高级前端 L4"
-                    value={finalPosition}
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="text-xs" htmlFor="hired-salary">
-                    最终月薪 (¥，可选)
-                  </Label>
-                  <Input
-                    id="hired-salary"
-                    inputMode="numeric"
-                    min={0}
-                    onChange={(e) => setFinalBaseSalary(e.target.value)}
-                    type="number"
-                    value={finalBaseSalary}
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="text-xs" htmlFor="hired-joining">
-                    实际入职日（可选）
-                  </Label>
-                  <DatePicker
-                    id="hired-joining"
-                    onValueChange={setActualJoiningDate}
-                    value={actualJoiningDate}
-                  />
-                </div>
-                <div className="grid gap-1.5 sm:col-span-2">
-                  <Label className="text-xs" htmlFor="hired-contact">
-                    入职对接人（可选）
-                  </Label>
-                  <Input
-                    id="hired-contact"
-                    maxLength={200}
-                    onChange={(e) => setOnboardingContact(e.target.value)}
-                    placeholder="HR 同事 / 业务对接人"
-                    value={onboardingContact}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {outcome === "rejected" ? (
-            <Card className="gap-0 rounded-lg py-0">
-              <CardContent className="grid gap-3 bg-muted/30 p-3">
-                <div className="grid gap-1.5">
-                  <Label className="text-xs" htmlFor="reject-category">
-                    淘汰原因分类（可选，用于统计）
-                  </Label>
-                  <Select
-                    onValueChange={(value) => {
-                      if (!value) {
-                        setCategory("");
-                        return;
-                      }
-                      const parsed = closeCategorySchema.safeParse(value);
-                      if (parsed.success) {
-                        setCategory(parsed.data);
-                      }
-                    }}
-                    value={category}
-                  >
-                    <SelectTrigger className="w-full" id="reject-category">
-                      <SelectValue placeholder="请选择" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="">请选择</SelectItem>
-                        {closeCategoryValues.map((v) => (
-                          <SelectItem key={v} value={v}>
-                            {closeCategoryMeta[v].label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    aria-label="进入人才库"
-                    checked={talentPoolEligible}
-                    className="size-4 accent-foreground"
-                    id="talent-pool"
-                    onChange={(e) => setTalentPoolEligible(e.target.checked)}
-                    type="checkbox"
-                  />
-                  <Label className="cursor-pointer text-sm" htmlFor="talent-pool">
-                    进入人才库（未来可召回）
-                  </Label>
-                </div>
-                {talentPoolEligible ? (
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs" htmlFor="revisit-after">
-                      建议多久后再联系（可选）
-                    </Label>
-                    <DatePicker
-                      id="revisit-after"
-                      onValueChange={setRevisitAfter}
-                      value={revisitAfter}
-                    />
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="close-feedback">
-              对外反馈话术（可选，给候选人看）
-            </Label>
-            <Textarea
-              id="close-feedback"
-              maxLength={5000}
-              onChange={(e) => setFeedbackToCandidate(e.target.value)}
-              placeholder="例如：感谢您参与本次招聘流程……"
-              rows={2}
-              value={feedbackToCandidate}
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="close-notes">
-              内部备注（可选）
-            </Label>
-            <Textarea
-              id="close-notes"
-              maxLength={5000}
-              onChange={(e) => setInternalNotes(e.target.value)}
-              placeholder="给团队看的真实反馈，不发给候选人"
-              rows={2}
-              value={internalNotes}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
+    <ActionFlowSurface
+      onOpenChange={onOpenChange}
+      open={open}
+      flowId="close-candidate"
+      busy={submitting}
+      error={submitError}
+      title={<>标记结束：{candidateLabel}</>}
+      description={
+        <>选择候选人的最终结论。所在阶段会被同步置为「已结束」，便于人才库归类与统计。</>
+      }
+      footer={
+        <>
           <Button disabled={submitting} onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
           <Button disabled={submitting || !candidate || !resume} onClick={handleConfirm}>
             {submitting ? "处理中…" : "确认结束"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-4 py-2">
+        <RadioGroup
+          className="grid grid-cols-2 gap-2"
+          onValueChange={(value) => {
+            const parsed = closeOutcomeSchema.safeParse(value);
+            if (parsed.success) {
+              setOutcome(parsed.data);
+            }
+          }}
+          value={outcome}
+        >
+          {CLOSE_OUTCOMES.filter(
+            (value) => value !== "hired" || resume?.pipelineStage === "onboarding",
+          ).map((value) => (
+            <div className="flex items-center gap-2" key={value}>
+              <RadioGroupItem id={`outcome-${value}`} value={value} />
+              <Label className="cursor-pointer text-sm" htmlFor={`outcome-${value}`}>
+                {candidateOutcomeMeta[value].label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+
+        {outcome === "hired" ? (
+          <Card className="gap-0 rounded-lg py-0">
+            <CardContent className="grid gap-3 bg-muted/30 p-3 sm:grid-cols-2">
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label className="text-xs" htmlFor="hired-position">
+                  最终职位（可选）
+                </Label>
+                <Input
+                  id="hired-position"
+                  maxLength={200}
+                  onChange={(e) => setFinalPosition(e.target.value)}
+                  placeholder="例如 高级前端 L4"
+                  value={finalPosition}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs" htmlFor="hired-salary">
+                  最终月薪 (¥，可选)
+                </Label>
+                <Input
+                  id="hired-salary"
+                  inputMode="numeric"
+                  min={0}
+                  onChange={(e) => setFinalBaseSalary(e.target.value)}
+                  type="number"
+                  value={finalBaseSalary}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs" htmlFor="hired-joining">
+                  实际入职日（可选）
+                </Label>
+                <DatePicker
+                  id="hired-joining"
+                  onValueChange={setActualJoiningDate}
+                  value={actualJoiningDate}
+                />
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label className="text-xs" htmlFor="hired-contact">
+                  入职对接人（可选）
+                </Label>
+                <Input
+                  id="hired-contact"
+                  maxLength={200}
+                  onChange={(e) => setOnboardingContact(e.target.value)}
+                  placeholder="HR 同事 / 业务对接人"
+                  value={onboardingContact}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {outcome === "rejected" ? (
+          <Card className="gap-0 rounded-lg py-0">
+            <CardContent className="grid gap-3 bg-muted/30 p-3">
+              <div className="grid gap-1.5">
+                <Label className="text-xs" htmlFor="reject-category">
+                  淘汰原因分类（可选，用于统计）
+                </Label>
+                <Select
+                  onValueChange={(value) => {
+                    if (!value) {
+                      setCategory("");
+                      return;
+                    }
+                    const parsed = closeCategorySchema.safeParse(value);
+                    if (parsed.success) {
+                      setCategory(parsed.data);
+                    }
+                  }}
+                  value={category}
+                >
+                  <SelectTrigger className="w-full" id="reject-category">
+                    <SelectValue placeholder="请选择" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="">请选择</SelectItem>
+                      {closeCategoryValues.map((v) => (
+                        <SelectItem key={v} value={v}>
+                          {closeCategoryMeta[v].label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  aria-label="进入人才库"
+                  checked={talentPoolEligible}
+                  className="size-4 accent-foreground"
+                  id="talent-pool"
+                  onChange={(e) => setTalentPoolEligible(e.target.checked)}
+                  type="checkbox"
+                />
+                <Label className="cursor-pointer text-sm" htmlFor="talent-pool">
+                  进入人才库（未来可召回）
+                </Label>
+              </div>
+              {talentPoolEligible ? (
+                <div className="grid gap-1.5">
+                  <Label className="text-xs" htmlFor="revisit-after">
+                    建议多久后再联系（可选）
+                  </Label>
+                  <DatePicker
+                    id="revisit-after"
+                    onValueChange={setRevisitAfter}
+                    value={revisitAfter}
+                  />
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="close-feedback">
+            对外反馈话术（可选，给候选人看）
+          </Label>
+          <Textarea
+            id="close-feedback"
+            maxLength={5000}
+            onChange={(e) => setFeedbackToCandidate(e.target.value)}
+            placeholder="例如：感谢您参与本次招聘流程……"
+            rows={2}
+            value={feedbackToCandidate}
+          />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="close-notes">
+            内部备注（可选）
+          </Label>
+          <Textarea
+            id="close-notes"
+            maxLength={5000}
+            onChange={(e) => setInternalNotes(e.target.value)}
+            placeholder="给团队看的真实反馈，不发给候选人"
+            rows={2}
+            value={internalNotes}
+          />
+        </div>
+      </div>
+    </ActionFlowSurface>
   );
 }
 
@@ -440,6 +451,7 @@ function ReactivateDialog({
   candidate,
   onCompleted,
 }: Omit<TransitionCandidateDialogProps, "mode" | "initialOutcome">) {
+  const complete = useActionFlowCompletion("reopen-candidate");
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const { data: resume } = useQuery({
@@ -451,7 +463,9 @@ function ReactivateDialog({
   const [reactivationReason, setReactivationReason] = useState("");
   const reasonTooLong = reactivationReason.length > 500;
   const [targetStage, setTargetStage] = useState<ReactivateTargetStage>("screening");
+  const expectedVersion = useActionRecordVersion(open, resume?.version);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -478,25 +492,31 @@ function ReactivateDialog({
       toast.error("请选择候选人已走过的招聘阶段");
       return;
     }
+    if (submitting) {
+      return;
+    }
+    setError(null);
     setSubmitting(true);
     await runAsyncAction({
       cleanup: () => setSubmitting(false),
       onError: (error) => {
         const message = error instanceof Error ? error.message : "操作失败";
+        setError(message);
         toast.error(message);
       },
       operation: async () => {
         await transitionInterviewRecord(slug, candidate.id, {
           action: "reopen",
-          expectedVersion: resume?.version ?? -1,
+          expectedVersion: expectedVersion ?? -1,
           reason: trimmedReason,
           targetNode: targetStage,
           targetStatus: "pending",
         });
         toast.success(`已重新激活，回到「${pipelineStageMeta[targetStage].label}」`);
-        await queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ["studio-resumes", slug, "detail", candidate.id],
         });
+        complete(`已回到「${pipelineStageMeta[targetStage].label}」`);
         onCompleted();
         onOpenChange(false);
       },
@@ -506,75 +526,18 @@ function ReactivateDialog({
   const candidateLabel = candidate?.candidateName || "该候选人";
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>重新激活：{candidateLabel}</DialogTitle>
-          <DialogDescription>
-            回到已到达的节点重新处理。已完成的面试可重新确认，后续节点重置，历史记录保留。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="reactivation-target-stage">
-              回退阶段
-            </Label>
-            <Select
-              onValueChange={(value) => {
-                const parsed = pipelineStageSchema.safeParse(value);
-                if (parsed.success && isReactivateTargetStage(parsed.data)) {
-                  setTargetStage(parsed.data);
-                }
-              }}
-              value={targetStage}
-            >
-              <SelectTrigger className="w-full" id="reactivation-target-stage">
-                <SelectValue>{pipelineStageMeta[targetStage].label}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {REACTIVATE_TARGET_STAGES.map((stage) => (
-                  <SelectItem
-                    disabled={!isReactivateTargetStageEnabled(stage, resume)}
-                    key={stage}
-                    value={stage}
-                  >
-                    {pipelineStageMeta[stage].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="reactivation-reason">
-              激活原因
-            </Label>
-            <Textarea
-              aria-describedby="reactivation-reason-limit"
-              aria-invalid={reasonTooLong || undefined}
-              className="field-sizing-fixed min-w-0 whitespace-pre-wrap wrap-anywhere"
-              id="reactivation-reason"
-              maxLength={500}
-              onChange={(event) => setReactivationReason(event.target.value)}
-              placeholder="说明为什么需要重新进入招聘流程"
-              required
-              rows={3}
-              value={reactivationReason}
-            />
-            <p
-              id="reactivation-reason-limit"
-              className="text-xs text-muted-foreground"
-              aria-live="polite"
-            >
-              {reactivationReason.length}/500 字
-              {reasonTooLong ? "，请缩减至 500 字以内" : "，最多 500 字"}
-              {reactivationReason.length === 500 ? "，已达字数上限" : null}
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
+    <ActionFlowSurface
+      onOpenChange={onOpenChange}
+      open={open}
+      flowId="reopen-candidate"
+      busy={submitting}
+      error={submitError}
+      title={<>重新激活：{candidateLabel}</>}
+      description={
+        <>回到已到达的节点重新处理。已完成的面试可重新确认，后续节点重置，历史记录保留。</>
+      }
+      footer={
+        <>
           <Button disabled={submitting} onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
@@ -584,8 +547,67 @@ function ReactivateDialog({
           >
             {submitting ? "处理中…" : "确认重新激活"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="grid gap-4 py-2">
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="reactivation-target-stage">
+            回退阶段
+          </Label>
+          <Select
+            onValueChange={(value) => {
+              const parsed = pipelineStageSchema.safeParse(value);
+              if (parsed.success && isReactivateTargetStage(parsed.data)) {
+                setTargetStage(parsed.data);
+              }
+            }}
+            value={targetStage}
+          >
+            <SelectTrigger className="w-full" id="reactivation-target-stage">
+              <SelectValue>{pipelineStageMeta[targetStage].label}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {REACTIVATE_TARGET_STAGES.map((stage) => (
+                <SelectItem
+                  disabled={!isReactivateTargetStageEnabled(stage, resume)}
+                  key={stage}
+                  value={stage}
+                >
+                  {pipelineStageMeta[stage].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="reactivation-reason">
+            激活原因
+          </Label>
+          <Textarea
+            aria-describedby="reactivation-reason-limit"
+            aria-invalid={reasonTooLong || undefined}
+            className="field-sizing-fixed min-w-0 whitespace-pre-wrap wrap-anywhere"
+            id="reactivation-reason"
+            maxLength={500}
+            onChange={(event) => setReactivationReason(event.target.value)}
+            placeholder="说明为什么需要重新进入招聘流程"
+            required
+            rows={3}
+            value={reactivationReason}
+          />
+          <p
+            id="reactivation-reason-limit"
+            className="text-xs text-muted-foreground"
+            aria-live="polite"
+          >
+            {reactivationReason.length}/500 字
+            {reasonTooLong ? "，请缩减至 500 字以内" : "，最多 500 字"}
+            {reactivationReason.length === 500 ? "，已达字数上限" : null}
+          </p>
+        </div>
+      </div>
+    </ActionFlowSurface>
   );
 }

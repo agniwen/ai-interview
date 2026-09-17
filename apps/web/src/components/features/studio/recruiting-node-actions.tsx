@@ -1,3 +1,9 @@
+import {
+  useCandidateActionDock,
+  useActionFlowCompletion,
+  useCandidateActionFlow,
+  useActionRecordVersion,
+} from "./candidate-action-dock/candidate-action-dock";
 import { DatePicker } from "@/components/date-time-picker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,7 +16,7 @@ import { transitionInterviewRecord } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { RecruitingActionButton as Button } from "./recruiting-action-button";
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
-import { Modal } from "@/components/ui/modal";
+import { ActionFlowSurface } from "./candidate-action-dock/action-flow-surface";
 
 function passLabel(stage: ResumeLibraryDetail["pipelineStage"]) {
   if (stage === "ai_interview") {
@@ -118,9 +124,12 @@ export function canConfirmRecruitingNode(
 
 /** 人工确认当前有效节点的最终结果；业务进度由安排面试、发 Offer 等操作更新。 */
 export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail }) {
+  const dock = useCandidateActionDock();
+  const complete = useActionFlowCompletion("review-node");
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useCandidateActionFlow("review-node");
+  const expectedVersion = useActionRecordVersion(open, record.version);
   const [actualJoiningDate, setActualJoiningDate] = useState("");
   const [agreedBaseSalary, setAgreedBaseSalary] = useState("");
   const [reason, setReason] = useState("");
@@ -136,7 +145,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
       if (record.pipelineStage === "income_proof") {
         await transitionInterviewRecord(slug, record.id, {
           action: "review_income_proof",
-          expectedVersion: record.version,
+          expectedVersion: expectedVersion ?? record.version,
           reason: reason.trim(),
           result,
         });
@@ -150,7 +159,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         await transitionInterviewRecord(slug, record.id, {
           action: "review_salary_negotiation",
           agreedBaseSalary: result === "pass" ? (salary ?? undefined) : undefined,
-          expectedVersion: record.version,
+          expectedVersion: expectedVersion ?? record.version,
           reason: reason.trim(),
           result,
         });
@@ -165,7 +174,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         effectiveAiRoundId: node?.effectiveAiRoundId,
         effectiveHumanRoundId: node?.effectiveHumanRoundId,
         effectiveOfferId: node?.effectiveOfferId,
-        expectedVersion: record.version,
+        expectedVersion: expectedVersion ?? record.version,
         node: record.pipelineStage,
         reason: reason.trim() || undefined,
         result,
@@ -175,6 +184,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
     onError: (error) => toast.error(error instanceof Error ? error.message : "更新节点失败"),
     onSuccess: async (_data, result) => {
       // 先关闭弹窗再刷新节点，避免完成状态卸载仍持有焦点锁的弹窗。
+      complete(nodeReviewSuccessMessage(record.pipelineStage, result));
       setOpen(false);
       setAgreedBaseSalary("");
       setReason("");
@@ -195,20 +205,25 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
           size="sm"
           variant="default"
           onClick={() => {
-            setReason(node?.reason ?? "");
-            setActualJoiningDate("");
-            setAgreedBaseSalary(
-              record.candidateExpectationsMeta?.agreedBaseSalary
-                ? String(record.candidateExpectationsMeta.agreedBaseSalary)
-                : "",
-            );
+            if (!open) {
+              setReason(node?.reason ?? "");
+              setActualJoiningDate("");
+              setAgreedBaseSalary(
+                record.candidateExpectationsMeta?.agreedBaseSalary
+                  ? String(record.candidateExpectationsMeta.agreedBaseSalary)
+                  : "",
+              );
+            }
             setOpen(true);
           }}
         >
           {recruitingNodeActionLabels[record.pipelineStage]}
         </Button>
       )}
-      <Modal
+      <ActionFlowSurface
+        flowId="review-node"
+        busy={mutation.isPending}
+        error={mutation.error?.message}
         open={open}
         onOpenChange={setOpen}
         title={recruitingNodeActionLabels[record.pipelineStage]}
@@ -217,6 +232,16 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         bodyClassName="flex flex-col gap-4"
         footer={
           <>
+            <Button
+              variant="ghost"
+              disabled={mutation.isPending}
+              onClick={() => {
+                setOpen(false);
+                mutation.reset();
+              }}
+            >
+              放弃填写
+            </Button>
             <Button
               variant="destructive"
               disabled={mutation.isPending}
@@ -275,14 +300,19 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
           </div>
         ) : null}
         <MarkdownEditor
-          minHeight={240}
+          minHeight={dock ? 100 : 240}
+          className={
+            dock
+              ? "border-border/50 shadow-none [&_.ProseMirror]:text-[13px] [&_.ProseMirror_p]:my-1 [&_.ProseMirror_p]:leading-5"
+              : undefined
+          }
           aria-label="说明"
           placeholder="填写说明"
           value={reason}
           onChange={setReason}
           disabled={mutation.isPending}
         />
-      </Modal>
+      </ActionFlowSurface>
     </>
   );
 }

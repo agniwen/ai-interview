@@ -1,4 +1,9 @@
 "use client";
+import {
+  useActionFlowCompletion,
+  useCandidateActionFlow,
+  useCandidateActionDock,
+} from "./candidate-action-dock/candidate-action-dock";
 
 import {
   IconArrowBackUp,
@@ -28,14 +33,7 @@ import {
 import { withCleanup } from "@/lib/client/async-control";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { ActionFlowSurface } from "./candidate-action-dock/action-flow-surface";
 import { cn } from "@app/shared/utils";
 import { copyInterviewLink } from "@/components/features/studio/interviews/interview-link-actions";
 
@@ -54,7 +52,7 @@ export interface PipelineStageActionBarProps {
   humanInterviewFeedbackComplete?: boolean;
   aiRoundReset?: {
     isResetting: boolean;
-    onReset: () => void;
+    onReset: (() => void) | (() => Promise<boolean>);
     roundLabel: string;
     status: ScheduleEntryStatus;
   };
@@ -94,6 +92,7 @@ export function PipelineStageActionBar({
   onRequestReactivate,
   onViewCurrentStage,
 }: PipelineStageActionBarProps) {
+  const dock = useCandidateActionDock();
   const [isAdvancing, setIsAdvancing] = useState(false);
   const isBusy = isAdvancing || Boolean(aiRoundReset?.isResetting);
   let busyReason: string | null = null;
@@ -107,6 +106,9 @@ export function PipelineStageActionBar({
   async function handleAdvance(target: PipelineStage) {
     if (isBusy) {
       return;
+    }
+    if (target === "second_interview") {
+      dock?.dispatch({ id: "interview-questions", type: "enter" });
     }
     setIsAdvancing(true);
     await withCleanup(
@@ -205,7 +207,10 @@ function AiRoundResetAction({
   roundLabel,
   status,
 }: NonNullable<PipelineStageActionBarProps["aiRoundReset"]> & { isBusy: boolean }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useCandidateActionFlow("reset-ai-round");
+  const [resetError, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const complete = useActionFlowCompletion("reset-ai-round");
   const behavior = getAiRoundResetBehavior(status);
   const buttonLabel = getAiRoundResetButtonLabel(behavior, isResetting);
 
@@ -234,46 +239,70 @@ function AiRoundResetAction({
   }
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      <DialogTrigger
-        render={
-          <Button isLoading={isResetting} disabled={isBusy} size="sm" type="button">
-            <IconArrowBackUp />
-            {buttonLabel}
-          </Button>
+    <>
+      <Button
+        isLoading={isResetting}
+        disabled={isBusy}
+        size="sm"
+        type="button"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      >
+        <IconArrowBackUp />
+        {buttonLabel}
+      </Button>
+      <ActionFlowSurface
+        flowId="reset-ai-round"
+        open={open}
+        onOpenChange={setOpen}
+        busy={pending || isResetting}
+        error={resetError}
+        title={`确定重置${roundLabel}？`}
+        description="重置后，候选人需要重新完成本轮面试。"
+        footer={
+          <>
+            <Button
+              disabled={pending || isResetting}
+              onClick={() => setOpen(false)}
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button
+              disabled={pending || isResetting}
+              isLoading={pending || isResetting}
+              variant="destructive"
+              onClick={async () => {
+                if (pending) {
+                  return;
+                }
+                setPending(true);
+                setError(null);
+                try {
+                  const success = await onReset();
+                  if (success === false) {
+                    setError("重置失败，请重试");
+                  } else {
+                    complete("面试轮次已重置");
+                    setOpen(false);
+                  }
+                } catch (error) {
+                  setError(error instanceof Error ? error.message : "重置失败，请重试");
+                } finally {
+                  setPending(false);
+                }
+              }}
+            >
+              {pending || isResetting ? "重置中…" : "确认重置"}
+            </Button>
+          </>
         }
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>确定重置{roundLabel}？</DialogTitle>
-          <DialogDescription>重置后，候选人需要重新完成本轮面试。</DialogDescription>
-        </DialogHeader>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            disabled={isResetting}
-            onClick={() => setOpen(false)}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            取消
-          </Button>
-          <Button
-            disabled={isResetting}
-            isLoading={isResetting}
-            onClick={() => {
-              onReset();
-              setOpen(false);
-            }}
-            size="sm"
-            type="button"
-            variant="destructive"
-          >
-            {isResetting ? "重置中..." : "确认重置"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      >
+        <p className="text-sm text-muted-foreground">请确认已与候选人沟通本次重置。</p>
+      </ActionFlowSurface>
+    </>
   );
 }
 

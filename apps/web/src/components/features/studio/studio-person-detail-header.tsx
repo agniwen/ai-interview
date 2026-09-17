@@ -26,7 +26,10 @@ import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
 import { canShowHumanInterviewScheduleAction } from "./human-interview-stage-utils";
-import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
+import {
+  CandidatePipelineActionBar,
+  LaunchAiInterviewAction,
+} from "./candidate-action-dock/candidate-pipeline-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import {
   findCachedResumeCandidateName,
@@ -69,7 +72,7 @@ export interface BuildStudioPersonDetailHeaderParams {
   onNavigateToInterviews: () => void;
   onRequestClose?: (candidate: { candidateName: string; id: string }) => void;
   onRequestReactivate?: (candidate: { candidateName: string; id: string }) => void;
-  onResetRound: (targetRoundId: string) => void;
+  onResetRound: (targetRoundId: string) => Promise<boolean>;
   onViewCurrentStage: () => void;
   queryClient: QueryClient;
   record: UnifiedRecord | null;
@@ -183,7 +186,15 @@ export function buildStudioPersonDetailHeader({
       {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
-  const launchResumeModeButton = launchResumeModeButtonContent;
+  const launchResumeModeButton =
+    layoutMode === "page" && showLaunchButton && record ? (
+      <LaunchAiInterviewAction
+        candidate={{ candidateName: record.candidateName, id: record.id }}
+        disabledReason={launchResumeModeDisabledReason}
+      />
+    ) : (
+      launchResumeModeButtonContent
+    );
 
   const cachedResumeCandidateName =
     mode === "resume" ? findCachedResumeCandidateName(queryClient, effectiveRecordId) : null;
@@ -243,7 +254,9 @@ export function buildStudioPersonDetailHeader({
     canUseManagementActions &&
     actionBarPipelineStage &&
     record.outcome ? (
-      <PipelineStageActionBar
+      <CandidatePipelineActionBar
+        key={`${record.id}:${actionBarPipelineStage}`}
+        candidate={{ candidateName: record.candidateName, id: record.id }}
         humanInterviewDone={Boolean(
           currentHumanInterviewProgress &&
           currentHumanInterviewProgress.totalRounds > 0 &&
@@ -301,7 +314,7 @@ export function buildStudioPersonDetailHeader({
             {actionBarPipelineStage === "screening" && resumeRecord ? (
               <ScreeningAdvanceActions
                 onAdvanced={onInterviewStageReady}
-                key={`screening:${resumeRecord.id}:${resumeRecord.version}`}
+                key={`screening:${resumeRecord.id}`}
                 record={resumeRecord}
               />
             ) : null}
@@ -315,7 +328,10 @@ export function buildStudioPersonDetailHeader({
                   "background_check",
                   "onboarding",
                 ].includes(actionBarPipelineStage)) && (
-                <RecruitingNodeActions key={`node:${resumeRecord.id}`} record={resumeRecord} />
+                <RecruitingNodeActions
+                  key={`node:${resumeRecord.id}:${resumeRecord.pipelineStage}`}
+                  record={resumeRecord}
+                />
               )}
             {canShowHumanInterviewScheduleAction(
               actionBarPipelineStage,
@@ -323,6 +339,7 @@ export function buildStudioPersonDetailHeader({
               canReadHumanInterview,
             ) ? (
               <ScheduleHumanInterviewButton
+                key={`${record.id}:${actionBarPipelineStage}`}
                 onScheduled={() => onInterviewStageReady(actionBarPipelineStage)}
                 targetStage={actionBarPipelineStage}
                 candidateId={record.id}

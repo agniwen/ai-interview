@@ -51,6 +51,7 @@
 | [Share one Feishu evaluation document per recruiting record](0037-share-feishu-evaluation-document-per-recruiting-record.md)            | accepted               | 2026-09-07 |
 | [Support recorded human initial interviews](0038-support-recorded-human-initial-interviews.md)                                          | accepted               | 2026-09-08 |
 | [Run Echo processing durably on the recording device](0039-run-echo-processing-durably-on-device.md)                                    | accepted               | 2026-09-09 |
+| [在候选人详情使用原地展开的操作 Dock](0041-use-inline-candidate-action-dock.md)                                                         | accepted               | 2026-09-17 |
 
 ## 设计文档（非 ADR）
 

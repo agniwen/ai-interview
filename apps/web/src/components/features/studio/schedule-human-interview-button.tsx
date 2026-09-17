@@ -1,7 +1,7 @@
 "use client";
 
 import { IconPlus } from "@tabler/icons-react";
-import { useState } from "react";
+import { useCandidateActionFlow } from "./candidate-action-dock/candidate-action-dock";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import { RecruitingActionButton as Button } from "./recruiting-action-button";
@@ -24,7 +24,7 @@ export function ScheduleHumanInterviewButton({
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useCandidateActionFlow("schedule-interview");
   const { rounds, hasData, initialError } = useHumanInterviewStageQueries(slug, candidateId);
   let disabledReason = getHumanInterviewScheduleBlockReason(rounds);
   if (!hasData) {

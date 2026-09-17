@@ -1,4 +1,10 @@
 "use client";
+import {
+  useActionFlowCompletion,
+  useCandidateActionDock,
+} from "./candidate-action-dock/candidate-action-dock";
+
+import { ActionFlowSurface } from "./candidate-action-dock/action-flow-surface";
 
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 
@@ -118,6 +124,22 @@ export interface ScheduleRoundDialogDependencies {
   slug: string;
 }
 
+function useScheduleDockSteps() {
+  const dock = useCandidateActionDock();
+  const [step, setStep] = useState<"schedule" | "interviewers">("schedule");
+  const first = step === "schedule";
+  const label = first ? "1 / 2 · 时间与轮次" : "2 / 2 · 面试官与备注";
+  return {
+    back: dock && !first ? () => setStep("schedule") : undefined,
+    isFirstStep: Boolean(dock && first),
+    label: dock ? label : undefined,
+    next: () => setStep("interviewers"),
+    reset: () => setStep("schedule"),
+    showInterviewers: !dock || !first,
+    showSchedule: !dock || first,
+  };
+}
+
 export function ScheduleRoundDialogView({
   dependencies,
   open,
@@ -129,6 +151,8 @@ export function ScheduleRoundDialogView({
   onScheduled,
 }: ScheduleDialogProps & { dependencies: ScheduleRoundDialogDependencies }) {
   const { slug } = dependencies;
+  const complete = useActionFlowCompletion("schedule-interview");
+  const steps = useScheduleDockSteps();
   const queryClient = useQueryClient();
   const { data: recruitingDetail } = useQuery({
     enabled: open,
@@ -149,6 +173,7 @@ export function ScheduleRoundDialogView({
   const notesTooLong = notes.length > 500;
 
   function reset() {
+    steps.reset();
     setLabel("");
     setCeoOverride(null);
     setScheduledAt("");
@@ -227,6 +252,7 @@ export function ScheduleRoundDialogView({
         toast.success("已安排线上真人面试");
       }
       void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
+      complete("面试已安排");
       onScheduled();
       handleOpenChange(false);
     },
@@ -257,130 +283,18 @@ export function ScheduleRoundDialogView({
   }));
 
   return (
-    <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {recruitingDetail?.pipelineStage === "final_interview" ? "安排终试" : "安排复试"}
-          </DialogTitle>
-          <DialogDescription>有效时间默认为面试后一小时。</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <FieldGroup>
-            <Field>
-              <div className="flex items-center gap-3">
-                <FieldLabel htmlFor="round-label">轮次标签</FieldLabel>
-                <div className="flex items-center gap-2">
-                  <FieldLabel htmlFor="round-ceo">CEO</FieldLabel>
-                  <Switch id="round-ceo" checked={ceoEnabled} onCheckedChange={setCeoOverride} />
-                </div>
-              </div>
-              <Input
-                id="round-label"
-                maxLength={50}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder={businessLabel}
-                readOnly={ceoEnabled}
-                value={ceoEnabled ? "CEO面试" : label}
-              />
-            </Field>
-          </FieldGroup>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="scheduled-at">
-              面试时间{" "}
-              <span aria-hidden="true" className="text-destructive">
-                *
-              </span>
-            </Label>
-            <DateTimePicker
-              id="scheduled-at"
-              onValueChange={handleScheduledAtChange}
-              required
-              value={scheduledAt}
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="valid-until">
-              有效时间至
-            </Label>
-            <DateTimePicker id="valid-until" onValueChange={setValidUntil} value={validUntil} />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm">
-              面试官{" "}
-              <span aria-hidden="true" className="text-destructive">
-                *
-              </span>
-            </Label>
-            <SearchableMultiSelect
-              emptyMessage="找不到匹配的成员"
-              onChange={setInterviewerIds}
-              options={memberOptions}
-              placeholder="选择面试官（可多选）"
-              searchPlaceholder="搜索成员…"
-              selectedFormat={(count) => `已选 ${count} 位面试官`}
-              selectedPreviewLimit={2}
-              value={interviewerIds}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              <p className="text-muted-foreground text-xs">找不到面试官？</p>
-              <div className="flex items-center gap-1">
-                <InviteDialog
-                  assignableRoles={["member"]}
-                  trigger={
-                    <Button size="xs" type="button" variant="ghost">
-                      <IconUserPlus data-icon="inline-start" />
-                      邀请成员
-                    </Button>
-                  }
-                  workspaceSlug={slug}
-                />
-                <Button
-                  aria-label="刷新面试官列表"
-                  disabled={membersQuery.isFetching}
-                  onClick={refreshWorkspaceMembers}
-                  size="xs"
-                  type="button"
-                  variant="ghost"
-                >
-                  {membersQuery.isFetching ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <IconRefresh data-icon="inline-start" />
-                  )}
-                  刷新
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="round-notes">
-              备注（可选）
-            </Label>
-            <Textarea
-              aria-describedby="round-notes-limit"
-              aria-invalid={notesTooLong || undefined}
-              className="field-sizing-fixed min-w-0 whitespace-pre-wrap wrap-anywhere"
-              id="round-notes"
-              maxLength={500}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="给自己看的提示，如重点考察方向"
-              rows={2}
-              value={notes}
-            />
-            <p id="round-notes-limit" className="text-xs text-muted-foreground" aria-live="polite">
-              {notes.length}/500 字{notesTooLong ? "，请缩减至 500 字以内" : "，最多 500 字"}
-              {notes.length === 500 ? "，已达字数上限" : null}
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
+    <ActionFlowSurface
+      onOpenChange={handleOpenChange}
+      open={open}
+      flowId="schedule-interview"
+      stepLabel={steps.label}
+      onBack={steps.back}
+      busy={mutation.isPending}
+      error={mutation.error?.message}
+      title={<>{recruitingDetail?.pipelineStage === "final_interview" ? "安排终试" : "安排复试"}</>}
+      description={<>有效时间默认为面试后一小时。</>}
+      footer={
+        <>
           <Button
             disabled={mutation.isPending}
             onClick={() => handleOpenChange(false)}
@@ -388,15 +302,136 @@ export function ScheduleRoundDialogView({
           >
             取消
           </Button>
-          <Button
-            disabled={mutation.isPending || notesTooLong || interviewerIds.length === 0}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? "保存中…" : "保存"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {steps.isFirstStep ? (
+            <Button disabled={!scheduledAt} onClick={steps.next}>
+              下一步
+            </Button>
+          ) : (
+            <Button
+              disabled={mutation.isPending || notesTooLong || interviewerIds.length === 0}
+              onClick={() => mutation.mutate()}
+            >
+              {mutation.isPending ? "保存中…" : "保存"}
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div hidden={!steps.showSchedule} className="space-y-3">
+        <FieldGroup>
+          <Field>
+            <div className="flex items-center gap-3">
+              <FieldLabel htmlFor="round-label">轮次标签</FieldLabel>
+              <div className="flex items-center gap-2">
+                <FieldLabel htmlFor="round-ceo">CEO</FieldLabel>
+                <Switch id="round-ceo" checked={ceoEnabled} onCheckedChange={setCeoOverride} />
+              </div>
+            </div>
+            <Input
+              id="round-label"
+              maxLength={50}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder={businessLabel}
+              readOnly={ceoEnabled}
+              value={ceoEnabled ? "CEO面试" : label}
+            />
+          </Field>
+        </FieldGroup>
+
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="scheduled-at">
+            面试时间{" "}
+            <span aria-hidden="true" className="text-destructive">
+              *
+            </span>
+          </Label>
+          <DateTimePicker
+            id="scheduled-at"
+            onValueChange={handleScheduledAtChange}
+            required
+            value={scheduledAt}
+          />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="valid-until">
+            有效时间至
+          </Label>
+          <DateTimePicker id="valid-until" onValueChange={setValidUntil} value={validUntil} />
+        </div>
+      </div>
+      <div hidden={!steps.showInterviewers} className="space-y-3">
+        <div className="grid gap-1.5">
+          <Label className="text-sm">
+            面试官{" "}
+            <span aria-hidden="true" className="text-destructive">
+              *
+            </span>
+          </Label>
+          <SearchableMultiSelect
+            emptyMessage="找不到匹配的成员"
+            onChange={setInterviewerIds}
+            options={memberOptions}
+            placeholder="选择面试官（可多选）"
+            searchPlaceholder="搜索成员…"
+            selectedFormat={(count) => `已选 ${count} 位面试官`}
+            selectedPreviewLimit={2}
+            value={interviewerIds}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <p className="text-muted-foreground text-xs">找不到面试官？</p>
+            <div className="flex items-center gap-1">
+              <InviteDialog
+                assignableRoles={["member"]}
+                trigger={
+                  <Button size="xs" type="button" variant="ghost">
+                    <IconUserPlus data-icon="inline-start" />
+                    邀请成员
+                  </Button>
+                }
+                workspaceSlug={slug}
+              />
+              <Button
+                aria-label="刷新面试官列表"
+                disabled={membersQuery.isFetching}
+                onClick={refreshWorkspaceMembers}
+                size="xs"
+                type="button"
+                variant="ghost"
+              >
+                {membersQuery.isFetching ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <IconRefresh data-icon="inline-start" />
+                )}
+                刷新
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label className="text-sm" htmlFor="round-notes">
+            备注（可选）
+          </Label>
+          <Textarea
+            aria-describedby="round-notes-limit"
+            aria-invalid={notesTooLong || undefined}
+            className="field-sizing-fixed min-w-0 whitespace-pre-wrap wrap-anywhere"
+            id="round-notes"
+            maxLength={500}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="给自己看的提示，如重点考察方向"
+            rows={2}
+            value={notes}
+          />
+          <p id="round-notes-limit" className="text-xs text-muted-foreground" aria-live="polite">
+            {notes.length}/500 字{notesTooLong ? "，请缩减至 500 字以内" : "，最多 500 字"}
+            {notes.length === 500 ? "，已达字数上限" : null}
+          </p>
+        </div>
+      </div>
+    </ActionFlowSurface>
   );
 }
 

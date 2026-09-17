@@ -368,9 +368,7 @@ export function useStudioPersonDetailController({
     },
     onRequestClose,
     onRequestReactivate,
-    onResetRound: (targetRoundId) => {
-      void handleResetRound(targetRoundId);
-    },
+    onResetRound: handleResetRound,
     onViewCurrentStage: () => {
       if (actionBarPipelineStage) {
         setActiveTab(tabForPipelineStage(actionBarPipelineStage));
@@ -477,8 +475,17 @@ export function useStudioPersonDetailController({
 
 export type StudioPersonDetailViewModel = ReturnType<typeof useStudioPersonDetailController>;
 
-export function StudioPersonDetailPanel(
-  props: Parameters<typeof useStudioPersonDetailController>[0],
-) {
+function StudioPersonDetailSession(props: StudioPersonDetailControllerProps) {
   return <StudioPersonDetailView model={useStudioPersonDetailController(props)} />;
+}
+
+export function StudioPersonDetailPanel(props: StudioPersonDetailControllerProps) {
+  const slug = useOptionalWorkspaceSlug();
+  // A departed candidate's pending callbacks can only update its unmounted session.
+  return (
+    <StudioPersonDetailSession
+      key={`${slug}:${props.mode}:${props.recordId}:${props.roundId}:${props.accessMode}`}
+      {...props}
+    />
+  );
 }

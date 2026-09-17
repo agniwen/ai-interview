@@ -152,7 +152,7 @@ export function useStudioPersonDetailMutations({
 
   async function handleResetRound(targetRoundId: string) {
     if (resettingRoundId) {
-      return;
+      return false;
     }
     dispatchUi({ id: targetRoundId, type: "resettingRoundChanged" });
     const error = await resetInterviewRound({
@@ -170,6 +170,7 @@ export function useStudioPersonDetailMutations({
       onUpdated?.();
     }
     dispatchUi({ id: null, type: "resettingRoundChanged" });
+    return !error;
   }
 
   async function handleAdvancePipelineStage(

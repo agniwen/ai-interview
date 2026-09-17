@@ -1,4 +1,5 @@
 "use client";
+import { useActionFlowCompletion } from "../candidate-action-dock/candidate-action-dock";
 
 import { IconLoader2 } from "@tabler/icons-react";
 // 真人面试准备弹窗：确认候选人的异步生成题目并落库，供真人面试官参考。
@@ -22,17 +23,7 @@ import { ResumeProfileView } from "@/components/features/resume/resume-profile-v
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Modal } from "@/components/ui/modal";
+import { ActionFlowSurface } from "../candidate-action-dock/action-flow-surface";
 import {
   Select,
   SelectContent,
@@ -189,6 +180,7 @@ export function HumanInterviewQuestionDialog({
   const slug = useWorkspaceSlug();
   const [isGenerating, setIsGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   // 简历详情：渲染「概览」和「经历」tab，也包含解析 Worker 生成的面试题。
   // Full resume detail backs the tabs and carries worker-generated questions.
   const [resumeDetail, setResumeDetail] = useState<ResumeLibraryDetail | null>(null);
@@ -206,17 +198,20 @@ export function HumanInterviewQuestionDialog({
       if (!recordId) {
         return;
       }
+      setSubmitError(null);
       setSubmitting(true);
       await runAsyncAction({
         cleanup: () => setSubmitting(false),
         onError: (error) =>
-          toast.error(error instanceof Error ? error.message : "准备真人面试失败"),
+          setSubmitError(error instanceof Error ? error.message : "准备真人面试失败"),
         operation: async () => {
           const confirmed = await onConfirmed(
             normalizeCandidateInterviewQuestions(value.interviewQuestions),
           );
           if (confirmed) {
             onOpenChange(false);
+          } else {
+            setSubmitError("推进失败，已保留面试题，请核对候选人当前状态后重试。");
           }
         },
       });
@@ -312,7 +307,10 @@ export function HumanInterviewQuestionDialog({
         }}
         value={activeTab}
       >
-        <Modal
+        <ActionFlowSurface
+          flowId="interview-questions"
+          busy={submitting}
+          error={submitError}
           dismissible={!submitting}
           headerExtra={
             // 与详情弹窗 headerExtra 结构对齐：外层 flex row 让 TabsList 在桌面
@@ -446,7 +444,7 @@ export function HumanInterviewQuestionDialog({
               </m.div>
             ) : null}
           </div>
-        </Modal>
+        </ActionFlowSurface>
       </Tabs>
     </>
   );
@@ -473,6 +471,7 @@ export function LaunchInterviewDialog({
     useState<AiInterviewLinkValidity>("permanent");
   const [isLoading, setIsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!(open && recordId)) {
@@ -507,6 +506,7 @@ export function LaunchInterviewDialog({
     };
   }, [open, recordId, slug]);
 
+  const complete = useActionFlowCompletion("launch-ai-interview");
   const riskyEvaluation = requiresStructuredLaunchConfirmation(detail);
   let confirmLabel = "确认发起";
   if (isLoading) {
@@ -523,10 +523,13 @@ export function LaunchInterviewDialog({
       toast.error("请先将简历筛选标记为通过，再发起 AI 面试");
       return;
     }
+    setError(null);
     setSubmitting(true);
     await runAsyncAction({
       cleanup: () => setSubmitting(false),
-      onError: (error) => toast.error(error instanceof Error ? error.message : "发起 AI 面试失败"),
+      onError: (error) => {
+        setError(error instanceof Error ? error.message : "发起 AI 面试失败");
+      },
       operation: async () => {
         const round = await launchInterviewFromResume(slug, recordId, {
           candidateInviteValidity,
@@ -534,6 +537,7 @@ export function LaunchInterviewDialog({
             ? getStructuredLaunchConfirmation(detail)
             : null,
         });
+        complete("AI 面试已发起");
         toast.success("AI 面试已发起");
         onLaunched(round);
         onOpenChange(false);
@@ -542,53 +546,61 @@ export function LaunchInterviewDialog({
   }
 
   return (
-    <AlertDialog onOpenChange={onOpenChange} open={open}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>确认发起 AI 面试？</AlertDialogTitle>
-          <AlertDialogDescription>
-            {riskyEvaluation
-              ? `AI 评估显示${candidateName ?? "该候选人"}未通过门槛或综合等级为不匹配。该结果仅供参考，确认后仍会创建 AI 面试。`
-              : `确认后将为${candidateName ?? "该候选人"}创建 AI 面试。`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <Field>
-          <FieldLabel htmlFor="ai-interview-link-validity">面试链接有效期</FieldLabel>
-          <Select
-            disabled={isLoading || submitting}
-            onValueChange={(nextValidity) => {
-              if (nextValidity) {
-                setCandidateInviteValidity(nextValidity);
-              }
-            }}
-            value={candidateInviteValidity}
-          >
-            <SelectTrigger className="w-full" id="ai-interview-link-validity">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {AI_INTERVIEW_LINK_VALIDITY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <FieldDescription>有限有效期从 AI 面试发起成功时开始计算。</FieldDescription>
-        </Field>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={submitting}>取消</AlertDialogCancel>
-          <AlertDialogAction
+    <ActionFlowSurface
+      onOpenChange={onOpenChange}
+      open={open}
+      flowId="launch-ai-interview"
+      busy={submitting}
+      error={submitError}
+      title={<>确认发起 AI 面试？</>}
+      description={
+        <>
+          {riskyEvaluation
+            ? `AI 评估显示${candidateName ?? "该候选人"}未通过门槛或综合等级为不匹配。该结果仅供参考，确认后仍会创建 AI 面试。`
+            : `确认后将为${candidateName ?? "该候选人"}创建 AI 面试。`}
+        </>
+      }
+      footer={
+        <>
+          <Button variant="outline" disabled={submitting} onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button
             disabled={isLoading || submitting || detail?.resumeEvaluationStatus !== "pass"}
             onClick={handleConfirm}
           >
             {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </>
+      }
+    >
+      <Field>
+        <FieldLabel htmlFor="ai-interview-link-validity">面试链接有效期</FieldLabel>
+        <Select
+          disabled={isLoading || submitting}
+          onValueChange={(nextValidity) => {
+            if (nextValidity) {
+              setCandidateInviteValidity(nextValidity);
+            }
+          }}
+          value={candidateInviteValidity}
+        >
+          <SelectTrigger className="w-full" id="ai-interview-link-validity">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {AI_INTERVIEW_LINK_VALIDITY_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <FieldDescription>有限有效期从 AI 面试发起成功时开始计算。</FieldDescription>
+      </Field>
+    </ActionFlowSurface>
   );
 }
