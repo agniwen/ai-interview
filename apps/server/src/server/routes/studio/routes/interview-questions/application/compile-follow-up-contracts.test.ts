@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  attachFollowUpContracts,
   compileFollowUpContracts,
   normalizeCompiledFollowUpContracts,
   questionsRequiringFollowUpContracts,
@@ -17,6 +18,70 @@ const questions = [
 ];
 
 describe("compileFollowUpContracts", () => {
+  it("skips model generation when no questions need contracts", async () => {
+    const generate = vi.fn();
+    const selected = questionsRequiringFollowUpContracts([
+      { ...questions[0], evaluationFocus: null, followUpDirections: "   " },
+    ]);
+
+    const contracts = await compileFollowUpContracts(selected, generate);
+
+    expect(generate).not.toHaveBeenCalled();
+    expect(attachFollowUpContracts(questions, contracts)[0].followUpContract).toBeNull();
+  });
+
+  it("saves a mix of generated and explicitly unnecessary contracts", async () => {
+    const mixedQuestions = [questions[0], { ...questions[0], content: "你好。", id: "greeting" }];
+    const generate = vi.fn().mockResolvedValue({
+      contracts: [
+        {
+          coverageMode: "all_required",
+          facets: [{ label: "岗位", sourceField: "question", sourceText: "岗位" }],
+          questionId: "question-1",
+        },
+        { coverageMode: null, facets: [], questionId: "greeting" },
+      ],
+    });
+
+    const contracts = await compileFollowUpContracts(mixedQuestions, generate);
+    const snapshot = attachFollowUpContracts(mixedQuestions, contracts);
+
+    expect(snapshot[0].followUpContract?.coverageMode).toBe("all_required");
+    expect(snapshot[1].followUpContract).toBeNull();
+    expect(contracts.size).toBe(1);
+  });
+
+  it("rejects missing or duplicate results even when contracts are unnecessary", () => {
+    const empty = { coverageMode: null, facets: [], questionId: "question-1" };
+    expect(() => normalizeCompiledFollowUpContracts(questions, { contracts: [] })).toThrow(
+      "数量与题目数量不一致",
+    );
+    expect(() =>
+      normalizeCompiledFollowUpContracts([...questions, { ...questions[0], id: "question-2" }], {
+        contracts: [empty, empty],
+      }),
+    ).toThrow("未知或重复题目");
+  });
+
+  it("rejects contradictory empty-contract results", () => {
+    expect(() =>
+      normalizeCompiledFollowUpContracts(questions, {
+        contracts: [{ coverageMode: "all_required", facets: [], questionId: "question-1" }],
+      }),
+    ).toThrow("没有有效信息项");
+    expect(() =>
+      normalizeCompiledFollowUpContracts(questions, {
+        contracts: [
+          {
+            coverageMode: null,
+            facets: [{ label: "岗位", sourceField: "question", sourceText: "岗位" }],
+            questionId: "question-1",
+          },
+        ],
+      }),
+    ).toThrow("无需追问契约的题目不能包含信息项");
+  });
+
   it("selects questions that configure evaluation focus or follow-up directions", () => {
     expect(
       questionsRequiringFollowUpContracts([

@@ -14,8 +14,8 @@ const compiledFacetSchema = z.object({
 const compilerOutputSchema = z.object({
   contracts: z.array(
     z.object({
-      coverageMode: z.enum(["all_required", "sufficient_for_evaluation"]),
-      facets: z.array(compiledFacetSchema).min(1).max(16),
+      coverageMode: z.enum(["all_required", "sufficient_for_evaluation"]).nullable(),
+      facets: z.array(compiledFacetSchema).max(16),
       questionId: z.string().trim().min(1),
     }),
   ),
@@ -37,7 +37,32 @@ const PROMPT = `你是可配置 AI 面试题的追问契约编译器。请把每
 - 枚举、编号、多个明确事实字段使用 coverageMode=all_required，并拆成原子信息项。
 - 开放讨论、经历复盘、能力评估使用 coverageMode=sufficient_for_evaluation；只列出能判断考核意图的关键维度。
 - 不得生成题目配置中没有依据的信息项。
+- 不是每道题都需要追问契约。没有可核验的信息收集目标、仅为问候/过渡，或配置不足以支持信息项时，保留该题 questionId，明确返回 coverageMode=null、facets=[]，不要编造信息项。
+- 已有明确事实收集目标或考核维度时应生成契约，不能仅因为题目简单或难度为 easy 就返回空。
 - 同义重复的信息项只保留一个；每题最多 16 项。
+
+## 输出 JSON 结构（必须严格遵守，仅输出 JSON 对象）
+{
+  "contracts": [
+    {
+      "questionId": "输入题目的原始 questionId",
+      "coverageMode": "all_required",
+      "facets": [
+        { "label": "岗位", "sourceField": "question", "sourceText": "对应配置中的依据" }
+      ]
+    },
+    {
+      "questionId": "无需契约的题目的原始 questionId",
+      "coverageMode": null,
+      "facets": []
+    }
+  ]
+}
+- 顶层字段必须是 contracts 数组，数组长度与输入题目数一致；以上仅展示两种格式，不要增加示例题目。
+- coverageMode 只能是 "all_required"、"sufficient_for_evaluation" 或 null；非空时 facets 必须有 1–16 项，null 时 facets 必须为 []。
+- 每个信息项必须包含 label、sourceField、sourceText。sourceField 只能是 "question"、"evaluation_focus"、"follow_up_directions"，分别引用输入的 question、evaluationFocus、followUpDirections；不要使用输入字段的驼峰名称作为枚举值。
+- label 为 1–80 字符，sourceText 为 1–300 字符，均不能为空。
+- 请直接返回 JSON，不要用 Markdown 代码块包裹，不要省略字段或返回字符串 "null"。
 
 输入 JSON：
 {questions}`;
@@ -81,10 +106,18 @@ export function normalizeCompiledFollowUpContracts(
   }
 
   const contracts = new Map<string, InterviewQuestionFollowUpContract>();
+  const seenQuestionIds = new Set<string>();
   for (const compiled of output.contracts) {
     const question = questionById.get(compiled.questionId);
-    if (!question || contracts.has(compiled.questionId)) {
+    if (!question || seenQuestionIds.has(compiled.questionId)) {
       throw new Error(`追问契约包含未知或重复题目：${compiled.questionId}`);
+    }
+    seenQuestionIds.add(compiled.questionId);
+    if (compiled.coverageMode === null) {
+      if (compiled.facets.length > 0) {
+        throw new Error(`无需追问契约的题目不能包含信息项：${compiled.questionId}`);
+      }
+      continue;
     }
     const seenLabels = new Set<string>();
     const facets = compiled.facets.flatMap((facet) => {
