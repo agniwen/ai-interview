@@ -1,4 +1,5 @@
 export type CandidateActionId =
+  | "advance-pipeline"
   | "review-node"
   | "reset-ai-round"
   | "close-candidate"

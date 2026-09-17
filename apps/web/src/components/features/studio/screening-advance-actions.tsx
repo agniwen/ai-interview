@@ -1,3 +1,4 @@
+import { usePipelineAdvanceConfirmation } from "./candidate-action-dock/pipeline-advance-confirmation";
 import { IconRobot, IconUsers } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
@@ -18,6 +19,7 @@ export function ScreeningAdvanceActions({
     "id" | "version" | "pipelineStage" | "resumeEvaluationStatus"
   > & { jobDescriptionId?: string | null };
 }) {
+  const advanceConfirmation = usePipelineAdvanceConfirmation(record.pipelineStage);
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const canUpdate = useHasPermission("resumeLibrary", "update");
@@ -49,11 +51,16 @@ export function ScreeningAdvanceActions({
   }
   return (
     <>
+      {advanceConfirmation.surface}
       {canCreateAi && (
         <Button
           size="sm"
           disabled={mutation.isPending}
-          onClick={() => mutation.mutate("ai_interview")}
+          onClick={() =>
+            advanceConfirmation.request("ai_interview", async () => {
+              await mutation.mutateAsync("ai_interview");
+            })
+          }
         >
           <IconRobot className="size-4" />
           推进 AI 初面
@@ -64,7 +71,11 @@ export function ScreeningAdvanceActions({
           size="sm"
           disabled={mutation.isPending}
           disabledReason={record.jobDescriptionId ? null : "请先绑定在招岗位，再安排复试"}
-          onClick={() => mutation.mutate("second_interview")}
+          onClick={() =>
+            advanceConfirmation.request("second_interview", async () => {
+              await mutation.mutateAsync("second_interview");
+            })
+          }
         >
           <IconUsers className="size-4" />
           直接安排复试

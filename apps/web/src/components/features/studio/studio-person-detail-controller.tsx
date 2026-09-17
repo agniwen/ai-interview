@@ -302,7 +302,10 @@ export function useStudioPersonDetailController({
       setHumanInterviewQuestionDialogOpen(true);
       return;
     }
-    await handleAdvancePipelineStage(target);
+    const advanced = await handleAdvancePipelineStage(target);
+    if (!advanced) {
+      throw new Error("推进失败，请核对候选人当前状态后重试。");
+    }
   }
 
   function confirmHumanInterviewQuestions(

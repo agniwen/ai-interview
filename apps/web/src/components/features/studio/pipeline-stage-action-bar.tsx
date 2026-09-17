@@ -33,6 +33,7 @@ import {
 import { withCleanup } from "@/lib/client/async-control";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { usePipelineAdvanceConfirmation } from "./candidate-action-dock/pipeline-advance-confirmation";
 import { ActionFlowSurface } from "./candidate-action-dock/action-flow-surface";
 import { cn } from "@app/shared/utils";
 import { copyInterviewLink } from "@/components/features/studio/interviews/interview-link-actions";
@@ -93,6 +94,7 @@ export function PipelineStageActionBar({
   onViewCurrentStage,
 }: PipelineStageActionBarProps) {
   const dock = useCandidateActionDock();
+  const advanceConfirmation = usePipelineAdvanceConfirmation(pipelineStage);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const isBusy = isAdvancing || Boolean(aiRoundReset?.isResetting);
   let busyReason: string | null = null;
@@ -126,7 +128,12 @@ export function PipelineStageActionBar({
     humanInterviewFeedbackComplete,
     isAdvancing,
     isBusy,
-    onAdvance: handleAdvance,
+    onAdvance: (target) => {
+      if (target === "second_interview") {
+        return handleAdvance(target);
+      }
+      advanceConfirmation.request(target, () => handleAdvance(target));
+    },
     onRequestReactivate,
     pipelineStage,
   });
@@ -163,6 +170,7 @@ export function PipelineStageActionBar({
       aria-label={`当前招聘阶段：${pipelineStageMeta[pipelineStage].label}`}
       className="flex w-full flex-col items-stretch gap-2 max-md:[&_button]:h-11 max-md:[&_button]:text-sm md:w-auto md:flex-row md:flex-wrap md:items-center md:justify-end"
     >
+      {advanceConfirmation.surface}
       <RecruitmentStageHoverCard
         onViewCurrentStage={onViewCurrentStage}
         pipelineStage={pipelineStage}
