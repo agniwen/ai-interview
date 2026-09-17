@@ -1,3 +1,4 @@
+import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
 import { zValidator } from "@hono/zod-validator";
 import type { Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -436,18 +437,26 @@ export function createHumanInterviewReviewActionsRouter(
         if (!review) {
           return c.json({ error: "真人复面复核内容不存在。" }, 404);
         }
-        const submitted = await submitAndFinalizeHumanInterviewEvaluation({
-          actorId: scope.userId,
-          evaluation: input.evaluation,
-          meetingSessionId: review.meetingSessionId,
-          organizationId: scope.organizationId,
-          outcome: input.outcome,
-          roundId: scope.roundId,
-          transcriptRevisionId: input.transcriptRevisionId,
-        });
-        return submitted
-          ? c.json({ ok: true }, 200)
-          : c.json({ error: "本轮已提交、已结束或转录已更新，请刷新后查看。" }, 409);
+        try {
+          const submitted = await submitAndFinalizeHumanInterviewEvaluation({
+            actorId: scope.userId,
+            evaluation: input.evaluation,
+            meetingSessionId: review.meetingSessionId,
+            organizationId: scope.organizationId,
+            outcome: input.outcome,
+            roundId: scope.roundId,
+            transcriptRevisionId: input.transcriptRevisionId,
+          });
+          return submitted
+            ? c.json({ ok: true }, 200)
+            : c.json({ error: "本轮已提交、已结束或转录已更新，请刷新后查看。" }, 409);
+        } catch (error) {
+          if (error instanceof RecruitingPipelineError) {
+            const status = { conflict: 409, invalid: 400, not_found: 404 } as const;
+            return c.json({ error: error.message }, status[error.code]);
+          }
+          throw error;
+        }
       },
     );
 }

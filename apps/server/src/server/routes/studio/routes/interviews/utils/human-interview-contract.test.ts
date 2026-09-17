@@ -43,13 +43,13 @@ describe("human interview contract", () => {
     ).toBe(false);
   });
 
-  it("接受 SABC 评价并始终要求可编辑的薪资建议字段", () => {
+  it("接受 ABCD 评价并始终要求可编辑的薪资建议字段", () => {
     const evaluation = {
       detailedAnalysis: "基于完整对话的详细分析。",
       evidenceTurnIds: ["turn-1"],
       overallEvaluation: "整体匹配岗位要求。",
       professionalSkill: "优",
-      rating: "S",
+      rating: "D",
       risks: "仍需确认线上规模。",
       rolePosition: "核心方案负责人",
       salaryRecommendation: "",
@@ -57,6 +57,38 @@ describe("human interview contract", () => {
       strengths: "架构思路清晰。",
     };
     expect(humanInterviewEvaluationSchema.parse(evaluation)).toEqual(evaluation);
+    for (const key of [
+      "professionalSkill",
+      "risks",
+      "rolePosition",
+      "salaryRecommendation",
+      "seniorityPosition",
+      "strengths",
+    ]) {
+      expect(
+        humanInterviewEvaluationDraftSchema.safeParse({ ...evaluation, [key]: "字".repeat(500) })
+          .success,
+      ).toBe(true);
+      expect(
+        humanInterviewEvaluationDraftSchema.safeParse({ ...evaluation, [key]: "字".repeat(501) })
+          .success,
+      ).toBe(false);
+    }
+    for (const key of ["overallEvaluation", "detailedAnalysis"]) {
+      expect(
+        humanInterviewEvaluationSubmissionSchema.safeParse({
+          ...evaluation,
+          [key]: "字".repeat(3000),
+        }).success,
+      ).toBe(true);
+      expect(
+        humanInterviewEvaluationSubmissionSchema.safeParse({
+          ...evaluation,
+          [key]: "字".repeat(3001),
+        }).success,
+      ).toBe(false);
+    }
+
     const unratedDraft = { ...evaluation, rating: null };
     expect(humanInterviewEvaluationDraftSchema.parse(unratedDraft)).toEqual(unratedDraft);
     expect(humanInterviewEvaluationSchema.safeParse(unratedDraft).success).toBe(false);
@@ -70,7 +102,7 @@ describe("human interview contract", () => {
     expect(
       humanInterviewEvaluationSubmissionSchema.safeParse({ ...evaluation, overallEvaluation: "  " })
         .success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       humanInterviewEvaluationSubmissionSchema.safeParse({ ...evaluation, draftOutcome: "pass" })
         .success,

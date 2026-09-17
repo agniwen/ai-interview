@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "@app/shared/utils";
 import { InterviewEntryShell } from "./interview-entry-shell";
 
 import { IconLoader2, IconLogin, IconVideo } from "@tabler/icons-react";
@@ -441,7 +442,12 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     if (props.mode === "interviewer" && viewMode !== "meeting") {
       return (
         <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-          <header className="flex shrink-0 items-center justify-between gap-3 border-border border-b px-4 py-3">
+          <header
+            className={cn(
+              "flex shrink-0 items-center justify-between gap-3 px-4 py-3",
+              viewMode === "review" ? "mx-auto w-full max-w-5xl" : "border-border border-b",
+            )}
+          >
             <div>
               <h1 className="font-medium text-foreground text-xl tracking-normal">
                 {getRoomTitle(props)}
@@ -468,16 +474,18 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               />
             )}
           </div>
-          <footer className="flex shrink-0 items-center justify-center border-border border-t px-4 py-3">
-            <button
-              className={humanMeetingControlButtonClass}
-              onClick={() => setViewMode("meeting")}
-              type="button"
-            >
-              <IconVideo className="size-4" />
-              返回入会页
-            </button>
-          </footer>
+          {viewMode === "materials" ? (
+            <footer className="flex shrink-0 items-center justify-center border-border border-t px-4 py-3">
+              <button
+                className={humanMeetingControlButtonClass}
+                onClick={() => setViewMode("meeting")}
+                type="button"
+              >
+                <IconVideo className="size-4" />
+                返回入会页
+              </button>
+            </footer>
+          ) : null}
         </main>
       );
     }

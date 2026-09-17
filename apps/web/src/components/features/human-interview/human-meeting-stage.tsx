@@ -410,8 +410,7 @@ export function HumanMeetingStage({
         footer={
           <>
             <Button
-              className="h-12 min-w-36"
-              size="lg"
+              className="max-md:h-12 max-md:min-w-36 max-md:px-6"
               variant="outline"
               disabled={isEnding}
               onClick={() => setEndConfirmOpen(false)}
@@ -419,8 +418,7 @@ export function HumanMeetingStage({
               取消
             </Button>
             <Button
-              className="h-12 min-w-36"
-              size="lg"
+              className="max-md:h-12 max-md:min-w-36 max-md:px-6"
               disabled={isEnding}
               onClick={handleEndConfirm}
               variant="destructive"

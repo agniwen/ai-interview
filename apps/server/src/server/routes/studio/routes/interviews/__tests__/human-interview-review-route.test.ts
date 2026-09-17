@@ -1,5 +1,6 @@
 /* oxlint-disable anti-slop/no-module-mocking -- transport regression isolates existing DAO/notification modules; real scope queries are covered by DAO integration tests. */
 import type { Context } from "hono";
+import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "../../../../../factory";
 import { createStudioHumanInterviewReviewRouter } from "../review-route";
@@ -117,8 +118,33 @@ beforeEach(() => {
   mocks.submit.mockResolvedValue(true);
 });
 describe("system human interview review", () => {
+  it.each([
+    ["invalid", 400],
+    ["conflict", 409],
+    ["not_found", 404],
+  ] as const)("returns the pipeline %s error with HTTP %s", async (code, status) => {
+    mocks.submit.mockRejectedValue(
+      new RecruitingPipelineError("面试状态已变更，请刷新后重试。", code),
+    );
+    const init = {
+      body: JSON.stringify({ evaluation, outcome: "pass", transcriptRevisionId: null }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    };
+    for (const response of [
+      await request("evaluation-submit"),
+      await humanInterviewReviewRouter.request(
+        "/human-interview-meetings/interviewer/signed-invite/evaluation-submit",
+        init,
+      ),
+    ]) {
+      expect(response.status).toBe(status);
+      expect(await response.json()).toEqual({ error: "面试状态已变更，请刷新后重试。" });
+    }
+  });
+
   it.each(["studio", "invitation"])(
-    "rejects an empty overall evaluation through %s",
+    "accepts an empty optional overall evaluation through %s",
     async (entry) => {
       const init = {
         body: JSON.stringify({
@@ -139,8 +165,13 @@ describe("system human interview review", () => {
               "/human-interview-meetings/interviewer/signed-invite/evaluation-submit",
               init,
             );
-      expect(response.status).toBe(400);
-      expect(mocks.submit).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(mocks.submit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evaluation: expect.objectContaining({ overallEvaluation: "" }),
+          outcome: "pass",
+        }),
+      );
     },
   );
   it.each(["studio", "invitation"])(

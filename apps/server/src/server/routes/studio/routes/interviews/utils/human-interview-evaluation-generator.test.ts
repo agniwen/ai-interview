@@ -197,7 +197,7 @@ describe("generateHumanInterviewEvaluation", () => {
       additionalProperties: false,
       properties: {
         evidenceTurnIds: { items: { type: "string" }, type: "array" },
-        rating: { enum: ["S", "A", "B", "C"], type: "string" },
+        rating: { enum: ["A", "B", "C", "D"], type: "string" },
       },
       required: [
         "detailedAnalysis",
@@ -220,7 +220,7 @@ describe("generateHumanInterviewEvaluation", () => {
     expect(prompt).toContain("不得把简历内容写成面试中已验证的表现");
     expect(prompt).toContain("risks 只写有可靠证据支持的实质性岗位风险；没有时必须返回 -");
     expect(retryPrompt).toContain('"received":"-"');
-    expect(retryPrompt).toContain('"values":["S","A","B","C"]');
+    expect(retryPrompt).toContain('"values":["A","B","C","D"]');
     expect(retryPrompt).toContain('"keys":["score"]');
   });
 

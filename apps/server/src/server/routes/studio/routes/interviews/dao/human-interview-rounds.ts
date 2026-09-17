@@ -76,6 +76,7 @@ export async function loadHumanInterviewRoundReadiness(
 ): Promise<HumanInterviewRoundReadiness> {
   const rows = await executor
     .select({
+      evaluationStatus: humanInterviewRound.evaluationStatus,
       feedback: humanInterviewRound.feedback,
       node: recruitingNodeState.node,
       nodeResult: recruitingNodeState.result,
@@ -103,11 +104,12 @@ export async function loadHumanInterviewRoundReadiness(
         row.nodeResult === "pass" &&
         row.status === "completed" &&
         row.outcome === "pass" &&
-        Boolean(row.feedback?.trim()),
+        (row.evaluationStatus === "submitted" || Boolean(row.feedback?.trim())),
     );
   return {
     completedRoundsMissingFeedback: rows.filter(
-      (row) => row.status === "completed" && !row.feedback?.trim(),
+      (row) =>
+        row.status === "completed" && row.evaluationStatus !== "submitted" && !row.feedback?.trim(),
     ).length,
     finalInterviewPassed: passed("final_interview"),
     pendingRounds: rows.filter((row) => row.status === "pending").length,

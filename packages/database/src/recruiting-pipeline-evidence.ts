@@ -82,7 +82,9 @@ export async function validateEvidence(
     if (
       !round ||
       (input.result === "pass" &&
-        (round.status !== "completed" || round.outcome !== "pass" || !round.feedback?.trim()))
+        (round.status !== "completed" ||
+          round.outcome !== "pass" ||
+          (round.evaluationStatus !== "submitted" && !round.feedback?.trim())))
     ) {
       throw new RecruitingPipelineError("请先完成本轮面试、填写反馈并确认通过。", "invalid");
     }

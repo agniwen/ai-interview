@@ -303,7 +303,7 @@ export type HumanInterviewMeetingInterviewerRole = z.infer<
   typeof humanInterviewMeetingInterviewerRoleSchema
 >;
 
-export const humanInterviewEvaluationRatingValues = ["S", "A", "B", "C"] as const;
+export const humanInterviewEvaluationRatingValues = ["A", "B", "C", "D"] as const;
 export const humanInterviewEvaluationRatingSchema = z.enum(humanInterviewEvaluationRatingValues);
 export type HumanInterviewEvaluationRating = z.infer<typeof humanInterviewEvaluationRatingSchema>;
 
@@ -338,13 +338,22 @@ export const humanInterviewRecordingStatusValues = [
 export const humanInterviewRecordingStatusSchema = z.enum(humanInterviewRecordingStatusValues);
 export type HumanInterviewRecordingStatus = z.infer<typeof humanInterviewRecordingStatusSchema>;
 
-const humanInterviewEvaluationTextSchema = z.string().trim().max(20_000);
+export const HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH = 500;
+export const HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH = 3000;
+const humanInterviewEvaluationTextSchema = z
+  .string()
+  .trim()
+  .max(HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH);
+const humanInterviewEvaluationLongTextSchema = z
+  .string()
+  .trim()
+  .max(HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH);
 
 export const humanInterviewEvaluationSchema = z
   .object({
-    detailedAnalysis: humanInterviewEvaluationTextSchema,
+    detailedAnalysis: humanInterviewEvaluationLongTextSchema,
     evidenceTurnIds: z.array(z.string().trim().min(1)).max(500),
-    overallEvaluation: humanInterviewEvaluationTextSchema,
+    overallEvaluation: humanInterviewEvaluationLongTextSchema,
     professionalSkill: humanInterviewEvaluationTextSchema,
     rating: humanInterviewEvaluationRatingSchema,
     risks: humanInterviewEvaluationTextSchema,
@@ -365,7 +374,7 @@ export const humanInterviewEvaluationDraftSchema = humanInterviewEvaluationSchem
 export type HumanInterviewEvaluationDraft = z.infer<typeof humanInterviewEvaluationDraftSchema>;
 
 export const humanInterviewEvaluationSubmissionSchema = humanInterviewEvaluationSchema.extend({
-  overallEvaluation: humanInterviewEvaluationTextSchema.min(1),
+  overallEvaluation: humanInterviewEvaluationLongTextSchema,
 });
 
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
