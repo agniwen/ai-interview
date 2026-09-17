@@ -52,22 +52,9 @@ Qwen 信号到 Agent listening 状态仅约 2–10 ms；接收端仍可出现约
 3. 若要求开口后数百毫秒稳定让出声音，需要单独验证客户端先降低播放音量、确认有效插话后再取消，或引入本地检测/支持更细打断配置的模型。前者会暂时压低附和期间的声音，后者会增加架构和延迟取舍；本次未把这些未经验证的方案塞入产品。
 4. 后续真人验证应覆盖耳机/扬声器、背景人声、咳嗽、句中停顿和弱网；本次没有模拟物理麦克风与扬声器回声。
 
-## 复现
+## 历史复现方式
 
-从 `apps/livekit-agent/` 执行；需要本地 `.env` 的 LiveKit 和百炼凭据，会消耗模型额度。脚本会创建和删除自己的隔离房间。
-
-```bash
-mkdir -p /tmp/ai-interview-voice-probe
-say -v Tingting -r 210 -o /tmp/ai-interview-voice-probe/interrupt.wav --data-format=LEI16@24000 '等一下，我补充一下，我负责的是订单服务，不是支付服务。'
-say -v Tingting -r 180 -o /tmp/ai-interview-voice-probe/backchannel.wav --data-format=LEI16@24000 '嗯'
-say -v Tingting -r 210 -o /tmp/ai-interview-voice-probe/continue.wav --data-format=LEI16@24000 '还有一点，我带六个人，接口延迟从八百毫秒降到了两百毫秒。'
-say -v Tingting -r 210 -o /tmp/ai-interview-voice-probe/unfinished.wav --data-format=LEI16@24000 '我最近负责的项目，主要是'
-say -v Tingting -r 210 -o /tmp/ai-interview-voice-probe/remainder.wav --data-format=LEI16@24000 '订单平台重构。我带六个人，负责架构设计和上线，接口延迟降到了两百毫秒。'
-
-VOICE_PROBE_CONTROLLED=1 VOICE_PROBE_LABEL=smart-audio uv run python tests/voice_room_probe.py
-DASHSCOPE_REALTIME_TURN_DETECTION=server_vad VOICE_PROBE_CONTROLLED=1 VOICE_PROBE_LABEL=vad-audio uv run python tests/voice_room_probe.py
-VOICE_PROBE_PAUSE=1 VOICE_PROBE_LABEL=smart-pause uv run python tests/voice_room_probe.py
-```
+本次验证使用 macOS Tingting 合成音频和独立 RTC 房间，分别测试打断、附和音和句中停顿。所用一次性探针依赖本机 `/tmp` 素材，已于 2026-09-17 按要求从仓库删除，不再提供指向已删除脚本的运行命令。正式协议与行为回归保留在 `apps/livekit-agent/tests/test_qwen_realtime*.py` 等测试中。
 
 原始 `events.json` 和 `agent.wav` 保存在 `/tmp/ai-interview-voice-probe/<label>/`。`smart-interruption-stereo.wav` 是本次整理的 7.5 秒对比片段，左声道为合成候选人，右声道为接收端 AI 音频。临时目录不是长期档案。
 

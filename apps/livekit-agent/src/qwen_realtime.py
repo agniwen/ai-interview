@@ -223,11 +223,12 @@ class RealtimeModel(llm.RealtimeModel):
     def from_env(cls) -> RealtimeModel:
         """Read only the owning agent process's environment."""
         return cls(
-            model=os.getenv("DASHSCOPE_REALTIME_MODEL") or DEFAULT_MODEL,
-            base_url=os.getenv("DASHSCOPE_REALTIME_BASE_URL") or DEFAULT_BASE_URL,
-            workspace=os.getenv("DASHSCOPE_WORKSPACE_ID") or None,
-            voice=os.getenv("DASHSCOPE_REALTIME_VOICE") or "longanlingxin",
-            turn_detection=os.getenv("DASHSCOPE_REALTIME_TURN_DETECTION")
+            model=os.getenv("DASHSCOPE_REALTIME_MODEL", "").strip() or DEFAULT_MODEL,
+            base_url=os.getenv("DASHSCOPE_REALTIME_BASE_URL", "").strip()
+            or DEFAULT_BASE_URL,
+            workspace=os.getenv("DASHSCOPE_WORKSPACE_ID", "").strip() or None,
+            voice=os.getenv("DASHSCOPE_REALTIME_VOICE", "").strip() or "longanlingxin",
+            turn_detection=os.getenv("DASHSCOPE_REALTIME_TURN_DETECTION", "").strip()
             or "smart_turn",
         )
 

@@ -8,6 +8,19 @@
 
 在 agent 自己的 `.env` 中设置 `DASHSCOPE_API_KEY`。可选配置见同目录 `.env.example` 的 `DASHSCOPE_REALTIME_*`，默认模型为 `qwen-audio-3.0-realtime-plus`，默认使用北京地域的旧版兼容域名。业务空间域名可以通过 `DASHSCOPE_REALTIME_BASE_URL` 配置；凭据必须与所用地域一致。
 
+升级时无需新增环境变量：已有 `DASHSCOPE_API_KEY` 继续使用，以下可选值未设置、留空或仅含空格时自动采用默认值。无需手动补写到生产 `.env`；非空配置会去除首尾空格，显式无效配置仍会报错。
+
+| 环境变量                            | 默认值                                            |
+| ----------------------------------- | ------------------------------------------------- |
+| `INTERVIEW_VOICE_MODE`              | `realtime`                                        |
+| `DASHSCOPE_REALTIME_MODEL`          | `qwen-audio-3.0-realtime-plus`                    |
+| `DASHSCOPE_REALTIME_BASE_URL`       | `wss://dashscope.aliyuncs.com/api-ws/v1/realtime` |
+| `DASHSCOPE_REALTIME_VOICE`          | `longanlingxin`                                   |
+| `DASHSCOPE_REALTIME_TURN_DETECTION` | `smart_turn`                                      |
+| `DASHSCOPE_WORKSPACE_ID`（已有）    | 不指定；已有值继续生效                            |
+
+Realtime 不继承 `DASHSCOPE_STT_BASE_URL` 或旧 LLM 模型，因为协议和模型用途不同。LiveKit 及回调凭据仍使用原配置，密钥没有虚构默认值。非北京地域的 Key 仍需显式设置匹配的 Realtime 地址；默认值不替代账号的模型访问权限。
+
 ```python
 from livekit.agents import Agent, AgentSession, function_tool
 from qwen_realtime import RealtimeModel
