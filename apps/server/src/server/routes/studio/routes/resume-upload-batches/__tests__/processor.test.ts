@@ -1,3 +1,8 @@
+import {
+  defaultResumeUploadBatchProcessorDependencies,
+  getClaimMissRetryError,
+  createResumeUploadBatchProcessor,
+} from "../utils/processor";
 import { deleteRecruitingRecords, updateRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 // 批量简历上传 processor 集成测试 —— 真实 PG，mock S3 和简历解析器。
@@ -17,7 +22,6 @@ import {
   user,
 } from "@app/db-schema/schema";
 import { cancelBatch, insertBatchWithItems } from "../dao/batches";
-import { getClaimMissRetryError, createResumeUploadBatchProcessor } from "../utils/processor";
 import type { ResumeUploadBatchProcessorDependencies } from "../utils/processor";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
@@ -37,6 +41,8 @@ const dependencies = {
   generateInterviewQuestionsForProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["generateInterviewQuestionsForProfile"]>(),
   getObjectStream: vi.fn<ResumeUploadBatchProcessorDependencies["getObjectStream"]>(),
+  markParsedResumeRecordReady:
+    defaultResumeUploadBatchProcessorDependencies.markParsedResumeRecordReady,
   parseResumeBytesToProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["parseResumeBytesToProfile"]>(),
   projectAttachmentToResumeProfile:
@@ -50,7 +56,6 @@ const dependencies = {
 
 const { processBatchItem, processNextItem } = createResumeUploadBatchProcessor(dependencies);
 
-// ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 const ORG_A = "bulk_proc_org_a";
 const USER_A = "bulk_proc_user_a";
 /** Suite-unique storage prefix so cleanup never leaves null-org pool orphans. */
@@ -64,9 +69,7 @@ const GENERATED_QUESTIONS = Array.from({ length: 10 }, (_, index) => ({
   order: index + 1,
   question: `面试题 ${index + 1}`,
 }));
-// ─── Mock helpers ─────────────────────────────────────────────────────────────
 
-// 返回一个有效的 ReadableStream 响应体，模拟 S3 成功返回。
 function mockS3OK() {
   const stream = new Blob(["fake bytes"]).stream();
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -77,7 +80,6 @@ function mockS3OK() {
   });
 }
 
-// 模拟解析器成功返回指定 profile。
 function mockParseOK(profile: {
   email: string | null;
   name: string;
@@ -93,8 +95,6 @@ function mockParseOK(profile: {
     resumeProfile: profile as never,
   } as never);
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // 构造最小化 files 入参。
 function makeFiles(n: number) {
@@ -223,7 +223,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   for (const dependency of Object.values(dependencies)) {
-    dependency.mockReset();
+    if (vi.isMockFunction(dependency)) {
+      dependency.mockReset();
+    }
   }
   dependencies.enqueueResumeSemanticIndexJobBestEffort.mockResolvedValue(true);
   dependencies.enqueueResumePoolReviewGenerationBestEffort.mockResolvedValue(true);

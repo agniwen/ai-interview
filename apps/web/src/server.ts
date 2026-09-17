@@ -60,7 +60,9 @@ if (import.meta.hot) {
 
 function isApiRequest(request: Request) {
   const { pathname } = new URL(request.url);
-  return pathname === "/api" || pathname.startsWith("/api/");
+  return (
+    pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/.well-known/")
+  );
 }
 
 function isHealthRequest(request: Request) {

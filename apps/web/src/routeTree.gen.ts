@@ -25,6 +25,9 @@ import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-in
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
+import { Route as McpIndexRouteImport } from './routes/mcp.index'
+import { Route as McpAuthorizeRouteImport } from './routes/mcp.authorize'
+import { Route as McpConnectionsRouteImport } from './routes/mcp.connections'
 import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as PlatformLivekitRouteImport } from './routes/platform.livekit'
 import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
@@ -158,6 +161,21 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
 const JoinCodeRoute = JoinCodeRouteImport.update({
   id: '/join/$code',
   path: '/join/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpIndexRoute = McpIndexRouteImport.update({
+  id: '/mcp/',
+  path: '/mcp/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpAuthorizeRoute = McpAuthorizeRouteImport.update({
+  id: '/mcp/authorize',
+  path: '/mcp/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpConnectionsRoute = McpConnectionsRouteImport.update({
+  id: '/mcp/connections',
+  path: '/mcp/connections',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfferTokenRoute = OfferTokenRouteImport.update({
@@ -457,6 +475,8 @@ export interface FileRoutesByFullPath {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/mcp/authorize': typeof McpAuthorizeRoute
+  '/mcp/connections': typeof McpConnectionsRoute
   '/offer/$token': typeof OfferTokenRoute
   '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
@@ -472,6 +492,7 @@ export interface FileRoutesByFullPath {
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/mcp/': typeof McpIndexRoute
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
   '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
@@ -527,6 +548,8 @@ export interface FileRoutesByTo {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/mcp/authorize': typeof McpAuthorizeRoute
+  '/mcp/connections': typeof McpConnectionsRoute
   '/offer/$token': typeof OfferTokenRoute
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/notifications': typeof PlatformNotificationsRoute
@@ -541,6 +564,7 @@ export interface FileRoutesByTo {
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/mcp': typeof McpIndexRoute
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
   '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
@@ -595,6 +619,8 @@ export interface FileRoutesById {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/mcp/authorize': typeof McpAuthorizeRoute
+  '/mcp/connections': typeof McpConnectionsRoute
   '/offer/$token': typeof OfferTokenRoute
   '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
@@ -610,6 +636,7 @@ export interface FileRoutesById {
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/mcp/': typeof McpIndexRoute
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
   '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
@@ -667,6 +694,8 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/mcp/authorize'
+    | '/mcp/connections'
     | '/offer/$token'
     | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
@@ -682,6 +711,7 @@ export interface FileRouteTypes {
     | '/studio/resume-pool'
     | '/studio/resumes'
     | '/w/$slug'
+    | '/mcp/'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
     | '/platform/livekit/metrics'
@@ -737,6 +767,8 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/mcp/authorize'
+    | '/mcp/connections'
     | '/offer/$token'
     | '/platform/mail-ingest-accounts'
     | '/platform/notifications'
@@ -751,6 +783,7 @@ export interface FileRouteTypes {
     | '/studio/resume-pool'
     | '/studio/resumes'
     | '/w/$slug'
+    | '/mcp'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
     | '/platform/livekit/metrics'
@@ -804,6 +837,8 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/mcp/authorize'
+    | '/mcp/connections'
     | '/offer/$token'
     | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
@@ -819,6 +854,7 @@ export interface FileRouteTypes {
     | '/studio/resume-pool'
     | '/studio/resumes'
     | '/w/$slug'
+    | '/mcp/'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
     | '/platform/livekit/metrics'
@@ -874,10 +910,13 @@ export interface RootRouteChildren {
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   JoinCodeRoute: typeof JoinCodeRoute
+  McpAuthorizeRoute: typeof McpAuthorizeRoute
+  McpConnectionsRoute: typeof McpConnectionsRoute
   OfferTokenRoute: typeof OfferTokenRoute
   RRoundIdRoute: typeof RRoundIdRoute
   ReferralsTokenRoute: typeof ReferralsTokenRoute
   WSlugRoute: typeof WSlugRouteWithChildren
+  McpIndexRoute: typeof McpIndexRoute
   HumanInterviewInterviewerInviteTokenRoute: typeof HumanInterviewInterviewerInviteTokenRoute
   ResumeReviewSlugRecordIdRoute: typeof ResumeReviewSlugRecordIdRoute
 }
@@ -994,6 +1033,27 @@ declare module '@tanstack/react-router' {
       path: '/join/$code'
       fullPath: '/join/$code'
       preLoaderRoute: typeof JoinCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp/': {
+      id: '/mcp/'
+      path: '/mcp'
+      fullPath: '/mcp/'
+      preLoaderRoute: typeof McpIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp/authorize': {
+      id: '/mcp/authorize'
+      path: '/mcp/authorize'
+      fullPath: '/mcp/authorize'
+      preLoaderRoute: typeof McpAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp/connections': {
+      id: '/mcp/connections'
+      path: '/mcp/connections'
+      fullPath: '/mcp/connections'
+      preLoaderRoute: typeof McpConnectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offer/$token': {
@@ -1608,10 +1668,13 @@ const rootRouteChildren: RootRouteChildren = {
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   JoinCodeRoute: JoinCodeRoute,
+  McpAuthorizeRoute: McpAuthorizeRoute,
+  McpConnectionsRoute: McpConnectionsRoute,
   OfferTokenRoute: OfferTokenRoute,
   RRoundIdRoute: RRoundIdRoute,
   ReferralsTokenRoute: ReferralsTokenRoute,
   WSlugRoute: WSlugRouteWithChildren,
+  McpIndexRoute: McpIndexRoute,
   HumanInterviewInterviewerInviteTokenRoute:
     HumanInterviewInterviewerInviteTokenRoute,
   ResumeReviewSlugRecordIdRoute: ResumeReviewSlugRecordIdRoute,

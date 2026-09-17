@@ -1,7 +1,7 @@
 "use client";
 
 import { IconLogout } from "@tabler/icons-react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ export function UserMenu({ name, email, avatarUrl, initials }: UserMenuProps) {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link to="/mcp">MCP 接入</Link>} />
         <DropdownMenuItem disabled={pending} onClick={handleSignOut} variant="destructive">
           <IconLogout className="mr-2 size-4" />
           {pending ? "退出中..." : "退出登录"}

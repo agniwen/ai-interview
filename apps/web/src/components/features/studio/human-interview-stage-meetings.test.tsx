@@ -112,7 +112,7 @@ describe("MeetingLinksDialog", () => {
         companyName: "示例科技",
         jobDescriptionName: "前端技术经理",
         roundLabel: "业务六面",
-        scheduledAt: "2026-08-05T09:30:00.000Z",
+        scheduledAt: new Date(2026, 7, 5, 17, 30).toISOString(),
         url: "https://interview.example.test/human-interview/candidate-token",
       }),
     ).toBe(
@@ -124,7 +124,7 @@ describe("MeetingLinksDialog", () => {
         jobDescriptionName: "前端技术经理",
         meetingTitle: "张三 - 业务六面",
         roleLabel: "面试官",
-        scheduledAt: "2026-08-05T09:30:00.000Z",
+        scheduledAt: new Date(2026, 7, 5, 17, 30).toISOString(),
         url: "https://interview.example.test/human-interview/interviewer/interviewer-token",
       }),
     ).toBe(

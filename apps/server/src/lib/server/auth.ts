@@ -1,3 +1,4 @@
+import { loadMcpGrant, loadMcpMember } from "../../server/routes/mcp/dao";
 import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
@@ -10,6 +11,8 @@ import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { getAuthRequestHeaders } from "./auth-request-context";
+import { createMcpAuthPlugins } from "./mcp-auth";
+import { isMcpEnabled } from "../../server/routes/mcp/config";
 import { getRequiredEnv } from "./env";
 import { getFeishuTenantAccessToken } from "./feishu-access-token";
 import { feishuAccountLinking, validateFeishuAccountLinking } from "./feishu-account-linking";
@@ -544,6 +547,7 @@ export const auth = betterAuth({
         return Promise.resolve();
       },
     }),
+    ...(isMcpEnabled() ? createMcpAuthPlugins(baseURL, { loadMcpGrant, loadMcpMember }) : []),
   ],
   // 显式声明 session 寿命 & 刷新间隔。默认 expiresIn=7d / updateAge=1d，
   // 但 1 天的 updateAge 意味着 session.updatedAt 一天内顶多动一次——会让

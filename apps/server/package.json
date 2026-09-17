@@ -40,6 +40,8 @@
     "@app/resume-parse-queue": "workspace:*",
     "@app/resume-processing": "workspace:*",
     "@app/shared": "workspace:*",
+    "@better-auth/mcp": "1.7.2",
+    "@better-auth/oauth-provider": "1.7.2",
     "@chat-adapter/state-pg": "^4.28.1",
     "@hono/node-server": "^1.19.14",
     "@hono/zod-validator": "^0.7.6",
@@ -50,6 +52,7 @@
     "@mastra/core": "^1.50.1",
     "@mastra/observability": "^1.16.0",
     "@mastra/pg": "^1.15.1",
+    "@modelcontextprotocol/server": "2.0.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
@@ -79,6 +82,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "24.11.2",
     "@types/react": "catalog:",

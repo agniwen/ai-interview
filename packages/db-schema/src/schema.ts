@@ -6789,3 +6789,215 @@ export const aiInterviewReportReceipt = pgTable(
     ),
   ],
 );
+
+// OAuth/JWT tables generated with auth@1.7.2; keep aligned with the official provider schema.
+export const jwks = pgTable("jwks", {
+  alg: text("alg"),
+  createdAt: timestamp("created_at").notNull(),
+  crv: text("crv"),
+  expiresAt: timestamp("expires_at"),
+  id: text("id").primaryKey(),
+  privateKey: text("private_key").notNull(),
+  publicKey: text("public_key").notNull(),
+});
+
+export const oauthClient = pgTable(
+  "oauth_client",
+  {
+    applicationType: text("application_type"),
+    backchannelLogoutSessionRequired: boolean("backchannel_logout_session_required"),
+    backchannelLogoutUri: text("backchannel_logout_uri"),
+    clientCredentialsScopes: text("client_credentials_scopes").array().default([]),
+    clientDiscoveryId: text("client_discovery_id"),
+    clientId: text("client_id").notNull().unique(),
+    clientSecret: text("client_secret"),
+    contacts: text("contacts").array(),
+    createdAt: timestamp("created_at"),
+    disabled: boolean("disabled").default(false),
+    dpopBoundAccessTokens: boolean("dpop_bound_access_tokens").default(false),
+    enableEndSession: boolean("enable_end_session"),
+    grantTypes: text("grant_types").array(),
+    icon: text("icon"),
+    id: text("id").primaryKey(),
+    jwks: text("jwks"),
+    jwksUri: text("jwks_uri"),
+    metadata: jsonb("metadata"),
+    name: text("name"),
+    policy: text("policy"),
+    postLogoutRedirectUris: text("post_logout_redirect_uris").array(),
+    redirectUris: text("redirect_uris").array().notNull(),
+    referenceId: text("reference_id"),
+    requirePKCE: boolean("require_pkce"),
+    responseTypes: text("response_types").array(),
+    scopes: text("scopes").array(),
+    skipConsent: boolean("skip_consent"),
+    softwareId: text("software_id"),
+    softwareStatement: text("software_statement"),
+    softwareVersion: text("software_version"),
+    subjectType: text("subject_type"),
+    tokenEndpointAuthMethod: text("token_endpoint_auth_method"),
+    tos: text("tos"),
+    updatedAt: timestamp("updated_at"),
+    uri: text("uri"),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("oauthClient_userId_idx").on(table.userId)],
+);
+
+export const oauthResource = pgTable("oauth_resource", {
+  accessTokenTtl: integer("access_token_ttl"),
+  allowedScopes: text("allowed_scopes").array(),
+  createdAt: timestamp("created_at"),
+  customClaims: jsonb("custom_claims"),
+  disabled: boolean("disabled").default(false),
+  dpopBoundAccessTokensRequired: boolean("dpop_bound_access_tokens_required").default(false),
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull().unique(),
+  metadata: jsonb("metadata"),
+  name: text("name").notNull(),
+  policyVersion: integer("policy_version").default(1),
+  refreshTokenTtl: integer("refresh_token_ttl"),
+  signingAlgorithm: text("signing_algorithm"),
+  signingKeyId: text("signing_key_id"),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const oauthClientResource = pgTable(
+  "oauth_client_resource",
+  {
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at"),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata"),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => oauthResource.identifier, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("oauthClientResource_clientId_resourceId_uidx").on(
+      table.clientId,
+      table.resourceId,
+    ),
+    index("oauthClientResource_clientId_idx").on(table.clientId),
+    index("oauthClientResource_resourceId_idx").on(table.resourceId),
+  ],
+);
+
+export const oauthRefreshToken = pgTable(
+  "oauth_refresh_token",
+  {
+    authTime: timestamp("auth_time"),
+    authorizationCodeId: text("authorization_code_id"),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    confirmation: jsonb("confirmation"),
+    createdAt: timestamp("created_at").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    referenceId: text("reference_id"),
+    requestedUserInfoClaims: text("requested_user_info_claims").array(),
+    resources: text("resources").array(),
+    revoked: timestamp("revoked"),
+    rotatedAt: timestamp("rotated_at"),
+    rotationReplayExpiresAt: timestamp("rotation_replay_expires_at"),
+    rotationReplayResponse: text("rotation_replay_response"),
+    scopes: text("scopes").array().notNull(),
+    sessionId: text("session_id").references(() => session.id, {
+      onDelete: "set null",
+    }),
+    token: text("token").notNull().unique(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("oauthRefreshToken_clientId_idx").on(table.clientId),
+    index("oauthRefreshToken_sessionId_idx").on(table.sessionId),
+    index("oauthRefreshToken_userId_idx").on(table.userId),
+    index("oauthRefreshToken_authorizationCodeId_idx").on(table.authorizationCodeId),
+  ],
+);
+
+export const oauthAccessToken = pgTable(
+  "oauth_access_token",
+  {
+    authorizationCodeId: text("authorization_code_id"),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    confirmation: jsonb("confirmation"),
+    createdAt: timestamp("created_at").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    referenceId: text("reference_id"),
+    refreshId: text("refresh_id").references(() => oauthRefreshToken.id, {
+      onDelete: "cascade",
+    }),
+    requestedUserInfoClaims: text("requested_user_info_claims").array(),
+    resources: text("resources").array(),
+    revoked: timestamp("revoked"),
+    scopes: text("scopes").array().notNull(),
+    sessionId: text("session_id").references(() => session.id, {
+      onDelete: "set null",
+    }),
+    token: text("token").notNull().unique(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("oauthAccessToken_clientId_idx").on(table.clientId),
+    index("oauthAccessToken_sessionId_idx").on(table.sessionId),
+    index("oauthAccessToken_userId_idx").on(table.userId),
+    index("oauthAccessToken_authorizationCodeId_idx").on(table.authorizationCodeId),
+    index("oauthAccessToken_refreshId_idx").on(table.refreshId),
+  ],
+);
+
+export const oauthConsent = pgTable(
+  "oauth_consent",
+  {
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull(),
+    id: text("id").primaryKey(),
+    referenceId: text("reference_id"),
+    requestedUserInfoClaims: text("requested_user_info_claims").array(),
+    resources: text("resources").array(),
+    scopes: text("scopes").array().notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("oauthConsent_clientId_idx").on(table.clientId),
+    index("oauthConsent_userId_idx").on(table.userId),
+  ],
+);
+
+export const oauthClientAssertion = pgTable("oauth_client_assertion", {
+  expiresAt: timestamp("expires_at").notNull(),
+  id: text("id").primaryKey(),
+});
+
+// Each external OAuth grant is bound to one immutable workspace selection.
+export const mcpGrant = pgTable(
+  "mcp_grant",
+  {
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    scopes: text("scopes").array().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("mcp_grant_user_idx").on(table.userId)],
+);

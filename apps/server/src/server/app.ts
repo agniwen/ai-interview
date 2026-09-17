@@ -19,6 +19,7 @@ import { resumeRouter } from "./routes/resume/route";
 import { sessionRouter } from "./routes/session/route-runtime";
 import { workspaceRouter } from "./routes/workspace/route";
 import { attachBusinessRoutes } from "./routing";
+import { mcpRouter, mcpManagementRouter } from "./routes/mcp/route-runtime";
 
 // 中文：所有业务路由都聚合到 apiRoutes，再以 .route("/api", apiRoutes) 挂上去。
 // 不要写 .basePath("/api") —— 那样 hc<AppType> 推断出的客户端类型不会带 /api 前缀，
@@ -29,6 +30,8 @@ import { attachBusinessRoutes } from "./routing";
 // the URL ↔ call shape correspondence.
 const apiRoutes = factory
   .createApp()
+  .route("/mcp", mcpRouter)
+  .route("/mcp-access", mcpManagementRouter)
   .route("/agent", agentRouter)
   .route("/livekit", livekitRouter)
   .route("/meeting-local-recovery", meetingLocalRecoveryRouter)
@@ -67,6 +70,7 @@ export function createServerApp() {
     // Desktop + any cross-origin trusted client: CORS on all /api routes
     // (auth was previously the only path; studio resumes need the same headers).
     .use("/api/*", apiCors)
+    .on(["GET", "HEAD"], "/.well-known/*", (c) => auth.handler(c.req.raw))
     .on(["POST", "GET"], "/api/auth/*", (c) =>
       runWithAuthRequestHeaders(c.req.raw.headers, () => auth.handler(c.req.raw)),
     )

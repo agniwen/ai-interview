@@ -21,6 +21,7 @@ export const SERVER_ENV_NAMES = [
   "INTERVIEW_EVALUATION_MODEL",
   "INTERVIEW_NOTIFICATION_QUEUE_NAMESPACE",
   "MINIMAX_TTS_BASE_URL",
+  "MCP_ENABLED",
   "NEXT_PUBLIC_BASE_URL",
   "QWEN_OCR_BASE_URL",
   "QWEN_OCR_MODEL",
@@ -59,6 +60,7 @@ const serverEnvSchema = {
     .trim()
     .regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
     .optional(),
+  MCP_ENABLED: z.enum(["true", "false"]).default("true"),
   MINIMAX_TTS_BASE_URL: z.url(),
   NEXT_PUBLIC_BASE_URL: z.url(),
   QWEN_OCR_BASE_URL: z.url(),

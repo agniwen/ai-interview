@@ -57,7 +57,7 @@ describe("candidate lifecycle status boundary", () => {
 
     expect(candidateRoute).not.toContain(".update(studioInterview)");
     expect(agentRoute).not.toContain(".update(studioInterview)");
-    expect(candidateRoute).toContain(".update(studioInterviewSchedule)");
-    expect(agentRoute).toContain(".update(studioInterviewSchedule)");
+    expect(candidateRoute).toContain(".update(aiInterviewRound)");
+    expect(agentRoute).toContain(".update(aiInterviewRound)");
   });
 });

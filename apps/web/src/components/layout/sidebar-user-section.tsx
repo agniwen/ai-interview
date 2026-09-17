@@ -76,6 +76,14 @@ function SidebarUserMenuLinks({
         />
       ) : null}
       {hasNavigationLinks ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem
+        render={
+          <Link to="/mcp">
+            <IconShieldCheck className="mr-2 size-4" />
+            MCP 接入
+          </Link>
+        }
+      />
       <DropdownMenuItem onClick={onSignOut} variant="destructive">
         <IconLogout className="mr-2 size-4" />
         退出登录

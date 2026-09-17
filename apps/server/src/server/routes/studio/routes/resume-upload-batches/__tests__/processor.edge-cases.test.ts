@@ -1,4 +1,8 @@
 import {
+  defaultResumeUploadBatchProcessorDependencies,
+  createResumeUploadBatchProcessor,
+} from "../utils/processor";
+import {
   deleteRecruitingRecords,
   createRecruitingRecords,
   updateRecruitingRecords,
@@ -22,7 +26,6 @@ import {
 } from "@app/db-schema/schema";
 import type { ResumeReview } from "@app/db-schema/resume-review";
 import { insertBatchWithItems } from "../dao/batches";
-import { createResumeUploadBatchProcessor } from "../utils/processor";
 import type { ResumeUploadBatchProcessorDependencies } from "../utils/processor";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
@@ -43,6 +46,8 @@ const dependencies = {
   generateInterviewQuestionsForProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["generateInterviewQuestionsForProfile"]>(),
   getObjectStream: vi.fn<ResumeUploadBatchProcessorDependencies["getObjectStream"]>(),
+  markParsedResumeRecordReady:
+    defaultResumeUploadBatchProcessorDependencies.markParsedResumeRecordReady,
   parseResumeBytesToProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["parseResumeBytesToProfile"]>(),
   projectAttachmentToResumeProfile:
@@ -56,7 +61,6 @@ const dependencies = {
 
 const { processBatchItem, processNextItem } = createResumeUploadBatchProcessor(dependencies);
 
-// ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 // Fixed prefix to avoid collisions with other test runs.
 const ORG_A = "bulk_proc_edge_org_a";
 const USER_A = "bulk_proc_edge_user_a";
@@ -94,7 +98,6 @@ const REVIEW_RESULT = {
     weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
   },
 } as const;
-// ─── Mock helpers ─────────────────────────────────────────────────────────────
 
 // 返回一个有效的 ReadableStream 响应体，模拟 S3 成功返回。
 // Returns a valid ReadableStream body to simulate a successful S3 fetch.
@@ -125,8 +128,6 @@ function mockParseOK(profile: {
     resumeProfile: profile as never,
   } as never);
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // 构造最小化 files 入参。
 // Build a minimal files array for insertBatchWithItems.
@@ -220,7 +221,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   for (const dependency of Object.values(dependencies)) {
-    dependency.mockReset();
+    if (vi.isMockFunction(dependency)) {
+      dependency.mockReset();
+    }
   }
   dependencies.enqueueResumeSemanticIndexJobBestEffort.mockResolvedValue(true);
   dependencies.enqueueResumePoolReviewGenerationBestEffort.mockResolvedValue(true);
