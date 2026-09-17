@@ -37,9 +37,10 @@ import { AgentSpeechTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
 import { InterviewRules } from "./interview-rules";
 import { startInterviewSession } from "./interview-session-start";
+import { createInterviewTokenLifecycle } from "./interview-token-lifecycle";
 import { readInterviewResumeState } from "./interview-resume-state";
 import { DevicePreflightCard } from "./interview-device-preflight";
-import { fetchPreInterviewForms } from "./pre-interview-forms-view";
+import { bindPreInterviewForms, fetchPreInterviewForms } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
 import { CandidateInterviewFeedbackPanel } from "./candidate-interview-feedback";
 
@@ -462,8 +463,12 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     }
     return payload.data;
   }, [interviewId, isLoadingStatus, roundId]);
-  // oxlint-disable-next-line react/refs -- TokenSource.custom stores this callback; only LiveKit invokes it later, after an explicit start/rejoin event.
-  const tokenSource = useMemo(() => TokenSource.custom(fetchInterviewToken), [fetchInterviewToken]);
+  const tokenLifecycle = useMemo(
+    // oxlint-disable-next-line react/refs -- The lifecycle stores this callback for LiveKit to invoke after an explicit start/rejoin event.
+    () => createInterviewTokenLifecycle(fetchInterviewToken),
+    [fetchInterviewToken],
+  );
+  const tokenSource = useMemo(() => TokenSource.custom(tokenLifecycle.fetch), [tokenLifecycle]);
 
   const session = useSession(tokenSource, { agentName: env.NEXT_PUBLIC_AGENT_NAME });
 
@@ -516,6 +521,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         reason === DisconnectReason.PARTICIPANT_REMOVED
       ) {
         agentEndedRef.current = true;
+        tokenLifecycle.end();
         setRoundStatus("completed");
         // oxlint-disable-next-line promise/prefer-await-to-then -- LiveKit event handlers must return synchronously; surface asynchronous persistence failure.
         void persistCompletion("agent").catch(() => {
@@ -527,7 +533,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     return () => {
       room.off(RoomEvent.Disconnected, onDisconnected);
     };
-  }, [room, persistCompletion]);
+  }, [room, persistCompletion, tokenLifecycle]);
 
   // 监听硬断连：
   // - 主动结束（userEndedRef=true）：handleEndInterview 已经发过 final，这里跳过；
@@ -669,6 +675,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // Persist the terminal state before disconnecting; feedback retries a failed write.
   const handleEndInterview = useCallback(async () => {
     userEndedRef.current = true;
+    tokenLifecycle.end();
     setRoundStatus("completed");
     setAutoRejoinTriggered(true);
     try {
@@ -677,7 +684,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       toast.error("面试已结束，结束状态暂未同步。提交反馈时将自动重试。");
     }
     await session.end();
-  }, [persistCompletion, session]);
+  }, [persistCompletion, session, tokenLifecycle]);
 
   // isRecovering 决定 WaitingView 是否展示「正在恢复连接」。已结束态强制 false，
   // 避免主动结束流程出现「标题：恢复中 / 副标题：已结束」自相矛盾的中间帧。
@@ -734,7 +741,19 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         isRecovering={isRecovering}
         isRoundCompleted={isRoundCompleted}
         onPreparationBack={() => setPreparationConfirmed(false)}
-        onPreparationConfirmed={() => setPreparationConfirmed(true)}
+        onPreparationConfirmed={() => {
+          setIsLoadingStatus(true);
+          void runAsyncAction({
+            cleanup: () => setIsLoadingStatus(false),
+            onError: (error) =>
+              toast.error(error instanceof Error ? error.message : "加载面试表单失败"),
+            operation: async () => {
+              const payload = await bindPreInterviewForms(interviewId, roundId);
+              setFormsPayload(payload);
+              setPreparationConfirmed(true);
+            },
+          });
+        }}
         onRetry={loadEntryData}
         preparationConfirmed={preparationConfirmed}
         roundId={roundId}

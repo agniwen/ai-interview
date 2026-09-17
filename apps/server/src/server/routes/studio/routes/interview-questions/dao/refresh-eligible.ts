@@ -1,3 +1,4 @@
+import { lockAiRound } from "../../interviews/dao/ai-round-lifecycle";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, desc, eq, exists, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
@@ -10,7 +11,7 @@ import {
 } from "@app/db-schema/schema";
 import {
   loadActiveInterviewContextSnapshot,
-  refreshInterviewContextSnapshot,
+  releaseInterviewContextBinding,
 } from "../../interviews/dao/context-snapshots";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";
 
@@ -106,6 +107,16 @@ async function refreshOneCandidate(
     now: Date;
   },
 ): Promise<"refreshed" | "noop"> {
+  const active = await loadActiveInterviewContextSnapshot(options.interviewRecordId, tx);
+  const locked = active?.scheduleEntryId ? await lockAiRound(tx, active.scheduleEntryId) : null;
+  if (
+    !locked?.isEffective ||
+    locked.round.sessionStartedAt ||
+    locked.round.liveKitRoomName ||
+    locked.round.status === "completed"
+  ) {
+    return "noop";
+  }
   const latest = await resolveOrCreateInterviewQuestionTemplateVersion(tx, options.templateId);
 
   const [binding] = await tx
@@ -151,17 +162,16 @@ async function refreshOneCandidate(
     bindingChanged = true;
   }
 
-  const active = await loadActiveInterviewContextSnapshot(options.interviewRecordId);
   if (!active) {
     return bindingChanged ? "refreshed" : "noop";
   }
 
-  // Rebuild the frozen runtime snapshot so LiveKit dispatch reads the new version.
-  // manual_refresh also re-resolves every binding/form to latest content.
-  const refreshed = await refreshInterviewContextSnapshot(tx, {
+  // Release communication only; the next start resolves the latest version.
+  const refreshed = await releaseInterviewContextBinding(tx, {
     createdAt: options.now,
     createdBy: options.operatorId,
     interviewRecordId: options.interviewRecordId,
+    phase: "questions",
     reason: "manual_refresh",
     scheduleEntryId: active.scheduleEntryId,
   });

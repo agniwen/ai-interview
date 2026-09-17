@@ -9,7 +9,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
 import { buildScheduleRows } from "../../../../interview/utils";
-import { autoBindApplicableTemplates } from "../../interview-questions/dao/bindings";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   refreshInterviewContextSnapshot,
@@ -168,8 +167,8 @@ export function persistLaunchAiInterviewRound(
       recordId: interviewRecordId,
       status: schedule.scheduledAt ? "scheduled" : "pending",
     });
-    await autoBindApplicableTemplates(tx, interviewRecordId, candidate.jobDescriptionId);
     const snapshot = await refreshInterviewContextSnapshot(tx, {
+      bindingPhase: "draft",
       createdAt: now,
       createdBy: actorId,
       interviewRecordId,

@@ -56,7 +56,7 @@ function InterviewResultActionRow({
 
   return (
     <>
-      <div className="mt-5 flex flex-col gap-2 border-border/50 border-t pt-5 sm:flex-row">
+      <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-2 border-border/50 border-t pt-5">
         {showCopyInterviewLink && invitation ? (
           <SendInvitationButton {...invitation} disabled={record.roundStatus !== "pending"} />
         ) : null}

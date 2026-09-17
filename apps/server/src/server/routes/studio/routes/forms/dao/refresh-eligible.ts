@@ -1,3 +1,4 @@
+import { lockAiRound } from "../../interviews/dao/ai-round-lifecycle";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, exists, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
@@ -11,7 +12,7 @@ import {
 } from "@app/db-schema/schema";
 import {
   loadActiveInterviewContextSnapshot,
-  refreshInterviewContextSnapshot,
+  releaseInterviewContextBinding,
 } from "../../interviews/dao/context-snapshots";
 
 /**
@@ -51,7 +52,7 @@ function noSubmissionForTemplate(templateId: string) {
  * the form is still in scope for the candidate.
  *
  * Candidates without a snapshot are not frozen yet (launch builds one from the
- * live template), so only active-snapshot rows need bulk refresh.
+ * context shell), so only active-snapshot rows need bulk refresh.
  */
 async function listEligibleInterviewRecordIds(
   organizationId: string,
@@ -137,14 +138,24 @@ export async function refreshEligibleCandidatesForFormTemplate(options: {
   const now = new Date();
   for (const interviewRecordId of interviewRecordIds) {
     const didRefresh = await db.transaction(async (tx) => {
-      const active = await loadActiveInterviewContextSnapshot(interviewRecordId);
+      const active = await loadActiveInterviewContextSnapshot(interviewRecordId, tx);
+      const locked = active?.scheduleEntryId ? await lockAiRound(tx, active.scheduleEntryId) : null;
+      if (
+        !locked?.isEffective ||
+        locked.round.sessionStartedAt ||
+        locked.round.liveKitRoomName ||
+        locked.round.status === "completed"
+      ) {
+        return false;
+      }
       if (!active) {
         return false;
       }
-      const refreshed = await refreshInterviewContextSnapshot(tx, {
+      const refreshed = await releaseInterviewContextBinding(tx, {
         createdAt: now,
         createdBy: options.operatorId,
         interviewRecordId,
+        phase: "forms",
         reason: "manual_refresh",
         scheduleEntryId: active.scheduleEntryId,
       });

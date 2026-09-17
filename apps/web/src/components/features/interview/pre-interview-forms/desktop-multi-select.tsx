@@ -58,7 +58,7 @@ export function DesktopMultiSelect({
           <button
             aria-expanded={open}
             className={cn(
-              "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+              "flex min-h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
               "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
               "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
             )}
@@ -68,7 +68,7 @@ export function DesktopMultiSelect({
           >
             <span
               className={cn(
-                "min-w-0 flex-1 truncate",
+                "min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere",
                 selected.size === 0 ? "text-muted-foreground" : "",
               )}
             >
@@ -103,7 +103,9 @@ export function DesktopMultiSelect({
                     checked ? "opacity-100" : "opacity-0",
                   )}
                 />
-                <span className="flex-1">{option.label}</span>
+                <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere">
+                  {option.label}
+                </span>
               </button>
             );
           })}

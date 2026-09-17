@@ -146,6 +146,7 @@ export function ScheduleRoundDialogView({
   const [validUntil, setValidUntil] = useState("");
   const [interviewerIds, setInterviewerIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const notesTooLong = notes.length > 500;
 
   function reset() {
     setLabel("");
@@ -172,6 +173,9 @@ export function ScheduleRoundDialogView({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (notesTooLong) {
+        throw new Error("备注不能超过 500 字");
+      }
       const roundLabel = ceoEnabled ? "CEO面试" : label.trim() || businessLabel;
       const scheduledAtIso = dateTimeLocalInputToISOString(scheduledAt);
       if (!scheduledAtIso) {
@@ -359,6 +363,9 @@ export function ScheduleRoundDialogView({
               备注（可选）
             </Label>
             <Textarea
+              aria-describedby="round-notes-limit"
+              aria-invalid={notesTooLong || undefined}
+              className="field-sizing-fixed min-w-0 whitespace-pre-wrap wrap-anywhere"
               id="round-notes"
               maxLength={500}
               onChange={(e) => setNotes(e.target.value)}
@@ -366,6 +373,10 @@ export function ScheduleRoundDialogView({
               rows={2}
               value={notes}
             />
+            <p id="round-notes-limit" className="text-xs text-muted-foreground" aria-live="polite">
+              {notes.length}/500 字{notesTooLong ? "，请缩减至 500 字以内" : "，最多 500 字"}
+              {notes.length === 500 ? "，已达字数上限" : null}
+            </p>
           </div>
         </div>
 
@@ -378,7 +389,7 @@ export function ScheduleRoundDialogView({
             取消
           </Button>
           <Button
-            disabled={mutation.isPending || interviewerIds.length === 0}
+            disabled={mutation.isPending || notesTooLong || interviewerIds.length === 0}
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "保存中…" : "保存"}

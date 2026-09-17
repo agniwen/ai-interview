@@ -52,14 +52,19 @@ export function FormCard({
           const error = errors[question.id];
           return (
             <Field data-invalid={error ? true : undefined} key={question.id}>
-              <FieldLabel htmlFor={`q-${question.id}`}>
+              <FieldLabel
+                className="block min-w-0 whitespace-pre-wrap wrap-anywhere"
+                htmlFor={`q-${question.id}`}
+              >
                 <span className="mr-1 text-muted-foreground">{index + 1}.</span>
                 {question.label}
                 {question.required ? <span className="ml-1 text-destructive">*</span> : null}
               </FieldLabel>
               <FieldContent className="gap-2">
                 {question.helperText ? (
-                  <p className="text-muted-foreground text-xs">{question.helperText}</p>
+                  <p className="text-muted-foreground text-xs whitespace-pre-wrap wrap-anywhere">
+                    {question.helperText}
+                  </p>
                 ) : null}
                 <QuestionView
                   invalid={!!error}

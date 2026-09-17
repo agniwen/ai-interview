@@ -1,6 +1,9 @@
+import { candidateFormsRouter } from "../../../../../interview/forms-route";
+import assert from "node:assert/strict";
+import { prepareQuestionBindings } from "../../../../../interview/application/prepare-question-bindings";
 import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../../lib/server/db/index";
 import { jsonValueSchema } from "../../../../../../../lib/server/stable-stringify";
@@ -20,6 +23,9 @@ import {
   jobDescription,
   organization,
   aiInterviewRound,
+  recruitingRecord,
+  recruitingNodeState,
+  recruitingFormSubmission,
 } from "@app/db-schema/schema";
 import {
   buildInterviewContextSnapshotPayload,
@@ -27,6 +33,7 @@ import {
   hashSnapshotPayload,
   loadActiveInterviewContextSnapshot,
   refreshInterviewContextSnapshot,
+  releaseInterviewContextBinding,
 } from "../context-snapshots";
 
 const formSnapshot: CandidateFormTemplateSnapshot = {
@@ -146,6 +153,13 @@ const QUESTION_TEMPLATE_ID = "test_context_snapshot_question_template";
 const NOW = new Date("2026-06-26T10:00:00.000Z");
 
 async function cleanup() {
+  await db
+    .delete(recruitingFormSubmission)
+    .where(eq(recruitingFormSubmission.recruitingRecordId, INTERVIEW_ID));
+  await db
+    .update(recruitingNodeState)
+    .set({ effectiveAiRoundId: null })
+    .where(eq(recruitingNodeState.recruitingRecordId, INTERVIEW_ID));
   await db
     .delete(recruitingContextSnapshot)
     .where(eq(recruitingContextSnapshot.recruitingRecordId, INTERVIEW_ID));
@@ -355,4 +369,210 @@ describe("interview context snapshot DAO", () => {
       { status: "active", version: 2 },
     ]);
   }, 60_000);
+});
+
+describe("candidate action binding boundaries", () => {
+  const options = {
+    createdBy: null,
+    interviewRecordId: INTERVIEW_ID,
+    reason: "manual_refresh" as const,
+    scheduleEntryId: ROUND_ID,
+  };
+  const prepare = (phase: "forms" | "questions", preview = false) =>
+    db.transaction((tx) =>
+      prepareQuestionBindings(tx, {
+        interviewRecordId: INTERVIEW_ID,
+        phase,
+        preview,
+        roundId: ROUND_ID,
+      }),
+    );
+
+  it("previews without freezing, binds once per action, and preserves forms on question reset", async () => {
+    await db
+      .update(recruitingRecord)
+      .set({ currentStage: "ai_interview" })
+      .where(eq(recruitingRecord.id, INTERVIEW_ID));
+    await db
+      .update(recruitingNodeState)
+      .set({ effectiveAiRoundId: ROUND_ID, status: "pending" })
+      .where(
+        and(
+          eq(recruitingNodeState.recruitingRecordId, INTERVIEW_ID),
+          eq(recruitingNodeState.node, "ai_interview"),
+        ),
+      );
+    const draft = await db.transaction((tx) =>
+      refreshInterviewContextSnapshot(tx, { ...options, bindingPhase: "draft" }),
+    );
+    expect(draft.payload.bindings).toEqual({ forms: false, questions: false });
+    expect(draft.payload.forms).toEqual([]);
+    expect(draft.payload.questionTemplates).toEqual([]);
+    const preview = await prepare("forms", true);
+    expect(preview?.forms).toHaveLength(1);
+    const afterPreview = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
+    expect(afterPreview?.id).toBe(draft.id);
+    expect(await prepare("questions")).toBeNull();
+    await db
+      .update(candidateFormTemplateQuestion)
+      .set({ label: "Form at first open" })
+      .where(eq(candidateFormTemplateQuestion.templateId, FORM_TEMPLATE_ID));
+    const [forms, concurrentForms] = await Promise.all([prepare("forms"), prepare("forms")]);
+    assert.ok(forms);
+    expect(concurrentForms).toEqual(forms);
+    expect(forms.forms[0]?.snapshot.questions[0]?.label).toBe("Form at first open");
+    expect(forms.bindings).toEqual({ forms: true, questions: false });
+    expect(await prepare("questions")).toBeNull();
+    const afterBlockedStart = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
+    expect(afterBlockedStart?.payload.bindings?.questions).toBe(false);
+    await db
+      .update(candidateFormTemplateQuestion)
+      .set({ label: "Later form edit" })
+      .where(eq(candidateFormTemplateQuestion.templateId, FORM_TEMPLATE_ID));
+    expect(await prepare("forms")).toEqual(forms);
+    const [form] = forms.forms;
+    assert.ok(form);
+    await db.insert(recruitingFormSubmission).values({
+      answers: { test_context_snapshot_form_q1: "answer" },
+      id: "test_binding_submission",
+      organizationId: ORG_ID,
+      recruitingRecordId: INTERVIEW_ID,
+      templateId: form.templateId,
+      versionId: form.versionId,
+    });
+    await db
+      .update(interviewQuestionTemplateQuestion)
+      .set({ content: "Question at start" })
+      .where(eq(interviewQuestionTemplateQuestion.templateId, QUESTION_TEMPLATE_ID));
+    const started = await prepare("questions");
+    expect(started?.forms).toEqual(forms.forms);
+    expect(started?.questionTemplates[0]?.snapshot.questions[0]?.content).toBe("Question at start");
+    await db
+      .update(interviewQuestionTemplateQuestion)
+      .set({ content: "Later question edit" })
+      .where(eq(interviewQuestionTemplateQuestion.templateId, QUESTION_TEMPLATE_ID));
+    expect(await prepare("questions")).toEqual(started);
+    const resetQuestions = await db.transaction((tx) =>
+      releaseInterviewContextBinding(tx, { ...options, phase: "questions" }),
+    );
+    expect(resetQuestions.payload.forms).toEqual(forms.forms);
+    expect(resetQuestions.payload.bindings).toEqual({ forms: true, questions: false });
+    const restarted = await prepare("questions");
+    expect(restarted?.questionTemplates[0]?.snapshot.questions[0]?.content).toBe(
+      "Later question edit",
+    );
+    await db
+      .delete(recruitingFormSubmission)
+      .where(eq(recruitingFormSubmission.recruitingRecordId, INTERVIEW_ID));
+    await db.transaction((tx) =>
+      releaseInterviewContextBinding(tx, { ...options, phase: "forms" }),
+    );
+    expect(await prepare("questions")).toBeNull();
+    const reopened = await prepare("forms");
+    expect(reopened?.forms[0]?.snapshot.questions[0]?.label).toBe("Later form edit");
+    expect(reopened?.bindings).toEqual({ forms: true, questions: true });
+  });
+
+  it("rebinds unopened legacy invitations but preserves already-started legacy sessions", async () => {
+    const legacy = await db.transaction((tx) => refreshInterviewContextSnapshot(tx, options));
+    const { bindings: _bindings, ...payload } = legacy.payload;
+    await db.transaction((tx) =>
+      refreshInterviewContextSnapshot(tx, { ...options, payloadOverride: payload }),
+    );
+    await db
+      .update(candidateFormTemplateQuestion)
+      .set({ label: "Latest legacy form" })
+      .where(eq(candidateFormTemplateQuestion.templateId, FORM_TEMPLATE_ID));
+    const legacyForms = await prepare("forms");
+    expect(legacyForms?.forms[0]?.snapshot.questions[0]?.label).toBe("Latest legacy form");
+    await db.transaction((tx) =>
+      refreshInterviewContextSnapshot(tx, { ...options, payloadOverride: payload }),
+    );
+    await db
+      .update(aiInterviewRound)
+      .set({ sessionStartedAt: new Date(), status: "in_progress" })
+      .where(eq(aiInterviewRound.id, ROUND_ID));
+    expect(await prepare("forms")).toEqual(payload);
+    await db
+      .update(aiInterviewRound)
+      .set({ sessionStartedAt: null, status: "pending" })
+      .where(eq(aiInterviewRound.id, ROUND_ID));
+  });
+  it("binds through the forms endpoint and rejects stale submissions after a reset", async () => {
+    const draft = await db.transaction((tx) =>
+      refreshInterviewContextSnapshot(tx, { ...options, bindingPhase: "draft" }),
+    );
+    const path = `/${INTERVIEW_ID}/${ROUND_ID}/forms`;
+    const preview = await candidateFormsRouter.request(path);
+    expect(preview.status).toBe(200);
+    const afterPreview = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
+    expect(afterPreview?.id).toBe(draft.id);
+    const opened = await candidateFormsRouter.request(`${path}/bind`, { method: "POST" });
+    expect(opened.status).toBe(200);
+    const bound = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
+    const form = bound?.payload.forms[0];
+    assert.ok(form);
+    await db.transaction((tx) =>
+      releaseInterviewContextBinding(tx, { ...options, phase: "forms" }),
+    );
+    const submit = () =>
+      candidateFormsRouter.request(`${path}/${form.templateId}/submit`, {
+        body: JSON.stringify({
+          answers: { test_context_snapshot_form_q1: "answer" },
+          versionId: form.versionId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    const stale = await submit();
+    expect(stale.status).toBe(409);
+    await candidateFormsRouter.request(`${path}/bind`, { method: "POST" });
+    const accepted = await submit();
+    expect(accepted.status).toBe(200);
+    await db
+      .delete(recruitingFormSubmission)
+      .where(eq(recruitingFormSubmission.recruitingRecordId, INTERVIEW_ID));
+  });
+
+  it("allows empty forms and retries latest communication questions after an empty configuration", async () => {
+    const current = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
+    assert.ok(current);
+    await db.transaction((tx) =>
+      refreshInterviewContextSnapshot(tx, {
+        ...options,
+        payloadOverride: {
+          ...current.payload,
+          bindings: { forms: true, questions: false },
+          forms: [],
+          questionTemplates: [],
+        },
+      }),
+    );
+    await db
+      .update(interviewQuestionTemplateQuestion)
+      .set({ content: "" })
+      .where(eq(interviewQuestionTemplateQuestion.templateId, QUESTION_TEMPLATE_ID));
+    const empty = await prepare("questions");
+    expect(empty?.questionTemplates[0]?.snapshot.questions[0]?.content).toBe("");
+    const afterEmpty = await loadActiveInterviewContextSnapshot(INTERVIEW_ID);
+    expect(afterEmpty?.payload.bindings?.questions).toBe(false);
+    await db
+      .update(interviewQuestionTemplateQuestion)
+      .set({ content: "Configured after failed start" })
+      .where(eq(interviewQuestionTemplateQuestion.templateId, QUESTION_TEMPLATE_ID));
+    const retried = await prepare("questions");
+    expect(retried?.questionTemplates[0]?.snapshot.questions[0]?.content).toBe(
+      "Configured after failed start",
+    );
+    expect(retried?.forms).toEqual([]);
+    await db
+      .update(aiInterviewRound)
+      .set({ sessionStartedAt: new Date(), status: "in_progress" })
+      .where(eq(aiInterviewRound.id, ROUND_ID));
+    await db
+      .update(interviewQuestionTemplateQuestion)
+      .set({ content: "Edited during session" })
+      .where(eq(interviewQuestionTemplateQuestion.templateId, QUESTION_TEMPLATE_ID));
+    expect(await prepare("questions")).toEqual(retried);
+  });
 });

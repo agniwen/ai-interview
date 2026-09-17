@@ -72,7 +72,7 @@ export function MobileChoicePicker({
     <Drawer onOpenChange={handleOpenChange} open={open}>
       <button
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+          "flex min-h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
           "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
           "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
         )}
@@ -83,7 +83,7 @@ export function MobileChoicePicker({
       >
         <span
           className={cn(
-            "min-w-0 flex-1 truncate",
+            "min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere",
             selectedValues.size === 0 ? "text-muted-foreground" : "",
           )}
         >
@@ -97,7 +97,9 @@ export function MobileChoicePicker({
             <Badge variant="secondary">{isMulti ? "多选" : "单选"}</Badge>
             {question.required ? <span className="text-destructive text-xs">必填</span> : null}
           </div>
-          <DrawerTitle className="leading-snug">{question.label}</DrawerTitle>
+          <DrawerTitle className="leading-snug whitespace-pre-wrap wrap-anywhere">
+            {question.label}
+          </DrawerTitle>
           {question.helperText ? (
             <DrawerDescription>{question.helperText}</DrawerDescription>
           ) : null}
@@ -133,7 +135,9 @@ export function MobileChoicePicker({
                   }}
                   type="button"
                 >
-                  <span className="flex-1">{option.label}</span>
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere">
+                    {option.label}
+                  </span>
                   {checked ? <IconCheck className="size-4 shrink-0 text-primary" /> : null}
                 </button>
               );

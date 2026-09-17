@@ -165,7 +165,7 @@ export function InterviewQuestionTemplateEditorDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "编辑沟通题" : "创建沟通题"}
-      description="修改不会影响已发起的面试。"
+      description="候选人点击开始面试时绑定最新题目；修改不会影响本次已开始的面试。"
       size="xl"
       bodyClassName="-mx-1 px-7 py-1.5 space-y-6"
       footer={

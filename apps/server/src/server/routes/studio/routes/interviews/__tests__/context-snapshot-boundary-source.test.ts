@@ -10,10 +10,6 @@ const resumesReadRouteSource = readFileSync(
   "utf-8",
 );
 const interviewsRouteSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
-const interviewsCollectionRouteSource = readFileSync(
-  new URL("../collection-route.ts", import.meta.url),
-  "utf-8",
-);
 const interviewsDetailRouteSource = readFileSync(
   new URL("../detail-route.ts", import.meta.url),
   "utf-8",
@@ -24,7 +20,7 @@ const launchProductionAdapterSource = readFileSync(
 );
 
 describe("interview context snapshot creation boundary", () => {
-  it("keeps creation on launch/transition/reset paths only", () => {
+  it("defers question binding on launch and releases it on reset", () => {
     const agentInstructionsSource = interviewsDetailRouteSource.slice(
       interviewsDetailRouteSource.indexOf('.get("/:id/agent-instructions"'),
       interviewsDetailRouteSource.indexOf(
@@ -59,16 +55,16 @@ describe("interview context snapshot creation boundary", () => {
     expect(launchProductionAdapterSource).not.toContain(
       "loadOrCreateActiveInterviewContextSnapshot",
     );
-    expect(interviewsCollectionRouteSource).toContain("createInterviewContextSnapshot(tx");
-    expect(interviewsRouteSource).toContain("refreshInterviewContextSnapshot(tx");
-    expect(interviewsDetailRouteSource).toContain("refreshInterviewContextSnapshot(tx");
-    expect(resetRoundSource).toContain("refreshInterviewContextSnapshot(tx");
+    expect(launchProductionAdapterSource).toContain('bindingPhase: "draft"');
+    expect(interviewsRouteSource).toContain("releaseInterviewContextBinding(tx");
+    expect(interviewsDetailRouteSource).toContain("releaseInterviewContextBinding(tx");
+    expect(resetRoundSource).toContain("releaseInterviewContextBinding(tx");
     expect(resetRoundSource).toContain('reason: "reset"');
     expect(resetRoundSource).toContain("scheduleEntryId: roundId");
     expect(resetRoundSource).toContain('candidateRow.pipelineStage !== "ai_interview"');
     expect(resetRoundSource).not.toContain('scheduleRow.status !== "completed"');
     expect(resetRoundSource).not.toContain("只能重置已结束的轮次");
-    expect(resetSubmissionSource).toContain("refreshInterviewContextSnapshot(tx");
+    expect(resetSubmissionSource).toContain("releaseInterviewContextBinding(tx");
     expect(resetSubmissionSource).toContain('reason: "manual_refresh"');
     expect(resetSubmissionSource).toContain('reason: "form_submission_reset"');
     expect(resetSubmissionSource).toContain("scheduleEntryId: roundId");

@@ -56,7 +56,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { cn } from "@app/shared/utils";
 import {
-  candidateFormQuestionInputSchema,
   candidateFormQuestionTypeSchema,
   candidateFormScopeSchema,
   candidateFormTemplateSchema,
@@ -446,13 +445,9 @@ function QuestionBuilderBody({
 }) {
   const questions = useStore(
     form.store,
-    // oxlint-disable-next-line no-explicit-any
-    (state: any) => {
-      const parsed = candidateFormQuestionInputSchema
-        .array()
-        .safeParse(state.values.questions ?? []);
-      return parsed.success ? parsed.data : [];
-    },
+    // Drafts may have empty labels/options; validate only when submitting.
+    // oxlint-disable-next-line no-explicit-any -- The parent passes through TanStack Form's generic store.
+    (state: any): CandidateFormQuestionInput[] => state.values.questions ?? [],
   );
   const items = questions.filter(
     (item): item is CandidateFormQuestionInput & { id: string } =>
@@ -728,14 +723,19 @@ function QuestionCanvasCard({
         />
         <div className="min-w-0 flex-1">
           <Field>
-            <FieldLabel htmlFor={`preview-${question.id}`}>
+            <FieldLabel
+              className="block min-w-0 whitespace-pre-wrap wrap-anywhere"
+              htmlFor={`preview-${question.id}`}
+            >
               <span className="mr-1 text-muted-foreground">{index + 1}.</span>
               {question.label || "未命名题目"}
               {question.required ? <span className="ml-1 text-destructive">*</span> : null}
             </FieldLabel>
             <FieldContent className="gap-2">
               {question.helperText ? (
-                <p className="text-muted-foreground text-xs">{question.helperText}</p>
+                <p className="text-muted-foreground text-xs whitespace-pre-wrap wrap-anywhere">
+                  {question.helperText}
+                </p>
               ) : null}
               <QuestionPreview question={question} />
             </FieldContent>

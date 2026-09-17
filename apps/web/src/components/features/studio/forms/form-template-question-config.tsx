@@ -9,7 +9,6 @@ import type {
 } from "@app/db-schema/candidate-forms";
 import {
   candidateFormDisplayModeSchema,
-  candidateFormQuestionInputSchema,
   candidateFormQuestionTypeSchema,
   DEFAULT_DISPLAY_MODE,
   DISPLAY_MODES_BY_TYPE,
@@ -102,7 +101,9 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
               question.type === "multi" ? "rounded-[4px]" : "rounded-full",
             )}
           />
-          <span className="min-w-0 flex-1 truncate text-sm">{option.label || option.value}</span>
+          <span className="min-w-0 flex-1 text-sm whitespace-pre-wrap wrap-anywhere">
+            {option.label || option.value}
+          </span>
         </div>
       ))}
     </div>
@@ -217,13 +218,12 @@ export function QuestionConfigPanel({
                     // stored options — replace the whole question atomically so
                     // sibling Field subscriptions (displayMode/options) pick up
                     // the new defaults in the same render cycle.
-                    const parsedCurrent = candidateFormQuestionInputSchema.safeParse(
-                      form.getFieldValue(`questions[${index}]`),
+                    const current: CandidateFormQuestionInput | undefined = form.getFieldValue(
+                      `questions[${index}]`,
                     );
-                    if (!parsedCurrent.success) {
+                    if (!current) {
                       return;
                     }
-                    const current = parsedCurrent.data;
                     form.setFieldValue(`questions[${index}]`, {
                       ...current,
                       displayMode: DEFAULT_DISPLAY_MODE[nextType],

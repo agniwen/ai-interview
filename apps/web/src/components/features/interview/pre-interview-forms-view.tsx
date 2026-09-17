@@ -40,6 +40,13 @@ export function fetchPreInterviewForms(
   );
 }
 
+export function bindPreInterviewForms(interviewId: string, roundId: string): Promise<FormsPayload> {
+  return rpcFetch(
+    rpc.api.interview[":id"][":roundId"].forms.bind.$post({ param: { id: interviewId, roundId } }),
+    "加载面试表单失败",
+  );
+}
+
 async function submitForm(
   interviewId: string,
   roundId: string,

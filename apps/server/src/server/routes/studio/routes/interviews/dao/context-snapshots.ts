@@ -15,6 +15,8 @@ import { jsonValueSchema, stableStringify } from "../../../../../../lib/server/s
 import type { JsonValue } from "../../../../../../lib/server/stable-stringify";
 import { db } from "../../../../../../lib/server/db/index";
 import {
+  aiInterviewRound,
+  recruitingFormSubmission,
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   globalConfig,
@@ -56,6 +58,9 @@ export interface InterviewContextSnapshotRecord {
 }
 
 export interface CreateInterviewContextSnapshotOptions {
+  bindingPhase?: "draft" | "forms" | "questions";
+  previousPayload?: InterviewContextSnapshotPayload;
+  payloadOverride?: InterviewContextSnapshotPayload;
   createdAt?: Date;
   createdBy: string | null;
   interviewRecordId: string;
@@ -168,7 +173,8 @@ async function loadApplicableFormTemplateIds(
     .map((row) => row.id);
 }
 
-async function buildSnapshotPayloadFromDatabase(
+// oxlint-disable-next-line complexity -- Projects live context for draft, form, and communication binding phases.
+export async function buildSnapshotPayloadFromDatabase(
   tx: Tx,
   options: CreateInterviewContextSnapshotOptions,
 ): Promise<{ organizationId: string; payload: InterviewContextSnapshotPayload }> {
@@ -181,9 +187,17 @@ async function buildSnapshotPayloadFromDatabase(
     throw new Error(`studio_interview ${options.interviewRecordId} not found`);
   }
 
-  await (options.reason === "manual_refresh" || options.reason === "reset"
-    ? refreshInterviewBindingsToLatest(tx, options.interviewRecordId, candidate.jobDescriptionId)
-    : autoBindApplicableTemplates(tx, options.interviewRecordId, candidate.jobDescriptionId));
+  if (options.payloadOverride) {
+    return { organizationId: candidate.organizationId, payload: options.payloadOverride };
+  }
+
+  if (options.bindingPhase !== "draft" && options.bindingPhase !== "forms") {
+    await (options.bindingPhase === "questions" ||
+    options.reason === "manual_refresh" ||
+    options.reason === "reset"
+      ? refreshInterviewBindingsToLatest(tx, options.interviewRecordId, candidate.jobDescriptionId)
+      : autoBindApplicableTemplates(tx, options.interviewRecordId, candidate.jobDescriptionId));
+  }
 
   const [jd] = candidate.jobDescriptionId
     ? await tx
@@ -226,11 +240,14 @@ async function buildSnapshotPayloadFromDatabase(
         )
     : [];
 
-  const formTemplateIds = await loadApplicableFormTemplateIds(
-    tx,
-    candidate.organizationId,
-    candidate.jobDescriptionId,
-  );
+  const formTemplateIds =
+    options.bindingPhase === "draft" || options.bindingPhase === "questions"
+      ? []
+      : await loadApplicableFormTemplateIds(
+          tx,
+          candidate.organizationId,
+          candidate.jobDescriptionId,
+        );
   const forms = [];
   for (const templateId of formTemplateIds) {
     const version = await resolveOrCreateTemplateVersion(tx, templateId);
@@ -242,30 +259,39 @@ async function buildSnapshotPayloadFromDatabase(
     });
   }
 
-  const questionRows = await tx
-    .select({
-      bindingId: recruitingQuestionTemplateBinding.id,
-      disabledByUser: recruitingQuestionTemplateBinding.disabledByUser,
-      scope: interviewQuestionTemplate.scope,
-      snapshot: interviewQuestionTemplateVersion.snapshot,
-      sortOrder: recruitingQuestionTemplateBinding.sortOrder,
-      templateId: recruitingQuestionTemplateBinding.templateId,
-      version: interviewQuestionTemplateVersion.version,
-      versionId: recruitingQuestionTemplateBinding.versionId,
-    })
-    .from(recruitingQuestionTemplateBinding)
-    .innerJoin(
-      interviewQuestionTemplateVersion,
-      eq(recruitingQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
-    )
-    .innerJoin(
-      interviewQuestionTemplate,
-      eq(recruitingQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
-    )
-    .where(eq(recruitingQuestionTemplateBinding.recruitingRecordId, options.interviewRecordId))
-    .orderBy(asc(recruitingQuestionTemplateBinding.sortOrder));
+  const questionRows =
+    options.bindingPhase === "draft" || options.bindingPhase === "forms"
+      ? []
+      : await tx
+          .select({
+            bindingId: recruitingQuestionTemplateBinding.id,
+            disabledByUser: recruitingQuestionTemplateBinding.disabledByUser,
+            scope: interviewQuestionTemplate.scope,
+            snapshot: interviewQuestionTemplateVersion.snapshot,
+            sortOrder: recruitingQuestionTemplateBinding.sortOrder,
+            templateId: recruitingQuestionTemplateBinding.templateId,
+            version: interviewQuestionTemplateVersion.version,
+            versionId: recruitingQuestionTemplateBinding.versionId,
+          })
+          .from(recruitingQuestionTemplateBinding)
+          .innerJoin(
+            interviewQuestionTemplateVersion,
+            eq(recruitingQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
+          )
+          .innerJoin(
+            interviewQuestionTemplate,
+            eq(recruitingQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
+          )
+          .where(
+            eq(recruitingQuestionTemplateBinding.recruitingRecordId, options.interviewRecordId),
+          )
+          .orderBy(asc(recruitingQuestionTemplateBinding.sortOrder));
 
   const payload = buildInterviewContextSnapshotPayload({
+    bindings: {
+      forms: options.bindingPhase !== "draft",
+      questions: options.bindingPhase !== "draft" && options.bindingPhase !== "forms",
+    },
     candidate: {
       candidateEmail: candidate.candidateEmail,
       candidateName: candidate.candidateName,
@@ -274,7 +300,7 @@ async function buildSnapshotPayloadFromDatabase(
       targetRole: candidate.targetRole,
     },
     createdAt: (options.createdAt ?? new Date()).toISOString(),
-    forms,
+    forms: options.bindingPhase === "questions" ? (options.previousPayload?.forms ?? []) : forms,
     globalConfig: {
       closingInstructions: globalCfg?.closingInstructions ?? "",
       companyContext: globalCfg?.companyContext ?? "",
@@ -307,6 +333,16 @@ async function buildSnapshotPayloadFromDatabase(
     scheduleEntryId: options.scheduleEntryId,
   });
 
+  if (options.bindingPhase === "forms" && options.previousPayload) {
+    return {
+      organizationId: candidate.organizationId,
+      payload: {
+        ...options.previousPayload,
+        bindings: { forms: true, questions: options.previousPayload.bindings?.questions ?? false },
+        forms,
+      },
+    };
+  }
   return { organizationId: candidate.organizationId, payload };
 }
 
@@ -368,8 +404,9 @@ export async function refreshInterviewContextSnapshot(
 
 export async function loadActiveInterviewContextSnapshot(
   interviewRecordId: string,
+  executor: Tx | typeof db = db,
 ): Promise<InterviewContextSnapshotRecord | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(recruitingContextSnapshot)
     .where(
@@ -420,4 +457,44 @@ export function flattenPresetQuestionsFromContextSnapshot(
     }
   }
   return out;
+}
+
+/** Reset releases only the selected phase; the next candidate action binds it again. */
+export async function releaseInterviewContextBinding(
+  tx: Tx,
+  options: CreateInterviewContextSnapshotOptions & { phase: "forms" | "questions" | "all" },
+): Promise<InterviewContextSnapshotRecord> {
+  const active = await loadActiveInterviewContextSnapshot(options.interviewRecordId, tx);
+  if (!active) {
+    return refreshInterviewContextSnapshot(tx, { ...options, bindingPhase: "draft" });
+  }
+  let { bindings } = active.payload;
+  if (!bindings) {
+    const [round] = options.scheduleEntryId
+      ? await tx
+          .select()
+          .from(aiInterviewRound)
+          .where(eq(aiInterviewRound.id, options.scheduleEntryId))
+      : [];
+    const [submission] = await tx
+      .select({ id: recruitingFormSubmission.id })
+      .from(recruitingFormSubmission)
+      .where(eq(recruitingFormSubmission.recruitingRecordId, options.interviewRecordId))
+      .limit(1);
+    const started = Boolean(
+      round?.sessionStartedAt || round?.liveKitRoomName || round?.status === "completed",
+    );
+    bindings = { forms: Boolean(submission) || started, questions: started };
+  }
+  return refreshInterviewContextSnapshot(tx, {
+    ...options,
+    payloadOverride: {
+      ...active.payload,
+      bindings:
+        options.phase === "all"
+          ? { forms: false, questions: false }
+          : { ...bindings, [options.phase]: false },
+      questionTemplates: options.phase === "forms" ? active.payload.questionTemplates : [],
+    },
+  });
 }

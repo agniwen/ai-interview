@@ -456,7 +456,10 @@ export function InterviewQuestionTemplateManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader description="可全局或按岗位复用；修改不会影响已发起的面试。" title="沟通题" />
+        <PageHeader
+          description="可全局或按岗位复用；候选人点击开始面试时绑定最新题目。"
+          title="沟通题"
+        />
 
         <DataGrid<InterviewQuestionTemplateListRecord>
           {...grid.bind}
@@ -469,7 +472,7 @@ export function InterviewQuestionTemplateManagementPage({
                 </EmptyMedia>
                 <EmptyTitle>还没有沟通题</EmptyTitle>
                 <EmptyDescription>
-                  创建后，符合作用域的面试在创建时会自动绑定到最新版本的题目快照。
+                  候选人点击开始面试时，会按作用域绑定最新版本的题目快照；重置沟通后将在再次开始时重新绑定。
                 </EmptyDescription>
               </EmptyHeader>
               {canCreateQuestionTemplate ? (

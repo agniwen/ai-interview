@@ -544,7 +544,7 @@ export function AgentControlBar({
         </div>
       </div>
       {visibleControls.microphone ? (
-        <p
+        <div
           className="relative flex min-w-0 items-center gap-1.5 px-4 py-2 text-[11px] text-muted-foreground"
           title={activeMicrophoneLabel}
         >
@@ -561,7 +561,7 @@ export function AgentControlBar({
             size="icon"
             state={microphoneToggle.enabled ? "speaking" : "disconnected"}
           />
-        </p>
+        </div>
       ) : null}
     </CardFrame>
   );

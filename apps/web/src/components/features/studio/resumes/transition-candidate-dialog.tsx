@@ -449,6 +449,7 @@ function ReactivateDialog({
   });
 
   const [reactivationReason, setReactivationReason] = useState("");
+  const reasonTooLong = reactivationReason.length > 500;
   const [targetStage, setTargetStage] = useState<ReactivateTargetStage>("screening");
   const [submitting, setSubmitting] = useState(false);
 
@@ -462,6 +463,10 @@ function ReactivateDialog({
 
   async function handleConfirm() {
     if (!candidate || !resume) {
+      return;
+    }
+    if (reasonTooLong) {
+      toast.error("激活原因不能超过 500 字");
       return;
     }
     const trimmedReason = reactivationReason.trim();
@@ -546,6 +551,9 @@ function ReactivateDialog({
               激活原因
             </Label>
             <Textarea
+              aria-describedby="reactivation-reason-limit"
+              aria-invalid={reasonTooLong || undefined}
+              className="field-sizing-fixed min-w-0 whitespace-pre-wrap wrap-anywhere"
               id="reactivation-reason"
               maxLength={500}
               onChange={(event) => setReactivationReason(event.target.value)}
@@ -554,6 +562,15 @@ function ReactivateDialog({
               rows={3}
               value={reactivationReason}
             />
+            <p
+              id="reactivation-reason-limit"
+              className="text-xs text-muted-foreground"
+              aria-live="polite"
+            >
+              {reactivationReason.length}/500 字
+              {reasonTooLong ? "，请缩减至 500 字以内" : "，最多 500 字"}
+              {reactivationReason.length === 500 ? "，已达字数上限" : null}
+            </p>
           </div>
         </div>
 
@@ -562,7 +579,7 @@ function ReactivateDialog({
             取消
           </Button>
           <Button
-            disabled={submitting || !candidate || !reactivationReason.trim()}
+            disabled={submitting || reasonTooLong || !candidate || !reactivationReason.trim()}
             onClick={handleConfirm}
           >
             {submitting ? "处理中…" : "确认重新激活"}

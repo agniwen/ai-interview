@@ -22,7 +22,7 @@ import type { RecruitingVisibilityScope } from "../../../../access/recruiting-vi
 import { parseCsvParam } from "@app/shared/csv";
 import { candidateExpectationsMetaSchema } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
-import { refreshInterviewContextSnapshot } from "./dao/context-snapshots";
+import { releaseInterviewContextBinding } from "./dao/context-snapshots";
 import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   loadInterviewRoundDetail,
@@ -261,12 +261,12 @@ export const studioInterviewsRouter = factory
         status: "scheduled",
       });
 
-      // 重置即「以当下为准」：刷新题库模板绑定并创建新版 runtime context snapshot。
-      // Reset = "snapshot to now": refresh bindings and freeze a new runtime context.
-      const refreshedSnapshot = await refreshInterviewContextSnapshot(tx, {
+      // 沟通题在下一次开始面试时重新绑定，保留已有表单绑定和答卷。
+      const refreshedSnapshot = await releaseInterviewContextBinding(tx, {
         createdAt: now,
         createdBy: operatorId,
         interviewRecordId: candidateId,
+        phase: "questions",
         reason: "reset",
         scheduleEntryId: roundId,
       });

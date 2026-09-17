@@ -19,11 +19,12 @@ const MAX_LIMIT = 100;
 export async function loadSubmittedTemplateIds(
   interviewRecordId: string,
   templateIds: string[],
+  executor: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db,
 ): Promise<Set<string>> {
   if (templateIds.length === 0) {
     return new Set();
   }
-  const rows = await db
+  const rows = await executor
     .select({ templateId: recruitingFormSubmission.templateId })
     .from(recruitingFormSubmission)
     .where(
@@ -37,8 +38,9 @@ export async function loadSubmittedTemplateIds(
 
 export async function loadSubmissionsByInterview(
   interviewRecordId: string,
+  executor: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db,
 ): Promise<CandidateFormSubmissionWithSnapshot[]> {
-  const rows = await db
+  const rows = await executor
     .select({
       answers: recruitingFormSubmission.answers,
       id: recruitingFormSubmission.id,

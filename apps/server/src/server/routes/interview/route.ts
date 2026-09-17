@@ -1,3 +1,4 @@
+import { candidateFormsRouter } from "./forms-route";
 import {
   getInterviewLiveSession,
   endInterviewLiveSession,
@@ -12,19 +13,18 @@ import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "../../../lib/server/db/index";
 import { buildRecordingFileKey, isRecordingStorageConfigured } from "@app/object-storage";
-import {
-  recruitingFormSubmission,
-  aiInterviewConversation,
-  aiInterviewRound,
-} from "@app/db-schema/schema";
-import { buildCandidateFormAnswersSchema } from "@app/db-schema/candidate-forms";
+import { aiInterviewConversation, aiInterviewRound } from "@app/db-schema/schema";
 import { RECONNECT_GRACE_MS } from "@app/db-schema/studio-interviews";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "../../factory";
+import { factory } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
 import { loadSubmittedTemplateIds } from "../studio/routes/forms/dao/submissions";
-import { loadActiveInterviewContextSnapshot } from "../studio/routes/interviews/dao/context-snapshots";
+import { prepareQuestionBindings } from "./application/prepare-question-bindings";
+import {
+  flattenPresetQuestionsFromContextSnapshot,
+  loadActiveInterviewContextSnapshot,
+} from "../studio/routes/interviews/dao/context-snapshots";
 import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import { resolveInterviewRecordingEnabled } from "@app/shared/interview/recording-config";
 import { INTERVIEW_END_REASON } from "@app/shared/interview/end-reason";
@@ -163,6 +163,7 @@ export function createInterviewRouter(
     factory
       .createApp()
       .route("/", candidateInterviewFeedbackRouter)
+      .route("/", candidateFormsRouter)
       .post("/:id/:roundId/connected", async (c) => {
         const result = await db.transaction(async (tx) => {
           const locked = await lockAiRound(tx, c.req.param("roundId"));
@@ -221,15 +222,7 @@ export function createInterviewRouter(
         if (!contextSnapshot) {
           return c.json({ error: "Interview not available." }, 404);
         }
-        if (interviewRecord.jobDescriptionPresetQuestions.length === 0) {
-          return c.json(
-            {
-              code: "questions_required",
-              error: "当前面试轮次未绑定必问题目，请联系招聘方完成配置。",
-            },
-            409,
-          );
-        }
+        let dispatchPayload = contextSnapshot.payload;
         const requiredTemplateIds = contextSnapshot.payload.forms.map((form) => form.templateId);
         if (requiredTemplateIds.length > 0) {
           const submittedIds = await loadSubmittedTemplateIds(id, requiredTemplateIds);
@@ -264,6 +257,8 @@ export function createInterviewRouter(
               participantIdentity: string;
               isReconnect: boolean;
             }
+          | { status: "forms_required" }
+          | { status: "questions_required" }
           | { status: "grace_expired" }
           | { status: "session_unavailable" }
           | { status: "invitation_unavailable" }
@@ -273,6 +268,7 @@ export function createInterviewRouter(
         const participantName = interviewRecord.candidateName || "candidate";
         const now = new Date();
 
+        // oxlint-disable-next-line complexity -- Session access, binding, and reconnect decisions share the round lock.
         const resolution = await db.transaction(async (tx): Promise<TokenResolution> => {
           const active = await lockAiRound(tx, roundId);
           if (!active?.isEffective || active.record.id !== id) {
@@ -343,6 +339,27 @@ export function createInterviewRouter(
             }
           }
 
+          const prepared = await prepareQuestionBindings(tx, {
+            interviewRecordId: id,
+            phase: "questions",
+            roundId,
+          });
+          if (!prepared) {
+            return { status: "forms_required" };
+          }
+          if (flattenPresetQuestionsFromContextSnapshot(prepared).length === 0) {
+            return { status: "questions_required" };
+          }
+          const submitted = await loadSubmittedTemplateIds(
+            id,
+            prepared.forms.map((form) => form.templateId),
+            tx,
+          );
+          if (submitted.size < prepared.forms.length) {
+            return { status: "forms_required" };
+          }
+          dispatchPayload = prepared;
+
           // 复用现有 anchor，幂等：in_progress 与 interrupted-in-window 都走这里。
           // useSession() 在 mount 时会先调一次 prepareConnection 拿 token 预热，
           // 之后用户 session.start() 又调一次。如果这里写 status / disconnectedAt
@@ -404,6 +421,18 @@ export function createInterviewRouter(
           };
         });
 
+        if (resolution.status === "forms_required" || resolution.status === "questions_required") {
+          return c.json(
+            {
+              code: resolution.status,
+              error:
+                resolution.status === "forms_required"
+                  ? "请先打开并完成面试表单。"
+                  : "当前没有适用的沟通题，请联系招聘方完成配置。",
+            },
+            409,
+          );
+        }
         if (resolution.status === "session_unavailable") {
           return c.json({ error: "暂时无法确认面试连接状态，请稍后重试。" }, 503);
         }
@@ -438,7 +467,7 @@ export function createInterviewRouter(
         // Candidate-facing route has no authenticated org context; derive the org from the
         // interview record itself. studio_interview.organization_id 已 NOT NULL,直接取。
         // studio_interview.organization_id is NOT NULL — read it directly.
-        const snapshotPayload = contextSnapshot.payload;
+        const snapshotPayload = dispatchPayload;
         // 录像开关：显式环境变量未关闭且 R2 录像桶凭据齐全时，才让 Agent 启动 Egress。
         // 候选人浏览器拒绝摄像头时由前端侧降级；这里只判服务端能力与部署开关。
         // Recording switch: only enable when both the feature flag and R2 storage are present.
@@ -463,7 +492,8 @@ export function createInterviewRouter(
             companyContext: snapshotPayload.globalConfig.companyContext,
             interviewQuestions: snapshotPayload.personalizedQuestions,
             interviewRecordId: id,
-            jobDescriptionPresetQuestions: interviewRecord.jobDescriptionPresetQuestions ?? [],
+            jobDescriptionPresetQuestions:
+              flattenPresetQuestionsFromContextSnapshot(snapshotPayload),
             jobDescriptionPrompt: snapshotPayload.jobDescription?.prompt ?? null,
             openingInstructions: snapshotPayload.globalConfig.openingInstructions,
             recordingEnabled,
@@ -548,110 +578,6 @@ export function createInterviewRouter(
 
         return c.json(interviewRecord, 200);
       })
-      .get("/:id/:roundId/forms", async (c) => {
-        const id = c.req.param("id");
-        const roundId = c.req.param("roundId");
-        const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
-
-        if (!interviewRecord) {
-          return c.json({ error: "Interview not available." }, 404);
-        }
-
-        const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
-        if (!contextSnapshot) {
-          return c.json({ error: "Interview not available." }, 404);
-        }
-        const required = contextSnapshot.payload.forms.map((form) => ({
-          snapshot: form.snapshot,
-          templateId: form.templateId,
-          version: form.version,
-          versionId: form.versionId,
-        }));
-
-        if (required.length === 0) {
-          return c.json({ required: [], submitted: {} satisfies Record<string, true> }, 200);
-        }
-
-        const templateIds = required.map((form) => form.templateId);
-        const submittedIds = await loadSubmittedTemplateIds(id, templateIds);
-
-        const submitted: Record<string, true> = {};
-        for (const templateId of submittedIds) {
-          submitted[templateId] = true;
-        }
-
-        return c.json({ required, submitted }, 200);
-      })
-      .post(
-        "/:id/:roundId/forms/:templateId/submit",
-        zValidator(
-          "json",
-          // 中文：answers 形状由 templateVersion 动态决定，这里只做粗校验。
-          // English: answers shape is dynamic per templateVersion — only shallow check here.
-          z.object({ answers: z.record(z.string(), z.unknown()), versionId: z.string().min(1) }),
-          jsonValidatorError("请求参数缺失。"),
-        ),
-        async (c) => {
-          const id = c.req.param("id");
-          const roundId = c.req.param("roundId");
-          const templateId = c.req.param("templateId");
-
-          const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
-          if (!interviewRecord) {
-            return c.json({ error: "Interview not available." }, 404);
-          }
-          if (interviewRecord.currentRoundStatus === "completed") {
-            return c.json({ error: "当前面试轮次已结束，无法再提交面试表单。" }, 403);
-          }
-
-          const { versionId, answers: rawAnswers } = c.req.valid("json");
-
-          const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
-          if (!contextSnapshot) {
-            return c.json({ error: "Interview not available." }, 404);
-          }
-          const requiredForm = contextSnapshot.payload.forms.find(
-            (form) => form.templateId === templateId,
-          );
-          if (!requiredForm) {
-            return c.json({ error: "该面试表单不适用于当前面试。" }, 400);
-          }
-          if (requiredForm.versionId !== versionId) {
-            return c.json({ error: "面试表单版本已过期，请刷新页面后重试。" }, 409);
-          }
-
-          const answersSchema = buildCandidateFormAnswersSchema(requiredForm.snapshot);
-          const parsed = answersSchema.safeParse(rawAnswers);
-          if (!parsed.success) {
-            return c.json(
-              { error: parsed.error.issues[0]?.message ?? "面试表单填写不完整。" },
-              400,
-            );
-          }
-
-          const now = new Date();
-          const submissionId = crypto.randomUUID();
-          try {
-            await db.insert(recruitingFormSubmission).values({
-              answers: parsed.data,
-              id: submissionId,
-              organizationId: interviewRecord.organizationId,
-              recruitingRecordId: id,
-              submittedAt: now,
-              templateId,
-              versionId,
-            });
-          } catch {
-            // Unique (templateId, interviewRecordId) — treat as already submitted.
-            return c.json({ error: "该面试表单已提交过。" }, 409);
-          }
-
-          return c.json(
-            { submissionId, success: true, version: requiredForm.version, versionId },
-            200,
-          );
-        },
-      )
       .post(
         "/:id/:roundId/complete",
         zValidator("query", z.object({ mode: z.enum(["interrupt", "final", "agent"]).optional() })),

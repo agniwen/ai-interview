@@ -14,11 +14,35 @@ import {
 } from "../../resumes/utils/review-queue";
 import { reassessResumeRecord } from "../../resumes/utils/review-worker";
 
+async function markParsedResumeRecordReady(input: {
+  organizationId: string;
+  resumeRecordId: string | null;
+}): Promise<void> {
+  if (!input.resumeRecordId) {
+    return;
+  }
+  const now = new Date();
+  await updateRecruitingRecords(
+    db,
+    and(
+      eq(recruitingRecordReadModel.id, input.resumeRecordId),
+      eq(recruitingRecordReadModel.organizationId, input.organizationId),
+    ),
+    {
+      resumeParseError: null,
+      resumeParseStatus: "ready",
+      resumeParsedAt: now,
+      updatedAt: now,
+    },
+  );
+}
+
 export interface ParsedResumeEnrichmentDependencies extends CandidateQuestionGenerationDependencies {
   enqueueResumePoolReviewGenerationBestEffort: typeof enqueueResumePoolReviewGenerationBestEffort;
   enqueueResumeReviewGenerationForRecordBestEffort: typeof enqueueResumeReviewGenerationForRecordBestEffort;
   enqueueResumeSemanticIndexJobBestEffort: typeof enqueueResumeSemanticIndexJobBestEffort;
   reassessResumeRecord: typeof reassessResumeRecord;
+  markParsedResumeRecordReady: typeof markParsedResumeRecordReady;
 }
 
 export const defaultParsedResumeEnrichmentDependencies: ParsedResumeEnrichmentDependencies = {
@@ -26,6 +50,7 @@ export const defaultParsedResumeEnrichmentDependencies: ParsedResumeEnrichmentDe
   enqueueResumeReviewGenerationForRecordBestEffort,
   enqueueResumeSemanticIndexJobBestEffort,
   ...defaultCandidateQuestionGenerationDependencies,
+  markParsedResumeRecordReady,
   reassessResumeRecord,
 };
 
@@ -62,6 +87,10 @@ async function scheduleLibraryEvaluation(
   },
   dependencies: ParsedResumeEnrichmentDependencies,
 ): Promise<boolean> {
+  // Explicitly unbound uploads can finish without a job-specific evaluation.
+  if (!input.jobDescriptionId && !input.autoMatchJobDescription) {
+    return true;
+  }
   const result = await dependencies.enqueueResumeReviewGenerationForRecordBestEffort({
     ...input,
     source: "resume_upload",
@@ -113,34 +142,11 @@ export async function generateParsedResumeQuestionsBestEffort(
   }
 }
 
-async function markParsedResumeRecordReady(input: {
-  organizationId: string;
-  resumeRecordId: string | null;
-}): Promise<void> {
-  if (!input.resumeRecordId) {
-    return;
-  }
-  const now = new Date();
-  await updateRecruitingRecords(
-    db,
-    and(
-      eq(recruitingRecordReadModel.id, input.resumeRecordId),
-      eq(recruitingRecordReadModel.organizationId, input.organizationId),
-    ),
-    {
-      resumeParseError: null,
-      resumeParseStatus: "ready",
-      resumeParsedAt: now,
-      updatedAt: now,
-    },
-  );
-}
-
 export async function completeParsedResumeEnrichment(
   input: ParsedResumeEnrichmentInput,
   dependencies: ParsedResumeEnrichmentDependencies = defaultParsedResumeEnrichmentDependencies,
 ): Promise<void> {
-  await markParsedResumeRecordReady({
+  await dependencies.markParsedResumeRecordReady({
     organizationId: input.organizationId,
     resumeRecordId: input.succeededRecordId,
   });

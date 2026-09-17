@@ -80,7 +80,7 @@ export function QuestionView({
             key={option.value}
           >
             <RadioGroupItem id={`${inputId}-${option.value}`} value={option.value} />
-            <span className="flex-1">{option.label}</span>
+            <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere">{option.label}</span>
           </Label>
         ))}
       </RadioGroup>
@@ -96,12 +96,23 @@ export function QuestionView({
         }}
         value={toTextAnswer(value) || undefined}
       >
-        <SelectTrigger aria-invalid={invalidProp} className="w-full" id={inputId}>
-          <SelectValue placeholder="请选择" />
+        <SelectTrigger
+          aria-invalid={invalidProp}
+          className="w-full text-left whitespace-pre-wrap data-[size=default]:h-auto data-[size=default]:min-h-9 *:data-[slot=select-value]:line-clamp-none"
+          id={inputId}
+        >
+          <SelectValue
+            className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere"
+            placeholder="请选择"
+          />
         </SelectTrigger>
         <SelectContent>
           {question.options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem
+              className="whitespace-pre-wrap wrap-anywhere"
+              key={option.value}
+              value={option.value}
+            >
               {option.label}
             </SelectItem>
           ))}
@@ -139,7 +150,9 @@ export function QuestionView({
                   onChange([...next]);
                 }}
               />
-              <span className="flex-1">{option.label}</span>
+              <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere">
+                {option.label}
+              </span>
             </Label>
           );
         })}

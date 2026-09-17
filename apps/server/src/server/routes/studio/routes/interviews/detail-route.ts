@@ -1,3 +1,4 @@
+import { lockAiRound } from "./dao/ai-round-lifecycle";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
@@ -21,7 +22,7 @@ import {
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
-  refreshInterviewContextSnapshot,
+  releaseInterviewContextBinding,
 } from "./dao/context-snapshots";
 import { loadHumanInterviewMeetingById } from "./dao/human-interview-meetings";
 import { loadInterviewRoundDetail, resolveCandidateIdForRound } from "./dao/interview-rounds";
@@ -448,6 +449,10 @@ export const studioInterviewDetailRouter = factory
       const now = new Date();
       const operatorId = c.var.user?.id ?? null;
       const result = await db.transaction(async (tx) => {
+        const locked = await lockAiRound(tx, roundId, activeOrg.id);
+        if (!locked?.isEffective) {
+          return null;
+        }
         const deleted = await tx
           .delete(recruitingFormSubmission)
           .where(
@@ -461,10 +466,11 @@ export const studioInterviewDetailRouter = factory
           return null;
         }
 
-        const refreshed = await refreshInterviewContextSnapshot(tx, {
+        const refreshed = await releaseInterviewContextBinding(tx, {
           createdAt: now,
           createdBy: operatorId,
           interviewRecordId: candidateId,
+          phase: "forms",
           reason: "manual_refresh",
           scheduleEntryId: roundId,
         });
@@ -627,9 +633,8 @@ export const studioInterviewDetailRouter = factory
     return c.json(data, 200);
   })
   .post("/:id/context-snapshot/refresh", requirePermission("interview", "update"), async (c) => {
-    // Explicit operator action: refresh this interview's frozen runtime
-    // context to current templates/config. Ordinary template edits do not
-    // affect existing snapshots.
+    // Explicit refresh releases both sets for the next candidate action.
+    // An active or completed session keeps its frozen context.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -648,10 +653,20 @@ export const studioInterviewDetailRouter = factory
     const now = new Date();
     const operatorId = c.var.user?.id ?? null;
     const snapshot = await db.transaction(async (tx) => {
-      const refreshed = await refreshInterviewContextSnapshot(tx, {
+      const locked = await lockAiRound(tx, roundId, activeOrg.id);
+      if (
+        !locked?.isEffective ||
+        locked.round.sessionStartedAt ||
+        locked.round.liveKitRoomName ||
+        locked.round.status === "completed"
+      ) {
+        return null;
+      }
+      const refreshed = await releaseInterviewContextBinding(tx, {
         createdAt: now,
         createdBy: operatorId,
         interviewRecordId: candidateId,
+        phase: "all",
         reason: "manual_refresh",
         scheduleEntryId: roundId,
       });
@@ -671,6 +686,9 @@ export const studioInterviewDetailRouter = factory
       return refreshed;
     });
 
+    if (!snapshot) {
+      return c.json({ error: "当前面试已开始或已失效，无法刷新题目。" }, 409);
+    }
     invalidateStudioInterviewCaches(activeOrg.id);
     return c.json({ snapshot }, 200);
   })
