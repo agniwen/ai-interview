@@ -210,7 +210,7 @@ export function normalizeInterviewEvaluationOutput(
     projectHighlights: rawHrEvaluation.projectHighlights ?? null,
     recentWork: rawHrEvaluation.recentWork ?? null,
   };
-  return { ...output, hrEvaluation, questions };
+  return { ...output, hrEvaluation, overallScore: output.overallScore ?? null, questions };
 }
 // oxlint-enable anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion
 

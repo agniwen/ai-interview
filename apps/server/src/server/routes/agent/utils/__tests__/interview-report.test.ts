@@ -75,6 +75,12 @@ const EVALUATION = {
 };
 
 describe("generateInterviewReport", () => {
+  it("keeps a missing overall score unknown instead of rejecting factual evaluation", () => {
+    const { overallScore: _score, ...withoutScore } = EVALUATION;
+    expect(normalizeInterviewEvaluationOutput(withoutScore, QUESTIONS)).toMatchObject({
+      overallScore: null,
+    });
+  });
   beforeEach(() => {
     generateEvaluation.mockReset();
     generateSummary.mockReset();

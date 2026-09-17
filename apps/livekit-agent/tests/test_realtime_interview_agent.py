@@ -294,3 +294,40 @@ async def test_required_topics_allow_explicit_refusal_without_losing_partial_fac
     assert state["completed"] == 1
     assert "运营" in agent.question_outcomes[0].answer_summary
     assert "不方便" in agent.question_outcomes[0].answer_summary
+
+
+@pytest.mark.parametrize("reason", ["completed", "candidate_requested"])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "没有其他补充或问题，但先别挂断，请核对更正后的三项信息。",
+        "没有补充，但暂时不要结束，我需要整理记录。",
+        "我还没讲完。",
+    ],
+)
+async def test_explicit_request_to_continue_blocks_model_finish_until_new_consent(
+    reason, message
+):
+    agent = RealtimeInterviewAgent(context())
+    await agent.record_answers(
+        updates=[
+            AnswerUpdate(
+                question_id="q1", status="answered", answer_summary="负责项目"
+            ),
+            AnswerUpdate(
+                question_id="q2", status="answered", answer_summary="团队解散"
+            ),
+        ]
+    )
+    agent.observe_turn("hold", "user", message, 1)
+    with pytest.raises(ToolError, match="继续"):
+        await agent.finish_interview(
+            reason=reason, final_question_id="", final_answer_summary=""
+        )
+    assert not agent._closing
+    assert all(q.status.value == "answered" for q in agent.question_outcomes)
+    agent.observe_turn("consent", "user", "核对好了，现在可以结束面试。", 2)
+    await agent.finish_interview(
+        reason=reason, final_question_id="", final_answer_summary=""
+    )
+    assert agent._closing

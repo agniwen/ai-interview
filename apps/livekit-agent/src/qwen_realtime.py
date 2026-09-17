@@ -1054,7 +1054,12 @@ class RealtimeSession(llm.RealtimeSession):
             )
         elif kind == "response.created":
             if self._response is not None:
-                raise llm.RealtimeError("Qwen emitted overlapping responses")
+                if not self._response.cancelled:
+                    raise llm.RealtimeError("Qwen emitted overlapping responses")
+                # response.cancel is asynchronous. A replacement may arrive
+                # before the cancelled response.done; late events are isolated
+                # by response ID below, and must not kill the new response.
+                self._response.close()
             self._idle.clear()
             response = self._response = _Response(event["response"]["id"])
             response.watchdog = self._spawn(self._watch_response(response))

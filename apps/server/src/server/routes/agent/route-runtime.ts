@@ -24,7 +24,10 @@ import { runKeyInformationJob } from "./utils/interview-key-information-job";
 import { runSummaryJob } from "./utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "./utils/evidence-snapshot";
 import { mergeInterviewEndReasonMetadata } from "@app/shared/interview/end-reason";
-import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import {
+  mergeInterviewQuestionOutcome,
+  parseInterviewDataCollectionResults,
+} from "@app/shared/interview/question-outcomes";
 import { createAgentRouter } from "./route";
 import type {
   AgentRouterDependencies,
@@ -128,10 +131,9 @@ async function persistCheckpoint(options: {
       questions: [],
       schemaVersion: 2 as const,
     };
-    const merged = resolveReportUpdate(
-      { dataCollectionResults: current, startedAt: null, transcript: [] },
-      { dataCollectionResults: { questions: [data.outcome], schemaVersion: 2 }, transcript: [] },
-    ).dataCollectionResults;
+    // A candidate can resume a previously skipped answer. Checkpoints are
+    // explicit revisions, unlike a shutdown report's missing-answer markers.
+    const merged = mergeInterviewQuestionOutcome(current, data.outcome);
 
     if (existing) {
       await tx

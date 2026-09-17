@@ -243,6 +243,50 @@ describe.skipIf(!testUrl)("新招聘记录的 Agent 回调", () => {
       },
     });
     expect(checkpoint.status).toBe(201);
+    const resumedOutcome: CheckpointPayload["outcome"] = {
+      answerSummary: "候选人先拒绝透露，随后愿意补充，项目团队尚待了解",
+      difficulty: "easy",
+      endedAtSecs: 35,
+      evaluationFocus: null,
+      followUpCount: 0,
+      followUpDirections: null,
+      question: "介绍项目",
+      questionId: "question-1",
+      reason: null,
+      revision: 3,
+      startedAtSecs: 10,
+      status: "in_progress",
+    };
+    const refused = await post("/checkpoint", {
+      ...identity,
+      outcome: { ...resumedOutcome, revision: 2, status: "skipped" },
+    });
+    expect(refused.status).toBe(201);
+    const resumedResponse = await post("/checkpoint", { ...identity, outcome: resumedOutcome });
+    expect(resumedResponse.status).toBe(201);
+    const [resumed] = await db
+      .select()
+      .from(aiInterviewConversation)
+      .where(eq(aiInterviewConversation.conversationId, conversationId));
+    expect(resumed?.dataCollectionResults).toMatchObject({
+      questions: [{ questionId: "question-1", revision: 3, status: "in_progress" }],
+    });
+    // A delayed earlier refusal must not roll the resumed answer back.
+    await post("/checkpoint", {
+      ...identity,
+      outcome: { ...resumedOutcome, revision: 2, status: "skipped" },
+    });
+    const [afterDelayed] = await db
+      .select()
+      .from(aiInterviewConversation)
+      .where(eq(aiInterviewConversation.conversationId, conversationId));
+    expect(afterDelayed?.dataCollectionResults).toMatchObject({
+      questions: [{ questionId: "question-1", revision: 3, status: "in_progress" }],
+    });
+    await post("/checkpoint", {
+      ...identity,
+      outcome: { ...resumedOutcome, answerSummary: "项目职责", revision: 4, status: "answered" },
+    });
     const response = await post("/report", {
       ...identity,
       status: "completed",

@@ -56,6 +56,7 @@ from livekit.plugins import (
 import aliyun_stt
 import qwen_realtime
 from agent_config import resolve_agent_name, resolve_self_hosted, resolve_voice_mode
+from answer_reconciliation import extract_answers
 from dispatch_context import (
     DispatchContextError,
     InterviewDispatchContext,
@@ -434,17 +435,20 @@ def _accumulate_metrics(metrics_state: dict[str, Any], m: Any) -> None:
             turns[speech_id] = b
         return b
 
-    if isinstance(m, lk_metrics.LLMMetrics):
+    if isinstance(m, (lk_metrics.LLMMetrics, lk_metrics.RealtimeModelMetrics)):
+        realtime = isinstance(m, lk_metrics.RealtimeModelMetrics)
         llm = sess["llm"]
         llm["request_count"] += 1
-        llm["total_completion_tokens"] += m.completion_tokens
-        llm["total_prompt_tokens"] += m.prompt_tokens
+        llm["total_completion_tokens"] += (
+            m.output_tokens if realtime else m.completion_tokens
+        )
+        llm["total_prompt_tokens"] += m.input_tokens if realtime else m.prompt_tokens
         llm["total_tokens"] += m.total_tokens
         llm["total_duration"] += m.duration
         if m.ttft > 0:
             llm["ttft_sum"] += m.ttft
             llm["ttft_count"] += 1
-        b = bucket(m.speech_id)
+        b = bucket(m.request_id if realtime else m.speech_id)
         if b is not None:
             b["llm_ttft"] = m.ttft
             b["llm_duration"] = m.duration
@@ -541,6 +545,8 @@ async def _on_session_end(ctx: JobContext) -> None:
     ended_at = state.ended_at or time.time()
 
     if state.interview_agent is not None:
+        if isinstance(state.interview_agent, RealtimeInterviewAgent):
+            await state.interview_agent.reconcile_answers()
         # Prefer business reason recorded during the session over a generic
         # system_shutdown label so partial coverage is diagnosable.
         finalize_reason = (
@@ -751,6 +757,9 @@ async def my_agent(ctx: JobContext) -> None:
                 "timeInCallSecs": round(elapsed),
             }
         )
+        if isinstance(state.interview_agent, RealtimeInterviewAgent):
+            state.interview_agent.observe_turn(item.id, role_str, text.strip(), elapsed)
+            state.interview_agent.schedule_reconciliation()
         logger.debug("turn collected: %s (%.0fs)", role_str, elapsed)
 
     @session.on("close")
@@ -810,6 +819,11 @@ async def my_agent(ctx: JobContext) -> None:
         interview_context,
         clock=clock,
         on_question_completed=_on_question_completed,
+        **(
+            {"answer_extractor": extract_answers}
+            if agent_type is RealtimeInterviewAgent
+            else {}
+        ),
     )
     state.interview_agent = interview_agent
 

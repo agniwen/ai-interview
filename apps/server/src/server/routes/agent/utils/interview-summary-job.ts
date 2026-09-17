@@ -143,6 +143,15 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       transcript,
     });
     const parsedEvaluation = interviewEvaluationSchema.safeParse(workflowReport.evaluation);
+    if (workflowReport.evaluationError || workflowReport.summaryError) {
+      captureBackendException(
+        new Error(
+          [workflowReport.summaryError, workflowReport.evaluationError].filter(Boolean).join(" | "),
+        ),
+        "interview.report.degraded_generation",
+        { conversationId, interviewRecordId },
+      );
+    }
     const report = applyInterviewReportAnswerFallback(
       {
         ...workflowReport,

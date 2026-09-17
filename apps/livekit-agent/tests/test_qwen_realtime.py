@@ -82,6 +82,24 @@ async def test_default_voice_uses_restrained_delivery(connected):
     assert config["enable_speech_emotion"] is False
 
 
+async def test_interrupted_response_can_be_replaced_before_late_done(connected):
+    session, socket, _ = connected
+    await begin_response(session, socket)
+    old = session._response
+    session.interrupt()
+    session._handle_event({"type": "response.created", "response": {"id": "r2"}})
+    assert old.messages.closed
+    assert old.functions.closed
+    session._handle_event(
+        {"type": "response.done", "response": {"id": "r1", "status": "cancelled"}}
+    )
+    assert session._response.id == "r2"
+    session._handle_event(
+        {"type": "response.done", "response": {"id": "r2", "status": "completed"}}
+    )
+    assert session._response is None
+
+
 async def begin_response(session, socket, response_id="r1"):
     future = session.generate_reply()
     await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))

@@ -25,6 +25,7 @@ const KEY_INFORMATION_PROMPT = `你是一位面试重点信息提取助手。请
 - 同一事实只进入一个最合适的分类，不得重复。
 - 每条信息必须包含 1-2 条候选人原话证据。quote 必须逐字来自候选人发言；能定位时填写 turnIndex 和 timeInCallSecs。
 - 没有可靠信息的分类输出空数组，不得凑数。
+- JSON 字段严格使用：skillEvidence 和 quantitativeInformation 的条目为 {"content":"事实","evidence":[{"quote":"候选人原话","turnIndex":1,"timeInCallSecs":1}]}；risks 的条目另外包含 "type":"observed" 或 "type":"needs_verification"。不得省略 content、evidence 或风险 type。
 
 ## 岗位上下文
 {jobContext}
@@ -106,10 +107,16 @@ export async function generateInterviewKeyInformation(
 
   return await dependencies.generate({
     agent: dependencies.agent,
+    fallbackToTextGeneration: true,
+    observabilityLabel: "interview-key-information",
     prompt: KEY_INFORMATION_PROMPT.replace("{jobContext}", formatJobContext(options))
       .replace("{questions}", formatQuestions(options.questions))
       .replace("{transcript}", formatTranscript(options.transcript)),
+    retryOnInvalid: true,
+    retryOnTransient: true,
+    retryTextJsonOnInvalid: true,
     schema: interviewKeyInformationSchema,
     temperature: 0,
+    timeoutMs: 120_000,
   });
 }
