@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { uploadMaterial } from "./upload-material";
 import { RECRUITING_MATERIAL_MAX_BYTES } from "@app/shared/recruiting-materials";
 
-type Dependencies = NonNullable<Parameters<typeof uploadMaterial>[2]>;
+type Dependencies = NonNullable<Parameters<typeof uploadMaterial>[3]>;
 const scope = { actorId: "hr", organizationId: "org", recruitingRecordId: "candidate" };
 
 function setup(initialCount = 0) {
@@ -35,7 +35,12 @@ describe("upload recruiting material", () => {
   it("persists the real file and scoped metadata", async () => {
     const { dependencies, insert } = setup();
     const file = new File(["image bytes"], "流水.png", { type: "image/png" });
-    await uploadMaterial(scope, file, dependencies);
+    await uploadMaterial(
+      scope,
+      file,
+      { incomeType: "monthly_salary", notes: "第一行\n第二行" },
+      dependencies,
+    );
     expect(dependencies.putObjectBytes).toHaveBeenCalledWith(
       expect.objectContaining({
         body: new TextEncoder().encode("image bytes"),
@@ -45,7 +50,9 @@ describe("upload recruiting material", () => {
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({
         fileName: "流水.png",
+        incomeType: "monthly_salary",
         kind: "income_proof",
+        notes: "第一行\n第二行",
         organizationId: "org",
         recruitingRecordId: "candidate",
         sizeBytes: 11,
@@ -59,6 +66,7 @@ describe("upload recruiting material", () => {
     await uploadMaterial(
       scope,
       new File([new Uint8Array(RECRUITING_MATERIAL_MAX_BYTES)], "limit.pdf"),
+      undefined,
       dependencies,
     );
     expect(dependencies.putObjectBytes).toHaveBeenCalledTimes(1);
@@ -66,6 +74,7 @@ describe("upload recruiting material", () => {
       uploadMaterial(
         scope,
         new File([new Uint8Array(RECRUITING_MATERIAL_MAX_BYTES + 1)], "large.pdf"),
+        undefined,
         dependencies,
       ),
     ).rejects.toThrow("超过 20 MB");
@@ -75,8 +84,8 @@ describe("upload recruiting material", () => {
   it("counts inside the record lock so two uploads cannot exceed ten", async () => {
     const { dependencies, insert } = setup(9);
     const results = await Promise.allSettled([
-      uploadMaterial(scope, new File(["a"], "a.pdf"), dependencies),
-      uploadMaterial(scope, new File(["b"], "b.png"), dependencies),
+      uploadMaterial(scope, new File(["a"], "a.pdf"), undefined, dependencies),
+      uploadMaterial(scope, new File(["b"], "b.png"), undefined, dependencies),
     ]);
     expect(results.map((result) => result.status).toSorted()).toEqual(["fulfilled", "rejected"]);
     expect(insert).toHaveBeenCalledTimes(1);
@@ -86,9 +95,9 @@ describe("upload recruiting material", () => {
   it("cleans the uploaded object if metadata persistence fails", async () => {
     const { dependencies, insert } = setup();
     insert.mockRejectedValueOnce(new Error("db failed"));
-    await expect(uploadMaterial(scope, new File(["a"], "a.pdf"), dependencies)).rejects.toThrow(
-      "db failed",
-    );
+    await expect(
+      uploadMaterial(scope, new File(["a"], "a.pdf"), undefined, dependencies),
+    ).rejects.toThrow("db failed");
     expect(dependencies.deleteRecruitingMaterialObject).toHaveBeenCalledWith(
       "recruiting-materials/test",
     );
@@ -97,9 +106,9 @@ describe("upload recruiting material", () => {
   it("does not insert metadata when storage fails", async () => {
     const { dependencies, insert } = setup();
     vi.mocked(dependencies.putObjectBytes).mockRejectedValueOnce(new Error("storage failed"));
-    await expect(uploadMaterial(scope, new File(["a"], "a.pdf"), dependencies)).rejects.toThrow(
-      "storage failed",
-    );
+    await expect(
+      uploadMaterial(scope, new File(["a"], "a.pdf"), undefined, dependencies),
+    ).rejects.toThrow("storage failed");
     expect(insert).not.toHaveBeenCalled();
   });
 });

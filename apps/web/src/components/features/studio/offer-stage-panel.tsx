@@ -237,6 +237,7 @@ export function OfferStagePanel({
     <div className="flex min-w-0 flex-col gap-5">
       <OfferNegotiationProgress disabled={disabled} nodeStates={nodeStates} stage={stage} />
       <RecruitingMaterialsPanel
+        canUpdate={canUpdate}
         candidateId={candidateId}
         canCreate={canCreate}
         canDelete={canDelete}

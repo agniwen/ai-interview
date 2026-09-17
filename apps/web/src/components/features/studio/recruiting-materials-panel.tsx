@@ -1,19 +1,34 @@
+import {
+  UploadMaterialsDialog,
+  EditMaterialDialog,
+  DeleteMaterialDialog,
+} from "./recruiting-material-dialogs";
 import { RecruitingMaterialThumbnail } from "./recruiting-material-thumbnail";
 import { useRef, useState } from "react";
 import type { OverlayScrollbars } from "overlayscrollbars";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconDownload, IconEye, IconFile, IconUpload, IconTrash } from "@tabler/icons-react";
+import {
+  IconPencil,
+  IconDownload,
+  IconEye,
+  IconFile,
+  IconUpload,
+  IconTrash,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
+  incomeProofTypeLabels,
   validateRecruitingMaterialFiles,
   RECRUITING_MATERIAL_MAX_COUNT,
 } from "@app/shared/recruiting-materials";
+import type { RecruitingMaterialMetadata } from "@app/shared/recruiting-materials";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   deleteRecruitingMaterial,
   listRecruitingMaterials,
   materialFileUrl,
   uploadRecruitingMaterial,
+  updateRecruitingMaterial,
 } from "@/lib/client/recruiting-materials";
 import {
   Attachment,
@@ -31,8 +46,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ImageResumePreviewContent } from "@/components/features/resume/resume-document-preview-dialog";
-import { Modal } from "@/components/ui/modal";
+import { RecruitingMaterialPreview } from "./recruiting-material-preview";
 import type { RecruitingNodeStateRecord } from "@app/shared/studio-resumes";
 
 type IncomeProofReview = Pick<RecruitingNodeStateRecord, "reason" | "result" | "status">;
@@ -103,42 +117,186 @@ function IncomeProofReviewSummary({ review }: { review?: IncomeProofReview }) {
   );
 }
 
+type MaterialFile = Awaited<ReturnType<typeof listRecruitingMaterials>>[number];
+function MaterialAttachment({
+  file,
+  slug,
+  candidateId,
+  canUpdate,
+  canDelete,
+  disabled,
+  busy,
+  onPreview,
+  onEdit,
+  onDelete,
+}: {
+  file: MaterialFile;
+  slug: string;
+  candidateId: string;
+  canUpdate: boolean;
+  canDelete: boolean;
+  disabled?: boolean;
+  busy: boolean;
+  onPreview: (file: MaterialFile) => void;
+  onEdit: (file: MaterialFile) => void;
+  onDelete: (file: MaterialFile) => void;
+}) {
+  return (
+    <div className="grid w-max min-w-72 max-w-md shrink-0 gap-2">
+      <Attachment className="w-full flex-nowrap">
+        {file.contentType.startsWith("image/") || file.contentType.startsWith("video/") ? (
+          <AttachmentTrigger aria-label={`预览 ${file.fileName}`} onClick={() => onPreview(file)} />
+        ) : null}
+        {file.contentType.startsWith("image/") ? (
+          <RecruitingMaterialThumbnail
+            url={materialFileUrl(slug, candidateId, file.id)}
+            filename={file.fileName}
+          />
+        ) : (
+          <AttachmentMedia>
+            <IconFile />
+          </AttachmentMedia>
+        )}
+        <AttachmentContent className="min-h-10 py-0.5">
+          <AttachmentTitle title={file.fileName}>{file.fileName}</AttachmentTitle>
+          <AttachmentDescription>
+            {file.incomeType ? incomeProofTypeLabels[file.incomeType] : "未标记"} ·{" "}
+            {(file.sizeBytes / 1024 / 1024).toFixed(2)} MB
+          </AttachmentDescription>
+        </AttachmentContent>
+        <AttachmentActions className="min-h-10">
+          {canUpdate && !disabled ? (
+            <AttachmentAction
+              disabled={busy}
+              aria-label={`编辑 ${file.fileName} 的类型和备注`}
+              onClick={() =>
+                onEdit({
+                  ...file,
+                  incomeType: file.incomeType ?? null,
+                  notes: file.notes ?? "",
+                })
+              }
+            >
+              <IconPencil />
+            </AttachmentAction>
+          ) : null}
+          {file.contentType.startsWith("image/") || file.contentType.startsWith("video/") ? (
+            <AttachmentAction
+              aria-label={`${file.contentType.startsWith("video/") ? "播放视频" : "查看大图"} ${file.fileName}`}
+              onClick={() => onPreview(file)}
+            >
+              <IconEye />
+            </AttachmentAction>
+          ) : null}
+          <AttachmentAction
+            nativeButton={false}
+            render={
+              <a
+                aria-label={`下载 ${file.fileName}`}
+                href={materialFileUrl(slug, candidateId, file.id)}
+                download={file.fileName}
+              />
+            }
+            aria-label={`下载 ${file.fileName}`}
+          >
+            <IconDownload />
+          </AttachmentAction>
+          {canDelete && !disabled ? (
+            <AttachmentAction
+              disabled={busy}
+              aria-label={`删除 ${file.fileName}`}
+              onClick={() => onDelete(file)}
+            >
+              <IconTrash />
+            </AttachmentAction>
+          ) : null}
+        </AttachmentActions>
+      </Attachment>
+      {file.notes ? (
+        <p
+          className="text-muted-foreground line-clamp-2 px-2.5 text-xs wrap-anywhere whitespace-pre-wrap"
+          title={file.notes}
+        >
+          {file.notes}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MaterialsEmptyState({
+  ready,
+  count,
+  uploading,
+  canUpload,
+}: {
+  ready: boolean;
+  count: number;
+  uploading: boolean;
+  canUpload: boolean;
+}) {
+  if (!ready || count > 0 || uploading || canUpload) {
+    return null;
+  }
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyTitle>暂无流水文件</EmptyTitle>
+        <EmptyDescription>候选人提供材料后，可在此上传留存。</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
 export function RecruitingMaterialsPanel({
   candidateId,
   canCreate,
   canDelete,
+  canUpdate = false,
   disabled,
   review,
 }: {
   candidateId: string;
   canCreate: boolean;
   canDelete: boolean;
+  canUpdate?: boolean;
   disabled?: boolean;
   review?: IncomeProofReview;
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<
+    { file: File; metadata: RecruitingMaterialMetadata }[]
+  >([]);
+  const [editTarget, setEditTarget] = useState<
+    ({ id: string; fileName: string } & RecruitingMaterialMetadata) | null
+  >(null);
   const [uploadingName, setUploadingName] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileName: string } | null>(null);
-  const [previewTarget, setPreviewTarget] = useState<{ id: string; fileName: string } | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<MaterialFile | null>(null);
   const queryKey = ["recruiting-materials", slug, candidateId];
   const materials = useQuery({
     queryFn: () => listRecruitingMaterials(slug, candidateId),
     queryKey,
   });
   const files = materials.data ?? [];
+  const previewIndex = files.findIndex((file) => file.id === previewTarget?.id);
   const upload = useMutation({
-    mutationFn: async (selected: File[]) => {
-      const validationError = validateRecruitingMaterialFiles(selected, files.length);
+    mutationFn: async (selected: typeof pendingFiles) => {
+      const validationError = validateRecruitingMaterialFiles(
+        selected.map(({ file }) => file),
+        files.length,
+      );
       if (validationError) {
         throw new Error(validationError);
       }
       let completed = 0;
-      for (const file of selected) {
+      for (const { file, metadata } of selected) {
         setUploadingName(file.name);
         try {
-          await uploadRecruitingMaterial(slug, candidateId, file);
+          await uploadRecruitingMaterial(slug, candidateId, file, metadata);
+          setPendingFiles((pending) => pending.filter((item) => item.file !== file));
           completed += 1;
         } catch (error) {
           throw new Error(
@@ -164,7 +322,20 @@ export function RecruitingMaterialsPanel({
       toast.success("附件已删除");
     },
   });
-  const busy = upload.isPending || remove.isPending;
+  const update = useMutation({
+    mutationFn: (target: NonNullable<typeof editTarget>) =>
+      updateRecruitingMaterial(slug, candidateId, target.id, {
+        incomeType: target.incomeType,
+        notes: target.notes,
+      }),
+    onError: (error) => toast.error(error.message),
+    onSuccess: async () => {
+      setEditTarget(null);
+      await queryClient.invalidateQueries({ queryKey });
+      toast.success("附件信息已保存");
+    },
+  });
+  const busy = upload.isPending || remove.isPending || update.isPending;
   const showUpload = canCreate && !disabled;
   return (
     <section aria-label="流水文件" className="flex flex-col gap-3">
@@ -184,12 +355,19 @@ export function RecruitingMaterialsPanel({
             multiple
             className="hidden"
             aria-label="上传流水文件"
-            disabled={busy || disabled || !canCreate}
+            disabled={busy || !showUpload}
             onChange={(event) => {
               const selected = [...(event.currentTarget.files ?? [])];
               event.currentTarget.value = "";
               if (selected.length > 0) {
-                upload.mutate(selected);
+                const error = validateRecruitingMaterialFiles(selected, files.length);
+                if (error) {
+                  toast.error(error);
+                  return;
+                }
+                setPendingFiles(
+                  selected.map((file) => ({ file, metadata: { incomeType: null, notes: "" } })),
+                );
               }
             }}
           />
@@ -202,14 +380,12 @@ export function RecruitingMaterialsPanel({
               </Button>
             </div>
           ) : null}
-          {materials.isSuccess && files.length === 0 && !uploadingName && !showUpload ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>暂无流水文件</EmptyTitle>
-                <EmptyDescription>候选人提供材料后，可在此上传留存。</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : null}
+          <MaterialsEmptyState
+            ready={materials.isSuccess}
+            count={files.length}
+            uploading={uploadingName !== null}
+            canUpload={showUpload}
+          />
           <ScrollArea
             scrollbars="leave"
             options={{
@@ -225,64 +401,21 @@ export function RecruitingMaterialsPanel({
               },
             }}
           >
-            <div className="flex w-max min-w-full flex-nowrap gap-3 py-1">
+            <div className="flex w-max min-w-full flex-nowrap items-start gap-3 py-1">
               {files.map((file) => (
-                <Attachment key={file.id} className="w-72 flex-nowrap">
-                  {file.contentType.startsWith("image/") ? (
-                    <AttachmentTrigger
-                      aria-label={`预览 ${file.fileName}`}
-                      onClick={() => setPreviewTarget(file)}
-                    />
-                  ) : null}
-                  {file.contentType.startsWith("image/") ? (
-                    <RecruitingMaterialThumbnail
-                      url={materialFileUrl(slug, candidateId, file.id)}
-                      filename={file.fileName}
-                    />
-                  ) : (
-                    <AttachmentMedia>
-                      <IconFile />
-                    </AttachmentMedia>
-                  )}
-                  <AttachmentContent>
-                    <AttachmentTitle title={file.fileName}>{file.fileName}</AttachmentTitle>
-                    <AttachmentDescription>
-                      {(file.sizeBytes / 1024 / 1024).toFixed(2)} MB
-                    </AttachmentDescription>
-                  </AttachmentContent>
-                  <AttachmentActions>
-                    {file.contentType.startsWith("image/") ? (
-                      <AttachmentAction
-                        aria-label={`查看大图 ${file.fileName}`}
-                        onClick={() => setPreviewTarget(file)}
-                      >
-                        <IconEye />
-                      </AttachmentAction>
-                    ) : null}
-                    <AttachmentAction
-                      nativeButton={false}
-                      render={
-                        <a
-                          aria-label={`下载 ${file.fileName}`}
-                          href={materialFileUrl(slug, candidateId, file.id)}
-                          download={file.fileName}
-                        />
-                      }
-                      aria-label={`下载 ${file.fileName}`}
-                    >
-                      <IconDownload />
-                    </AttachmentAction>
-                    {canDelete && !disabled ? (
-                      <AttachmentAction
-                        disabled={busy}
-                        aria-label={`删除 ${file.fileName}`}
-                        onClick={() => setDeleteTarget(file)}
-                      >
-                        <IconTrash />
-                      </AttachmentAction>
-                    ) : null}
-                  </AttachmentActions>
-                </Attachment>
+                <MaterialAttachment
+                  key={file.id}
+                  file={file}
+                  slug={slug}
+                  candidateId={candidateId}
+                  canUpdate={canUpdate}
+                  canDelete={canDelete}
+                  disabled={disabled}
+                  busy={busy}
+                  onPreview={setPreviewTarget}
+                  onEdit={setEditTarget}
+                  onDelete={setDeleteTarget}
+                />
               ))}
               {uploadingName ? (
                 <Attachment state="uploading" className="w-72 flex-nowrap">
@@ -307,68 +440,55 @@ export function RecruitingMaterialsPanel({
           </ScrollArea>
         </FramePanel>
       </Frame>
-      {previewTarget ? (
-        <Modal
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setPreviewTarget(null);
-            }
-          }}
-          title={previewTarget.fileName}
-          description="图片预览"
-          size="full"
-          className="h-[92dvh]"
-          bodyClassName="min-h-0 overflow-auto bg-muted/30 p-0"
-          footer={
-            <Button
-              nativeButton={false}
-              variant="outline"
-              render={
-                <a
-                  href={materialFileUrl(slug, candidateId, previewTarget.id)}
-                  download={previewTarget.fileName}
-                  aria-label="下载原图片"
-                />
-              }
-            >
-              <IconDownload data-icon="inline-start" />
-              下载原图片
-            </Button>
-          }
-        >
-          <ImageResumePreviewContent
-            key={previewTarget.id}
-            filename={previewTarget.fileName}
-            url={materialFileUrl(slug, candidateId, previewTarget.id)}
-          />
-        </Modal>
+      {showUpload ? (
+        <UploadMaterialsDialog
+          pendingFiles={pendingFiles}
+          setPendingFiles={setPendingFiles}
+          busy={busy}
+          onSubmit={() => upload.mutate(pendingFiles)}
+          onClose={() => setPendingFiles([])}
+        />
       ) : null}
-      <Modal
-        open={deleteTarget !== null && !disabled && canDelete}
-        onOpenChange={(open) => {
-          if (!open && !remove.isPending) {
-            setDeleteTarget(null);
-          }
-        }}
-        title="删除附件"
-        description={`确定删除“${deleteTarget?.fileName ?? ""}”？删除后无法恢复。`}
-        footer={
-          <Button
-            variant="destructive"
-            disabled={remove.isPending}
-            onClick={() => {
-              if (deleteTarget) {
-                remove.mutate(deleteTarget.id);
+      {canUpdate && !disabled ? (
+        <EditMaterialDialog
+          editTarget={editTarget}
+          setEditTarget={setEditTarget}
+          busy={busy}
+          onSubmit={(value) => update.mutate(value)}
+          onClose={() => setEditTarget(null)}
+        />
+      ) : null}
+      {previewTarget ? (
+        <RecruitingMaterialPreview
+          file={previewTarget}
+          url={materialFileUrl(slug, candidateId, previewTarget.id)}
+          onClose={() => setPreviewTarget(null)}
+          navigation={{
+            index: previewIndex,
+            onNext: () => {
+              const file = files[previewIndex + 1];
+              if (file) {
+                setPreviewTarget(file);
               }
-            }}
-          >
-            确认删除
-          </Button>
-        }
-      >
-        <p className="text-muted-foreground text-sm">删除后可重新上传其他材料。</p>
-      </Modal>
+            },
+            onPrevious: () => {
+              const file = files[previewIndex - 1];
+              if (file) {
+                setPreviewTarget(file);
+              }
+            },
+            total: files.length,
+          }}
+        />
+      ) : null}
+      {canDelete && !disabled ? (
+        <DeleteMaterialDialog
+          deleteTarget={deleteTarget}
+          busy={busy}
+          onClose={() => setDeleteTarget(null)}
+          onSubmit={(id) => remove.mutate(id)}
+        />
+      ) : null}
     </section>
   );
 }

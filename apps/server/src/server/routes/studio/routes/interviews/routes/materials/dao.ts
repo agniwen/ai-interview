@@ -1,3 +1,5 @@
+import type { Database } from "@app/database";
+import type { RecruitingMaterialMetadata } from "@app/shared/recruiting-materials";
 import { and, eq, asc } from "drizzle-orm";
 import { recruitingMaterial } from "@app/db-schema/schema";
 import { lockRecruitingRecord } from "@app/database/recruiting-records";
@@ -84,5 +86,31 @@ export function removeMaterial(scope: MaterialScope, id: string) {
       throw new RecruitingMaterialError("附件不存在或无权访问", 404);
     }
     return removed;
+  });
+}
+
+export function updateMaterialMetadata(
+  scope: MaterialScope,
+  id: string,
+  metadata: RecruitingMaterialMetadata,
+  database: Pick<Database, "transaction"> = db,
+) {
+  return database.transaction(async (tx) => {
+    const record = await lockRecruitingRecord(tx, scope.recruitingRecordId, scope.organizationId);
+    if (!record) {
+      throw new RecruitingMaterialError("候选人不存在", 404);
+    }
+    if (record.currentStage !== "income_proof") {
+      throw new RecruitingMaterialError("仅流水提供阶段可修改附件", 409);
+    }
+    const [updated] = await tx
+      .update(recruitingMaterial)
+      .set(metadata)
+      .where(and(materialWhere(scope), eq(recruitingMaterial.id, id)))
+      .returning({ id: recruitingMaterial.id });
+    if (!updated) {
+      throw new RecruitingMaterialError("附件不存在或无权访问", 404);
+    }
+    return updated;
   });
 }

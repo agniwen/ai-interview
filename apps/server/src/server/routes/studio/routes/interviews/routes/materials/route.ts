@@ -1,13 +1,17 @@
+import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { getObjectStream, deleteRecruitingMaterialObject } from "@app/object-storage";
-import { RECRUITING_MATERIAL_MAX_BYTES } from "@app/shared/recruiting-materials";
-import { factory } from "../../../../../../factory";
+import {
+  RECRUITING_MATERIAL_MAX_BYTES,
+  recruitingMaterialMetadataSchema,
+} from "@app/shared/recruiting-materials";
+import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { getWorkspaceRequestContext } from "../../../../../../context/workspace-request-context";
 import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import { loadResumeDetail } from "../../../resumes/dao/resumes";
-import { findMaterial, listMaterials, removeMaterial } from "./dao";
+import { findMaterial, listMaterials, removeMaterial, updateMaterialMetadata } from "./dao";
 import { uploadMaterial } from "./application/upload-material";
 import { RecruitingMaterialError } from "./errors";
 
@@ -20,6 +24,7 @@ const defaultDependencies = {
   removeMaterial,
   requirePermission,
   resolveRecruitingVisibilityScope,
+  updateMaterialMetadata,
   uploadMaterial,
 };
 export type MaterialsRouteDependencies = typeof defaultDependencies;
@@ -64,11 +69,13 @@ export function createMaterialsRouter(
       .get("/", async (c) => {
         const rows = await dependencies.listMaterials(await visibleRecord(c, dependencies));
         return c.json(
-          rows.map(({ id, fileName, contentType, sizeBytes, createdAt }) => ({
+          rows.map(({ id, fileName, contentType, sizeBytes, createdAt, incomeType, notes }) => ({
             contentType,
             createdAt: createdAt.toISOString(),
             fileName,
             id,
+            incomeType,
+            notes,
             sizeBytes,
           })),
           200,
@@ -88,8 +95,33 @@ export function createMaterialsRouter(
           if (!(file instanceof File)) {
             return c.json({ error: "请每次上传一个文件" }, 400);
           }
-          return c.json(await dependencies.uploadMaterial(scope, file), 201);
+          const metadata = recruitingMaterialMetadataSchema.safeParse({
+            incomeType: body.incomeType,
+            notes: body.notes,
+          });
+          if (!metadata.success) {
+            return c.json({ error: "附件类型或备注无效" }, 400);
+          }
+          return c.json(await dependencies.uploadMaterial(scope, file, metadata.data), 201);
         },
+      )
+      .patch(
+        "/:materialId",
+        dependencies.requirePermission("offer", "update"),
+        zValidator(
+          "json",
+          recruitingMaterialMetadataSchema,
+          jsonValidatorError("附件类型或备注无效"),
+        ),
+        async (c) =>
+          c.json(
+            await dependencies.updateMaterialMetadata(
+              await visibleRecord(c, dependencies),
+              c.req.param("materialId"),
+              c.req.valid("json"),
+            ),
+            200,
+          ),
       )
       .get("/:materialId/file", async (c) => {
         const row = await dependencies.findMaterial(

@@ -1,3 +1,4 @@
+import type { IncomeProofType } from "./recruiting-materials";
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { ArcMessage, ArcMessageRole } from "./ai-message";
@@ -4556,7 +4557,9 @@ export const recruitingMaterial = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     fileName: text("file_name").notNull(),
     id: text("id").primaryKey(),
+    incomeType: text("income_type").$type<IncomeProofType>(),
     kind: text("kind").$type<"income_proof" | "background_report" | "offer_document">().notNull(),
+    notes: text("notes").notNull().default(""),
     organizationId: text("organization_id").notNull(),
     recruitingRecordId: text("recruiting_record_id").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),

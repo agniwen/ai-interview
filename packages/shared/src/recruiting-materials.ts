@@ -1,3 +1,13 @@
+export {
+  incomeProofTypeValues,
+  incomeProofTypeLabels,
+  recruitingMaterialMetadataSchema,
+} from "@app/db-schema/recruiting-materials";
+export type {
+  IncomeProofType,
+  RecruitingMaterialMetadata,
+} from "@app/db-schema/recruiting-materials";
+
 export const RECRUITING_MATERIAL_MAX_BYTES = 20 * 1024 * 1024;
 export const RECRUITING_MATERIAL_MAX_COUNT = 10;
 

@@ -13,6 +13,7 @@ const mocks = {
   removeMaterial: vi.fn<MaterialsRouteDependencies["removeMaterial"]>(),
   resolveRecruitingVisibilityScope:
     vi.fn<MaterialsRouteDependencies["resolveRecruitingVisibilityScope"]>(),
+  updateMaterialMetadata: vi.fn<MaterialsRouteDependencies["updateMaterialMetadata"]>(),
   uploadMaterial: vi.fn<MaterialsRouteDependencies["uploadMaterial"]>(),
 };
 const materialsRouter = createMaterialsRouter({
@@ -74,14 +75,20 @@ describe("recruiting materials HTTP access", () => {
     });
   });
 
-  it.each(["read", "create", "delete"])("enforces offer %s permission", async (action) => {
-    const method = { create: "POST", delete: "DELETE", read: "GET" }[action];
-    const url = action === "delete" ? "/candidate/materials/file-id" : "/candidate/materials";
-    const response = await app().request(url, { headers: { "x-deny": action }, method });
-    expect(response.status).toBe(403);
-    expect(mocks.uploadMaterial).not.toHaveBeenCalled();
-    expect(mocks.removeMaterial).not.toHaveBeenCalled();
-  });
+  it.each(["read", "create", "delete", "update"])(
+    "enforces offer %s permission",
+    async (action) => {
+      const method = { create: "POST", delete: "DELETE", read: "GET", update: "PATCH" }[action];
+      const url =
+        action === "delete" || action === "update"
+          ? "/candidate/materials/file-id"
+          : "/candidate/materials";
+      const response = await app().request(url, { headers: { "x-deny": action }, method });
+      expect(response.status).toBe(403);
+      expect(mocks.uploadMaterial).not.toHaveBeenCalled();
+      expect(mocks.removeMaterial).not.toHaveBeenCalled();
+    },
+  );
 
   it("downloads arbitrary files without rendering active content", async () => {
     // SAFETY: Download consumes only fileName and storageKey from this material fixture.
@@ -108,5 +115,79 @@ describe("recruiting materials HTTP access", () => {
     const response = await app().request("/candidate/materials", { body, method: "POST" });
     expect(response.status).toBe(400);
     expect(mocks.uploadMaterial).not.toHaveBeenCalled();
+  });
+});
+
+const metadataUrl = "/candidate/materials/file-id";
+function metadataRequest(value: { incomeType: string; notes: string }) {
+  return {
+    body: JSON.stringify(value),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  };
+}
+
+it("saves metadata only for the visible workspace record", async () => {
+  mocks.updateMaterialMetadata.mockResolvedValue({ id: "file-id" });
+  const metadata = { incomeType: "stock", notes: "归属期说明\n第二行" };
+  const response = await app().request(metadataUrl, metadataRequest(metadata));
+  expect(response.status).toBe(200);
+  expect(mocks.updateMaterialMetadata).toHaveBeenCalledWith(
+    { actorId: "hr", organizationId: "org", recruitingRecordId: "candidate" },
+    "file-id",
+    metadata,
+  );
+});
+
+it.each([
+  { incomeType: "invalid", notes: "" },
+  { incomeType: "bonus", notes: "字".repeat(501) },
+])("rejects invalid attachment metadata", async (metadata) => {
+  const response = await app().request(metadataUrl, metadataRequest(metadata));
+  expect(response.status).toBe(400);
+  expect(mocks.updateMaterialMetadata).not.toHaveBeenCalled();
+});
+
+it("does not update an invisible record", async () => {
+  mocks.loadResumeDetail.mockResolvedValue(null);
+  const response = await app().request(
+    metadataUrl,
+    metadataRequest({ incomeType: "bonus", notes: "" }),
+  );
+  expect(response.status).toBe(404);
+  expect(mocks.updateMaterialMetadata).not.toHaveBeenCalled();
+});
+
+it("passes uploaded file metadata to persistence", async () => {
+  const body = new FormData();
+  body.append("file", new File(["data"], "income.pdf"));
+  body.append("incomeType", "annual_bonus");
+  body.append("notes", "年度奖金");
+  mocks.uploadMaterial.mockResolvedValue({ id: "00000000-0000-0000-0000-000000000001" });
+  const response = await app().request("/candidate/materials", { body, method: "POST" });
+  expect(response.status).toBe(201);
+  expect(mocks.uploadMaterial).toHaveBeenCalledWith(expect.anything(), expect.any(File), {
+    incomeType: "annual_bonus",
+    notes: "年度奖金",
+  });
+});
+
+it("accepts exactly 500 characters in attachment notes", async () => {
+  const metadata = { incomeType: "bonus", notes: "字".repeat(500) };
+  mocks.updateMaterialMetadata.mockResolvedValue({ id: "file-id" });
+  const response = await app().request(metadataUrl, metadataRequest(metadata));
+  expect(response.status).toBe(200);
+  expect(mocks.updateMaterialMetadata).toHaveBeenCalledWith(expect.anything(), "file-id", metadata);
+});
+
+it("accepts uploads without type or notes", async () => {
+  const body = new FormData();
+  body.append("file", new File(["data"], "income.pdf"));
+  mocks.uploadMaterial.mockResolvedValue({ id: "00000000-0000-0000-0000-000000000001" });
+  const response = await app().request("/candidate/materials", { body, method: "POST" });
+  expect(response.status).toBe(201);
+  expect(mocks.uploadMaterial).toHaveBeenCalledWith(expect.anything(), expect.any(File), {
+    incomeType: null,
+    notes: "",
   });
 });

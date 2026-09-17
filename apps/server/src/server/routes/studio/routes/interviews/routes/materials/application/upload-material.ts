@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { validateRecruitingMaterialFiles } from "@app/shared/recruiting-materials";
+import type { RecruitingMaterialMetadata } from "@app/shared/recruiting-materials";
 import {
   buildRecruitingMaterialKey,
   putObjectBytes,
@@ -19,6 +20,7 @@ const defaultDependencies = {
 export async function uploadMaterial(
   scope: MaterialScope,
   file: File,
+  metadata?: RecruitingMaterialMetadata,
   dependencies = defaultDependencies,
 ) {
   const validationError = validateRecruitingMaterialFiles([file], 0);
@@ -48,7 +50,9 @@ export async function uploadMaterial(
         contentType: file.type || "application/octet-stream",
         fileName: file.name,
         id,
+        incomeType: metadata?.incomeType ?? null,
         kind: "income_proof",
+        notes: metadata?.notes ?? "",
         organizationId: scope.organizationId,
         recruitingRecordId: scope.recruitingRecordId,
         sizeBytes: file.size,
