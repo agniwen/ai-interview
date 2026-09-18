@@ -59,8 +59,10 @@ const offer: OfferDraftRecord = {
   baseSalary: 30_000,
   bonus: null,
   candidateCounter: null,
+  contentRevision: 1,
   createdAt: "2026-08-18T00:00:00.000Z",
   currency: "CNY",
+  currentApprovalId: null,
   declineReason: null,
   emailRecipient: null,
   emailSentAt: null,
@@ -100,6 +102,7 @@ describe("offerDraftsRouter", () => {
       ["offer", "read"],
       ["offer", "create"],
       ["offer", "update"],
+      ["offer", "delete"],
       ["offer", "update"],
       ["offer", "read"],
       ["offer", "read"],
@@ -117,6 +120,24 @@ describe("offerDraftsRouter", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([offer]);
     expect(mocks.listOfferDrafts).toHaveBeenCalledWith(RECORD_ID, ORG_ID);
+  });
+
+  it("voids a historical draft with an explicit actor and preserves the cancel contract", async () => {
+    mocks.deleteOfferDraft.mockResolvedValue(offer);
+    const response = await makeApp().request(`/${RECORD_ID}/offer-drafts/${offer.id}/void`, {
+      method: "POST",
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.deleteOfferDraft).toHaveBeenCalledWith(offer.id, ORG_ID, {
+      operatorId: "operator-1",
+      voidWithHistory: true,
+    });
+    mocks.deleteOfferDraft.mockClear();
+    const cancel = await makeApp().request(`/${RECORD_ID}/offer-drafts/${offer.id}/cancel`, {
+      method: "POST",
+    });
+    expect(cancel.status).toBe(200);
+    expect(mocks.deleteOfferDraft).toHaveBeenCalledWith(offer.id, ORG_ID);
   });
 
   it("loads email defaults from company and linked-job context", async () => {
@@ -172,7 +193,10 @@ describe("offerDraftsRouter", () => {
         method: "POST",
       }),
       await app.request(`/${RECORD_ID}/offer-drafts/${offer.id}`, {
-        body: JSON.stringify({ position: offer.position }),
+        body: JSON.stringify({
+          expectedContentRevision: offer.contentRevision,
+          position: offer.position,
+        }),
         headers: { "Content-Type": "application/json" },
         method: "PATCH",
       }),

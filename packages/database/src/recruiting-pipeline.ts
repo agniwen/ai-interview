@@ -1,3 +1,5 @@
+/* oxlint-disable max-lines -- The recruiting pipeline remains one ordered state-machine module; approval invalidation is part of that transaction. */
+import { invalidateOfferApprovalsTx } from "./offer-approval";
 import { RecruitingPipelineError } from "./recruiting-pipeline-errors";
 import { validateEvidence } from "./recruiting-pipeline-evidence";
 import { and, eq, ne } from "drizzle-orm";
@@ -335,6 +337,9 @@ export async function reopenRecruitingRecordTx(
   }
   const targetEvidence = await reopenInterviewEvidence(tx, input, target);
   const affected = recruitingNodeValues.slice(targetIndex);
+  if (affected.includes("offer")) {
+    await invalidateOfferApprovalsTx(tx, { ...input, reason });
+  }
   const cancelledNotificationIds = await invalidateRecruitingNodeNotificationsTx(
     tx,
     input,
@@ -520,6 +525,7 @@ async function closeLocked(
     throw new RecruitingPipelineError("只有在入职节点确认入职，才能完成招聘。", "invalid");
   }
   const now = input.now ?? new Date();
+  await invalidateOfferApprovalsTx(tx, { ...input, now, reason: input.reason ?? "招聘已结束" });
   if (input.outcome === "hired") {
     const confirmation = {
       actualJoiningDate: joiningDateFromDetails(input.details),

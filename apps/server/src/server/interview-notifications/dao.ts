@@ -44,6 +44,7 @@ const enqueueNotificationEventInputSchema = z
       ai_round: input.scheduleEntryId,
       human_meeting: input.humanMeetingId,
       interview_record: input.interviewRecordId,
+      offer_approval: input.payloadSnapshot.offerApproval?.approvalId,
     } satisfies Record<InterviewNotificationScopeType, string | null | undefined>;
     if (!requiredScopeId[input.scopeType]) {
       context.addIssue({

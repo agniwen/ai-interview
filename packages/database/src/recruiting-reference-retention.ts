@@ -37,6 +37,8 @@ import {
   recruitingNotificationRecipient,
   aiInterviewRound,
   recruitingOffer,
+  recruitingOfferApproval,
+  recruitingOfferApprovalStep,
   recruitingRoundEmailLog,
 } from "@app/db-schema/schema";
 import { getTableName, sql } from "drizzle-orm";
@@ -82,6 +84,8 @@ const recruitingTables = [
   recruitingNotificationRecipient,
   aiInterviewRound,
   recruitingOffer,
+  recruitingOfferApproval,
+  recruitingOfferApprovalStep,
   recruitingRoundEmailLog,
 ].map(getTableName);
 

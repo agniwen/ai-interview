@@ -50,6 +50,9 @@ export const activeInterviewNotificationEventStatuses = [
 ] as const;
 
 export const interviewNotificationEventTypeValues = [
+  "offer_approval_pending",
+  "offer_approval_result",
+  "offer_approval_cancelled",
   "ai_interview_invited",
   "ai_invitation_accepted",
   "ai_invitation_declined",
@@ -93,6 +96,7 @@ export const aiInvitationExceptionTypeSchema = z.enum(aiInvitationExceptionTypeV
 export type AiInvitationExceptionType = z.infer<typeof aiInvitationExceptionTypeSchema>;
 
 export const interviewNotificationScopeTypeValues = [
+  "offer_approval",
   "interview_record",
   "ai_round",
   "human_meeting",
@@ -125,6 +129,7 @@ export const interviewNotificationChannelSchema = z.enum(interviewNotificationCh
 export type InterviewNotificationChannel = z.infer<typeof interviewNotificationChannelSchema>;
 
 export const interviewNotificationAudienceTypeValues = [
+  "offer_approval_user",
   "candidate",
   "selected_hr_user",
   "initiator_fallback",
@@ -277,6 +282,14 @@ export const interviewNotificationPayloadSnapshotSchema = z.object({
     .optional(),
   missingParticipantNames: z.array(z.string()).optional(),
   occurredAt: z.string().optional(),
+  offerApproval: z
+    .object({
+      approvalId: z.string(),
+      recipientUserId: z.string(),
+      status: z.string(),
+      stepId: z.string().nullable(),
+    })
+    .optional(),
   oldInterviewEndTime: z.string().optional(),
   oldInterviewStartTime: z.string().optional(),
   operatorName: z.string().optional(),

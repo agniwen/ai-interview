@@ -70,6 +70,11 @@ export const WORKSPACE_PERMISSION_GROUPS = [
     description: "招聘主流程和候选人资料。",
     resources: [
       {
+        actions: ["create", "read", "decide", "manage"] as const,
+        key: "offerApproval",
+        label: "Offer 审批",
+      },
+      {
         actions: ["create", "read", "update", "delete"] as const,
         key: "resumeLibrary",
         label: "招聘台",

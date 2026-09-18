@@ -1,3 +1,4 @@
+import { offerApprovalsRouter } from "./routes/offer-approvals/route";
 import { factory } from "../../factory";
 import { departmentsRouter } from "./routes/departments/route";
 import { studioCalendarRouter } from "./routes/calendar/route";
@@ -17,6 +18,7 @@ import { workspaceRouter } from "./routes/workspace/route";
 // All /studio/* sub-routes mount here; the /w/:slug aggregator owns auth and scope.
 export const studioRouter = factory
   .createApp()
+  .route("/offer-approvals", offerApprovalsRouter)
   .route("/calendar", studioCalendarRouter)
   .route("/interviews", studioInterviewsRouter)
   .route("/resume-pool", resumePoolRouter)

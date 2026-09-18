@@ -14,6 +14,7 @@ import {
   recruitingNotificationDelivery,
   recruitingNotificationEvent,
   recruitingRecord,
+  recruitingOfferApproval,
   recruitingResumeEvaluation,
   recruitingUploadBatchItem,
   recruitingNodeValues,
@@ -600,6 +601,14 @@ export function deleteRecruitingRecords(
     const removed = checked.map((r) => r.id);
     if (!removed.length) {
       return [];
+    }
+    const approvalHistory = await tx
+      .select({ id: recruitingOfferApproval.id })
+      .from(recruitingOfferApproval)
+      .where(inArray(recruitingOfferApproval.recruitingRecordId, removed))
+      .limit(1);
+    if (approvalHistory.length) {
+      throw new Error("该招聘记录有 Offer 审批历史，请使用结束招聘，不能删除。");
     }
     await tx
       .update(recruitingRecord)

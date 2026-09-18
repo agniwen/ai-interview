@@ -657,7 +657,10 @@ export function patchOfferDraft(
   slug: string,
   candidateId: string,
   draftId: string,
-  input: Partial<OfferDraftInput>,
+  input: Partial<OfferDraftInput> & {
+    expectedContentRevision: number;
+    invalidateApproval?: boolean;
+  },
 ): Promise<OfferDraftRecord> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].$patch({

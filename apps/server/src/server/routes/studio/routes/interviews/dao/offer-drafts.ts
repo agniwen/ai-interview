@@ -1,3 +1,13 @@
+/* oxlint-disable complexity, no-nested-ternary, unicorn/prefer-ternary, anti-slop/require-safety-comment-for-type-assertion -- Offer edits keep version checks, approval invalidation, and field updates in one lock-protected transaction. */
+import { publishOfferTx } from "../../offer-approvals/application/publish-offer";
+import { OfferApprovalError, hashRequest } from "../../offer-approvals/dao";
+import { invalidateOfferApprovalsTx, recordApprovalEventTx } from "@app/database/offer-approval";
+import {
+  recruitingOfferApproval,
+  recruitingNodeState,
+  recruitingFulfillment,
+  recruitingOffer,
+} from "@app/db-schema/schema";
 import { isOfferExpired, offerExpiryEndOfDay } from "@app/shared/offer-expiry";
 import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import type { RecruitingTransaction as Tx } from "@app/database/recruiting-records";
@@ -7,7 +17,6 @@ import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
-import { recruitingNodeState, recruitingFulfillment, recruitingOffer } from "@app/db-schema/schema";
 import type { OfferDraftInput } from "@app/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import { mergeCandidateExpectationsTx } from "./candidate-expectations";
@@ -18,22 +27,15 @@ function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
 
-// 日期字段 patch helper：input 传新值就用新值，否则退回 existing 的 ISO 字符串再转回 Date。
-// Patch-merge helper for nullable Date columns: input wins; existing reused if absent.
-function resolveDateField(next: string | null | undefined, current: string | null): Date | null {
-  if (next) {
-    return new Date(next);
-  }
-  return current ? new Date(current) : null;
-}
-
 function toRecord(row: typeof recruitingOffer.$inferSelect): OfferDraftRecord {
   return {
     baseSalary: row.baseSalary,
     bonus: row.bonus,
     candidateCounter: row.candidateCounter,
+    contentRevision: row.contentRevision,
     createdAt: serializeDate(row.createdAt) ?? new Date().toISOString(),
     currency: row.currency,
+    currentApprovalId: row.currentApprovalId,
     declineReason: row.declineReason,
     emailRecipient: row.emailRecipient,
     emailSentAt: serializeDate(row.emailSentAt),
@@ -178,12 +180,12 @@ export async function createOfferDraft(
       notes: input.notes ?? null,
       organizationId,
       position: input.position,
-      publicToken: sendImmediately ? crypto.randomUUID() : null,
-      publishedAt: sendImmediately ? now : null,
-      publishedBy: sendImmediately ? (operatorId ?? null) : null,
+      publicToken: null,
+      publishedAt: null,
+      publishedBy: null,
       recruitingRecordId: interviewRecordId,
-      sentAt: sendImmediately ? now : null,
-      status: sendImmediately ? "sent" : "draft",
+      sentAt: null,
+      status: "draft",
       updatedAt: now,
       version: Math.max(0, ...previousOffers.map((offer) => offer.version)) + 1,
     });
@@ -215,7 +217,7 @@ export async function createOfferDraft(
       organizationId,
       recordId: interviewRecordId,
       result: null,
-      status: sendImmediately ? "awaiting_response" : "awaiting_send",
+      status: "awaiting_send",
     });
     const [created] = await tx
       .select()
@@ -225,7 +227,9 @@ export async function createOfferDraft(
     if (!created) {
       throw new Error("创建后查询失败");
     }
-    return toRecord(created);
+    return toRecord(
+      sendImmediately ? await publishOfferTx(tx, parent, created, operatorId ?? null) : created,
+    );
   });
 }
 
@@ -234,7 +238,11 @@ export async function createOfferDraft(
 export interface EditDraftOptions {
   draftId: string;
   organizationId: string;
-  input: Partial<OfferDraftInput>;
+  input: Partial<OfferDraftInput> & {
+    expectedContentRevision?: number;
+    invalidateApproval?: boolean;
+  };
+  operatorId?: string | null;
 }
 
 async function lockOfferContext(
@@ -280,6 +288,7 @@ export async function editOfferDraft({
   draftId,
   organizationId,
   input,
+  operatorId = null,
 }: EditDraftOptions): Promise<OfferDraftRecord> {
   const now = new Date();
 
@@ -292,21 +301,59 @@ export async function editOfferDraft({
     if (existing.status !== "draft") {
       throw new OfferDraftError("只有草稿状态的 Offer 可以编辑", 400);
     }
+    if (input.expectedContentRevision !== existing.contentRevision) {
+      throw new OfferApprovalError("内容修订已变化，请刷新后编辑");
+    }
+    const [approval] = existing.currentApprovalId
+      ? await tx
+          .select()
+          .from(recruitingOfferApproval)
+          .where(eq(recruitingOfferApproval.id, existing.currentApprovalId))
+          .for("update")
+      : [];
+    if (approval?.status === "pending") {
+      throw new OfferApprovalError("审批中不可编辑，请先撤回审批");
+    }
     // existing.expiresAt / joiningDate 是 Date，resolveDateField 期待 string | null。
     // existing.expiresAt / joiningDate are Date columns; resolveDateField wants strings.
     const expiresAt = input.expiresAt === undefined ? existing.expiresAt : input.expiresAt;
-    const existingJoiningDateIso = existing.joiningDate ? existing.joiningDate.toISOString() : null;
+    const next = {
+      baseSalary: input.baseSalary ?? existing.baseSalary,
+      bonus: input.bonus === undefined ? existing.bonus : input.bonus,
+      currency: input.currency ?? existing.currency,
+      equity: input.equity === undefined ? existing.equity : input.equity,
+      expiresAt: expiresAt ? offerExpiryEndOfDay(expiresAt) : null,
+      joiningDate:
+        input.joiningDate === undefined
+          ? existing.joiningDate
+          : input.joiningDate
+            ? new Date(input.joiningDate)
+            : null,
+      notes: input.notes === undefined ? existing.notes : input.notes,
+      position: input.position ?? existing.position,
+    };
+    const previous = Object.fromEntries(
+      Object.keys(next).map((key) => [key, existing[key as keyof typeof next]]),
+    );
+    const changed = hashRequest(next) !== hashRequest(previous);
+    if (changed && approval?.status === "approved" && !approval.invalidatedAt) {
+      if (!input.invalidateApproval) {
+        throw new OfferApprovalError("修改后需重新审批，请明确确认失效并编辑");
+      }
+      await invalidateOfferApprovalsTx(tx, {
+        now,
+        offerId: existing.id,
+        operatorId,
+        organizationId,
+        reason: "确认失效并编辑 Offer",
+        recordId: existing.recruitingRecordId,
+      });
+    }
     await tx
       .update(recruitingOffer)
       .set({
-        baseSalary: input.baseSalary ?? existing.baseSalary,
-        bonus: input.bonus ?? existing.bonus,
-        currency: input.currency ?? existing.currency,
-        equity: input.equity ?? existing.equity,
-        expiresAt: expiresAt ? offerExpiryEndOfDay(expiresAt) : null,
-        joiningDate: resolveDateField(input.joiningDate, existingJoiningDateIso),
-        notes: input.notes ?? existing.notes,
-        position: input.position ?? existing.position,
+        ...next,
+        contentRevision: existing.contentRevision + (changed ? 1 : 0),
         updatedAt: now,
       })
       .where(eq(recruitingOffer.id, draftId));
@@ -336,36 +383,7 @@ export async function sendOfferDraft(
 ): Promise<OfferDraftRecord> {
   return await db.transaction(async (tx) => {
     const { draft, record } = await lockOfferContext(tx, draftId, organizationId);
-    if (draft.status !== "draft") {
-      throw new OfferDraftError("只有草稿状态的 Offer 可以确认发布", 400);
-    }
-    const now = new Date();
-    const [updated] = await tx
-      .update(recruitingOffer)
-      .set({
-        publicToken: crypto.randomUUID(),
-        publishedAt: now,
-        publishedBy: operatorId,
-        sentAt: now,
-        status: "sent",
-        updatedAt: now,
-      })
-      .where(eq(recruitingOffer.id, draftId))
-      .returning();
-    await updateRecruitingNodeTx(tx, {
-      effectiveOfferId: draftId,
-      expectedEffectiveId: draftId,
-      node: "offer",
-      now,
-      operatorId: null,
-      organizationId,
-      recordId: record.id,
-      status: "awaiting_response",
-    });
-    if (!updated) {
-      throw new Error("发出后查询失败");
-    }
-    return toRecord(updated);
+    return toRecord(await publishOfferTx(tx, record, draft, operatorId));
   });
 }
 
@@ -407,7 +425,8 @@ export async function respondOfferDraft(
       throw new OfferDraftError("只有已发布、待回复的 Offer 可以记录响应", 400);
     }
     const now = new Date();
-    if (isOfferExpired(draft.expiresAt, now)) {
+    const expiry = draft.publishedSnapshot ? draft.publishedSnapshot.expiresAt : draft.expiresAt;
+    if (isOfferExpired(expiry ? new Date(expiry) : null, now)) {
       throw new OfferDraftError("当前 Offer 已过期，请联系招聘负责人。", 409);
     }
     const [updated] = await tx
@@ -447,13 +466,36 @@ export async function respondOfferDraft(
 export async function deleteOfferDraft(
   draftId: string,
   organizationId: string,
+  options: { voidWithHistory?: boolean; operatorId?: string | null } = {},
 ): Promise<OfferDraftRecord> {
   return await db.transaction(async (tx) => {
     const { draft, record } = await lockOfferContext(tx, draftId, organizationId);
     if (draft.status !== "draft" || draft.sentAt !== null) {
       throw new OfferDraftError("Offer 确认发送后不可删除", 409);
     }
+    const history = await tx
+      .select()
+      .from(recruitingOfferApproval)
+      .where(eq(recruitingOfferApproval.offerId, draftId))
+      .for("update");
+    if (history.some((item) => item.status === "pending")) {
+      throw new OfferApprovalError("请先撤回审批后再作废草稿");
+    }
+    if (history.length && !options.voidWithHistory) {
+      throw new OfferApprovalError("该 Offer 有审批历史，请使用作废草稿");
+    }
     const now = new Date();
+    if (history.length) {
+      await invalidateOfferApprovalsTx(tx, {
+        now,
+        offerId: draftId,
+        operatorId: options.operatorId ?? null,
+        organizationId,
+        reason: "Offer 草稿作废",
+        recordId: record.id,
+      });
+      await recordApprovalEventTx(tx, history[0], "offer_draft_voided", options.operatorId ?? null);
+    }
     await tx
       .update(recruitingFulfillment)
       .set({ selectedOfferId: null, updatedAt: now })
@@ -475,11 +517,18 @@ export async function deleteOfferDraft(
       result: null,
       status: "awaiting_send",
     });
-    await tx
-      .delete(recruitingOffer)
-      .where(
-        and(eq(recruitingOffer.id, draftId), eq(recruitingOffer.organizationId, organizationId)),
-      );
+    if (history.length) {
+      await tx
+        .update(recruitingOffer)
+        .set({ status: "superseded", updatedAt: now })
+        .where(eq(recruitingOffer.id, draftId));
+    } else {
+      await tx
+        .delete(recruitingOffer)
+        .where(
+          and(eq(recruitingOffer.id, draftId), eq(recruitingOffer.organizationId, organizationId)),
+        );
+    }
     return toRecord(draft);
   });
 }

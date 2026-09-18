@@ -67,6 +67,13 @@ const navGroups: NavGroup[] = [
   {
     items: [
       {
+        action: "offerApprovals",
+        icon: IconClipboardList,
+        path: "/studio/offer-approvals",
+        resource: "page",
+        title: "审批",
+      },
+      {
         action: "resumes",
         icon: IconUsers,
         path: "/studio/resumes",
