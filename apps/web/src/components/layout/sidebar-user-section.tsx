@@ -1,6 +1,12 @@
 "use client";
 
-import { IconHome, IconLogout, IconShieldCheck, IconUser } from "@tabler/icons-react";
+import {
+  IconHome,
+  IconLogout,
+  IconPlugConnected,
+  IconShieldCheck,
+  IconUser,
+} from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -79,7 +85,7 @@ function SidebarUserMenuLinks({
       <DropdownMenuItem
         render={
           <Link to="/mcp">
-            <IconShieldCheck className="mr-2 size-4" />
+            <IconPlugConnected className="mr-2 size-4" />
             MCP 接入
           </Link>
         }
