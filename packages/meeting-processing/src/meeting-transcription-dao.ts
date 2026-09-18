@@ -1,6 +1,7 @@
 /* oxlint-disable max-lines, unicorn/consistent-function-scoping -- the DAO factory keeps transaction helpers beside the injected database. */
 import { and, desc, eq, inArray, isNotNull, max, ne, sql } from "drizzle-orm";
 import {
+  humanInterviewMeeting,
   meetingAuditLog,
   meetingProcessingRun,
   meetingSession,
@@ -266,6 +267,8 @@ export function createMeetingTranscriptionDao(
     if (
       !(
         meeting &&
+        meeting.manifestSha256 &&
+        !(meeting.sourceKind === "livekit_realtime" && meeting.activeTranscriptRevisionId) &&
         meeting.liveTranscriptDraft?.provider !== "deepgram" &&
         policy &&
         policyAllows(policy, provider) &&
@@ -336,6 +339,12 @@ export function createMeetingTranscriptionDao(
     }
     const jobs: MeetingTranscriptionJobData[] = [];
     for (const meeting of meetings) {
+      if (
+        !meeting.manifestSha256 ||
+        (meeting.sourceKind === "livekit_realtime" && meeting.activeTranscriptRevisionId)
+      ) {
+        continue;
+      }
       const policy = policyByOrganization.get(meeting.organizationId);
       const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
       if (
@@ -739,6 +748,7 @@ export function createMeetingTranscriptionDao(
       warning?: string;
     },
   ): Promise<boolean> {
+    // oxlint-disable-next-line complexity -- policy, source quality and human revision fencing are one atomic publication boundary.
     return await db.transaction(async (tx) => {
       const [policy] = await tx
         .select()
@@ -756,6 +766,8 @@ export function createMeetingTranscriptionDao(
       }
       const [meeting] = await tx
         .select({
+          reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
+          sourceKind: meetingSession.sourceKind,
           status: meetingSession.status,
           title: meetingSession.title,
           transcriptionRunId: meetingSession.transcriptionRunId,
@@ -773,6 +785,16 @@ export function createMeetingTranscriptionDao(
       if (meeting?.status !== "ready" || meeting.transcriptionRunId !== input.processingRunId) {
         return false;
       }
+      const [reviewHead] = meeting.reviewTranscriptRevisionId
+        ? await tx
+            .select({ kind: meetingTranscriptRevision.kind })
+            .from(meetingTranscriptRevision)
+            .where(eq(meetingTranscriptRevision.id, meeting.reviewTranscriptRevisionId))
+        : [];
+      const preserveHumanReview = reviewHead?.kind === "human";
+      const needsReview =
+        meeting.sourceKind === "livekit_realtime" &&
+        (Boolean(input.warning) || preserveHumanReview);
       const [existing] = await tx
         .select({ id: meetingTranscriptRevision.id })
         .from(meetingTranscriptRevision)
@@ -795,6 +817,7 @@ export function createMeetingTranscriptionDao(
           pipelineVersion: input.pipelineVersion,
           processingRunId: input.processingRunId,
           provider: input.provider,
+          quality: needsReview ? "needs_review" : "eligible",
           region: input.region,
           revision: Number(latest?.revision ?? 0) + 1,
           sourceManifestSha256: input.sourceManifestSha256,
@@ -814,15 +837,32 @@ export function createMeetingTranscriptionDao(
         .update(meetingProcessingRun)
         .set({ finishedAt: new Date(), status: "succeeded" })
         .where(eq(meetingProcessingRun.id, input.processingRunId));
+      let reviewRevisionId = needsReview ? revisionId : null;
+      if (preserveHumanReview) {
+        reviewRevisionId = meeting.reviewTranscriptRevisionId;
+      }
       await tx
         .update(meetingSession)
         .set({
-          activeTranscriptRevisionId: revisionId,
-          transcriptionError: input.warning ?? null,
+          activeTranscriptRevisionId: needsReview ? null : revisionId,
+          reviewTranscriptRevisionId: reviewRevisionId,
+          transcriptionError: preserveHumanReview
+            ? "录音补救已完成，已保留人工修订，请复核材料后填写评价。"
+            : (input.warning ?? null),
           transcriptionRunId: null,
-          transcriptionStatus: "ready",
+          transcriptionStatus: needsReview ? "failed" : "ready",
         })
         .where(eq(meetingSession.id, input.meetingId));
+      // Recording admission warnings are provisional. Reflect the final recovery result.
+      await tx
+        .update(humanInterviewMeeting)
+        .set({ recordingError: input.warning ?? null })
+        .where(
+          and(
+            eq(humanInterviewMeeting.processingMeetingSessionId, input.meetingId),
+            eq(humanInterviewMeeting.organizationId, input.organizationId),
+          ),
+        );
       await dependencies.rebuildMeetingSearchProjection(tx, input);
       return true;
     });

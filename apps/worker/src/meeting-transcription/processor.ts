@@ -1,10 +1,6 @@
 // oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
-import { randomUUID } from "node:crypto";
-import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import {
+  cropRecoveryChunks,
   assertMeetingTranscriptionFfmpegAvailable,
   candidateExclusionRanges,
   isMixedMeetingRecordingSource,
@@ -12,6 +8,11 @@ import {
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
 } from "@app/meeting-media";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type {
   createMeetingTranscriptionDao,
@@ -72,7 +73,7 @@ interface SourceAsset {
 interface TranscriptionSource {
   assets: SourceAsset[];
   id: string;
-  manifestSha256: string;
+  manifestSha256: string | null;
   organizationId: string;
 }
 
@@ -102,6 +103,7 @@ function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscripti
 }
 
 export interface MeetingTranscriptionDependencies {
+  cropRecoveryChunks?: typeof cropRecoveryChunks;
   claim: ReturnType<typeof createMeetingTranscriptionDao>["claimMeetingTranscriptionRun"];
   claimChunk: ReturnType<typeof createMeetingTranscriptionDao>["claimMeetingTranscriptionChunk"];
   createRunId: () => string;
@@ -585,7 +587,13 @@ async function runMeetingTranscriptionProcessingPromise(
           startMs: 0,
         });
       }
-      for (const chunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
+      const recoveryChunks: FinalTranscriptionAudioChunk[] = [];
+      for (const mixedChunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
+        recoveryChunks.push(
+          ...(await (dependencies.cropRecoveryChunks ?? cropRecoveryChunks)(mixedChunk, ranges)),
+        );
+      }
+      for (const chunk of recoveryChunks) {
         if (!ranges.some((range) => range.startMs < chunk.endMs && range.endMs > chunk.startMs)) {
           continue;
         }

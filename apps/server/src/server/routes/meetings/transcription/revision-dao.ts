@@ -19,7 +19,7 @@ import { meetingTranscriptRevisionProviderSchema } from "@app/shared/meeting-tra
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 
 const TRANSCRIPT_TURN_INSERT_BATCH_SIZE = 1000;
-const transcriptRevisionKindSchema = z.enum(["final", "human"]);
+const transcriptRevisionKindSchema = z.enum(["final", "human", "realtime"]);
 const transcriptTurnTrackSchema = z.enum(["local", "remote"]);
 
 async function serializeTranscriptRevision(
@@ -63,15 +63,17 @@ export async function loadActiveMeetingTranscript(input: {
   organizationId: string;
 }): Promise<FinalMeetingTranscriptRevision | null> {
   const meeting = await db.query.meetingSession.findFirst({
-    columns: { activeTranscriptRevisionId: true },
+    columns: { activeTranscriptRevisionId: true, reviewTranscriptRevisionId: true },
     where: { id: input.meetingId, organizationId: input.organizationId },
   });
-  if (!meeting?.activeTranscriptRevisionId) {
+  const displayedRevisionId =
+    meeting?.activeTranscriptRevisionId ?? meeting?.reviewTranscriptRevisionId;
+  if (!displayedRevisionId) {
     return null;
   }
   const revision = await db.query.meetingTranscriptRevision.findFirst({
     where: {
-      id: meeting.activeTranscriptRevisionId,
+      id: displayedRevisionId,
       meetingId: input.meetingId,
       organizationId: input.organizationId,
     },
@@ -87,11 +89,13 @@ export async function createHumanMeetingTranscriptRevision(input: {
   organizationId: string;
   confirmedRoles?: Record<string, "candidate" | "interviewer" | "unknown">;
 }): Promise<FinalMeetingTranscriptRevision | "conflict" | "invalid-range" | "not-found"> {
+  // oxlint-disable-next-line complexity -- version, attribution and immutable source checks share one transaction.
   const result = await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
         activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
         intelligenceRunId: meetingSession.intelligenceRunId,
+        reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
       })
       .from(meetingSession)
       .where(
@@ -104,7 +108,10 @@ export async function createHumanMeetingTranscriptRevision(input: {
     if (!meeting) {
       return { status: "not-found" as const };
     }
-    if (meeting.activeTranscriptRevisionId !== input.correction.sourceRevisionId) {
+    if (
+      (meeting.activeTranscriptRevisionId ?? meeting.reviewTranscriptRevisionId) !==
+      input.correction.sourceRevisionId
+    ) {
       return { status: "conflict" as const };
     }
     const [source] = await tx
@@ -173,9 +180,12 @@ export async function createHumanMeetingTranscriptRevision(input: {
         pipelineVersion: source.pipelineVersion,
         processingRunId: null,
         provider: source.provider,
+        quality: source.quality,
+        realtimeRunId: source.realtimeRunId,
         region: source.region,
         revision: Number(latest?.revision ?? 0) + 1,
         sourceManifestSha256: source.sourceManifestSha256,
+        sourceSnapshot: source.sourceSnapshot,
       })
       .returning();
     if (!revision) {
@@ -228,7 +238,9 @@ export async function createHumanMeetingTranscriptRevision(input: {
     await tx
       .update(meetingSession)
       .set({
-        activeTranscriptRevisionId: revisionId,
+        ...(source.quality === "needs_review"
+          ? { reviewTranscriptRevisionId: revisionId }
+          : { activeTranscriptRevisionId: revisionId }),
         intelligenceError: null,
         intelligenceRunId: null,
         intelligenceStatus: "pending",
@@ -262,12 +274,14 @@ export async function createInitialHumanMeetingTranscriptRevision(input: {
   organizationId: string;
   text: string;
 }): Promise<FinalMeetingTranscriptRevision | "conflict" | "not-found" | "not-ready"> {
+  // oxlint-disable-next-line complexity -- version, attribution and immutable source checks share one transaction.
   const result = await db.transaction(async (tx) => {
     const [meeting] = await tx
       .select({
         activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
         intelligenceRunId: meetingSession.intelligenceRunId,
         manifestSha256: meetingSession.manifestSha256,
+        reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
       })
       .from(meetingSession)
       .where(
@@ -280,12 +294,19 @@ export async function createInitialHumanMeetingTranscriptRevision(input: {
     if (!meeting) {
       return { status: "not-found" as const };
     }
+    if (meeting.reviewTranscriptRevisionId) {
+      // Existing review materials must be edited through revision-bound corrections.
+      return { status: "conflict" as const };
+    }
     const [activeRevision] = await tx
       .select()
       .from(meetingTranscriptRevision)
       .where(
         and(
-          eq(meetingTranscriptRevision.id, meeting.activeTranscriptRevisionId ?? ""),
+          eq(
+            meetingTranscriptRevision.id,
+            meeting.activeTranscriptRevisionId ?? meeting.reviewTranscriptRevisionId ?? "",
+          ),
           eq(meetingTranscriptRevision.meetingId, input.meetingId),
           eq(meetingTranscriptRevision.organizationId, input.organizationId),
         ),
@@ -350,9 +371,14 @@ export async function createInitialHumanMeetingTranscriptRevision(input: {
         pipelineVersion: source.pipelineVersion,
         processingRunId: null,
         provider: source.provider,
+        quality: activeRevision?.quality ?? "legacy",
+        realtimeRunId: activeRevision?.realtimeRunId,
         region: source.region,
         revision: Number(latest?.revision ?? 0) + 1,
-        sourceManifestSha256: activeRevision?.sourceManifestSha256 ?? meeting.manifestSha256,
+        sourceManifestSha256: activeRevision?.sourceSnapshot
+          ? null
+          : (activeRevision?.sourceManifestSha256 ?? meeting.manifestSha256),
+        sourceSnapshot: activeRevision?.sourceSnapshot,
       })
       .returning();
     if (!revision) {
@@ -394,13 +420,15 @@ export async function createInitialHumanMeetingTranscriptRevision(input: {
     await tx
       .update(meetingSession)
       .set({
-        activeTranscriptRevisionId: revisionId,
+        ...(activeRevision?.quality === "needs_review"
+          ? { reviewTranscriptRevisionId: revisionId }
+          : { activeTranscriptRevisionId: revisionId }),
         intelligenceError: null,
         intelligenceRunId: null,
         intelligenceStatus: "pending",
         transcriptionError: null,
         transcriptionRunId: null,
-        transcriptionStatus: "ready",
+        transcriptionStatus: activeRevision?.quality === "needs_review" ? "failed" : "ready",
       })
       .where(
         and(

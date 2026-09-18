@@ -65,6 +65,8 @@ class STTOptions:
     sample_rate: int = 16000
     workspace: str | None = None
     vocabulary_id: str | None = None
+    vocabulary: dict[str, int] | None = None
+    context: list[str] | None = None
     disfluency_removal_enabled: bool = False
     semantic_punctuation_enabled: bool = False
     punctuation_prediction_enabled: bool = True
@@ -91,6 +93,8 @@ class STTOptions:
             "heartbeat": True,
             "language_hints": [self.language],
         }
+        if self.vocabulary:
+            parameters["vocabulary"] = self.vocabulary
         if self.vocabulary_id is not None:
             parameters["vocabulary_id"] = self.vocabulary_id
 
@@ -117,7 +121,18 @@ class STTOptions:
                 "function": "recognition",
                 "model": self.model,
                 "parameters": parameters,
-                "input": {},
+                "input": {
+                    "context": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "input_text", "text": "\n".join(self.context)}
+                            ],
+                        }
+                    ]
+                }
+                if self.context
+                else {},
             },
         }
 
@@ -149,6 +164,8 @@ class STT(stt.STT):
         punctuation_prediction_enabled: bool = True,
         inverse_text_normalization_enabled: bool = True,
         vocabulary_id: str | None = None,
+        vocabulary: dict[str, int] | None = None,
+        context: list[str] | None = None,
         workspace: str | None = None,
         http_session: aiohttp.ClientSession | None = None,
     ) -> None:
@@ -177,6 +194,8 @@ class STT(stt.STT):
             punctuation_prediction_enabled=punctuation_prediction_enabled,
             inverse_text_normalization_enabled=inverse_text_normalization_enabled,
             vocabulary_id=vocabulary_id,
+            vocabulary=vocabulary,
+            context=context,
             workspace=workspace,
         )
         self._session = http_session
@@ -244,6 +263,9 @@ class SpeechStream(stt.SpeechStream):
         self._language: LanguageCode = LanguageCode(opts.language)
         self._speaking = False
         self._request_id = utils.shortuuid()
+        self.final_handler = None
+        self.interim_handler = None
+        self.sent_ms = 0.0
         self._session = http_session
 
     async def _connect_ws(self) -> aiohttp.ClientWebSocketResponse:
@@ -297,6 +319,7 @@ class SpeechStream(stt.SpeechStream):
 
                 for frame in frames:
                     await ws.send_bytes(frame.data.tobytes())
+                    self.sent_ms += frame.samples_per_channel / frame.sample_rate * 1000
 
                 if has_ended:
                     await ws.send_json(self._opts.get_finish_task_params(task_id))
@@ -414,6 +437,10 @@ class SpeechStream(stt.SpeechStream):
             self._speaking = True
 
         if text and not is_sentence_end:
+            if self.interim_handler is not None:
+                self.interim_handler(
+                    header.get("task_id", self._request_id), transcript
+                )
             self._event_ch.send_nowait(
                 stt.SpeechEvent(
                     type=stt.SpeechEventType.INTERIM_TRANSCRIPT,
@@ -431,6 +458,8 @@ class SpeechStream(stt.SpeechStream):
             )
 
         if text and is_sentence_end:
+            if self.final_handler is not None:
+                self.final_handler(header.get("task_id", self._request_id), transcript)
             self._event_ch.send_nowait(
                 stt.SpeechEvent(
                     type=stt.SpeechEventType.FINAL_TRANSCRIPT,
@@ -453,6 +482,6 @@ class SpeechStream(stt.SpeechStream):
                 )
             )
             self._speaking = False
-            logger.info("transcription: %s", text)
+            logger.debug("final transcription received")
 
         return False

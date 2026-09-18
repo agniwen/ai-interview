@@ -1,7 +1,7 @@
 import type { Env } from "./type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { requestLogger } from "./middlewares/request-logger";
 import { auth, trustedOrigins } from "../lib/server/auth";
 import { runWithAuthRequestHeaders } from "../lib/server/auth-request-context";
 import { handleServerError } from "./error-handler";
@@ -66,7 +66,7 @@ const apiCors = cors({
 // (auth/admin) belongs inside each router.
 export function createServerApp() {
   const honoApp = new Hono<Env>()
-    .use(logger())
+    .use(requestLogger)
     // Desktop + any cross-origin trusted client: CORS on all /api routes
     // (auth was previously the only path; studio resumes need the same headers).
     .use("/api/*", apiCors)

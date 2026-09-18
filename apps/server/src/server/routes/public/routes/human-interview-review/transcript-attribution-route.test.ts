@@ -107,7 +107,11 @@ describe("transcript attribution HTTP", () => {
       startSeconds: 0.5,
       url: "https://example.test/signed-audio",
     });
-    expect(mocks.asset).toHaveBeenCalledWith("session", "room-file");
+    expect(mocks.asset).toHaveBeenCalledWith(
+      "session",
+      "room-file",
+      expect.objectContaining({ endMs: 2000, startMs: 1000 }),
+    );
     expect(mocks.sign).toHaveBeenCalledWith("room.ogg", 300);
   });
 });

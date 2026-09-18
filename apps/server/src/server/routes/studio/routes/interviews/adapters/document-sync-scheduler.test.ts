@@ -2,6 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { startHumanInterviewDocumentSyncScheduler } from "./document-sync-scheduler";
 afterEach(() => vi.useRealTimers());
 describe("human evaluation document scheduler", () => {
+  it("never polls or schedules timers when disabled for local testing", async () => {
+    vi.useFakeTimers();
+    const processOne = vi.fn(() => Promise.resolve(true));
+    const scheduler = startHumanInterviewDocumentSyncScheduler(processOne, { enabled: false });
+    await scheduler.runOnce();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(processOne).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    await scheduler.close();
+  });
   it("recovers pending work at startup without an HTTP request or manual poll", async () => {
     const processOne = vi.fn(() => Promise.resolve(false));
     const scheduler = startHumanInterviewDocumentSyncScheduler(processOne);

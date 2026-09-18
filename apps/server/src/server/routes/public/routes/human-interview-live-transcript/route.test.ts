@@ -27,6 +27,7 @@ describe("human interview live transcript public route", () => {
     });
     const app = createHumanInterviewLiveTranscriptRouter({
       createAuthorization,
+      loadMode: () => Promise.resolve("legacy"),
       now: () => new Date("2026-08-31T10:00:00.000Z"),
       resolveInvite: vi.fn().mockResolvedValue(scope),
     });
@@ -57,10 +58,12 @@ describe("human interview live transcript public route", () => {
     const createAuthorization = vi.fn();
     const observerApp = createHumanInterviewLiveTranscriptRouter({
       createAuthorization,
+      loadMode: () => Promise.resolve("legacy"),
       resolveInvite: vi.fn().mockResolvedValue({ ...scope, role: "observer" }),
     });
     const earlyApp = createHumanInterviewLiveTranscriptRouter({
       createAuthorization,
+      loadMode: () => Promise.resolve("legacy"),
       now: () => new Date("2026-08-31T10:00:00.000Z"),
       resolveInvite: vi.fn().mockResolvedValue({
         ...scope,
@@ -86,6 +89,7 @@ describe("human interview live transcript public route", () => {
     const release = vi.fn(async () => {});
     const app = createHumanInterviewLiveTranscriptRouter({
       heartbeat,
+      loadMode: () => Promise.resolve("legacy"),
       now: () => new Date("2026-08-31T10:00:00.000Z"),
       release,
       resolveInvite: vi.fn().mockResolvedValue(scope),

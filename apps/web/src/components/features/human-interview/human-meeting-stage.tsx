@@ -136,14 +136,14 @@ export function HumanMeetingStage({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
-  const participants = useParticipants();
+  const participants = useParticipants().filter((participant) => !participant.isAgent);
   const tracks = useTracks(
     [
       { source: Track.Source.ScreenShare, withPlaceholder: false },
       { source: Track.Source.Camera, withPlaceholder: true },
     ],
     { onlySubscribed: false },
-  );
+  ).filter((track) => !track.participant.isAgent);
   const manuallyFocusedTrack = tracks.find(
     (track) => getMeetingTrackKey(track) === focusedTrackKey,
   );
@@ -193,7 +193,7 @@ export function HumanMeetingStage({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Badge variant="secondary">
+          <Badge variant="secondary" aria-label="参会人数">
             <IconUsers data-icon="inline-start" />
             {participants.length}
           </Badge>

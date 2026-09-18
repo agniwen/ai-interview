@@ -1,6 +1,7 @@
 import { and, asc, count, eq, gt, inArray, lt, lte, ne, sql } from "drizzle-orm";
 import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import type { Database } from "@app/database";
+import { humanInterviewEvaluationSubmissionSchema } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interviews";
 import {
   humanInterviewEvaluationDocumentSync,
@@ -99,6 +100,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (!context) {
           throw new Error("同步任务缺少正式提交评价");
         }
+        const evaluation = humanInterviewEvaluationSubmissionSchema.parse(context.evaluation);
         // Editable meeting labels are not template identities. Cancelled rounds
         // and CEO interviews do not consume a business evaluation slot.
         let roundLabel = "CEO面试";
@@ -209,7 +211,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           deadlineAt: now.getTime() + 5 * 60_000,
           documentId: target.documentId,
           documentUrl: target.documentUrl,
-          evaluation: context.evaluation,
+          evaluation,
           leaseOwner,
           ...decision,
           providerId: providerId ?? null,

@@ -10,7 +10,7 @@ import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const mediaState = vi.hoisted(() => ({ sharing: false, source: "camera" }));
+const mediaState = vi.hoisted(() => ({ agent: false, sharing: false, source: "camera" }));
 
 vi.mock("@livekit/components-react", () => ({
   ConnectionQualityIndicator: () => <span aria-label="连接质量" />,
@@ -28,23 +28,38 @@ vi.mock("@livekit/components-react", () => ({
     tracks,
   }: {
     children: React.ReactNode;
-    tracks: { source: string }[];
-  }) => <div data-track-sources={tracks.map((track) => track.source).join(",")}>{children}</div>,
+    tracks: { source: string; participant: { identity: string } }[];
+  }) => (
+    <div
+      data-track-sources={tracks.map((track) => track.source).join(",")}
+      data-track-identities={tracks.map((track) => track.participant.identity).join(",")}
+    >
+      {children}
+    </div>
+  ),
   TrackMutedIndicator: () => <span aria-label="已静音" />,
   TrackToggle: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
-  useParticipants: () => [],
+  useParticipants: () =>
+    mediaState.agent ? [{ isAgent: false }, { isAgent: false }, { isAgent: true }] : [],
   useTrackRefContext: () => ({
     participant: { identity: "interviewer", isLocal: true, metadata: "", name: "面试官" },
     source: mediaState.source,
   }),
-  useTracks: () =>
-    mediaState.sharing
+  useTracks: () => [
+    ...(mediaState.agent
+      ? [
+          { participant: { identity: "collector", isAgent: true }, source: "camera" },
+          { participant: { identity: "collector", isAgent: true }, source: "screen_share" },
+        ]
+      : []),
+    ...(mediaState.sharing
       ? [
           { participant: { identity: "candidate", isLocal: false }, source: "screen_share" },
           { participant: { identity: "candidate", isLocal: false }, source: "camera" },
           { participant: { identity: "interviewer", isLocal: true }, source: "camera" },
         ]
-      : [],
+      : []),
+  ],
 }));
 
 vi.mock("./human-meeting-audio-controls", () => ({
@@ -80,9 +95,50 @@ afterEach(() => {
   vi.unstubAllGlobals();
   mediaState.source = "camera";
   mediaState.sharing = false;
+  mediaState.agent = false;
 });
 
 describe("HumanMeetingStage realtime transcript", () => {
+  it("excludes the background agent from participant count, tiles and focused tracks", () => {
+    mediaState.agent = true;
+    mediaState.sharing = true;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    act(() =>
+      root.render(
+        <HumanMeetingStage
+          canEndMeeting
+          canPublish
+          canUseLiveTranscript
+          canUseVoiceEffects={false}
+          candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
+          inviteToken="invite-1"
+          isEnding={false}
+          onCandidateMaterialsStateChange={() => {}}
+          onEndMeeting={() => {}}
+          onViewModeChange={() => {}}
+          title="真人复面"
+          viewMode="meeting"
+        />,
+      ),
+    );
+    expect(container.querySelector('[aria-label="参会人数"]')?.textContent).toBe("2");
+    const displayedIdentities = [
+      ...container.querySelectorAll<HTMLElement>("[data-track-identities]"),
+    ]
+      .map((element) => element.dataset.trackIdentities)
+      .join(",");
+    expect(displayedIdentities).not.toContain("collector");
+    expect(displayedIdentities).toContain("candidate");
+    expect(displayedIdentities).toContain("interviewer");
+    expect(
+      container.querySelector<HTMLElement>(
+        '[data-slot="meeting-share-main"] [data-track-identities]',
+      )?.dataset.trackIdentities,
+    ).toBe("candidate");
+  });
   it.each([437, 1024])(
     "preserves the stage and shows responsive end confirmation at width %s",
     (width) => {

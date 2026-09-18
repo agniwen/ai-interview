@@ -1,3 +1,4 @@
+import { createMeetingLiveTranscriptHints } from "@app/meeting-live-transcript/hints";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import {
@@ -5,6 +6,7 @@ import {
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
   humanInterviewRound,
+  user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewRecordingTrack } from "@app/db-schema/human-interview-recording";
 import { db } from "../../../../../../lib/server/db/index";
@@ -22,7 +24,9 @@ export async function loadTrackRecordingScope(roomName: string) {
     db
       .select({
         name: recruitingRecordReadModel.candidateName,
+        profile: recruitingRecordReadModel.resumeProfile,
         roundId: humanInterviewMeetingRound.roundId,
+        targetRole: recruitingRecordReadModel.targetRole,
       })
       .from(humanInterviewMeetingRound)
       .innerJoin(
@@ -36,13 +40,22 @@ export async function loadTrackRecordingScope(roomName: string) {
       .where(eq(humanInterviewMeetingRound.meetingId, meeting.id)),
     db
       .select({
+        name: user.name,
         role: humanInterviewMeetingInterviewer.role,
         userId: humanInterviewMeetingInterviewer.userId,
       })
       .from(humanInterviewMeetingInterviewer)
+      .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
       .where(eq(humanInterviewMeetingInterviewer.meetingId, meeting.id)),
   ]);
   return {
+    hints: createMeetingLiveTranscriptHints({
+      candidateName: rounds[0]?.name ?? "",
+      jobDescriptionDepartmentName: null,
+      jobDescriptionName: null,
+      resumeSkills: rounds[0]?.profile?.skills ?? [],
+      targetRole: rounds[0]?.targetRole ?? null,
+    }),
     meeting,
     participants: [
       ...rounds.map((round) => ({
@@ -54,7 +67,7 @@ export async function loadTrackRecordingScope(roomName: string) {
         .filter((person) => person.role !== "observer")
         .map((person) => ({
           identity: `interviewer_${person.userId}`,
-          name: "面试官",
+          name: person.name,
           role: "interviewer" as const,
         })),
     ],
@@ -175,7 +188,7 @@ export async function listTrackRecordingMeetings() {
     .where(
       and(
         isNotNull(humanInterviewMeeting.recordingTracks),
-        isNull(humanInterviewMeeting.processingMeetingSessionId),
+        isNull(humanInterviewMeeting.recordingIngestedAt),
         inArray(humanInterviewMeeting.status, ["in_progress", "ended"]),
       ),
     );

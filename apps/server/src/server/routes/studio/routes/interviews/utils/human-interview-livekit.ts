@@ -1,3 +1,8 @@
+import {
+  prepareHumanTranscription,
+  waitHumanTranscriptionReady,
+  requestHumanTranscriptionStop,
+} from "../application/human-transcription";
 import { AccessToken, RoomConfiguration, RoomServiceClient } from "livekit-server-sdk";
 import type {
   HumanInterviewMeetingParticipantRole,
@@ -58,6 +63,8 @@ export async function signHumanInterviewMeetingToken({
 }): Promise<HumanInterviewMeetingTokenResponse> {
   const { apiKey, apiSecret, serverUrl } = getLiveKitServerConfig();
 
+  await prepareHumanTranscription(roomName);
+  await waitHumanTranscriptionReady(roomName);
   const at = new AccessToken(apiKey, apiSecret, {
     identity: participantIdentity,
     metadata: JSON.stringify(metadata),
@@ -91,6 +98,10 @@ export async function deleteHumanInterviewLiveKitRoom(roomName: string | null): 
     return;
   }
   const { apiKey, apiSecret, serverUrl } = getLiveKitServerConfig();
+  const run = await requestHumanTranscriptionStop(roomName);
+  if (run?.mode === "server_realtime") {
+    return;
+  }
   const client = new RoomServiceClient(toHttpLiveKitUrl(serverUrl), apiKey, apiSecret);
   await client.deleteRoom(roomName);
 }

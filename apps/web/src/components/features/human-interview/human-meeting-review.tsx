@@ -181,7 +181,12 @@ function describeEvaluationStatus(
       ? "会议内容整理失败，仍可手动填写并提交评价"
       : "正在整理会议内容并生成评价…";
   }
-  return review.evaluationError || "AI 草稿可由面试官修改后保存";
+  if (review.evaluationError) {
+    return review.evaluationError;
+  }
+  return review.evaluationStatus === "draft" && review.evaluation?.rating === null
+    ? "当前草稿尚未评级，请补充依据并由面试官确认评级后提交"
+    : "AI 草稿可由面试官修改后保存";
 }
 
 async function requestJson<TResult>(path: string, init?: RequestInit): Promise<TResult> {
@@ -521,7 +526,7 @@ function HumanMeetingReviewForm({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-medium text-lg">面试评价</h2>
-              <output className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
+              <output className="mt-1 flex items-center gap-2 whitespace-pre-wrap text-muted-foreground text-xs">
                 {!isSubmitted && review.evaluationStatus === "generating" ? (
                   <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
                 ) : null}
@@ -664,7 +669,7 @@ function HumanMeetingReviewForm({
           {review.evaluationStatus === "generating" ? (
             <p className="mt-3 text-right text-muted-foreground text-xs leading-5">
               AI
-              评价生成可能需要一些时间，你可以先离开页面。生成完成后，我们会通过飞书发送评价链接，请返回审核并提交最终评价。
+              评价正在生成并核验依据，会议分析完成后仍需等待此步骤。此页面会自动更新，也可以稍后返回本轮评价审核并提交。
             </p>
           ) : null}
         </div>

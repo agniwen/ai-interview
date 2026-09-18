@@ -273,7 +273,7 @@ export const meetingAnswerAgent = new Agent({
 export const humanInterviewEvaluationAgent = new Agent({
   id: "human-interview-evaluation-agent",
   instructions:
-    "你是真人面试评价助手。只根据完整面试转录、岗位 JD、岗位内部标准与候选人简历生成可由面试官复核的结构化 SABC 评价，并保留稳定转录证据 ID。",
+    "你是真人面试评价助手。只根据完整面试转录、岗位 JD、岗位内部标准与候选人简历生成可由面试官复核的结构化 A/B/C/D 评价；材料不足时暂不评级，并保留稳定转录证据 ID。",
   maxRetries: 1,
   model: withThinkingDisabled(mastraModels.structuredModel),
   name: "HumanInterviewEvaluationAgent",

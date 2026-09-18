@@ -482,7 +482,7 @@ describe("HumanMeetingReview", () => {
 
     expect(container.textContent).not.toContain("重新生成");
     expect(container.textContent).toContain(
-      "AI 评价生成可能需要一些时间，你可以先离开页面。生成完成后，我们会通过飞书发送评价链接，请返回审核并提交最终评价。",
+      "AI 评价正在生成并核验依据，会议分析完成后仍需等待此步骤。此页面会自动更新，也可以稍后返回本轮评价审核并提交。",
     );
     expect(
       [...container.querySelectorAll("button")].some(
@@ -492,15 +492,37 @@ describe("HumanMeetingReview", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("回填未评级草稿并提示补充依据，允许保存但不能直接提交", async () => {
+    currentReview = reviewRecord({
+      evaluation: { ...evaluation, rating: null },
+      evaluationStatus: "draft",
+    });
+    const container = await renderReview();
+    expect(container.textContent).toContain("当前草稿尚未评级，请补充依据并由面试官确认评级后提交");
+    const field = await evaluationField(container);
+    expect(field.textContent).toContain(evaluation.overallEvaluation);
+    act(() => button(container, "保存草稿").click());
+    await flush();
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-draft")),
+    ).toBe(true);
+    await chooseOutcome(container);
+    act(() => button(container, "提交评价").click());
+    await flush();
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+    ).toBe(false);
+  });
+
   it("does not show the AI waiting hint after evaluation generation fails", async () => {
     currentReview = reviewRecord({
-      evaluationError: "AI 评价生成失败",
+      evaluationError: "AI 评价生成失败：第 2 次复核：risks 将未提问内容作为负面证据",
       evaluationStatus: "failed",
     });
 
     const container = await renderReview();
 
-    expect(container.textContent).toContain("AI 评价生成失败");
+    expect(container.textContent).toContain("risks 将未提问内容作为负面证据");
     expect(container.textContent).not.toContain("AI 评价生成可能需要一些时间");
   });
 

@@ -3,5 +3,7 @@ import { createHumanInterviewDocumentSyncProcessor } from "../application/defaul
 import { startHumanInterviewDocumentSyncScheduler } from "./document-sync-scheduler";
 
 export function startHumanInterviewDocumentSync() {
-  return startHumanInterviewDocumentSyncScheduler(createHumanInterviewDocumentSyncProcessor(db));
+  return startHumanInterviewDocumentSyncScheduler(createHumanInterviewDocumentSyncProcessor(db), {
+    enabled: process.env.HUMAN_INTERVIEW_DOCUMENT_SYNC_ENABLED !== "false",
+  });
 }

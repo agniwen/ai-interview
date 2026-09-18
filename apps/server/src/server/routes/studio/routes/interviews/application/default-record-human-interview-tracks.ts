@@ -1,3 +1,4 @@
+import { enqueueHumanInterviewRecordingJobs } from "@app/meeting-processing-queue/human-interview-recording";
 import { EgressStatus, TrackSource, TrackType } from "livekit-server-sdk";
 import type { EgressInfo } from "livekit-server-sdk";
 import type { HumanInterviewRecordingTrack } from "@app/db-schema/human-interview-recording";
@@ -81,6 +82,23 @@ export async function applyHumanInterviewTrackEgress(
       status,
     },
   });
+  const refreshed = await loadTrackRecordingScope(roomName);
+  const tracks = refreshed?.meeting.recordingTracks;
+  if (
+    refreshed?.meeting.status === "ended" &&
+    !refreshed.meeting.recordingIngestedAt &&
+    tracks?.length &&
+    tracks.every((item) => ["completed", "failed"].includes(item.status))
+  ) {
+    await enqueueHumanInterviewRecordingJobs([
+      {
+        meetingId: refreshed.meeting.id,
+        organizationId: refreshed.meeting.organizationId,
+        tracks,
+        version: 2,
+      },
+    ]);
+  }
   return true;
 }
 

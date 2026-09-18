@@ -20,13 +20,14 @@ import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type {
   HumanInterviewEvaluation,
+  HumanInterviewGeneratedEvaluation,
   HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import {
   humanInterviewEvaluationDraftSchema,
   humanInterviewEvaluationSubmissionSchema,
-  humanInterviewEvaluationSchema,
+  humanInterviewGeneratedEvaluationSchema,
 } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
@@ -321,6 +322,7 @@ export function createHumanInterviewEvaluationDao(
         outcome: humanInterviewRound.outcome,
         recordingError: humanInterviewMeeting.recordingError,
         recordingTracks: humanInterviewMeeting.recordingTracks,
+        reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
         roundId: humanInterviewRound.id,
         roundStatus: humanInterviewRound.status,
         transcriptionError: meetingSession.transcriptionError,
@@ -350,14 +352,22 @@ export function createHumanInterviewEvaluationDao(
     if (!row) {
       return null;
     }
+    const revisionId = row.activeTranscriptRevisionId ?? row.reviewTranscriptRevisionId;
     const transcript =
-      (row.meetingSessionId && row.activeTranscriptRevisionId
+      (row.meetingSessionId && revisionId
         ? await dependencies.loadMeetingTranscriptRevision?.({
             meetingId: row.meetingSessionId,
             organizationId: input.organizationId,
-            revisionId: row.activeTranscriptRevisionId,
+            revisionId,
           })
         : null) ?? null;
+    const recordingNotice =
+      row.transcriptionStatus === "ready" && !row.transcriptionError
+        ? null
+        : (row.recordingError ??
+          (row.recordingTracks?.some((track) => track.status === "failed")
+            ? "部分录音缺失，已保留可用内容，可手动提交评价。"
+            : null));
     return {
       evaluation: row.evaluation,
       evaluationError: row.evaluationError,
@@ -366,15 +376,14 @@ export function createHumanInterviewEvaluationDao(
       evaluationUpdatedBy: row.evaluationUpdatedBy,
       meetingSessionId: row.meetingSessionId,
       outcome: row.outcome,
-      recordingNotice:
-        row.recordingError ??
-        (row.recordingTracks?.some((track) => track.status === "failed")
-          ? "部分录音缺失，已保留可用内容，可手动提交评价。"
-          : null),
+      recordingNotice,
       roundId: row.roundId,
       roundStatus: row.roundStatus,
       transcript,
-      transcriptionError: row.transcriptionError ?? row.recordingError,
+      transcriptionError:
+        row.transcriptionStatus === "ready"
+          ? row.transcriptionError
+          : (row.transcriptionError ?? row.recordingError),
       transcriptionState: humanInterviewTranscriptionStateSchema.parse(
         row.transcriptionStatus ??
           (row.recordingError?.startsWith("录音处理失败：") ? "failed" : "pending"),
@@ -422,7 +431,8 @@ export function createHumanInterviewEvaluationDao(
         context.roundStatus !== "pending" ||
         context.evaluationStatus === "submitted" ||
         context.transcriptionStatus !== "ready" ||
-        (!input.force && ["draft", "submitted", "generating"].includes(context.evaluationStatus))
+        (!input.force &&
+          ["draft", "submitted", "generating", "failed"].includes(context.evaluationStatus))
       ) {
         return null;
       }
@@ -599,13 +609,13 @@ export function createHumanInterviewEvaluationDao(
   }
 
   async function publishHumanInterviewEvaluation(input: {
-    evaluation: HumanInterviewEvaluation;
+    evaluation: HumanInterviewGeneratedEvaluation;
     meetingSessionId: string;
     organizationId: string;
     roundId: string;
     transcriptRevisionId: string;
   }): Promise<boolean> {
-    const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
+    const evaluation = humanInterviewGeneratedEvaluationSchema.parse(input.evaluation);
     return await db.transaction(async (tx) => {
       const [state] = await tx
         .select({

@@ -152,9 +152,11 @@ beforeEach(() => {
   vi.stubGlobal("matchMedia", () => ({ addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   transcript.reset();
   fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
-    Promise.resolve(
-      Response.json(init?.method === "PUT" ? { version: 1 } : { draft: null, version: 0 }),
-    ),
+    String(_input).endsWith("/server-transcript")
+      ? Promise.resolve(Response.json({ mode: "legacy" }))
+      : Promise.resolve(
+          Response.json(init?.method === "PUT" ? { version: 1 } : { draft: null, version: 0 }),
+        ),
   );
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("crypto", { randomUUID: () => "00000000-0000-4000-8000-000000000001" });

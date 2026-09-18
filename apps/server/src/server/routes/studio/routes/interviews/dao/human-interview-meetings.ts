@@ -1,3 +1,4 @@
+import { humanTranscriptionMode } from "../application/human-transcription-config";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
@@ -314,6 +315,7 @@ export async function createHumanInterviewMeeting({
       scheduledAt,
       status: "scheduled",
       title: input.title,
+      transcriptionMode: humanTranscriptionMode(organizationId),
       updatedAt: now,
       validUntil,
     });

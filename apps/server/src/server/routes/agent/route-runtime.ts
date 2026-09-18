@@ -1,3 +1,8 @@
+import {
+  appendHumanTranscriptionEvents,
+  claimHumanTranscription,
+} from "./routes/human-transcription/dao";
+import { createHumanTranscriptionRouter } from "./routes/human-transcription/route";
 import { resolveReportUpdate } from "./application/report-policy";
 import { receiveAgentReport } from "./report-inbox";
 import {
@@ -407,4 +412,10 @@ export const agentRouterDependencies: AgentRouterDependencies = {
   safeUpdateTag,
 };
 
-export const agentRouter = createAgentRouter(agentRouterDependencies);
+export const agentRouter = createAgentRouter(agentRouterDependencies).route(
+  "/human-transcription",
+  createHumanTranscriptionRouter({
+    append: appendHumanTranscriptionEvents,
+    claim: claimHumanTranscription,
+  }),
+);

@@ -92,6 +92,12 @@ async def watch_reports() -> None:
     ) as client:
         while True:
             await replay_pending_reports(client, base_url, secret)
+            from human_transcription.outbox import replay_transcription_outboxes
+
+            try:
+                await replay_transcription_outboxes(client, base_url, secret)
+            except Exception:
+                logger.warning("human transcription replay deferred")
             await asyncio.sleep(30)
 
 

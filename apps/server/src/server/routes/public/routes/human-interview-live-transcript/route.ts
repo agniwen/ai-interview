@@ -1,3 +1,7 @@
+import { serverTranscriptRouter } from "./server-transcript-route";
+import { humanInterviewMeeting } from "@app/db-schema/schema";
+import { eq } from "drizzle-orm";
+import { db } from "../../../../../lib/server/db/index";
 import { createMeetingLiveTranscriptHints } from "@app/meeting-live-transcript/hints";
 import { createMeetingLiveTranscriptAuthorizationSchema } from "@app/shared/meeting-transcription";
 import { zValidator } from "@hono/zod-validator";
@@ -23,6 +27,7 @@ type InterviewerScope = NonNullable<
 >;
 
 interface Dependencies {
+  loadMode: (meetingId: string) => Promise<string>;
   createAuthorization: typeof createWorkspaceMeetingLiveTranscriptAuthorization;
   heartbeat: typeof heartbeatWorkspaceMeetingLiveTranscript;
   now: () => Date;
@@ -33,6 +38,13 @@ interface Dependencies {
 const defaultDependencies: Dependencies = {
   createAuthorization: createWorkspaceMeetingLiveTranscriptAuthorization,
   heartbeat: heartbeatWorkspaceMeetingLiveTranscript,
+  loadMode: async (meetingId) => {
+    const [meeting] = await db
+      .select({ mode: humanInterviewMeeting.transcriptionMode })
+      .from(humanInterviewMeeting)
+      .where(eq(humanInterviewMeeting.id, meetingId));
+    return meeting?.mode ?? "legacy";
+  },
   now: () => new Date(),
   release: releaseWorkspaceMeetingLiveTranscript,
   resolveInvite: resolveHumanInterviewMeetingInterviewerInviteToken,
@@ -61,6 +73,7 @@ export function createHumanInterviewLiveTranscriptRouter(overrides: Partial<Depe
   const dependencies = { ...defaultDependencies, ...overrides };
   return factory
     .createApp()
+    .route("/", serverTranscriptRouter)
     .post(
       "/:inviteToken/live-transcript",
       zValidator("param", inviteParamSchema, jsonValidatorError("真人复面邀请凭证无效")),
@@ -89,6 +102,10 @@ export function createHumanInterviewLiveTranscriptRouter(overrides: Partial<Depe
           return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
         }
 
+        const mode = await dependencies.loadMode(scope.meetingId);
+        if (mode === "server_realtime") {
+          return c.json({ error: "本会议使用服务端统一字幕" }, 409);
+        }
         try {
           const authorization = await dependencies.createAuthorization({
             captureId: input.captureId,

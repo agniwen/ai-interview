@@ -129,6 +129,7 @@ export async function markMeetingSessionVerified(input: {
     const draft = meetingLiveTranscriptDraftSchema.safeParse(meeting.liveTranscriptDraft);
     let unusableDeepgramDraft = false;
     if (
+      meeting.manifestSha256 &&
       meeting.processingOwner === "worker" &&
       draft.success &&
       draft.data.provider === "deepgram" &&

@@ -110,6 +110,8 @@ def test_qwen_audio_request_only_sends_supported_parameters():
 
 def test_qwen_audio_events_convert_milliseconds_and_include_timed_words():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -163,6 +165,8 @@ def test_qwen_audio_events_convert_milliseconds_and_include_timed_words():
 
 def test_heartbeat_does_not_emit_a_false_start_of_speech():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -189,6 +193,12 @@ def test_heartbeat_does_not_emit_a_false_start_of_speech():
 
 def test_interim_transcript_accepts_null_sentence_end_time():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
+    interim = []
+    stream.interim_handler = lambda task_id, sentence: interim.append(
+        (task_id, sentence)
+    )
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -226,10 +236,15 @@ def test_interim_transcript_accepts_null_sentence_end_time():
 
     assert transcript.start_time == 0.17
     assert transcript.end_time == 0.92
+    assert interim[0][0] == "request-id"
+    assert interim[0][1]["text"] == "候选人正在回答"
+    assert interim[0][1]["begin_time"] == 170
 
 
 def test_interim_transcript_accepts_null_word_end_time():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -324,6 +339,8 @@ async def test_stream_waits_for_task_started_before_sending_audio():
 
 def test_task_failed_becomes_a_livekit_api_error():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -347,3 +364,15 @@ def test_task_failed_becomes_a_livekit_api_error():
 
     assert error.value.request_id == "task-id"
     assert error.value.body["error_code"] == "CLIENT_ERROR"
+
+
+def test_human_recognition_hints_are_sent_without_changing_ai_defaults():
+    plain = STT(api_key="test-key")._opts.get_run_task_params("task")
+    assert plain["payload"]["input"] == {}
+    hinted = STT(
+        api_key="test-key", vocabulary={"PostgreSQL": 4}, context=["岗位：研发"]
+    )._opts.get_run_task_params("task")
+    assert hinted["payload"]["parameters"]["vocabulary"] == {"PostgreSQL": 4}
+    assert (
+        hinted["payload"]["input"]["context"][0]["content"][0]["text"] == "岗位：研发"
+    )

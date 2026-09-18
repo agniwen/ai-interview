@@ -27,6 +27,7 @@ import {
   withoutHumanInterviewReviewSearch,
 } from "./resumes/recruiter-resume-detail-search";
 import { HumanInterviewReviewDialog } from "./human-interview-review-dialog";
+import { getHumanInterviewReviewNavigation } from "./human-interview-review-navigation";
 import { Button } from "@/components/ui/button";
 import { HumanInterviewStageSkeleton } from "./human-interview-stage-skeleton";
 import {
@@ -116,6 +117,7 @@ export function HumanInterviewStagePanel({
   const queryClient = useQueryClient();
   const { rounds, meetings, roundsQuery, meetingsQuery, initialError, hasData } =
     useHumanInterviewStageQueries(slug, candidateId, true);
+  const { latestRound, newerRound } = getHumanInterviewReviewNavigation(rounds, reviewRoundId);
   const businessRoundNumbers = getHumanInterviewBusinessRoundNumbers(rounds);
 
   function invalidateRounds() {
@@ -305,6 +307,24 @@ export function HumanInterviewStagePanel({
         </div>
       </div>
 
+      {latestRound ? (
+        <p className="text-sm text-muted-foreground">
+          最近一轮评价：
+          <Link
+            to="."
+            replace
+            resetScroll={false}
+            search={(previous) => ({
+              ...previous,
+              reviewRoundId: latestRound.id,
+              tab: "human-interview",
+            })}
+            className="text-primary underline underline-offset-4"
+          >
+            {latestRound.label} · 查看处理结果
+          </Link>
+        </p>
+      ) : null}
       {roundsContent}
 
       {reviewRoundId ? (
@@ -315,6 +335,7 @@ export function HumanInterviewStagePanel({
           candidateName={candidateName}
           roundId={reviewRoundId}
           roundLabel={rounds.find((round) => round.id === reviewRoundId)?.label}
+          newerRoundLabel={newerRound?.label}
           onSaved={invalidateRounds}
           onClose={() =>
             navigate({

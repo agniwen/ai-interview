@@ -377,6 +377,7 @@ async def test_room_close_then_participant_disconnect_does_not_restart_reconnect
     monkeypatch.setattr(agent_module, "_build_session", build_session)
     participant = SimpleNamespace(identity="candidate", metadata="{}")
     ctx = SimpleNamespace(
+        job=SimpleNamespace(metadata="{}"),
         proc=SimpleNamespace(),
         room=SimpleNamespace(
             name="test-room",

@@ -81,7 +81,9 @@ export function runHumanInterviewEvaluationProcessingEffect(
       return yield* Effect.failCause(outcome.cause);
     }
     const failure = failureReason.error;
-    if (context.attempt < context.maxAttempts) {
+    const permanent =
+      failure.cause instanceof Error && failure.cause.name === "HumanInterviewEvaluationInputError";
+    if (!permanent && context.attempt < context.maxAttempts) {
       return yield* Effect.fail(failure);
     }
     const message =

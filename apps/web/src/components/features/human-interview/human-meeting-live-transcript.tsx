@@ -1,4 +1,6 @@
 "use client";
+
+import { ServerHumanMeetingTranscript } from "./server-human-meeting-transcript";
 /* oxlint-disable react-doctor/no-fetch-in-effect -- The invite-scoped draft is restored only after browser hydration and cannot be loaded server-side. */
 
 import { useTracks } from "@livekit/components-react";
@@ -181,7 +183,7 @@ function TranscriptScrollArea({ children }: { children: ReactNode }) {
 }
 
 // oxlint-disable-next-line complexity -- Automatic capture, draft recovery, and persistence share one panel lifecycle.
-export function HumanMeetingLiveTranscript({
+function LegacyHumanMeetingLiveTranscript({
   inviteToken,
   candidateName = "候选人",
   ref,
@@ -544,5 +546,46 @@ export function HumanMeetingLiveTranscript({
         </MessageScrollerProvider>
       )}
     </aside>
+  );
+}
+
+export function HumanMeetingLiveTranscript(props: HumanMeetingLiveTranscriptProps) {
+  const [mode, setMode] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    const abort = new AbortController();
+    async function loadMode() {
+      try {
+        const response = await fetch(
+          `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(props.inviteToken)}/server-transcript`,
+          { signal: abort.signal },
+        );
+        if (!response.ok) {
+          throw new Error("字幕状态不可用");
+        }
+        const data = await response.json();
+        if (!abort.signal.aborted) {
+          setMode(data.mode);
+        }
+      } catch {
+        if (!abort.signal.aborted) {
+          setError(true);
+        }
+      }
+    }
+    void loadMode();
+    return () => abort.abort();
+  }, [props.inviteToken]);
+  if (!mode) {
+    return (
+      <p className="p-4 text-muted-foreground">
+        {error ? "字幕状态暂不可用，请重新进入会议。" : "正在准备统一字幕…"}
+      </p>
+    );
+  }
+  return mode === "server_realtime" ? (
+    <ServerHumanMeetingTranscript {...props} />
+  ) : (
+    <LegacyHumanMeetingLiveTranscript {...props} />
   );
 }

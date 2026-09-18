@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runHumanInterviewEvaluationProcessing } from "./processor";
 
 describe("runHumanInterviewEvaluationProcessing", () => {
-  it("基于完整输入生成并发布可复核草稿", async () => {
+  it.each(["A", null] as const)("基于完整输入生成并发布评级为 %s 的可复核草稿", async (rating) => {
     const publish = vi.fn(() => Promise.resolve(true));
     const notifyReady = vi.fn(() => Promise.resolve());
     await runHumanInterviewEvaluationProcessing(
@@ -20,7 +20,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
             evidenceTurnIds: ["turn-1"],
             overallEvaluation: "整体评价",
             professionalSkill: "优",
-            rating: "A" as const,
+            rating,
             risks: "风险",
             rolePosition: "负责人",
             salaryRecommendation: "",
@@ -51,6 +51,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
     );
     expect(publish).toHaveBeenCalledWith(
       expect.objectContaining({
+        evaluation: expect.objectContaining({ rating }),
         meetingSessionId: "session-1",
         organizationId: "org-1",
         roundId: "round-1",
@@ -153,5 +154,50 @@ describe("runHumanInterviewEvaluationProcessing", () => {
       ),
     ).rejects.toBe(error);
     expect(markFailed).not.toHaveBeenCalled();
+  });
+  it("证据复核永久失败只生成一次，立即告知人工复核", async () => {
+    const markFailed = vi.fn(() => Promise.resolve());
+    const generate = vi.fn(() =>
+      Promise.reject(
+        Object.assign(
+          new Error("证据复核失败：第 1 次复核：缺少依据；第 2 次复核：risks 不能将未提问作为风险"),
+          {
+            name: "HumanInterviewEvaluationInputError",
+          },
+        ),
+      ),
+    );
+    const notifyReady = vi.fn();
+    await runHumanInterviewEvaluationProcessing(
+      {
+        meetingSessionId: "session-1",
+        organizationId: "org-1",
+        roundId: "round-1",
+        transcriptRevisionId: "revision-1",
+      },
+      { attempt: 1, maxAttempts: 5 },
+      {
+        generate,
+        loadInput: vi.fn(() =>
+          Promise.resolve({
+            candidateName: "候选人",
+            internalCriteria: null,
+            jobDescription: "JD",
+            resume: "",
+            turns: [],
+          }),
+        ),
+        markFailed,
+        notifyReady,
+        publish: vi.fn(),
+      },
+    );
+    expect(generate).toHaveBeenCalledOnce();
+    expect(markFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining("第 2 次复核：risks 不能将未提问作为风险"),
+      }),
+    );
+    expect(notifyReady).not.toHaveBeenCalled();
   });
 });

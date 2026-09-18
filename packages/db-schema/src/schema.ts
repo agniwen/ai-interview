@@ -1,3 +1,4 @@
+import type { HumanTranscriptionEventRecord } from "./human-transcription-types";
 import type { IncomeProofType } from "./recruiting-materials";
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
@@ -73,6 +74,7 @@ import type {
   FeishuHumanInterviewSyncStatus,
   HumanInterviewEvaluation,
   HumanInterviewEvaluationDraft,
+  HumanInterviewGeneratedEvaluation,
   HumanInterviewEvaluationSnapshotSource,
   HumanInterviewEvaluationStatus,
   HumanInterviewFormat,
@@ -359,7 +361,7 @@ export const meetingSession = pgTable(
     intelligenceStatus: text("intelligence_status").default("pending").notNull(),
     liveSummary: jsonb("live_summary").$type<unknown>(),
     liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
-    manifestSha256: text("manifest_sha256").notNull(),
+    manifestSha256: text("manifest_sha256"),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -380,8 +382,18 @@ export const meetingSession = pgTable(
       withTimezone: true,
     }),
     purgeLeaseExpiresAt: timestamp("purge_lease_expires_at", { withTimezone: true }),
+    // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+    realtimeRunId: text("realtime_run_id").references((): AnyPgColumn => humanTranscriptionRun.id, {
+      onDelete: "restrict",
+    }),
     recoveryCopyDeleteAfter: timestamp("recovery_copy_delete_after", { withTimezone: true }),
+    reviewTranscriptRevisionId: text("review_transcript_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves circular references lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+    sourceKind: text("source_kind").notNull().default("recording"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     status: text("status").default("uploading").notNull(),
     title: text("title").notNull(),
@@ -403,6 +415,16 @@ export const meetingSession = pgTable(
     visibility: text("visibility").default("restricted").notNull(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.realtimeRunId, table.organizationId],
+      // oxlint-disable-next-line no-use-before-define -- Drizzle evaluates cross-table references lazily.
+      foreignColumns: [humanTranscriptionRun.id, humanTranscriptionRun.organizationId],
+      name: "meeting_session_realtime_run_org_fk",
+    }).onDelete("restrict"),
+    check(
+      "meeting_session_source_check",
+      sql`(${table.sourceKind} = 'recording' and ${table.manifestSha256} is not null and ${table.realtimeRunId} is null) or (${table.sourceKind} = 'livekit_realtime' and ${table.realtimeRunId} is not null)`,
+    ),
     check(
       "meeting_session_processing_owner_check",
       sql`${table.processingOwner} in ('worker', 'device')`,
@@ -491,7 +513,7 @@ export const meetingLiveTranscriptLease = pgTable(
 export const meetingPurgeTombstone = pgTable(
   "meeting_purge_tombstone",
   {
-    manifestSha256: text("manifest_sha256").notNull(),
+    manifestSha256: text("manifest_sha256"),
     meetingId: text("meeting_id").primaryKey(),
     organizationId: text("organization_id")
       .notNull()
@@ -724,16 +746,46 @@ export const meetingTranscriptRevision = pgTable(
       onDelete: "restrict",
     }),
     provider: text("provider").notNull(),
+    quality: text("quality").notNull().default("legacy"),
+    // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+    realtimeRunId: text("realtime_run_id").references((): AnyPgColumn => humanTranscriptionRun.id, {
+      onDelete: "restrict",
+    }),
     region: text("region").notNull(),
     revision: integer("revision").notNull(),
-    sourceManifestSha256: text("source_manifest_sha256").notNull(),
+    sourceManifestSha256: text("source_manifest_sha256"),
+    sourceSnapshot: jsonb("source_snapshot").$type<{
+      runId: string;
+      generation: number;
+      cursor: number;
+      sha256: string;
+      gaps: unknown[];
+    }>(),
   },
   (table) => [
-    check("meeting_transcript_revision_kind_check", sql`${table.kind} in ('final', 'human')`),
+    foreignKey({
+      columns: [table.realtimeRunId, table.organizationId],
+      // oxlint-disable-next-line no-use-before-define -- Drizzle evaluates cross-table references lazily.
+      foreignColumns: [humanTranscriptionRun.id, humanTranscriptionRun.organizationId],
+      name: "meeting_transcript_realtime_run_org_fk",
+    }).onDelete("restrict"),
+    check(
+      "meeting_transcript_snapshot_binding_check",
+      sql`${table.sourceSnapshot} is null or (${table.sourceSnapshot}->>'runId' = ${table.realtimeRunId} and ${table.sourceSnapshot}->>'sha256' ~ '^[a-f0-9]{64}$')`,
+    ),
+    check(
+      "meeting_transcript_revision_quality_check",
+      sql`${table.quality} in ('legacy', 'eligible', 'needs_review')`,
+    ),
+    check(
+      "meeting_transcript_revision_kind_check",
+      sql`${table.kind} in ('final', 'human', 'realtime')`,
+    ),
     check(
       "meeting_transcript_revision_source_check",
-      sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null)
-        or (${table.kind} = 'human' and ${table.processingRunId} is null)`,
+      sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null and ${table.sourceManifestSha256} is not null and ${table.realtimeRunId} is null and ${table.sourceSnapshot} is null)
+        or (${table.kind} = 'realtime' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is null and ${table.sourceManifestSha256} is null and ${table.realtimeRunId} is not null and ${table.sourceSnapshot} is not null)
+        or (${table.kind} = 'human' and ${table.processingRunId} is null and ((${table.sourceManifestSha256} is not null and ${table.sourceSnapshot} is null and ${table.realtimeRunId} is null) or (${table.sourceManifestSha256} is null and ${table.sourceSnapshot} is not null and ${table.realtimeRunId} is not null)))`,
     ),
     check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
     uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
@@ -5039,7 +5091,7 @@ export const humanInterviewEvaluationSnapshot = pgTable(
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by"),
-    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>().notNull(),
+    evaluation: jsonb("evaluation").$type<HumanInterviewGeneratedEvaluation>().notNull(),
     id: text("id").primaryKey(),
     meetingSessionId: text("meeting_session_id"),
     organizationId: text("organization_id").notNull(),
@@ -5183,6 +5235,7 @@ export const humanInterviewMeeting = pgTable(
     recordingEgressId: text("recording_egress_id"),
     recordingError: text("recording_error"),
     recordingFileKey: text("recording_file_key"),
+    recordingIngestedAt: timestamp("recording_ingested_at", { withTimezone: true }),
     recordingSizeBytes: integer("recording_size_bytes"),
     recordingStatus: text("recording_status")
       .$type<HumanInterviewRecordingStatus>()
@@ -5194,6 +5247,7 @@ export const humanInterviewMeeting = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
     title: text("title").notNull(),
+    transcriptionMode: text("transcription_mode").notNull().default("legacy"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -7003,4 +7057,116 @@ export const mcpGrant = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [index("mcp_grant_user_idx").on(table.userId)],
+);
+
+export const humanTranscriptionRun = pgTable(
+  "human_transcription_run",
+  {
+    cleanupAt: timestamp("cleanup_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    cutoffAt: timestamp("cutoff_at", { withTimezone: true }),
+    dispatchId: text("dispatch_id"),
+    downstreamRequestedAt: timestamp("downstream_requested_at", { withTimezone: true }),
+    drainedAt: timestamp("drained_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    error: text("error"),
+    eventSeq: integer("event_seq").notNull().default(0),
+    executionId: text("execution_id"),
+    generation: integer("generation").notNull().default(1),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => humanInterviewMeeting.id, { onDelete: "cascade" }),
+    mode: text("mode").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    participants: jsonb("participants")
+      .$type<Record<string, { role: "candidate" | "interviewer"; displayName: string }>>()
+      .notNull(),
+    recognitionHints: jsonb("recognition_hints").$type<{
+      context: string[];
+      vocabulary: Record<string, number>;
+    }>(),
+    roomName: text("room_name").notNull(),
+    sourceSnapshot: jsonb("source_snapshot").$type<unknown>(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    status: text("status").notNull().default("pending"),
+  },
+  (table) => [
+    uniqueIndex("human_transcription_run_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_transcription_run_meeting_org_fk",
+    }).onDelete("cascade"),
+    check(
+      "human_transcription_run_mode_check",
+      sql`${table.mode} in ('shadow', 'server_realtime')`,
+    ),
+    check("human_transcription_run_generation_check", sql`${table.generation} > 0`),
+    check(
+      "human_transcription_run_status_check",
+      sql`${table.status} in ('pending','starting','capturing','finalizing','ready','recovering','needs_review','failed')`,
+    ),
+    uniqueIndex("human_transcription_run_meeting_active_uq")
+      .on(table.meetingId)
+      .where(sql`${table.status} in ('pending','starting','capturing','finalizing','recovering')`),
+    index("human_transcription_run_reconcile_idx").on(table.status, table.heartbeatAt),
+  ],
+);
+
+export const humanTranscriptionEvent = pgTable(
+  "human_transcription_event",
+  {
+    eventId: text("event_id").notNull(),
+    eventSeq: integer("event_seq").notNull(),
+    generation: integer("generation").notNull(),
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<HumanTranscriptionEventRecord>().notNull(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => humanTranscriptionRun.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("human_transcription_event_identity_uq").on(
+      table.runId,
+      table.generation,
+      table.eventId,
+    ),
+    uniqueIndex("human_transcription_event_sentence_revision_uq")
+      .on(
+        table.runId,
+        table.generation,
+        sql`(${table.payload}->>'streamEpoch')`,
+        sql`(${table.payload}->>'providerTaskId')`,
+        sql`(${table.payload}->>'itemId')`,
+        sql`(${table.payload}->>'revision')`,
+      )
+      .where(sql`${table.payload}->>'kind' = 'final'`),
+    uniqueIndex("human_transcription_event_cursor_uq").on(table.runId, table.eventSeq),
+  ],
+);
+
+export const humanTranscriptionEventAlias = pgTable(
+  "human_transcription_event_alias",
+  {
+    canonicalEventId: text("canonical_event_id").notNull(),
+    eventId: text("event_id").notNull(),
+    generation: integer("generation").notNull(),
+    runId: text("run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.generation, table.eventId] }),
+    foreignKey({
+      columns: [table.runId, table.generation, table.canonicalEventId],
+      foreignColumns: [
+        humanTranscriptionEvent.runId,
+        humanTranscriptionEvent.generation,
+        humanTranscriptionEvent.eventId,
+      ],
+      name: "human_transcription_event_alias_canonical_fk",
+    }).onDelete("cascade"),
+  ],
 );

@@ -13,6 +13,7 @@ export function HumanInterviewReviewDialog({
   candidateName,
   roundId,
   roundLabel,
+  newerRoundLabel,
   onClose,
   onSaved,
 }: {
@@ -21,6 +22,7 @@ export function HumanInterviewReviewDialog({
   candidateName: string;
   roundId: string;
   roundLabel?: string;
+  newerRoundLabel?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -47,6 +49,9 @@ export function HumanInterviewReviewDialog({
                 {roundLabel ? ` · ${roundLabel}` : ""}
               </DialogTitle>
               <DialogDescription>
+                {newerRoundLabel
+                  ? `正在查看历史轮次。较新的“${newerRoundLabel}”已有处理结果，可关闭当前窗口后从最近一轮入口查看。`
+                  : null}
                 保存为草稿，或选择通过 / 不通过后提交。关闭后仍停留在候选人详情。
               </DialogDescription>
             </DialogHeader>

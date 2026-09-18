@@ -17,7 +17,8 @@
       "default": "./src/rpc-client.ts"
     },
     "./web/runtime": "./src/exports/web/runtime.ts",
-    "./initial-interview-evaluation": "./src/exports/worker/initial-interview-evaluation.ts"
+    "./initial-interview-evaluation": "./src/exports/worker/initial-interview-evaluation.ts",
+    "./human-transcription": "./src/server/routes/studio/routes/interviews/application/human-transcription.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.rpc-client.json",

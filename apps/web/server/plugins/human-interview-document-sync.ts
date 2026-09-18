@@ -8,7 +8,7 @@ export default definePlugin((app) => {
   }
 
   applyServerEnv();
-  if (!process.env.DATABASE_URL) {
+  if (process.env.HUMAN_INTERVIEW_DOCUMENT_SYNC_ENABLED === "false" || !process.env.DATABASE_URL) {
     return;
   }
 

@@ -416,7 +416,7 @@ export interface FinalMeetingTranscriptRevision {
   createdAt: string;
   createdBy: { id: string; name: string } | null;
   id: string;
-  kind: "final" | "human";
+  kind: "final" | "human" | "realtime";
   language: string | null;
   model: string;
   provider: MeetingTranscriptRevisionProvider;

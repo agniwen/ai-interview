@@ -95,9 +95,9 @@ export function createHumanInterviewTranscriptAttributionRouter(
         return c.json({ error: "此片段没有可回听的录音来源。" }, 404);
       }
       const { sourceId } = turn.attribution;
-      const asset = await dependencies.asset(review.meetingSessionId, sourceId);
+      const asset = await dependencies.asset(review.meetingSessionId, sourceId, turn);
       if (!asset) {
-        return c.json({ error: "录音来源不可用。" }, 404);
+        return c.json({ error: "转录已保存，录音仍在准备中，请稍后回听。" }, 409);
       }
       const offset = asset.recordingIdentity?.offsetMs ?? 0;
       return c.json(

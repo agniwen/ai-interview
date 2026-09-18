@@ -1,6 +1,9 @@
 // A database outbox remains recoverable without Redis or notification templates.
-export function startHumanInterviewDocumentSyncScheduler(processOne: () => Promise<boolean>) {
-  let closed = false;
+export function startHumanInterviewDocumentSyncScheduler(
+  processOne: () => Promise<boolean>,
+  options: { enabled?: boolean } = {},
+) {
+  let closed = options.enabled === false;
   let running: Promise<void> | null = null;
   async function poll() {
     try {
@@ -29,9 +32,11 @@ export function startHumanInterviewDocumentSyncScheduler(processOne: () => Promi
       running = null;
     }
   }
-  const timer = setInterval(runOnce, 10_000);
-  timer.unref();
-  queueMicrotask(runOnce);
+  const timer = closed ? undefined : setInterval(runOnce, 10_000);
+  timer?.unref();
+  if (!closed) {
+    queueMicrotask(runOnce);
+  }
   return {
     async close() {
       closed = true;

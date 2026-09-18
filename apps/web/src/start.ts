@@ -2,9 +2,12 @@ import {
   sentryGlobalFunctionMiddleware,
   sentryGlobalRequestMiddleware,
 } from "@sentry/tanstackstart-react";
-import { createStart } from "@tanstack/react-start";
+import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [sentryGlobalFunctionMiddleware],
-  requestMiddleware: [sentryGlobalRequestMiddleware],
+  requestMiddleware: [
+    createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === "serverFn" }),
+    sentryGlobalRequestMiddleware,
+  ],
 }));

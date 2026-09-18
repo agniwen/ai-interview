@@ -38,6 +38,7 @@ describe("Meeting final transcription processor", () => {
         { attempt: 1, maxAttempts: 3 },
         {
           ...deps,
+          cropRecoveryChunks: (chunk) => Promise.resolve([chunk]),
           loadSource: () =>
             Promise.resolve({
               assets,
@@ -143,6 +144,7 @@ describe("Meeting final transcription processor", () => {
         { attempt: 3, maxAttempts: 3 },
         {
           ...deps,
+          cropRecoveryChunks: (chunk) => Promise.resolve([chunk]),
           loadSource: () =>
             Promise.resolve({
               assets,
@@ -210,6 +212,7 @@ describe("Meeting final transcription processor", () => {
       { attempt: 3, maxAttempts: 3 },
       {
         ...deps,
+        cropRecoveryChunks: (chunk) => Promise.resolve([chunk]),
         loadSource: () =>
           Promise.resolve({
             assets,
@@ -294,6 +297,7 @@ describe("Meeting final transcription processor", () => {
         { attempt: 3, maxAttempts: 3 },
         {
           ...deps,
+          cropRecoveryChunks: (chunk) => Promise.resolve([chunk]),
           loadSource: () =>
             Promise.resolve({
               assets,
@@ -376,6 +380,7 @@ describe("Meeting final transcription processor", () => {
         { attempt: 1, maxAttempts: 3 },
         {
           ...deps,
+          cropRecoveryChunks: (chunk) => Promise.resolve([chunk]),
           loadSource: () =>
             Promise.resolve({
               assets,

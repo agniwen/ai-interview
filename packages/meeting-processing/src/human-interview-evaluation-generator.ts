@@ -5,8 +5,8 @@ import {
   humanInterviewEvaluationEvidenceAgent,
 } from "@app/ai-runtime/simple-generators";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
-import { humanInterviewEvaluationSchema } from "@app/db-schema/studio-interviews";
-import type { HumanInterviewEvaluation } from "@app/db-schema/studio-interviews";
+import { humanInterviewGeneratedEvaluationSchema } from "@app/db-schema/studio-interviews";
+import type { HumanInterviewGeneratedEvaluation } from "@app/db-schema/studio-interviews";
 import { z } from "zod";
 import {
   normalizeHumanInterviewEvaluationText,
@@ -14,7 +14,7 @@ import {
 } from "@app/shared/human-interview-evaluation";
 
 const evaluationOutputSchema = JSON.stringify(
-  z.toJSONSchema(humanInterviewEvaluationSchema, { io: "input" }),
+  z.toJSONSchema(humanInterviewGeneratedEvaluationSchema, { io: "input" }),
 );
 
 const evidenceReviewSchema = z
@@ -35,8 +35,8 @@ interface EvaluationTurn {
 }
 
 function normalizeGeneratedEvaluation(
-  evaluation: HumanInterviewEvaluation,
-): HumanInterviewEvaluation {
+  evaluation: HumanInterviewGeneratedEvaluation,
+): HumanInterviewGeneratedEvaluation {
   return {
     ...evaluation,
     detailedAnalysis: normalizeHumanInterviewEvaluationText(evaluation.detailedAnalysis),
@@ -50,6 +50,13 @@ function normalizeGeneratedEvaluation(
   };
 }
 
+export class HumanInterviewEvaluationInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HumanInterviewEvaluationInputError";
+  }
+}
+
 export async function generateHumanInterviewEvaluation(
   input: {
     candidateName: string;
@@ -61,7 +68,7 @@ export async function generateHumanInterviewEvaluation(
   },
   agent: MastraGeneratorLike = humanInterviewEvaluationAgent,
   evidenceAgent: MastraGeneratorLike = humanInterviewEvaluationEvidenceAgent,
-): Promise<HumanInterviewEvaluation> {
+): Promise<HumanInterviewGeneratedEvaluation> {
   const serializedTurns = JSON.stringify(input.turns);
   const maxTranscriptChars = Number(
     process.env.HUMAN_INTERVIEW_EVALUATION_MAX_TRANSCRIPT_CHARS ?? 500_000,
@@ -70,7 +77,9 @@ export async function generateHumanInterviewEvaluation(
     throw new Error("HUMAN_INTERVIEW_EVALUATION_MAX_TRANSCRIPT_CHARS 配置无效");
   }
   if (serializedTurns.length > maxTranscriptChars) {
-    throw new Error("真人复面完整转录超出 AI 评价上下文预算，未进行截断评价");
+    throw new HumanInterviewEvaluationInputError(
+      "真人复面完整转录超出 AI 评价上下文预算，未进行截断评价",
+    );
   }
   const evidenceTurnIds = new Set(
     input.turns
@@ -87,9 +96,12 @@ export async function generateHumanInterviewEvaluation(
       .map((turn) => turn.id),
   );
   if (evidenceTurnIds.size === 0) {
-    throw new Error("真人复面转录尚未可靠识别候选人发言，不能生成 AI 评价");
+    throw new HumanInterviewEvaluationInputError(
+      "真人复面转录尚未可靠识别候选人发言，不能生成 AI 评价",
+    );
   }
   let feedback = "";
+  const reviewFailures: string[] = [];
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const generatedEvaluation = await generateStructuredWithMastraAgent({
       agent,
@@ -106,7 +118,8 @@ ${evaluationOutputSchema}
 - C：基本匹配，薪资90%~110%；
 - D：勉强接受，薪资80%~100%。
 薪资百分比仅为档位参考；缺少薪资基准时不得推算具体金额。
-rating 必须根据已有可靠证据和岗位要求返回 A、B、C、D 中的单个值；不得附带中文说明，也不得机械套用默认评级。rating 不适用缺失文字占位规则，不得返回 -、空字符串或 null。
+rating 有充分依据时根据岗位要求返回 A、B、C、D 中的单个值；材料不足时 rating 必须返回 null，不得强行选择 B 或因缺少验证选择 C/D。仅试音、零散职责描述或主要问题未回答，不足以给出整体评级；简历可以作为背景，不能替代本轮尚未验证的表现。不得按发言数量或长度机械判定是否充分。
+rating=null 时仍应整理有依据的事实，并在 detailedAnalysis 中中性说明还需补充哪些依据。没有依据的描述字段和 professionalSkill 填写 -，不得生成没有证据支持的优缺点。rating 不适用缺失文字占位规则，不得返回 - 或空字符串。
 
 硬性约束：
 - 必须分析输入中的全部对话，不得只写摘要；detailedAnalysis 要覆盖主要问题、候选人回答、事实证据、相互印证和矛盾或不确定项；
@@ -121,7 +134,7 @@ rating 必须根据已有可靠证据和岗位要求返回 A、B、C、D 中的�
 - 所有判断只允许来自输入的岗位 JD、内部标准、简历和转录，不得臆测；
 - evidenceTurnIds 必须是字符串数组，只能逐字使用转录 JSON 中的 id；没有可引用证据时返回 []，不得返回 - 或拼接后的字符串；
 - 允许引用的候选人发言 ID 仅限：${JSON.stringify([...evidenceTurnIds])}；
-- SABC 评级不得自动映射为通过、待定或不通过；
+- A/B/C/D 评级或未评级均不得自动映射为通过、待定或不通过；
 - 不输出 0–100 数字评分；
 - professionalSkill 只能填写：优、良、中、差或 -；只给简短等级，不得附带原因、证据或详细描述；
 - 当前岗位没有结构化薪资范围，salaryRecommendation 必须填写 -；该字段仍会在页面显示并允许人工填写；
@@ -143,7 +156,7 @@ ${serializedTurns}
 
 ${feedback}`,
       retryOnInvalid: true,
-      schema: humanInterviewEvaluationSchema,
+      schema: humanInterviewGeneratedEvaluationSchema,
       temperature: 0.1,
       timeoutMs: 5 * 60 * 1000,
     });
@@ -160,8 +173,10 @@ ${feedback}`,
       )}。只能引用允许列表中的候选人本人发言。`;
       continue;
     }
-    if (invalidEvidenceTurnIds.length > 0 && validEvidenceTurnIds.length === 0) {
-      throw new Error("真人复面 AI 评价引用了未可靠归属给候选人的证据");
+    if (invalidEvidenceTurnIds.length > 0) {
+      throw new HumanInterviewEvaluationInputError(
+        "真人复面 AI 评价引用了未可靠归属给候选人的证据",
+      );
     }
 
     const evaluation = {
@@ -177,12 +192,12 @@ ${feedback}`,
 仅报告以下实质违规，不做文风润色：
 1. 把项目名/术语误识别、重复确认名称、漏录、漏问、未覆盖的能力或简历尚未验证，当作沟通、理解、诚信或专业能力差的证据，或据此降低评级；
 2. risks 含“未验证”“未展示”“覆盖不足”等材料局限，而非可靠事实支持的实质岗位风险；无可靠风险应为 -。材料局限只能在 detailedAnalysis 中中性说明；
-3. C 或“差/明显不匹配”等结论没有可靠发言或简历中的明确实质冲突支持。输入没有证明符合要求，不等于证明不符合；
+3. C、D 或“差/明显不匹配”等结论没有可靠发言或简历中的明确实质冲突支持。输入没有证明符合要求，不等于证明不符合；
 4. 根据年龄、性别、婚育等个人属性降低评级或作出推荐；把内部标准当作候选人事实，或忽略内部标准与 JD 的冲突；
 5. 把面试官说的话、身份不明发言或简历内容写成候选人在面试中已展示的表现。
-不要因为评级为 B、评价中有正面判断或详细分析中中性说明待核实事项而拒绝。若有实质负面证据，应允许如实评价。
+不要因为 rating=null（材料不足暂不评级）、评级为 B、评价中有正面判断或详细分析中中性说明待核实事项而拒绝。若有实质负面证据，应允许如实评价。
 反例：“面试未问团队管理，所以不具备管理能力、评级 C”必须指出违规；“候选人明确说从未管理团队，而岗位必须具备管理经验”可以是真实风险。
-只返回下面 Schema 的 JSON，issues 写明违规字段、具体判断和修改理由，没有违规返回空数组：
+只返回下面 Schema 的 JSON，issues 写明违规字段、具体判断和修改理由，不复述内部标准原文或无关个人信息；没有违规返回空数组：
 ${JSON.stringify(z.toJSONSchema(evidenceReviewSchema, { io: "input" }))}
 
 原始材料 JSON：
@@ -198,7 +213,10 @@ ${JSON.stringify(normalized)}`,
     if (review.issues.length === 0) {
       return normalized;
     }
+    reviewFailures.push(`第 ${attempt + 1} 次复核：${review.issues.join("；")}`);
     feedback = `上一版评价未通过证据复核。请依据原始材料重新生成全部字段并重新判断评级，纠正以下问题，不得只删除措辞却保留错误结论：\n${JSON.stringify(review.issues)}\n上一版待修正评价：\n${JSON.stringify(normalized)}`;
   }
-  throw new Error("AI 评价未通过证据复核，未发布缺乏可靠依据的评价草稿");
+  throw new HumanInterviewEvaluationInputError(
+    `AI 评价未通过证据复核，请根据以下原因调整材料或人工填写。\n${reviewFailures.join("\n")}`,
+  );
 }

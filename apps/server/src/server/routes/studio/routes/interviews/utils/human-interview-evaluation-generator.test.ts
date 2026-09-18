@@ -4,7 +4,7 @@ import { generateHumanInterviewEvaluation } from "./human-interview-evaluation-g
 const supportedReview = { generate: vi.fn(() => Promise.resolve({ text: '{"issues":[]}' })) };
 
 describe("generateHumanInterviewEvaluation", () => {
-  it("drops an extra untrusted citation when reliable candidate evidence remains", async () => {
+  it("repairs an untrusted citation before evidence review", async () => {
     const evaluation = {
       detailedAnalysis: "候选人说明了系统架构设计与实施过程。",
       evidenceTurnIds: ["candidate-turn", "interviewer-turn"],
@@ -17,7 +17,12 @@ describe("generateHumanInterviewEvaluation", () => {
       seniorityPosition: "-",
       strengths: "具备系统架构实施经验。",
     };
-    const generate = vi.fn(() => Promise.resolve({ text: JSON.stringify(evaluation) }));
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ text: JSON.stringify(evaluation) })
+      .mockResolvedValue({
+        text: JSON.stringify({ ...evaluation, evidenceTurnIds: ["candidate-turn"] }),
+      });
     const review = vi.fn(() => Promise.resolve({ text: '{"issues":[]}' }));
 
     await expect(
@@ -143,7 +148,7 @@ describe("generateHumanInterviewEvaluation", () => {
         { generate: review },
       );
       await (persistent
-        ? expect(result).rejects.toThrow("证据复核")
+        ? expect(result).rejects.toThrow(issue)
         : expect(result).resolves.toEqual(supported));
       expect(generate).toHaveBeenCalledTimes(2);
       expect(String(generate.mock.calls[1]?.[0])).toContain(issue);
@@ -151,6 +156,47 @@ describe("generateHumanInterviewEvaluation", () => {
       expect(String(review.mock.calls[0]?.[0])).toContain("通过压缩解决加载延迟");
     },
   );
+  it("材料不足时生成未评级草稿，仍通过独立证据复核", async () => {
+    const evaluation = {
+      detailedAnalysis: "仅描述日常管理和需求评审，未覆盖岗位主要能力，暂不评级。",
+      evidenceTurnIds: ["candidate-turn"],
+      overallEvaluation: "候选人提到日常管理和需求评审职责。",
+      professionalSkill: "-",
+      rating: null,
+      risks: "-",
+      rolePosition: "-",
+      salaryRecommendation: "-",
+      seniorityPosition: "-",
+      strengths: "-",
+    };
+    const generate = vi.fn().mockResolvedValue({ text: JSON.stringify(evaluation) });
+    const review = vi.fn().mockResolvedValue({ text: '{"issues":[]}' });
+    await expect(
+      generateHumanInterviewEvaluation(
+        {
+          candidateName: "候选人",
+          jobDescription: "负责技术团队管理与架构设计",
+          resume: "",
+          salaryRange: null,
+          turns: [
+            {
+              attribution: { method: "track", role: "candidate" },
+              id: "candidate-turn",
+              speakerDisplayName: "候选人",
+              speakerKey: "candidate",
+              text: "主要参与日常管理和需求评审。",
+            },
+          ],
+        },
+        { generate },
+        { generate: review },
+      ),
+    ).resolves.toEqual(evaluation);
+    expect(generate).toHaveBeenCalledOnce();
+    expect(review).toHaveBeenCalledOnce();
+    expect(String(generate.mock.calls[0]?.[0])).toContain("材料不足时 rating 必须返回 null");
+  });
+
   it("提供完整输出结构，并用具体校验反馈纠正非法评级和多余字段", async () => {
     const evaluation = {
       detailedAnalysis: "候选人说明了系统架构设计与实施过程。",
@@ -197,7 +243,7 @@ describe("generateHumanInterviewEvaluation", () => {
       additionalProperties: false,
       properties: {
         evidenceTurnIds: { items: { type: "string" }, type: "array" },
-        rating: { enum: ["A", "B", "C", "D"], type: "string" },
+        rating: { anyOf: [{ enum: ["A", "B", "C", "D"], type: "string" }, { type: "null" }] },
       },
       required: [
         "detailedAnalysis",

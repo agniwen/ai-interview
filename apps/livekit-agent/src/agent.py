@@ -47,9 +47,7 @@ from livekit.agents import (
     metrics as lk_metrics,
 )
 from livekit.plugins import (
-    ai_coustics,  # LiveKit Cloud only, disabled for self-hosted
     minimax,
-    noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
     openai,
 )
 
@@ -230,7 +228,7 @@ class SessionState:
 # --------------------------------------------------------------------------- #
 
 
-server = AgentServer()
+server = AgentServer(shutdown_process_timeout=30)
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -287,7 +285,11 @@ def _pick_noise_cancellation(params: Any) -> Any:
     抽成具名函数后 traceback 更友好, 也方便日后增加判别条件.
     """
     if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP:
+        from livekit.plugins import noise_cancellation
+
         return noise_cancellation.BVCTelephony()
+    from livekit.plugins import ai_coustics
+
     return ai_coustics.audio_enhancement(
         model=ai_coustics.EnhancerModel.QUAIL_VF_L,
         model_parameters=ai_coustics.ModelParameters(
@@ -540,6 +542,8 @@ async def _on_session_end(ctx: JobContext) -> None:
     concurrently and is best-effort because the egress_ended webhook on the
     web side reconciles the final status.
     """
+    if ctx.room.name.startswith("human_"):
+        return
     state: SessionState = ctx.primary_session.userdata
     recording_info = state.recording_info or {}
     ended_at = state.ended_at or time.time()
@@ -655,6 +659,12 @@ async def my_agent(ctx: JobContext) -> None:
       3) 启 session + 三种定时器 (hard timeout / wind-down cue / hot-reconnect).
       4) 一切结束后由 framework 调 _on_session_end 做上报与收尾.
     """
+    from human_transcription.contract import route_job
+    from human_transcription.runtime import run_human_transcription
+
+    if route_job(ctx.job.metadata, ctx.room.name) == "human":
+        await run_human_transcription(ctx)
+        return
     ctx.log_context_fields = {"room": ctx.room.name}
 
     # ---- 1) 候选人加入 + 元数据 + 录像 + 主考官选择 -------------------------

@@ -365,7 +365,15 @@ export const humanInterviewEvaluationSchema = z
   .strict();
 export type HumanInterviewEvaluation = z.infer<typeof humanInterviewEvaluationSchema>;
 
-// Drafts may omit a judgment; generated and submitted evaluations still require a rating.
+// AI drafts may abstain when evidence is insufficient; submission still requires a rating.
+export const humanInterviewGeneratedEvaluationSchema = humanInterviewEvaluationSchema.extend({
+  rating: humanInterviewEvaluationRatingSchema.nullable(),
+});
+export type HumanInterviewGeneratedEvaluation = z.infer<
+  typeof humanInterviewGeneratedEvaluationSchema
+>;
+
+// Human drafts may also omit a judgment.
 export const humanInterviewEvaluationDraftSchema = humanInterviewEvaluationSchema.extend({
   // Stored only in the draft JSON; never writes the round's official outcome.
   draftOutcome: humanInterviewFinalOutcomeSchema.nullable().optional(),

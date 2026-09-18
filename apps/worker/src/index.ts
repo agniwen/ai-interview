@@ -128,6 +128,43 @@ function isResumeSemanticIndexEnabled(): boolean {
   return value === "1" || value === "true" || value === "yes";
 }
 
+let humanTranscriptionReconciling = false;
+const humanTranscriptionTimer = setInterval(() => {
+  if (!isWorkerBackgroundProcessingEnabled() || humanTranscriptionReconciling) {
+    return;
+  }
+  humanTranscriptionReconciling = true;
+  async function reconcile() {
+    try {
+      await trackRecoveryRun(async () => {
+        const { reconcileHumanTranscriptions, acknowledgeHumanTranscriptionDownstream } =
+          await import("@app/server/human-transcription");
+        const { requestAutomaticHumanInterviewEvaluation, requestAutomaticMeetingIntelligence } =
+          await import("./meeting-processing-daos");
+        for (const result of await reconcileHumanTranscriptions()) {
+          if (result.eligible) {
+            await requestAutomaticHumanInterviewEvaluation(result);
+            await requestAutomaticMeetingIntelligence({
+              meetingId: result.meetingSessionId,
+              organizationId: result.organizationId,
+            });
+          }
+          await acknowledgeHumanTranscriptionDownstream(result.runId);
+        }
+      });
+    } catch (error) {
+      captureWorkerException(error, "worker.human-transcription.reconcile");
+    } finally {
+      humanTranscriptionReconciling = false;
+    }
+  }
+  void reconcile();
+}, 2000);
+humanTranscriptionTimer.unref();
+triggerLifecycle.addFinalizer("human-transcription-recovery", () => {
+  clearInterval(humanTranscriptionTimer);
+});
+
 // 启动时从数据库恢复未完成批次项，再补入可能因进程退出而丢失的解析队列。 / Restores incomplete batch items from the database at startup and replenishes jobs lost on process exit.
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
   const { recoverIncompleteBatchItems } = await import("./resume-processing/ingest");
