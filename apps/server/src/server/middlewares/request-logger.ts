@@ -3,8 +3,12 @@ import { createMiddleware } from "hono/factory";
 export function safeRequestPath(raw: string) {
   const path = new URL(raw, "http://local").pathname;
   return path
-    .replaceAll(/(\/human-interview-meetings)\/(?!interviewer(?:\/|$))[^/]+/g, "$1/[redacted]")
+    .replaceAll(
+      /(\/human-interview-meetings)\/(?!(?:interviewer|candidate)(?:\/|$))[^/]+/g,
+      "$1/[redacted]",
+    )
     .replaceAll(/(\/human-interview-meetings\/(?:interviewer|candidate))\/[^/]+/g, "$1/[redacted]")
+    .replaceAll(/(\/human-interview-candidate-materials)\/[^/]+/g, "$1/[redacted]")
     .replaceAll(
       /\/(human-interview(?:-review)?|join|invite|human-meeting)\/[^/]+/g,
       "/$1/[redacted]",

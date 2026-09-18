@@ -458,7 +458,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
             meeting.status === "scheduled" &&
             isHumanInterviewMeetingBeforeScheduledStart(meeting.scheduledAt)
           ) {
-            return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+            return c.json({ error: "未到入会时间，面试开始前 15 分钟可进入会议。" }, 403);
           }
           if (isHumanInterviewMeetingAfterValidUntil(meeting.validUntil)) {
             return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);

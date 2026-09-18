@@ -67,7 +67,7 @@ describe("human interview live transcript public route", () => {
       now: () => new Date("2026-08-31T10:00:00.000Z"),
       resolveInvite: vi.fn().mockResolvedValue({
         ...scope,
-        scheduledAt: "2026-08-31T10:10:01.000Z",
+        scheduledAt: "2026-08-31T10:15:01.000Z",
         status: "scheduled",
       }),
     });
@@ -82,6 +82,33 @@ describe("human interview live transcript public route", () => {
     expect(observerResponse.status).toBe(403);
     expect(earlyResponse.status).toBe(403);
     expect(createAuthorization).not.toHaveBeenCalled();
+  });
+
+  it("allows authorization exactly fifteen minutes before the scheduled meeting", async () => {
+    const createAuthorization = vi.fn().mockResolvedValue({
+      clientSecret: "temporary-provider-token",
+      expiresAt: "2026-09-01T10:00:00.000Z",
+      model: "qwen-audio-3.0-asr-flash-streaming",
+      provider: "qwen",
+      track: "microphone",
+    });
+    const app = createHumanInterviewLiveTranscriptRouter({
+      createAuthorization,
+      loadMode: () => Promise.resolve("legacy"),
+      now: () => new Date("2026-08-31T10:00:00.000Z"),
+      resolveInvite: vi.fn().mockResolvedValue({
+        ...scope,
+        scheduledAt: "2026-08-31T10:15:00.000Z",
+        status: "scheduled",
+      }),
+    });
+    const response = await app.request("/signed-token/live-transcript", {
+      body: JSON.stringify({ captureId, track: "microphone" }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(response.status).toBe(201);
+    expect(createAuthorization).toHaveBeenCalledOnce();
   });
 
   it("renews and releases leases using the invite-bound scope", async () => {

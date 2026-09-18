@@ -9,6 +9,7 @@ describe("worker production build", () => {
       cwd: process.cwd(),
       encoding: "utf-8",
       env: { ...process.env, NO_COLOR: "1" },
+      timeout: 120_000,
     });
 
     expect(build.status, build.stderr || build.stdout).toBe(0);
@@ -16,6 +17,7 @@ describe("worker production build", () => {
     const distDirectory = join(process.cwd(), "dist");
     const distEntries = await readdir(distDirectory);
     const files = distEntries.filter((file) => file.endsWith(".mjs"));
+    expect(files).toContain("index.mjs");
     const externalWorkspaceImports: string[] = [];
 
     await Promise.all(
@@ -28,5 +30,5 @@ describe("worker production build", () => {
     );
 
     expect(externalWorkspaceImports.toSorted()).toEqual([]);
-  });
+  }, 150_000);
 });

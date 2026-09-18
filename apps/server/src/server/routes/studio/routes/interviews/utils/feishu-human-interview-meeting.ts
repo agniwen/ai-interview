@@ -85,7 +85,7 @@ export function buildCalendarDescription({
     `面试轮次：${roundLabels.join("、")}`,
     `面试官：${interviewerNames.join("、")}`,
     `在线面试入口（请点击本人对应的链接）\n${interviewerLinks.join("\n")}`,
-    "请提前 5 分钟进入面试，并确认麦克风和摄像头可正常使用。\n本日程仅用于面试安排，在线面试将在招聘系统中进行。",
+    "可提前 15 分钟进入面试，请确认麦克风和摄像头可正常使用。\n本日程仅用于面试安排，在线面试将在招聘系统中进行。",
   ];
   if (notes?.trim()) {
     sections.push(`备注：${notes.trim()}`);

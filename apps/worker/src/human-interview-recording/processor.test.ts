@@ -4,6 +4,71 @@ import type { HumanInterviewRecordingProcessorDependencies } from "./processor";
 import type { HumanInterviewRecordingTrack } from "@app/db-schema/human-interview-recording";
 
 describe("runHumanInterviewRecordingProcessing", () => {
+  it.each([
+    { expectedNotice: "录音启停时间存在覆盖差", failedTrack: false },
+    { expectedNotice: "部分录音不完整", failedTrack: true },
+  ])(
+    "distinguishes recording boundary skew from failed tracks: $failedTrack",
+    async ({ failedTrack, expectedNotice }) => {
+      const tracks: HumanInterviewRecordingTrack[] = (
+        ["mixed", "candidate", "interviewer"] as const
+      ).map((role, i) => ({
+        displayName: role,
+        durationMs: 10_000,
+        egressId: `egress-${i}`,
+        endedAtMs: 11_000 + (role === "interviewer" ? 1844 : 0),
+        error: null,
+        fileKey: `${role}.ogg`,
+        id: crypto.randomUUID(),
+        participantIdentity: role === "mixed" ? null : role,
+        publishedAtMs: 1000,
+        role,
+        sizeBytes: 5,
+        startedAtMs: 1000 + (role === "interviewer" ? 1844 : 0),
+        status: failedTrack && role === "interviewer" ? "failed" : "completed",
+        trackId: `track-${i}`,
+        unpublishedAtMs: 12_699,
+        updatedAtMs: 14_000,
+      }));
+      const ingest = vi.fn<HumanInterviewRecordingProcessorDependencies["ingest"]>(() =>
+        Promise.resolve({ meetingSessionId: "session", organizationId: "org" }),
+      );
+      await runHumanInterviewRecordingProcessing(
+        { meetingId: "meeting", organizationId: "org", tracks, version: 2 },
+        { attempt: 3, maxAttempts: 3 },
+        {
+          detectSilence: () => Promise.resolve([]),
+          download: async ({ filePath }) => {
+            const { writeFile } = await import("node:fs/promises");
+            await writeFile(filePath, "audio");
+          },
+          enqueueTranscription: () => Promise.resolve(),
+          getTranscriptionJob: () => Promise.resolve(null),
+          head: () =>
+            Promise.resolve({
+              checksumSha256: null,
+              contentLength: 5,
+              contentType: "audio/ogg",
+              etag: null,
+              sha256: null,
+            }),
+          ingest,
+          inspectAudio: () => Promise.resolve(10_000),
+          markError: () => Promise.resolve(),
+          markTranscriptionUnavailable: () => Promise.resolve(),
+        },
+      );
+      const input = ingest.mock.calls[0]?.[0];
+      expect(input?.warning).toContain(expectedNotice);
+      const ranges = input?.assets?.find((a) => a.track === "mixed")?.recordingIdentity
+        ?.recoveryRanges;
+      expect(ranges).toContainEqual({ endMs: 11_699, startMs: 10_000 });
+      if (!failedTrack) {
+        expect(input?.warning).not.toContain("部分录音不完整");
+        expect(ranges).toContainEqual({ endMs: 1844, startMs: 0 });
+      }
+    },
+  );
   it("retains both completed room attempts without colliding at asset admission", async () => {
     const tracks: HumanInterviewRecordingTrack[] = (["mixed", "mixed", "candidate"] as const).map(
       (role, i) => ({

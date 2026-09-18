@@ -22,6 +22,9 @@ from human_transcription.preview import PreviewPublisher
 from human_transcription.retry import capture_with_retries
 
 logger = logging.getLogger(__name__)
+# Participants may join fifteen minutes early; allow another five minutes for
+# the other side to arrive before replacing an idle collector.
+WAIT_FOR_PARTICIPANTS_SECONDS = 20 * 60
 
 
 class SentenceLedger:
@@ -63,7 +66,7 @@ async def run_human_transcription(ctx: JobContext) -> None:
     audio_streams: dict[str, rtc.AudioStream] = {}
     seen: set[str] = set()
     error: str | None = None
-    draining = False
+    finish_task: asyncio.Task | None = None
     empty_since: float | None = None
     connected_at = time.monotonic()
     retry_boundaries: dict[str, int] = {}
@@ -280,11 +283,7 @@ async def run_human_transcription(ctx: JobContext) -> None:
             if reply.get("stop"):
                 stopping.set()
 
-        async def finish():
-            nonlocal draining, error
-            if draining:
-                return
-            draining = True
+        async def drain():
             stopping.set()
             try:
                 await post("cutoff")
@@ -302,6 +301,18 @@ async def run_human_transcription(ctx: JobContext) -> None:
                 for task in unfinished:
                     task.cancel()
                 await asyncio.gather(*pending_tasks, return_exceptions=True)
+            tasks.clear()
+            preview_task.cancel()
+            await asyncio.gather(preview_task, return_exceptions=True)
+            for event, callback in room_listeners.items():
+                ctx.room.off(event, callback)
+            # Release our RTC resources before the finish callback lets the server
+            # delete the room. The framework's later disconnect is idempotent.
+            try:
+                async with asyncio.timeout(5):
+                    await ctx.room.disconnect()
+            except Exception:
+                logger.warning("human transcription room disconnect incomplete")
             outbox.set_metadata(
                 {
                     "baseUrl": base_url,
@@ -323,8 +334,28 @@ async def run_human_transcription(ctx: JobContext) -> None:
                     "human transcription retained unacknowledged events for recovery"
                 )
 
-        ctx.room.on("track_subscribed", start_tracks)
-        ctx.room.on("disconnected", lambda *_: stopping.set())
+        async def finish():
+            nonlocal finish_task
+            if finish_task is None:
+                finish_task = asyncio.create_task(drain())
+            # A second shutdown caller must not proceed while the first still
+            # owns audio handles or is persisting the last transcription events.
+            cancellation = None
+            while True:
+                try:
+                    await asyncio.shield(finish_task)
+                    break
+                except asyncio.CancelledError as exc:
+                    if finish_task.cancelled():
+                        raise
+                    # Keep the enclosing HTTP client alive until draining ends,
+                    # including when the framework cancels the entrypoint again.
+                    cancellation = exc
+            if cancellation is not None:
+                raise cancellation
+
+        def on_disconnected(*_):
+            stopping.set()
 
         def on_left(*_):
             nonlocal empty_since
@@ -339,20 +370,29 @@ async def run_human_transcription(ctx: JobContext) -> None:
             empty_since = None
             start_tracks()
 
-        ctx.room.on("participant_connected", on_join)
-        ctx.room.on("participant_disconnected", on_left)
-        ctx.add_shutdown_callback(finish)
-        await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-        if (await post("ready")).get("stop"):
-            stopping.set()
-        start_tracks()
+        room_listeners = {
+            "track_subscribed": start_tracks,
+            "disconnected": on_disconnected,
+            "participant_connected": on_join,
+            "participant_disconnected": on_left,
+        }
+        for event, callback in room_listeners.items():
+            ctx.room.on(event, callback)
         preview_task = asyncio.create_task(preview.run())
+        ctx.add_shutdown_callback(finish)
         try:
+            await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+            if (await post("ready")).get("stop"):
+                stopping.set()
+            start_tracks()
             failures = 0
             while not stopping.is_set():
                 if empty_since is not None and time.monotonic() - empty_since >= 5:
                     break
-                if not tasks and time.monotonic() - connected_at >= 300:
+                if (
+                    not tasks
+                    and time.monotonic() - connected_at >= WAIT_FOR_PARTICIPANTS_SECONDS
+                ):
                     error = "等待参会者超时，未采集音频"
                     break
                 try:
@@ -373,6 +413,4 @@ async def run_human_transcription(ctx: JobContext) -> None:
                     await asyncio.wait_for(events_ready.wait(), timeout=1)
         finally:
             await finish()
-            preview_task.cancel()
-            await asyncio.gather(preview_task, return_exceptions=True)
             ctx.shutdown(reason="human transcription complete")

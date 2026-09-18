@@ -24,6 +24,7 @@ describe("Feishu interview calendar description", () => {
     expect(description).toContain("候选人：张三、李四");
     expect(description).toContain("面试轮次：业务一面、CEO面试");
     expect(description).toContain("备注：请重点关注系统设计能力");
+    expect(description).toContain("可提前 15 分钟进入面试");
   });
 
   it("does not invent a job for historical records without one", () => {

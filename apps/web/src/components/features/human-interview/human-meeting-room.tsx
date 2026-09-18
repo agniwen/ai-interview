@@ -156,7 +156,7 @@ const interviewerRoleLabel = {
   interviewer: "面试官",
   observer: "旁听",
 } as const;
-const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;
+const EARLY_JOIN_WINDOW_MS = 15 * 60 * 1000;
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
   hour: "2-digit",
@@ -201,7 +201,7 @@ function getStartBlockMessage(
   if (timestamp === null || timestamp <= nowMs) {
     return null;
   }
-  return `面试时间为 ${formatDateTime(scheduledAt)}，可提前 5 分钟进入，当前暂不能进入会议。`;
+  return `面试时间为 ${formatDateTime(scheduledAt)}，可提前 15 分钟进入，当前暂不能进入会议。`;
 }
 
 function getJoinButtonText(startBlockMessage: string | null, isJoining: boolean) {

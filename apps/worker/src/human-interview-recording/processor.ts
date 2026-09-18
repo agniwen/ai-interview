@@ -277,12 +277,11 @@ async function ingestTrackRecordings(
   }
   const start = Math.min(...verified.map(({ track }) => track.startedAtMs));
   const end = Math.max(...verified.map(({ track }) => track.startedAtMs + track.durationMs));
+  const missingParticipantRole = ["candidate", "interviewer"].some(
+    (role) => !verified.some(({ track }) => track.role === role),
+  );
   const recoveryRanges = [
-    ...(["candidate", "interviewer"].some(
-      (role) => !verified.some(({ track }) => track.role === role),
-    )
-      ? [{ endMs: end - start, startMs: 0 }]
-      : []),
+    ...(missingParticipantRole ? [{ endMs: end - start, startMs: 0 }] : []),
     ...failed
       .filter((track) => track.role !== "mixed")
       .map((track) => ({
@@ -342,16 +341,20 @@ async function ingestTrackRecordings(
   const manifestSha256 = createHash("sha256")
     .update(JSON.stringify(assets.toSorted((a, b) => a.track.localeCompare(b.track))))
     .digest("hex");
+  let warning: string | null = null;
+  if (failed.length || missingParticipantRole) {
+    warning = "部分录音不完整，已保留可用音轨；全场补救中的身份不明内容需要人工确认。";
+  } else if (recoveryRanges.length) {
+    // Keep every recovery range: wall-clock skew alone cannot prove lost speech.
+    warning = "录音启停时间存在覆盖差，已保留可用音轨供核对；是否缺失发言需结合录音确认。";
+  }
   const result = await dependencies.ingest({
     assets,
     manifestSha256,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
     startedAtMs: start,
-    warning:
-      failed.length || recoveryRanges.length
-        ? "部分录音不完整，已保留可用音轨；全场补救中的身份不明内容需要人工确认。"
-        : null,
+    warning,
   });
   const job = await dependencies.getTranscriptionJob({
     meetingId: result.meetingSessionId,
