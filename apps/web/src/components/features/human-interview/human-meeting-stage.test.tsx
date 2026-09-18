@@ -68,14 +68,45 @@ vi.mock("./human-meeting-audio-controls", () => ({
 }));
 
 vi.mock("./interviewer-candidate-materials", () => ({
-  InterviewerCandidateMaterials: () => null,
+  InterviewerCandidateMaterials: ({
+    transcriptPanelRef,
+  }: {
+    transcriptPanelRef?: React.Ref<HTMLDivElement>;
+  }) => <div ref={transcriptPanelRef} data-testid="transcript-tab" />,
 }));
 
 vi.mock("./human-meeting-live-transcript", () => ({
-  HumanMeetingLiveTranscript: () => <div>自动实时转录窗口</div>,
+  HumanMeetingLiveTranscript: ({
+    renderPanel,
+  }: {
+    renderPanel?: (panel: React.ReactNode) => React.ReactNode;
+  }) => {
+    const panel = <div>自动实时转录窗口</div>;
+    return renderPanel ? renderPanel(panel) : panel;
+  },
 }));
 
 const roots: ReturnType<typeof createRoot>[] = [];
+
+function expectTranscriptLocation(
+  workspace: Element | null,
+  mainPanels: Element | null,
+  inTab: boolean,
+  viewMode: HumanMeetingViewMode,
+) {
+  if (viewMode === "meeting") {
+    expect(workspace?.textContent).not.toContain("自动实时转录窗口");
+    expect(workspace?.children).toHaveLength(1);
+  } else if (inTab) {
+    expect(mainPanels?.querySelector('[data-testid="transcript-tab"]')?.textContent).toContain(
+      "自动实时转录窗口",
+    );
+    expect(workspace?.children).toHaveLength(1);
+  } else {
+    expect(workspace?.lastElementChild?.textContent).toBe("自动实时转录窗口");
+    expect(mainPanels?.textContent).not.toContain("自动实时转录窗口");
+  }
+}
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", () => ({
@@ -202,23 +233,20 @@ describe("HumanMeetingStage realtime transcript", () => {
         "[&_video]:object-cover",
       );
 
-      expect(container.textContent).toContain("自动实时转录窗口");
+      expect(container.textContent).not.toContain("自动实时转录窗口");
       expect(container.textContent).not.toContain("试试实时转录");
       expect(container.textContent).not.toContain("关闭实时转录");
       const workspace = container.querySelector('[data-slot="meeting-workspace"]');
       const mainPanels = container.querySelector('[data-slot="meeting-main-panels"]');
       expect(workspace).not.toBeNull();
       expect(mainPanels).not.toBeNull();
-      const transcriptPanel = [...(workspace?.children ?? [])].find((element) =>
-        element.textContent?.includes("自动实时转录窗口"),
-      );
-      expect(transcriptPanel).toBeDefined();
-      expect(mainPanels?.contains(transcriptPanel ?? null)).toBe(false);
       for (const viewMode of ["materials", "meeting"] as const) {
         renderStage(viewMode);
-        expect(transcriptPanel?.parentElement).toBe(workspace);
-        expect(transcriptPanel?.isConnected).toBe(true);
-        expect(mainPanels?.textContent).not.toContain("自动实时转录窗口");
+        expectTranscriptLocation(workspace, mainPanels, width < 768, viewMode);
+        expect(container.textContent).toContain(
+          viewMode === "materials" ? "切换到视频" : "切换到信息",
+        );
+        expect(container.textContent).not.toContain("切换视图");
       }
       renderStage("meeting", false);
       expect(container.textContent).toContain("离开");

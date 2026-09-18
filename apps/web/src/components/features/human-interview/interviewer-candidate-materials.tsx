@@ -6,6 +6,8 @@ import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-r
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, lazy, Suspense, useState } from "react";
+import type { Ref } from "react";
+import { cn } from "@app/shared/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
@@ -89,6 +91,7 @@ function isCandidateMaterialsCenterTab(value: string): value is CandidateMateria
 }
 
 interface InterviewerCandidateMaterialsProps {
+  transcriptPanelRef?: Ref<HTMLDivElement>;
   active: boolean;
   inviteToken: string;
   onStateChange: (state: InterviewerCandidateMaterialsState) => void;
@@ -476,13 +479,14 @@ function useQuestionsQuery(active: boolean, inviteToken: string, candidateId: st
 }
 
 export function InterviewerCandidateMaterials({
+  transcriptPanelRef,
   active,
   inviteToken,
   onStateChange,
   state,
 }: InterviewerCandidateMaterialsProps) {
   const isMobile = useIsMobile();
-  const [mobileGroup, setMobileGroup] = useState<"left" | "center">("center");
+  const [mobileGroup, setMobileGroup] = useState<"left" | "center" | "transcript">("center");
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active,
@@ -495,6 +499,9 @@ export function InterviewerCandidateMaterials({
   const aiQuery = useAiEvaluationQuery(active, inviteToken, effectiveCandidateId);
   const hrQuery = useHrInformationQuery(active, inviteToken, effectiveCandidateId);
   const questionsQuery = useQuestionsQuery(active, inviteToken, effectiveCandidateId);
+  const materialsTab = mobileGroup === "left" ? state.leftTab : state.centerTab;
+  const mobileTab =
+    mobileGroup === "transcript" && transcriptPanelRef ? "transcript" : materialsTab;
 
   if (listQuery.isPending) {
     return <LoadingBlock />;
@@ -535,9 +542,11 @@ export function InterviewerCandidateMaterials({
     return (
       <Tabs
         className="h-full min-h-0 gap-0 overflow-hidden bg-background text-foreground"
-        value={mobileGroup === "left" ? state.leftTab : state.centerTab}
+        value={mobileTab}
         onValueChange={(value) => {
-          if (isCandidateMaterialsLeftTab(value)) {
+          if (value === "transcript" && transcriptPanelRef) {
+            setMobileGroup("transcript");
+          } else if (isCandidateMaterialsLeftTab(value)) {
             setMobileGroup("left");
             onStateChange({ ...state, leftTab: value });
           } else if (isCandidateMaterialsCenterTab(value)) {
@@ -549,7 +558,10 @@ export function InterviewerCandidateMaterials({
         {candidateSelector}
         <TabsList
           aria-label="候选人资料"
-          className="m-2 grid h-auto w-auto shrink-0 grid-cols-5 gap-0 data-[orientation=horizontal]:h-auto"
+          className={cn(
+            "m-2 grid h-auto w-auto shrink-0 gap-0 data-[orientation=horizontal]:h-auto",
+            transcriptPanelRef ? "grid-cols-6" : "grid-cols-5",
+          )}
         >
           <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="detail">
             详情
@@ -566,7 +578,17 @@ export function InterviewerCandidateMaterials({
           <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="questions">
             面试题
           </TabsTrigger>
+          {transcriptPanelRef ? (
+            <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="transcript">
+              实时转录
+            </TabsTrigger>
+          ) : null}
         </TabsList>
+        {transcriptPanelRef ? (
+          <TabsContent className="min-h-0 overflow-hidden" value="transcript" keepMounted>
+            <div ref={transcriptPanelRef} className="flex h-full min-h-0 flex-col" />
+          </TabsContent>
+        ) : null}
         <TabsContent className="min-h-0 overflow-hidden" value="ai">
           <ScrollArea className="h-full" scrollFade scrollbars="leave">
             <CandidateAiEvaluation query={aiQuery} />

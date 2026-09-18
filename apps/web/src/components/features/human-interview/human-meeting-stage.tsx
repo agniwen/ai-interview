@@ -35,7 +35,9 @@ import {
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { notifyMeetingMediaError } from "./human-meeting-media-errors";
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@app/shared/utils";
@@ -136,6 +138,16 @@ export function HumanMeetingStage({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
+  const isMobile = useIsMobile();
+  const [transcriptPanel, setTranscriptPanel] = useState<HTMLDivElement | null>(null);
+  const transcriptInTab = isMobile && viewMode === "materials";
+
+  function renderTranscriptPanel(panel: ReactNode) {
+    if (viewMode !== "materials") {
+      return null;
+    }
+    return transcriptPanel ? createPortal(panel, transcriptPanel) : null;
+  }
   const participants = useParticipants().filter((participant) => !participant.isAgent);
   const tracks = useTracks(
     [
@@ -207,6 +219,8 @@ export function HumanMeetingStage({
           "grid min-h-0 flex-1 overflow-hidden",
           inviteToken &&
             canUseLiveTranscript &&
+            viewMode === "materials" &&
+            !transcriptInTab &&
             "grid-rows-[minmax(0,1fr)_auto] md:grid-rows-[minmax(0,1fr)_minmax(12rem,40%)] lg:grid-cols-[minmax(0,1fr)_clamp(21.75rem,25vw,25.75rem)] lg:grid-rows-1",
         )}
       >
@@ -275,6 +289,7 @@ export function HumanMeetingStage({
                   inviteToken={inviteToken}
                   onStateChange={onCandidateMaterialsStateChange}
                   state={candidateMaterialsState}
+                  transcriptPanelRef={canUseLiveTranscript ? setTranscriptPanel : undefined}
                 />
               </div>
             </div>
@@ -285,6 +300,9 @@ export function HumanMeetingStage({
             candidateName={candidateName}
             inviteToken={inviteToken}
             ref={liveTranscriptRef}
+            renderPanel={
+              viewMode === "meeting" || transcriptInTab ? renderTranscriptPanel : undefined
+            }
           />
         ) : null}
       </div>
@@ -368,10 +386,7 @@ export function HumanMeetingStage({
             ) : (
               <IconFileDescription className="size-4" />
             )}
-            <span className="md:hidden">切换视图</span>
-            <span className="hidden md:inline">
-              {viewMode === "materials" ? "切换到视频" : "切换到信息"}
-            </span>
+            <span>{viewMode === "materials" ? "切换到视频" : "切换到信息"}</span>
           </button>
         ) : null}
         {canEndMeeting ? (

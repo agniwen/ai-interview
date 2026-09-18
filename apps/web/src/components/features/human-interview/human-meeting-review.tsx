@@ -521,7 +521,7 @@ function HumanMeetingReviewForm({
 
   return wrap(
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade={!renderShell}>
+      <ScrollArea className="min-h-0 flex-1" scrollFade={!renderShell} scrollbars="never">
         <div className="mx-auto w-full max-w-5xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
