@@ -1,3 +1,4 @@
+import { OfferApprovalError } from "../../../offer-approvals/dao";
 import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
@@ -100,7 +101,7 @@ export function createOfferDraftsRouter(
       .createApp()
       // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Map business conflicts for every Offer mutation.
       .onError((error, c) => {
-        if (error instanceof OfferDraftError) {
+        if (error instanceof OfferDraftError || error instanceof OfferApprovalError) {
           return c.json({ error: error.message }, error.status);
         }
         throw error;
@@ -185,7 +186,14 @@ export function createOfferDraftsRouter(
       .patch(
         "/:draftId",
         dependencies.requireOfferPermission("update"),
-        zValidator("json", offerDraftInputSchema.partial(), jsonValidatorError("Offer 参数无效。")),
+        zValidator(
+          "json",
+          offerDraftInputSchema.partial().extend({
+            expectedContentRevision: z.number().int().positive(),
+            invalidateApproval: z.boolean().optional(),
+          }),
+          jsonValidatorError("Offer 参数无效。"),
+        ),
         async (c) => {
           const { activeOrg } = c.var;
           if (!activeOrg) {
@@ -197,6 +205,7 @@ export function createOfferDraftsRouter(
             const updated = await dependencies.editOfferDraft({
               draftId,
               input,
+              operatorId: c.var.user?.id ?? null,
               organizationId: activeOrg.id,
             });
             await dependencies.recordCandidateActivity({
@@ -213,13 +222,25 @@ export function createOfferDraftsRouter(
             dependencies.invalidateStudioInterviewCaches(activeOrg.id);
             return c.json(updated, 200);
           } catch (error) {
-            if (error instanceof OfferDraftError) {
+            if (error instanceof OfferDraftError || error instanceof OfferApprovalError) {
               return c.json({ error: error.message }, error.status);
             }
             throw error;
           }
         },
       )
+      .post("/:draftId/void", dependencies.requireOfferPermission("delete"), async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!activeOrg || !user) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        const result = await dependencies.deleteOfferDraft(c.req.param("draftId"), activeOrg.id, {
+          operatorId: user.id,
+          voidWithHistory: true,
+        });
+        dependencies.invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(result, 200);
+      })
       .post("/:draftId/publish", dependencies.requireOfferPermission("update"), async (c) => {
         const { activeOrg } = c.var;
         if (!activeOrg) {
@@ -246,7 +267,7 @@ export function createOfferDraftsRouter(
           dependencies.invalidateStudioInterviewCaches(activeOrg.id);
           return c.json(updated, 200);
         } catch (error) {
-          if (error instanceof OfferDraftError) {
+          if (error instanceof OfferDraftError || error instanceof OfferApprovalError) {
             return c.json({ error: error.message }, error.status);
           }
           throw error;
@@ -355,7 +376,7 @@ export function createOfferDraftsRouter(
             dependencies.invalidateStudioInterviewCaches(activeOrg.id);
             return c.json(updated, 200);
           } catch (error) {
-            if (error instanceof OfferDraftError) {
+            if (error instanceof OfferDraftError || error instanceof OfferApprovalError) {
               return c.json({ error: error.message }, error.status);
             }
             throw error;
@@ -384,7 +405,7 @@ export function createOfferDraftsRouter(
           dependencies.invalidateStudioInterviewCaches(activeOrg.id);
           return c.json(updated, 200);
         } catch (error) {
-          if (error instanceof OfferDraftError) {
+          if (error instanceof OfferDraftError || error instanceof OfferApprovalError) {
             return c.json({ error: error.message }, error.status);
           }
           throw error;

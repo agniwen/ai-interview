@@ -40,6 +40,7 @@ async function loadPublicOffer(token: string) {
       organizationName: organization.name,
       position: recruitingOffer.position,
       publishedAt: recruitingOffer.publishedAt,
+      publishedSnapshot: recruitingOffer.publishedSnapshot,
       recruitingRecordId: recruitingOffer.recruitingRecordId,
       responseAt: recruitingOffer.responseAt,
       status: recruitingOffer.status,
@@ -59,21 +60,26 @@ async function loadPublicOffer(token: string) {
   return row ?? null;
 }
 
+// oxlint-disable-next-line complexity -- Published and legacy Offer fields are resolved field-by-field for backward compatibility.
 function toPublicRecord(
   row: NonNullable<Awaited<ReturnType<typeof loadPublicOffer>>>,
 ): PublicOfferRecord {
-  const expired = isOfferExpired(row.expiresAt);
+  // 发布时固化的快照是候选人可见 Offer 的唯一来源；避免任何后续数据库
+  // 修复或管理操作意外改写已发出的承诺内容。
+  const snapshot = row.publishedSnapshot;
+  const expiresAt = snapshot ? snapshot.expiresAt : (row.expiresAt?.toISOString() ?? null);
+  const expired = isOfferExpired(expiresAt ? new Date(expiresAt) : null);
   return {
-    baseSalary: row.baseSalary,
-    bonus: row.bonus,
-    candidateName: row.candidateName,
-    companyName: row.companyName?.trim() || row.organizationName,
-    currency: row.currency,
+    baseSalary: snapshot?.baseSalary ?? row.baseSalary,
+    bonus: snapshot ? snapshot.bonus : row.bonus,
+    candidateName: snapshot?.candidateName ?? row.candidateName,
+    companyName: snapshot?.companyName ?? (row.companyName?.trim() || row.organizationName),
+    currency: snapshot?.currency ?? row.currency,
     declineReason: row.declineReason,
-    equity: row.equity,
-    expiresAt: row.expiresAt ? offerExpiryEndOfDay(row.expiresAt).toISOString() : null,
-    joiningDate: row.joiningDate?.toISOString() ?? null,
-    position: row.position,
+    equity: snapshot ? snapshot.equity : row.equity,
+    expiresAt: expiresAt ? offerExpiryEndOfDay(expiresAt).toISOString() : null,
+    joiningDate: snapshot ? snapshot.joiningDate : (row.joiningDate?.toISOString() ?? null),
+    position: snapshot?.position ?? row.position,
     publishedAt: row.publishedAt?.toISOString() ?? new Date(0).toISOString(),
     responseAt: row.responseAt?.toISOString() ?? null,
     status: expired && row.status === "sent" ? "expired" : row.status,
@@ -129,7 +135,8 @@ export function createPublicOffersRouter(
           if (row.status === "superseded") {
             return c.json({ error: "当前 Offer 已失效，请联系招聘负责人获取新的 Offer。" }, 410);
           }
-          if (isOfferExpired(row.expiresAt)) {
+          const expiry = row.publishedSnapshot ? row.publishedSnapshot.expiresAt : row.expiresAt;
+          if (isOfferExpired(expiry ? new Date(expiry) : null)) {
             return c.json({ error: "当前 Offer 已过期，请联系招聘负责人。" }, 410);
           }
           const input = c.req.valid("json");

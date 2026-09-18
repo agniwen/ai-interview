@@ -29,6 +29,7 @@ export * from "./endpoints/chat";
 export * from "./endpoints/background-check";
 export * from "./endpoints/public-interview";
 export * from "./endpoints/studio-interviews";
+export * from "./endpoints/studio-offer-approvals";
 export * from "./endpoints/studio-calendar";
 export * from "./endpoints/resume";
 export * from "./endpoints/studio-resumes";

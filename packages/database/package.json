@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./recruiting-read-model": "./src/recruiting-read-model.ts",
     "./recruiting-records": "./src/recruiting-records.ts",
+    "./offer-approval": "./src/offer-approval.ts",
     "./recruiting-pipeline": "./src/recruiting-pipeline.ts",
     "./recruiting-ai-review": "./src/recruiting-ai-review.ts",
     "./recruiting-reference-retention": "./src/recruiting-reference-retention.ts"

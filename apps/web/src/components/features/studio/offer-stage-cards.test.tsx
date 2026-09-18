@@ -2,11 +2,21 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
+import {
+  createRootRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from "@tanstack/react-router";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 
 import { buildOfferLinkCopy, OfferCardView } from "./offer-stage-cards";
+
+const apiCalls = vi.fn<typeof fetch>();
+let approvalStatus = "pending";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -22,8 +32,10 @@ const draft: OfferDraftRecord = {
   baseSalary: 30_000,
   bonus: null,
   candidateCounter: null,
+  contentRevision: 1,
   createdAt: "2026-08-05T00:00:00.000Z",
   currency: "CNY",
+  currentApprovalId: null,
   declineReason: null,
   emailRecipient: null,
   emailSentAt: null,
@@ -47,12 +59,131 @@ const draft: OfferDraftRecord = {
   version: 1,
 };
 
+beforeEach(() => {
+  approvalStatus = "pending";
+  apiCalls.mockImplementation((input) =>
+    Promise.resolve(
+      Response.json(
+        String(input).includes("offer-approvals")
+          ? { invalidatedAt: null, status: approvalStatus }
+          : draft,
+      ),
+    ),
+  );
+  vi.stubGlobal("fetch", apiCalls);
+});
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("OfferCard", () => {
+  it("uses the history-preserving void action after withdrawal", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient();
+    const onCancelled = vi.fn();
+    try {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail={null}
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{ ...draft, currentApprovalId: "approval-1" }}
+              onCancelled={onCancelled}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      const button = [...host.querySelectorAll("button")].find(
+        (item) => item.textContent === "作废 Offer 草稿",
+      );
+      expect(button).toBeDefined();
+      act(() => button?.click());
+      await vi.waitFor(() => expect(onCancelled).toHaveBeenCalledOnce());
+      expect(apiCalls.mock.calls.some(([url]) => String(url).endsWith("/offer-1/void"))).toBe(true);
+      expect(apiCalls.mock.calls.some(([url]) => String(url).endsWith("/offer-1/cancel"))).toBe(
+        false,
+      );
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
+
+  it("enables publication when another user finishes approval while the card stays open", async () => {
+    vi.useFakeTimers();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const publishButton = () =>
+      [...host.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("确认并发布"),
+      );
+    try {
+      const routeTree = createRootRoute({
+        component: () => (
+          <WorkspaceSlugProvider
+            id="org-1"
+            slug="acme"
+            memberRole="admin"
+            permissions={{ offerApproval: ["read"], page: ["offerApprovals"] }}
+          >
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail={null}
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{ ...draft, currentApprovalId: "approval-1" }}
+              onCancelled={vi.fn()}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </WorkspaceSlugProvider>
+        ),
+      });
+      const router = createRouter({
+        history: createMemoryHistory({ initialEntries: ["/"] }),
+        routeTree,
+        scrollRestoration: false,
+      });
+      await router.load();
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>,
+        ),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(host.textContent).toContain("待审批");
+      expect(publishButton()?.disabled).toBe(true);
+      approvalStatus = "approved";
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_001);
+      });
+      expect(host.textContent).toContain("已通过");
+      expect(publishButton()?.disabled).toBe(false);
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
   it("copies a forwardable offer invitation without exposing salary details", () => {
     const url = "https://example.com/offer/test-token?source=copy";
     expect(buildOfferLinkCopy({ candidateName: " 张三 ", position: " 产品经理 ", url })).toBe(

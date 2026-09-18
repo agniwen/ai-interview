@@ -1,17 +1,20 @@
 "use client";
 
 import { IconCircleCheck, IconCopy, IconMail, IconPencil } from "@tabler/icons-react";
-/* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
+/* oxlint-disable complexity, max-lines, no-nested-ternary, no-use-before-define -- One card coordinates Offer content, approval status, and delivery actions; helpers remain below the public component. */
 // Offer 接受后完成协商，后续继续背调与入职。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@app/db-schema/studio-interviews";
+import { offerApprovalLabels } from "@app/shared/offer-approval";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import {
   deleteOfferDraft,
+  voidOfferDraft,
   fetchStudioResume,
   getOfferEmailPreview,
   getOfferPublicLink,
@@ -21,6 +24,9 @@ import {
   updateCandidateExpectations,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
+import { SubmitOfferApprovalDialog } from "@/components/features/offer-approval/submit-dialog";
+import { approvalDetailOptions } from "@/components/features/offer-approval/queries";
 import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
@@ -37,6 +43,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   OfferDraftFormFields,
   buildOfferDraftPayload,
@@ -276,6 +283,19 @@ export function OfferCardView({
   const [editing, setEditing] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [invalidateApprovedApproval, setInvalidateApprovedApproval] = useState(false);
+  const canCreateApproval =
+    useHasPermission("page", "offerApprovals") && useHasPermission("offerApproval", "create");
+  const canReadApproval =
+    useHasPermission("page", "offerApprovals") && useHasPermission("offerApproval", "read");
+  const approval = useQuery({
+    ...approvalDetailOptions(slug, draft.currentApprovalId ?? ""),
+    enabled: Boolean(draft.currentApprovalId && canReadApproval),
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
+  });
+  const approvedApproval = approval.data?.status === "approved" && !approval.data.invalidatedAt;
+  const publishBlocked = Boolean(draft.currentApprovalId && canReadApproval && !approvedApproval);
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
 
@@ -289,15 +309,23 @@ export function OfferCardView({
     },
   });
   const cancelMutation = useMutation({
-    mutationFn: () => deleteOfferDraft(slug, candidateId, draft.id),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "删除失败"),
+    mutationFn: () =>
+      draft.currentApprovalId
+        ? voidOfferDraft(slug, candidateId, draft.id)
+        : deleteOfferDraft(slug, candidateId, draft.id),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "移除草稿失败"),
     onSuccess: () => {
-      toast.success("已删除 Offer");
+      toast.success(draft.currentApprovalId ? "已作废 Offer，审批历史已保留" : "已删除 Offer");
       onCancelled();
     },
   });
   const saveMutation = useMutation({
-    mutationFn: () => patchOfferDraft(slug, candidateId, draft.id, buildOfferDraftPayload(form)),
+    mutationFn: () =>
+      patchOfferDraft(slug, candidateId, draft.id, {
+        ...buildOfferDraftPayload(form),
+        expectedContentRevision: draft.contentRevision,
+        invalidateApproval: invalidateApprovedApproval,
+      }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "保存失败"),
     onSuccess: () => {
       toast.success("已更新草稿");
@@ -308,11 +336,13 @@ export function OfferCardView({
 
   function cancelEditing() {
     setForm(offerFormStateFromDraft(draft));
+    setInvalidateApprovedApproval(false);
     setEditing(false);
   }
 
   function startEditing() {
     setForm(offerFormStateFromDraft(draft));
+    setInvalidateApprovedApproval(false);
     setEditing(true);
   }
 
@@ -345,6 +375,19 @@ export function OfferCardView({
             onFieldChange={setFormField}
           />
 
+          {approvedApproval ? (
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300/70 bg-amber-50/50 p-3 text-sm dark:bg-amber-950/20">
+              <Checkbox
+                aria-label="确认修改会使已通过审批失效"
+                checked={invalidateApprovedApproval}
+                onCheckedChange={(checked) => setInvalidateApprovedApproval(checked === true)}
+              />
+              <span>
+                我确认修改已通过的 Offer 会使当前审批失效，保存后必须重新提交审批才能发布。
+              </span>
+            </div>
+          ) : null}
+
           <div className="mt-3 flex justify-end gap-2">
             <Button
               disabled={saveMutation.isPending}
@@ -355,7 +398,12 @@ export function OfferCardView({
               取消
             </Button>
             <Button
-              disabled={saveMutation.isPending || !form.position.trim() || !form.baseSalary}
+              disabled={
+                saveMutation.isPending ||
+                !form.position.trim() ||
+                !form.baseSalary ||
+                (approvedApproval && !invalidateApprovedApproval)
+              }
               onClick={() => saveMutation.mutate()}
               size="sm"
             >
@@ -392,7 +440,42 @@ export function OfferCardView({
             open={emailOpen && !disabled && canUpdate}
             slug={slug}
           />
+          {approvalOpen ? (
+            <SubmitOfferApprovalDialog
+              offerId={draft.id}
+              onClose={() => setApprovalOpen(false)}
+              onSaved={onSaved}
+              recordId={candidateId}
+              slug={slug}
+            />
+          ) : null}
           <OfferDraftReadonlyFields draft={draft} />
+          {draft.currentApprovalId && canReadApproval ? (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              {approval.isPending ? (
+                <span className="text-muted-foreground">正在读取审批状态…</span>
+              ) : approval.data ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    当前审批：
+                    <Badge className="ml-1" variant="outline">
+                      {offerApprovalLabels[approval.data.status]}
+                      {approval.data.invalidatedAt ? " · 已不适用" : ""}
+                    </Badge>
+                  </span>
+                  <Link
+                    className="text-primary underline underline-offset-4"
+                    params={{ approvalId: draft.currentApprovalId, slug }}
+                    to="/w/$slug/studio/offer-approvals/$approvalId"
+                  >
+                    查看审批历史
+                  </Link>
+                </div>
+              ) : (
+                <span className="text-destructive">审批状态暂不可用，请刷新后重试。</span>
+              )}
+            </div>
+          ) : null}
 
           {disabled ? null : (
             <div className="border-border/60 border-t pt-3">
@@ -405,7 +488,10 @@ export function OfferCardView({
                 onPublish={() => setPublishOpen(true)}
                 onCopyLink={copyOfferLink}
                 onEdit={startEditing}
+                onSubmitApproval={() => setApprovalOpen(true)}
                 onRespond={onRespond}
+                canSubmitApproval={canCreateApproval}
+                publishBlocked={publishBlocked}
               />
             </div>
           )}
@@ -420,20 +506,26 @@ function OfferCardActions({
   canDelete,
   canUpdate,
   onEdit,
+  onSubmitApproval,
   onPublish,
   onEmail,
   onCopyLink,
   onRespond,
+  canSubmitApproval,
+  publishBlocked,
   cancelMutation,
 }: {
   draft: OfferDraftRecord;
   canDelete: boolean;
   canUpdate: boolean;
   onEdit: () => void;
+  onSubmitApproval: () => void;
   onPublish: () => void;
   onEmail: () => void;
   onCopyLink: () => void;
   onRespond: () => void;
+  canSubmitApproval: boolean;
+  publishBlocked: boolean;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
@@ -446,15 +538,34 @@ function OfferCardActions({
             size="sm"
             variant="outline"
           >
-            删除 Offer
+            {draft.currentApprovalId ? "作废 Offer 草稿" : "删除 Offer"}
           </Button>
         )}
         {canUpdate && (
           <>
-            <Button disabled={cancelMutation.isPending} onClick={onPublish} size="sm">
+            {canSubmitApproval ? (
+              <Button
+                disabled={cancelMutation.isPending}
+                onClick={onSubmitApproval}
+                size="sm"
+                variant="outline"
+              >
+                提交审批
+              </Button>
+            ) : null}
+            <Button
+              disabled={cancelMutation.isPending || publishBlocked}
+              onClick={onPublish}
+              size="sm"
+            >
               <IconCircleCheck className="size-4" />
               确认并发布
             </Button>
+            {publishBlocked ? (
+              <p className="w-full text-xs text-muted-foreground">
+                当前 Offer 尚未通过审批，暂不能发布。
+              </p>
+            ) : null}
             <Button disabled={cancelMutation.isPending} onClick={onEdit} size="sm" variant="ghost">
               <IconPencil className="size-4" />
               编辑

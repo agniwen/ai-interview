@@ -1,3 +1,7 @@
+import {
+  prepareOfferApprovalNotification,
+  validateOfferApprovalDelivery,
+} from "@app/server/offer-approval-notifications";
 import { db } from "../db";
 import {
   claimInterviewNotificationDelivery,
@@ -15,8 +19,10 @@ export const defaultInterviewNotificationProcessorDependencies = {
   listDeliveries: (eventId) => listInterviewNotificationDeliveries(db, eventId),
   markDeliveryFailed: (input) => markInterviewNotificationDeliveryFailed(db, input),
   markDeliverySent: (input) => markInterviewNotificationDeliverySent(db, input),
+  prepareApprovalEvent: (event) => prepareOfferApprovalNotification(db, event),
   send: sendInterviewNotification,
   updateEventState: (input) => updateInterviewNotificationEventState(db, input),
+  validateApprovalDelivery: (event, delivery) => validateOfferApprovalDelivery(db, event, delivery),
 } satisfies InterviewNotificationProcessorDependencies;
 
 export function claimInterviewNotificationEvents(input: {

@@ -1,5 +1,10 @@
 import type { HumanTranscriptionEventRecord } from "./human-transcription-types";
 import type { IncomeProofType } from "./recruiting-materials";
+import type {
+  OfferApprovalSnapshot,
+  OfferApprovalStatus,
+  OfferApprovalStepStatus,
+} from "./offer-approval";
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { ArcMessage, ArcMessageRole } from "./ai-message";
@@ -4257,6 +4262,7 @@ export const recruitingRecord = pgTable(
     id: text("id").primaryKey(),
     jobDescriptionId: text("job_description_id"),
     notes: text("notes"),
+    offerApprovalRequiredAt: timestamp("offer_approval_required_at", { withTimezone: true }),
     organizationId: text("organization_id").notNull(),
     outcome: text("outcome").$type<CandidateOutcome>().notNull().default("in_pipeline"),
     ownerId: text("owner_id"),
@@ -5480,8 +5486,10 @@ export const recruitingOffer = pgTable(
     baseSalary: integer("base_salary").notNull(),
     bonus: integer("bonus"),
     candidateCounter: text("candidate_counter"),
+    contentRevision: integer("content_revision").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     currency: text("currency").notNull().default("CNY"),
+    currentApprovalId: text("current_approval_id"),
     declineReason: text("decline_reason"),
     emailRecipient: text("email_recipient"),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
@@ -5493,8 +5501,10 @@ export const recruitingOffer = pgTable(
     organizationId: text("organization_id").notNull(),
     position: text("position").notNull(),
     publicToken: text("public_token"),
+    publishedApprovalId: text("published_approval_id"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedBy: text("published_by"),
+    publishedSnapshot: jsonb("published_snapshot").$type<OfferApprovalSnapshot>(),
     recruitingRecordId: text("recruiting_record_id").notNull(),
     responseAt: timestamp("response_at", { withTimezone: true }),
     responseBy: text("response_by"),
@@ -6255,7 +6265,7 @@ export const recruitingNotificationEvent = pgTable(
     check(
       "recruiting_notification_event_scope_check",
       sql`(
-        (${table.scopeType} = 'interview_record' AND ${table.recruitingRecordId} IS NOT NULL)
+        (${table.scopeType} = 'offer_approval' AND ${table.recruitingRecordId} IS NOT NULL) OR (${table.scopeType} = 'interview_record' AND ${table.recruitingRecordId} IS NOT NULL)
         OR (${table.scopeType} = 'ai_round' AND ${table.aiRoundId} IS NOT NULL)
         OR (${table.scopeType} = 'human_meeting' AND ${table.humanMeetingId} IS NOT NULL)
       )`,
@@ -7168,5 +7178,119 @@ export const humanTranscriptionEventAlias = pgTable(
       ],
       name: "human_transcription_event_alias_canonical_fk",
     }).onDelete("cascade"),
+  ],
+);
+
+// History is retained; record and Offer deletion must use the lifecycle commands.
+export const recruitingOfferApproval = pgTable(
+  "recruiting_offer_approval",
+  {
+    applicantId: text("applicant_id").notNull(),
+    applicantName: text("applicant_name").notNull(),
+    attemptNumber: integer("attempt_number").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    contentRevision: integer("content_revision").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    currentStep: integer("current_step").notNull().default(0),
+    id: text("id").primaryKey(),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    invalidationReason: text("invalidation_reason"),
+    lastRemindedAt: timestamp("last_reminded_at", { withTimezone: true }),
+    offerId: text("offer_id").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    previousApprovalId: text("previous_approval_id"),
+    reason: text("reason").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    snapshot: jsonb("snapshot").$type<OfferApprovalSnapshot>().notNull(),
+    snapshotHash: text("snapshot_hash").notNull(),
+    status: text("status").$type<OfferApprovalStatus>().notNull().default("pending"),
+    withdrawalReason: text("withdrawal_reason"),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    check(
+      "offer_approval_status_ck",
+      sql`${t.status} IN ('pending','approved','rejected','withdrawn','cancelled')`,
+    ),
+    check(
+      "offer_approval_numbers_ck",
+      sql`${t.attemptNumber} > 0 AND ${t.contentRevision} > 0 AND ${t.currentStep} >= 0`,
+    ),
+    uniqueIndex("offer_approval_owner_uq").on(t.id, t.recruitingRecordId, t.organizationId),
+    uniqueIndex("offer_approval_attempt_uq").on(t.recruitingRecordId, t.attemptNumber),
+    uniqueIndex("offer_approval_pending_uq")
+      .on(t.recruitingRecordId)
+      .where(sql`${t.status} = 'pending'`),
+    foreignKey({
+      columns: [t.offerId, t.recruitingRecordId, t.organizationId],
+      foreignColumns: [
+        recruitingOffer.id,
+        recruitingOffer.recruitingRecordId,
+        recruitingOffer.organizationId,
+      ],
+      name: "offer_approval_offer_owner_fk",
+    }),
+    index("offer_approval_org_created_idx").on(t.organizationId, t.createdAt),
+  ],
+);
+
+export const recruitingOfferApprovalStep = pgTable(
+  "recruiting_offer_approval_step",
+  {
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    approvalId: text("approval_id").notNull(),
+    approverId: text("approver_id").notNull(),
+    approverName: text("approver_name").notNull(),
+    comment: text("comment"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    status: text("status").$type<OfferApprovalStepStatus>().notNull().default("waiting"),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    check(
+      "offer_approval_step_status_ck",
+      sql`${t.status} IN ('waiting','pending','approved','rejected','cancelled')`,
+    ),
+    uniqueIndex("offer_approval_step_position_uq").on(t.approvalId, t.position),
+    uniqueIndex("offer_approval_step_person_uq").on(t.approvalId, t.approverId),
+    uniqueIndex("offer_approval_step_pending_uq")
+      .on(t.approvalId)
+      .where(sql`${t.status} = 'pending'`),
+    foreignKey({
+      columns: [t.approvalId, t.recruitingRecordId, t.organizationId],
+      foreignColumns: [
+        recruitingOfferApproval.id,
+        recruitingOfferApproval.recruitingRecordId,
+        recruitingOfferApproval.organizationId,
+      ],
+      name: "offer_approval_step_owner_fk",
+    }),
+  ],
+);
+
+// Actor + request id scope includes every command; retries cannot silently change command or payload.
+export const recruitingOfferApprovalReceipt = pgTable(
+  "recruiting_offer_approval_receipt",
+  {
+    actorId: text("actor_id").notNull(),
+    approvalId: text("approval_id")
+      .notNull()
+      .references(() => recruitingOfferApproval.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    requestHash: text("request_hash").notNull(),
+    requestId: text("request_id").notNull(),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    uniqueIndex("offer_approval_receipt_key_uq").on(t.organizationId, t.actorId, t.requestId),
   ],
 );

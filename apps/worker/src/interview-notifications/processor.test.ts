@@ -226,6 +226,46 @@ describe("interview notification processor", () => {
     );
   });
 
+  it("rechecks an approval delivery immediately before sending and stops stale work", async () => {
+    const input = event({
+      payloadSnapshot: {
+        offerApproval: {
+          approvalId: "approval-1",
+          recipientUserId: "approver-1",
+          status: "pending",
+          stepId: "step-1",
+        },
+        schemaVersion: 1,
+        timeZone: "Asia/Shanghai",
+      },
+      scopeType: "offer_approval",
+      type: "offer_approval_pending",
+    });
+    const base = dependencies({
+      audienceType: "offer_approval_user",
+      channel: "feishu",
+      recipientUserId: "approver-1",
+    });
+    const approvalDependencies = {
+      ...base,
+      prepareApprovalEvent: vi.fn(async () => undefined),
+      validateApprovalDelivery: vi.fn(async () => false),
+    } satisfies InterviewNotificationProcessorDependencies;
+
+    await processInterviewNotificationEvent(
+      input,
+      { leaseOwner: "worker_1", now },
+      approvalDependencies,
+    );
+
+    expect(approvalDependencies.prepareApprovalEvent).toHaveBeenCalledWith(input);
+    expect(approvalDependencies.validateApprovalDelivery).toHaveBeenCalledOnce();
+    expect(approvalDependencies.send).not.toHaveBeenCalled();
+    expect(approvalDependencies.markDeliveryFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "offer-approval-stale", status: "dead" }),
+    );
+  });
+
   it("suppresses legacy 24-hour human interview reminders", async () => {
     const notificationEvent = event();
     notificationEvent.scopeType = "human_meeting";

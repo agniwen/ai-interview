@@ -22,6 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   OfferDraftFormFields,
   buildOfferDraftPayload,
@@ -62,6 +63,7 @@ export function CreateOrEditOfferDialog({
       : createBlankOfferFormState(initialBaseSalary),
   );
   const setFormField = createOfferFormFieldSetter(setForm);
+  const [invalidateApproval, setInvalidateApproval] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -73,6 +75,7 @@ export function CreateOrEditOfferDialog({
         ? offerFormStateFromDraft(existingDraft)
         : createBlankOfferFormState(initialBaseSalary),
     );
+    setInvalidateApproval(false);
   }, [existingDraft, initialBaseSalary, mode, open]);
 
   function handleOpenChange(next: boolean) {
@@ -83,7 +86,11 @@ export function CreateOrEditOfferDialog({
     mutationFn: () => {
       const payload = buildOfferDraftPayload(form);
       if (mode === "edit" && existingDraft) {
-        return patchOfferDraft(slug, candidateId, existingDraft.id, payload);
+        return patchOfferDraft(slug, candidateId, existingDraft.id, {
+          ...payload,
+          expectedContentRevision: existingDraft.contentRevision,
+          invalidateApproval,
+        });
       }
       return createOfferDraft(slug, candidateId, payload);
     },
@@ -112,6 +119,17 @@ export function CreateOrEditOfferDialog({
         </DialogHeader>
 
         <OfferDraftFormFields form={form} idPrefix="offer" onFieldChange={setFormField} />
+
+        {mode === "edit" && existingDraft?.currentApprovalId ? (
+          <div className="flex items-start gap-2 rounded-md border border-amber-300/70 bg-amber-50/50 p-3 text-sm dark:bg-amber-950/20">
+            <Checkbox
+              aria-label="确认修改可能使已通过审批失效"
+              checked={invalidateApproval}
+              onCheckedChange={(checked) => setInvalidateApproval(checked === true)}
+            />
+            <span>我确认修改可能使已通过的审批失效，并在保存后重新提交审批。</span>
+          </div>
+        ) : null}
 
         <DialogFooter>
           <Button

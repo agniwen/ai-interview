@@ -17,6 +17,7 @@ import {
 } from "better-auth/plugins/organization/access";
 
 export const STUDIO_PAGE_PERMISSION_ACTIONS = [
+  "offerApprovals",
   "resumes",
   "resumePool",
   "interviews",
@@ -45,12 +46,14 @@ export const STUDIO_PAGE_PERMISSION_LABELS = {
   mailIngestAccounts: "邮箱监听",
   me: "个人中心",
   members: "工作区管理",
+  offerApprovals: "审批",
   permissions: "权限管理",
   resumePool: "人才库",
   resumes: "招聘",
 } as const;
 
 const memberStudioPagePermissions = [
+  "offerApprovals",
   "resumes",
   "resumePool",
   "interviews",
@@ -76,6 +79,7 @@ export const statement = {
   jd: ["create", "read", "update", "delete"],
   mailIngestAccount: ["create", "read", "update", "delete", "manage"],
   offer: ["create", "read", "update", "delete"],
+  offerApproval: ["create", "read", "decide", "manage"],
   page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
   resumeEmailIngest: ["create", "read", "update", "delete"],
@@ -107,6 +111,7 @@ export const owner = ac.newRole({
   jd: ["create", "read", "update", "delete"],
   mailIngestAccount: ["create", "read", "update", "delete", "manage"],
   offer: ["create", "read", "update", "delete"],
+  offerApproval: ["create", "read", "decide", "manage"],
   page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
   resumeEmailIngest: ["create", "read", "update", "delete"],
@@ -144,6 +149,7 @@ export const admin = ac.newRole({
   mailIngestAccount: ["create", "read", "update", "delete", "manage"],
   member: ["create", "update", "delete"],
   offer: ["create", "read", "update", "delete"],
+  offerApproval: ["create", "read", "decide", "manage"],
   page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
   resumeEmailIngest: ["create", "read", "update", "delete"],
@@ -164,6 +170,7 @@ const recruitingMemberStatements = {
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
   offer: ["create", "read", "update", "delete"],
+  offerApproval: ["create", "read"],
   page: memberStudioPagePermissions,
   questionTemplate: ["create", "read", "update", "delete"],
   resumeEmailIngest: ["create", "read", "update", "delete"],

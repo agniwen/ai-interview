@@ -259,6 +259,8 @@ export interface HumanInterviewReviewRecord {
  * "current" offer in the UI.
  */
 export interface OfferDraftRecord {
+  contentRevision: number;
+  currentApprovalId: string | null;
   id: string;
   interviewRecordId: string;
   organizationId: string;
