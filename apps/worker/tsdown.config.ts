@@ -19,6 +19,7 @@ export default defineConfig({
       /^@app\/server\/ai-interview-report-notification$/,
       /^@app\/server\/human-interview-attendance-reconciliation$/,
       /^@app\/server\/human-interview-recording$/,
+      /^@app\/server\/human-transcription$/,
       /^@app\/server\/initial-interview-evaluation$/,
       /^@app\/shared(?:\/|$)/,
     ],

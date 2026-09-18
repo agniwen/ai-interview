@@ -1,6 +1,33 @@
+import { setImmediate as nextEventLoopTurn } from "node:timers/promises";
 import { Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
-import { createWorkerLifecycle } from "./lifecycle";
+import { createWorkerLifecycle, trackWorkerRecoveryRun } from "./lifecycle";
+
+describe("trackWorkerRecoveryRun", () => {
+  it("keeps running work available for shutdown draining and removes completed work", async () => {
+    const activeRuns = new Set<Promise<void>>();
+    const pending = Promise.withResolvers<boolean>();
+    const active = trackWorkerRecoveryRun(activeRuns, async () => {
+      await pending.promise;
+    });
+
+    expect(activeRuns.has(active)).toBe(true);
+    pending.resolve(true);
+    await active;
+    expect(activeRuns.size).toBe(0);
+  });
+
+  it("preserves a handled failure without leaving an unhandled cleanup rejection", async () => {
+    const activeRuns = new Set<Promise<void>>();
+    const failure = new Error("module unavailable");
+    const active = trackWorkerRecoveryRun(activeRuns, () => Promise.reject(failure));
+
+    await expect(active).rejects.toBe(failure);
+    // Let Node report any unhandled rejection created by the cleanup observer.
+    await nextEventLoopTurn();
+    expect(activeRuns.size).toBe(0);
+  });
+});
 
 describe("createWorkerLifecycle", () => {
   it("closes every acquired resource in reverse order", async () => {

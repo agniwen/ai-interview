@@ -74,7 +74,7 @@ import {
   initializeWorkerSentry,
   reportQueueFailure,
 } from "./sentry";
-import { createWorkerLifecycle } from "./effect/lifecycle";
+import { createWorkerLifecycle, trackWorkerRecoveryRun } from "./effect/lifecycle";
 import { Exit } from "effect";
 
 validateWorkerEnv();
@@ -92,11 +92,7 @@ const resourceLifecycle = createWorkerLifecycle(reportFinalizerFailure);
 const activeRecoveryRuns = new Set<Promise<void>>();
 
 function trackRecoveryRun(run: () => Promise<void>): Promise<void> {
-  const active = run();
-  activeRecoveryRuns.add(active);
-  // oxlint-disable-next-line promise/prefer-await-to-then -- finalization removes this exact in-flight Promise from the drain set.
-  void active.finally(() => activeRecoveryRuns.delete(active));
-  return active;
+  return trackWorkerRecoveryRun(activeRecoveryRuns, run);
 }
 
 async function closeWorkerLifecycles(exit: Exit.Exit<unknown, unknown> = Exit.void): Promise<void> {
