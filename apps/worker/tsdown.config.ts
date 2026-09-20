@@ -21,6 +21,7 @@ export default defineConfig({
       /^@app\/server\/human-interview-recording$/,
       /^@app\/server\/human-transcription$/,
       /^@app\/server\/initial-interview-evaluation$/,
+      /^@app\/server\/offer-approval-notifications$/,
       /^@app\/shared(?:\/|$)/,
     ],
     onlyBundle: false,
