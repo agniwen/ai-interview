@@ -16,17 +16,23 @@ import {
   deleteOfferDraft,
   voidOfferDraft,
   fetchStudioResume,
+  getOfferApprovalPolicy,
   getOfferEmailPreview,
   getOfferPublicLink,
   patchOfferDraft,
   sendOfferEmail,
   sendOfferDraft,
   updateCandidateExpectations,
+  rpcFetch,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { SubmitOfferApprovalDialog } from "@/components/features/offer-approval/submit-dialog";
-import { approvalDetailOptions } from "@/components/features/offer-approval/queries";
+import {
+  approvalApi,
+  approvalDetailOptions,
+  approvalKeys,
+} from "@/components/features/offer-approval/queries";
 import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
@@ -284,18 +290,52 @@ export function OfferCardView({
   const [publishOpen, setPublishOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawalReason, setWithdrawalReason] = useState("");
   const [invalidateApprovedApproval, setInvalidateApprovedApproval] = useState(false);
+  const queryClient = useQueryClient();
   const canCreateApproval =
     useHasPermission("page", "offerApprovals") && useHasPermission("offerApproval", "create");
   const canReadApproval =
     useHasPermission("page", "offerApprovals") && useHasPermission("offerApproval", "read");
+  const approvalPolicy = useQuery({
+    enabled: draft.status === "draft" && canUpdate,
+    queryFn: () => getOfferApprovalPolicy(slug, candidateId),
+    queryKey: approvalKeys.policy(slug),
+  });
   const approval = useQuery({
     ...approvalDetailOptions(slug, draft.currentApprovalId ?? ""),
     enabled: Boolean(draft.currentApprovalId && canReadApproval),
     refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
   });
   const approvedApproval = approval.data?.status === "approved" && !approval.data.invalidatedAt;
-  const publishBlocked = Boolean(draft.currentApprovalId && canReadApproval && !approvedApproval);
+  const currentApprovalPending = Boolean(
+    draft.currentApprovalId &&
+    (!canReadApproval ||
+      approval.isPending ||
+      !approval.data ||
+      (approval.data.status === "pending" && !approval.data.invalidatedAt)),
+  );
+  const approvalRequired = Boolean(approvalPolicy.data?.approvalRequired || currentApprovalPending);
+  const publishBlockReason = approvalPolicy.isPending
+    ? "正在确认审批配置…"
+    : approvalPolicy.isError
+      ? "审批配置暂不可用，请刷新后重试。"
+      : approvalRequired && !approvedApproval
+        ? "请先提交并完成审批，审批通过后才能发布。"
+        : null;
+  const canSubmitApproval =
+    canCreateApproval &&
+    (!draft.currentApprovalId ||
+      (canReadApproval &&
+        Boolean(
+          approval.data &&
+          (approval.data.invalidatedAt ||
+            ["cancelled", "rejected", "withdrawn"].includes(approval.data.status)),
+        )));
+  const approvalStatusLabel = approval.data
+    ? getApprovalStatusLabel(approval.data.status, Boolean(approval.data.invalidatedAt))
+    : null;
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
 
@@ -331,6 +371,35 @@ export function OfferCardView({
       toast.success("已更新草稿");
       setEditing(false);
       onSaved();
+    },
+  });
+  const withdrawMutation = useMutation({
+    mutationFn: () => {
+      if (!draft.currentApprovalId) {
+        throw new Error("当前没有可撤回的审批");
+      }
+      return rpcFetch(
+        approvalApi[":approvalId"].withdraw.$post({
+          json: { reason: withdrawalReason, requestId: crypto.randomUUID() },
+          param: { approvalId: draft.currentApprovalId, slug },
+        }),
+        "撤回审批失败",
+      );
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "撤回审批失败"),
+    onSuccess: async () => {
+      setWithdrawOpen(false);
+      setWithdrawalReason("");
+      if (draft.currentApprovalId) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: approvalKeys.detail(slug, draft.currentApprovalId),
+          }),
+          queryClient.invalidateQueries({ queryKey: approvalKeys.all(slug) }),
+        ]);
+      }
+      onSaved();
+      toast.success("审批已撤回，可调整 Offer 后重新提交");
     },
   });
 
@@ -421,7 +490,17 @@ export function OfferCardView({
         <div className="space-y-4">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="font-medium text-sm">{draft.position}</span>
-            <Badge variant={meta.tone}>{meta.label}</Badge>
+            {draft.status === "draft" && approvalStatusLabel ? (
+              <Badge variant={approval.data?.status === "rejected" ? "destructive" : "outline"}>
+                {approvalStatusLabel}
+              </Badge>
+            ) : (
+              <Badge variant={meta.tone}>
+                {draft.status === "draft" && draft.currentApprovalId && canReadApproval
+                  ? "读取审批状态…"
+                  : meta.label}
+              </Badge>
+            )}
           </div>
 
           <PublishOfferConfirmDialog
@@ -449,27 +528,82 @@ export function OfferCardView({
               slug={slug}
             />
           ) : null}
+          <Dialog
+            onOpenChange={(open) => {
+              setWithdrawOpen(open);
+              if (!open) {
+                setWithdrawalReason("");
+              }
+            }}
+            open={withdrawOpen}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>撤回本轮审批</DialogTitle>
+                <DialogDescription>
+                  撤回后，本轮审批会结束并保留在历史记录中。调整 Offer 后可重新提交审批。
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-1.5">
+                <Label htmlFor={`withdrawal-reason-${draft.id}`}>撤回原因</Label>
+                <Textarea
+                  id={`withdrawal-reason-${draft.id}`}
+                  maxLength={2000}
+                  onChange={(event) => setWithdrawalReason(event.target.value)}
+                  placeholder="请说明撤回原因"
+                  rows={3}
+                  value={withdrawalReason}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={withdrawMutation.isPending}
+                  onClick={() => setWithdrawOpen(false)}
+                  variant="outline"
+                >
+                  取消
+                </Button>
+                <Button
+                  disabled={withdrawMutation.isPending || !withdrawalReason.trim()}
+                  onClick={() => withdrawMutation.mutate()}
+                  variant="destructive"
+                >
+                  {withdrawMutation.isPending ? "撤回中…" : "确认撤回"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <OfferDraftReadonlyFields draft={draft} />
           {draft.currentApprovalId && canReadApproval ? (
-            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+            <div className="text-sm">
               {approval.isPending ? (
                 <span className="text-muted-foreground">正在读取审批状态…</span>
               ) : approval.data ? (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>
-                    当前审批：
-                    <Badge className="ml-1" variant="outline">
-                      {offerApprovalLabels[approval.data.status]}
-                      {approval.data.invalidatedAt ? " · 已不适用" : ""}
-                    </Badge>
-                  </span>
-                  <Link
-                    className="text-primary underline underline-offset-4"
-                    params={{ approvalId: draft.currentApprovalId, slug }}
-                    to="/w/$slug/studio/offer-approvals/$approvalId"
-                  >
-                    查看审批历史
-                  </Link>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-muted-foreground">当前审批</span>
+                  <Badge variant="outline">
+                    {offerApprovalLabels[approval.data.status]}
+                    {approval.data.invalidatedAt ? " · 已不适用" : ""}
+                  </Badge>
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <Link
+                      className="text-primary underline underline-offset-4"
+                      params={{ approvalId: draft.currentApprovalId, slug }}
+                      to="/w/$slug/studio/offer-approvals/$approvalId"
+                    >
+                      查看审批历史
+                    </Link>
+                    {!disabled && approval.data.canManage && approval.data.status === "pending" ? (
+                      <Button
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setWithdrawOpen(true)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        撤回本轮审批
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <span className="text-destructive">审批状态暂不可用，请刷新后重试。</span>
@@ -490,8 +624,8 @@ export function OfferCardView({
                 onEdit={startEditing}
                 onSubmitApproval={() => setApprovalOpen(true)}
                 onRespond={onRespond}
-                canSubmitApproval={canCreateApproval}
-                publishBlocked={publishBlocked}
+                canSubmitApproval={canSubmitApproval}
+                publishBlockReason={publishBlockReason}
               />
             </div>
           )}
@@ -499,6 +633,19 @@ export function OfferCardView({
       </div>
     </div>
   );
+}
+
+function getApprovalStatusLabel(status: string, invalidated: boolean) {
+  if (invalidated) {
+    return "审批已失效";
+  }
+  return {
+    approved: "审批通过",
+    cancelled: "审批已取消",
+    pending: "审批中",
+    rejected: "审批已驳回",
+    withdrawn: "审批已撤回",
+  }[status];
 }
 
 function OfferCardActions({
@@ -512,7 +659,7 @@ function OfferCardActions({
   onCopyLink,
   onRespond,
   canSubmitApproval,
-  publishBlocked,
+  publishBlockReason,
   cancelMutation,
 }: {
   draft: OfferDraftRecord;
@@ -525,7 +672,7 @@ function OfferCardActions({
   onCopyLink: () => void;
   onRespond: () => void;
   canSubmitApproval: boolean;
-  publishBlocked: boolean;
+  publishBlockReason: string | null;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
@@ -554,17 +701,15 @@ function OfferCardActions({
               </Button>
             ) : null}
             <Button
-              disabled={cancelMutation.isPending || publishBlocked}
+              disabled={cancelMutation.isPending || Boolean(publishBlockReason)}
               onClick={onPublish}
               size="sm"
             >
               <IconCircleCheck className="size-4" />
               确认并发布
             </Button>
-            {publishBlocked ? (
-              <p className="w-full text-xs text-muted-foreground">
-                当前 Offer 尚未通过审批，暂不能发布。
-              </p>
+            {publishBlockReason ? (
+              <p className="w-full text-xs text-muted-foreground">{publishBlockReason}</p>
             ) : null}
             <Button disabled={cancelMutation.isPending} onClick={onEdit} size="sm" variant="ghost">
               <IconPencil className="size-4" />

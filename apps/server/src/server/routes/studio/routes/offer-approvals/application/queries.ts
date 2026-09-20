@@ -21,6 +21,22 @@ import {
   recordIsVisible,
 } from "../dao";
 import type { Actor } from "../dao";
+import { resolveEnabledTemplatesForPreview } from "./templates";
+
+async function unavailableStepIds(actor: Actor, steps: (typeof stepTable.$inferSelect)[]) {
+  const ids = [];
+  for (const step of steps) {
+    if (step.status !== "pending" && step.status !== "waiting") continue;
+    try {
+      await assertApprovalPermission(db, { ...actor, userId: step.approverId }, "decide");
+      await assertApprovalPermission(db, { ...actor, userId: step.approverId }, "read");
+    } catch (error) {
+      if (error instanceof OfferApprovalError) ids.push(step.id);
+      else throw error;
+    }
+  }
+  return ids;
+}
 
 async function accessFilter(actor: Actor, view: "pending" | "processed" | "submitted" | "all") {
   const person = await assertApprovalPermission(db, actor, "read");
@@ -104,16 +120,7 @@ export async function listOfferApprovals(
         .where(eq(stepTable.approvalId, approval.id))
         .orderBy(stepTable.position);
       const current = steps.find((step) => step.status === "pending");
-      let unavailable = false;
-      if (current) {
-        try {
-          await assertApprovalPermission(db, { ...actor, userId: current.approverId }, "decide");
-          await assertApprovalPermission(db, { ...actor, userId: current.approverId }, "read");
-        } catch (error) {
-          if (error instanceof OfferApprovalError) unavailable = true;
-          else throw error;
-        }
-      }
+      const unavailableIds = await unavailableStepIds(actor, steps);
       return {
         applicantName: approval.applicantName,
         attemptNumber: approval.attemptNumber,
@@ -127,7 +134,7 @@ export async function listOfferApprovals(
         position: approval.snapshot.position,
         status: approval.status,
         totalSteps: steps.length,
-        unavailable,
+        unavailable: unavailableIds.length > 0,
       };
     }),
   );
@@ -162,16 +169,7 @@ export async function getOfferApproval(actor: Actor, approvalId: string) {
     assertApprovalPermission(db, actor, "read"),
   ]);
   const current = steps.find((step) => step.status === "pending");
-  let unavailable = false;
-  if (current) {
-    try {
-      await assertApprovalPermission(db, { ...actor, userId: current.approverId }, "decide");
-      await assertApprovalPermission(db, { ...actor, userId: current.approverId }, "read");
-    } catch (error) {
-      if (error instanceof OfferApprovalError) unavailable = true;
-      else throw error;
-    }
-  }
+  const unavailableIds = await unavailableStepIds(actor, steps);
   const notifications = await Promise.all(
     events.map(async (event) => {
       const deliveries = await db
@@ -216,9 +214,10 @@ export async function getOfferApproval(actor: Actor, approvalId: string) {
       approval.status === "pending" &&
       !approval.invalidatedAt &&
       current?.approverId === actor.userId &&
-      actor.userId !== approval.applicantId &&
+      (actor.userId !== approval.applicantId || current?.sourceType !== "manual") &&
       hasPermissionInStatements(person.statements, "offerApproval", "decide") &&
-      !unavailable,
+      !!current &&
+      !unavailableIds.includes(current.id),
     canManage,
     canReadCandidate:
       visible &&
@@ -235,7 +234,8 @@ export async function getOfferApproval(actor: Actor, approvalId: string) {
       activatedAt: step.activatedAt?.toISOString() ?? null,
       decidedAt: step.decidedAt?.toISOString() ?? null,
     })),
-    unavailable,
+    unavailable: unavailableIds.length > 0,
+    unavailableStepIds: unavailableIds,
   };
 }
 export async function previewOfferApproval(actor: Actor, offerId: string) {
@@ -243,12 +243,14 @@ export async function previewOfferApproval(actor: Actor, offerId: string) {
     const { record, offer } = await lockOffer(tx, actor, offerId);
     await assertRecordManager(tx, actor, record, "create");
     const snapshot = await loadOfferSnapshot(tx, offer);
+    const templates = await resolveEnabledTemplatesForPreview(tx, actor, record);
     return {
-      approvalRequired: !!record.offerApprovalRequiredAt,
+      approvalRequired: templates.length > 0,
       contentRevision: offer.contentRevision,
       currentApprovalId: offer.currentApprovalId,
       snapshot,
       snapshotHash: hashRequest(snapshot),
+      templates,
     };
   });
 }

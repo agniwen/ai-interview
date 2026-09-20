@@ -13,6 +13,7 @@ import {
   IconMessageChatbot,
   IconRobot,
   IconShieldCheck,
+  IconSitemap,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -55,6 +56,7 @@ export interface NavItem {
   /** 仅当 page action 通过 useHasPermission 时显示。 */
   action: (typeof statement)["page"][number];
   adminOnly?: boolean;
+  offerApprovalManageOnly?: boolean;
   resource: "page";
 }
 
@@ -66,13 +68,6 @@ interface NavGroup {
 const navGroups: NavGroup[] = [
   {
     items: [
-      {
-        action: "offerApprovals",
-        icon: IconClipboardList,
-        path: "/studio/offer-approvals",
-        resource: "page",
-        title: "审批",
-      },
       {
         action: "resumes",
         icon: IconUsers,
@@ -107,6 +102,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/dashboard",
         resource: "page",
         title: "数据看板",
+      },
+      {
+        action: "offerApprovals",
+        icon: IconClipboardList,
+        path: "/studio/offer-approvals",
+        resource: "page",
+        title: "审批",
       },
     ],
     label: "数据",
@@ -187,6 +189,14 @@ const navGroups: NavGroup[] = [
         title: "权限管理",
       },
       {
+        action: "offerApprovals",
+        icon: IconSitemap,
+        offerApprovalManageOnly: true,
+        path: "/studio/offer-approval-templates",
+        resource: "page",
+        title: "审批流配置",
+      },
+      {
         action: "globalConfig",
         icon: IconMessageChatbot,
         path: "/studio/global-config",
@@ -254,10 +264,15 @@ function SidebarNavItem({
 }) {
   // Hook must be called unconditionally
   const allowed = useHasPermission(item.resource, item.action);
+  const canManageOfferApproval = useHasPermission("offerApproval", "manage");
   const memberRole = useWorkspaceMemberRole();
   const { menuOpen: sidebarMenuOpen, setMenuOpen: setSidebarMenuOpen } = useSidebarPersistence();
 
-  if (!allowed || (item.adminOnly && memberRole !== "owner" && memberRole !== "admin")) {
+  if (
+    !allowed ||
+    (item.offerApprovalManageOnly && !canManageOfferApproval) ||
+    (item.adminOnly && memberRole !== "owner" && memberRole !== "admin")
+  ) {
     return null;
   }
 

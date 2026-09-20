@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/input-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import type { JobDescriptionFormApi } from "./job-description-form-values";
@@ -56,7 +57,7 @@ export function JobDescriptionBasicSettingsFields({
   interviewers: InterviewerListRecord[];
   interviewerOptions: { label: string; value: string }[];
   isGeneratingCode: boolean;
-  reportingManagerOptions: { label: string; value: string }[];
+  reportingManagerOptions: SearchableSelectOption[];
   selectedDepartmentId: string;
   selectedInterviewerIds: string[];
 }) {

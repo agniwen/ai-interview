@@ -20,6 +20,7 @@ export const STUDIO_PAGE_PATHS = [
   { action: "members", path: "/members" },
   { action: "mailIngestAccounts", path: "/mail-ingest-accounts" },
   { action: "permissions", path: "/permissions" },
+  { action: "offerApprovals", path: "/offer-approval-templates" },
   { action: "globalConfig", path: "/global-config" },
 ] as const satisfies readonly {
   action: StudioPagePermissionAction;

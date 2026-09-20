@@ -7,6 +7,12 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { offerApprovalLabels } from "@app/shared/offer-approval";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -22,6 +28,42 @@ const stepLabels = {
   waiting: "等待前序审批",
 } as const;
 
+function notificationTypeLabel(type: string) {
+  if (type === "offer_approval_pending") {
+    return "待审批通知";
+  }
+  if (type === "offer_approval_result") {
+    return "审批结果通知";
+  }
+  if (type === "offer_approval_cancelled") {
+    return "审批结束通知";
+  }
+  return "审批通知";
+}
+
+function notificationStatusLabel(status: string) {
+  if (["completed", "isolated_completed"].includes(status)) {
+    return "已发送";
+  }
+  if (["processing", "isolated_processing"].includes(status)) {
+    return "发送中";
+  }
+  if (["pending", "isolated_pending"].includes(status)) {
+    return "等待发送";
+  }
+  if (["failed", "isolated_failed"].includes(status)) {
+    return "发送失败，可重试";
+  }
+  if (["dead", "isolated_dead"].includes(status)) {
+    return "发送失败";
+  }
+  if (status === "cancelled") {
+    return "已取消";
+  }
+  return "状态未知";
+}
+
+// oxlint-disable-next-line complexity -- This page composes permission-gated approval, reminder, history, and notification states.
 export function OfferApprovalDetailPage({
   approvalId,
   slug,
@@ -32,7 +74,6 @@ export function OfferApprovalDetailPage({
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: "/w/$slug/studio/offer-approvals/$approvalId" });
   const [comment, setComment] = useState("");
-  const [withdrawalReason, setWithdrawalReason] = useState("");
   const detail = useQuery({
     ...approvalDetailOptions(slug, approvalId),
     refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
@@ -62,22 +103,6 @@ export function OfferApprovalDetailPage({
       setComment("");
       await invalidate();
       toast.success("审批结果已保存");
-    },
-  });
-  const withdraw = useMutation({
-    mutationFn: () =>
-      rpcFetch(
-        approvalApi[":approvalId"].withdraw.$post({
-          json: { reason: withdrawalReason, requestId: crypto.randomUUID() },
-          param: { approvalId, slug },
-        }),
-        "撤回审批失败",
-      ),
-    onError: (error) => toast.error(error.message),
-    onSuccess: async () => {
-      setWithdrawalReason("");
-      await invalidate();
-      toast.success("审批已撤回");
     },
   });
   const remind = useMutation({
@@ -119,8 +144,13 @@ export function OfferApprovalDetailPage({
   }
   const approval = detail.data;
   const current = approval.steps.find((step) => step.status === "pending");
+  const canDecide = approval.canDecide && Boolean(current);
+  const canRemind = approval.canManage && approval.status === "pending" && !approval.canDecide;
+  const previousApprovals = approval.history.filter((item) => item.id !== approval.id);
+  const showApprovalRecords =
+    approval.canManage && (approval.notifications.length > 0 || previousApprovals.length > 0);
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="mx-auto w-full max-w-5xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button
@@ -132,9 +162,11 @@ export function OfferApprovalDetailPage({
           >
             返回审批列表
           </Button>
-          <h1 className="mt-2 text-xl font-semibold">Offer 审批</h1>
+          <h1 className="mt-2 text-xl font-semibold">
+            {approval.snapshot.candidateName}的 Offer 审批
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            第 {approval.attemptNumber} 轮 · {approval.id}
+            第 {approval.attemptNumber} 轮 · {approval.snapshot.position}
           </p>
         </div>
         <Badge variant="outline">
@@ -143,26 +175,40 @@ export function OfferApprovalDetailPage({
         </Badge>
       </div>
 
-      <section className="rounded-lg border p-5">
-        <h2 className="font-medium">本次 Offer</h2>
-        <div className="mt-4">
-          <OfferApprovalSnapshotView snapshot={approval.snapshot} />
+      <section className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
+        <h2 className="text-lg font-medium">本次 Offer</h2>
+        <div className="mt-5">
+          <OfferApprovalSnapshotView
+            className="lg:grid-cols-4 [&>div:last-child]:lg:col-span-4"
+            snapshot={approval.snapshot}
+          />
         </div>
         <p className="mt-4 whitespace-pre-wrap border-t pt-4 text-sm">
           <span className="text-muted-foreground">申请理由：</span>
           {approval.reason}
         </p>
+        {approval.templateName ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            发起模板：{approval.templateName}（仅作为本次节点来源快照）
+          </p>
+        ) : null}
       </section>
 
-      <section className="rounded-lg border p-5">
-        <h2 className="font-medium">审批流程</h2>
-        <ol className="mt-4 space-y-3">
+      <section className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
+        <h2 className="text-lg font-medium">审批流程</h2>
+        <ol className="mt-4 divide-y border-y">
           {approval.steps.map((step) => (
-            <li className="rounded-md border p-3" key={step.id}>
+            <li className="py-4" key={step.id}>
               <div className="flex flex-wrap justify-between gap-2">
-                <strong>
-                  {step.position + 1}. {step.approverName}
-                </strong>
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong>
+                    {step.position + 1}. {step.approverName}
+                  </strong>
+                  <Badge variant="outline">{step.sourceLabel}</Badge>
+                  {approval.unavailableStepIds.includes(step.id) ? (
+                    <Badge variant="destructive">审批人异常</Badge>
+                  ) : null}
+                </div>
                 <Badge variant="outline">{stepLabels[step.status]}</Badge>
               </div>
               {step.comment ? (
@@ -178,122 +224,135 @@ export function OfferApprovalDetailPage({
         </ol>
         {approval.unavailable ? (
           <p className="mt-4 text-sm text-destructive">
-            当前审批人不可用，审批不会自动跳过。请撤回后重新发起。
+            审批流程中存在已离开工作区或权限失效的审批人，系统不会自动跳过。恢复权限后可继续；无法恢复时请回到候选人的
+            Offer 内容撤回后重新发起。
           </p>
+        ) : null}
+
+        {canDecide && current ? (
+          <div className="mt-5 border-t pt-5">
+            <Label className="font-medium" htmlFor="approval-comment">
+              审批意见
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">通过可不填；驳回时请说明原因。</p>
+            <Textarea
+              className="mt-3"
+              id="approval-comment"
+              maxLength={2000}
+              onChange={(event) => setComment(event.target.value)}
+              placeholder="请输入审批意见"
+              value={comment}
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                当前处理：第 {current.position + 1} 节点
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  disabled={decision.isPending || !comment.trim()}
+                  onClick={() => decision.mutate("rejected")}
+                  variant="outline"
+                >
+                  驳回
+                </Button>
+                <Button disabled={decision.isPending} onClick={() => decision.mutate("approved")}>
+                  {decision.isPending ? "处理中…" : "通过"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {canRemind ? (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+            <p className="text-sm text-muted-foreground">
+              当前等待 {current?.approverName ?? "审批人"} 处理。
+            </p>
+            <Button disabled={remind.isPending} onClick={() => remind.mutate()} variant="outline">
+              {remind.isPending ? "催办中…" : "催办当前审批人"}
+            </Button>
+          </div>
         ) : null}
       </section>
 
-      {approval.canDecide && current ? (
-        <section className="rounded-lg border p-5">
-          <Label htmlFor="approval-comment">审批意见</Label>
-          <Textarea
-            className="mt-2"
-            id="approval-comment"
-            maxLength={2000}
-            onChange={(event) => setComment(event.target.value)}
-            value={comment}
-          />
-          <p className="mt-2 text-xs text-muted-foreground">通过可不填意见；驳回必须填写原因。</p>
-          <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <Button
-              disabled={decision.isPending || !comment.trim()}
-              onClick={() => decision.mutate("rejected")}
-              variant="outline"
-            >
-              驳回
-            </Button>
-            <Button disabled={decision.isPending} onClick={() => decision.mutate("approved")}>
-              {decision.isPending ? "处理中…" : "通过"}
-            </Button>
-          </div>
-        </section>
-      ) : null}
-
-      {approval.canManage && approval.status === "pending" ? (
-        <section className="rounded-lg border p-5">
-          <Label htmlFor="withdrawal-reason">撤回审批</Label>
-          <Textarea
-            className="mt-2"
-            id="withdrawal-reason"
-            maxLength={2000}
-            onChange={(event) => setWithdrawalReason(event.target.value)}
-            placeholder="请说明撤回原因"
-            value={withdrawalReason}
-          />
-          <div className="mt-3 flex justify-end gap-2">
-            <Button
-              disabled={remind.isPending || withdraw.isPending}
-              onClick={() => remind.mutate()}
-              variant="outline"
-            >
-              催办
-            </Button>
-            <Button
-              disabled={withdraw.isPending || !withdrawalReason.trim()}
-              onClick={() => withdraw.mutate()}
-              variant="outline"
-            >
-              撤回审批
-            </Button>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="rounded-lg border p-5">
-        <h2 className="font-medium">通知记录</h2>
-        <div className="mt-3 space-y-2 text-sm">
-          {approval.notifications.map((event) => (
-            <div className="rounded border p-3" key={event.id}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p>
-                  {event.type} · {event.status}
-                </p>
-                {approval.canManage &&
-                ["dead", "failed", "isolated_dead", "isolated_failed"].includes(event.status) ? (
-                  <Button
-                    disabled={retryNotification.isPending}
-                    onClick={() => retryNotification.mutate(event.id)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    重发通知
-                  </Button>
+      {showApprovalRecords ? (
+        <section className="border-t">
+          <Accordion multiple>
+            <AccordionItem value="approval-records">
+              <AccordionTrigger className="hover:no-underline">
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>审批记录</span>
+                  <span className="font-normal text-muted-foreground text-xs">
+                    {previousApprovals.length > 0 ? `${previousApprovals.length} 轮历史 · ` : ""}
+                    {approval.notifications.length} 条通知
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-5">
+                {previousApprovals.length > 0 ? (
+                  <div>
+                    <h2 className="text-sm font-medium">历史审批</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Offer 撤回、驳回或修改后重新提交时，会保留之前的审批结果。
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {previousApprovals.map((item) => (
+                        <Link
+                          className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
+                          key={item.id}
+                          params={{ approvalId: item.id, slug }}
+                          to="/w/$slug/studio/offer-approvals/$approvalId"
+                        >
+                          第 {item.attemptNumber} 轮 · {offerApprovalLabels[item.status]}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
-              </div>
-              {event.error ? <p className="mt-1 text-destructive">{event.error}</p> : null}
-              {event.deliveries.map((delivery) => (
-                <p className="mt-1 text-xs text-muted-foreground" key={delivery.id}>
-                  飞书：{delivery.status}
-                  {delivery.error ? ` · ${delivery.error}` : ""}
-                </p>
-              ))}
-            </div>
-          ))}
-          {approval.notifications.length === 0 ? (
-            <p className="text-muted-foreground">暂无通知记录</p>
-          ) : null}
-        </div>
-      </section>
 
-      <section className="rounded-lg border p-5">
-        <h2 className="font-medium">历史轮次</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {approval.history.map((item) => (
-            <Link
-              className={
-                item.id === approval.id
-                  ? "rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                  : "rounded-md border px-3 py-1.5 text-sm"
-              }
-              key={item.id}
-              params={{ approvalId: item.id, slug }}
-              to="/w/$slug/studio/offer-approvals/$approvalId"
-            >
-              第 {item.attemptNumber} 轮 · {offerApprovalLabels[item.status]}
-            </Link>
-          ))}
-        </div>
-      </section>
+                {approval.notifications.length > 0 ? (
+                  <div>
+                    <h2 className="text-sm font-medium">通知状态</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      记录待审批、审批结果等消息是否已发送给相关人员。
+                    </p>
+                    <div className="mt-3 divide-y border-y">
+                      {approval.notifications.map((event) => (
+                        <div
+                          className="flex flex-wrap items-center gap-3 p-3 text-sm"
+                          key={event.id}
+                        >
+                          <span>{notificationTypeLabel(event.type)}</span>
+                          <Badge variant="outline">{notificationStatusLabel(event.status)}</Badge>
+                          <time className="text-muted-foreground text-xs">
+                            {new Date(event.createdAt).toLocaleString()}
+                          </time>
+                          {["dead", "failed", "isolated_dead", "isolated_failed"].includes(
+                            event.status,
+                          ) ? (
+                            <Button
+                              className="ml-auto"
+                              disabled={retryNotification.isPending}
+                              onClick={() => retryNotification.mutate(event.id)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              重发通知
+                            </Button>
+                          ) : null}
+                          {event.error ? (
+                            <p className="w-full text-destructive text-xs">{event.error}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </section>
+      ) : null}
     </section>
   );
 }

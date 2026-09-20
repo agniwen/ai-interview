@@ -2,8 +2,11 @@ import type { HumanTranscriptionEventRecord } from "./human-transcription-types"
 import type { IncomeProofType } from "./recruiting-materials";
 import type {
   OfferApprovalSnapshot,
+  OfferApprovalStepSourceSnapshot,
+  OfferApprovalStepSourceType,
   OfferApprovalStatus,
   OfferApprovalStepStatus,
+  OfferApprovalTemplateNode,
 } from "./offer-approval";
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
@@ -7181,6 +7184,39 @@ export const humanTranscriptionEventAlias = pgTable(
   ],
 );
 
+// Templates are submission-time helpers. Approval instances copy their resolved nodes and never
+// depend on the template row after submission, so deleting a template is safe.
+export const offerApprovalTemplate = pgTable(
+  "offer_approval_template",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    enabled: boolean("enabled").notNull().default(true),
+    id: text("id").primaryKey(),
+    isDefault: boolean("is_default").notNull().default(false),
+    name: text("name").notNull(),
+    nodes: jsonb("nodes").$type<OfferApprovalTemplateNode[]>().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    check("offer_approval_template_name_ck", sql`length(trim(${t.name})) > 0`),
+    check("offer_approval_template_nodes_ck", sql`jsonb_array_length(${t.nodes}) between 1 and 5`),
+    check("offer_approval_template_default_enabled_ck", sql`not ${t.isDefault} or ${t.enabled}`),
+    uniqueIndex("offer_approval_template_org_name_uq").on(t.organizationId, t.name),
+    uniqueIndex("offer_approval_template_default_uq")
+      .on(t.organizationId)
+      .where(sql`${t.isDefault} = true`),
+    index("offer_approval_template_org_updated_idx").on(t.organizationId, t.updatedAt),
+  ],
+);
+
 // History is retained; record and Offer deletion must use the lifecycle commands.
 export const recruitingOfferApproval = pgTable(
   "recruiting_offer_approval",
@@ -7206,6 +7242,8 @@ export const recruitingOfferApproval = pgTable(
     snapshot: jsonb("snapshot").$type<OfferApprovalSnapshot>().notNull(),
     snapshotHash: text("snapshot_hash").notNull(),
     status: text("status").$type<OfferApprovalStatus>().notNull().default("pending"),
+    templateId: text("template_id"),
+    templateName: text("template_name"),
     withdrawalReason: text("withdrawal_reason"),
   },
   (t): PgTableExtraConfigValue[] => [
@@ -7250,6 +7288,12 @@ export const recruitingOfferApprovalStep = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
     recruitingRecordId: text("recruiting_record_id").notNull(),
+    sourceLabel: text("source_label").notNull().default("手动选择"),
+    sourceSnapshot: jsonb("source_snapshot").$type<OfferApprovalStepSourceSnapshot>(),
+    sourceType: text("source_type")
+      .$type<OfferApprovalStepSourceType>()
+      .notNull()
+      .default("manual"),
     status: text("status").$type<OfferApprovalStepStatus>().notNull().default("waiting"),
   },
   (t): PgTableExtraConfigValue[] => [
@@ -7257,8 +7301,11 @@ export const recruitingOfferApprovalStep = pgTable(
       "offer_approval_step_status_ck",
       sql`${t.status} IN ('waiting','pending','approved','rejected','cancelled')`,
     ),
+    check(
+      "offer_approval_step_source_type_ck",
+      sql`${t.sourceType} IN ('fixed_member','job_reporting_manager','recruiting_owner','manual')`,
+    ),
     uniqueIndex("offer_approval_step_position_uq").on(t.approvalId, t.position),
-    uniqueIndex("offer_approval_step_person_uq").on(t.approvalId, t.approverId),
     uniqueIndex("offer_approval_step_pending_uq")
       .on(t.approvalId)
       .where(sql`${t.status} = 'pending'`),

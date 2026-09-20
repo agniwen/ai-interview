@@ -1,4 +1,5 @@
 import { OfferApprovalError } from "../../../offer-approvals/dao";
+import { getOfferApprovalPolicy } from "../../../offer-approvals/application/templates";
 import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
@@ -63,6 +64,7 @@ export interface OfferDraftsRouteDependencies {
   editOfferDraft: typeof editOfferDraft;
   getHumanInterviewOfferReadinessError: typeof getHumanInterviewOfferReadinessError;
   getOfferEmailPreview: typeof getOfferEmailPreview;
+  getOfferApprovalPolicy: typeof getOfferApprovalPolicy;
   invalidateStudioInterviewCaches: typeof invalidateStudioInterviewCaches;
   listOfferDrafts: typeof listOfferDrafts;
   loadHumanInterviewRoundReadiness: typeof loadHumanInterviewRoundReadiness;
@@ -81,6 +83,7 @@ const defaultDependencies: OfferDraftsRouteDependencies = {
   deleteOfferDraft,
   editOfferDraft,
   getHumanInterviewOfferReadinessError,
+  getOfferApprovalPolicy,
   getOfferEmailPreview,
   invalidateStudioInterviewCaches,
   listOfferDrafts,
@@ -117,6 +120,13 @@ export function createOfferDraftsRouter(
         }
         const drafts = await dependencies.listOfferDrafts(recordId, activeOrg.id);
         return c.json(drafts, 200);
+      })
+      .get("/approval-policy", dependencies.requireOfferPermission("read"), async (c) => {
+        const { activeOrg } = c.var;
+        if (!activeOrg) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        return c.json(await dependencies.getOfferApprovalPolicy(db, activeOrg.id), 200);
       })
       .post(
         "/",

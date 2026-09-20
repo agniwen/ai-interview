@@ -83,7 +83,7 @@ export function OfferApprovalsPage({ slug }: { slug: string }) {
               {new Date(item.createdAt).toLocaleString()} · 编号 {item.id}
             </p>
             {item.unavailable ? (
-              <p className="mt-2 text-sm text-destructive">审批人不可用，需撤回重提</p>
+              <p className="mt-2 text-sm text-destructive">审批流程存在不可用人员，请检查后处理</p>
             ) : null}
           </Link>
         ))}

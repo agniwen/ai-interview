@@ -1,6 +1,12 @@
 import type { OfferApprovalSnapshot } from "@app/db-schema/offer-approval";
-import { formatDate } from "@app/shared/utils";
-export function OfferApprovalSnapshotView({ snapshot }: { snapshot: OfferApprovalSnapshot }) {
+import { cn, formatDate } from "@app/shared/utils";
+export function OfferApprovalSnapshotView({
+  snapshot,
+  className,
+}: {
+  snapshot: OfferApprovalSnapshot;
+  className?: string;
+}) {
   const fields = [
     ["候选人", snapshot.candidateName],
     ["公司", snapshot.companyName],
@@ -18,7 +24,7 @@ export function OfferApprovalSnapshotView({ snapshot }: { snapshot: OfferApprova
     ["内部备注", snapshot.notes ?? "无"],
   ];
   return (
-    <dl className="grid gap-4 text-sm sm:grid-cols-2">
+    <dl className={cn("grid gap-4 text-sm sm:grid-cols-2", className)}>
       {fields.map(([label, value]) => (
         <div key={label}>
           <dt className="text-muted-foreground">{label}</dt>

@@ -35,6 +35,7 @@ import type {
   EvaluationSummary,
   FormQuestion,
 } from "./studio-person-detail-model";
+import { invalidateRecruitingTransitionQueries } from "./recruiting-transition-query-refresh";
 
 const evaluationSummarySchema = z.object({
   overallAssessment: z.string().nullable().optional(),
@@ -433,40 +434,40 @@ export async function resetInterviewRound({
   }
 }
 
-export async function advancePipelineStage({
-  interviewQuestions,
-  queryClient,
-  recordId,
-  slug,
-  target,
-}: {
-  interviewQuestions?: InterviewQuestion[];
-  queryClient: QueryClient;
-  recordId: string;
-  slug: string;
-  target: PipelineStage;
-}): Promise<string | null> {
+const advancePipelineStageDependencies = {
+  fetchStudioResume,
+  transitionInterviewRecord,
+};
+
+export async function advancePipelineStage(
+  {
+    interviewQuestions,
+    queryClient,
+    recordId,
+    slug,
+    target,
+  }: {
+    interviewQuestions?: InterviewQuestion[];
+    queryClient: QueryClient;
+    recordId: string;
+    slug: string;
+    target: PipelineStage;
+  },
+  dependencies = advancePipelineStageDependencies,
+): Promise<string | null> {
   try {
     if (target === "closed") {
       throw new Error("请使用结束流程操作");
     }
     const current =
       queryClient.getQueryData<ResumeLibraryDetail>(["studio-resumes", slug, "detail", recordId]) ??
-      (await fetchStudioResume(slug, recordId));
+      (await dependencies.fetchStudioResume(slug, recordId));
     if (!current) {
       throw new Error("招聘记录不存在");
     }
     const command = buildRecruitingAdvanceCommand(current, target, interviewQuestions);
-    await transitionInterviewRecord(slug, recordId, command);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
-      queryClient.invalidateQueries({
-        queryKey: ["studio-resumes", slug, "detail", recordId],
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ["studio-resumes", slug, "timeline", recordId],
-      }),
-    ]);
+    await dependencies.transitionInterviewRecord(slug, recordId, command);
+    await invalidateRecruitingTransitionQueries(queryClient, slug, recordId);
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : "推进失败";

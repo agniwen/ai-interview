@@ -150,6 +150,77 @@ describe("Offer stage content", () => {
     }
   });
 
+  it("updates the Offer stage guidance after the candidate accepts", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    queryClient.setQueryData(["recruiting-materials", "acme", "candidate"], []);
+    queryClient.setQueryData(["studio-resumes", "acme", "detail", "candidate"], {
+      candidateExpectationsMeta: null,
+    });
+    queryClient.setQueryData(
+      ["offer-drafts", "acme", "candidate"],
+      [
+        {
+          baseSalary: 40_000,
+          bonus: null,
+          candidateCounter: null,
+          contentRevision: 1,
+          createdAt: "2026-09-20T00:00:00Z",
+          currency: "CNY",
+          currentApprovalId: null,
+          declineReason: null,
+          emailRecipient: "candidate@example.com",
+          emailSentAt: "2026-09-20T00:00:00Z",
+          equity: null,
+          expiresAt: "2026-09-27T00:00:00Z",
+          id: "accepted-offer",
+          interviewRecordId: "candidate",
+          joiningDate: "2026-10-01T00:00:00Z",
+          notes: null,
+          organizationId: "org",
+          position: "前端高级工程师",
+          publicPath: "/offer/token",
+          publishedAt: "2026-09-20T00:00:00Z",
+          publishedBy: "hr",
+          responseAt: "2026-09-20T01:00:00Z",
+          responseBy: null,
+          responseSource: "candidate",
+          sentAt: "2026-09-20T00:00:00Z",
+          status: "accepted",
+          updatedAt: "2026-09-20T01:00:00Z",
+          version: 1,
+        },
+      ],
+    );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <WorkspaceSlugProvider id="org" slug="acme" memberRole="hr" permissions={{}}>
+              <OfferStagePanel
+                stage="offer"
+                candidateId="candidate"
+                candidateName="候选人"
+                candidateEmail="candidate@example.com"
+                nodeStates={[]}
+              />
+            </WorkspaceSlugProvider>
+          </QueryClientProvider>,
+        ),
+      );
+      expect(host.textContent).toContain("当前阶段：候选人已接受 Offer，可进入背调。");
+      expect(host.textContent).not.toContain("待候选人接受后可进入背调");
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+      host.remove();
+    }
+  });
+
   it("keeps explaining the current stage after a historical node result exists", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },

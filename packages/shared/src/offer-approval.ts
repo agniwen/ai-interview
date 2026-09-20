@@ -1,18 +1,28 @@
 import { z } from "zod";
-export const submitOfferApprovalSchema = z
+import { offerApprovalTemplateNodeSchema } from "@app/db-schema/offer-approval";
+
+export const offerApprovalTemplateInputSchema = z
   .object({
-    approverIds: z.array(z.string().min(1)).min(1).max(5),
-    expectedContentRevision: z.number().int().positive(),
-    expectedSnapshotHash: z.string().length(64),
-    offerId: z.string().min(1),
-    reason: z.string().trim().min(1).max(2000),
-    recruitingRecordId: z.string().min(1),
-    requestId: z.uuid(),
+    enabled: z.boolean().default(true),
+    name: z.string().trim().min(1).max(100),
+    nodes: z.array(offerApprovalTemplateNodeSchema).min(1).max(5),
   })
-  .refine((input) => new Set(input.approverIds).size === input.approverIds.length, {
-    message: "审批人不能重复",
-    path: ["approverIds"],
+  .superRefine((input, context) => {
+    if (new Set(input.nodes.map((node) => node.id)).size !== input.nodes.length) {
+      context.addIssue({ code: "custom", message: "审批节点标识不能重复", path: ["nodes"] });
+    }
   });
+
+export const submitOfferApprovalSchema = z.object({
+  approverIds: z.array(z.string().min(1)).min(1).max(5),
+  expectedContentRevision: z.number().int().positive(),
+  expectedSnapshotHash: z.string().length(64),
+  offerId: z.string().min(1),
+  reason: z.string().trim().min(1).max(2000),
+  recruitingRecordId: z.string().min(1),
+  requestId: z.uuid(),
+  templateId: z.string().min(1).nullable().default(null),
+});
 export const offerApprovalDecisionSchema = z
   .object({
     comment: z.string().trim().max(2000).default(""),

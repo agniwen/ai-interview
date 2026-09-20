@@ -56,6 +56,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { invalidateRecruitingTransitionQueries } from "../recruiting-transition-query-refresh";
 
 // 结束可选的 4 个终态——in_pipeline 在 close 流程里不合法。
 // The four terminal outcomes available when closing.
@@ -513,9 +514,7 @@ function ReactivateDialog({
           targetStatus: "pending",
         });
         toast.success(`已重新激活，回到「${pipelineStageMeta[targetStage].label}」`);
-        void queryClient.invalidateQueries({
-          queryKey: ["studio-resumes", slug, "detail", candidate.id],
-        });
+        await invalidateRecruitingTransitionQueries(queryClient, slug, candidate.id);
         complete(`已回到「${pipelineStageMeta[targetStage].label}」`);
         onCompleted();
         onOpenChange(false);

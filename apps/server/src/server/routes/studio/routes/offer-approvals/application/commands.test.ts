@@ -4,12 +4,38 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
 import { recruitingOfferApproval, recruitingOfferApprovalStep } from "@app/db-schema/schema";
 import {
+  assertAssignedApprover,
+  assertManualApproverSelection,
   decideOfferApproval,
   notifyOfferApproval,
   defaultOfferApprovalCommandDependencies,
 } from "./commands";
 import type { OfferApprovalCommandDependencies } from "./commands";
 const request = () => ({ requestId: crypto.randomUUID() });
+
+describe("审批人身份约束", () => {
+  it("allows the applicant to approve a node produced by a template", () => {
+    expect(() =>
+      assertAssignedApprover(
+        { organizationId: "org", userId: "applicant" },
+        { applicantId: "applicant" },
+        { approverId: "applicant", sourceType: "job_reporting_manager" },
+      ),
+    ).not.toThrow();
+  });
+
+  it("keeps self-approval and duplicates blocked in manual mode", () => {
+    expect(() => assertManualApproverSelection("applicant", ["a", "a"])).toThrow("不能重复");
+    expect(() => assertManualApproverSelection("applicant", ["applicant"])).toThrow("不能审批自己");
+    expect(() =>
+      assertAssignedApprover(
+        { organizationId: "org", userId: "applicant" },
+        { applicantId: "applicant" },
+        { approverId: "applicant", sourceType: "manual" },
+      ),
+    ).toThrow("只有当前指定审批人");
+  });
+});
 
 describe("审批节点催办限频", () => {
   it("limits repeated reminders for one node without blocking the newly activated approver", async () => {

@@ -115,6 +115,7 @@ export function JobDescriptionFormDialog({
   const reportingManagerOptions = useMemo(
     () =>
       (workspaceMembers?.records ?? []).map((member) => ({
+        avatarUrl: member.image,
         label: member.name,
         value: member.id,
       })),

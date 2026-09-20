@@ -92,6 +92,18 @@ _Avoid_: Survey, questionnaire
 Workspace-wide interview settings such as company context, opening instructions, closing instructions, and job-code prefix.
 _Avoid_: System config, environment config
 
+**Offer Approval Template**:
+A workspace-managed shortcut that fills an ordered set of Offer approval nodes when a recruiter starts an approval. A template is not part of an approval after submission; editing or deleting it never changes an existing approval instance.
+_Avoid_: Active approval flow, approval policy, immutable workflow
+
+**Offer Approval Node Resolver**:
+A template rule that resolves one concrete approver at submission time, such as a fixed member, the job reporting manager, or the recruiting owner. User-facing Chinese labels preserve the rule that produced the concrete approver.
+_Avoid_: Workspace role, approver group, runtime assignment
+
+**Offer Approval Instance**:
+The immutable submitted approval request containing the ordered concrete approvers and their resolver-label snapshots. Later template, job, or ownership changes do not rewrite the instance.
+_Avoid_: Approval template, live organization rule
+
 **Workspace Recruiting Copilot**:
 A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context. Its primary navigation label is “智能体”.
 _Avoid_: Agent, Chat page, resume upload chat, global recruiting bot

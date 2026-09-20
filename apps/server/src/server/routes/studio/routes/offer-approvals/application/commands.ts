@@ -36,6 +36,11 @@ import {
   saveReceipt,
 } from "../dao";
 import type { Actor } from "../dao";
+import {
+  assertTemplateApproverSelection,
+  getEnabledApprovalTemplates,
+  resolveApprovalTemplate,
+} from "./templates";
 
 export const defaultOfferApprovalCommandDependencies = {
   db,
@@ -55,6 +60,34 @@ export type OfferApprovalCommandDependencies = Omit<
 > & {
   db: Pick<typeof db, "transaction">;
 };
+
+export function assertManualApproverSelection(applicantId: string, approverIds: string[]) {
+  if (new Set(approverIds).size !== approverIds.length) {
+    throw new OfferApprovalError("手动选择的审批人不能重复", 400);
+  }
+  if (approverIds.includes(applicantId)) {
+    throw new OfferApprovalError("不能审批自己发起的申请", 400);
+  }
+}
+
+type AssignedApproverStep = Pick<
+  typeof recruitingOfferApprovalStep.$inferSelect,
+  "approverId" | "sourceType"
+>;
+
+export function assertAssignedApprover(
+  actor: Actor,
+  approval: Pick<typeof recruitingOfferApproval.$inferSelect, "applicantId">,
+  step: AssignedApproverStep | undefined,
+): asserts step is AssignedApproverStep {
+  if (
+    !step ||
+    step.approverId !== actor.userId ||
+    (approval.applicantId === actor.userId && step.sourceType === "manual")
+  ) {
+    throw new OfferApprovalError("只有当前指定审批人可以处理", 403);
+  }
+}
 
 export async function submitOfferApproval(
   actor: Actor,
@@ -82,14 +115,45 @@ export async function submitOfferApproval(
       throw new OfferApprovalError("Offer 内容已变化，请刷新并重新核对");
     }
     assertOfferDates(snapshot, new Date(), true);
+    const enabledTemplates = await getEnabledApprovalTemplates(tx, actor);
+    const selectedTemplate = input.templateId
+      ? enabledTemplates.find((template) => template.id === input.templateId)
+      : undefined;
+    if (enabledTemplates.length && !selectedTemplate) {
+      throw new OfferApprovalError("请选择一个当前启用的审批模板", 400);
+    }
+    if (!enabledTemplates.length && input.templateId) {
+      throw new OfferApprovalError("所选审批模板已停用或删除，请刷新后重试", 409);
+    }
+    const resolvedTemplateNodes = selectedTemplate
+      ? await resolveApprovalTemplate(tx, actor, record, selectedTemplate)
+      : [];
+    const resolvedIds = resolvedTemplateNodes.map((node) => node.approverId);
+    if (selectedTemplate) {
+      assertTemplateApproverSelection({
+        resolvedApproverIds: resolvedIds,
+        submittedApproverIds: input.approverIds,
+      });
+    } else {
+      assertManualApproverSelection(actor.userId, input.approverIds);
+    }
     const approvers = [];
-    for (const userId of input.approverIds) {
-      if (userId === actor.userId) {
-        throw new OfferApprovalError("不能审批自己发起的申请", 400);
-      }
+    for (const [position, userId] of input.approverIds.entries()) {
       const person = await assertApprovalPermission(tx, { ...actor, userId }, "decide");
       await assertApprovalPermission(tx, { ...actor, userId }, "read");
-      approvers.push({ name: person.name, userId });
+      const original = resolvedTemplateNodes[position];
+      approvers.push({
+        name: person.name,
+        sourceLabel: original?.sourceLabel ?? "手动选择",
+        sourceSnapshot: {
+          resolverType: original?.sourceType ?? null,
+          templateId: selectedTemplate?.id ?? null,
+          templateName: selectedTemplate?.name ?? null,
+          templateNodeId: original?.nodeId ?? null,
+        },
+        sourceType: original?.sourceType ?? ("manual" as const),
+        userId,
+      });
     }
     const history = await tx
       .select()
@@ -146,6 +210,8 @@ export async function submitOfferApproval(
         recruitingRecordId: record.id,
         snapshot,
         snapshotHash,
+        templateId: selectedTemplate?.id ?? null,
+        templateName: selectedTemplate?.name ?? null,
       })
       .returning();
     const steps = await tx
@@ -160,6 +226,9 @@ export async function submitOfferApproval(
           organizationId: actor.organizationId,
           position,
           recruitingRecordId: record.id,
+          sourceLabel: person.sourceLabel,
+          sourceSnapshot: person.sourceSnapshot,
+          sourceType: person.sourceType,
           status: position === 0 ? ("pending" as const) : ("waiting" as const),
         })),
       )
@@ -204,9 +273,7 @@ export async function decideOfferApproval(
     await dependencies.assertApprovalPermission(tx, actor, "read");
     await dependencies.assertApprovalPermission(tx, actor, "decide");
     const step = steps.find((item) => item.id === stepId);
-    if (!step || step.approverId !== actor.userId || approval.applicantId === actor.userId) {
-      throw new OfferApprovalError("只有当前指定审批人可以处理", 403);
-    }
+    assertAssignedApprover(actor, approval, step);
     const receipt = await dependencies.readReceipt(tx, actor, input.requestId, requestHash);
     if (receipt) {
       return { approvalId: receipt.approvalId };

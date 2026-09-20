@@ -9,6 +9,7 @@ import {
   offerApprovalWithdrawSchema,
   offerApprovalNotificationSchema,
   offerApprovalListSchema,
+  offerApprovalTemplateInputSchema,
 } from "@app/shared/offer-approval";
 import { listApprovers, OfferApprovalError } from "./dao";
 import {
@@ -18,6 +19,14 @@ import {
   notifyOfferApproval,
 } from "./application/commands";
 import { getOfferApproval, listOfferApprovals, previewOfferApproval } from "./application/queries";
+import {
+  createApprovalTemplate,
+  deleteApprovalTemplate,
+  listApprovalTemplates,
+  listTemplateApprovers,
+  setDefaultApprovalTemplate,
+  updateApprovalTemplate,
+} from "./application/templates";
 import type { Context } from "hono";
 import type { Env } from "../../../../type";
 
@@ -26,13 +35,19 @@ function actor(c: Context<Env>) {
   return { organizationId: context.organization.id, userId: context.user.id };
 }
 const defaultDependencies = {
+  createApprovalTemplate,
   decideOfferApproval,
+  deleteApprovalTemplate,
   getOfferApproval,
+  listApprovalTemplates,
   listApprovers,
   listOfferApprovals,
+  listTemplateApprovers,
   notifyOfferApproval,
   previewOfferApproval,
+  setDefaultApprovalTemplate,
   submitOfferApproval,
+  updateApprovalTemplate,
   withdrawOfferApproval,
 };
 export type OfferApprovalsRouteDependencies = typeof defaultDependencies & {
@@ -75,6 +90,62 @@ export function createOfferApprovalsRouter(
       async (c) =>
         c.json(
           await dependencies.listOfferApprovals(dependencies.getActor(c), c.req.valid("query")),
+          200,
+        ),
+    )
+    .get("/templates", dependencies.requirePermission("offerApproval", "manage"), async (c) =>
+      c.json(await dependencies.listApprovalTemplates(dependencies.getActor(c)), 200),
+    )
+    .get(
+      "/template-approvers",
+      dependencies.requirePermission("offerApproval", "manage"),
+      async (c) => c.json(await dependencies.listTemplateApprovers(dependencies.getActor(c)), 200),
+    )
+    .post(
+      "/templates",
+      dependencies.requirePermission("offerApproval", "manage"),
+      zValidator("json", offerApprovalTemplateInputSchema, jsonValidatorError("审批模板无效")),
+      async (c) =>
+        c.json(
+          await dependencies.createApprovalTemplate(dependencies.getActor(c), c.req.valid("json")),
+          201,
+        ),
+    )
+    .put(
+      "/templates/:templateId",
+      dependencies.requirePermission("offerApproval", "manage"),
+      zValidator("json", offerApprovalTemplateInputSchema, jsonValidatorError("审批模板无效")),
+      async (c) =>
+        c.json(
+          await dependencies.updateApprovalTemplate(
+            dependencies.getActor(c),
+            c.req.param("templateId"),
+            c.req.valid("json"),
+          ),
+          200,
+        ),
+    )
+    .post(
+      "/templates/:templateId/default",
+      dependencies.requirePermission("offerApproval", "manage"),
+      async (c) =>
+        c.json(
+          await dependencies.setDefaultApprovalTemplate(
+            dependencies.getActor(c),
+            c.req.param("templateId"),
+          ),
+          200,
+        ),
+    )
+    .delete(
+      "/templates/:templateId",
+      dependencies.requirePermission("offerApproval", "manage"),
+      async (c) =>
+        c.json(
+          await dependencies.deleteApprovalTemplate(
+            dependencies.getActor(c),
+            c.req.param("templateId"),
+          ),
           200,
         ),
     )

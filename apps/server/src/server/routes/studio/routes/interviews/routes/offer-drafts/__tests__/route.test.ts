@@ -10,6 +10,7 @@ const mocks = {
   editOfferDraft: vi.fn<OfferDraftsRouteDependencies["editOfferDraft"]>(),
   getHumanInterviewOfferReadinessError:
     vi.fn<OfferDraftsRouteDependencies["getHumanInterviewOfferReadinessError"]>(),
+  getOfferApprovalPolicy: vi.fn<OfferDraftsRouteDependencies["getOfferApprovalPolicy"]>(),
   getOfferEmailPreview: vi.fn<OfferDraftsRouteDependencies["getOfferEmailPreview"]>(),
   invalidateStudioInterviewCaches:
     vi.fn<OfferDraftsRouteDependencies["invalidateStudioInterviewCaches"]>(),
@@ -100,6 +101,7 @@ describe("offerDraftsRouter", () => {
   it("declares CRUD-specific offer permissions", () => {
     expect(permissionCalls).toEqual([
       ["offer", "read"],
+      ["offer", "read"],
       ["offer", "create"],
       ["offer", "update"],
       ["offer", "delete"],
@@ -120,6 +122,16 @@ describe("offerDraftsRouter", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([offer]);
     expect(mocks.listOfferDrafts).toHaveBeenCalledWith(RECORD_ID, ORG_ID);
+  });
+
+  it("reports whether enabled templates require Offer approval", async () => {
+    mocks.getOfferApprovalPolicy.mockResolvedValue({ approvalRequired: true });
+
+    const response = await makeApp().request(`/${RECORD_ID}/offer-drafts/approval-policy`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ approvalRequired: true });
+    expect(mocks.getOfferApprovalPolicy).toHaveBeenCalledWith(expect.anything(), ORG_ID);
   });
 
   it("voids a historical draft with an explicit actor and preserves the cancel contract", async () => {

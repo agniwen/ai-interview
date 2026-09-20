@@ -69,6 +69,7 @@ import { Route as WSlugStudioJobDescriptionsRouteImport } from './routes/w.$slug
 import { Route as WSlugStudioMailIngestAccountsRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts'
 import { Route as WSlugStudioMeRouteImport } from './routes/w.$slug.studio.me'
 import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.members'
+import { Route as WSlugStudioOfferApprovalTemplatesRouteImport } from './routes/w.$slug.studio.offer-approval-templates'
 import { Route as WSlugStudioOfferApprovalsRouteImport } from './routes/w.$slug.studio.offer-approvals'
 import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
@@ -393,6 +394,12 @@ const WSlugStudioMembersRoute = WSlugStudioMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
+const WSlugStudioOfferApprovalTemplatesRoute =
+  WSlugStudioOfferApprovalTemplatesRouteImport.update({
+    id: '/offer-approval-templates',
+    path: '/offer-approval-templates',
+    getParentRoute: () => WSlugStudioRoute,
+  } as any)
 const WSlugStudioOfferApprovalsRoute =
   WSlugStudioOfferApprovalsRouteImport.update({
     id: '/offer-approvals',
@@ -538,6 +545,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRouteWithChildren
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
+  '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRoute
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsRouteWithChildren
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
@@ -611,6 +619,7 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRouteWithChildren
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
+  '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
@@ -687,6 +696,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRouteWithChildren
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
+  '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRoute
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsRouteWithChildren
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
@@ -765,6 +775,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
+    | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
@@ -838,6 +849,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
+    | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
@@ -913,6 +925,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
+    | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
@@ -1380,6 +1393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioMembersRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
+    '/w/$slug/studio/offer-approval-templates': {
+      id: '/w/$slug/studio/offer-approval-templates'
+      path: '/offer-approval-templates'
+      fullPath: '/w/$slug/studio/offer-approval-templates'
+      preLoaderRoute: typeof WSlugStudioOfferApprovalTemplatesRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
     '/w/$slug/studio/offer-approvals': {
       id: '/w/$slug/studio/offer-approvals'
       path: '/offer-approvals'
@@ -1685,6 +1705,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioMailIngestAccountsRoute: typeof WSlugStudioMailIngestAccountsRouteWithChildren
   WSlugStudioMeRoute: typeof WSlugStudioMeRoute
   WSlugStudioMembersRoute: typeof WSlugStudioMembersRoute
+  WSlugStudioOfferApprovalTemplatesRoute: typeof WSlugStudioOfferApprovalTemplatesRoute
   WSlugStudioOfferApprovalsRoute: typeof WSlugStudioOfferApprovalsRouteWithChildren
   WSlugStudioPermissionsRoute: typeof WSlugStudioPermissionsRoute
   WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRouteWithChildren
@@ -1705,6 +1726,8 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
     WSlugStudioMailIngestAccountsRouteWithChildren,
   WSlugStudioMeRoute: WSlugStudioMeRoute,
   WSlugStudioMembersRoute: WSlugStudioMembersRoute,
+  WSlugStudioOfferApprovalTemplatesRoute:
+    WSlugStudioOfferApprovalTemplatesRoute,
   WSlugStudioOfferApprovalsRoute: WSlugStudioOfferApprovalsRouteWithChildren,
   WSlugStudioPermissionsRoute: WSlugStudioPermissionsRoute,
   WSlugStudioResumePoolRoute: WSlugStudioResumePoolRouteWithChildren,
