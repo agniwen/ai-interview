@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /* oxlint-disable anti-slop/no-module-mocking -- Supplies RTC event delivery without opening a microphone or a network room. */
 import { act } from "react";
+import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { RoomEvent } from "livekit-client";
@@ -112,4 +113,37 @@ it("renders incremental RTC text, replaces it once with persisted final, and ret
   );
   expect(container.querySelectorAll("p.text-sm")).toHaveLength(1);
   expect(container.textContent).toContain("我负责开发。");
+  const stream = SubtitleStream.current;
+  const target = document.createElement("div");
+  document.body.append(target);
+  await act(() =>
+    root.render(
+      <ServerHumanMeetingTranscript
+        inviteToken="test-invite"
+        renderPanel={(panel) => createPortal(panel, target)}
+      />,
+    ),
+  );
+  target.hidden = true;
+  const nextEvent = { ...final.event, eventId: "next", itemId: "2", text: "切换标签后继续转录。" };
+  act(() =>
+    stream.dispatchEvent(
+      new MessageEvent("message", { data: JSON.stringify({ ...update, events: [nextEvent] }) }),
+    ),
+  );
+  target.hidden = false;
+  expect(target.textContent).toContain("我负责开发。");
+  expect(target.textContent).toContain("切换标签后继续转录。");
+  expect(SubtitleStream.current).toBe(stream);
+  expect(stream.close).not.toHaveBeenCalled();
+  await act(() =>
+    root.render(
+      <ServerHumanMeetingTranscript inviteToken="test-invite" renderPanel={() => null} />,
+    ),
+  );
+  expect(container.textContent).not.toContain("切换标签后继续转录。");
+  expect(stream.close).not.toHaveBeenCalled();
+  await act(() => root.render(<ServerHumanMeetingTranscript inviteToken="test-invite" />));
+  expect(container.textContent).toContain("切换标签后继续转录。");
+  expect(stream.close).not.toHaveBeenCalled();
 });

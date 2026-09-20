@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useMemo, useState } from "react";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { z } from "zod";
 import { useRoomContext } from "@livekit/components-react";
 import { RoomEvent } from "livekit-client";
@@ -47,7 +47,9 @@ const updateSchema = scopeSchema.extend({
 export function ServerHumanMeetingTranscript({
   inviteToken,
   ref,
+  renderPanel,
 }: {
+  renderPanel?: (panel: ReactNode) => ReactNode;
   inviteToken: string;
   ref?: Ref<HumanMeetingLiveTranscriptHandle>;
 }) {
@@ -171,7 +173,7 @@ export function ServerHumanMeetingTranscript({
     () => visibleTranscriptRows(events, previews, scope, participants, now),
     [events, previews, scope, participants, now],
   );
-  return (
+  const panel = (
     <section
       className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4"
       aria-label="实时字幕"
@@ -200,4 +202,5 @@ export function ServerHumanMeetingTranscript({
       </MessageScrollerProvider>
     </section>
   );
+  return renderPanel ? renderPanel(panel) : panel;
 }

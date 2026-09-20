@@ -10,7 +10,21 @@ import { useMediaDeviceSelect, useRoomContext } from "@livekit/components-react"
 import { LocalAudioTrack, Track } from "livekit-client";
 import type { Room } from "livekit-client";
 import { cn } from "@app/shared/utils";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { runAsyncAction } from "@/lib/client/async-control";
 
@@ -53,6 +67,10 @@ export function MicrophoneDeviceMenu({
   className?: string;
   compactMobile?: boolean;
 }) {
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const fieldId = useId();
   const { activeDeviceId, devices, setActiveMediaDevice } = useMediaDeviceSelect({
     kind: "audioinput",
     requestPermissions: false,
@@ -63,34 +81,92 @@ export function MicrophoneDeviceMenu({
     : "系统默认麦克风";
 
   async function handleSelect(deviceId: string) {
+    if (isSelecting || deviceId === activeDeviceId) {
+      return;
+    }
+    setIsSelecting(true);
     try {
       await setActiveMediaDevice(deviceId);
+      setDrawerOpen(false);
       toast.success("已切换麦克风");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "切换麦克风失败");
+    } finally {
+      setIsSelecting(false);
     }
+  }
+
+  const trigger = (
+    <button
+      className={cn(deviceButtonClass, className)}
+      type="button"
+      disabled={isSelecting}
+      aria-label={`当前麦克风：${selectedLabel}`}
+    >
+      <IconMicrophone className="size-4" />
+      {compactMobile ? <span className="md:hidden">当前麦克风</span> : null}
+      <span className={cn("max-w-36 truncate", compactMobile && "hidden md:inline")}>
+        {selectedLabel}
+      </span>
+      <IconChevronDown className={cn("size-3.5 opacity-70", compactMobile && "hidden md:block")} />
+    </button>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>选择麦克风</DrawerTitle>
+            <DrawerDescription>选择会议使用的音频输入设备。</DrawerDescription>
+          </DrawerHeader>
+          <div className="min-h-0 overflow-y-auto px-4">
+            {devices.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">未检测到麦克风</p>
+            ) : (
+              <FieldSet disabled={isSelecting}>
+                <FieldLegend className="sr-only">麦克风设备</FieldLegend>
+                <RadioGroup
+                  aria-label="麦克风设备"
+                  value={activeDeviceId ?? ""}
+                  disabled={isSelecting}
+                  onValueChange={(value) => {
+                    const device = devices.find((option) => option.deviceId === value);
+                    if (device) {
+                      void handleSelect(device.deviceId);
+                    }
+                  }}
+                >
+                  {devices.map((device, index) => (
+                    <FieldLabel
+                      key={device.deviceId}
+                      htmlFor={`${fieldId}-${index}`}
+                      className="min-h-12 w-full rounded-lg border p-3"
+                    >
+                      <RadioGroupItem id={`${fieldId}-${index}`} value={device.deviceId} />
+                      <span className="min-w-0 break-words">{getDeviceLabel(device, index)}</span>
+                    </FieldLabel>
+                  ))}
+                </RadioGroup>
+              </FieldSet>
+            )}
+          </div>
+          <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <DrawerClose asChild>
+              <Button className="h-11 w-full" size="lg" variant="outline">
+                关闭
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
   }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            className={cn(deviceButtonClass, className)}
-            type="button"
-            aria-label={`当前麦克风：${selectedLabel}`}
-          >
-            <IconMicrophone className="size-4" />
-            {compactMobile ? <span className="md:hidden">当前麦克风</span> : null}
-            <span className={cn("max-w-36 truncate", compactMobile && "hidden md:inline")}>
-              {selectedLabel}
-            </span>
-            <IconChevronDown
-              className={cn("size-3.5 opacity-70", compactMobile && "hidden md:block")}
-            />
-          </button>
-        }
-      />
+      <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent align="center" className="w-72" side="top">
         <DropdownMenuGroup>
           {devices.length === 0 ? (
