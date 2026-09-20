@@ -49,4 +49,45 @@ describe("human interview evaluation state", () => {
       ),
     ).toBe(true);
   });
+
+  it.each(["pending", "processing", "failed"])(
+    "allows manual evaluation against the current review transcript while transcription is %s",
+    (transcriptionStatus) => {
+      expect(
+        isHumanInterviewEvaluationSubmissionCurrent(
+          {
+            activeTranscriptRevisionId: null,
+            reviewTranscriptRevisionId: "review-current",
+            transcriptionStatus,
+          },
+          "review-current",
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it("rejects a review transcript replaced by recovery or a newer review", () => {
+    for (const activeTranscriptRevisionId of [null, "recovered-current"]) {
+      expect(
+        isHumanInterviewEvaluationSubmissionCurrent(
+          {
+            activeTranscriptRevisionId,
+            reviewTranscriptRevisionId: "review-new",
+            transcriptionStatus: activeTranscriptRevisionId ? "ready" : "failed",
+          },
+          "review-old",
+        ),
+      ).toBe(false);
+    }
+    expect(
+      isHumanInterviewEvaluationSubmissionCurrent(
+        {
+          activeTranscriptRevisionId: "recovered-current",
+          reviewTranscriptRevisionId: "review-current",
+          transcriptionStatus: "ready",
+        },
+        "review-current",
+      ),
+    ).toBe(false);
+  });
 });

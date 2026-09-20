@@ -727,6 +727,7 @@ export function createHumanInterviewEvaluationDao(
           evaluationStatus: humanInterviewRound.evaluationStatus,
           id: humanInterviewRound.id,
           meetingSessionId: meetingSession.id,
+          reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
           roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
@@ -815,6 +816,7 @@ export function createHumanInterviewEvaluationDao(
         const [transcript] = await tx
           .select({
             activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+            reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
             transcriptionStatus: meetingSession.transcriptionStatus,
           })
           .from(meetingSession)
@@ -838,6 +840,7 @@ export function createHumanInterviewEvaluationDao(
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
           evaluationStatus: humanInterviewRound.evaluationStatus,
           organizationId: humanInterviewRound.organizationId,
+          reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
           roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
