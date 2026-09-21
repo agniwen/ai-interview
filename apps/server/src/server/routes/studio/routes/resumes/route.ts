@@ -75,6 +75,7 @@ import {
 } from "../resume-upload-batches/utils/retry";
 import { interviewQuestionsRouter as defaultInterviewQuestionsRouter } from "./routes/interview-questions/route";
 import { dashboardMetricsRouter as defaultDashboardMetricsRouter } from "./routes/dashboard-metrics/route";
+import { recruitingLedgerRouter as defaultRecruitingLedgerRouter } from "./routes/recruiting-ledger/route";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -161,6 +162,7 @@ export interface ResumeLibraryRouterDependencies {
   reassessResumeRecord: ResumeProcessingReview["reassessResumeRecord"];
   recruitingJobDescriptionIdsExist: typeof defaultRecruitingJobDescriptionIdsExist;
   recruitingRecordMeetingsRouter: typeof defaultRecruitingRecordMeetingsRouter;
+  recruitingLedgerRouter: typeof defaultRecruitingLedgerRouter;
   removeImportedInterviewFromConversations: typeof defaultRemoveImportedInterviewFromConversations;
   replaceDuplicateMatchesForSource: typeof defaultReplaceDuplicateMatchesForSource;
   requirePermission: typeof defaultRequirePermission;
@@ -196,6 +198,7 @@ const defaultResumeLibraryRouterDependencies: ResumeLibraryRouterDependencies = 
   parseResumeFastToProfile: defaultParseResumeFastToProfile,
   reassessResumeRecord: defaultReassessResumeRecordDependency,
   recruitingJobDescriptionIdsExist: defaultRecruitingJobDescriptionIdsExist,
+  recruitingLedgerRouter: defaultRecruitingLedgerRouter,
   recruitingRecordMeetingsRouter: defaultRecruitingRecordMeetingsRouter,
   removeImportedInterviewFromConversations: defaultRemoveImportedInterviewFromConversations,
   replaceDuplicateMatchesForSource: defaultReplaceDuplicateMatchesForSource,
@@ -294,6 +297,7 @@ export function createResumeLibraryRouter(
     factory
       .createApp()
       .route("/dashboard-metrics", dashboardMetricsRouter)
+      .route("/ledger", dependencies.recruitingLedgerRouter)
       .route("/", resumeLibraryReadRouter)
       .route("/:id/evaluation-history", defaultResumeEvaluationHistoryRouter)
       .route("/:id/meetings", recruitingRecordMeetingsRouter)

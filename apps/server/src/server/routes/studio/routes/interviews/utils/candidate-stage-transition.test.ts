@@ -117,8 +117,8 @@ describe("招聘动作入口权限与错误映射", () => {
   it("谈薪通过时保存谈定月薪并在同一事务进入发 Offer", async () => {
     const tx = {};
     const updateExpectations = vi.fn().mockResolvedValue({
-      next: { agreedBaseSalary: 28_000 },
-      previous: { agreedBaseSalary: 26_000 },
+      next: { agreedBaseSalary: 28_000, overseasSalary: 35_000, probationSalary: 24_000 },
+      previous: { agreedBaseSalary: 26_000, overseasSalary: 32_000, probationSalary: 22_000 },
     });
     const recordAudit = vi.fn(() => Promise.resolve());
     const updateNode = vi.fn().mockResolvedValue({
@@ -146,6 +146,8 @@ describe("招聘动作入口权限与错误映射", () => {
         action: "review_salary_negotiation",
         agreedBaseSalary: 28_000,
         expectedVersion: 1,
+        overseasSalary: 35_000,
+        probationSalary: 24_000,
         reason: "双方已确认薪资方案",
         result: "pass",
       },
@@ -154,11 +156,20 @@ describe("招聘动作入口权限与错误映射", () => {
 
     expect(updateExpectations).toHaveBeenCalledWith(tx, "record", "org", {
       agreedBaseSalary: 28_000,
+      overseasSalary: 35_000,
+      probationSalary: 24_000,
     });
     expect(recordAudit).toHaveBeenCalledWith(
       tx,
       expect.objectContaining({ operatorId: null, organizationId: "org", recordId: "record" }),
-      { agreedBaseSalary: 28_000, previousAgreedBaseSalary: 26_000 },
+      {
+        agreedBaseSalary: 28_000,
+        overseasSalary: 35_000,
+        previousAgreedBaseSalary: 26_000,
+        previousOverseasSalary: 32_000,
+        previousProbationSalary: 22_000,
+        probationSalary: 24_000,
+      },
     );
     expect(updateNode).toHaveBeenCalledWith(
       tx,

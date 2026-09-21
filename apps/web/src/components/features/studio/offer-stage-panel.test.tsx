@@ -361,7 +361,7 @@ describe("Offer stage content", () => {
           </QueryClientProvider>,
         ),
       );
-      expect(host.textContent).toContain("谈定 Base 月薪¥ 28,000");
+      expect(host.textContent).toContain("转正工资¥ 28,000");
       const create = [...host.querySelectorAll("button")].find((button) =>
         button.textContent?.includes("创建 Offer"),
       );

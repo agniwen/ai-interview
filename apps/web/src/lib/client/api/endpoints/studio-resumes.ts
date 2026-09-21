@@ -1,5 +1,6 @@
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
 import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
+import type { RecruitingLedgerResult } from "@app/shared/studio-recruiting-ledger";
 /**
  * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
@@ -31,7 +32,7 @@ import type {
   StructuredResumeGrade,
 } from "@app/db-schema/structured-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@app/shared/structured-resume-scoring";
-import { rpc } from "@/lib/client/rpc";
+import { rpc, studioResumesRpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
 
@@ -179,6 +180,64 @@ export function fetchStudioResumes(
       query: buildResumeListQuery(params),
     }),
     "加载简历列表失败",
+  );
+}
+
+export interface RecruitingLedgerParams {
+  boardView?: RecruitingBoardView;
+  createdFrom?: string;
+  createdTo?: string;
+  departmentIds?: string[];
+  jobDescriptionIds?: string[];
+  joiningFrom?: string;
+  joiningTo?: string;
+  page?: number;
+  pageSize?: number;
+  recommendationLevels?: string[];
+  responsibleHrIds?: string[];
+  search?: string;
+  sortBy?: "createdAt" | "candidateName" | "joiningDate" | "updatedAt";
+  sortOrder?: "asc" | "desc";
+}
+
+export function fetchRecruitingLedger(
+  slug: string,
+  params: RecruitingLedgerParams = {},
+): Promise<RecruitingLedgerResult> {
+  return rpcFetch(
+    studioResumesRpc(slug).ledger.$get({
+      query: {
+        boardView: params.boardView,
+        createdFrom: params.createdFrom,
+        createdTo: params.createdTo,
+        departmentIds: params.departmentIds?.join(","),
+        jdIds: params.jobDescriptionIds?.join(","),
+        joiningFrom: params.joiningFrom,
+        joiningTo: params.joiningTo,
+        page: params.page === undefined ? undefined : String(params.page),
+        pageSize: params.pageSize === undefined ? undefined : String(params.pageSize),
+        recommendationLevels: params.recommendationLevels?.join(","),
+        responsibleHrIds: params.responsibleHrIds?.join(","),
+        search: params.search,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder,
+      },
+    }),
+    "加载招聘台账失败",
+  );
+}
+
+export function updateRecruitingLedgerInformationSync(
+  slug: string,
+  recordId: string,
+  synced: boolean,
+): Promise<{ informationSyncStatus: "not_synced" | "synced" }> {
+  return rpcFetch(
+    studioResumesRpc(slug).ledger[":recordId"]["information-sync"].$patch({
+      json: { synced },
+      param: { recordId },
+    }),
+    "更新信息同步标签失败",
   );
 }
 

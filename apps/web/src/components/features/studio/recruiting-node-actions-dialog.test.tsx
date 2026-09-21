@@ -148,8 +148,12 @@ it.each(["income_proof", "salary_negotiation", "background_check", "onboarding"]
         expect(dialog.textContent).toContain("未提供材料时，请在说明中记录原因");
       }
       if (stage === "salary_negotiation") {
-        const salary = dialog.querySelector<HTMLInputElement>('[aria-label="谈定 Base 月薪"]');
+        const salary = dialog.querySelector<HTMLInputElement>('[aria-label="转正工资"]');
+        const probationSalary = dialog.querySelector<HTMLInputElement>('[aria-label="试用期工资"]');
+        const overseasSalary = dialog.querySelector<HTMLInputElement>('[aria-label="出国工资"]');
         expect(salary).not.toBeNull();
+        expect(probationSalary).not.toBeNull();
+        expect(overseasSalary).not.toBeNull();
         expect(
           [...dialog.querySelectorAll("button")]
             .find((button) => button.textContent === "确认并进入发 Offer")
@@ -161,6 +165,16 @@ it.each(["income_proof", "salary_negotiation", "background_check", "onboarding"]
             "28000",
           );
           salary?.dispatchEvent(new Event("input", { bubbles: true }));
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+            probationSalary,
+            "24000",
+          );
+          probationSalary?.dispatchEvent(new Event("input", { bubbles: true }));
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+            overseasSalary,
+            "35000",
+          );
+          overseasSalary?.dispatchEvent(new Event("input", { bubbles: true }));
         });
       }
       expect(dialog.textContent).not.toContain("保存进度");
@@ -189,6 +203,8 @@ it.each(["income_proof", "salary_negotiation", "background_check", "onboarding"]
           action: "review_salary_negotiation",
           agreedBaseSalary: 28_000,
           expectedVersion: 3,
+          overseasSalary: 35_000,
+          probationSalary: 24_000,
           reason: "已完成核实",
           result: "pass",
         });

@@ -7,6 +7,7 @@ import {
   isWorkspaceAdministratorRole,
   roles,
   STUDIO_PAGE_PERMISSION_ACTIONS,
+  STUDIO_PAGE_PERMISSION_LABELS,
 } from "@app/shared/permissions";
 
 describe("workspace administrator roles", () => {
@@ -145,7 +146,13 @@ describe("permissions matrix", () => {
         expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
       );
       expect(roles.member.statements.page).toEqual(
-        expect.arrayContaining(["resumes", "resumePool", "interviews", "members"]),
+        expect.arrayContaining([
+          "resumes",
+          "resumePool",
+          "interviews",
+          "recruitingLedger",
+          "members",
+        ]),
       );
     });
   });
@@ -192,6 +199,10 @@ describe("permissions matrix", () => {
 });
 
 describe("permission matrix cross-cut", () => {
+  it("uses the full recruiting ledger page label", () => {
+    expect(STUDIO_PAGE_PERMISSION_LABELS.recruitingLedger).toBe("招聘台账");
+  });
+
   // [role, resource, action, expected]
   // 这张表跟 spec §3.2 1:1 对齐，是回归防线。
   const cases: [keyof typeof roles, string, string, boolean][] = [
@@ -266,8 +277,10 @@ describe("permission matrix cross-cut", () => {
     ["member", "member", "delete", false],
     // page browsing
     ["admin", "page", "dashboard", true],
+    ["admin", "page", "recruitingLedger", true],
     ["admin", "page", "mailIngestAccounts", true],
     ["member", "page", "dashboard", false],
+    ["member", "page", "recruitingLedger", true],
     ["member", "page", "mailIngestAccounts", false],
     ["member", "page", "permissions", false],
     ["member", "page", "globalConfig", false],

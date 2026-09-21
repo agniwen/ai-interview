@@ -22,6 +22,7 @@ export const STUDIO_PAGE_PERMISSION_ACTIONS = [
   "resumePool",
   "interviews",
   "dashboard",
+  "recruitingLedger",
   "departments",
   "interviewers",
   "jobDescriptions",
@@ -48,6 +49,7 @@ export const STUDIO_PAGE_PERMISSION_LABELS = {
   members: "工作区管理",
   offerApprovals: "审批",
   permissions: "权限管理",
+  recruitingLedger: "招聘台账",
   resumePool: "人才库",
   resumes: "招聘",
 } as const;
@@ -57,6 +59,7 @@ const memberStudioPagePermissions = [
   "resumes",
   "resumePool",
   "interviews",
+  "recruitingLedger",
   "departments",
   "interviewers",
   "jobDescriptions",

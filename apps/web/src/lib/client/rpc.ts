@@ -3,6 +3,7 @@ import {
   hcBackgroundCheckWithType,
   hcPublicWithType,
   hcStudioInterviewsWithType,
+  hcStudioResumesWithType,
   hcWithType,
 } from "@app/server/rpc-client";
 
@@ -38,6 +39,13 @@ export function chatRpc(slug: string) {
 export function studioInterviewsRpc(slug: string) {
   return hcStudioInterviewsWithType(
     `/api/w/${encodeURIComponent(slug)}/studio/interviews`,
+    rpcClientOptions,
+  );
+}
+
+export function studioResumesRpc(slug: string) {
+  return hcStudioResumesWithType(
+    `/api/w/${encodeURIComponent(slug)}/studio/resumes`,
     rpcClientOptions,
   );
 }

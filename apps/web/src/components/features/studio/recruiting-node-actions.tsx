@@ -62,7 +62,7 @@ function getNodeActionDescription(stage: ResumeLibraryDetail["pipelineStage"]) {
     return "核对薪资证明并填写审核说明；未提供材料时，请在说明中记录原因。审核通过后将直接进入谈薪。";
   }
   if (stage === "salary_negotiation") {
-    return "填写双方最终谈定的税前 Base 月薪和确认说明。确认通过后将直接进入发 Offer。";
+    return "填写转正工资；试用期工资和出国工资可按实际情况选填。确认通过后将直接进入发 Offer。";
   }
 }
 
@@ -71,16 +71,72 @@ function parseAgreedBaseSalary(value: string) {
   return Number.isInteger(salary) && salary > 0 ? salary : null;
 }
 
+function parseOptionalSalary(value: string) {
+  if (!value.trim()) {
+    return;
+  }
+  const salary = Number(value);
+  return Number.isInteger(salary) && salary > 0 ? salary : null;
+}
+
+function buildSalaryNegotiationInput({
+  agreedBaseSalary,
+  expectedVersion,
+  overseasSalary,
+  probationSalary,
+  reason,
+  result,
+}: {
+  agreedBaseSalary: string;
+  expectedVersion: number;
+  overseasSalary: string;
+  probationSalary: string;
+  reason: string;
+  result: "fail" | "pass";
+}) {
+  const salary = parseAgreedBaseSalary(agreedBaseSalary);
+  const parsedOverseasSalary = parseOptionalSalary(overseasSalary);
+  const parsedProbationSalary = parseOptionalSalary(probationSalary);
+  if (result === "pass" && salary === null) {
+    throw new Error("请填写大于 0 的转正工资");
+  }
+  if (result === "pass" && parsedProbationSalary === null) {
+    throw new Error("试用期工资必须为大于 0 的整数");
+  }
+  if (result === "pass" && parsedOverseasSalary === null) {
+    throw new Error("出国工资必须为大于 0 的整数");
+  }
+  return {
+    action: "review_salary_negotiation" as const,
+    agreedBaseSalary: result === "pass" ? (salary ?? undefined) : undefined,
+    expectedVersion,
+    overseasSalary:
+      result === "pass" && parsedOverseasSalary !== null ? parsedOverseasSalary : undefined,
+    probationSalary:
+      result === "pass" && parsedProbationSalary !== null ? parsedProbationSalary : undefined,
+    reason,
+    result,
+  };
+}
+
 function confirmationDisabledReason(
   stage: ResumeLibraryDetail["pipelineStage"],
   actualJoiningDate: string,
   agreedBaseSalary: string,
+  overseasSalary: string,
+  probationSalary: string,
 ) {
   if (stage === "onboarding" && !actualJoiningDate) {
     return "请填写到岗日期";
   }
   if (stage === "salary_negotiation" && parseAgreedBaseSalary(agreedBaseSalary) === null) {
-    return "请填写谈定 Base 月薪";
+    return "请填写转正工资";
+  }
+  if (stage === "salary_negotiation" && parseOptionalSalary(probationSalary) === null) {
+    return "试用期工资必须为大于 0 的整数";
+  }
+  if (stage === "salary_negotiation" && parseOptionalSalary(overseasSalary) === null) {
+    return "出国工资必须为大于 0 的整数";
   }
   return null;
 }
@@ -132,6 +188,8 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
   const expectedVersion = useActionRecordVersion(open, record.version);
   const [actualJoiningDate, setActualJoiningDate] = useState("");
   const [agreedBaseSalary, setAgreedBaseSalary] = useState("");
+  const [overseasSalary, setOverseasSalary] = useState("");
+  const [probationSalary, setProbationSalary] = useState("");
   const [reason, setReason] = useState("");
   const node = record.nodeStates.find((state) => state.node === record.pipelineStage);
   const mutation = useMutation({
@@ -152,17 +210,18 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         return;
       }
       if (record.pipelineStage === "salary_negotiation") {
-        const salary = parseAgreedBaseSalary(agreedBaseSalary);
-        if (result === "pass" && salary === null) {
-          throw new Error("请填写大于 0 的谈定 Base 月薪");
-        }
-        await transitionInterviewRecord(slug, record.id, {
-          action: "review_salary_negotiation",
-          agreedBaseSalary: result === "pass" ? (salary ?? undefined) : undefined,
-          expectedVersion: expectedVersion ?? record.version,
-          reason: reason.trim(),
-          result,
-        });
+        await transitionInterviewRecord(
+          slug,
+          record.id,
+          buildSalaryNegotiationInput({
+            agreedBaseSalary,
+            expectedVersion: expectedVersion ?? record.version,
+            overseasSalary,
+            probationSalary,
+            reason: reason.trim(),
+            result,
+          }),
+        );
         return;
       }
       await transitionInterviewRecord(slug, record.id, {
@@ -187,6 +246,8 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
       complete(nodeReviewSuccessMessage(record.pipelineStage, result));
       setOpen(false);
       setAgreedBaseSalary("");
+      setOverseasSalary("");
+      setProbationSalary("");
       setReason("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] }),
@@ -211,6 +272,16 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
               setAgreedBaseSalary(
                 record.candidateExpectationsMeta?.agreedBaseSalary
                   ? String(record.candidateExpectationsMeta.agreedBaseSalary)
+                  : "",
+              );
+              setOverseasSalary(
+                record.candidateExpectationsMeta?.overseasSalary
+                  ? String(record.candidateExpectationsMeta.overseasSalary)
+                  : "",
+              );
+              setProbationSalary(
+                record.candidateExpectationsMeta?.probationSalary
+                  ? String(record.candidateExpectationsMeta.probationSalary)
                   : "",
               );
             }
@@ -255,12 +326,16 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
                   record.pipelineStage,
                   actualJoiningDate,
                   agreedBaseSalary,
+                  overseasSalary,
+                  probationSalary,
                 )}
                 disabled={
                   mutation.isPending ||
                   (record.pipelineStage === "onboarding" && !actualJoiningDate) ||
                   (record.pipelineStage === "salary_negotiation" &&
-                    parseAgreedBaseSalary(agreedBaseSalary) === null)
+                    (parseAgreedBaseSalary(agreedBaseSalary) === null ||
+                      parseOptionalSalary(probationSalary) === null ||
+                      parseOptionalSalary(overseasSalary) === null))
                 }
                 onClick={() => mutation.mutate("pass")}
               >
@@ -283,20 +358,52 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
           </div>
         ) : null}
         {record.pipelineStage === "salary_negotiation" ? (
-          <div className="grid gap-1.5">
-            <Label htmlFor="salary-negotiation-base-salary">谈定 Base 月薪（税前）</Label>
-            <Input
-              aria-label="谈定 Base 月薪"
-              disabled={mutation.isPending}
-              id="salary-negotiation-base-salary"
-              inputMode="numeric"
-              min={1}
-              onChange={(event) => setAgreedBaseSalary(event.target.value)}
-              placeholder="如 28000"
-              type="number"
-              value={agreedBaseSalary}
-            />
-            <p className="text-muted-foreground text-xs">单位：元/月，将自动带入 Offer。</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="salary-negotiation-probation-salary">试用期工资（可选）</Label>
+              <Input
+                aria-label="试用期工资"
+                disabled={mutation.isPending}
+                id="salary-negotiation-probation-salary"
+                inputMode="numeric"
+                min={1}
+                onChange={(event) => setProbationSalary(event.target.value)}
+                placeholder="如 24000"
+                type="number"
+                value={probationSalary}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="salary-negotiation-base-salary">转正工资（必填）</Label>
+              <Input
+                aria-label="转正工资"
+                disabled={mutation.isPending}
+                id="salary-negotiation-base-salary"
+                inputMode="numeric"
+                min={1}
+                onChange={(event) => setAgreedBaseSalary(event.target.value)}
+                placeholder="如 28000"
+                type="number"
+                value={agreedBaseSalary}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="salary-negotiation-overseas-salary">出国工资（可选）</Label>
+              <Input
+                aria-label="出国工资"
+                disabled={mutation.isPending}
+                id="salary-negotiation-overseas-salary"
+                inputMode="numeric"
+                min={1}
+                onChange={(event) => setOverseasSalary(event.target.value)}
+                placeholder="如 35000"
+                type="number"
+                value={overseasSalary}
+              />
+            </div>
+            <p className="text-muted-foreground text-xs sm:col-span-3">
+              单位：元/月；转正工资将自动带入 Offer。
+            </p>
           </div>
         ) : null}
         <MarkdownEditor

@@ -504,6 +504,8 @@ export const candidateExpectationsMetaSchema = z.object({
   earliestJoiningDate: z.string().trim().nullable().optional(),
   expectedSalary: z.number().int().min(0).nullable().optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
+  overseasSalary: z.number().int().positive().nullable().optional(),
+  probationSalary: z.number().int().positive().nullable().optional(),
 });
 export type CandidateExpectationsMeta = z.infer<typeof candidateExpectationsMetaSchema>;
 

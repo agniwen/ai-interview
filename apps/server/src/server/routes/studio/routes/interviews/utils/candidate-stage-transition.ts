@@ -56,7 +56,14 @@ interface SalaryNegotiationReviewOperations extends IncomeProofReviewOperations 
 async function recordSalaryNegotiationAuditTx(
   tx: RecruitingTransaction,
   base: RecruitingPipelineCommand,
-  detail: { agreedBaseSalary: number; previousAgreedBaseSalary: number | null },
+  detail: {
+    agreedBaseSalary: number;
+    overseasSalary: number | null;
+    previousAgreedBaseSalary: number | null;
+    previousOverseasSalary: number | null;
+    previousProbationSalary: number | null;
+    probationSalary: number | null;
+  },
 ) {
   await tx.insert(recruitingEvent).values({
     action: "salary_negotiation_compensation_confirmed",
@@ -105,7 +112,7 @@ export async function reviewSalaryNegotiationAndAdvanceTx(
   operations: SalaryNegotiationReviewOperations = defaultSalaryNegotiationReviewOperations,
 ) {
   if (input.result === "pass") {
-    const { agreedBaseSalary } = input;
+    const { agreedBaseSalary, overseasSalary, probationSalary } = input;
     if (agreedBaseSalary === undefined) {
       throw new RecruitingPipelineError("谈薪通过必须填写谈定月薪。", "invalid");
     }
@@ -113,14 +120,22 @@ export async function reviewSalaryNegotiationAndAdvanceTx(
       tx,
       base.recordId,
       base.organizationId,
-      { agreedBaseSalary },
+      {
+        agreedBaseSalary,
+        overseasSalary: overseasSalary ?? null,
+        probationSalary: probationSalary ?? null,
+      },
     );
     if (!expectations) {
       throw new RecruitingPipelineError("招聘记录不存在。", "not_found");
     }
     await operations.recordAudit(tx, base, {
       agreedBaseSalary,
+      overseasSalary: overseasSalary ?? null,
       previousAgreedBaseSalary: expectations.previous?.agreedBaseSalary ?? null,
+      previousOverseasSalary: expectations.previous?.overseasSalary ?? null,
+      previousProbationSalary: expectations.previous?.probationSalary ?? null,
+      probationSalary: probationSalary ?? null,
     });
   }
   const reviewed = await operations.updateNode(tx, {

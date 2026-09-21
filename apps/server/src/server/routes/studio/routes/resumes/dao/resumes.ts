@@ -9,6 +9,8 @@ import {
   department,
   humanInterviewRound,
   jobDescription,
+  recruitingFulfillment,
+  recruitingOffer,
   user,
 } from "@app/db-schema/schema";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
@@ -29,6 +31,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "../../../../../../lib/server/db/index";
@@ -82,7 +85,13 @@ function parseResumeReviewNextStepAction(
   return parsed.success ? parsed.data : null;
 }
 
-const SORT_COLUMNS = ["createdAt", "candidateName", "structuredScore", "updatedAt"] as const;
+const SORT_COLUMNS = [
+  "createdAt",
+  "candidateName",
+  "joiningDate",
+  "structuredScore",
+  "updatedAt",
+] as const;
 
 const ORDER_COLUMNS = {
   candidateName: recruitingRecordReadModel.candidateName,
@@ -112,6 +121,8 @@ const filtersSchema = z.object({
   dashboardAction: z.enum(dashboardRecruitingActionScopeValues).optional(),
   hrHandling: z.boolean().optional(),
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
+  joiningDateFrom: z.iso.date().optional(),
+  joiningDateTo: z.iso.date().optional(),
   nodeResults: z
     .array(z.enum(["pass", "fail", "withdrawn"]))
     .max(3)
@@ -138,6 +149,7 @@ const filtersSchema = z.object({
   outcomes: z.array(z.string()).max(10).optional().nullable(),
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
   recommendationLevels: z.array(qualitativeRecommendationLevelSchema).max(4).optional().nullable(),
+  responsibleHrIds: z.array(z.string()).max(50).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
   skills: z.array(z.string()).max(20).optional().nullable(),
   structuredMaxScore: z.number().int().min(0).max(100).optional().nullable(),
@@ -148,7 +160,7 @@ const filtersSchema = z.object({
 type Pagination = z.infer<typeof paginationSchema>;
 type PaginationInput = z.input<typeof paginationInputSchema>;
 type Filters = z.infer<typeof filtersSchema>;
-type ResumeQueryFilters = z.infer<typeof filtersSchema> & { forceEmpty?: boolean };
+export type ResumeQueryFilters = z.infer<typeof filtersSchema> & { forceEmpty?: boolean };
 
 export class ResumeStructuredScoreQueryError extends Error {
   constructor(message: string) {
@@ -162,6 +174,47 @@ export class ResumeStructuredScoreQueryError extends Error {
 
 function buildSearchCondition(search: string | null | undefined) {
   return buildResumeKeywordSearch(recruitingRecordReadModel, search) ?? null;
+}
+
+function effectiveJoiningDateExpression() {
+  return sql<string | null>`COALESCE(
+    (
+      SELECT ${recruitingFulfillment.actualJoiningDate}
+      FROM ${recruitingFulfillment}
+      WHERE ${recruitingFulfillment.recruitingRecordId} = ${recruitingRecordReadModel.id}
+        AND ${recruitingFulfillment.organizationId} = ${recruitingRecordReadModel.organizationId}
+      LIMIT 1
+    ),
+    (
+      SELECT ${recruitingOffer.joiningDate}
+      FROM ${recruitingOffer}
+      WHERE ${recruitingOffer.recruitingRecordId} = ${recruitingRecordReadModel.id}
+        AND ${recruitingOffer.organizationId} = ${recruitingRecordReadModel.organizationId}
+        AND ${recruitingOffer.status} <> 'superseded'
+      ORDER BY ${recruitingOffer.version} DESC
+      LIMIT 1
+    )
+  )`;
+}
+
+function buildJoiningDateCondition(from?: string, to?: string) {
+  if (!(from || to)) {
+    return null;
+  }
+  const effectiveJoiningDate = effectiveJoiningDateExpression();
+  return and(
+    from ? sql`${effectiveJoiningDate} >= ${from}` : undefined,
+    to ? sql`${effectiveJoiningDate} <= ${to}` : undefined,
+  );
+}
+
+function buildCreatedAtConditions(filters?: ResumeQueryFilters) {
+  return [
+    filters?.createdAtFrom ? gte(recruitingRecordReadModel.createdAt, filters.createdAtFrom) : null,
+    filters?.createdAtBefore
+      ? lt(recruitingRecordReadModel.createdAt, filters.createdAtBefore)
+      : null,
+  ];
 }
 
 // 输入按存储归一化规则同样处理后再 dedupe；空字符串丢弃。
@@ -190,6 +243,16 @@ function buildJdIdsCondition(jdIds: string[] | null | undefined) {
 function buildCreatorIdsCondition(creatorIds: string[] | null | undefined) {
   const filtered = creatorIds?.filter((id) => id.trim().length > 0) ?? [];
   return filtered.length > 0 ? inArray(recruitingRecordReadModel.createdBy, filtered) : null;
+}
+
+function buildResponsibleHrIdsCondition(responsibleHrIds: string[] | null | undefined) {
+  const filtered = responsibleHrIds?.filter((id) => id.trim().length > 0) ?? [];
+  return filtered.length > 0
+    ? inArray(
+        sql<string>`COALESCE(${recruitingRecordReadModel.ownerId}, ${recruitingRecordReadModel.createdBy})`,
+        filtered,
+      )
+    : null;
 }
 
 function buildStagesCondition(stages: string[] | null | undefined) {
@@ -336,16 +399,15 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
   }
   const conditions = [
     eq(recruitingRecordReadModel.organizationId, organizationId),
-    filters?.createdAtFrom ? gte(recruitingRecordReadModel.createdAt, filters.createdAtFrom) : null,
     // Exclusive next-day midnight includes the entire end date, including fractional seconds.
-    filters?.createdAtBefore
-      ? lt(recruitingRecordReadModel.createdAt, filters.createdAtBefore)
-      : null,
+    ...buildCreatedAtConditions(filters),
+    buildJoiningDateCondition(filters?.joiningDateFrom, filters?.joiningDateTo),
     buildSearchCondition(filters?.search),
     buildResumeAtomicSearch(recruitingRecordReadModel, filters?.textFilters),
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
+    buildResponsibleHrIdsCondition(filters?.responsibleHrIds),
     buildDashboardActionFilter(filters?.dashboardAction),
     buildHrHandlingCondition(filters?.hrHandling),
     buildStagesCondition(filters?.pipelineStages),
@@ -356,6 +418,32 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     ...buildStructuredScoreConditions(filters),
   ].filter((c) => c !== null);
   return conditions.length === 1 ? conditions[0] : and(...conditions);
+}
+
+function scopeResumeFilters(
+  filters: ResumeQueryFilters,
+  visibilityScope?: RecruitingVisibilityScope,
+): ResumeQueryFilters {
+  const parsedFilters = filtersSchema.parse(filters);
+  const scopedCreatorIds = visibilityScope
+    ? intersectRequestedCreatorIds(parsedFilters.creatorIds, visibilityScope)
+    : parsedFilters.creatorIds;
+  return {
+    ...parsedFilters,
+    creatorIds: scopedCreatorIds,
+    forceEmpty:
+      visibilityScope?.kind !== "all" &&
+      Array.isArray(scopedCreatorIds) &&
+      scopedCreatorIds.length === 0,
+  };
+}
+
+export function buildScopedResumeWhere(
+  organizationId: string,
+  filters: ResumeQueryFilters,
+  visibilityScope?: RecruitingVisibilityScope,
+) {
+  return buildWhere(organizationId, scopeResumeFilters(filters, visibilityScope));
 }
 
 const SELECTED_COLUMNS = {
@@ -596,24 +684,34 @@ function selectRows({
       ) then 2
     else 3
   end`;
-  const orderBy =
-    sortBy === "structuredScore"
-      ? [
-          asc(artifactGroup),
-          asc(recruitingRecordReadModel.structuredGateSortRank),
-          desc(recruitingRecordReadModel.structuredCompositeScore),
-          desc(
-            sql`case when ${artifactGroup} = 2
+  let orderBy: SQL[];
+  if (sortBy === "structuredScore") {
+    orderBy = [
+      asc(artifactGroup),
+      asc(recruitingRecordReadModel.structuredGateSortRank),
+      desc(recruitingRecordReadModel.structuredCompositeScore),
+      desc(
+        sql`case when ${artifactGroup} = 2
               then coalesce(
                 ${recruitingRecordReadModel.resumeReview}->'overall'->>'baseScore',
                 ${recruitingRecordReadModel.resumeReview}->'overall'->>'score'
               )::numeric
               else null end`,
-          ),
-          asc(recruitingRecordReadModel.candidateName),
-          asc(recruitingRecordReadModel.id),
-        ]
-      : [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
+      ),
+      asc(recruitingRecordReadModel.candidateName),
+      asc(recruitingRecordReadModel.id),
+    ];
+  } else if (sortBy === "joiningDate") {
+    const effectiveJoiningDate = effectiveJoiningDateExpression();
+    orderBy = [
+      sortOrder === "asc"
+        ? sql`${effectiveJoiningDate} ASC NULLS LAST`
+        : sql`${effectiveJoiningDate} DESC NULLS LAST`,
+      asc(recruitingRecordReadModel.id),
+    ];
+  } else {
+    orderBy = [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
+  }
 
   return db
     .select(LIST_SELECTED_COLUMNS)
@@ -800,9 +898,12 @@ export async function queryPaginatedResumeRecords(
     createdAtFrom?: Date;
     dashboardAction?: (typeof dashboardRecruitingActionScopeValues)[number];
     hrHandling?: boolean;
+    joiningDateFrom?: string;
+    joiningDateTo?: string;
     search?: string | null;
     textFilters?: string;
     creatorIds?: string[] | null;
+    responsibleHrIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
@@ -846,17 +947,7 @@ export async function queryPaginatedResumeRecords(
       throw new ResumeStructuredScoreQueryError("所选岗位不支持结构化评分排序或筛选。");
     }
   }
-  const scopedCreatorIds = visibilityScope
-    ? intersectRequestedCreatorIds(parsedFilters.creatorIds, visibilityScope)
-    : parsedFilters.creatorIds;
-  const scopedFilters: ResumeQueryFilters = {
-    ...parsedFilters,
-    creatorIds: scopedCreatorIds,
-    forceEmpty:
-      visibilityScope?.kind !== "all" &&
-      Array.isArray(scopedCreatorIds) &&
-      scopedCreatorIds.length === 0,
-  };
+  const scopedFilters = scopeResumeFilters(parsedFilters, visibilityScope);
   const where = buildWhere(organizationId, scopedFilters);
 
   const totalPromise =
@@ -912,9 +1003,12 @@ export function listResumeRecords(
     createdAtFrom?: Date;
     dashboardAction?: (typeof dashboardRecruitingActionScopeValues)[number];
     hrHandling?: boolean;
+    joiningDateFrom?: string;
+    joiningDateTo?: string;
     search?: string | null;
     textFilters?: string;
     creatorIds?: string[] | null;
+    responsibleHrIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;

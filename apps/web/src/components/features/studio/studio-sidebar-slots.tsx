@@ -14,6 +14,7 @@ import {
   IconRobot,
   IconShieldCheck,
   IconSitemap,
+  IconTable,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -102,6 +103,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/dashboard",
         resource: "page",
         title: "数据看板",
+      },
+      {
+        action: "recruitingLedger",
+        icon: IconTable,
+        path: "/studio/recruiting-ledger",
+        resource: "page",
+        title: "招聘台账",
       },
       {
         action: "offerApprovals",

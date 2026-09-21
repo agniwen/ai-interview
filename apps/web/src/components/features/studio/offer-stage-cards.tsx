@@ -218,8 +218,16 @@ export function CandidateExpectationsBlock({
             value={meta?.currentSalary ? `¥ ${meta.currentSalary.toLocaleString()}` : null}
           />
           <ExpectationField
-            label="谈定 Base 月薪"
+            label="转正工资"
             value={meta?.agreedBaseSalary ? `¥ ${meta.agreedBaseSalary.toLocaleString()}` : null}
+          />
+          <ExpectationField
+            label="试用期工资"
+            value={meta?.probationSalary ? `¥ ${meta.probationSalary.toLocaleString()}` : null}
+          />
+          <ExpectationField
+            label="出国工资"
+            value={meta?.overseasSalary ? `¥ ${meta.overseasSalary.toLocaleString()}` : null}
           />
           <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
           <ExpectationField label="备注" value={meta?.notes ?? null} />

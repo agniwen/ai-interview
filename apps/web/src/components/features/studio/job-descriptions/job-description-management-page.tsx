@@ -276,15 +276,17 @@ export function JobDescriptionManagementPage({
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {
-          const labels = { high: "高", low: "低", medium: "中" };
-          return r.priority ? (
-            <Badge variant={getPriorityBadgeVariant(r.priority)}>{labels[r.priority]}</Badge>
-          ) : (
-            <span className="text-muted-foreground text-xs">未设置</span>
+          if (r.interviewers.length === 0) {
+            return <span className="text-muted-foreground text-xs">未配置</span>;
+          }
+          return (
+            <span className="text-sm wrap-anywhere">
+              {r.interviewers.map((item) => item.name).join("、")}
+            </span>
           );
         },
-        key: "priority",
-        title: "优先级",
+        key: "interviewers",
+        title: "面试官",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) =>
@@ -310,23 +312,31 @@ export function JobDescriptionManagementPage({
         title: "需求人数",
       }),
       customColumn<JobDescriptionListRecord>({
-        cell: (r) => r.referralChannels ?? <span className="text-muted-foreground text-xs">—</span>,
-        key: "referralChannels",
-        title: "简历推荐渠道",
+        cell: (r) =>
+          r.jobWeight ? (
+            <span className="font-mono text-sm tabular-nums">{r.jobWeight}</span>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
+        key: "jobWeight",
+        title: "岗位权重",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {
-          if (r.interviewers.length === 0) {
-            return <span className="text-muted-foreground text-xs">未配置</span>;
-          }
-          return (
-            <span className="text-sm wrap-anywhere">
-              {r.interviewers.map((item) => item.name).join("、")}
-            </span>
+          const labels = { high: "高", low: "低", medium: "中" };
+          return r.priority ? (
+            <Badge variant={getPriorityBadgeVariant(r.priority)}>{labels[r.priority]}</Badge>
+          ) : (
+            <span className="text-muted-foreground text-xs">未设置</span>
           );
         },
-        key: "interviewers",
-        title: "面试官",
+        key: "priority",
+        title: "优先级",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) => r.referralChannels ?? <span className="text-muted-foreground text-xs">—</span>,
+        key: "referralChannels",
+        title: "简历推荐渠道",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {

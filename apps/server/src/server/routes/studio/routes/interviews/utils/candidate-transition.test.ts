@@ -92,6 +92,8 @@ describe("招聘动作输入", () => {
       candidateTransitionInputSchema.safeParse({
         ...base,
         agreedBaseSalary: 28_000,
+        overseasSalary: 35_000,
+        probationSalary: 24_000,
         result: "pass",
       }).success,
     ).toBe(true);
@@ -112,6 +114,7 @@ describe("招聘动作输入", () => {
       candidateTransitionInputSchema.safeParse({
         ...base,
         agreedBaseSalary: 28_000,
+        probationSalary: 24_000,
         result: "fail",
       }).success,
     ).toBe(false);

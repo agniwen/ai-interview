@@ -370,6 +370,8 @@ export type RecruitingPipelineAction =
       action: "review_salary_negotiation";
       agreedBaseSalary?: number;
       expectedVersion: number;
+      overseasSalary?: number;
+      probationSalary?: number;
       reason: string;
       result: "pass" | "fail";
     }

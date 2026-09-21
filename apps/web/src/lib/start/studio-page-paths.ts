@@ -11,6 +11,7 @@ export const STUDIO_PAGE_PATHS = [
   { action: "interviews", path: "/interviews" },
   { action: "interviews", path: "/calendar" },
   { action: "dashboard", path: "/dashboard" },
+  { action: "recruitingLedger", path: "/recruiting-ledger" },
   { action: "departments", path: "/departments" },
   { action: "interviewers", path: "/interviewers" },
   { action: "jobDescriptions", path: "/job-descriptions" },

@@ -72,6 +72,7 @@ import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.
 import { Route as WSlugStudioOfferApprovalTemplatesRouteImport } from './routes/w.$slug.studio.offer-approval-templates'
 import { Route as WSlugStudioOfferApprovalsRouteImport } from './routes/w.$slug.studio.offer-approvals'
 import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
+import { Route as WSlugStudioRecruitingLedgerRouteImport } from './routes/w.$slug.studio.recruiting-ledger'
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
 import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
 import { Route as WSlugStudioInterviewsRoundIdRouteImport } from './routes/w.$slug.studio.interviews.$roundId'
@@ -411,6 +412,12 @@ const WSlugStudioPermissionsRoute = WSlugStudioPermissionsRouteImport.update({
   path: '/permissions',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
+const WSlugStudioRecruitingLedgerRoute =
+  WSlugStudioRecruitingLedgerRouteImport.update({
+    id: '/recruiting-ledger',
+    path: '/recruiting-ledger',
+    getParentRoute: () => WSlugStudioRoute,
+  } as any)
 const WSlugStudioResumePoolRoute = WSlugStudioResumePoolRouteImport.update({
   id: '/resume-pool',
   path: '/resume-pool',
@@ -548,6 +555,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRoute
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsRouteWithChildren
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
+  '/w/$slug/studio/recruiting-ledger': typeof WSlugStudioRecruitingLedgerRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
   '/w/$slug/agent/': typeof WSlugAgentIndexRoute
@@ -621,6 +629,7 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
+  '/w/$slug/studio/recruiting-ledger': typeof WSlugStudioRecruitingLedgerRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
   '/w/$slug/agent': typeof WSlugAgentIndexRoute
@@ -699,6 +708,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRoute
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsRouteWithChildren
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
+  '/w/$slug/studio/recruiting-ledger': typeof WSlugStudioRecruitingLedgerRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
   '/w/$slug/agent/': typeof WSlugAgentIndexRoute
@@ -778,6 +788,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/permissions'
+    | '/w/$slug/studio/recruiting-ledger'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
     | '/w/$slug/agent/'
@@ -851,6 +862,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/members'
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/permissions'
+    | '/w/$slug/studio/recruiting-ledger'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
     | '/w/$slug/agent'
@@ -928,6 +940,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/permissions'
+    | '/w/$slug/studio/recruiting-ledger'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
     | '/w/$slug/agent/'
@@ -1414,6 +1427,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioPermissionsRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
+    '/w/$slug/studio/recruiting-ledger': {
+      id: '/w/$slug/studio/recruiting-ledger'
+      path: '/recruiting-ledger'
+      fullPath: '/w/$slug/studio/recruiting-ledger'
+      preLoaderRoute: typeof WSlugStudioRecruitingLedgerRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
     '/w/$slug/studio/resume-pool': {
       id: '/w/$slug/studio/resume-pool'
       path: '/resume-pool'
@@ -1708,6 +1728,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioOfferApprovalTemplatesRoute: typeof WSlugStudioOfferApprovalTemplatesRoute
   WSlugStudioOfferApprovalsRoute: typeof WSlugStudioOfferApprovalsRouteWithChildren
   WSlugStudioPermissionsRoute: typeof WSlugStudioPermissionsRoute
+  WSlugStudioRecruitingLedgerRoute: typeof WSlugStudioRecruitingLedgerRoute
   WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRouteWithChildren
   WSlugStudioResumesRoute: typeof WSlugStudioResumesRouteWithChildren
 }
@@ -1730,6 +1751,7 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
     WSlugStudioOfferApprovalTemplatesRoute,
   WSlugStudioOfferApprovalsRoute: WSlugStudioOfferApprovalsRouteWithChildren,
   WSlugStudioPermissionsRoute: WSlugStudioPermissionsRoute,
+  WSlugStudioRecruitingLedgerRoute: WSlugStudioRecruitingLedgerRoute,
   WSlugStudioResumePoolRoute: WSlugStudioResumePoolRouteWithChildren,
   WSlugStudioResumesRoute: WSlugStudioResumesRouteWithChildren,
 }

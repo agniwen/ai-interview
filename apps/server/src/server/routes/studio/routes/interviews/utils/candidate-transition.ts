@@ -50,15 +50,20 @@ export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
       action: z.literal("review_salary_negotiation"),
       agreedBaseSalary: z.number().int().positive("谈定月薪必须大于 0").optional(),
       expectedVersion,
+      overseasSalary: z.number().int().positive("出国工资必须大于 0").optional(),
+      probationSalary: z.number().int().positive("试用期工资必须大于 0").optional(),
       reason,
       result: z.enum(["pass", "fail"]),
     })
     .refine(
       (input) =>
         (input.result === "pass" && input.agreedBaseSalary !== undefined) ||
-        (input.result === "fail" && input.agreedBaseSalary === undefined),
+        (input.result === "fail" &&
+          input.agreedBaseSalary === undefined &&
+          input.overseasSalary === undefined &&
+          input.probationSalary === undefined),
       {
-        message: "谈薪通过必须填写谈定月薪，淘汰时不能填写谈定月薪",
+        message: "谈薪通过必须填写谈定月薪，淘汰时不能填写薪资",
         path: ["agreedBaseSalary"],
       },
     ),
