@@ -10,6 +10,7 @@ import {
   user,
 } from "@app/db-schema/schema";
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import {
   calculateRecruitingGap,
   calculateRecruitingCycleDays,
@@ -38,6 +39,7 @@ interface RecruitingLedgerFilters {
   joiningDateFrom?: string;
   joiningDateTo?: string;
   recommendationLevels?: ("not_recommended" | "undecided" | "recommended" | "highly_recommended")[];
+  recruitingStatuses?: JobRecruitingStatus[];
   search?: string;
 }
 
@@ -68,7 +70,7 @@ async function resolveJobDescriptionIds(
   organizationId: string,
   filters: RecruitingLedgerFilters,
 ): Promise<string[] | undefined> {
-  if (!filters.departmentIds?.length) {
+  if (!(filters.departmentIds?.length || filters.recruitingStatuses?.length)) {
     return filters.jobDescriptionIds;
   }
   const rows = await db
@@ -77,13 +79,19 @@ async function resolveJobDescriptionIds(
     .where(
       and(
         eq(jobDescription.organizationId, organizationId),
-        inArray(jobDescription.departmentId, filters.departmentIds),
+        eq(jobDescription.lifecycleStatus, "published"),
+        filters.departmentIds?.length
+          ? inArray(jobDescription.departmentId, filters.departmentIds)
+          : undefined,
+        filters.recruitingStatuses?.length
+          ? inArray(jobDescription.recruitingStatus, filters.recruitingStatuses)
+          : undefined,
       ),
     );
-  const departmentJobIds = new Set(rows.map((row) => row.id));
+  const matchingJobIds = new Set(rows.map((row) => row.id));
   const ids = filters.jobDescriptionIds?.length
-    ? filters.jobDescriptionIds.filter((id) => departmentJobIds.has(id))
-    : [...departmentJobIds];
+    ? filters.jobDescriptionIds.filter((id) => matchingJobIds.has(id))
+    : [...matchingJobIds];
   return ids.length > 0 ? ids : ["__no_matching_job__"];
 }
 
@@ -161,10 +169,10 @@ async function loadLedgerJobSummary(
       boardView: filters.boardView,
       createdAtBefore: filters.createdAtBefore,
       createdAtFrom: filters.createdAtFrom,
-      jobDescriptionIds,
       joiningDateFrom: filters.joiningDateFrom,
       joiningDateTo: filters.joiningDateTo,
       recommendationLevels: filters.recommendationLevels,
+      resolvedJobDescriptionIds: jobDescriptionIds,
       responsibleHrIds: filters.responsibleHrIds,
       search: filters.search,
     },
@@ -197,6 +205,27 @@ async function loadLedgerJobSummary(
         sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.outcome} IN ('rejected', 'withdrawn'))`.mapWith(
           Number,
         ),
+      processClosed:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'closed')`.mapWith(
+          Number,
+        ),
+      processInterview:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('ai_interview', 'second_interview', 'final_interview'))`.mapWith(
+          Number,
+        ),
+      processOffer:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} IN ('income_proof', 'salary_negotiation', 'offer', 'background_check'))`.mapWith(
+          Number,
+        ),
+      processOnboarding:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'onboarding')`.mapWith(
+          Number,
+        ),
+      processScreening:
+        sql<number>`COUNT(*) FILTER (WHERE ${recruitingRecordReadModel.pipelineStage} = 'screening')`.mapWith(
+          Number,
+        ),
+      recruitingStatus: jobDescription.recruitingStatus,
       total: count(recruitingRecordReadModel.id),
     })
     .from(jobDescription)
@@ -228,6 +257,7 @@ async function loadLedgerJobSummary(
       jobDescription.headcount,
       jobDescription.jobWeight,
       jobDescription.priority,
+      jobDescription.recruitingStatus,
       department.name,
     )
     .orderBy(asc(jobDescription.name));
@@ -249,16 +279,33 @@ async function loadLedgerJobSummary(
         !filtersCandidates ||
         Boolean(normalizedSearch && row.name.toLocaleLowerCase("zh-CN").includes(normalizedSearch)),
     )
-    .map((row) => ({
-      ...row,
-      gap: calculateRecruitingGap(row.headcount, row.confirmed),
-      recruitingPoints:
-        calculateRecruitingPoints({
-          jobPriority: row.jobPriority,
-          jobWeight: row.jobWeight,
-          outcome: "hired",
-        }) * row.hired,
-    }));
+    .map((row) => {
+      const {
+        processClosed,
+        processInterview,
+        processOffer,
+        processOnboarding,
+        processScreening,
+        ...summary
+      } = row;
+      return {
+        ...summary,
+        gap: calculateRecruitingGap(row.headcount, row.confirmed),
+        processDistribution: {
+          closed: processClosed,
+          interview: processInterview,
+          offer: processOffer,
+          onboarding: processOnboarding,
+          screening: processScreening,
+        },
+        recruitingPoints:
+          calculateRecruitingPoints({
+            jobPriority: row.jobPriority,
+            jobWeight: row.jobWeight,
+            outcome: "hired",
+          }) * row.hired,
+      };
+    });
 }
 
 interface MutableRound extends RecruitingLedgerHumanRound {
@@ -452,10 +499,10 @@ export async function queryRecruitingLedger(
         boardView: filters.boardView,
         createdAtBefore: filters.createdAtBefore,
         createdAtFrom: filters.createdAtFrom,
-        jobDescriptionIds,
         joiningDateFrom: filters.joiningDateFrom,
         joiningDateTo: filters.joiningDateTo,
         recommendationLevels: filters.recommendationLevels,
+        resolvedJobDescriptionIds: jobDescriptionIds,
         responsibleHrIds: filters.responsibleHrIds,
         search: filters.search,
       },

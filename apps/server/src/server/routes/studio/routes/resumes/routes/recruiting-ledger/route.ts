@@ -1,5 +1,6 @@
 import { parseCsvParam } from "@app/shared/csv";
 import {
+  parseRecruitingLedgerJobStatuses,
   parseRecruitingLedgerRecommendationLevels,
   recruitingLedgerInformationSyncInputSchema,
   recruitingLedgerQuerySchema,
@@ -63,6 +64,7 @@ export function createRecruitingLedgerRouter(
             joiningDateFrom: q.joiningFrom,
             joiningDateTo: q.joiningTo,
             recommendationLevels: parseRecruitingLedgerRecommendationLevels(q.recommendationLevels),
+            recruitingStatuses: parseRecruitingLedgerJobStatuses(q.recruitingStatuses),
             responsibleHrIds: parseCsvParam(q.responsibleHrIds),
             search: q.search,
           },

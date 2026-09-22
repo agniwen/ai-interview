@@ -39,6 +39,7 @@ export async function createJobDescriptionReferralLink(input: {
         eq(jobDescription.id, input.jobDescriptionId),
         eq(jobDescription.organizationId, input.organizationId),
         eq(jobDescription.lifecycleStatus, "published"),
+        eq(jobDescription.recruitingStatus, "active"),
       ),
     )
     .limit(1);
@@ -87,6 +88,7 @@ export async function resolveReferralLink(token: string): Promise<ResolvedReferr
         eq(referralLink.tokenHash, tokenHash),
         isNull(referralLink.disabledAt),
         eq(jobDescription.lifecycleStatus, "published"),
+        eq(jobDescription.recruitingStatus, "active"),
       ),
     )
     .limit(1);

@@ -1,4 +1,5 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { RecruitingJobNotAcceptingCandidatesError } from "@app/database/recruiting-records";
 // 中文：公开访问入口路由族。挂在 /api/public 下，不依赖 workspace
 // auth；对 roundId/candidateId/邀请 token 做一次反查拿到 organizationId，然后复用
 // studio 路由族里既有的 DAO 返回完整数据（候选人姓名、简历 PDF、面试报告、
@@ -149,25 +150,33 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         return c.json({ error: "文件上传失败，请重试。" }, 500);
       }
 
-      const batchId = await insertBatchWithItems({
-        dedupPolicy: "create",
-        files: [
-          {
-            contentHash: stored.contentHash,
-            fileSize: file.size,
-            originalFileName: file.name,
-            storageKey: stored.storageKey,
-          },
-        ],
-        jdMode: "bind",
-        jobDescriptionId: link.jobDescriptionId,
-        organizationId: link.organizationId,
-        referralTargetRole: link.jobDescriptionName,
-        resumePoolScope: "public",
-        sourceChannel: "referral",
-        target: "resume_pool",
-        userId: link.createdBy,
-      });
+      let batchId: string;
+      try {
+        batchId = await insertBatchWithItems({
+          dedupPolicy: "create",
+          files: [
+            {
+              contentHash: stored.contentHash,
+              fileSize: file.size,
+              originalFileName: file.name,
+              storageKey: stored.storageKey,
+            },
+          ],
+          jdMode: "bind",
+          jobDescriptionId: link.jobDescriptionId,
+          organizationId: link.organizationId,
+          referralTargetRole: link.jobDescriptionName,
+          resumePoolScope: "public",
+          sourceChannel: "referral",
+          target: "resume_pool",
+          userId: link.createdBy,
+        });
+      } catch (error) {
+        if (error instanceof RecruitingJobNotAcceptingCandidatesError) {
+          return c.json({ error: "内推岗位已暂停或停止招聘。" }, 409);
+        }
+        throw error;
+      }
       const detail = await loadBatchDetail(batchId, link.organizationId, link.createdBy);
       if (!detail) {
         return c.json({ error: "内推简历提交失败。" }, 500);

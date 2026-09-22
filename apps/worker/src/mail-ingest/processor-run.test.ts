@@ -27,6 +27,7 @@ const mocks = {
   finishMailIngestAccountRun: vi.fn(),
   getMailboxLock: vi.fn(),
   insertBatchWithItems: vi.fn(),
+  isActiveRecruitingJobDescription: vi.fn(),
   listEnabledMailIngestAccounts: vi.fn(),
   loadBatchDetail: vi.fn(),
   logout: vi.fn(),
@@ -165,6 +166,7 @@ describe("runMailIngestOnce", () => {
     mocks.enqueueResumeParseJobs.mockImplementation(() => Promise.resolve());
     mocks.fetchPublishedJobDescriptionsByCodes.mockResolvedValue([]);
     mocks.insertBatchWithItems.mockResolvedValue("batch_1");
+    mocks.isActiveRecruitingJobDescription.mockResolvedValue(true);
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.loadBatchDetail.mockResolvedValue({
       batch: { id: "batch_1" },
@@ -290,6 +292,54 @@ describe("runMailIngestOnce", () => {
         jobDescriptionId: null,
         jobMatchRequestedAt: expect.any(Date),
         sourceChannel: "mail_ingest",
+      }),
+    );
+  });
+
+  it("fails the mail instead of importing into an inactive fixed job", async () => {
+    mocks.connect.mockImplementation(() => Promise.resolve());
+    mocks.listEnabledMailIngestAccounts.mockResolvedValue([
+      { ...account(), jdMode: "bind", jobDescriptionId: "jd-paused" },
+    ]);
+    mocks.search.mockResolvedValue([151]);
+    mocks.fetchOne.mockResolvedValue({
+      envelope: { subject: "【BOSS直聘】王泽投递 前端工程师" },
+      internalDate: new Date("2026-06-18T10:01:00.000Z"),
+      source: Buffer.from("raw message"),
+    });
+    mocks.parseMail.mockResolvedValue(
+      parsedMail({
+        attachments: [
+          {
+            checksum: "fixture-inactive-fixed-job",
+            content: Buffer.from("resume"),
+            contentDisposition: "attachment",
+            contentType: "application/pdf",
+            filename: "王泽-前端工程师.pdf",
+            headerLines: [],
+            headers: new Map(),
+            related: false,
+            size: 6,
+            type: "attachment",
+          },
+        ],
+        subject: "【BOSS直聘】王泽投递 前端工程师",
+      }),
+    );
+    mocks.isActiveRecruitingJobDescription.mockResolvedValue(false);
+
+    const result = await processor.runMailIngestOnce(config);
+
+    expect(result).toMatchObject({ messagesFailed: 1, messagesQueued: 0 });
+    expect(mocks.isActiveRecruitingJobDescription).toHaveBeenCalledWith("org_1", "jd-paused");
+    expect(mocks.insertBatchWithItems).not.toHaveBeenCalled();
+    expect(mocks.updateMailIngestMessageResult).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: "邮箱监听绑定的岗位已暂停或停止招聘，不能继续导入候选人。",
+        }),
+        status: "failed",
       }),
     );
   });

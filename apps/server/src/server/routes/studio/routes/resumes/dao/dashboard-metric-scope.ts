@@ -7,6 +7,21 @@ interface RecruitingRecordReference {
   recruitingRecordId: AnyPgColumn;
 }
 
+interface RecruitingJobReference {
+  lifecycleStatus: AnyPgColumn;
+  organizationId: AnyPgColumn;
+  recruitingStatus: AnyPgColumn;
+}
+
+export function buildActiveRecruitingJobFilter(
+  reference: RecruitingJobReference,
+  organizationId: string,
+) {
+  return sql<boolean>`${eq(reference.organizationId, organizationId)}
+    and ${eq(reference.lifecycleStatus, "published")}
+    and ${eq(reference.recruitingStatus, "active")}`;
+}
+
 export function buildNonArchivedRecruitingRecordFilter(reference: RecruitingRecordReference) {
   return sql<boolean>`exists (
     select 1

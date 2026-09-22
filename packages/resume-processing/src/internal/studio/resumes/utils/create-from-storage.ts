@@ -84,60 +84,64 @@ export async function createResumeRecordFromStorage(
   }
   // oxlint-disable-next-line complexity -- central data mapper for the resume-library row.
   const write = async (executor: Tx) => {
-    await dependencies.createRecords(executor, {
-      candidateEmail,
-      candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
-      candidatePhone,
-      createdAt: now,
-      createdBy: input.userId,
-      hrResumeAssessment: input.hrResumeAssessment?.trim() || null,
-      hrResumeAssessmentUpdatedAt: input.hrResumeAssessment?.trim() ? now : null,
-      hrResumeAssessmentUpdatedBy: input.hrResumeAssessment?.trim() ? input.userId : null,
-      id: recordId,
-      interviewQuestions: input.interviewQuestions ?? [],
-      jobDescriptionId: input.jobDescriptionId,
-      notes: input.notes,
-      organizationId: input.organizationId,
-      pipelineStage: input.pipelineStage ?? "screening",
-      qualitativeJobDescriptionVersionId:
-        input.qualitativeEvaluation?.jobDescriptionVersionId ?? null,
-      qualitativeRecommendationLevel:
-        input.qualitativeEvaluation?.evaluation.recommendationLevel ?? null,
-      qualitativeResumeEvaluation: input.qualitativeEvaluation?.evaluation ?? null,
-      resumeContentHash: input.contentHash,
-      resumeEvaluationArtifactMode: evaluationArtifactMode,
-      resumeEvaluationAttemptMode: evaluationArtifactMode,
-      resumeFileName: input.resumeFileName,
-      resumeParseError: null,
-      resumeParseStatus:
-        input.resumeParseStatus ??
-        (input.storageKey && !input.resumeProfile ? "unparsed" : "ready"),
-      resumeParsedAt: input.resumeProfile ? now : null,
-      resumeProfile: input.resumeProfile,
-      resumeReview: input.resumeReview ?? null,
-      resumeReviewError: input.resumeReviewError ?? null,
-      resumeReviewGeneratedAt:
-        input.qualitativeEvaluation?.generatedAt ?? (input.resumeReview ? now : null),
-      resumeReviewQueuedAt: input.resumeReviewStatus === "queued" ? now : null,
-      resumeReviewStatus:
-        input.qualitativeEvaluation || input.resumeReview
+    await dependencies.createRecords(
+      executor,
+      {
+        candidateEmail,
+        candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
+        candidatePhone,
+        createdAt: now,
+        createdBy: input.userId,
+        hrResumeAssessment: input.hrResumeAssessment?.trim() || null,
+        hrResumeAssessmentUpdatedAt: input.hrResumeAssessment?.trim() ? now : null,
+        hrResumeAssessmentUpdatedBy: input.hrResumeAssessment?.trim() ? input.userId : null,
+        id: recordId,
+        interviewQuestions: input.interviewQuestions ?? [],
+        jobDescriptionId: input.jobDescriptionId,
+        notes: input.notes,
+        organizationId: input.organizationId,
+        pipelineStage: input.pipelineStage ?? "screening",
+        qualitativeJobDescriptionVersionId:
+          input.qualitativeEvaluation?.jobDescriptionVersionId ?? null,
+        qualitativeRecommendationLevel:
+          input.qualitativeEvaluation?.evaluation.recommendationLevel ?? null,
+        qualitativeResumeEvaluation: input.qualitativeEvaluation?.evaluation ?? null,
+        resumeContentHash: input.contentHash,
+        resumeEvaluationArtifactMode: evaluationArtifactMode,
+        resumeEvaluationAttemptMode: evaluationArtifactMode,
+        resumeFileName: input.resumeFileName,
+        resumeParseError: null,
+        resumeParseStatus:
+          input.resumeParseStatus ??
+          (input.storageKey && !input.resumeProfile ? "unparsed" : "ready"),
+        resumeParsedAt: input.resumeProfile ? now : null,
+        resumeProfile: input.resumeProfile,
+        resumeReview: input.resumeReview ?? null,
+        resumeReviewError: input.resumeReviewError ?? null,
+        resumeReviewGeneratedAt:
+          input.qualitativeEvaluation?.generatedAt ?? (input.resumeReview ? now : null),
+        resumeReviewQueuedAt: input.resumeReviewStatus === "queued" ? now : null,
+        resumeReviewStatus:
+          input.qualitativeEvaluation || input.resumeReview
+            ? "ready"
+            : (input.resumeReviewStatus ?? "idle"),
+        resumeScreeningError: input.resumeScreeningError ?? null,
+        resumeScreeningEvaluatedAt: input.resumeScreeningResult ? now : null,
+        resumeScreeningResult: input.resumeScreeningResult ?? null,
+        resumeScreeningStatus: input.resumeScreeningResult
           ? "ready"
-          : (input.resumeReviewStatus ?? "idle"),
-      resumeScreeningError: input.resumeScreeningError ?? null,
-      resumeScreeningEvaluatedAt: input.resumeScreeningResult ? now : null,
-      resumeScreeningResult: input.resumeScreeningResult ?? null,
-      resumeScreeningStatus: input.resumeScreeningResult
-        ? "ready"
-        : (input.resumeScreeningStatus ?? "idle"),
-      resumeSourceImportedAt: input.source?.importedAt ?? null,
-      resumeSourceImportedBy: input.source?.importedBy ?? null,
-      resumeSourcePoolItemId: input.source?.poolItemId ?? null,
-      resumeSourceType: input.source?.type ?? "direct_upload",
-      resumeStorageKey: input.storageKey,
-      resumeText: input.resumeText ?? null,
-      targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
-      updatedAt: now,
-    });
+          : (input.resumeScreeningStatus ?? "idle"),
+        resumeSourceImportedAt: input.source?.importedAt ?? null,
+        resumeSourceImportedBy: input.source?.importedBy ?? null,
+        resumeSourcePoolItemId: input.source?.poolItemId ?? null,
+        resumeSourceType: input.source?.type ?? "direct_upload",
+        resumeStorageKey: input.storageKey,
+        resumeText: input.resumeText ?? null,
+        targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
+        updatedAt: now,
+      },
+      { requireActiveRecruitingJob: true },
+    );
     await dependencies.syncSkills(executor, {
       interviewId: recordId,
       organizationId: input.organizationId,

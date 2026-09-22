@@ -107,3 +107,80 @@ final result: blocked
 - Next: capture candidate pending screen and compare to this updated target; obsolete light-theme checks above no longer apply.
 
 final result: blocked
+
+---
+
+# Recruiting ledger multi-select design QA
+
+- Source visual truth: `/var/folders/n3/c8rthkfs05x77761sfm6vrb40000gn/T/codex-clipboard-4dc786d6-d16e-437d-8554-ec91e0268933.jpg`
+- Implementation screenshot: `/Users/guang/.codex/visualizations/2026/09/21/01a0c2f3-6351-7cc0-80b3-85ee47a18dbd/recruiting-ledger-multiselect-empty-2360x1386.png`
+- Full-view comparison: `/Users/guang/.codex/visualizations/2026/09/21/01a0c2f3-6351-7cc0-80b3-85ee47a18dbd/recruiting-ledger-comparison-empty.png`
+- Focused filter comparison: `/Users/guang/.codex/visualizations/2026/09/21/01a0c2f3-6351-7cc0-80b3-85ee47a18dbd/recruiting-ledger-filter-comparison.png`
+- Viewport: 2360 × 1386 CSS px
+- Source pixels: 2360 × 1386
+- Implementation pixels: 2360 × 1386
+- Density normalization: both captures compared at 1:1 pixel dimensions; no resampling was needed for the full-view comparison.
+- State: candidate-detail ledger, default empty filters. A separate selected-state capture verifies two departments and two AI ratings selected simultaneously.
+
+## Full-view comparison evidence
+
+The implementation preserves the existing application shell and ledger table while keeping the search plus four highlighted filters on the first row and the date/sort controls on the second row. The source omits the persistent application sidebar while the current product shell includes it; this is an existing product constraint rather than drift introduced by the filter change.
+
+## Focused comparison evidence
+
+The focused comparison confirms the same filter order, one-line field height, border/radius treatment, neutral palette, dropdown affordance, and second-row date/sort grouping. The job filter remains wider than the other dimensions, matching the source hierarchy. The implementation uses the product's existing searchable combobox primitive so multi-selection remains accessible and consistent with other studio screens.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing product font family, weights, sizes, line heights, and muted placeholder hierarchy are unchanged and consistent with the source.
+- Spacing and layout rhythm: the first-row filter sequence and second-row date/sort grouping match the source; responsive wrapping remains available at narrower viewports.
+- Colors and visual tokens: existing field, border, foreground, muted, focus, and selection tokens are reused without introducing custom colors.
+- Image quality and assets: this control change adds no raster, logo, illustration, or non-standard icon assets; existing product icons remain unchanged.
+- Copy and content: empty labels remain `全部部门`, `全部岗位`, `全部 HR`, and `全部 AI 评价`; selected states show the single selected label or a compact selected-count summary.
+
+## Interaction and runtime checks
+
+- Selecting `技术部` kept the dropdown open; selecting `产品部` appended it and produced `已选 2 个部门`.
+- Selecting `推荐` and `非常推荐` retained both department selections and produced `已选 2 个评价`.
+- The URL contained both arrays simultaneously, so refresh/back-forward state is preserved.
+- The ledger API returned HTTP 200 for the resulting filter requests.
+- The local Vite server was cleanly restarted after a transient hot-module cache error. The reloaded page rendered normally, and no new browser console warnings or errors were observed after restart.
+
+## Comparison history
+
+1. Initial comparison: P2 — compact multi-select widths allowed the date filters to remain on the first row at the reference viewport, unlike the source.
+2. Fix: split the search/multi-select controls and date/sort controls into two explicit responsive rows.
+3. Post-fix evidence: the final full-view and focused comparison images show the intended two-row hierarchy with no remaining actionable P0/P1/P2 differences.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain. The application sidebar and narrower content frame are expected characteristics of the current product shell and are outside the highlighted filter-control change.
+
+final result: passed
+
+---
+
+# Job recruiting status extension design QA
+
+- Surface: `/w/default/studio/job-descriptions` and `/w/default/studio/recruiting-ledger`
+- Runtime viewport: Codex in-app browser, responsive desktop layout
+- State checked: default recruiting ledger filters and expanded job-status multi-select
+
+## Verified
+
+- The new `全部岗位状态` control uses the same searchable multi-select primitive, height, radius, typography, focus behavior, and spacing as the existing department, job, HR, and AI rating filters.
+- At the available content width, controls wrap into two balanced rows without horizontal clipping: search/department/job first, then job status/HR/AI rating.
+- The expanded control exposes the intended three options: `招聘中`, `已暂停`, and `已停止`.
+- Existing ledger content remains readable and the new filter does not introduce a new visual token or asset.
+- Migration `20260921095329_bent_nehzno` was applied to the configured development database; the job settings list renders its status badges normally.
+- `高级运维` was paused and then immediately restored. The badge changed to `已暂停`, its candidate-creation actions became disabled, and the final badge returned to `招聘中`.
+- Attempting to stop `高级运维` reported that 9 candidates remain in the recruiting flow and kept `确认停止` disabled.
+- The ledger returned 1,800 records for `招聘中` jobs versus 1,831 records without a status filter.
+- Selecting `招聘中` and `已暂停` together produced `已选 2 个状态` and persisted both values in the URL. Clearing the filter restored the unfiltered ledger.
+
+## Runtime fix found during QA
+
+- The first live status-filter request exposed the existing 50-ID validation limit after resolving all 79 active jobs. The ledger now passes system-resolved job IDs through a dedicated internal scope, while the user-selection limit remains unchanged.
+- The corrected status-filter request returned successfully and the page rendered without the previous server error.
+
+final result: passed

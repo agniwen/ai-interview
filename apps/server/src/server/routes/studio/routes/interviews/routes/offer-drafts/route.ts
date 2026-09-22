@@ -4,8 +4,10 @@ import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { db } from "../../../../../../../lib/server/db/index";
+import { EMAIL_ATTACHMENT_MAX_TOTAL_BYTES } from "@app/shared/email-attachments";
 
 import {
   offerDraftInputSchema,
@@ -58,6 +60,39 @@ async function loadOfferCandidate(
 
 type OfferPermissionAction = "create" | "delete" | "read" | "update";
 
+const OFFER_EMAIL_REQUEST_MAX_BYTES = EMAIL_ATTACHMENT_MAX_TOTAL_BYTES + 256 * 1024;
+
+export async function parseOfferEmailRequest(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  let attachments: File[] = [];
+  let parsed: ReturnType<typeof offerEmailInputSchema.safeParse>;
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const rawAttachments = formData.getAll("attachments");
+    if (rawAttachments.some((attachment) => !(attachment instanceof File))) {
+      throw new OfferDraftError("邮件附件无效。", 400);
+    }
+    attachments = rawAttachments.filter(
+      (attachment): attachment is File => attachment instanceof File,
+    );
+    parsed = offerEmailInputSchema.safeParse({
+      content: formData.get("content"),
+      subject: formData.get("subject"),
+      to: formData.get("to"),
+    });
+  } else if (contentType.includes("application/json")) {
+    parsed = offerEmailInputSchema.safeParse(await request.json());
+  } else {
+    throw new OfferDraftError("邮件参数无效。", 400);
+  }
+
+  if (!parsed.success) {
+    throw new OfferDraftError("邮件参数无效。", 400);
+  }
+  return { attachments, input: parsed.data };
+}
+
 export interface OfferDraftsRouteDependencies {
   deleteOfferDraft: typeof deleteOfferDraft;
   createOfferDraft: typeof createOfferDraft;
@@ -76,6 +111,7 @@ export interface OfferDraftsRouteDependencies {
   ) => ReturnType<typeof requirePermission<"offer">>;
   respondOfferDraft: typeof respondOfferDraft;
   sendOfferDraft: typeof sendOfferDraft;
+  sendOfferEmail: typeof sendOfferEmail;
 }
 
 const defaultDependencies: OfferDraftsRouteDependencies = {
@@ -94,6 +130,7 @@ const defaultDependencies: OfferDraftsRouteDependencies = {
   requireOfferPermission: (action) => requirePermission("offer", action),
   respondOfferDraft,
   sendOfferDraft,
+  sendOfferEmail,
 };
 
 export function createOfferDraftsRouter(
@@ -312,27 +349,40 @@ export function createOfferDraftsRouter(
       .post(
         "/:draftId/email",
         dependencies.requireOfferPermission("update"),
-        zValidator("json", offerEmailInputSchema, jsonValidatorError("邮件参数无效。")),
+        bodyLimit({
+          maxSize: OFFER_EMAIL_REQUEST_MAX_BYTES,
+          onError: (c) => c.json({ error: "附件总大小不能超过 20 MB" }, 413),
+        }),
         async (c) => {
           const { activeOrg } = c.var;
           if (!activeOrg) {
             return c.json({ message: "Unauthorized" }, 401);
           }
           const draftId = c.req.param("draftId");
-          const input = c.req.valid("json");
+          const { attachments, input } = await parseOfferEmailRequest(c.req.raw);
           const link = await resolveOfferPublicUrl(draftId, activeOrg.id);
           await dependencies.recordCandidateActivity({
             action: "offer_email_send_requested",
-            detail: { draftId, to: input.to },
+            detail: { attachmentCount: attachments.length, draftId, to: input.to },
             interviewRecordId: link.interviewRecordId,
             operatorId: c.var.user?.id ?? null,
             organizationId: activeOrg.id,
           });
           try {
-            const result = await sendOfferEmail(draftId, activeOrg.id, input);
+            const result = await dependencies.sendOfferEmail(
+              draftId,
+              activeOrg.id,
+              input,
+              attachments,
+            );
             await dependencies.recordCandidateActivity({
               action: "offer_email_sent",
-              detail: { draftId, providerMessageId: result.providerMessageId, to: input.to },
+              detail: {
+                attachmentCount: attachments.length,
+                draftId,
+                providerMessageId: result.providerMessageId,
+                to: input.to,
+              },
               interviewRecordId: result.interviewRecordId,
               operatorId: c.var.user?.id ?? null,
               organizationId: activeOrg.id,
@@ -343,6 +393,7 @@ export function createOfferDraftsRouter(
             await dependencies.recordCandidateActivity({
               action: "offer_email_send_failed",
               detail: {
+                attachmentCount: attachments.length,
                 draftId,
                 error: error instanceof Error ? error.message : "邮件发送失败",
                 to: input.to,

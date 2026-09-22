@@ -5,7 +5,6 @@ import type {
   HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
-  OfferEmailPreviewRecord,
 } from "@app/shared/studio-pipeline-stages";
 /**
  * Studio 后台「面试管理」相关 API。
@@ -18,8 +17,8 @@ import type {
  *
  * Maps to the `/api/w/:slug/studio/interviews/*` route family. JSON endpoints now
  * use Hono RPC under the hood; errors raise {@link ApiError}, and 404s
- * become `null` where applicable. File-upload POST/PATCH stay on raw
- * fetch+FormData inside their dialog components.
+ * become `null` where applicable. File uploads stay on apiFetch + FormData,
+ * including Offer email attachments.
  */
 
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
@@ -694,34 +693,6 @@ export function getOfferPublicLink(
       param: { draftId, id: candidateId, slug },
     }),
     "获取 Offer 链接失败",
-  );
-}
-
-export function getOfferEmailPreview(
-  slug: string,
-  candidateId: string,
-  draftId: string,
-): Promise<OfferEmailPreviewRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"]["email-preview"].$get({
-      param: { draftId, id: candidateId, slug },
-    }),
-    "加载 Offer 邮件内容失败",
-  );
-}
-
-export function sendOfferEmail(
-  slug: string,
-  candidateId: string,
-  draftId: string,
-  input: { content: string; subject: string; to: string },
-): Promise<{ interviewRecordId: string; providerMessageId: string; sentAt: string; url: string }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].email.$post({
-      json: input,
-      param: { draftId, id: candidateId, slug },
-    }),
-    "发送 Offer 邮件失败",
   );
 }
 

@@ -1,4 +1,6 @@
 import type { CandidateOutcome, PipelineStage } from "@app/db-schema/studio-interviews";
+import { jobRecruitingStatusSchema } from "@app/db-schema/job-recruiting-status";
+import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import type { QualitativeRecommendationLevel } from "@app/db-schema/qualitative-resume-evaluation";
 import { qualitativeRecommendationLevelSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import { recruitingBoardViewSchema } from "./recruiting-board";
@@ -16,6 +18,7 @@ export const recruitingLedgerQuerySchema = z
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     recommendationLevels: z.string().optional(),
+    recruitingStatuses: z.string().optional(),
     responsibleHrIds: z.string().optional(),
     search: z.string().trim().max(200).optional(),
     sortBy: z.enum(["createdAt", "candidateName", "joiningDate", "updatedAt"]).default("createdAt"),
@@ -110,6 +113,14 @@ export interface RecruitingLedgerJobSummary {
   jobWeight: string | null;
   name: string;
   negativeClosed: number;
+  processDistribution: {
+    closed: number;
+    interview: number;
+    offer: number;
+    onboarding: number;
+    screening: number;
+  };
+  recruitingStatus: JobRecruitingStatus;
   recruitingPoints: number;
   total: number;
 }
@@ -128,6 +139,19 @@ export interface RecruitingLedgerResult {
   totalPages: number;
 }
 
+export function summarizeActiveRecruitingJobs(rows: RecruitingLedgerJobSummary[]) {
+  const activeRows = rows.filter((row) => row.recruitingStatus === "active");
+  const configuredRows = activeRows.filter((row) => row.headcount !== null);
+  return {
+    activeJobs: activeRows.length,
+    configuredJobs: configuredRows.length,
+    confirmed: activeRows.reduce((sum, row) => sum + row.confirmed, 0),
+    totalDemand: configuredRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0),
+    totalGap: configuredRows.reduce((sum, row) => sum + (row.gap ?? 0), 0),
+    unconfiguredJobs: activeRows.length - configuredRows.length,
+  };
+}
+
 export const recruitingLedgerRecommendationOptions = [
   { label: "不推荐", value: "not_recommended" },
   { label: "待定", value: "undecided" },
@@ -137,6 +161,12 @@ export const recruitingLedgerRecommendationOptions = [
   label: string;
   value: QualitativeRecommendationLevel;
 }[];
+
+export const recruitingLedgerJobStatusOptions = [
+  { label: "招聘中", value: "active" },
+  { label: "已暂停", value: "paused" },
+  { label: "已停止", value: "stopped" },
+] as const satisfies readonly { label: string; value: JobRecruitingStatus }[];
 
 export const recruitingPriorityCoefficients = {
   high: 1.5,
@@ -159,6 +189,23 @@ export function parseRecruitingLedgerRecommendationLevels(
       return parsed.success ? [parsed.data] : [];
     });
   return levels.length > 0 ? levels : undefined;
+}
+
+export function parseRecruitingLedgerJobStatuses(
+  value: string | undefined,
+): JobRecruitingStatus[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const statuses = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .flatMap((item) => {
+      const parsed = jobRecruitingStatusSchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    });
+  return statuses.length > 0 ? statuses : undefined;
 }
 
 export function calculateRecruitingCycleDays({

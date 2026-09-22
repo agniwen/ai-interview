@@ -12,6 +12,7 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@app/shared/job-descriptions";
+import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { JobDescriptionChartsSkeleton } from "@/components/features/studio/job-descriptions/job-description-charts-skeleton";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
@@ -19,6 +20,16 @@ import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import {
   actionsColumn,
@@ -69,6 +80,44 @@ interface JobDescriptionListQuery {
   sortOrder: "asc" | "desc";
 }
 
+interface RecruitingStatusChange {
+  record: JobDescriptionListRecord;
+  targetStatus: JobRecruitingStatus;
+}
+
+function recruitingStatusSuccessMessage(status: JobRecruitingStatus): string {
+  if (status === "active") {
+    return "岗位已恢复招聘";
+  }
+  if (status === "paused") {
+    return "岗位已暂停招聘";
+  }
+  return "岗位已停止招聘";
+}
+
+function recruitingStatusChangeDescription(change: RecruitingStatusChange | null): string {
+  if (!change) {
+    return "";
+  }
+  if (change.targetStatus === "stopped") {
+    if (change.record.resumeCount > 0) {
+      return `岗位「${change.record.name}」仍有 ${change.record.resumeCount} 位候选人处于招聘流程中。请先将所有候选人处理为终止态，再停止招聘。`;
+    }
+    return `停止后岗位「${change.record.name}」将不能再恢复，也不能新增候选人。`;
+  }
+  return `暂停后岗位「${change.record.name}」不能新增候选人；已发起的候选人流程不受影响，可继续推进。`;
+}
+
+function recruitingStatusConfirmLabel(
+  change: RecruitingStatusChange | null,
+  updating: boolean,
+): string {
+  if (updating) {
+    return "处理中…";
+  }
+  return change?.targetStatus === "stopped" ? "确认停止" : "确认暂停";
+}
+
 export function JobDescriptionManagementPage({
   departments,
   interviewers,
@@ -90,6 +139,8 @@ export function JobDescriptionManagementPage({
     name: string;
   } | null>(null);
   const [copyingReferralIds, setCopyingReferralIds] = useState<Set<string>>(() => new Set());
+  const [statusChange, setStatusChange] = useState<RecruitingStatusChange | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
   const canCreateJobDescription = useHasPermission("jd", "create");
   const canUpdateJobDescription = useHasPermission("jd", "update");
   const canDeleteJobDescription = useHasPermission("jd", "delete");
@@ -236,6 +287,31 @@ export function JobDescriptionManagementPage({
     });
   }
 
+  async function updateRecruitingStatus(
+    record: JobDescriptionListRecord,
+    targetStatus: JobRecruitingStatus,
+  ) {
+    setStatusUpdating(true);
+    const result = await runAsyncAction({
+      cleanup: () => setStatusUpdating(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "更新岗位状态失败"),
+      operation: () =>
+        rpcFetch(
+          rpc.api.w[":slug"].studio["job-descriptions"][":id"]["recruiting-status"].$patch({
+            json: { status: targetStatus },
+            param: { id: record.id, slug },
+          }),
+          "更新岗位状态失败",
+        ),
+    });
+    if (!result.ok) {
+      return;
+    }
+    setStatusChange(null);
+    toast.success(recruitingStatusSuccessMessage(targetStatus));
+    invalidateJobDescriptionData();
+  }
+
   const canOpenEditorDialog = crud.editingRecord
     ? canUpdateJobDescription
     : canCreateJobDescription;
@@ -249,13 +325,19 @@ export function JobDescriptionManagementPage({
         truncate: "max-w-[14rem]",
       }),
       customColumn<JobDescriptionListRecord>({
-        cell: (record) =>
-          record.lifecycleStatus === "draft" ? (
-            <Badge variant="warning">迁移待处理</Badge>
-          ) : (
-            <span className="text-muted-foreground text-xs">已保存</span>
-          ),
-        key: "lifecycleStatus",
+        cell: (record) => {
+          if (record.lifecycleStatus === "draft") {
+            return <Badge variant="warning">迁移待处理</Badge>;
+          }
+          const meta = {
+            active: { label: "招聘中", variant: "success" },
+            paused: { label: "已暂停", variant: "warning" },
+            stopped: { label: "已停止", variant: "secondary" },
+          } as const;
+          const status = meta[record.recruitingStatus];
+          return <Badge variant={status.variant}>{status.label}</Badge>;
+        },
+        key: "recruitingStatus",
         title: "状态",
       }),
       customColumn<JobDescriptionListRecord>({
@@ -387,6 +469,11 @@ export function JobDescriptionManagementPage({
         ],
         menu: [
           {
+            disabled: (r) => r.recruitingStatus !== "active",
+            disabledReason: (r) =>
+              r.recruitingStatus === "paused"
+                ? "岗位已暂停，不能新增候选人"
+                : "岗位已停止，不能新增候选人",
             label: "推荐",
             onClick: (r) => {
               setRecommendationScope({ id: r.id, name: r.name });
@@ -394,10 +481,46 @@ export function JobDescriptionManagementPage({
             show: () => canReadResumeLibrary,
           },
           {
-            disabled: (r) => copyingReferralIds.has(r.id),
-            disabledReason: () => "正在创建内推链接",
+            disabled: (r) => copyingReferralIds.has(r.id) || r.recruitingStatus !== "active",
+            disabledReason: (r) => {
+              if (copyingReferralIds.has(r.id)) {
+                return "正在创建内推链接";
+              }
+              return r.recruitingStatus === "paused"
+                ? "岗位已暂停，不能新增候选人"
+                : "岗位已停止，不能新增候选人";
+            },
             label: "复制内推链接",
             onClick: copyReferralLink,
+          },
+          {
+            label: "恢复招聘",
+            onClick: (r) => {
+              void updateRecruitingStatus(r, "active");
+            },
+            show: (r) =>
+              canUpdateJobDescription &&
+              r.lifecycleStatus === "published" &&
+              r.recruitingStatus === "paused",
+          },
+          {
+            label: "暂停招聘",
+            onClick: (r) => setStatusChange({ record: r, targetStatus: "paused" }),
+            separator: "before",
+            show: (r) =>
+              canUpdateJobDescription &&
+              r.lifecycleStatus === "published" &&
+              r.recruitingStatus === "active",
+          },
+          {
+            label: "停止招聘",
+            onClick: (r) => setStatusChange({ record: r, targetStatus: "stopped" }),
+            separator: "before",
+            show: (r) =>
+              canUpdateJobDescription &&
+              r.lifecycleStatus === "published" &&
+              r.recruitingStatus !== "stopped",
+            variant: "destructive",
           },
           {
             label: "删除",
@@ -534,6 +657,44 @@ export function JobDescriptionManagementPage({
         record={canDeleteJobDescription ? crud.deleteRecord : null}
         title="确认删除这个在招岗位？"
       />
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open && !statusUpdating) {
+            setStatusChange(null);
+          }
+        }}
+        open={statusChange !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusChange?.targetStatus === "stopped" ? "停止招聘？" : "暂停招聘？"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {recruitingStatusChangeDescription(statusChange)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusUpdating}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                statusUpdating ||
+                (statusChange?.targetStatus === "stopped" &&
+                  (statusChange?.record.resumeCount ?? 0) > 0)
+              }
+              onClick={() => {
+                if (statusChange) {
+                  void updateRecruitingStatus(statusChange.record, statusChange.targetStatus);
+                }
+              }}
+              variant={statusChange?.targetStatus === "stopped" ? "destructive" : "default"}
+            >
+              {recruitingStatusConfirmLabel(statusChange, statusUpdating)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ScopedResumesModal
         jobDescription={resumesScope}

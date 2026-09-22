@@ -473,4 +473,130 @@ describe("OfferCard", () => {
     expect(host.textContent).not.toContain("撤回");
     act(() => root.unmount());
   });
+
+  it("keeps previous attachments when files are selected more than once", async () => {
+    apiCalls.mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.includes("email-preview")) {
+        return Promise.resolve(
+          Response.json({
+            content: "请查看 http://localhost:3000/offer/token",
+            offerUrl: "http://localhost:3000/offer/token",
+            subject: "Offer 通知",
+            to: "candidate@example.com",
+          }),
+        );
+      }
+      if (url.endsWith("/email") && init?.method === "POST") {
+        return Promise.resolve(
+          Response.json({
+            interviewRecordId: "candidate-1",
+            providerMessageId: "email-1",
+            sentAt: "2026-09-21T00:00:00.000Z",
+            url: "http://localhost:3000/offer/token",
+          }),
+        );
+      }
+      return Promise.resolve(Response.json({ approvalRequired: false }));
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    try {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail="candidate@example.com"
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{
+                ...draft,
+                publicPath: "/offer/token",
+                publishedAt: "2026-09-21T00:00:00.000Z",
+                sentAt: "2026-09-21T00:00:00.000Z",
+                status: "sent",
+              }}
+              onCancelled={vi.fn()}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+
+      const openButton = [...host.querySelectorAll("button")].find(
+        (button) => button.textContent?.trim() === "发送邮件",
+      );
+      act(() => openButton?.click());
+      await vi.waitFor(() =>
+        expect(document.querySelector<HTMLInputElement>('input[type="file"]')).not.toBeNull(),
+      );
+      expect(document.querySelector('[data-slot="dialog-content"]')?.classList).toContain(
+        "sm:max-w-3xl",
+      );
+      const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+      const firstAttachment = new File(["old"], "旧版录用通知.pdf", {
+        type: "application/pdf",
+      });
+      Object.defineProperty(fileInput, "files", {
+        configurable: true,
+        value: [firstAttachment],
+      });
+      act(() => fileInput?.dispatchEvent(new Event("change", { bubbles: true })));
+      await vi.waitFor(() => expect(document.body.textContent).toContain("旧版录用通知.pdf"));
+
+      const latestAttachment = new File(["latest"], "最终录用通知.pdf", {
+        type: "application/pdf",
+      });
+      Object.defineProperty(fileInput, "files", {
+        configurable: true,
+        value: [latestAttachment],
+      });
+      act(() => fileInput?.dispatchEvent(new Event("change", { bubbles: true })));
+      await vi.waitFor(() => {
+        expect(document.body.textContent).toContain("最终录用通知.pdf");
+        expect(document.body.textContent).toContain("旧版录用通知.pdf");
+      });
+      const attachmentGroup = document.querySelector('[data-slot="attachment-group"]');
+      expect(attachmentGroup?.classList).toContain("flex-col");
+      const attachmentRows = document.querySelectorAll('[data-slot="attachment"]');
+      expect(attachmentRows).toHaveLength(2);
+      expect([...attachmentRows].every((row) => row.classList.contains("w-full"))).toBe(true);
+
+      const sendButton = [...document.querySelectorAll("button")].find(
+        (button) => button.textContent?.trim() === "发送邮件" && button !== openButton,
+      );
+      await vi.waitFor(() => expect(sendButton?.disabled).toBe(false));
+      act(() => sendButton?.click());
+      await vi.waitFor(() =>
+        expect(
+          apiCalls.mock.calls.some(
+            ([url, init]) => String(url).endsWith("/email") && init?.body instanceof FormData,
+          ),
+        ).toBe(true),
+      );
+      const emailCall = apiCalls.mock.calls.find(
+        ([url, init]) => String(url).endsWith("/email") && init?.body instanceof FormData,
+      );
+      const emailBody = emailCall?.[1]?.body;
+      expect(emailBody).toBeInstanceOf(FormData);
+      if (!(emailBody instanceof FormData)) {
+        throw new Error("Expected Offer email request body to be FormData");
+      }
+      const attachmentEntries = emailBody.getAll("attachments");
+      expect(attachmentEntries).toHaveLength(2);
+      expect(attachmentEntries.map((entry) => (entry instanceof File ? entry.name : null))).toEqual(
+        ["旧版录用通知.pdf", "最终录用通知.pdf"],
+      );
+      expect(emailBody.get("to")).toBe("candidate@example.com");
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
 });

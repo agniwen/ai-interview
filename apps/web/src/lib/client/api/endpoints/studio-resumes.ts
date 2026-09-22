@@ -1,4 +1,5 @@
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
 import type { RecruitingLedgerResult } from "@app/shared/studio-recruiting-ledger";
 /**
@@ -194,6 +195,7 @@ export interface RecruitingLedgerParams {
   page?: number;
   pageSize?: number;
   recommendationLevels?: string[];
+  recruitingStatuses?: JobRecruitingStatus[];
   responsibleHrIds?: string[];
   search?: string;
   sortBy?: "createdAt" | "candidateName" | "joiningDate" | "updatedAt";
@@ -217,6 +219,7 @@ export function fetchRecruitingLedger(
         page: params.page === undefined ? undefined : String(params.page),
         pageSize: params.pageSize === undefined ? undefined : String(params.pageSize),
         recommendationLevels: params.recommendationLevels?.join(","),
+        recruitingStatuses: params.recruitingStatuses?.join(","),
         responsibleHrIds: params.responsibleHrIds?.join(","),
         search: params.search,
         sortBy: params.sortBy,

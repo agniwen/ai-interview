@@ -180,6 +180,7 @@ describe("job-descriptions route index hooks", () => {
     expect(body).toMatchObject({
       evaluationMode: "qualitative",
       lifecycleStatus: "published",
+      recruitingStatus: "active",
     });
     expect(hookCalls.enqueue).toEqual([{ jobDescriptionId: body.id, organizationId: ORG_ID }]);
   });

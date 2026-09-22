@@ -149,6 +149,7 @@ const filtersSchema = z.object({
   outcomes: z.array(z.string()).max(10).optional().nullable(),
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
   recommendationLevels: z.array(qualitativeRecommendationLevelSchema).max(4).optional().nullable(),
+  resolvedJobDescriptionIds: z.array(z.string()).optional().nullable(),
   responsibleHrIds: z.array(z.string()).max(50).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
   skills: z.array(z.string()).max(20).optional().nullable(),
@@ -405,7 +406,7 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildSearchCondition(filters?.search),
     buildResumeAtomicSearch(recruitingRecordReadModel, filters?.textFilters),
     buildSkillsCondition(filters?.skills),
-    buildJdIdsCondition(filters?.jobDescriptionIds),
+    buildJdIdsCondition(filters?.resolvedJobDescriptionIds ?? filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
     buildResponsibleHrIdsCondition(filters?.responsibleHrIds),
     buildDashboardActionFilter(filters?.dashboardAction),
@@ -906,6 +907,7 @@ export async function queryPaginatedResumeRecords(
     responsibleHrIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
+    resolvedJobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
     nodeStatuses?: string[] | null;

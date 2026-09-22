@@ -428,10 +428,14 @@ export function createResumeLibraryRouter(
           if (resume && !c.var.user) {
             return c.json({ error: "Unauthorized" }, 401);
           }
-          const selectedJob = input.data.jobDescriptionId
-            ? await loadRecruitingJobDescriptionById(activeOrg.id, input.data.jobDescriptionId)
-            : null;
-          if (input.data.jobDescriptionId && !selectedJob) {
+          const selectedJobExists = input.data.jobDescriptionId
+            ? await recruitingJobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id)
+            : true;
+          const selectedJob =
+            input.data.jobDescriptionId && selectedJobExists
+              ? await loadRecruitingJobDescriptionById(activeOrg.id, input.data.jobDescriptionId)
+              : null;
+          if (input.data.jobDescriptionId && !selectedJobExists) {
             return c.json({ error: "所选在招岗位不存在。" }, 400);
           }
           if (resumeReviewInput.data && selectedJob) {
@@ -624,13 +628,14 @@ export function createResumeLibraryRouter(
           }
 
           const input = c.req.valid("json");
-          const ok = await recruitingJobDescriptionIdsExist([input.jobDescriptionId], activeOrg.id);
-          if (!ok) {
-            return c.json({ error: "所选在招岗位不存在。" }, 400);
-          }
-
           const nextJobDescriptionId = input.jobDescriptionId;
           const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
+          if (jobDescriptionChanged) {
+            const ok = await recruitingJobDescriptionIdsExist([nextJobDescriptionId], activeOrg.id);
+            if (!ok) {
+              return c.json({ error: "所选在招岗位不存在。" }, 400);
+            }
+          }
           const nextJobDescription = jobDescriptionChanged
             ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)
             : null;
@@ -777,17 +782,14 @@ export function createResumeLibraryRouter(
 
           // 编辑接口不再接受简历文件替换 / 系统评价（notes、resumeReview）更新。
           // Edit no longer accepts resume file replacement or system notes / review updates.
-          if (input.data.jobDescriptionId) {
-            const ok = await recruitingJobDescriptionIdsExist(
-              [input.data.jobDescriptionId],
-              activeOrg.id,
-            );
+          const nextJobDescriptionId = input.data.jobDescriptionId || null;
+          const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
+          if (jobDescriptionChanged && nextJobDescriptionId) {
+            const ok = await recruitingJobDescriptionIdsExist([nextJobDescriptionId], activeOrg.id);
             if (!ok) {
               return c.json({ error: "所选在招岗位不存在。" }, 400);
             }
           }
-          const nextJobDescriptionId = input.data.jobDescriptionId || null;
-          const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
           const nextJobDescription =
             jobDescriptionChanged && nextJobDescriptionId
               ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)

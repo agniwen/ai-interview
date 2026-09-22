@@ -1,5 +1,6 @@
 import { createFileRoute, getRouteApi, notFound, redirect } from "@tanstack/react-router";
 import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
+import { jobRecruitingStatusSchema } from "@app/db-schema/job-recruiting-status";
 import { z } from "zod";
 import { RecruitingLedgerPage } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-page";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
@@ -8,16 +9,39 @@ import { loadStudioRecruitingLedgerState } from "@/lib/start/studio/recruiting-l
 
 const routeApi = getRouteApi("/w/$slug/studio/recruiting-ledger");
 
+const multiValueSearchParamSchema = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((value) => {
+    let values: string[] = [];
+    if (Array.isArray(value)) {
+      values = value;
+    } else if (value) {
+      values = [value];
+    }
+    const normalized = [...new Set(values.map((item) => item.trim()).filter(Boolean))];
+    return normalized.length > 0 ? normalized : undefined;
+  });
+
+const recruitingStatusSearchParamSchema = multiValueSearchParamSchema.transform((values) => {
+  const statuses = values?.flatMap((value) => {
+    const parsed = jobRecruitingStatusSchema.safeParse(value);
+    return parsed.success ? [parsed.data] : [];
+  });
+  return statuses && statuses.length > 0 ? statuses : undefined;
+});
+
 export const recruitingLedgerSearchSchema = z.object({
   createdFrom: z.iso.date().optional(),
   createdTo: z.iso.date().optional(),
-  departmentId: z.string().optional(),
-  jobDescriptionId: z.string().optional(),
+  departmentId: multiValueSearchParamSchema,
+  jobDescriptionId: multiValueSearchParamSchema,
   joiningFrom: z.iso.date().optional(),
   joiningTo: z.iso.date().optional(),
   page: z.coerce.number().int().min(1).default(1),
-  recommendationLevel: z.string().optional(),
-  responsibleHrId: z.string().optional(),
+  recommendationLevel: multiValueSearchParamSchema,
+  recruitingStatus: recruitingStatusSearchParamSchema,
+  responsibleHrId: multiValueSearchParamSchema,
   search: z.string().optional(),
   sortBy: z.enum(["createdAt", "candidateName", "joiningDate", "updatedAt"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
@@ -50,7 +74,7 @@ export const Route = createFileRoute("/w/$slug/studio/recruiting-ledger")({
   head: () => ({ meta: [{ title: formatDocumentTitle("招聘台账") }] }),
   component: StudioRecruitingLedgerRoute,
   pendingComponent: () => (
-    <StudioTablePageSkeleton columnCount={12} filterCount={4} label="招聘台账" />
+    <StudioTablePageSkeleton columnCount={12} filterCount={5} label="招聘台账" />
   ),
   shouldReload: false,
 });

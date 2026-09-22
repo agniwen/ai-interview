@@ -18,6 +18,7 @@ import { createDatabase } from "./index";
 import {
   createRecruitingRecords,
   deleteRecruitingRecords,
+  RecruitingJobNotAcceptingCandidatesError,
   updateRecruitingRecords,
 } from "./recruiting-records";
 import { recruitingRecordReadModel as read } from "./recruiting-read-model";
@@ -92,6 +93,34 @@ suite("招聘拆表写入和并发边界", () => {
     expect(first.candidateName).toBe("测试候选人");
     expect(first.pipelineStage).toBe("screening");
     expect(first.status).toBe("pending");
+  });
+  it("候选人准入写入会拒绝已暂停岗位", async () => {
+    const departmentId = crypto.randomUUID();
+    const jobId = crypto.randomUUID();
+    await db
+      .insert(department)
+      .values({ id: departmentId, name: "暂停岗位部门", organizationId: org });
+    await db.insert(jobDescription).values({
+      departmentId,
+      id: jobId,
+      lifecycleStatus: "published",
+      name: "已暂停岗位",
+      organizationId: org,
+      prompt: "岗位要求",
+      recruitingStatus: "paused",
+    });
+
+    await expect(
+      createRecruitingRecords(
+        db,
+        {
+          candidateName: "不应创建",
+          jobDescriptionId: jobId,
+          organizationId: org,
+        },
+        { requireActiveRecruitingJob: true },
+      ),
+    ).rejects.toBeInstanceOf(RecruitingJobNotAcceptingCandidatesError);
   });
   it("联系方式更新同步搜索，并支持同一事务读到更新值", async () => {
     const row = await create();

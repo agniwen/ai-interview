@@ -31,6 +31,7 @@ describe("createResumeRecordFromStorage", () => {
     expect(createRecords).toHaveBeenCalledWith(
       executor,
       expect.objectContaining({ pipelineStage: "second_interview" }),
+      { requireActiveRecruitingJob: true },
     );
   });
 
@@ -70,6 +71,7 @@ describe("createResumeRecordFromStorage", () => {
         resumeEvaluationAttemptMode: "legacy",
         resumeReviewStatus: "ready",
       }),
+      { requireActiveRecruitingJob: true },
     );
   });
 });

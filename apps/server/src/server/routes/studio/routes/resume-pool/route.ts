@@ -25,10 +25,7 @@ import {
   storeInterviewResume as defaultStoreInterviewResume,
   toBadRequest as defaultToBadRequest,
 } from "../../../interview/utils";
-import {
-  loadRecruitingJobDescriptionById as defaultLoadRecruitingJobDescriptionById,
-  recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
-} from "../job-descriptions/dao";
+import { recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { createPptxPreviewPdfResponse as defaultCreatePptxPreviewPdfResponse } from "../../utils/pptx-preview";
 import {
   enqueueResumePoolReviewGenerationBestEffort as defaultEnqueueResumePoolReviewGenerationBestEffort,
@@ -82,7 +79,6 @@ export interface ResumePoolRouterDependencies {
   listDuplicateMatchesForSource: typeof defaultListDuplicateMatchesForSource;
   listResumePoolUploaders: typeof defaultListResumePoolUploaders;
   launchAiInterviewRound: typeof defaultLaunchAiInterviewRound;
-  loadRecruitingJobDescriptionById: typeof defaultLoadRecruitingJobDescriptionById;
   loadResumePoolItem: typeof defaultLoadResumePoolItem;
   loadResumePoolJobMatchResult: typeof defaultLoadResumePoolJobMatchResult;
   normalizeResumeFile: typeof defaultNormalizeResumeFile;
@@ -157,7 +153,6 @@ const defaultResumePoolRouterDependencies: ResumePoolRouterDependencies = {
   launchAiInterviewRound: defaultLaunchAiInterviewRound,
   listDuplicateMatchesForSource: defaultListDuplicateMatchesForSource,
   listResumePoolUploaders: defaultListResumePoolUploaders,
-  loadRecruitingJobDescriptionById: defaultLoadRecruitingJobDescriptionById,
   loadResumePoolItem: defaultLoadResumePoolItem,
   loadResumePoolJobMatchResult: defaultLoadResumePoolJobMatchResult,
   normalizeResumeFile: defaultNormalizeResumeFile,
@@ -194,7 +189,6 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
     listDuplicateMatchesForSource,
     listResumePoolUploaders,
     launchAiInterviewRound,
-    loadRecruitingJobDescriptionById,
     loadResumePoolItem,
     loadResumePoolJobMatchResult,
     normalizeResumeFile,
@@ -641,8 +635,11 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
           }
           const input = c.req.valid("json");
           if (input.jobDescriptionId) {
-            const jd = await loadRecruitingJobDescriptionById(activeOrg.id, input.jobDescriptionId);
-            if (!jd) {
+            const accepting = await recruitingJobDescriptionIdsExist(
+              [input.jobDescriptionId],
+              activeOrg.id,
+            );
+            if (!accepting) {
               return c.json({ error: "所选在招岗位不存在。" }, 400);
             }
           }
@@ -735,6 +732,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
                 eq(jobDescription.id, jobDescriptionId),
                 eq(jobDescription.organizationId, activeOrg.id),
                 eq(jobDescription.lifecycleStatus, "published"),
+                eq(jobDescription.recruitingStatus, "active"),
               ),
             )
             .limit(1);

@@ -4,7 +4,9 @@ import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
   aiInterviewRound,
   candidate,
+  department,
   humanInterviewRound,
+  jobDescription,
   organization,
   recruitingOffer,
   user,
@@ -23,6 +25,12 @@ if (url && (url !== process.env.DATABASE_URL || !new URL(url).pathname.includes(
 const org = `dashboard-${crypto.randomUUID()}`;
 const creatorA = `${org}-creator-a`;
 const creatorB = `${org}-creator-b`;
+const departmentId = `${org}-department`;
+const jobIds = {
+  active: `${org}-job-active`,
+  paused: `${org}-job-paused`,
+  stopped: `${org}-job-stopped`,
+} as const;
 const recordIds = {
   ai: `${org}-ai`,
   archived: `${org}-archived`,
@@ -39,6 +47,43 @@ describe.skipIf(!url)("招聘数据看板聚合", () => {
       { email: `${creatorB}@example.test`, id: creatorB, name: "乙 HR", remark: "复面组" },
     ]);
     await db.insert(organization).values({ id: org, name: org, slug: org });
+    await db.insert(department).values({
+      id: departmentId,
+      name: "研发部",
+      organizationId: org,
+    });
+    await db.insert(jobDescription).values([
+      {
+        departmentId,
+        headcount: 3,
+        id: jobIds.active,
+        lifecycleStatus: "published",
+        name: "招聘中岗位",
+        organizationId: org,
+        prompt: "招聘中",
+        recruitingStatus: "active",
+      },
+      {
+        departmentId,
+        headcount: 4,
+        id: jobIds.paused,
+        lifecycleStatus: "published",
+        name: "暂停岗位",
+        organizationId: org,
+        prompt: "已暂停",
+        recruitingStatus: "paused",
+      },
+      {
+        departmentId,
+        headcount: 5,
+        id: jobIds.stopped,
+        lifecycleStatus: "published",
+        name: "停止岗位",
+        organizationId: org,
+        prompt: "已停止",
+        recruitingStatus: "stopped",
+      },
+    ]);
     await createRecruitingRecords(db, [
       {
         candidateName: "已归档候选人",
@@ -136,6 +181,8 @@ describe.skipIf(!url)("招聘数据看板聚合", () => {
   afterAll(async () => {
     await deleteRecruitingRecords(db, inArray(recruitingRecordReadModel.id, allRecordIds));
     await db.delete(candidate).where(eq(candidate.organizationId, org));
+    await db.delete(jobDescription).where(eq(jobDescription.organizationId, org));
+    await db.delete(department).where(eq(department.organizationId, org));
     await db.delete(organization).where(eq(organization.id, org));
     await db.delete(user).where(inArray(user.id, [creatorA, creatorB]));
   }, 120_000);
@@ -150,6 +197,22 @@ describe.skipIf(!url)("招聘数据看板聚合", () => {
       hired: 1,
       resumesAdded: 4,
     });
+  });
+
+  it("在招岗位和岗位缺口仅统计招聘中岗位", async () => {
+    const metrics = await loadRecruitingDashboardMetrics(org);
+
+    expect(metrics.summary.activeJobs).toBe(1);
+    expect(metrics.summary.vacancies).toBe(3);
+    expect(metrics.summary.unconfiguredHeadcount).toBe(0);
+    expect(metrics.vacancies).toEqual([
+      expect.objectContaining({
+        gap: 3,
+        headcount: 3,
+        id: jobIds.active,
+        name: "招聘中岗位",
+      }),
+    ]);
   });
 
   it("按招聘记录创建人汇总 HR 招聘进展", async () => {

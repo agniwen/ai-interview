@@ -1,4 +1,6 @@
 import type { MinimaxVoiceId } from "@app/db-schema/minimax-voices";
+import { jobRecruitingStatusSchema } from "@app/db-schema/job-recruiting-status";
+import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationMode,
@@ -18,6 +20,34 @@ import type { ResumePoolProfileHighlights } from "./resume-pool";
 
 export const jobDescriptionPrioritySchema = z.enum(["high", "medium", "low"]);
 export type JobDescriptionPriority = z.infer<typeof jobDescriptionPrioritySchema>;
+
+export const jobRecruitingStatusUpdateSchema = z
+  .object({ status: jobRecruitingStatusSchema })
+  .strict();
+export type JobRecruitingStatusUpdate = z.infer<typeof jobRecruitingStatusUpdateSchema>;
+
+export type JobRecruitingStatusTransition =
+  | "blocked_active_candidates"
+  | "blocked_stopped"
+  | "unchanged"
+  | "update";
+
+export function resolveJobRecruitingStatusTransition(input: {
+  activeCandidateCount: number;
+  currentStatus: JobRecruitingStatus;
+  targetStatus: JobRecruitingStatus;
+}): JobRecruitingStatusTransition {
+  if (input.currentStatus === input.targetStatus) {
+    return "unchanged";
+  }
+  if (input.currentStatus === "stopped") {
+    return "blocked_stopped";
+  }
+  if (input.targetStatus === "stopped" && input.activeCandidateCount > 0) {
+    return "blocked_active_candidates";
+  }
+  return "update";
+}
 
 const optionalDateSchema = z.string().date("日期格式无效").nullable().optional();
 const optionalPositiveDecimalSchema = (scale: number, label: string) =>
@@ -157,6 +187,7 @@ export interface JobDescriptionRecord {
   headcount?: number | null;
   jobWeight?: string | null;
   priority?: JobDescriptionPriority | null;
+  recruitingStatus: JobRecruitingStatus;
   publishedDate?: string | null;
   referralChannels?: string | null;
   reportingManagerUserId?: string | null;

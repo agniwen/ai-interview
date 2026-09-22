@@ -105,6 +105,7 @@ function buildWhereConditions({
   ];
   if (recruitingOnly) {
     conditions.push(eq(jobDescription.lifecycleStatus, "published"));
+    conditions.push(eq(jobDescription.recruitingStatus, "active"));
   }
   if (search) {
     const searchCond = or(
@@ -226,6 +227,7 @@ function listJobDescriptionRows({
       prompt: jobDescription.prompt,
       publishedAt: jobDescription.publishedAt,
       publishedDate: jobDescription.publishedDate,
+      recruitingStatus: jobDescription.recruitingStatus,
       referralChannels: jobDescription.referralChannels,
       reportingManagerName: user.name,
       reportingManagerUserId: jobDescription.reportingManagerUserId,
@@ -410,6 +412,7 @@ function toJobDescriptionListRecord(
     prompt: row.prompt,
     publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
     publishedDate: row.publishedDate,
+    recruitingStatus: row.recruitingStatus,
     referralChannels: row.referralChannels,
     reportingManagerName: row.reportingManagerName,
     reportingManagerUserId: row.reportingManagerUserId,
@@ -604,6 +607,7 @@ export async function fetchPublishedJobDescriptionsByCodes(
       and(
         eq(jobDescription.organizationId, organizationId),
         eq(jobDescription.lifecycleStatus, "published"),
+        eq(jobDescription.recruitingStatus, "active"),
         inArray(jobDescription.code, normalizedCodes),
       ),
     );
@@ -643,6 +647,7 @@ export async function recruitingJobDescriptionIdsExist(
         inArray(jobDescription.id, ids),
         eq(jobDescription.organizationId, organizationId),
         eq(jobDescription.lifecycleStatus, "published"),
+        eq(jobDescription.recruitingStatus, "active"),
       ),
     );
   return rows.length === new Set(ids).size;
@@ -877,6 +882,7 @@ export function serializeJobDescription(
     prompt: row.prompt,
     publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
     publishedDate: row.publishedDate,
+    recruitingStatus: row.recruitingStatus,
     referralChannels: row.referralChannels,
     reportingManagerUserId: row.reportingManagerUserId,
     resumeScreeningPolicy,

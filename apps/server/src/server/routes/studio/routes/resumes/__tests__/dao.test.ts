@@ -298,6 +298,15 @@ describe("queryPaginatedResumeRecords", () => {
     expect(names).toEqual(["郭靖", "李四"].toSorted());
   });
 
+  it("accepts a resolved job scope larger than the user selection limit", async () => {
+    const result = await queryPaginatedResumeRecords(ORG_A, {
+      resolvedJobDescriptionIds: Array.from({ length: 75 }, (_, index) => `missing-job-${index}`),
+    });
+
+    expect(result.total).toBe(0);
+    expect(result.records).toEqual([]);
+  });
+
   it("returns the latest generated Feishu document for each candidate", async () => {
     await db.insert(recruitingEvaluationDocument).values({
       documentId: "latest",

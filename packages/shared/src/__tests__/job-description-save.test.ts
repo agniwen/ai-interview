@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { jobDescriptionSaveSchema } from "../job-descriptions";
+import {
+  jobDescriptionSaveSchema,
+  resolveJobRecruitingStatusTransition,
+} from "../job-descriptions";
 
 const validJob = {
   allowCrossDepartmentInterviewers: false,
@@ -81,5 +84,51 @@ describe("jobDescriptionSaveSchema", () => {
     expect(jobDescriptionSaveSchema.safeParse({ ...validJob, description: "旧描述" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("job recruiting status transitions", () => {
+  it("allows pausing and resuming without changing existing candidate flows", () => {
+    expect(
+      resolveJobRecruitingStatusTransition({
+        activeCandidateCount: 3,
+        currentStatus: "active",
+        targetStatus: "paused",
+      }),
+    ).toBe("update");
+    expect(
+      resolveJobRecruitingStatusTransition({
+        activeCandidateCount: 3,
+        currentStatus: "paused",
+        targetStatus: "active",
+      }),
+    ).toBe("update");
+  });
+
+  it("requires all candidates to reach a terminal outcome before stopping", () => {
+    expect(
+      resolveJobRecruitingStatusTransition({
+        activeCandidateCount: 1,
+        currentStatus: "paused",
+        targetStatus: "stopped",
+      }),
+    ).toBe("blocked_active_candidates");
+    expect(
+      resolveJobRecruitingStatusTransition({
+        activeCandidateCount: 0,
+        currentStatus: "paused",
+        targetStatus: "stopped",
+      }),
+    ).toBe("update");
+  });
+
+  it("keeps stopped jobs terminal", () => {
+    expect(
+      resolveJobRecruitingStatusTransition({
+        activeCandidateCount: 0,
+        currentStatus: "stopped",
+        targetStatus: "active",
+      }),
+    ).toBe("blocked_stopped");
   });
 });

@@ -9,15 +9,22 @@ import { toast } from "sonner";
 import { recruitingLedgerRecommendationOptions } from "@app/shared/studio-recruiting-ledger";
 import type {
   RecruitingLedgerHumanRound,
-  RecruitingLedgerJobSummary,
   RecruitingLedgerRecord,
 } from "@app/shared/studio-recruiting-ledger";
-import { IconCalendar, IconExternalLink, IconRefresh, IconSearch } from "@tabler/icons-react";
-import { PageHeader } from "@/components/features/studio/page-header";
 import {
-  RecruitingPointsTooltip,
-  recruitingPriorityMeta,
-} from "@/components/features/studio/recruiting-ledger/recruiting-points-tooltip";
+  IconCalendar,
+  IconExternalLink,
+  IconFilterOff,
+  IconRefresh,
+  IconSearch,
+  IconSortAscending,
+  IconSortDescending,
+} from "@tabler/icons-react";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { RecruitingPointsTooltip } from "@/components/features/studio/recruiting-ledger/recruiting-points-tooltip";
+import { JobSummaryGrid } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-job-summary";
+import { RecruitingLedgerMultiFilters } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-multi-filters";
+import { buildRecruitingLedgerParams } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-query";
 import { RecruitingBoardTabs } from "@/components/features/studio/resumes/recruiting-board-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -194,190 +201,6 @@ function recommendationVariant(level: RecruitingLedgerRecord["qualitativeRecomme
   return "outline" as const;
 }
 
-function JobSummaryMetrics({ rows }: { rows: RecruitingLedgerJobSummary[] }) {
-  const configuredRows = rows.filter((row) => row.headcount !== null);
-  const hasUnconfiguredDemand = configuredRows.length !== rows.length;
-  const totalDemand = configuredRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0);
-  const totalGap = configuredRows.reduce((sum, row) => sum + (row.gap ?? 0), 0);
-  const formatIncompleteTotal = (value: number) => {
-    if (configuredRows.length === 0 && rows.length > 0) {
-      return "—";
-    }
-    return hasUnconfiguredDemand ? `${value}+` : value;
-  };
-  const metrics = [
-    { className: "", label: "在招岗位", value: rows.length },
-    {
-      className: "",
-      label: "总需求",
-      value: formatIncompleteTotal(totalDemand),
-    },
-    {
-      className: "text-emerald-600",
-      label: "已确定",
-      value: rows.reduce((sum, row) => sum + row.confirmed, 0),
-    },
-    {
-      className: "text-rose-600",
-      label: "总缺口",
-      value: formatIncompleteTotal(totalGap),
-    },
-  ] as const;
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {metrics.map((metric) => (
-        <div className="rounded-xl border bg-card px-4 py-3 text-center" key={metric.label}>
-          <div className={`font-semibold text-2xl tabular-nums ${metric.className}`}>
-            {metric.value}
-          </div>
-          <div className="mt-1 text-muted-foreground text-xs">{metric.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function jobSummaryStatus(row: RecruitingLedgerJobSummary) {
-  if (row.headcount === null) {
-    return { className: "text-muted-foreground", label: "尚未设置招聘需求人数" };
-  }
-  if (row.gap !== null && row.gap > 0) {
-    return {
-      className: "text-rose-600 dark:text-rose-400",
-      label: `还差 ${row.gap} 人，建议继续补充候选人`,
-    };
-  }
-  return {
-    className: "text-emerald-600 dark:text-emerald-400",
-    label: "✓ 招聘目标已达成",
-  };
-}
-
-function JobSummaryCard({
-  onSelect,
-  row,
-}: {
-  onSelect: (jobId: string) => void;
-  row: RecruitingLedgerJobSummary;
-}) {
-  const priority = row.jobPriority ? recruitingPriorityMeta[row.jobPriority] : null;
-  const completion =
-    row.headcount === null
-      ? null
-      : Math.min(100, Math.round((row.confirmed / row.headcount) * 100));
-  const hasGap = row.gap !== null && row.gap > 0;
-  const status = jobSummaryStatus(row);
-  return (
-    <button
-      className={`rounded-xl border bg-card p-4 text-left transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        hasGap ? "border-rose-300/70 dark:border-rose-800/70" : "hover:border-primary/30"
-      }`}
-      onClick={() => onSelect(row.id)}
-      type="button"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate font-medium">{row.name}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline">{row.departmentName ?? "未设置部门"}</Badge>
-            {priority ? <Badge variant={priority.variant}>{priority.label}</Badge> : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {hasGap ? <Badge variant="danger">缺口 {row.gap}</Badge> : null}
-          {row.headcount === null ? <Badge variant="outline">未设需求</Badge> : null}
-          <span className="text-muted-foreground text-xs">{row.headcount ?? "—"} 人</span>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-        {[
-          ["需求", row.headcount ?? "—"],
-          ["已确定", row.confirmed],
-          ["推进中", row.active],
-          ["缺口", row.gap ?? "—"],
-        ].map(([label, value]) => (
-          <div className="rounded-lg bg-muted/60 px-2 py-2" key={label}>
-            <div className="font-mono font-medium tabular-nums">{value}</div>
-            <div className="mt-1 text-muted-foreground text-xs">{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {completion === null ? null : (
-        <>
-          <progress className="sr-only" max={100} value={completion}>
-            招聘目标完成 {completion}%
-          </progress>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-[width]"
-              style={{ width: `${completion}%` }}
-            />
-          </div>
-        </>
-      )}
-      <div className={`mt-3 text-xs ${status.className}`}>{status.label}</div>
-      <div className="mt-3 flex items-center justify-between border-t pt-3 text-xs">
-        <span className="text-muted-foreground">
-          权重 {row.jobWeight ?? "—"} ·{" "}
-          <RecruitingPointsTooltip
-            hiredCount={row.hired}
-            jobPriority={row.jobPriority}
-            jobWeight={row.jobWeight}
-            points={row.recruitingPoints}
-            trigger={
-              <span className="cursor-help underline decoration-dotted underline-offset-4" />
-            }
-          >
-            招聘积分 {row.recruitingPoints.toFixed(1)}
-          </RecruitingPointsTooltip>
-        </span>
-        <span className="text-primary">查看候选人明细 →</span>
-      </div>
-    </button>
-  );
-}
-
-function JobSummaryGrid({
-  onSelect,
-  rows,
-}: {
-  onSelect: (jobId: string) => void;
-  rows: RecruitingLedgerJobSummary[];
-}) {
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-lg border p-12 text-center text-muted-foreground text-sm">
-        当前筛选条件下没有岗位数据
-      </div>
-    );
-  }
-  const groups = new Map<string, RecruitingLedgerJobSummary[]>();
-  for (const row of rows) {
-    const departmentName = row.departmentName ?? "未设置部门";
-    groups.set(departmentName, [...(groups.get(departmentName) ?? []), row]);
-  }
-  return (
-    <div className="space-y-5">
-      <JobSummaryMetrics rows={rows} />
-      {[...groups].map(([departmentName, departmentRows]) => (
-        <section className="space-y-2" key={departmentName}>
-          <div className="flex items-center gap-2 text-sm">
-            <h2 className="font-medium">{departmentName}</h2>
-            <span className="text-muted-foreground">{departmentRows.length} 个岗位</span>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {departmentRows.map((row) => (
-              <JobSummaryCard key={row.id} onSelect={onSelect} row={row} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
-
 // oxlint-disable-next-line complexity -- read-only filters and ledger cells are composed here.
 export function RecruitingLedgerPage() {
   const { slug } = routeApi.useParams();
@@ -386,23 +209,7 @@ export function RecruitingLedgerPage() {
   const queryClient = useQueryClient();
   const query = useQuery({
     placeholderData: keepPreviousData,
-    queryFn: () =>
-      fetchRecruitingLedger(slug, {
-        boardView: search.stage,
-        createdFrom: search.createdFrom,
-        createdTo: search.createdTo,
-        departmentIds: search.departmentId ? [search.departmentId] : undefined,
-        jobDescriptionIds: search.jobDescriptionId ? [search.jobDescriptionId] : undefined,
-        joiningFrom: search.joiningFrom,
-        joiningTo: search.joiningTo,
-        page: search.page,
-        pageSize: 20,
-        recommendationLevels: search.recommendationLevel ? [search.recommendationLevel] : undefined,
-        responsibleHrIds: search.responsibleHrId ? [search.responsibleHrId] : undefined,
-        search: search.search,
-        sortBy: search.sortBy,
-        sortOrder: search.sortOrder,
-      }),
+    queryFn: () => fetchRecruitingLedger(slug, buildRecruitingLedgerParams(search)),
     queryKey: ["studio-recruiting-ledger", slug, search],
     staleTime: 15_000,
   });
@@ -417,13 +224,62 @@ export function RecruitingLedgerPage() {
   });
   const records = query.data?.records ?? [];
   const jobSummary = query.data?.jobSummary ?? [];
-  const hasUnconfiguredDemand = jobSummary.some((row) => row.headcount === null);
+  const hasUnconfiguredDemand = jobSummary.some(
+    (row) => row.recruitingStatus === "active" && row.headcount === null,
+  );
+  const hasActiveRecordFilters = Boolean(
+    search.stage !== "all" ||
+    search.search ||
+    search.departmentId?.length ||
+    search.jobDescriptionId?.length ||
+    search.recruitingStatus?.length ||
+    search.responsibleHrId?.length ||
+    search.recommendationLevel?.length ||
+    search.createdFrom ||
+    search.createdTo ||
+    search.joiningFrom ||
+    search.joiningTo ||
+    search.sortBy !== "createdAt" ||
+    search.sortOrder !== "desc",
+  );
 
-  function updateSearch(updates: Record<string, string | number | undefined>) {
+  function updateSearch(updates: Record<string, string | string[] | number | undefined>) {
     void navigate({
       search: (previous) => ({ ...previous, ...updates, page: updates.page ?? 1 }),
     });
   }
+
+  function resetRecordFilters() {
+    updateSearch({
+      createdFrom: undefined,
+      createdTo: undefined,
+      departmentId: undefined,
+      jobDescriptionId: undefined,
+      joiningFrom: undefined,
+      joiningTo: undefined,
+      recommendationLevel: undefined,
+      recruitingStatus: undefined,
+      responsibleHrId: undefined,
+      search: undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      stage: "all",
+    });
+  }
+
+  const refreshButton = (
+    <Button
+      aria-label="刷新台账"
+      disabled={query.isFetching}
+      onClick={async () => {
+        await query.refetch();
+      }}
+      size="icon"
+      variant="outline"
+    >
+      <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
+    </Button>
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
@@ -444,124 +300,145 @@ export function RecruitingLedgerPage() {
         title="招聘台账"
       />
 
-      <RecruitingBoardTabs onChange={(stage) => updateSearch({ stage })} value={search.stage} />
+      {search.view === "records" ? (
+        <RecruitingBoardTabs onChange={(stage) => updateSearch({ stage })} value={search.stage} />
+      ) : null}
 
       <section className="min-w-0 space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <form
-            className="flex min-w-64 flex-1 gap-2 sm:max-w-md"
-            key={search.search ?? ""}
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const value = String(form.get("search") ?? "").trim();
-              updateSearch({ search: value || undefined });
-            }}
-          >
-            <Input
-              defaultValue={search.search ?? ""}
-              name="search"
-              placeholder="搜索候选人或岗位"
-            />
-            <Button aria-label="搜索" size="icon" type="submit" variant="outline">
-              <IconSearch className="size-4" />
-            </Button>
-          </form>
-
-          <NativeSelect
-            aria-label="部门"
-            onChange={(event) => updateSearch({ departmentId: event.target.value || undefined })}
-            value={search.departmentId ?? ""}
-          >
-            <NativeSelectOption value="">全部部门</NativeSelectOption>
-            {query.data?.facets.departments.map((item) => (
-              <NativeSelectOption key={item.id} value={item.id}>
-                {item.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-
-          <NativeSelect
-            aria-label="岗位"
-            onChange={(event) =>
-              updateSearch({ jobDescriptionId: event.target.value || undefined })
-            }
-            value={search.jobDescriptionId ?? ""}
-          >
-            <NativeSelectOption value="">全部岗位</NativeSelectOption>
-            {query.data?.facets.jobs.map((item) => (
-              <NativeSelectOption key={item.id} value={item.id}>
-                {item.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-
-          <NativeSelect
-            aria-label="负责 HR"
-            onChange={(event) => updateSearch({ responsibleHrId: event.target.value || undefined })}
-            value={search.responsibleHrId ?? ""}
-          >
-            <NativeSelectOption value="">全部 HR</NativeSelectOption>
-            {query.data?.facets.recruiters.map((item) => (
-              <NativeSelectOption key={item.id} value={item.id}>
-                {item.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-
-          <NativeSelect
-            aria-label="AI 评价"
-            onChange={(event) =>
-              updateSearch({ recommendationLevel: event.target.value || undefined })
-            }
-            value={search.recommendationLevel ?? ""}
-          >
-            <NativeSelectOption value="">全部 AI 评价</NativeSelectOption>
-            {recruitingLedgerRecommendationOptions.map((item) => (
-              <NativeSelectOption key={item.value} value={item.value}>
-                {item.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-
-          <DateRangeFilter
-            from={search.createdFrom}
-            label="创建时间"
-            onChange={(createdFrom, createdTo) => updateSearch({ createdFrom, createdTo })}
-            to={search.createdTo}
-          />
-
-          <DateRangeFilter
-            from={search.joiningFrom}
-            label="入职日期"
-            onChange={(joiningFrom, joiningTo) => updateSearch({ joiningFrom, joiningTo })}
-            to={search.joiningTo}
-          />
-
+        <div className="space-y-2">
           {search.view === "records" ? (
-            <NativeSelect
-              aria-label="排序方式"
-              onChange={(event) => updateSearch({ sortBy: event.target.value })}
-              value={search.sortBy}
-            >
-              <NativeSelectOption value="createdAt">排序：创建时间</NativeSelectOption>
-              <NativeSelectOption value="joiningDate">排序：入职时间</NativeSelectOption>
-              <NativeSelectOption value="updatedAt">排序：更新时间</NativeSelectOption>
-              <NativeSelectOption value="candidateName">排序：姓名</NativeSelectOption>
-            </NativeSelect>
-          ) : null}
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <form
+                  className="flex min-w-56 flex-1 gap-2 sm:max-w-sm"
+                  key={search.search ?? ""}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    const value = String(form.get("search") ?? "").trim();
+                    updateSearch({ search: value || undefined });
+                  }}
+                >
+                  <Input
+                    defaultValue={search.search ?? ""}
+                    name="search"
+                    placeholder="搜索候选人或岗位"
+                  />
+                  <Button aria-label="搜索" size="icon" type="submit" variant="outline">
+                    <IconSearch className="size-4" />
+                  </Button>
+                </form>
 
-          <Button
-            aria-label="刷新台账"
-            disabled={query.isFetching}
-            onClick={async () => {
-              await query.refetch();
-            }}
-            size="icon"
-            variant="outline"
-          >
-            <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
-          </Button>
+                <RecruitingLedgerMultiFilters
+                  departments={query.data?.facets.departments ?? []}
+                  filterKeys={["departmentId", "jobDescriptionId"]}
+                  jobs={query.data?.facets.jobs ?? []}
+                  mode={search.view}
+                  onChange={(key, value) => updateSearch({ [key]: value })}
+                  recruiters={query.data?.facets.recruiters ?? []}
+                  value={{
+                    departmentId: search.departmentId,
+                    jobDescriptionId: search.jobDescriptionId,
+                  }}
+                />
+
+                <div className="flex items-center gap-2">
+                  <RecruitingLedgerMultiFilters
+                    departments={query.data?.facets.departments ?? []}
+                    filterKeys={["recruitingStatus"]}
+                    jobs={query.data?.facets.jobs ?? []}
+                    mode={search.view}
+                    onChange={(key, value) => updateSearch({ [key]: value })}
+                    recruiters={query.data?.facets.recruiters ?? []}
+                    value={{ recruitingStatus: search.recruitingStatus }}
+                  />
+                  {refreshButton}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <RecruitingLedgerMultiFilters
+                  departments={query.data?.facets.departments ?? []}
+                  filterKeys={["responsibleHrId", "recommendationLevel"]}
+                  jobs={query.data?.facets.jobs ?? []}
+                  mode={search.view}
+                  onChange={(key, value) => updateSearch({ [key]: value })}
+                  recruiters={query.data?.facets.recruiters ?? []}
+                  value={{
+                    recommendationLevel: search.recommendationLevel,
+                    responsibleHrId: search.responsibleHrId,
+                  }}
+                />
+
+                <DateRangeFilter
+                  from={search.createdFrom}
+                  label="创建时间"
+                  onChange={(createdFrom, createdTo) => updateSearch({ createdFrom, createdTo })}
+                  to={search.createdTo}
+                />
+
+                <DateRangeFilter
+                  from={search.joiningFrom}
+                  label="入职日期"
+                  onChange={(joiningFrom, joiningTo) => updateSearch({ joiningFrom, joiningTo })}
+                  to={search.joiningTo}
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <NativeSelect
+                    aria-label="排序方式"
+                    onChange={(event) => updateSearch({ sortBy: event.target.value })}
+                    value={search.sortBy}
+                  >
+                    <NativeSelectOption value="createdAt">排序：创建时间</NativeSelectOption>
+                    <NativeSelectOption value="joiningDate">排序：入职时间</NativeSelectOption>
+                    <NativeSelectOption value="updatedAt">排序：更新时间</NativeSelectOption>
+                    <NativeSelectOption value="candidateName">排序：姓名</NativeSelectOption>
+                  </NativeSelect>
+                  <Button
+                    aria-label={`当前${search.sortOrder === "desc" ? "降序" : "升序"}，点击切换为${search.sortOrder === "desc" ? "升序" : "降序"}`}
+                    onClick={() =>
+                      updateSearch({ sortOrder: search.sortOrder === "desc" ? "asc" : "desc" })
+                    }
+                    title={search.sortOrder === "desc" ? "当前降序" : "当前升序"}
+                    variant="outline"
+                  >
+                    {search.sortOrder === "desc" ? (
+                      <IconSortDescending className="size-4" />
+                    ) : (
+                      <IconSortAscending className="size-4" />
+                    )}
+                    {search.sortOrder === "desc" ? "降序" : "升序"}
+                  </Button>
+                  <Button
+                    aria-label="重置全部筛选"
+                    disabled={!hasActiveRecordFilters}
+                    onClick={resetRecordFilters}
+                    variant="ghost"
+                  >
+                    <IconFilterOff className="size-4" />
+                    重置
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <RecruitingLedgerMultiFilters
+                departments={query.data?.facets.departments ?? []}
+                jobs={query.data?.facets.jobs ?? []}
+                mode={search.view}
+                onChange={(key, value) => updateSearch({ [key]: value })}
+                recruiters={query.data?.facets.recruiters ?? []}
+                value={{
+                  departmentId: search.departmentId,
+                  jobDescriptionId: search.jobDescriptionId,
+                  recruitingStatus: search.recruitingStatus,
+                }}
+              />
+              {refreshButton}
+            </div>
+          )}
         </div>
 
         <p className="text-muted-foreground text-xs">
@@ -585,7 +462,34 @@ export function RecruitingLedgerPage() {
         {!query.isError && search.view === "jobs" ? (
           <JobSummaryGrid
             onSelect={(jobId) =>
-              updateSearch({ jobDescriptionId: jobId, page: 1, view: "records" })
+              updateSearch({
+                createdFrom: undefined,
+                createdTo: undefined,
+                jobDescriptionId: [jobId],
+                joiningFrom: undefined,
+                joiningTo: undefined,
+                page: 1,
+                recommendationLevel: undefined,
+                responsibleHrId: undefined,
+                search: undefined,
+                stage: "all",
+                view: "records",
+              })
+            }
+            onSelectStage={(jobId, stage) =>
+              updateSearch({
+                createdFrom: undefined,
+                createdTo: undefined,
+                jobDescriptionId: [jobId],
+                joiningFrom: undefined,
+                joiningTo: undefined,
+                page: 1,
+                recommendationLevel: undefined,
+                responsibleHrId: undefined,
+                search: undefined,
+                stage,
+                view: "records",
+              })
             }
             rows={jobSummary}
           />

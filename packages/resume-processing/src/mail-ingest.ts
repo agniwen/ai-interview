@@ -234,6 +234,7 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
           and(
             eq(jobDescription.organizationId, organizationId),
             eq(jobDescription.lifecycleStatus, "published"),
+            eq(jobDescription.recruitingStatus, "active"),
             inArray(jobDescription.code, normalizedCodes),
           ),
         );
@@ -280,6 +281,25 @@ export function createMailIngestDao(database: Database, options: MailIngestDaoOp
         .update(mailIngestAccount)
         .set(updateValues)
         .where(and(...filters));
+    },
+
+    async isActiveRecruitingJobDescription(
+      organizationId: string,
+      jobDescriptionId: string,
+    ): Promise<boolean> {
+      const [row] = await database
+        .select({ id: jobDescription.id })
+        .from(jobDescription)
+        .where(
+          and(
+            eq(jobDescription.id, jobDescriptionId),
+            eq(jobDescription.organizationId, organizationId),
+            eq(jobDescription.lifecycleStatus, "published"),
+            eq(jobDescription.recruitingStatus, "active"),
+          ),
+        )
+        .limit(1);
+      return Boolean(row);
     },
 
     async listEnabledAccounts(

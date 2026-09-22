@@ -1,9 +1,11 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { globalConfig, organization, recruitingOffer } from "@app/db-schema/schema";
 import type { OfferEmailInput } from "@app/db-schema/studio-interviews";
+import { validateEmailAttachments } from "@app/shared/email-attachments";
 import type { OfferEmailPreviewRecord } from "@app/shared/studio-pipeline-stages";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
+import { buildEmailAttachments } from "../../../../../../lib/server/email-attachments";
 import { buildSenderFromAddress, getResendClient } from "../../../../../../lib/server/resend";
 import { getGlobalConfig } from "../../global-config/dao";
 import { loadDraftById, OfferDraftError } from "./offer-drafts";
@@ -124,6 +126,7 @@ export async function sendOfferEmail(
   draftId: string,
   organizationId: string,
   input: OfferEmailInput,
+  attachments: readonly File[] = [],
 ): Promise<{ interviewRecordId: string; providerMessageId: string; sentAt: string; url: string }> {
   const { interviewRecordId, url } = await resolveOfferPublicUrl(draftId, organizationId);
   const offer = await loadDraftById(draftId, organizationId);
@@ -133,9 +136,14 @@ export async function sendOfferEmail(
   if (!hasValidOfferLink(input.content, url)) {
     throw new OfferDraftError("邮件内容中的 Offer 链接无效，请重新打开弹窗恢复系统链接", 400);
   }
+  const attachmentError = validateEmailAttachments(attachments);
+  if (attachmentError) {
+    throw new OfferDraftError(attachmentError, 400);
+  }
   const config = await getGlobalConfig(organizationId);
   const rendered = renderEmailContent(input.content, url);
   const result = await getResendClient().emails.send({
+    attachments: attachments.length > 0 ? await buildEmailAttachments(attachments) : undefined,
     from: buildSenderFromAddress(config.companyName),
     html: rendered.html,
     subject: input.subject,

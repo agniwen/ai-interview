@@ -22,6 +22,7 @@ const productionMailIngestDependencies = {
   fetchPublishedJobDescriptionsByCodes: mailIngestDao.fetchPublishedJobDescriptionsByCodes,
   finishMailIngestAccountRun: mailIngestDao.finishAccountRun,
   insertBatchWithItems,
+  isActiveRecruitingJobDescription: mailIngestDao.isActiveRecruitingJobDescription,
   listEnabledMailIngestAccounts: mailIngestDao.listEnabledAccounts,
   loadBatchDetail,
   markMailIngestMessageSkipped: mailIngestDao.markMessageSkipped,

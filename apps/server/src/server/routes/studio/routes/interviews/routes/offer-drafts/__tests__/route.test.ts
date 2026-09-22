@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import { factory } from "../../../../../../../factory";
-import { createOfferDraftsRouter } from "../route";
+import { createOfferDraftsRouter, parseOfferEmailRequest } from "../route";
 import type { OfferDraftsRouteDependencies } from "../route";
 
 const mocks = {
@@ -22,6 +22,7 @@ const mocks = {
   recordCandidateActivity: vi.fn<OfferDraftsRouteDependencies["recordCandidateActivity"]>(),
   respondOfferDraft: vi.fn<OfferDraftsRouteDependencies["respondOfferDraft"]>(),
   sendOfferDraft: vi.fn<OfferDraftsRouteDependencies["sendOfferDraft"]>(),
+  sendOfferEmail: vi.fn<OfferDraftsRouteDependencies["sendOfferEmail"]>(),
 };
 
 const permissionCalls: ["offer", "create" | "delete" | "read" | "update"][] = [];
@@ -231,5 +232,49 @@ describe("offerDraftsRouter", () => {
       "offer_draft_deleted",
     ]);
     expect(mocks.invalidateStudioInterviewCaches).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe("parseOfferEmailRequest", () => {
+  const input = {
+    content: "请查看 https://example.com/offer/token",
+    subject: "Offer 通知",
+    to: "candidate@example.com",
+  };
+
+  it("keeps legacy JSON email requests compatible", async () => {
+    await expect(
+      parseOfferEmailRequest(
+        new Request("http://localhost/email", {
+          body: JSON.stringify(input),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        }),
+      ),
+    ).resolves.toEqual({ attachments: [], input });
+  });
+
+  it("parses multipart email fields and attachments", async () => {
+    const body = new FormData();
+    for (const [key, value] of Object.entries(input)) {
+      body.append(key, value);
+    }
+    body.append("attachments", new File(["offer"], "录用通知.pdf", { type: "application/pdf" }));
+
+    const result = await parseOfferEmailRequest(
+      new Request("http://localhost/email", { body, method: "POST" }),
+    );
+
+    expect(result.input).toEqual(input);
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments[0]?.name).toBe("录用通知.pdf");
+  });
+
+  it("rejects malformed multipart email fields", async () => {
+    const body = new FormData();
+    body.append("subject", "Offer 通知");
+    await expect(
+      parseOfferEmailRequest(new Request("http://localhost/email", { body, method: "POST" })),
+    ).rejects.toThrow("邮件参数无效");
   });
 });

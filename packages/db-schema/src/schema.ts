@@ -65,6 +65,7 @@ import type {
 } from "./human-interview-recording";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
+import type { JobRecruitingStatus } from "./job-recruiting-status";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationMode,
@@ -1814,6 +1815,10 @@ export const jobDescription = pgTable(
     prompt: text("prompt").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedDate: date("published_date"),
+    recruitingStatus: text("recruiting_status")
+      .$type<JobRecruitingStatus>()
+      .notNull()
+      .default("active"),
     referralChannels: text("referral_channels"),
     reportingManagerUserId: text("reporting_manager_user_id").references(() => user.id, {
       onDelete: "set null",
@@ -1853,6 +1858,10 @@ export const jobDescription = pgTable(
     check(
       "job_description_priority_check",
       sql`${table.priority} IS NULL OR ${table.priority} IN ('high', 'medium', 'low')`,
+    ),
+    check(
+      "job_description_recruiting_status_check",
+      sql`${table.recruitingStatus} IN ('active', 'paused', 'stopped')`,
     ),
     check(
       "job_description_evaluation_lifecycle_check",

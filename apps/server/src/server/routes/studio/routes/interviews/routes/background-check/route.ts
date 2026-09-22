@@ -1,6 +1,7 @@
 import { backgroundCheckEmailInputSchema } from "@app/db-schema/background-check";
-import { zValidator } from "@hono/zod-validator";
-import { factory, jsonValidatorError } from "../../../../../../factory";
+import { bodyLimit } from "hono/body-limit";
+import { EMAIL_ATTACHMENT_MAX_TOTAL_BYTES } from "@app/shared/email-attachments";
+import { factory } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { invalidateStudioInterviewCaches } from "../../../../../../cache-tags";
 import {
@@ -11,6 +12,39 @@ import {
   sendBackgroundCheckEmail,
 } from "../../dao/background-check";
 import { recordCandidateActivity } from "../../utils/candidate-activity";
+
+const BACKGROUND_CHECK_EMAIL_REQUEST_MAX_BYTES = EMAIL_ATTACHMENT_MAX_TOTAL_BYTES + 256 * 1024;
+
+export async function parseBackgroundCheckEmailRequest(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  let attachments: File[] = [];
+  let parsed: ReturnType<typeof backgroundCheckEmailInputSchema.safeParse>;
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const rawAttachments = formData.getAll("attachments");
+    if (rawAttachments.some((attachment) => !(attachment instanceof File))) {
+      throw new BackgroundCheckError("邮件附件无效。");
+    }
+    attachments = rawAttachments.filter(
+      (attachment): attachment is File => attachment instanceof File,
+    );
+    parsed = backgroundCheckEmailInputSchema.safeParse({
+      content: formData.get("content"),
+      subject: formData.get("subject"),
+      to: formData.get("to"),
+    });
+  } else if (contentType.includes("application/json")) {
+    parsed = backgroundCheckEmailInputSchema.safeParse(await request.json());
+  } else {
+    throw new BackgroundCheckError("邮件参数无效。");
+  }
+
+  if (!parsed.success) {
+    throw new BackgroundCheckError("邮件参数无效。");
+  }
+  return { attachments, input: parsed.data };
+}
 
 async function recordCreated(
   created: boolean,
@@ -90,7 +124,10 @@ export const backgroundCheckRouter = factory
   .post(
     "/email",
     requirePermission("offer", "update"),
-    zValidator("json", backgroundCheckEmailInputSchema, jsonValidatorError("邮件参数无效。")),
+    bodyLimit({
+      maxSize: BACKGROUND_CHECK_EMAIL_REQUEST_MAX_BYTES,
+      onError: (c) => c.json({ error: "附件总大小不能超过 20 MB" }, 413),
+    }),
     async (c) => {
       const { activeOrg } = c.var;
       if (!activeOrg) {
@@ -101,19 +138,23 @@ export const backgroundCheckRouter = factory
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
       const operatorId = c.var.user?.id ?? null;
-      const input = c.req.valid("json");
+      const { attachments, input } = await parseBackgroundCheckEmailRequest(c.req.raw);
       await recordCandidateActivity({
         action: "background_check_email_send_requested",
-        detail: { to: input.to },
+        detail: { attachmentCount: attachments.length, to: input.to },
         interviewRecordId: recordId,
         operatorId,
         organizationId: activeOrg.id,
       });
       try {
-        const result = await sendBackgroundCheckEmail(recordId, activeOrg.id, input);
+        const result = await sendBackgroundCheckEmail(recordId, activeOrg.id, input, attachments);
         await recordCandidateActivity({
           action: "background_check_email_sent",
-          detail: { providerMessageId: result.providerMessageId, to: input.to },
+          detail: {
+            attachmentCount: attachments.length,
+            providerMessageId: result.providerMessageId,
+            to: input.to,
+          },
           interviewRecordId: recordId,
           operatorId,
           organizationId: activeOrg.id,
@@ -124,6 +165,7 @@ export const backgroundCheckRouter = factory
         await recordCandidateActivity({
           action: "background_check_email_send_failed",
           detail: {
+            attachmentCount: attachments.length,
             error: error instanceof Error ? error.message : "邮件发送失败",
             to: input.to,
           },

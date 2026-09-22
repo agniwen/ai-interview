@@ -1,5 +1,6 @@
 import {
   createRecruitingRecords,
+  lockRecruitingJobForCandidateCreation,
   updateRecruitingRecords,
   deleteRecruitingRecords,
 } from "@app/database/recruiting-records";
@@ -99,6 +100,12 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
   const target = input.target ?? "resume_library";
   const scope = input.resumePoolScope ?? "private";
   await db.transaction(async (tx) => {
+    if (input.jdMode === "bind" && input.jobDescriptionId) {
+      await lockRecruitingJobForCandidateCreation(tx, {
+        jobDescriptionId: input.jobDescriptionId,
+        organizationId: input.organizationId,
+      });
+    }
     await tx.insert(recruitingUploadBatch).values({
       createdAt: now,
       createdBy: input.userId,

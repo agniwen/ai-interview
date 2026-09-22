@@ -5,6 +5,7 @@ import {
   aiInterviewRound,
   candidate,
   candidateResume,
+  jobDescription,
   recruitingContextSnapshot,
   recruitingEvent,
   recruitingEvidenceSnapshot,
@@ -36,6 +37,38 @@ export type RecruitingRecordValues = Partial<RecruitingRecordFields> & {
 export type RecruitingRecordPatch = {
   [K in keyof RecruitingRecordValues]?: RecruitingRecordValues[K] | SQL;
 };
+export interface CreateRecruitingRecordsOptions {
+  requireActiveRecruitingJob?: boolean;
+}
+
+export class RecruitingJobNotAcceptingCandidatesError extends Error {
+  constructor() {
+    super("所选岗位已暂停或停止招聘，不能新增候选人。");
+    this.name = "RecruitingJobNotAcceptingCandidatesError";
+  }
+}
+
+export async function lockRecruitingJobForCandidateCreation(
+  tx: RecruitingTransaction,
+  input: { jobDescriptionId: string; organizationId: string },
+) {
+  const [job] = await tx
+    .select({ id: jobDescription.id })
+    .from(jobDescription)
+    .where(
+      and(
+        eq(jobDescription.id, input.jobDescriptionId),
+        eq(jobDescription.organizationId, input.organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
+        eq(jobDescription.recruitingStatus, "active"),
+      ),
+    )
+    .for("update");
+  if (!job) {
+    throw new RecruitingJobNotAcceptingCandidatesError();
+  }
+  return job;
+}
 
 type RecordRow = typeof recruitingRecord.$inferSelect;
 function normalizeStage(stage: RecruitingRecordValues["pipelineStage"]): RecruitingStage {
@@ -488,13 +521,42 @@ function initialCloseState(stage: RecruitingStage, values: RecruitingRecordValue
     closedFromNode: previous === "closed" ? null : previous,
   };
 }
+
+async function lockCandidateCreationJobs(
+  tx: RecruitingTransaction,
+  valuesList: RecruitingRecordValues[],
+  required: boolean | undefined,
+) {
+  if (!required) {
+    return;
+  }
+  const lockedJobs = new Set<string>();
+  for (const values of valuesList) {
+    if (!(values.organizationId && values.jobDescriptionId)) {
+      continue;
+    }
+    const key = `${values.organizationId}\u0000${values.jobDescriptionId}`;
+    if (lockedJobs.has(key)) {
+      continue;
+    }
+    await lockRecruitingJobForCandidateCreation(tx, {
+      jobDescriptionId: values.jobDescriptionId,
+      organizationId: values.organizationId,
+    });
+    lockedJobs.add(key);
+  }
+}
+
 export function createRecruitingRecords(
   executor: RecruitingExecutor,
   input: RecruitingRecordValues | RecruitingRecordValues[],
+  options: CreateRecruitingRecordsOptions = {},
 ): Promise<RecruitingRecordRead[]> {
   return executor.transaction(async (tx) => {
+    const valuesList = Array.isArray(input) ? input : [input];
+    await lockCandidateCreationJobs(tx, valuesList, options.requireActiveRecruitingJob);
     const ids: string[] = [];
-    for (const values of Array.isArray(input) ? input : [input]) {
+    for (const values of valuesList) {
       if (!values.organizationId || !values.candidateName) {
         throw new Error("招聘记录必须有工作区和候选人名称");
       }

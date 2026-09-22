@@ -49,6 +49,7 @@ const jobDescriptions: JobDescriptionListRecord[] = [
     presetQuestions: [],
     prompt: "请考察前端能力。",
     publishedAt: new Date("2026-06-20T00:00:00.000Z"),
+    recruitingStatus: "active",
     resumeCount: 0,
     resumeScreeningPolicy: { enabled: false, rules: [], version: 1 },
     resumeScreeningPolicyHash: null,

@@ -10,12 +10,14 @@ import type {
   BackgroundCheckDraftInput,
   BackgroundCheckFormInput,
 } from "@app/db-schema/background-check";
+import { validateEmailAttachments } from "@app/shared/email-attachments";
 import type {
   BackgroundCheckCollectionRecord,
   BackgroundCheckEmailPreviewRecord,
 } from "@app/shared/studio-pipeline-stages";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
+import { buildEmailAttachments } from "../../../../../../lib/server/email-attachments";
 import { buildSenderFromAddress, getResendClient } from "../../../../../../lib/server/resend";
 import { getGlobalConfig } from "../../global-config/dao";
 import { renderEmailContent } from "./offer-delivery";
@@ -203,6 +205,7 @@ export async function sendBackgroundCheckEmail(
   recruitingRecordId: string,
   organizationId: string,
   input: BackgroundCheckEmailInput,
+  attachments: readonly File[] = [],
 ): Promise<{ providerMessageId: string; sentAt: string; url: string }> {
   const [collection] = await db
     .select()
@@ -224,9 +227,14 @@ export async function sendBackgroundCheckEmail(
   if (!hasValidBackgroundCheckLink(input.content, url)) {
     throw new BackgroundCheckError("邮件内容中的背调链接无效，请重新打开弹窗恢复系统链接");
   }
+  const attachmentError = validateEmailAttachments(attachments);
+  if (attachmentError) {
+    throw new BackgroundCheckError(attachmentError);
+  }
   const config = await getGlobalConfig(organizationId);
   const rendered = renderEmailContent(input.content, url);
   const result = await getResendClient().emails.send({
+    attachments: attachments.length > 0 ? await buildEmailAttachments(attachments) : undefined,
     from: buildSenderFromAddress(config.companyName),
     html: rendered.html,
     subject: input.subject,

@@ -1,4 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
+import { RecruitingJobNotAcceptingCandidatesError } from "@app/database/recruiting-records";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../lib/server/db/index";
 import { chatAttachment, jobDescription } from "@app/db-schema/schema";
@@ -135,6 +136,7 @@ export const resumeUploadBatchesRouter = factory
               eq(jobDescription.id, input.jobDescriptionId),
               eq(jobDescription.organizationId, activeOrg.id),
               eq(jobDescription.lifecycleStatus, "published"),
+              eq(jobDescription.recruitingStatus, "active"),
             ),
           )
           .limit(1);
@@ -162,16 +164,24 @@ export const resumeUploadBatchesRouter = factory
         return c.json({ error: "部分文件未上传完成。" }, 400);
       }
 
-      const batchId = await insertBatchWithItems({
-        dedupPolicy: input.dedupPolicy,
-        files: input.files,
-        jdMode: input.jdMode,
-        jobDescriptionId: input.jobDescriptionId ?? null,
-        organizationId: activeOrg.id,
-        resumePoolScope: input.resumePoolScope ?? null,
-        target: input.target,
-        userId: user.id,
-      });
+      let batchId: string;
+      try {
+        batchId = await insertBatchWithItems({
+          dedupPolicy: input.dedupPolicy,
+          files: input.files,
+          jdMode: input.jdMode,
+          jobDescriptionId: input.jobDescriptionId ?? null,
+          organizationId: activeOrg.id,
+          resumePoolScope: input.resumePoolScope ?? null,
+          target: input.target,
+          userId: user.id,
+        });
+      } catch (error) {
+        if (error instanceof RecruitingJobNotAcceptingCandidatesError) {
+          return c.json({ error: error.message }, 409);
+        }
+        throw error;
+      }
       const detail = await loadBatchDetail(batchId, activeOrg.id, user.id);
       if (!detail) {
         return c.json({ error: "批次创建失败。" }, 500);

@@ -14,10 +14,13 @@ import {
   member,
   jobDescriptionInterviewer,
   jobDescriptionVersion,
+  recruitingRecord,
 } from "@app/db-schema/schema";
 import {
   jobDescriptionSaveSchema,
+  jobRecruitingStatusUpdateSchema,
   publishedJobOperationalUpdateSchema,
+  resolveJobRecruitingStatusTransition,
   structuredJobDescriptionPublishSchema,
 } from "@app/shared/job-descriptions";
 import type { JobDescriptionFormValues } from "@app/shared/job-descriptions";
@@ -509,6 +512,7 @@ export function createJobDescriptionsRouter(
             presetQuestions: [],
             prompt: input.prompt.trim(),
             publishedAt: now,
+            recruitingStatus: "active",
             resumeScreeningPolicy: null,
             resumeScreeningPolicyHash: null,
             resumeScreeningPolicyVersion: 1,
@@ -751,6 +755,85 @@ export function createJobDescriptionsRouter(
       }
       return c.json(record, 200);
     })
+    .patch(
+      "/:id/recruiting-status",
+      dependencies.requirePermission("jd", "update"),
+      zValidator("json", jobRecruitingStatusUpdateSchema, jsonValidatorError("岗位状态无效。")),
+      async (c) => {
+        const { activeOrg } = c.var;
+        if (!activeOrg) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const id = c.req.param("id");
+        const targetStatus = c.req.valid("json").status;
+        const result = await db.transaction(async (tx) => {
+          const [current] = await tx
+            .select({ recruitingStatus: jobDescription.recruitingStatus })
+            .from(jobDescription)
+            .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)))
+            .limit(1)
+            .for("update");
+          if (!current) {
+            return { kind: "not_found" as const };
+          }
+          let activeCandidateCount = 0;
+          if (targetStatus === "stopped") {
+            const [activeCandidates] = await tx
+              .select({ count: count() })
+              .from(recruitingRecord)
+              .where(
+                and(
+                  eq(recruitingRecord.organizationId, activeOrg.id),
+                  eq(recruitingRecord.jobDescriptionId, id),
+                  eq(recruitingRecord.outcome, "in_pipeline"),
+                ),
+              );
+            activeCandidateCount = activeCandidates?.count ?? 0;
+          }
+          const transition = resolveJobRecruitingStatusTransition({
+            activeCandidateCount,
+            currentStatus: current.recruitingStatus,
+            targetStatus,
+          });
+          if (transition === "unchanged") {
+            return { kind: "updated" as const };
+          }
+          if (transition === "blocked_stopped") {
+            return { kind: "stopped" as const };
+          }
+          if (transition === "blocked_active_candidates") {
+            return { activeCandidateCount, kind: "active_candidates" as const };
+          }
+          await tx
+            .update(jobDescription)
+            .set({ recruitingStatus: targetStatus, updatedAt: new Date() })
+            .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+          return { kind: "updated" as const };
+        });
+        if (result.kind === "not_found") {
+          return c.json({ error: "岗位不存在。" }, 404);
+        }
+        if (result.kind === "stopped") {
+          return c.json({ error: "已停止的岗位不能再次修改招聘状态。" }, 409);
+        }
+        if (result.kind === "active_candidates") {
+          return c.json(
+            {
+              activeCandidateCount: result.activeCandidateCount,
+              error: `当前岗位仍有 ${result.activeCandidateCount} 位候选人处于招聘流程中，请先将所有候选人处理为终止态。`,
+            },
+            409,
+          );
+        }
+        safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+        safeUpdateTag(cacheTags.studioInterviews(activeOrg.id));
+        const updated = await loadManagedJobDescriptionById(activeOrg.id, id);
+        if (!updated) {
+          return c.json({ error: "更新后的岗位读取失败。" }, 500);
+        }
+        return c.json(updated, 200);
+      },
+    )
     .post(
       "/:id/recommendations",
       dependencies.requirePermission("jd", "read"),

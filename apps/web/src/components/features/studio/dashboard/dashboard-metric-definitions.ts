@@ -14,7 +14,10 @@ export const DASHBOARD_SCOPE_NOTE =
 export const DASHBOARD_METRIC_DEFINITION_GROUPS: DashboardMetricDefinitionGroup[] = [
   {
     items: [
-      { definition: "当前工作区中已发布、可用于招聘的岗位数。", label: "在招岗位" },
+      {
+        definition: "当前工作区中岗位状态为“招聘中”的岗位数，不包含已暂停和已停止岗位。",
+        label: "在招岗位",
+      },
       { definition: "招聘结果仍为推进中的候选人招聘记录数。", label: "推进中" },
       {
         definition: "当前处于定薪、Offer、背调或入职办理阶段，且仍在推进中的候选人数。",
@@ -24,7 +27,7 @@ export const DASHBOARD_METRIC_DEFINITION_GROUPS: DashboardMetricDefinitionGroup[
       { definition: "招聘结果为淘汰或候选人撤回的记录数。", label: "负向结案" },
       {
         definition:
-          "所有已配置计划人数的在招岗位，分别按“计划人数减去已入职人数”计算，不足 0 按 0 计，再汇总。部分岗位未配置时在已知缺口后显示“+”，全部未配置时显示为“—”。",
+          "所有岗位状态为“招聘中”且已配置计划人数的岗位，分别按“计划人数减去已入职人数”计算，不足 0 按 0 计，再汇总；已暂停和已停止岗位不参与统计。部分岗位未配置时在已知缺口后显示“+”，全部未配置时显示为“—”。",
         label: "岗位缺口",
       },
     ],

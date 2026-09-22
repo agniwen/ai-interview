@@ -50,7 +50,7 @@ describe("recruiting ledger route", () => {
       .route("/ledger", router);
 
     const response = await app.request(
-      "/ledger?boardView=interview%3Asecond&createdFrom=2026-09-01&createdTo=2026-09-20&joiningFrom=2026-10-01&joiningTo=2026-10-31&jdIds=job-1&recommendationLevels=recommended&page=1&sortBy=joiningDate",
+      "/ledger?boardView=interview%3Asecond&createdFrom=2026-09-01&createdTo=2026-09-20&joiningFrom=2026-10-01&joiningTo=2026-10-31&departmentIds=department-1%2Cdepartment-2&jdIds=job-1%2Cjob-2&responsibleHrIds=hr-1%2Chr-2&recommendationLevels=recommended%2Chighly_recommended&recruitingStatuses=paused%2Cstopped&page=1&sortBy=joiningDate",
     );
 
     expect(response.status).toBe(200);
@@ -70,10 +70,13 @@ describe("recruiting ledger route", () => {
         boardView: "interview:second",
         createdAtBefore: new Date("2026-09-20T16:00:00.000Z"),
         createdAtFrom: new Date("2026-08-31T16:00:00.000Z"),
-        jobDescriptionIds: ["job-1"],
+        departmentIds: ["department-1", "department-2"],
+        jobDescriptionIds: ["job-1", "job-2"],
         joiningDateFrom: "2026-10-01",
         joiningDateTo: "2026-10-31",
-        recommendationLevels: ["recommended"],
+        recommendationLevels: ["recommended", "highly_recommended"],
+        recruitingStatuses: ["paused", "stopped"],
+        responsibleHrIds: ["hr-1", "hr-2"],
       }),
       expect.objectContaining({ page: 1, pageSize: 20, sortBy: "joiningDate" }),
       { kind: "restricted", userIds: ["user-1"] },

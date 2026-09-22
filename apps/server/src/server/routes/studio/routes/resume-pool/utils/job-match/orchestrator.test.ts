@@ -57,6 +57,7 @@ function job(id: string, name: string): JobDescriptionListRecord {
     presetQuestions: [],
     prompt: "",
     publishedAt: new Date(),
+    recruitingStatus: "active",
     resumeCount: 0,
     resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     resumeScreeningPolicyHash: null,

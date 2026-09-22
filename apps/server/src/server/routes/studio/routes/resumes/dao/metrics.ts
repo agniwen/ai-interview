@@ -25,7 +25,10 @@ import {
 } from "@app/shared/recruiting-board";
 import { buildRecruitingBoardFilter } from "./board-filter";
 import { buildDashboardActionFilter } from "./dashboard-action-filter";
-import { buildNonArchivedRecruitingRecordFilter } from "./dashboard-metric-scope";
+import {
+  buildActiveRecruitingJobFilter,
+  buildNonArchivedRecruitingRecordFilter,
+} from "./dashboard-metric-scope";
 import { candidateOutcomeSchema, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 
 const DASHBOARD_LOOKBACK_DAYS = 30;
@@ -604,12 +607,7 @@ async function loadDashboardVacancies(organizationId: string) {
         ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     )
-    .where(
-      and(
-        eq(jobDescription.organizationId, organizationId),
-        eq(jobDescription.lifecycleStatus, "published"),
-      ),
-    )
+    .where(buildActiveRecruitingJobFilter(jobDescription, organizationId))
     .groupBy(jobDescription.id, jobDescription.name, jobDescription.headcount, department.name);
 
   return rows

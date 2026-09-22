@@ -409,7 +409,7 @@ export function RecruitingDashboardPage({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           accent={DASHBOARD_COLORS.resumes.accent}
-          description="已发布"
+          description="招聘中"
           icon={IconBriefcase}
           label="在招岗位"
           slug={slug}

@@ -104,6 +104,7 @@ const jobDescriptions: JobDescriptionListRecord[] = [
     presetQuestions: [],
     prompt: "负责前端工程开发。",
     publishedAt: "2026-08-18T00:00:00.000Z",
+    recruitingStatus: "active",
     resumeCount: 0,
     resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     resumeScreeningPolicyHash: null,

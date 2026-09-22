@@ -43,8 +43,6 @@ const mocks = {
   listDuplicateMatchesForSource:
     vi.fn<ResumePoolRouterDependencies["listDuplicateMatchesForSource"]>(),
   listResumePoolUploaders: vi.fn<ResumePoolRouterDependencies["listResumePoolUploaders"]>(),
-  loadRecruitingJobDescriptionById:
-    vi.fn<ResumePoolRouterDependencies["loadRecruitingJobDescriptionById"]>(),
   loadResumePoolItem: vi.fn<ResumePoolRouterDependencies["loadResumePoolItem"]>(),
   normalizeResumeFile: (value: FormDataEntryValue | null) => (value instanceof File ? value : null),
   queryResumePoolItems: vi.fn<ResumePoolRouterDependencies["queryResumePoolItems"]>(),
@@ -515,8 +513,8 @@ describe("resume pool import route", () => {
       runId: "review-run-1",
       status: "enqueued",
     });
+    mocks.recruitingJobDescriptionIdsExist.mockResolvedValue(true);
     // SAFETY: The route only checks whether this mocked job exists before forwarding its id.
-    mocks.loadRecruitingJobDescriptionById.mockResolvedValue({ id: "jd-1" } as never);
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({
       kind: "restricted",
       userIds: [USER_ID],

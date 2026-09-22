@@ -3,9 +3,11 @@ import {
   calculateRecruitingCycleDays,
   calculateRecruitingGap,
   calculateRecruitingPoints,
+  parseRecruitingLedgerJobStatuses,
   parseRecruitingLedgerRecommendationLevels,
   recruitingPriorityCoefficients,
   recruitingLedgerQuerySchema,
+  summarizeActiveRecruitingJobs,
 } from "@app/shared/studio-recruiting-ledger";
 
 describe("recruiting ledger derived fields", () => {
@@ -47,6 +49,45 @@ describe("recruiting ledger derived fields", () => {
       "recommended",
       "undecided",
     ]);
+  });
+
+  it("keeps only supported job recruiting statuses", () => {
+    expect(parseRecruitingLedgerJobStatuses("active,unknown,stopped")).toEqual([
+      "active",
+      "stopped",
+    ]);
+  });
+
+  it("excludes paused and stopped jobs from active job totals", () => {
+    const base = {
+      active: 1,
+      confirmed: 1,
+      departmentName: null,
+      gap: 2,
+      headcount: 3,
+      hired: 1,
+      jobPriority: null,
+      jobWeight: null,
+      negativeClosed: 0,
+      processDistribution: { closed: 0, interview: 0, offer: 0, onboarding: 0, screening: 0 },
+      recruitingPoints: 0,
+      total: 2,
+    } as const;
+
+    expect(
+      summarizeActiveRecruitingJobs([
+        { ...base, id: "active", name: "招聘中", recruitingStatus: "active" },
+        { ...base, id: "paused", name: "已暂停", recruitingStatus: "paused" },
+        { ...base, id: "stopped", name: "已停止", recruitingStatus: "stopped" },
+      ]),
+    ).toEqual({
+      activeJobs: 1,
+      configuredJobs: 1,
+      confirmed: 1,
+      totalDemand: 3,
+      totalGap: 2,
+      unconfiguredJobs: 0,
+    });
   });
 
   it("validates created and joining date ranges independently", () => {
