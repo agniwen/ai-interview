@@ -121,7 +121,10 @@ describe("审批流程画布编辑", () => {
       ),
     );
     const add = button("在审批 1后添加审批节点");
-    expect(add.style.transform).toBe("translate(-50%, -50%) translate(120px, 150px)");
+    expect(add.parentElement?.style.transform).toBe(
+      "translate(-50%, -50%) translate(120px, 150px)",
+    );
+    expect(add.style.transform).toBe("");
     expect(add.closest(".react-flow__edgelabel-renderer")).not.toBeNull();
     click("在审批 1后添加审批节点");
     expect(insert).toHaveBeenCalledWith(1);

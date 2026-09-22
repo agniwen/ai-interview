@@ -235,19 +235,23 @@ export const ApprovalInsertEdge = memo(function ApprovalInsertEdge({
       <BaseEdge id={id} path={path} style={style} />
       {data?.canInsert ? (
         <EdgeLabelRenderer>
-          <Button
-            aria-label={`在${data.sourceTitle}后添加审批节点`}
-            className="nodrag nopan absolute rounded-full bg-card shadow-sm hover:bg-muted dark:bg-card dark:hover:bg-muted"
+          <div
+            className="nodrag nopan absolute"
             style={{
               pointerEvents: "all",
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
-            size="icon-sm"
-            variant="outline"
-            onClick={() => data.onInsert(data.insertionIndex)}
           >
-            <IconPlus />
-          </Button>
+            <Button
+              aria-label={`在${data.sourceTitle}后添加审批节点`}
+              className="rounded-full bg-card shadow-sm transition-colors hover:bg-muted active:scale-100 dark:bg-card dark:hover:bg-muted"
+              size="icon-sm"
+              variant="outline"
+              onClick={() => data.onInsert(data.insertionIndex)}
+            >
+              <IconPlus />
+            </Button>
+          </div>
         </EdgeLabelRenderer>
       ) : null}
     </>
