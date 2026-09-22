@@ -18,6 +18,7 @@ interface RouteMeta {
 }
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
+  { meta: { title: "审批流配置" }, prefix: "/studio/offer-approval-templates" },
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
   { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
   { meta: { title: "AI初面" }, prefix: "/studio/interviews" },
@@ -51,7 +52,7 @@ function resolveSiteHeaderTitle(pathname: string): string {
   return DEFAULT_META.title;
 }
 
-export function SiteHeader() {
+export function SiteHeader({ className }: { className?: string } = {}) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const title = resolveSiteHeaderTitle(pathname);
   const ActiveMenuIcon = resolveStudioSidebarNavItem(pathname)?.icon;
@@ -59,6 +60,7 @@ export function SiteHeader() {
 
   return (
     <SidebarInsetHeader
+      className={className}
       activeMenuIcon={headerOverride === null && ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
       actions={
         <>

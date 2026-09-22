@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-router";
+import {
+  Outlet,
+  createFileRoute,
+  notFound,
+  redirect,
+  useRouterState,
+} from "@tanstack/react-router";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
@@ -28,19 +34,32 @@ async function findFirstAllowedStudioPath(slug: string) {
 }
 
 function StudioLayout({ children }: { children: ReactNode }) {
+  const isApprovalEditor = useRouterState({
+    select: (state) =>
+      /\/studio\/offer-approval-templates\/[^/]+\/?$/.test(state.location.pathname),
+  });
   return (
     <StudioHeaderProvider>
       <StudioContentOverlayProvider>
         <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
-          <ScrollArea
-            className="@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
-            scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
-          >
-            <SiteHeader />
-            <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
-              {children}
-            </PendingOutlet>
-          </ScrollArea>
+          {isApprovalEditor ? (
+            <>
+              <SiteHeader className="pointer-events-none absolute inset-x-0 top-0 [&>div]:pointer-events-auto" />
+              <PendingOutlet className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                {children}
+              </PendingOutlet>
+            </>
+          ) : (
+            <ScrollArea
+              className="@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
+              scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
+            >
+              <SiteHeader />
+              <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
+                {children}
+              </PendingOutlet>
+            </ScrollArea>
+          )}
           <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />
         </SidebarInset>
       </StudioContentOverlayProvider>

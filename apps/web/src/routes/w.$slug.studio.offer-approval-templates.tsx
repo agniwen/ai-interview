@@ -1,15 +1,13 @@
-import { createFileRoute, notFound, useParams } from "@tanstack/react-router";
-import { OfferApprovalTemplatePage } from "@/components/features/offer-approval/template-page";
+import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
 function OfferApprovalTemplateRoute() {
   const canManage = useHasPermission("offerApproval", "manage");
-  const { slug } = useParams({ from: "/w/$slug/studio/offer-approval-templates" });
   if (!canManage) {
     throw notFound();
   }
-  return <OfferApprovalTemplatePage slug={slug} />;
+  return <Outlet />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/offer-approval-templates")({
