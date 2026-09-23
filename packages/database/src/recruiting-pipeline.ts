@@ -5,6 +5,7 @@ import { validateEvidence } from "./recruiting-pipeline-evidence";
 import { and, eq, ne } from "drizzle-orm";
 import {
   humanInterviewRound,
+  jobDescription,
   recruitingEvent,
   recruitingFulfillment,
   recruitingNodeState,
@@ -124,10 +125,21 @@ async function writeRecordEvent(
   if (!updated) {
     throw new RecruitingPipelineError("招聘记录不存在。", "not_found");
   }
+  const [job] = updated.jobDescriptionId
+    ? await tx
+        .select({ departmentId: jobDescription.departmentId })
+        .from(jobDescription)
+        .where(eq(jobDescription.id, updated.jobDescriptionId))
+    : [];
   await tx.insert(recruitingEvent).values({
     action,
     createdAt: now,
-    detail,
+    detail: {
+      ...detail,
+      metricDepartmentId: job?.departmentId ?? null,
+      metricJobDescriptionId: updated.jobDescriptionId,
+      metricOwnerId: updated.ownerId ?? updated.createdBy,
+    },
     fromOutcome: record.outcome,
     fromStage: record.currentStage,
     id: crypto.randomUUID(),
@@ -570,7 +582,11 @@ async function closeLocked(
       stageEnteredAt: now,
     },
     "recruiting_closed",
-    { previousNodes, reason: input.reason ?? null },
+    {
+      actualJoiningDate: input.outcome === "hired" ? joiningDateFromDetails(input.details) : null,
+      previousNodes,
+      reason: input.reason ?? null,
+    },
   );
 }
 

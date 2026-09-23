@@ -53,6 +53,7 @@ const auditDetailSchema = z
 type AuditDetail = z.output<typeof auditDetailSchema>;
 
 const AUDIT_TITLES = new Map([
+  ["recruiting_record_created", "招聘记录已创建"],
   ["recruiting_evaluation_invalidated", "历史简历分析已失效"],
   ["recruiting_node_advanced", "招聘阶段推进"],
   ["recruiting_node_updated", "招聘节点更新"],

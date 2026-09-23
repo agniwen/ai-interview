@@ -2,6 +2,7 @@ import type { RecruitingBoardView } from "@app/shared/recruiting-board";
 import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
 import type { RecruitingLedgerResult } from "@app/shared/studio-recruiting-ledger";
+import type { HrStatisticPeriod, HrStatisticsResponse } from "@app/shared/recruiting-hr-statistics";
 /**
  * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
@@ -227,6 +228,32 @@ export function fetchRecruitingLedger(
       },
     }),
     "加载招聘台账失败",
+  );
+}
+
+export function fetchHrStatistics(
+  slug: string,
+  params: {
+    departmentIds?: string[];
+    from?: string;
+    jobIds?: string[];
+    period: HrStatisticPeriod;
+    responsibleHrIds?: string[];
+    to?: string;
+  },
+): Promise<HrStatisticsResponse> {
+  return rpcFetch(
+    studioResumesRpc(slug).ledger["hr-statistics"].$get({
+      query: {
+        departmentIds: params.departmentIds?.join(","),
+        from: params.from,
+        jdIds: params.jobIds?.join(","),
+        period: params.period,
+        responsibleHrIds: params.responsibleHrIds?.join(","),
+        to: params.to,
+      },
+    }),
+    "加载 HR 统计失败",
   );
 }
 

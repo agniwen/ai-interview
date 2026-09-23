@@ -23,6 +23,7 @@ import {
 import { PageHeader } from "@/components/features/studio/page-header";
 import { RecruitingPointsTooltip } from "@/components/features/studio/recruiting-ledger/recruiting-points-tooltip";
 import { JobSummaryGrid } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-job-summary";
+import { RecruitingHrStatisticsPage } from "@/components/features/studio/recruiting-ledger/recruiting-hr-statistics-page";
 import { RecruitingLedgerMultiFilters } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-multi-filters";
 import { buildRecruitingLedgerParams } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-query";
 import { RecruitingBoardTabs } from "@/components/features/studio/resumes/recruiting-board-tabs";
@@ -208,8 +209,16 @@ export function RecruitingLedgerPage() {
   const navigate = useNavigate({ from: "/w/$slug/studio/recruiting-ledger" });
   const queryClient = useQueryClient();
   const query = useQuery({
+    enabled: search.view !== "hr",
     placeholderData: keepPreviousData,
-    queryFn: () => fetchRecruitingLedger(slug, buildRecruitingLedgerParams(search)),
+    queryFn: () =>
+      fetchRecruitingLedger(
+        slug,
+        buildRecruitingLedgerParams({
+          ...search,
+          view: search.view === "hr" ? "records" : search.view,
+        }),
+      ),
     queryKey: ["studio-recruiting-ledger", slug, search],
     staleTime: 15_000,
   });
@@ -281,6 +290,31 @@ export function RecruitingLedgerPage() {
     </Button>
   );
 
+  if (search.view === "hr") {
+    return (
+      <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
+        <PageHeader
+          actionRender={
+            <Tabs
+              aria-label="台账展示方式"
+              onValueChange={(value) => updateSearch({ view: value })}
+              value={search.view}
+            >
+              <TabsList>
+                <TabsTrigger value="hr">HR 统计</TabsTrigger>
+                <TabsTrigger value="records">候选人明细</TabsTrigger>
+                <TabsTrigger value="jobs">按岗位汇总</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          }
+          description="查看新增简历数、阶段进入次数与阶段比率。"
+          title="招聘台账"
+        />
+        <RecruitingHrStatisticsPage />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
@@ -291,6 +325,7 @@ export function RecruitingLedgerPage() {
             value={search.view}
           >
             <TabsList>
+              <TabsTrigger value="hr">HR 统计</TabsTrigger>
               <TabsTrigger value="records">候选人明细</TabsTrigger>
               <TabsTrigger value="jobs">按岗位汇总</TabsTrigger>
             </TabsList>

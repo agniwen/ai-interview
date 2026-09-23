@@ -547,11 +547,13 @@ async function lockCandidateCreationJobs(
   }
 }
 
+// oxlint-disable-next-line complexity -- candidate, resume, initial stage, and creation audit are one transaction.
 export function createRecruitingRecords(
   executor: RecruitingExecutor,
   input: RecruitingRecordValues | RecruitingRecordValues[],
   options: CreateRecruitingRecordsOptions = {},
 ): Promise<RecruitingRecordRead[]> {
+  // oxlint-disable-next-line complexity -- candidate, resume, initial stage, and creation audit are one transaction.
   return executor.transaction(async (tx) => {
     const valuesList = Array.isArray(input) ? input : [input];
     await lockCandidateCreationJobs(tx, valuesList, options.requireActiveRecruitingJob);
@@ -602,6 +604,7 @@ export function createRecruitingRecords(
           organizationId: values.organizationId,
           outcome: initialOutcome(stage, values),
           resumeId,
+          stageEnteredAt: stage === "closed" ? null : now,
           updatedAt: values.updatedAt ?? now,
         })
         .returning();
@@ -624,6 +627,39 @@ export function createRecruitingRecords(
         delete initialPatch.resumeEvaluationStatus;
       }
       await persistPatch(tx, record, initialPatch);
+      const [created] = await tx
+        .select({
+          createdBy: recruitingRecord.createdBy,
+          jobDescriptionId: recruitingRecord.jobDescriptionId,
+          outcome: recruitingRecord.outcome,
+          ownerId: recruitingRecord.ownerId,
+        })
+        .from(recruitingRecord)
+        .where(eq(recruitingRecord.id, id));
+      const [job] = created?.jobDescriptionId
+        ? await tx
+            .select({ departmentId: jobDescription.departmentId })
+            .from(jobDescription)
+            .where(eq(jobDescription.id, created.jobDescriptionId))
+        : [];
+      await tx.insert(recruitingEvent).values({
+        action: "recruiting_record_created",
+        createdAt: now,
+        detail: {
+          metricDepartmentId: job?.departmentId ?? null,
+          metricJobDescriptionId: created?.jobDescriptionId ?? null,
+          metricOwnerId: created?.ownerId ?? created?.createdBy ?? null,
+          resumeId,
+        },
+        fromOutcome: created?.outcome ?? "in_pipeline",
+        fromStage: stage,
+        id: crypto.randomUUID(),
+        operatorId: values.createdBy ?? null,
+        organizationId: values.organizationId,
+        recruitingRecordId: id,
+        toOutcome: created?.outcome ?? "in_pipeline",
+        toStage: stage,
+      });
       ids.push(id);
     }
     if (!ids.length) {

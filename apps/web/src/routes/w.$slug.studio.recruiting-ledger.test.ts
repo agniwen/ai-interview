@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { recruitingLedgerSearchSchema } from "./w.$slug.studio.recruiting-ledger";
 
 describe("recruiting ledger search params", () => {
+  it("opens HR statistics by default and preserves explicit view links", () => {
+    expect(recruitingLedgerSearchSchema.parse({}).view).toBe("hr");
+    expect(recruitingLedgerSearchSchema.parse({ view: "records" }).view).toBe("records");
+    expect(recruitingLedgerSearchSchema.parse({ view: "jobs" }).view).toBe("jobs");
+  });
+
   it("keeps multiple values for each ledger filter", () => {
     const search = recruitingLedgerSearchSchema.parse({
       departmentId: ["department-1", "department-2"],

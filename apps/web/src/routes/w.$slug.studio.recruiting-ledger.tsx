@@ -1,5 +1,6 @@
 import { createFileRoute, getRouteApi, notFound, redirect } from "@tanstack/react-router";
 import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
+import { hrStatisticPeriodSchema } from "@app/shared/recruiting-hr-statistics";
 import { jobRecruitingStatusSchema } from "@app/db-schema/job-recruiting-status";
 import { z } from "zod";
 import { RecruitingLedgerPage } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-page";
@@ -38,6 +39,9 @@ export const recruitingLedgerSearchSchema = z.object({
   jobDescriptionId: multiValueSearchParamSchema,
   joiningFrom: z.iso.date().optional(),
   joiningTo: z.iso.date().optional(),
+  hrPeriod: hrStatisticPeriodSchema.default("week"),
+  hrFrom: z.iso.date().optional(),
+  hrTo: z.iso.date().optional(),
   page: z.coerce.number().int().min(1).default(1),
   recommendationLevel: multiValueSearchParamSchema,
   recruitingStatus: recruitingStatusSearchParamSchema,
@@ -46,7 +50,7 @@ export const recruitingLedgerSearchSchema = z.object({
   sortBy: z.enum(["createdAt", "candidateName", "joiningDate", "updatedAt"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
   stage: recruitingBoardViewSchema.default("all"),
-  view: z.enum(["records", "jobs"]).default("records"),
+  view: z.enum(["records", "jobs", "hr"]).default("hr"),
 });
 
 function StudioRecruitingLedgerRoute() {

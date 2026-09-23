@@ -1,4 +1,5 @@
 import { parseCsvParam } from "@app/shared/csv";
+import { hrStatisticsQuerySchema } from "@app/shared/recruiting-hr-statistics";
 import {
   parseRecruitingLedgerJobStatuses,
   parseRecruitingLedgerRecommendationLevels,
@@ -17,8 +18,10 @@ import {
   queryRecruitingLedger,
   setRecruitingLedgerInformationSync,
 } from "../../dao/recruiting-ledger";
+import { loadHrStatistics } from "../../dao/hr-statistics";
 
 export interface RecruitingLedgerRouterDependencies {
+  loadHrStatistics?: typeof loadHrStatistics;
   queryRecruitingLedger: typeof queryRecruitingLedger;
   requirePermission: typeof requirePermission;
   resolveRecruitingVisibilityScope: typeof resolveRecruitingVisibilityScope;
@@ -37,6 +40,37 @@ export function createRecruitingLedgerRouter(
 ) {
   return factory
     .createApp()
+    .get(
+      "/hr-statistics",
+      dependencies.requirePermission("page", "recruitingLedger"),
+      dependencies.requirePermission("resumeLibrary", "read"),
+      zValidator("query", hrStatisticsQuerySchema, jsonValidatorError("查询参数无效。")),
+      async (c) => {
+        const { activeOrg } = c.var;
+        if (!activeOrg || !c.var.user?.id) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const q = c.req.valid("query");
+        const visibility = await dependencies.resolveRecruitingVisibilityScope({
+          currentRole: c.var.member?.role,
+          organizationId: activeOrg.id,
+          userId: c.var.user.id,
+        });
+        const result = await (dependencies.loadHrStatistics ?? loadHrStatistics)(
+          {
+            departmentIds: parseCsvParam(q.departmentIds),
+            from: q.from,
+            jobIds: parseCsvParam(q.jdIds),
+            organizationId: activeOrg.id,
+            period: q.period,
+            responsibleHrIds: parseCsvParam(q.responsibleHrIds),
+            to: q.to,
+          },
+          visibility,
+        );
+        return c.json(result, 200);
+      },
+    )
     .get(
       "/",
       dependencies.requirePermission("page", "recruitingLedger"),

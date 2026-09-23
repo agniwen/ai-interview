@@ -19,6 +19,51 @@ const EMPTY_RESULT: RecruitingLedgerResult = {
 };
 
 describe("recruiting ledger route", () => {
+  it("applies the same read permissions and visibility to HR statistics", async () => {
+    const checks: string[] = [];
+    const loadHrStatistics = vi.fn().mockResolvedValue({ team: [] });
+    const router = createRecruitingLedgerRouter({
+      loadHrStatistics,
+      queryRecruitingLedger: vi.fn(() => Promise.resolve(EMPTY_RESULT)),
+      requirePermission: (resource, action) => (_c, next) => {
+        checks.push(`${resource}:${action}`);
+        return next();
+      },
+      resolveRecruitingVisibilityScope: vi.fn(() =>
+        Promise.resolve({ kind: "restricted" as const, userIds: ["user-1"] }),
+      ),
+      setRecruitingLedgerInformationSync: vi.fn(),
+    });
+    const app = factory
+      .createApp()
+      .use("*", async (c, next) => {
+        // SAFETY: The focused route only reads these identity fields from the fixtures.
+        c.set("activeOrg", { id: "org-1" } as never);
+        // SAFETY: The focused route only reads member.role from this fixture.
+        c.set("member", { role: "hr" } as never);
+        // SAFETY: The focused route only reads user.id from this fixture.
+        c.set("user", { id: "user-1" } as never);
+        await next();
+      })
+      .route("/ledger", router);
+    const response = await app.request(
+      "/ledger/hr-statistics?period=custom&from=2026-09-01&to=2026-09-30&jdIds=job-1&responsibleHrIds=hr-1",
+    );
+    expect(response.status).toBe(200);
+    expect(checks).toEqual(["page:recruitingLedger", "resumeLibrary:read"]);
+    expect(loadHrStatistics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "2026-09-01",
+        jobIds: ["job-1"],
+        organizationId: "org-1",
+        period: "custom",
+        responsibleHrIds: ["hr-1"],
+        to: "2026-09-30",
+      }),
+      { kind: "restricted", userIds: ["user-1"] },
+    );
+  });
+
   it("uses the current recruiting visibility scope and both read permissions", async () => {
     const permissionChecks: [string, string][] = [];
     const queryRecruitingLedger: RecruitingLedgerRouterDependencies["queryRecruitingLedger"] =
