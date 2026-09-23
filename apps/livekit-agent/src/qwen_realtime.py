@@ -1,4 +1,4 @@
-"""Qwen Audio 3.0 Realtime transport for LiveKit Agents 1.7.
+"""Qwen Audio Realtime transport for LiveKit Agents 1.7.
 
 Protocol: https://help.aliyun.com/zh/model-studio/fun-audiochat-client-events
 Events: https://help.aliyun.com/zh/model-studio/qwen-audio-realtime-server-events
@@ -30,7 +30,7 @@ from yarl import URL
 
 INPUT_SAMPLE_RATE = 16000
 OUTPUT_SAMPLE_RATE = 24000
-DEFAULT_MODEL = "qwen-audio-3.0-realtime-plus"
+DEFAULT_MODEL = "qwen-audio-3.1-realtime-plus"
 DEFAULT_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
 
 

@@ -114,6 +114,7 @@ def test_agent_session_uses_qwen_audio_streaming_stt(monkeypatch):
     assert stt.kwargs["model"] == "qwen-audio-test-streaming"
     assert stt.kwargs["language"] == "zh"
     assert stt.kwargs["max_sentence_silence"] == 1200
+    assert stt.kwargs["vad_model"] == "near_meeting_16k"
     assert stt.kwargs["vocabulary_id"] == "vocabulary-id"
     assert stt.kwargs["base_url"] == "wss://workspace.example/inference"
     assert stt.kwargs["workspace"] == "workspace-id"
@@ -139,6 +140,7 @@ def test_agent_session_defaults_qwen_sentence_silence_to_1300ms(monkeypatch):
     )
 
     assert session.kwargs["stt"].kwargs["max_sentence_silence"] == 1300
+    assert session.kwargs["stt"].kwargs["vad_model"] == "near_meeting_16k"
 
 
 def test_agent_session_disables_parallel_llm_tool_calls(monkeypatch):

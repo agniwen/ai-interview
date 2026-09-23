@@ -18,7 +18,7 @@ import {
 export interface WorkspaceMeetingLiveTranscriptAuthorizationDependencies {
   claimLease: typeof claimMeetingLiveTranscriptLease;
   createQwenAuthorization: typeof createQwenRealtimeTranscriptionAuthorization;
-  defaultQwenModel: typeof DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL;
+  defaultQwenModel: string;
   gateIssue: typeof liveTranscriptAuthorizationGate.issue;
   releaseLease: typeof releaseMeetingLiveTranscriptLease;
   releaseTrackLease: typeof releaseMeetingLiveTranscriptTrackLease;

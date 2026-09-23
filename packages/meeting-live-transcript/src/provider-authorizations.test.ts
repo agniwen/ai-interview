@@ -51,25 +51,29 @@ describe("provider authorizations", () => {
     ).rejects.toThrow("Member 或更高权限");
   });
 
-  it("keeps the existing Qwen temporary-token flow", async () => {
-    const fetch = vi.fn(() =>
-      Promise.resolve(Response.json({ expires_at: 2_000_000_000, token: "short-qwen-key" })),
-    );
+  it.each(["qwen-audio-3.0-asr-flash-streaming", "qwen-audio-3.1-asr-flash-streaming"])(
+    "keeps the Qwen temporary-token flow on the inference endpoint (%s)",
+    async (model) => {
+      const fetch = vi.fn(() =>
+        Promise.resolve(Response.json({ expires_at: 2_000_000_000, token: "short-qwen-key" })),
+      );
 
-    const authorization = await createQwenRealtimeTranscriptionAuthorization(
-      { language: "zh", track: "system" },
-      {
-        apiKey: "permanent-qwen-key",
-        baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        fetch,
-        model: "qwen-audio-3.0-asr-flash-streaming",
-      },
-    );
+      const authorization = await createQwenRealtimeTranscriptionAuthorization(
+        { language: "zh", track: "system" },
+        {
+          apiKey: "permanent-qwen-key",
+          baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          fetch,
+          model,
+        },
+      );
 
-    expect(authorization).toMatchObject({
-      clientSecret: "short-qwen-key",
-      provider: "qwen",
-      track: "system",
-    });
-  });
+      expect(authorization).toMatchObject({
+        baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
+        clientSecret: "short-qwen-key",
+        provider: "qwen",
+        track: "system",
+      });
+    },
+  );
 });

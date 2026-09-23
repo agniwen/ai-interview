@@ -105,7 +105,8 @@ interface QwenAsrTaskParameters {
 }
 
 interface QwenAsrTaskInput {
-  file_url: string;
+  file_url?: string;
+  file_urls?: string[];
   context?: { role: "user"; content: { type: "input_text"; text: string }[] }[];
 }
 
@@ -236,22 +237,27 @@ export function createQwenAsrMeetingTranscriptionProvider(
     signal: AbortSignal;
     recognitionHints?: MeetingRecognitionHints;
   }): Promise<string> {
+    const qwenAudioFiletrans = /^qwen-audio-3\.[01]-asr-flash-filetrans(?:$|-)/u.test(
+      dependencies.model,
+    );
     const parameters: QwenAsrTaskParameters = {
       channel_id: [0],
       enable_itn: true,
     };
     if (
-      dependencies.model.startsWith("qwen-audio-3.0-asr-flash-filetrans") &&
+      qwenAudioFiletrans &&
       (input.chunk.track === "system" || isMixedMeetingRecordingSource(input.chunk))
     ) {
       parameters.diarization_enabled = true;
     }
-    const terms = dependencies.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")
+    const terms = qwenAudioFiletrans
       ? [...new Set(input.recognitionHints?.terms.map((term) => term.trim()))]
           .filter((term) => term.length >= 2 && term.length <= 40)
           .slice(0, 50)
       : [];
-    const taskInput: QwenAsrTaskInput = { file_url: input.audioUrl };
+    const taskInput: QwenAsrTaskInput = qwenAudioFiletrans
+      ? { file_urls: [input.audioUrl] }
+      : { file_url: input.audioUrl };
     // Vocabulary has stricter per-term limits than the conversation context.
     const hotwords = terms.filter((term) =>
       /\P{ASCII}/u.test(term) ? [...term].length <= 15 : term.split(/\s+/u).length <= 7,

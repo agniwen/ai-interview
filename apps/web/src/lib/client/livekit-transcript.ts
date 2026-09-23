@@ -1,7 +1,7 @@
 import type { ReceivedMessage } from "@livekit/components-react";
-import { joinTranscriptText } from "@app/shared/interview-transcript-turns";
 
 const USER_TRANSCRIPT_TYPE = "userTranscript";
+const USER_TURN_STARTED_AT = "interview.user_turn_started_at_ms";
 
 function participantIdentity(message: ReceivedMessage): string | undefined {
   return message.from?.identity;
@@ -14,17 +14,9 @@ function isUserTranscript(message: ReceivedMessage): message is ReceivedMessage 
   return message.type === USER_TRANSCRIPT_TYPE;
 }
 
-function shouldMergeUserTranscript(previous: ReceivedMessage, next: ReceivedMessage): boolean {
-  return (
-    isUserTranscript(previous) &&
-    isUserTranscript(next) &&
-    participantIdentity(previous) === participantIdentity(next)
-  );
-}
-
 // A full reconnect keeps the hook's old messages. Replace them only after the
 // complete server snapshot arrives; text equality cannot distinguish repeated answers.
-function applyReplaySnapshot(messages: ReceivedMessage[]): ReceivedMessage[] {
+export function applyReplaySnapshot(messages: ReceivedMessage[]): ReceivedMessage[] {
   const batches = new Map<
     string,
     { start: number; count: number; turns: Map<number, ReceivedMessage> }
@@ -72,27 +64,62 @@ function applyReplaySnapshot(messages: ReceivedMessage[]): ReceivedMessage[] {
   return [...snapshot, ...retained];
 }
 
-export function coalesceSessionMessages(input: ReceivedMessage[]): ReceivedMessage[] {
-  const messages = applyReplaySnapshot(input);
-  if (messages.length < 2) {
-    return messages;
+function userTurnStart(message: ReceivedMessage): number | null {
+  const raw = message.attributes?.[USER_TURN_STARTED_AT];
+  if (!isUserTranscript(message) || !raw) {
+    return null;
   }
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
 
-  let merged = false;
-  const result: ReceivedMessage[] = [];
+function comparableText(message: ReceivedMessage): string {
+  return message.message.trim().replace(/[。！？.!?]+$/u, "");
+}
 
-  for (const message of messages) {
-    const previous = result.at(-1);
-    if (previous && shouldMergeUserTranscript(previous, message)) {
-      result[result.length - 1] = {
-        ...previous,
-        message: joinTranscriptText(previous.message, message.message),
-      };
-      merged = true;
+// LiveKit sorts by first receipt. The agent publishes an additional final user
+// transcript carrying the provider's actual speech-start time, so a late STT
+// result can be placed before the reply it prompted without a delay heuristic.
+export function orderSessionMessages(input: ReceivedMessage[]): ReceivedMessage[] {
+  const messages = applyReplaySnapshot(input);
+  const duplicatedStockMessages = new Set<ReceivedMessage>();
+  for (const ordered of messages) {
+    const startedAt = userTurnStart(ordered);
+    if (startedAt === null) {
       continue;
     }
-    result.push(message);
+    // RoomIO also sends this turn without its start time. Pair only an equal
+    // transcript from the same speaker that was published after speech began.
+    const [matchingStock] = messages
+      .filter(
+        (message) =>
+          isUserTranscript(message) &&
+          userTurnStart(message) === null &&
+          !message.attributes?.["interview.replay_batch"] &&
+          !duplicatedStockMessages.has(message) &&
+          participantIdentity(message) === participantIdentity(ordered) &&
+          message.timestamp >= startedAt &&
+          comparableText(message) === comparableText(ordered),
+      )
+      .toSorted(
+        (left, right) =>
+          Math.abs(left.timestamp - ordered.timestamp) -
+          Math.abs(right.timestamp - ordered.timestamp),
+      );
+    if (matchingStock) {
+      duplicatedStockMessages.add(matchingStock);
+    }
   }
-
-  return merged ? result : messages;
+  const retained = messages.filter((message) => !duplicatedStockMessages.has(message));
+  const replayCount = retained.findIndex(
+    (message) => !message.attributes?.["interview.replay_batch"],
+  );
+  const replayLength = replayCount === -1 ? retained.length : replayCount;
+  const live = retained.slice(replayLength);
+  live.sort((left, right) => {
+    const leftTime = userTurnStart(left) ?? left.timestamp;
+    const rightTime = userTurnStart(right) ?? right.timestamp;
+    return leftTime - rightTime;
+  });
+  return [...retained.slice(0, replayLength), ...live];
 }

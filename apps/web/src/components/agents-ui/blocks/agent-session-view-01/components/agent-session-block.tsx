@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcript";
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { coalesceSessionMessages } from "@/lib/client/livekit-transcript";
+import { orderSessionMessages } from "@/lib/client/livekit-transcript";
 import { cn } from "@app/shared/utils";
 import { AgentStateIndicator } from "./agent-state-indicator";
 import { TileLayout } from "./tile-view";
@@ -218,7 +218,7 @@ export function AgentSessionView_01({
 }: React.ComponentProps<"section"> & AgentSessionView_01Props) {
   const session = useSessionContext();
   const { messages: rawMessages } = useSessionMessages(session);
-  const messages = useMemo(() => coalesceSessionMessages(rawMessages), [rawMessages]);
+  const messages = useMemo(() => orderSessionMessages(rawMessages), [rawMessages]);
   const [chatOpen, setChatOpen] = useState(defaultChatOpen);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { state: agentState } = useAgent();

@@ -69,12 +69,12 @@ class _FakeHttpSession:
 def test_qwen_audio_streaming_is_the_default_aligned_stt():
     recognizer = STT(api_key="test-key")
 
-    assert recognizer._opts.model == "qwen-audio-3.0-asr-flash-streaming"
+    assert recognizer._opts.model == "qwen-audio-3.1-asr-flash-streaming"
     assert recognizer.capabilities.streaming is True
     assert recognizer.capabilities.interim_results is True
     assert recognizer.capabilities.aligned_transcript == "word"
     assert recognizer.capabilities.offline_recognize is False
-    assert recognizer.model == "qwen-audio-3.0-asr-flash-streaming"
+    assert recognizer.model == "qwen-audio-3.1-asr-flash-streaming"
     assert recognizer.provider == "aliyun"
 
 
@@ -97,15 +97,34 @@ def test_qwen_audio_request_only_sends_supported_parameters():
     request = recognizer._opts.get_run_task_params("task-id")
     parameters = request["payload"]["parameters"]
 
-    assert request["payload"]["model"] == "qwen-audio-3.0-asr-flash-streaming"
+    assert request["payload"]["model"] == "qwen-audio-3.1-asr-flash-streaming"
     assert parameters == {
         "format": "pcm",
         "sample_rate": 16000,
         "semantic_punctuation_enabled": False,
-        "max_sentence_silence": 1300,
+        "vad_model": "near_meeting_16k",
         "heartbeat": True,
         "language_hints": ["zh"],
     }
+
+
+def test_qwen_audio_3_0_keeps_its_legacy_silence_setting():
+    recognizer = STT(
+        api_key="test-key",
+        model="qwen-audio-3.0-asr-flash-streaming",
+        max_sentence_silence=800,
+    )
+    parameters = recognizer._opts.get_run_task_params("task-id")["payload"][
+        "parameters"
+    ]
+    assert parameters["max_sentence_silence"] == 800
+    assert "vad_model" not in parameters
+    assert "disfluency_removal_enabled" not in parameters
+
+
+def test_qwen_audio_3_1_rejects_unknown_vad_model():
+    with pytest.raises(ValueError, match="VAD model"):
+        STT(api_key="test-key", vad_model="unknown")
 
 
 def test_qwen_audio_events_convert_milliseconds_and_include_timed_words():

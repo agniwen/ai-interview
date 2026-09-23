@@ -12,7 +12,7 @@ describe("Meeting transcription provider registry", () => {
     ).toEqual([
       {
         id: "qwen",
-        label: "通义千问 ASR（百炼 Qwen3-ASR-Flash）",
+        label: "通义千问 ASR（百炼）",
         model: "qwen3-asr-flash-filetrans",
         region: "qwen-cn-beijing",
       },

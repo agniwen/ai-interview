@@ -75,7 +75,7 @@ from recording import (
 from report import send_question_checkpoint, send_report
 from report_outbox import report_recovery_process
 from sentry_setup import initialize_sentry
-from transcript_replay import replay_turns_to
+from transcript_replay import publish_ordered_user_turn, replay_turns_to
 
 logger = logging.getLogger("agent")
 
@@ -219,6 +219,7 @@ class SessionState:
     # doesn't garbage-collect it mid-flight.
     eager_stop_task: asyncio.Task[None] | None = None
     checkpoint_tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    ordered_transcript_tasks: set[asyncio.Task[None]] = field(default_factory=set)
     interview_agent: InterviewAgent | RealtimeInterviewAgent | None = None
     completion_status: str | None = None
 
@@ -324,6 +325,7 @@ def _build_session(
             max_sentence_silence=int(
                 os.environ.get("DASHSCOPE_STT_MAX_SENTENCE_SILENCE_MS") or "1300"
             ),
+            vad_model=os.environ.get("DASHSCOPE_STT_VAD_MODEL") or "near_meeting_16k",
             vocabulary_id=os.environ.get("DASHSCOPE_STT_VOCABULARY_ID") or None,
             workspace=os.environ.get("DASHSCOPE_WORKSPACE_ID") or None,
             base_url=os.environ.get("DASHSCOPE_STT_BASE_URL") or None,
@@ -767,6 +769,23 @@ async def my_agent(ctx: JobContext) -> None:
                 "timeInCallSecs": round(elapsed),
             }
         )
+        if role_str == "user":
+
+            async def _publish_user_turn() -> None:
+                try:
+                    await publish_ordered_user_turn(
+                        ctx.room.local_participant,
+                        candidate_identity=participant.identity,
+                        item_id=item.id,
+                        text=text.strip(),
+                        started_at=item.created_at,
+                    )
+                except Exception:
+                    logger.exception("ordered user transcript publish failed")
+
+            task = asyncio.create_task(_publish_user_turn())
+            state.ordered_transcript_tasks.add(task)
+            task.add_done_callback(state.ordered_transcript_tasks.discard)
         if isinstance(state.interview_agent, RealtimeInterviewAgent):
             state.interview_agent.observe_turn(item.id, role_str, text.strip(), elapsed)
             state.interview_agent.schedule_reconciliation()

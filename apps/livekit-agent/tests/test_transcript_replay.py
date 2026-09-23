@@ -17,6 +17,7 @@ from transcript_replay import (
     ATTR_SEGMENT_ID,
     ATTR_TRANSCRIPTION_FINAL,
     TRANSCRIPTION_TOPIC,
+    publish_ordered_user_turn,
     replay_turns_to,
 )
 
@@ -170,3 +171,27 @@ async def test_replay_marks_one_complete_snapshot_with_contiguous_indices():
     assert len({a["interview.replay_batch"] for a in attrs}) == 1
     assert [a["interview.replay_index"] for a in attrs] == ["0", "1"]
     assert [a["interview.replay_count"] for a in attrs] == ["2", "2"]
+
+
+@pytest.mark.asyncio
+async def test_live_user_turn_carries_actual_speech_start_time():
+    participant, calls, writer = _make_local_participant()
+    await publish_ordered_user_turn(
+        participant,
+        candidate_identity="candidate-1",
+        item_id="qwen-item-1",
+        text="我的回答",
+        started_at=1000.125,
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["topic"] == TRANSCRIPTION_TOPIC
+    assert calls[0]["sender_identity"] == "candidate-1"
+    assert calls[0]["destination_identities"] == ["candidate-1"]
+    assert calls[0]["attributes"] == {
+        ATTR_TRANSCRIPTION_FINAL: "true",
+        ATTR_SEGMENT_ID: "ordered-user-qwen-item-1",
+        "interview.user_turn_started_at_ms": "1000125",
+    }
+    writer.write.assert_awaited_once_with("我的回答")
+    writer.aclose.assert_awaited_once()

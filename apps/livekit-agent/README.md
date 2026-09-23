@@ -28,7 +28,7 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 
 | Stage          | Provider                                               | Notes                           |
 | -------------- | ------------------------------------------------------ | ------------------------------- |
-| STT            | Aliyun (`qwen-audio-3.0-asr-flash-streaming`, `zh`)    | project-owned streaming adapter |
+| STT            | Aliyun (`qwen-audio-3.1-asr-flash-streaming`, `zh`)    | project-owned streaming adapter |
 | LLM            | Aliyun DashScope (`deepseek-v4-flash-0731` by default) | OpenAI-compatible endpoint      |
 | TTS            | Minimax                                                | livekit-plugins-minimax-ai      |
 | VAD            | Silero                                                 | downloaded via `download-files` |

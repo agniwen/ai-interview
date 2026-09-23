@@ -188,7 +188,7 @@ RECORDING_R2_KEY_PREFIX=<保持当前录音前缀>
 
 ### 会后转录的面试术语提示
 
-Worker 会从本场会议关联的岗位 JD（`prompt`）、候选人简历和面试问题提取最多 50 个原文术语，供 `qwen-audio-3.0-asr-flash-filetrans` 会后识别使用。适用于各行业岗位，无需招聘人员维护词表；不会读取旧岗位 `description` 或评分配置，也不会将完整简历作为候选人发言提供给 ASR。
+Worker 会从本场会议关联的岗位 JD（`prompt`）、候选人简历和面试问题提取最多 50 个原文术语，供 `qwen-audio-3.1-asr-flash-filetrans` 会后识别使用。适用于各行业岗位，无需招聘人员维护词表；不会读取旧岗位 `description` 或评分配置，也不会将完整简历作为候选人发言提供给 ASR。
 
 - 沿用 Worker 的 `ALIBABA_API_KEY`、`MASTRA_FAST_MODEL` 等现有模型配置，不新增环境变量。提取失败或超时（20 秒）时继续普通识别；没有材料时不调用提取模型。
 - 每次处理任务仅提取一次，供未完成的音轨分片和补救录音共用；已完成的分片检查点继续复用。旧版 `qwen3-asr-flash-filetrans` 不发送该参数。

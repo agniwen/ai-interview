@@ -416,7 +416,7 @@ async function runMeetingTranscriptionProcessingPromise(
   let recognitionHintsPromise: Promise<MeetingRecognitionHints | undefined> | undefined;
   const loadRecognitionHints = () => {
     recognitionHintsPromise ??= (async () => {
-      if (!input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")) {
+      if (!/^qwen-audio-3\.[01]-asr-flash-filetrans(?:$|-)/u.test(input.model)) {
         return;
       }
       try {
@@ -536,7 +536,7 @@ async function runMeetingTranscriptionProcessingPromise(
         return { chunks };
       }
       const chunks = await dependencies.prepareChunks({
-        chunkDurationMs: input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")
+        chunkDurationMs: /^qwen-audio-3\.[01]-asr-flash-filetrans(?:$|-)/u.test(input.model)
           ? MAX_DURATION_MS
           : undefined,
         directory,

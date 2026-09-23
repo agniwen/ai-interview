@@ -154,7 +154,7 @@ export function createHumanRealtimeTranscriptDao(db: Database) {
         kind: "realtime",
         language: "zh-CN",
         meetingId: sessionId,
-        model: "qwen-audio-3.0-asr-flash-streaming",
+        model: "qwen-audio-3.1-asr-flash-streaming",
         organizationId: run.organizationId,
         pipelineVersion: "human-realtime-v1",
         provider: "qwen",

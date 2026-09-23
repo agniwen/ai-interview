@@ -52,6 +52,34 @@ class _LocalParticipantLike(Protocol):
     ) -> _TextStreamWriterLike: ...
 
 
+async def publish_ordered_user_turn(
+    local_participant: _LocalParticipantLike,
+    *,
+    candidate_identity: str,
+    item_id: str,
+    text: str,
+    started_at: float,
+) -> None:
+    """Publish the final user turn with the provider's speech-start time.
+
+    RoomIO's normal transcription stream carries its publish time, which can
+    be later than the agent reply. The explicit start time lets the browser
+    order this turn causally without guessing from arrival delays.
+    """
+    writer = await local_participant.stream_text(
+        topic=TRANSCRIPTION_TOPIC,
+        sender_identity=candidate_identity,
+        destination_identities=[candidate_identity],
+        attributes={
+            ATTR_TRANSCRIPTION_FINAL: "true",
+            ATTR_SEGMENT_ID: f"ordered-user-{item_id}",
+            "interview.user_turn_started_at_ms": str(round(started_at * 1000)),
+        },
+    )
+    await writer.write(text)
+    await writer.aclose()
+
+
 async def replay_turns_to(
     local_participant: _LocalParticipantLike,
     *,

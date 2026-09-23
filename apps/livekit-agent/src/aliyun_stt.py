@@ -28,7 +28,7 @@ from livekit.agents.types import NOT_GIVEN, NotGivenOr, TimedString
 
 logger = logging.getLogger("aliyun-stt")
 
-DEFAULT_MODEL = "qwen-audio-3.0-asr-flash-streaming"
+DEFAULT_MODEL = "qwen-audio-3.1-asr-flash-streaming"
 DEFAULT_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
 
 
@@ -62,6 +62,7 @@ class STTOptions:
     punctuate: bool
     model: str
     max_sentence_silence: int = 1300
+    vad_model: str = "near_meeting_16k"
     sample_rate: int = 16000
     workspace: str | None = None
     vocabulary_id: str | None = None
@@ -89,18 +90,20 @@ class STTOptions:
             "format": "pcm",
             "sample_rate": self.sample_rate,
             "semantic_punctuation_enabled": self.semantic_punctuation_enabled,
-            "max_sentence_silence": self.max_sentence_silence,
             "heartbeat": True,
             "language_hints": [self.language],
         }
+        if self.model.startswith("qwen-audio-3.1-asr-flash-streaming"):
+            parameters["vad_model"] = self.vad_model
+        else:
+            parameters["max_sentence_silence"] = self.max_sentence_silence
         if self.vocabulary:
             parameters["vocabulary"] = self.vocabulary
         if self.vocabulary_id is not None:
             parameters["vocabulary_id"] = self.vocabulary_id
 
-        # These parameters belong to the older Paraformer API and are not part
-        # of Qwen-Audio-3.0-ASR-Flash-Streaming's documented request schema.
-        if not self.model.startswith("qwen-audio-3.0-asr-flash"):
+        # These parameters belong to the older Paraformer API, not Qwen-Audio-3.x.
+        if not self.model.startswith("qwen-audio-3."):
             parameters.update(
                 {
                     "disfluency_removal_enabled": self.disfluency_removal_enabled,
@@ -159,6 +162,7 @@ class STT(stt.STT):
         api_key: str | None = None,
         base_url: str | None = None,
         max_sentence_silence: int = 1300,
+        vad_model: str = "near_meeting_16k",
         disfluency_removal_enabled: bool = False,
         semantic_punctuation_enabled: bool = False,
         punctuation_prediction_enabled: bool = True,
@@ -180,6 +184,8 @@ class STT(stt.STT):
         api_key = api_key or os.environ.get("DASHSCOPE_API_KEY")
         if api_key is None:
             raise ValueError("DASHSCOPE_API_KEY is required")
+        if vad_model not in {"near_meeting_16k", "far_field_meeting_16k"}:
+            raise ValueError("Invalid Qwen Audio 3.1 VAD model")
         self._opts = STTOptions(
             api_key=api_key,
             base_url=base_url or DEFAULT_BASE_URL,
@@ -189,6 +195,7 @@ class STT(stt.STT):
             punctuate=punctuate,
             model=model,
             max_sentence_silence=max_sentence_silence,
+            vad_model=vad_model,
             disfluency_removal_enabled=disfluency_removal_enabled,
             semantic_punctuation_enabled=semantic_punctuation_enabled,
             punctuation_prediction_enabled=punctuation_prediction_enabled,

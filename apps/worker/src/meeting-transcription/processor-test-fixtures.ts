@@ -3,7 +3,7 @@ import type { MeetingTranscriptionDependencies } from "./processor";
 
 export const job = {
   meetingId: "meeting-76",
-  model: "qwen-audio-3.0-asr-flash-filetrans",
+  model: "qwen-audio-3.1-asr-flash-filetrans",
   organizationId: "org-76",
   pipelineVersion: "final-v2" as const,
   policyRevision: 1,

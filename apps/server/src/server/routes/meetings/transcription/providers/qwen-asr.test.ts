@@ -162,47 +162,51 @@ describe("Qwen ASR Meeting transcription provider", () => {
     expect(body.input.context[0].content[0].text).toBe(term);
   });
 
-  it.each(["qwen-audio-3.0-asr-flash-filetrans", "qwen3-asr-flash-filetrans"])(
-    "sends meeting terminology only to supported models (%s)",
-    async (model) => {
-      const fetch = vi
-        .fn<typeof globalThis.fetch>()
-        .mockResolvedValueOnce(jsonResponse({ output: { task_id: "task-terms" } }))
-        .mockResolvedValueOnce(
-          jsonResponse({
-            output: {
-              result: { transcription_url: "https://result.aliyuncs.com/result.json" },
-              task_status: "SUCCEEDED",
-            },
-          }),
-        )
-        .mockResolvedValueOnce(jsonResponse(transcriptionResult()));
-      const transcript = await createProvider({
-        fetch,
-        model,
-        recognitionHints: { terms: ["渠道回款", "核销", "IM"] },
-      });
-      const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
-      if (model === "qwen-audio-3.0-asr-flash-filetrans") {
-        expect(body.parameters.vocabulary).toEqual({ IM: 2, 核销: 2, 渠道回款: 2 });
-        expect(body.input.context).toEqual([
-          {
-            content: [
-              {
-                text: "渠道回款、核销、IM",
-                type: "input_text",
-              },
-            ],
-            role: "user",
+  it.each([
+    "qwen-audio-3.1-asr-flash-filetrans",
+    "qwen-audio-3.0-asr-flash-filetrans",
+    "qwen3-asr-flash-filetrans",
+  ])("sends meeting terminology only to supported models (%s)", async (model) => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(jsonResponse({ output: { task_id: "task-terms" } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          output: {
+            result: { transcription_url: "https://result.aliyuncs.com/result.json" },
+            task_status: "SUCCEEDED",
           },
-        ]);
-      } else {
-        expect(body.parameters).not.toHaveProperty("vocabulary");
-        expect(body.input).not.toHaveProperty("context");
-      }
-      expect(transcript.turns[0]?.text).toBe("你好");
-    },
-  );
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(transcriptionResult()));
+    const transcript = await createProvider({
+      fetch,
+      model,
+      recognitionHints: { terms: ["渠道回款", "核销", "IM"] },
+    });
+    const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    if (model.startsWith("qwen-audio-3.")) {
+      expect(body.input.file_urls).toEqual(["https://consented-audio.invalid/chunk.wav"]);
+      expect(body.input).not.toHaveProperty("file_url");
+      expect(body.parameters.vocabulary).toEqual({ IM: 2, 核销: 2, 渠道回款: 2 });
+      expect(body.input.context).toEqual([
+        {
+          content: [
+            {
+              text: "渠道回款、核销、IM",
+              type: "input_text",
+            },
+          ],
+          role: "user",
+        },
+      ]);
+    } else {
+      expect(body.input.file_url).toBe("https://consented-audio.invalid/chunk.wav");
+      expect(body.parameters).not.toHaveProperty("vocabulary");
+      expect(body.input).not.toHaveProperty("context");
+    }
+    expect(transcript.turns[0]?.text).toBe("你好");
+  });
 
   it("submits a DashScope task, polls, and maps sentences into canonical remote turns", async () => {
     const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {

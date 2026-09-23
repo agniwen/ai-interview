@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { MeetingTranscriptionProviderCandidate } from "@app/shared/meeting-transcription";
-import { resolveMeetingTranscriptionProviderModel } from "./meeting-transcription-provider-registry";
+import {
+  listMeetingTranscriptionProviderCandidates,
+  resolveMeetingTranscriptionProviderModel,
+} from "./meeting-transcription-provider-registry";
 
 const qwenCandidate: MeetingTranscriptionProviderCandidate = {
   id: "qwen",
@@ -10,12 +13,18 @@ const qwenCandidate: MeetingTranscriptionProviderCandidate = {
 };
 
 describe("resolveMeetingTranscriptionProviderModel", () => {
+  it("defaults new transcription jobs to Qwen Audio 3.1", () => {
+    expect(listMeetingTranscriptionProviderCandidates({})[0]?.model).toBe(
+      "qwen-audio-3.1-asr-flash-filetrans",
+    );
+  });
+
   it.each(["mixed", "playback", "system"] as const)(
     "uses Qwen Audio 3 speaker diarization for a ready %s track",
     (track) => {
       expect(
         resolveMeetingTranscriptionProviderModel(qwenCandidate, [{ status: "ready", track }]),
-      ).toBe("qwen-audio-3.0-asr-flash-filetrans");
+      ).toBe("qwen-audio-3.1-asr-flash-filetrans");
     },
   );
 

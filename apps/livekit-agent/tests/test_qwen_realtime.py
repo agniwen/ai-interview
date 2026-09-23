@@ -150,7 +150,7 @@ async def test_initial_configuration_precedes_audio_and_does_not_claim_unsupport
     assert config["input_audio_format"] == "pcm"
     assert config["turn_detection"] == {"type": "smart_turn"}
     assert config["voice"] == "longanlingxin"
-    assert "model=qwen-audio-3.0-realtime-plus" in http.url
+    assert "model=qwen-audio-3.1-realtime-plus" in http.url
     assert http.headers["Authorization"] == "Bearer test-secret"
     assert session.capabilities.auto_tool_reply_generation is False
     assert session.capabilities.message_truncation is False
