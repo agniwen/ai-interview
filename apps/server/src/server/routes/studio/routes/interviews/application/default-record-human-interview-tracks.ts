@@ -9,13 +9,17 @@ import {
   loadTrackRecordingScope,
   updateTrackRecording,
 } from "../dao/human-interview-recording-tracks";
-import { listHumanInterviewLiveKitParticipants } from "../utils/human-interview-livekit";
+import {
+  listHumanInterviewLiveKitParticipants,
+  listHumanInterviewLiveKitRooms,
+} from "../utils/human-interview-livekit";
 import {
   listHumanInterviewEgress,
   startHumanInterviewTrackRecording,
   stopHumanInterviewRoomRecording,
 } from "../utils/human-interview-recording";
 import { recordHumanInterviewTracks } from "./record-human-interview-tracks";
+import { reconcileExpiredHumanInterviewMeetings } from "./reconcile-expired-human-interview-meetings";
 
 function egressFileKey(info: EgressInfo): string | undefined {
   if (info.fileResults[0]?.filename) {
@@ -134,6 +138,10 @@ export async function synchronizeHumanInterviewTrackRecordings(
   if (!scope || !["scheduled", "in_progress"].includes(scope.meeting.status)) {
     return;
   }
+  const [room] = await listHumanInterviewLiveKitRooms([roomName]);
+  if (!room?.sid) {
+    return;
+  }
   const participants = await listHumanInterviewLiveKitParticipants(roomName);
   const authorized = participants.flatMap((participant) => {
     const person = scope.participants.find((item) => item.identity === participant.identity);
@@ -152,7 +160,14 @@ export async function synchronizeHumanInterviewTrackRecordings(
   });
   const now = Date.now();
   const sources = [
-    { displayName: null, participantIdentity: null, role: "mixed" as const, trackId: "mixed" },
+    {
+      displayName: null,
+      participantIdentity: null,
+      role: "mixed" as const,
+      // A recreated room keeps its name but has a new SID. Deduplicate within
+      // each room instance while retaining recordings from previous instances.
+      trackId: `mixed:${room.sid}`,
+    },
     ...authorized.flatMap(({ person, participant }) =>
       participant.tracks
         .filter(
@@ -208,6 +223,13 @@ export async function synchronizeHumanInterviewTrackRecordings(
 
 // oxlint-disable-next-line complexity -- reconciliation owns bounded timeouts and late completion for each recording.
 export async function reconcileHumanInterviewTrackRecordings(): Promise<void> {
+  try {
+    await reconcileExpiredHumanInterviewMeetings();
+  } catch (error) {
+    console.warn("expired human interview reconciliation will retry", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  }
   for (const { roomName } of await listTrackRecordingMeetings()) {
     if (!roomName) {
       continue;

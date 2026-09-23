@@ -53,19 +53,29 @@ function getLiveKitEgressClient(): EgressClient {
   return new EgressClient(url.toString(), apiKey, apiSecret);
 }
 
-export async function startHumanInterviewTrackRecording(input: {
-  roomName: string;
-  fileKey: string;
-  trackId: string;
-}): Promise<string> {
+const defaultTrackRecordingDependencies = {
+  createEgressClient: getLiveKitEgressClient,
+  loadUploadConfig: getHumanInterviewRecordingUploadConfig,
+};
+
+export async function startHumanInterviewTrackRecording(
+  input: { roomName: string; fileKey: string; trackId: string },
+  dependencies: {
+    createEgressClient: () => Pick<
+      HumanInterviewRecordingEgressPort,
+      "startRoomCompositeEgress" | "startTrackCompositeEgress"
+    >;
+    loadUploadConfig: typeof getHumanInterviewRecordingUploadConfig;
+  } = defaultTrackRecordingDependencies,
+): Promise<string> {
   const output = new EncodedFileOutput({
     fileType: EncodedFileType.OGG,
     filepath: input.fileKey,
-    output: { case: "s3", value: new S3Upload(await getHumanInterviewRecordingUploadConfig()) },
+    output: { case: "s3", value: new S3Upload(await dependencies.loadUploadConfig()) },
   });
-  const client = getLiveKitEgressClient();
+  const client = dependencies.createEgressClient();
   const info =
-    input.trackId === "mixed"
+    input.trackId === "mixed" || input.trackId.startsWith("mixed:")
       ? await client.startRoomCompositeEgress(input.roomName, output, { audioOnly: true })
       : await client.startTrackCompositeEgress(input.roomName, output, {
           audioTrackId: input.trackId,

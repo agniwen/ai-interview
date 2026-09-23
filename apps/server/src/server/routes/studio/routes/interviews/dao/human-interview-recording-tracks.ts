@@ -100,6 +100,15 @@ export async function claimTrackRecordings(input: {
     }
     const existing = meeting.recordingTracks ?? [];
     const claimed = input.proposed.filter((track) => {
+      // Keep a pre-upgrade recording running until its completion is observed.
+      if (
+        track.role === "mixed" &&
+        existing.some(
+          (item) => item.trackId === "mixed" && ["starting", "active"].includes(item.status),
+        )
+      ) {
+        return false;
+      }
       const attempts = existing.filter((item) => item.trackId === track.trackId);
       return attempts.length < 3 && !attempts.some((item) => item.status !== "failed");
     });

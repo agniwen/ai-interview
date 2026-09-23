@@ -120,3 +120,10 @@ export async function listHumanInterviewLiveKitParticipants(roomName: string) {
     apiSecret,
   ).listParticipants(roomName);
 }
+
+export async function listHumanInterviewLiveKitRooms(names: string[]) {
+  const { apiKey, apiSecret, serverUrl } = getLiveKitServerConfig();
+  return await new RoomServiceClient(toHttpLiveKitUrl(serverUrl), apiKey, apiSecret).listRooms(
+    names,
+  );
+}

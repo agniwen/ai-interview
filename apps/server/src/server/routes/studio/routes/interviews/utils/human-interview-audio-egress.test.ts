@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { EncodedFileType, TrackSource, TrackType } from "livekit-server-sdk";
-import { startHumanInterviewRoomRecording } from "./human-interview-recording";
+import {
+  startHumanInterviewRoomRecording,
+  startHumanInterviewTrackRecording,
+} from "./human-interview-recording";
 
 const input = {
   candidateFileKey: "human-interviews/org/meeting/candidate-audio.ogg",
@@ -48,6 +51,18 @@ function setup() {
 }
 
 describe("candidate microphone egress", () => {
+  it.each(["mixed", "mixed:RM_first", "mixed:RM_rejoined"])(
+    "starts %s as a whole-room recording instead of a microphone track",
+    async (trackId) => {
+      const { client, dependencies } = setup();
+      await startHumanInterviewTrackRecording(
+        { fileKey: input.fileKey, roomName: input.roomName, trackId },
+        dependencies,
+      );
+      expect(client.startRoomCompositeEgress).toHaveBeenCalledOnce();
+      expect(client.startTrackCompositeEgress).not.toHaveBeenCalled();
+    },
+  );
   it("keeps dual OGG outputs but only records the candidate microphone", async () => {
     const { client, dependencies, getParticipant } = setup();
     await expect(startHumanInterviewRoomRecording(input, dependencies)).resolves.toEqual({

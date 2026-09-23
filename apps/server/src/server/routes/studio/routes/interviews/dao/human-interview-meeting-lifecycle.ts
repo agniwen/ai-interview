@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, lte, or } from "drizzle-orm";
 import { db } from "../../../../../../lib/server/db/index";
 import { humanInterviewMeeting, humanInterviewMeetingEvent } from "@app/db-schema/schema";
 import type {
@@ -11,6 +11,21 @@ import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 type FeishuMeetingProviderId = "feishu" | "feishu-jiguang-hr";
 
 type LifecycleStatus = "in_progress" | "ended";
+
+export async function loadExpiredEstablishedHumanInterviewMeetings(now: Date) {
+  return await db
+    .select({ liveKitRoomName: humanInterviewMeeting.liveKitRoomName })
+    .from(humanInterviewMeeting)
+    .where(
+      and(
+        eq(humanInterviewMeeting.status, "in_progress"),
+        isNotNull(humanInterviewMeeting.establishedAt),
+        isNotNull(humanInterviewMeeting.liveKitRoomName),
+        lte(humanInterviewMeeting.validUntil, now),
+      ),
+    )
+    .orderBy(asc(humanInterviewMeeting.validUntil));
+}
 
 export type MeetingLifecycleApplyResult = "applied" | "duplicate" | "ignored";
 
@@ -68,6 +83,17 @@ export function applyHumanInterviewMeetingLifecycleEvent(
     }
 
     if (["cancelled", "ended", "not_held"].includes(meeting.status)) {
+      return "ignored";
+    }
+    // An empty LiveKit room may close while candidates are still allowed to
+    // rejoin. Only explicit ends or room closure after admission expires end
+    // the interview; keep reminders and the original start time intact.
+    if (
+      event.provider === "livekit" &&
+      event.type === "livekit.room_finished" &&
+      meeting.validUntil &&
+      event.occurredAt.getTime() < meeting.validUntil.getTime()
+    ) {
       return "ignored";
     }
     if (event.provider === "feishu" && !meeting.feishuProviderId) {

@@ -170,6 +170,6 @@ export function isHumanInterviewMeetingAfterValidUntil(
   const end = new Date(validUntil);
   const now = new Date(nowInput);
   return (
-    !Number.isNaN(end.getTime()) && !Number.isNaN(now.getTime()) && end.getTime() < now.getTime()
+    !Number.isNaN(end.getTime()) && !Number.isNaN(now.getTime()) && end.getTime() <= now.getTime()
   );
 }
