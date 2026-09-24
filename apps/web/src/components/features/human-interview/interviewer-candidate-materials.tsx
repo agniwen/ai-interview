@@ -6,9 +6,6 @@ import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-r
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, lazy, Suspense, useState } from "react";
-import type { Ref } from "react";
-import { cn } from "@app/shared/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
@@ -73,25 +70,24 @@ const InlineImageViewer = lazy(async () => {
   return { default: mod.ImageResumePreviewContent };
 });
 
-export type CandidateMaterialsLeftTab = "ai" | "hr" | "questions";
-export type CandidateMaterialsCenterTab = "detail" | "resume";
+export type CandidateMaterialsTab = "resume" | "detail" | "ai" | "questions" | "hr";
 
 export interface InterviewerCandidateMaterialsState {
   candidateId: string | null;
-  centerTab: CandidateMaterialsCenterTab;
-  leftTab: CandidateMaterialsLeftTab;
+  tab: CandidateMaterialsTab;
 }
 
-function isCandidateMaterialsLeftTab(value: string): value is CandidateMaterialsLeftTab {
-  return value === "ai" || value === "hr" || value === "questions";
-}
-
-function isCandidateMaterialsCenterTab(value: string): value is CandidateMaterialsCenterTab {
-  return value === "detail" || value === "resume";
+function isCandidateMaterialsTab(value: string): value is CandidateMaterialsTab {
+  return (
+    value === "resume" ||
+    value === "detail" ||
+    value === "ai" ||
+    value === "questions" ||
+    value === "hr"
+  );
 }
 
 interface InterviewerCandidateMaterialsProps {
-  transcriptPanelRef?: Ref<HTMLDivElement>;
   active: boolean;
   inviteToken: string;
   onStateChange: (state: InterviewerCandidateMaterialsState) => void;
@@ -212,7 +208,7 @@ function CandidateAiEvaluation({ query }: { query: ReturnType<typeof useAiEvalua
   if (aiEvaluation.status !== "ready") {
     let description: string | undefined;
     if (aiEvaluation.status === "pending") {
-      description = "当前评价仍在生成中，本次进入资料页不会自动刷新。";
+      description = "当前评价仍在生成中，请稍后查看。";
     } else if (aiEvaluation.status === "failed") {
       description = "最近一次 AI 评价未成功。";
     } else if (aiEvaluation.status === "legacy") {
@@ -479,14 +475,11 @@ function useQuestionsQuery(active: boolean, inviteToken: string, candidateId: st
 }
 
 export function InterviewerCandidateMaterials({
-  transcriptPanelRef,
   active,
   inviteToken,
   onStateChange,
   state,
 }: InterviewerCandidateMaterialsProps) {
-  const isMobile = useIsMobile();
-  const [mobileGroup, setMobileGroup] = useState<"left" | "center" | "transcript">("center");
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active,
@@ -499,10 +492,6 @@ export function InterviewerCandidateMaterials({
   const aiQuery = useAiEvaluationQuery(active, inviteToken, effectiveCandidateId);
   const hrQuery = useHrInformationQuery(active, inviteToken, effectiveCandidateId);
   const questionsQuery = useQuestionsQuery(active, inviteToken, effectiveCandidateId);
-  const materialsTab = mobileGroup === "left" ? state.leftTab : state.centerTab;
-  const mobileTab =
-    mobileGroup === "transcript" && transcriptPanelRef ? "transcript" : materialsTab;
-
   if (listQuery.isPending) {
     return <LoadingBlock />;
   }
@@ -538,154 +527,58 @@ export function InterviewerCandidateMaterials({
         </SelectContent>
       </Select>
     ) : null;
-  if (isMobile) {
-    return (
-      <Tabs
-        className="h-full min-h-0 gap-0 overflow-hidden bg-background text-foreground"
-        value={mobileTab}
-        onValueChange={(value) => {
-          if (value === "transcript" && transcriptPanelRef) {
-            setMobileGroup("transcript");
-          } else if (isCandidateMaterialsLeftTab(value)) {
-            setMobileGroup("left");
-            onStateChange({ ...state, leftTab: value });
-          } else if (isCandidateMaterialsCenterTab(value)) {
-            setMobileGroup("center");
-            onStateChange({ ...state, centerTab: value });
-          }
-        }}
-      >
-        {candidateSelector}
-        <TabsList
-          aria-label="候选人资料"
-          className={cn(
-            "m-2 grid h-auto w-auto shrink-0 gap-0 data-[orientation=horizontal]:h-auto",
-            transcriptPanelRef ? "grid-cols-6" : "grid-cols-5",
-          )}
-        >
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="detail">
-            详情
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="resume">
-            简历
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="ai">
-            AI评价
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="hr">
-            历史评价
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="questions">
-            面试题
-          </TabsTrigger>
-          {transcriptPanelRef ? (
-            <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="transcript">
-              实时转录
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
-        {transcriptPanelRef ? (
-          <TabsContent className="min-h-0 overflow-hidden" value="transcript" keepMounted>
-            <div ref={transcriptPanelRef} className="flex h-full min-h-0 flex-col" />
-          </TabsContent>
-        ) : null}
-        <TabsContent className="min-h-0 overflow-hidden" value="ai">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateAiEvaluation query={aiQuery} />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="hr">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="questions">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateQuestions query={questionsQuery} />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="detail">
-          <CandidateDetail query={overviewQuery} />
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="resume">
-          <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
-        </TabsContent>
-      </Tabs>
-    );
-  }
-
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 lg:grid-cols-[clamp(21.75rem,25vw,25.75rem)_minmax(0,1fr)] lg:overflow-hidden">
-        <Tabs
-          className="min-h-[32rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
-          onValueChange={(leftTab) => {
-            if (isCandidateMaterialsLeftTab(leftTab)) {
-              onStateChange({ ...state, leftTab });
-            }
-          }}
-          value={state.leftTab}
-        >
-          {candidateSelector}
-          <TabsList
-            aria-label="候选人评价资料"
-            className="m-2 grid h-auto w-auto shrink-0 grid-cols-3 items-stretch gap-1 data-[orientation=horizontal]:h-auto"
-          >
-            <TabsTrigger className="h-10! w-full px-3" value="ai">
-              AI 评价
-            </TabsTrigger>
-            <TabsTrigger className="h-10! w-full px-3" value="hr">
-              历史评价
-            </TabsTrigger>
-            <TabsTrigger className="h-10! w-full px-3" value="questions">
-              面试题
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent className="min-h-0 overflow-hidden" value="ai">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateAiEvaluation query={aiQuery} />
-            </ScrollArea>
-          </TabsContent>
-          <TabsContent className="min-h-0 overflow-hidden" value="hr">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
-            </ScrollArea>
-          </TabsContent>
-          <TabsContent className="min-h-0 overflow-hidden" value="questions">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateQuestions query={questionsQuery} />
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-
-        <Tabs
-          className="min-h-[40rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
-          onValueChange={(centerTab) => {
-            if (isCandidateMaterialsCenterTab(centerTab)) {
-              onStateChange({ ...state, centerTab });
-            }
-          }}
-          value={state.centerTab}
-        >
-          <TabsList
-            aria-label="候选人简历资料"
-            className="m-2 grid h-auto w-auto shrink-0 grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto"
-          >
-            <TabsTrigger className="h-10! w-full px-3" value="detail">
-              详情
-            </TabsTrigger>
-            <TabsTrigger className="h-10! w-full px-3" value="resume">
-              简历
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent className="min-h-0 overflow-hidden" value="detail">
-            <CandidateDetail query={overviewQuery} />
-          </TabsContent>
-          <TabsContent className="min-h-0 overflow-hidden" value="resume">
-            <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+    <Tabs
+      className="h-full min-h-0 gap-0 overflow-hidden bg-background text-foreground"
+      value={state.tab}
+      onValueChange={(tab) => {
+        if (isCandidateMaterialsTab(tab)) {
+          onStateChange({ ...state, tab });
+        }
+      }}
+    >
+      {candidateSelector}
+      <TabsList
+        aria-label="候选人资料"
+        className="m-2 grid h-auto w-auto shrink-0 grid-cols-5 gap-0 data-[orientation=horizontal]:h-auto md:mx-3"
+      >
+        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="resume">
+          简历
+        </TabsTrigger>
+        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="detail">
+          详情
+        </TabsTrigger>
+        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="ai">
+          AI 评价
+        </TabsTrigger>
+        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="questions">
+          面试题
+        </TabsTrigger>
+        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="hr">
+          历史评价
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent className="min-h-0 overflow-hidden" value="resume">
+        <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
+      </TabsContent>
+      <TabsContent className="min-h-0 overflow-hidden" value="detail">
+        <CandidateDetail query={overviewQuery} />
+      </TabsContent>
+      <TabsContent className="min-h-0 overflow-hidden" value="ai">
+        <ScrollArea className="h-full" scrollFade scrollbars="leave">
+          <CandidateAiEvaluation query={aiQuery} />
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent className="min-h-0 overflow-hidden" value="questions">
+        <ScrollArea className="h-full" scrollFade scrollbars="leave">
+          <CandidateQuestions query={questionsQuery} />
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent className="min-h-0 overflow-hidden" value="hr">
+        <ScrollArea className="h-full" scrollFade scrollbars="leave">
+          <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
   );
 }

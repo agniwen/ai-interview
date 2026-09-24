@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /* oxlint-disable anti-slop/no-module-mocking -- The regression isolates the LiveKit stage boundary and its child panels. */
 
-import { act } from "react";
+import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HumanMeetingStage } from "./human-meeting-stage";
@@ -9,6 +9,8 @@ import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const transcriptLifecycle = vi.hoisted(() => ({ mounted: vi.fn(), unmounted: vi.fn() }));
 
 const mediaState = vi.hoisted(() => ({ agent: false, sharing: false, source: "camera" }));
 
@@ -68,11 +70,7 @@ vi.mock("./human-meeting-audio-controls", () => ({
 }));
 
 vi.mock("./interviewer-candidate-materials", () => ({
-  InterviewerCandidateMaterials: ({
-    transcriptPanelRef,
-  }: {
-    transcriptPanelRef?: React.Ref<HTMLDivElement>;
-  }) => <div ref={transcriptPanelRef} data-testid="transcript-tab" />,
+  InterviewerCandidateMaterials: () => <div data-testid="candidate-materials" />,
 }));
 
 vi.mock("./human-meeting-live-transcript", () => ({
@@ -81,6 +79,10 @@ vi.mock("./human-meeting-live-transcript", () => ({
   }: {
     renderPanel?: (panel: React.ReactNode) => React.ReactNode;
   }) => {
+    useEffect(() => {
+      transcriptLifecycle.mounted();
+      return () => transcriptLifecycle.unmounted();
+    }, []);
     const panel = <div>自动实时转录窗口</div>;
     return renderPanel ? renderPanel(panel) : panel;
   },
@@ -88,27 +90,61 @@ vi.mock("./human-meeting-live-transcript", () => ({
 
 const roots: ReturnType<typeof createRoot>[] = [];
 
-function expectTranscriptLocation(
-  workspace: Element | null,
-  mainPanels: Element | null,
-  inTab: boolean,
-  viewMode: HumanMeetingViewMode,
+function verifyTranscriptToggle(
+  container: HTMLElement,
+  renderStage: (mode: HumanMeetingViewMode) => void,
 ) {
-  if (viewMode === "meeting") {
-    expect(workspace?.textContent).not.toContain("自动实时转录窗口");
-    expect(workspace?.children).toHaveLength(1);
-  } else if (inTab) {
-    expect(mainPanels?.querySelector('[data-testid="transcript-tab"]')?.textContent).toContain(
-      "自动实时转录窗口",
+  const panel = container.querySelector<HTMLElement>('[data-slot="meeting-transcript-panel"]');
+  expect(panel?.hidden).toBe(true);
+  expect(panel?.textContent).toContain("自动实时转录窗口");
+  expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
+  const toggle = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "展开实时转录",
+  );
+  expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+  for (const viewMode of ["materials", "meeting"] as const) {
+    renderStage(viewMode);
+    expect(panel?.hidden).toBe(true);
+    const sideButton = container.querySelector<HTMLButtonElement>(
+      '[data-slot="meeting-transcript-toggle"]',
     );
-    expect(workspace?.children).toHaveLength(1);
-  } else {
-    expect(workspace?.lastElementChild?.textContent).toBe("自动实时转录窗口");
-    expect(mainPanels?.textContent).not.toContain("自动实时转录窗口");
+    expect(sideButton).not.toBeNull();
+    act(() => sideButton?.click());
+    expect(panel?.hidden).toBe(false);
+    const collapseButton = panel?.querySelector<HTMLButtonElement>(
+      '[data-slot="meeting-transcript-toggle"]',
+    );
+    expect(collapseButton).not.toBeNull();
+    expect(collapseButton?.getAttribute("aria-label")).toBe("收起实时转录");
+    expect(toggle?.textContent).toBe("收起实时转录");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).toContain(
+      "lg:grid-cols-",
+    );
+    act(() => collapseButton?.click());
+    expect(panel?.hidden).toBe(true);
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    const restoredButton = container.querySelector('[data-slot="meeting-transcript-toggle"]');
+    expect(restoredButton?.getAttribute("aria-label")).toBe("展开实时转录");
+    expect(panel?.contains(restoredButton)).toBe(false);
+    act(() => toggle?.click());
+    expect(panel?.hidden).toBe(false);
+    act(() => toggle?.click());
+    expect(panel?.hidden).toBe(true);
+    expect(container.querySelector('[data-slot="meeting-transcript-toggle"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).not.toContain(
+      "lg:grid-cols-",
+    );
+    expect(container.querySelector('[data-slot="meeting-transcript-panel"]')).toBe(panel);
+    expect(container.textContent).toContain(viewMode === "materials" ? "切换到视频" : "切换到信息");
   }
+  expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
+  expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
+  transcriptLifecycle.mounted.mockClear();
+  transcriptLifecycle.unmounted.mockClear();
   vi.stubGlobal("matchMedia", () => ({
     addEventListener: vi.fn(),
     addListener: vi.fn(),
@@ -144,7 +180,7 @@ describe("HumanMeetingStage realtime transcript", () => {
           canPublish
           canUseLiveTranscript
           canUseVoiceEffects={false}
-          candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
+          candidateMaterialsState={{ candidateId: null, tab: "resume" }}
           inviteToken="invite-1"
           isEnding={false}
           onCandidateMaterialsStateChange={() => {}}
@@ -179,6 +215,8 @@ describe("HumanMeetingStage realtime transcript", () => {
       const root = createRoot(container);
       roots.push(root);
 
+      const onCandidateMaterialsStateChange = vi.fn();
+      const onViewModeChange = vi.fn();
       const renderStage = (viewMode: HumanMeetingViewMode, canEndMeeting = true) =>
         act(() =>
           root.render(
@@ -187,17 +225,33 @@ describe("HumanMeetingStage realtime transcript", () => {
               canPublish
               canUseLiveTranscript
               canUseVoiceEffects={false}
-              candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
+              candidateMaterialsState={{ candidateId: "candidate-1", tab: "hr" }}
               inviteToken="invite-1"
               isEnding={false}
-              onCandidateMaterialsStateChange={() => {}}
+              onCandidateMaterialsStateChange={onCandidateMaterialsStateChange}
               onEndMeeting={() => {}}
-              onViewModeChange={() => {}}
+              onViewModeChange={onViewModeChange}
               title="真人复面"
               viewMode={viewMode}
             />,
           ),
         );
+      renderStage("meeting");
+      act(() =>
+        [...container.querySelectorAll("button")]
+          .find((button) => button.textContent === "切换到信息")
+          ?.click(),
+      );
+      expect(onCandidateMaterialsStateChange).not.toHaveBeenCalled();
+      expect(onViewModeChange).toHaveBeenLastCalledWith("materials");
+      renderStage("materials");
+      act(() =>
+        [...container.querySelectorAll("button")]
+          .find((button) => button.textContent === "切换到视频")
+          ?.click(),
+      );
+      expect(onViewModeChange).toHaveBeenLastCalledWith("meeting");
+      expect(onCandidateMaterialsStateChange).not.toHaveBeenCalled();
       renderStage("meeting");
       act(() =>
         [...container.querySelectorAll("button")]
@@ -233,21 +287,7 @@ describe("HumanMeetingStage realtime transcript", () => {
         "[&_video]:object-cover",
       );
 
-      expect(container.textContent).not.toContain("自动实时转录窗口");
-      expect(container.textContent).not.toContain("试试实时转录");
-      expect(container.textContent).not.toContain("关闭实时转录");
-      const workspace = container.querySelector('[data-slot="meeting-workspace"]');
-      const mainPanels = container.querySelector('[data-slot="meeting-main-panels"]');
-      expect(workspace).not.toBeNull();
-      expect(mainPanels).not.toBeNull();
-      for (const viewMode of ["materials", "meeting"] as const) {
-        renderStage(viewMode);
-        expectTranscriptLocation(workspace, mainPanels, width < 768, viewMode);
-        expect(container.textContent).toContain(
-          viewMode === "materials" ? "切换到视频" : "切换到信息",
-        );
-        expect(container.textContent).not.toContain("切换视图");
-      }
+      verifyTranscriptToggle(container, renderStage);
       renderStage("meeting", false);
       expect(container.textContent).toContain("离开");
       expect(container.textContent).not.toContain("结束会议");

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, createRef, useState } from "react";
-import type { Ref } from "react";
+import { act, useState } from "react";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 import { createRoot } from "react-dom/client";
 import { expect, it, beforeEach, afterEach, vi } from "vitest";
@@ -82,7 +81,7 @@ it("opens history from the materials tab and isolates it when switching candidat
             active
             inviteToken="invite-1"
             onStateChange={() => {}}
-            state={{ candidateId, centerTab: "detail", leftTab: "hr" }}
+            state={{ candidateId, tab: "hr" }}
           />
         </QueryClientProvider>,
       ),
@@ -128,7 +127,7 @@ it("omits the redundant candidate banner even when the stored selection is stale
             active={false}
             inviteToken="invite-single"
             onStateChange={() => {}}
-            state={{ candidateId: "stale-candidate", centerTab: "detail", leftTab: "ai" }}
+            state={{ candidateId: "stale-candidate", tab: "ai" }}
           />
         </QueryClientProvider>,
       ),
@@ -143,84 +142,59 @@ it("omits the redundant candidate banner even when the stored selection is stale
   }
 });
 
-function Harness({ transcriptPanelRef }: { transcriptPanelRef?: Ref<HTMLDivElement> }) {
+function Harness() {
   const [state, setState] = useState<InterviewerCandidateMaterialsState>({
     candidateId: "candidate",
-    centerTab: "detail",
-    leftTab: "ai",
+    tab: "resume",
   });
   return (
     <InterviewerCandidateMaterials
       active={false}
-      inviteToken="mobile"
+      inviteToken="unified"
       state={state}
       onStateChange={setState}
-      transcriptPanelRef={transcriptPanelRef}
     />
   );
 }
 
-it.each([false, true])(
-  "switches mobile tabs and keeps the optional transcript target mounted (%s)",
-  async (withTranscript) => {
-    const transcriptRef = createRef<HTMLDivElement>();
-    vi.stubGlobal("innerWidth", 437);
-    const client = new QueryClient();
-    client.setQueryData(["human-interview-candidate-materials", "mobile", "candidates"], {
-      candidates: [{ candidateName: "张三", id: "candidate", rounds: [], targetRole: null }],
-      meetingId: "meeting",
-    });
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    try {
-      await act(() =>
-        root.render(
-          <QueryClientProvider client={client}>
-            <Harness transcriptPanelRef={withTranscript ? transcriptRef : undefined} />
-          </QueryClientProvider>,
-        ),
-      );
-      expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1);
-      const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-      expect(tabs.map((tab) => tab.textContent)).toEqual([
-        "详情",
-        "简历",
-        "AI评价",
-        "历史评价",
-        "面试题",
-        ...(withTranscript ? ["实时转录"] : []),
-      ]);
+it.each([390, 1280])("uses one ordered materials tab group at width %s", async (width) => {
+  vi.stubGlobal("innerWidth", width);
+  const client = new QueryClient();
+  client.setQueryData(["human-interview-candidate-materials", "unified", "candidates"], {
+    candidates: [{ candidateName: "张三", id: "candidate", rounds: [], targetRole: null }],
+    meetingId: "meeting",
+  });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <Harness />
+        </QueryClientProvider>,
+      ),
+    );
+    expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1);
+    const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      "简历",
+      "详情",
+      "AI 评价",
+      "面试题",
+      "历史评价",
+    ]);
+    expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe("简历");
+    for (const tab of tabs) {
+      await act(() => tab.click());
       expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-        "详情",
+        tab.textContent,
       );
-      const target = transcriptRef.current;
-      if (withTranscript) {
-        expect(target?.isConnected).toBe(true);
-      }
-      for (const label of [
-        ...(withTranscript ? ["实时转录"] : []),
-        "详情",
-        "简历",
-        "历史评价",
-        "面试题",
-        "AI评价",
-      ]) {
-        await act(() => tabs.find((tab) => tab.textContent === label)?.click());
-        expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-          label,
-        );
-        expect(container.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
-        if (withTranscript) {
-          expect(transcriptRef.current).toBe(target);
-          expect(target?.isConnected).toBe(true);
-          expect(target?.parentElement?.hidden).toBe(label !== "实时转录");
-        }
-      }
-    } finally {
-      await act(() => root.unmount());
-      client.clear();
-      container.remove();
+      expect(container.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
     }
-  },
-);
+  } finally {
+    await act(() => root.unmount());
+    client.clear();
+    container.remove();
+  }
+});

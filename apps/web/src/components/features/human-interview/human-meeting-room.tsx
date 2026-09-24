@@ -2,7 +2,8 @@
 import { cn } from "@app/shared/utils";
 import { InterviewEntryShell } from "./interview-entry-shell";
 
-import { IconLoader2, IconLogin, IconVideo } from "@tabler/icons-react";
+import { IconFileDescription, IconLoader2, IconLogin, IconVideo } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
 import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from "@livekit/components-react";
@@ -298,6 +299,7 @@ function meetingRoomReducer(state: MeetingRoomState, action: MeetingRoomAction):
 
 // oxlint-disable-next-line complexity -- room orchestration intentionally keeps media, timing, materials, and review state at one boundary.
 export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
+  const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [candidateInviteStatus, setCandidateInviteStatus] = useState(() =>
@@ -312,8 +314,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [candidateMaterialsState, setCandidateMaterialsState] =
     useState<InterviewerCandidateMaterialsState>({
       candidateId: null,
-      centerTab: "detail",
-      leftTab: "ai",
+      tab: "resume",
     });
   const { isEnding, isJoining, joinError, token } = state;
   const startBlockMessage = getStartBlockMessage(
@@ -376,6 +377,12 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     dispatch({ type: "joinStarted" });
     const result = await loadMeetingToken(props);
     if (result.token) {
+      if (props.mode === "interviewer") {
+        void queryClient.invalidateQueries({
+          queryKey: ["human-interview-candidate-materials", props.inviteToken],
+          refetchType: "all",
+        });
+      }
       setViewMode("meeting");
       dispatch({ token: result.token, type: "joinSucceeded" });
       return;
@@ -493,7 +500,10 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     const joinButtonText = getJoinButtonText(startBlockMessage, isJoining);
     const joinButton = (
       <Button
-        className="h-11 w-full md:h-10 md:w-fit md:min-w-36"
+        className={cn(
+          "h-11 md:h-10 md:w-fit md:min-w-36",
+          props.mode === "interviewer" ? "min-w-0 flex-1 md:flex-none" : "w-full",
+        )}
         size="lg"
         disabled={isJoining || Boolean(startBlockMessage)}
         onClick={joinMeeting}
@@ -525,8 +535,24 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       );
     }
 
+    const interviewerActions = (
+      <div className="flex items-center gap-2 md:gap-3">
+        <Button
+          className="h-11 min-w-0 flex-1 md:h-10 md:flex-none"
+          size="lg"
+          variant="outline"
+          disabled={isJoining}
+          onClick={() => setViewMode("materials")}
+        >
+          <IconFileDescription data-icon="inline-start" />
+          查看候选人资料
+        </Button>
+        {joinButton}
+      </div>
+    );
+
     return (
-      <InterviewEntryShell mobileAction={joinButton}>
+      <InterviewEntryShell mobileAction={interviewerActions}>
         <CandidateInterviewOverview
           candidateName={props.preview.candidateName}
           jobDescriptionName={props.preview.jobDescriptionName}
@@ -539,7 +565,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           }}
           message={entryMessage ?? undefined}
         >
-          <div className="hidden md:block">{joinButton}</div>
+          <div className="hidden md:block">{interviewerActions}</div>
         </CandidateInterviewOverview>
       </InterviewEntryShell>
     );

@@ -7,6 +7,9 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 import {
   IconDeviceDesktopUp,
+  IconChevronLeft,
+  IconChevronRight,
+  IconMessage,
   IconFileDescription,
   IconLoader2,
   IconMicrophone,
@@ -36,8 +39,6 @@ import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { notifyMeetingMediaError } from "./human-meeting-media-errors";
 import type { MouseEvent, ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@app/shared/utils";
@@ -138,15 +139,50 @@ export function HumanMeetingStage({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
-  const isMobile = useIsMobile();
-  const [transcriptPanel, setTranscriptPanel] = useState<HTMLDivElement | null>(null);
-  const transcriptInTab = isMobile && viewMode === "materials";
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
+
+  const transcriptToggle = (
+    <Button
+      data-slot="meeting-transcript-toggle"
+      className={cn(
+        "absolute top-24 z-20 h-auto flex-col gap-2 bg-background px-2 py-3 shadow-sm",
+        transcriptExpanded
+          ? "left-0 rounded-l-none border-l-0"
+          : "right-0 rounded-r-none border-r-0",
+      )}
+      variant="outline"
+      aria-label={transcriptExpanded ? "收起实时转录" : "展开实时转录"}
+      aria-expanded={transcriptExpanded}
+      aria-controls="human-meeting-transcript-panel"
+      onClick={() => setTranscriptExpanded((expanded) => !expanded)}
+    >
+      {transcriptExpanded ? (
+        <IconChevronRight className="size-4" />
+      ) : (
+        <IconChevronLeft className="size-4" />
+      )}
+      <span className="text-xs [writing-mode:vertical-rl]">实时转录</span>
+    </Button>
+  );
 
   function renderTranscriptPanel(panel: ReactNode) {
-    if (viewMode !== "materials") {
-      return null;
-    }
-    return transcriptPanel ? createPortal(panel, transcriptPanel) : null;
+    return (
+      <div
+        id="human-meeting-transcript-panel"
+        data-slot="meeting-transcript-panel"
+        hidden={!transcriptExpanded}
+        className={cn(
+          "relative min-h-0 min-w-0 flex-col overflow-hidden border-border border-t bg-background pl-8 lg:border-t-0 lg:border-l",
+          transcriptExpanded ? "flex" : "hidden",
+        )}
+      >
+        <div className="shrink-0 border-border border-b px-3 py-2">
+          <span className="text-sm font-medium">实时转录</span>
+        </div>
+        {panel}
+        {transcriptExpanded ? transcriptToggle : null}
+      </div>
+    );
   }
   const participants = useParticipants().filter((participant) => !participant.isAgent);
   const tracks = useTracks(
@@ -216,12 +252,11 @@ export function HumanMeetingStage({
       <div
         data-slot="meeting-workspace"
         className={cn(
-          "grid min-h-0 flex-1 overflow-hidden",
+          "relative grid min-h-0 flex-1 overflow-hidden",
           inviteToken &&
             canUseLiveTranscript &&
-            viewMode === "materials" &&
-            !transcriptInTab &&
-            "grid-rows-[minmax(0,1fr)_auto] md:grid-rows-[minmax(0,1fr)_minmax(12rem,40%)] lg:grid-cols-[minmax(0,1fr)_clamp(21.75rem,25vw,25.75rem)] lg:grid-rows-1",
+            transcriptExpanded &&
+            "grid-rows-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-cols-[minmax(0,1fr)_clamp(21.75rem,25vw,25.75rem)] lg:grid-rows-1",
         )}
       >
         <div
@@ -289,7 +324,6 @@ export function HumanMeetingStage({
                   inviteToken={inviteToken}
                   onStateChange={onCandidateMaterialsStateChange}
                   state={candidateMaterialsState}
-                  transcriptPanelRef={canUseLiveTranscript ? setTranscriptPanel : undefined}
                 />
               </div>
             </div>
@@ -300,11 +334,10 @@ export function HumanMeetingStage({
             candidateName={candidateName}
             inviteToken={inviteToken}
             ref={liveTranscriptRef}
-            renderPanel={
-              viewMode === "meeting" || transcriptInTab ? renderTranscriptPanel : undefined
-            }
+            renderPanel={renderTranscriptPanel}
           />
         ) : null}
+        {inviteToken && canUseLiveTranscript && !transcriptExpanded ? transcriptToggle : null}
       </div>
 
       <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-1 border-border border-t px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:gap-2 md:px-4 md:py-3">
@@ -389,9 +422,25 @@ export function HumanMeetingStage({
             <span>{viewMode === "materials" ? "切换到视频" : "切换到信息"}</span>
           </button>
         ) : null}
+        {inviteToken && canUseLiveTranscript ? (
+          <button
+            className={cn(
+              humanMeetingControlButtonClass,
+              mobileControlClass,
+              "order-6 md:order-none",
+            )}
+            aria-expanded={transcriptExpanded}
+            aria-controls="human-meeting-transcript-panel"
+            onClick={() => setTranscriptExpanded((expanded) => !expanded)}
+            type="button"
+          >
+            <IconMessage className="size-4" />
+            <span>{transcriptExpanded ? "收起实时转录" : "展开实时转录"}</span>
+          </button>
+        ) : null}
         {canEndMeeting ? (
           <button
-            className={cn(endButtonClass, mobileControlClass, "order-6 md:order-none")}
+            className={cn(endButtonClass, mobileControlClass, "order-7 md:order-none")}
             disabled={isEnding}
             onClick={() => setEndConfirmOpen(true)}
             type="button"
@@ -405,7 +454,7 @@ export function HumanMeetingStage({
           </button>
         ) : (
           <DisconnectButton
-            className={cn(leaveButtonClass, mobileControlClass, "order-6 md:order-none")}
+            className={cn(leaveButtonClass, mobileControlClass, "order-7 md:order-none")}
           >
             <IconPhoneOff className="size-4" />
             <span className="md:hidden">退出</span>
