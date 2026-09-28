@@ -18,18 +18,25 @@ import {
   FEISHU_PROVIDER_IDS,
   selectPreferredFeishuProviderId,
 } from "../../../../../integrations/feishu/provider";
-import { grantFeishuInterviewEvaluationDocxAccess } from "../../../../../integrations/feishu/feishu-docx";
+import {
+  grantFeishuInterviewEvaluationDocxAccess,
+  updateFeishuInterviewEvaluationDocxStructure,
+} from "../../../../../integrations/feishu/feishu-docx";
 import { loadResumeAttachment } from "../../../../agent/utils/feishu-resume-attachment";
+import { generateCandidateInterviewQuestions } from "../../resumes/utils/candidate-question-generation";
 import type { HumanInterviewDocumentSyncJob } from "./sync-human-interview-document";
 
 const defaultDependencies = {
   ensureDocument: ensureRecordEvaluationDocument,
+  generateQuestions: generateCandidateInterviewQuestions,
   grantAccess: grantFeishuInterviewEvaluationDocxAccess,
+  updateDocumentStructure: updateFeishuInterviewEvaluationDocxStructure,
 };
 export async function ensureHumanEvaluationDocument(
   job: HumanInterviewDocumentSyncJob,
-  dependencies = defaultDependencies,
+  overrides: Partial<typeof defaultDependencies> = {},
 ) {
+  const dependencies = { ...defaultDependencies, ...overrides };
   const [record] = await db
     .select({
       ownerId: recruitingRecord.ownerId,
@@ -91,6 +98,30 @@ export async function ensureHumanEvaluationDocument(
   }
   const providerId = z.enum(FEISHU_PROVIDER_IDS).parse(provider);
   const recipients = accounts.filter((item) => item.providerId === providerId);
+  let { interviewQuestions } = record.record;
+  if (interviewQuestions.length === 0) {
+    const generation = await dependencies.generateQuestions({
+      organizationId: job.organizationId,
+      resumeRecordId: job.recruitingRecordId,
+    });
+    if (generation === "generated" || generation === "already_generated") {
+      const [updated] = await db
+        .select({ interviewQuestions: recruitingRecordReadModel.interviewQuestions })
+        .from(recruitingRecordReadModel)
+        .where(
+          and(
+            eq(recruitingRecordReadModel.id, job.recruitingRecordId),
+            eq(recruitingRecordReadModel.organizationId, job.organizationId),
+          ),
+        )
+        .limit(1);
+      interviewQuestions = updated?.interviewQuestions ?? [];
+    }
+  }
+  const sections = buildInterviewEvaluationStructureSections({
+    ...record.record,
+    interviewQuestions,
+  });
   const document = await dependencies.ensureDocument({
     build: async () => {
       if (!recipients[0]) {
@@ -101,14 +132,12 @@ export async function ensureHumanEvaluationDocument(
         fileName: context.resumeFileName,
         storageKey: context.resumeStorageKey,
       });
-      const sections = buildInterviewEvaluationStructureSections(context);
       const base = buildInterviewEvaluationDocument({
         candidateName: context.candidateName,
-        // No AI interview: leave HR/communication evidence empty, never fabricate it.
-        communicationQuestionResults: null,
+        // No AI interview: leave HR evidence empty, never fabricate it.
         evaluation: { hrEvaluation: {} },
         includeResumeLink: !resumeAttachment && Boolean(context.resumeStorageKey),
-        recommendedQuestions: sections.recommendedQuestionsBlock ? context.interviewQuestions : [],
+        recommendedQuestions: sections.recommendedQuestionsBlock ? interviewQuestions : [],
         resumeEvaluation: sections.resumeEvaluationBlock
           ? context.qualitativeResumeEvaluation
           : null,
@@ -124,6 +153,12 @@ export async function ensureHumanEvaluationDocument(
     providerId,
     recruitingRecordId: job.recruitingRecordId,
   });
+  if (sections.recommendedQuestionsBlock) {
+    await dependencies.updateDocumentStructure(document.providerId, {
+      documentId: document.documentId,
+      recommendedQuestionsBlock: sections.recommendedQuestionsBlock,
+    });
+  }
   for (const recipient of recipients) {
     await dependencies.grantAccess(document.providerId, {
       documentId: document.documentId,

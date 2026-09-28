@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { createRecruitingRecords } from "@app/database/recruiting-records";
-import { account, user, organization, recruitingEvaluationDocument } from "@app/db-schema/schema";
+import {
+  account,
+  user,
+  organization,
+  recruitingEvaluationDocument,
+  recruitingInterviewPreparation,
+} from "@app/db-schema/schema";
 import { db } from "../../../../../../../lib/server/db/index";
 import { ensureRecordEvaluationDocument } from "../../application/default-ensure-recruiting-evaluation-document";
 import { ensureHumanEvaluationDocument } from "../../application/ensure-human-evaluation-document";
@@ -14,7 +20,14 @@ const dependencies = {
 };
 const ensureDocument = (input: Parameters<typeof ensureRecordEvaluationDocument>[0]) =>
   ensureRecordEvaluationDocument(input, dependencies);
-const humanDependencies = { ensureDocument, grantAccess: vi.fn(() => Promise.resolve()) };
+const humanDependencies = {
+  ensureDocument,
+  generateQuestions: vi.fn(() => Promise.resolve("missing_profile" as const)),
+  grantAccess: vi.fn(() => Promise.resolve()),
+  updateDocumentStructure: vi.fn(() =>
+    Promise.resolve({ insertedSections: [], updatedSections: [] }),
+  ),
+};
 const org = `record-doc-${crypto.randomUUID()}`;
 let serial = 0;
 async function fixture() {
@@ -33,6 +46,38 @@ async function fixture() {
     organizationId: org,
     providerId: "feishu" as const,
     recruitingRecordId: id,
+  };
+}
+
+function humanJob(input: Awaited<ReturnType<typeof fixture>>) {
+  return {
+    ...input,
+    attemptCount: 1,
+    blockId: null,
+    deadlineAt: Date.now() + 300_000,
+    documentId: null,
+    documentUrl: null,
+    evaluation: {
+      detailedAnalysis: "分析",
+      evidenceTurnIds: [],
+      overallEvaluation: "评价",
+      professionalSkill: "优",
+      rating: "A" as const,
+      risks: "风险",
+      rolePosition: "执行",
+      salaryRecommendation: "",
+      seniorityPosition: "高级",
+      strengths: "优势",
+    },
+    leaseOwner: "test",
+    outcome: "pass" as const,
+    providerId: null,
+    roundId: "round",
+    roundLabel: "业务一面",
+    snapshotId: "snapshot",
+    submittedAt: new Date().toISOString(),
+    submittedBy: "测试面试官",
+    submittedByUserId: org,
   };
 }
 beforeAll(async () => {
@@ -66,35 +111,7 @@ describe("shared recruiting document persistence", () => {
       await options.onDocumentCreated?.("human-first");
       return { documentId: "human-first", documentUrl: "https://feishu.cn/docx/human-first" };
     });
-    const job = {
-      ...input,
-      attemptCount: 1,
-      blockId: null,
-      deadlineAt: Date.now() + 300_000,
-      documentId: null,
-      documentUrl: null,
-      evaluation: {
-        detailedAnalysis: "分析",
-        evidenceTurnIds: [],
-        overallEvaluation: "评价",
-        professionalSkill: "优",
-        rating: "A" as const,
-        risks: "风险",
-        rolePosition: "执行",
-        salaryRecommendation: "",
-        seniorityPosition: "高级",
-        strengths: "优势",
-      },
-      leaseOwner: "test",
-      outcome: "pass" as const,
-      providerId: null,
-      roundId: "round",
-      roundLabel: "业务一面",
-      snapshotId: "snapshot",
-      submittedAt: new Date().toISOString(),
-      submittedBy: "测试面试官",
-      submittedByUserId: org,
-    };
+    const job = humanJob(input);
     const first = await ensureHumanEvaluationDocument(job, humanDependencies);
     const second = await ensureHumanEvaluationDocument(
       { ...job, roundId: "final-round" },
@@ -103,6 +120,44 @@ describe("shared recruiting document persistence", () => {
     expect(first.documentId).toBe("human-first");
     expect(second.documentId).toBe(first.documentId);
     expect(create).toHaveBeenCalledTimes(1);
+  });
+  it("generates missing recommended questions before building a human-first document", async () => {
+    const input = await fixture();
+    const questions = [{ difficulty: "medium" as const, order: 1, question: "如何提升转化率？" }];
+    const generateQuestions = vi.fn(async () => {
+      await db
+        .update(recruitingInterviewPreparation)
+        .set({ questions })
+        .where(eq(recruitingInterviewPreparation.recruitingRecordId, input.recruitingRecordId));
+      return "generated" as const;
+    });
+    const updateDocumentStructure = vi.fn(() =>
+      Promise.resolve({ insertedSections: [], updatedSections: [] }),
+    );
+    createDocument.mockReset().mockImplementation(async (_provider, options) => {
+      expect(JSON.stringify(options.blocks)).toContain("推荐面试题");
+      expect(JSON.stringify(options.blocks)).toContain("如何提升转化率？");
+      await options.onDocumentCreated?.("questions-human-first");
+      return {
+        documentId: "questions-human-first",
+        documentUrl: "https://feishu.cn/docx/questions-human-first",
+      };
+    });
+
+    await ensureHumanEvaluationDocument(humanJob(input), {
+      ...humanDependencies,
+      generateQuestions,
+      updateDocumentStructure,
+    });
+
+    expect(generateQuestions).toHaveBeenCalledOnce();
+    expect(updateDocumentStructure).toHaveBeenCalledWith(
+      "feishu",
+      expect.objectContaining({
+        documentId: "questions-human-first",
+        recommendedQuestionsBlock: expect.objectContaining({ block_type: 19 }),
+      }),
+    );
   });
   it("serializes two first submissions across callers and creates only once", async () => {
     const input = await fixture();

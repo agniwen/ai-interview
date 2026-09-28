@@ -5,8 +5,6 @@ import type {
 } from "@app/db-schema/qualitative-resume-evaluation";
 import { account, recruitingNotificationDelivery } from "@app/db-schema/schema";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
-import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
-import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { db } from "../../../../lib/server/db/index";
 import { getRequiredEnv } from "../../../../lib/server/env";
 import { captureBackendException } from "../../../../lib/server/sentry";
@@ -31,7 +29,6 @@ type HrEvaluation = ReturnType<typeof interviewEvaluationSchema.parse>["hrEvalua
 
 interface FeishuInterviewDocumentContext {
   organizationId: string;
-  dataCollectionResults: unknown;
   evaluationCriteriaResults: unknown;
   interviewQuestions: InterviewQuestion[];
   qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
@@ -149,8 +146,6 @@ export async function ensureInterviewEvaluationDocument({
     });
   const created = await ensureAiHrEvaluationInDocument({
     build: async (hrEvaluation) => {
-      const communicationQuestionResults: InterviewDataCollectionResults | null =
-        parseInterviewDataCollectionResults(context.dataCollectionResults);
       const resumeAttachment = await loadResumeAttachment({
         fileName: context.resumeFileName,
         storageKey: context.resumeStorageKey,
@@ -158,7 +153,6 @@ export async function ensureInterviewEvaluationDocument({
       const structureSections = buildInterviewEvaluationStructureSections(context);
       const document = buildInterviewEvaluationDocument({
         candidateName: input.candidateName,
-        communicationQuestionResults,
         evaluation: { hrEvaluation },
         includeResumeLink: !resumeAttachment,
         recommendedQuestions: structureSections.recommendedQuestionsBlock

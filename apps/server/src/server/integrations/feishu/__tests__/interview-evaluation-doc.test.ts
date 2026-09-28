@@ -51,42 +51,6 @@ describe("buildInterviewEvaluationDocument", () => {
     expect(hrCallout?.children?.map(blockText)).toContain("未收集到");
   });
 
-  it("includes collected communication-question answers even when some are insufficient", () => {
-    const document = buildInterviewEvaluationDocument({
-      candidateName: "葛伟",
-      communicationQuestionResults: {
-        questions: [
-          {
-            answerSummary: "期望月薪 25，具体单位仍需确认。",
-            difficulty: "easy",
-            endedAtSecs: 20,
-            evaluationFocus: "薪酬预期",
-            followUpCount: 1,
-            followUpDirections: null,
-            question: "你的薪酬预期是多少？",
-            questionId: "compensation",
-            reason: null,
-            revision: 1,
-            startedAtSecs: 10,
-            status: "insufficient",
-          },
-        ],
-        schemaVersion: 2,
-      },
-      evaluation: {},
-      resumeUrl: "https://example.com/resume",
-    });
-
-    const communicationBlock = document.blocks.find((block) =>
-      block.children?.some((child) => blockText(child) === "沟通题回答"),
-    );
-    expect(communicationBlock?.children?.map(blockText)).toEqual([
-      "沟通题回答",
-      "1. 你的薪酬预期是多少？",
-      "期望月薪 25，具体单位仍需确认。",
-    ]);
-  });
-
   it("places the qualitative resume evaluation directly below the resume", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",
@@ -209,6 +173,7 @@ describe("buildInterviewEvaluationDocument", () => {
     const recommendedBlock = document.blocks.find((block) =>
       block.children?.some((child) => blockText(child) === "推荐面试题"),
     );
+    expect(JSON.stringify(document.blocks)).not.toContain("沟通题回答");
     const displayedQuestions = (recommendedBlock?.children ?? [])
       .map(blockText)
       .filter((text) => /^\d+\. .*题[一二三]$/.test(text ?? ""));

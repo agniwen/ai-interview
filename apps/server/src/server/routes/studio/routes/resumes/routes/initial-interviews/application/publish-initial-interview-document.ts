@@ -96,7 +96,6 @@ export async function publishInitialInterviewDocument(
       const base = getRequiredEnv("BETTER_AUTH_URL").replace(/\/$/, "");
       const built = buildInterviewEvaluationDocument({
         candidateName: job.snapshot.candidateName,
-        communicationQuestionResults: null,
         evaluation: { hrEvaluation: evaluation },
         includeResumeLink: !resumeAttachment && Boolean(job.snapshot.resume),
         recommendedQuestions: job.snapshot.interviewQuestions,
