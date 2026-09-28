@@ -16,11 +16,14 @@ import { loadResumeAttachment } from "./feishu-resume-attachment";
 import {
   grantFeishuInterviewEvaluationDocxAccess,
   moveFeishuInterviewEvaluationDocx,
+  replaceFeishuHrInitialInterview,
 } from "../../../integrations/feishu/feishu-docx";
 import {
+  buildHrInterviewEvaluationBlock,
   buildInterviewEvaluationDocument,
   buildInterviewEvaluationStructureSections,
 } from "../../../integrations/feishu/interview-evaluation-doc";
+import type { FeishuDocumentBlock } from "../../../integrations/feishu/interview-evaluation-doc";
 import type { FeishuProviderId } from "../../../integrations/feishu/provider";
 import { ensureRecordEvaluationDocument } from "../../studio/routes/interviews/application/default-ensure-recruiting-evaluation-document";
 
@@ -80,6 +83,46 @@ function buildResumeUrl(roundId: string, organizationSlug: string | null): strin
   return `${root}/api${prefix}/studio/interviews/${encodeURIComponent(roundId)}/resume`;
 }
 
+export async function ensureAiHrEvaluationInDocument<
+  TDocument extends { documentId: string; providerId: FeishuProviderId },
+  TInitialization,
+>({
+  build,
+  candidateName,
+  ensureDocument,
+  loadHrEvaluation,
+  replaceHrEvaluation,
+}: {
+  build(hrEvaluation: HrEvaluation): Promise<TInitialization>;
+  candidateName: string;
+  ensureDocument(build: () => Promise<TInitialization>): Promise<TDocument>;
+  loadHrEvaluation(): Promise<HrEvaluation>;
+  replaceHrEvaluation(
+    providerId: FeishuProviderId,
+    input: { block: FeishuDocumentBlock; documentId: string },
+  ): Promise<void>;
+}): Promise<TDocument> {
+  let initializedWithAiEvaluation = false;
+  const document = await ensureDocument(async () => {
+    const initialization = await build(await loadHrEvaluation());
+    initializedWithAiEvaluation = true;
+    return initialization;
+  });
+  if (!initializedWithAiEvaluation) {
+    const hrEvaluation = await loadHrEvaluation();
+    if (Object.values(hrEvaluation).some((answer) => answer?.trim())) {
+      await replaceHrEvaluation(document.providerId, {
+        block: buildHrInterviewEvaluationBlock({
+          candidateName,
+          evaluation: { hrEvaluation },
+        }).block,
+        documentId: document.documentId,
+      });
+    }
+  }
+  return document;
+}
+
 export async function ensureInterviewEvaluationDocument({
   context,
   conversationId,
@@ -97,18 +140,15 @@ export async function ensureInterviewEvaluationDocument({
   providerId: FeishuProviderId;
   recipientOpenId: string;
 }): Promise<string> {
-  const created = await ensureRecordEvaluationDocument({
-    build: async () => {
-      const storedEvaluation = interviewEvaluationSchema.safeParse(
-        context.evaluationCriteriaResults,
-      );
-      const hrEvaluation = await loadHrEvaluationOrFallback({
-        conversationId,
-        fallback: storedEvaluation.success
-          ? storedEvaluation.data.hrEvaluation
-          : EMPTY_HR_EVALUATION,
-        interviewRecordId,
-      });
+  const storedEvaluation = interviewEvaluationSchema.safeParse(context.evaluationCriteriaResults);
+  const loadHrEvaluation = () =>
+    loadHrEvaluationOrFallback({
+      conversationId,
+      fallback: storedEvaluation.success ? storedEvaluation.data.hrEvaluation : EMPTY_HR_EVALUATION,
+      interviewRecordId,
+    });
+  const created = await ensureAiHrEvaluationInDocument({
+    build: async (hrEvaluation) => {
       const communicationQuestionResults: InterviewDataCollectionResults | null =
         parseInterviewDataCollectionResults(context.dataCollectionResults);
       const resumeAttachment = await loadResumeAttachment({
@@ -136,9 +176,16 @@ export async function ensureInterviewEvaluationDocument({
         title: document.title,
       };
     },
-    organizationId: context.organizationId,
-    providerId,
-    recruitingRecordId: interviewRecordId,
+    candidateName: input.candidateName,
+    ensureDocument: (build) =>
+      ensureRecordEvaluationDocument({
+        build,
+        organizationId: context.organizationId,
+        providerId,
+        recruitingRecordId: interviewRecordId,
+      }),
+    loadHrEvaluation,
+    replaceHrEvaluation: replaceFeishuHrInitialInterview,
   });
   await moveFeishuInterviewEvaluationDocx(created.providerId, created.documentId);
   // Open IDs are app-specific. Never grant an ID from one Feishu app in another.

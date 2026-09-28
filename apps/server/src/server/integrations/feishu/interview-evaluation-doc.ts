@@ -62,13 +62,13 @@ export interface FeishuDocumentBlock {
 }
 
 const hrEvaluationSchema = z.object({
-  availability: z.string().optional(),
-  careerProgression: z.string().optional(),
-  compensationExpectations: z.string().optional(),
-  jobMotivation: z.string().optional(),
-  overseasTravel: z.string().optional(),
-  projectHighlights: z.string().optional(),
-  recentWork: z.string().optional(),
+  availability: z.string().nullable().optional(),
+  careerProgression: z.string().nullable().optional(),
+  compensationExpectations: z.string().nullable().optional(),
+  jobMotivation: z.string().nullable().optional(),
+  overseasTravel: z.string().nullable().optional(),
+  projectHighlights: z.string().nullable().optional(),
+  recentWork: z.string().nullable().optional(),
 });
 
 export interface HrInterviewEvaluationInput {
@@ -207,7 +207,7 @@ function interviewStageCallout(
   ]);
 }
 
-function stringValue(value: string | undefined, fallback: string): string {
+function stringValue(value: string | null | undefined, fallback: string): string {
   return value?.trim() || fallback;
 }
 
@@ -321,7 +321,7 @@ export function buildInterviewEvaluationStructureSections(
 function hrQuestionBlocks(
   questionNumber: number,
   question: string,
-  answer: string | undefined,
+  answer: string | null | undefined,
   fallback = "未收集到",
 ): FeishuDocumentBlock[] {
   return [

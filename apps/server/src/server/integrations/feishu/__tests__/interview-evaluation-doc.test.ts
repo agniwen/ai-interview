@@ -35,6 +35,22 @@ function interviewQuestion(
 }
 
 describe("buildInterviewEvaluationDocument", () => {
+  it("keeps collected HR answers when another HR field is null", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {
+        hrEvaluation: { availability: null, jobMotivation: "希望拓展业务" },
+      },
+      resumeUrl: "https://example.com/resume",
+    });
+    const hrCallout = document.blocks.find((block) =>
+      block.children?.some((child) => blockText(child) === "HR面试评价"),
+    );
+
+    expect(hrCallout?.children?.map(blockText)).toContain("希望拓展业务");
+    expect(hrCallout?.children?.map(blockText)).toContain("未收集到");
+  });
+
   it("includes collected communication-question answers even when some are insufficient", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "葛伟",
