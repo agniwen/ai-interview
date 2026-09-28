@@ -56,6 +56,7 @@ export interface HumanInterviewCandidateOverviewResponse {
 }
 
 export interface HumanInterviewCandidateAiEvaluationResponse {
+  generatedAt: string | null;
   aiEvaluation:
     | {
         evaluation: QualitativeResumeEvaluationV2;

@@ -26,9 +26,11 @@ vi.mock("./human-meeting-review", () => ({ HumanMeetingReview: () => null }));
 vi.mock("./human-meeting-stage", () => ({
   HumanMeetingStage: ({
     candidateMaterialsState,
+    viewMode,
   }: {
     candidateMaterialsState: InterviewerCandidateMaterialsState;
-  }) => <div>会议中：{candidateMaterialsState.tab}</div>,
+    viewMode: string;
+  }) => <div data-view-mode={viewMode}>会议中：{candidateMaterialsState.tab}</div>,
   humanMeetingControlButtonClass: "",
 }));
 vi.mock("./interviewer-candidate-materials", () => ({
@@ -39,7 +41,9 @@ vi.mock("./interviewer-candidate-materials", () => ({
     state: InterviewerCandidateMaterialsState;
     onStateChange: (state: InterviewerCandidateMaterialsState) => void;
   }) => (
-    <button onClick={() => onStateChange({ ...state, tab: "hr" })}>候选人资料：{state.tab}</button>
+    <button onClick={() => onStateChange({ ...state, tab: "evaluation" })}>
+      候选人资料：{state.tab}
+    </button>
   ),
 }));
 
@@ -113,15 +117,18 @@ it("opens materials before join time without connecting, and preserves selection
   ).toHaveLength(2);
   expect(button("查看候选人资料").disabled).toBe(false);
   await act(() => button("查看候选人资料").click());
+  expect(button("返回").closest("header")).not.toBeNull();
+  expect(button("返回").getAttribute("aria-label")).toBe("返回入会页");
+  expect(container.querySelector("footer")).toBeNull();
   await act(() => button("候选人资料：resume").click());
-  expect(button("候选人资料：hr")).toBeDefined();
+  expect(button("候选人资料：evaluation")).toBeDefined();
   expect(media.connect).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
-  await act(() => button("返回入会页").click());
+  await act(() => button("返回").click());
   expect(button("未到入会时间").disabled).toBe(true);
   await act(() => button("查看候选人资料").click());
-  expect(button("候选人资料：hr")).toBeDefined();
-  await act(() => button("返回入会页").click());
+  expect(button("候选人资料：evaluation")).toBeDefined();
+  await act(() => button("返回").click());
   vi.setSystemTime(new Date("2026-09-24T06:15:00.000Z"));
   await act(() => vi.advanceTimersByTime(60_000));
   expect(button("进入会议").disabled).toBe(false);
@@ -140,7 +147,10 @@ it("opens materials before join time without connecting, and preserves selection
     { method: "POST" },
   );
   expect(media.connect).toHaveBeenCalled();
-  expect(container.textContent).toContain("会议中：hr");
+  expect(container.textContent).toContain("会议中：evaluation");
+  expect(container.querySelector<HTMLElement>("[data-view-mode]")?.dataset.viewMode).toBe(
+    "materials",
+  );
   expect(loadCandidates).toHaveBeenCalledTimes(1);
   expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
 });

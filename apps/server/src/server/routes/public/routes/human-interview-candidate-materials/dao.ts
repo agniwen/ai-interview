@@ -195,6 +195,7 @@ export async function loadHumanInterviewCandidateAiEvaluation(input: {
   const [row] = await db
     .select({
       qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+      resumeReviewGeneratedAt: recruitingRecordReadModel.resumeReviewGeneratedAt,
       resumeReviewStatus: recruitingRecordReadModel.resumeReviewStatus,
     })
     .from(humanInterviewMeetingRound)
@@ -211,7 +212,12 @@ export async function loadHumanInterviewCandidateAiEvaluation(input: {
       ),
     )
     .limit(1);
-  return row ? { aiEvaluation: resolveAiEvaluation(row) } : null;
+  return row
+    ? {
+        aiEvaluation: resolveAiEvaluation(row),
+        generatedAt: row.resumeReviewGeneratedAt?.toISOString() ?? null,
+      }
+    : null;
 }
 
 export async function loadHumanInterviewCandidateHrInformation(input: {

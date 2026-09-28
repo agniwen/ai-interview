@@ -12,11 +12,19 @@ import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 
 const transcriptLifecycle = vi.hoisted(() => ({ mounted: vi.fn(), unmounted: vi.fn() }));
 
-const mediaState = vi.hoisted(() => ({ agent: false, sharing: false, source: "camera" }));
+const mediaState = vi.hoisted(() => ({
+  agent: false,
+  disconnect: vi.fn(),
+  recording: true,
+  sharing: false,
+  source: "camera",
+}));
 
 vi.mock("@livekit/components-react", () => ({
   ConnectionQualityIndicator: () => <span aria-label="连接质量" />,
-  DisconnectButton: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  DisconnectButton: ({ children }: { children: React.ReactNode }) => (
+    <button onClick={mediaState.disconnect}>{children}</button>
+  ),
   FocusLayoutContainer: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
   ParticipantName: ({ participant }: { participant: { name: string } }) => (
     <span>{participant.name}</span>
@@ -41,6 +49,7 @@ vi.mock("@livekit/components-react", () => ({
   ),
   TrackMutedIndicator: () => <span aria-label="已静音" />,
   TrackToggle: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  useIsRecording: () => mediaState.recording,
   useParticipants: () =>
     mediaState.agent ? [{ isAgent: false }, { isAgent: false }, { isAgent: true }] : [],
   useTrackRefContext: () => ({
@@ -65,12 +74,14 @@ vi.mock("@livekit/components-react", () => ({
 }));
 
 vi.mock("./human-meeting-audio-controls", () => ({
-  MicrophoneDeviceMenu: () => null,
+  MicrophoneDeviceMenu: () => <button aria-label="选择麦克风">当前麦克风</button>,
   VoiceEffectMenu: () => null,
 }));
 
 vi.mock("./interviewer-candidate-materials", () => ({
-  InterviewerCandidateMaterials: () => <div data-testid="candidate-materials" />,
+  InterviewerCandidateMaterials: ({ showQuestions }: { showQuestions?: boolean }) => (
+    <div data-testid="candidate-materials" data-show-questions={showQuestions} />
+  ),
 }));
 
 vi.mock("./human-meeting-live-transcript", () => ({
@@ -90,54 +101,26 @@ vi.mock("./human-meeting-live-transcript", () => ({
 
 const roots: ReturnType<typeof createRoot>[] = [];
 
-function verifyTranscriptToggle(
+function verifyBackgroundTranscript(
   container: HTMLElement,
   renderStage: (mode: HumanMeetingViewMode) => void,
 ) {
-  const panel = container.querySelector<HTMLElement>('[data-slot="meeting-transcript-panel"]');
-  expect(panel?.hidden).toBe(true);
-  expect(panel?.textContent).toContain("自动实时转录窗口");
-  expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
-  const toggle = [...container.querySelectorAll("button")].find(
-    (button) => button.textContent === "展开实时转录",
-  );
-  expect(toggle?.getAttribute("aria-expanded")).toBe("false");
   for (const viewMode of ["materials", "meeting"] as const) {
     renderStage(viewMode);
-    expect(panel?.hidden).toBe(true);
-    const sideButton = container.querySelector<HTMLButtonElement>(
-      '[data-slot="meeting-transcript-toggle"]',
-    );
-    expect(sideButton).not.toBeNull();
-    act(() => sideButton?.click());
-    expect(panel?.hidden).toBe(false);
-    const collapseButton = panel?.querySelector<HTMLButtonElement>(
-      '[data-slot="meeting-transcript-toggle"]',
-    );
-    expect(collapseButton).not.toBeNull();
-    expect(collapseButton?.getAttribute("aria-label")).toBe("收起实时转录");
-    expect(toggle?.textContent).toBe("收起实时转录");
-    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
-    expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).toContain(
-      "lg:grid-cols-",
-    );
-    act(() => collapseButton?.click());
-    expect(panel?.hidden).toBe(true);
-    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
-    const restoredButton = container.querySelector('[data-slot="meeting-transcript-toggle"]');
-    expect(restoredButton?.getAttribute("aria-label")).toBe("展开实时转录");
-    expect(panel?.contains(restoredButton)).toBe(false);
-    act(() => toggle?.click());
-    expect(panel?.hidden).toBe(false);
-    act(() => toggle?.click());
-    expect(panel?.hidden).toBe(true);
-    expect(container.querySelector('[data-slot="meeting-transcript-toggle"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="meeting-transcript-panel"]')).toBeNull();
+    expect(container.querySelector('[data-slot="meeting-transcript-toggle"]')).toBeNull();
+    expect(container.textContent).not.toContain("实时转录");
+    expect(
+      container.querySelector('header [data-slot="meeting-recording-status"]')?.textContent,
+    ).toBe("录制中");
     expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).not.toContain(
       "lg:grid-cols-",
     );
-    expect(container.querySelector('[data-slot="meeting-transcript-panel"]')).toBe(panel);
     expect(container.textContent).toContain(viewMode === "materials" ? "切换到视频" : "切换到信息");
   }
+  mediaState.recording = false;
+  renderStage("meeting");
+  expect(container.querySelector('[data-slot="meeting-recording-status"]')).toBeNull();
   expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
   expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
 }
@@ -163,6 +146,7 @@ afterEach(() => {
   mediaState.source = "camera";
   mediaState.sharing = false;
   mediaState.agent = false;
+  mediaState.recording = true;
 });
 
 describe("HumanMeetingStage realtime transcript", () => {
@@ -225,7 +209,7 @@ describe("HumanMeetingStage realtime transcript", () => {
               canPublish
               canUseLiveTranscript
               canUseVoiceEffects={false}
-              candidateMaterialsState={{ candidateId: "candidate-1", tab: "hr" }}
+              candidateMaterialsState={{ candidateId: "candidate-1", tab: "evaluation" }}
               inviteToken="invite-1"
               isEnding={false}
               onCandidateMaterialsStateChange={onCandidateMaterialsStateChange}
@@ -245,6 +229,10 @@ describe("HumanMeetingStage realtime transcript", () => {
       expect(onCandidateMaterialsStateChange).not.toHaveBeenCalled();
       expect(onViewModeChange).toHaveBeenLastCalledWith("materials");
       renderStage("materials");
+      expect(
+        container.querySelector<HTMLElement>('[data-testid="candidate-materials"]')?.dataset
+          .showQuestions,
+      ).toBe("true");
       act(() =>
         [...container.querySelectorAll("button")]
           .find((button) => button.textContent === "切换到视频")
@@ -255,7 +243,11 @@ describe("HumanMeetingStage realtime transcript", () => {
       renderStage("meeting");
       act(() =>
         [...container.querySelectorAll("button")]
-          .find((button) => button.textContent === "结束会议")
+          .find((button) =>
+            window.innerWidth < 768
+              ? button.getAttribute("aria-label") === "结束会议"
+              : button.textContent === "结束会议",
+          )
           ?.click(),
       );
       expect(document.querySelector('[role="dialog"]')?.textContent).toContain("结束这场会议？");
@@ -267,12 +259,18 @@ describe("HumanMeetingStage realtime transcript", () => {
       );
 
       expect(container.textContent).not.toContain("面试评价");
-      expect(container.textContent).toContain("切换到信息");
+      expect(container.textContent).toContain("信息");
       expect(container.textContent).toContain("结束会议");
       expect(container.textContent).not.toContain("离开");
       expect(container.textContent).toContain("开启声音");
+      const microphoneGroup = container.querySelector<HTMLElement>('[aria-label="麦克风控制"]');
+      expect(microphoneGroup?.querySelectorAll("button")).toHaveLength(2);
+      expect(microphoneGroup?.dataset.slot).toBe(width < 768 ? undefined : "button-group");
+      expect(container.querySelector('header button[aria-label="结束会议"]')).not.toBeNull();
+      expect(microphoneGroup?.querySelector('[aria-label="选择麦克风"]')).not.toBeNull();
+      expect(microphoneGroup?.textContent).toContain("已静音");
       const details = container.querySelector('[data-slot="participant-details"]');
-      expect(details?.textContent).toBe("面试官面试官");
+      expect(details?.textContent).toBe("面试官(我)面试官");
       expect(details?.className).toContain("z-20");
       expect(details?.querySelector('[aria-label="已静音"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="participant-tile"]')?.className).toContain(
@@ -287,10 +285,38 @@ describe("HumanMeetingStage realtime transcript", () => {
         "[&_video]:object-cover",
       );
 
-      verifyTranscriptToggle(container, renderStage);
+      verifyBackgroundTranscript(container, renderStage);
       renderStage("meeting", false);
       expect(container.textContent).toContain("离开");
       expect(container.textContent).not.toContain("结束会议");
+      mediaState.disconnect.mockClear();
+      const leaveTrigger =
+        width < 768
+          ? container.querySelector<HTMLButtonElement>('header [aria-label="退出会议"]')
+          : [...container.querySelectorAll<HTMLButtonElement>("footer button")].find(
+              (button) => button.textContent === "离开",
+            );
+      act(() => leaveTrigger?.click());
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain("退出会议？");
+      expect(mediaState.disconnect).not.toHaveBeenCalled();
+      act(() =>
+        [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+          .find((button) => button.textContent === "取消")
+          ?.click(),
+      );
+      expect(mediaState.disconnect).not.toHaveBeenCalled();
+      act(() => leaveTrigger?.click());
+      act(() =>
+        [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+          .find((button) => button.textContent === "确认退出")
+          ?.click(),
+      );
+      expect(mediaState.disconnect).toHaveBeenCalledTimes(1);
+      act(() =>
+        [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+          .find((button) => button.textContent === "取消")
+          ?.click(),
+      );
       mediaState.sharing = true;
       mediaState.source = "camera";
       renderStage("meeting");

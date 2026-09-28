@@ -89,6 +89,7 @@ export type PDFViewerProps = {
   documentOptions?: ReactPdf.DocumentProps["options"];
   defaultThumbnailSidebarOpen?: boolean;
   defaultZoom?: number;
+  enableModifierWheelZoom?: boolean;
   pageWidth?: number;
   pageHeight?: number;
   pageNumbers?: number[];
@@ -114,6 +115,7 @@ const DEFAULT_PAGE_WIDTH = 612;
 const DEFAULT_PAGE_HEIGHT = 792;
 const DEFAULT_ZOOM = 1;
 const ZOOM_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const WHEEL_ZOOM_STEP = 0.1;
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const DEFAULT_PAGE_RENDER_BUFFER = 4;
 const FAST_SCROLL_VELOCITY_PX_PER_MS = 1;
@@ -413,6 +415,7 @@ function PDFViewerPage({
   pageClassName,
   renderPageOverlay,
   onPageSettled,
+  preserveCanvasOnZoom,
   onPagePointerDown,
   onPagePointerMove,
   onPagePointerUp,
@@ -430,14 +433,59 @@ function PDFViewerPage({
   pageClassName?: (pageNumber: number) => string | undefined;
   renderPageOverlay?: (props: PDFViewerPageOverlayProps) => React.ReactNode;
   onPageSettled: (pageNumber: number, devicePixelRatioLimit: number) => void;
+  preserveCanvasOnZoom: boolean;
   onPagePointerDown?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
   onPagePointerMove?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
   onPagePointerUp?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
   onPagePointerCancel?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
 }) {
   const pageRef = React.useRef<HTMLDivElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const previousCanvasRef = React.useRef<HTMLCanvasElement>(null);
+  const previousRenderedWidthRef = React.useRef(renderedPageWidth);
+  const renderedPageWidthRef = React.useRef(renderedPageWidth);
+  const preserveCanvasOnZoomRef = React.useRef(preserveCanvasOnZoom);
   const [searchHighlights, setSearchHighlights] = React.useState<SearchHighlight[]>([]);
   const hasSearchQuery = Boolean(searchQuery.trim());
+  renderedPageWidthRef.current = renderedPageWidth;
+  preserveCanvasOnZoomRef.current = preserveCanvasOnZoom;
+
+  React.useLayoutEffect(() => {
+    previousRenderedWidthRef.current = renderedPageWidth;
+  }, [renderedPageWidth]);
+
+  const setPageCanvasRef = React.useCallback((canvas: HTMLCanvasElement | null) => {
+    if (canvas) {
+      canvasRef.current = canvas;
+      return;
+    }
+
+    const source = canvasRef.current;
+    const previous = previousCanvasRef.current;
+    canvasRef.current = null;
+    if (
+      !preserveCanvasOnZoomRef.current ||
+      previousRenderedWidthRef.current === renderedPageWidthRef.current ||
+      !source ||
+      !previous ||
+      !source.width ||
+      source.style.visibility === "hidden"
+    ) {
+      return;
+    }
+
+    const context = previous.getContext("2d");
+    if (!context) return;
+    previous.width = source.width;
+    previous.height = source.height;
+    context.drawImage(source, 0, 0);
+    previous.style.visibility = "visible";
+  }, []);
+
+  const finishPageRender = () => {
+    if (previousCanvasRef.current) previousCanvasRef.current.style.visibility = "hidden";
+    onPageSettled(pageNumber, devicePixelRatioLimit);
+  };
   const clearSearchHighlights = React.useCallback(() => {
     setSearchHighlights((currentHighlights) => (currentHighlights.length ? [] : currentHighlights));
   }, []);
@@ -518,6 +566,7 @@ function PDFViewerPage({
       {shouldRenderPage ? (
         <>
           <reactPdf.Page
+            canvasRef={setPageCanvasRef}
             pageNumber={pageNumber}
             width={renderedPageWidth}
             rotate={effectiveRotation}
@@ -534,10 +583,18 @@ function PDFViewerPage({
                 <Spinner className="size-4" />
               </div>
             }
-            onRenderSuccess={() => onPageSettled(pageNumber, devicePixelRatioLimit)}
+            onRenderSuccess={finishPageRender}
             onRenderTextLayerSuccess={updateSearchHighlights}
-            onRenderError={() => onPageSettled(pageNumber, devicePixelRatioLimit)}
+            onRenderError={finishPageRender}
           />
+          {preserveCanvasOnZoom ? (
+            <canvas
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-10 size-full"
+              ref={previousCanvasRef}
+              style={{ visibility: "hidden" }}
+            />
+          ) : null}
           {searchHighlights.length ? (
             <div className="pointer-events-none absolute inset-0 z-10">
               {searchHighlights.map((highlight) => (
@@ -576,6 +633,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     documentOptions,
     defaultThumbnailSidebarOpen = false,
     defaultZoom = DEFAULT_ZOOM,
+    enableModifierWheelZoom = false,
     pageWidth = DEFAULT_PAGE_WIDTH,
     pageHeight = DEFAULT_PAGE_HEIGHT,
     pageNumbers,
@@ -640,6 +698,16 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     scrollTop: 0,
     timestamp: 0,
   });
+  const lastWheelZoomAtRef = React.useRef(-Infinity);
+  const zoomRef = React.useRef(zoom);
+  const wheelZoomAnchorRef = React.useRef<{
+    clientX: number;
+    clientY: number;
+    pageNumber: number;
+    xRatio: number;
+    yRatio: number;
+  } | null>(null);
+  zoomRef.current = zoom;
 
   React.useEffect(() => {
     setPdfFile(file ?? "");
@@ -841,6 +909,69 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   const hasPdfFile = Boolean(pdfFile);
   const controlsDisabled = !hasPdfFile || !reactPdf || !numPages;
   const downloadDisabled = controlsDisabled || isPreparingDownload;
+
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!enableModifierWheelZoom || controlsDisabled || !viewport) return;
+
+    const handleModifierWheel = (event: WheelEvent) => {
+      if ((!event.ctrlKey && !event.altKey) || event.deltaY === 0) return;
+
+      event.preventDefault();
+      const now = performance.now();
+      if (now - lastWheelZoomAtRef.current < 70) return;
+      lastWheelZoomAtRef.current = now;
+
+      const nextZoom = Math.max(
+        ZOOM_OPTIONS[0],
+        Math.min(
+          ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
+          Number(
+            (zoomRef.current + (event.deltaY < 0 ? WHEEL_ZOOM_STEP : -WHEEL_ZOOM_STEP)).toFixed(2),
+          ),
+        ),
+      );
+      if (nextZoom === zoomRef.current) return;
+
+      const pageElement =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>("[data-pdf-viewer-page]")
+          : null;
+      wheelZoomAnchorRef.current = null;
+      if (pageElement?.dataset.pdfViewerPage) {
+        const rect = pageElement.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          wheelZoomAnchorRef.current = {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            pageNumber: Number(pageElement.dataset.pdfViewerPage),
+            xRatio: (event.clientX - rect.left) / rect.width,
+            yRatio: (event.clientY - rect.top) / rect.height,
+          };
+        }
+      }
+      zoomRef.current = nextZoom;
+      setZoom(nextZoom);
+    };
+
+    viewport.addEventListener("wheel", handleModifierWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", handleModifierWheel);
+  }, [controlsDisabled, enableModifierWheelZoom]);
+
+  React.useLayoutEffect(() => {
+    const anchor = wheelZoomAnchorRef.current;
+    wheelZoomAnchorRef.current = null;
+    const viewport = viewportRef.current;
+    if (!anchor || !viewport) return;
+
+    const pageElement = viewport.querySelector<HTMLElement>(
+      `[data-pdf-viewer-page="${anchor.pageNumber}"]`,
+    );
+    if (!pageElement) return;
+    const rect = pageElement.getBoundingClientRect();
+    viewport.scrollTop += rect.top + anchor.yRatio * rect.height - anchor.clientY;
+    viewport.scrollLeft += rect.left + anchor.xRatio * rect.width - anchor.clientX;
+  }, [zoom]);
   const isLoading = hasPdfFile && (!reactPdf || isDocumentLoading || isFirstPageRendering);
   const sidebarInline = useInlineThumbnailSidebar(viewerShellWidth);
   const thumbnailSidebarVisible = Boolean(sidebarOpen && !isLoading && !loadError);
@@ -1483,8 +1614,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                   aria-label="缩小"
                   disabled={controlsDisabled || zoom <= ZOOM_OPTIONS[0]}
                   onClick={() => {
-                    const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
-                    setZoom(ZOOM_OPTIONS[Math.max(0, currentIndex - 1)] ?? zoom);
+                    setZoom(ZOOM_OPTIONS.findLast((option) => option < zoom) ?? zoom);
                   }}
                 >
                   <IconCircleMinus className="size-4" />
@@ -1499,6 +1629,9 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                   <SelectValue placeholder="缩放">{Math.round(zoom * 100)}%</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
+                  {!ZOOM_OPTIONS.includes(zoom) ? (
+                    <SelectItem value={String(zoom)}>{Math.round(zoom * 100)}%</SelectItem>
+                  ) : null}
                   {ZOOM_OPTIONS.map((option) => (
                     <SelectItem key={option} value={String(option)}>
                       {Math.round(option * 100)}%
@@ -1514,10 +1647,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                   aria-label="放大"
                   disabled={controlsDisabled || zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
                   onClick={() => {
-                    const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
-                    setZoom(
-                      ZOOM_OPTIONS[Math.min(ZOOM_OPTIONS.length - 1, currentIndex + 1)] ?? zoom,
-                    );
+                    setZoom(ZOOM_OPTIONS.find((option) => option > zoom) ?? zoom);
                   }}
                 >
                   <IconCirclePlus className="size-4" />
@@ -1773,6 +1903,9 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                           pageClassName={pageClassName}
                           renderPageOverlay={renderPageOverlay}
                           onPageSettled={handlePageSettled}
+                          preserveCanvasOnZoom={
+                            enableModifierWheelZoom && visiblePageNumbers.has(pageNumber)
+                          }
                           onPagePointerDown={onPagePointerDown}
                           onPagePointerMove={onPagePointerMove}
                           onPagePointerUp={onPagePointerUp}

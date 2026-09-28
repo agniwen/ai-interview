@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("candidate interview history", () => {
-  it("shows explicit empty states rather than invented evaluation fields", async () => {
+  it("shows only the available AI evaluation when interview history is empty", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -24,16 +24,20 @@ describe("candidate interview history", () => {
     await act(() =>
       root.render(
         <CandidateInterviewHistory
+          aiEvaluation={<p>简历 AI 评价内容</p>}
+          aiEvaluationGeneratedAt="2026-09-01T10:00:00Z"
           data={{ hrInitialInformation: null, previousEvaluations: [] }}
         />,
       ),
     );
-    expect(container.textContent).toContain("暂无 HR 初面信息");
-    expect(container.textContent).toContain("暂无已提交的业务面评价");
+    expect(container.textContent).toContain("简历 AI 评价内容");
+    expect(container.querySelector("button[aria-expanded]")?.textContent).toContain("2026");
+    expect(container.textContent).not.toContain("暂无已提交的业务面评价");
+    expect(container.textContent).not.toContain("HR 初面");
     expect(container.textContent).not.toContain("评级（A/B/C/D）");
-    expect(container.querySelector("button[aria-expanded]")?.getAttribute("aria-expanded")).toBe(
-      "true",
-    );
+    expect(
+      container.querySelector("button[aria-expanded=true]")?.getAttribute("aria-expanded"),
+    ).toBe("true");
   });
 
   it("shows a business evaluation even without HR information and preserves a failed outcome", async () => {
@@ -44,6 +48,7 @@ describe("candidate interview history", () => {
     await act(() =>
       root.render(
         <CandidateInterviewHistory
+          aiEvaluation={<p>简历 AI 评价内容</p>}
           data={{
             hrInitialInformation: null,
             previousEvaluations: [
@@ -74,7 +79,7 @@ describe("candidate interview history", () => {
     expect(container.textContent).not.toContain("暂无已提交的业务面评价");
   });
 
-  it("keeps HR information and shows submitted business evaluations with the latest round expanded", async () => {
+  it("keeps HR information and shows submitted business evaluations with all evaluations expanded by default", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -82,6 +87,7 @@ describe("candidate interview history", () => {
     await act(() =>
       root.render(
         <CandidateInterviewHistory
+          aiEvaluation={<p>简历 AI 评价内容</p>}
           data={{
             hrInitialInformation: {
               conversationId: "hr-1",
@@ -119,14 +125,18 @@ describe("candidate interview history", () => {
     );
 
     const triggers = [...container.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")];
-    expect(triggers.map((trigger) => trigger.textContent)).toEqual([
-      "HR 初面",
-      "业务一面",
+    expect(triggers.map((trigger) => trigger.querySelector("span > span")?.textContent)).toEqual([
       "业务二面",
+      "业务一面",
+      "HR 初面",
+      "AI 评价",
     ]);
+    expect(triggers[0]?.textContent).toMatch(/2026/);
+    expect(triggers[2]?.textContent).toMatch(/2026/);
     expect(triggers.map((trigger) => trigger.getAttribute("aria-expanded"))).toEqual([
-      "false",
-      "false",
+      "true",
+      "true",
+      "true",
       "true",
     ]);
     for (const text of [
@@ -143,13 +153,14 @@ describe("candidate interview history", () => {
       "劣势风险",
       "薪资建议",
       "30K",
-      "提交时间",
     ]) {
       expect(container.textContent).toContain(text);
     }
-    await act(() => triggers[0]?.click());
-    expect(triggers[0]?.getAttribute("aria-expanded")).toBe("true");
     expect(container.textContent).toContain("寻找技术管理机会");
     expect(container.textContent).toContain("未收集到相关信息");
+    expect(container.textContent).toContain("简历 AI 评价内容");
+    await act(() => triggers[2]?.click());
+    expect(triggers[2]?.getAttribute("aria-expanded")).toBe("false");
+    expect(triggers[3]?.getAttribute("aria-expanded")).toBe("true");
   });
 });

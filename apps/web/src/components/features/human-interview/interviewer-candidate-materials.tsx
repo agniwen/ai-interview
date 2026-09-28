@@ -1,11 +1,12 @@
 "use client";
 
-import { IconAlertTriangle, IconFileDescription } from "@tabler/icons-react";
-import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
+import { IconAlertTriangle, IconFileDescription, IconListDetails } from "@tabler/icons-react";
 import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState } from "react";
+import type { ReactNode } from "react";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
@@ -19,6 +20,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -27,7 +29,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -70,7 +71,7 @@ const InlineImageViewer = lazy(async () => {
   return { default: mod.ImageResumePreviewContent };
 });
 
-export type CandidateMaterialsTab = "resume" | "detail" | "ai" | "questions" | "hr";
+export type CandidateMaterialsTab = "resume" | "evaluation" | "questions";
 
 export interface InterviewerCandidateMaterialsState {
   candidateId: string | null;
@@ -78,16 +79,11 @@ export interface InterviewerCandidateMaterialsState {
 }
 
 function isCandidateMaterialsTab(value: string): value is CandidateMaterialsTab {
-  return (
-    value === "resume" ||
-    value === "detail" ||
-    value === "ai" ||
-    value === "questions" ||
-    value === "hr"
-  );
+  return value === "resume" || value === "evaluation" || value === "questions";
 }
 
 interface InterviewerCandidateMaterialsProps {
+  showQuestions?: boolean;
   active: boolean;
   inviteToken: string;
   onStateChange: (state: InterviewerCandidateMaterialsState) => void;
@@ -109,12 +105,6 @@ const DIMENSION_ENTRIES = [
   ["potential", "潜力"],
   ["stability", "稳定性"],
 ] as const;
-
-const DIFFICULTY_LABEL = {
-  easy: "基础",
-  hard: "深入",
-  medium: "进阶",
-} as const;
 
 function LoadingBlock() {
   return (
@@ -158,38 +148,44 @@ function AiEvaluationContent({
 }) {
   const { evaluation } = data.aiEvaluation;
   return (
-    <div className="flex flex-col p-4">
-      <section className="flex flex-col gap-3 pb-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-muted-foreground text-xs">综合建议</span>
-          <QualitativeRecommendationIndicator level={evaluation.recommendationLevel} />
+    <div className="@container">
+      <section className="grid items-center gap-3 border-b pb-3 @min-[40rem]:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="mx-auto w-full max-w-60">
+          <QualitativeDimensionRadar compact evaluation={evaluation} />
         </div>
-        <p className="font-medium text-sm leading-6">{evaluation.conciseOverall}</p>
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold text-base">综合建议</h3>
+            <QualitativeRecommendationIndicator
+              className="text-sm"
+              level={evaluation.recommendationLevel}
+            />
+          </div>
+          <RestrictedMarkdownView
+            className="text-base leading-7"
+            content={evaluation.detailedOverall.judgment}
+          />
+        </div>
       </section>
-      <Separator />
-      <div className="py-4">
-        <QualitativeDimensionRadar compact evaluation={evaluation} />
-      </div>
-      <Separator />
-      <div className="flex flex-col">
-        {DIMENSION_ENTRIES.map(([key, label], index) => {
+      <div className="grid gap-x-6 @min-[48rem]:grid-cols-2">
+        {DIMENSION_ENTRIES.map(([key, label]) => {
           const dimension = evaluation.dimensions[key];
           return (
-            <Fragment key={key}>
-              <section className="py-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-medium text-sm">{label}</h3>
-                  <Badge variant="outline">
-                    {QUALITATIVE_RECOMMENDATION_LABEL[dimension.level]}
-                  </Badge>
-                </div>
-                <RestrictedMarkdownView
-                  className="mt-2 text-muted-foreground text-xs leading-5"
-                  content={dimension.evaluation}
-                />
-              </section>
-              {index < DIMENSION_ENTRIES.length - 1 ? <Separator /> : null}
-            </Fragment>
+            <section
+              className="min-w-0 border-b py-3 last:border-b-0 @min-[48rem]:nth-last-2:border-b-0"
+              key={key}
+            >
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-base">{label}</h3>
+                <Badge className="text-sm" variant="outline">
+                  {QUALITATIVE_RECOMMENDATION_LABEL[dimension.level]}
+                </Badge>
+              </div>
+              <RestrictedMarkdownView
+                className="mt-2 text-base leading-7"
+                content={dimension.evaluation}
+              />
+            </section>
           );
         })}
       </div>
@@ -197,36 +193,46 @@ function AiEvaluationContent({
   );
 }
 
-function CandidateAiEvaluation({ query }: { query: ReturnType<typeof useAiEvaluationQuery> }) {
-  if (query.isPending) {
-    return <LoadingBlock />;
+function CandidateEvaluations({
+  query,
+  aiQuery,
+}: {
+  query: ReturnType<typeof useHrInformationQuery>;
+  aiQuery: ReturnType<typeof useAiEvaluationQuery>;
+}) {
+  const aiEvaluation =
+    aiQuery.data?.aiEvaluation.status === "ready" ? (
+      <AiEvaluationContent data={{ aiEvaluation: aiQuery.data.aiEvaluation }} />
+    ) : null;
+  const aiStatus = (
+    <>
+      {aiQuery.isPending ? <LoadingBlock /> : null}
+      {aiQuery.isError ? <ErrorBlock error={aiQuery.error} title="AI 评价加载失败" /> : null}
+    </>
+  );
+  if (query.isPending || query.isError) {
+    return (
+      <>
+        {query.isPending ? (
+          <LoadingBlock />
+        ) : (
+          <ErrorBlock error={query.error} title="历史评价加载失败" />
+        )}
+        {aiStatus}
+        {aiEvaluation}
+      </>
+    );
   }
-  if (query.isError) {
-    return <ErrorBlock error={query.error} title="AI 评价加载失败" />;
-  }
-  const { aiEvaluation } = query.data;
-  if (aiEvaluation.status !== "ready") {
-    let description: string | undefined;
-    if (aiEvaluation.status === "pending") {
-      description = "当前评价仍在生成中，请稍后查看。";
-    } else if (aiEvaluation.status === "failed") {
-      description = "最近一次 AI 评价未成功。";
-    } else if (aiEvaluation.status === "legacy") {
-      description = "历史数字评分不会转换成新版六维评价。";
-    }
-    return <EmptyBlock description={description} title="暂无可展示的六维 AI 评价" />;
-  }
-  return <AiEvaluationContent data={{ aiEvaluation }} />;
-}
-
-function CandidateHrInformation({ query }: { query: ReturnType<typeof useHrInformationQuery> }) {
-  if (query.isPending) {
-    return <LoadingBlock />;
-  }
-  if (query.isError) {
-    return <ErrorBlock error={query.error} title="历史评价加载失败" />;
-  }
-  return <CandidateInterviewHistory data={query.data} />;
+  return (
+    <>
+      <CandidateInterviewHistory
+        aiEvaluation={aiEvaluation}
+        aiEvaluationGeneratedAt={aiQuery.data?.generatedAt}
+        data={query.data}
+      />
+      {aiStatus}
+    </>
+  );
 }
 
 function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQuery> }) {
@@ -240,29 +246,41 @@ function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQu
     return <EmptyBlock title="暂无面试题参考" />;
   }
   return (
-    <ol className="flex flex-col px-4">
-      {query.data.interviewQuestions.map((question, index) => {
+    <ol className="divide-y px-6 pb-4 md:px-7">
+      {query.data.interviewQuestions.map((question) => {
         const dimension = question.dimension ?? "business";
         return (
-          <li className="py-4" key={`${question.order}-${question.question}`}>
+          <li className="space-y-3 py-5" key={`${question.order}-${question.question}`}>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-primary text-xs">{question.order}</span>
-              <Badge variant="outline">{INTERVIEW_QUESTION_DIMENSION_LABEL[dimension]}</Badge>
-              <Badge variant="secondary">{DIFFICULTY_LABEL[question.difficulty]}</Badge>
+              <span className="mr-1 font-medium text-muted-foreground text-sm">
+                第 {question.order} 题
+              </span>
+              <Badge className="text-sm" variant="outline">
+                {INTERVIEW_QUESTION_DIMENSION_LABEL[dimension]}
+              </Badge>
             </div>
-            <p className="mt-3 text-sm leading-6">{question.question}</p>
-            {question.evaluationFocus ? (
-              <p className="mt-2 text-muted-foreground text-xs leading-5">
-                考核点：{question.evaluationFocus}
-              </p>
-            ) : null}
-            {question.followUpDirections ? (
-              <p className="mt-1 text-muted-foreground text-xs leading-5">
-                追问方向：{question.followUpDirections}
-              </p>
-            ) : null}
-            {index < query.data.interviewQuestions.length - 1 ? (
-              <Separator className="mt-4" />
+            <h3 className="whitespace-pre-wrap break-words font-semibold text-foreground text-lg leading-7">
+              {question.question}
+            </h3>
+            {question.evaluationFocus || question.followUpDirections ? (
+              <dl className="space-y-3 border-l-2 border-border pl-3">
+                {question.evaluationFocus ? (
+                  <div className="space-y-1">
+                    <dt className="font-medium text-muted-foreground text-sm">考核点</dt>
+                    <dd className="whitespace-pre-wrap break-words text-foreground text-base leading-7">
+                      {question.evaluationFocus}
+                    </dd>
+                  </div>
+                ) : null}
+                {question.followUpDirections ? (
+                  <div className="space-y-1">
+                    <dt className="font-medium text-muted-foreground text-sm">追问方向</dt>
+                    <dd className="whitespace-pre-wrap break-words text-foreground text-base leading-7">
+                      {question.followUpDirections}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
             ) : null}
           </li>
         );
@@ -285,7 +303,7 @@ function CandidateDetail({ query }: { query: ReturnType<typeof useOverviewQuery>
   const avatarValue = avatarLabel.slice(0, 1).toUpperCase();
   return (
     <ScrollArea className="h-full" scrollFade scrollbars="leave">
-      <div className="flex flex-col gap-8 p-5 lg:p-7">
+      <div className="flex flex-col gap-8 p-5 pb-20 lg:p-7 lg:pb-20">
         <header className="flex min-w-0 items-center gap-3">
           <Avatar
             className="size-14 shrink-0"
@@ -352,6 +370,7 @@ function InlineResumeDocument({
     return (
       <InlinePdfViewer
         className="h-full"
+        enableModifierWheelZoom
         file={sourceUrl}
         showDownload={false}
         showUpload={false}
@@ -438,6 +457,25 @@ function ResumePreview({
   );
 }
 
+function MaterialTab({
+  value,
+  children,
+}: {
+  value: InterviewerCandidateMaterialsState["tab"];
+  children: ReactNode;
+}) {
+  return (
+    <TabsContent
+      keepMounted
+      motion="page"
+      className="relative min-h-0 overflow-hidden [--distance-base:4rem]"
+      value={value}
+    >
+      {children}
+    </TabsContent>
+  );
+}
+
 function useOverviewQuery(active: boolean, inviteToken: string, candidateId: string | null) {
   return useQuery({
     ...MATERIALS_QUERY_OPTIONS,
@@ -475,11 +513,13 @@ function useQuestionsQuery(active: boolean, inviteToken: string, candidateId: st
 }
 
 export function InterviewerCandidateMaterials({
+  showQuestions = false,
   active,
   inviteToken,
   onStateChange,
   state,
 }: InterviewerCandidateMaterialsProps) {
+  const [showStructuredResume, setShowStructuredResume] = useState(false);
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active,
@@ -491,7 +531,11 @@ export function InterviewerCandidateMaterials({
   const overviewQuery = useOverviewQuery(active, inviteToken, effectiveCandidateId);
   const aiQuery = useAiEvaluationQuery(active, inviteToken, effectiveCandidateId);
   const hrQuery = useHrInformationQuery(active, inviteToken, effectiveCandidateId);
-  const questionsQuery = useQuestionsQuery(active, inviteToken, effectiveCandidateId);
+  const questionsQuery = useQuestionsQuery(
+    active && showQuestions,
+    inviteToken,
+    effectiveCandidateId,
+  );
   if (listQuery.isPending) {
     return <LoadingBlock />;
   }
@@ -527,58 +571,71 @@ export function InterviewerCandidateMaterials({
         </SelectContent>
       </Select>
     ) : null;
+  const activeTab = !showQuestions && state.tab === "questions" ? "resume" : state.tab;
   return (
     <Tabs
       className="h-full min-h-0 gap-0 overflow-hidden bg-background text-foreground"
-      value={state.tab}
+      value={activeTab}
       onValueChange={(tab) => {
-        if (isCandidateMaterialsTab(tab)) {
+        if (isCandidateMaterialsTab(tab) && tab !== activeTab) {
           onStateChange({ ...state, tab });
         }
       }}
     >
       {candidateSelector}
-      <TabsList
-        aria-label="候选人资料"
-        className="m-2 grid h-auto w-auto shrink-0 grid-cols-5 gap-0 data-[orientation=horizontal]:h-auto md:mx-3"
-      >
-        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="resume">
+      <TabsList aria-label="候选人资料" className="mx-2 w-auto shrink-0 self-stretch md:mx-3">
+        <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="resume">
           简历
         </TabsTrigger>
-        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="detail">
-          详情
+        <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="evaluation">
+          评价
         </TabsTrigger>
-        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="ai">
-          AI 评价
-        </TabsTrigger>
-        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="questions">
-          面试题
-        </TabsTrigger>
-        <TabsTrigger className="h-10! min-w-0 px-1 text-xs md:text-sm" value="hr">
-          历史评价
-        </TabsTrigger>
+        {showQuestions ? (
+          <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="questions">
+            面试题
+          </TabsTrigger>
+        ) : null}
       </TabsList>
-      <TabsContent className="min-h-0 overflow-hidden" value="resume">
-        <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
-      </TabsContent>
-      <TabsContent className="min-h-0 overflow-hidden" value="detail">
-        <CandidateDetail query={overviewQuery} />
-      </TabsContent>
-      <TabsContent className="min-h-0 overflow-hidden" value="ai">
-        <ScrollArea className="h-full" scrollFade scrollbars="leave">
-          <CandidateAiEvaluation query={aiQuery} />
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent className="min-h-0 overflow-hidden" value="questions">
-        <ScrollArea className="h-full" scrollFade scrollbars="leave">
-          <CandidateQuestions query={questionsQuery} />
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent className="min-h-0 overflow-hidden" value="hr">
-        <ScrollArea className="h-full" scrollFade scrollbars="leave">
-          <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
-        </ScrollArea>
-      </TabsContent>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <MaterialTab value="resume">
+          <div className="h-full min-h-0">
+            {showStructuredResume ? (
+              <CandidateDetail query={overviewQuery} />
+            ) : (
+              <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
+            )}
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-4">
+            <Button
+              aria-pressed={showStructuredResume}
+              className="pointer-events-auto shadow-lg"
+              onClick={() => setShowStructuredResume((current) => !current)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {showStructuredResume ? (
+                <IconFileDescription data-icon="inline-start" />
+              ) : (
+                <IconListDetails data-icon="inline-start" />
+              )}
+              {showStructuredResume ? "展示简历原件" : "展示结构化数据"}
+            </Button>
+          </div>
+        </MaterialTab>
+        <MaterialTab value="evaluation">
+          <ScrollArea className="h-full" scrollFade scrollbars="leave">
+            <CandidateEvaluations key={effectiveCandidateId} aiQuery={aiQuery} query={hrQuery} />
+          </ScrollArea>
+        </MaterialTab>
+        {showQuestions ? (
+          <MaterialTab value="questions">
+            <ScrollArea className="h-full" scrollFade scrollbars="leave">
+              <CandidateQuestions query={questionsQuery} />
+            </ScrollArea>
+          </MaterialTab>
+        ) : null}
+      </div>
     </Tabs>
   );
 }

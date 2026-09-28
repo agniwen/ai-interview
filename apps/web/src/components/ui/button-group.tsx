@@ -6,8 +6,8 @@ import { cva } from "class-variance-authority";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@app/shared/utils";
 
-// Ignore Base UI `[data-base-ui-focus-guard]` siblings (injected while Popover/Menu is open)
-// so first/last real controls keep shared radius. Class names must stay full string
+// Ignore Base UI focus guards and hidden portal ownership spans inserted by open menus.
+// Only real controls should affect shared corners. Class names must stay full string
 // literals for Tailwind scanning.
 const buttonGroupVariants = cva(
   "flex w-fit items-stretch [&>*]:focus-visible:z-10 [&>*]:focus-visible:relative [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-md has-[>[data-slot=button-group]]:gap-2",
@@ -18,9 +18,9 @@ const buttonGroupVariants = cva(
     variants: {
       orientation: {
         horizontal:
-          "[&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:rounded-l-none [&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:border-l-0 [&>:not([data-base-ui-focus-guard]):has(~:not([data-base-ui-focus-guard]))]:rounded-r-none",
+          "[&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:rounded-l-none [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:border-l-0 [&>:not([data-base-ui-focus-guard]):not(span[aria-owns]):has(~:not([data-base-ui-focus-guard]):not(span[aria-owns]))]:rounded-r-none",
         vertical:
-          "flex-col [&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:rounded-t-none [&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:border-t-0 [&>:not([data-base-ui-focus-guard]):has(~:not([data-base-ui-focus-guard]))]:rounded-b-none",
+          "flex-col [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:rounded-t-none [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:border-t-0 [&>:not([data-base-ui-focus-guard]):not(span[aria-owns]):has(~:not([data-base-ui-focus-guard]):not(span[aria-owns]))]:rounded-b-none",
       },
     },
   },

@@ -1,15 +1,14 @@
 import {
   IconCheck,
   IconChevronDown,
+  IconHeadphones,
   IconLoader2,
-  IconMicrophone,
   IconWand,
   IconWaveSine,
 } from "@tabler/icons-react";
 import { useMediaDeviceSelect, useRoomContext } from "@livekit/components-react";
 import { LocalAudioTrack, Track } from "livekit-client";
 import type { Room } from "livekit-client";
-import { cn } from "@app/shared/utils";
 import { useId, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -60,15 +59,9 @@ function getDeviceLabel(device: MediaDeviceInfo, index: number): string {
   return `麦克风 ${index + 1}`;
 }
 
-export function MicrophoneDeviceMenu({
-  className,
-  compactMobile = false,
-}: {
-  className?: string;
-  compactMobile?: boolean;
-}) {
+export function MicrophoneDeviceMenu() {
   const isMobile = useIsMobile();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const fieldId = useId();
   const { activeDeviceId, devices, setActiveMediaDevice } = useMediaDeviceSelect({
@@ -87,7 +80,7 @@ export function MicrophoneDeviceMenu({
     setIsSelecting(true);
     try {
       await setActiveMediaDevice(deviceId);
-      setDrawerOpen(false);
+      setMenuOpen(false);
       toast.success("已切换麦克风");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "切换麦克风失败");
@@ -97,24 +90,30 @@ export function MicrophoneDeviceMenu({
   }
 
   const trigger = (
-    <button
-      className={cn(deviceButtonClass, className)}
+    <Button
+      className="group/microphone-menu shrink-0 aria-expanded:bg-accent aria-expanded:text-accent-foreground max-md:order-3 max-md:h-11 max-md:min-w-0 max-md:flex-1 max-md:flex-col max-md:gap-1 max-md:border-0 max-md:bg-transparent max-md:px-1 max-md:text-[10px] max-md:shadow-none max-md:hover:bg-transparent max-md:aria-expanded:bg-transparent max-md:aria-expanded:text-primary max-md:[&_svg]:size-5"
+      size="icon"
+      variant="secondary"
       type="button"
       disabled={isSelecting}
-      aria-label={`当前麦克风：${selectedLabel}`}
+      aria-expanded={menuOpen}
+      aria-label={`选择麦克风，当前麦克风：${selectedLabel}`}
+      title={`选择麦克风：${selectedLabel}`}
     >
-      <IconMicrophone className="size-4" />
-      {compactMobile ? <span className="md:hidden">当前麦克风</span> : null}
-      <span className={cn("max-w-36 truncate", compactMobile && "hidden md:inline")}>
-        {selectedLabel}
-      </span>
-      <IconChevronDown className={cn("size-3.5 opacity-70", compactMobile && "hidden md:block")} />
-    </button>
+      {isMobile ? (
+        <>
+          <IconHeadphones className="size-4" />
+          <span className="max-w-full truncate">麦克风设备</span>
+        </>
+      ) : (
+        <IconChevronDown className="transition-transform duration-[var(--duration-fast)] group-aria-expanded/microphone-menu:rotate-180 motion-reduce:transition-none" />
+      )}
+    </Button>
   );
 
   if (isMobile) {
     return (
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Drawer open={menuOpen} onOpenChange={setMenuOpen}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
         <DrawerContent>
           <DrawerHeader>
@@ -165,7 +164,7 @@ export function MicrophoneDeviceMenu({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent align="center" className="w-72" side="top">
         <DropdownMenuGroup>

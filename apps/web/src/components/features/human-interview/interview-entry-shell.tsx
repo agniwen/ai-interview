@@ -6,9 +6,11 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 export function InterviewEntryShell({
   children,
   mobileAction,
+  hideMobileTheme = false,
 }: {
   children: ReactNode;
   mobileAction?: ReactNode;
+  hideMobileTheme?: boolean;
 }) {
   return (
     <main className="relative isolate h-dvh w-full bg-background text-foreground">
@@ -20,7 +22,7 @@ export function InterviewEntryShell({
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_right,transparent,var(--background)_25%,var(--background)_75%,transparent)] opacity-80"
       />
-      <div className="fixed top-3 right-4 z-10">
+      <div className={cn("fixed top-3 right-4 z-10", hideMobileTheme && "hidden md:block")}>
         <ThemeToggle />
       </div>
       <ScrollArea className="h-full w-full" orientation="vertical" scrollFade>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
@@ -7,9 +9,6 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 import {
   IconDeviceDesktopUp,
-  IconChevronLeft,
-  IconChevronRight,
-  IconMessage,
   IconFileDescription,
   IconLoader2,
   IconMicrophone,
@@ -17,7 +16,6 @@ import {
   IconPhoneOff,
   IconPlayerStopFilled,
   IconUsers,
-  IconUserFilled,
   IconVideo,
   IconVideoOff,
 } from "@tabler/icons-react";
@@ -32,13 +30,14 @@ import {
   TrackLoop,
   TrackToggle,
   useParticipants,
+  useIsRecording,
   useTrackRefContext,
   useTracks,
 } from "@livekit/components-react";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { notifyMeetingMediaError } from "./human-meeting-media-errors";
-import type { MouseEvent, ReactNode } from "react";
+import type { MouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@app/shared/utils";
@@ -118,6 +117,11 @@ export interface HumanMeetingStageProps {
   viewMode: HumanMeetingViewMode;
 }
 
+// Keep capture, reconnection and draft persistence mounted without rendering transcript text.
+function hideTranscriptPanel() {
+  return null;
+}
+
 // oxlint-disable-next-line complexity -- stage rendering reflects the approved meeting, materials, and sharing modes.
 export function HumanMeetingStage({
   candidateName,
@@ -136,54 +140,13 @@ export function HumanMeetingStage({
   title,
   viewMode,
 }: HumanMeetingStageProps) {
+  const isMobile = useIsMobile();
+  const MicrophoneControls = isMobile ? "fieldset" : ButtonGroup;
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
-  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
-
-  const transcriptToggle = (
-    <Button
-      data-slot="meeting-transcript-toggle"
-      className={cn(
-        "absolute top-24 z-20 h-auto flex-col gap-2 bg-background px-2 py-3 shadow-sm",
-        transcriptExpanded
-          ? "left-0 rounded-l-none border-l-0"
-          : "right-0 rounded-r-none border-r-0",
-      )}
-      variant="outline"
-      aria-label={transcriptExpanded ? "收起实时转录" : "展开实时转录"}
-      aria-expanded={transcriptExpanded}
-      aria-controls="human-meeting-transcript-panel"
-      onClick={() => setTranscriptExpanded((expanded) => !expanded)}
-    >
-      {transcriptExpanded ? (
-        <IconChevronRight className="size-4" />
-      ) : (
-        <IconChevronLeft className="size-4" />
-      )}
-      <span className="text-xs [writing-mode:vertical-rl]">实时转录</span>
-    </Button>
-  );
-
-  function renderTranscriptPanel(panel: ReactNode) {
-    return (
-      <div
-        id="human-meeting-transcript-panel"
-        data-slot="meeting-transcript-panel"
-        hidden={!transcriptExpanded}
-        className={cn(
-          "relative min-h-0 min-w-0 flex-col overflow-hidden border-border border-t bg-background pl-8 lg:border-t-0 lg:border-l",
-          transcriptExpanded ? "flex" : "hidden",
-        )}
-      >
-        <div className="shrink-0 border-border border-b px-3 py-2">
-          <span className="text-sm font-medium">实时转录</span>
-        </div>
-        {panel}
-        {transcriptExpanded ? transcriptToggle : null}
-      </div>
-    );
-  }
+  const isRecording = useIsRecording();
   const participants = useParticipants().filter((participant) => !participant.isAgent);
   const tracks = useTracks(
     [
@@ -226,39 +189,60 @@ export function HumanMeetingStage({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-2 border-border border-b px-4 py-2 md:gap-3 md:py-3">
+      <header className="flex h-11 shrink-0 items-center justify-between gap-2 pr-1.5 pl-3 md:h-10 md:pl-4">
         <div className="min-w-0 flex-1">
-          <h1 className="font-medium text-sm leading-5 text-foreground tracking-normal md:text-xl">
+          <h1
+            className="truncate font-medium text-sm leading-5 text-foreground tracking-normal"
+            title={title}
+          >
             <span className="block truncate md:hidden">
-              {[candidateName, jobDescriptionName].filter(Boolean).join("－") || title}
+              {[candidateName, jobDescriptionName, roundLabel].filter(Boolean).join(" · ") || title}
             </span>
-            <span className="hidden md:block">{title}</span>
+            <span className="hidden truncate md:block">{title}</span>
           </h1>
-          {roundLabel ? (
-            <p className="truncate text-xs leading-4 text-muted-foreground md:hidden">
-              {roundLabel}
-            </p>
-          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Badge variant="secondary" aria-label="参会人数">
+          {isRecording ? (
+            <output
+              className="inline-flex items-center gap-1.5 whitespace-nowrap text-muted-foreground text-xs"
+              data-slot="meeting-recording-status"
+            >
+              <span aria-hidden="true" className="size-2 rounded-full bg-destructive" />
+              录制中
+            </output>
+          ) : null}
+          <Badge className="hidden md:inline-flex" variant="secondary" aria-label="参会人数">
             <IconUsers data-icon="inline-start" />
             {participants.length}
           </Badge>
-          <ThemeToggle className="shrink-0" />
+          <ThemeToggle className="hidden shrink-0 md:inline-flex" />
+          {canEndMeeting ? (
+            <Button
+              aria-label="结束会议"
+              className={mobileHangupButtonClass}
+              disabled={isEnding}
+              onClick={() => setEndConfirmOpen(true)}
+              size="icon-sm"
+              variant="destructive"
+            >
+              {isEnding ? <IconLoader2 className="size-4 animate-spin" /> : <HangUpIcon />}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setLeaveConfirmOpen(true)}
+              aria-label="退出会议"
+              title="退出会议"
+              className={mobileHangupButtonClass}
+              size="icon-sm"
+              variant="destructive"
+            >
+              <HangUpIcon />
+            </Button>
+          )}
         </div>
       </header>
 
-      <div
-        data-slot="meeting-workspace"
-        className={cn(
-          "relative grid min-h-0 flex-1 overflow-hidden",
-          inviteToken &&
-            canUseLiveTranscript &&
-            transcriptExpanded &&
-            "grid-rows-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-cols-[minmax(0,1fr)_clamp(21.75rem,25vw,25.75rem)] lg:grid-rows-1",
-        )}
-      >
+      <div data-slot="meeting-workspace" className="relative grid min-h-0 flex-1 overflow-hidden">
         <div
           data-slot="meeting-main-panels"
           className="flex min-h-0 min-w-0 flex-col overflow-hidden"
@@ -267,7 +251,7 @@ export function HumanMeetingStage({
             <FocusLayoutContainer
               data-slot="meeting-share-layout"
               className={cn(
-                "grid min-h-0 min-w-0 flex-1 gap-3 overflow-hidden p-3",
+                "grid min-h-0 min-w-0 flex-1 gap-1.5 overflow-hidden px-1.5 pb-1.5",
                 sideTracks.length > 0
                   ? "grid-rows-[minmax(0,1fr)_8rem] md:grid-cols-[minmax(0,1fr)_clamp(9rem,18vw,13rem)] md:grid-rows-1"
                   : "grid-cols-1 grid-rows-1",
@@ -285,7 +269,7 @@ export function HumanMeetingStage({
                 <aside
                   aria-label="其他参会画面"
                   data-slot="meeting-share-sidebar"
-                  className="grid min-h-0 min-w-0 auto-cols-[12rem] grid-flow-col gap-3 overflow-x-auto md:auto-cols-auto md:auto-rows-[8rem] md:grid-flow-row md:content-start md:overflow-x-hidden md:overflow-y-auto"
+                  className="grid min-h-0 min-w-0 auto-cols-[12rem] grid-flow-col gap-1.5 overflow-x-auto md:auto-cols-auto md:auto-rows-[8rem] md:grid-flow-row md:content-start md:overflow-x-hidden md:overflow-y-auto"
                 >
                   <TrackLoop tracks={sideTracks}>
                     <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
@@ -297,7 +281,7 @@ export function HumanMeetingStage({
             <div
               data-slot="meeting-grid-layout"
               className={cn(
-                "grid min-h-0 flex-1 gap-3 p-3",
+                "grid min-h-0 flex-1 gap-1.5 px-1.5 pb-1.5",
                 "auto-rows-fr overflow-hidden",
                 viewMode !== "meeting" && "hidden",
                 tracks.length <= 1 && "grid-cols-1",
@@ -318,8 +302,17 @@ export function HumanMeetingStage({
                 viewMode !== "materials" && "hidden",
               )}
             >
+              {viewMode === "materials" && hasRemoteScreenShare ? (
+                <div className="flex shrink-0 justify-center px-2 pt-1.5 md:px-3">
+                  <Button onClick={() => onViewModeChange("meeting")} size="sm" variant="secondary">
+                    <IconDeviceDesktopUp className="size-4" />
+                    正在共享屏幕 · 返回会议
+                  </Button>
+                </div>
+              ) : null}
               <div className="min-h-0 flex-1">
                 <InterviewerCandidateMaterials
+                  showQuestions
                   active={viewMode === "materials"}
                   inviteToken={inviteToken}
                   onStateChange={onCandidateMaterialsStateChange}
@@ -334,54 +327,45 @@ export function HumanMeetingStage({
             candidateName={candidateName}
             inviteToken={inviteToken}
             ref={liveTranscriptRef}
-            renderPanel={renderTranscriptPanel}
+            renderPanel={hideTranscriptPanel}
           />
         ) : null}
-        {inviteToken && canUseLiveTranscript && !transcriptExpanded ? transcriptToggle : null}
       </div>
 
-      <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-1 border-border border-t px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:gap-2 md:px-4 md:py-3">
-        {inviteToken && viewMode === "materials" && hasRemoteScreenShare ? (
-          <button
-            className="absolute bottom-full left-1/2 z-30 mb-2 inline-flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-primary-border bg-primary px-4 py-2 font-medium text-sm text-primary-foreground shadow-lg transition hover:bg-primary/90"
-            onClick={() => onViewModeChange("meeting")}
-            type="button"
-          >
-            <IconDeviceDesktopUp className="size-4" />
-            正在共享屏幕 · 返回会议
-          </button>
-        ) : null}
+      <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-1 border-border px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:gap-2 md:border-t md:px-4 md:py-3">
         <StartAudio className={buttonVariants({ variant: "default" })} label="开启声音" />
         {canPublish ? (
           <>
-            <TrackToggle
-              className={cn(mediaToggleButtonClass, mobileControlClass, "order-2 md:order-none")}
-              showIcon={false}
-              source={Track.Source.Microphone}
-              onDeviceError={notifyMeetingMediaError}
+            <MicrophoneControls
+              aria-label="麦克风控制"
+              className="order-1 max-md:contents md:order-none"
             >
-              <IconMicrophone className="toggle-on size-4" />
-              <IconMicrophoneOff className="toggle-off size-4" />
-              <span className="toggle-on">麦克风</span>
-              <span className="toggle-off">
-                <span className="md:hidden">麦克风</span>
-                <span className="hidden md:inline">已静音</span>
-              </span>
-            </TrackToggle>
-            <MicrophoneDeviceMenu
-              className={cn(mobileControlClass, "order-3 md:order-none")}
-              compactMobile
-            />
+              <TrackToggle
+                className={cn(mediaToggleButtonClass, mobileControlClass, "order-1 md:order-none")}
+                showIcon={false}
+                source={Track.Source.Microphone}
+                onDeviceError={notifyMeetingMediaError}
+              >
+                <IconMicrophone className="toggle-on size-4" />
+                <IconMicrophoneOff className="toggle-off size-4 text-destructive" />
+                <span className="toggle-on">麦克风</span>
+                <span className="toggle-off">
+                  <span className="md:hidden">麦克风</span>
+                  <span className="hidden md:inline">已静音</span>
+                </span>
+              </TrackToggle>
+              <MicrophoneDeviceMenu />
+            </MicrophoneControls>
             {/* 暂时隐藏变声入口，保留实现以便恢复。 */}
             {/* {canUseVoiceEffects ? <VoiceEffectMenu /> : null} */}
             <TrackToggle
-              className={cn(mediaToggleButtonClass, mobileControlClass, "order-1 md:order-none")}
+              className={cn(mediaToggleButtonClass, mobileControlClass, "order-2 md:order-none")}
               showIcon={false}
               source={Track.Source.Camera}
               onDeviceError={notifyMeetingMediaError}
             >
               <IconVideo className="toggle-on size-4" />
-              <IconVideoOff className="toggle-off size-4" />
+              <IconVideoOff className="toggle-off size-4 text-destructive" />
               <span className="toggle-on">摄像头</span>
               <span className="toggle-off">
                 <span className="md:hidden">摄像头</span>
@@ -422,25 +406,9 @@ export function HumanMeetingStage({
             <span>{viewMode === "materials" ? "切换到视频" : "切换到信息"}</span>
           </button>
         ) : null}
-        {inviteToken && canUseLiveTranscript ? (
-          <button
-            className={cn(
-              humanMeetingControlButtonClass,
-              mobileControlClass,
-              "order-6 md:order-none",
-            )}
-            aria-expanded={transcriptExpanded}
-            aria-controls="human-meeting-transcript-panel"
-            onClick={() => setTranscriptExpanded((expanded) => !expanded)}
-            type="button"
-          >
-            <IconMessage className="size-4" />
-            <span>{transcriptExpanded ? "收起实时转录" : "展开实时转录"}</span>
-          </button>
-        ) : null}
         {canEndMeeting ? (
           <button
-            className={cn(endButtonClass, mobileControlClass, "order-7 md:order-none")}
+            className={cn(endButtonClass, "hidden md:inline-flex")}
             disabled={isEnding}
             onClick={() => setEndConfirmOpen(true)}
             type="button"
@@ -453,15 +421,33 @@ export function HumanMeetingStage({
             {isEnding ? "结束中…" : "结束会议"}
           </button>
         ) : (
-          <DisconnectButton
-            className={cn(leaveButtonClass, mobileControlClass, "order-7 md:order-none")}
+          <Button
+            onClick={() => setLeaveConfirmOpen(true)}
+            className={cn(leaveButtonClass, "hidden md:inline-flex")}
           >
             <IconPhoneOff className="size-4" />
-            <span className="md:hidden">退出</span>
-            <span className="hidden md:inline">离开</span>
-          </DisconnectButton>
+            <span>离开</span>
+          </Button>
         )}
       </footer>
+      <Modal
+        open={leaveConfirmOpen}
+        onOpenChange={setLeaveConfirmOpen}
+        title="退出会议？"
+        description="退出后将断开你的音视频连接，其他参会者不受影响。"
+        size="sm"
+        bodyClassName="hidden"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setLeaveConfirmOpen(false)}>
+              取消
+            </Button>
+            <DisconnectButton className={leaveButtonClass}>确认退出</DisconnectButton>
+          </>
+        }
+      >
+        {null}
+      </Modal>
       <Modal
         open={endConfirmOpen}
         onOpenChange={setEndConfirmOpen}
@@ -499,6 +485,14 @@ export function HumanMeetingStage({
   );
 }
 
+function HangUpIcon() {
+  return (
+    <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 6C7.8 6 4 7.7 1.3 10.5a1.5 1.5 0 0 0 0 2.1l2.4 2.4a1.5 1.5 0 0 0 2.1 0c.7-.7 1.5-1.2 2.4-1.6a1.5 1.5 0 0 0 .8-1.3V9.8a13 13 0 0 1 6 0v2.3c0 .6.3 1.1.8 1.3.9.4 1.7.9 2.4 1.6a1.5 1.5 0 0 0 2.1 0l2.4-2.4a1.5 1.5 0 0 0 0-2.1C20 7.7 16.2 6 12 6Z" />
+    </svg>
+  );
+}
+
 function getMeetingTrackKey(track: TrackReferenceOrPlaceholder) {
   return JSON.stringify([track.participant.identity, track.source]);
 }
@@ -514,7 +508,7 @@ function HumanParticipantTile({
   const roleLabel = getParticipantRoleLabel(trackRef);
 
   return (
-    <div className="relative isolate h-full min-h-0 overflow-hidden rounded-lg border border-border bg-muted">
+    <div className="relative isolate h-full min-h-0 overflow-hidden rounded-sm border border-border bg-muted">
       <ParticipantTile
         className={cn(
           "relative h-full min-h-0 w-full overflow-hidden bg-muted",
@@ -534,7 +528,7 @@ function HumanParticipantTile({
           type="button"
           aria-label={`将${trackRef.participant.name || trackRef.participant.identity}的${trackRef.source === Track.Source.ScreenShare ? "共享屏幕" : "摄像头"}设为主画面`}
           title="设为主画面"
-          className="absolute inset-0 z-30 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+          className="absolute inset-0 z-30 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           onClick={() => onFocusTrack(getMeetingTrackKey(trackRef))}
         />
       ) : null}
@@ -543,7 +537,7 @@ function HumanParticipantTile({
           type="button"
           className={cn(
             buttonVariants({ size: "sm", variant: "secondary" }),
-            "absolute top-3 right-3 z-30",
+            "absolute top-2 right-2 z-30",
           )}
           onClick={onResetFocus}
         >
@@ -552,14 +546,14 @@ function HumanParticipantTile({
       ) : null}
       <div
         data-slot="participant-details"
-        className="pointer-events-none absolute right-3 bottom-3 left-3 z-20 flex items-center justify-between gap-2"
+        className="pointer-events-none absolute right-2 bottom-2 left-2 z-20 flex items-center justify-between gap-2"
       >
         <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-background px-2 py-1 text-foreground">
           {trackRef.source === Track.Source.ScreenShare ? (
             <IconDeviceDesktopUp aria-label="屏幕共享" className="size-3.5 shrink-0" />
           ) : (
             <TrackMutedIndicator
-              className="flex shrink-0 [&_svg]:size-3.5"
+              className="flex shrink-0 text-destructive [&_svg]:size-3.5"
               trackRef={{ participant: trackRef.participant, source: Track.Source.Microphone }}
               show="muted"
             />
@@ -568,17 +562,12 @@ function HumanParticipantTile({
             participant={trackRef.participant}
             className="min-w-0 truncate text-sm"
           />
-          {trackRef.participant.isLocal ? (
-            <IconUserFilled
-              aria-label="当前用户"
-              className="size-3 shrink-0 text-muted-foreground"
-            />
-          ) : null}
+          {trackRef.participant.isLocal ? <span className="shrink-0 text-sm">(我)</span> : null}
           <span className="shrink-0 text-muted-foreground text-[10px]">{roleLabel}</span>
         </div>
         <ConnectionQualityIndicator
           participant={trackRef.participant}
-          className="shrink-0 rounded-md bg-background px-2 py-1 text-foreground [&_svg]:size-4"
+          className="shrink-0 rounded-md bg-background px-2 py-1 text-warning data-[lk-quality=excellent]:text-success data-[lk-quality=poor]:text-destructive [&_svg]:size-4"
         />
       </div>
     </div>
@@ -590,9 +579,12 @@ export const humanMeetingControlButtonClass =
 
 const mediaToggleButtonClass = `${humanMeetingControlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
 
+const mobileHangupButtonClass =
+  "border-[#F64C47] bg-[#F64C47] text-white hover:border-[#F64C47] hover:bg-[#F64C47]/90 hover:text-white dark:bg-[#F64C47] dark:hover:bg-[#F64C47]/90 md:hidden";
+
 const leaveButtonClass = buttonVariants({ variant: "destructive" });
 
 const endButtonClass = buttonVariants({ variant: "destructive" });
 
 const mobileControlClass =
-  "max-md:h-12 max-md:min-w-0 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-1 max-md:px-1 max-md:text-[10px] max-md:whitespace-nowrap";
+  "max-md:h-11 max-md:min-w-0 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-1 max-md:border-0 max-md:bg-transparent max-md:px-1 max-md:text-[10px] max-md:whitespace-nowrap max-md:shadow-none max-md:hover:bg-transparent max-md:dark:bg-transparent max-md:dark:hover:bg-transparent max-md:[&_svg]:size-5";

@@ -1,8 +1,10 @@
 "use client";
+import { useSystemThemeOverride } from "@/components/theme/theme-provider";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 import { InterviewEntryShell } from "./interview-entry-shell";
 
-import { IconFileDescription, IconLoader2, IconLogin, IconVideo } from "@tabler/icons-react";
+import { IconArrowLeft, IconFileDescription, IconLoader2, IconLogin } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
@@ -23,7 +25,7 @@ import { notifyMeetingMediaError, notifyMeetingMediaFailure } from "./human-meet
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { CandidateInterviewOverview } from "./candidate-interview-overview";
 import { CandidateInvitation } from "./candidate-invitation";
-import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
+import { HumanMeetingStage } from "./human-meeting-stage";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
@@ -299,6 +301,8 @@ function meetingRoomReducer(state: MeetingRoomState, action: MeetingRoomAction):
 
 // oxlint-disable-next-line complexity -- room orchestration intentionally keeps media, timing, materials, and review state at one boundary.
 export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
+  const isMobile = useIsMobile();
+  useSystemThemeOverride(isMobile);
   const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -383,7 +387,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           refetchType: "all",
         });
       }
-      setViewMode("meeting");
+      setViewMode(props.mode === "interviewer" ? "materials" : "meeting");
       dispatch({ token: result.token, type: "joinSucceeded" });
       return;
     }
@@ -455,15 +459,30 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               viewMode === "review" ? "mx-auto w-full max-w-5xl" : "border-border border-b",
             )}
           >
-            <div>
-              <h1 className="font-medium text-foreground text-xl tracking-normal">
-                {getRoomTitle(props)}
-              </h1>
-              <p className="text-muted-foreground text-xs">
-                {viewMode === "materials" ? "面试准备 · 候选人资料" : "面试评价"}
-              </p>
+            <div className="flex min-w-0 items-center gap-2">
+              {viewMode === "materials" ? (
+                <Button
+                  aria-label="返回入会页"
+                  className="-ml-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setViewMode("meeting")}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <IconArrowLeft data-icon="inline-start" />
+                  返回
+                </Button>
+              ) : null}
+              <div className="min-w-0">
+                <h1 className="font-medium text-foreground text-base tracking-normal">
+                  {getRoomTitle(props)}
+                </h1>
+                {viewMode === "review" ? (
+                  <p className="text-muted-foreground text-xs">面试评价</p>
+                ) : null}
+              </div>
             </div>
-            <ThemeToggle className="shrink-0" />
+            <ThemeToggle className="hidden shrink-0 md:inline-flex" />
           </header>
           <div className="min-h-0 flex-1">
             {viewMode === "materials" ? (
@@ -481,18 +500,6 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               />
             )}
           </div>
-          {viewMode === "materials" ? (
-            <footer className="flex shrink-0 items-center justify-center border-border border-t px-4 py-3">
-              <button
-                className={humanMeetingControlButtonClass}
-                onClick={() => setViewMode("meeting")}
-                type="button"
-              >
-                <IconVideo className="size-4" />
-                返回入会页
-              </button>
-            </footer>
-          ) : null}
         </main>
       );
     }
@@ -519,7 +526,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
 
     if (props.mode === "candidate") {
       return (
-        <InterviewEntryShell mobileAction={joinButton}>
+        <InterviewEntryShell hideMobileTheme mobileAction={joinButton}>
           <CandidateInterviewOverview
             candidateName={props.preview.candidateName}
             companyContext={props.preview.companyContext}
@@ -552,7 +559,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     );
 
     return (
-      <InterviewEntryShell mobileAction={interviewerActions}>
+      <InterviewEntryShell hideMobileTheme mobileAction={interviewerActions}>
         <CandidateInterviewOverview
           candidateName={props.preview.candidateName}
           jobDescriptionName={props.preview.jobDescriptionName}
