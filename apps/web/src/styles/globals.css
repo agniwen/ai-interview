@@ -54,74 +54,21 @@
 }
 
 .home-hero-artwork-light {
-  background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg");
+  background-image: url("/landing/multicolor/talent-city-grain-light.jpg");
   background-image: image-set(
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-1280-light.avif")
-      type("image/avif"),
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
-      type("image/webp"),
-    url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
-      type("image/jpeg")
+    url("/landing/optimized/multicolor/talent-city-grain-light.avif") type("image/avif"),
+    url("/landing/optimized/multicolor/talent-city-grain-light.webp") type("image/webp"),
+    url("/landing/multicolor/talent-city-grain-light.jpg") type("image/jpeg")
   );
 }
 
 .home-hero-artwork-dark {
-  background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg");
+  background-image: url("/landing/multicolor/talent-city-grain-dark.jpg");
   background-image: image-set(
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-1280-dark.avif")
-      type("image/avif"),
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
-      type("image/webp"),
-    url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg") type("image/jpeg")
+    url("/landing/optimized/multicolor/talent-city-grain-dark.avif") type("image/avif"),
+    url("/landing/optimized/multicolor/talent-city-grain-dark.webp") type("image/webp"),
+    url("/landing/multicolor/talent-city-grain-dark.jpg") type("image/jpeg")
   );
-}
-
-@media (min-width: 64rem) {
-  .home-hero-artwork-light {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-2560-light.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
-        type("image/jpeg")
-    );
-  }
-
-  .home-hero-artwork-dark {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-2560-dark.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg")
-        type("image/jpeg")
-    );
-  }
-}
-
-@media (min-width: 120rem) and (min-resolution: 1.5dppx) {
-  .home-hero-artwork-light {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
-        type("image/jpeg")
-    );
-  }
-
-  .home-hero-artwork-dark {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg")
-        type("image/jpeg")
-    );
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -269,37 +216,37 @@
 
   --radius: 0.875rem;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.28 0.04 254);
+  --foreground: #262626;
   --card: var(--background);
-  --card-foreground: oklch(0.28 0.04 254);
-  --popover: #fafafa;
-  --popover-foreground: oklch(0.28 0.04 254);
-  /* Light mode follows the product mark's soft green. Its paired deep green
-     foreground keeps primary controls legible without tinting neutral tokens. */
-  --primary: #a3d387;
-  --primary-foreground: #203526;
-  --primary-border: #a7d08b;
-  --primary-link: #567f40;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  /* Coss-inspired neutral actions and surfaces for light mode. */
+  --primary: #262626;
+  --primary-foreground: #fafafa;
+  --primary-border: #171717;
+  --primary-link: var(--primary);
   --secondary: #f5f5f5;
-  --secondary-foreground: oklch(0.36 0.05 254);
+  --secondary-foreground: var(--foreground);
   --muted: #f5f5f5;
-  --muted-foreground: oklch(0.52 0.035 254);
+  --muted-foreground: #666666;
   --accent: #f5f5f5;
-  --accent-foreground: oklch(0.36 0.05 254);
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #eeeeed;
-  --input: #eeeeed;
-  --ring: #8fbd74;
-  /* Analytics use a vivid categorical palette independent from the brand green. */
+  --border: rgb(0 0 0 / 8%);
+  --input: rgb(0 0 0 / 10%);
+  --ring: #a3a3a3;
+  /* Only charts that followed the light primary green adopt the dark action blue. */
+  --chart-primary: #1d4ed8;
   --chart-1: #38bdf8;
   --chart-2: #c084fc;
   --chart-3: #2dd4bf;
   --chart-4: #fbbf24;
   --chart-5: #f472b6;
-  --pipeline-screening: color-mix(in oklab, var(--primary) 28%, var(--muted));
-  --pipeline-ai-interview: color-mix(in oklab, var(--primary) 52%, var(--muted));
-  --pipeline-human-interview: color-mix(in oklab, var(--primary) 76%, var(--muted));
-  --pipeline-offer: var(--primary);
+  --pipeline-screening: color-mix(in oklab, var(--chart-primary) 28%, var(--muted));
+  --pipeline-ai-interview: color-mix(in oklab, var(--chart-primary) 52%, var(--muted));
+  --pipeline-human-interview: color-mix(in oklab, var(--chart-primary) 76%, var(--muted));
+  --pipeline-offer: var(--chart-primary);
   --pipeline-closed-hired: var(--chart-3);
   --pipeline-closed-rejected: var(--chart-5);
   --chart-conversion: #7c3aed;
@@ -316,14 +263,13 @@
   --calendar-ai-interview-foreground: var(--color-emerald-700);
   --calendar-human-interview: var(--color-sky-500);
   --calendar-human-interview-foreground: var(--color-sky-700);
-  --sidebar: #f7f7f7;
-  /* --sidebar: oklch(0.985 0 0); */
-  --sidebar-foreground: oklch(0.28 0 0);
-  --sidebar-primary: oklch(0.3 0 0);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0 0);
-  --sidebar-accent-foreground: oklch(0.24 0 0);
-  --sidebar-border: oklch(0.88 0 0);
+  --sidebar: #fafafa;
+  --sidebar-foreground: #404040;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: #f0f0f0;
+  --sidebar-accent-foreground: #262626;
+  --sidebar-border: rgb(0 0 0 / 6%);
   --sidebar-ring: var(--primary);
   --destructive-foreground: var(--color-red-800);
   --success: var(--color-emerald-500);
@@ -479,7 +425,7 @@
 
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, white);
-    color: #173e2c;
+    color: var(--foreground);
   }
 
   .dark ::selection {

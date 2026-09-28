@@ -24,7 +24,7 @@ import { useRecruitingComposerShellLayout } from "./use-recruiting-composer-shel
 
 const WELCOME_BLOBATAR_PALETTE = {
   eye: "#ffffff",
-  head: "#97D781",
+  head: "#262626",
 };
 const WELCOME_BLOBATAR_TRAITS = {
   "body.n": 0.15,
@@ -62,7 +62,7 @@ function RecruitingWelcomeBlobatar() {
     <Blobatar
       animate="always"
       background={false}
-      className="text-[#97D781] [--welcome-blobatar-eye:#ffffff] dark:text-[#008FFF] dark:[--welcome-blobatar-eye:var(--background)]"
+      className="text-primary [--welcome-blobatar-eye:#ffffff] dark:text-[#008FFF] dark:[--welcome-blobatar-eye:var(--background)]"
       name="AI Hiring Copilot"
       palette={WELCOME_BLOBATAR_PALETTE}
       ref={ref}

@@ -96,13 +96,17 @@ function OfferNegotiationProgress({
         </div>
         <Badge variant="outline">当前：{currentStep.label}</Badge>
       </div>
-      <ol aria-label="Offer 协商子阶段" className="mt-4 grid grid-cols-4 gap-2">
+      <ol aria-label="Offer 协商子阶段" className="mx-4 mt-4 flex pb-6">
         {offerNegotiationSteps.map((step, index) => {
           const isCurrent = index === currentIndex;
           const nodeState = nodeStates.find((state) => state.node === step.stage);
           const isDone = nodeState?.status === "completed" && nodeState.result === "pass";
           return (
-            <li aria-current={isCurrent ? "step" : undefined} className="min-w-0" key={step.stage}>
+            <li
+              aria-current={isCurrent ? "step" : undefined}
+              className="relative min-w-0 flex-1 last:flex-none"
+              key={step.stage}
+            >
               <div className="flex items-center">
                 <span
                   className={cn(
@@ -114,12 +118,12 @@ function OfferNegotiationProgress({
                   {isDone ? <IconCheck className="size-3.5" /> : index + 1}
                 </span>
                 {index < offerNegotiationSteps.length - 1 ? (
-                  <span className={cn("h-px flex-1 bg-border", isDone && "bg-primary/35")} />
+                  <span className={cn("mx-2 h-px flex-1 bg-border", isDone && "bg-primary/35")} />
                 ) : null}
               </div>
               <p
                 className={cn(
-                  "mt-1.5 truncate text-muted-foreground text-xs",
+                  "absolute top-6 left-3 mt-1.5 -translate-x-1/2 whitespace-nowrap text-center text-muted-foreground text-xs",
                   isCurrent && "font-medium text-foreground",
                 )}
               >

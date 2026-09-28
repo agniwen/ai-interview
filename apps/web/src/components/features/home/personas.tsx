@@ -41,7 +41,7 @@ export function Personas() {
     <Section className="relative" width="wide">
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-8 -left-36 hidden h-36 w-[34rem] rotate-2 bg-[url('/landing/decor/brush-sage-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:block lg:top-10 lg:-left-24 lg:h-44 lg:w-[42rem] lg:opacity-[0.18] dark:bg-[url('/landing/decor/brush-sage-broad-dark.png')] dark:opacity-30"
+        className="pointer-events-none absolute top-8 -left-36 hidden h-36 w-[34rem] rotate-2 bg-[url('/landing/multicolor/brush-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:block lg:top-10 lg:-left-24 lg:h-44 lg:w-[42rem] lg:opacity-[0.18] dark:opacity-20"
       />
       <SectionTitle className="mt-0">{m.home_personas_title()}</SectionTitle>
       <SectionLead>{m.home_personas_lead()}</SectionLead>

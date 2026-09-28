@@ -34,7 +34,7 @@ export default function HomeShell() {
 
       <main className="relative flex w-full flex-col items-stretch bg-background" id="main-content">
         <div className="relative isolate overflow-hidden">
-          <BackgroundLayers fadeToBackground video />
+          <BackgroundLayers fadeToBackground />
           {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
                 Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
           <div className="mx-auto flex w-full max-w-[96rem] flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
@@ -48,11 +48,11 @@ export default function HomeShell() {
           <div className="relative isolate overflow-hidden">
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute top-16 -right-20 -z-10 h-24 w-72 -rotate-6 bg-[url('/landing/decor/brush-sage-sweep.png')] bg-center bg-contain bg-no-repeat opacity-40 select-none sm:top-20 sm:-right-12 sm:h-32 sm:w-96 sm:opacity-50 lg:right-0 lg:h-36 lg:w-[28rem] dark:bg-[url('/landing/decor/brush-sage-sweep-dark.png')] dark:opacity-55"
+              className="pointer-events-none absolute top-16 -right-20 -z-10 h-24 w-72 -rotate-6 bg-[url('/landing/multicolor/brush-sweep.png')] bg-center bg-contain bg-no-repeat opacity-40 select-none sm:top-20 sm:-right-12 sm:h-32 sm:w-96 sm:opacity-50 lg:right-0 lg:h-36 lg:w-[28rem] dark:opacity-25"
             />
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute top-[27%] -right-32 -z-10 h-28 w-96 rotate-2 bg-[url('/landing/decor/brush-sage-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:-right-24 sm:h-36 sm:w-[30rem] sm:opacity-[0.18] lg:-right-16 lg:h-44 lg:w-[36rem] lg:opacity-20 dark:bg-[url('/landing/decor/brush-sage-broad-dark.png')] dark:opacity-40"
+              className="pointer-events-none absolute top-[27%] -right-32 -z-10 h-28 w-96 rotate-2 bg-[url('/landing/multicolor/brush-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:-right-24 sm:h-36 sm:w-[30rem] sm:opacity-[0.18] lg:-right-16 lg:h-44 lg:w-[36rem] lg:opacity-20 dark:opacity-20"
             />
             <span
               aria-hidden="true"

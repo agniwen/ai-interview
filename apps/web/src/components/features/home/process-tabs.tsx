@@ -473,18 +473,18 @@ export function ProcessTabs() {
             role="tabpanel"
           >
             <ModernArtwork
-              assetPath="/landing/optimized/process-scenes/recruitment-workflow-v2-light"
+              assetPath="/landing/optimized/multicolor/recruitment-workflow-light"
               className="absolute inset-0 size-full object-cover contrast-[0.96] saturate-[0.84] dark:hidden"
               dataAttributes={{ "data-process-artwork": "light" }}
-              fallbackPath="/landing/process-scenes/recruitment-workflow-v2-light.jpg"
+              fallbackPath="/landing/multicolor/recruitment-workflow-light.jpg"
               height={1171}
               width={1343}
             />
             <ModernArtwork
-              assetPath="/landing/optimized/process-scenes/recruitment-workflow-v2-dark"
+              assetPath="/landing/optimized/multicolor/recruitment-workflow-dark"
               className="absolute inset-0 hidden size-full object-cover contrast-[0.98] saturate-[0.88] dark:block"
               dataAttributes={{ "data-process-artwork": "dark" }}
-              fallbackPath="/landing/process-scenes/recruitment-workflow-v2-dark.jpg"
+              fallbackPath="/landing/multicolor/recruitment-workflow-dark.jpg"
               height={1171}
               width={1343}
             />

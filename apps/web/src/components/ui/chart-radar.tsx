@@ -34,15 +34,14 @@ export interface RadarDimensionPoint {
 }
 
 /**
- * The light theme follows the illustration green; dark mode keeps the original
- * Klein-blue radar color.
+ * Use the light theme's Klein-blue chart palette and retain the dark radar tint.
  */
 const DEFAULT_CONFIG: ChartConfig = {
   score: {
     label: "评分",
     theme: {
       dark: "#7699ef",
-      light: "#a3d387",
+      light: "var(--chart-primary)",
     },
   },
 };

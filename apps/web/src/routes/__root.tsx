@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{
   head: ({ matches }) => ({
     links: [
       {
-        href: "/favicon-light.ico",
+        href: "/favicon-multicolor-light.ico",
         id: "favicon-light",
         media: "(prefers-color-scheme: light)",
         rel: "icon",
