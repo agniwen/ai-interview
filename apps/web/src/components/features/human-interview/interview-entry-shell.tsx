@@ -16,7 +16,7 @@ export function InterviewEntryShell({
     <main className="relative isolate h-dvh w-full bg-background text-foreground">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 -z-10 bg-[url('/illustrations/interview/courtyard-light.png')] bg-cover bg-center opacity-20 dark:bg-[url('/illustrations/interview/courtyard-dark.png')]"
+        className="pointer-events-none fixed inset-0 -z-10 bg-[url('/illustrations/interview/abstract-light-trails-light.webp')] bg-cover bg-center opacity-45 dark:bg-[url('/illustrations/interview/abstract-light-trails-dark.webp')] dark:opacity-40"
       />
       <div
         aria-hidden="true"

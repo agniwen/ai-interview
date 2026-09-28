@@ -512,7 +512,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           props.mode === "interviewer" ? "min-w-0 flex-1 md:flex-none" : "w-full",
         )}
         size="lg"
-        variant={props.mode === "interviewer" ? "secondary" : "default"}
+        variant="default"
         disabled={isJoining || Boolean(startBlockMessage)}
         onClick={joinMeeting}
       >
