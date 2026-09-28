@@ -70,7 +70,7 @@ describe("getHumanInterviewBusinessRoundNumbers", () => {
     expect(numbers.get("business-second")).toBe(3);
   });
 
-  it("does not advance after failed or inconclusive results", () => {
+  it("advances after inconclusive results but not failed results", () => {
     const numbers = getHumanInterviewBusinessRoundNumbers([
       { id: "failed", outcome: "fail", status: "completed" },
       { id: "inconclusive", outcome: "inconclusive", status: "completed" },
@@ -79,7 +79,7 @@ describe("getHumanInterviewBusinessRoundNumbers", () => {
 
     expect(numbers.get("failed")).toBe(2);
     expect(numbers.get("inconclusive")).toBe(2);
-    expect(numbers.get("next")).toBe(2);
+    expect(numbers.get("next")).toBe(3);
   });
 });
 
@@ -92,7 +92,7 @@ describe("getHumanInterviewScheduleBlockReason", () => {
     ).toContain("标记完成");
   });
 
-  it("blocks failed and inconclusive results but allows pass or cancelled retries", () => {
+  it("blocks failed results but allows pass, inconclusive, or cancelled retries", () => {
     expect(
       getHumanInterviewScheduleBlockReason([
         { label: "技术一面", outcome: "fail", status: "completed" },
@@ -102,7 +102,7 @@ describe("getHumanInterviewScheduleBlockReason", () => {
       getHumanInterviewScheduleBlockReason([
         { label: "技术一面", outcome: "inconclusive", status: "completed" },
       ]),
-    ).toContain("标记为通过");
+    ).toBeNull();
     expect(
       getHumanInterviewScheduleBlockReason([
         { label: "技术一面", outcome: "pass", status: "completed" },

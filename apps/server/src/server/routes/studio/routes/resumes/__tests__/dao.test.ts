@@ -25,6 +25,7 @@ import {
   aiInterviewRound,
   recruitingOffer,
   recruitingEvent,
+  recruitingNodeValues,
   studioOrgSkill,
   user,
 } from "@app/db-schema/schema";
@@ -473,7 +474,7 @@ describe("queryPaginatedResumeRecords", () => {
       expect(failed.records.map((row) => row.id)).toContain(ids[1]);
       const detail = await loadResumeDetail(ids[1] ?? "missing", ORG_A);
       expect(detail?.closedFromNode).toBe("screening");
-      expect(detail?.nodeStates).toHaveLength(8);
+      expect(detail?.nodeStates.map((state) => state.node)).toEqual(recruitingNodeValues);
       expect(detail?.nodeResult).toBe("fail");
       const otherOrg = await queryPaginatedResumeRecords(ORG_B, { nodeResults: ["fail"] });
       expect(otherOrg.records.map((row) => row.id)).not.toContain(ids[1]);
@@ -880,6 +881,7 @@ describe("queryPaginatedResumeRecords", () => {
             completedRounds: 0,
             completedRoundsMissingFeedback: 0,
             failedRounds: 0,
+            inconclusiveRounds: 0,
             passedRounds: 0,
             totalRounds: 1,
           },
@@ -888,6 +890,7 @@ describe("queryPaginatedResumeRecords", () => {
             completedRounds: 2,
             completedRoundsMissingFeedback: 2,
             failedRounds: 1,
+            inconclusiveRounds: 0,
             passedRounds: 1,
             totalRounds: 2,
           },
@@ -895,6 +898,7 @@ describe("queryPaginatedResumeRecords", () => {
         completedRounds: 2,
         completedRoundsMissingFeedback: 2,
         failedRounds: 1,
+        inconclusiveRounds: 0,
         passedRounds: 1,
         totalRounds: 3,
       });

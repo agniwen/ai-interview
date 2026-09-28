@@ -58,7 +58,9 @@ describe("candidate interview history", () => {
                 roundLabel: "业务一面",
                 submittedAt: null,
                 submittedBy: null,
+                submittedByImage: null,
                 values: {
+                  overallEvaluation: "",
                   professionalSkill: "中",
                   rating: "C",
                   risks: "经验不足",
@@ -75,6 +77,10 @@ describe("candidate interview history", () => {
     );
     expect(container.textContent).toContain("不通过");
     expect(container.textContent).toContain("基础扎实");
+    const overall = [...container.querySelectorAll("section")].find(
+      (section) => section.querySelector("h3")?.textContent === "整体评价",
+    );
+    expect(overall?.querySelector("p")?.textContent).toBe("未提供");
     expect(container.textContent).toContain("未提供");
     expect(container.textContent).not.toContain("暂无已提交的业务面评价");
   });
@@ -109,7 +115,9 @@ describe("candidate interview history", () => {
               roundLabel,
               submittedAt: "2026-09-02T10:00:00Z",
               submittedBy: "张面试官",
+              submittedByImage: null,
               values: {
+                overallEvaluation: "**整体符合岗位要求**\n\n- 技术扎实\n- 沟通清晰\n\n1. 继续面试",
                 professionalSkill: "良",
                 rating: "B",
                 risks: "缺少大规模团队经验",
@@ -124,6 +132,18 @@ describe("candidate interview history", () => {
       ),
     );
 
+    expect(
+      [...container.querySelectorAll("section > h3")]
+        .slice(0, 3)
+        .map((heading) => heading.textContent),
+    ).toEqual(["评级（A/B/C/D）", "整体评价", "职级定位"]);
+    const overallSection = [...container.querySelectorAll("section")].find(
+      (section) => section.querySelector("h3")?.textContent === "整体评价",
+    );
+    expect(overallSection?.querySelector("strong")?.textContent).toBe("整体符合岗位要求");
+    expect(overallSection?.querySelectorAll("ul > li")).toHaveLength(2);
+    expect(overallSection?.querySelector("ol > li")?.textContent).toBe("继续面试");
+    expect(overallSection?.textContent).not.toContain("**");
     const triggers = [...container.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")];
     expect(triggers.map((trigger) => trigger.querySelector("span > span")?.textContent)).toEqual([
       "业务二面",

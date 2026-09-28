@@ -5,14 +5,27 @@ import {
 } from "@app/shared/human-interview-evaluation";
 import { cn } from "@app/shared/utils";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
+import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
 
-function EvaluationField({ label, value }: { label: string; value: string }) {
+function EvaluationField({
+  label,
+  value,
+  markdown = false,
+}: {
+  label: string;
+  value: string;
+  markdown?: boolean;
+}) {
   const displayValue = normalizeHumanInterviewEvaluationText(value);
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <span className="text-muted-foreground text-xs">{label}</span>
-      <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">{displayValue}</p>
+      {markdown && value.trim() ? (
+        <MarkdownView className="text-foreground/90 leading-relaxed" content={displayValue} />
+      ) : (
+        <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">{displayValue}</p>
+      )}
     </div>
   );
 }
@@ -48,7 +61,9 @@ export function RoundEvaluation({
         <EvaluationField label="角色定位" value={evaluation.rolePosition} />
         <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
       </div>
-      {compact ? null : <EvaluationField label="整体评价" value={evaluation.overallEvaluation} />}
+      {compact ? null : (
+        <EvaluationField label="整体评价" value={evaluation.overallEvaluation} markdown />
+      )}
       <EvaluationField label="优势特点" value={evaluation.strengths} />
       <EvaluationField label="劣势风险" value={evaluation.risks} />
       <EvaluationField label="完整详细分析" value={evaluation.detailedAnalysis} />
@@ -74,7 +89,9 @@ export function RoundEvaluation({
           </span>
         ) : null}
       </div>
-      {compact ? <EvaluationField label="整体评价" value={evaluation.overallEvaluation} /> : null}
+      {compact ? (
+        <EvaluationField label="整体评价" value={evaluation.overallEvaluation} markdown />
+      ) : null}
       {compact ? (
         <InterviewReportDetailsDisclosure>{details}</InterviewReportDetailsDisclosure>
       ) : (

@@ -36,6 +36,9 @@ function validate(round: Round | null) {
   );
 }
 describe("human interview evidence", () => {
+  it("allows a submitted inconclusive evaluation to continue the pipeline", async () => {
+    await expect(validate({ ...completed, outcome: "inconclusive" })).resolves.toBeUndefined();
+  });
   it("accepts a submitted evaluation with optional feedback left empty", async () => {
     await expect(validate(completed)).resolves.toBeUndefined();
   });

@@ -53,7 +53,6 @@ import {
   toDateTimeLocalInputValue,
 } from "./human-interview-stage-utils";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
-import { HumanInterviewOutcomeDialog } from "./human-interview-outcome-dialog";
 import { HumanInterviewEmailButton } from "./human-interview-email-button";
 import {
   buildCandidateLinkCopy,
@@ -155,7 +154,6 @@ export function RoundCard({
   dependencies?: RoundCardDependencies;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
-  const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
   const canWrite = disabled !== true;
   const canCreateMeeting =
     canCreate &&
@@ -200,15 +198,6 @@ export function RoundCard({
             <dt className="text-muted-foreground">状态</dt>
             <dd className="flex flex-wrap items-center gap-2">
               <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
-              {canUpdate &&
-              canWrite &&
-              round.status === "completed" &&
-              round.outcome === "inconclusive" ? (
-                <Button size="sm" variant="outline" onClick={() => setOutcomeDialogOpen(true)}>
-                  <IconPencil className="size-3" />
-                  修改
-                </Button>
-              ) : null}
             </dd>
           </dl>
         </div>
@@ -261,13 +250,6 @@ export function RoundCard({
           slug={slug}
         />
       </FramePanel>
-      {outcomeDialogOpen ? (
-        <HumanInterviewOutcomeDialog
-          round={round}
-          slug={slug}
-          onClose={() => setOutcomeDialogOpen(false)}
-        />
-      ) : null}
     </Frame>
   );
 }

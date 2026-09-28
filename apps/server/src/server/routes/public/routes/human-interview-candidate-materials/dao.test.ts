@@ -196,7 +196,9 @@ describe("interviewer candidate evaluation history", () => {
           roundLabel: "自定义技术面",
           submittedAt: submittedAt.toISOString(),
           submittedBy: "测试面试官",
+          submittedByImage: null,
           values: {
+            overallEvaluation: "内部整体评价",
             professionalSkill: "良",
             rating: "B",
             risks: "缺少大规模团队经验",
@@ -212,7 +214,9 @@ describe("interviewer candidate evaluation history", () => {
           roundLabel: "业务二面",
           submittedAt: submittedAt.toISOString(),
           submittedBy: "测试面试官",
+          submittedByImage: null,
           values: {
+            overallEvaluation: "内部整体评价",
             professionalSkill: "良",
             rating: "B",
             risks: "缺少大规模团队经验",

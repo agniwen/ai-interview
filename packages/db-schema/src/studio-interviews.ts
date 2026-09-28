@@ -204,13 +204,13 @@ export type HumanInterviewerAssignmentStatus = z.infer<
 export const humanInterviewRoundOutcomeValues = ["pass", "fail", "inconclusive"] as const;
 export const humanInterviewRoundOutcomeSchema = z.enum(humanInterviewRoundOutcomeValues);
 export type HumanInterviewRoundOutcome = z.infer<typeof humanInterviewRoundOutcomeSchema>;
-// Drafts and historical records may be inconclusive; final decisions cannot be.
+// Keep the legacy resolution request schema for compatibility; submitted outcomes are immutable.
 export const humanInterviewFinalOutcomeSchema = z.enum(["pass", "fail"]);
 export type HumanInterviewFinalOutcome = z.infer<typeof humanInterviewFinalOutcomeSchema>;
 
 export const humanInterviewRoundOutcomeMeta = {
   fail: { label: "未通过", tone: "outline" },
-  inconclusive: { label: "待定", tone: "info" },
+  inconclusive: { label: "待定", tone: "warning" },
   pass: { label: "通过", tone: "success" },
 } as const satisfies Record<
   HumanInterviewRoundOutcome,
@@ -376,7 +376,7 @@ export type HumanInterviewGeneratedEvaluation = z.infer<
 // Human drafts may also omit a judgment.
 export const humanInterviewEvaluationDraftSchema = humanInterviewEvaluationSchema.extend({
   // Stored only in the draft JSON; never writes the round's official outcome.
-  draftOutcome: humanInterviewFinalOutcomeSchema.nullable().optional(),
+  draftOutcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
   rating: humanInterviewEvaluationRatingSchema.nullable(),
 });
 export type HumanInterviewEvaluationDraft = z.infer<typeof humanInterviewEvaluationDraftSchema>;

@@ -70,6 +70,7 @@ export interface HumanInterviewStageProgress {
   completedRounds: number;
   completedRoundsMissingFeedback: number;
   passedRounds: number;
+  inconclusiveRounds?: number;
   failedRounds: number;
   activeRound: {
     id: string;
@@ -376,7 +377,7 @@ function describeHumanInterview(p: HumanInterviewProgress | null): Description {
     // 全部完成 → 展示通过/未通过统计 + 待决策。
     // All rounds done → show pass/fail tally and await HR decision.
     return {
-      label: `真人复面 · 全部完成 (${p.passedRounds}/${p.totalRounds} 通过) · 待决策`,
+      label: `真人复面 · 全部完成 (${p.passedRounds}/${p.totalRounds} 通过${p.inconclusiveRounds ? `，${p.inconclusiveRounds} 待定` : ""}) · 待决策`,
       tone: "success",
     };
   }

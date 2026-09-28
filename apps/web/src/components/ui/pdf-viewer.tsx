@@ -1568,7 +1568,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
               </Button>
             </ToolbarTooltip>
           </TooltipProvider>
-          <div className="text-sm whitespace-nowrap text-primary">
+          <div className="text-sm whitespace-nowrap text-muted-foreground">
             第 {activePage} / {numPages || "-"} 页
           </div>
         </div>

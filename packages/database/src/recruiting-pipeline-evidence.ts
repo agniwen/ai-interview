@@ -83,10 +83,10 @@ export async function validateEvidence(
       !round ||
       (input.result === "pass" &&
         (round.status !== "completed" ||
-          round.outcome !== "pass" ||
+          (round.outcome !== "pass" && round.outcome !== "inconclusive") ||
           (round.evaluationStatus !== "submitted" && !round.feedback?.trim())))
     ) {
-      throw new RecruitingPipelineError("请先完成本轮面试、填写反馈并确认通过。", "invalid");
+      throw new RecruitingPipelineError("请先完成本轮面试、填写反馈并确认通过或待定。", "invalid");
     }
   }
   if (values.effectiveOfferId) {

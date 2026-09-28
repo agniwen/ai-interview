@@ -33,7 +33,6 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HumanMeetingTranscriptRecovery } from "./human-meeting-transcript-recovery";
 
 const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
@@ -117,8 +116,8 @@ interface ReviewFormValues {
 
 function validateReview({ evaluation, outcome }: ReviewFormValues) {
   const fields: Record<string, string> = {};
-  if (outcome !== "pass" && outcome !== "fail") {
-    fields.outcome = "请选择本轮结论：通过或不通过";
+  if (!humanInterviewRoundOutcomeSchema.safeParse(outcome).success) {
+    fields.outcome = "请选择本轮结论：通过、待定或不通过";
   }
   if (!humanInterviewEvaluationRatingSchema.safeParse(evaluation.rating).success) {
     fields["evaluation.rating"] = "请选择评级";
@@ -163,30 +162,6 @@ function Field({
       {error ? <FieldError id={`${id}-error`}>{error}</FieldError> : null}
     </FormField>
   );
-}
-
-function describeEvaluationStatus(
-  review: HumanInterviewReviewRecord,
-  isSubmitted: boolean,
-  submittedOutcomeLabel: string,
-): string {
-  if (isSubmitted) {
-    return `本轮评价已保存 · ${submittedOutcomeLabel}`;
-  }
-  if (review.evaluationStatus === "generating") {
-    return "AI 正在生成评价草稿，可先手动填写";
-  }
-  if (!review.transcript) {
-    return review.transcriptionState === "failed"
-      ? "会议内容整理失败，仍可手动填写并提交评价"
-      : "正在整理会议内容并生成评价…";
-  }
-  if (review.evaluationError) {
-    return review.evaluationError;
-  }
-  return review.evaluationStatus === "draft" && review.evaluation?.rating === null
-    ? "当前草稿尚未评级，请补充依据并由面试官确认评级后提交"
-    : "AI 草稿可由面试官修改后保存";
 }
 
 async function requestJson<TResult>(path: string, init?: RequestInit): Promise<TResult> {
@@ -530,7 +505,6 @@ function HumanMeetingReviewForm({
                 {!isSubmitted && review.evaluationStatus === "generating" ? (
                   <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
                 ) : null}
-                {describeEvaluationStatus(review, isSubmitted, submittedOutcomeLabel)}
               </output>
             </div>
           </div>
@@ -540,15 +514,13 @@ function HumanMeetingReviewForm({
                 id={`${fieldId}-outcome`}
                 label="本轮结论"
                 invalid={Boolean(errors?.outcome)}
-                placeholder="请选择通过或不通过"
+                placeholder="请选择本轮结论"
                 triggerRef={outcomeTriggerRef}
                 disabled={isSubmitted || Boolean(busy)}
                 value={outcome || null}
                 options={[
                   { description: "继续推进面试", label: "通过", value: "pass" },
-                  ...(isSubmitted && outcome === "inconclusive"
-                    ? [{ label: "待定", value: "inconclusive" }]
-                    : []),
+                  { description: "保留意见，继续推进面试", label: "待定", value: "inconclusive" },
                   { description: "终止面试", label: "不通过", value: "fail" },
                 ]}
                 onValueChange={(value) => {
@@ -650,13 +622,6 @@ function HumanMeetingReviewForm({
               ) : null}
             </div>
           ) : null}
-          {review.recordingNotice || review.transcriptionError ? (
-            <Alert className="mt-4">
-              <AlertDescription>
-                {review.recordingNotice || review.transcriptionError}
-              </AlertDescription>
-            </Alert>
-          ) : null}
           {review.transcript ? (
             <HumanMeetingTranscriptRecovery
               key={review.transcript.id}
@@ -705,7 +670,7 @@ function HumanMeetingReviewForm({
                     body: JSON.stringify({
                       evaluation: {
                         ...evaluation,
-                        draftOutcome: outcome === "pass" || outcome === "fail" ? outcome : null,
+                        draftOutcome: outcome || null,
                       },
                       transcriptRevisionId,
                     }),

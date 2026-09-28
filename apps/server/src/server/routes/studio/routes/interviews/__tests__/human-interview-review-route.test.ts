@@ -233,10 +233,10 @@ describe("system human interview review", () => {
     );
     expect(mocks.submit).not.toHaveBeenCalled();
   });
-  it("uses the existing finalization workflow for pass/fail only", async () => {
-    const invalid = await request("evaluation-submit", "inconclusive");
-    expect(invalid.status).toBe(400);
-    expect(mocks.submit).not.toHaveBeenCalled();
+  it("uses the existing finalization workflow for inconclusive and fail", async () => {
+    const neutral = await request("evaluation-submit", "inconclusive");
+    expect(neutral.status).toBe(200);
+    expect(mocks.submit).toHaveBeenCalledWith(expect.objectContaining({ outcome: "inconclusive" }));
     const response = await request("evaluation-submit", "fail");
     expect(response.status).toBe(200);
     expect(mocks.submit).toHaveBeenCalledWith(

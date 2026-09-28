@@ -16,7 +16,7 @@ export interface HumanInterviewDocumentContent {
 export function buildHumanInterviewEvaluationBlock(
   input: HumanInterviewDocumentContent,
 ): FeishuDocumentBlock {
-  const suffix = { fail: "（不通过）", inconclusive: "", pass: "（通过）" }[input.outcome];
+  const suffix = { fail: "（不通过）", inconclusive: "（待定）", pass: "（通过）" }[input.outcome];
   const fields = [
     `${input.roundLabel}评价`,
     `面试官：${input.submittedBy}`,

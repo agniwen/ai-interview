@@ -1,5 +1,5 @@
+import { inArray, and, asc, eq, lt } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { and, asc, eq, lt } from "drizzle-orm";
 import { z } from "zod";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import {
@@ -161,7 +161,7 @@ async function loadContext(tx: Transaction, actor: Actor) {
         eq(humanInterviewRound.recruitingRecordId, record.id),
         lt(humanInterviewRound.sortOrder, round.sortOrder),
         eq(humanInterviewRound.status, "completed"),
-        eq(humanInterviewRound.outcome, "pass"),
+        inArray(humanInterviewRound.outcome, ["pass", "inconclusive"]),
       ),
     )
     .orderBy(asc(humanInterviewRound.sortOrder));

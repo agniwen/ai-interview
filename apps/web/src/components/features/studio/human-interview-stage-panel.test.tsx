@@ -324,14 +324,16 @@ it("keeps scheduling as a direct grouped button across loading, blocked and allo
         "请先结束并标记完成",
       ),
     );
-    for (const outcome of ["pass", "fail", null] as const) {
+    for (const outcome of ["pass", "inconclusive", "fail", null] as const) {
       act(() => {
         view.client.setQueryData(humanInterviewKeys.rounds(slug, candidateId), [
           { ...round, outcome, status: "completed" },
         ]);
       });
       await waitForUi(() =>
-        expect(button()?.getAttribute("aria-disabled")).toBe(String(outcome !== "pass")),
+        expect(button()?.getAttribute("aria-disabled")).toBe(
+          String(outcome !== "pass" && outcome !== "inconclusive"),
+        ),
       );
       expect(view.container.querySelectorAll('[aria-label="阶段操作"] > button')).toHaveLength(2);
     }

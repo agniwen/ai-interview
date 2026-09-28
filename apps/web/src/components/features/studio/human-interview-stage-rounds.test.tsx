@@ -445,13 +445,13 @@ describe("RoundCard interviewer arrangement", () => {
     },
   );
   it.each([
-    ["inconclusive", true, false, true],
+    ["inconclusive", true, false, false],
     ["inconclusive", false, false, false],
     ["inconclusive", true, true, false],
     ["pass", true, false, false],
     ["fail", true, false, false],
   ] as const)(
-    "shows 修改 only for editable historical pending decisions (%s, %s, %s)",
+    "never shows 修改 for completed decisions (%s, %s, %s)",
     (outcome, canUpdate, disabled, visible) => {
       const queryClient = new QueryClient();
       const host = document.createElement("div");

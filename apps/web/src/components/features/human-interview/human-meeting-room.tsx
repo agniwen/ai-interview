@@ -456,7 +456,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           <header
             className={cn(
               "flex shrink-0 items-center justify-between gap-3 px-4 py-3",
-              viewMode === "review" ? "mx-auto w-full max-w-5xl" : "border-border border-b",
+              viewMode === "review" ? "mx-auto w-full max-w-5xl" : "  md:h-10",
             )}
           >
             <div className="flex min-w-0 items-center gap-2">
@@ -512,6 +512,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           props.mode === "interviewer" ? "min-w-0 flex-1 md:flex-none" : "w-full",
         )}
         size="lg"
+        variant={props.mode === "interviewer" ? "secondary" : "default"}
         disabled={isJoining || Boolean(startBlockMessage)}
         onClick={joinMeeting}
       >
@@ -544,17 +545,17 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
 
     const interviewerActions = (
       <div className="flex items-center gap-2 md:gap-3">
+        {joinButton}
         <Button
           className="h-11 min-w-0 flex-1 md:h-10 md:flex-none"
           size="lg"
-          variant="outline"
+          variant="ghost"
           disabled={isJoining}
           onClick={() => setViewMode("materials")}
         >
           <IconFileDescription data-icon="inline-start" />
           查看候选人资料
         </Button>
-        {joinButton}
       </div>
     );
 

@@ -786,7 +786,7 @@ export function createHumanInterviewEvaluationDao(
     roundId: string;
     transcriptRevisionId: string | null;
   }): Promise<boolean> {
-    if (input.outcome !== "pass" && input.outcome !== "fail") {
+    if (input.outcome !== "pass" && input.outcome !== "fail" && input.outcome !== "inconclusive") {
       return false;
     }
     const evaluation = humanInterviewEvaluationSubmissionSchema.parse(input.evaluation);

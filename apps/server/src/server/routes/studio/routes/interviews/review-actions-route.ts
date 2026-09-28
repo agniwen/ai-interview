@@ -10,7 +10,7 @@ import type {
 import {
   humanInterviewEvaluationDraftSchema,
   humanInterviewEvaluationSubmissionSchema,
-  humanInterviewFinalOutcomeSchema,
+  humanInterviewRoundOutcomeSchema,
 } from "@app/db-schema/studio-interviews";
 import {
   createMeetingTranscriptCorrectionSchema,
@@ -414,7 +414,7 @@ export function createHumanInterviewReviewActionsRouter(
         "json",
         z.object({
           evaluation: humanInterviewEvaluationSubmissionSchema,
-          outcome: humanInterviewFinalOutcomeSchema,
+          outcome: humanInterviewRoundOutcomeSchema,
           transcriptRevisionId: z.uuid().nullable(),
         }),
         jsonValidatorError("真人复面评价提交参数无效。"),

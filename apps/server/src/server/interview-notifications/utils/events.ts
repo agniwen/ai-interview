@@ -198,7 +198,7 @@ async function loadHumanInterviewRoundProgression(
         eq(humanInterviewRound.recruitingRecordId, input.interviewRecordId),
         lt(humanInterviewRound.sortOrder, input.currentSortOrder),
         eq(humanInterviewRound.status, "completed"),
-        eq(humanInterviewRound.outcome, "pass"),
+        inArray(humanInterviewRound.outcome, ["pass", "inconclusive"]),
       ),
     )
     .orderBy(asc(humanInterviewRound.sortOrder));

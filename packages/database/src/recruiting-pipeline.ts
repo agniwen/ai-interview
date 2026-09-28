@@ -779,8 +779,8 @@ export async function syncHumanInterviewRoundNodeTx(
     effectiveHumanRoundId: input.roundId,
     expectedEffectiveId: input.roundId,
     node: round.roundKind,
-    result: input.outcome === "inconclusive" ? null : input.outcome,
-    status: input.outcome === "inconclusive" ? "awaiting_review" : "completed",
+    result: input.outcome === "inconclusive" ? "pass" : input.outcome,
+    status: "completed",
   });
   return true;
 }

@@ -316,6 +316,31 @@ describe("describeResumeProgress", () => {
     });
   });
 
+  it("second_interview 待定单独展示，不计为通过", () => {
+    expect(
+      describeResumeProgress({
+        outcome: "in_pipeline",
+        pipelineStage: "second_interview",
+        stageProgress: {
+          aiInterview: null,
+          humanInterview: {
+            activeRound: null,
+            completedRounds: 2,
+            completedRoundsMissingFeedback: 0,
+            failedRounds: 0,
+            inconclusiveRounds: 1,
+            passedRounds: 1,
+            totalRounds: 2,
+          },
+          offer: null,
+        },
+      }),
+    ).toEqual({
+      label: "复试 · 全部完成 (1/2 通过，1 待定) · 待决策",
+      tone: "success",
+    });
+  });
+
   it("final_interview ignores completed second interview rounds", () => {
     expect(
       describeResumeProgress({

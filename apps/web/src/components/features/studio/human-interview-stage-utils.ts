@@ -35,7 +35,10 @@ export function getHumanInterviewBusinessRoundNumbers(
   let passedRoundCount = 0;
   for (const round of rounds) {
     roundNumbers.set(round.id, passedRoundCount + 2);
-    if (round.status === "completed" && round.outcome === "pass") {
+    if (
+      round.status === "completed" &&
+      (round.outcome === "pass" || round.outcome === "inconclusive")
+    ) {
       passedRoundCount += 1;
     }
   }
@@ -56,8 +59,8 @@ export function getHumanInterviewScheduleBlockReason(
     if (round.outcome === "fail") {
       return `“${round.label}”已标记为未通过，不能继续安排下一轮真人面试。`;
     }
-    if (round.outcome !== "pass") {
-      return `请先将“${round.label}”明确标记为通过，再安排下一轮真人面试。`;
+    if (round.outcome !== "pass" && round.outcome !== "inconclusive") {
+      return `请先将“${round.label}”明确标记为通过或待定，再安排下一轮真人面试。`;
     }
     return null;
   }

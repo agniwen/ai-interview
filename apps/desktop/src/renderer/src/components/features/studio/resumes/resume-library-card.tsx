@@ -70,7 +70,7 @@ function describeCompactHumanLifecycle(
     return "未安排";
   }
   if (!progress.activeRound) {
-    return `${progress.passedRounds}/${progress.totalRounds}通过待决策`;
+    return `${progress.passedRounds}/${progress.totalRounds}通过${progress.inconclusiveRounds ? ` · ${progress.inconclusiveRounds}待定` : ""}待决策`;
   }
   const current = progress.activeRound.sortOrder + 1;
   if (progress.activeRound.scheduledAt) {

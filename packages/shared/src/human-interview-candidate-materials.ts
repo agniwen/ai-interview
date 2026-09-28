@@ -81,9 +81,11 @@ export interface HumanInterviewCandidateHrInformationResponse {
     outcome: HumanInterviewRoundOutcome | null;
     submittedAt: string | null;
     submittedBy: string | null;
+    submittedByImage: string | null;
     values: Pick<
       HumanInterviewEvaluationDraft,
       | "rating"
+      | "overallEvaluation"
       | "seniorityPosition"
       | "rolePosition"
       | "professionalSkill"

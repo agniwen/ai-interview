@@ -59,7 +59,7 @@ export function ScheduleHumanInterviewButton({
             rounds.filter(
               (round) =>
                 round.status === "completed" &&
-                round.outcome === "pass" &&
+                (round.outcome === "pass" || round.outcome === "inconclusive") &&
                 round.label !== "CEO面试",
             ).length
           }

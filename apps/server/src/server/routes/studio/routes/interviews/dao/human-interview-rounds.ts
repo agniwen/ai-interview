@@ -103,7 +103,7 @@ export async function loadHumanInterviewRoundReadiness(
         row.nodeStatus === "completed" &&
         row.nodeResult === "pass" &&
         row.status === "completed" &&
-        row.outcome === "pass" &&
+        (row.outcome === "pass" || row.outcome === "inconclusive") &&
         (row.evaluationStatus === "submitted" || Boolean(row.feedback?.trim())),
     );
   return {
@@ -633,9 +633,9 @@ export async function completeHumanInterviewRound({
       operatorId: actorUserId,
       organizationId,
       recordId: existing.interviewRecordId,
-      result: outcome === "inconclusive" ? null : outcome,
+      result: outcome === "inconclusive" ? "pass" : outcome,
       roundId,
-      status: outcome === "inconclusive" ? "awaiting_review" : "completed",
+      status: "completed",
     });
     await enqueueHumanInterviewRoundCompletion(tx, {
       actorUserId,

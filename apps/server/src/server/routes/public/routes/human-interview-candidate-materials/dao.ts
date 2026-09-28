@@ -256,6 +256,7 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
       roundLabel: humanInterviewRound.label,
       submittedAt: humanInterviewRound.evaluationSubmittedAt,
       submittedBy: user.name,
+      submittedByImage: user.image,
     })
     .from(humanInterviewRound)
     .leftJoin(user, eq(humanInterviewRound.evaluationUpdatedBy, user.id))
@@ -278,6 +279,7 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
         ...round,
         submittedAt: submittedAt?.toISOString() ?? null,
         values: {
+          overallEvaluation: evaluation.overallEvaluation,
           professionalSkill: evaluation.professionalSkill,
           rating: evaluation.rating,
           risks: evaluation.risks,

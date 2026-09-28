@@ -179,6 +179,9 @@ export async function loadResumeStageProgress(
       failedRounds: countedRows.filter(
         (row) => row.status === "completed" && row.outcome === "fail",
       ).length,
+      inconclusiveRounds: countedRows.filter(
+        (row) => row.status === "completed" && row.outcome === "inconclusive",
+      ).length,
       passedRounds: countedRows.filter(
         (row) => row.status === "completed" && row.outcome === "pass",
       ).length,
