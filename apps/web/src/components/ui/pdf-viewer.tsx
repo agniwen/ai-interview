@@ -38,6 +38,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { attachPdfPinchZoom } from "./pdf-viewer-touch-zoom";
 
 type ReactPdfModule = typeof ReactPdf;
 type PageRotationDeltas = Map<number, number>;
@@ -90,6 +91,7 @@ export type PDFViewerProps = {
   defaultThumbnailSidebarOpen?: boolean;
   defaultZoom?: number;
   enableModifierWheelZoom?: boolean;
+  enableTouchPinchZoom?: boolean;
   fitWidthOnMobile?: boolean;
   pageWidth?: number;
   pageHeight?: number;
@@ -638,6 +640,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     defaultThumbnailSidebarOpen = false,
     defaultZoom = DEFAULT_ZOOM,
     enableModifierWheelZoom = false,
+    enableTouchPinchZoom = false,
     fitWidthOnMobile = false,
     pageWidth = DEFAULT_PAGE_WIDTH,
     pageHeight = DEFAULT_PAGE_HEIGHT,
@@ -709,7 +712,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   const lastWheelZoomAtRef = React.useRef(-Infinity);
   const zoomRef = React.useRef(zoom);
   const initialFitAppliedRef = React.useRef(false);
-  const wheelZoomAnchorRef = React.useRef<{
+  const zoomAnchorRef = React.useRef<{
     clientX: number;
     clientY: number;
     pageNumber: number;
@@ -973,11 +976,11 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
         event.target instanceof Element
           ? event.target.closest<HTMLElement>("[data-pdf-viewer-page]")
           : null;
-      wheelZoomAnchorRef.current = null;
+      zoomAnchorRef.current = null;
       if (pageElement?.dataset.pdfViewerPage) {
         const rect = pageElement.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-          wheelZoomAnchorRef.current = {
+          zoomAnchorRef.current = {
             clientX: event.clientX,
             clientY: event.clientY,
             pageNumber: Number(pageElement.dataset.pdfViewerPage),
@@ -994,9 +997,45 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     return () => viewport.removeEventListener("wheel", handleModifierWheel);
   }, [controlsDisabled, enableModifierWheelZoom]);
 
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!enableTouchPinchZoom || controlsDisabled || !viewport) return;
+    return attachPdfPinchZoom(viewport, {
+      getZoom: () => zoomRef.current,
+      maxZoom: ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
+      minZoom: ZOOM_OPTIONS[0],
+      onZoom(nextZoom, clientX, clientY) {
+        const pageElement = [
+          ...viewport.querySelectorAll<HTMLElement>("[data-pdf-viewer-page]"),
+        ].find((page) => {
+          const rect = page.getBoundingClientRect();
+          return (
+            clientX >= rect.left &&
+            clientX <= rect.right &&
+            clientY >= rect.top &&
+            clientY <= rect.bottom
+          );
+        });
+        zoomAnchorRef.current = null;
+        if (pageElement?.dataset.pdfViewerPage) {
+          const rect = pageElement.getBoundingClientRect();
+          zoomAnchorRef.current = {
+            clientX,
+            clientY,
+            pageNumber: Number(pageElement.dataset.pdfViewerPage),
+            xRatio: (clientX - rect.left) / rect.width,
+            yRatio: (clientY - rect.top) / rect.height,
+          };
+        }
+        zoomRef.current = nextZoom;
+        setZoom(nextZoom);
+      },
+    });
+  }, [controlsDisabled, enableTouchPinchZoom]);
+
   React.useLayoutEffect(() => {
-    const anchor = wheelZoomAnchorRef.current;
-    wheelZoomAnchorRef.current = null;
+    const anchor = zoomAnchorRef.current;
+    zoomAnchorRef.current = null;
     const viewport = viewportRef.current;
     if (!anchor || !viewport) return;
 

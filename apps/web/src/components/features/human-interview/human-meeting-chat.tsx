@@ -56,6 +56,7 @@ export function HumanMeetingChat({
   const [isSaving, setIsSaving] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const lastLiveMessageId = chatMessages.at(-1)?.id;
   const lastMessageId = data?.messages.at(-1)?.id;
 
@@ -75,7 +76,9 @@ export function HumanMeetingChat({
     if (!open) {
       return;
     }
-    textareaRef.current?.focus();
+    if (!isMobile) {
+      textareaRef.current?.focus();
+    }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
@@ -83,7 +86,29 @@ export function HumanMeetingChat({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose, open]);
+  }, [isMobile, onClose, open]);
+
+  useEffect(() => {
+    if (!isMobile || !open || !window.visualViewport) {
+      return;
+    }
+    const { visualViewport } = window;
+    const updateDrawerBounds = () => {
+      const drawer = mobileDrawerRef.current;
+      if (!drawer) {
+        return;
+      }
+      drawer.style.top = `${visualViewport.offsetTop}px`;
+      drawer.style.height = `${visualViewport.height}px`;
+    };
+    updateDrawerBounds();
+    visualViewport.addEventListener("resize", updateDrawerBounds);
+    visualViewport.addEventListener("scroll", updateDrawerBounds);
+    return () => {
+      visualViewport.removeEventListener("resize", updateDrawerBounds);
+      visualViewport.removeEventListener("scroll", updateDrawerBounds);
+    };
+  }, [isMobile, open]);
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -149,7 +174,7 @@ export function HumanMeetingChat({
         <div className="min-w-0 flex-1">
           <textarea
             aria-label="输入聊天消息"
-            className="field-sizing-content block max-h-32 min-h-10 w-full resize-none rounded-md bg-muted/40 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:bg-muted/60"
+            className="field-sizing-content block max-h-32 min-h-10 w-full resize-none rounded-md bg-muted/40 px-3 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:bg-muted/60 md:text-sm"
             ref={textareaRef}
             maxLength={2000}
             onChange={(event) => setDraft(event.target.value)}
@@ -179,11 +204,17 @@ export function HumanMeetingChat({
 
   if (isMobile) {
     return (
-      <Drawer direction="bottom" onOpenChange={(value) => !value && onClose()} open={open}>
+      <Drawer
+        direction="bottom"
+        onOpenChange={(value) => !value && onClose()}
+        open={open}
+        repositionInputs={false}
+      >
         <DrawerContent
-          className="!inset-0 !mt-0 !h-dvh !max-h-none !w-screen !max-w-none !rounded-none !border-0"
+          className="!inset-x-0 !bottom-auto !mt-0 h-dvh !max-h-none !w-screen !max-w-none !rounded-none !border-0 top-0"
           data-slot="meeting-chat-panel"
           hideHandle
+          ref={mobileDrawerRef}
         >
           {content}
         </DrawerContent>

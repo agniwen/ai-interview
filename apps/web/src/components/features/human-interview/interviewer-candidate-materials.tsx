@@ -406,6 +406,7 @@ function InlineResumeDocument({
       <InlinePdfViewer
         className="h-full"
         enableModifierWheelZoom
+        enableTouchPinchZoom
         file={sourceUrl}
         fitWidthOnMobile
         scrollFade

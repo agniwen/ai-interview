@@ -50,8 +50,16 @@ vi.mock("@/components/ui/scroll-area", () => ({
   ScrollArea: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("@/components/ui/drawer", () => ({
-  Drawer: ({ children, direction }: { children: React.ReactNode; direction?: string }) => (
-    <div data-direction={direction} data-testid="drawer">
+  Drawer: ({
+    children,
+    direction,
+    repositionInputs,
+  }: {
+    children: React.ReactNode;
+    direction?: string;
+    repositionInputs?: boolean;
+  }) => (
+    <div data-direction={direction} data-reposition-inputs={repositionInputs} data-testid="drawer">
       {children}
     </div>
   ),
@@ -143,12 +151,27 @@ describe("HumanMeetingChat", () => {
 
   it("uses a full-screen drawer on mobile with a close button at the top left", () => {
     chat.mobile = true;
+    const visualViewport = Object.assign(new EventTarget(), { height: 700, offsetTop: 0 });
+    vi.stubGlobal("visualViewport", visualViewport);
     const container = renderChat();
     const drawer = container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]');
     expect(container.querySelector<HTMLElement>('[data-testid="drawer"]')?.dataset.direction).toBe(
       "bottom",
     );
-    expect(drawer?.className).toContain("!inset-0");
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="drawer"]')?.dataset.repositionInputs,
+    ).toBe("false");
+    expect(drawer?.className).toContain("h-dvh");
+    expect(drawer?.style.height).toBe("700px");
     expect(drawer?.querySelector("button")?.getAttribute("aria-label")).toBe("关闭聊天");
+    const field = drawer?.querySelector<HTMLTextAreaElement>("textarea");
+    expect(field?.className).toContain("text-base");
+    expect(document.activeElement).not.toBe(field);
+
+    visualViewport.height = 420;
+    visualViewport.offsetTop = 12;
+    act(() => visualViewport.dispatchEvent(new Event("resize")));
+    expect(drawer?.style.height).toBe("420px");
+    expect(drawer?.style.top).toBe("12px");
   });
 });
