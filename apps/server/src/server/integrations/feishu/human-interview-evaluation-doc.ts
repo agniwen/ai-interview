@@ -12,7 +12,7 @@ export interface HumanInterviewDocumentContent {
   submittedBy: string;
 }
 
-// Sync interviewer and template fields; keep full evaluation and submission time in the app.
+// Sync interviewer feedback; keep detailed analysis and submission time in the app.
 export function buildHumanInterviewEvaluationBlock(
   input: HumanInterviewDocumentContent,
 ): FeishuDocumentBlock {
@@ -21,6 +21,7 @@ export function buildHumanInterviewEvaluationBlock(
     `${input.roundLabel}评价`,
     `面试官：${input.submittedBy}`,
     `评级（A,B,C,D）：${input.evaluation.rating}${suffix}`,
+    `整体评价：${input.evaluation.overallEvaluation || "未提供"}`,
     `角色定位：${input.evaluation.rolePosition}`,
     `专业技能：${input.evaluation.professionalSkill}`,
     `优势特点：${input.evaluation.strengths}`,

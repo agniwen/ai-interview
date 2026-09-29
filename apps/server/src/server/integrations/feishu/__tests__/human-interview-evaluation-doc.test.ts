@@ -29,7 +29,7 @@ describe("human interview evaluation document", () => {
     );
   });
   it.each(["架构复面", "业务一面", "CEO面试"])(
-    "syncs only template evaluation fields for %s without rewriting them",
+    "syncs overall evaluation and template fields for %s without rewriting them",
     (roundLabel) => {
       const block = buildHumanInterviewEvaluationBlock({
         evaluation: {
@@ -56,12 +56,44 @@ describe("human interview evaluation document", () => {
         `${roundLabel}评价`,
         "面试官：张面试官",
         "评级（A,B,C,D）：B（待定）",
+        "整体评价：需要核实架构设计职责。",
         "角色定位：执行员工",
         "专业技能：良，熟悉分布式系统",
         "优势特点：故障定位清晰",
         "劣势风险：项目职责待确认",
         "薪资建议：未提供",
       ]);
+    },
+  );
+  it.each(["", `**整体判断**\n- 有具体依据\n${"能力稳定😀".repeat(400)}`])(
+    "preserves empty or long overall feedback when building Feishu blocks",
+    (overallEvaluation) => {
+      const block = buildHumanInterviewEvaluationBlock({
+        evaluation: {
+          detailedAnalysis: "仅在应用内展示",
+          evidenceTurnIds: [],
+          overallEvaluation,
+          professionalSkill: "良",
+          rating: "B",
+          risks: "",
+          rolePosition: "",
+          salaryRecommendation: "",
+          seniorityPosition: "",
+          strengths: "",
+        },
+        outcome: "pass",
+        roundLabel: "业务一面",
+        submittedAt: "2026-09-29",
+        submittedBy: "面试官",
+      });
+      const texts =
+        block.children?.map(
+          (child) =>
+            child.text?.elements.map((element) => element.text_run?.content ?? "").join("") ?? "",
+        ) ?? [];
+      expect(texts.join("")).toContain(`整体评价：${overallEvaluation || "未提供"}`);
+      expect(texts.join("")).not.toContain("仅在应用内展示");
+      expect(texts.every((text) => [...text].length <= 1000)).toBe(true);
     },
   );
 });
