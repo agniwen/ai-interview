@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import * as React from "react";
 
+import { createClientOnlyFn } from "@tanstack/react-start";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type * as ReactPdf from "react-pdf";
@@ -41,6 +42,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { attachPdfPinchZoom } from "./pdf-viewer-touch-zoom";
 
 type ReactPdfModule = typeof ReactPdf;
+const loadReactPdf = createClientOnlyFn(() => import("react-pdf"));
 type PageRotationDeltas = Map<number, number>;
 
 type PDFPageMetrics = {
@@ -743,7 +745,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   React.useEffect(() => {
     let mounted = true;
 
-    void import("react-pdf")
+    void loadReactPdf()
       .then((module) => {
         module.pdfjs.GlobalWorkerOptions.workerSrc = getPdfWorkerUrl(module.pdfjs.version);
 
