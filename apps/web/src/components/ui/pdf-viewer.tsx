@@ -1000,10 +1000,28 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   React.useEffect(() => {
     const viewport = viewportRef.current;
     if (!enableTouchPinchZoom || controlsDisabled || !viewport) return;
+    const content = viewport.firstElementChild;
+    if (!(content instanceof HTMLElement)) return;
+    const previousTransform = content.style.transform;
+    const previousTransformOrigin = content.style.transformOrigin;
+    let previewStarted = false;
     return attachPdfPinchZoom(viewport, {
       getZoom: () => zoomRef.current,
       maxZoom: ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
       minZoom: ZOOM_OPTIONS[0],
+      onPreview(scale, clientX, clientY) {
+        if (!previewStarted) {
+          const rect = content.getBoundingClientRect();
+          content.style.transformOrigin = `${clientX - rect.left}px ${clientY - rect.top}px`;
+          previewStarted = true;
+        }
+        content.style.transform = `scale(${scale})`;
+      },
+      onPreviewEnd() {
+        previewStarted = false;
+        content.style.transform = previousTransform;
+        content.style.transformOrigin = previousTransformOrigin;
+      },
       onZoom(nextZoom, clientX, clientY) {
         const pageElement = [
           ...viewport.querySelectorAll<HTMLElement>("[data-pdf-viewer-page]"),
