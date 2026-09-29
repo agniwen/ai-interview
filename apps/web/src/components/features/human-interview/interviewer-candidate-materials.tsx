@@ -710,13 +710,17 @@ export function InterviewerCandidateMaterials({
         </MaterialTab>
         <MaterialTab value="evaluation">
           <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateEvaluations key={effectiveCandidateId} aiQuery={aiQuery} query={hrQuery} />
+            <div className="mx-auto w-full max-w-5xl">
+              <CandidateEvaluations key={effectiveCandidateId} aiQuery={aiQuery} query={hrQuery} />
+            </div>
           </ScrollArea>
         </MaterialTab>
         {showQuestions ? (
           <MaterialTab value="questions">
             <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateQuestions query={questionsQuery} />
+              <div className="mx-auto w-full max-w-5xl">
+                <CandidateQuestions query={questionsQuery} />
+              </div>
             </ScrollArea>
           </MaterialTab>
         ) : null}

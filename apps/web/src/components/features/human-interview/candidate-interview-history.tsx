@@ -26,10 +26,10 @@ const BUSINESS_EVALUATION_ENTRIES = [
   ["overallEvaluation", "整体评价"],
   ["seniorityPosition", "职级定位"],
   ["rolePosition", "角色定位"],
+  ["salaryRecommendation", "薪资建议"],
   ["professionalSkill", "专业技能"],
   ["strengths", "优势特点"],
   ["risks", "劣势风险"],
-  ["salaryRecommendation", "薪资建议"],
 ] as const;
 
 const OUTCOME_LABEL = { fail: "不通过", inconclusive: "待定", pass: "通过" } as const;
@@ -98,29 +98,44 @@ export function CandidateInterviewHistory({
               </div>
               <p>面试结论：{round.outcome ? OUTCOME_LABEL[round.outcome] : "暂无结论"}</p>
             </div>
-            {BUSINESS_EVALUATION_ENTRIES.map(([key, label]) => (
-              <section className="py-3" key={key}>
-                <h3 className="font-semibold text-base">{label}</h3>
-                {key === "overallEvaluation" ? (
-                  <MarkdownView
-                    className={cn(
-                      "mt-2 break-words text-base leading-7",
-                      !round.values[key]?.trim() && "opacity-50",
-                    )}
-                    content={round.values[key]?.trim() || "未提供"}
-                  />
-                ) : (
-                  <p
-                    className={cn(
-                      "mt-2 whitespace-pre-wrap break-words text-base leading-7",
-                      !round.values[key]?.trim() && "opacity-50",
-                    )}
-                  >
-                    {round.values[key]?.trim() || "未提供"}
-                  </p>
-                )}
-              </section>
-            ))}
+            <div className="grid grid-cols-1 gap-x-6 md:grid-cols-4">
+              {BUSINESS_EVALUATION_ENTRIES.map(([key, label]) => (
+                <section
+                  className={cn(
+                    "min-w-0 py-3",
+                    [
+                      "rating",
+                      "seniorityPosition",
+                      "rolePosition",
+                      "salaryRecommendation",
+                    ].includes(key)
+                      ? "md:row-start-1"
+                      : "md:col-span-4",
+                  )}
+                  key={key}
+                >
+                  <h3 className="font-semibold text-base">{label}</h3>
+                  {key === "overallEvaluation" ? (
+                    <MarkdownView
+                      className={cn(
+                        "mt-2 break-words text-base leading-7",
+                        !round.values[key]?.trim() && "opacity-50",
+                      )}
+                      content={round.values[key]?.trim() || "未提供"}
+                    />
+                  ) : (
+                    <p
+                      className={cn(
+                        "mt-2 whitespace-pre-wrap break-words text-base leading-7",
+                        !round.values[key]?.trim() && "opacity-50",
+                      )}
+                    >
+                      {round.values[key]?.trim() || "未提供"}
+                    </p>
+                  )}
+                </section>
+              ))}
+            </div>
           </AccordionContent>
         </AccordionItem>
       ))}
