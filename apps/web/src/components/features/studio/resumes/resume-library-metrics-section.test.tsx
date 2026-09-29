@@ -47,7 +47,7 @@ describe("ResumeLibraryMetricsSection", () => {
     for (const cardBody of loadingRegion?.querySelectorAll(
       '[data-slot="metrics-card-body-skeleton"]',
     ) ?? []) {
-      expect(cardBody.className).toContain("h-[260px]");
+      expect(cardBody.className).toContain("h-44");
     }
     expect(getRevealState()).toBe("loading");
   });
@@ -68,8 +68,7 @@ describe("ResumeLibraryMetricsSection", () => {
     );
     expect(cardBodies).toHaveLength(2);
     for (const cardBody of cardBodies) {
-      expect(cardBody.className).toContain("h-[208px]");
-      expect(cardBody.className).not.toContain("h-[260px]");
+      expect(cardBody.className).toContain("h-44");
     }
   });
 
@@ -106,13 +105,10 @@ describe("ResumeLibraryMetricsSection", () => {
     expect(firstCard?.textContent).not.toContain("简历筛选");
     expect(document.body.textContent).not.toContain("入库排行榜");
     expect(document.body.textContent).not.toContain("AI 面试转化");
-    const cardBodies = document.querySelectorAll<HTMLElement>(
-      '[data-slot="card"] [data-slot="scroll-area"]',
-    );
+    const cardBodies = document.querySelectorAll<HTMLElement>('[data-slot="card-panel"] > div');
     expect(cardBodies).toHaveLength(2);
     for (const cardBody of cardBodies) {
-      expect(cardBody.className).toContain("h-[208px]");
-      expect(cardBody.className).not.toContain("h-[260px]");
+      expect(cardBody.className).toContain("h-44");
     }
   });
 

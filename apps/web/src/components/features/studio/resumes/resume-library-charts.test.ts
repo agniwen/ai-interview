@@ -7,7 +7,7 @@ import {
 } from "./resume-library-charts";
 
 describe("resume library chart models", () => {
-  it("builds the single stacked pipeline bar from current-stage counts", () => {
+  it("preserves actual stage counts for the pipeline bars", () => {
     const pipeline = buildPipelineRow([
       { count: 1444, outcome: "in_pipeline", stage: "screening" },
       { count: 130, outcome: "in_pipeline", stage: "ai_interview" },
@@ -25,12 +25,7 @@ describe("resume library chart models", () => {
       { label: "入职办理", value: 0 },
       { label: "已结束", value: 10 },
     ]);
-    const visibleRows = pipeline.stackRows.filter((row) => row.value > 0);
-    expect(visibleRows.every((row) => row.visualShare >= 0.035)).toBe(true);
-    expect(pipeline.stackRows.reduce((sum, row) => sum + row.visualShare, 0)).toBeCloseTo(1, 8);
-    expect(pipeline.stackRows[0]?.visualShare).toBeGreaterThan(
-      pipeline.stackRows[1]?.visualShare ?? 0,
-    );
+    expect(pipeline.stackRows.reduce((sum, row) => sum + row.value, 0)).toBe(pipeline.total);
   });
 
   it("groups every closed outcome under the top-level closed stage", () => {
@@ -58,7 +53,7 @@ describe("resume library chart models", () => {
       { label: "发 Offer", value: 4 },
       { label: "背调", value: 1 },
     ]);
-    expect(flow.stackRows.map((row) => row.color)).toEqual([
+    expect(flow.stackRows.map((row) => row.fill)).toEqual([
       "var(--pipeline-screening)",
       "var(--pipeline-ai-interview)",
       "var(--pipeline-human-interview)",

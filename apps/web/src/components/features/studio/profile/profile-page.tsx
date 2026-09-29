@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useDebouncedCallback } from "use-debounce";
 import { z } from "zod";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
-import { ContributionCalendar } from "@/components/features/studio/charts/contribution-calendar";
 import { MailIngestAccountCard } from "@/components/features/studio/profile/mail-ingest-account-card";
 import {
   ActivitySectionSkeleton,
@@ -150,11 +149,6 @@ function ActivitySection() {
           <span className="font-mono font-medium text-foreground tabular-nums">{peak}</span>
         </span>
       </div>
-      <ContributionCalendar
-        dailyAdded={dailyAdded}
-        emptyMessage="过去一年你还没有入库候选人"
-        unitLabel="份"
-      />
     </div>
   );
 

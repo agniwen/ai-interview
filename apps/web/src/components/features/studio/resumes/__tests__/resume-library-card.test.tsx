@@ -374,7 +374,11 @@ describe("ResumeLibraryCard", () => {
           ...record,
           resumeProfileSnapshot: {
             ...EMPTY_RESUME_PROFILE_SNAPSHOT,
-            education: [{ period: "2016–2020", primary: "浙江大学", secondary: "计算机科学" }],
+            education: [
+              { period: "2016–2020", primary: "浙江大学", secondary: "计算机科学" },
+              { period: "2012–2016", primary: "北京大学", secondary: "软件工程" },
+              { period: "2009–2012", primary: "第三所学校", secondary: null },
+            ],
             work: [{ period: "2021–至今", primary: "字节跳动", secondary: "高级前端工程师" }],
           },
           resumeSkills: ["增长实验", "用户分层", "激励机制", "生命周期运营", "Discord", "Mod 管理"],
@@ -400,6 +404,9 @@ describe("ResumeLibraryCard", () => {
     expect(content).not.toContain("flex-wrap gap-1.5 overflow-hidden");
     expect(content).toContain("字节跳动");
     expect(content).toContain("浙江大学");
+    expect(content).toContain("北京大学");
+    expect(content).not.toContain("第三所学校");
+    expect(content).not.toMatch(/>\.\.\.<\/p>/);
   });
 
   it("keeps showing a labeled legacy score after the job upgrades", () => {

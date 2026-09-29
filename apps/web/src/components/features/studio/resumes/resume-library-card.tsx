@@ -377,10 +377,7 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
         {hasWorkGroup && hasEducationGroup ? (
           <div className="my-0.5 border-border/60 border-t" />
         ) : null}
-        {educationLines.map(renderResumeCardProfileSnapshotLine)}
-        {snapshot.educationHasMore
-          ? renderResumeCardProfileSnapshotMoreRow("education-more")
-          : null}
+        {educationLines.slice(0, 2).map(renderResumeCardProfileSnapshotLine)}
       </div>
     </div>
   );

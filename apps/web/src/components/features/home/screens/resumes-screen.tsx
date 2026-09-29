@@ -179,89 +179,6 @@ function StatusCard() {
   );
 }
 
-// ─────────────────── 近一年入库日历 (current contribution heatmap) ───────────────────
-const CALENDAR_LEVEL_COLORS = [
-  "color-mix(in oklab, var(--muted-foreground) 14%, var(--background))",
-  "#9be9a8",
-  "#40c463",
-  "#30a14e",
-  "#216e39",
-] as const;
-const CALENDAR_LEVELS = Array.from({ length: 27 * 7 }, (_, index) => {
-  if (index % 29 === 0 || index % 41 === 0) {
-    return 4;
-  }
-  if (index % 11 === 0 || index % 17 === 0) {
-    return 3;
-  }
-  if (index % 5 === 0) {
-    return 2;
-  }
-  if (index % 3 === 0) {
-    return 1;
-  }
-  return 0;
-});
-
-function DailyAddedCard() {
-  const monthLabels = Array.from({ length: 6 }, (_, index) =>
-    new Intl.DateTimeFormat(getLocale(), { month: "short" }).format(
-      new Date(Date.UTC(2026, index + 2, 1)),
-    ),
-  );
-
-  return (
-    <ChartCardShell
-      metrics={[
-        { label: m.home_frame_added_year(), value: "188" },
-        { label: m.home_frame_daily_peak(), value: "12" },
-      ]}
-      title={m.home_frame_calendar_title()}
-    >
-      <div className="flex h-36 flex-col gap-2 overflow-hidden">
-        <div className="flex-1 overflow-hidden">
-          <div
-            className="grid w-max gap-0.5"
-            style={{
-              gridAutoColumns: 12,
-              gridAutoFlow: "column",
-              gridTemplateRows: "repeat(7, 12px)",
-            }}
-          >
-            {CALENDAR_LEVELS.map((level, index) => (
-              <span
-                aria-hidden="true"
-                className="size-3 rounded-[2px]"
-                // The contribution cells are a stable, decorative time series.
-                // oxlint-disable-next-line react/no-array-index-key
-                key={index}
-                style={{ backgroundColor: CALENDAR_LEVEL_COLORS[level] }}
-              />
-            ))}
-          </div>
-          <div className="mt-2 flex justify-between px-1 text-muted-foreground text-[10px]">
-            {monthLabels.map((month) => (
-              <span key={month}>{month}</span>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-1.5 text-muted-foreground text-[10px]">
-          <span>{m.home_frame_less()}</span>
-          {CALENDAR_LEVEL_COLORS.map((color) => (
-            <span
-              aria-hidden="true"
-              className="size-3 rounded-[2px]"
-              key={color}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-          <span>{m.home_frame_more()}</span>
-        </div>
-      </div>
-    </ChartCardShell>
-  );
-}
-
 // ─────────────────── AI 面试转化 (donut) ───────────────────
 const CONVERSION_ACCENT = "var(--chart-conversion)";
 const CONVERSION_ACCENT_MUTED = "var(--chart-conversion-muted)";
@@ -339,11 +256,10 @@ function ConversionCard() {
 }
 
 function ChartsRow() {
-  // 对齐 ResumeLibraryCharts: grid gap-4 lg:grid-cols-3
+  // 首页仅展示流程分布与 AI 面试转化。
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       <StatusCard />
-      <DailyAddedCard />
       <ConversionCard />
     </div>
   );

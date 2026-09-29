@@ -3,18 +3,15 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { IconRefresh } from "@tabler/icons-react";
-import { barX, defineChart, stack } from "@tanstack/charts";
-import { scaleBand, scaleLinear } from "d3-scale";
-import { z } from "zod";
+import { Bar, BarChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { defineDonutChart } from "@/lib/client/charts/donut";
 import { toBeijingDayKey } from "@app/shared/beijing-calendar";
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 import { recruitingBoardStagePresets } from "@app/shared/recruiting-board";
@@ -41,21 +38,13 @@ const BUCKET_COLORS = {
   screening: PIPELINE_COLORS.early,
 } as const satisfies Record<PipelineBucket, string>;
 
-const MIN_PIPELINE_VISUAL_SHARE = 0.035;
-
 interface FlowStackRow {
   bucket: string;
-  category: string;
-  color: string;
   label: string;
   value: number;
-  visualShare: number;
+  fill: string;
 }
 
-const pipelineTooltipDatumSchema = z.object({
-  label: z.string(),
-  value: z.number(),
-});
 const CONVERSION_ACCENT = "var(--chart-conversion)";
 const CONVERSION_ACCENT_MUTED = "var(--chart-conversion-muted)";
 const BOARD_SHARE_COLORS = [
@@ -98,18 +87,16 @@ function ChartCardShell({
   title,
   description,
   metrics,
-  compact = false,
   children,
 }: {
   title: string;
   description?: string;
   metrics: [MetricItem, MetricItem];
-  compact?: boolean;
   children: ReactNode;
 }) {
   return (
     <Card className="h-full gap-0 overflow-hidden rounded-xl py-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_repeat(2,5rem)] border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,6rem)] 2xl:h-22">
+      <div className="grid min-h-18 grid-cols-[minmax(0,1fr)_repeat(2,5rem)] border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,6rem)] 2xl:h-22">
         <CardHeader className="min-w-0 gap-1 p-3 sm:p-4 2xl:p-5">
           <CardTitle className="truncate text-sm sm:text-base">{title}</CardTitle>
           {description ? (
@@ -143,9 +130,7 @@ function ChartCardShell({
         ))}
       </div>
       <CardContent className="p-0">
-        <ScrollArea className={compact ? "h-[208px]" : "h-[260px]"} scrollFade scrollbars="scroll">
-          <div className="p-4">{children}</div>
-        </ScrollArea>
+        <div className="h-44 p-4">{children}</div>
       </CardContent>
     </Card>
   );
@@ -201,7 +186,6 @@ export function buildUploaderRanking(
       });
     }
   }
-
   const rankedRows = [...totals.values()].toSorted(
     (left, right) =>
       right.count - left.count || left.userName.localeCompare(right.userName, "zh-CN"),
@@ -230,50 +214,6 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
   return null;
 }
 
-function buildReadablePipelineShares(values: number[]) {
-  const total = values.reduce((sum, value) => sum + value, 0);
-  if (total <= 0) {
-    return values.map(() => 0);
-  }
-
-  const actualShares = values.map((value) => value / total);
-  const visibleIndexes = values.flatMap((value, index) => (value > 0 ? [index] : []));
-  const fixedIndexes = new Set<number>();
-
-  while (fixedIndexes.size < visibleIndexes.length) {
-    const flexibleIndexes = visibleIndexes.filter((index) => !fixedIndexes.has(index));
-    const availableShare = 1 - fixedIndexes.size * MIN_PIPELINE_VISUAL_SHARE;
-    const flexibleTotal = flexibleIndexes.reduce(
-      (sum, index) => sum + (actualShares[index] ?? 0),
-      0,
-    );
-    const newlyFixedIndexes = flexibleIndexes.filter(
-      (index) =>
-        ((actualShares[index] ?? 0) / flexibleTotal) * availableShare < MIN_PIPELINE_VISUAL_SHARE,
-    );
-    if (newlyFixedIndexes.length === 0) {
-      break;
-    }
-    for (const index of newlyFixedIndexes) {
-      fixedIndexes.add(index);
-    }
-  }
-
-  const flexibleIndexes = visibleIndexes.filter((index) => !fixedIndexes.has(index));
-  const availableShare = 1 - fixedIndexes.size * MIN_PIPELINE_VISUAL_SHARE;
-  const flexibleTotal = flexibleIndexes.reduce((sum, index) => sum + (actualShares[index] ?? 0), 0);
-
-  return values.map((value, index) => {
-    if (value <= 0) {
-      return 0;
-    }
-    if (fixedIndexes.has(index)) {
-      return MIN_PIPELINE_VISUAL_SHARE;
-    }
-    return ((actualShares[index] ?? 0) / flexibleTotal) * availableShare;
-  });
-}
-
 export function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
   const counts = {
     closed: 0,
@@ -291,15 +231,11 @@ export function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
       total += row.count;
     }
   }
-
-  const visualShares = buildReadablePipelineShares(BUCKET_ORDER.map((bucket) => counts[bucket]));
-  const stackRows: FlowStackRow[] = BUCKET_ORDER.map((bucket, index) => ({
+  const stackRows: FlowStackRow[] = BUCKET_ORDER.map((bucket) => ({
     bucket,
-    category: "总计",
-    color: BUCKET_COLORS[bucket],
+    fill: BUCKET_COLORS[bucket],
     label: BUCKET_LABEL[bucket],
     value: counts[bucket],
-    visualShare: visualShares[index] ?? 0,
   }));
   const active = total - counts.closed;
   return { active, counts, stackRows, total };
@@ -310,14 +246,11 @@ export function buildBoardFlowRow(counts: NonNullable<ResumeLibraryMetrics["boar
   for (const item of counts) {
     total += item.count;
   }
-  const visualShares = buildReadablePipelineShares(counts.map((item) => item.count));
   const stackRows: FlowStackRow[] = counts.map((item, index) => ({
     bucket: item.view,
-    category: "总计",
-    color: getBoardFlowColor(item.view, index),
+    fill: getBoardFlowColor(item.view, index),
     label: item.label,
     value: item.count,
-    visualShare: visualShares[index] ?? 0,
   }));
   return { stackRows, total };
 }
@@ -329,13 +262,11 @@ const conversionChartConfig: ChartConfig = {
 
 function StatusCard({
   byPipeline,
-  compact = false,
   distribution,
   description,
   title = "招聘流程分布",
 }: {
   byPipeline: ResumeLibraryMetrics["byPipeline"];
-  compact?: boolean;
   distribution?: NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>;
   description?: string;
   title?: string;
@@ -352,42 +283,13 @@ function StatusCard({
   const config = useMemo<ChartConfig>(
     () =>
       Object.fromEntries(
-        stackRows.map((row) => [row.bucket, { color: row.color, label: row.label }]),
+        stackRows.map((row) => [row.bucket, { color: row.fill, label: row.label }]),
       ),
     [stackRows],
   );
 
-  const definition = useMemo(() => {
-    if (!hasData) {
-      return null;
-    }
-    return defineChart({
-      margin: { bottom: 4, left: 0, right: 0, top: 4 },
-      marks: [
-        barX(stackRows, {
-          fill: (row) => row.color,
-          layout: stack({ order: stackRows.map((row) => row.bucket) }),
-          radius: 4,
-          x: "visualShare",
-          y: "category",
-          z: "bucket",
-        }),
-      ],
-      tooltip: {
-        ...chartTooltip,
-        format: (point) => {
-          const result = pipelineTooltipDatumSchema.safeParse(point.datum);
-          return result.success ? `${result.data.label}: ${result.data.value}` : "数据不可用";
-        },
-      },
-      x: { axis: false, scale: scaleLinear },
-      y: { axis: false, scale: () => scaleBand().padding(0.2) },
-    });
-  }, [hasData, stackRows]);
-
   return (
     <ChartCardShell
-      compact={compact}
       description={hasData ? (description ?? "不含归档候选人") : "暂无候选人"}
       metrics={[
         { label: "总候选", value: formatCompact(total) },
@@ -395,27 +297,75 @@ function StatusCard({
       ]}
       title={title}
     >
-      <div className={cn("flex items-center", compact ? "min-h-[176px]" : "min-h-[228px]")}>
-        {hasData && definition ? (
-          <div className="flex w-full flex-col justify-center gap-3">
-            <ChartContainer className="aspect-auto h-[86px] w-full" config={config}>
-              <Chart
-                ariaLabel="面试流程分布"
-                className="h-[86px] w-full"
-                definition={definition}
-                height={86}
-              />
+      <div className="flex min-h-36 items-center">
+        {hasData ? (
+          <div className="flex w-full flex-col gap-4">
+            <ChartContainer
+              aria-label="招聘流程阶段占比"
+              className="aspect-auto h-14 w-full"
+              config={config}
+            >
+              <BarChart
+                accessibilityLayer
+                data={[Object.fromEntries(stackRows.map((row) => [row.bucket, row.value]))]}
+                layout="vertical"
+                margin={{ bottom: 0, left: 0, right: 0, top: 0 }}
+                barSize={36}
+              >
+                <XAxis type="number" domain={[0, total]} hide />
+                <YAxis type="category" hide />
+                <ChartTooltip
+                  shared={false}
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      formatter={(value, name) => (
+                        <div className="flex flex-1 justify-between gap-4">
+                          <span>{name}</span>
+                          <span className="tabular-nums">{formatCompact(Number(value))} 人</span>
+                        </div>
+                      )}
+                    />
+                  }
+                />
+                {stackRows
+                  .filter((row) => row.value > 0)
+                  .map((row, index, rows) => {
+                    let radius: number | [number, number, number, number] = 0;
+                    if (rows.length === 1) {
+                      radius = 4;
+                    } else if (index === 0) {
+                      radius = [4, 0, 0, 4];
+                    } else if (index === rows.length - 1) {
+                      radius = [0, 4, 4, 0];
+                    }
+                    return (
+                      <Bar
+                        key={row.bucket}
+                        dataKey={row.bucket}
+                        name={row.label}
+                        stackId="flow"
+                        fill={row.fill}
+                        radius={radius}
+                        isAnimationActive={false}
+                      />
+                    );
+                  })}
+              </BarChart>
             </ChartContainer>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-2 text-muted-foreground text-xs">
               {stackRows.map((row) => (
-                <li className="flex items-center gap-2" key={row.bucket}>
+                <li className="flex min-w-0 items-center gap-2" key={row.bucket}>
                   <span
                     aria-hidden
-                    className="size-2.5 rounded-sm"
-                    style={{ backgroundColor: row.color }}
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: row.fill }}
                   />
                   <span className="flex-1 truncate">{row.label}</span>
-                  <span className="tabular-nums">{row.value}</span>
+                  <span className="font-mono text-foreground tabular-nums">
+                    {formatCompact(row.value)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -460,10 +410,6 @@ function BoardStatusCard({
     () => buildBoardStatusSummary(counts),
     [counts],
   );
-  const definition = useMemo(
-    () => (total > 0 ? defineDonutChart(slices, { innerRatio: 0.66 }) : null),
-    [slices, total],
-  );
   const config = useMemo<ChartConfig>(
     () => Object.fromEntries(slices.map((slice) => [slice.key, slice])),
     [slices],
@@ -471,7 +417,6 @@ function BoardStatusCard({
 
   return (
     <ChartCardShell
-      compact
       description={total > 0 ? "当前阶段各状态占比" : "暂无可统计的候选人"}
       metrics={[
         { label: "阶段候选", value: formatCompact(total) },
@@ -479,8 +424,8 @@ function BoardStatusCard({
       ]}
       title={`${stageLabel}状态占比`}
     >
-      <div className="flex min-h-[176px] items-center">
-        {definition ? (
+      <div className="flex min-h-36 items-center">
+        {total > 0 ? (
           <div className="grid w-full grid-cols-[minmax(7.5rem,10rem)_9rem] items-center justify-center gap-3">
             <ul className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs">
               {slices.map((slice) => (
@@ -498,13 +443,28 @@ function BoardStatusCard({
               ))}
             </ul>
             <div className="relative size-36">
-              <ChartContainer className="absolute inset-0 aspect-square size-full" config={config}>
-                <Chart
-                  ariaLabel={`${stageLabel}状态占比`}
-                  className="size-full"
-                  definition={definition}
-                  height={144}
-                />
+              <ChartContainer
+                aria-label={`${stageLabel}状态占比`}
+                className="absolute inset-0 aspect-square size-full"
+                config={config}
+              >
+                <PieChart accessibilityLayer>
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent nameKey="label" hideLabel />}
+                  />
+                  <Pie
+                    data={slices.filter((slice) => slice.value > 0)}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius="66%"
+                    outerRadius="90%"
+                    paddingAngle={2}
+                    cornerRadius={6}
+                    stroke="var(--background)"
+                    isAnimationActive={false}
+                  />
+                </PieChart>
               </ChartContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="font-mono font-semibold text-2xl tabular-nums">{total}</span>
@@ -635,7 +595,18 @@ function UploaderRankingCard({
         <div className="relative">
           {RANKING_PERIODS.map((item) => (
             <TabsContent key={item.value} motion="page" value={item.value}>
-              <UploaderRankingPanel period={item.value} ranking={rankings[item.value]} />
+              <ScrollArea
+                className="h-[104px] [--scroll-fade-reveal:1rem]"
+                orientation="vertical"
+                scrollFade
+                viewportProps={{
+                  "aria-label": `${item.label}入库排行榜`,
+                  role: "region",
+                  tabIndex: 0,
+                }}
+              >
+                <UploaderRankingPanel period={item.value} ranking={rankings[item.value]} />
+              </ScrollArea>
             </TabsContent>
           ))}
         </div>
@@ -648,7 +619,6 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
   const total = conversion.withInterview + conversion.withoutInterview;
   const percent = total > 0 ? Math.round((conversion.withInterview / total) * 100) : 0;
   const hasData = total > 0;
-
   const slices = useMemo(
     () => [
       {
@@ -667,11 +637,6 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
     [conversion.withInterview, conversion.withoutInterview],
   );
 
-  const definition = useMemo(
-    () => (hasData ? defineDonutChart(slices, { innerRatio: 0.66 }) : null),
-    [hasData, slices],
-  );
-
   return (
     <ChartCardShell
       description={hasData ? "已发起 AI 面试 / 入库候选人" : "暂无可统计的简历"}
@@ -681,8 +646,8 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
       ]}
       title="AI 面试转化"
     >
-      <div className="flex min-h-[228px] items-center">
-        {hasData && definition ? (
+      <div className="flex min-h-36 items-center">
+        {hasData ? (
           <div className="grid w-full grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3">
             <ul className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs">
               <li className="flex min-w-0 items-center gap-2">
@@ -706,15 +671,27 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
             </ul>
             <div className="relative size-36">
               <ChartContainer
+                aria-label="AI 面试转化"
                 className="absolute inset-0 aspect-square size-full"
                 config={conversionChartConfig}
               >
-                <Chart
-                  ariaLabel="AI 面试转化"
-                  className="size-full"
-                  definition={definition}
-                  height={144}
-                />
+                <PieChart accessibilityLayer>
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent nameKey="label" hideLabel />}
+                  />
+                  <Pie
+                    data={slices.filter((slice) => slice.value > 0)}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius="66%"
+                    outerRadius="90%"
+                    paddingAngle={2}
+                    cornerRadius={6}
+                    stroke="var(--background)"
+                    isAnimationActive={false}
+                  />
+                </PieChart>
               </ChartContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="font-mono font-semibold text-2xl tabular-nums">{percent}%</span>
@@ -749,7 +726,6 @@ export function ResumeLibraryCharts({
       <div className="grid gap-4 lg:grid-cols-2">
         <StatusCard
           byPipeline={metrics.byPipeline}
-          compact
           description={preset.id === "closed" ? "包含已归档候选人" : undefined}
           distribution={metrics.boardStatusCounts ?? []}
           key={`status:${chartKey ?? "metrics"}`}

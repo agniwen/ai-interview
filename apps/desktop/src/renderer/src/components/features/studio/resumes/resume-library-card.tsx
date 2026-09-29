@@ -193,7 +193,7 @@ function hasProfileSnapshotContent(snapshot: ResumeLibraryProfileSnapshot | null
 
 function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
   const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
-  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
+  const educationLines = snapshot.education.slice(0, 2);
   const hasWorkGroup = workLines.length > 0 || snapshot.workHasMore;
   const hasEducationGroup = educationLines.length > 0 || snapshot.educationHasMore;
 
@@ -208,9 +208,6 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
           <div className="my-0.5 border-border/60 border-t" />
         ) : null}
         {educationLines.map(renderProfileLine)}
-        {snapshot.educationHasMore ? (
-          <p className="flex min-w-0 items-center text-muted-foreground text-sm">…</p>
-        ) : null}
       </div>
     </div>
   );

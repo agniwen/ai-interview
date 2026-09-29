@@ -10,14 +10,7 @@ export const ACTIVITY_SERIES = [
 
 export function getActivityChartData(activity: DashboardActivityRow[]) {
   const domain = activity.map((row) => row.day);
-  const data = activity.flatMap((row) =>
-    ACTIVITY_SERIES.map((series) => ({
-      ...row,
-      color: series.fill,
-      series: series.key,
-      value: row[series.key],
-    })),
-  );
+  const data = activity;
   const peak = Math.max(
     1,
     ...activity.map((row) => ACTIVITY_SERIES.reduce((total, series) => total + row[series.key], 0)),
@@ -26,10 +19,4 @@ export function getActivityChartData(activity: DashboardActivityRow[]) {
   const maximum = Math.ceil(peak / step) * step;
   const ticks = Array.from({ length: maximum / step + 1 }, (_, index) => index * step);
   return { data, domain, maximum, ticks };
-}
-
-export function formatActivityTooltip(row: DashboardActivityRow) {
-  return [row.day, ...ACTIVITY_SERIES.map((series) => `${series.label}：${row[series.key]}`)].join(
-    "\n",
-  );
 }

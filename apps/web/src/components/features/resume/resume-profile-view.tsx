@@ -14,6 +14,7 @@ import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
 import { Frame, FramePanel } from "@/components/ui/frame";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
 
@@ -167,62 +168,63 @@ function EducationExperienceList({
   educationExperiences: ResumeEducationExperience[];
 }) {
   return (
-    <Frame
-      className={cn(
-        "grid w-full gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0",
-        educationExperiences.length === 1
-          ? "grid-cols-1 lg:max-w-[33.333333%]"
-          : "grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]",
-      )}
+    <ScrollArea
+      className="min-w-0 max-w-full"
+      orientation="horizontal"
+      viewportClassName="h-auto"
+      scrollFade
+      viewportProps={{ "aria-label": "教育经历", role: "region", tabIndex: 0 }}
     >
-      {educationExperiences.map((education, index) => {
-        const educationItem = formatResumeEducationItem(education) ?? {
-          level: null,
-          major: null,
-          school: "未发现学校",
-        };
-        const period = cleanText(education.period) ?? cleanText(education.graduationYear);
-        return (
-          <FramePanel
-            className={cn(
-              "flex min-w-0 flex-col p-3",
-              educationExperiences.length > 1 &&
-                index === 0 &&
-                "rounded-r-[2px] before:rounded-r-[1px]",
-              index > 0 &&
-                index < educationExperiences.length - 1 &&
-                "rounded-[2px] before:rounded-[1px]",
-              educationExperiences.length > 1 &&
-                index === educationExperiences.length - 1 &&
-                "rounded-l-[2px] before:rounded-l-[1px]",
-            )}
-            key={[
-              education.school,
-              education.major,
-              education.degree,
-              education.educationLevel,
-              education.period,
-              education.graduationYear,
-              education.summary,
-            ].join("\u001F")}
-          >
-            <ResumeEducationDisplayLine
-              className="text-sm"
-              item={educationItem}
-              majorLayout="block"
-            />
-            {isPresent(education.summary) ? (
-              <p className="mt-1 whitespace-pre-line text-muted-foreground text-sm">
-                {education.summary}
-              </p>
-            ) : null}
-            {period ? (
-              <span className="pt-2 text-muted-foreground text-xs tabular-nums">{period}</span>
-            ) : null}
-          </FramePanel>
-        );
-      })}
-    </Frame>
+      <Frame className="w-max flex-row gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0">
+        {educationExperiences.map((education, index) => {
+          const educationItem = formatResumeEducationItem(education) ?? {
+            level: null,
+            major: null,
+            school: "未发现学校",
+          };
+          const period = cleanText(education.period) ?? cleanText(education.graduationYear);
+          return (
+            <FramePanel
+              className={cn(
+                "flex min-w-64 flex-none flex-col whitespace-nowrap p-3",
+                educationExperiences.length > 1 &&
+                  index === 0 &&
+                  "rounded-r-[2px] before:rounded-r-[1px]",
+                index > 0 &&
+                  index < educationExperiences.length - 1 &&
+                  "rounded-[2px] before:rounded-[1px]",
+                educationExperiences.length > 1 &&
+                  index === educationExperiences.length - 1 &&
+                  "rounded-l-[2px] before:rounded-l-[1px]",
+              )}
+              key={[
+                education.school,
+                education.major,
+                education.degree,
+                education.educationLevel,
+                education.period,
+                education.graduationYear,
+                education.summary,
+              ].join("\u001F")}
+            >
+              <ResumeEducationDisplayLine
+                className="text-sm"
+                item={educationItem}
+                majorLayout="block"
+              />
+              {isPresent(education.summary) ? (
+                <p className="mt-1 whitespace-nowrap text-muted-foreground text-sm">
+                  {education.summary}
+                </p>
+              ) : null}
+              {period ? (
+                <span className="pt-2 text-muted-foreground text-xs tabular-nums">{period}</span>
+              ) : null}
+            </FramePanel>
+          );
+        })}
+      </Frame>
+    </ScrollArea>
   );
 }
 

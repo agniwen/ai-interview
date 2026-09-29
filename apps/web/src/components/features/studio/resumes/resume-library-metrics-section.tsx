@@ -58,7 +58,7 @@ export function ResumeLibraryMetricsSection({
   onRefresh,
   onRetry,
 }: {
-  /** Forces chart remount when scope data changes (TanStack Charts is definition-identity driven). */
+  /** Resets chart interaction state when the metrics scope changes. */
   chartKey?: string;
   error: unknown;
   isRefreshing?: boolean;
