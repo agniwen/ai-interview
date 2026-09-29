@@ -1,15 +1,27 @@
-/* oxlint-disable anti-slop/no-module-mocking -- Isolate LiveKit transport and the database-backed stop adapter while exercising the public deletion boundary. */
+/* oxlint-disable anti-slop/no-module-mocking, max-classes-per-file -- Isolate LiveKit transport and the database-backed stop adapter while exercising token signing and deletion. */
 import { afterEach, expect, it, vi } from "vitest";
-import { deleteHumanInterviewLiveKitRoom } from "./human-interview-livekit";
+import {
+  deleteHumanInterviewLiveKitRoom,
+  signHumanInterviewMeetingToken,
+} from "./human-interview-livekit";
 
-const mocks = vi.hoisted(() => ({ deleteRoom: vi.fn(), stop: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  deleteRoom: vi.fn(),
+  prepare: vi.fn(),
+  stop: vi.fn(),
+  toJwt: vi.fn(),
+  wait: vi.fn(),
+}));
 vi.mock("../application/human-transcription", () => ({
-  prepareHumanTranscription: vi.fn(),
+  prepareHumanTranscription: mocks.prepare,
   requestHumanTranscriptionStop: mocks.stop,
-  waitHumanTranscriptionReady: vi.fn(),
+  waitHumanTranscriptionReady: mocks.wait,
 }));
 vi.mock("livekit-server-sdk", () => ({
-  AccessToken: vi.fn(),
+  AccessToken: class {
+    addGrant = vi.fn();
+    toJwt = mocks.toJwt;
+  },
   RoomConfiguration: vi.fn(),
   RoomServiceClient: class {
     deleteRoom = mocks.deleteRoom;
@@ -17,8 +29,38 @@ vi.mock("livekit-server-sdk", () => ({
 }));
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
+
+it.each(["prepare", "wait"] as const)(
+  "still signs the meeting token when transcription %s fails",
+  async (step) => {
+    vi.stubEnv("LIVEKIT_URL", "ws://localhost:7880");
+    vi.stubEnv("LIVEKIT_API_KEY", "test");
+    vi.stubEnv("LIVEKIT_API_SECRET", "test");
+    mocks.prepare.mockImplementation(async () => {});
+    mocks.wait.mockImplementation(async () => {});
+    mocks.toJwt.mockResolvedValue("signed-token");
+    mocks[step].mockRejectedValueOnce(new Error("transcription unavailable"));
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await signHumanInterviewMeetingToken({
+      canPublish: true,
+      metadata: {},
+      participantIdentity: "interviewer-1",
+      participantName: "面试官",
+      participantRole: "interviewer",
+      roomName: "room",
+    });
+
+    expect(result.participantToken).toBe("signed-token");
+    expect(warning).toHaveBeenCalledWith("human transcription unavailable; meeting continues", {
+      error: "transcription unavailable",
+      roomName: "room",
+    });
+  },
+);
 
 it.each(["finalizing", "ready", "needs_review"])(
   "delegates %s realtime cleanup to the reconciler",

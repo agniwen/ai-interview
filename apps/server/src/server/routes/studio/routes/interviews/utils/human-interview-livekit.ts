@@ -63,8 +63,16 @@ export async function signHumanInterviewMeetingToken({
 }): Promise<HumanInterviewMeetingTokenResponse> {
   const { apiKey, apiSecret, serverUrl } = getLiveKitServerConfig();
 
-  await prepareHumanTranscription(roomName);
-  await waitHumanTranscriptionReady(roomName);
+  try {
+    await prepareHumanTranscription(roomName);
+    await waitHumanTranscriptionReady(roomName);
+  } catch (error) {
+    // Transcription can recover from the meeting recording; it must not prevent joining.
+    console.warn("human transcription unavailable; meeting continues", {
+      error: error instanceof Error ? error.message : String(error),
+      roomName,
+    });
+  }
   const at = new AccessToken(apiKey, apiSecret, {
     identity: participantIdentity,
     metadata: JSON.stringify(metadata),
