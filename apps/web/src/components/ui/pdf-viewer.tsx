@@ -90,14 +90,18 @@ export type PDFViewerProps = {
   defaultThumbnailSidebarOpen?: boolean;
   defaultZoom?: number;
   enableModifierWheelZoom?: boolean;
+  fitWidthOnMobile?: boolean;
   pageWidth?: number;
   pageHeight?: number;
   pageNumbers?: number[];
   pageRenderBuffer?: number;
+  scrollFade?: boolean;
   setRenderRange?: (visiblePagesRange: PDFViewerVisiblePagesRange) => PDFViewerRenderRange;
   downloadFileName?: string;
   showDownload?: boolean;
   showRotateControls?: boolean;
+  showRotateControlsOnMobile?: boolean;
+  showSearchOnMobile?: boolean;
   showUpload?: boolean;
   toolbarActions?: React.ReactNode;
   pageClassName?: (pageNumber: number) => string | undefined;
@@ -114,7 +118,7 @@ export type PDFViewerProps = {
 const DEFAULT_PAGE_WIDTH = 612;
 const DEFAULT_PAGE_HEIGHT = 792;
 const DEFAULT_ZOOM = 1;
-const ZOOM_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const ZOOM_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 const WHEEL_ZOOM_STEP = 0.1;
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const DEFAULT_PAGE_RENDER_BUFFER = 4;
@@ -634,14 +638,18 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     defaultThumbnailSidebarOpen = false,
     defaultZoom = DEFAULT_ZOOM,
     enableModifierWheelZoom = false,
+    fitWidthOnMobile = false,
     pageWidth = DEFAULT_PAGE_WIDTH,
     pageHeight = DEFAULT_PAGE_HEIGHT,
     pageNumbers,
     pageRenderBuffer = DEFAULT_PAGE_RENDER_BUFFER,
+    scrollFade = false,
     setRenderRange,
     downloadFileName,
     showDownload = true,
     showRotateControls = true,
+    showRotateControlsOnMobile = true,
+    showSearchOnMobile = true,
     showUpload = true,
     toolbarActions,
     pageClassName,
@@ -700,6 +708,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   });
   const lastWheelZoomAtRef = React.useRef(-Infinity);
   const zoomRef = React.useRef(zoom);
+  const initialFitAppliedRef = React.useRef(false);
   const wheelZoomAnchorRef = React.useRef<{
     clientX: number;
     clientY: number;
@@ -710,6 +719,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   zoomRef.current = zoom;
 
   React.useEffect(() => {
+    initialFitAppliedRef.current = false;
     setPdfFile(file ?? "");
     setLoadError(false);
     setIsDocumentLoading(Boolean(file));
@@ -774,6 +784,32 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     (pageNumber: number) => pageMetrics.get(pageNumber) ?? defaultPageMetrics,
     [defaultPageMetrics, pageMetrics],
   );
+  React.useLayoutEffect(() => {
+    if (
+      !fitWidthOnMobile ||
+      initialFitAppliedRef.current ||
+      !pdfDocument ||
+      !viewerShellWidth ||
+      !window.matchMedia("(max-width: 767px)").matches
+    ) {
+      return;
+    }
+
+    const metrics = pageMetrics.get(firstRenderedPage);
+    if (!metrics) return;
+
+    const viewportWidth = viewportRef.current?.clientWidth || viewerShellWidth;
+    const availableWidth = viewportWidth - PAGE_VIRTUALIZER_PADDING * 2;
+    const pageWidth = getPageDimensions(metrics, metrics.rotation).width;
+    if (availableWidth <= 0 || pageWidth <= 0) return;
+
+    const fittedZoom = Math.min(
+      ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
+      Math.floor((availableWidth / pageWidth) * 1000) / 1000,
+    );
+    initialFitAppliedRef.current = true;
+    setZoom(fittedZoom);
+  }, [firstRenderedPage, fitWidthOnMobile, pageMetrics, pdfDocument, viewerShellWidth]);
   const getEstimatedPageSize = React.useCallback(
     (index: number) => {
       const pageNumber = renderedPageNumbers[index] ?? firstRenderedPage;
@@ -1375,6 +1411,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   }, [scrollActiveThumbnailIntoView, thumbnailSidebarVisible]);
 
   const handleLoadStart = React.useCallback(() => {
+    initialFitAppliedRef.current = false;
     setIsDocumentLoading(true);
     setIsFirstPageRendering(true);
     setLoadError(false);
@@ -1576,7 +1613,12 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
             {showRotateControls ? (
               <>
-                <div className="flex flex-none items-center gap-1">
+                <div
+                  className={cn(
+                    "flex flex-none items-center gap-1",
+                    !showRotateControlsOnMobile && "hidden md:flex",
+                  )}
+                >
                   <ToolbarTooltip label="逆时针旋转页面">
                     <Button
                       type="button"
@@ -1602,7 +1644,13 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                     </Button>
                   </ToolbarTooltip>
                 </div>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+                <Separator
+                  orientation="vertical"
+                  className={cn(
+                    "mx-1 h-4 self-center",
+                    !showRotateControlsOnMobile && "hidden md:block",
+                  )}
+                />
               </>
             ) : null}
             <div className="flex flex-none items-center gap-1">
@@ -1654,7 +1702,13 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                 </Button>
               </ToolbarTooltip>
             </div>
-            <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+            <Separator
+              orientation="vertical"
+              className={cn(
+                "mx-1 h-4 self-center",
+                !showDownload && !showSearchOnMobile && "hidden md:block",
+              )}
+            />
             {showDownload ? (
               <>
                 <ToolbarTooltip label="下载 PDF">
@@ -1676,34 +1730,36 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                 <Separator orientation="vertical" className="mx-1 h-4 self-center" />
               </>
             ) : null}
-            <Popover>
-              <ToolbarTooltip label="搜索文本">
-                <PopoverTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="搜索文本"
-                      disabled={controlsDisabled}
-                    >
-                      <IconSearch className="size-4" />
-                    </Button>
-                  }
-                />
-              </ToolbarTooltip>
-              <PopoverContent align="end" className="w-64">
-                <SearchInput
-                  value={searchDraft}
-                  onValueChange={setSearchDraft}
-                  onApply={() => setSearchQuery(searchDraft)}
-                  onClear={() => {
-                    setSearchDraft("");
-                    setSearchQuery("");
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
+            <div className={cn(!showSearchOnMobile && "hidden md:block")}>
+              <Popover>
+                <ToolbarTooltip label="搜索文本">
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="搜索文本"
+                        disabled={controlsDisabled}
+                      >
+                        <IconSearch className="size-4" />
+                      </Button>
+                    }
+                  />
+                </ToolbarTooltip>
+                <PopoverContent align="end" className="w-64">
+                  <SearchInput
+                    value={searchDraft}
+                    onValueChange={setSearchDraft}
+                    onApply={() => setSearchQuery(searchDraft)}
+                    onClear={() => {
+                      setSearchDraft("");
+                      setSearchQuery("");
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             {toolbarActions ? (
               <>
                 <Separator orientation="vertical" className="mx-1 h-4 self-center" />
@@ -1782,7 +1838,10 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             <div className="flex h-full max-h-full min-h-0 w-full flex-1 overflow-hidden">
               <DocumentViewerThumbnailSidebar inline={sidebarInline} open={thumbnailSidebarVisible}>
                 {thumbnailSidebarVisible ? (
-                  <div className="h-full overflow-auto" ref={thumbnailViewportRef}>
+                  <div
+                    className={cn("h-full overflow-auto", scrollFade && "scroll-fade")}
+                    ref={thumbnailViewportRef}
+                  >
                     <div
                       className="relative"
                       style={{ height: thumbnailVirtualizer.getTotalSize() }}
@@ -1844,6 +1903,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
               <div
                 className={cn(
                   "h-full max-h-full min-h-0 min-w-0 flex-1 overflow-auto",
+                  scrollFade && "scroll-fade",
                   isFirstPageRendering && !loadError && "invisible",
                 )}
                 ref={viewportRef}

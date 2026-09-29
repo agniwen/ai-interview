@@ -119,10 +119,23 @@ describe("resume profile badges", () => {
   });
 
   it("places education after work experience and before skills", () => {
-    const html = renderToStaticMarkup(<ResumeProfileView profile={profile} />);
+    const html = renderToStaticMarkup(
+      <ResumeProfileView profile={{ ...profile, schools: ["测试大学"] }} />,
+    );
 
     expect(html.indexOf("工作经历")).toBeLessThan(html.indexOf("教育经历"));
     expect(html.indexOf("教育经历")).toBeLessThan(html.indexOf("掌握技能"));
+    expect(html).toContain("测试大学");
+  });
+
+  it("omits education and project sections without corresponding information", () => {
+    const html = renderToStaticMarkup(
+      <ResumeProfileView profile={{ ...profile, projectExperiences: [] }} />,
+    );
+
+    expect(html).not.toContain("教育经历");
+    expect(html).not.toContain("项目经历");
+    expect(html).toContain("工作经历");
   });
 
   it("can omit target roles when they are displayed with candidate information", () => {

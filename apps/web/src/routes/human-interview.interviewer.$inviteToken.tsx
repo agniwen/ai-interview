@@ -23,6 +23,8 @@ const interviewerPreviewSchema = z.object({
   jobDescriptionPrompt: z.string().nullable(),
   meetingId: z.string(),
   recordingStatus: humanInterviewRecordingStatusSchema,
+  responsibleHrImage: z.string().nullable(),
+  responsibleHrName: z.string().nullable(),
   role: humanInterviewMeetingInterviewerRoleSchema,
   roundLabel: z.string(),
   scheduledAt: z.string().nullable(),

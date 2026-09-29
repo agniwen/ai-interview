@@ -8,10 +8,9 @@ import { IconArrowLeft, IconFileDescription, IconLoader2, IconLogin } from "@tab
 import { useQueryClient } from "@tanstack/react-query";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
-import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from "@livekit/components-react";
+import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
 
-import { ConnectionState, RoomEvent, Track } from "livekit-client";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import type {
@@ -21,15 +20,20 @@ import type {
 } from "@app/shared/studio-pipeline-stages";
 import { humanInterviewRecordingStatusSchema } from "@app/db-schema/studio-interviews";
 import { Button } from "@/components/ui/button";
-import { notifyMeetingMediaError, notifyMeetingMediaFailure } from "./human-meeting-media-errors";
+import { notifyMeetingMediaFailure } from "./human-meeting-media-errors";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { CandidateInterviewOverview } from "./candidate-interview-overview";
 import { CandidateInvitation } from "./candidate-invitation";
 import { HumanMeetingStage } from "./human-meeting-stage";
+import { meetingCameraCaptureOptions } from "./human-meeting-video-quality";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
 import { HumanMeetingReview } from "./human-meeting-review";
+import {
+  defaultHumanMeetingPrejoinMediaSettings,
+  HumanMeetingPrejoinMediaControls,
+} from "./human-meeting-prejoin-media-controls";
 import {
   getHumanInterviewRecordingPollDelayMs,
   shouldPollHumanInterviewRecordingStatus,
@@ -305,6 +309,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   useSystemThemeOverride(isMobile);
   const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
+  const [mediaSettings, setMediaSettings] = useState(defaultHumanMeetingPrejoinMediaSettings);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [candidateInviteStatus, setCandidateInviteStatus] = useState(() =>
     props.mode === "candidate" ? props.preview.candidateInviteStatus : "accepted",
@@ -320,6 +325,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       candidateId: null,
       tab: "resume",
     });
+  const [desktopTabsContainer, setDesktopTabsContainer] = useState<HTMLDivElement | null>(null);
   const { isEnding, isJoining, joinError, token } = state;
   const startBlockMessage = getStartBlockMessage(
     props.preview.scheduledAt,
@@ -455,11 +461,11 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
         <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
           <header
             className={cn(
-              "flex shrink-0 items-center justify-between gap-3 px-4 py-3",
-              viewMode === "review" ? "mx-auto w-full max-w-5xl" : "  md:h-10",
+              "flex shrink-0 items-center gap-3 px-4",
+              viewMode === "review" ? "mx-auto w-full max-w-5xl py-3" : "h-11 md:h-12",
             )}
           >
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               {viewMode === "materials" ? (
                 <Button
                   aria-label="返回入会页"
@@ -474,7 +480,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
                 </Button>
               ) : null}
               <div className="min-w-0">
-                <h1 className="font-medium text-foreground text-base tracking-normal">
+                <h1 className="truncate font-medium text-foreground text-base tracking-normal">
                   {getRoomTitle(props)}
                 </h1>
                 {viewMode === "review" ? (
@@ -482,12 +488,22 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
                 ) : null}
               </div>
             </div>
-            <ThemeToggle className="hidden shrink-0 md:inline-flex" />
+            {viewMode === "materials" ? (
+              <div
+                ref={setDesktopTabsContainer}
+                data-slot="meeting-desktop-materials-tabs"
+                className="hidden min-w-0 flex-[0_1_18rem] md:flex"
+              />
+            ) : null}
+            <div className="flex shrink-0 items-center md:min-w-0 md:flex-1 md:justify-end">
+              <ThemeToggle className="hidden shrink-0 md:inline-flex" />
+            </div>
           </header>
           <div className="min-h-0 flex-1">
             {viewMode === "materials" ? (
               <InterviewerCandidateMaterials
                 active
+                desktopTabsContainer={desktopTabsContainer}
                 inviteToken={props.inviteToken}
                 onStateChange={setCandidateMaterialsState}
                 state={candidateMaterialsState}
@@ -537,6 +553,10 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
             scheduledAt={props.preview.scheduledAt}
             message={entryMessage ?? "你已确认参加，请在约定时间进入会议。"}
           >
+            <HumanMeetingPrejoinMediaControls
+              onChange={setMediaSettings}
+              settings={mediaSettings}
+            />
             <div className="hidden md:block">{joinButton}</div>
           </CandidateInterviewOverview>
         </InterviewEntryShell>
@@ -544,10 +564,10 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     }
 
     const interviewerActions = (
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex w-full items-center gap-2 md:w-auto md:gap-3">
         {joinButton}
         <Button
-          className="h-11 min-w-0 flex-1 md:h-10 md:flex-none"
+          className="h-11 min-w-0 flex-1 border-border bg-secondary hover:bg-secondary/80 md:h-10 md:flex-none md:border-transparent md:bg-transparent md:hover:bg-accent"
           size="lg"
           variant="ghost"
           disabled={isJoining}
@@ -573,6 +593,11 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           }}
           message={entryMessage ?? undefined}
         >
+          <HumanMeetingPrejoinMediaControls
+            disabled={props.preview.role === "observer"}
+            onChange={setMediaSettings}
+            settings={mediaSettings}
+          />
           <div className="hidden md:block">{interviewerActions}</div>
         </CandidateInterviewOverview>
       </InterviewEntryShell>
@@ -581,7 +606,11 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
 
   return (
     <LiveKitRoom
-      audio={false}
+      audio={
+        token.participantRole !== "observer" && mediaSettings.microphoneEnabled
+          ? { deviceId: mediaSettings.microphoneDeviceId }
+          : false
+      }
       className="h-dvh overflow-hidden bg-background text-foreground"
       connect
       onDisconnected={() => dispatch({ type: "disconnected" })}
@@ -592,13 +621,19 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       }}
       serverUrl={token.serverUrl}
       token={token.participantToken}
-      video={false}
+      video={
+        token.participantRole !== "observer" && mediaSettings.cameraEnabled
+          ? meetingCameraCaptureOptions
+          : false
+      }
     >
-      <DefaultMicrophoneStarter enabled={token.participantRole !== "observer"} />
       <HumanMeetingStage
         candidateName={props.preview.candidateName}
         jobDescriptionName={props.preview.jobDescriptionName}
         roundLabel={props.preview.roundLabel}
+        responsibleHrImage={props.mode === "interviewer" ? props.preview.responsibleHrImage : null}
+        responsibleHrName={props.mode === "interviewer" ? props.preview.responsibleHrName : null}
+        scheduledAt={props.preview.scheduledAt}
         canPublish={token.participantRole !== "observer"}
         canUseLiveTranscript={props.mode === "interviewer" && token.participantRole !== "observer"}
         canUseVoiceEffects={props.mode === "interviewer" && token.participantRole !== "observer"}
@@ -607,6 +642,8 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
         onEndMeeting={endMeeting}
         inviteToken={props.mode === "interviewer" ? props.inviteToken : null}
         candidateMaterialsState={candidateMaterialsState}
+        chatInviteToken={props.inviteToken}
+        chatMode={props.mode}
         onCandidateMaterialsStateChange={setCandidateMaterialsState}
         onViewModeChange={setViewMode}
         title={getRoomTitle(props)}
@@ -615,51 +652,4 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
-}
-
-function DefaultMicrophoneStarter({ enabled }: { enabled: boolean }) {
-  const room = useRoomContext();
-  const hasTriedStart = useRef(false);
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    let cancelled = false;
-    async function startDefaultMicrophone() {
-      if (cancelled || hasTriedStart.current) {
-        return;
-      }
-      const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-      if (publication?.isEnabled && !publication.isMuted) {
-        hasTriedStart.current = true;
-        return;
-      }
-
-      hasTriedStart.current = true;
-      try {
-        await room.localParticipant.setMicrophoneEnabled(true, { deviceId: "default" });
-      } catch (error) {
-        hasTriedStart.current = false;
-        if (error instanceof Error) {
-          notifyMeetingMediaError(error);
-        } else {
-          notifyMeetingMediaFailure();
-        }
-      }
-    }
-
-    if (room.state === ConnectionState.Connected) {
-      void startDefaultMicrophone();
-    }
-    room.on(RoomEvent.Connected, startDefaultMicrophone);
-
-    return () => {
-      cancelled = true;
-      room.off(RoomEvent.Connected, startDefaultMicrophone);
-    };
-  }, [enabled, room]);
-
-  return null;
 }

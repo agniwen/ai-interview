@@ -2,6 +2,7 @@ import { humanTranscriptionMode } from "../application/human-transcription-confi
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { uniq } from "lodash-es";
 import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import { db } from "../../../../../../lib/server/db/index";
@@ -56,6 +57,7 @@ export {
 
 type MeetingRow = typeof humanInterviewMeeting.$inferSelect;
 const serializeDate = (value: Date | null): string | null => value?.toISOString() ?? null;
+const resumeCreator = alias(user, "human_meeting_resume_creator");
 
 function toRecord({
   meeting,
@@ -516,6 +518,7 @@ export interface HumanInterviewMeetingInviteScope extends PublicHumanInterviewMe
 }
 
 export interface HumanInterviewMeetingInterviewerInviteScope extends PublicHumanInterviewInterviewerPreview {
+  interviewerImage: string | null;
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
   liveKitRoomName: string | null;
@@ -619,6 +622,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
 }): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
   const [row] = await db
     .select({
+      interviewerImage: user.image,
       interviewerName: user.name,
       liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
       meetingId: humanInterviewMeeting.id,
@@ -656,6 +660,8 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
   const contexts = await db
     .select({
       candidateName: recruitingRecordReadModel.candidateName,
+      creatorImage: resumeCreator.image,
+      creatorName: resumeCreator.name,
       jobDescriptionDepartmentName: department.name,
       jobDescriptionName: jobDescription.name,
       jobDescriptionPrompt: jobDescription.prompt,
@@ -670,6 +676,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
       recruitingRecordReadModel,
       eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
     )
+    .leftJoin(resumeCreator, eq(recruitingRecordReadModel.createdBy, resumeCreator.id))
     .leftJoin(
       jobDescription,
       and(
@@ -699,6 +706,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
 
   return {
     candidateName: context.candidateName,
+    interviewerImage: row.interviewerImage,
     interviewerName: row.interviewerName ?? "未命名",
     jobDescriptionDepartmentName: context.jobDescriptionDepartmentName,
     jobDescriptionName: context.jobDescriptionName,
@@ -707,6 +715,8 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
     meetingId: row.meetingId,
     organizationId: row.organizationId,
     recordingStatus: row.recordingStatus,
+    responsibleHrImage: context.creatorImage,
+    responsibleHrName: context.creatorName,
     resumeSkills: context.resumeProfile?.skills ?? [],
     role: row.role,
     roundId: context.roundId,

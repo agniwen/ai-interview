@@ -4,7 +4,7 @@ import { IconLoader2, IconRefresh } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { InterviewBackground } from "./interview-background";
+import { InterviewEntryBackground } from "./interview-background";
 import { InterviewPreparationView } from "./interview-preparation-view";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
@@ -20,11 +20,11 @@ function InterviewEntryState({
 }) {
   return (
     <>
-      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-      <main className="flex min-h-dvh items-center justify-center px-5">
+      <main className="relative isolate flex min-h-dvh items-center justify-center bg-background px-5">
+        <InterviewEntryBackground />
         <div className="flex max-w-sm flex-col items-center text-center">
           {loading ? <IconLoader2 className="size-5 animate-spin text-muted-foreground" /> : null}
           <h1 className="mt-4 font-medium text-lg">

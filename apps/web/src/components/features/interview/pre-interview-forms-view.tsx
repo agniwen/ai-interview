@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { InterviewBackground } from "./interview-background";
+import { InterviewEntryBackground } from "./interview-background";
 import { withCleanup } from "@/lib/client/async-control";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { FormCard } from "./pre-interview-forms/form-card";
@@ -177,11 +177,11 @@ export function PreInterviewFormsView({
 
   return (
     <>
-      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
         <ThemeToggle />
       </div>
-      <main className="relative flex h-dvh w-full select-none flex-col md:items-center">
+      <main className="relative isolate flex h-dvh w-full select-none flex-col bg-background md:items-center">
+        <InterviewEntryBackground />
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pt-12 pb-44 sm:px-6 sm:pt-20 sm:pb-40 md:pt-16">
             <section className="mb-8">

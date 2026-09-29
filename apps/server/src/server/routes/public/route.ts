@@ -64,6 +64,7 @@ import { aiInterviewInvitationsRouter } from "./routes/ai-interview-invitations/
 import { authConfigRouter } from "./routes/auth-config/route";
 import { humanInterviewCandidateMaterialsRouter } from "./routes/human-interview-candidate-materials/route";
 import { humanInterviewLiveTranscriptRouter } from "./routes/human-interview-live-transcript/route";
+import { humanInterviewChatRouter } from "./routes/human-interview-chat/route";
 import { publicOffersRouter } from "./routes/offers/route";
 import { publicBackgroundChecksRouter } from "./routes/background-checks/route";
 import { validateResumeFile } from "../../agents/resume-analysis-agent";
@@ -230,6 +231,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       });
     })
     .route("/ai-interview-invitations", aiInterviewInvitationsRouter)
+    .route("/human-interview-meetings", humanInterviewChatRouter)
     .route("/human-interview-meetings/interviewer", humanInterviewLiveTranscriptRouter)
     .get("/human-interview-meetings/interviewer/:inviteToken", async (c) => {
       const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
@@ -246,6 +248,8 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
           jobDescriptionPrompt: scope.jobDescriptionPrompt,
           meetingId: scope.meetingId,
           recordingStatus: scope.recordingStatus,
+          responsibleHrImage: scope.responsibleHrImage,
+          responsibleHrName: scope.responsibleHrName,
           role: scope.role,
           roundLabel: scope.roundLabel,
           scheduledAt: scope.scheduledAt,
@@ -283,6 +287,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         const token = await signHumanInterviewMeetingToken({
           canPublish: scope.role !== "observer",
           metadata: {
+            avatar_url: scope.interviewerImage,
             human_interview_meeting_id: scope.meetingId,
             participant_role: scope.role,
             participant_type: "interviewer",

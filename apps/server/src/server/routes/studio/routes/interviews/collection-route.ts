@@ -484,6 +484,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
             const token = await signHumanInterviewMeetingToken({
               canPublish: meetingInterviewer.role !== "observer",
               metadata: {
+                avatar_url: meetingInterviewer.image,
                 human_interview_meeting_id: meeting.id,
                 participant_role: meetingInterviewer.role,
                 participant_type: "interviewer",

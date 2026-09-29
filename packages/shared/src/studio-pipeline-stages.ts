@@ -223,6 +223,8 @@ export interface PublicHumanInterviewInterviewerPreview {
   interviewerName: string;
   meetingId: string;
   recordingStatus: HumanInterviewRecordingStatus;
+  responsibleHrImage: string | null;
+  responsibleHrName: string | null;
   role: HumanInterviewMeetingInterviewerRole;
   roundLabel: string;
   scheduledAt: string | null;

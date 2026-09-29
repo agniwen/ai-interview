@@ -12,10 +12,19 @@ import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate
 // SAFETY: React's test-only act flag is intentionally attached to the test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const media = vi.hoisted(() => ({ connect: vi.fn() }));
+const media = vi.hoisted(() => ({ connect: vi.fn(), lastProps: vi.fn() }));
 vi.mock("@livekit/components-react", () => ({
-  LiveKitRoom: ({ children }: { children: ReactNode }) => {
+  LiveKitRoom: ({
+    audio,
+    children,
+    video,
+  }: {
+    audio: unknown;
+    children: ReactNode;
+    video: unknown;
+  }) => {
     media.connect();
+    media.lastProps({ audio, video });
     return <div>{children}</div>;
   },
   RoomAudioRenderer: () => null,
@@ -35,13 +44,18 @@ vi.mock("./human-meeting-stage", () => ({
 }));
 vi.mock("./interviewer-candidate-materials", () => ({
   InterviewerCandidateMaterials: ({
+    desktopTabsContainer,
     state,
     onStateChange,
   }: {
+    desktopTabsContainer?: HTMLElement | null;
     state: InterviewerCandidateMaterialsState;
     onStateChange: (state: InterviewerCandidateMaterialsState) => void;
   }) => (
-    <button onClick={() => onStateChange({ ...state, tab: "evaluation" })}>
+    <button
+      data-has-desktop-tabs={Boolean(desktopTabsContainer)}
+      onClick={() => onStateChange({ ...state, tab: "evaluation" })}
+    >
       候选人资料：{state.tab}
     </button>
   ),
@@ -54,6 +68,8 @@ const preview = {
   jobDescriptionPrompt: "负责用户运营",
   meetingId: "meeting-1",
   recordingStatus: "pending" as const,
+  responsibleHrImage: "https://example.com/hr.png",
+  responsibleHrName: "上传 HR",
   role: "host" as const,
   roundLabel: "业务一面",
   scheduledAt: "2026-09-24T06:30:00.000Z",
@@ -71,6 +87,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn());
   vi.stubGlobal("matchMedia", () => ({ addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   media.connect.mockClear();
+  media.lastProps.mockClear();
   client = new QueryClient();
   container = document.createElement("div");
   document.body.append(container);
@@ -85,8 +102,8 @@ afterEach(async () => {
 });
 
 function button(label: string) {
-  const result = [...container.querySelectorAll("button")].find((item) =>
-    item.textContent?.includes(label),
+  const result = [...container.querySelectorAll("button")].find(
+    (item) => item.textContent?.includes(label) || item.getAttribute("aria-label")?.includes(label),
   );
   if (!result) {
     throw new Error(`Missing button: ${label}`);
@@ -116,8 +133,18 @@ it("opens materials before join time without connecting, and preserves selection
     ),
   ).toHaveLength(2);
   expect(button("查看候选人资料").disabled).toBe(false);
+  expect(button("关闭麦克风").getAttribute("aria-pressed")).toBe("true");
+  expect(button("开启摄像头").getAttribute("aria-pressed")).toBe("false");
+  await act(() => button("关闭麦克风").click());
+  await act(() => button("开启摄像头").click());
   await act(() => button("查看候选人资料").click());
+  expect(container.querySelector("header h1")?.textContent).toBe("运营经理面试");
+  expect(container.querySelector('header button[aria-label^="会议信息"]')).toBeNull();
   expect(button("返回").closest("header")).not.toBeNull();
+  expect(
+    container.querySelector('header [data-slot="meeting-desktop-materials-tabs"]'),
+  ).not.toBeNull();
+  expect(button("候选人资料：resume").dataset.hasDesktopTabs).toBe("true");
   expect(button("返回").getAttribute("aria-label")).toBe("返回入会页");
   expect(container.querySelector("footer")).toBeNull();
   await act(() => button("候选人资料：resume").click());
@@ -147,6 +174,10 @@ it("opens materials before join time without connecting, and preserves selection
     { method: "POST" },
   );
   expect(media.connect).toHaveBeenCalled();
+  expect(media.lastProps).toHaveBeenLastCalledWith({
+    audio: false,
+    video: { resolution: expect.objectContaining({ height: 1080, width: 1920 }) },
+  });
   expect(container.textContent).toContain("会议中：evaluation");
   expect(container.querySelector<HTMLElement>("[data-view-mode]")?.dataset.viewMode).toBe(
     "materials",
@@ -169,4 +200,35 @@ it("does not expose interviewer materials on the candidate entry", async () => {
   );
   expect(container.textContent).not.toContain("查看候选人资料");
   expect(button("未到入会时间").disabled).toBe(true);
+});
+
+it("applies candidate media choices when joining", async () => {
+  vi.setSystemTime(new Date("2026-09-24T06:16:00.000Z"));
+  await act(() =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <HumanMeetingRoom
+          inviteToken="candidate-invite"
+          mode="candidate"
+          preview={{ ...preview, candidateInviteStatus: "accepted", companyContext: null }}
+        />
+      </QueryClientProvider>,
+    ),
+  );
+  await act(() => button("关闭麦克风").click());
+  await act(() => button("开启摄像头").click());
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json({
+      participantName: "测试候选人",
+      participantRole: "candidate",
+      participantToken: "candidate-token",
+      roomName: "test-room",
+      serverUrl: "wss://test.invalid",
+    }),
+  );
+  await act(() => button("进入会议").click());
+  expect(media.lastProps).toHaveBeenLastCalledWith({
+    audio: false,
+    video: { resolution: expect.objectContaining({ height: 1080, width: 1920 }) },
+  });
 });

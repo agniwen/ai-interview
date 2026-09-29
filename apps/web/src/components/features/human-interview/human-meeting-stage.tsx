@@ -11,6 +11,7 @@ import {
   IconDeviceDesktopUp,
   IconFileDescription,
   IconLoader2,
+  IconMessageCircle,
   IconMicrophone,
   IconMicrophoneOff,
   IconPhoneOff,
@@ -31,14 +32,19 @@ import {
   TrackToggle,
   useParticipants,
   useIsRecording,
+  useIsSpeaking,
   useTrackRefContext,
   useTracks,
 } from "@livekit/components-react";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
+import {
+  meetingCameraCaptureOptions,
+  meetingScreenShareCaptureOptions,
+} from "./human-meeting-video-quality";
 import { notifyMeetingMediaError } from "./human-meeting-media-errors";
 import type { MouseEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@app/shared/utils";
 import { Modal } from "@/components/ui/modal";
@@ -49,10 +55,13 @@ import { shouldReturnToMeetingForLocalScreenShare } from "./human-meeting-materi
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
 import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
+import { HumanMeetingChat } from "./human-meeting-chat";
+import { MeetingInfoHoverCard } from "./meeting-info-hover-card";
 import type { HumanMeetingLiveTranscriptHandle } from "./human-meeting-live-transcript";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 
 const participantMetadataSchema = z.object({
+  avatar_url: z.string().nullable().optional(),
   participant_role: z.string().optional(),
   participant_type: z.string().optional(),
 });
@@ -103,11 +112,16 @@ export interface HumanMeetingStageProps {
   candidateName?: string;
   jobDescriptionName?: string | null;
   roundLabel?: string;
+  responsibleHrImage?: string | null;
+  responsibleHrName?: string | null;
+  scheduledAt?: string | null;
   canPublish: boolean;
   canUseVoiceEffects: boolean;
   canUseLiveTranscript: boolean;
   canEndMeeting: boolean;
   candidateMaterialsState: InterviewerCandidateMaterialsState;
+  chatInviteToken: string;
+  chatMode: "candidate" | "interviewer";
   inviteToken: string | null;
   isEnding: boolean;
   onCandidateMaterialsStateChange: (state: InterviewerCandidateMaterialsState) => void;
@@ -127,11 +141,16 @@ export function HumanMeetingStage({
   candidateName,
   jobDescriptionName,
   roundLabel,
+  responsibleHrImage,
+  responsibleHrName,
+  scheduledAt,
   canPublish,
   // canUseVoiceEffects,
   canUseLiveTranscript,
   canEndMeeting,
   candidateMaterialsState,
+  chatInviteToken,
+  chatMode,
   inviteToken,
   isEnding,
   onCandidateMaterialsStateChange,
@@ -144,6 +163,9 @@ export function HumanMeetingStage({
   const MicrophoneControls = isMobile ? "fieldset" : ButtonGroup;
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [desktopTabsContainer, setDesktopTabsContainer] = useState<HTMLDivElement | null>(null);
+  const closeChat = useCallback(() => setChatOpen(false), []);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
   const isRecording = useIsRecording();
@@ -189,22 +211,34 @@ export function HumanMeetingStage({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-      <header className="flex h-11 shrink-0 items-center justify-between gap-2 pr-1.5 pl-3 md:h-10 md:pl-4">
-        <div className="min-w-0 flex-1">
-          <h1
-            className="truncate font-medium text-sm leading-5 text-foreground tracking-normal"
-            title={title}
-          >
-            <span className="block truncate md:hidden">
-              {[candidateName, jobDescriptionName, roundLabel].filter(Boolean).join(" · ") || title}
-            </span>
-            <span className="hidden truncate md:block">{title}</span>
+      <header className="flex h-11 shrink-0 items-center gap-2 pr-1.5 pl-3 md:h-12 md:pl-4">
+        <div className="flex min-w-0 flex-1 items-center">
+          <h1 className="flex min-w-0 items-center">
+            <MeetingInfoHoverCard
+              jobDescriptionName={jobDescriptionName}
+              meetingTitle={title}
+              responsibleHrImage={responsibleHrImage}
+              responsibleHrName={responsibleHrName}
+              roundLabel={roundLabel}
+              scheduledAt={scheduledAt}
+              showResponsibleHr={chatMode === "interviewer"}
+            />
           </h1>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {inviteToken ? (
+          <div
+            ref={setDesktopTabsContainer}
+            data-slot="meeting-desktop-materials-tabs"
+            className={cn(
+              "hidden min-w-0 flex-[0_1_22rem] md:flex",
+              viewMode !== "materials" && "md:invisible",
+            )}
+          />
+        ) : null}
+        <div className="flex shrink-0 items-center gap-2 md:min-w-0 md:flex-1 md:justify-end">
           {isRecording ? (
             <output
-              className="inline-flex items-center gap-1.5 whitespace-nowrap text-muted-foreground text-xs"
+              className="hidden items-center gap-1.5 whitespace-nowrap text-muted-foreground text-xs md:inline-flex"
               data-slot="meeting-recording-status"
             >
               <span aria-hidden="true" className="size-2 rounded-full bg-destructive" />
@@ -216,6 +250,16 @@ export function HumanMeetingStage({
             {participants.length}
           </Badge>
           <ThemeToggle className="hidden shrink-0 md:inline-flex" />
+          <Button
+            aria-expanded={chatOpen}
+            aria-label={chatOpen ? "关闭聊天" : "打开聊天"}
+            className="mr-1 md:hidden"
+            onClick={() => setChatOpen((value) => !value)}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <IconMessageCircle className="size-6" />
+          </Button>
           {canEndMeeting ? (
             <Button
               aria-label="结束会议"
@@ -303,8 +347,13 @@ export function HumanMeetingStage({
               )}
             >
               {viewMode === "materials" && hasRemoteScreenShare ? (
-                <div className="flex shrink-0 justify-center px-2 pt-1.5 md:px-3">
-                  <Button onClick={() => onViewModeChange("meeting")} size="sm" variant="secondary">
+                <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-2 md:bottom-6">
+                  <Button
+                    className="pointer-events-auto shadow-sm"
+                    onClick={() => onViewModeChange("meeting")}
+                    size="sm"
+                    variant="secondary"
+                  >
                     <IconDeviceDesktopUp className="size-4" />
                     正在共享屏幕 · 返回会议
                   </Button>
@@ -314,6 +363,7 @@ export function HumanMeetingStage({
                 <InterviewerCandidateMaterials
                   showQuestions
                   active={viewMode === "materials"}
+                  desktopTabsContainer={desktopTabsContainer}
                   inviteToken={inviteToken}
                   onStateChange={onCandidateMaterialsStateChange}
                   state={candidateMaterialsState}
@@ -322,6 +372,11 @@ export function HumanMeetingStage({
             </div>
           ) : null}
         </div>
+        <HumanMeetingChat
+          access={{ inviteToken: chatInviteToken, mode: chatMode }}
+          open={chatOpen}
+          onClose={closeChat}
+        />
         {inviteToken && canUseLiveTranscript ? (
           <HumanMeetingLiveTranscript
             candidateName={candidateName}
@@ -332,7 +387,12 @@ export function HumanMeetingStage({
         ) : null}
       </div>
 
-      <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-1 border-border px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:gap-2 md:border-t md:px-4 md:py-3">
+      <footer
+        className={cn(
+          "relative flex shrink-0 flex-wrap items-center justify-center gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:gap-2 md:px-4 md:pt-3 md:pb-3",
+          viewMode === "meeting" && "pt-0 md:pt-1.5",
+        )}
+      >
         <StartAudio className={buttonVariants({ variant: "default" })} label="开启声音" />
         {canPublish ? (
           <>
@@ -359,6 +419,7 @@ export function HumanMeetingStage({
             {/* 暂时隐藏变声入口，保留实现以便恢复。 */}
             {/* {canUseVoiceEffects ? <VoiceEffectMenu /> : null} */}
             <TrackToggle
+              captureOptions={meetingCameraCaptureOptions}
               className={cn(mediaToggleButtonClass, mobileControlClass, "order-2 md:order-none")}
               showIcon={false}
               source={Track.Source.Camera}
@@ -373,6 +434,7 @@ export function HumanMeetingStage({
               </span>
             </TrackToggle>
             <TrackToggle
+              captureOptions={meetingScreenShareCaptureOptions}
               className={cn(
                 humanMeetingControlButtonClass,
                 mobileControlClass,
@@ -403,9 +465,23 @@ export function HumanMeetingStage({
             ) : (
               <IconFileDescription className="size-4" />
             )}
-            <span>{viewMode === "materials" ? "切换到视频" : "切换到信息"}</span>
+            <span>{viewMode === "materials" ? "会议视图" : "候选人信息"}</span>
           </button>
         ) : null}
+        <button
+          aria-expanded={chatOpen}
+          aria-label={chatOpen ? "关闭聊天" : "打开聊天"}
+          className={cn(
+            humanMeetingControlButtonClass,
+            "hidden md:inline-flex",
+            chatOpen && "bg-accent",
+          )}
+          onClick={() => setChatOpen((value) => !value)}
+          type="button"
+        >
+          <IconMessageCircle className="size-4" />
+          <span>聊天</span>
+        </button>
         {canEndMeeting ? (
           <button
             className={cn(endButtonClass, "hidden md:inline-flex")}
@@ -423,7 +499,8 @@ export function HumanMeetingStage({
         ) : (
           <Button
             onClick={() => setLeaveConfirmOpen(true)}
-            className={cn(leaveButtonClass, "hidden md:inline-flex")}
+            className="hidden md:inline-flex"
+            variant="destructive"
           >
             <IconPhoneOff className="size-4" />
             <span>离开</span>
@@ -497,6 +574,36 @@ function getMeetingTrackKey(track: TrackReferenceOrPlaceholder) {
   return JSON.stringify([track.participant.identity, track.source]);
 }
 
+function InterviewerPlaceholderAvatar({ image, name }: { image: string; name: string }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div
+      data-slot="interviewer-placeholder-avatar"
+      className={cn(
+        "pointer-events-none absolute inset-0 z-[5] grid place-items-center transition-opacity duration-200",
+        loaded ? "opacity-100" : "opacity-0",
+      )}
+    >
+      <div className="relative grid size-28 place-items-center">
+        <img
+          src={image}
+          alt=""
+          aria-hidden="true"
+          className="absolute size-32 scale-125 rounded-full object-cover opacity-25 blur-2xl"
+        />
+        <img
+          src={image}
+          alt={`${name}的头像`}
+          className="relative size-24 rounded-full bg-muted object-cover shadow-lg"
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(false)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function HumanParticipantTile({
   onFocusTrack,
   onResetFocus,
@@ -505,16 +612,31 @@ function HumanParticipantTile({
   onResetFocus?: () => void;
 }) {
   const trackRef = useTrackRefContext();
+  const isSpeaking = useIsSpeaking(trackRef.participant);
+  const highlightSpeaker = isSpeaking && trackRef.source === Track.Source.Camera;
   const roleLabel = getParticipantRoleLabel(trackRef);
+  const metadata = parseParticipantMetadata(trackRef.participant.metadata);
+  const interviewerImage =
+    metadata.participant_type === "interviewer" && trackRef.source === Track.Source.Camera
+      ? metadata.avatar_url?.trim()
+      : null;
 
   return (
-    <div className="relative isolate h-full min-h-0 overflow-hidden rounded-sm border border-border bg-muted">
+    <div
+      data-speaking={highlightSpeaker}
+      className={cn(
+        "relative isolate h-full min-h-0 overflow-hidden rounded-sm border bg-muted/40 transition-colors duration-200 dark:bg-muted",
+        highlightSpeaker
+          ? "border-emerald-500 dark:border-emerald-400"
+          : "border-border/50 dark:border-border",
+      )}
+    >
       <ParticipantTile
         className={cn(
-          "relative h-full min-h-0 w-full overflow-hidden bg-muted",
+          "relative h-full min-h-0 w-full overflow-hidden bg-transparent!",
           "[&_.lk-focus-toggle-button]:hidden",
           "[&_.lk-participant-metadata]:hidden",
-          "[&_.lk-participant-placeholder]:absolute [&_.lk-participant-placeholder]:inset-0 [&_.lk-participant-placeholder]:grid [&_.lk-participant-placeholder]:place-items-center [&_.lk-participant-placeholder]:bg-muted",
+          "[&_.lk-participant-placeholder]:absolute [&_.lk-participant-placeholder]:inset-0 [&_.lk-participant-placeholder]:grid [&_.lk-participant-placeholder]:place-items-center [&_.lk-participant-placeholder]:bg-transparent!",
           "[&_.lk-participant-placeholder_svg]:size-16 [&_.lk-participant-placeholder_svg]:text-muted-foreground [&_.lk-participant-placeholder_path]:fill-current [&_.lk-participant-placeholder_path]:[fill-opacity:1]",
           "[&_video]:relative [&_video]:z-10 [&_video]:h-full [&_video]:w-full",
           trackRef.source === Track.Source.ScreenShare
@@ -523,6 +645,13 @@ function HumanParticipantTile({
         )}
         trackRef={trackRef}
       />
+      {interviewerImage ? (
+        <InterviewerPlaceholderAvatar
+          key={interviewerImage}
+          image={interviewerImage}
+          name={trackRef.participant.name || "面试官"}
+        />
+      ) : null}
       {onFocusTrack ? (
         <button
           type="button"

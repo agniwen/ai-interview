@@ -268,7 +268,7 @@ function WaitingView({
 
   return (
     <>
-      <InterviewBackground />
+      <InterviewBackground entry={showPreparation} />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>

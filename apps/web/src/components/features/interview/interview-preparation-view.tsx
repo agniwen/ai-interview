@@ -7,7 +7,7 @@ import { LocalDateTimeText } from "@/components/features/display/local-date-time
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { InterviewBackground } from "./interview-background";
+import { InterviewEntryBackground } from "./interview-background";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 
 function ContextSection({
@@ -62,12 +62,12 @@ export function InterviewPreparationView({
 
   return (
     <>
-      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      <main className="relative h-dvh w-full select-none">
+      <main className="relative isolate h-dvh w-full select-none bg-background">
+        <InterviewEntryBackground />
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-5xl flex-col px-5 pt-12 pb-40 sm:px-8 sm:pt-20 sm:pb-36 md:pt-16">
             <header>

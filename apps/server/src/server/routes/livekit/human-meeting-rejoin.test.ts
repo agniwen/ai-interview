@@ -105,6 +105,10 @@ vi.mock("../studio/routes/interviews/dao/human-interview-meetings", async (impor
     Promise.resolve({
       ...mocks.meeting,
       candidateInviteStatus: "accepted",
+      interviewerImage: "https://example.com/interviewer.png",
+      interviewerName: "面试官",
+      responsibleHrImage: "https://example.com/hr.png",
+      responsibleHrName: "上传 HR",
       role: "interviewer",
       scheduledAt: "2026-09-23T10:10:00Z",
       validUntil: mocks.meeting.validUntil?.toISOString() ?? null,
@@ -153,6 +157,20 @@ afterEach(() => {
 });
 
 describe("真人面试视频房间关闭后重进", () => {
+  it("shows the resume uploader only in the interviewer preview", async () => {
+    const candidate = await app.request(candidatePath.replace("/livekit-token", ""));
+    const interviewer = await app.request(interviewerPath.replace("/livekit-token", ""));
+    expect(candidate.status).toBe(200);
+    expect(interviewer.status).toBe(200);
+    const candidatePreview = await candidate.json();
+    expect(candidatePreview).not.toHaveProperty("responsibleHrName");
+    expect(candidatePreview).not.toHaveProperty("responsibleHrImage");
+    expect(await interviewer.json()).toMatchObject({
+      responsibleHrImage: "https://example.com/hr.png",
+      responsibleHrName: "上传 HR",
+    });
+  });
+
   it("ends an established empty meeting at expiry without another room-close callback", async () => {
     await webhook("room_started");
     mocks.meeting.establishedAt = new Date();
@@ -208,6 +226,14 @@ describe("真人面试视频房间关闭后重进", () => {
       const interviewerJoin = await app.request(interviewerPath, { method: "POST" });
       expect(candidateJoin.status).toBe(200);
       expect(interviewerJoin.status).toBe(200);
+      expect(mocks.sign).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            avatar_url: "https://example.com/interviewer.png",
+            participant_type: "interviewer",
+          }),
+        }),
+      );
       await webhook("room_started");
       expect(mocks.meeting.startedAt).toEqual(startedAt);
     }

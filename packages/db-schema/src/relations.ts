@@ -317,6 +317,13 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.humanInterviewMeeting.createdBy,
       to: r.user.id,
     }),
+    humanInterviewMeetingChatMessages: r.many.humanInterviewMeetingChatMessage({
+      from: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
+      to: [
+        r.humanInterviewMeetingChatMessage.meetingId,
+        r.humanInterviewMeetingChatMessage.organizationId,
+      ],
+    }),
     humanInterviewMeetingEvents: r.many.humanInterviewMeetingEvent({
       from: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
       to: [r.humanInterviewMeetingEvent.meetingId, r.humanInterviewMeetingEvent.organizationId],
@@ -339,6 +346,15 @@ export const relations = defineRelations(schema, (r) => ({
     processingMeetingSession: r.one.meetingSession({
       from: r.humanInterviewMeeting.processingMeetingSessionId,
       to: r.meetingSession.id,
+    }),
+  },
+  humanInterviewMeetingChatMessage: {
+    meeting: r.one.humanInterviewMeeting({
+      from: [
+        r.humanInterviewMeetingChatMessage.meetingId,
+        r.humanInterviewMeetingChatMessage.organizationId,
+      ],
+      to: [r.humanInterviewMeeting.id, r.humanInterviewMeeting.organizationId],
     }),
   },
   // human_interview_meeting_event 的新域关联；旧域关系保持不变。

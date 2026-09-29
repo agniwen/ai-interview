@@ -15,9 +15,11 @@ const transcriptLifecycle = vi.hoisted(() => ({ mounted: vi.fn(), unmounted: vi.
 const mediaState = vi.hoisted(() => ({
   agent: false,
   disconnect: vi.fn(),
+  metadata: "",
   recording: true,
   sharing: false,
   source: "camera",
+  speaking: false,
 }));
 
 vi.mock("@livekit/components-react", () => ({
@@ -48,12 +50,30 @@ vi.mock("@livekit/components-react", () => ({
     </div>
   ),
   TrackMutedIndicator: () => <span aria-label="已静音" />,
-  TrackToggle: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  TrackToggle: ({
+    captureOptions,
+    children,
+    source,
+  }: {
+    captureOptions?: { resolution?: { width: number; height: number } };
+    children: React.ReactNode;
+    source: string;
+  }) => (
+    <button data-resolution={JSON.stringify(captureOptions?.resolution)} data-source={source}>
+      {children}
+    </button>
+  ),
   useIsRecording: () => mediaState.recording,
+  useIsSpeaking: () => mediaState.speaking,
   useParticipants: () =>
     mediaState.agent ? [{ isAgent: false }, { isAgent: false }, { isAgent: true }] : [],
   useTrackRefContext: () => ({
-    participant: { identity: "interviewer", isLocal: true, metadata: "", name: "面试官" },
+    participant: {
+      identity: "interviewer",
+      isLocal: true,
+      metadata: mediaState.metadata,
+      name: "面试官",
+    },
     source: mediaState.source,
   }),
   useTracks: () => [
@@ -99,6 +119,14 @@ vi.mock("./human-meeting-live-transcript", () => ({
   },
 }));
 
+vi.mock("./human-meeting-chat", () => ({
+  HumanMeetingChat: ({ open, onClose }: { open: boolean; onClose: () => void }) => (
+    <aside data-slot="meeting-chat-panel" data-open={open}>
+      {open ? <button onClick={onClose}>关闭聊天面板</button> : null}
+    </aside>
+  ),
+}));
+
 const roots: ReturnType<typeof createRoot>[] = [];
 
 function verifyBackgroundTranscript(
@@ -116,13 +144,39 @@ function verifyBackgroundTranscript(
     expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).not.toContain(
       "lg:grid-cols-",
     );
-    expect(container.textContent).toContain(viewMode === "materials" ? "切换到视频" : "切换到信息");
+    expect(container.textContent).toContain(viewMode === "materials" ? "会议视图" : "候选人信息");
   }
   mediaState.recording = false;
   renderStage("meeting");
   expect(container.querySelector('[data-slot="meeting-recording-status"]')).toBeNull();
   expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
   expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
+}
+
+function verifyChatPanel(
+  container: HTMLElement,
+  renderStage: (mode: HumanMeetingViewMode) => void,
+) {
+  const chatTrigger = container.querySelector<HTMLButtonElement>(
+    `${window.innerWidth < 768 ? "header" : "footer"} button[aria-label="打开聊天"]`,
+  );
+  expect(chatTrigger).not.toBeNull();
+  act(() => chatTrigger?.click());
+  expect(
+    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
+  ).toBe("true");
+  expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).not.toContain(
+    "md:grid-cols-",
+  );
+  renderStage("materials");
+  expect(
+    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
+  ).toBe("true");
+  act(() => chatTrigger?.click());
+  expect(
+    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
+  ).toBe("false");
+  renderStage("meeting");
 }
 
 beforeEach(() => {
@@ -144,12 +198,129 @@ afterEach(() => {
   document.body.innerHTML = "";
   vi.unstubAllGlobals();
   mediaState.source = "camera";
+  mediaState.metadata = "";
   mediaState.sharing = false;
+  mediaState.speaking = false;
   mediaState.agent = false;
   mediaState.recording = true;
 });
 
 describe("HumanMeetingStage realtime transcript", () => {
+  it("highlights a speaking camera tile and clears the highlight when speech stops", () => {
+    mediaState.sharing = true;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const render = () =>
+      act(() =>
+        root.render(
+          <HumanMeetingStage
+            canEndMeeting
+            canPublish
+            canUseLiveTranscript={false}
+            canUseVoiceEffects={false}
+            candidateMaterialsState={{ candidateId: null, tab: "resume" }}
+            chatInviteToken="invite-1"
+            chatMode="interviewer"
+            inviteToken="invite-1"
+            isEnding={false}
+            onCandidateMaterialsStateChange={() => {}}
+            onEndMeeting={() => {}}
+            onViewModeChange={() => {}}
+            title="真人复面"
+            viewMode="meeting"
+          />,
+        ),
+      );
+    const tile = () => container.querySelector<HTMLElement>("[data-speaking]");
+
+    render();
+    for (const source of ["camera", "screen_share"]) {
+      expect(
+        container.querySelector<HTMLButtonElement>(`button[data-source="${source}"]`)?.dataset
+          .resolution,
+      ).toContain('"height":1080');
+    }
+    expect(tile()?.dataset.speaking).toBe("false");
+    mediaState.speaking = true;
+    render();
+    expect(tile()?.dataset.speaking).toBe("true");
+    expect(tile()?.className).toContain("border-emerald-500");
+    mediaState.speaking = false;
+    render();
+    expect(tile()?.dataset.speaking).toBe("false");
+    mediaState.speaking = true;
+    mediaState.source = "screen_share";
+    render();
+    expect(tile()?.dataset.speaking).toBe("false");
+  });
+
+  it("shows the selected interviewer's layered avatar only on their camera tile", () => {
+    mediaState.sharing = true;
+    mediaState.metadata = JSON.stringify({
+      avatar_url: "https://example.com/interviewer.png",
+      participant_type: "interviewer",
+      user_id: "interviewer-1",
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const render = () =>
+      act(() =>
+        root.render(
+          <HumanMeetingStage
+            canEndMeeting
+            canPublish
+            canUseLiveTranscript={false}
+            canUseVoiceEffects={false}
+            candidateMaterialsState={{ candidateId: null, tab: "resume" }}
+            chatInviteToken="invite-1"
+            chatMode="interviewer"
+            inviteToken="invite-1"
+            isEnding={false}
+            onCandidateMaterialsStateChange={() => {}}
+            onEndMeeting={() => {}}
+            onViewModeChange={() => {}}
+            title="真人复面"
+            viewMode="meeting"
+          />,
+        ),
+      );
+
+    render();
+    const avatar = container.querySelector('[data-slot="interviewer-placeholder-avatar"]');
+    expect(avatar?.querySelectorAll("img")).toHaveLength(2);
+    const photo = avatar?.querySelector<HTMLImageElement>('img[alt="面试官的头像"]');
+    expect(photo).not.toBeNull();
+    act(() => photo?.dispatchEvent(new Event("load")));
+    expect(avatar?.className).toContain("opacity-100");
+    act(() => photo?.dispatchEvent(new Event("error")));
+    expect(avatar?.className).toContain("opacity-0");
+    mediaState.metadata = JSON.stringify({
+      participant_type: "interviewer",
+      user_id: "interviewer-1",
+    });
+    render();
+    expect(container.querySelector('[data-slot="interviewer-placeholder-avatar"]')).toBeNull();
+    mediaState.metadata = JSON.stringify({
+      avatar_url: "https://example.com/interviewer.png",
+      participant_type: "candidate",
+      user_id: "interviewer-1",
+    });
+    render();
+    expect(container.querySelector('[data-slot="interviewer-placeholder-avatar"]')).toBeNull();
+    mediaState.metadata = JSON.stringify({
+      avatar_url: "https://example.com/interviewer.png",
+      participant_type: "interviewer",
+      user_id: "interviewer-1",
+    });
+    mediaState.source = "screen_share";
+    render();
+    expect(container.querySelector('[data-slot="interviewer-placeholder-avatar"]')).toBeNull();
+  });
+
   it("excludes the background agent from participant count, tiles and focused tracks", () => {
     mediaState.agent = true;
     mediaState.sharing = true;
@@ -165,6 +336,8 @@ describe("HumanMeetingStage realtime transcript", () => {
           canUseLiveTranscript
           canUseVoiceEffects={false}
           candidateMaterialsState={{ candidateId: null, tab: "resume" }}
+          chatInviteToken="invite-1"
+          chatMode="interviewer"
           inviteToken="invite-1"
           isEnding={false}
           onCandidateMaterialsStateChange={() => {}}
@@ -210,6 +383,8 @@ describe("HumanMeetingStage realtime transcript", () => {
               canUseLiveTranscript
               canUseVoiceEffects={false}
               candidateMaterialsState={{ candidateId: "candidate-1", tab: "evaluation" }}
+              chatInviteToken="invite-1"
+              chatMode="interviewer"
               inviteToken="invite-1"
               isEnding={false}
               onCandidateMaterialsStateChange={onCandidateMaterialsStateChange}
@@ -221,9 +396,10 @@ describe("HumanMeetingStage realtime transcript", () => {
           ),
         );
       renderStage("meeting");
+      verifyChatPanel(container, renderStage);
       act(() =>
         [...container.querySelectorAll("button")]
-          .find((button) => button.textContent === "切换到信息")
+          .find((button) => button.textContent === "候选人信息")
           ?.click(),
       );
       expect(onCandidateMaterialsStateChange).not.toHaveBeenCalled();
@@ -235,7 +411,7 @@ describe("HumanMeetingStage realtime transcript", () => {
       ).toBe("true");
       act(() =>
         [...container.querySelectorAll("button")]
-          .find((button) => button.textContent === "切换到视频")
+          .find((button) => button.textContent === "会议视图")
           ?.click(),
       );
       expect(onViewModeChange).toHaveBeenLastCalledWith("meeting");

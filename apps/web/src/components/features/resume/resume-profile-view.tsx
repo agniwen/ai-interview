@@ -166,10 +166,6 @@ function EducationExperienceList({
 }: {
   educationExperiences: ResumeEducationExperience[];
 }) {
-  if (educationExperiences.length === 0) {
-    return <EmptyValue className="text-sm" />;
-  }
-
   return (
     <Frame
       className={cn(
@@ -264,6 +260,7 @@ export function ResumeProfileView({
 
   const educationExperiences = sortResumeEducationExperiences(profile.educationExperiences);
   const projectExperiences = sortResumeExperiencesByPeriod(profile.projectExperiences);
+  const schools = profile.schools.filter(isPresent);
 
   return (
     <div className="space-y-8">
@@ -283,18 +280,18 @@ export function ResumeProfileView({
         <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
 
-      <ResumeProfileSection title="教育经历">
-        {educationExperiences.length > 0 ? (
-          <EducationExperienceList educationExperiences={educationExperiences} />
-        ) : (
-          <ChipList items={profile.schools} />
-        )}
-      </ResumeProfileSection>
+      {educationExperiences.length > 0 || schools.length > 0 ? (
+        <ResumeProfileSection title="教育经历">
+          {educationExperiences.length > 0 ? (
+            <EducationExperienceList educationExperiences={educationExperiences} />
+          ) : (
+            <ChipList items={schools} />
+          )}
+        </ResumeProfileSection>
+      ) : null}
 
-      <ResumeProfileSection title="项目经历">
-        {projectExperiences.length === 0 ? (
-          <EmptyValue className="text-sm" />
-        ) : (
+      {projectExperiences.length > 0 ? (
+        <ResumeProfileSection title="项目经历">
           <ul className="flex flex-col gap-3">
             {projectExperiences.map((proj) => (
               <li
@@ -329,8 +326,8 @@ export function ResumeProfileView({
               </li>
             ))}
           </ul>
-        )}
-      </ResumeProfileSection>
+        </ResumeProfileSection>
+      ) : null}
 
       <ResumeProfileSection title="掌握技能">
         <ChipList items={profile.skills} />

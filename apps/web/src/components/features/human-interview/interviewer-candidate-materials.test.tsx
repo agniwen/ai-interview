@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 import { createRoot } from "react-dom/client";
 import { expect, it, beforeEach, afterEach, vi } from "vitest";
@@ -12,12 +13,12 @@ import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials
 const pdfLifecycle = vi.hoisted(() => ({ destroyed: vi.fn(), mounted: vi.fn() }));
 // oxlint-disable-next-line anti-slop/no-module-mocking -- Reproduce PDF worker cleanup at the viewer boundary without loading a worker in jsdom.
 vi.mock("@/components/ui/pdf-viewer", () => ({
-  PDFViewer: () => {
+  PDFViewer: ({ toolbarActions }: { toolbarActions?: ReactNode }) => {
     useEffect(() => {
       pdfLifecycle.mounted();
       return () => pdfLifecycle.destroyed();
     }, []);
-    return <div data-testid="pdf-worker-view">PDF</div>;
+    return <div data-testid="pdf-worker-view">PDF{toolbarActions}</div>;
   },
 }));
 
@@ -155,7 +156,13 @@ it("omits the redundant candidate banner even when the stored selection is stale
   }
 });
 
-function Harness({ showQuestions = false }: { showQuestions?: boolean }) {
+function Harness({
+  showQuestions = false,
+  desktopTabsContainer,
+}: {
+  showQuestions?: boolean;
+  desktopTabsContainer?: HTMLElement | null;
+}) {
   const [state, setState] = useState<InterviewerCandidateMaterialsState>({
     candidateId: "candidate",
     tab: "resume",
@@ -163,6 +170,7 @@ function Harness({ showQuestions = false }: { showQuestions?: boolean }) {
   return (
     <InterviewerCandidateMaterials
       active={false}
+      desktopTabsContainer={desktopTabsContainer}
       inviteToken="unified"
       showQuestions={showQuestions}
       state={state}
@@ -170,6 +178,53 @@ function Harness({ showQuestions = false }: { showQuestions?: boolean }) {
     />
   );
 }
+
+it("places desktop tabs in the meeting header while keeping their panels in candidate materials", async () => {
+  vi.stubGlobal("innerWidth", 1280);
+  const client = new QueryClient();
+  client.setQueryData(["human-interview-candidate-materials", "unified", "candidates"], {
+    candidates: [{ candidateName: "张三", id: "candidate", rounds: [], targetRole: null }],
+    meetingId: "meeting",
+  });
+  const container = document.createElement("div");
+  const headerTabs = document.createElement("div");
+  const materials = document.createElement("div");
+  container.append(headerTabs, materials);
+  document.body.append(container);
+  const root = createRoot(materials);
+  try {
+    await act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <Harness desktopTabsContainer={headerTabs} showQuestions />
+        </QueryClientProvider>,
+      ),
+    );
+    expect(headerTabs.querySelectorAll('[role="tab"]')).toHaveLength(3);
+    expect(materials.querySelector('[role="tablist"]')).toBeNull();
+    await act(() =>
+      headerTabs.querySelector<HTMLButtonElement>('[role="tab"]:nth-child(2)')?.click(),
+    );
+    expect(headerTabs.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
+      "评价",
+    );
+    expect(materials.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
+    vi.stubGlobal("innerWidth", 390);
+    await act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <Harness desktopTabsContainer={headerTabs} showQuestions />
+        </QueryClientProvider>,
+      ),
+    );
+    expect(headerTabs.querySelector('[role="tablist"]')).toBeNull();
+    expect(materials.querySelectorAll('[role="tab"]')).toHaveLength(3);
+  } finally {
+    await act(() => root.unmount());
+    client.clear();
+    container.remove();
+  }
+});
 
 it.each([
   { showQuestions: false, width: 390 },
@@ -274,14 +329,15 @@ it("switches the resume tab between the original file and structured data", asyn
       ),
     );
     const toggle = () => container.querySelector<HTMLButtonElement>("button[aria-pressed]");
-    expect(toggle()?.textContent).toBe("展示结构化数据");
+    expect(toggle()?.getAttribute("aria-label")).toBe("展示结构化数据");
     expect(container.textContent).toContain("候选人未上传简历文件");
     await act(() => toggle()?.click());
-    expect(toggle()?.textContent).toBe("展示简历原件");
+    expect(toggle()?.getAttribute("aria-label")).toBe("查看简历原件");
     expect(toggle()?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector('header button[aria-label="查看简历原件"]')).not.toBeNull();
     expect(container.textContent).toContain("候选人信息");
     await act(() => toggle()?.click());
-    expect(toggle()?.textContent).toBe("展示结构化数据");
+    expect(toggle()?.getAttribute("aria-label")).toBe("展示结构化数据");
     expect(container.textContent).toContain("候选人未上传简历文件");
   } finally {
     await act(() => root.unmount());
@@ -321,6 +377,7 @@ it("keeps the PDF worker alive when switching away and back", async () => {
     });
     const pdf = container.querySelector('[data-testid="pdf-worker-view"]');
     expect(pdf).not.toBeNull();
+    expect(pdf?.querySelector('button[aria-label="展示结构化数据"]')).not.toBeNull();
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     for (const label of ["评价", "简历", "评价", "简历"]) {
       await act(() => tabs.find((tab) => tab.textContent === label)?.click());

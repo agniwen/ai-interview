@@ -5353,6 +5353,32 @@ export const humanInterviewMeetingEvent = pgTable(
   ],
 );
 
+// 真人会议聊天记录：由邀请身份写入，LiveKit 仅负责在线实时通知。
+export const humanInterviewMeetingChatMessage = pgTable(
+  "human_interview_meeting_chat_message",
+  {
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    participantIdentity: text("participant_identity").notNull(),
+    senderName: text("sender_name").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_interview_meeting_chat_message_meeting_id_org_fk",
+    }).onDelete("cascade"),
+    index("human_interview_meeting_chat_message_meeting_idx").on(table.meetingId, table.createdAt),
+    check(
+      "human_interview_meeting_chat_message_content_check",
+      sql`length(trim(${table.content})) > 0 AND length(${table.content}) <= 2000`,
+    ),
+  ],
+);
+
 // 真人会议与轮次关联：保留每位候选人的邀请 token、响应和入离会时间。
 export const humanInterviewMeetingRound = pgTable(
   "human_interview_meeting_round",
