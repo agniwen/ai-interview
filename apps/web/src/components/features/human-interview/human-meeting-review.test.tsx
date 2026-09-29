@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import { setTimeout as delay } from "node:timers/promises";
-import type { Editor } from "@tiptap/core";
 import type { ReactNode } from "react";
 import {
   createBrowserHistory,
@@ -18,7 +16,13 @@ import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-sta
 import { HumanMeetingReview } from "./human-meeting-review";
 import { HumanInterviewReviewDialog } from "../studio/human-interview-review-dialog";
 
-import { evaluation, reviewRecord } from "./human-meeting-review.test-fixtures";
+import {
+  button,
+  change,
+  evaluation,
+  evaluationField,
+  reviewRecord,
+} from "./human-meeting-review.test-fixtures";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -90,37 +94,6 @@ async function renderReview(onClose = vi.fn()) {
   await flush();
   expect(container.textContent).toContain("面试评价");
   return container;
-}
-
-type EvaluationEditorElement = HTMLElement & { editor: Editor };
-
-async function evaluationField(container: ParentNode) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const field = container.querySelector<EvaluationEditorElement>(
-      '[aria-label="整体评价"] .tiptap',
-    );
-    if (field) {
-      return field;
-    }
-    await act(async () => {
-      await delay(10);
-    });
-  }
-  throw new Error("找不到评价编辑器");
-}
-
-function change(element: EvaluationEditorElement, value: string) {
-  element.editor.commands.setContent(value);
-}
-
-function button(container: HTMLElement, label: string) {
-  const match = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
-    (candidate) => candidate.textContent?.trim() === label,
-  );
-  if (!match) {
-    throw new Error(`找不到按钮：${label}`);
-  }
-  return match;
 }
 
 function outcomeTrigger(container: ParentNode) {
@@ -265,13 +238,42 @@ describe("HumanMeetingReview", () => {
     },
   );
 
+  it("selects a professional skill grade and saves it in the draft", async () => {
+    const container = await renderReview();
+    await evaluationField(container);
+    const skill = container.querySelector<HTMLButtonElement>(
+      '[role="combobox"][aria-label="专业技能"]',
+    );
+    expect(skill?.textContent).toContain("优");
+    expect(skill?.getAttribute("aria-required")).toBe("false");
+    expect(container.querySelector('textarea[aria-label="专业技能"]')).toBeNull();
+    await act(() => skill?.click());
+    const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual([
+      "优",
+      "良",
+      "中",
+      "差",
+    ]);
+    const good = options.find((option) => option.getAttribute("aria-label") === "良");
+    await act(() => good?.click());
+    expect(skill?.textContent).toContain("良");
+    act(() => button(container, "保存草稿").click());
+    await flush();
+    const save = fetchMock.mock.calls.find(([request]) =>
+      String(request).endsWith("/evaluation-draft"),
+    );
+    expect(JSON.parse(String(save?.[1]?.body)).evaluation.professionalSkill).toBe("良");
+  });
+
   it("saves multiline fields alongside rich text without changing untouched Markdown", async () => {
     currentReview.evaluation = { ...evaluation, professionalSkill: "**专业技能**\n- 原有内容" };
     const container = await renderReview();
     await evaluationField(container);
-    const field = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="职级定位"]');
+    expect(container.textContent).toContain("**专业技能**\n- 原有内容");
+    const field = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="角色定位"]');
     if (!field) {
-      throw new Error("找不到职级输入框");
+      throw new Error("找不到角色输入框");
     }
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(
@@ -281,7 +283,6 @@ describe("HumanMeetingReview", () => {
       field.dispatchEvent(new Event("input", { bubbles: true }));
     });
     expect(container.querySelector('[aria-label="完整详细分析"]')).toBeNull();
-    expect(container.textContent).not.toContain("完整详细分析");
     act(() => button(container, "保存草稿").click());
     await flush();
     const save = fetchMock.mock.calls.find(([request]) =>
@@ -290,7 +291,8 @@ describe("HumanMeetingReview", () => {
     expect(JSON.parse(String(save?.[1]?.body)).evaluation).toMatchObject({
       detailedAnalysis: "服务端详细分析",
       professionalSkill: "**专业技能**\n- 原有内容",
-      seniorityPosition: "高级工程师\n能够独立负责模块",
+      rolePosition: "高级工程师\n能够独立负责模块",
+      seniorityPosition: evaluation.seniorityPosition,
     });
   });
 

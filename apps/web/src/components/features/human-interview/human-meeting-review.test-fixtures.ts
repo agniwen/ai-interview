@@ -1,3 +1,6 @@
+import { act } from "react";
+import { setTimeout as delay } from "node:timers/promises";
+import type { Editor } from "@tiptap/core";
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 
 export const evaluation = {
@@ -55,4 +58,35 @@ export function reviewRecord(
     transcriptionState: "ready",
     ...overrides,
   };
+}
+
+type EvaluationEditorElement = HTMLElement & { editor: Editor };
+
+export async function evaluationField(container: ParentNode) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const field = container.querySelector<EvaluationEditorElement>(
+      '[aria-label="整体评价"] .tiptap',
+    );
+    if (field) {
+      return field;
+    }
+    await act(async () => {
+      await delay(10);
+    });
+  }
+  throw new Error("找不到评价编辑器");
+}
+
+export function change(element: EvaluationEditorElement, value: string) {
+  element.editor.commands.setContent(value);
+}
+
+export function button(container: HTMLElement, label: string) {
+  const match = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+  if (!match) {
+    throw new Error(`找不到按钮：${label}`);
+  }
+  return match;
 }

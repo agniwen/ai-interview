@@ -1,8 +1,5 @@
 import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
-import {
-  normalizeHumanInterviewEvaluationText,
-  normalizeHumanInterviewProfessionalSkill,
-} from "@app/shared/human-interview-evaluation";
+import { normalizeHumanInterviewEvaluationText } from "@app/shared/human-interview-evaluation";
 import { cn } from "@app/shared/utils";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 import { MarkdownView } from "@/components/features/display/markdown-view";
@@ -71,13 +68,9 @@ export function RoundEvaluation({
           <Badge variant="warning">评价 · {statusLabel}</Badge>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
         <EvaluationField label="评级" value={evaluation.rating ?? "未评级"} />
-        <EvaluationField
-          label="专业技能"
-          value={normalizeHumanInterviewProfessionalSkill(evaluation.professionalSkill)}
-        />
-        <EvaluationField label="职级定位" value={evaluation.seniorityPosition} />
+        <EvaluationField label="专业技能" value={evaluation.professionalSkill} />
         <EvaluationField label="角色定位" value={evaluation.rolePosition} />
         <EvaluationField label="薪资建议" value={evaluation.salaryRecommendation} />
       </div>

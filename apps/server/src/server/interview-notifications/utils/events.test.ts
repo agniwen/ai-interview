@@ -169,7 +169,6 @@ describe("human interview evaluation summary", () => {
     for (const text of [
       "业务一面评价",
       "综合评级：C",
-      "建议职级定位：高级",
       "岗位角色适配定位：执行员工",
       "专业技能评估：中",
       "候选人优势特点：排障清晰",

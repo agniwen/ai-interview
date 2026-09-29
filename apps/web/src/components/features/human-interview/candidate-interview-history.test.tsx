@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CandidateInterviewHistory } from "./candidate-interview-history";
+
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", () => ({ addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+});
 
 // SAFETY: React's test-only act flag is intentionally attached to the test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -13,6 +17,7 @@ afterEach(() => {
     act(() => root.unmount());
   }
   document.body.innerHTML = "";
+  vi.unstubAllGlobals();
 });
 
 describe("candidate interview history", () => {
@@ -136,7 +141,7 @@ describe("candidate interview history", () => {
       [...container.querySelectorAll("section > h3")]
         .slice(0, 3)
         .map((heading) => heading.textContent),
-    ).toEqual(["评级（A/B/C/D）", "整体评价", "职级定位"]);
+    ).toEqual(["评级（A/B/C/D）", "整体评价", "角色定位"]);
     const overallSection = [...container.querySelectorAll("section")].find(
       (section) => section.querySelector("h3")?.textContent === "整体评价",
     );
@@ -163,8 +168,6 @@ describe("candidate interview history", () => {
       "面试官：张面试官",
       "评级（A/B/C/D）",
       "通过",
-      "职级定位",
-      "小组主管",
       "角色定位",
       "主导决策者",
       "专业技能",

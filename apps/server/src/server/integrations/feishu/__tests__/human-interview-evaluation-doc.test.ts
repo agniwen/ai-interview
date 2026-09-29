@@ -56,7 +56,6 @@ describe("human interview evaluation document", () => {
         `${roundLabel}评价`,
         "面试官：张面试官",
         "评级（A,B,C,D）：B（待定）",
-        "职级定位：高级",
         "角色定位：执行员工",
         "专业技能：良，熟悉分布式系统",
         "优势特点：故障定位清晰",

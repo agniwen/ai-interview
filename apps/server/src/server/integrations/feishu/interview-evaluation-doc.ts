@@ -159,7 +159,6 @@ function todoBlock(content: string): FeishuDocumentBlock {
 
 export const INTERVIEW_STAGE_PLACEHOLDER_FIELDS = [
   "评级（A,B,C,D）：",
-  "职级定位：业务负责人/小组主管/执行员工",
   "角色定位：主导决策者/辅助执行者",
   "专业技能：优/良/中/差",
   "优势特点：",

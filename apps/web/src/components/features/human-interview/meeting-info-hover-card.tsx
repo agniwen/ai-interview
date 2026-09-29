@@ -37,7 +37,7 @@ export function MeetingInfoHoverCard({
   const meetingTime =
     date && Number.isFinite(date.getTime()) ? meetingTimeFormatter.format(date) : "待确认";
   const details = [
-    ["岗位名称", jobDescriptionName?.trim() || "待确认"],
+    ["在招岗位", jobDescriptionName?.trim() || "待确认"],
     ["面试轮次", roundLabel?.trim() || "待确认"],
     ["会议时间", meetingTime],
   ] as const;

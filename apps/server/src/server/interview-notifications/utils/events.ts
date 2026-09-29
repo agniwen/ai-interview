@@ -129,7 +129,6 @@ export function buildHumanInterviewEvaluationSummary(
           { fail: "不通过", inconclusive: "待定", pass: "通过" }[round.outcome ?? "inconclusive"],
         ),
         evaluationLine("综合评级", evaluation?.rating),
-        evaluationLine("建议职级定位", evaluation?.seniorityPosition),
         evaluationLine("岗位角色适配定位", evaluation?.rolePosition),
         evaluationLine("专业技能评估", evaluation?.professionalSkill),
         evaluationLine("候选人优势特点", evaluation?.strengths),

@@ -21,7 +21,6 @@ export function buildHumanInterviewEvaluationBlock(
     `${input.roundLabel}评价`,
     `面试官：${input.submittedBy}`,
     `评级（A,B,C,D）：${input.evaluation.rating}${suffix}`,
-    `职级定位：${input.evaluation.seniorityPosition}`,
     `角色定位：${input.evaluation.rolePosition}`,
     `专业技能：${input.evaluation.professionalSkill}`,
     `优势特点：${input.evaluation.strengths}`,

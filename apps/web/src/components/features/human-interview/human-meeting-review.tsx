@@ -54,10 +54,9 @@ type EvaluationTextFieldKey =
   | "risks"
   | "rolePosition"
   | "salaryRecommendation"
-  | "seniorityPosition"
   | "strengths";
 
-const EVALUATION_TEXT_FIELDS: {
+const EVALUATION_FIELDS: {
   key: EvaluationTextFieldKey;
   label: string;
   minHeight: number;
@@ -70,12 +69,6 @@ const EVALUATION_TEXT_FIELDS: {
     minHeight: 104,
     placeholder: "概括岗位匹配情况，并说明主要判断依据",
     wide: true,
-  },
-  {
-    key: "seniorityPosition",
-    label: "职级定位",
-    minHeight: 48,
-    placeholder: "填写职级及依据",
   },
   {
     key: "rolePosition",
@@ -93,11 +86,13 @@ const EVALUATION_TEXT_FIELDS: {
     key: "professionalSkill",
     label: "专业技能",
     minHeight: 88,
-    placeholder: "记录面试中体现的专业能力与具体表现",
+    placeholder: "请选择专业技能等级",
   },
   { key: "strengths", label: "优势特点", minHeight: 88, placeholder: "记录有具体事例支持的优势" },
   { key: "risks", label: "劣势风险", minHeight: 88, placeholder: "记录能力短板或仍需核实的问题" },
 ];
+
+const PROFESSIONAL_SKILL_GRADES = ["优", "良", "中", "差"];
 
 const OUTCOME_LABELS = {
   fail: "不通过",
@@ -122,7 +117,7 @@ function validateReview({ evaluation, outcome }: ReviewFormValues) {
   if (!humanInterviewEvaluationRatingSchema.safeParse(evaluation.rating).success) {
     fields["evaluation.rating"] = "请选择评级";
   }
-  for (const { key, label, wide } of EVALUATION_TEXT_FIELDS) {
+  for (const { key, label, wide } of EVALUATION_FIELDS) {
     const limit = wide
       ? HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH
       : HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH;
@@ -276,7 +271,7 @@ function HumanMeetingReviewForm({
       } else if (errors?.["evaluation.rating"]) {
         ratingTriggerRef.current?.focus();
       } else {
-        const field = EVALUATION_TEXT_FIELDS.find(({ key }) => errors?.[`evaluation.${key}`]);
+        const field = EVALUATION_FIELDS.find(({ key }) => errors?.[`evaluation.${key}`]);
         if (field) {
           const element = document.querySelector<HTMLElement>(`[id="${fieldId}-${field.key}"]`);
           (element?.querySelector<HTMLElement>('[contenteditable="true"]') ?? element)?.focus();
@@ -431,10 +426,12 @@ function HumanMeetingReviewForm({
   const isSubmitted = review.evaluationStatus === "submitted" || review.roundStatus === "completed";
   const submittedOutcomeLabel = review.outcome ? OUTCOME_LABELS[review.outcome] : "已完成";
 
+  const professionalSkill = evaluation.professionalSkill.trim();
+  const hasSkillGrade = PROFESSIONAL_SKILL_GRADES.includes(professionalSkill);
+  const legacySkill = !hasSkillGrade && professionalSkill !== "-" ? professionalSkill : "";
+
   const hasDraftContent = Boolean(
-    evaluation.rating ||
-    outcome ||
-    EVALUATION_TEXT_FIELDS.some(({ key }) => evaluation[key].trim()),
+    evaluation.rating || outcome || EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()),
   );
 
   function renderEditor(
@@ -508,7 +505,7 @@ function HumanMeetingReviewForm({
               </output>
             </div>
           </div>
-          <FieldGroup className="mt-4 grid gap-5 md:grid-cols-2">
+          <FieldGroup className="mt-4 grid gap-5 md:grid-cols-3">
             <Field label="本轮结论" id={`${fieldId}-outcome`} required error={errors?.outcome}>
               <HumanMeetingReviewSelect
                 id={`${fieldId}-outcome`}
@@ -562,19 +559,49 @@ function HumanMeetingReviewForm({
                 }}
               />
             </Field>
+            <Field
+              label="专业技能"
+              id={`${fieldId}-professionalSkill`}
+              error={errors?.["evaluation.professionalSkill"]}
+            >
+              <HumanMeetingReviewSelect
+                id={`${fieldId}-professionalSkill`}
+                label="专业技能"
+                placeholder="请选择专业技能等级"
+                required={false}
+                invalid={Boolean(errors?.["evaluation.professionalSkill"])}
+                disabled={isSubmitted || Boolean(busy)}
+                value={hasSkillGrade ? professionalSkill : null}
+                options={PROFESSIONAL_SKILL_GRADES.map((value) => ({ label: value, value }))}
+                onValueChange={(value) => {
+                  if (value === null) {
+                    return;
+                  }
+                  evaluationDirtyRef.current = true;
+                  setEvaluation((current) => ({ ...current, professionalSkill: value }));
+                }}
+              />
+              {legacySkill ? (
+                <p className="whitespace-pre-wrap break-words text-muted-foreground text-sm">
+                  {legacySkill}
+                </p>
+              ) : null}
+            </Field>
           </FieldGroup>
           <FieldGroup className="mt-6 grid gap-5 md:grid-cols-2">
-            {EVALUATION_TEXT_FIELDS.map(({ key, label, minHeight, placeholder, wide }) => (
-              <Field
-                key={key}
-                id={`${fieldId}-${key}`}
-                label={label}
-                wide={wide}
-                error={errors?.[`evaluation.${key}`]}
-              >
-                {renderEditor(key, label, minHeight, placeholder)}
-              </Field>
-            ))}
+            {EVALUATION_FIELDS.filter(({ key }) => key !== "professionalSkill").map(
+              ({ key, label, minHeight, placeholder, wide }) => (
+                <Field
+                  key={key}
+                  id={`${fieldId}-${key}`}
+                  label={label}
+                  wide={wide}
+                  error={errors?.[`evaluation.${key}`]}
+                >
+                  {renderEditor(key, label, minHeight, placeholder)}
+                </Field>
+              ),
+            )}
           </FieldGroup>
           {isSubmitted && review.documentSync ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">

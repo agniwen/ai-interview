@@ -544,8 +544,8 @@ describe("RoundCard interviewer arrangement", () => {
     expect(host.textContent).not.toContain("AI 评价");
     expect(host.textContent).toContain("评级A");
     expect(host.textContent).toContain("专业技能优");
-    expect(host.textContent).not.toContain("具备完整的系统架构与前端工程化能力");
-    expect(host.textContent).toContain("职级定位高级专家");
+    expect(host.textContent).toContain("具备完整的系统架构与前端工程化能力");
+    expect(host.textContent).not.toContain("职级定位");
     expect(host.textContent).toContain("角色定位核心方案负责人");
     expect(host.textContent).toContain("薪资建议-");
     expect(host.textContent).toContain("整体评价唯一整体评价内容");

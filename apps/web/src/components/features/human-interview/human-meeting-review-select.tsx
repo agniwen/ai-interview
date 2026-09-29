@@ -37,6 +37,7 @@ export function HumanMeetingReviewSelect({
   options,
   disabled,
   invalid = false,
+  required = true,
   onValueChange,
   triggerRef,
 }: {
@@ -47,25 +48,26 @@ export function HumanMeetingReviewSelect({
   options: { value: string; label: string; description?: string }[];
   disabled: boolean;
   invalid?: boolean;
+  required?: boolean;
   onValueChange: (value: string | null) => void;
-  triggerRef: Ref<HTMLButtonElement>;
+  triggerRef?: Ref<HTMLButtonElement>;
 }) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   if (!isMobile) {
     return (
-      <Select required disabled={disabled} value={value} onValueChange={onValueChange}>
+      <Select required={required} disabled={disabled} value={value} onValueChange={onValueChange}>
         <SelectTrigger
           ref={triggerRef}
           id={id}
           aria-label={label}
-          aria-required="true"
+          aria-required={required}
           aria-invalid={invalid}
           aria-describedby={invalid ? `${id}-error` : undefined}
           className="w-full"
         >
           <SelectValue placeholder={placeholder}>
-            {options.find((option) => option.value === value)?.label}
+            {options.find((option) => option.value === value)?.label ?? value}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -112,7 +114,7 @@ export function HumanMeetingReviewSelect({
           size="lg"
           className="w-full justify-between"
         >
-          {options.find((option) => option.value === value)?.label ?? placeholder}
+          {options.find((option) => option.value === value)?.label ?? value ?? placeholder}
           <IconChevronDown data-icon="inline-end" />
         </Button>
       </DrawerTrigger>
@@ -123,7 +125,7 @@ export function HumanMeetingReviewSelect({
         </DrawerHeader>
         <RadioGroup
           aria-label={label}
-          required
+          required={required}
           disabled={disabled}
           value={value ?? ""}
           onValueChange={(next) => {

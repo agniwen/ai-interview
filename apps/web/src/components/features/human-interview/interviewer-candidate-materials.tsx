@@ -216,26 +216,26 @@ function CandidateEvaluations({
   );
   if (query.isPending || query.isError) {
     return (
-      <>
-        {query.isPending ? (
-          <LoadingBlock />
-        ) : (
-          <ErrorBlock error={query.error} title="历史评价加载失败" />
-        )}
-        {aiStatus}
-        {aiEvaluation}
-      </>
+      <ScrollArea className="h-full" scrollFade scrollbars="leave">
+        <div className="mx-auto w-full max-w-5xl">
+          {query.isPending ? (
+            <LoadingBlock />
+          ) : (
+            <ErrorBlock error={query.error} title="历史评价加载失败" />
+          )}
+          {aiStatus}
+          {aiEvaluation}
+        </div>
+      </ScrollArea>
     );
   }
   return (
-    <>
-      <CandidateInterviewHistory
-        aiEvaluation={aiEvaluation}
-        aiEvaluationGeneratedAt={aiQuery.data?.generatedAt}
-        data={query.data}
-      />
-      {aiStatus}
-    </>
+    <CandidateInterviewHistory
+      status={aiStatus}
+      aiEvaluation={aiEvaluation}
+      aiEvaluationGeneratedAt={aiQuery.data?.generatedAt}
+      data={query.data}
+    />
   );
 }
 
@@ -709,11 +709,7 @@ export function InterviewerCandidateMaterials({
           </div>
         </MaterialTab>
         <MaterialTab value="evaluation">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <div className="mx-auto w-full max-w-5xl">
-              <CandidateEvaluations key={effectiveCandidateId} aiQuery={aiQuery} query={hrQuery} />
-            </div>
-          </ScrollArea>
+          <CandidateEvaluations key={effectiveCandidateId} aiQuery={aiQuery} query={hrQuery} />
         </MaterialTab>
         {showQuestions ? (
           <MaterialTab value="questions">
