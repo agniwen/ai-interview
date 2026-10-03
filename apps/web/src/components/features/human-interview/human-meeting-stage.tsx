@@ -586,12 +586,14 @@ function InterviewerPlaceholderAvatar({ image, name }: { image: string; name: st
       )}
     >
       <div className="relative grid size-28 place-items-center">
+        {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no Next image runtime; this decorative layer reuses the participant avatar URL. */}
         <img
           src={image}
           alt=""
           aria-hidden="true"
           className="absolute size-32 scale-125 rounded-full object-cover opacity-25 blur-2xl"
         />
+        {/* oxlint-disable-next-line next/no-img-element -- Native image load/error events control when the participant placeholder becomes visible. */}
         <img
           src={image}
           alt={`${name}的头像`}

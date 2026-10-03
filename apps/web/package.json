@@ -16,7 +16,7 @@
     "postbuild": "bun run copy:mupdf-wasm && bun run verify:ssr-bundle-imports",
     "start": "bun .output/server/index.mjs",
     "verify:ssr-bundle-imports": "bun scripts/verify-server-bundle-imports.ts",
-    "pretypecheck": "bun run i18n:compile",
+    "pretypecheck": "bun run --filter @app/server build && bun run i18n:compile",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
