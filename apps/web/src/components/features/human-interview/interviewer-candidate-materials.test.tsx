@@ -55,7 +55,35 @@ it("opens history from the materials tab and isolates it when switching candidat
       },
     });
     client.setQueryData([...prefix, id, "ai-evaluation"], {
-      aiEvaluation: { evaluation: null, status: "missing" },
+      aiEvaluation:
+        id === "candidate-1"
+          ? {
+              evaluation: {
+                conciseOverall: "不展示的简要评价",
+                detailedOverall: {
+                  judgment: "**符合岗位职责**",
+                  matchingEvidence: "- 有相关项目成果",
+                  risks: "团队管理经验待确认",
+                },
+                dimensions: Object.fromEntries(
+                  [
+                    "skillMatch",
+                    "experienceRelevance",
+                    "projectMatch",
+                    "educationBackground",
+                    "potential",
+                    "stability",
+                  ].map((key) => [
+                    key,
+                    { basis: "job", evaluation: "不展示的六维详情", level: "recommended" },
+                  ]),
+                ),
+                recommendationLevel: "recommended",
+                schemaVersion: 2,
+              },
+              status: "ready",
+            }
+          : { evaluation: null, status: "missing" },
     });
     client.setQueryData([...prefix, id, "history"], {
       hrInitialInformation: null,
@@ -102,8 +130,19 @@ it("opens history from the materials tab and isolates it when switching candidat
     await render("candidate-1");
     expect(container.querySelector('[role="combobox"]')).not.toBeNull();
     const selectedTab = container.querySelector('[role="tab"][aria-selected="true"]');
-    expect(selectedTab?.textContent).toBe("评价");
+    expect(selectedTab?.textContent).toBe("概览");
     expect(container.textContent).toContain("第一位候选人的优势");
+    const aiSection = container.querySelector('[data-evaluation-id="ai-evaluation"]');
+    expect(
+      [...(aiSection?.querySelectorAll("section > h3") ?? [])].map(
+        (heading) => heading.textContent,
+      ),
+    ).toEqual(["判断", "匹配依据", "风险与待确认项"]);
+    expect(aiSection?.querySelector("strong")?.textContent).toBe("符合岗位职责");
+    expect(aiSection?.querySelector("li")?.textContent).toBe("有相关项目成果");
+    expect(aiSection?.textContent).toContain("团队管理经验待确认");
+    expect(aiSection?.textContent).not.toContain("不展示的");
+    expect(aiSection?.querySelector("section svg")).toBeNull();
     await render("candidate-2");
     expect(container.textContent).not.toContain("第一位候选人的优势");
     expect(container.textContent).not.toContain("暂无已提交的业务面评价");
@@ -165,7 +204,7 @@ function Harness({
 }) {
   const [state, setState] = useState<InterviewerCandidateMaterialsState>({
     candidateId: "candidate",
-    tab: "resume",
+    tab: "evaluation",
   });
   return (
     <InterviewerCandidateMaterials
@@ -200,13 +239,13 @@ it("places desktop tabs in the meeting header while keeping their panels in cand
         </QueryClientProvider>,
       ),
     );
-    expect(headerTabs.querySelectorAll('[role="tab"]')).toHaveLength(3);
+    expect(headerTabs.querySelectorAll('[role="tab"]')).toHaveLength(2);
     expect(materials.querySelector('[role="tablist"]')).toBeNull();
     await act(() =>
-      headerTabs.querySelector<HTMLButtonElement>('[role="tab"]:nth-child(2)')?.click(),
+      headerTabs.querySelector<HTMLButtonElement>('[role="tab"]:nth-child(1)')?.click(),
     );
     expect(headerTabs.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-      "评价",
+      "概览",
     );
     expect(materials.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
     vi.stubGlobal("innerWidth", 390);
@@ -218,7 +257,7 @@ it("places desktop tabs in the meeting header while keeping their panels in cand
       ),
     );
     expect(headerTabs.querySelector('[role="tablist"]')).toBeNull();
-    expect(materials.querySelectorAll('[role="tab"]')).toHaveLength(3);
+    expect(materials.querySelectorAll('[role="tab"]')).toHaveLength(2);
   } finally {
     await act(() => root.unmount());
     client.clear();
@@ -267,10 +306,10 @@ it.each([
       expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1);
       const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
       expect(tabs.map((tab) => tab.textContent)).toEqual(
-        showQuestions ? ["简历", "评价", "面试题"] : ["简历", "评价"],
+        showQuestions ? ["概览", "面试题"] : ["概览"],
       );
       expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-        "简历",
+        "概览",
       );
       const panels = [...container.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
       expect(panels).toHaveLength(tabs.length);
@@ -296,99 +335,74 @@ it.each([
   },
 );
 
-it("switches the resume tab between the original file and structured data", async () => {
-  const client = new QueryClient();
-  const prefix = ["human-interview-candidate-materials", "unified"];
-  client.setQueryData([...prefix, "candidates"], {
-    candidates: [{ candidateName: "张三", id: "candidate", rounds: [], targetRole: null }],
-    meetingId: "meeting",
-  });
-  client.setQueryData([...prefix, "candidate", "overview"], {
-    candidate: {
-      candidateEmail: null,
-      candidateName: "张三",
-      candidatePhone: null,
-      creatorName: null,
-      hasResumeFile: false,
-      id: "candidate",
-      jobDescriptionName: null,
-      resumeFileName: null,
-      resumeProfile: null,
-      targetRole: null,
-    },
-  });
-  const container = document.createElement("div");
-  document.body.append(container);
-  const root = createRoot(container);
-  try {
-    await act(() =>
-      root.render(
-        <QueryClientProvider client={client}>
-          <Harness />
-        </QueryClientProvider>,
-      ),
-    );
-    const toggle = () => container.querySelector<HTMLButtonElement>("button[aria-pressed]");
-    expect(toggle()?.getAttribute("aria-label")).toBe("展示结构化数据");
-    expect(container.textContent).toContain("候选人未上传简历文件");
-    await act(() => toggle()?.click());
-    expect(toggle()?.getAttribute("aria-label")).toBe("查看简历原件");
-    expect(toggle()?.getAttribute("aria-pressed")).toBe("true");
-    expect(container.querySelector('header button[aria-label="查看简历原件"]')).not.toBeNull();
-    expect(container.textContent).toContain("候选人信息");
-    await act(() => toggle()?.click());
-    expect(toggle()?.getAttribute("aria-label")).toBe("展示结构化数据");
-    expect(container.textContent).toContain("候选人未上传简历文件");
-  } finally {
-    await act(() => root.unmount());
-    client.clear();
-    container.remove();
-  }
-});
-
-it("keeps the PDF worker alive when switching away and back", async () => {
-  pdfLifecycle.mounted.mockClear();
-  pdfLifecycle.destroyed.mockClear();
-  const client = new QueryClient();
-  const prefix = ["human-interview-candidate-materials", "unified"];
-  client.setQueryData([...prefix, "candidates"], {
-    candidates: [{ candidateName: "张三", id: "candidate", rounds: [], targetRole: null }],
-    meetingId: "meeting",
-  });
-  client.setQueryData([...prefix, "candidate", "overview"], {
-    candidate: {
-      candidateName: "张三",
-      hasResumeFile: true,
-      id: "candidate",
-      resumeFileName: "resume.pdf",
-      resumeProfile: null,
-    },
-  });
-  const container = document.createElement("div");
-  document.body.append(container);
-  const root = createRoot(container);
-  try {
-    await act(() => {
-      root.render(
-        <QueryClientProvider client={client}>
-          <Harness />
-        </QueryClientProvider>,
-      );
+it.each([390, 1280])(
+  "opens resume details in a modal at width %s and preserves viewer controls",
+  async (width) => {
+    vi.stubGlobal("innerWidth", width);
+    const client = new QueryClient();
+    const prefix = ["human-interview-candidate-materials", "unified"];
+    client.setQueryData([...prefix, "candidates"], {
+      candidates: [{ candidateName: "张三", id: "candidate", rounds: [], targetRole: null }],
+      meetingId: "meeting",
     });
-    const pdf = container.querySelector('[data-testid="pdf-worker-view"]');
-    expect(pdf).not.toBeNull();
-    expect(pdf?.querySelector('button[aria-label="展示结构化数据"]')).not.toBeNull();
-    const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    for (const label of ["评价", "简历", "评价", "简历"]) {
-      await act(() => tabs.find((tab) => tab.textContent === label)?.click());
+    client.setQueryData([...prefix, "candidate", "history"], {
+      hrInitialInformation: null,
+      previousEvaluations: [],
+    });
+    client.setQueryData([...prefix, "candidate", "ai-evaluation"], {
+      aiEvaluation: { status: "missing" },
+    });
+    client.setQueryData([...prefix, "candidate", "overview"], {
+      candidate: {
+        candidateName: "张三",
+        hasResumeFile: true,
+        id: "candidate",
+        resumeFileName: "resume.pdf",
+        resumeProfile: null,
+      },
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    try {
+      await act(() =>
+        root.render(
+          <QueryClientProvider client={client}>
+            <Harness />
+          </QueryClientProvider>,
+        ),
+      );
+      expect([...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)).toEqual(
+        ["概览"],
+      );
+      const preview = container.querySelector('[aria-label="简历预览"]');
+      const pdf = preview?.querySelector('[data-testid="pdf-worker-view"]');
+      expect(pdf).not.toBeNull();
+      await act(() =>
+        preview?.querySelector<HTMLButtonElement>('button[aria-label="全屏查看简历"]')?.click(),
+      );
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+      expect(dialog).not.toBeNull();
+      expect(dialog?.textContent).toContain("简历详情");
+      expect(dialog?.querySelector("[data-vaul-no-drag]")).not.toBeNull();
+      const toggle = () => dialog?.querySelector<HTMLButtonElement>("button[aria-pressed]");
+      expect(toggle()?.getAttribute("aria-label")).toBe("展示结构化数据");
+      await act(() => toggle()?.click());
+      expect(dialog?.textContent).toContain("候选人信息");
+      expect(toggle()?.getAttribute("aria-label")).toBe("查看简历原件");
+      await act(() => toggle()?.click());
+      expect(dialog?.querySelector('[data-testid="pdf-worker-view"]')).not.toBeNull();
+      expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
+        "概览",
+      );
+      const close = dialog?.querySelector<HTMLButtonElement>('button[aria-label="关闭简历详情"]');
+      expect(close).not.toBeNull();
+      await act(() => close?.click());
       expect(container.querySelector('[data-testid="pdf-worker-view"]')).toBe(pdf);
-      expect(pdfLifecycle.mounted).toHaveBeenCalledTimes(1);
-      expect(pdfLifecycle.destroyed).not.toHaveBeenCalled();
+    } finally {
+      await act(() => root.unmount());
+      client.clear();
+      container.remove();
     }
-  } finally {
-    await act(() => root.unmount());
-    client.clear();
-    container.remove();
-  }
-  expect(pdfLifecycle.destroyed).toHaveBeenCalledTimes(1);
-});
+  },
+);

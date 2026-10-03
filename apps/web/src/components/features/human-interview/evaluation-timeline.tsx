@@ -84,14 +84,14 @@ export function EvaluationTimeline({
     >
       <div className="grid w-full grid-cols-[15rem_minmax(0,1fr)] gap-6 px-3 pt-3 xl:grid-cols-[15rem_minmax(0,1fr)_15rem]">
         <aside className="sticky top-3 flex h-[calc(100cqh-1.5rem)] min-w-0 items-center self-start">
-          <nav aria-label="评价时间线" className="max-h-full w-full overflow-y-auto pr-1">
-            {[false, true].map((reference) => {
+          <nav aria-label="评价时间线" className="max-h-full w-full overflow-y-auto p-1">
+            {[true, false].map((reference) => {
               const group = entries.filter((entry) => Boolean(entry.reference) === reference);
               if (!group.length) {
                 return null;
               }
               return (
-                <div className={cn(reference && "mt-6")} key={String(reference)}>
+                <div className={cn(!reference && "mt-6")} key={String(reference)}>
                   <ol className="flex flex-col gap-1">
                     {group.map((entry, index) => (
                       <li className="relative min-w-0" key={entry.id}>

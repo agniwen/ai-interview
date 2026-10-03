@@ -44,6 +44,7 @@ export interface ModalProps {
   /** 可滚动的主体区域。 */
   children: React.ReactNode;
   size?: ModalSize;
+  fullScreen?: boolean;
   showCloseButton?: boolean;
   /** 为 false 时屏蔽 ESC、点击遮罩关闭与移动端下滑关闭，调用方需自己提供关闭路径。 */
   dismissible?: boolean;
@@ -69,6 +70,7 @@ function DialogModal({
   headerLayout = "stack",
   children,
   size = "md",
+  fullScreen = false,
   showCloseButton = true,
   dismissible = true,
   className,
@@ -118,12 +120,15 @@ function DialogModal({
             "w-full max-w-[calc(100%-2rem)] outline-none",
             cossModalMotionClass,
             SIZE_CLASS[size],
+            fullScreen &&
+              "inset-0 top-0 left-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 sm:w-screen",
           )}
         >
           <div
             className={cn(
               cossModalSurfaceClass,
               "flex max-h-[90vh] flex-col overflow-hidden rounded-lg",
+              fullScreen && "h-dvh max-h-dvh rounded-none border-0",
               className,
             )}
           >
@@ -184,6 +189,7 @@ function DrawerModal({
   headerLayout = "stack",
   children,
   dismissible = true,
+  fullScreen = false,
   className,
   bodyClassName,
   headerClassName,
@@ -230,12 +236,14 @@ function DrawerModal({
         <DrawerPrimitive.Content
           className={cn(
             "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[90vh] flex-col outline-none",
+            fullScreen && "inset-0 mt-0 h-dvh max-h-dvh",
           )}
         >
           <div
             className={cn(
               cossModalSurfaceClass,
               "flex h-full max-h-[90vh] flex-col overflow-hidden rounded-t-3xl",
+              fullScreen && "h-dvh max-h-dvh rounded-none border-0",
               className,
             )}
           >

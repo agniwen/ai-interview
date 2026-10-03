@@ -220,7 +220,7 @@ describe("HumanMeetingStage realtime transcript", () => {
             canPublish
             canUseLiveTranscript={false}
             canUseVoiceEffects={false}
-            candidateMaterialsState={{ candidateId: null, tab: "resume" }}
+            candidateMaterialsState={{ candidateId: null, tab: "evaluation" }}
             chatInviteToken="invite-1"
             chatMode="interviewer"
             inviteToken="invite-1"
@@ -275,7 +275,7 @@ describe("HumanMeetingStage realtime transcript", () => {
             canPublish
             canUseLiveTranscript={false}
             canUseVoiceEffects={false}
-            candidateMaterialsState={{ candidateId: null, tab: "resume" }}
+            candidateMaterialsState={{ candidateId: null, tab: "evaluation" }}
             chatInviteToken="invite-1"
             chatMode="interviewer"
             inviteToken="invite-1"
@@ -335,7 +335,7 @@ describe("HumanMeetingStage realtime transcript", () => {
           canPublish
           canUseLiveTranscript
           canUseVoiceEffects={false}
-          candidateMaterialsState={{ candidateId: null, tab: "resume" }}
+          candidateMaterialsState={{ candidateId: null, tab: "evaluation" }}
           chatInviteToken="invite-1"
           chatMode="interviewer"
           inviteToken="invite-1"

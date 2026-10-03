@@ -94,31 +94,16 @@ export function CandidateInterviewHistory({
   aiEvaluation,
   aiEvaluationGeneratedAt,
   status,
+  resumePreview,
 }: {
   aiEvaluationGeneratedAt?: string | null;
   status?: ReactNode;
+  resumePreview?: ReactNode;
   aiEvaluation: ReactNode;
   data: HumanInterviewCandidateHrInformationResponse;
 }) {
   const { hrInitialInformation: information, previousEvaluations } = data;
   const entries: EvaluationTimelineEntry[] = [
-    ...previousEvaluations.toReversed().map((round) => ({
-      author: round.submittedBy,
-      id: round.roundId,
-      outcome: round.outcome ? OUTCOME_LABEL[round.outcome] : "暂无结论",
-      timestamp: round.submittedAt,
-      title: round.roundLabel,
-    })),
-    ...(information
-      ? [
-          {
-            id: "hr-initial",
-            reference: true,
-            timestamp: information.generatedAt,
-            title: "HR 初面",
-          },
-        ]
-      : []),
     ...(aiEvaluation
       ? [
           {
@@ -129,6 +114,23 @@ export function CandidateInterviewHistory({
           },
         ]
       : []),
+    ...(information
+      ? [
+          {
+            id: "hr-initial",
+            reference: true,
+            timestamp: information.generatedAt,
+            title: "HR 初面",
+          },
+        ]
+      : []),
+    ...previousEvaluations.map((round) => ({
+      author: round.submittedBy,
+      id: round.roundId,
+      outcome: round.outcome ? OUTCOME_LABEL[round.outcome] : "暂无结论",
+      timestamp: round.submittedAt,
+      title: round.roundLabel,
+    })),
   ];
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const expanded = entries.map((entry) => entry.id).filter((id) => !collapsed.includes(id));
@@ -139,6 +141,7 @@ export function CandidateInterviewHistory({
     >
       {(isMobile) => (
         <>
+          {resumePreview}
           <Accordion
             className="flex flex-col gap-5 px-2 pt-2 pb-4 md:gap-0 md:px-0 md:pt-0 md:pb-8"
             value={expanded}
@@ -147,7 +150,68 @@ export function CandidateInterviewHistory({
             }
             multiple
           >
-            {previousEvaluations.toReversed().map((round) => (
+            {aiEvaluation ? (
+              <AccordionItem
+                className={
+                  isMobile
+                    ? "rounded-2xl border-b-0 bg-muted/70 p-1"
+                    : "border-b border-border/60 py-3"
+                }
+                value="ai-evaluation"
+                data-evaluation-id="ai-evaluation"
+              >
+                <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
+                  <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
+                    <EvaluationTitle title="AI 评价" timestamp={aiEvaluationGeneratedAt} />
+                  </AccordionTrigger>
+                </div>
+                <AccordionContent
+                  className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}
+                >
+                  {aiEvaluation}
+                </AccordionContent>
+              </AccordionItem>
+            ) : null}
+            {information ? (
+              <AccordionItem
+                className={
+                  isMobile
+                    ? "rounded-2xl border-b-0 bg-muted/70 p-1"
+                    : "border-b border-border/60 py-3"
+                }
+                value="hr-initial"
+                data-evaluation-id="hr-initial"
+              >
+                <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
+                  <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
+                    <EvaluationTitle title="HR 初面" timestamp={information.generatedAt} />
+                  </AccordionTrigger>
+                </div>
+                <AccordionContent
+                  className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}
+                >
+                  <div className="flex flex-col">
+                    <p className="pb-3 text-muted-foreground text-sm leading-6">
+                      {information.roundLabel ?? "AI 初面"}
+                    </p>
+                    {HR_INFORMATION_ENTRIES.map(([key, label]) => (
+                      <section className="py-3" key={key}>
+                        <h3 className="font-semibold text-base">{label}</h3>
+                        <p
+                          className={cn(
+                            "mt-2 whitespace-pre-wrap text-base leading-7",
+                            !information.values[key]?.trim() && "opacity-50",
+                          )}
+                        >
+                          {information.values[key]?.trim() || "未收集到相关信息"}
+                        </p>
+                      </section>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ) : null}
+            {previousEvaluations.map((round) => (
               <AccordionItem
                 className={
                   isMobile
@@ -213,67 +277,6 @@ export function CandidateInterviewHistory({
                 </AccordionContent>
               </AccordionItem>
             ))}
-            {information ? (
-              <AccordionItem
-                className={
-                  isMobile
-                    ? "rounded-2xl border-b-0 bg-muted/70 p-1"
-                    : "border-b border-border/60 py-3"
-                }
-                value="hr-initial"
-                data-evaluation-id="hr-initial"
-              >
-                <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
-                  <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
-                    <EvaluationTitle title="HR 初面" timestamp={information.generatedAt} />
-                  </AccordionTrigger>
-                </div>
-                <AccordionContent
-                  className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}
-                >
-                  <div className="flex flex-col">
-                    <p className="pb-3 text-muted-foreground text-sm leading-6">
-                      {information.roundLabel ?? "AI 初面"}
-                    </p>
-                    {HR_INFORMATION_ENTRIES.map(([key, label]) => (
-                      <section className="py-3" key={key}>
-                        <h3 className="font-semibold text-base">{label}</h3>
-                        <p
-                          className={cn(
-                            "mt-2 whitespace-pre-wrap text-base leading-7",
-                            !information.values[key]?.trim() && "opacity-50",
-                          )}
-                        >
-                          {information.values[key]?.trim() || "未收集到相关信息"}
-                        </p>
-                      </section>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ) : null}
-            {aiEvaluation ? (
-              <AccordionItem
-                className={
-                  isMobile
-                    ? "rounded-2xl border-b-0 bg-muted/70 p-1"
-                    : "border-b border-border/60 py-3"
-                }
-                value="ai-evaluation"
-                data-evaluation-id="ai-evaluation"
-              >
-                <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
-                  <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
-                    <EvaluationTitle title="AI 评价" timestamp={aiEvaluationGeneratedAt} />
-                  </AccordionTrigger>
-                </div>
-                <AccordionContent
-                  className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}
-                >
-                  {aiEvaluation}
-                </AccordionContent>
-              </AccordionItem>
-            ) : null}
           </Accordion>
           {status}
         </>

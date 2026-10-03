@@ -1,6 +1,11 @@
 "use client";
 
-import { IconAlertTriangle, IconFileDescription, IconListDetails } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconFileDescription,
+  IconListDetails,
+  IconX,
+} from "@tabler/icons-react";
 import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
 import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
@@ -15,10 +20,9 @@ import { RestrictedMarkdownView } from "@/components/features/display/markdown-v
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
-  QUALITATIVE_RECOMMENDATION_LABEL,
-  QualitativeDimensionRadar,
-  QualitativeRecommendationIndicator,
-} from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +44,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Modal } from "@/components/ui/modal";
+import { CandidateResumePreview } from "./candidate-resume-preview";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -74,7 +80,7 @@ const InlineImageViewer = lazy(async () => {
   return { default: mod.ImageResumePreviewContent };
 });
 
-export type CandidateMaterialsTab = "resume" | "evaluation" | "questions";
+export type CandidateMaterialsTab = "evaluation" | "questions";
 
 export interface InterviewerCandidateMaterialsState {
   candidateId: string | null;
@@ -82,7 +88,7 @@ export interface InterviewerCandidateMaterialsState {
 }
 
 function isCandidateMaterialsTab(value: string): value is CandidateMaterialsTab {
-  return value === "resume" || value === "evaluation" || value === "questions";
+  return value === "evaluation" || value === "questions";
 }
 
 interface InterviewerCandidateMaterialsProps {
@@ -100,15 +106,6 @@ const MATERIALS_QUERY_OPTIONS = {
   retry: false,
   staleTime: Number.POSITIVE_INFINITY,
 } as const;
-
-const DIMENSION_ENTRIES = [
-  ["skillMatch", "技能匹配"],
-  ["experienceRelevance", "经验相关性"],
-  ["projectMatch", "项目匹配"],
-  ["educationBackground", "教育与背景"],
-  ["potential", "潜力"],
-  ["stability", "稳定性"],
-] as const;
 
 function LoadingBlock() {
   return (
@@ -152,47 +149,22 @@ function AiEvaluationContent({
 }) {
   const { evaluation } = data.aiEvaluation;
   return (
-    <div className="@container">
-      <section className="grid items-center gap-3 border-b pb-3 @min-[40rem]:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="mx-auto w-full max-w-60">
-          <QualitativeDimensionRadar compact evaluation={evaluation} />
-        </div>
-        <div className="min-w-0 space-y-2">
-          <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-base">综合建议</h3>
-            <QualitativeRecommendationIndicator
-              className="text-sm"
-              level={evaluation.recommendationLevel}
-            />
-          </div>
+    <div className="grid grid-cols-1 gap-x-6 gap-y-5 py-3 md:grid-cols-2">
+      {(
+        [
+          ["judgment", "判断"],
+          ["matchingEvidence", "匹配依据"],
+          ["risks", "风险与待确认项"],
+        ] as const
+      ).map(([key, label]) => (
+        <section className={cn("min-w-0", key === "judgment" && "md:col-span-2")} key={key}>
+          <h3 className="font-semibold text-base md:text-sm">{label}</h3>
           <RestrictedMarkdownView
-            className="text-base leading-7"
-            content={evaluation.detailedOverall.judgment}
+            className="mt-2 text-base leading-7 md:text-sm md:leading-6"
+            content={evaluation.detailedOverall[key]}
           />
-        </div>
-      </section>
-      <div className="grid gap-x-6 @min-[48rem]:grid-cols-2">
-        {DIMENSION_ENTRIES.map(([key, label]) => {
-          const dimension = evaluation.dimensions[key];
-          return (
-            <section
-              className="min-w-0 border-b py-3 last:border-b-0 @min-[48rem]:nth-last-2:border-b-0"
-              key={key}
-            >
-              <div className="flex items-center gap-3">
-                <h3 className="font-semibold text-base">{label}</h3>
-                <Badge className="text-sm" variant="outline">
-                  {QUALITATIVE_RECOMMENDATION_LABEL[dimension.level]}
-                </Badge>
-              </div>
-              <RestrictedMarkdownView
-                className="mt-2 text-base leading-7"
-                content={dimension.evaluation}
-              />
-            </section>
-          );
-        })}
-      </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -200,7 +172,9 @@ function AiEvaluationContent({
 function CandidateEvaluations({
   query,
   aiQuery,
+  resumePreview,
 }: {
+  resumePreview: ReactNode;
   query: ReturnType<typeof useHrInformationQuery>;
   aiQuery: ReturnType<typeof useAiEvaluationQuery>;
 }) {
@@ -218,13 +192,14 @@ function CandidateEvaluations({
     return (
       <ScrollArea className="h-full" scrollFade scrollbars="leave">
         <div className="mx-auto w-full max-w-5xl">
+          {resumePreview}
+          {aiStatus}
+          {aiEvaluation}
           {query.isPending ? (
             <LoadingBlock />
           ) : (
             <ErrorBlock error={query.error} title="历史评价加载失败" />
           )}
-          {aiStatus}
-          {aiEvaluation}
         </div>
       </ScrollArea>
     );
@@ -232,6 +207,7 @@ function CandidateEvaluations({
   return (
     <CandidateInterviewHistory
       status={aiStatus}
+      resumePreview={resumePreview}
       aiEvaluation={aiEvaluation}
       aiEvaluationGeneratedAt={aiQuery.data?.generatedAt}
       data={query.data}
@@ -393,6 +369,8 @@ function InlineResumeDocument({
   onIsDarkChange,
   sourceUrl,
   toolbarAction,
+  compact = false,
+  toolbarContainer,
 }: {
   fileName: string | undefined;
   isDark: boolean;
@@ -400,6 +378,8 @@ function InlineResumeDocument({
   onIsDarkChange: (isDark: boolean) => void;
   sourceUrl: string;
   toolbarAction: ReactNode;
+  compact?: boolean;
+  toolbarContainer?: HTMLElement | null;
 }) {
   if (kind === "pdf" || kind === "pptx") {
     return (
@@ -410,11 +390,13 @@ function InlineResumeDocument({
         file={sourceUrl}
         fitWidthOnMobile
         scrollFade
+        showToolbar={!compact}
         showDownload={false}
         showRotateControlsOnMobile={false}
         showSearchOnMobile={false}
         showUpload={false}
         toolbarActions={toolbarAction}
+        toolbarContainer={toolbarContainer}
       />
     );
   }
@@ -425,6 +407,7 @@ function InlineResumeDocument({
         fileName={fileName}
         isDark={isDark}
         onIsDarkChange={onIsDarkChange}
+        showToolbar={!compact}
         showDownload={false}
         showUpload={false}
         src={sourceUrl}
@@ -439,6 +422,7 @@ function InlineResumeDocument({
         fileName={fileName}
         isDark={isDark}
         onIsDarkChange={onIsDarkChange}
+        showToolbar={!compact}
         showDownload={false}
         showUpload={false}
         src={sourceUrl}
@@ -475,10 +459,14 @@ function ResumePreview({
   query,
   inviteToken,
   toolbarAction,
+  compact = false,
+  toolbarContainer,
 }: {
   query: ReturnType<typeof useOverviewQuery>;
   inviteToken: string;
   toolbarAction: ReactNode;
+  compact?: boolean;
+  toolbarContainer?: HTMLElement | null;
 }) {
   const [isDark, setIsDark] = useState(false);
   if (query.isPending) {
@@ -524,6 +512,8 @@ function ResumePreview({
   return (
     <Suspense fallback={<LoadingBlock />}>
       <InlineResumeDocument
+        compact={compact}
+        toolbarContainer={toolbarContainer}
         fileName={candidate.resumeFileName ?? undefined}
         isDark={isDark}
         kind={kind}
@@ -532,6 +522,83 @@ function ResumePreview({
         toolbarAction={toolbarAction}
       />
     </Suspense>
+  );
+}
+
+function CandidateResumeDialog({
+  open,
+  onClose,
+  query,
+  inviteToken,
+}: {
+  open: boolean;
+  onClose: () => void;
+  query: ReturnType<typeof useOverviewQuery>;
+  inviteToken: string;
+}) {
+  const isMobile = useIsMobile();
+  const [pdfToolbarContainer, setPdfToolbarContainer] = useState<HTMLDivElement | null>(null);
+  const [showStructuredResume, setShowStructuredResume] = useState(false);
+  const resumeViewToggle = (
+    <ResumeViewToggle
+      onClick={() => setShowStructuredResume((current) => !current)}
+      structured={showStructuredResume}
+    />
+  );
+  return (
+    <Modal
+      open={open}
+      onOpenChange={() => onClose()}
+      size="full"
+      fullScreen
+      bodyClassName="overflow-hidden p-0"
+      title={
+        isMobile ? (
+          "简历详情"
+        ) : (
+          <span className="flex min-w-0 items-center gap-3 text-sm">
+            <ResumeDocumentFileIcon
+              className="size-5 shrink-0"
+              kind={getResumeDocumentFileIconKind({
+                fileName: query.data?.candidate.resumeFileName,
+              })}
+            />
+            <span className="sr-only">简历详情</span>
+            <span
+              className="truncate font-normal text-muted-foreground"
+              title={query.data?.candidate.resumeFileName ?? undefined}
+            >
+              {query.data?.candidate.resumeFileName}
+            </span>
+          </span>
+        )
+      }
+      headerClassName="md:px-3 md:py-2"
+      showCloseButton={false}
+      headerLayout="row"
+      headerExtra={
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block" ref={setPdfToolbarContainer} />
+          {!isMobile && showStructuredResume ? resumeViewToggle : null}
+          <Button aria-label="关闭简历详情" onClick={() => onClose()} size="icon" variant="ghost">
+            <IconX />
+          </Button>
+        </div>
+      }
+    >
+      <div className="h-full min-h-0" data-vaul-no-drag>
+        {showStructuredResume ? (
+          <CandidateDetail query={query} toolbarAction={isMobile ? resumeViewToggle : null} />
+        ) : (
+          <ResumePreview
+            toolbarContainer={isMobile ? undefined : pdfToolbarContainer}
+            inviteToken={inviteToken}
+            query={query}
+            toolbarAction={resumeViewToggle}
+          />
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -599,7 +666,7 @@ export function InterviewerCandidateMaterials({
   state,
 }: InterviewerCandidateMaterialsProps) {
   const isMobile = useIsMobile();
-  const [showStructuredResume, setShowStructuredResume] = useState(false);
+  const [resumeDialogCandidateId, setResumeDialogCandidateId] = useState<string | null>(null);
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active,
@@ -629,9 +696,10 @@ export function InterviewerCandidateMaterials({
   const candidateSelector =
     candidates.length > 1 ? (
       <Select
-        onValueChange={(candidateId) =>
-          onStateChange({ ...state, candidateId: String(candidateId) })
-        }
+        onValueChange={(candidateId) => {
+          setResumeDialogCandidateId(null);
+          onStateChange({ ...state, candidateId: String(candidateId) });
+        }}
         value={effectiveCandidateId}
       >
         <SelectTrigger aria-label="切换候选人" className="mx-2 mt-2 w-auto max-w-full">
@@ -651,7 +719,7 @@ export function InterviewerCandidateMaterials({
         </SelectContent>
       </Select>
     ) : null;
-  const activeTab = !showQuestions && state.tab === "questions" ? "resume" : state.tab;
+  const activeTab = !showQuestions && state.tab === "questions" ? "evaluation" : state.tab;
   const tabsInHeader = !isMobile && desktopTabsContainer !== undefined;
   const tabsList = (
     <TabsList
@@ -661,11 +729,8 @@ export function InterviewerCandidateMaterials({
         tabsInHeader && "mx-0 w-full self-auto md:mx-0",
       )}
     >
-      <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="resume">
-        简历
-      </TabsTrigger>
       <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="evaluation">
-        评价
+        概览
       </TabsTrigger>
       {showQuestions ? (
         <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="questions">
@@ -673,12 +738,6 @@ export function InterviewerCandidateMaterials({
         </TabsTrigger>
       ) : null}
     </TabsList>
-  );
-  const resumeViewToggle = (
-    <ResumeViewToggle
-      onClick={() => setShowStructuredResume((current) => !current)}
-      structured={showStructuredResume}
-    />
   );
   return (
     <Tabs
@@ -695,21 +754,27 @@ export function InterviewerCandidateMaterials({
         ? desktopTabsContainer && createPortal(tabsList, desktopTabsContainer)
         : tabsList}
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <MaterialTab value="resume">
-          <div className="h-full min-h-0">
-            {showStructuredResume ? (
-              <CandidateDetail query={overviewQuery} toolbarAction={resumeViewToggle} />
-            ) : (
-              <ResumePreview
-                inviteToken={inviteToken}
-                query={overviewQuery}
-                toolbarAction={resumeViewToggle}
-              />
-            )}
-          </div>
-        </MaterialTab>
         <MaterialTab value="evaluation">
-          <CandidateEvaluations key={effectiveCandidateId} aiQuery={aiQuery} query={hrQuery} />
+          <CandidateEvaluations
+            key={effectiveCandidateId}
+            aiQuery={aiQuery}
+            query={hrQuery}
+            resumePreview={
+              <CandidateResumePreview
+                candidate={overviewQuery.data?.candidate}
+                onOpen={() => {
+                  setResumeDialogCandidateId(effectiveCandidateId);
+                }}
+              >
+                <ResumePreview
+                  compact
+                  inviteToken={inviteToken}
+                  query={overviewQuery}
+                  toolbarAction={null}
+                />
+              </CandidateResumePreview>
+            }
+          />
         </MaterialTab>
         {showQuestions ? (
           <MaterialTab value="questions">
@@ -721,6 +786,13 @@ export function InterviewerCandidateMaterials({
           </MaterialTab>
         ) : null}
       </div>
+      <CandidateResumeDialog
+        key={effectiveCandidateId}
+        open={resumeDialogCandidateId === effectiveCandidateId}
+        onClose={() => setResumeDialogCandidateId(null)}
+        query={overviewQuery}
+        inviteToken={inviteToken}
+      />
     </Tabs>
   );
 }

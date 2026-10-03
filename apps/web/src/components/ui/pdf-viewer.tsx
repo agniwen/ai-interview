@@ -10,6 +10,7 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import * as React from "react";
+import { createPortal } from "react-dom";
 
 import { createClientOnlyFn } from "@tanstack/react-start";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -107,7 +108,9 @@ export type PDFViewerProps = {
   showRotateControlsOnMobile?: boolean;
   showSearchOnMobile?: boolean;
   showUpload?: boolean;
+  showToolbar?: boolean;
   toolbarActions?: React.ReactNode;
+  toolbarContainer?: HTMLElement | null;
   pageClassName?: (pageNumber: number) => string | undefined;
   renderPageOverlay?: (props: PDFViewerPageOverlayProps) => React.ReactNode;
   onActivePageChange?: (pageNumber: number) => void;
@@ -656,7 +659,9 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     showRotateControlsOnMobile = true,
     showSearchOnMobile = true,
     showUpload = true,
+    showToolbar = true,
     toolbarActions,
+    toolbarContainer,
     pageClassName,
     renderPageOverlay,
     onActivePageChange,
@@ -1640,6 +1645,225 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     [onPdfUpload],
   );
 
+  const toolbar = (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-2 bg-background",
+        toolbarContainer === undefined ? "min-h-12 border-b px-3 py-2" : "min-h-8",
+      )}
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <TooltipProvider>
+          <ToolbarTooltip label="切换缩略图">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="切换缩略图"
+              disabled={controlsDisabled}
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              <IconLayoutSidebarLeftCollapse className="size-4" />
+            </Button>
+          </ToolbarTooltip>
+        </TooltipProvider>
+        <div className="text-sm whitespace-nowrap text-muted-foreground">
+          第 {activePage} / {numPages || "-"} 页
+        </div>
+      </div>
+      <TooltipProvider>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+          {showRotateControls ? (
+            <>
+              <div
+                className={cn(
+                  "flex flex-none items-center gap-1",
+                  !showRotateControlsOnMobile && "hidden md:flex",
+                )}
+              >
+                <ToolbarTooltip label="逆时针旋转页面">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="逆时针旋转页面"
+                    disabled={controlsDisabled}
+                    onClick={() => rotateActivePage(-90)}
+                  >
+                    <IconRotateClockwise className="size-4 -scale-x-100" />
+                  </Button>
+                </ToolbarTooltip>
+                <ToolbarTooltip label="顺时针旋转页面">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="顺时针旋转页面"
+                    disabled={controlsDisabled}
+                    onClick={() => rotateActivePage(90)}
+                  >
+                    <IconRotateClockwise className="size-4" />
+                  </Button>
+                </ToolbarTooltip>
+              </div>
+              <Separator
+                orientation="vertical"
+                className={cn(
+                  "mx-1 h-4 self-center",
+                  !showRotateControlsOnMobile && "hidden md:block",
+                )}
+              />
+            </>
+          ) : null}
+          <div className="flex flex-none items-center gap-1">
+            <ToolbarTooltip label="缩小">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="缩小"
+                disabled={controlsDisabled || zoom <= ZOOM_OPTIONS[0]}
+                onClick={() => {
+                  setZoom(ZOOM_OPTIONS.findLast((option) => option < zoom) ?? zoom);
+                }}
+              >
+                <IconCircleMinus className="size-4" />
+              </Button>
+            </ToolbarTooltip>
+            <Select
+              value={String(zoom)}
+              onValueChange={(value) => setZoom(Number(value))}
+              disabled={controlsDisabled}
+            >
+              <SelectTrigger size="sm" className="w-[84px] min-w-[84px]">
+                <SelectValue placeholder="缩放">{Math.round(zoom * 100)}%</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {!ZOOM_OPTIONS.includes(zoom) ? (
+                  <SelectItem value={String(zoom)}>{Math.round(zoom * 100)}%</SelectItem>
+                ) : null}
+                {ZOOM_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {Math.round(option * 100)}%
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ToolbarTooltip label="放大">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="放大"
+                disabled={controlsDisabled || zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
+                onClick={() => {
+                  setZoom(ZOOM_OPTIONS.find((option) => option > zoom) ?? zoom);
+                }}
+              >
+                <IconCirclePlus className="size-4" />
+              </Button>
+            </ToolbarTooltip>
+          </div>
+          <Separator
+            orientation="vertical"
+            className={cn(
+              "mx-1 h-4 self-center",
+              !showDownload && !showSearchOnMobile && "hidden md:block",
+            )}
+          />
+          {showDownload ? (
+            <>
+              <ToolbarTooltip label="下载 PDF">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="下载 PDF"
+                  disabled={downloadDisabled}
+                  onClick={handleDownload}
+                >
+                  {isPreparingDownload ? (
+                    <Spinner className="size-4" />
+                  ) : (
+                    <IconDownload className="size-4" />
+                  )}
+                </Button>
+              </ToolbarTooltip>
+              <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+            </>
+          ) : null}
+          <div className={cn(!showSearchOnMobile && "hidden md:block")}>
+            <Popover>
+              <ToolbarTooltip label="搜索文本">
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="搜索文本"
+                      disabled={controlsDisabled}
+                    >
+                      <IconSearch className="size-4" />
+                    </Button>
+                  }
+                />
+              </ToolbarTooltip>
+              <PopoverContent align="end" className="w-64">
+                <SearchInput
+                  value={searchDraft}
+                  onValueChange={setSearchDraft}
+                  onApply={() => setSearchQuery(searchDraft)}
+                  onClear={() => {
+                    setSearchDraft("");
+                    setSearchQuery("");
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          {toolbarActions ? (
+            <>
+              <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+              {toolbarActions}
+            </>
+          ) : null}
+          {showUpload ? (
+            <>
+              <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+              <ToolbarTooltip label="上传 PDF">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="上传 PDF"
+                  nativeButton={false}
+                  render={
+                    <label>
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="sr-only"
+                        onChange={(event) => {
+                          const nextFile = event.target.files?.[0];
+
+                          if (nextFile) {
+                            handleUpload(nextFile);
+                            event.currentTarget.value = "";
+                          }
+                        }}
+                      />
+                      <IconUpload className="size-4" />
+                    </label>
+                  }
+                />
+              </ToolbarTooltip>
+            </>
+          ) : null}
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+
   return (
     <div
       data-slot="pdf-viewer"
@@ -1648,217 +1872,10 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
         className,
       )}
     >
-      <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <TooltipProvider>
-            <ToolbarTooltip label="切换缩略图">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="切换缩略图"
-                disabled={controlsDisabled}
-                onClick={() => setSidebarOpen((open) => !open)}
-              >
-                <IconLayoutSidebarLeftCollapse className="size-4" />
-              </Button>
-            </ToolbarTooltip>
-          </TooltipProvider>
-          <div className="text-sm whitespace-nowrap text-muted-foreground">
-            第 {activePage} / {numPages || "-"} 页
-          </div>
-        </div>
-        <TooltipProvider>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-            {showRotateControls ? (
-              <>
-                <div
-                  className={cn(
-                    "flex flex-none items-center gap-1",
-                    !showRotateControlsOnMobile && "hidden md:flex",
-                  )}
-                >
-                  <ToolbarTooltip label="逆时针旋转页面">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="逆时针旋转页面"
-                      disabled={controlsDisabled}
-                      onClick={() => rotateActivePage(-90)}
-                    >
-                      <IconRotateClockwise className="size-4 -scale-x-100" />
-                    </Button>
-                  </ToolbarTooltip>
-                  <ToolbarTooltip label="顺时针旋转页面">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="顺时针旋转页面"
-                      disabled={controlsDisabled}
-                      onClick={() => rotateActivePage(90)}
-                    >
-                      <IconRotateClockwise className="size-4" />
-                    </Button>
-                  </ToolbarTooltip>
-                </div>
-                <Separator
-                  orientation="vertical"
-                  className={cn(
-                    "mx-1 h-4 self-center",
-                    !showRotateControlsOnMobile && "hidden md:block",
-                  )}
-                />
-              </>
-            ) : null}
-            <div className="flex flex-none items-center gap-1">
-              <ToolbarTooltip label="缩小">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="缩小"
-                  disabled={controlsDisabled || zoom <= ZOOM_OPTIONS[0]}
-                  onClick={() => {
-                    setZoom(ZOOM_OPTIONS.findLast((option) => option < zoom) ?? zoom);
-                  }}
-                >
-                  <IconCircleMinus className="size-4" />
-                </Button>
-              </ToolbarTooltip>
-              <Select
-                value={String(zoom)}
-                onValueChange={(value) => setZoom(Number(value))}
-                disabled={controlsDisabled}
-              >
-                <SelectTrigger size="sm" className="w-[84px] min-w-[84px]">
-                  <SelectValue placeholder="缩放">{Math.round(zoom * 100)}%</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {!ZOOM_OPTIONS.includes(zoom) ? (
-                    <SelectItem value={String(zoom)}>{Math.round(zoom * 100)}%</SelectItem>
-                  ) : null}
-                  {ZOOM_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {Math.round(option * 100)}%
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <ToolbarTooltip label="放大">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="放大"
-                  disabled={controlsDisabled || zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
-                  onClick={() => {
-                    setZoom(ZOOM_OPTIONS.find((option) => option > zoom) ?? zoom);
-                  }}
-                >
-                  <IconCirclePlus className="size-4" />
-                </Button>
-              </ToolbarTooltip>
-            </div>
-            <Separator
-              orientation="vertical"
-              className={cn(
-                "mx-1 h-4 self-center",
-                !showDownload && !showSearchOnMobile && "hidden md:block",
-              )}
-            />
-            {showDownload ? (
-              <>
-                <ToolbarTooltip label="下载 PDF">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="下载 PDF"
-                    disabled={downloadDisabled}
-                    onClick={handleDownload}
-                  >
-                    {isPreparingDownload ? (
-                      <Spinner className="size-4" />
-                    ) : (
-                      <IconDownload className="size-4" />
-                    )}
-                  </Button>
-                </ToolbarTooltip>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-              </>
-            ) : null}
-            <div className={cn(!showSearchOnMobile && "hidden md:block")}>
-              <Popover>
-                <ToolbarTooltip label="搜索文本">
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="搜索文本"
-                        disabled={controlsDisabled}
-                      >
-                        <IconSearch className="size-4" />
-                      </Button>
-                    }
-                  />
-                </ToolbarTooltip>
-                <PopoverContent align="end" className="w-64">
-                  <SearchInput
-                    value={searchDraft}
-                    onValueChange={setSearchDraft}
-                    onApply={() => setSearchQuery(searchDraft)}
-                    onClear={() => {
-                      setSearchDraft("");
-                      setSearchQuery("");
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            {toolbarActions ? (
-              <>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-                {toolbarActions}
-              </>
-            ) : null}
-            {showUpload ? (
-              <>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-                <ToolbarTooltip label="上传 PDF">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="上传 PDF"
-                    nativeButton={false}
-                    render={
-                      <label>
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          className="sr-only"
-                          onChange={(event) => {
-                            const nextFile = event.target.files?.[0];
-
-                            if (nextFile) {
-                              handleUpload(nextFile);
-                              event.currentTarget.value = "";
-                            }
-                          }}
-                        />
-                        <IconUpload className="size-4" />
-                      </label>
-                    }
-                  />
-                </ToolbarTooltip>
-              </>
-            ) : null}
-          </div>
-        </TooltipProvider>
-      </div>
+      {showToolbar &&
+        (toolbarContainer === undefined
+          ? toolbar
+          : toolbarContainer && createPortal(toolbar, toolbarContainer))}
       <div
         ref={viewerShellRef}
         className="relative flex min-h-0 flex-1 overflow-hidden bg-muted/30"

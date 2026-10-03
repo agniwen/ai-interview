@@ -144,10 +144,10 @@ it("opens materials before join time without connecting, and preserves selection
   expect(
     container.querySelector('header [data-slot="meeting-desktop-materials-tabs"]'),
   ).not.toBeNull();
-  expect(button("候选人资料：resume").dataset.hasDesktopTabs).toBe("true");
+  expect(button("候选人资料：evaluation").dataset.hasDesktopTabs).toBe("true");
   expect(button("返回").getAttribute("aria-label")).toBe("返回入会页");
   expect(container.querySelector("footer")).toBeNull();
-  await act(() => button("候选人资料：resume").click());
+  await act(() => button("候选人资料：evaluation").click());
   expect(button("候选人资料：evaluation")).toBeDefined();
   expect(media.connect).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();

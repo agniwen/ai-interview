@@ -323,7 +323,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [candidateMaterialsState, setCandidateMaterialsState] =
     useState<InterviewerCandidateMaterialsState>({
       candidateId: null,
-      tab: "resume",
+      tab: "evaluation",
     });
   const [desktopTabsContainer, setDesktopTabsContainer] = useState<HTMLDivElement | null>(null);
   const { isEnding, isJoining, joinError, token } = state;

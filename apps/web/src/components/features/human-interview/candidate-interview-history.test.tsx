@@ -139,7 +139,7 @@ describe("candidate interview history", () => {
 
     expect(
       [...container.querySelectorAll("section > h3")]
-        .slice(0, 3)
+        .slice(7, 10)
         .map((heading) => heading.textContent),
     ).toEqual(["评级（A/B/C/D）", "整体评价", "角色定位"]);
     const overallSection = [...container.querySelectorAll("section")].find(
@@ -151,12 +151,22 @@ describe("candidate interview history", () => {
     expect(overallSection?.textContent).not.toContain("**");
     const triggers = [...container.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")];
     expect(triggers.map((trigger) => trigger.querySelector("span > span")?.textContent)).toEqual([
-      "业务二面",
-      "业务一面",
-      "HR 初面",
       "AI 评价",
+      "HR 初面",
+      "业务一面",
+      "业务二面",
     ]);
-    expect(triggers[0]?.textContent).toMatch(/2026/);
+    expect(
+      [...container.querySelectorAll<HTMLElement>("[data-evaluation-id]")].map(
+        (item) => item.dataset.evaluationId,
+      ),
+    ).toEqual(["ai-evaluation", "hr-initial", "round-0", "round-1"]);
+    expect(
+      [...container.querySelectorAll('nav[aria-label="评价时间线"] button')].map(
+        (button) => button.querySelector("[title]")?.textContent,
+      ),
+    ).toEqual(["AI 评价", "HR 初面", "业务一面", "业务二面"]);
+    expect(triggers[1]?.textContent).toMatch(/2026/);
     expect(triggers[2]?.textContent).toMatch(/2026/);
     expect(triggers.map((trigger) => trigger.getAttribute("aria-expanded"))).toEqual([
       "true",
@@ -182,8 +192,8 @@ describe("candidate interview history", () => {
     expect(container.textContent).toContain("寻找技术管理机会");
     expect(container.textContent).toContain("未收集到相关信息");
     expect(container.textContent).toContain("简历 AI 评价内容");
-    await act(() => triggers[2]?.click());
-    expect(triggers[2]?.getAttribute("aria-expanded")).toBe("false");
+    await act(() => triggers[1]?.click());
+    expect(triggers[1]?.getAttribute("aria-expanded")).toBe("false");
     expect(triggers[3]?.getAttribute("aria-expanded")).toBe("true");
   });
 });
