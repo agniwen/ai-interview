@@ -16,10 +16,12 @@ export interface EvaluationTimelineEntry {
 }
 
 export function EvaluationTimeline({
+  compact = false,
   entries,
   onNavigate,
   children,
 }: {
+  compact?: boolean;
   entries: EvaluationTimelineEntry[];
   onNavigate: (id: string) => void;
   children: (isMobile: boolean) => ReactNode;
@@ -82,7 +84,12 @@ export function EvaluationTimeline({
       viewportClassName="[container-type:size]"
       viewportProps={{ "aria-label": "评价详情", onScroll: syncActiveRound, tabIndex: 0 }}
     >
-      <div className="grid w-full grid-cols-[15rem_minmax(0,1fr)] gap-6 px-3 pt-3 xl:grid-cols-[15rem_minmax(0,1fr)_15rem]">
+      <div
+        className={cn(
+          "grid w-full grid-cols-[15rem_minmax(0,1fr)] gap-6 px-3 pt-3",
+          !compact && "@min-[80rem]:grid-cols-[15rem_minmax(0,1fr)_15rem]",
+        )}
+      >
         <aside className="sticky top-3 flex h-[calc(100cqh-1.5rem)] min-w-0 items-center self-start">
           <nav aria-label="评价时间线" className="max-h-full w-full overflow-y-auto p-1">
             {[true, false].map((reference) => {

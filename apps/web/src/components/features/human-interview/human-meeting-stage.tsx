@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 /* oxlint-disable no-use-before-define -- exported stage stays above local tile and style helpers. */
 
 import {
+  IconSubtitles,
   IconDeviceDesktopUp,
   IconFileDescription,
   IconLoader2,
@@ -43,7 +44,7 @@ import {
   meetingScreenShareCaptureOptions,
 } from "./human-meeting-video-quality";
 import { notifyMeetingMediaError } from "./human-meeting-media-errors";
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@app/shared/utils";
@@ -56,6 +57,7 @@ import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
 import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
 import { HumanMeetingChat } from "./human-meeting-chat";
+import { HumanMeetingTranscriptPanel } from "./human-meeting-transcript-panel";
 import { MeetingInfoHoverCard } from "./meeting-info-hover-card";
 import type { HumanMeetingLiveTranscriptHandle } from "./human-meeting-live-transcript";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
@@ -131,11 +133,6 @@ export interface HumanMeetingStageProps {
   viewMode: HumanMeetingViewMode;
 }
 
-// Keep capture, reconnection and draft persistence mounted without rendering transcript text.
-function hideTranscriptPanel() {
-  return null;
-}
-
 // oxlint-disable-next-line complexity -- stage rendering reflects the approved meeting, materials, and sharing modes.
 export function HumanMeetingStage({
   candidateName,
@@ -164,7 +161,21 @@ export function HumanMeetingStage({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [desktopTabsContainer, setDesktopTabsContainer] = useState<HTMLDivElement | null>(null);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const closeTranscript = useCallback(() => setTranscriptOpen(false), []);
+  const toggleChat = () => {
+    setTranscriptOpen(false);
+    setChatOpen((value) => !value);
+  };
+  const renderTranscriptPanel = useCallback(
+    (panel: ReactNode) => (
+      <HumanMeetingTranscriptPanel open={transcriptOpen} onClose={closeTranscript}>
+        {panel}
+      </HumanMeetingTranscriptPanel>
+    ),
+    [closeTranscript, transcriptOpen],
+  );
+  const [headerActionsContainer, setHeaderActionsContainer] = useState<HTMLDivElement | null>(null);
   const closeChat = useCallback(() => setChatOpen(false), []);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
@@ -225,17 +236,31 @@ export function HumanMeetingStage({
             />
           </h1>
         </div>
-        {inviteToken ? (
-          <div
-            ref={setDesktopTabsContainer}
-            data-slot="meeting-desktop-materials-tabs"
-            className={cn(
-              "hidden min-w-0 flex-[0_1_22rem] md:flex",
-              viewMode !== "materials" && "md:invisible",
-            )}
-          />
-        ) : null}
         <div className="flex shrink-0 items-center gap-2 md:min-w-0 md:flex-1 md:justify-end">
+          {inviteToken ? (
+            <div
+              ref={setHeaderActionsContainer}
+              data-slot="meeting-materials-actions"
+              className={cn("flex shrink-0", viewMode !== "materials" && "hidden")}
+            />
+          ) : null}
+          {inviteToken && canUseLiveTranscript ? (
+            <Button
+              aria-label="字幕"
+              aria-expanded={transcriptOpen}
+              data-slot="meeting-transcript-toggle"
+              className="max-md:[&_svg]:size-5"
+              onClick={() => {
+                setChatOpen(false);
+                setTranscriptOpen((value) => !value);
+              }}
+              size="sm"
+              variant={transcriptOpen ? "secondary" : "ghost"}
+            >
+              <IconSubtitles data-icon="inline-start" />
+              字幕
+            </Button>
+          ) : null}
           {isRecording ? (
             <output
               className="hidden items-center gap-1.5 whitespace-nowrap text-muted-foreground text-xs md:inline-flex"
@@ -245,20 +270,24 @@ export function HumanMeetingStage({
               录制中
             </output>
           ) : null}
-          <Badge className="hidden md:inline-flex" variant="secondary" aria-label="参会人数">
+          <ThemeToggle className="hidden shrink-0 md:inline-flex" />
+          <Badge
+            className="hidden h-8 gap-1.5 rounded-md px-2.5 py-0 md:inline-flex"
+            variant="secondary"
+            aria-label="参会人数"
+          >
             <IconUsers data-icon="inline-start" />
             {participants.length}
           </Badge>
-          <ThemeToggle className="hidden shrink-0 md:inline-flex" />
           <Button
             aria-expanded={chatOpen}
             aria-label={chatOpen ? "关闭聊天" : "打开聊天"}
-            className="mr-1 md:hidden"
-            onClick={() => setChatOpen((value) => !value)}
+            className="md:hidden [&_svg]:size-5"
+            onClick={toggleChat}
             size="icon-sm"
-            variant="ghost"
+            variant="secondary"
           >
-            <IconMessageCircle className="size-6" />
+            <IconMessageCircle />
           </Button>
           {canEndMeeting ? (
             <Button
@@ -363,7 +392,7 @@ export function HumanMeetingStage({
                 <InterviewerCandidateMaterials
                   showQuestions
                   active={viewMode === "materials"}
-                  desktopTabsContainer={desktopTabsContainer}
+                  headerActionsContainer={headerActionsContainer}
                   inviteToken={inviteToken}
                   onStateChange={onCandidateMaterialsStateChange}
                   state={candidateMaterialsState}
@@ -382,7 +411,7 @@ export function HumanMeetingStage({
             candidateName={candidateName}
             inviteToken={inviteToken}
             ref={liveTranscriptRef}
-            renderPanel={hideTranscriptPanel}
+            renderPanel={renderTranscriptPanel}
           />
         ) : null}
       </div>
@@ -476,7 +505,7 @@ export function HumanMeetingStage({
             "hidden md:inline-flex",
             chatOpen && "bg-accent",
           )}
-          onClick={() => setChatOpen((value) => !value)}
+          onClick={toggleChat}
           type="button"
         >
           <IconMessageCircle className="size-4" />

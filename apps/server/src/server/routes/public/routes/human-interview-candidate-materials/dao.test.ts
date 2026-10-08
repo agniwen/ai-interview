@@ -1,4 +1,14 @@
-import { createRecruitingRecords, deleteRecruitingRecords } from "@app/database/recruiting-records";
+import { questionChecklistKey } from "@app/shared/human-interview-candidate-materials";
+import { setHumanInterviewQuestionAsked } from "./application/set-question-asked";
+import {
+  loadHumanInterviewCandidateQuestions,
+  loadHumanInterviewCandidateHrInformation,
+} from "./dao";
+import {
+  createRecruitingRecords,
+  deleteRecruitingRecords,
+  updateRecruitingRecords,
+} from "@app/database/recruiting-records";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -11,7 +21,6 @@ import {
   user,
 } from "@app/db-schema/schema";
 import { db } from "../../../../../lib/server/db/index";
-import { loadHumanInterviewCandidateHrInformation } from "./dao";
 import type { HumanInterviewCandidateMaterialsScope } from "./dao";
 
 const org = `materials-history-${crypto.randomUUID()}`;
@@ -228,5 +237,125 @@ describe("interviewer candidate evaluation history", () => {
         },
       ],
     });
+  });
+});
+
+describe("shared candidate question checklist", () => {
+  const question = {
+    difficulty: "medium" as const,
+    dimension: "business" as const,
+    evaluationFocus: "说明经验",
+    followUpDirections: "如何验证",
+    order: 1,
+    question: "如何设计用户分层？",
+  };
+  const questionKey = questionChecklistKey(question);
+  const secondMeeting = `${meeting}-checklist`;
+  const editScope = {
+    ...scope,
+    interviewerName: "测试面试官",
+    status: "in_progress" as const,
+    title: "第一场",
+    userId: actor,
+    validUntil: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+  const secondScope = { ...editScope, meetingId: secondMeeting, title: "第二场" };
+  beforeAll(async () => {
+    await updateRecruitingRecords(
+      db,
+      inArray(recruitingRecordReadModel.id, [candidate, otherCandidate]),
+      { interviewQuestions: [question] },
+    );
+    await db
+      .insert(humanInterviewMeeting)
+      .values({ id: secondMeeting, organizationId: org, title: "第二场" });
+    await db.insert(humanInterviewMeetingRound).values([
+      { meetingId: secondMeeting, organizationId: org, roundId: `${org}-future` },
+      { meetingId: secondMeeting, organizationId: org, roundId: `${org}-other-record` },
+    ]);
+  });
+  it("persists across meetings, keeps check/uncheck history, and isolates candidates", async () => {
+    const first = await setHumanInterviewQuestionAsked({
+      asked: true,
+      candidateId: candidate,
+      questionKey,
+      scope: editScope,
+    });
+    expect(first.status).toBe("saved");
+    const shared = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: secondScope,
+    });
+    expect(shared?.questionHistory[0]).toMatchObject({
+      asked: true,
+      meetingId: meeting,
+      meetingTitle: "第一场",
+      operatorId: actor,
+      operatorName: "测试面试官",
+    });
+    expect(shared?.questionHistory[0]?.createdAt).toBeTruthy();
+    // A stale caller can uncheck: last completed save wins, without revision conflicts.
+    const second = await setHumanInterviewQuestionAsked({
+      asked: false,
+      candidateId: candidate,
+      questionKey,
+      scope: secondScope,
+    });
+    expect(second.status).toBe("saved");
+    const reloaded = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: editScope,
+    });
+    expect(reloaded?.questionHistory.map((edit) => edit.asked)).toEqual([false, true]);
+    expect(reloaded?.questionHistory[0]?.meetingId).toBe(secondMeeting);
+    const other = await loadHumanInterviewCandidateQuestions({
+      candidateId: otherCandidate,
+      scope: secondScope,
+    });
+    expect(other?.questionHistory).toEqual([]);
+    await setHumanInterviewQuestionAsked({
+      asked: false,
+      candidateId: candidate,
+      questionKey,
+      scope: secondScope,
+    });
+    const afterDuplicate = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: editScope,
+    });
+    expect(afterDuplicate?.questionHistory).toHaveLength(2);
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, candidate), {
+      interviewQuestions: [{ ...question, order: 2 }],
+    });
+    const afterReorder = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: editScope,
+    });
+    expect(afterReorder?.questionHistory).toHaveLength(2);
+    expect(questionChecklistKey({ ...question, order: 2 })).toBe(questionKey);
+  });
+  it("rejects cross-meeting candidates, workspaces, nonexistent questions and read-only links", async () => {
+    const input = { asked: true, candidateId: candidate, questionKey, scope: editScope };
+    expect(await setHumanInterviewQuestionAsked({ ...input, candidateId: otherCandidate })).toEqual(
+      { status: "not_found" },
+    );
+    expect(
+      await setHumanInterviewQuestionAsked({
+        ...input,
+        scope: { ...editScope, organizationId: otherOrg },
+      }),
+    ).toEqual({ status: "not_found" });
+    expect(await setHumanInterviewQuestionAsked({ ...input, questionKey: "missing" })).toEqual({
+      status: "not_found",
+    });
+    expect(
+      await setHumanInterviewQuestionAsked({ ...input, scope: { ...editScope, status: "ended" } }),
+    ).toEqual({ status: "unavailable" });
+    expect(
+      await setHumanInterviewQuestionAsked({
+        ...input,
+        scope: { ...editScope, validUntil: new Date(0).toISOString() },
+      }),
+    ).toEqual({ status: "unavailable" });
   });
 });

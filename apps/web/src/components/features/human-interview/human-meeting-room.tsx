@@ -323,9 +323,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [candidateMaterialsState, setCandidateMaterialsState] =
     useState<InterviewerCandidateMaterialsState>({
       candidateId: null,
-      tab: "evaluation",
+      questionsOpen: false,
     });
-  const [desktopTabsContainer, setDesktopTabsContainer] = useState<HTMLDivElement | null>(null);
+  const [headerActionsContainer, setHeaderActionsContainer] = useState<HTMLDivElement | null>(null);
   const { isEnding, isJoining, joinError, token } = state;
   const startBlockMessage = getStartBlockMessage(
     props.preview.scheduledAt,
@@ -490,9 +490,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
             </div>
             {viewMode === "materials" ? (
               <div
-                ref={setDesktopTabsContainer}
-                data-slot="meeting-desktop-materials-tabs"
-                className="hidden min-w-0 flex-[0_1_18rem] md:flex"
+                ref={setHeaderActionsContainer}
+                data-slot="meeting-materials-actions"
+                className="hidden shrink-0 md:flex"
               />
             ) : null}
             <div className="flex shrink-0 items-center md:min-w-0 md:flex-1 md:justify-end">
@@ -503,7 +503,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
             {viewMode === "materials" ? (
               <InterviewerCandidateMaterials
                 active
-                desktopTabsContainer={desktopTabsContainer}
+                headerActionsContainer={headerActionsContainer}
                 inviteToken={props.inviteToken}
                 onStateChange={setCandidateMaterialsState}
                 state={candidateMaterialsState}

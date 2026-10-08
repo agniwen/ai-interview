@@ -78,3 +78,19 @@ export function getHumanInterviewCandidatePptxPreviewUrl(inviteToken: string, ca
     inviteToken,
   )}/${encodeURIComponent(candidateId)}/resume-preview.pdf`;
 }
+
+export function setHumanInterviewQuestionAsked(
+  inviteToken: string,
+  candidateId: string,
+  input: { questionKey: string; asked: boolean },
+): Promise<HumanInterviewCandidateQuestionsResponse> {
+  return rpcFetch(
+    rpc.api.public["human-interview-candidate-materials"][":inviteToken"][":candidateId"][
+      "interview-questions"
+    ].$put({
+      json: input,
+      param: { candidateId, inviteToken },
+    }),
+    "保存提问状态失败",
+  );
+}

@@ -39,24 +39,26 @@ vi.mock("./human-meeting-stage", () => ({
   }: {
     candidateMaterialsState: InterviewerCandidateMaterialsState;
     viewMode: string;
-  }) => <div data-view-mode={viewMode}>会议中：{candidateMaterialsState.tab}</div>,
+  }) => (
+    <div data-view-mode={viewMode}>会议中：{String(candidateMaterialsState.questionsOpen)}</div>
+  ),
   humanMeetingControlButtonClass: "",
 }));
 vi.mock("./interviewer-candidate-materials", () => ({
   InterviewerCandidateMaterials: ({
-    desktopTabsContainer,
+    headerActionsContainer,
     state,
     onStateChange,
   }: {
-    desktopTabsContainer?: HTMLElement | null;
+    headerActionsContainer?: HTMLElement | null;
     state: InterviewerCandidateMaterialsState;
     onStateChange: (state: InterviewerCandidateMaterialsState) => void;
   }) => (
     <button
-      data-has-desktop-tabs={Boolean(desktopTabsContainer)}
-      onClick={() => onStateChange({ ...state, tab: "evaluation" })}
+      data-has-header-actions={Boolean(headerActionsContainer)}
+      onClick={() => onStateChange({ ...state, questionsOpen: false })}
     >
-      候选人资料：{state.tab}
+      候选人资料：{String(state.questionsOpen)}
     </button>
   ),
 }));
@@ -141,20 +143,18 @@ it("opens materials before join time without connecting, and preserves selection
   expect(container.querySelector("header h1")?.textContent).toBe("运营经理面试");
   expect(container.querySelector('header button[aria-label^="会议信息"]')).toBeNull();
   expect(button("返回").closest("header")).not.toBeNull();
-  expect(
-    container.querySelector('header [data-slot="meeting-desktop-materials-tabs"]'),
-  ).not.toBeNull();
-  expect(button("候选人资料：evaluation").dataset.hasDesktopTabs).toBe("true");
+  expect(container.querySelector('header [data-slot="meeting-materials-actions"]')).not.toBeNull();
+  expect(button("候选人资料：false").dataset.hasHeaderActions).toBe("true");
   expect(button("返回").getAttribute("aria-label")).toBe("返回入会页");
   expect(container.querySelector("footer")).toBeNull();
-  await act(() => button("候选人资料：evaluation").click());
-  expect(button("候选人资料：evaluation")).toBeDefined();
+  await act(() => button("候选人资料：false").click());
+  expect(button("候选人资料：false")).toBeDefined();
   expect(media.connect).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
   await act(() => button("返回").click());
   expect(button("未到入会时间").disabled).toBe(true);
   await act(() => button("查看候选人资料").click());
-  expect(button("候选人资料：evaluation")).toBeDefined();
+  expect(button("候选人资料：false")).toBeDefined();
   await act(() => button("返回").click());
   vi.setSystemTime(new Date("2026-09-24T06:15:00.000Z"));
   await act(() => vi.advanceTimersByTime(60_000));
@@ -178,7 +178,7 @@ it("opens materials before join time without connecting, and preserves selection
     audio: false,
     video: { resolution: expect.objectContaining({ height: 1080, width: 1920 }) },
   });
-  expect(container.textContent).toContain("会议中：evaluation");
+  expect(container.textContent).toContain("会议中：false");
   expect(container.querySelector<HTMLElement>("[data-view-mode]")?.dataset.viewMode).toBe(
     "materials",
   );

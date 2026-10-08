@@ -23,6 +23,7 @@ const mocks = {
   loadQuestions: vi.fn<HumanInterviewCandidateMaterialsRouterDependencies["loadQuestions"]>(),
   loadResume: vi.fn<HumanInterviewCandidateMaterialsRouterDependencies["loadResume"]>(),
   recordView: vi.fn<HumanInterviewCandidateMaterialsRouterDependencies["recordView"]>(),
+  setQuestionAsked: vi.fn<HumanInterviewCandidateMaterialsRouterDependencies["setQuestionAsked"]>(),
 };
 
 function makeApp(userId: string | null) {
@@ -161,5 +162,56 @@ describe("human interview candidate materials routes", () => {
 
     expect(response.status).toBe(404);
     expect(mocks.recordView).not.toHaveBeenCalled();
+  });
+});
+
+describe("question checklist writes", () => {
+  const path = "/human-interview-meetings/token/candidate-1/interview-questions";
+  const body = { asked: true, questionKey: "question-1" };
+  function put(json = body) {
+    return makeApp(null).request(path, {
+      body: JSON.stringify(json),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    });
+  }
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.authorize.mockResolvedValue({ scope, status: "authorized" });
+  });
+  it("saves using the authenticated link actor and returns shared state", async () => {
+    const data = { canEditQuestions: true, interviewQuestions: [], questionHistory: [] };
+    mocks.setQuestionAsked.mockResolvedValue({ data, status: "saved" });
+    const response = await put();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(data);
+    expect(mocks.setQuestionAsked).toHaveBeenCalledWith({
+      ...body,
+      candidateId: "candidate-1",
+      scope,
+    });
+  });
+  it.each(["not_found", "unavailable"] as const)(
+    "rejects %s links before saving",
+    async (status) => {
+      mocks.authorize.mockResolvedValue({ status });
+      const response = await put();
+      expect(response.status).toBe(status === "not_found" ? 404 : 410);
+      expect(mocks.setQuestionAsked).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["not_found", "unavailable"] as const)("maps %s application results", async (status) => {
+    mocks.setQuestionAsked.mockResolvedValue({ status });
+    const response = await put();
+    expect(response.status).toBe(status === "not_found" ? 404 : 410);
+  });
+  it("rejects client-supplied audit actors", async () => {
+    const response = await makeApp(null).request(path, {
+      body: JSON.stringify({ ...body, operatorName: "forged" }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    });
+    expect(response.status).toBe(400);
+    expect(mocks.setQuestionAsked).not.toHaveBeenCalled();
   });
 });

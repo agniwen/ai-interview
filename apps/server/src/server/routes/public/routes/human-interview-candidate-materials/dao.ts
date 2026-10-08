@@ -1,3 +1,9 @@
+import { loadQuestionHistory } from "./question-progress-dao";
+import type { QuestionTransaction } from "./question-progress-dao";
+import {
+  canEditHumanInterviewQuestions,
+  humanInterviewCandidateHrEvaluationSchema,
+} from "@app/shared/human-interview-candidate-materials";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, lt } from "drizzle-orm";
@@ -26,7 +32,6 @@ import type {
   HumanInterviewCandidateOverviewResponse,
   HumanInterviewCandidateQuestionsResponse,
 } from "@app/shared/human-interview-candidate-materials";
-import { humanInterviewCandidateHrEvaluationSchema } from "@app/shared/human-interview-candidate-materials";
 import { z } from "zod";
 
 export type HumanInterviewCandidateMaterialsScope = NonNullable<
@@ -337,11 +342,14 @@ export async function loadHumanInterviewCandidateHrInformation(input: {
   return { hrInitialInformation: hrInitialInformation ?? null, previousEvaluations };
 }
 
-export async function loadHumanInterviewCandidateQuestions(input: {
-  candidateId: string;
-  scope: HumanInterviewCandidateMaterialsScope;
-}): Promise<HumanInterviewCandidateQuestionsResponse | null> {
-  const [row] = await db
+export async function loadHumanInterviewCandidateQuestions(
+  input: {
+    candidateId: string;
+    scope: HumanInterviewCandidateMaterialsScope;
+  },
+  executor: Pick<QuestionTransaction, "select"> = db,
+): Promise<HumanInterviewCandidateQuestionsResponse | null> {
+  const [row] = await executor
     .select({ interviewQuestions: recruitingRecordReadModel.interviewQuestions })
     .from(humanInterviewMeetingRound)
     .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
@@ -361,7 +369,11 @@ export async function loadHumanInterviewCandidateQuestions(input: {
     return null;
   }
   const questions = questionListSchema.safeParse(row.interviewQuestions);
-  return { interviewQuestions: questions.success ? questions.data : [] };
+  return {
+    canEditQuestions: canEditHumanInterviewQuestions(input.scope),
+    interviewQuestions: questions.success ? questions.data : [],
+    questionHistory: await loadQuestionHistory(input, executor),
+  };
 }
 
 export async function loadHumanInterviewCandidateResume(input: {

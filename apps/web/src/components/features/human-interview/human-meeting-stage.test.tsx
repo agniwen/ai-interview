@@ -135,9 +135,16 @@ function verifyBackgroundTranscript(
 ) {
   for (const viewMode of ["materials", "meeting"] as const) {
     renderStage(viewMode);
-    expect(container.querySelector('[data-slot="meeting-transcript-panel"]')).toBeNull();
-    expect(container.querySelector('[data-slot="meeting-transcript-toggle"]')).toBeNull();
-    expect(container.textContent).not.toContain("实时转录");
+    const panel = container.querySelector('[data-slot="meeting-transcript-panel"]');
+    if (window.innerWidth < 768) {
+      expect(panel).toBeNull();
+    } else {
+      expect(panel?.getAttribute("aria-hidden")).toBe("true");
+      expect(panel?.hasAttribute("inert")).toBe(true);
+    }
+    expect(
+      container.querySelector('header [data-slot="meeting-transcript-toggle"]'),
+    ).not.toBeNull();
     expect(
       container.querySelector('header [data-slot="meeting-recording-status"]')?.textContent,
     ).toBe("录制中");
@@ -177,6 +184,30 @@ function verifyChatPanel(
     container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
   ).toBe("false");
   renderStage("meeting");
+  const subtitleTrigger = container.querySelector<HTMLButtonElement>(
+    '[data-slot="meeting-transcript-toggle"]',
+  );
+  act(() => subtitleTrigger?.click());
+  expect(subtitleTrigger?.getAttribute("aria-expanded")).toBe("true");
+  expect(document.querySelector('[data-slot="meeting-transcript-panel"]')?.textContent).toContain(
+    "自动实时转录窗口",
+  );
+  act(() => chatTrigger?.click());
+  expect(subtitleTrigger?.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
+  ).toBe("true");
+  act(() => subtitleTrigger?.click());
+  expect(
+    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
+  ).toBe("false");
+  const close = document.querySelector<HTMLButtonElement>(
+    '[data-slot="meeting-transcript-panel"] button[aria-label="关闭字幕"]',
+  );
+  act(() => close?.click());
+  expect(subtitleTrigger?.getAttribute("aria-expanded")).toBe("false");
+  expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
+  expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
@@ -220,7 +251,7 @@ describe("HumanMeetingStage realtime transcript", () => {
             canPublish
             canUseLiveTranscript={false}
             canUseVoiceEffects={false}
-            candidateMaterialsState={{ candidateId: null, tab: "evaluation" }}
+            candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
             chatInviteToken="invite-1"
             chatMode="interviewer"
             inviteToken="invite-1"
@@ -275,7 +306,7 @@ describe("HumanMeetingStage realtime transcript", () => {
             canPublish
             canUseLiveTranscript={false}
             canUseVoiceEffects={false}
-            candidateMaterialsState={{ candidateId: null, tab: "evaluation" }}
+            candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
             chatInviteToken="invite-1"
             chatMode="interviewer"
             inviteToken="invite-1"
@@ -335,7 +366,7 @@ describe("HumanMeetingStage realtime transcript", () => {
           canPublish
           canUseLiveTranscript
           canUseVoiceEffects={false}
-          candidateMaterialsState={{ candidateId: null, tab: "evaluation" }}
+          candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
           chatInviteToken="invite-1"
           chatMode="interviewer"
           inviteToken="invite-1"
@@ -382,7 +413,7 @@ describe("HumanMeetingStage realtime transcript", () => {
               canPublish
               canUseLiveTranscript
               canUseVoiceEffects={false}
-              candidateMaterialsState={{ candidateId: "candidate-1", tab: "evaluation" }}
+              candidateMaterialsState={{ candidateId: "candidate-1", questionsOpen: false }}
               chatInviteToken="invite-1"
               chatMode="interviewer"
               inviteToken="invite-1"

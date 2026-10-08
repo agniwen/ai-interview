@@ -121,7 +121,7 @@ it("opens history from the materials tab and isolates it when switching candidat
             active
             inviteToken="invite-1"
             onStateChange={() => {}}
-            state={{ candidateId, tab: "evaluation" }}
+            state={{ candidateId, questionsOpen: false }}
           />
         </QueryClientProvider>,
       ),
@@ -129,8 +129,8 @@ it("opens history from the materials tab and isolates it when switching candidat
   try {
     await render("candidate-1");
     expect(container.querySelector('[role="combobox"]')).not.toBeNull();
-    const selectedTab = container.querySelector('[role="tab"][aria-selected="true"]');
-    expect(selectedTab?.textContent).toBe("概览");
+    expect(container.querySelector('[role="tablist"]')).toBeNull();
+    expect(container.querySelector('[aria-label="候选人概览"]')).not.toBeNull();
     expect(container.textContent).toContain("第一位候选人的优势");
     const aiSection = container.querySelector('[data-evaluation-id="ai-evaluation"]');
     expect(
@@ -142,7 +142,7 @@ it("opens history from the materials tab and isolates it when switching candidat
     expect(aiSection?.querySelector("li")?.textContent).toBe("有相关项目成果");
     expect(aiSection?.textContent).toContain("团队管理经验待确认");
     expect(aiSection?.textContent).not.toContain("不展示的");
-    expect(aiSection?.querySelector("section svg")).toBeNull();
+    expect(aiSection?.querySelector(":scope section svg")).toBeNull();
     await render("candidate-2");
     expect(container.textContent).not.toContain("第一位候选人的优势");
     expect(container.textContent).not.toContain("暂无已提交的业务面评价");
@@ -180,7 +180,7 @@ it("omits the redundant candidate banner even when the stored selection is stale
             active={false}
             inviteToken="invite-single"
             onStateChange={() => {}}
-            state={{ candidateId: "stale-candidate", tab: "evaluation" }}
+            state={{ candidateId: "stale-candidate", questionsOpen: false }}
           />
         </QueryClientProvider>,
       ),
@@ -197,19 +197,19 @@ it("omits the redundant candidate banner even when the stored selection is stale
 
 function Harness({
   showQuestions = false,
-  desktopTabsContainer,
+  headerActionsContainer,
 }: {
   showQuestions?: boolean;
-  desktopTabsContainer?: HTMLElement | null;
+  headerActionsContainer?: HTMLElement | null;
 }) {
   const [state, setState] = useState<InterviewerCandidateMaterialsState>({
     candidateId: "candidate",
-    tab: "evaluation",
+    questionsOpen: false,
   });
   return (
     <InterviewerCandidateMaterials
       active={false}
-      desktopTabsContainer={desktopTabsContainer}
+      headerActionsContainer={headerActionsContainer}
       inviteToken="unified"
       showQuestions={showQuestions}
       state={state}
@@ -218,7 +218,7 @@ function Harness({
   );
 }
 
-it("places desktop tabs in the meeting header while keeping their panels in candidate materials", async () => {
+it("keeps the questions toggle in the header on desktop and mobile", async () => {
   vi.stubGlobal("innerWidth", 1280);
   const client = new QueryClient();
   client.setQueryData(["human-interview-candidate-materials", "unified", "candidates"], {
@@ -235,29 +235,30 @@ it("places desktop tabs in the meeting header while keeping their panels in cand
     await act(() =>
       root.render(
         <QueryClientProvider client={client}>
-          <Harness desktopTabsContainer={headerTabs} showQuestions />
+          <Harness headerActionsContainer={headerTabs} showQuestions />
         </QueryClientProvider>,
       ),
     );
-    expect(headerTabs.querySelectorAll('[role="tab"]')).toHaveLength(2);
+    const toggle = headerTabs.querySelector<HTMLButtonElement>("button[aria-expanded]");
+    expect(toggle?.textContent).toContain("面试题");
     expect(materials.querySelector('[role="tablist"]')).toBeNull();
-    await act(() =>
-      headerTabs.querySelector<HTMLButtonElement>('[role="tab"]:nth-child(1)')?.click(),
-    );
-    expect(headerTabs.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-      "概览",
-    );
-    expect(materials.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    await act(() => toggle?.click());
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      materials.querySelector('section[aria-label="面试题"]')?.getAttribute("aria-hidden"),
+    ).toBe("false");
+    await act(() => toggle?.click());
     vi.stubGlobal("innerWidth", 390);
     await act(() =>
       root.render(
         <QueryClientProvider client={client}>
-          <Harness desktopTabsContainer={headerTabs} showQuestions />
+          <Harness headerActionsContainer={headerTabs} showQuestions />
         </QueryClientProvider>,
       ),
     );
-    expect(headerTabs.querySelector('[role="tablist"]')).toBeNull();
-    expect(materials.querySelectorAll('[role="tab"]')).toHaveLength(2);
+    expect(headerTabs.querySelector('button[aria-label="面试题"]')).not.toBeNull();
+    expect(materials.querySelector('button[aria-label="面试题"]')).toBeNull();
   } finally {
     await act(() => root.unmount());
     client.clear();
@@ -271,7 +272,7 @@ it.each([
   { showQuestions: true, width: 390 },
   { showQuestions: true, width: 1280 },
 ])(
-  "uses the appropriate tabs at width $width with questions=$showQuestions",
+  "keeps the overview mounted while toggling questions at width $width with questions=$showQuestions",
   async ({ width, showQuestions }) => {
     vi.stubGlobal("innerWidth", width);
     const client = new QueryClient();
@@ -282,6 +283,7 @@ it.each([
     client.setQueryData(
       ["human-interview-candidate-materials", "unified", "candidate", "questions"],
       {
+        canEditQuestions: true,
         interviewQuestions: [
           {
             difficulty: "medium",
@@ -290,6 +292,7 @@ it.each([
             question: "请介绍一次性能优化实践",
           },
         ],
+        questionHistory: [],
       },
     );
     const container = document.createElement("div");
@@ -303,30 +306,42 @@ it.each([
           </QueryClientProvider>,
         ),
       );
-      expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1);
-      const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-      expect(tabs.map((tab) => tab.textContent)).toEqual(
-        showQuestions ? ["概览", "面试题"] : ["概览"],
-      );
-      expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-        "概览",
-      );
-      const panels = [...container.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
-      expect(panels).toHaveLength(tabs.length);
-      const [resumePanel] = panels;
-      if (resumePanel) {
-        resumePanel.scrollTop = 137;
+      expect(container.querySelector('[role="tablist"]')).toBeNull();
+      const overview = container.querySelector<HTMLElement>('[aria-label="候选人概览"]');
+      expect(overview).not.toBeNull();
+      if (overview) {
+        overview.scrollTop = 137;
       }
-      for (const tab of [...tabs, tabs[0]]) {
-        await act(() => tab.click());
-        expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-          tab.textContent,
+      const toggle = container.querySelector<HTMLButtonElement>("button[aria-expanded]");
+      expect(Boolean(toggle)).toBe(showQuestions);
+      const panel = container.querySelector('section[aria-label="面试题"]');
+      if (width >= 768 && showQuestions) {
+        expect(panel?.getAttribute("aria-hidden")).toBe("true");
+      }
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      if (showQuestions) {
+        await act(() => {
+          toggle?.focus();
+          toggle?.click();
+        });
+        expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+        const questions = width < 768 ? document.querySelector('[role="dialog"]') : panel;
+        expect(questions).not.toBeNull();
+        expect(questions?.textContent).toContain("请介绍一次性能优化实践");
+        if (width >= 768) {
+          expect(panel?.getAttribute("aria-hidden")).toBe("false");
+          expect(document.querySelector('[role="dialog"]')).toBeNull();
+        } else {
+          expect(questions?.querySelector("[data-vaul-no-drag]")).not.toBeNull();
+        }
+        await act(() =>
+          questions?.querySelector<HTMLButtonElement>('button[aria-label="关闭面试题"]')?.click(),
         );
-        expect(container.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
+        expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+        expect(document.activeElement).toBe(toggle);
       }
-      expect([...container.querySelectorAll('[role="tabpanel"]')]).toEqual(panels);
-      expect(resumePanel?.scrollTop).toBe(137);
-      expect(container.textContent?.includes("请介绍一次性能优化实践")).toBe(showQuestions);
+      expect(container.querySelector('[aria-label="候选人概览"]')).toBe(overview);
+      expect(overview?.scrollTop).toBe(137);
     } finally {
       await act(() => root.unmount());
       client.clear();
@@ -372,9 +387,7 @@ it.each([390, 1280])(
           </QueryClientProvider>,
         ),
       );
-      expect([...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)).toEqual(
-        ["概览"],
-      );
+      expect(container.querySelector('[role="tablist"]')).toBeNull();
       const preview = container.querySelector('[aria-label="简历预览"]');
       const pdf = preview?.querySelector('[data-testid="pdf-worker-view"]');
       expect(pdf).not.toBeNull();
@@ -392,9 +405,7 @@ it.each([390, 1280])(
       expect(toggle()?.getAttribute("aria-label")).toBe("查看简历原件");
       await act(() => toggle()?.click());
       expect(dialog?.querySelector('[data-testid="pdf-worker-view"]')).not.toBeNull();
-      expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
-        "概览",
-      );
+      expect(container.querySelector('[aria-label="候选人概览"]')).not.toBeNull();
       const close = dialog?.querySelector<HTMLButtonElement>('button[aria-label="关闭简历详情"]');
       expect(close).not.toBeNull();
       await act(() => close?.click());

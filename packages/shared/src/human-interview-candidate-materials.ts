@@ -98,4 +98,44 @@ export interface HumanInterviewCandidateHrInformationResponse {
 
 export interface HumanInterviewCandidateQuestionsResponse {
   interviewQuestions: HumanInterviewCandidateQuestion[];
+  questionHistory: HumanInterviewQuestionEdit[];
+  canEditQuestions: boolean;
+}
+
+export function questionChecklistKey(question: HumanInterviewCandidateQuestion): string {
+  return JSON.stringify([question.dimension ?? "business", question.question.trim()]);
+}
+
+export const humanInterviewQuestionEditSchema = z.object({
+  asked: z.boolean(),
+  meetingId: z.string(),
+  meetingTitle: z.string(),
+  operatorName: z.string(),
+  question: z.string(),
+  questionKey: z.string(),
+  sequence: z.number().int().positive(),
+});
+
+export type HumanInterviewQuestionEdit = z.infer<typeof humanInterviewQuestionEditSchema> & {
+  id: string;
+  operatorId: string | null;
+  createdAt: string;
+};
+
+export const setHumanInterviewQuestionAskedSchema = z
+  .object({
+    asked: z.boolean(),
+    questionKey: z.string().min(1).max(20_000),
+  })
+  .strict();
+
+export function canEditHumanInterviewQuestions(
+  scope: { status: string; validUntil: string | null },
+  now = Date.now(),
+): boolean {
+  return (
+    (scope.status === "scheduled" || scope.status === "in_progress") &&
+    scope.validUntil !== null &&
+    Date.parse(scope.validUntil) >= now
+  );
 }

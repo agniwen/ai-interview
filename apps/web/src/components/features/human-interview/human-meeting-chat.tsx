@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { HumanMeetingFloatingPanel } from "./human-meeting-floating-panel";
 import { cn } from "@app/shared/utils";
 import {
   fetchHumanInterviewChatMessages,
@@ -223,16 +224,9 @@ export function HumanMeetingChat({
   }
 
   return (
-    <aside
-      aria-label="会议聊天"
-      className={cn(
-        "absolute right-3 bottom-3 z-30 h-[32rem] max-h-[calc(100%-1.5rem)] w-96 flex-col overflow-hidden rounded-xl border bg-background shadow-lg",
-        open ? "flex" : "hidden",
-      )}
-      data-slot="meeting-chat-panel"
-    >
+    <HumanMeetingFloatingPanel open={open} aria-label="会议聊天" data-slot="meeting-chat-panel">
       {content}
-    </aside>
+    </HumanMeetingFloatingPanel>
   );
 }
 

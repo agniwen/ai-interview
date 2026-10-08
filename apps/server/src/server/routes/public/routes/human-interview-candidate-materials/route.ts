@@ -1,5 +1,8 @@
+import { zValidator } from "@hono/zod-validator";
+import { setHumanInterviewQuestionAskedSchema } from "@app/shared/human-interview-candidate-materials";
+import { setHumanInterviewQuestionAsked } from "./application/set-question-asked";
 import { getObjectBytes, getObjectStream } from "@app/object-storage";
-import { factory } from "../../../../factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { createPptxPreviewPdfResponse } from "../../../studio/utils/pptx-preview";
 import {
   authorizeHumanInterviewCandidateMaterials,
@@ -13,6 +16,7 @@ import {
 } from "./dao";
 
 export interface HumanInterviewCandidateMaterialsRouterDependencies {
+  setQuestionAsked: typeof setHumanInterviewQuestionAsked;
   authorize: typeof authorizeHumanInterviewCandidateMaterials;
   createPptxPreviewPdfResponse: typeof createPptxPreviewPdfResponse;
   getObjectBytes: typeof getObjectBytes;
@@ -38,6 +42,7 @@ const defaultDependencies: HumanInterviewCandidateMaterialsRouterDependencies = 
   loadQuestions: loadHumanInterviewCandidateQuestions,
   loadResume: loadHumanInterviewCandidateResume,
   recordView: recordHumanInterviewCandidateMaterialView,
+  setQuestionAsked: setHumanInterviewQuestionAsked,
 };
 
 export function createHumanInterviewCandidateMaterialsRouter(
@@ -122,6 +127,35 @@ export function createHumanInterviewCandidateMaterialsRouter(
       });
       return result ? c.json(result, 200) : c.json({ error: "该候选人不属于当前会议。" }, 404);
     })
+    .put(
+      "/:inviteToken/:candidateId/interview-questions",
+      zValidator(
+        "json",
+        setHumanInterviewQuestionAskedSchema,
+        jsonValidatorError("面试题状态无效。"),
+      ),
+      async (c) => {
+        const authorization = await authorizeRequest(c.req.param("inviteToken"));
+        if (authorization.status === "not_found") {
+          return c.json({ error: "真人复面链接不可用。" }, 404);
+        }
+        if (authorization.status === "unavailable") {
+          return c.json({ error: "面试题编辑时间已结束。" }, 410);
+        }
+        const result = await dependencies.setQuestionAsked({
+          candidateId: c.req.param("candidateId"),
+          scope: authorization.scope,
+          ...c.req.valid("json"),
+        });
+        if (result.status === "not_found") {
+          return c.json({ error: "该候选人或面试题不属于当前会议。" }, 404);
+        }
+        if (result.status === "unavailable") {
+          return c.json({ error: "面试题编辑时间已结束。" }, 410);
+        }
+        return c.json(result.data, 200);
+      },
+    )
     .get("/:inviteToken/:candidateId/resume", async (c) => {
       const authorization = await authorizeRequest(c.req.param("inviteToken"));
       if (authorization.status === "not_found") {

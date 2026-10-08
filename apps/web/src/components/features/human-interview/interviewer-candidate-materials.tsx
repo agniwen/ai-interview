@@ -1,17 +1,20 @@
 "use client";
 
 import {
+  CandidateQuestionProgress,
+  candidateQuestionsQueryKey,
+} from "./candidate-question-progress";
+import {
   IconAlertTriangle,
   IconFileDescription,
   IconListDetails,
   IconX,
 } from "@tabler/icons-react";
 import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
-import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { DataField } from "@/components/features/display/data-field";
@@ -25,7 +28,6 @@ import {
 } from "@/components/features/resume/resume-document-file-icon";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -47,7 +49,6 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { CandidateResumePreview } from "./candidate-resume-preview";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   fetchHumanInterviewCandidateAiEvaluation,
   fetchHumanInterviewCandidateHrInformation,
@@ -59,6 +60,7 @@ import {
 } from "@/lib/client/api";
 import { resolveEffectiveCandidateId } from "./human-meeting-materials-model";
 import { CandidateInterviewHistory } from "./candidate-interview-history";
+import { CandidateQuestionsPanel } from "./candidate-questions-panel";
 
 const InlinePdfViewer = lazy(async () => {
   const mod = await import("@/components/ui/pdf-viewer");
@@ -80,21 +82,15 @@ const InlineImageViewer = lazy(async () => {
   return { default: mod.ImageResumePreviewContent };
 });
 
-export type CandidateMaterialsTab = "evaluation" | "questions";
-
 export interface InterviewerCandidateMaterialsState {
   candidateId: string | null;
-  tab: CandidateMaterialsTab;
-}
-
-function isCandidateMaterialsTab(value: string): value is CandidateMaterialsTab {
-  return value === "evaluation" || value === "questions";
+  questionsOpen: boolean;
 }
 
 interface InterviewerCandidateMaterialsProps {
   showQuestions?: boolean;
   active: boolean;
-  desktopTabsContainer?: HTMLElement | null;
+  headerActionsContainer?: HTMLElement | null;
   inviteToken: string;
   onStateChange: (state: InterviewerCandidateMaterialsState) => void;
   state: InterviewerCandidateMaterialsState;
@@ -170,10 +166,12 @@ function AiEvaluationContent({
 }
 
 function CandidateEvaluations({
+  compact,
   query,
   aiQuery,
   resumePreview,
 }: {
+  compact: boolean;
   resumePreview: ReactNode;
   query: ReturnType<typeof useHrInformationQuery>;
   aiQuery: ReturnType<typeof useAiEvaluationQuery>;
@@ -206,6 +204,7 @@ function CandidateEvaluations({
   }
   return (
     <CandidateInterviewHistory
+      compact={compact}
       status={aiStatus}
       resumePreview={resumePreview}
       aiEvaluation={aiEvaluation}
@@ -215,7 +214,15 @@ function CandidateEvaluations({
   );
 }
 
-function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQuery> }) {
+function CandidateQuestions({
+  query,
+  inviteToken,
+  candidateId,
+}: {
+  query: ReturnType<typeof useQuestionsQuery>;
+  inviteToken: string;
+  candidateId: string;
+}) {
   if (query.isPending) {
     return <LoadingBlock />;
   }
@@ -226,46 +233,12 @@ function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQu
     return <EmptyBlock title="暂无面试题参考" />;
   }
   return (
-    <ol className="divide-y px-6 pb-4 md:px-7">
-      {query.data.interviewQuestions.map((question) => {
-        const dimension = question.dimension ?? "business";
-        return (
-          <li className="space-y-3 py-5" key={`${question.order}-${question.question}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-medium text-muted-foreground text-sm">
-                第 {question.order} 题
-              </span>
-              <Badge className="text-sm" variant="outline">
-                {INTERVIEW_QUESTION_DIMENSION_LABEL[dimension]}
-              </Badge>
-            </div>
-            <h3 className="whitespace-pre-wrap break-words font-semibold text-foreground text-lg leading-7">
-              {question.question}
-            </h3>
-            {question.evaluationFocus || question.followUpDirections ? (
-              <dl className="space-y-3 border-l-2 border-border pl-3">
-                {question.evaluationFocus ? (
-                  <div className="space-y-1">
-                    <dt className="font-medium text-muted-foreground text-sm">考核点</dt>
-                    <dd className="whitespace-pre-wrap break-words text-foreground text-base leading-7">
-                      {question.evaluationFocus}
-                    </dd>
-                  </div>
-                ) : null}
-                {question.followUpDirections ? (
-                  <div className="space-y-1">
-                    <dt className="font-medium text-muted-foreground text-sm">追问方向</dt>
-                    <dd className="whitespace-pre-wrap break-words text-foreground text-base leading-7">
-                      {question.followUpDirections}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
+    <CandidateQuestionProgress
+      key={candidateId}
+      data={query.data}
+      inviteToken={inviteToken}
+      candidateId={candidateId}
+    />
   );
 }
 
@@ -602,25 +575,6 @@ function CandidateResumeDialog({
   );
 }
 
-function MaterialTab({
-  value,
-  children,
-}: {
-  value: InterviewerCandidateMaterialsState["tab"];
-  children: ReactNode;
-}) {
-  return (
-    <TabsContent
-      keepMounted
-      motion="page"
-      className="relative min-h-0 overflow-hidden [--distance-base:4rem]"
-      value={value}
-    >
-      {children}
-    </TabsContent>
-  );
-}
-
 function useOverviewQuery(active: boolean, inviteToken: string, candidateId: string | null) {
   return useQuery({
     ...MATERIALS_QUERY_OPTIONS,
@@ -653,19 +607,30 @@ function useQuestionsQuery(active: boolean, inviteToken: string, candidateId: st
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active && Boolean(candidateId),
     queryFn: () => fetchHumanInterviewCandidateQuestions(inviteToken, candidateId ?? ""),
-    queryKey: ["human-interview-candidate-materials", inviteToken, candidateId, "questions"],
+    queryKey: candidateQuestionsQueryKey(inviteToken, candidateId),
+    refetchInterval: active ? 5000 : false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 
 export function InterviewerCandidateMaterials({
   showQuestions = false,
   active,
-  desktopTabsContainer,
+  headerActionsContainer,
   inviteToken,
   onStateChange,
   state,
 }: InterviewerCandidateMaterialsProps) {
   const isMobile = useIsMobile();
+  const questionsPanelId = useId();
+  const questionsButtonRef = useRef<HTMLButtonElement>(null);
+  const questionsOpen = showQuestions && state.questionsOpen;
+  const desktopQuestionsOpen = questionsOpen && !isMobile;
+  const closeQuestions = () => {
+    onStateChange({ ...state, questionsOpen: false });
+    questionsButtonRef.current?.focus();
+  };
   const [resumeDialogCandidateId, setResumeDialogCandidateId] = useState<string | null>(null);
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
@@ -719,43 +684,41 @@ export function InterviewerCandidateMaterials({
         </SelectContent>
       </Select>
     ) : null;
-  const activeTab = !showQuestions && state.tab === "questions" ? "evaluation" : state.tab;
-  const tabsInHeader = !isMobile && desktopTabsContainer !== undefined;
-  const tabsList = (
-    <TabsList
-      aria-label="候选人资料"
-      className={cn(
-        "mx-2 w-auto shrink-0 self-stretch md:mx-3",
-        tabsInHeader && "mx-0 w-full self-auto md:mx-0",
-      )}
+  const actionsInHeader = headerActionsContainer !== undefined;
+  const questionsButton = showQuestions ? (
+    <Button
+      ref={questionsButtonRef}
+      aria-label="面试题"
+      className="max-md:[&_svg]:size-5"
+      aria-controls={questionsPanelId}
+      aria-expanded={questionsOpen}
+      onClick={() => onStateChange({ ...state, questionsOpen: !questionsOpen })}
+      size="sm"
+      variant={questionsOpen ? "secondary" : "ghost"}
     >
-      <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="evaluation">
-        概览
-      </TabsTrigger>
-      {showQuestions ? (
-        <TabsTrigger className="h-8 min-w-0 flex-1 px-3 text-sm" value="questions">
-          面试题
-        </TabsTrigger>
-      ) : null}
-    </TabsList>
-  );
+      <IconListDetails data-icon="inline-start" />
+      <span>面试题</span>
+    </Button>
+  ) : null;
   return (
-    <Tabs
-      className="h-full min-h-0 gap-0 overflow-hidden bg-background text-foreground"
-      value={activeTab}
-      onValueChange={(tab) => {
-        if (isCandidateMaterialsTab(tab) && tab !== activeTab) {
-          onStateChange({ ...state, tab });
-        }
-      }}
-    >
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
       {candidateSelector}
-      {tabsInHeader
-        ? desktopTabsContainer && createPortal(tabsList, desktopTabsContainer)
-        : tabsList}
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <MaterialTab value="evaluation">
+      {actionsInHeader
+        ? headerActionsContainer && createPortal(questionsButton, headerActionsContainer)
+        : showQuestions && (
+            <div className="flex shrink-0 justify-end px-3 py-2">{questionsButton}</div>
+          )}
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-200 ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
+          desktopQuestionsOpen
+            ? "grid-cols-[minmax(0,1fr)_min(32%,30rem)]"
+            : "grid-cols-[minmax(0,1fr)_0px]",
+        )}
+      >
+        <section aria-label="候选人概览" className="min-h-0 min-w-0 overflow-hidden">
           <CandidateEvaluations
+            compact={desktopQuestionsOpen}
             key={effectiveCandidateId}
             aiQuery={aiQuery}
             query={hrQuery}
@@ -775,15 +738,20 @@ export function InterviewerCandidateMaterials({
               </CandidateResumePreview>
             }
           />
-        </MaterialTab>
+        </section>
         {showQuestions ? (
-          <MaterialTab value="questions">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <div className="mx-auto w-full max-w-5xl">
-                <CandidateQuestions query={questionsQuery} />
-              </div>
-            </ScrollArea>
-          </MaterialTab>
+          <CandidateQuestionsPanel
+            id={questionsPanelId}
+            isMobile={isMobile}
+            open={questionsOpen}
+            onClose={closeQuestions}
+          >
+            <CandidateQuestions
+              query={questionsQuery}
+              inviteToken={inviteToken}
+              candidateId={effectiveCandidateId ?? ""}
+            />
+          </CandidateQuestionsPanel>
         ) : null}
       </div>
       <CandidateResumeDialog
@@ -793,6 +761,6 @@ export function InterviewerCandidateMaterials({
         query={overviewQuery}
         inviteToken={inviteToken}
       />
-    </Tabs>
+    </div>
   );
 }
