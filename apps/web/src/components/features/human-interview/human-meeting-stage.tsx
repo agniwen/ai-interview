@@ -13,6 +13,7 @@ import {
   IconFileDescription,
   IconLoader2,
   IconMessageCircle,
+  IconMessageCircleFilled,
   IconMicrophone,
   IconMicrophoneOff,
   IconPhoneOff,
@@ -508,7 +509,11 @@ export function HumanMeetingStage({
           onClick={toggleChat}
           type="button"
         >
-          <IconMessageCircle className="size-4" />
+          {chatOpen ? (
+            <IconMessageCircleFilled className="size-4" />
+          ) : (
+            <IconMessageCircle className="size-4" />
+          )}
           <span>聊天</span>
         </button>
         {canEndMeeting ? (
