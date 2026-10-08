@@ -63,16 +63,16 @@ export function CandidateQuestionChecklist({
                   <dl className="flex flex-col gap-3">
                     {question.evaluationFocus ? (
                       <div className="flex flex-col gap-1">
-                        <dt className="font-medium text-muted-foreground text-sm">考核点</dt>
-                        <dd className="whitespace-pre-wrap break-words text-foreground text-sm leading-6">
+                        <dt className="font-medium text-muted-foreground text-xs">考核点</dt>
+                        <dd className="whitespace-pre-wrap break-words text-foreground text-xs leading-5">
                           {question.evaluationFocus}
                         </dd>
                       </div>
                     ) : null}
                     {question.followUpDirections ? (
                       <div className="flex flex-col gap-1">
-                        <dt className="font-medium text-muted-foreground text-sm">追问方向</dt>
-                        <dd className="whitespace-pre-wrap break-words text-foreground text-sm leading-6">
+                        <dt className="font-medium text-muted-foreground text-xs">追问方向</dt>
+                        <dd className="whitespace-pre-wrap break-words text-foreground text-xs leading-5">
                           {question.followUpDirections}
                         </dd>
                       </div>
