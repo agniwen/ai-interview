@@ -52,6 +52,8 @@ it("serializes saves and flushes edits made while a request is pending", async (
   expect(await saving).toBe(true);
   expect(await closing).toBe(true);
   expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).expectedVersion).toBe(0);
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body).expectedVersion).toBe(1);
   expect(JSON.parse(fetchMock.mock.calls[1][1].body).evaluation).toMatchObject({
     draftOutcome: "pass",
     overallEvaluation: "更新后的评价",

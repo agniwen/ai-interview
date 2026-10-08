@@ -25,3 +25,8 @@ export function normalizeHumanInterviewProfessionalSkill(value: string): string 
   }
   return "-";
 }
+
+export function hasHumanInterviewEvaluationText(value: string | null | undefined): boolean {
+  const text = value?.trim();
+  return Boolean(text && !["-", "—", "未提供", "未填写", "未收集到相关信息"].includes(text));
+}

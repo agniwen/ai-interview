@@ -1,11 +1,10 @@
+import { loadRoundReviewerEvaluations } from "./human-interview-round-evaluations";
 import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
 import {
   assertCanCreateHumanInterviewRound,
   syncEffectiveHumanRoundNode,
 } from "./human-interview-pipeline";
 import { EditRoundError } from "./human-interview-round-errors";
-
-// 真人复面单轮 DAO：mutation 事务同步 round 与 interviewer junction；路由层只做权限、校验与调用。
 
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -46,7 +45,6 @@ export {
 export type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 // drizzle 事务 callback 参数类型；和 db 实例签名差一个 $client 字段，需要单独抽出来。
-// Inner-transaction type; drops the $client field that's on the top-level db.
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
 
@@ -129,7 +127,6 @@ export async function assertCompletedHumanInterviewRoundsHaveFeedback(
 }
 
 // 把 query 结果（含 interviewer rows 数组）拍平成 DTO。
-// Flatten the joined query result into the DTO shape.
 function toRecord(row: {
   round: typeof humanInterviewRound.$inferSelect;
   interviewers: {
@@ -188,7 +185,6 @@ function toRecord(row: {
 }
 
 // 列出某候选人所有轮次（含 cancelled，按 sortOrder asc）。
-// List all rounds (including cancelled) for a candidate, sortOrder asc.
 export async function listHumanInterviewRounds(
   interviewRecordId: string,
   organizationId: string,
@@ -208,7 +204,6 @@ export async function listHumanInterviewRounds(
   }
   const roundIds = rounds.map((r) => r.id);
   // 拉所有 junction + 关联的 user 信息。
-  // Fetch junction rows + linked user info in one query.
   const interviewerRows = await db
     .select({
       confirmedAt: humanInterviewRoundInterviewer.confirmedAt,
@@ -230,7 +225,11 @@ export async function listHumanInterviewRounds(
     list.push(ir);
     byRound.set(ir.roundId, list);
   }
-  return rounds.map((round) => toRecord({ interviewers: byRound.get(round.id) ?? [], round }));
+  const evaluations = await loadRoundReviewerEvaluations(roundIds, organizationId);
+  return rounds.map((round) => ({
+    ...toRecord({ interviewers: byRound.get(round.id) ?? [], round }),
+    reviewerEvaluations: evaluations.get(round.id) ?? [],
+  }));
 }
 
 // 候选人下一个可用的 sortOrder：max(existing) + 1，没有时返回 0。
@@ -255,7 +254,6 @@ export interface CreateRoundOptions {
 }
 
 // 加载单条详情（含 interviewers）。
-// Load a single round (with interviewers).
 export async function loadRoundById(
   roundId: string,
   organizationId: string,
@@ -287,10 +285,11 @@ export async function loadRoundById(
     .from(humanInterviewRoundInterviewer)
     .innerJoin(user, eq(humanInterviewRoundInterviewer.userId, user.id))
     .where(eq(humanInterviewRoundInterviewer.roundId, roundId));
-  return toRecord({
-    interviewers: interviewerRows,
-    round,
-  });
+  const evaluations = await loadRoundReviewerEvaluations([roundId], organizationId);
+  return {
+    ...toRecord({ interviewers: interviewerRows, round }),
+    reviewerEvaluations: evaluations.get(roundId) ?? [],
+  };
 }
 
 // 新建一轮：写 round 行 + interviewer junction。sortOrder 不强制由 input 决定，

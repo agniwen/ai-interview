@@ -547,7 +547,7 @@ describe("RoundCard interviewer arrangement", () => {
     expect(host.textContent).toContain("具备完整的系统架构与前端工程化能力");
     expect(host.textContent).not.toContain("职级定位");
     expect(host.textContent).toContain("角色定位核心方案负责人");
-    expect(host.textContent).toContain("薪资建议-");
+    expect(host.textContent).not.toContain("薪资建议");
     expect(host.textContent).toContain("整体评价唯一整体评价内容");
     expect(host.textContent).not.toContain("优势特点架构思路清晰");
     expect(host.textContent).not.toContain("劣势风险规模化经验需要确认");

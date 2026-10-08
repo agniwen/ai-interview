@@ -85,8 +85,9 @@ describe("candidate interview history", () => {
     const overall = [...container.querySelectorAll("section")].find(
       (section) => section.querySelector("h3")?.textContent === "整体评价",
     );
-    expect(overall?.querySelector("p")?.textContent).toBe("未提供");
-    expect(container.textContent).toContain("未提供");
+    expect(overall).toBeUndefined();
+    expect(container.textContent).not.toContain("未提供");
+    expect(container.textContent).not.toContain("薪资建议");
     expect(container.textContent).not.toContain("暂无已提交的业务面评价");
   });
 
@@ -138,8 +139,8 @@ describe("candidate interview history", () => {
     );
 
     expect(
-      [...container.querySelectorAll("section > h3")]
-        .slice(7, 10)
+      [...container.querySelectorAll('[data-evaluation-id="round-0"] section > h3')]
+        .slice(0, 3)
         .map((heading) => heading.textContent),
     ).toEqual(["评级（A/B/C/D）", "整体评价", "角色定位"]);
     const overallSection = [...container.querySelectorAll("section")].find(
@@ -190,7 +191,7 @@ describe("candidate interview history", () => {
       expect(container.textContent).toContain(text);
     }
     expect(container.textContent).toContain("寻找技术管理机会");
-    expect(container.textContent).toContain("未收集到相关信息");
+    expect(container.textContent).not.toContain("未收集到相关信息");
     expect(container.textContent).toContain("简历 AI 评价内容");
     await act(() => triggers[1]?.click());
     expect(triggers[1]?.getAttribute("aria-expanded")).toBe("false");

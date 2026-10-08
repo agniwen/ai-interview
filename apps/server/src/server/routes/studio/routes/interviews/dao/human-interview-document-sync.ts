@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { and, asc, count, eq, gt, inArray, lt, lte, ne, sql } from "drizzle-orm";
 import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import type { Database } from "@app/database";
@@ -13,6 +14,16 @@ import {
 import type { HumanInterviewDocumentSyncJob } from "../application/sync-human-interview-document";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import { resolveFeishuDocxDocumentId } from "../../../../../integrations/feishu/feishu-docx";
+
+// Internal round projections concatenate individually validated submissions without truncation.
+// This schema is for stored summaries only, never accepted as an individual submission.
+const humanInterviewEvaluationSummarySchema = humanInterviewEvaluationSubmissionSchema.extend({
+  detailedAnalysis: z.string(),
+  evidenceTurnIds: z.array(z.string()),
+  overallEvaluation: z.string(),
+  risks: z.string(),
+  strengths: z.string(),
+});
 
 const jobs = humanInterviewEvaluationDocumentSync;
 const LEASE_MS = 10 * 60_000;
@@ -100,7 +111,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
         if (!context) {
           throw new Error("同步任务缺少正式提交评价");
         }
-        const evaluation = humanInterviewEvaluationSubmissionSchema.parse(context.evaluation);
+        const evaluation = humanInterviewEvaluationSummarySchema.parse(context.evaluation);
         // Editable meeting labels are not template identities. Cancelled rounds
         // and CEO interviews do not consume a business evaluation slot.
         let roundLabel = "CEO面试";

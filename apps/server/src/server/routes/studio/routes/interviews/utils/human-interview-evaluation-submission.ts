@@ -54,6 +54,7 @@ export async function finalizeHumanInterviewRoundMeetings(
 export async function submitAndFinalizeHumanInterviewEvaluation(
   input: {
     actorId: string;
+    expectedVersion?: number;
     evaluation: HumanInterviewEvaluation;
     meetingSessionId: string | null;
     organizationId: string;
@@ -67,6 +68,7 @@ export async function submitAndFinalizeHumanInterviewEvaluation(
   const submitted = await dependencies.submitEvaluation({
     actorId: input.actorId,
     evaluation: input.evaluation,
+    expectedVersion: input.expectedVersion,
     meetingSessionId: input.meetingSessionId,
     organizationId: input.organizationId,
     outcome: input.outcome,

@@ -57,6 +57,7 @@ export interface PublicAiInterviewInvitationPreview {
  * interviewers are pre-joined user info.
  */
 export interface HumanInterviewRoundRecord {
+  reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
   roundKind: "second_interview" | "final_interview";
   id: string;
   interviewRecordId: string;
@@ -233,7 +234,26 @@ export interface PublicHumanInterviewInterviewerPreview {
   title: string;
 }
 
+export interface HumanInterviewReviewerEvaluationRecord {
+  reviewerImage?: string | null;
+  id: string;
+  reviewerId: string | null;
+  reviewerName: string;
+  evaluation: HumanInterviewEvaluationDraft;
+  outcome: HumanInterviewRoundOutcome | null;
+  submittedAt: string | null;
+  updatedAt: string;
+  version: number;
+  legacy: boolean;
+}
+
 export interface HumanInterviewReviewRecord {
+  lockedOutcome?: "pass" | "fail" | null;
+  personalEvaluation?: boolean;
+  evaluationVersion?: number;
+  reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
+  aiEvaluation?: HumanInterviewEvaluationDraft | null;
+  roundOutcome?: HumanInterviewRoundOutcome | null;
   recordingNotice?: string | null;
   documentSync?: {
     status: "pending" | "syncing" | "waiting_document" | "failed" | "synced";

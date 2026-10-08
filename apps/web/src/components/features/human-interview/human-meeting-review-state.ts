@@ -1,3 +1,4 @@
+import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { atom } from "jotai";
 import type { SetStateAction } from "react";
 import type {
@@ -6,8 +7,22 @@ import type {
 } from "@app/db-schema/studio-interviews";
 import { requestReviewJson } from "./human-meeting-review-api";
 
+export const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
+  detailedAnalysis: "",
+  evidenceTurnIds: [],
+  overallEvaluation: "",
+  professionalSkill: "",
+  rating: null,
+  risks: "",
+  rolePosition: "",
+  salaryRecommendation: "",
+  seniorityPosition: "",
+  strengths: "",
+};
+
 export interface MeetingReviewDraft {
   inviteToken: string;
+  evaluationVersion?: number;
   evaluation: HumanInterviewEvaluationDraft;
   outcome: HumanInterviewRoundOutcome | "";
   transcriptRevisionId: string | null;
@@ -49,6 +64,9 @@ export const editMeetingReviewAtom = atom(
   ) => {
     const state = get(meetingReviewStateAtom);
     if (!state) {
+      return;
+    }
+    if ("outcome" in update && update.outcome === state.outcome) {
       return;
     }
     const next =
@@ -93,6 +111,7 @@ export const saveMeetingReviewAtom = atom(null, (get, set): Promise<boolean> => 
           {
             body: JSON.stringify({
               evaluation: { ...draft.evaluation, draftOutcome: draft.outcome || null },
+              expectedVersion: draft.evaluationVersion ?? 0,
               transcriptRevisionId: draft.transcriptRevisionId,
             }),
             headers: { "Content-Type": "application/json" },
@@ -103,6 +122,7 @@ export const saveMeetingReviewAtom = atom(null, (get, set): Promise<boolean> => 
           current
             ? {
                 ...current,
+                evaluationVersion: (draft.evaluationVersion ?? 0) + 1,
                 savedRevision: draft.revision,
                 status: current.revision === draft.revision ? "saved" : "pending",
               }
@@ -139,3 +159,19 @@ export const toggleMeetingReviewAtom = atom(null, async (get, set) => {
     set(meetingReviewOpenAtom, true);
   }
 });
+
+export function getReviewFormOutcome(
+  review: HumanInterviewReviewRecord,
+): HumanInterviewRoundOutcome | "" {
+  if (
+    review.evaluationStatus === "submitted" ||
+    (!review.personalEvaluation && review.roundStatus === "completed")
+  ) {
+    return review.outcome ?? "";
+  }
+  return (
+    review.lockedOutcome ??
+    review.evaluation?.draftOutcome ??
+    (review.outcome === "inconclusive" ? "" : (review.outcome ?? ""))
+  );
+}

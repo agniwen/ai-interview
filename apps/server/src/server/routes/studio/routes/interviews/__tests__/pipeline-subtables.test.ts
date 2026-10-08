@@ -1270,10 +1270,10 @@ describe("human interview meetings DAO", () => {
       }),
     ).resolves.toBe(true);
 
-    // A stale second interviewer tab must not replace a finalized evaluation.
+    // A stale tab for the same interviewer must not replace their submitted evaluation.
     await expect(
       saveHumanInterviewEvaluationDraft({
-        actorId: INTERVIEWER_B,
+        actorId: INTERVIEWER_A,
         evaluation: { ...evaluation, overallEvaluation: "旧页面草稿" },
         meetingSessionId: null,
         organizationId: ORG,
@@ -1283,7 +1283,7 @@ describe("human interview meetings DAO", () => {
     ).resolves.toBe(false);
     await expect(
       submitHumanInterviewEvaluation({
-        actorId: INTERVIEWER_B,
+        actorId: INTERVIEWER_A,
         evaluation: { ...evaluation, overallEvaluation: "旧页面再次提交" },
         meetingSessionId: null,
         organizationId: ORG,

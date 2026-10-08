@@ -1,3 +1,8 @@
+import {
+  loadReviewerEvaluationFields,
+  saveReviewerEvaluationTx,
+  loadReviewerEvaluationAggregate,
+} from "./human-interview-reviewer-dao";
 import { syncHumanInterviewRoundNodeTx } from "@app/database/recruiting-pipeline";
 import {
   recruitingRecord,
@@ -306,6 +311,7 @@ export function createHumanInterviewEvaluationDao(
   }
 
   async function loadHumanInterviewReview(input: {
+    reviewerId?: string;
     meetingId: string;
     organizationId: string;
     roundId: string;
@@ -352,6 +358,7 @@ export function createHumanInterviewEvaluationDao(
     if (!row) {
       return null;
     }
+    const personalFields = await loadReviewerEvaluationFields(db, input);
     const revisionId = row.activeTranscriptRevisionId ?? row.reviewTranscriptRevisionId;
     const transcript =
       (row.meetingSessionId && revisionId
@@ -378,6 +385,7 @@ export function createHumanInterviewEvaluationDao(
       outcome: row.outcome,
       recordingNotice,
       roundId: row.roundId,
+      roundOutcome: row.outcome,
       roundStatus: row.roundStatus,
       transcript,
       transcriptionError:
@@ -388,6 +396,7 @@ export function createHumanInterviewEvaluationDao(
         row.transcriptionStatus ??
           (row.recordingError?.startsWith("录音处理失败：") ? "failed" : "pending"),
       ),
+      ...personalFields,
     };
   }
 
@@ -713,6 +722,7 @@ export function createHumanInterviewEvaluationDao(
 
   async function saveHumanInterviewEvaluationDraft(input: {
     actorId: string;
+    expectedVersion?: number;
     evaluation: HumanInterviewEvaluationDraft;
     meetingSessionId: string | null;
     organizationId: string;
@@ -755,30 +765,18 @@ export function createHumanInterviewEvaluationDao(
         .limit(1);
       if (
         !context ||
-        context.roundStatus !== "pending" ||
-        context.evaluationStatus === "submitted" ||
+        !["pending", "completed"].includes(context.roundStatus) ||
         !isHumanInterviewEvaluationSubmissionCurrent(context, input.transcriptRevisionId)
       ) {
         return false;
       }
-      const [updated] = await tx
-        .update(humanInterviewRound)
-        .set({
-          evaluation,
-          evaluationError: null,
-          evaluationStatus: "draft",
-          evaluationTranscriptRevisionId: input.transcriptRevisionId,
-          evaluationUpdatedAt: new Date(),
-          evaluationUpdatedBy: input.actorId,
-        })
-        .where(eq(humanInterviewRound.id, input.roundId))
-        .returning({ id: humanInterviewRound.id });
-      return Boolean(updated);
+      return await saveReviewerEvaluationTx(tx, { ...input, evaluation });
     });
   }
 
   async function submitHumanInterviewEvaluation(input: {
     actorId: string;
+    expectedVersion?: number;
     evaluation: HumanInterviewEvaluation;
     meetingSessionId: string | null;
     organizationId: string;
@@ -870,60 +868,83 @@ export function createHumanInterviewEvaluationDao(
         .limit(1);
       if (
         !round ||
-        round.roundStatus !== "pending" ||
-        round.evaluationStatus === "submitted" ||
+        !["pending", "completed"].includes(round.roundStatus) ||
         !isHumanInterviewEvaluationSubmissionCurrent(round, input.transcriptRevisionId)
       ) {
         return false;
       }
+      if (!(await saveReviewerEvaluationTx(tx, { ...input, evaluation, submittedAt: now }))) {
+        return false;
+      }
+      const { combinedEvaluation, combinedOutcome, complete } =
+        await loadReviewerEvaluationAggregate(tx, { ...input, roundStatus: round.roundStatus });
+
       await tx
         .update(humanInterviewRound)
         .set({
-          completedAt: now,
-          evaluation,
+          completedAt: complete ? now : null,
+          evaluation: combinedEvaluation,
           evaluationError: null,
           evaluationStatus: "submitted",
           evaluationSubmittedAt: now,
           evaluationTranscriptRevisionId: input.transcriptRevisionId,
           evaluationUpdatedAt: now,
           evaluationUpdatedBy: input.actorId,
-          feedback: evaluation.overallEvaluation,
-          outcome: input.outcome,
-          status: "completed",
+          feedback: combinedEvaluation.overallEvaluation,
+          outcome: combinedOutcome,
+          status: complete ? "completed" : "pending",
           updatedAt: now,
         })
         .where(eq(humanInterviewRound.id, input.roundId));
-      await syncHumanInterviewRoundNodeTx(tx, {
-        now,
-        operatorId: input.actorId,
-        organizationId: input.organizationId,
-        outcome: input.outcome,
-        recordId: owner.recordId,
-        roundId: input.roundId,
-      });
+      if (complete) {
+        await syncHumanInterviewRoundNodeTx(tx, {
+          now,
+          operatorId: input.actorId,
+          organizationId: input.organizationId,
+          outcome: combinedOutcome,
+          recordId: owner.recordId,
+          roundId: input.roundId,
+        });
+      }
       const snapshotId = crypto.randomUUID();
       await tx.insert(humanInterviewEvaluationSnapshot).values({
         createdBy: input.actorId,
-        evaluation,
+        evaluation: combinedEvaluation,
         id: snapshotId,
         meetingSessionId: input.meetingSessionId,
         organizationId: input.organizationId,
-        outcome: input.outcome,
+        outcome: combinedOutcome,
         roundId: input.roundId,
         source: "human_submitted",
         transcriptRevisionId: input.transcriptRevisionId,
       });
-      await tx.insert(humanInterviewEvaluationDocumentSync).values({
-        organizationId: input.organizationId,
-        roundId: input.roundId,
-        snapshotId,
-      });
-      await dependencies.enqueueHumanInterviewRoundCompletion(tx, {
-        actorUserId: input.actorId,
-        now,
-        organizationId: round.organizationId,
-        roundId: input.roundId,
-      });
+      await tx
+        .insert(humanInterviewEvaluationDocumentSync)
+        .values({
+          organizationId: input.organizationId,
+          roundId: input.roundId,
+          snapshotId,
+        })
+        .onConflictDoUpdate({
+          set: {
+            attemptCount: 0,
+            error: null,
+            leaseOwner: null,
+            nextAttemptAt: now,
+            snapshotId,
+            status: "pending",
+            syncedAt: null,
+          },
+          target: humanInterviewEvaluationDocumentSync.roundId,
+        });
+      if (complete && round.roundStatus !== "completed") {
+        await dependencies.enqueueHumanInterviewRoundCompletion(tx, {
+          actorUserId: input.actorId,
+          now,
+          organizationId: round.organizationId,
+          roundId: input.roundId,
+        });
+      }
       return true;
     });
   }

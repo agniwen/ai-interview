@@ -1,3 +1,4 @@
+import { hasHumanInterviewEvaluationText } from "@app/shared/human-interview-evaluation";
 import type { HumanInterviewCandidateHrInformationResponse } from "@app/shared/human-interview-candidate-materials";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -61,30 +62,34 @@ function RoundMetadata({
 }) {
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-1 pb-3 text-muted-foreground text-sm leading-6">
-      <div className="flex min-w-0 items-center">
-        <span className="shrink-0">面试官：</span>
-        <span className="inline-flex min-w-0 items-center gap-1.5">
-          {round.submittedBy ? (
-            <Avatar
-              className="size-[18px]"
-              generatedSize={18}
-              label={`${round.submittedBy}的头像`}
-              seed={`creator:${round.submittedBy}`}
-            >
-              {round.submittedByImage ? (
-                <AvatarImage alt={round.submittedBy} src={round.submittedByImage} />
-              ) : null}
-            </Avatar>
-          ) : null}
-          <span>{round.submittedBy ?? "未记录"}</span>
-        </span>
-      </div>
-      <p>
-        面试结论：
-        <span className={round.outcome ? OUTCOME_TEXT_COLOR[round.outcome] : undefined}>
-          {round.outcome ? OUTCOME_LABEL[round.outcome] : "暂无结论"}
-        </span>
-      </p>
+      {hasHumanInterviewEvaluationText(round.submittedBy) ? (
+        <div className="flex min-w-0 items-center">
+          <span className="shrink-0">面试官：</span>
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            {round.submittedBy ? (
+              <Avatar
+                className="size-[18px]"
+                generatedSize={18}
+                label={`${round.submittedBy}的头像`}
+                seed={`creator:${round.submittedBy}`}
+              >
+                {round.submittedByImage ? (
+                  <AvatarImage alt={round.submittedBy} src={round.submittedByImage} />
+                ) : null}
+              </Avatar>
+            ) : null}
+            <span>{round.submittedBy ?? "未记录"}</span>
+          </span>
+        </div>
+      ) : null}
+      {round.outcome ? (
+        <p>
+          面试结论：
+          <span className={round.outcome ? OUTCOME_TEXT_COLOR[round.outcome] : undefined}>
+            {round.outcome ? OUTCOME_LABEL[round.outcome] : "暂无结论"}
+          </span>
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -197,7 +202,9 @@ export function CandidateInterviewHistory({
                     <p className="pb-3 text-muted-foreground text-sm leading-6">
                       {information.roundLabel ?? "AI 初面"}
                     </p>
-                    {HR_INFORMATION_ENTRIES.map(([key, label]) => (
+                    {HR_INFORMATION_ENTRIES.filter(([key]) =>
+                      hasHumanInterviewEvaluationText(information.values[key]),
+                    ).map(([key, label]) => (
                       <section className="py-3" key={key}>
                         <h3 className="font-semibold text-base">{label}</h3>
                         <p
@@ -240,7 +247,9 @@ export function CandidateInterviewHistory({
                 >
                   {isMobile ? <RoundMetadata round={round} /> : null}
                   <div className="grid grid-cols-1 gap-x-6 md:grid-cols-4">
-                    {BUSINESS_EVALUATION_ENTRIES.map(([key, label]) => (
+                    {BUSINESS_EVALUATION_ENTRIES.filter(([key]) =>
+                      hasHumanInterviewEvaluationText(round.values[key]),
+                    ).map(([key, label]) => (
                       <section
                         className={cn(
                           "min-w-0 py-3",

@@ -1,4 +1,6 @@
 "use client";
+import { EMPTY_EVALUATION, getReviewFormOutcome } from "./human-meeting-review-state";
+import { HumanMeetingReviewReferences } from "./human-meeting-review-references";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import { useForm, useStore, revalidateLogic } from "@tanstack/react-form";
@@ -36,19 +38,6 @@ import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/mark
 import { useMeetingReviewAutosave } from "./use-meeting-review-autosave";
 import { HumanMeetingReviewSaveStatus } from "./human-meeting-review-save-status";
 import { HumanMeetingTranscriptRecovery } from "./human-meeting-transcript-recovery";
-
-const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
-  detailedAnalysis: "",
-  evidenceTurnIds: [],
-  overallEvaluation: "",
-  professionalSkill: "",
-  rating: null,
-  risks: "",
-  rolePosition: "",
-  salaryRecommendation: "",
-  seniorityPosition: "",
-  strengths: "",
-};
 
 type EvaluationTextFieldKey =
   | "overallEvaluation"
@@ -89,7 +78,6 @@ const EVALUATION_FIELDS: {
     placeholder: "请选择专业技能等级",
   },
 ];
-
 const LEGACY_EVALUATION_FIELDS = [
   { key: "strengths", label: "优势特点" },
   { key: "risks", label: "劣势风险" },
@@ -213,6 +201,7 @@ function HumanMeetingReviewForm({
   const [review, setReview] = useState<HumanInterviewReviewRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const evaluationDirtyRef = useRef(false);
+  const evaluationVersionRef = useRef(0);
   const {
     state: autosaveState,
     initialize: initializeDraft,
@@ -252,14 +241,15 @@ function HumanMeetingReviewForm({
         await requestJson<unknown>(`${basePath}/evaluation-submit`, {
           body: JSON.stringify({
             evaluation: submittedEvaluation,
-            outcome,
+            expectedVersion: evaluationVersionRef.current,
+            outcome: review?.lockedOutcome ?? outcome,
             transcriptRevisionId,
           }),
           headers: { "Content-Type": "application/json" },
           method: "POST",
         });
         evaluationDirtyRef.current = false;
-        toast.success("本轮评价已提交并同步到面试轮次");
+        toast.success("你的评价已提交，本轮结论已汇总");
         onSaved?.();
         onClose();
       });
@@ -286,7 +276,9 @@ function HumanMeetingReviewForm({
   const formEvaluation = useStore(form.store, (state) => state.values.evaluation);
   const formOutcome = useStore(form.store, (state) => state.values.outcome);
   const evaluation = draftOnly ? (autosaveState?.evaluation ?? formEvaluation) : formEvaluation;
-  const outcome = draftOnly ? (autosaveState?.outcome ?? formOutcome) : formOutcome;
+  const lockedOutcome = review?.evaluationStatus === "submitted" ? null : review?.lockedOutcome;
+  const outcome =
+    lockedOutcome ?? (draftOnly ? (autosaveState?.outcome ?? formOutcome) : formOutcome);
   const submissionAttempts = useStore(form.store, (state) => state.submissionAttempts);
   const errors =
     submissionAttempts > 0 ? validateReview({ evaluation, outcome })?.fields : undefined;
@@ -317,19 +309,20 @@ function HumanMeetingReviewForm({
     });
     setReview(next);
     setLoadError(null);
-    const nextOutcome =
-      next.roundStatus === "completed" || next.evaluationStatus === "submitted"
-        ? (next.outcome ?? "")
-        : (next.evaluation?.draftOutcome ??
-          (next.outcome === "inconclusive" ? "" : (next.outcome ?? "")));
+    const nextOutcome = getReviewFormOutcome(next);
+    if (next.lockedOutcome && next.evaluationStatus !== "submitted") {
+      setOutcome(next.lockedOutcome);
+    }
     if (draftOnly && inviteToken) {
       initializeDraft({
         evaluation: next.evaluation ?? EMPTY_EVALUATION,
+        evaluationVersion: next.evaluationVersion ?? 0,
         inviteToken,
         outcome: nextOutcome,
         transcriptRevisionId: next.transcript?.id ?? null,
       });
     } else if (!evaluationDirtyRef.current) {
+      evaluationVersionRef.current = next.evaluationVersion ?? 0;
       setEvaluation(next.evaluation ?? EMPTY_EVALUATION);
       setOutcome(nextOutcome);
     }
@@ -444,7 +437,9 @@ function HumanMeetingReviewForm({
     );
   }
 
-  const isSubmitted = review.evaluationStatus === "submitted" || review.roundStatus === "completed";
+  const isSubmitted =
+    review.evaluationStatus === "submitted" ||
+    (!review.personalEvaluation && review.roundStatus === "completed");
   const submittedOutcomeLabel = review.outcome ? OUTCOME_LABELS[review.outcome] : "已完成";
 
   const professionalSkill = evaluation.professionalSkill.trim();
@@ -531,16 +526,31 @@ function HumanMeetingReviewForm({
               </div>
             </div>
           )}
+          <HumanMeetingReviewReferences
+            review={review}
+            canAdopt={!isSubmitted && !hasDraftContent}
+            onAdopt={(suggestion) => {
+              setEvaluation(suggestion);
+              if (!draftOnly) {
+                evaluationDirtyRef.current = true;
+              }
+            }}
+          />
           <FieldGroup className="mt-4 grid gap-5 md:grid-cols-3">
-            <Field label="本轮结论" id={`${fieldId}-outcome`} required error={errors?.outcome}>
+            <Field
+              label={review.personalEvaluation ? "我的结论" : "本轮结论"}
+              id={`${fieldId}-outcome`}
+              required
+              error={errors?.outcome}
+            >
               <HumanMeetingReviewSelect
                 portalContainer={selectPortalContainer}
                 id={`${fieldId}-outcome`}
-                label="本轮结论"
+                label={review.personalEvaluation ? "我的结论" : "本轮结论"}
                 invalid={Boolean(errors?.outcome)}
                 placeholder="请选择本轮结论"
                 triggerRef={outcomeTriggerRef}
-                disabled={isSubmitted || Boolean(busy)}
+                disabled={isSubmitted || Boolean(busy) || Boolean(lockedOutcome)}
                 value={outcome || null}
                 options={[
                   { description: "继续推进面试", label: "通过", value: "pass" },
@@ -721,7 +731,7 @@ function HumanMeetingReviewForm({
         {(!draftOnly || isSubmitted) &&
           (isSubmitted ? (
             <div className="flex items-center gap-2">
-              <div className="font-medium text-sm">本轮评价已保存 · {submittedOutcomeLabel}</div>
+              <div className="font-medium text-sm">我的评价已保存 · {submittedOutcomeLabel}</div>
               {renderShell ? (
                 <Button disabled={Boolean(busy)} onClick={requestClose} variant="outline">
                   关闭
@@ -746,6 +756,7 @@ function HumanMeetingReviewForm({
                           ...evaluation,
                           draftOutcome: outcome || null,
                         },
+                        expectedVersion: evaluationVersionRef.current,
                         transcriptRevisionId,
                       }),
                       headers: { "Content-Type": "application/json" },

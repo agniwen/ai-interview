@@ -5104,6 +5104,44 @@ export const humanInterviewRound = pgTable(
 );
 
 // 真人评价快照：保留 AI 草稿及人工提交的原始评价，回退不覆盖历史。
+// Each interviewer owns a separate draft/submission; null authors preserve unattributed legacy feedback.
+export const humanInterviewReviewerEvaluation = pgTable(
+  "human_interview_reviewer_evaluation",
+  {
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluationDraft>().notNull(),
+    id: text("id").primaryKey(),
+    legacy: boolean("legacy").notNull().default(false),
+    organizationId: text("organization_id").notNull(),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    reviewerId: text("reviewer_id"),
+    roundId: text("round_id").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    version: integer("version").notNull().default(1),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.roundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "human_interview_reviewer_evaluation_round_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.reviewerId],
+      foreignColumns: [user.id],
+      name: "human_interview_reviewer_evaluation_reviewer_fk",
+    }).onDelete("set null"),
+    uniqueIndex("human_interview_reviewer_evaluation_round_reviewer_uq").on(
+      table.roundId,
+      table.reviewerId,
+    ),
+    check("human_interview_reviewer_evaluation_version_check", sql`${table.version} > 0`),
+    check(
+      "human_interview_reviewer_evaluation_outcome_check",
+      sql`${table.outcome} in ('pass', 'fail', 'inconclusive')`,
+    ),
+  ],
+);
+
 export const humanInterviewEvaluationSnapshot = pgTable(
   "human_interview_evaluation_snapshot",
   {

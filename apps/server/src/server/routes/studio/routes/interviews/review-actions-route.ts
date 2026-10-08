@@ -58,6 +58,7 @@ const liveTranscriptDraftSaveSchema = z.object({
 const humanInterviewEvaluationDraftSaveSchema = z
   .object({
     evaluation: humanInterviewEvaluationDraftSchema,
+    expectedVersion: z.number().int().nonnegative().default(0),
     transcriptRevisionId: z.uuid().nullable(),
   })
   .strict();
@@ -137,6 +138,7 @@ export function createHumanInterviewReviewActionsRouter(
       const review = await loadHumanInterviewReview({
         meetingId: scope.meetingId,
         organizationId: scope.organizationId,
+        reviewerId: scope.userId,
         roundId: scope.roundId,
       });
       if (!review) {
@@ -224,6 +226,7 @@ export function createHumanInterviewReviewActionsRouter(
         const review = await loadHumanInterviewReview({
           meetingId: scope.meetingId,
           organizationId: scope.organizationId,
+          reviewerId: scope.userId,
           roundId: scope.roundId,
         });
         if (!review?.meetingSessionId) {
@@ -278,6 +281,7 @@ export function createHumanInterviewReviewActionsRouter(
         const review = await loadHumanInterviewReview({
           meetingId: scope.meetingId,
           organizationId: scope.organizationId,
+          reviewerId: scope.userId,
           roundId: scope.roundId,
         });
         if (!review?.meetingSessionId) {
@@ -325,6 +329,7 @@ export function createHumanInterviewReviewActionsRouter(
         const review = await loadHumanInterviewReview({
           meetingId: scope.meetingId,
           organizationId: scope.organizationId,
+          reviewerId: scope.userId,
           roundId: scope.roundId,
         });
         if (!review) {
@@ -340,6 +345,7 @@ export function createHumanInterviewReviewActionsRouter(
         const saved = await saveHumanInterviewEvaluationDraft({
           actorId: scope.userId,
           evaluation: input.evaluation,
+          expectedVersion: input.expectedVersion,
           meetingSessionId: review.meetingSessionId,
           organizationId: scope.organizationId,
           roundId: scope.roundId,
@@ -347,7 +353,7 @@ export function createHumanInterviewReviewActionsRouter(
         });
         return saved
           ? c.json({ ok: true }, 200)
-          : c.json({ error: "本轮已提交、已结束或转录已更新，请刷新后查看。" }, 409);
+          : c.json({ error: "你的评价已提交、已在其他窗口修改或转录已更新，请刷新后查看。" }, 409);
       },
     )
     .post(
@@ -369,6 +375,7 @@ export function createHumanInterviewReviewActionsRouter(
         const review = await loadHumanInterviewReview({
           meetingId: scope.meetingId,
           organizationId: scope.organizationId,
+          reviewerId: scope.userId,
           roundId: scope.roundId,
         });
         if (!review?.meetingSessionId) {
@@ -395,6 +402,7 @@ export function createHumanInterviewReviewActionsRouter(
       const review = await loadHumanInterviewReview({
         meetingId: scope.meetingId,
         organizationId: scope.organizationId,
+        reviewerId: scope.userId,
         roundId: scope.roundId,
       });
       if (!review?.meetingSessionId) {
@@ -414,6 +422,7 @@ export function createHumanInterviewReviewActionsRouter(
         "json",
         z.object({
           evaluation: humanInterviewEvaluationSubmissionSchema,
+          expectedVersion: z.number().int().nonnegative().default(0),
           outcome: humanInterviewRoundOutcomeSchema,
           transcriptRevisionId: z.uuid().nullable(),
         }),
@@ -432,6 +441,7 @@ export function createHumanInterviewReviewActionsRouter(
         const review = await loadHumanInterviewReview({
           meetingId: scope.meetingId,
           organizationId: scope.organizationId,
+          reviewerId: scope.userId,
           roundId: scope.roundId,
         });
         if (!review) {
@@ -441,6 +451,7 @@ export function createHumanInterviewReviewActionsRouter(
           const submitted = await submitAndFinalizeHumanInterviewEvaluation({
             actorId: scope.userId,
             evaluation: input.evaluation,
+            expectedVersion: input.expectedVersion,
             meetingSessionId: review.meetingSessionId,
             organizationId: scope.organizationId,
             outcome: input.outcome,
@@ -449,7 +460,10 @@ export function createHumanInterviewReviewActionsRouter(
           });
           return submitted
             ? c.json({ ok: true }, 200)
-            : c.json({ error: "本轮已提交、已结束或转录已更新，请刷新后查看。" }, 409);
+            : c.json(
+                { error: "你的评价已提交、已在其他窗口修改或转录已更新，请刷新后查看。" },
+                409,
+              );
         } catch (error) {
           if (error instanceof RecruitingPipelineError) {
             const status = { conflict: 409, invalid: 400, not_found: 404 } as const;

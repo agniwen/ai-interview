@@ -610,11 +610,11 @@ One preserved generation of the seven HR information fields from a human initial
 _Avoid_: AI interview report version, current Feishu document body, meeting summary
 
 **Human Interview Evaluation**:
-The single current evaluation for one human interview round. AI may create its draft and a person may revise or submit it, but the user-facing evaluation does not identify itself as AI-authored or human-authored.
-_Avoid_: AI evaluation, human evaluation, parallel final evaluations
+Each interviewer owns an independent draft and submission for one human interview round. AI-generated suggestions remain separate and may be explicitly adopted. The round aggregates submitted outcomes with pass taking precedence over fail, then inconclusive; missing evaluations do not override submitted decisions. A pass can complete the round immediately; without a pass, recruitment closure waits for every assigned, non-declined interviewer and every non-observer in non-cancelled meetings to submit. Historical authored feedback is retained under its known author; unattributed feedback remains a historical round evaluation. See ADR-0042.
+_Avoid_: Shared editable evaluation, last-writer-wins feedback
 
 **Human Interview Evaluation Snapshot**:
-A historical copy of an AI-generated or person-submitted human interview evaluation retained for later quality analysis; it never competes with the round's single current evaluation in the recruiting interface.
+A historical copy of an AI-generated suggestion or submitted round evaluation projection. Individual submissions remain attributable in interviewer evaluation records; the round projection combines their text for existing downstream readers and document synchronization.
 _Avoid_: Current evaluation, visible evaluation version, second final evaluation
 
 **Interviewer Candidate Materials**:
