@@ -1,3 +1,5 @@
+"use client";
+
 import {
   IconBuilding,
   IconCalendarEvent,
@@ -26,6 +28,10 @@ import {
 // Purpose: 1:1 mirror of the real Studio sidebar+inset layout. Width / heights /
 // classes match the actual shadcn primitives the production app uses.
 
+import { useOptionalDemo } from "../demo-context";
+import { DemoAutoplay } from "../demo-autoplay";
+import { DemoDialogLayer } from "../demo-dialog";
+import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 import { RecruitmentCopilotBrand } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -111,6 +117,7 @@ interface StudioNavProps {
 
 export function StudioNav({ activeLabel }: StudioNavProps) {
   const studioNavGroups = getStudioNavGroups();
+  const demo = useOptionalDemo();
 
   return (
     <>
@@ -129,14 +136,16 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
           <ul className="flex w-full min-w-0 flex-col gap-1">
             {group.items.map((item) => {
               const Icon = item.icon;
-              const active = item.label === activeLabel;
+              const active = item.label === (demo?.page ?? activeLabel);
               return (
                 <li className="relative" key={item.label}>
-                  <div
+                  <button
+                    type="button"
+                    data-demo-page={item.label}
                     // SidebarMenuButton default: flex w-full items-center gap-2 rounded-md p-2 text-sm h-8
                     // active: bg-sidebar-accent font-medium text-sidebar-accent-foreground
                     className={cn(
-                      "flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
+                      "flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm hover:bg-sidebar-accent focus-visible:outline-ring",
                       active
                         ? "border-sidebar-border/80 bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                         : "border-transparent text-sidebar-foreground opacity-90",
@@ -145,7 +154,7 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                   >
                     <Icon className="size-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
-                  </div>
+                  </button>
                 </li>
               );
             })}
@@ -176,10 +185,13 @@ export function ChatNav() {
   return (
     <>
       <div className="flex items-center gap-1.5 px-2 pb-2">
-        <span className="flex h-9 flex-1 items-center gap-2 rounded-md px-2 text-sidebar-foreground/80">
+        <button
+          type="button"
+          className="flex h-9 flex-1 items-center gap-2 rounded-md px-2 text-sidebar-foreground/80 hover:bg-sidebar-accent"
+        >
           <IconPlus className="size-4" />
           <span className="font-medium text-sm">创建对话</span>
-        </span>
+        </button>
         <span className="grid size-9 place-items-center rounded-md text-sidebar-foreground/80">
           <IconSquareCheck className="size-4" />
         </span>
@@ -188,9 +200,10 @@ export function ChatNav() {
         <ul className="flex w-full min-w-0 flex-col gap-0.5">
           {CHAT_CONVERSATIONS.map((c) => (
             <li className="group/conv relative" key={c.title}>
-              <div
+              <button
+                type="button"
                 className={cn(
-                  "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
+                  "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm hover:bg-sidebar-accent",
                   c.active
                     ? "bg-background font-medium text-sidebar-accent-foreground"
                     : "text-sidebar-foreground",
@@ -204,7 +217,7 @@ export function ChatNav() {
                     </div>
                   ) : null}
                 </div>
-              </div>
+              </button>
             </li>
           ))}
         </ul>
@@ -218,14 +231,17 @@ function SidebarUserSection() {
   // 真实展开态只显示小头像和用户名；工作区切换位于页面标题栏。
   return (
     <div className="border-border border-t px-2 py-2">
-      <div className="flex h-9 w-full items-center gap-2 rounded-lg px-2">
+      <button
+        type="button"
+        className="flex h-9 w-full items-center gap-2 rounded-lg px-2 hover:bg-sidebar-accent"
+      >
         <Avatar generatedSize={32} label="葛城美里的头像" seed="recruiter:葛城美里">
           <AvatarFallback>葛</AvatarFallback>
         </Avatar>
         <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">
           葛城美里
         </p>
-      </div>
+      </button>
     </div>
   );
 }
@@ -261,10 +277,10 @@ function WorkspaceSwitcher() {
   // 真实 WorkspaceSwitcher：Button variant="ghost" size="sm" className="gap-2 font-normal"
   // Real: ghost sm button with gap-2 font-normal + truncated org name + ChevronsUpDown opacity-60
   return (
-    <span className="flex h-8 items-center gap-2 rounded-md px-2.5 font-normal text-sm">
+    <Button variant="ghost" size="sm">
       <span className="truncate">{m.home_frame_workspace()}</span>
       <IconChevronRight className="size-4 rotate-90 opacity-60" />
-    </span>
+    </Button>
   );
 }
 
@@ -272,9 +288,9 @@ function ThemeToggleButton() {
   // 真实 ThemeToggle 是 Button variant="ghost" size="icon-sm" 内嵌 Sun/Moon
   // Real: ghost icon-sm button with sun/moon swap
   return (
-    <span className="grid size-8 place-items-center rounded-md">
+    <Button aria-label="切换演示主题" variant="ghost" size="icon-sm">
       <IconMoon className="size-4" />
-    </span>
+    </Button>
   );
 }
 
@@ -282,9 +298,9 @@ function SidebarTriggerButton() {
   // 真实 SidebarTrigger 是 Button variant="ghost" size="icon" className="size-7" 内嵌 PanelLeft
   // Real: ghost icon button (size-7) with PanelLeft, inset header gives -ml-1
   return (
-    <span className="-ml-1 grid size-7 place-items-center rounded-md text-muted-foreground">
+    <Button aria-label="展开或收起演示侧栏" variant="ghost" size="icon-sm">
       <IconLayoutSidebarLeftCollapse className="size-4" />
-    </span>
+    </Button>
   );
 }
 
@@ -295,6 +311,18 @@ interface InsetHeaderProps {
 }
 
 function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
+  const demo = useOptionalDemo();
+  let currentCrumbs = breadcrumb.slice(-1);
+  if (demo) {
+    let label = demo.page;
+    if (demo.page === m.home_frame_nav_recruitment()) {
+      label = m.home_frame_recruitment_desk();
+    }
+    currentCrumbs = demo.candidate
+      ? [{ label }, { current: true, label: demo.candidate.title }]
+      : [{ current: true, label }];
+  }
+
   return (
     <header
       // 真实 SidebarInsetHeader: 本体透明，底部叠加两倍 header 高度的渐变层。
@@ -305,7 +333,7 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
     >
       <div className="relative z-1 flex min-w-0 items-center gap-2">
         <SidebarTriggerButton />
-        <BreadcrumbBar crumbs={breadcrumb.slice(-1)} />
+        <BreadcrumbBar crumbs={currentCrumbs} />
       </div>
       <div className="relative z-1 flex items-center gap-1">
         {actions ?? <WorkspaceSwitcher />}
@@ -342,16 +370,24 @@ export function AppShell({
   padded = false,
   children,
 }: AppShellProps) {
+  const demo = useOptionalDemo();
   return (
     // 真实外层：has-data-[variant=inset]:bg-sidebar
     // inset 自身是 bg-background，四周露出的底色与 sidebar 保持一致。
-    <div className="flex h-full w-full bg-sidebar text-foreground">
+    <div
+      className="relative flex h-full w-full bg-sidebar text-foreground"
+      data-slot="interactive-demo"
+    >
       <aside
+        inert={Boolean(demo)}
         // 真实 sidebar 外层：p-2 group-data-[collapsible=icon]:w-... 在 inset 变体下；
         // 内层是 bg-sidebar (light) / dark:bg-sidebar 的 sidebar 列。
         // 我们简化为定宽 288px = --sidebar-width。
         // Width: --sidebar-width = calc(0.25rem * 72) = 18rem = 288px
-        className="flex w-[288px] shrink-0 flex-col p-2"
+        className={cn(
+          "flex w-[288px] shrink-0 flex-col p-2",
+          (demo?.phase === "live" || demo?.phase === "human-live") && "hidden",
+        )}
       >
         <div className="flex h-full w-full flex-col  text-sidebar-foreground">
           {/* SidebarHeader: gap-3 (AppSidebar override) flex flex-col gap-2 p-2 */}
@@ -360,7 +396,9 @@ export function AppShell({
             <SidebarTabs active={tab} />
           </div>
           {/* SidebarContent: flex min-h-0 flex-1 flex-col overflow-hidden */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{sidebar}</div>
+          <ScrollArea className="min-h-0 flex-1" scrollbars="leave">
+            {sidebar}
+          </ScrollArea>
           {/* SidebarFooter: p-0 (AppSidebar override) — user section provides its own border-t */}
           <SidebarUserSection />
         </div>
@@ -368,13 +406,35 @@ export function AppShell({
       {/* SidebarInset: relative flex w-full flex-1 flex-col bg-background
           + variant=inset: m-3 ml-0 rounded-xl shadow-none
           + layout 上还加了 border border-border */}
-      <main className="relative m-3 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
-        <InsetHeader actions={headerActions} breadcrumb={breadcrumb} className={headerClassName} />
-        {/* @container/main min-h-0 flex-1 bg-background (OverlayScrollbars ScrollArea) */}
-        <ScrollArea className={cn("@container/main min-h-0 flex-1 bg-background", bodyClassName)}>
-          {padded ? <div className="flex flex-col gap-6 px-6 py-6">{children}</div> : children}
-        </ScrollArea>
-      </main>
+      <section
+        inert={Boolean(demo)}
+        aria-label="演示工作台"
+        className={cn(
+          "relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background",
+          (demo?.phase === "live" || demo?.phase === "human-live") && "m-0 rounded-none border-0",
+        )}
+      >
+        {demo?.phase === "live" || demo?.phase === "human-live" ? (
+          children
+        ) : (
+          <>
+            <InsetHeader
+              actions={headerActions}
+              breadcrumb={breadcrumb}
+              className={headerClassName}
+            />
+            {/* @container/main min-h-0 flex-1 bg-background (OverlayScrollbars ScrollArea) */}
+            <ScrollArea
+              scrollbars="leave"
+              className={cn("@container/main min-h-0 flex-1 bg-background", bodyClassName)}
+            >
+              {padded ? <div className="flex flex-col gap-6 px-6 py-6">{children}</div> : children}
+            </ScrollArea>
+          </>
+        )}
+      </section>
+      {demo && <DemoDialogLayer />}
+      {demo && <DemoAutoplay />}
     </div>
   );
 }

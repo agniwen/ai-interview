@@ -134,6 +134,7 @@ export function RoundCard({
   roundNumber,
   slug,
   dependencies = defaultRoundCardDependencies,
+  autoScrollDetails = true,
 }: {
   round: HumanInterviewRoundRecord;
   canCreate: boolean;
@@ -152,6 +153,7 @@ export function RoundCard({
   roundNumber: number;
   slug: string;
   dependencies?: RoundCardDependencies;
+  autoScrollDetails?: boolean;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
   const canWrite = disabled !== true;
@@ -203,7 +205,12 @@ export function RoundCard({
         </div>
         {meeting ? <MeetingAttendanceSummary meeting={meeting} note={statusBadge.note} /> : null}
         {round.evaluation ? (
-          <RoundEvaluation evaluation={round.evaluation} round={round} compact />
+          <RoundEvaluation
+            evaluation={round.evaluation}
+            round={round}
+            compact
+            autoScrollDetails={autoScrollDetails}
+          />
         ) : null}
 
         {round.score !== null || round.cancelReason || (!round.evaluation && round.feedback) ? (

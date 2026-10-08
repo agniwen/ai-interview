@@ -70,7 +70,7 @@ function getCurrentOfferStatus(drafts: OfferDraftRecord[]) {
   return drafts[0]?.status;
 }
 
-function OfferNegotiationProgress({
+export function OfferNegotiationProgress({
   disabled,
   nodeStates,
   offerStatus,

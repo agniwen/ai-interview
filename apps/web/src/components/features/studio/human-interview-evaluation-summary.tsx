@@ -40,6 +40,7 @@ function SingleEvaluation({
   round,
   className,
   compact = false,
+  autoScrollDetails = true,
   hideTitle = false,
   outcome,
 }: {
@@ -47,6 +48,7 @@ function SingleEvaluation({
   round: Pick<HumanInterviewRoundRecord, "evaluationStatus">;
   className?: string;
   compact?: boolean;
+  autoScrollDetails?: boolean;
   hideTitle?: boolean;
   outcome?: HumanInterviewRoundRecord["outcome"];
 }) {
@@ -108,7 +110,9 @@ function SingleEvaluation({
       ) : null}
       <EvaluationField label="整体评价" value={evaluation.overallEvaluation} markdown />
       {compact && hasDetails ? (
-        <InterviewReportDetailsDisclosure>{details}</InterviewReportDetailsDisclosure>
+        <InterviewReportDetailsDisclosure autoScroll={autoScrollDetails}>
+          {details}
+        </InterviewReportDetailsDisclosure>
       ) : (
         details
       )}
@@ -121,11 +125,13 @@ export function RoundEvaluation({
   round,
   className,
   compact = false,
+  autoScrollDetails = true,
 }: {
   evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
   round: Pick<HumanInterviewRoundRecord, "evaluationStatus" | "reviewerEvaluations">;
   className?: string;
   compact?: boolean;
+  autoScrollDetails?: boolean;
 }) {
   const reviews = round.reviewerEvaluations ?? [];
   if (reviews.length === 0) {
@@ -134,6 +140,7 @@ export function RoundEvaluation({
         evaluation={evaluation}
         round={round}
         className={className}
+        autoScrollDetails={autoScrollDetails}
         compact={compact}
       />
     );
@@ -169,6 +176,7 @@ export function RoundEvaluation({
               round={{ evaluationStatus: review.submittedAt ? "submitted" : "draft" }}
               outcome={review.outcome}
               className="border-t-0 pt-0"
+              autoScrollDetails={autoScrollDetails}
               compact={compact}
               hideTitle
             />

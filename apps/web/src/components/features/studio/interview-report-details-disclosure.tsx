@@ -7,12 +7,18 @@ import { cn } from "@app/shared/utils";
 import { ANIMATED_HEIGHT_COMPLETE_EVENT } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 
-export function InterviewReportDetailsDisclosure({ children }: { children: ReactNode }) {
+export function InterviewReportDetailsDisclosure({
+  children,
+  autoScroll = true,
+}: {
+  children: ReactNode;
+  autoScroll?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    if (!expanded) {
+    if (!expanded || !autoScroll) {
       return;
     }
     const details = detailsRef.current;
@@ -32,7 +38,7 @@ export function InterviewReportDetailsDisclosure({ children }: { children: React
     });
     return () =>
       animatedHeight.removeEventListener(ANIMATED_HEIGHT_COMPLETE_EVENT, scrollToDetails);
-  }, [expanded]);
+  }, [expanded, autoScroll]);
 
   return (
     <>

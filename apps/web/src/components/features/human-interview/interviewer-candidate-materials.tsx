@@ -138,7 +138,7 @@ function EmptyBlock({ description, title }: { description?: string; title: strin
   );
 }
 
-function AiEvaluationContent({
+export function AiEvaluationContent({
   data,
 }: {
   data: { aiEvaluation: { evaluation: QualitativeResumeEvaluationV2; status: "ready" } };

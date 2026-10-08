@@ -748,7 +748,7 @@ function OfferCardActions({
   return null;
 }
 
-function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
+export function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
   return (
     <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm lg:grid-cols-4">
       <ReadonlyOfferField label="职位" value={draft.position} />

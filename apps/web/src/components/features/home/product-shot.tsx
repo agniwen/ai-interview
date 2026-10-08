@@ -21,11 +21,7 @@ export function ProductShot() {
         initial={PRODUCT_SHOT_HIDDEN}
         transition={reducedMotion ? { duration: 0 } : PRODUCT_SHOT_TRANSITION}
       >
-        <div
-          aria-hidden="true"
-          className="home-product-shot-scroll w-full drop-shadow-[0_24px_40px_rgba(61,78,113,0.12)] dark:drop-shadow-[0_24px_40px_rgba(0,0,0,0.3)]"
-          inert
-        >
+        <div className="home-product-shot-scroll w-full drop-shadow-[0_24px_40px_rgba(61,78,113,0.12)] dark:drop-shadow-[0_24px_40px_rgba(0,0,0,0.3)]">
           <ResumesScreen />
         </div>
       </m.div>
