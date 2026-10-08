@@ -40,6 +40,7 @@ export function HumanMeetingReviewSelect({
   required = true,
   onValueChange,
   triggerRef,
+  portalContainer,
 }: {
   id: string;
   label: string;
@@ -51,6 +52,7 @@ export function HumanMeetingReviewSelect({
   required?: boolean;
   onValueChange: (value: string | null) => void;
   triggerRef?: Ref<HTMLButtonElement>;
+  portalContainer?: HTMLElement | null;
 }) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
@@ -70,7 +72,11 @@ export function HumanMeetingReviewSelect({
             {options.find((option) => option.value === value)?.label ?? value}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent
+          portalContainer={portalContainer}
+          alignItemWithTrigger={!portalContainer}
+          className={portalContainer ? "w-(--anchor-width)" : undefined}
+        >
           <SelectGroup>
             {options.map((option) => (
               <SelectItem

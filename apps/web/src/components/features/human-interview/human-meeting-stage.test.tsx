@@ -93,6 +93,20 @@ vi.mock("@livekit/components-react", () => ({
   ],
 }));
 
+vi.mock("./human-meeting-in-progress-review", () => ({
+  HumanMeetingInProgressReview: ({
+    expanded,
+    onClose,
+  }: {
+    expanded: boolean;
+    onClose: () => void;
+  }) => (
+    <dialog open={expanded} aria-label="面试评价">
+      <button onClick={onClose}>关闭评价</button>
+    </dialog>
+  ),
+}));
+
 vi.mock("./human-meeting-audio-controls", () => ({
   MicrophoneDeviceMenu: () => <button aria-label="选择麦克风">当前麦克风</button>,
   VoiceEffectMenu: () => null,
@@ -573,3 +587,64 @@ describe("HumanMeetingStage realtime transcript", () => {
     },
   );
 });
+
+it.each([
+  { expected: true, interviewer: true, mobile: false },
+  { expected: false, interviewer: true, mobile: true },
+  { expected: false, interviewer: false, mobile: false },
+])(
+  "exposes in-meeting review only to desktop interviewers: %j",
+  ({ mobile, interviewer, expected }) => {
+    vi.stubGlobal("innerWidth", mobile ? 390 : 1280);
+    vi.stubGlobal("matchMedia", () => ({
+      addEventListener: vi.fn(),
+      matches: mobile,
+      removeEventListener: vi.fn(),
+    }));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    act(() =>
+      root.render(
+        <HumanMeetingStage
+          canEndMeeting={interviewer}
+          canPublish
+          canUseLiveTranscript
+          canUseVoiceEffects={false}
+          candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
+          chatInviteToken="invite-1"
+          chatMode="interviewer"
+          inviteToken="invite-1"
+          isEnding={false}
+          onCandidateMaterialsStateChange={() => {}}
+          onEndMeeting={() => {}}
+          onViewModeChange={() => {}}
+          title="真人复面"
+          viewMode="materials"
+        />,
+      ),
+    );
+    const trigger = [...container.querySelectorAll("button")].find(
+      (item) => item.textContent === "评价",
+    );
+    expect(Boolean(trigger)).toBe(expected);
+    if (trigger) {
+      act(() => trigger.click());
+      expect(container.querySelector('dialog[aria-label="面试评价"]')).not.toBeNull();
+      expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
+      act(() => trigger.click());
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(container.querySelector("dialog[open]")).toBeNull();
+      act(() => trigger.click());
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+      expect(container.querySelector("dialog[open]")).not.toBeNull();
+      const close = [...container.querySelectorAll("button")].find(
+        (item) => item.textContent === "关闭评价",
+      );
+      act(() => close?.click());
+      expect(container.querySelector('dialog[aria-label="面试评价"]')).toBeNull();
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    }
+  },
+);

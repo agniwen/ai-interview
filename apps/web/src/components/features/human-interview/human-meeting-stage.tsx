@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 import {
   IconSubtitles,
+  IconClipboardText,
   IconDeviceDesktopUp,
   IconFileDescription,
   IconLoader2,
@@ -57,6 +58,7 @@ import { shouldReturnToMeetingForLocalScreenShare } from "./human-meeting-materi
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
 import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
+import { HumanMeetingInProgressReview } from "./human-meeting-in-progress-review";
 import { HumanMeetingChat } from "./human-meeting-chat";
 import { HumanMeetingTranscriptPanel } from "./human-meeting-transcript-panel";
 import { MeetingInfoHoverCard } from "./meeting-info-hover-card";
@@ -162,6 +164,9 @@ export function HumanMeetingStage({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewStarted, setReviewStarted] = useState(false);
+  const [reviewContainer, setReviewContainer] = useState<HTMLDivElement | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const closeTranscript = useCallback(() => setTranscriptOpen(false), []);
   const toggleChat = () => {
@@ -316,7 +321,11 @@ export function HumanMeetingStage({
         </div>
       </header>
 
-      <div data-slot="meeting-workspace" className="relative grid min-h-0 flex-1 overflow-hidden">
+      <div
+        ref={setReviewContainer}
+        data-slot="meeting-workspace"
+        className="relative grid min-h-0 flex-1 overflow-hidden"
+      >
         <div
           data-slot="meeting-main-panels"
           className="flex min-h-0 min-w-0 flex-col overflow-hidden"
@@ -498,6 +507,21 @@ export function HumanMeetingStage({
             <span>{viewMode === "materials" ? "会议视图" : "候选人信息"}</span>
           </button>
         ) : null}
+        {inviteToken && canEndMeeting && !isMobile ? (
+          <button
+            aria-haspopup="dialog"
+            aria-expanded={reviewOpen}
+            className={cn(humanMeetingControlButtonClass, reviewOpen && "bg-accent")}
+            onClick={() => {
+              setReviewStarted(true);
+              setReviewOpen((open) => !open);
+            }}
+            type="button"
+          >
+            <IconClipboardText className="size-4" />
+            <span>评价</span>
+          </button>
+        ) : null}
         <button
           aria-expanded={chatOpen}
           aria-label={chatOpen ? "关闭聊天" : "打开聊天"}
@@ -541,6 +565,17 @@ export function HumanMeetingStage({
           </Button>
         )}
       </footer>
+      {reviewStarted && inviteToken && canEndMeeting && reviewContainer ? (
+        <HumanMeetingInProgressReview
+          container={reviewContainer}
+          expanded={reviewOpen}
+          inviteToken={inviteToken}
+          onClose={() => {
+            setReviewOpen(false);
+            setReviewStarted(false);
+          }}
+        />
+      ) : null}
       <Modal
         open={leaveConfirmOpen}
         onOpenChange={setLeaveConfirmOpen}

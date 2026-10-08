@@ -51,10 +51,8 @@ const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
 type EvaluationTextFieldKey =
   | "overallEvaluation"
   | "professionalSkill"
-  | "risks"
   | "rolePosition"
-  | "salaryRecommendation"
-  | "strengths";
+  | "salaryRecommendation";
 
 const EVALUATION_FIELDS: {
   key: EvaluationTextFieldKey;
@@ -88,9 +86,12 @@ const EVALUATION_FIELDS: {
     minHeight: 88,
     placeholder: "请选择专业技能等级",
   },
-  { key: "strengths", label: "优势特点", minHeight: 88, placeholder: "记录有具体事例支持的优势" },
-  { key: "risks", label: "劣势风险", minHeight: 88, placeholder: "记录能力短板或仍需核实的问题" },
 ];
+
+const LEGACY_EVALUATION_FIELDS = [
+  { key: "strengths", label: "优势特点" },
+  { key: "risks", label: "劣势风险" },
+] as const;
 
 const PROFESSIONAL_SKILL_GRADES = ["优", "良", "中", "差"];
 
@@ -178,6 +179,8 @@ async function requestJson<TResult>(path: string, init?: RequestInit): Promise<T
 
 type ReviewProps = {
   active: boolean;
+  draftOnly?: boolean;
+  selectPortalContainer?: HTMLElement | null;
   onClose: () => void;
   onSaved?: () => void;
   renderShell?: (content: ReactNode, requestClose: () => void) => ReactNode;
@@ -204,12 +207,16 @@ function HumanMeetingReviewShell({
 // eslint-disable-next-line complexity -- one review form serves both authenticated and invitation entrypoints.
 function HumanMeetingReviewForm({
   active,
+  draftOnly = false,
+  selectPortalContainer,
   basePath,
   onClose,
   onSaved,
   renderShell,
 }: {
   active: boolean;
+  draftOnly?: boolean;
+  selectPortalContainer?: HTMLElement | null;
   basePath: string;
   onClose: () => void;
   onSaved?: () => void;
@@ -246,6 +253,9 @@ function HumanMeetingReviewForm({
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value: { evaluation, outcome } }) => {
+      if (draftOnly) {
+        return;
+      }
       const transcriptRevisionId = review?.transcript?.id ?? null;
       const { draftOutcome: _draftOutcome, ...submittedEvaluation } = evaluation;
       await run("submit", async () => {
@@ -431,7 +441,10 @@ function HumanMeetingReviewForm({
   const legacySkill = !hasSkillGrade && professionalSkill !== "-" ? professionalSkill : "";
 
   const hasDraftContent = Boolean(
-    evaluation.rating || outcome || EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()),
+    evaluation.rating ||
+    outcome ||
+    EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()) ||
+    LEGACY_EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()),
   );
 
   function renderEditor(
@@ -495,19 +508,22 @@ function HumanMeetingReviewForm({
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ScrollArea className="min-h-0 flex-1" scrollFade={!renderShell} scrollbars="never">
         <div className="mx-auto w-full max-w-5xl p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-medium text-lg">面试评价</h2>
-              <output className="mt-1 flex items-center gap-2 whitespace-pre-wrap text-muted-foreground text-xs">
-                {!isSubmitted && review.evaluationStatus === "generating" ? (
-                  <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-                ) : null}
-              </output>
+          {draftOnly ? null : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-medium text-lg">面试评价</h2>
+                <output className="mt-1 flex items-center gap-2 whitespace-pre-wrap text-muted-foreground text-xs">
+                  {!isSubmitted && review.evaluationStatus === "generating" ? (
+                    <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+                  ) : null}
+                </output>
+              </div>
             </div>
-          </div>
+          )}
           <FieldGroup className="mt-4 grid gap-5 md:grid-cols-3">
             <Field label="本轮结论" id={`${fieldId}-outcome`} required error={errors?.outcome}>
               <HumanMeetingReviewSelect
+                portalContainer={selectPortalContainer}
                 id={`${fieldId}-outcome`}
                 label="本轮结论"
                 invalid={Boolean(errors?.outcome)}
@@ -536,6 +552,7 @@ function HumanMeetingReviewForm({
               error={errors?.["evaluation.rating"]}
             >
               <HumanMeetingReviewSelect
+                portalContainer={selectPortalContainer}
                 id={`${fieldId}-rating`}
                 label="评级"
                 invalid={Boolean(errors?.["evaluation.rating"])}
@@ -565,6 +582,7 @@ function HumanMeetingReviewForm({
               error={errors?.["evaluation.professionalSkill"]}
             >
               <HumanMeetingReviewSelect
+                portalContainer={selectPortalContainer}
                 id={`${fieldId}-professionalSkill`}
                 label="专业技能"
                 placeholder="请选择专业技能等级"
@@ -603,6 +621,22 @@ function HumanMeetingReviewForm({
               ),
             )}
           </FieldGroup>
+          {LEGACY_EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()) ? (
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              {LEGACY_EVALUATION_FIELDS.map(({ key, label }) =>
+                evaluation[key].trim() ? (
+                  <section key={key} aria-labelledby={`${fieldId}-${key}-heading`}>
+                    <h3 id={`${fieldId}-${key}-heading`} className="text-sm font-medium">
+                      {label}
+                    </h3>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                      {evaluation[key]}
+                    </p>
+                  </section>
+                ) : null,
+              )}
+            </div>
+          ) : null}
           {isSubmitted && review.documentSync ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>
@@ -649,7 +683,7 @@ function HumanMeetingReviewForm({
               ) : null}
             </div>
           ) : null}
-          {review.transcript ? (
+          {!draftOnly && review.transcript ? (
             <HumanMeetingTranscriptRecovery
               key={review.transcript.id}
               transcript={review.transcript}
@@ -658,7 +692,7 @@ function HumanMeetingReviewForm({
               onUpdated={load}
             />
           ) : null}
-          {review.evaluationStatus === "generating" ? (
+          {!draftOnly && review.evaluationStatus === "generating" ? (
             <p className="mt-3 text-right text-muted-foreground text-xs leading-5">
               AI
               评价正在生成并核验依据，会议分析完成后仍需等待此步骤。此页面会自动更新，也可以稍后返回本轮评价审核并提交。
@@ -714,9 +748,11 @@ function HumanMeetingReviewForm({
             >
               保存草稿
             </Button>
-            <Button disabled={Boolean(busy)} onClick={() => form.handleSubmit()}>
-              提交评价
-            </Button>
+            {draftOnly ? null : (
+              <Button disabled={Boolean(busy)} onClick={() => form.handleSubmit()}>
+                提交评价
+              </Button>
+            )}
           </div>
         )}
       </div>
