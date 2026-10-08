@@ -10,7 +10,7 @@ import * as messages from "@/paraglide/messages";
 import { cn } from "@app/shared/utils";
 import { getHomeDemoCopy } from "./home-demo-copy";
 import { ModernArtwork } from "./modern-artwork";
-import { Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionHeader } from "./section";
 
 type StepValue = "decision" | "interview" | "role" | "screening";
 
@@ -384,12 +384,9 @@ export function ProcessTabs() {
   return (
     <Section className="overflow-hidden" width="wide">
       <div ref={sectionRef}>
-        <div className="max-w-3xl">
-          <SectionTitle className="mt-0">{messages.home_process_title()}</SectionTitle>
-          <SectionLead>{messages.home_process_lead()}</SectionLead>
-        </div>
+        <SectionHeader title={messages.home_process_title()} lead={messages.home_process_lead()} />
 
-        <div className="mt-12 grid items-start gap-10 lg:mt-14 lg:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.32fr)] lg:gap-12 xl:gap-16">
+        <div className="mt-16 grid items-start gap-10 lg:mt-20 lg:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.32fr)] lg:gap-12 xl:gap-16">
           <div
             aria-label={messages.home_process_aria()}
             className="min-w-0"
@@ -402,7 +399,7 @@ export function ProcessTabs() {
                 <button
                   aria-controls="process-demo-panel"
                   aria-selected={isActive}
-                  className="group block w-full py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-4 active:opacity-80 lg:py-2.5"
+                  className="group block w-full py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-4 active:opacity-80 lg:py-5"
                   data-process-step={step.value}
                   key={step.value}
                   onClick={() => activateStep(step.value)}
@@ -412,7 +409,7 @@ export function ProcessTabs() {
                   <div className="flex items-center gap-3">
                     <span
                       className={cn(
-                        "font-mono text-[10px] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
+                        "font-mono text-sm transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
                         isActive ? "text-primary" : "text-foreground/70",
                       )}
                     >
@@ -438,7 +435,7 @@ export function ProcessTabs() {
                     <div className="min-h-0">
                       <h3
                         className={cn(
-                          "text-balance font-medium text-xl tracking-tight transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none sm:text-2xl",
+                          "text-balance font-medium text-xl tracking-[-0.035em] transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none sm:text-2xl",
                           !isActive && "text-foreground/72",
                         )}
                       >
@@ -446,7 +443,7 @@ export function ProcessTabs() {
                       </h3>
                       <p
                         className={cn(
-                          "mt-2 max-w-md text-sm text-foreground/68 leading-relaxed transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none dark:text-white/72 lg:text-[13px] lg:leading-5",
+                          "mt-2 max-w-md text-sm text-foreground/68 leading-relaxed transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none dark:text-white/72 lg:text-sm lg:leading-relaxed",
                         )}
                       >
                         {step.body}
@@ -468,25 +465,17 @@ export function ProcessTabs() {
 
           <div
             aria-live="polite"
-            className="relative min-h-[27rem] overflow-hidden  sm:min-h-[32rem] lg:sticky lg:top-24 lg:min-h-0 lg:self-stretch"
+            className="relative min-h-[27rem] overflow-hidden rounded-xl sm:min-h-[32rem] lg:sticky lg:top-24 lg:min-h-0 lg:self-stretch"
             id="process-demo-panel"
             role="tabpanel"
           >
             <ModernArtwork
-              assetPath="/landing/optimized/multicolor/recruitment-workflow-light"
               className="absolute inset-0 size-full object-cover contrast-[0.96] saturate-[0.84] dark:hidden"
               dataAttributes={{ "data-process-artwork": "light" }}
-              fallbackPath="/landing/multicolor/recruitment-workflow-light.jpg"
-              height={1171}
-              width={1343}
             />
             <ModernArtwork
-              assetPath="/landing/optimized/multicolor/recruitment-workflow-dark"
               className="absolute inset-0 hidden size-full object-cover contrast-[0.98] saturate-[0.88] dark:block"
               dataAttributes={{ "data-process-artwork": "dark" }}
-              fallbackPath="/landing/multicolor/recruitment-workflow-dark.jpg"
-              height={1171}
-              width={1343}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/[0.04] dark:to-black/15" />
 

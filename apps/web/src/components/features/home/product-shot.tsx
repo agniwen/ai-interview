@@ -1,10 +1,7 @@
-// 用途：Hero 下方的产品主截图大图，滚动驱动轻微缩小
-// Purpose: Hero shot of the primary product surface; subtle native scroll-driven scale-down.
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
 import { ResumesScreen } from "@/components/features/home/screens/resumes-screen";
-import { Section } from "./section";
 
 const PRODUCT_SHOT_HIDDEN = { opacity: 0, transform: "translateY(16px)" } as const;
 const PRODUCT_SHOT_VISIBLE = { opacity: 1, transform: "translateY(0px)" } as const;
@@ -13,13 +10,11 @@ const PRODUCT_SHOT_TRANSITION = {
   ease: [0.23, 1, 0.32, 1],
 } as const;
 
-// 顶部小 padding 让截图露出首屏一半，底部沿用 Section 默认节奏与下方 section 对齐
-// Small top keeps the screenshot peeking above the fold; default bottom keeps section rhythm consistent.
 export function ProductShot() {
   const reducedMotion = useReducedMotion();
 
   return (
-    <Section className="!pt-16 sm:!pt-20 lg:!pt-24" width="wide">
+    <div className="mx-auto w-full max-w-360 px-6 pt-14 pb-14 sm:px-8 sm:pt-16 sm:pb-16 lg:px-12 lg:pt-20 lg:pb-20">
       <m.div
         animate={PRODUCT_SHOT_VISIBLE}
         className="home-product-shot-enter"
@@ -28,12 +23,12 @@ export function ProductShot() {
       >
         <div
           aria-hidden="true"
-          className="home-product-shot-scroll mx-auto w-full max-w-6xl drop-shadow-[0_28px_48px_rgba(61,78,113,0.16)] dark:drop-shadow-[0_30px_52px_rgba(0,0,0,0.36)]"
+          className="home-product-shot-scroll w-full drop-shadow-[0_24px_40px_rgba(61,78,113,0.12)] dark:drop-shadow-[0_24px_40px_rgba(0,0,0,0.3)]"
           inert
         >
           <ResumesScreen />
         </div>
       </m.div>
-    </Section>
+    </div>
   );
 }

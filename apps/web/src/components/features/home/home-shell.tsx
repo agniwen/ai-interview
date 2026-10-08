@@ -3,6 +3,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
+import { RecruitmentCopilotMark } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
 import { BackgroundLayers } from "./background-layers";
 import { CapabilityGrid } from "./capability-grid";
 import { Faq } from "./faq";
@@ -10,6 +11,7 @@ import { FeatureBlocks } from "./feature-blocks";
 import { HomeFooter } from "./footer";
 import { Hero } from "./hero";
 import { Personas } from "./personas";
+import { PageGrain } from "./page-grain";
 import { ProcessTabs } from "./process-tabs";
 import { ProductShot } from "./product-shot";
 import { DecisionPrinciples } from "./testimonials";
@@ -27,17 +29,23 @@ export default function HomeShell() {
 
   return (
     <div>
-      <div className="fixed top-4 right-4 z-10 flex items-center gap-1">
-        <LanguageToggle />
-        <ThemeToggle />
-      </div>
-
+      <PageGrain />
       <main className="relative flex w-full flex-col items-stretch bg-background" id="main-content">
         <div className="relative isolate overflow-hidden">
           <BackgroundLayers fadeToBackground />
-          {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
-                Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
-          <div className="mx-auto flex w-full max-w-[96rem] flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
+          <header className="mx-auto flex w-full max-w-360 items-center justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8 lg:px-12">
+            <div className="flex items-center gap-2.5 text-foreground">
+              <RecruitmentCopilotMark className="size-7 sm:size-8" />
+              <span className="font-medium text-sm tracking-tight sm:text-base">
+                AI Hiring Copilot
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <LanguageToggle />
+              <ThemeToggle />
+            </div>
+          </header>
+          <div className="mx-auto w-full max-w-360 px-6 pt-16 sm:px-8 sm:pt-20 lg:px-12 lg:pt-24">
             <Hero onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
           </div>
           <ProductShot />
@@ -46,22 +54,6 @@ export default function HomeShell() {
           {/* <TrustStrip /> */}
           <FeatureBlocks />
           <div className="relative isolate overflow-hidden">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-16 -right-20 -z-10 h-24 w-72 -rotate-6 bg-[url('/landing/multicolor/brush-sweep.png')] bg-center bg-contain bg-no-repeat opacity-40 select-none sm:top-20 sm:-right-12 sm:h-32 sm:w-96 sm:opacity-50 lg:right-0 lg:h-36 lg:w-[28rem] dark:opacity-25"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-[27%] -right-32 -z-10 h-28 w-96 rotate-2 bg-[url('/landing/multicolor/brush-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:-right-24 sm:h-36 sm:w-[30rem] sm:opacity-[0.18] lg:-right-16 lg:h-44 lg:w-[36rem] lg:opacity-20 dark:opacity-20"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-[46%] -left-16 -z-10 hidden h-20 w-72 -rotate-3 bg-[url('/landing/decor/brush-earth-dry.png')] bg-center bg-contain bg-no-repeat opacity-40 select-none sm:block sm:w-80 sm:opacity-45 lg:-left-8 lg:h-24 lg:w-96 lg:opacity-50 dark:bg-[url('/landing/decor/brush-earth-dry-dark.png')] dark:opacity-45"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 bottom-4 -z-10 h-24 w-40 rotate-6 bg-[url('/landing/decor/brush-stone-flicks.png')] bg-center bg-contain bg-no-repeat opacity-25 select-none sm:right-[5%] sm:bottom-8 sm:h-28 sm:w-48 sm:opacity-30 lg:h-32 lg:w-56 lg:opacity-35 dark:bg-[url('/landing/decor/brush-stone-flicks-dark.png')] dark:opacity-40"
-            />
             <CapabilityGrid />
             <Personas />
           </div>

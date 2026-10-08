@@ -53,22 +53,33 @@
   }
 }
 
+/* A static version of the blue light field also covers SSR and unavailable WebGPU. */
 .home-hero-artwork-light {
-  background-image: url("/landing/multicolor/talent-city-grain-light.jpg");
-  background-image: image-set(
-    url("/landing/optimized/multicolor/talent-city-grain-light.avif") type("image/avif"),
-    url("/landing/optimized/multicolor/talent-city-grain-light.webp") type("image/webp"),
-    url("/landing/multicolor/talent-city-grain-light.jpg") type("image/jpeg")
-  );
+  background-image:
+    radial-gradient(ellipse at 85% 65%, #3158df 0%, transparent 48%),
+    radial-gradient(ellipse at 12% 90%, #b5caff 0%, transparent 55%),
+    linear-gradient(135deg, #f8faff 20%, #e6edff 60%, #8daaff 100%);
 }
 
 .home-hero-artwork-dark {
-  background-image: url("/landing/multicolor/talent-city-grain-dark.jpg");
-  background-image: image-set(
-    url("/landing/optimized/multicolor/talent-city-grain-dark.avif") type("image/avif"),
-    url("/landing/optimized/multicolor/talent-city-grain-dark.webp") type("image/webp"),
-    url("/landing/multicolor/talent-city-grain-dark.jpg") type("image/jpeg")
-  );
+  background-image:
+    radial-gradient(ellipse at 85% 65%, #1d4dff 0%, transparent 48%),
+    radial-gradient(ellipse at 12% 90%, #1230a0 0%, transparent 55%),
+    linear-gradient(135deg, #050b20 20%, #0d1d51 60%, #3158df 100%);
+}
+
+.hiring-artwork {
+  background:
+    repeating-linear-gradient(115deg, transparent 0 48px, #ffffff24 49px, transparent 50px 98px),
+    radial-gradient(ellipse at 85% 25%, #3158df80, transparent 58%),
+    radial-gradient(ellipse at 10% 80%, #a8c1ff, transparent 65%), #eaf0ff;
+}
+
+.dark .hiring-artwork {
+  background:
+    repeating-linear-gradient(115deg, transparent 0 48px, #ffffff0d 49px, transparent 50px 98px),
+    radial-gradient(ellipse at 85% 25%, #1d4dffa6, transparent 58%),
+    radial-gradient(ellipse at 10% 80%, #1230a0, transparent 65%), #080f2a;
 }
 
 @media (prefers-reduced-motion: no-preference) {

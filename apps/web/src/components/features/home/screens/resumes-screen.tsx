@@ -6,6 +6,7 @@ import {
   IconEdit,
   IconFileText,
   IconFilterX,
+  IconFilterPlus,
   IconInfoCircle,
   IconPlus,
   IconRefresh,
@@ -35,6 +36,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import * as m from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
+import { recruitingBoardGroups } from "@app/shared/recruiting-board";
+import { getHomeDeskCopy, localizeBoardLabel } from "./recruiting-desk-copy";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -57,8 +60,8 @@ function ChartCardShell({
 }) {
   return (
     <Card className="h-full gap-0 overflow-hidden rounded-xl py-0">
-      <div className="grid border-b sm:h-22 sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
-        <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
+      <div className="grid min-h-18 grid-cols-[minmax(0,1fr)_repeat(2,5rem)] border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,6rem)] 2xl:h-22">
+        <CardHeader className="min-w-0 gap-1 p-3 sm:p-4 2xl:p-5">
           <CardTitle className="truncate text-base">{title}</CardTitle>
           {description ? (
             <CardDescription className="truncate">{description}</CardDescription>
@@ -66,7 +69,7 @@ function ChartCardShell({
         </CardHeader>
         {metrics.map((metric) => (
           <div
-            className="flex flex-col justify-center border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5"
+            className="flex min-w-0 flex-col justify-center border-l px-2 py-3 sm:px-3"
             key={metric.label}
           >
             <div className="truncate text-muted-foreground text-xs">{metric.label}</div>
@@ -134,7 +137,7 @@ function StatusCard() {
         { label: m.home_frame_total_candidates(), value: String(total) },
         { label: m.home_frame_in_progress(), value: String(active) },
       ]}
-      title={m.home_frame_pipeline_title()}
+      title={getHomeDeskCopy().pipelineTitle}
     >
       <div className="flex items-center">
         <div className="flex w-full flex-col justify-center gap-3">
@@ -255,11 +258,79 @@ function ConversionCard() {
   );
 }
 
-function ChartsRow() {
-  // 首页仅展示流程分布与 AI 面试转化。
+function UploaderRankingCard() {
+  const copy = getHomeDeskCopy();
+  const members = [
+    { count: 36, name: getLocale() === "zh-CN" ? "葛城美里" : "Misato" },
+    { count: 28, name: getLocale() === "zh-CN" ? "赤木律子" : "Ritsuko" },
+    { count: 20, name: getLocale() === "zh-CN" ? "碇源堂" : "Gendo" },
+  ];
+  const periods = [
+    { label: copy.today, value: "today" },
+    { label: copy.yesterday, value: "yesterday" },
+    { label: copy.week, value: "week" },
+    { label: copy.month, value: "month" },
+  ];
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <ChartCardShell
+      description={copy.rankingDescription}
+      metrics={[
+        { label: copy.periodAdded, value: "84" },
+        { label: copy.participants, value: "3" },
+      ]}
+      title={copy.rankingTitle}
+    >
+      <div className="flex min-h-36 flex-col gap-3">
+        <Tabs value="month">
+          <TabsList aria-label={copy.rankingTitle} className="h-7 w-fit">
+            {periods.map((period) => (
+              <TabsTrigger
+                className="h-6 px-2.5 text-xs sm:h-6"
+                key={period.value}
+                value={period.value}
+              >
+                {period.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <ol className="flex flex-col gap-2.5">
+          {members.map((member, index) => (
+            <li
+              className="grid grid-cols-[1rem_1.5rem_minmax(0,1fr)_3.25rem] items-center gap-2"
+              key={member.name}
+            >
+              <span className="text-center font-mono text-muted-foreground text-xs">
+                {index + 1}
+              </span>
+              <Avatar label={member.name} seed={`recruiter:${member.name}`} size="sm">
+                <AvatarFallback>{member.name.slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-xs">{member.name}</p>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-chart-1"
+                    style={{ width: `${(member.count / 36) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <span className="text-right font-mono font-semibold text-xs tabular-nums">
+                {member.count}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </ChartCardShell>
+  );
+}
+
+function ChartsRow() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
       <StatusCard />
+      <UploaderRankingCard />
       <ConversionCard />
     </div>
   );
@@ -291,29 +362,36 @@ function PageHeader({ title }: { title: string }) {
 
 // ─────────────────── Pipeline stage tabs ───────────────────
 function PipelineStageTabs() {
-  const pipelineTabs = [
-    { label: m.home_frame_tab_all(), value: "all" },
-    { label: m.home_frame_stage_screening(), value: "screening" },
-    { label: m.home_frame_nav_ai_interview(), value: "ai_interview" },
-    { label: m.home_frame_stage_human(), value: "human_interview" },
-    { label: "Offer", value: "offer" },
-    { label: m.home_frame_tab_closed(), value: "closed" },
-  ];
+  const copy = getHomeDeskCopy();
+  const allGroup = recruitingBoardGroups.find((group) => group.id === "all");
 
   return (
-    <Tabs value="all">
-      <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap">
-        {pipelineTabs.map((tab) => (
-          <TabsTrigger
-            className="h-10! w-full px-3 sm:w-auto sm:px-8"
-            key={tab.value}
-            value={tab.value}
+    <div className="flex min-w-0 flex-col gap-3">
+      <Tabs value="all">
+        <TabsList aria-label={copy.stages} className="w-fit">
+          {recruitingBoardGroups.map((tab) => (
+            <TabsTrigger className="h-10! px-7 text-sm" key={tab.id} value={tab.id}>
+              {localizeBoardLabel(tab.label)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      <div className="min-w-0 overflow-hidden">
+        <Tabs value="all">
+          <TabsList
+            aria-label={copy.subprocesses}
+            className="w-max max-w-none gap-1 px-3"
+            variant="underline"
           >
-            <span className="text-sm leading-tight">{tab.label}</span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+            {allGroup?.tabs.map((tab) => (
+              <TabsTrigger className="h-8! px-3 text-xs!" key={tab.value} value={tab.value}>
+                {localizeBoardLabel(tab.label)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+    </div>
   );
 }
 
@@ -364,6 +442,10 @@ function ResumeToolbar() {
         </div>
         <FilterSelectChip label={m.home_frame_skill_filter()} />
         <FilterSelectChip label={m.home_frame_job_filter()} />
+        <Button type="button" variant="outline">
+          <IconFilterPlus data-icon="inline-start" />
+          {getHomeDeskCopy().addFilter}
+        </Button>
       </div>
       <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
         <ToolbarIconButton label={m.home_frame_refresh()}>

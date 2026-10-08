@@ -11,22 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import * as messages from "@/paraglide/messages";
+import { getHomeCalibrationCopy } from "./home-calibration-copy";
 import { getHomeDemoCopy } from "./home-demo-copy";
 import { ModernArtwork } from "./modern-artwork";
-import { Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionHeader } from "./section";
 
 interface Story {
-  darkImage: string;
   description: string;
   id: "calibration" | "evidence" | "interview";
-  image: string;
-  imagePosition: string;
-  optimizedDarkImage: string;
-  optimizedImage: string;
   points: [string, string];
   title: string;
   visual: ReactNode;
-  visualPosition: "bottom-left" | "bottom-right" | "top-right";
 }
 
 const CANDIDATE_REVIEW_SCORE = 87;
@@ -39,7 +34,7 @@ const CANDIDATE_REVIEW_VALUES = {
   stability: 78,
 } as const;
 const STORY_SCENE_HEIGHTS = {
-  calibration: "min-h-[22rem] sm:min-h-[30rem]",
+  calibration: "min-h-[38rem] sm:min-h-[32rem]",
   evidence: "min-h-[24rem] sm:min-h-[32rem]",
   interview: "min-h-[28rem] sm:min-h-[34rem]",
 } satisfies Record<Story["id"], string>;
@@ -199,18 +194,19 @@ function CandidateAgentChat() {
 
 function TeamCalibrationCard() {
   const copy = getHomeDemoCopy().feature;
+  const calibration = getHomeCalibrationCopy();
 
   return (
     <div className="flex w-full max-w-[36rem] flex-col">
       <div
-        className="rounded-lg bg-background/95 p-3 shadow-[0_18px_48px_-32px_rgba(15,23,42,0.5)] dark:bg-background/92"
+        className="overflow-hidden rounded-xl border border-border/70 bg-background/95 p-4 shadow-[0_22px_56px_-34px_rgba(15,23,42,0.55)] sm:p-5"
         data-density="compact"
-        data-layout="horizontal"
+        data-layout="review-summary"
         data-slot="team-calibration-card"
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 sm:grid-cols-[minmax(10rem,1.15fr)_minmax(11rem,1.35fr)_auto] sm:gap-x-5">
           <div className="order-1 min-w-0">
-            <p className="font-medium text-foreground text-sm">{copy.calibrationTitle}</p>
+            <p className="font-medium text-foreground text-sm">{calibration.calibrationTitle}</p>
             <p className="mt-0.5 text-foreground/50 text-xs">{copy.calibrationComplete}</p>
           </div>
           <Badge className="order-2 justify-self-end sm:order-3" variant="success">
@@ -226,11 +222,42 @@ function TeamCalibrationCard() {
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
-          <Avatar generatedSize={24} label={copy.interviewerAvatar} seed="interviewer:郭" size="sm">
-            <AvatarFallback>郭</AvatarFallback>
-          </Avatar>
-          <p className="text-[11px] text-foreground/70 leading-relaxed">
+        <div className="mt-5 rounded-lg bg-primary/[0.045] p-3.5">
+          <p className="font-medium text-xs text-primary">{calibration.calibrationEvidence}</p>
+          <p className="mt-2 text-foreground text-xs leading-relaxed">
+            {calibration.calibrationEvidenceBody}
+          </p>
+          <p className="mt-2 text-[10px] text-muted-foreground">{calibration.calibrationSource}</p>
+        </div>
+
+        <ul className="mt-2 flex flex-col divide-y divide-border/60">
+          {calibration.calibrationReviewers.map((reviewer, index) => (
+            <li className="flex items-start gap-2.5 py-3.5" key={reviewer.name}>
+              <Avatar
+                generatedSize={28}
+                label={reviewer.name}
+                seed={`interviewer:${reviewer.name}`}
+                size="sm"
+              >
+                <AvatarFallback>{reviewer.name.slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p className="font-medium text-xs">{reviewer.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{reviewer.role}</p>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                  {reviewer.note}
+                </p>
+              </div>
+              <Badge variant={index === 2 ? "warning" : "success"}>{reviewer.judgment}</Badge>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex items-start gap-2 border-t border-border/60 pt-3">
+          <IconSparkles aria-hidden className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
             {copy.calibrationComment}
           </p>
         </div>
@@ -242,46 +269,28 @@ function TeamCalibrationCard() {
 function getStories(): Story[] {
   return [
     {
-      darkImage: "/landing/multicolor/evidence-review-dark.jpg",
       description: messages.home_feature_evidence_description(),
       id: "evidence",
-      image: "/landing/multicolor/evidence-review-light.jpg",
-      imagePosition: "object-center",
-      optimizedDarkImage: "/landing/optimized/multicolor/evidence-review-dark",
-      optimizedImage: "/landing/optimized/multicolor/evidence-review-light",
       points: [
         messages.home_feature_evidence_point_one(),
         messages.home_feature_evidence_point_two(),
       ],
       title: messages.home_feature_evidence_title(),
       visual: <CandidateScoreCard />,
-      visualPosition: "top-right",
     },
     {
-      darkImage: "/landing/multicolor/interview-conversation-dark.jpg",
       description: messages.home_feature_chat_description(),
       id: "interview",
-      image: "/landing/multicolor/interview-conversation-light.jpg",
-      imagePosition: "object-center",
-      optimizedDarkImage: "/landing/optimized/multicolor/interview-conversation-dark",
-      optimizedImage: "/landing/optimized/multicolor/interview-conversation-light",
       points: [messages.home_feature_chat_point_one(), messages.home_feature_chat_point_two()],
       title: messages.home_feature_chat_title(),
       visual: <CandidateAgentChat />,
-      visualPosition: "bottom-right",
     },
     {
-      darkImage: "/landing/multicolor/team-calibration-dark.jpg",
       description: messages.home_feature_team_description(),
       id: "calibration",
-      image: "/landing/multicolor/team-calibration-light.jpg",
-      imagePosition: "object-center",
-      optimizedDarkImage: "/landing/optimized/multicolor/team-calibration-dark",
-      optimizedImage: "/landing/optimized/multicolor/team-calibration-light",
       points: [messages.home_feature_team_point_one(), messages.home_feature_team_point_two()],
       title: messages.home_feature_team_title(),
       visual: <TeamCalibrationCard />,
-      visualPosition: "bottom-left",
     },
   ];
 }
@@ -292,7 +301,7 @@ function StoryCard({ story, index }: { index: number; story: Story }) {
   return (
     <article
       className={cn(
-        "grid bg-transparent lg:gap-16",
+        "grid bg-transparent gap-8 lg:gap-16",
         isMirrored
           ? "lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.72fr)]"
           : "lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.55fr)]",
@@ -302,22 +311,20 @@ function StoryCard({ story, index }: { index: number; story: Story }) {
     >
       <div
         className={cn(
-          "flex flex-col justify-center py-14 sm:py-16 lg:min-h-[38rem] lg:py-20",
-          isMirrored ? "lg:order-2 lg:pr-4 xl:pr-8" : "lg:pl-4 xl:pl-8",
+          "flex flex-col justify-center py-2 lg:min-h-[32rem] lg:py-12",
+          isMirrored && "lg:order-2",
         )}
       >
-        <h3 className="max-w-md text-balance font-medium text-3xl text-foreground leading-[1.16] tracking-tight sm:text-4xl">
-          {story.title}
+        <h3 className="max-w-md whitespace-pre-line text-pretty font-medium text-[clamp(2rem,3.4vw,3.25rem)] text-foreground leading-[1.2] tracking-[-0.045em]">
+          {story.title.replace(/([，。,.])\s*(?=.)/u, "$1\n")}
         </h3>
         <p className="mt-5 max-w-md text-base text-foreground/68 leading-relaxed dark:text-white/72">
           {story.description}
         </p>
-        <ul className="mt-10 space-y-3">
-          {story.points.map((point, pointIndex) => (
+        <ul className="mt-8 flex flex-col gap-3">
+          {story.points.map((point) => (
             <li className="flex items-center gap-3 text-foreground/70 text-sm" key={point}>
-              <span className="font-mono text-[10px] text-primary tabular-nums">
-                0{index * 2 + pointIndex + 1}
-              </span>
+              <span aria-hidden="true" className="size-1 shrink-0 rounded-full bg-primary" />
               <span>{point}</span>
             </li>
           ))}
@@ -326,43 +333,33 @@ function StoryCard({ story, index }: { index: number; story: Story }) {
 
       <div
         className={cn(
-          "relative overflow-hidden bg-transparent lg:my-12 lg:min-h-0",
+          "relative overflow-hidden rounded-xl bg-transparent lg:min-h-0",
           STORY_SCENE_HEIGHTS[story.id],
           isMirrored && "lg:order-1",
         )}
         data-mobile-height={story.id === "interview" ? "default" : "compact"}
       >
         <ModernArtwork
-          assetPath={story.optimizedImage}
           className={cn(
             "absolute inset-0 size-full object-cover contrast-[0.94] saturate-[0.82] dark:hidden",
-            story.imagePosition,
           )}
           dataAttributes={{ "data-artwork-theme": "light" }}
-          fallbackPath={story.image}
-          height={941}
-          width={1672}
         />
         <ModernArtwork
-          assetPath={story.optimizedDarkImage}
           className={cn(
             "absolute inset-0 hidden size-full object-cover contrast-[0.96] saturate-[0.88] dark:block",
-            story.imagePosition,
           )}
           dataAttributes={{ "data-artwork-theme": "dark" }}
-          fallbackPath={story.darkImage}
-          height={941}
-          width={1672}
         />
         <div
           className={cn(
-            "absolute inset-0 flex",
-            story.id === "evidence" ? "p-3 sm:p-4" : "p-[6px]",
-            story.visualPosition === "top-right" ? "items-start" : "items-end",
-            story.visualPosition === "bottom-left" ? "justify-start" : "justify-end",
+            "inset-0 flex items-center justify-center p-3 sm:p-8",
+            story.id === "calibration"
+              ? "relative min-h-[inherit] lg:absolute lg:min-h-0"
+              : "absolute",
           )}
-          data-visual-inset={story.id === "evidence" ? "relaxed" : "edge"}
-          data-visual-position={story.visualPosition}
+          data-visual-inset="relaxed"
+          data-visual-position="center"
         >
           {story.visual}
         </div>
@@ -375,11 +372,10 @@ export function FeatureBlocks() {
   const stories = getStories();
 
   return (
-    <Section className="pt-10 sm:pt-14 lg:pt-20" width="wide">
-      <SectionTitle className="mt-0">{messages.home_features_title()}</SectionTitle>
-      <SectionLead>{messages.home_features_lead()}</SectionLead>
+    <Section width="wide">
+      <SectionHeader title={messages.home_features_title()} lead={messages.home_features_lead()} />
 
-      <div className="mt-12 space-y-20 sm:mt-16 sm:space-y-28 lg:space-y-32">
+      <div className="mt-16 flex flex-col gap-20 sm:mt-20 sm:gap-24 lg:mt-24 lg:gap-28">
         {stories.map((story, index) => (
           <StoryCard index={index} key={story.id} story={story} />
         ))}

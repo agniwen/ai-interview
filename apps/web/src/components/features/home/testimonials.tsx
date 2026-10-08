@@ -6,7 +6,7 @@ import { FadeContent } from "@/components/react-bits/fade-content";
 import { Marquee } from "@/components/spell-ui/marquee";
 import * as m from "@/paraglide/messages";
 import { getHomeDemoCopy } from "./home-demo-copy";
-import { Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionHeader } from "./section";
 
 interface HiringPrinciple {
   description: string;
@@ -82,15 +82,13 @@ const principlesRow2: HiringPrinciple[] = [
 
 function PrincipleCard({ description, label, title }: HiringPrinciple) {
   return (
-    <div className="mr-6 flex h-full w-[320px] flex-col rounded-2xl bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] ring-1 ring-foreground/5 backdrop-blur transition-[translate,box-shadow,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:-translate-y-px hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] hover:ring-foreground/[0.08] motion-reduce:translate-y-0 motion-reduce:transition-none sm:w-[360px] sm:p-6">
-      <p className="font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">{label}</p>
-      <h3 className="mt-4 text-balance font-medium text-foreground text-xl leading-tight tracking-tight">
+    <article className="mr-4 flex h-full w-[320px] flex-col rounded-xl bg-background/70 p-6 sm:w-[380px] sm:p-8">
+      <p className="text-primary text-sm">{label}</p>
+      <h3 className="mt-4 min-h-[2lh] text-pretty font-medium text-foreground text-2xl leading-[1.3] tracking-[-0.035em] sm:text-3xl">
         {title}
       </h3>
-      <p className="mt-3 text-foreground/75 text-sm leading-normal dark:text-white/80 sm:text-[15px]">
-        {description}
-      </p>
-    </div>
+      <p className="mt-5 text-muted-foreground text-sm leading-[1.9]">{description}</p>
+    </article>
   );
 }
 
@@ -104,24 +102,25 @@ export function DecisionPrinciples() {
   const secondRow = principles.slice(6);
 
   return (
-    <Section width="wide">
-      <SectionTitle className="mt-0">{m.home_principles_title()}</SectionTitle>
-      <SectionLead>{m.home_principles_lead()}</SectionLead>
+    <div className="overflow-hidden bg-primary/[0.035]">
+      <Section width="wide">
+        <SectionHeader title={m.home_principles_title()} lead={m.home_principles_lead()} />
 
-      <FadeContent>
-        <div className="relative left-1/2 mt-12 flex w-screen max-w-[2000px] -translate-x-1/2 flex-col gap-5 overflow-hidden">
-          <Marquee duration={48} fadeAmount={8} pauseOnHover>
-            {firstRow.map((principle) => (
-              <PrincipleCard key={principle.title} {...principle} />
-            ))}
-          </Marquee>
-          <Marquee direction="right" duration={56} fadeAmount={8} pauseOnHover>
-            {secondRow.map((principle) => (
-              <PrincipleCard key={principle.title} {...principle} />
-            ))}
-          </Marquee>
-        </div>
-      </FadeContent>
-    </Section>
+        <FadeContent>
+          <div className="relative left-1/2 mt-16 flex w-screen max-w-[2000px] -translate-x-1/2 flex-col gap-6 overflow-hidden sm:gap-8">
+            <Marquee duration={48} fadeAmount={8} pauseOnHover>
+              {firstRow.map((principle) => (
+                <PrincipleCard key={principle.title} {...principle} />
+              ))}
+            </Marquee>
+            <Marquee direction="right" duration={56} fadeAmount={8} pauseOnHover>
+              {secondRow.map((principle) => (
+                <PrincipleCard key={principle.title} {...principle} />
+              ))}
+            </Marquee>
+          </div>
+        </FadeContent>
+      </Section>
+    </div>
   );
 }

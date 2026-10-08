@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import * as messages from "@/paraglide/messages";
 import { cn } from "@app/shared/utils";
 import { CenterCarousel } from "./center-carousel";
-import { Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionHeader } from "./section";
 
 type TileLayout = "stacked" | "split";
 
@@ -41,8 +41,8 @@ function BentoTile({
 
   const head = (
     <div>
-      <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
-      <h3 className="mt-6 text-balance font-medium text-foreground text-lg leading-tight tracking-tight">
+      <Icon aria-hidden="true" className="size-6 text-primary" strokeWidth={1.25} />
+      <h3 className="mt-8 text-balance font-medium text-foreground text-2xl leading-tight tracking-[-0.035em]">
         {title}
       </h3>
       <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
@@ -54,21 +54,25 @@ function BentoTile({
   return (
     <article
       className={cn(
-        // 与 FeatureBlocks SceneCard 同款边距与材质：p-5 sm:p-6 / 同款圆角、淡边、轻投影、毛玻璃
-        // Match FeatureBlocks SceneCard padding & material: p-5 sm:p-6, same rounded / faint border / soft drop / blur
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[translate,box-shadow,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:-translate-y-px hover:ring-foreground/[0.08] hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] motion-reduce:translate-y-0 motion-reduce:transition-none sm:p-6",
+        "relative flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-background p-6 sm:p-8",
         className,
       )}
     >
       {isSplit ? (
         <div className="flex flex-1 flex-col gap-4 sm:gap-5 lg:flex-row lg:items-center lg:gap-8">
           <div className="lg:flex-1">{head}</div>
-          {visual && <div className="min-w-0 lg:flex-1">{visual}</div>}
+          {visual && (
+            <div className="flex min-w-0 flex-1 items-center [&>*]:w-full lg:block">{visual}</div>
+          )}
         </div>
       ) : (
         <div className="flex flex-1 flex-col">
           {head}
-          {visual && <div className="mt-4 sm:mt-5">{visual}</div>}
+          {visual && (
+            <div className="mt-4 flex flex-1 items-center [&>*]:w-full sm:mt-5 lg:block lg:flex-none">
+              {visual}
+            </div>
+          )}
         </div>
       )}
     </article>
@@ -320,7 +324,7 @@ function getTiles(): BentoConfig[] {
 function CapabilityBento() {
   const tiles = getTiles();
   return (
-    <div className="mt-12 hidden gap-4 sm:gap-5 lg:grid lg:auto-rows-[minmax(180px,auto)] lg:grid-cols-4">
+    <div className="mt-16 hidden gap-4 lg:grid lg:auto-rows-[minmax(220px,auto)] lg:grid-cols-4">
       {tiles.map(({ span, ...tile }, index) => (
         <FadeContent className={cn("h-full", span)} delay={0.05 * index} key={tile.title}>
           <BentoTile {...tile} />
@@ -349,10 +353,10 @@ function CapabilityCarousel() {
 export function CapabilityGrid() {
   return (
     <Section width="wide">
-      <div className="max-w-3xl">
-        <SectionTitle className="mt-0">{messages.home_capability_title()}</SectionTitle>
-        <SectionLead>{messages.home_capability_lead()}</SectionLead>
-      </div>
+      <SectionHeader
+        title={messages.home_capability_title()}
+        lead={messages.home_capability_lead()}
+      />
 
       <CapabilityBento />
       <CapabilityCarousel />

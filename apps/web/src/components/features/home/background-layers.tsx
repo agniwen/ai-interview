@@ -1,6 +1,4 @@
-// 用途：为共享页面提供静态插画，并为首页首屏提供纯装饰视频背景。
-// Purpose: shared static artwork plus a decorative homepage video background.
-
+import { HiringShaderBackground } from "./hiring-shader-background";
 import { HomeHeroBackgroundVideo } from "./home-hero-background-video";
 
 interface BackgroundLayersProps {
@@ -24,9 +22,9 @@ export function BackgroundLayersView({
         data-slot="home-hero-artwork"
         data-theme="dark"
       />
-      {video ? <HomeHeroBackgroundVideo /> : null}
+      {video ? <HomeHeroBackgroundVideo /> : <HiringShaderBackground />}
       <div
-        className="absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,oklch(0.985_0.012_90/0.3),transparent_52%)] dark:bg-[radial-gradient(circle_at_50%_22%,oklch(0.2_0.045_260/0.18),transparent_54%)]"
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_22%,#f8faff_0%,#f8faffd9_24%,transparent_72%)] dark:bg-[radial-gradient(ellipse_at_50%_22%,#080f2a_0%,#080f2ad9_24%,transparent_72%)]"
         data-slot="home-hero-copy-veil"
       />
       {fadeToBackground ? (

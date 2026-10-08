@@ -21,7 +21,6 @@ const HOME_DEMO_COPY = {
       calibrationComment:
         "The risk was clarified in follow-ups. Validate team leadership scope in the next round.",
       calibrationComplete: "3 interviewers calibrated",
-      calibrationTitle: "Asuka · Overall evaluation",
       candidateName: "Asuka",
       candidateRole: "Senior Frontend Engineer · 8 years",
       dimensionLabels: {
@@ -229,7 +228,6 @@ const HOME_DEMO_COPY = {
       calibrationComment:
         "リスク項目は追加質問で確認済みです。次回はチームマネジメント規模を重点的に検証します。",
       calibrationComplete: "面接官 3 名が調整済み",
-      calibrationTitle: "アスカ · 総合評価",
       candidateName: "アスカ",
       candidateRole: "シニアフロントエンドエンジニア · 経験 8 年",
       dimensionLabels: {
@@ -418,7 +416,6 @@ const HOME_DEMO_COPY = {
       calibrationComment:
         "추가 질문으로 위험 요소를 확인했습니다. 다음 면접에서는 팀 리더십 범위를 중점적으로 검증하세요.",
       calibrationComplete: "면접관 3명 조율 완료",
-      calibrationTitle: "아스카 · 종합 평가",
       candidateName: "아스카",
       candidateRole: "시니어 프런트엔드 엔지니어 · 경력 8년",
       dimensionLabels: {
@@ -617,7 +614,6 @@ const HOME_DEMO_COPY = {
       avatarLabel: "明日香的头像",
       calibrationComment: "风险项已经在追问中确认，建议下一轮重点验证带队规模。",
       calibrationComplete: "3 位面试官已完成校准",
-      calibrationTitle: "明日香 · 综合评估",
       candidateName: "明日香",
       candidateRole: "高级前端工程师 · 8 年经验",
       dimensionLabels: {

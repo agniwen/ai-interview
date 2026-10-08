@@ -3,6 +3,7 @@ import { cn } from "@app/shared/utils";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { BackgroundLayers } from "@/components/features/home/background-layers";
+import { PageGrain } from "@/components/features/home/page-grain";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,17 @@ export function AuthPageLayout({
   children,
   contentClassName,
   backBehavior = "home",
+  grain = false,
 }: {
   children: ReactNode;
   contentClassName?: string;
   backBehavior?: "home" | "history";
+  grain?: boolean;
 }) {
   const router = useRouter();
   return (
-    <main className="relative min-h-dvh overflow-hidden" id="main-content">
+    <main className="relative isolate min-h-dvh overflow-hidden" id="main-content">
+      {grain ? <PageGrain /> : null}
       <BackgroundLayers />
 
       <section className="relative flex min-h-dvh w-full border-border/70 border-r bg-background/90 backdrop-blur-md backdrop-saturate-100 md:w-[34rem] lg:w-[38rem]">

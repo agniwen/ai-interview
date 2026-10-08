@@ -14,7 +14,7 @@ export function Section({ children, className, id, width = "default" }: SectionP
   return (
     <section
       className={cn(
-        "mx-auto w-full px-5 py-14 sm:px-8 sm:py-16 lg:py-20",
+        "mx-auto w-full px-6 py-20 sm:px-8 sm:py-24 lg:px-12 lg:py-32",
         width === "wide" ? "max-w-360" : "max-w-6xl",
         className,
       )}
@@ -44,7 +44,7 @@ export function SectionTitle({ children, className }: SectionTitleProps) {
   return (
     <h2
       className={cn(
-        "mt-3 max-w-3xl text-balance font-medium text-3xl text-foreground leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl",
+        "max-w-[13em] text-balance font-medium text-[clamp(2rem,4.2vw,4rem)] text-foreground leading-[1.18] tracking-[-0.045em]",
         className,
       )}
     >
@@ -61,11 +61,20 @@ export function SectionLead({ children, className }: SectionLeadProps) {
   return (
     <p
       className={cn(
-        "mt-4 max-w-2xl text-base text-muted-foreground leading-normal dark:text-white/80 sm:text-lg",
+        "max-w-[25rem] text-pretty text-base text-muted-foreground leading-[1.9] sm:text-lg lg:text-base xl:text-lg",
         className,
       )}
     >
       {children}
     </p>
+  );
+}
+
+export function SectionHeader({ title, lead }: { title: ReactNode; lead: ReactNode }) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.42fr)] lg:items-end lg:gap-16">
+      <SectionTitle>{title}</SectionTitle>
+      <SectionLead>{lead}</SectionLead>
+    </div>
   );
 }

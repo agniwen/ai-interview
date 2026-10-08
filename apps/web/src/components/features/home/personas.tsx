@@ -1,12 +1,9 @@
 "use client";
 
 import { IconBriefcase, IconMicrophone, IconUsers } from "@tabler/icons-react";
-// 用途：三角色分区（HR / 业务面试官 / 候选人），Notion 风格的彩色卡片
-// Purpose: Three-persona section, Notion-style colorful cards.
 import type { ComponentType, SVGProps } from "react";
-import { FadeContent } from "@/components/react-bits/fade-content";
 import * as m from "@/paraglide/messages";
-import { Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionHeader } from "./section";
 
 interface Persona {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -39,29 +36,24 @@ export function Personas() {
 
   return (
     <Section className="relative" width="wide">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute top-8 -left-36 hidden h-36 w-[34rem] rotate-2 bg-[url('/landing/multicolor/brush-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:block lg:top-10 lg:-left-24 lg:h-44 lg:w-[42rem] lg:opacity-[0.18] dark:opacity-20"
-      />
-      <SectionTitle className="mt-0">{m.home_personas_title()}</SectionTitle>
-      <SectionLead>{m.home_personas_lead()}</SectionLead>
+      <SectionHeader title={m.home_personas_title()} lead={m.home_personas_lead()} />
 
-      <div className="mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
-        {personas.map(({ Icon, description, role, title }, index) => (
-          <FadeContent delay={0.1 * index} key={role}>
-            <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-7 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[translate,box-shadow,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:-translate-y-px hover:ring-foreground/[0.08] hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] motion-reduce:translate-y-0 motion-reduce:transition-none sm:p-8">
-              <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
-              <p className="mt-6 font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">
-                {role}
-              </p>
-              <h3 className="mt-2 min-h-[2lh] text-balance font-medium text-foreground text-xl leading-tight tracking-tight sm:text-2xl">
-                {title}
-              </h3>
-              <p className="mt-3 text-foreground/75 text-sm leading-normal dark:text-white/80 sm:text-[15px]">
-                {description}
-              </p>
-            </article>
-          </FadeContent>
+      <div className="mt-16 grid gap-12 md:grid-cols-3 md:gap-10 lg:mt-20 lg:gap-16">
+        {personas.map(({ Icon, description, role, title }) => (
+          <article className="flex flex-col" key={role}>
+            <div className="flex items-center gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/[0.065] text-primary">
+                <Icon aria-hidden="true" className="size-5" strokeWidth={1.5} />
+              </span>
+              <p className="text-sm text-muted-foreground">{role}</p>
+            </div>
+            <h3 className="mt-6 text-pretty font-medium text-foreground text-2xl leading-[1.3] tracking-[-0.035em] md:min-h-[2lh] lg:text-3xl">
+              {title}
+            </h3>
+            <p className="mt-5 text-muted-foreground text-sm leading-[1.9] sm:text-base">
+              {description}
+            </p>
+          </article>
         ))}
       </div>
     </Section>

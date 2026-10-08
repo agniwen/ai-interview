@@ -24,7 +24,7 @@ export function LoginPage({
   const providerIds = useFeishuLoginProviderIds();
   const showMigration = Boolean(feishuMigration && isFeishuMigrationEnabled(providerIds));
   return (
-    <AuthPageLayout backBehavior={backBehavior}>
+    <AuthPageLayout backBehavior={backBehavior} grain>
       <div className="flex flex-col gap-2">
         <h1 className="font-medium text-2xl text-foreground tracking-tight sm:text-3xl">
           {m.login_heading()}
