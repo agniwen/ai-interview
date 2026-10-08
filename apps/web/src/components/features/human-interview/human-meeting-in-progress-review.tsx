@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IconX } from "@tabler/icons-react";
 import { HumanMeetingReview } from "./human-meeting-review";
 import { Button } from "@/components/ui/button";
@@ -21,26 +21,17 @@ export function HumanMeetingInProgressReview({
   container: HTMLElement;
   onClose: () => void;
 }) {
-  const [open, setOpen] = useState(true);
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (open) {
-      return;
-    }
-    // Keep the form mounted until Vaul's 500 ms exit transition finishes.
-    const timer = window.setTimeout(onClose, 500);
-    return () => window.clearTimeout(timer);
-  }, [onClose, open]);
   return (
     <HumanMeetingReview
-      active={open}
+      active
       draftOnly
       selectPortalContainer={panel}
       inviteToken={inviteToken}
-      onClose={() => setOpen(false)}
+      onClose={onClose}
       renderShell={(content, requestClose) => (
         <Drawer
-          open={open && expanded}
+          open={expanded}
           container={container}
           modal={false}
           direction="bottom"
@@ -61,9 +52,7 @@ export function HumanMeetingInProgressReview({
             <DrawerHeader className="flex-row items-start justify-between gap-3 border-b">
               <div className="flex flex-col gap-1 text-left">
                 <DrawerTitle>面试评价</DrawerTitle>
-                <DrawerDescription>
-                  面试中可填写并保存草稿，结束后继续完善并提交。
-                </DrawerDescription>
+                <DrawerDescription>填写后每秒自动保存，结束后继续完善并提交。</DrawerDescription>
               </div>
               <Button aria-label="关闭评价" size="icon-sm" variant="ghost" onClick={requestClose}>
                 <IconX />

@@ -6,7 +6,7 @@ import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, SetStateAction } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+import { requestReviewJson as requestJson } from "./human-meeting-review-api";
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import {
   HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH,
@@ -33,6 +33,8 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
+import { useMeetingReviewAutosave } from "./use-meeting-review-autosave";
+import { HumanMeetingReviewSaveStatus } from "./human-meeting-review-save-status";
 import { HumanMeetingTranscriptRecovery } from "./human-meeting-transcript-recovery";
 
 const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
@@ -101,10 +103,6 @@ const OUTCOME_LABELS = {
   pass: "通过",
 } as const satisfies Record<HumanInterviewRoundOutcome, string>;
 
-const errorResponseSchema = z.object({ error: z.string() });
-const jsonBodySchema = z.json();
-type JsonBody = z.infer<typeof jsonBodySchema>;
-
 interface ReviewFormValues {
   evaluation: HumanInterviewEvaluationDraft;
   outcome: HumanInterviewRoundOutcome | "";
@@ -160,23 +158,6 @@ function Field({
   );
 }
 
-async function requestJson<TResult>(path: string, init?: RequestInit): Promise<TResult> {
-  const response = await fetch(path, init);
-  let body: JsonBody = null;
-  try {
-    body = jsonBodySchema.parse(await response.json());
-  } catch {
-    body = null;
-  }
-  if (!response.ok) {
-    const parsed = errorResponseSchema.safeParse(body);
-    const message = parsed.success ? parsed.data.error : "操作失败，请稍后重试。";
-    throw new Error(message);
-  }
-  // SAFETY: each caller supplies the shared DTO for its corresponding JSON endpoint.
-  return body as TResult;
-}
-
 type ReviewProps = {
   active: boolean;
   draftOnly?: boolean;
@@ -208,6 +189,7 @@ function HumanMeetingReviewShell({
 function HumanMeetingReviewForm({
   active,
   draftOnly = false,
+  inviteToken,
   selectPortalContainer,
   basePath,
   onClose,
@@ -218,6 +200,7 @@ function HumanMeetingReviewForm({
   draftOnly?: boolean;
   selectPortalContainer?: HTMLElement | null;
   basePath: string;
+  inviteToken?: string;
   onClose: () => void;
   onSaved?: () => void;
   renderShell?: ReviewProps["renderShell"];
@@ -230,11 +213,18 @@ function HumanMeetingReviewForm({
   const [review, setReview] = useState<HumanInterviewReviewRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const evaluationDirtyRef = useRef(false);
-  const hasUnsavedChanges = useCallback(() => evaluationDirtyRef.current, []);
+  const {
+    state: autosaveState,
+    initialize: initializeDraft,
+    edit: editDraft,
+    save: saveDraft,
+    isDirty: isDraftDirty,
+  } = useMeetingReviewAutosave(draftOnly);
+  const hasUnsavedChanges = () => (draftOnly ? isDraftDirty() : evaluationDirtyRef.current);
   const navigationBlocker = useBlocker({
     disabled: !active,
     enableBeforeUnload: hasUnsavedChanges,
-    shouldBlockFn: hasUnsavedChanges,
+    shouldBlockFn: async () => (draftOnly ? !(await saveDraft()) : hasUnsavedChanges()),
     withResolver: true,
   });
 
@@ -293,22 +283,32 @@ function HumanMeetingReviewForm({
       onDynamic: ({ value }) => validateReview(value),
     },
   });
-  const evaluation = useStore(form.store, (state) => state.values.evaluation);
-  const outcome = useStore(form.store, (state) => state.values.outcome);
+  const formEvaluation = useStore(form.store, (state) => state.values.evaluation);
+  const formOutcome = useStore(form.store, (state) => state.values.outcome);
+  const evaluation = draftOnly ? (autosaveState?.evaluation ?? formEvaluation) : formEvaluation;
+  const outcome = draftOnly ? (autosaveState?.outcome ?? formOutcome) : formOutcome;
   const submissionAttempts = useStore(form.store, (state) => state.submissionAttempts);
   const errors =
     submissionAttempts > 0 ? validateReview({ evaluation, outcome })?.fields : undefined;
   const setEvaluation = useCallback(
     (value: SetStateAction<HumanInterviewEvaluationDraft>) => {
-      form.setFieldValue("evaluation", value);
+      if (draftOnly) {
+        editDraft({ evaluation: value });
+      } else {
+        form.setFieldValue("evaluation", value);
+      }
     },
-    [form],
+    [form, draftOnly, editDraft],
   );
   const setOutcome = useCallback(
     (value: HumanInterviewRoundOutcome | "") => {
-      form.setFieldValue("outcome", value);
+      if (draftOnly) {
+        editDraft({ outcome: value });
+      } else {
+        form.setFieldValue("outcome", value);
+      }
     },
-    [form],
+    [form, draftOnly, editDraft],
   );
 
   const load = useCallback(async () => {
@@ -317,16 +317,23 @@ function HumanMeetingReviewForm({
     });
     setReview(next);
     setLoadError(null);
-    if (!evaluationDirtyRef.current) {
+    const nextOutcome =
+      next.roundStatus === "completed" || next.evaluationStatus === "submitted"
+        ? (next.outcome ?? "")
+        : (next.evaluation?.draftOutcome ??
+          (next.outcome === "inconclusive" ? "" : (next.outcome ?? "")));
+    if (draftOnly && inviteToken) {
+      initializeDraft({
+        evaluation: next.evaluation ?? EMPTY_EVALUATION,
+        inviteToken,
+        outcome: nextOutcome,
+        transcriptRevisionId: next.transcript?.id ?? null,
+      });
+    } else if (!evaluationDirtyRef.current) {
       setEvaluation(next.evaluation ?? EMPTY_EVALUATION);
-      setOutcome(
-        next.roundStatus === "completed" || next.evaluationStatus === "submitted"
-          ? (next.outcome ?? "")
-          : (next.evaluation?.draftOutcome ??
-              (next.outcome === "inconclusive" ? "" : (next.outcome ?? ""))),
-      );
+      setOutcome(nextOutcome);
     }
-  }, [basePath, setEvaluation, setOutcome]);
+  }, [basePath, draftOnly, inviteToken, initializeDraft, setEvaluation, setOutcome]);
 
   // oxlint-disable-next-line react/set-state-in-effect -- remote review state is synchronized only while this board is active.
   useEffect(() => {
@@ -350,16 +357,20 @@ function HumanMeetingReviewForm({
     return () => window.clearInterval(timer);
   }, [active, load]);
 
-  const requestClose = useCallback(() => {
+  const requestClose = useCallback(async () => {
     if (busy) {
       return;
     }
-    if (evaluationDirtyRef.current) {
+    if (draftOnly) {
+      if (await saveDraft()) {
+        onClose();
+      }
+    } else if (evaluationDirtyRef.current) {
       setConfirmDiscard(true);
     } else {
       onClose();
     }
-  }, [busy, onClose]);
+  }, [busy, onClose, draftOnly, saveDraft]);
 
   function continueEditing() {
     setConfirmDiscard(false);
@@ -706,55 +717,55 @@ function HumanMeetingReviewForm({
           renderShell && "border-t",
         )}
       >
-        {isSubmitted ? (
-          <div className="flex items-center gap-2">
-            <div className="font-medium text-sm">本轮评价已保存 · {submittedOutcomeLabel}</div>
-            {renderShell ? (
-              <Button disabled={Boolean(busy)} onClick={requestClose} variant="outline">
-                关闭
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="ml-auto flex w-full gap-2 md:w-auto max-md:[&>button]:flex-1">
-            {renderShell ? (
-              <Button disabled={Boolean(busy)} onClick={requestClose} variant="ghost">
-                关闭
-              </Button>
-            ) : null}
-            <Button
-              disabled={Boolean(busy) || (!hasDraftContent && !review.evaluation)}
-              onClick={async () => {
-                const transcriptRevisionId = review.transcript?.id ?? null;
-                await run("save", async () => {
-                  await requestJson<unknown>(`${basePath}/evaluation-draft`, {
-                    body: JSON.stringify({
-                      evaluation: {
-                        ...evaluation,
-                        draftOutcome: outcome || null,
-                      },
-                      transcriptRevisionId,
-                    }),
-                    headers: { "Content-Type": "application/json" },
-                    method: "POST",
+        {draftOnly && !isSubmitted ? <HumanMeetingReviewSaveStatus onClose={requestClose} /> : null}
+        {(!draftOnly || isSubmitted) &&
+          (isSubmitted ? (
+            <div className="flex items-center gap-2">
+              <div className="font-medium text-sm">本轮评价已保存 · {submittedOutcomeLabel}</div>
+              {renderShell ? (
+                <Button disabled={Boolean(busy)} onClick={requestClose} variant="outline">
+                  关闭
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="ml-auto flex w-full gap-2 md:w-auto max-md:[&>button]:flex-1">
+              {renderShell ? (
+                <Button disabled={Boolean(busy)} onClick={requestClose} variant="ghost">
+                  关闭
+                </Button>
+              ) : null}
+              <Button
+                disabled={Boolean(busy) || (!hasDraftContent && !review.evaluation)}
+                onClick={async () => {
+                  const transcriptRevisionId = review.transcript?.id ?? null;
+                  await run("save", async () => {
+                    await requestJson<unknown>(`${basePath}/evaluation-draft`, {
+                      body: JSON.stringify({
+                        evaluation: {
+                          ...evaluation,
+                          draftOutcome: outcome || null,
+                        },
+                        transcriptRevisionId,
+                      }),
+                      headers: { "Content-Type": "application/json" },
+                      method: "POST",
+                    });
+                    evaluationDirtyRef.current = false;
+                    toast.success("评价草稿已保存");
+                    onSaved?.();
+                    await load();
                   });
-                  evaluationDirtyRef.current = false;
-                  toast.success("评价草稿已保存");
-                  onSaved?.();
-                  await load();
-                });
-              }}
-              variant="outline"
-            >
-              保存草稿
-            </Button>
-            {draftOnly ? null : (
+                }}
+                variant="outline"
+              >
+                保存草稿
+              </Button>
               <Button disabled={Boolean(busy)} onClick={() => form.handleSubmit()}>
                 提交评价
               </Button>
-            )}
-          </div>
-        )}
+            </div>
+          ))}
       </div>
     </section>,
   );

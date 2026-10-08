@@ -594,7 +594,7 @@ it.each([
   { expected: false, interviewer: false, mobile: false },
 ])(
   "exposes in-meeting review only to desktop interviewers: %j",
-  ({ mobile, interviewer, expected }) => {
+  async ({ mobile, interviewer, expected }) => {
     vi.stubGlobal("innerWidth", mobile ? 390 : 1280);
     vi.stubGlobal("matchMedia", () => ({
       addEventListener: vi.fn(),
@@ -630,20 +630,20 @@ it.each([
     );
     expect(Boolean(trigger)).toBe(expected);
     if (trigger) {
-      act(() => trigger.click());
+      await act(() => trigger.click());
       expect(container.querySelector('dialog[aria-label="面试评价"]')).not.toBeNull();
       expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
-      act(() => trigger.click());
+      await act(() => trigger.click());
       expect(trigger.getAttribute("aria-expanded")).toBe("false");
       expect(container.querySelector("dialog[open]")).toBeNull();
-      act(() => trigger.click());
+      await act(() => trigger.click());
       expect(trigger.getAttribute("aria-expanded")).toBe("true");
       expect(container.querySelector("dialog[open]")).not.toBeNull();
       const close = [...container.querySelectorAll("button")].find(
         (item) => item.textContent === "关闭评价",
       );
-      act(() => close?.click());
-      expect(container.querySelector('dialog[aria-label="面试评价"]')).toBeNull();
+      await act(() => close?.click());
+      expect(container.querySelector('dialog[aria-label="面试评价"][open]')).toBeNull();
       expect(trigger.getAttribute("aria-expanded")).toBe("false");
     }
   },

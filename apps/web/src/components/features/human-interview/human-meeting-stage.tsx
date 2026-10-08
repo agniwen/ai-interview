@@ -1,5 +1,12 @@
 "use client";
 
+import { Provider, useAtom, useAtomValue, useSetAtom } from "jotai";
+import {
+  meetingReviewOpenAtom,
+  meetingReviewStartedAtom,
+  toggleMeetingReviewAtom,
+  saveMeetingReviewAtom,
+} from "./human-meeting-review-state";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -70,7 +77,6 @@ const participantMetadataSchema = z.object({
   participant_role: z.string().optional(),
   participant_type: z.string().optional(),
 });
-
 function parseParticipantMetadata(
   metadata: string | undefined,
 ): z.infer<typeof participantMetadataSchema> {
@@ -84,7 +90,6 @@ function parseParticipantMetadata(
     return {};
   }
 }
-
 function getParticipantRoleLabel(trackRef: TrackReferenceOrPlaceholder): string {
   const metadata = parseParticipantMetadata(trackRef.participant.metadata);
   const { identity } = trackRef.participant;
@@ -103,7 +108,6 @@ function getParticipantRoleLabel(trackRef: TrackReferenceOrPlaceholder): string 
   }
   return roleLabel;
 }
-
 async function runEndMeeting(onEndMeeting: () => Promise<void> | void): Promise<boolean> {
   try {
     await onEndMeeting();
@@ -136,8 +140,16 @@ export interface HumanMeetingStageProps {
   viewMode: HumanMeetingViewMode;
 }
 
+export function HumanMeetingStage(props: HumanMeetingStageProps) {
+  return (
+    <Provider key={props.inviteToken ?? props.chatInviteToken}>
+      <HumanMeetingStageContent {...props} />
+    </Provider>
+  );
+}
+
 // oxlint-disable-next-line complexity -- stage rendering reflects the approved meeting, materials, and sharing modes.
-export function HumanMeetingStage({
+function HumanMeetingStageContent({
   candidateName,
   jobDescriptionName,
   roundLabel,
@@ -145,7 +157,6 @@ export function HumanMeetingStage({
   responsibleHrName,
   scheduledAt,
   canPublish,
-  // canUseVoiceEffects,
   canUseLiveTranscript,
   canEndMeeting,
   candidateMaterialsState,
@@ -164,8 +175,10 @@ export function HumanMeetingStage({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewStarted, setReviewStarted] = useState(false);
+  const [reviewOpen, setReviewOpen] = useAtom(meetingReviewOpenAtom);
+  const reviewStarted = useAtomValue(meetingReviewStartedAtom);
+  const toggleReview = useSetAtom(toggleMeetingReviewAtom);
+  const saveReview = useSetAtom(saveMeetingReviewAtom);
   const [reviewContainer, setReviewContainer] = useState<HTMLDivElement | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const closeTranscript = useCallback(() => setTranscriptOpen(false), []);
@@ -219,6 +232,9 @@ export function HumanMeetingStage({
 
   async function handleEndConfirm(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    if (!(await saveReview())) {
+      return;
+    }
     await liveTranscriptRef.current?.flush();
     const ended = await runEndMeeting(onEndMeeting);
     if (ended) {
@@ -512,10 +528,7 @@ export function HumanMeetingStage({
             aria-haspopup="dialog"
             aria-expanded={reviewOpen}
             className={cn(humanMeetingControlButtonClass, reviewOpen && "bg-accent")}
-            onClick={() => {
-              setReviewStarted(true);
-              setReviewOpen((open) => !open);
-            }}
+            onClick={() => toggleReview()}
             type="button"
           >
             <IconClipboardText className="size-4" />
@@ -570,10 +583,7 @@ export function HumanMeetingStage({
           container={reviewContainer}
           expanded={reviewOpen}
           inviteToken={inviteToken}
-          onClose={() => {
-            setReviewOpen(false);
-            setReviewStarted(false);
-          }}
+          onClose={() => setReviewOpen(false)}
         />
       ) : null}
       <Modal

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { act, useState } from "react";
+import { act } from "react";
+import { Provider, createStore, useAtomValue, useSetAtom } from "jotai";
+import { meetingReviewOpenAtom, toggleMeetingReviewAtom } from "./human-meeting-review-state";
 import { createRoot } from "react-dom/client";
 import {
   createRootRoute,
@@ -34,7 +36,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 it.each([false, true])(
-  "saves an in-meeting draft, retains legacy content (%s), and guards unsaved closing",
+  "saves an in-meeting draft, retains legacy content (%s), and automatically saves edits and closing",
   async (hasLegacy) => {
     vi.useFakeTimers();
     vi.stubGlobal("matchMedia", () => ({
@@ -56,15 +58,18 @@ it.each([false, true])(
     document.body.append(container);
     const root = createRoot(container);
     roots.push(root);
-    const onClose = vi.fn();
+    const store = createStore();
+    store.set(meetingReviewOpenAtom, true);
+    const onClose = vi.fn(() => store.set(meetingReviewOpenAtom, false));
     const workspace = document.createElement("div");
     document.body.append(workspace);
     const route = createRootRoute({
       component: function ReviewPreview() {
-        const [expanded, setExpanded] = useState(true);
+        const expanded = useAtomValue(meetingReviewOpenAtom);
+        const toggle = useSetAtom(toggleMeetingReviewAtom);
         return (
           <>
-            <button onClick={() => setExpanded((value) => !value)}>切换评价</button>
+            <button onClick={() => toggle()}>切换评价</button>
             <HumanMeetingInProgressReview
               expanded={expanded}
               container={workspace}
@@ -81,10 +86,18 @@ it.each([false, true])(
     });
     await act(async () => {
       await router.load();
-      root.render(<RouterProvider router={router} />);
+      root.render(
+        <Provider store={store}>
+          <RouterProvider router={router} />
+        </Provider>,
+      );
     });
     await flush();
-    expect(document.body.textContent).toContain("面试中可填写并保存草稿");
+    expect(document.body.textContent).toContain("填写后每秒自动保存");
+    expect(
+      document.querySelector('[data-slot="meeting-review-panel"]')?.getAttribute("aria-modal"),
+    ).not.toBe("true");
+    expect(document.body.style.pointerEvents).not.toBe("none");
     expect(
       [...document.querySelectorAll("button")].some((item) => item.textContent === "提交评价"),
     ).toBe(false);
@@ -120,24 +133,14 @@ it.each([false, true])(
     }
     const editor = await evaluationField(document.body);
     act(() => change(editor, "面试过程中记录的评价"));
-    act(() => button(document.body, "切换评价").click());
-    await flush();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(600);
+      await vi.advanceTimersByTimeAsync(999);
     });
-    expect(onClose).not.toHaveBeenCalled();
-    act(() => button(document.body, "切换评价").click());
-    await flush();
-    const reopenedEditor = await evaluationField(document.body);
-    expect(reopenedEditor.textContent).toContain("面试过程中记录的评价");
-    act(() => button(document.body, "关闭").click());
-    await flush();
-    expect(document.body.textContent).toContain("放弃未保存的修改？");
-    expect(onClose).not.toHaveBeenCalled();
-    act(() => button(document.body, "继续编辑").click());
-    await flush();
-    act(() => button(document.body, "保存草稿").click());
-    await flush();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(document.body.textContent).toContain("已自动保存");
     const save = fetchMock.mock.calls.find(([request]) =>
       String(request).endsWith("/evaluation-draft"),
     );
@@ -155,11 +158,26 @@ it.each([false, true])(
     expect(
       fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
     ).toBe(false);
-    act(() => button(document.body, "关闭").click());
-    await flush();
+    act(() => change(editor, "关闭时保存的最新评价"));
+    await act(() => button(document.body, "关闭").click());
+    expect(onClose).toHaveBeenCalledOnce();
+    const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
+    expect(posts).toHaveLength(2);
+    expect(JSON.parse(String(posts[1]?.[1]?.body)).evaluation.overallEvaluation).toBe(
+      "关闭时保存的最新评价",
+    );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });
-    expect(onClose).toHaveBeenCalledOnce();
+    await act(() => button(document.body, "切换评价").click());
+    const reopenedEditor = await evaluationField(document.body);
+    expect(reopenedEditor.textContent).toContain("关闭时保存的最新评价");
+    act(() => change(reopenedEditor, "收起时保存的评价"));
+    await act(() => button(document.body, "切换评价").click());
+    expect(store.get(meetingReviewOpenAtom)).toBe(false);
+    const collapsedSave = fetchMock.mock.calls.findLast(([, init]) => init?.method === "POST");
+    expect(JSON.parse(String(collapsedSave?.[1]?.body)).evaluation.overallEvaluation).toBe(
+      "收起时保存的评价",
+    );
   },
 );
