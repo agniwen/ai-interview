@@ -155,7 +155,7 @@ function ChipList({ items }: { items: string[] }) {
 
 function ResumeProfileSection({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className="flex min-w-0 flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-6 border-t border-border/50 pt-8 first:border-t-0 first:pt-0">
       <h4 className="font-semibold text-base">{title}</h4>
       {children}
     </section>
