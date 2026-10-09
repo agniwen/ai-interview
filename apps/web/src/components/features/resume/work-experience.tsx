@@ -76,7 +76,7 @@ export function WorkExperience({ className, experiences }: WorkExperienceProps) 
     <div className={cn("flex min-w-0 flex-col gap-8", className)}>
       {experiences.map((experience) => (
         <section
-          className="flex scroll-mt-20 flex-col gap-8 pb-8 last:pb-0"
+          className="flex scroll-mt-20 flex-col gap-6"
           data-company-name={experience.companyName}
           data-slot="work-experience-company"
           key={experience.id}
@@ -118,9 +118,9 @@ function ExperiencePositionItem({
           experience.companyName.slice(0, 1).toUpperCase()
         )}
       </div>
-      <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-3">
         <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1">
             <h3 className="wrap-break-word text-base font-semibold leading-6">{position.title}</h3>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-6">
               {experience.companyWebsite ? (
@@ -152,7 +152,7 @@ function ExperiencePositionItem({
         </header>
         {position.description ? (
           <MarkdownView
-            className="text-foreground [&_li]:leading-7 [&_li+li]:mt-2 [&_a]:text-foreground [&_strong]:text-foreground"
+            className="text-foreground [&_li]:leading-6 [&_li+li]:mt-1 [&_a]:text-foreground [&_strong]:text-foreground"
             content={position.description}
           />
         ) : null}
