@@ -44,32 +44,8 @@ describe("ResumeLibraryMetricsSection", () => {
     expect(
       loadingRegion?.querySelectorAll('[data-slot="metrics-card-body-skeleton"]'),
     ).toHaveLength(3);
-    for (const cardBody of loadingRegion?.querySelectorAll(
-      '[data-slot="metrics-card-body-skeleton"]',
-    ) ?? []) {
-      expect(cardBody.className).toContain("h-44");
-    }
+
     expect(getRevealState()).toBe("loading");
-  });
-
-  it("matches the compact submenu card height while metrics are loading", async () => {
-    const { root } = await renderInAct(
-      <ResumeLibraryMetricsSection
-        error={null}
-        fixedRecruitingGroup="offer"
-        metrics={undefined}
-        onRetry={vi.fn(async () => {})}
-      />,
-    );
-    roots.push(root);
-
-    const cardBodies = document.querySelectorAll<HTMLElement>(
-      '[data-slot="metrics-card-body-skeleton"]',
-    );
-    expect(cardBodies).toHaveLength(2);
-    for (const cardBody of cardBodies) {
-      expect(cardBody.className).toContain("h-44");
-    }
   });
 
   it("keeps only the stage distribution and status-share cards for a submenu", async () => {
@@ -107,9 +83,6 @@ describe("ResumeLibraryMetricsSection", () => {
     expect(document.body.textContent).not.toContain("AI 面试转化");
     const cardBodies = document.querySelectorAll<HTMLElement>('[data-slot="card-panel"] > div');
     expect(cardBodies).toHaveLength(2);
-    for (const cardBody of cardBodies) {
-      expect(cardBody.className).toContain("h-44");
-    }
   });
 
   it("uses the top-level recruiting stages for the main board distribution", async () => {

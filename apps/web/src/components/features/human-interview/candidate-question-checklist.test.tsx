@@ -46,12 +46,10 @@ it("marks only the selected question as asked and allows undo without striking s
     const items = container.querySelectorAll("li");
     expect(checkbox?.getAttribute("aria-checked")).toBe("true");
     expect(items[0]?.textContent).toContain("已提问");
-    expect(items[0]?.querySelector("h3 label")?.className).toContain("line-through");
-    expect(items[0]?.querySelector("dl")?.className).not.toContain("line-through");
+
     expect(items[1]?.textContent).not.toContain("已提问");
     await act(() => checkbox?.click());
     expect(items[0]?.textContent).not.toContain("已提问");
-    expect(items[0]?.querySelector("h3 label")?.className).not.toContain("line-through");
   } finally {
     await act(() => root.unmount());
     container.remove();

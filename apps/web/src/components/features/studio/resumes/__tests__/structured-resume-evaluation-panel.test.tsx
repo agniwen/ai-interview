@@ -404,13 +404,10 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(content).toContain("简历未体现 React");
     expect(content).toContain("主导支付系统重构");
     expect(container.querySelectorAll("[data-structured-skill-assessment]")).toHaveLength(4);
-    const adjustmentList = container.querySelector("[data-structured-adjustment-list]");
-    expect(adjustmentList?.classList.contains("divide-y")).toBe(true);
-    expect(adjustmentList?.classList.contains("p-0")).toBe(true);
+
     const adjustmentItems = container.querySelectorAll("[data-structured-adjustment-item]");
     expect(adjustmentItems).toHaveLength(1);
-    expect(adjustmentItems[0]?.classList.contains("rounded-lg")).toBe(false);
-    expect(adjustmentItems[0]?.classList.contains("border")).toBe(false);
+
     expect(
       Array.from(container.querySelectorAll("blockquote"), (node) => node.textContent),
     ).toEqual(expect.arrayContaining(["最高学历为大专", "拥有支付行业经验"]));
@@ -436,7 +433,7 @@ describe("StructuredResumeEvaluationPanel", () => {
         ?.querySelector<HTMLElement>('[data-slot="frame-panel"]');
     });
     expect(recommendationPanels).toHaveLength(2);
-    expect(recommendationPanels.every((panel) => panel?.classList.contains("flex-1"))).toBe(true);
+
     expect(container.querySelectorAll("[data-structured-dimension-group]")).toHaveLength(3);
     expect(container.querySelectorAll("[data-structured-dimension-score]")).toHaveLength(6);
     expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(

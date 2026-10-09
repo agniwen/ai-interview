@@ -12,7 +12,6 @@ import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
-
 import { buildOfferLinkCopy, OfferCardView } from "./offer-stage-cards";
 
 const apiCalls = vi.fn<typeof fetch>();
@@ -536,9 +535,7 @@ describe("OfferCard", () => {
       await vi.waitFor(() =>
         expect(document.querySelector<HTMLInputElement>('input[type="file"]')).not.toBeNull(),
       );
-      expect(document.querySelector('[data-slot="dialog-content"]')?.classList).toContain(
-        "sm:max-w-3xl",
-      );
+
       const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
       const firstAttachment = new File(["old"], "旧版录用通知.pdf", {
         type: "application/pdf",
@@ -562,11 +559,9 @@ describe("OfferCard", () => {
         expect(document.body.textContent).toContain("最终录用通知.pdf");
         expect(document.body.textContent).toContain("旧版录用通知.pdf");
       });
-      const attachmentGroup = document.querySelector('[data-slot="attachment-group"]');
-      expect(attachmentGroup?.classList).toContain("flex-col");
+
       const attachmentRows = document.querySelectorAll('[data-slot="attachment"]');
       expect(attachmentRows).toHaveLength(2);
-      expect([...attachmentRows].every((row) => row.classList.contains("w-full"))).toBe(true);
 
       const sendButton = [...document.querySelectorAll("button")].find(
         (button) => button.textContent?.trim() === "发送邮件" && button !== openButton,

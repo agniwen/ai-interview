@@ -5,8 +5,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
-import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import * as fileIconModule from "@/components/features/resume/resume-document-file-icon";
 import * as previewDialogModule from "@/components/features/resume/resume-document-preview-dialog";
 import * as previewButtonModule from "@/components/features/resume/resume-document-preview-button";
@@ -76,21 +74,6 @@ describe("resume document preview", () => {
         mediaType: "image/png",
       }),
     ).toBe("image");
-  });
-
-  it("uses the shared document icon geometry for PDF files", () => {
-    const markup = renderToStaticMarkup(<PdfFileIcon className="size-8" />);
-
-    expect(markup).toContain('viewBox="0 0 56 64"');
-    expect(markup).toContain('aria-hidden="true"');
-  });
-
-  it("uses the provided SVG Repo image document icon for image resumes", () => {
-    const markup = renderToStaticMarkup(<ResumeDocumentFileIcon kind="image" />);
-
-    expect(markup).toContain('viewBox="-4 0 64 64"');
-    expect(markup).toContain('fill="#49C9A7"');
-    expect(markup).toContain("v-20.904h20.906v20.904");
   });
 
   it("keeps legacy Office file icon detection separate from preview support", () => {

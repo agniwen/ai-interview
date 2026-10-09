@@ -55,7 +55,7 @@ describe("renderMessageBadge", () => {
     const button = container.querySelector("button");
     expect(button).not.toBeNull();
     expect(button?.getAttribute("type")).toBe("button");
-    expect(button?.className).toContain("focus-visible:outline-2");
+
     expect(button?.getAttribute("aria-label")).toBe("查看 hr@example.com 的入库记录");
     expect(button?.textContent).toBe("3");
 

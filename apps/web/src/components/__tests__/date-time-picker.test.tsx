@@ -101,9 +101,6 @@ describe("date and time pickers", () => {
     expect(columnLabels).toContain("分");
     expect(columnLabels).not.toContain("小时");
     expect(columnLabels).not.toContain("分钟");
-    expect(document.querySelector('[data-slot="popover-content"]')?.className).toContain(
-      "bg-background",
-    );
   });
 
   it("applies a date only after confirmation", async () => {

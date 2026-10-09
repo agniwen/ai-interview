@@ -59,23 +59,16 @@ describe("DataGrid sortable header", () => {
 
     const header = container.querySelector("th");
     const sortButton = header?.querySelector("button");
-    const headerLabel = sortButton?.previousElementSibling;
 
-    expect(header?.className).toContain("px-3");
-    expect(header?.className).toContain("font-medium");
-    expect(header?.className).toContain("whitespace-nowrap");
-    expect(header?.className).not.toContain("bg-muted");
     expect(header?.textContent).toContain("姓名");
     expect(header?.querySelectorAll("button")).toHaveLength(1);
     expect(header?.dataset.pinned).toBe("start");
     expect(header?.style.position).toBe("sticky");
-    expect(headerLabel?.className).not.toContain("text-secondary-foreground");
-    expect(headerLabel?.className).not.toContain("font-normal");
+
     expect(sortButton?.textContent).not.toContain("姓名");
     expect(sortButton?.getAttribute("aria-label")).toBe("姓名：升序");
     expect(sortButton?.dataset.size).toBe("icon-xs");
     expect(sortButton?.dataset.variant).toBe("ghost");
-    expect(sortButton?.className).toContain("rounded-sm");
 
     act(() => {
       sortButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

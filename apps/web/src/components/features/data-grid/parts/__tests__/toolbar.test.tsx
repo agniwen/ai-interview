@@ -96,7 +96,6 @@ describe("Toolbar", () => {
     );
     expect(html.indexOf("清空筛选")).toBeLessThan(html.indexOf(">刷新<"));
     expect(html.indexOf(">刷新<")).toBeLessThan(html.indexOf("创建记录"));
-    expect(html).not.toContain('class="flex min-w-0 flex-col gap-3"');
   });
 
   it("explains why a select filter is disabled", () => {

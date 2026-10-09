@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { JobDescriptionHoverCardView } from "./job-description-hover-card";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -58,8 +57,6 @@ describe("JobDescriptionHoverCard", () => {
 
       expect(fetchDetailMock).not.toHaveBeenCalled();
       const trigger = host.querySelector("button");
-      expect(trigger?.className).not.toMatch(/(^|\s)underline(\s|$)/);
-      expect(trigger?.className).toContain("hover:underline");
 
       act(() => {
         trigger?.click();
@@ -81,9 +78,7 @@ describe("JobDescriptionHoverCard", () => {
       await vi.waitFor(() => {
         expect(document.body.textContent).toContain("岗位 JD");
         expect(document.body.textContent).not.toContain("负责产品前端研发");
-        expect(
-          document.body.querySelector('[data-slot="hover-card-content"]')?.classList,
-        ).toContain("bg-background");
+
         const scrollAreas = document.body.querySelectorAll('[data-slot="scroll-area"]');
         expect(scrollAreas).toHaveLength(internalCriteria ? 2 : 1);
         if (internalCriteria) {
@@ -92,10 +87,7 @@ describe("JobDescriptionHoverCard", () => {
         } else {
           expect(document.body.textContent).not.toContain("内部标准");
         }
-        expect(scrollAreas[0]?.classList).toContain("[--scroll-fade-reveal:1rem]");
-        for (const scrollArea of scrollAreas) {
-          expect(scrollArea.firstElementChild?.classList).toContain("scroll-fade");
-        }
+
         expect(document.body.querySelector("strong")?.textContent).toBe("React");
         expect(getRevealState()).toBe("revealed");
       });

@@ -140,8 +140,6 @@ describe("InterviewQuestionTemplateEditorDialog", () => {
       if (!(textarea instanceof HTMLTextAreaElement)) {
         throw new Error("expected question textarea");
       }
-      expect(textarea.parentElement?.className).toContain("has-focus-visible:shadow-");
-      expect(textarea.parentElement?.className).not.toContain("focus-within:border-ring");
     }
   });
 

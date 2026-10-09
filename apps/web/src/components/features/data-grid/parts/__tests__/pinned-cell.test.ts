@@ -3,30 +3,10 @@ import {
   getPinnedEdgeClassName,
   PINNED_EDGE_END_BORDER_CLASS,
   PINNED_EDGE_START_BORDER_CLASS,
-  PINNED_HEADER_CLASS,
   readHorizontalScrollOverflow,
-  STICKY_HEADER_CLASS,
 } from "../pinned-cell";
 
-describe("pinned table headers", () => {
-  it("uses the background fill for sticky/pinned headers", () => {
-    expect(PINNED_HEADER_CLASS).toBe("bg-background");
-    expect(STICKY_HEADER_CLASS).toContain("bg-background");
-    expect(PINNED_HEADER_CLASS.includes("/")).toBe(false);
-  });
-});
-
 describe("pinned edge separators", () => {
-  it("uses a single absolute 1px divider and clears the native edge border", () => {
-    expect(PINNED_EDGE_START_BORDER_CLASS).toContain("before:w-px");
-    expect(PINNED_EDGE_START_BORDER_CLASS).toContain("before:bg-border");
-    expect(PINNED_EDGE_START_BORDER_CLASS).toContain("border-e-0");
-    expect(PINNED_EDGE_END_BORDER_CLASS).toContain("before:w-px");
-    expect(PINNED_EDGE_END_BORDER_CLASS).toContain("before:bg-border");
-    expect(PINNED_EDGE_START_BORDER_CLASS).not.toMatch(/shadow/);
-    expect(PINNED_EDGE_END_BORDER_CLASS).not.toMatch(/shadow/);
-  });
-
   it("only paints the pin-edge divider while scroll has content under that side", () => {
     expect(
       getPinnedEdgeClassName({

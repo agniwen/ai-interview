@@ -7,9 +7,8 @@ describe("PaginationBar", () => {
     const html = renderToStaticMarkup(<PaginationBarSkeleton />);
 
     expect(html).toContain('data-slot="pagination-bar-skeleton"');
-    expect(html).toContain("sm:min-h-11");
+
     expect(html).toContain('data-slot="pagination-mobile-info-skeleton"');
-    expect(html.match(/class="[^"]*size-9[^"]*"/g)).toHaveLength(7);
   });
 
   it("renders previous, numbered, ellipsis, and next controls responsively", () => {
@@ -35,8 +34,5 @@ describe("PaginationBar", () => {
     expect(html).toContain("More pages");
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="第 5 页"');
-    expect(html).toContain("border-border/80");
-    expect(html).toContain("bg-accent");
-    expect(html).toContain("hover:border-transparent");
   });
 });

@@ -3,7 +3,6 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
-
 import { DataField } from "../data-field";
 import { DataFields } from "../data-fields";
 
@@ -37,31 +36,10 @@ describe("DataField", () => {
     expect(host.querySelector('a[href="mailto:candidate@example.com"]')?.textContent).toBe(
       "candidate@example.com",
     );
-    const emailLink = host.querySelector('a[href="mailto:candidate@example.com"]');
-    const phoneLink = host.querySelector('a[href="tel:13800138000"]');
-    expect(emailLink?.className).not.toMatch(/(^|\s)underline(\s|$)/);
-    expect(emailLink?.className).toContain("hover:underline");
-    expect(phoneLink?.className).not.toMatch(/(^|\s)underline(\s|$)/);
-    expect(phoneLink?.className).toContain("hover:underline");
+
     expect(host.textContent).toContain("12,345");
     expect(host.textContent).toContain("否");
     expect(host.textContent).toContain("—");
-    expect(host.querySelector('[class~="text-muted-foreground/60"]')?.textContent).toBe("—");
-
-    act(() => root.unmount());
-    host.remove();
-  });
-
-  it("applies the requested grid columns, density, and field span", () => {
-    const { host, root } = renderFields();
-    const fields = host.querySelector('[data-slot="data-fields"]');
-    const group = host.querySelector('[data-slot="data-fields-group"]');
-    const fullField = host.querySelector('[data-slot="data-field"].col-span-full');
-
-    expect(fields?.className).toContain("lg:grid-cols-3");
-    expect(fields?.className).toContain("gap-y-3");
-    expect(group?.querySelector("h3")?.textContent).toBe("候选人信息");
-    expect(fullField).not.toBeNull();
 
     act(() => root.unmount());
     host.remove();

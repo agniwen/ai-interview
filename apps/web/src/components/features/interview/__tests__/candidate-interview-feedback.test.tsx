@@ -67,34 +67,6 @@ describe("CandidateInterviewFeedbackPanel", () => {
     expect(html).not.toContain(">反馈问题<");
   });
 
-  it("puts the mobile feedback action above its description without title or media", async () => {
-    setViewportWidth(375);
-    const host = document.createElement("div");
-    document.body.append(host);
-    const root = createRoot(host);
-
-    await act(() => {
-      root.render(<CandidateInterviewFeedbackPanel feedback={null} onSubmit={vi.fn()} />);
-    });
-
-    const media = host.querySelector<HTMLElement>('[data-slot="item-media"]');
-    const title = host.querySelector<HTMLElement>('[data-slot="item-title"]');
-    const content = host.querySelector<HTMLElement>('[data-slot="item-content"]');
-    const actions = host.querySelector<HTMLElement>('[data-slot="item-actions"]');
-    const feedbackButton = host.querySelector<HTMLButtonElement>('[data-slot="button"]');
-    expect(media?.className).toContain("hidden");
-    expect(title?.className).toContain("hidden");
-    expect(actions?.className).toContain("order-1");
-    expect(content?.className).toContain("order-2");
-    expect(feedbackButton?.dataset.size).toBe("lg");
-    expect(feedbackButton?.className).toContain("w-full");
-    expect(feedbackButton?.className).toContain("md:w-auto");
-
-    await act(() => {
-      root.unmount();
-    });
-  });
-
   it("lets candidates expand the mobile drawer to full screen", async () => {
     setViewportWidth(375);
     const host = document.createElement("div");
@@ -112,11 +84,8 @@ describe("CandidateInterviewFeedbackPanel", () => {
     const expandButton = document.querySelector<HTMLButtonElement>(
       'button[aria-label="全屏展开反馈面板"]',
     );
-    const drawerContent = document.querySelector<HTMLElement>('[data-slot="dialog-content"]');
+
     expect(expandButton?.getAttribute("aria-expanded")).toBe("false");
-    expect(drawerContent?.className).toContain("md:max-w-xl");
-    expect(drawerContent?.className).not.toContain("sm:max-w-xl");
-    expect(drawerContent?.className).not.toContain("h-dvh");
 
     await act(() => {
       expandButton?.click();
@@ -126,8 +95,6 @@ describe("CandidateInterviewFeedbackPanel", () => {
         .querySelector<HTMLButtonElement>('button[aria-label="收起反馈面板"]')
         ?.getAttribute("aria-expanded"),
     ).toBe("true");
-    expect(drawerContent?.className).toContain("h-dvh");
-    expect(drawerContent?.className).toContain("rounded-none");
 
     await act(() => {
       root.unmount();

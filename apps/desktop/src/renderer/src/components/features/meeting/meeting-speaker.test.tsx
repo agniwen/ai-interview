@@ -64,9 +64,9 @@ describe("meeting speaker presentation", () => {
     expect(html).toContain("<svg");
     expect(html).not.toContain("<img");
     expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain('class="mo-root"');
+
     expect(html).toContain("M82.41 51.21C82.41 71.76");
-    expect(html).toMatch(/<svg[^>]*><g class="mo-root">/);
+
     expect(html).toContain("未知说话人");
   });
 

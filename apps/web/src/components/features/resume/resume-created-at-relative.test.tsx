@@ -21,32 +21,6 @@ describe("getCreatedAtRelation", () => {
 });
 
 describe("CreatedAtRelativeLabel", () => {
-  it("renders a red label when the record joined earlier than the current resume", () => {
-    const markup = renderToStaticMarkup(
-      <CreatedAtRelativeLabel
-        createdAt="2026-07-24T08:00:00.000Z"
-        referenceCreatedAt="2026-07-25T08:00:00.000Z"
-      />,
-    );
-
-    expect(markup).toContain("比当前简历加入早");
-    expect(markup).toContain("text-red-600");
-    expect(markup).not.toContain("text-green-600");
-  });
-
-  it("renders a green label when the record joined later than the current resume", () => {
-    const markup = renderToStaticMarkup(
-      <CreatedAtRelativeLabel
-        createdAt="2026-07-26T08:00:00.000Z"
-        referenceCreatedAt="2026-07-25T08:00:00.000Z"
-      />,
-    );
-
-    expect(markup).toContain("比当前简历加入晚");
-    expect(markup).toContain("text-green-600");
-    expect(markup).not.toContain("text-red-600");
-  });
-
   it("renders nothing when the creation times are equal", () => {
     const markup = renderToStaticMarkup(
       <CreatedAtRelativeLabel

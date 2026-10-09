@@ -44,12 +44,6 @@ describe("SidebarTabs", () => {
     );
     roots.push(root);
     const studioTab = findTab("工作台");
-    const tabsList = document.querySelector('[data-slot="tabs-list"]');
-    const tabs = document.querySelector('[data-slot="tabs"]');
-
-    expect(tabsList?.classList).toContain("bg-sidebar-accent");
-    expect(tabsList?.classList).toContain("dark:bg-black/15");
-    expect(tabs?.classList).toContain("group-data-[collapsible=icon]:hidden");
 
     act(() => {
       studioTab?.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));

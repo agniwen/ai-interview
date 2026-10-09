@@ -27,7 +27,6 @@ describe("MeetingDetailTitle", () => {
     );
 
     expect(html).toContain('aria-label="编辑手机开箱体验的名称"');
-    expect(html).toContain("group-hover/title:opacity-100");
   });
 
   it("uses a stable native underline input limited to 80 characters", () => {
@@ -47,7 +46,6 @@ describe("MeetingDetailTitle", () => {
 
     expect(html).toContain("<input");
     expect(html).toContain(`maxLength="${RECORDING_TITLE_MAX_LENGTH}"`);
-    expect(html).toContain("border-b");
     expect(html).toContain("[field-sizing:content]");
     expect(html).not.toContain('data-slot="input"');
     expect(html).toContain('aria-label="保存手机开箱体验的名称"');

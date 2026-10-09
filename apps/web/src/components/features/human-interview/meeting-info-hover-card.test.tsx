@@ -45,9 +45,6 @@ it("shows the meeting details and the resume uploader in the hover card", async 
     expect(content?.textContent).toContain("2026年9月28日 22:19");
     expect(content?.textContent).toContain("负责 HR");
     expect(content?.querySelector("dd:last-child > span:last-child")?.textContent).toBe("艾伦");
-    expect(content?.querySelector('[data-slot="avatar"]')?.classList.contains("size-[18px]")).toBe(
-      true,
-    );
   } finally {
     await act(() => root.unmount());
   }

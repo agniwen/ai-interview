@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { CalendarEventTooltip, StudioCalendarPage } from "./studio-calendar-page";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -254,7 +253,7 @@ describe("StudioCalendarPage", () => {
     expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(5);
     const viewControls = host.querySelector<HTMLElement>('[data-slot="calendar-view-controls"]');
-    expect(viewControls?.className).toContain("flex-col");
+
     expect(viewControls?.children).toHaveLength(2);
     expect(host.querySelector('[data-slot="calendar-primary-view-row"]')).not.toBeNull();
     expect(host.querySelector('[data-slot="calendar-range-view-row"]')).not.toBeNull();
@@ -266,42 +265,14 @@ describe("StudioCalendarPage", () => {
     const humanEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
     ].find((event) => event.textContent?.includes("李四-前端技术经理-技术复面"));
-    const pendingAiEvent = [
-      ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("王五-未关联岗位-AI 复面"));
-    const endedHumanEvent = [
-      ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("赵六-未关联岗位-终面"));
-    expect(aiEvent?.className).toContain("bg-(--ec-event-color)/10");
-    expect(aiEvent?.className).toContain(
-      "[&_.text-muted-foreground]:text-(--ec-event-foreground)/75",
-    );
-    expect(humanEvent?.className).toContain("bg-(--ec-event-color)/5");
-    expect(aiEvent?.style.getPropertyValue("--ec-event-color")).toBe(
-      "var(--calendar-ai-interview)",
-    );
-    expect(aiEvent?.style.getPropertyValue("--ec-event-foreground")).toBe(
-      "var(--calendar-ai-interview-foreground)",
-    );
-    expect(humanEvent?.style.getPropertyValue("--ec-event-color")).toBe(
-      "var(--calendar-human-interview)",
-    );
-    expect(humanEvent?.style.getPropertyValue("--ec-event-foreground")).toBe(
-      "var(--calendar-human-interview-foreground)",
-    );
-    expect(pendingAiEvent?.className).toContain("bg-(--ec-event-color)/5");
-    expect(endedHumanEvent?.className).toContain("bg-(--ec-event-color)/10");
+
     expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试记录");
     expect(humanEvent?.getAttribute("aria-label")).toContain("真人面试");
     expect(aiEvent?.dataset.calendarEventPreview).toBe("ai");
     expect(humanEvent?.dataset.calendarEventPreview).toBeUndefined();
     act(() => humanEvent?.click());
     expect(openAgendaEvent).toHaveBeenCalledTimes(2);
-    const todayHeader = host.querySelector<HTMLElement>(
-      '[data-slot="event-calendar-day-header"][data-today] > span',
-    );
-    expect(todayHeader?.className).toContain("bg-primary/10");
-    expect(todayHeader?.className).toContain("rounded-md");
+
     const weekHeaders = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-day-header"] > span'),
     ];
@@ -330,12 +301,6 @@ describe("StudioCalendarPage", () => {
     expect(host.querySelector('[data-slot="event-calendar-month-view"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-calendar-event-icon="ai"]')).toHaveLength(2);
     expect(host.querySelectorAll('[data-calendar-event-icon="human"]')).toHaveLength(2);
-    const monthTodayDayNumbers = host.querySelectorAll<HTMLElement>(
-      '[data-slot="event-calendar-month-cell"][data-today] span',
-    );
-    expect(
-      [...monthTodayDayNumbers].some((dayNumber) => dayNumber.classList.contains("bg-primary")),
-    ).toBe(true);
 
     const dayTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "日",

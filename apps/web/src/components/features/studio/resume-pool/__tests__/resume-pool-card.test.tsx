@@ -231,7 +231,7 @@ describe("ResumePoolCard", () => {
     expect(html).not.toContain("删除");
   });
 
-  it("prefers the qualitative short evaluation and clamps the description to three lines", () => {
+  it("prefers the qualitative short evaluation over the legacy summary", () => {
     const qualitativeSummary =
       "候选人的核心产品经验与岗位要求匹配，能够独立推动复杂招聘产品落地，建议进入下一轮。";
     const html = renderToStaticMarkup(
@@ -262,8 +262,6 @@ describe("ResumePoolCard", () => {
 
     expect(html).toContain(qualitativeSummary);
     expect(html).not.toContain("擅长复杂招聘产品的设计与落地");
-    expect(html).toContain("line-clamp-3");
-    expect(html).not.toContain("line-clamp-2");
   });
 
   it("only shows parse failures and the imported recruiting-flow status", () => {

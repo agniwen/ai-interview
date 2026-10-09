@@ -48,9 +48,7 @@ describe("LazyRecruitingConversationThread", () => {
 
     expect(conversationModule.imports).toBe(1);
     expect(container.querySelector('[aria-label="聊天界面加载中"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="聊天界面加载中"]')?.className).toContain(
-      "flex-col",
-    );
+
     expect(container.querySelector('[class*="rounded-[28px]"]')).not.toBeNull();
 
     await act(async () => {

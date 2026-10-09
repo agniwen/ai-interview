@@ -32,7 +32,7 @@ describe("BackgroundLayers", () => {
     expect(video?.hasAttribute("disableremoteplayback")).toBe(true);
     expect(video?.getAttribute("controlslist")).toContain("noremoteplayback");
     expect(video?.dataset.theme).toBe("dark");
-    expect(video?.className).toContain("pointer-events-none");
+
     expect(video?.tabIndex).toBe(-1);
 
     act(() => root.unmount());

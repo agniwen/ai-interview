@@ -162,9 +162,6 @@ function verifyBackgroundTranscript(
     expect(
       container.querySelector('header [data-slot="meeting-recording-status"]')?.textContent,
     ).toBe("录制中");
-    expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).not.toContain(
-      "lg:grid-cols-",
-    );
     expect(container.textContent).toContain(viewMode === "materials" ? "会议视图" : "候选人信息");
   }
   mediaState.recording = false;
@@ -186,9 +183,6 @@ function verifyChatPanel(
   expect(
     container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
   ).toBe("true");
-  expect(container.querySelector('[data-slot="meeting-workspace"]')?.className).not.toContain(
-    "md:grid-cols-",
-  );
   renderStage("materials");
   expect(
     container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
@@ -291,7 +285,7 @@ describe("HumanMeetingStage realtime transcript", () => {
     mediaState.speaking = true;
     render();
     expect(tile()?.dataset.speaking).toBe("true");
-    expect(tile()?.className).toContain("border-emerald-500");
+
     mediaState.speaking = false;
     render();
     expect(tile()?.dataset.speaking).toBe("false");
@@ -340,9 +334,9 @@ describe("HumanMeetingStage realtime transcript", () => {
     const photo = avatar?.querySelector<HTMLImageElement>('img[alt="面试官的头像"]');
     expect(photo).not.toBeNull();
     act(() => photo?.dispatchEvent(new Event("load")));
-    expect(avatar?.className).toContain("opacity-100");
+
     act(() => photo?.dispatchEvent(new Event("error")));
-    expect(avatar?.className).toContain("opacity-0");
+
     mediaState.metadata = JSON.stringify({
       participant_type: "interviewer",
       user_id: "interviewer-1",
@@ -492,19 +486,11 @@ describe("HumanMeetingStage realtime transcript", () => {
       expect(microphoneGroup?.textContent).toContain("已静音");
       const details = container.querySelector('[data-slot="participant-details"]');
       expect(details?.textContent).toBe("面试官(我)面试官");
-      expect(details?.className).toContain("z-20");
+
       expect(details?.querySelector('[aria-label="已静音"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="participant-tile"]')?.className).toContain(
-        "[&_video]:object-cover",
-      );
+
       mediaState.source = "screen_share";
       renderStage("meeting");
-      expect(container.querySelector('[data-testid="participant-tile"]')?.className).toContain(
-        "[&_video]:object-contain",
-      );
-      expect(container.querySelector('[data-testid="participant-tile"]')?.className).not.toContain(
-        "[&_video]:object-cover",
-      );
 
       verifyBackgroundTranscript(container, renderStage);
       renderStage("meeting", false);

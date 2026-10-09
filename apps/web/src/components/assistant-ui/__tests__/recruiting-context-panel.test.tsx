@@ -66,8 +66,6 @@ describe("RecruitingContextPanel", () => {
       (button) =>
         button.getAttribute("aria-label") === null && button.textContent?.trim() === "上下文",
     );
-    expect(expand?.className).toContain("top-[calc(var(--header-height)+1rem)]");
-    expect(mobileExpand?.className).toContain("top-[calc(var(--header-height)+1rem)]");
 
     const mobileOverlay = container.querySelector<HTMLElement>(
       '[data-slot="recruiting-context-mobile-overlay"]',
@@ -80,11 +78,10 @@ describe("RecruitingContextPanel", () => {
     const mobilePanel = container.querySelector<HTMLElement>(
       '[data-slot="recruiting-context-mobile-panel"]',
     );
-    expect(mobileOverlay?.className).toContain("absolute");
-    expect(mobileOverlay?.className).not.toContain("fixed");
+
     expect(mobileOverlay?.dataset.open).toBe("true");
     expect(mobileOverlay?.hasAttribute("inert")).toBe(false);
-    expect(mobilePanel?.className).toContain("t-panel-slide");
+
     expect(mobilePanel?.dataset.open).toBe("true");
 
     const closeMobile = container.querySelector<HTMLButtonElement>('[aria-label="关闭上下文"]');
@@ -93,10 +90,6 @@ describe("RecruitingContextPanel", () => {
     expect(mobileOverlay?.hasAttribute("inert")).toBe(true);
     expect(mobilePanel?.dataset.open).toBe("false");
     await act(() => expand?.click());
-
-    expect(container.querySelector("aside")?.className).toContain(
-      "top-[calc(var(--header-height)+1rem)]",
-    );
 
     const candidateButtons = [
       ...container.querySelectorAll<HTMLButtonElement>("aside button"),

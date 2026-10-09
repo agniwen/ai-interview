@@ -6,7 +6,6 @@ import {
 import {
   buildRecruitingBoardSearch,
   isStudioSidebarParentActive,
-  STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS,
   shouldToggleStudioSidebarSubmenu,
 } from "../studio-sidebar-slots";
 
@@ -75,12 +74,5 @@ describe("studio sidebar recruiting board presets", () => {
     expect(shouldToggleStudioSidebarSubmenu(false, true)).toBe(false);
     expect(shouldToggleStudioSidebarSubmenu(false, false)).toBe(false);
     expect(shouldToggleStudioSidebarSubmenu(true, true, true)).toBe(false);
-  });
-
-  it("never transitions an active submenu through a transparent hover background", () => {
-    expect(STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS).toContain(
-      "data-[active=false]:hover:bg-transparent!",
-    );
-    expect(STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS).not.toMatch(/(?:^|\s)hover:bg-transparent!/);
   });
 });

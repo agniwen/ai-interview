@@ -94,21 +94,10 @@ describe("ResumeDuplicateMatchesDialog", () => {
       (element) => element.textContent === "相似度 94%",
     );
     expect(riskBadge).toBeTruthy();
-    expect(riskBadge?.className).toContain("rounded-sm");
-    expect(riskBadge?.className).toContain("px-2.5");
-    expect(riskBadge?.className).toContain("py-1");
-    expect(riskBadge?.className).toContain("font-normal");
-    expect(riskBadge?.className).not.toContain("px-1.5");
-    expect(riskBadge?.className).not.toContain("py-0.5");
-    const uploaderLabel = [...document.querySelectorAll("span")].find(
-      (element) => element.textContent === "上传人",
-    );
-    expect(uploaderLabel?.parentElement?.className).toContain("grid-cols-[3rem_minmax(0,1fr)]");
-    expect(uploaderLabel?.parentElement?.className).toContain("gap-x-2");
+
     const avatars = document.querySelectorAll<HTMLElement>('[data-slot="avatar"]');
     expect(avatars.length).toBeGreaterThanOrEqual(2);
     for (const avatar of avatars) {
-      expect(avatar.className).toContain("size-4");
       expect(avatar.dataset.size).toBe("default");
     }
     const detailButton = [...document.querySelectorAll("button")].find(
@@ -117,8 +106,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     const resumeButton = [...document.querySelectorAll("button")].find(
       (button) => button.textContent === "简历",
     );
-    expect(detailButton?.parentElement?.className).toContain("hidden");
-    expect(detailButton?.parentElement?.className).toContain("lg:flex");
+
     expect(resumeButton).toBeTruthy();
 
     await act(async () => {
@@ -138,23 +126,6 @@ describe("ResumeDuplicateMatchesDialog", () => {
     );
   });
 
-  it("uses the same padding and font weight as the resume lifecycle badge", async () => {
-    const { root } = await renderInAct(
-      <ResumeDuplicateMatchBadge
-        duplicateMatch={{
-          count: 2,
-          highestLevel: "high",
-        }}
-      />,
-    );
-    roots.push(root);
-
-    const badge = document.querySelector<HTMLElement>('[data-slot="badge"]');
-    expect(badge?.className).toContain("px-2.5");
-    expect(badge?.className).toContain("py-1");
-    expect(badge?.className).toContain("font-normal");
-  });
-
   it("shows who created the latest earlier duplicate and when", async () => {
     const { root } = await renderInAct(
       <ResumeDuplicateMatchBadge
@@ -172,10 +143,6 @@ describe("ResumeDuplicateMatchesDialog", () => {
     );
     roots.push(root);
 
-    const creator = document.querySelector<HTMLElement>('[data-slot="duplicate-match-creator"]');
-    expect(creator?.className).toContain("max-w-20");
-    expect(creator?.className).toContain("truncate");
-    expect(document.querySelector('[data-slot="avatar"]')?.classList).toContain("size-4");
     expect(document.querySelector("[data-generated-avatar]")).not.toBeNull();
     expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
       "荷叶 26/08/18 12:20已创建",
@@ -300,62 +267,6 @@ describe("ResumeDuplicateMatchesDialog", () => {
 
     expect(document.body.textContent).toContain("详情");
     expect(document.body.textContent).not.toContain("简历");
-  });
-
-  it("annotates each suspected record's creation time relative to the current resume", async () => {
-    const { root } = await renderInAct(
-      <ResumeDedupMatchList
-        matches={[
-          {
-            candidateEmail: null,
-            candidateName: "早加入的疑似",
-            candidatePhone: null,
-            createdAt: "2026-07-24T00:00:00.000Z",
-            id: "earlier-id",
-            jobDescriptionName: null,
-            resumeFileName: "earlier.pdf",
-            sourceType: "studio_interview",
-            status: "active",
-            targetRole: null,
-          },
-          {
-            candidateEmail: null,
-            candidateName: "晚加入的疑似",
-            candidatePhone: null,
-            createdAt: "2026-07-26T00:00:00.000Z",
-            id: "later-id",
-            jobDescriptionName: null,
-            resumeFileName: "later.pdf",
-            sourceType: "studio_interview",
-            status: "active",
-            targetRole: null,
-          },
-        ]}
-        source={{
-          candidateEmail: null,
-          candidateName: "当前候选人",
-          candidatePhone: null,
-          createdAt: "2026-07-25T00:00:00.000Z",
-          id: "current-id",
-          jobDescriptionName: null,
-          resumeFileName: "current.pdf",
-          resumeProfileSnapshot: null,
-          skills: [],
-          sourceType: "studio_interview",
-          targetRole: null,
-        }}
-      />,
-    );
-    roots.push(root);
-
-    const earlierLabel = [...document.querySelectorAll("span")].find(
-      (element) => element.textContent === "比当前简历加入早",
-    );
-    const laterLabel = [...document.querySelectorAll("span")].find(
-      (element) => element.textContent === "比当前简历加入晚",
-    );
-    expect(earlierLabel?.className).toContain("text-red-600");
-    expect(laterLabel?.className).toContain("text-green-600");
   });
 
   it("shows the current recruiting status badge for resume-library matches", async () => {

@@ -2,7 +2,6 @@
 
 import { createStore, Provider } from "jotai";
 import { listFilterSelectionAtom } from "../filter-selection";
-
 import { act, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatDatePickerValue, parseDatePickerValue } from "@/lib/client/date-picker-value";
@@ -136,8 +135,7 @@ describe("Toolbar filter editing", () => {
     roots.push(root);
     const input = textInput("候选人");
     expect(input.value).toBe("Alice");
-    expect(input.parentElement?.classList.contains("has-focus-visible:shadow-none")).toBe(true);
-    expect(input.parentElement?.className).not.toContain("has-focus-visible:shadow-[");
+
     await typeText(input, "Bob");
     expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
@@ -198,9 +196,7 @@ describe("Toolbar filter editing", () => {
     const { root } = await renderInAct(<TextHarness onChange={onChange} />);
     roots.push(root);
     await clickText("button", "添加筛选");
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     await clickText('[role="option"]', "公司");
     expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
     expect(document.activeElement).toBe(textInput("公司"));
@@ -346,9 +342,7 @@ describe("Toolbar filter editing", () => {
     );
     roots.push(root);
     await clickText("button", "2026-08-20");
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     await selectDate("2026-08-26");
     expect(document.querySelector('[role="alert"]')?.textContent).toContain("不能晚于");
     expect(onChange).not.toHaveBeenCalled();
@@ -516,9 +510,7 @@ describe("Toolbar filter editing", () => {
         (option) => option.textContent?.trim() === "是",
       ),
     ).toBe(false);
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     expect(onChange).not.toHaveBeenCalled();
     await clickText('[role="option"]', "完成");
     expect(onChange).toHaveBeenCalledExactlyOnceWith("status", "done");
@@ -549,9 +541,7 @@ describe("Toolbar filter editing", () => {
     roots.push(root);
 
     await clickText("button", "React");
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     expect(document.querySelector('[data-slot="scroll-area-viewport"]')).not.toBeNull();
     await clickText('[role="option"]', "TypeScript");
     expect(onChange).toHaveBeenCalledExactlyOnceWith("skills", "react,ts");

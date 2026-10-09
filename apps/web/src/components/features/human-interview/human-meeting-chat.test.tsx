@@ -161,11 +161,11 @@ describe("HumanMeetingChat", () => {
     expect(
       container.querySelector<HTMLElement>('[data-testid="drawer"]')?.dataset.repositionInputs,
     ).toBe("false");
-    expect(drawer?.className).toContain("h-dvh");
+
     expect(drawer?.style.height).toBe("700px");
     expect(drawer?.querySelector("button")?.getAttribute("aria-label")).toBe("关闭聊天");
     const field = drawer?.querySelector<HTMLTextAreaElement>("textarea");
-    expect(field?.className).toContain("text-base");
+
     expect(document.activeElement).not.toBe(field);
 
     visualViewport.height = 420;

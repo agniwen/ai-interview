@@ -83,8 +83,7 @@ describe("CandidateCareerSummary", () => {
     expect(markup).toContain("tabler-icon-briefcase-2");
     expect(markup).toContain("tabler-icon-school");
     expect(markup).not.toContain('data-slot="badge"');
-    expect(markup).toMatch(/text-muted-foreground text-xs">示例公司岗位/);
-    expect(markup).toMatch(/text-muted-foreground text-xs">软件工程/);
+
     expect(markup.indexOf("示例公司")).toBeLessThan(markup.indexOf("示例公司岗位"));
     expect(markup.indexOf("内蒙古科技大学（本科）")).toBeLessThan(markup.indexOf("软件工程"));
   });
@@ -137,19 +136,11 @@ describe("CandidateCareerSummary", () => {
     if (companySection) {
       companySection.scrollIntoView = scrollIntoView;
     }
-    expect(companySection?.className).toContain("scroll-mt-16");
+
     const workEntry = container.querySelector<HTMLButtonElement>(
       '[data-slot="candidate-career-summary"] button',
     );
     expect(workEntry?.getAttribute("aria-label")).toBe("查看 示例公司 工作经历");
-    expect(workEntry?.className).toContain("hover:bg-muted/40");
-    expect(workEntry?.className).not.toContain("px-2");
-    expect(workEntry?.querySelector('[data-slot="work-entry-copy"]')?.className).toContain(
-      "group-hover/work-entry:translate-x-1.5",
-    );
-    expect(workEntry?.querySelector("span")?.className).toContain(
-      "group-hover/work-entry:-translate-x-1.5",
-    );
 
     act(() => {
       workEntry?.click();

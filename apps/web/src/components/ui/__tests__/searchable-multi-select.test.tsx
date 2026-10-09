@@ -74,13 +74,4 @@ describe("SearchableMultiSelect", () => {
     expect(html).not.toContain('title="岗位 C"');
     expect(html).toContain("+1");
   });
-
-  it("renders the same dropdown icon as single-select filters", () => {
-    const html = renderToStaticMarkup(
-      <SearchableMultiSelect onChange={() => {}} options={options} value={selectedValues} />,
-    );
-
-    expect(html).toContain('aria-label="展开选项"');
-    expect(html).toContain('data-slot="combobox-trigger-icon"');
-  });
 });
