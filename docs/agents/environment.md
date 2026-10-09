@@ -10,7 +10,7 @@ Environment contracts use T3 Env. Server variables are defined once in `@app/ser
 
 The voice agent has its own `apps/livekit-agent/.env.example`. See those `.env.example` files for the full list. Key requirements:
 
-- LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
+- LiveKit credentials (self-hosted by default; Cloud is optional) (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
 - Database (`DATABASE_URL`)
 - AI providers (`OPENAI_API_KEY`, `ALIBABA_API_KEY`, `DASHSCOPE_API_KEY`, `MINIMAX_API_KEY`) — see `.env.example` for the full list

@@ -9,7 +9,6 @@
     "dev:fresh": "rm -rf node_modules/.vite .tanstack/tmp && vite dev --force",
     "copy:mupdf-wasm": "bun scripts/copy-mupdf-wasm.ts",
     "env:validate": "bun src/env/validate.ts",
-    "images:home": "bun scripts/optimize-home-images.mjs",
     "i18n:compile": "bun scripts/compile-i18n.ts",
     "prebuild": "bun run env:validate",
     "build": "bun scripts/build.mjs",

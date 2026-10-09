@@ -4,7 +4,7 @@
 
 2026-08-26 从 [ReUI Base Filters](https://reui.io/docs/components/base/filters) 的 `https://reui.io/r/base-nova/filters.json` 安装源码（shadcn CLI 4.18.0）。Filters 和 Cascader 源码放在 Web 与桌面 renderer 各自的 `components/reui/`；继续使用项目现有 Base UI primitives，不覆盖已有 Button、Popover 等组件，不新增运行时依赖。
 
-业务接入只通过 `components/data-grid/parts/filter-config.ts`、`filter-query.ts`、`filter-conditions.tsx` 和 `toolbar.tsx`。字段声明决定允许的操作符，不能由客户端任意构造数据库条件。`unfilteredValue` 用于区分“移除条件”和资源默认值（例如归档列表默认 active，移除须传 all）。后台权限判断保持不变。
+业务接入只通过 `apps/web/src/components/features/data-grid/parts/filter-config.ts`、`filter-query.ts`、`filter-conditions.tsx` 和 `toolbar.tsx`。字段声明决定允许的操作符，不能由客户端任意构造数据库条件。`unfilteredValue` 用于区分“移除条件”和资源默认值（例如归档列表默认 active，移除须传 all）。后台权限判断保持不变。
 
 按原子字段数量选择展示方式：一两个字段直接显示输入框/下拉框；超过两个字段时，所有可选条件（包括文本搜索）进入 Filters。工具栏同一行按“筛选 → 清空筛选 → 刷新 → 其他操作”排列，空间不足自然换行；骨架屏使用相同顺序和控件尺寸。招聘阶段、表单题/沟通题的归档选项、邮箱日志日期控件都属于条件；切换队列资源属于页面上下文，不属于筛选。
 
@@ -43,7 +43,7 @@ Web 与桌面端的 `filter-selection.ts` 使用 Jotai `atomWithStorage`、`crea
 - 删除两个未使用的上游局部变量，以通过桌面端严格 TypeScript 检查。
 - 桌面端图标适配已有 Iconify Phosphor，Avatar 使用该端已有接口，并补充上游所需的 ButtonGroup 和 Spinner primitives。
 
-更新 ReUI 时需同时同步两端并重新验证上述调整，不能直接覆盖项目 primitives。筛选草稿/条件转换和提交行为的回归测试位于 Web `components/data-grid/parts/__tests__/`；分页与选择重置测试位于 `components/data-grid/__tests__/`。
+更新 ReUI 时需同时同步两端并重新验证上述调整，不能直接覆盖项目 primitives。筛选草稿/条件转换和提交行为的回归测试位于 Web `apps/web/src/components/features/data-grid/parts/__tests__/`；分页与选择重置测试位于 `apps/web/src/components/features/data-grid/__tests__/`。
 
 ## 验收重点
 

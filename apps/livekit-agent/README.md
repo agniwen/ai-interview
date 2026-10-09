@@ -9,7 +9,7 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 
 ## 职责与边界
 
-本应用只负责实时语音面试会话：加入 LiveKit 房间、组织 STT → LLM → TTS 流程、执行面试工具、管理录制并把事件/报告回调给服务端。招聘数据持久化、鉴权、候选人状态流转和页面展示属于 `apps/server` / `apps/web`，不要在 Agent 内直接连接业务数据库。
+本应用只负责实时语音面试会话：加入 LiveKit 房间、默认运行 Qwen Realtime 语音对话（可选 pipeline 模式使用 STT → LLM → TTS）、执行面试工具、管理录制并把事件/报告回调给服务端。招聘数据持久化、鉴权、候选人状态流转和页面展示属于 `apps/server` / `apps/web`，不要在 Agent 内直接连接业务数据库。
 
 ## 修改与新增指南
 
@@ -24,7 +24,13 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 
 新增跨应用字段时，先修改服务端拥有的契约并保持回调向后兼容；密钥只进入环境变量和部署密钥文件，不写入源码或测试夹具。
 
-## Pipeline
+## Voice modes
+
+`INTERVIEW_VOICE_MODE` defaults to `realtime`: `src/realtime_interview_agent.py`
+uses `qwen_realtime.RealtimeModel` for speech-to-speech and server-side turn
+detection. The default model/voice and overrides live in `.env.example`.
+
+Set `INTERVIEW_VOICE_MODE=pipeline` to use the separate stages below:
 
 | Stage          | Provider                                               | Notes                           |
 | -------------- | ------------------------------------------------------ | ------------------------------- |
@@ -32,7 +38,7 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 | LLM            | Aliyun DashScope (`deepseek-v4-flash-0731` by default) | OpenAI-compatible endpoint      |
 | TTS            | Minimax                                                | livekit-plugins-minimax-ai      |
 | VAD            | Silero                                                 | downloaded via `download-files` |
-| Turn-detection | LiveKit multilingual model                             | downloaded via `download-files` |
+| Turn-detection | LiveKit audio TurnDetector                             | downloaded via `download-files` |
 | Recording      | LiveKit Egress → Cloudflare R2                         | see `src/recording.py`          |
 
 Worker registers with `AGENT_NAME`, defaulting to `giaogiao`. The web side
@@ -41,13 +47,14 @@ all three values must match.
 
 ## Setup
 
-Python 3.11, [`uv`](https://docs.astral.sh/uv/) required. Do not mix in
+Use a Python version supported by `pyproject.toml` (`>=3.10, <3.15`) and
+[`uv`](https://docs.astral.sh/uv/). Do not mix in
 `pip` / `poetry`.
 
 ```bash
 cd apps/livekit-agent
 uv sync                                  # install deps into .venv
-uv run -m livekit.agents download-files  # Silero VAD + turn-detector models
+uv run src/agent.py download-files  # Silero VAD + turn-detector models
 cp .env.example .env                     # then fill in values (see comments inside)
 ```
 
@@ -58,17 +65,17 @@ lives **inside `apps/livekit-agent/`**, separate from the server environment:
 values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
 `RECORDING_R2_*`) must stay in lock-step with whichever server runtime is deployed.
 
-For a self-hosted LiveKit server and agent worker, set
-`INTERVIEW_SELF_HOSTED=1`. This pins the local `v1-mini` turn detector, uses
-VAD interruption handling, and disables Cloud-only noise cancellation. Leave
-it unset for LiveKit Cloud so the full turn detector, adaptive interruption,
-and Cloud audio enhancement remain active. For local troubleshooting, you can
-disable only noise cancellation with `INTERVIEW_DISABLE_NOISE_CANCELLATION=1`.
+`INTERVIEW_SELF_HOSTED` defaults to `1`; set it explicitly to `0` for LiveKit
+Cloud. Self-hosted mode disables Cloud-only noise cancellation. In `pipeline`
+mode it also selects the `v1-mini` audio turn detector and VAD interruption;
+Cloud mode uses the default audio turn detector and adaptive interruption.
+Realtime mode delegates turn detection to the realtime model. For local
+troubleshooting, `INTERVIEW_DISABLE_NOISE_CANCELLATION=1` disables audio enhancement.
 
 ## Running
 
 ```bash
-uv run src/agent.py dev        # worker + hot reload, joins LiveKit Cloud
+uv run src/agent.py dev        # worker + hot reload, joins configured LiveKit server
 uv run src/agent.py start      # worker in production mode (no reload)
 uv run src/agent.py console    # interactive terminal chat — no LiveKit room
 ```
@@ -79,7 +86,7 @@ From the repo root, the Makefile wraps these:
 make agent-dev        # equivalent to: uv run src/agent.py dev
 make agent-console    # terminal-only chat
 make agent-start      # production-mode worker
-make dev              # parallel: web dev server + agent dev worker
+make dev              # parallel: web + voice agent + background worker
 ```
 
 ## Tests & linting

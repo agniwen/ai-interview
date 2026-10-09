@@ -5,6 +5,7 @@
 ## 公开入口
 
 - `./transcription`：转写 provider、DAO ports 和转写流程。
+- `./answer`：会议问答上下文选取、答案生成和持久化。
 - `./intelligence`：会议摘要/智能生成和持久化协调。
 - `./purge`：会议产物清理与审计流程。
 - `./human-interview`：人工面试录音处理与评估。

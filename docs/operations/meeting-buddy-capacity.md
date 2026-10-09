@@ -1,6 +1,6 @@
 # Echo 容量与故障运维
 
-Echo 的三个主要容量域互相独立：实时字幕同时 100 场、直接上传同时 100 场、最终转录 Worker 并发 20。媒体合成与 Intelligence 使用各自队列和并发值，不占用最终转录的 20 个槽位。
+Echo 的三个主要容量域互相独立：应用侧实时字幕租约默认上限 100 场、直接上传租约默认上限 100 场、最终转录 Worker 默认并发 20。实际值以所属 Backend/Worker 环境配置为准，这些默认限制不代表已通过同等规模的媒体容量验收。媒体合成与 Intelligence 使用各自队列和并发值，不占用最终转录的 20 个槽位。
 
 ## 运行配置
 
@@ -53,7 +53,7 @@ bun run --filter @app/worker load:meeting-capacity
 
 ```bash
 MEETING_LOAD_MODE=final \
-MEETING_LOAD_BASE_URL=http://127.0.0.1:8788 \
+MEETING_LOAD_BASE_URL=http://127.0.0.1:8790 \
 MEETING_LOAD_FINAL_JOBS_FILE=/absolute/path/final-jobs.json \
 WORKER_DIAGNOSTICS_SECRET=REDACTED \
 bun run --filter @app/worker load:meeting-capacity
@@ -76,7 +76,7 @@ bun run --filter @app/worker load:meeting-capacity
 
 JSON 文件必须恰好包含 100 个不同测试成员的完整 Cookie 字符串。单用户授权有独立的防滥用频控，不能通过提高该限制来伪造 Workspace 并发证据。
 
-发布前还必须用 100 个真实 Desktop capture 建立 OpenAI WebRTC transcription session，持续至少 10 分钟，并记录授权成功率、断线/重连、provider 429、音频 sidecar backpressure 与本地录制完整性。应用租约测试与 provider WebRTC soak 是两份证据，不能相互替代。
+发布前还必须按目标规模建立真实 Desktop capture 和当前选用的 Qwen/Deepgram 实时转写连接，持续至少 10 分钟，并记录授权成功率、断线/重连、provider 429、音频 sidecar backpressure 与本地录制完整性。当前 Desktop 可以使用本地凭据直连 provider；该路径的供应商配额与应用侧租约须分别验证，不把服务器租约上限视为所有 Desktop 连接的统一限制。应用租约测试与 provider 媒体 soak 是两份证据，不能相互替代。
 
 ## 告警建议
 

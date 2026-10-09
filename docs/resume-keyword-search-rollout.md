@@ -1,80 +1,64 @@
-# 人才库 / 招聘台公司与学校搜索
+# 人才库 / 招聘台关键词搜索维护
 
-## 搜索契约
+最后核对：2026-10-09。本文对应当前招聘表拆分后的代码；下方旧性能记录仅作为当时的验收证据。
 
-两张业务表增加 `search_text`、`search_cjk_bigrams`，不新增辅助表。
-原有姓名、邮箱、电话、文件名、目标岗位加上全部工作经历公司名和教育经历学校名。
-优先使用有效的 `educationExperiences[].school`；没有有效学校时兼容旧 `schools`。
-不搜索简历正文、AI 评价，不自动扩展公司/学校简称或中英文别名。
+## 当前数据与查询契约
 
-匹配为忽略英文大小写的字面包含；`%`、`_`、`!` 不作为用户通配符。
-输入和每个来源字段折叠空白，字段间使用换行，禁止跨字段拼接命中。
-连续常用汉字的双字组合使用 GIN 数组索引预筛，再由 ILIKE 校验整个关键词。
-其他输入使用 trigram 索引；单字、短英文、符号及大量命中的词不保证同等性能。
+- 搜索文档位于 `resume_pool_item` 和 `candidate_resume` 的 `search_text`、`search_cjk_bigrams`。招聘台通过 `recruiting_record`、`candidate`、`candidate_resume` 读取业务资料；旧 `studio_interview` 是历史档案。
+- 列表采用 `textFilters` 原子字段：候选人、公司、学校、邮箱、电话、简历名、目标岗位。公司和学校先用索引搜索文档预筛，再从对应 profile 字段做精确校验，不能把一个字段的命中当成另一个字段的命中。
+- 匹配为忽略英文大小写的字面包含；`%`、`_`、`!` 不作为用户通配符。SQL 搜索函数负责空白归一化，连续汉字双字组合用于 GIN 预筛。短英文、单字和高频词的性能需按真实数据验证。
+- `resume_pool_item` 由已有数据库触发器维护搜索文档；`candidate_resume` 的正常业务写入由 `packages/database/src/recruiting-records.ts` 重建文档。不要假设新表沿用了旧 `studio_interview` 触发器。
+- 搜索与列表始终保留工作区、人员可见范围和归档条件。归档不清空搜索文档；删除行后无需额外搜索清理任务。
 
-## 数据生命周期
+实现入口：
 
-- INSERT：数据库 BEFORE 触发器生成已有资料的搜索字段；未解析也可以搜基础信息。
-- 资料变更：六类源字段变化后整体覆盖，移除旧公司/学校词；同事务完成。
-- 仅修改解析状态、阶段或其他非源字段：不重新生成。失败重试保留当前已存资料。
-- 清空 resume_profile：移除其公司/学校信息，基础字段保留。
-- 进入招聘台/发布副本：各记录独立生成和维护，不跨记录同步或删除。
-- 归档：保留搜索字段；可见性仍由原查询的组织、人员、scope、状态条件决定。
-- DELETE/批量删除：字段随原行删除，不需要异步清理任务。
-- 数据库索引的死元组由 VACUUM 回收，不代表删除提交后还能被新查询命中。
+- [字段搜索与索引预筛](../packages/resume-processing/src/internal/recruiting/resumes/dao/keyword-search.ts)
+- [招聘资料写入与搜索文档重建](../packages/database/src/recruiting-records.ts)
+- [维护脚本](../apps/server/src/scripts/resume-search-maintenance.ts)
+- [招聘表切换约束](adr/0036-copy-recruiting-data-into-independent-tables.md)
 
-生成算法在 SQL 函数中只维护一份。回填通过将 search_text 置 NULL 触发重建，
-不改业务 updated_at，不调用解析、评价或语义索引。回填只更新现存行，不会复活删除记录。
-关键词查询不再读取 resume_profile。人才库列表显式排除两个辅助字段，招聘台维持原有列选择。
+## 维护命令
 
-## 上线顺序（必须先数据库准备，后发布新查询）
+在仓库根目录运行，并显式指定目标 `DATABASE_URL`。脚本也会读取 Server 自己的环境文件；执行前确认目标数据库和备份。以下是维护示例，本次文档修正未执行数据库操作。
 
-以下命令在仓库根目录运行，使用明确指定的目标 DATABASE_URL。
-先确认备份、目标数据库、pg_trgm 权限和迁移窗口。不要直接先发布新版应用；
-历史 NULL 搜索字段在回填前不会被新查询命中。
+```bash
+# 只读检查：NULL 待回填记录、有效 GIN 索引及操作符类
+bun apps/server/src/scripts/resume-search-maintenance.ts check
 
-1. 保持旧应用运行，执行 `bun run db:migrate`。
-   `20260826120000_resume_keyword_search` 只加可空字段、生成函数和触发器，
-   不回填、不在事务中创建 GIN 索引。DDL 仍需短暂锁表，应设置合理 lock_timeout。
-2. 查看待回填量（默认只读）：
-   `bun run --filter @app/server maintain:resume-search backfill`
-3. 分批回填：
-   `bun run --filter @app/server maintain:resume-search backfill --apply --batch-size=500`
-   每批独立事务、主键游标、锁定本批记录，从当前源字段生成。
-   重跑自动跳过完整记录；也可用 `--table=resume_pool_item --after-id=上一批last_id` 续跑单表。
-   脚本日志只包含表名、数量和游标，不输出候选人资料或连接串。
-4. 独立创建索引：
-   `bun run --filter @app/server maintain:resume-search indexes --apply`
-   先检查回填完成，创建 pg_trgm 和四个 CONCURRENTLY 索引，再 ANALYZE。
-   此命令不能放进事务；失败后检查无效/同名异构索引，脚本不会自动删除索引。
-   索引已在 Drizzle schema 声明，但由此部署步骤建立，不要遗漏。
-5. 发布前检查：
-   `bun run --filter @app/server maintain:resume-search check`
-   两表 pending 均为 0，四个索引名称、有效性、访问方法、字段和操作符类均正确才成功。
-   抽样比对公司、学校、姓名搜索，并分别检查列表和总数 SQL 的执行计划。
-6. 发布新版应用，检查权限、总数、分页以及编辑/删除后的刷新行为。
+# 默认只读查看待回填量
+bun apps/server/src/scripts/resume-search-maintenance.ts backfill
 
-回滚：回滚应用到旧五字段查询；保留新增字段、函数、触发器和索引。
-不要为应用回滚立即 DROP COLUMN，也不要删除旧搜索索引。稳定运行后再评估冗余索引。
-后续若修改生成规则，需要一次明确的全量重建；本脚本默认仅处理 NULL 待回填记录。
+# 分批回填 NULL 搜索字段，每批独立执行
+bun apps/server/src/scripts/resume-search-maintenance.ts backfill --apply --batch-size=500
+
+# 指定单表及续跑游标；--after-id 不能与 --table=all 同用
+bun apps/server/src/scripts/resume-search-maintenance.ts backfill --apply --table=candidate_resume --after-id=LAST_ID
+
+# 待回填量归零后，独立创建缺失索引并 ANALYZE
+bun apps/server/src/scripts/resume-search-maintenance.ts indexes --apply
+```
+
+可选表只有 `resume_pool_item`、`candidate_resume`、`all`。旧文档中的 `maintain:resume-search` package script 已不存在，使用上面的文件入口。
+
+回填只处理 `search_text` 或 `search_cjk_bigrams` 为 NULL 的现存行，不更改业务 `updated_at`，不调用解析或评价。人才库通过触发器重建；候选人简历直接根据当前候选人资料、简历、最近招聘记录的岗位字段计算。更改生成规则后若需重建非 NULL 文档，应另行制定回填方案，不能认为本命令会全量重建。
+
+索引创建使用 `CREATE INDEX CONCURRENTLY`，不能放入事务；检查要求两种索引有效且字段、访问方法、操作符类匹配，不依赖旧索引名字。脚本不会自动删除无效或同名异构索引。
+
+新环境先按完整迁移链建立 schema；已有环境按实际迁移状态检查，不能只重跑 2026-08-26 的旧表迁移。招聘模型切换后，回退旧应用不是安全的数据回滚方案，具体边界见 ADR 0036。
 
 ## 验证
 
-全量验证使用项目 `check`、`typecheck`、`test`。
-新增 PostgreSQL 集成测试显式使用 RESUME_SEARCH_TEST_DATABASE_URL：
+PostgreSQL 集成测试显式使用专用地址，创建并清理独立 schema；未配置时跳过，不回退到业务 `DATABASE_URL`：
 
-```sh
+```bash
 RESUME_SEARCH_TEST_DATABASE_URL=postgres://USER@127.0.0.1:PORT/TEST_DB \
   bun run --filter @app/server test \
-  src/server/routes/studio/routes/resumes/dao/keyword-search.integration.test.ts
+  src/routes/studio/routes/resumes/dao/keyword-search.integration.test.ts
 ```
 
-该测试创建随机独立 schema，在其中执行本次迁移并测试真实 SQL、触发器和回填，
-结束时仅删除自己的 schema；未配置专用地址则明确跳过，不使用默认业务 DATABASE_URL。
-执行性能验收时对比普通列表、原有搜索、公司/学校搜索、计数、深分页和写入耗时，
-覆盖 1 万/10 万条、冷热缓存和并发。不能用强制关闭顺序扫描证明线上一定更快。
+该测试含旧迁移 fixture 和当前维护函数验证，不构成真实部署性能或迁移完成的证明。真实验收需覆盖权限、总数、分页、编辑与删除后的搜索，以及不同数据量和冷热缓存下的执行计划。
 
-### 本次本地验证记录
+## 历史性能记录（2026-08-26，旧表结构）
 
 使用临时 PostgreSQL 18、UTF-8 / C locale，未访问业务数据库。
 按实际表结构和已有索引复制临时表，比较未加字段与加字段/触发器/索引两个版本。

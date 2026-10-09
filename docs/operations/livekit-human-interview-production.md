@@ -1,6 +1,6 @@
 # 真人面试线上 LiveKit 配置说明
 
-适用：2026-09-03 检查的当前线上服务器。LiveKit、Redis 与 Egress 统一使用 `/app/livekit/docker-compose.yaml` 管理。
+本文记录 2026-09-03 现场检查及后续修复验收；容器、域名、版本和主机容量是当时的部署快照，操作前需与目标环境核对。LiveKit、Redis 与 Egress 统一使用 `/app/livekit/docker-compose.yaml` 管理。
 
 ## 1. 当前部署
 

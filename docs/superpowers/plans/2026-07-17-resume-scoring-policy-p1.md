@@ -1,6 +1,8 @@
 # Resume Scoring Policy P1 Implementation Plan
 
-> **Superseded — do not execute.** ADR-0020 replaced the workspace policy resource with job-owned weights, and ADR-0022 through ADR-0025 replace the shared-workflow and AI-decision assumptions. Use `docs/superpowers/specs/2026-07-29-structured-resume-evaluation-design.md` for the current design and create a new implementation plan from it.
+> 历史方案（状态核对：2026-10-09）：本文描述已退役的数字评分、发布或结构化升级流程，不是当前实施计划。新评价与岗位保存遵循[当前评价契约](../../agents/resume-evaluation.md)；历史结果和相应兼容读取仍需保留。本文中的代码路径、命令和依赖版本属于原编写时期，不能直接用于当前部署。
+
+> **Superseded — do not execute.** ADR-0020 replaced the workspace policy resource with job-owned weights, and ADR-0022 through ADR-0025 replace the shared-workflow and AI-decision assumptions. That replacement is also historical; use the current evaluation contract linked above for new work.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

@@ -14,11 +14,11 @@ Simplified Chinese.
   Drizzle ORM, PostgreSQL, Better Auth, object storage, email, and server-side
   AI utilities. It can be mounted by the web app at `/api` or started as a
   standalone Bun service.
-- **Resume worker** (`apps/worker/`): background processing for resume
+- **Background worker** (`apps/worker/`): background processing for resume
   parsing, meeting transcription, and notification/queue reconciliation.
-- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with a
-  DashScope (Alibaba) streaming STT adapter, an OpenAI-compatible LLM pointed at
-  the DashScope endpoint, and MiniMax TTS.
+- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK, defaulting to
+  Qwen Realtime speech-to-speech. The optional `pipeline` mode uses DashScope
+  streaming STT, an OpenAI-compatible LLM, and MiniMax TTS.
 - **Shared packages** (`packages/`): `@app/shared` (isomorphic contracts and
   schemas), `@app/db-schema` (Drizzle schema and relations), `@app/database`
   (database factory), and `@app/resume-parse-queue`.
@@ -36,6 +36,7 @@ for the Python agent. Do not mix them.
 make install
 cp apps/web/.env.example apps/web/.env
 cp apps/server/.env.example apps/server/.env
+cp apps/worker/.env.example apps/worker/.env
 cp apps/livekit-agent/.env.example apps/livekit-agent/.env
 bun run db:migrate
 make dev
@@ -46,9 +47,8 @@ a LiveKit room. `make help` lists every Make target.
 
 ## Local Docker Validation
 
-Build and start the Bun 1.4.0 web and worker images. Both services load
-`apps/web/.env`, matching the dependencies and credentials
-used by the local web app:
+Build and start the Bun 1.4.0 web and worker images. Web loads `apps/web/.env`; Worker loads `apps/worker/.env`.
+Configure their intended database, Redis, and storage targets before starting:
 
 ```bash
 BETTER_AUTH_URL=http://localhost:3000 \
@@ -74,6 +74,7 @@ Each runtime owns its own `.env` file:
 
 - `apps/web/.env` for the TanStack Start web app.
 - `apps/server/.env` for standalone Hono backend runs.
+- `apps/worker/.env` for background processing.
 - `apps/livekit-agent/.env` for the Python LiveKit agent.
 
 Key requirements:
@@ -83,7 +84,8 @@ Key requirements:
   `NEXT_PUBLIC_BASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - **LLM providers**: `OPENAI_API_KEY`, `ALIBABA_API_KEY` (DashScope OCR and
   structured extraction), `DASHSCOPE_API_KEY` (voice-agent LLM/STT)
-- **Voice providers**: `MINIMAX_API_KEY` (TTS)
+- **Voice providers**: `DASHSCOPE_API_KEY` for default realtime mode;
+  `MINIMAX_API_KEY` for TTS in pipeline mode
 - **LiveKit**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
   `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`; private/self-hosted deployment is the
   default, and LiveKit Cloud requires `INTERVIEW_SELF_HOSTED=0`
@@ -133,7 +135,7 @@ bun run --filter @app/server test
 ```bash
 cd apps/livekit-agent
 uv sync
-uv run -m livekit.agents download-files
+uv run src/agent.py download-files
 uv run src/agent.py dev
 uv run src/agent.py console
 uv run pytest
@@ -219,4 +221,5 @@ When touching fast-moving APIs, prefer canonical docs:
 - Hono: <https://hono.dev/llms.txt> and <https://hono.dev/llms-full.txt>
 - LiveKit: `lk docs overview` / `lk docs search`
 
-See `AGENTS.md` and `CLAUDE.md` for detailed repository conventions.
+See [the documentation index](docs/README.md) for current guides and historical records.
+`AGENTS.md` is the shared repository convention; `CLAUDE.md` imports it.

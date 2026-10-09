@@ -51,7 +51,15 @@
 | [Share one Feishu evaluation document per recruiting record](0037-share-feishu-evaluation-document-per-recruiting-record.md)            | accepted               | 2026-09-07 |
 | [Support recorded human initial interviews](0038-support-recorded-human-initial-interviews.md)                                          | accepted               | 2026-09-08 |
 | [Run Echo processing durably on the recording device](0039-run-echo-processing-durably-on-device.md)                                    | accepted               | 2026-09-09 |
+| [Use optional private job internal criteria](0040-use-private-job-internal-criteria.md)                                                 | accepted               | 2026-09-14 |
 | [在候选人详情使用原地展开的操作 Dock](0041-use-inline-candidate-action-dock.md)                                                         | accepted               | 2026-09-17 |
+| [Keep independent interviewer evaluations](0042-keep-independent-interviewer-evaluations.md)                                            | accepted               | 2026-10-08 |
+
+## 当前适用范围
+
+- ADR 0029、0030、0031 定义新简历评价与岗位保存流程；更早的数字评分、hard gate、发布与结构化升级方案仅用于解释历史数据。
+- ADR 0040 进一步允许私有内部标准，取代 ADR 0029/0031 的 JD-only 输入限制；不恢复旧评分配置。
+- ADR 0036 定义当前招聘表与历史归档表边界；ADR 0042 定义面试官独立评价。表中 accepted 不表示某份早期决策的所有部分仍适用于新流程。
 
 ## 设计文档（非 ADR）
 
