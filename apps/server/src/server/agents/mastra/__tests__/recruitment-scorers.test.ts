@@ -55,7 +55,7 @@ describe("recruitment Mastra scorers", () => {
     });
 
     expect(full.score).toBe(1);
-    expect(sparse.score).toBeLessThan(full.score);
+    expect(sparse.score).toBeLessThan(1);
   });
 
   it("scores question count against the product expectation of 10 questions", async () => {
@@ -117,7 +117,7 @@ describe("recruitment Mastra scorers", () => {
     });
 
     expect(grounded.score).toBe(1);
-    expect(weak.score).toBeLessThan(grounded.score);
+    expect(weak.score).toBeLessThan(1);
   });
 
   it("scores interview report evidence against candidate transcript quotes", async () => {

@@ -15,7 +15,7 @@ import {
   loadConversationContextBindings,
   upsertChatMessage,
 } from "../../../chat/dao/chat";
-import { extractV6NativeApproval } from "../../../chat/utils/extract-v6-native-approval";
+import { extractNativeApproval } from "../../../chat/utils/extract-native-approval";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@app/db-schema/chat-context-bindings";
 import { loadResumeRecordFocus } from "./dao";
 import { resolveRecruitingCopilotFocus } from "./focus";
@@ -152,24 +152,27 @@ export const resumeChatRouter = factory
     });
     agent.__registerMastra(mastra);
 
-    const nativeApproval = extractV6NativeApproval(messages);
+    const nativeApproval = extractNativeApproval(messages);
     const agentStream = nativeApproval
-      ? await agent.resumeStream(nativeApproval.resumeData, { runId: nativeApproval.runId })
+      ? await agent.resumeStream(nativeApproval.resumeData, {
+          runId: nativeApproval.runId,
+          toolCallId: nativeApproval.toolCallId,
+        })
       : await agent.stream(await convertToModelMessages(messages));
     const stream = createUIMessageStream<UIMessage>({
       execute: ({ writer }) => {
         writer.merge(
           toAISdkStream(agentStream, {
             from: "agent",
+            lastMessageId: nativeApproval ? messages.at(-1)?.id : undefined,
             sendReasoning: false,
             sendSources: true,
-            version: "v6",
+            version: "v7",
           }),
         );
       },
       generateId: () => crypto.randomUUID(),
-      onError: () => "招聘 Copilot 暂时无法响应，请稍后重试。",
-      onFinish: async ({ responseMessage }) => {
+      onEnd: async ({ responseMessage }) => {
         if (!(conversationOwned && chatId)) {
           return;
         }
@@ -183,6 +186,7 @@ export const resumeChatRouter = factory
           console.error("[copilot-chat] failed to persist assistant message", error);
         }
       },
+      onError: () => "招聘 Copilot 暂时无法响应，请稍后重试。",
       originalMessages: messages,
     });
 

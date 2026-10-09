@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mastra/core": "^1.50.1",
+    "@mastra/core": "^1.75.0",
     "zod": "catalog:"
   },
   "devDependencies": {

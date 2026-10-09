@@ -1,11 +1,5 @@
-import type {
-  PrepareStepFunction,
-  StopCondition,
-  ToolLoopAgentSettings,
-  ToolSet,
-  Output,
-} from "ai";
-import { stepCountIs, ToolLoopAgent } from "ai";
+import type { ToolLoopAgentSettings, ToolSet, Output } from "ai";
+import { isStepCount, ToolLoopAgent } from "ai";
 import { getRequiredEnv } from "../../lib/server/env";
 import { createAlibabaProvider } from "./provider";
 
@@ -17,43 +11,39 @@ import { createAlibabaProvider } from "./provider";
  */
 const DEFAULT_STEP_MAX_RETRIES = 3;
 type AgentOutputSpec<T> = ReturnType<typeof Output.object<T>>;
+type AgentRuntimeContext = NonNullable<ToolLoopAgentSettings["runtimeContext"]>;
 
-export interface CreateResumeAgentOptions<TOOLS extends ToolSet, OUTPUT = string> {
-  instructions: string;
-  tools?: TOOLS;
-  modelId?: string;
-  stopWhen?: StopCondition<TOOLS> | StopCondition<TOOLS>[];
-  temperature?: number;
-  maxRetries?: number;
-  maxOutputTokens?: number;
-  prepareStep?: PrepareStepFunction<TOOLS>;
-  output?: AgentOutputSpec<OUTPUT>;
-}
+export type CreateResumeAgentOptions<TOOLS extends ToolSet, OUTPUT = string> = Pick<
+  ToolLoopAgentSettings<never, TOOLS, AgentRuntimeContext, AgentOutputSpec<OUTPUT>>,
+  | "instructions"
+  | "tools"
+  | "toolsContext"
+  | "stopWhen"
+  | "temperature"
+  | "maxRetries"
+  | "maxOutputTokens"
+  | "prepareStep"
+  | "output"
+> & { instructions: string; modelId?: string };
 
 export function createResumeAgent<TOOLS extends ToolSet, OUTPUT = string>({
-  instructions,
-  tools,
   modelId = getRequiredEnv("ALIBABA_MODEL"),
-  stopWhen = stepCountIs(1),
-  temperature,
+  stopWhen = isStepCount(1),
   maxRetries = DEFAULT_STEP_MAX_RETRIES,
-  maxOutputTokens,
-  prepareStep,
-  output,
+  ...options
 }: CreateResumeAgentOptions<TOOLS, OUTPUT>) {
   const provider = createAlibabaProvider();
 
   const settings = {
-    instructions,
-    maxOutputTokens,
+    ...options,
     maxRetries,
     model: provider(modelId),
-    output,
-    prepareStep,
     stopWhen,
-    temperature,
-    tools,
-  } satisfies ToolLoopAgentSettings<never, TOOLS, AgentOutputSpec<OUTPUT>>;
+  };
 
-  return new ToolLoopAgent<never, TOOLS, AgentOutputSpec<OUTPUT>>(settings);
+  // SAFETY: Options preserve the SDK toolsContext requirement through Pick. TypeScript cannot
+  // resolve its conditional generic after the spread; the provider and defaults complete the settings.
+  return new ToolLoopAgent<never, TOOLS, AgentRuntimeContext, AgentOutputSpec<OUTPUT>>(
+    settings as ToolLoopAgentSettings<never, TOOLS, AgentRuntimeContext, AgentOutputSpec<OUTPUT>>,
+  );
 }

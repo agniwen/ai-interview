@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessage } from "ai";
-import { extractV6NativeApproval } from "../extract-v6-native-approval";
+import { extractNativeApproval } from "../extract-native-approval";
 
-describe("extractV6NativeApproval", () => {
+describe("extractNativeApproval", () => {
   it("returns null when there is no approval response", () => {
     expect(
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
-      extractV6NativeApproval([
+      extractNativeApproval([
         {
           id: "u1",
           parts: [{ text: "分析候选人", type: "text" }],
@@ -37,9 +37,10 @@ describe("extractV6NativeApproval", () => {
       },
     ] as UIMessage[];
 
-    expect(extractV6NativeApproval(messages)).toEqual({
+    expect(extractNativeApproval(messages)).toEqual({
       resumeData: { approved: true },
       runId: "run-abc",
+      toolCallId: "tool-call-1",
     });
   });
 
@@ -65,9 +66,33 @@ describe("extractV6NativeApproval", () => {
       },
     ] as UIMessage[];
 
-    expect(extractV6NativeApproval(messages)).toEqual({
+    expect(extractNativeApproval(messages)).toEqual({
       resumeData: { approved: false, reason: "user_ignored" },
       runId: "run-xyz",
+      toolCallId: "tool-call-9",
     });
   });
+
+  it.each(["run-1::different-tool", "run-1::", "::tool-1", "tool-1"])(
+    "ignores an approval ID that does not identify this tool: %s",
+    (approvalId) => {
+      const messages: UIMessage[] = [
+        {
+          id: "a1",
+          parts: [
+            {
+              approval: { approved: true, id: approvalId },
+              input: {},
+              state: "approval-responded",
+              toolCallId: "tool-1",
+              type: "tool-propose_recruiting_action",
+            },
+          ],
+          role: "assistant",
+        },
+      ];
+
+      expect(extractNativeApproval(messages)).toBeNull();
+    },
+  );
 });

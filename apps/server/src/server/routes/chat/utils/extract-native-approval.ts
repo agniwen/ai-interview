@@ -6,12 +6,13 @@ const APPROVAL_ID_SEPARATOR = "::";
 const nativeApprovalToolPartSchema = z.object({
   approval: z
     .object({
-      approved: z.boolean().optional(),
+      approved: z.boolean(),
       id: z.string().min(1).optional(),
       reason: z.string().optional(),
     })
     .optional(),
   state: z.string().optional(),
+  toolCallId: z.string().min(1),
   type: z.string(),
 });
 
@@ -21,12 +22,13 @@ interface NativeApprovalResumeData {
 }
 
 /**
- * Port of `@mastra/ai-sdk` `extractV6NativeApproval` (not publicly exported).
- * Detects AI SDK v6 `approval-responded` tool parts and recovers runId for resumeStream.
+ * Resolves the composite run/tool-call approval IDs emitted by Mastra for AI SDK v6/v7.
+ * Resume the exact suspended tool rather than an arbitrary pending tool in the run.
  */
-export function extractV6NativeApproval(messages: UIMessage[]): {
+export function extractNativeApproval(messages: UIMessage[]): {
   resumeData: NativeApprovalResumeData;
   runId: string;
+  toolCallId: string;
 } | null {
   const lastAssistantMsg = messages.at(-1);
   if (!lastAssistantMsg || lastAssistantMsg.role !== "assistant") {
@@ -54,7 +56,8 @@ export function extractV6NativeApproval(messages: UIMessage[]): {
       continue;
     }
     const runId = approvalId.slice(0, lastSep);
-    if (!runId) {
+    const toolCallId = approvalId.slice(lastSep + APPROVAL_ID_SEPARATOR.length);
+    if (!runId || !toolCallId || toolCallId !== part.toolCallId) {
       continue;
     }
     const reason = part.approval?.reason;
@@ -67,6 +70,7 @@ export function extractV6NativeApproval(messages: UIMessage[]): {
     return {
       resumeData,
       runId,
+      toolCallId,
     };
   }
   return null;

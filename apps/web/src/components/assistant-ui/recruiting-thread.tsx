@@ -7,8 +7,7 @@ import {
   makeAssistantToolUI,
   MessagePrimitive,
   ThreadPrimitive,
-  useEditComposer,
-  useMessage,
+  useAuiState,
 } from "@assistant-ui/react";
 import type { TextMessagePartComponent } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
@@ -244,9 +243,8 @@ function UserMessage() {
 }
 
 function ThreadMessage() {
-  const role = useMessage((message) => message.role);
-  const editComposer = useEditComposer({ optional: true });
-  const isEditing = editComposer?.isEditing ?? false;
+  const role = useAuiState((state) => state.message.role);
+  const isEditing = useAuiState((state) => state.message.composer.isEditing);
   if (isEditing) {
     return <EditComposer />;
   }

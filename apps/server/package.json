@@ -30,7 +30,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.56",
+    "@ai-sdk/openai-compatible": "^3.0.67",
     "@app/ai-runtime": "workspace:*",
     "@app/database": "workspace:*",
     "@app/db-schema": "workspace:*",
@@ -50,10 +50,10 @@
     "@larksuite/vercel-chat-adapter": "^0.1.2",
     "@larksuiteoapi/node-sdk": "^1.63.1",
     "@livekit/protocol": "^1.45.8",
-    "@mastra/ai-sdk": "^1.6.1",
-    "@mastra/core": "^1.50.1",
-    "@mastra/observability": "^1.16.0",
-    "@mastra/pg": "^1.15.1",
+    "@mastra/ai-sdk": "^1.10.7",
+    "@mastra/core": "^1.75.0",
+    "@mastra/observability": "^1.18.4",
+    "@mastra/pg": "^1.30.0",
     "@modelcontextprotocol/server": "2.0.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "@react-email/components": "^1.0.12",

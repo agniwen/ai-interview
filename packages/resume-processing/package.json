@@ -81,7 +81,7 @@
     "@app/object-storage": "workspace:*",
     "@app/resume-parse-queue": "workspace:*",
     "@app/shared": "workspace:*",
-    "@mastra/core": "^1.50.1",
+    "@mastra/core": "^1.75.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "drizzle-orm": "catalog:",
     "fast-xml-parser": "^5.8.0",

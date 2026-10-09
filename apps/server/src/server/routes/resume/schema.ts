@@ -18,7 +18,7 @@ export const resumeChatRequestSchema = z
     /** Set when `trigger === "regenerate-message"`; identifies the assistant message to replace. */
     messageId: z.string().optional(),
     messages: z.array(z.unknown()),
-    /** Forwarded by `DefaultChatTransport` so the server can branch on intent (AI SDK v6 values). */
+    /** Forwarded by `DefaultChatTransport` so the server can branch on intent (AI SDK transport values). */
     trigger: z.enum(["submit-message", "regenerate-message"]).optional(),
   })
   .strict();

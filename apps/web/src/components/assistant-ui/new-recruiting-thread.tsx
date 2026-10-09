@@ -1,6 +1,6 @@
 "use client";
 
-import { ComposerPrimitive, INTERNAL, useComposer, useComposerRuntime } from "@assistant-ui/react";
+import { ComposerPrimitive, INTERNAL, useAui, useAuiState } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import { Blobatar } from "@blobatar/react";
 import { useGaze } from "@blobatar/react/gaze";
@@ -143,8 +143,8 @@ function NewRecruitingComposerShell({
   onSubmit: (text: string) => Promise<void>;
 }) {
   "use no memo";
-  const composerRuntime = useComposerRuntime();
-  const text = useComposer((composer) => composer.text);
+  const composerRuntime = useAui().composer;
+  const text = useAuiState((state) => state.composer.text);
   const canSubmit = text.trim().length > 0 && !disabled;
   const submittingRef = useRef(false);
   const composerShellRef = useRecruitingComposerShellLayout();

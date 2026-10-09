@@ -10,8 +10,8 @@
     "catalog": {
       "@types/react": "19.3.0",
       "@types/react-dom": "19.3.0",
-      "ai": "^6.0.219",
-      "chat": "^4.28.1",
+      "ai": "^7.0.136",
+      "chat": "4.29.0",
       "drizzle-kit": "1.0.0-rc.1",
       "drizzle-orm": "1.0.0-rc.1",
       "effect": "4.0.0-rc.112",
