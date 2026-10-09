@@ -1,0 +1,361 @@
+import { questionChecklistKey } from "@app/shared/human-interview-candidate-materials";
+import { setHumanInterviewQuestionAsked } from "./application/set-question-asked";
+import {
+  loadHumanInterviewCandidateQuestions,
+  loadHumanInterviewCandidateHrInformation,
+} from "./dao";
+import {
+  createRecruitingRecords,
+  deleteRecruitingRecords,
+  updateRecruitingRecords,
+} from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { eq, inArray } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  aiInterviewConversation,
+  organization,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  user,
+} from "@app/db-schema/schema";
+import { db } from "../../../../infrastructure/db/index";
+import type { HumanInterviewCandidateMaterialsScope } from "./dao";
+
+const org = `materials-history-${crypto.randomUUID()}`;
+const otherOrg = `${org}-other`;
+const actor = `${org}-user`;
+const candidate = `${org}-candidate`;
+const otherCandidate = `${org}-other-candidate`;
+const meeting = `${org}-meeting`;
+const submittedAt = new Date("2026-09-01T10:00:00Z");
+const evaluation = {
+  detailedAnalysis: "内部完整分析",
+  evidenceTurnIds: ["private-turn"],
+  overallEvaluation: "内部整体评价",
+  professionalSkill: "良",
+  rating: "B" as const,
+  risks: "缺少大规模团队经验",
+  rolePosition: "主导决策者",
+  salaryRecommendation: "30K",
+  seniorityPosition: "小组主管",
+  strengths: "工程实践扎实",
+};
+// SAFETY: This DAO uses only meetingId and organizationId from the authorized link scope.
+const scope = { meetingId: meeting, organizationId: org } as HumanInterviewCandidateMaterialsScope;
+
+beforeAll(async () => {
+  await db.insert(user).values({ email: `${actor}@example.com`, id: actor, name: "测试面试官" });
+  await db
+    .insert(organization)
+    .values(
+      [org, otherOrg].map((id) => ({ createdAt: new Date(), id, name: "历史评价测试", slug: id })),
+    );
+  await createRecruitingRecords(
+    db,
+    [candidate, otherCandidate].map((id) => ({
+      candidateName: "测试候选人",
+      createdBy: actor,
+      id,
+      organizationId: org,
+    })),
+  );
+  await createRecruitingRecords(db, {
+    candidateName: "另一工作区人才",
+    id: `${otherOrg}-tenant-candidate`,
+    organizationId: otherOrg,
+  });
+  const rounds = [
+    { id: "first", label: "自定义技术面", sortOrder: 0 },
+    { id: "second", label: "业务二面", outcome: "fail" as const, sortOrder: 1 },
+    { evaluationStatus: "draft" as const, id: "draft", sortOrder: 2 },
+    { id: "cancelled", sortOrder: 3, status: "cancelled" as const },
+    { evaluation: null, evaluationStatus: "not_started" as const, id: "legacy", sortOrder: 4 },
+    { id: "current", sortOrder: 5 },
+    { id: "future", sortOrder: 6 },
+    { id: "other-record", recruitingRecordId: otherCandidate, sortOrder: 0 },
+    {
+      id: "other-org",
+      organizationId: otherOrg,
+      recruitingRecordId: `${otherOrg}-tenant-candidate`,
+      sortOrder: 0,
+    },
+  ];
+  for (const round of rounds) {
+    await db.insert(humanInterviewRound).values({
+      evaluation,
+      evaluationStatus: "submitted",
+      evaluationSubmittedAt: submittedAt,
+      evaluationUpdatedBy: actor,
+      format: "online",
+      label: round.id,
+      organizationId: org,
+      outcome: "pass",
+      recruitingRecordId: candidate,
+      roundKind: "second_interview",
+      status: "completed",
+      ...round,
+      id: `${org}-${round.id}`,
+    });
+  }
+  await db.insert(humanInterviewMeeting).values({
+    id: meeting,
+    organizationId: org,
+    title: "测试会议",
+  });
+  await db.insert(humanInterviewMeetingRound).values({
+    meetingId: meeting,
+    organizationId: org,
+    roundId: `${org}-current`,
+  });
+});
+
+afterAll(async () => {
+  await deleteRecruitingRecords(
+    db,
+    inArray(recruitingRecordReadModel.organizationId, [org, otherOrg]),
+  );
+  await db.delete(organization).where(inArray(organization.id, [org, otherOrg]));
+  await db.delete(user).where(eq(user.id, actor));
+});
+
+describe("interviewer candidate evaluation history", () => {
+  it("keeps HR initial information alongside submitted business evaluations", async () => {
+    const values = {
+      availability: "一个月内到岗",
+      careerProgression: null,
+      compensationExpectations: null,
+      jobMotivation: "寻找技术管理机会",
+      overseasTravel: null,
+      projectHighlights: null,
+      recentWork: null,
+    };
+    const conversationId = `${org}-hr`;
+    await db.insert(aiInterviewConversation).values({
+      conversationId,
+      evaluationCriteriaResults: { hrEvaluation: values },
+      organizationId: org,
+      recruitingRecordId: candidate,
+      summaryStatus: "ready",
+      updatedAt: submittedAt,
+    });
+    try {
+      const result = await loadHumanInterviewCandidateHrInformation({
+        candidateId: candidate,
+        scope,
+      });
+      expect(result?.hrInitialInformation).toEqual({
+        conversationId,
+        generatedAt: submittedAt.toISOString(),
+        roundLabel: null,
+        values,
+      });
+      expect(result?.previousEvaluations.map((round) => round.roundId)).toEqual([
+        `${org}-first`,
+        `${org}-second`,
+      ]);
+    } finally {
+      await db
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
+    }
+  });
+
+  it("rejects a candidate or workspace outside the meeting", async () => {
+    expect(
+      await loadHumanInterviewCandidateHrInformation({ candidateId: otherCandidate, scope }),
+    ).toBeNull();
+    expect(
+      await loadHumanInterviewCandidateHrInformation({
+        candidateId: candidate,
+        scope: { ...scope, organizationId: otherOrg },
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps an old first-round link empty even after subsequent rounds are submitted", async () => {
+    const firstMeeting = `${org}-first-meeting`;
+    await db
+      .insert(humanInterviewMeeting)
+      .values({ id: firstMeeting, organizationId: org, title: "一面会议" });
+    await db
+      .insert(humanInterviewMeetingRound)
+      .values({ meetingId: firstMeeting, organizationId: org, roundId: `${org}-first` });
+    expect(
+      await loadHumanInterviewCandidateHrInformation({
+        candidateId: candidate,
+        scope: { ...scope, meetingId: firstMeeting },
+      }),
+    ).toEqual({ hrInitialInformation: null, previousEvaluations: [] });
+  });
+
+  it("returns only earlier submitted evaluations for this recruiting record and workspace", async () => {
+    const result = await loadHumanInterviewCandidateHrInformation({
+      candidateId: candidate,
+      scope,
+    });
+
+    expect(result).toEqual({
+      hrInitialInformation: null,
+      previousEvaluations: [
+        {
+          outcome: "pass",
+          roundId: `${org}-first`,
+          roundLabel: "自定义技术面",
+          submittedAt: submittedAt.toISOString(),
+          submittedBy: "测试面试官",
+          submittedByImage: null,
+          values: {
+            overallEvaluation: "内部整体评价",
+            professionalSkill: "良",
+            rating: "B",
+            risks: "缺少大规模团队经验",
+            rolePosition: "主导决策者",
+            salaryRecommendation: "30K",
+            seniorityPosition: "小组主管",
+            strengths: "工程实践扎实",
+          },
+        },
+        {
+          outcome: "fail",
+          roundId: `${org}-second`,
+          roundLabel: "业务二面",
+          submittedAt: submittedAt.toISOString(),
+          submittedBy: "测试面试官",
+          submittedByImage: null,
+          values: {
+            overallEvaluation: "内部整体评价",
+            professionalSkill: "良",
+            rating: "B",
+            risks: "缺少大规模团队经验",
+            rolePosition: "主导决策者",
+            salaryRecommendation: "30K",
+            seniorityPosition: "小组主管",
+            strengths: "工程实践扎实",
+          },
+        },
+      ],
+    });
+  });
+});
+
+describe("shared candidate question checklist", () => {
+  const question = {
+    difficulty: "medium" as const,
+    dimension: "business" as const,
+    evaluationFocus: "说明经验",
+    followUpDirections: "如何验证",
+    order: 1,
+    question: "如何设计用户分层？",
+  };
+  const questionKey = questionChecklistKey(question);
+  const secondMeeting = `${meeting}-checklist`;
+  const editScope = {
+    ...scope,
+    interviewerName: "测试面试官",
+    status: "in_progress" as const,
+    title: "第一场",
+    userId: actor,
+    validUntil: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+  const secondScope = { ...editScope, meetingId: secondMeeting, title: "第二场" };
+  beforeAll(async () => {
+    await updateRecruitingRecords(
+      db,
+      inArray(recruitingRecordReadModel.id, [candidate, otherCandidate]),
+      { interviewQuestions: [question] },
+    );
+    await db
+      .insert(humanInterviewMeeting)
+      .values({ id: secondMeeting, organizationId: org, title: "第二场" });
+    await db.insert(humanInterviewMeetingRound).values([
+      { meetingId: secondMeeting, organizationId: org, roundId: `${org}-future` },
+      { meetingId: secondMeeting, organizationId: org, roundId: `${org}-other-record` },
+    ]);
+  });
+  it("persists across meetings, keeps check/uncheck history, and isolates candidates", async () => {
+    const first = await setHumanInterviewQuestionAsked({
+      asked: true,
+      candidateId: candidate,
+      questionKey,
+      scope: editScope,
+    });
+    expect(first.status).toBe("saved");
+    const shared = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: secondScope,
+    });
+    expect(shared?.questionHistory[0]).toMatchObject({
+      asked: true,
+      meetingId: meeting,
+      meetingTitle: "第一场",
+      operatorId: actor,
+      operatorName: "测试面试官",
+    });
+    expect(shared?.questionHistory[0]?.createdAt).toBeTruthy();
+    // A stale caller can uncheck: last completed save wins, without revision conflicts.
+    const second = await setHumanInterviewQuestionAsked({
+      asked: false,
+      candidateId: candidate,
+      questionKey,
+      scope: secondScope,
+    });
+    expect(second.status).toBe("saved");
+    const reloaded = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: editScope,
+    });
+    expect(reloaded?.questionHistory.map((edit) => edit.asked)).toEqual([false, true]);
+    expect(reloaded?.questionHistory[0]?.meetingId).toBe(secondMeeting);
+    const other = await loadHumanInterviewCandidateQuestions({
+      candidateId: otherCandidate,
+      scope: secondScope,
+    });
+    expect(other?.questionHistory).toEqual([]);
+    await setHumanInterviewQuestionAsked({
+      asked: false,
+      candidateId: candidate,
+      questionKey,
+      scope: secondScope,
+    });
+    const afterDuplicate = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: editScope,
+    });
+    expect(afterDuplicate?.questionHistory).toHaveLength(2);
+    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, candidate), {
+      interviewQuestions: [{ ...question, order: 2 }],
+    });
+    const afterReorder = await loadHumanInterviewCandidateQuestions({
+      candidateId: candidate,
+      scope: editScope,
+    });
+    expect(afterReorder?.questionHistory).toHaveLength(2);
+    expect(questionChecklistKey({ ...question, order: 2 })).toBe(questionKey);
+  });
+  it("rejects cross-meeting candidates, workspaces, nonexistent questions and read-only links", async () => {
+    const input = { asked: true, candidateId: candidate, questionKey, scope: editScope };
+    expect(await setHumanInterviewQuestionAsked({ ...input, candidateId: otherCandidate })).toEqual(
+      { status: "not_found" },
+    );
+    expect(
+      await setHumanInterviewQuestionAsked({
+        ...input,
+        scope: { ...editScope, organizationId: otherOrg },
+      }),
+    ).toEqual({ status: "not_found" });
+    expect(await setHumanInterviewQuestionAsked({ ...input, questionKey: "missing" })).toEqual({
+      status: "not_found",
+    });
+    expect(
+      await setHumanInterviewQuestionAsked({ ...input, scope: { ...editScope, status: "ended" } }),
+    ).toEqual({ status: "unavailable" });
+    expect(
+      await setHumanInterviewQuestionAsked({
+        ...input,
+        scope: { ...editScope, validUntil: new Date(0).toISOString() },
+      }),
+    ).toEqual({ status: "unavailable" });
+  });
+});

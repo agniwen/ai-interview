@@ -5,7 +5,7 @@ import type { JsonValue } from "@app/db-schema/json";
 import {
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
-} from "../../server/routes/meetings/transcription/provider";
+} from "../../routes/meetings/transcription/provider";
 
 const createTaskResponseSchema = z.object({
   Code: z.union([z.literal(0), z.literal("0")]),

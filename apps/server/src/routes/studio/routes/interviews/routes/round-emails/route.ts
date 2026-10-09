@@ -1,0 +1,301 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { CANDIDATE_INTERVIEW_EMAILS_ENABLED } from "@app/shared/interview-notifications";
+// round-emails 子路由：POST /:roundId/send 发送邀请邮件，GET /summary 查询发送摘要。
+// round-emails subrouter: POST /:roundId/send sends invite email, GET /summary queries send summary.
+
+import { zValidator } from "@hono/zod-validator";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+
+import { db } from "../../../../../../infrastructure/db/index";
+import { buildSenderFromAddress, getResendClient } from "../../../../../../infrastructure/resend";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { getGlobalConfig } from "../../../global-config/dao";
+import { insertRoundEmailLog, summarizeRoundEmailLogs } from "./dao";
+import { renderRoundInviteEmail } from "./utils/templates";
+import { createManualHumanEmailRouter } from "./human-route";
+import type { SendRoundEmailResponse } from "@app/db-schema/round-email-log";
+import { summaryQuerySchema } from "@app/db-schema/round-email-log";
+import { aiInterviewRound } from "@app/db-schema/schema";
+import {
+  previewManualAiInvitation,
+  confirmManualAiInvitation,
+  ManualInvitationError,
+} from "./application/default-manual-ai-invitation";
+
+const sendParamsSchema = z.object({ roundId: z.string().min(1) });
+
+type SendEmailInput = Parameters<ReturnType<typeof getResendClient>["emails"]["send"]>[0];
+type SendEmailResult = Awaited<ReturnType<ReturnType<typeof getResendClient>["emails"]["send"]>>;
+
+export interface RoundEmailsRouterDependencies {
+  visibility?: typeof resolveRecruitingVisibilityScope;
+  previewManualAiInvitation?: typeof previewManualAiInvitation;
+  confirmManualAiInvitation?: typeof confirmManualAiInvitation;
+  buildSenderFromAddress: typeof buildSenderFromAddress;
+  requirePermission: typeof requirePermission;
+  sendEmail: (input: SendEmailInput) => Promise<SendEmailResult>;
+}
+
+const defaultDependencies: RoundEmailsRouterDependencies = {
+  buildSenderFromAddress,
+  requirePermission,
+  sendEmail: (input) => getResendClient().emails.send(input),
+};
+
+// NEXT_PUBLIC_BASE_URL 未配置时抛出明确错误。
+// Throws a clear error when NEXT_PUBLIC_BASE_URL is not configured.
+function getAppUrl(): string {
+  const v = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!v) {
+    throw new Error("NEXT_PUBLIC_BASE_URL 未配置");
+  }
+  return v.replace(/\/$/, "");
+}
+
+export function createRoundEmailsRouter(
+  dependencies: RoundEmailsRouterDependencies = defaultDependencies,
+) {
+  return factory
+    .createApp()
+    .route("/human", createManualHumanEmailRouter())
+    .get(
+      "/:roundId/preview-invitation",
+      dependencies.requirePermission("interview", "update"),
+      dependencies.requirePermission("resumeLibrary", "read"),
+      async (c) => {
+        c.header("Cache-Control", "no-store");
+        const { activeOrg, user } = c.var;
+        if (!activeOrg || !user) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        try {
+          return c.json(
+            await (dependencies.previewManualAiInvitation ?? previewManualAiInvitation)({
+              actorUserId: user.id,
+              organizationId: activeOrg.id,
+              roundId: c.req.param("roundId"),
+              visibility: await (dependencies.visibility ?? resolveRecruitingVisibilityScope)({
+                currentRole: c.var.member?.role,
+                organizationId: activeOrg.id,
+                userId: user.id,
+              }),
+            }),
+            200,
+          );
+        } catch (error) {
+          if (error instanceof ManualInvitationError) {
+            return c.json({ error: error.message }, error.status);
+          }
+          throw error;
+        }
+      },
+    )
+    .post(
+      "/:roundId/confirm-invitation",
+      dependencies.requirePermission("interview", "update"),
+      dependencies.requirePermission("resumeLibrary", "read"),
+      zValidator(
+        "json",
+        z.object({ confirmationToken: z.string().min(1).max(4096), confirmed: z.literal(true) }),
+        jsonValidatorError("请预览邮件并确认发送"),
+      ),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!activeOrg || !user) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        try {
+          const result = await (
+            dependencies.confirmManualAiInvitation ?? confirmManualAiInvitation
+          )(
+            {
+              actorUserId: user.id,
+              organizationId: activeOrg.id,
+              roundId: c.req.param("roundId"),
+              visibility: await (dependencies.visibility ?? resolveRecruitingVisibilityScope)({
+                currentRole: c.var.member?.role,
+                organizationId: activeOrg.id,
+                userId: user.id,
+              }),
+            },
+            c.req.valid("json").confirmationToken,
+          );
+          return c.json(result, 202);
+        } catch (error) {
+          if (error instanceof ManualInvitationError) {
+            return c.json({ error: error.message }, error.status);
+          }
+          throw error;
+        }
+      },
+    )
+    .post(
+      "/:roundId/send",
+      dependencies.requirePermission("interview", "update"),
+      zValidator("param", sendParamsSchema, jsonValidatorError("参数错误")),
+      async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!activeOrg) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        // 旧版直发接口同样暂停，防止绕过通知队列的止血限制。
+        if (!CANDIDATE_INTERVIEW_EMAILS_ENABLED) {
+          return c.json({ error: "候选人面试邮件暂时停用，请复制面试链接人工联系候选人。" }, 503);
+        }
+        const { roundId } = c.req.valid("param");
+
+        // 联查轮次 + 候选人邮箱 + pipelineStage（用于阶段守卫）。
+        // Join round with candidate email + pipelineStage for the stage guard.
+        const [row] = await db
+          .select({
+            candidateEmail: recruitingRecordReadModel.candidateEmail,
+            candidateName: recruitingRecordReadModel.candidateName,
+            interviewRecordId: aiInterviewRound.recruitingRecordId,
+            pipelineStage: recruitingRecordReadModel.pipelineStage,
+            roundLabel: aiInterviewRound.roundLabel,
+            scheduledAt: aiInterviewRound.scheduledAt,
+          })
+          .from(aiInterviewRound)
+          .innerJoin(
+            recruitingRecordReadModel,
+            eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+          )
+          .where(
+            and(
+              eq(aiInterviewRound.id, roundId),
+              eq(aiInterviewRound.organizationId, activeOrg.id),
+            ),
+          )
+          .limit(1);
+
+        if (!row) {
+          return c.json({ error: "面试轮次不存在" }, 404);
+        }
+        // 候选人已超过 AI 面试阶段后禁止发送 AI 面试邀请邮件。
+        // UI 端已禁用按钮（aiStageLockedReason）；这里是服务端兜底，防止绕过 UI 调用。
+        // Reject sending AI interview invites once the candidate has moved past
+        // the AI stage. The UI already disables the button — this is the
+        // server-side guard preventing direct API calls.
+        if (row.pipelineStage !== "screening" && row.pipelineStage !== "ai_interview") {
+          return c.json(
+            {
+              error:
+                "候选人已不在 AI 面试阶段，无法发送邀请邮件。如需重新发送，请先回退阶段或重新激活。",
+            },
+            409,
+          );
+        }
+        if (!row.candidateEmail) {
+          return c.json({ error: "候选人邮箱未填写" }, 400);
+        }
+
+        const interviewUrl = `${getAppUrl()}/interview/${row.interviewRecordId}/${roundId}`;
+        // 中文：从上下文设置里读公司名称作为标题/正文前缀；为空时模板会回退到「AI 面试」。
+        // English: Pull companyName from global config as subject/body prefix;
+        // template falls back to "AI 面试" when blank.
+        const config = await getGlobalConfig(activeOrg.id);
+        const { html, subject, text } = await renderRoundInviteEmail({
+          candidateName: row.candidateName,
+          companyName: config.companyName,
+          heroImageUrl: `${getAppUrl()}/email/interview-clouds-monet.jpg`,
+          interviewUrl,
+          roundLabel: row.roundLabel,
+          scheduledAt: row.scheduledAt,
+        });
+
+        let sendResult: Awaited<ReturnType<ReturnType<typeof getResendClient>["emails"]["send"]>>;
+        try {
+          const from = dependencies.buildSenderFromAddress(config.companyName);
+          sendResult = await dependencies.sendEmail({
+            from,
+            html,
+            subject,
+            text,
+            to: row.candidateEmail,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Resend 调用异常";
+          console.error("[round-email] send failed", {
+            error: message,
+            organizationId: activeOrg.id,
+            roundId,
+          });
+          const log = await insertRoundEmailLog({
+            errorMessage: message,
+            interviewRecordId: row.interviewRecordId,
+            organizationId: activeOrg.id,
+            resendMessageId: null,
+            roundId,
+            sentBy: user?.id ?? null,
+            status: "failed",
+            subject,
+            toEmail: row.candidateEmail,
+          });
+          return c.json({ error: "邮件发送失败，请稍后重试。", logId: log.id }, 500);
+        }
+
+        // Resend 返回错误时写入 failed 日志并返回 400。
+        // On Resend error: write a failed log and return 400.
+        if (sendResult.error || !sendResult.data) {
+          const message = sendResult.error?.message ?? "Resend 未返回 message id";
+          console.error("[round-email] send failed", {
+            error: message,
+            organizationId: activeOrg.id,
+            roundId,
+          });
+          const log = await insertRoundEmailLog({
+            errorMessage: message,
+            interviewRecordId: row.interviewRecordId,
+            organizationId: activeOrg.id,
+            resendMessageId: null,
+            roundId,
+            sentBy: user?.id ?? null,
+            status: "failed",
+            subject,
+            toEmail: row.candidateEmail,
+          });
+          return c.json({ error: `邮件发送失败：${message}`, logId: log.id }, 400);
+        }
+
+        const log = await insertRoundEmailLog({
+          errorMessage: null,
+          interviewRecordId: row.interviewRecordId,
+          organizationId: activeOrg.id,
+          resendMessageId: sendResult.data.id,
+          roundId,
+          sentBy: user?.id ?? null,
+          status: "sent",
+          subject,
+          toEmail: row.candidateEmail,
+        });
+
+        const response: SendRoundEmailResponse = {
+          logId: log.id,
+          sentAt: log.createdAt,
+          toEmail: row.candidateEmail,
+        };
+        return c.json(response, 200);
+      },
+    )
+    .get(
+      "/summary",
+      dependencies.requirePermission("interview", "read"),
+      zValidator("query", summaryQuerySchema, jsonValidatorError("缺少 roundIds")),
+      async (c) => {
+        const { activeOrg } = c.var;
+        if (!activeOrg) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+        const { roundIds } = c.req.valid("query");
+        const summary = await summarizeRoundEmailLogs(activeOrg.id, roundIds);
+        return c.json(summary, 200);
+      },
+    );
+}
+
+export const roundEmailsRouter = createRoundEmailsRouter();
+
+export type RoundEmailsRouter = typeof roundEmailsRouter;

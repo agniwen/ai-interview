@@ -2,8 +2,8 @@ import {
   enqueueInitialInterviewEvaluationJobs,
   isInitialInterviewEvaluationQueueConfigured,
 } from "@app/meeting-processing-queue/initial-interview-evaluation";
-import { listPendingInitialInterviewVersions } from "../../server/routes/studio/routes/resumes/routes/initial-interviews/dao";
-import { processInitialInterviewVersion } from "../../server/routes/studio/routes/resumes/routes/initial-interviews/application/default-process-initial-interview";
+import { listPendingInitialInterviewVersions } from "../../routes/studio/routes/resumes/routes/initial-interviews/dao";
+import { processInitialInterviewVersion } from "../../routes/studio/routes/resumes/routes/initial-interviews/application/default-process-initial-interview";
 
 export { processInitialInterviewVersion };
 

@@ -130,7 +130,7 @@ export const admin = ac.newRole({
   //
   // member.update：admin 可以调整成员角色，但**仅限设置为非管理角色**。
   // 真正阻止 admin "互相提权 / 自我提权" 的硬约束在服务端 hook
-  // `organizationHooks.beforeUpdateMemberRole`（见 src/lib/server/auth.ts），
+  // `organizationHooks.beforeUpdateMemberRole`（见 apps/server/src/infrastructure/auth.ts），
   // 校验内容：(1) admin 不能改 admin/owner 角色；(2) admin 不能改自己；
   // (3) admin 给出的新角色必须是 recruitingSupervisor / recruitingLead / hr / viewer。
   // 矩阵这里开放 "update" 动词

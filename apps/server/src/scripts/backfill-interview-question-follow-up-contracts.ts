@@ -1,15 +1,15 @@
 import { asc, eq } from "drizzle-orm";
-import { closeDatabase, db } from "../lib/server/db/index";
+import { closeDatabase, db } from "../infrastructure/db/index";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
 } from "@app/db-schema/schema";
-import { loadInterviewQuestionTemplateById } from "../server/routes/studio/routes/interview-questions/dao/queries";
-import { resolveOrCreateInterviewQuestionTemplateVersion } from "../server/routes/studio/routes/interview-questions/dao/versions";
-import { compileFollowUpContractsWithDefaults } from "../server/routes/studio/routes/interview-questions/application/default-compile-follow-up-contracts";
-import { questionsRequiringFollowUpContracts } from "../server/routes/studio/routes/interview-questions/application/compile-follow-up-contracts";
-import { hashTemplateSourceSnapshot } from "../lib/server/interview-question-templates-hash";
+import { loadInterviewQuestionTemplateById } from "../routes/studio/routes/interview-questions/dao/queries";
+import { resolveOrCreateInterviewQuestionTemplateVersion } from "../routes/studio/routes/interview-questions/dao/versions";
+import { compileFollowUpContractsWithDefaults } from "../routes/studio/routes/interview-questions/application/default-compile-follow-up-contracts";
+import { questionsRequiringFollowUpContracts } from "../routes/studio/routes/interview-questions/application/compile-follow-up-contracts";
+import { hashTemplateSourceSnapshot } from "../infrastructure/interview-question-templates-hash";
 import type {
   InterviewQuestionTemplateSnapshot,
   InterviewQuestionTemplateSnapshotQuestion,

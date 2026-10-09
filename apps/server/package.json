@@ -6,10 +6,10 @@
   "type": "module",
   "exports": {
     "./offer-approval-notifications": "./src/exports/worker/offer-approval-notifications.ts",
-    "./human-interview-recording": "./src/server/routes/studio/routes/interviews/application/default-record-human-interview-tracks.ts",
-    "./web/document-sync": "./src/server/routes/studio/routes/interviews/adapters/default-document-sync-scheduler.ts",
-    "./env": "./src/lib/server/env.ts",
-    "./human-interview-evaluation-ready": "./src/server/interview-notifications/human-evaluation-ready.ts",
+    "./human-interview-recording": "./src/exports/worker/human-interview-recording.ts",
+    "./web/document-sync": "./src/routes/studio/routes/interviews/adapters/default-document-sync-scheduler.ts",
+    "./env": "./src/infrastructure/env.ts",
+    "./human-interview-evaluation-ready": "./src/interview-notifications/human-evaluation-ready.ts",
     "./human-interview-attendance-reconciliation": "./src/exports/worker/human-interview-attendance-reconciliation.ts",
     "./ai-interview-report-recovery": "./src/exports/worker/ai-interview-report-recovery.ts",
     "./ai-interview-report-notification": "./src/exports/worker/ai-interview-report-notification.ts",
@@ -19,7 +19,7 @@
     },
     "./web/runtime": "./src/exports/web/runtime.ts",
     "./initial-interview-evaluation": "./src/exports/worker/initial-interview-evaluation.ts",
-    "./human-transcription": "./src/server/routes/studio/routes/interviews/application/human-transcription.ts"
+    "./human-transcription": "./src/routes/studio/routes/interviews/application/human-transcription.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.rpc-client.json",

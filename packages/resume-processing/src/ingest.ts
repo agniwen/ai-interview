@@ -1,11 +1,11 @@
 import type { Database } from "@app/database";
 import { bindResumeProcessingDatabase } from "./database";
 import * as batches from "./ingest/batches";
-import * as processor from "./internal/studio/resume-upload-batches/utils/processor";
+import * as processor from "./internal/recruiting/resume-upload-batches/utils/processor";
 import * as workflow from "./internal/agents/mastra/workflows/bulk-resume-upload-workflow";
 
 export type { CreateBatchInput } from "./ingest/batches";
-export type { ResumeUploadBatchProcessorDependencies } from "./internal/studio/resume-upload-batches/utils/processor";
+export type { ResumeUploadBatchProcessorDependencies } from "./internal/recruiting/resume-upload-batches/utils/processor";
 export { createBulkResumeUploadWorkflow } from "./internal/agents/mastra/workflows/bulk-resume-upload-workflow";
 export type {
   BulkResumeUploadWorkflowDeps,

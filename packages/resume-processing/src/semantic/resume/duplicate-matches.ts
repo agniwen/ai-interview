@@ -2,7 +2,7 @@ import {
   toRecruitingSearchSource,
   toVectorSearchSource,
   vectorSourceColumn,
-} from "../../internal/lib/resume-semantic/db-source";
+} from "../../internal/runtime/resume-semantic/db-source";
 import {
   createRecruitingReadModel,
   recruitingRecordReadModel,

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { createRecruitingRecords } from "@app/database/recruiting-records";
 import { organization, recruitingNotificationDelivery } from "@app/db-schema/schema";
-import { db } from "../../lib/server/db/index";
+import { db } from "../../infrastructure/db/index";
 
 const org = `document-migration-${crypto.randomUUID()}`;
 const databaseUrl = process.env.DATABASE_URL;

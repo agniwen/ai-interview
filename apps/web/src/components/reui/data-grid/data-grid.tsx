@@ -1057,15 +1057,7 @@ function DataGrid<TFeatures extends TableFeatures, TData extends object>({
   );
 }
 
-function DataGridContainer({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-  /** Accepted for backwards compatibility; currently has no effect. */
-  border?: boolean;
-}) {
+function DataGridContainer({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       data-slot="data-grid"

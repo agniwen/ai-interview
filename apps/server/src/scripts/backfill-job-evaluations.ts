@@ -238,7 +238,7 @@ function parseBaseConfig(value: JsonValue): JobDescriptionStructuredConfig {
 
 async function workspaceFingerprint(organizationId: string): Promise<string> {
   const [{ db }, { jobDescription }, { asc, ne }] = await Promise.all([
-    import("../lib/server/db"),
+    import("../infrastructure/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -257,7 +257,7 @@ async function workspaceFingerprint(organizationId: string): Promise<string> {
 
 async function upgradeLegacyJob(job: BackfillJobRow, actorId: string) {
   const { jobEvaluationUpgradeApplication } =
-    await import("../server/routes/studio/routes/job-descriptions/routes/upgrade/application/default-job-evaluation-upgrade");
+    await import("../routes/studio/routes/job-descriptions/routes/upgrade/application/default-job-evaluation-upgrade");
   const key = {
     actorId: job.createdBy ?? actorId,
     jobDescriptionId: job.id,
@@ -300,11 +300,11 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
     { JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION },
     { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION },
   ] = await Promise.all([
-    import("../lib/server/db"),
+    import("../infrastructure/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
-    import("../server/routes/studio/routes/job-descriptions/application/default-job-evaluation-lifecycle"),
-    import("../lib/server/job-evaluation-hash"),
+    import("../routes/studio/routes/job-descriptions/application/default-job-evaluation-lifecycle"),
+    import("../infrastructure/job-evaluation-hash"),
     import("@app/db-schema/job-description-evaluation"),
     import("@app/shared/structured-resume-scoring"),
   ]);
@@ -416,7 +416,7 @@ function memberRolePriority(role: string): number {
 
 async function loadScope() {
   const [{ db }, { jobDescription, member, organization }, { asc, eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("../infrastructure/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -458,7 +458,7 @@ async function loadScope() {
 
 async function loadJobById(id: string): Promise<BackfillJobRow> {
   const [{ db }, { jobDescription }, { and, eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("../infrastructure/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -586,7 +586,7 @@ async function main(): Promise<void> {
     console.error(error);
     process.exitCode = 1;
   } finally {
-    const { closeDatabase } = await import("../lib/server/db");
+    const { closeDatabase } = await import("../infrastructure/db");
     await closeDatabase();
   }
 }

@@ -2,7 +2,7 @@ import { deleteRecruitingRecords, createRecruitingRecords } from "@app/database/
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "../lib/server/db/index";
+import { db } from "../infrastructure/db/index";
 import {
   department,
   jobDescription,
@@ -11,7 +11,7 @@ import {
   recruitingPoolImport,
   user,
 } from "@app/db-schema/schema";
-import { loadResumePoolItem } from "../server/routes/studio/routes/resume-pool/dao";
+import { loadResumePoolItem } from "../routes/studio/routes/resume-pool/dao";
 import { repairResumePoolJobAssociations } from "./repair-resume-pool-job-associations";
 
 const ORG_ID = "resume_pool_job_repair_org";

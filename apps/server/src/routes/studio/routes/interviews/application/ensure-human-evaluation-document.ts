@@ -1,0 +1,172 @@
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import {
+  account,
+  organization,
+  recruitingEvaluationDocument,
+  recruitingRecord,
+} from "@app/db-schema/schema";
+import { db } from "../../../../../infrastructure/db/index";
+import { getRequiredEnv } from "../../../../../infrastructure/env";
+import { ensureRecordEvaluationDocument } from "./default-ensure-recruiting-evaluation-document";
+import {
+  buildInterviewEvaluationDocument,
+  buildInterviewEvaluationStructureSections,
+} from "../../../../../integrations/feishu/interview-evaluation-doc";
+import {
+  FEISHU_PROVIDER_IDS,
+  selectPreferredFeishuProviderId,
+} from "../../../../../integrations/feishu/provider";
+import {
+  grantFeishuInterviewEvaluationDocxAccess,
+  updateFeishuInterviewEvaluationDocxStructure,
+} from "../../../../../integrations/feishu/feishu-docx";
+import { loadResumeAttachment } from "../../../../agent/utils/feishu-resume-attachment";
+import { generateCandidateInterviewQuestions } from "../../resumes/utils/candidate-question-generation";
+import type { HumanInterviewDocumentSyncJob } from "./sync-human-interview-document";
+
+const defaultDependencies = {
+  ensureDocument: ensureRecordEvaluationDocument,
+  generateQuestions: generateCandidateInterviewQuestions,
+  grantAccess: grantFeishuInterviewEvaluationDocxAccess,
+  updateDocumentStructure: updateFeishuInterviewEvaluationDocxStructure,
+};
+export async function ensureHumanEvaluationDocument(
+  job: HumanInterviewDocumentSyncJob,
+  overrides: Partial<typeof defaultDependencies> = {},
+) {
+  const dependencies = { ...defaultDependencies, ...overrides };
+  const [record] = await db
+    .select({
+      ownerId: recruitingRecord.ownerId,
+      record: {
+        candidateName: recruitingRecordReadModel.candidateName,
+        createdBy: recruitingRecordReadModel.createdBy,
+        interviewQuestions: recruitingRecordReadModel.interviewQuestions,
+        qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+        resumeEvaluationArtifactMode: recruitingRecordReadModel.resumeEvaluationArtifactMode,
+        resumeFileName: recruitingRecordReadModel.resumeFileName,
+        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+      },
+      slug: organization.slug,
+    })
+    .from(recruitingRecordReadModel)
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .innerJoin(recruitingRecord, eq(recruitingRecord.id, recruitingRecordReadModel.id))
+    .where(
+      and(
+        eq(recruitingRecordReadModel.id, job.recruitingRecordId),
+        eq(recruitingRecordReadModel.organizationId, job.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!record) {
+    throw new Error("招聘记录不存在");
+  }
+  const userIds = [record.ownerId, record.record.createdBy, job.submittedByUserId].filter(
+    (id): id is string => Boolean(id),
+  );
+  const accounts = userIds.length
+    ? await db
+        .select({ openId: account.accountId, providerId: account.providerId })
+        .from(account)
+        .where(
+          and(
+            inArray(account.userId, userIds),
+            inArray(account.providerId, [...FEISHU_PROVIDER_IDS]),
+          ),
+        )
+        .orderBy(desc(account.updatedAt))
+    : [];
+  const [existing] = await db
+    .select()
+    .from(recruitingEvaluationDocument)
+    .where(
+      and(
+        eq(recruitingEvaluationDocument.recruitingRecordId, job.recruitingRecordId),
+        eq(recruitingEvaluationDocument.organizationId, job.organizationId),
+      ),
+    )
+    .limit(1);
+  const provider =
+    existing?.providerId ??
+    job.providerId ??
+    selectPreferredFeishuProviderId(accounts.map((item) => item.providerId));
+  if (!provider) {
+    throw new Error("无法创建飞书评价表：请招聘负责人或评价提交人先绑定飞书账号");
+  }
+  const providerId = z.enum(FEISHU_PROVIDER_IDS).parse(provider);
+  const recipients = accounts.filter((item) => item.providerId === providerId);
+  let { interviewQuestions } = record.record;
+  if (interviewQuestions.length === 0) {
+    const generation = await dependencies.generateQuestions({
+      organizationId: job.organizationId,
+      resumeRecordId: job.recruitingRecordId,
+    });
+    if (generation === "generated" || generation === "already_generated") {
+      const [updated] = await db
+        .select({ interviewQuestions: recruitingRecordReadModel.interviewQuestions })
+        .from(recruitingRecordReadModel)
+        .where(
+          and(
+            eq(recruitingRecordReadModel.id, job.recruitingRecordId),
+            eq(recruitingRecordReadModel.organizationId, job.organizationId),
+          ),
+        )
+        .limit(1);
+      interviewQuestions = updated?.interviewQuestions ?? [];
+    }
+  }
+  const sections = buildInterviewEvaluationStructureSections({
+    ...record.record,
+    interviewQuestions,
+  });
+  const document = await dependencies.ensureDocument({
+    build: async () => {
+      if (!recipients[0]) {
+        throw new Error("无法创建飞书评价表：缺少对应飞书应用的负责人账号");
+      }
+      const context = record.record;
+      const resumeAttachment = await loadResumeAttachment({
+        fileName: context.resumeFileName,
+        storageKey: context.resumeStorageKey,
+      });
+      const base = buildInterviewEvaluationDocument({
+        candidateName: context.candidateName,
+        // No AI interview: leave HR evidence empty, never fabricate it.
+        evaluation: { hrEvaluation: {} },
+        includeResumeLink: !resumeAttachment && Boolean(context.resumeStorageKey),
+        recommendedQuestions: sections.recommendedQuestionsBlock ? interviewQuestions : [],
+        resumeEvaluation: sections.resumeEvaluationBlock
+          ? context.qualitativeResumeEvaluation
+          : null,
+        resumeUrl: `${getRequiredEnv("BETTER_AUTH_URL").replace(/\/$/, "")}/api/w/${encodeURIComponent(record.slug)}/studio/resumes/${encodeURIComponent(job.recruitingRecordId)}/resume`,
+      });
+      return {
+        ...base,
+        attachment: resumeAttachment ?? undefined,
+        recipientOpenId: recipients[0].openId,
+      };
+    },
+    organizationId: job.organizationId,
+    providerId,
+    recruitingRecordId: job.recruitingRecordId,
+  });
+  if (sections.recommendedQuestionsBlock) {
+    await dependencies.updateDocumentStructure(document.providerId, {
+      documentId: document.documentId,
+      recommendedQuestionsBlock: sections.recommendedQuestionsBlock,
+    });
+  }
+  for (const recipient of recipients) {
+    await dependencies.grantAccess(document.providerId, {
+      documentId: document.documentId,
+      recipientOpenId: recipient.openId,
+    });
+  }
+  if (job.documentId && job.documentId !== document.documentId && job.blockId) {
+    throw new Error("历史真人评价位于另一份文档，请先合并评价内容再恢复同步");
+  }
+  return { ...job, ...document };
+}

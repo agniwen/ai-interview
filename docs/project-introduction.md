@@ -169,7 +169,7 @@ flowchart LR
 
 ### 后端：Hono + Drizzle + PostgreSQL
 
-后端核心入口是 `apps/server/src/server/app.ts`。它通过 `createServerApp()` 创建 Hono app，业务路由统一挂到 `/api` 下。Web 侧的 `src/server.ts` 会把 Hono app 挂进 TanStack Start server entry；同时后端包也可以通过 `src/index.ts` 独立启动。
+后端核心入口是 `apps/server/src/app.ts`。它通过 `createServerApp()` 创建 Hono app，业务路由统一挂到 `/api` 下。Web 侧的 `src/server.ts` 会把 Hono app 挂进 TanStack Start server entry；同时后端包也可以通过 `src/index.ts` 独立启动。
 
 这意味着当前架构不是「前端一个服务、后端完全另一个服务」的强拆分，也不是「所有 API 都写在前端框架里」。它是一个可嵌入、可独立启动的 Hono 后端包。
 
@@ -291,9 +291,9 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ### 后端同学优先看
 
-- `apps/server/src/server/app.ts`：Hono app 聚合入口。
-- `apps/server/src/server/routes/`：按业务路由组织的 API。
-- `apps/server/src/lib/server/`：DB、auth、S3、邮件、简历解析等后端能力。
+- `apps/server/src/app.ts`：Hono app 聚合入口。
+- `apps/server/src/routes/`：按业务路由组织的 API。
+- `apps/server/src/infrastructure/`：DB、auth、S3、邮件、简历解析等后端能力。
 - `packages/db-schema/src/schema.ts`：主数据库表。
 - `packages/db-schema/src/relations.ts`：Drizzle relations。
 
@@ -388,7 +388,7 @@ bun run db:studio
 
 ### 后端
 
-1. 看 `apps/server/src/server/app.ts`，理解 `/api` 路由聚合。
+1. 看 `apps/server/src/app.ts`，理解 `/api` 路由聚合。
 2. 选一个模块读通，例如 `studio/routes/resumes` 或 `studio/routes/interviews`。
 3. 对照 `packages/db-schema/src/schema.ts` 看数据结构。
 4. 再看外部集成，例如 LiveKit、Resend、Feishu、S3。

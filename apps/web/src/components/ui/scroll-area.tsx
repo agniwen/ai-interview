@@ -100,12 +100,4 @@ function ScrollArea({
   );
 }
 
-/**
- * Compatibility shim. OverlayScrollbars renders its own scrollbars, so this is a no-op
- * kept around so existing call sites that import `ScrollBar` keep type-checking.
- */
-function ScrollBar(_props: { className?: string; orientation?: "horizontal" | "vertical" }) {
-  return null;
-}
-
-export { ScrollArea, ScrollBar };
+export { ScrollArea };

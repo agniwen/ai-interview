@@ -8,6 +8,8 @@ AI Hiring Copilot 的招聘端 Web 应用，基于 TanStack Start、React、TanS
 - 在 `src/routes/` 定义 TanStack Router 路由、loader、search validation 和薄页面组合。
 - 在 `src/components/features/` 维护 feature-owned UI、hooks 和客户端状态。
 - 在 `src/lib/client/` 放可复用浏览器工具，在 `src/lib/start/` 放 TanStack Start 服务端适配。
+- 在 `nitro/` 维护 Nitro 插件、handler 和运行时集成；`src/server.ts` 是 TanStack Start 的后端挂载入口。
+- OG 图片响应放 `src/lib/og-image/response.server.tsx`，明确服务端专属模块。
 - 维护 Web 环境加载、国际化、SSR/客户端入口、构建与数据库迁移命令。
 
 ## 边界

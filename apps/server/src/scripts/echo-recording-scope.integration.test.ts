@@ -1,4 +1,4 @@
-import { listTrashedMeetingSessions } from "../server/routes/meetings/lifecycle-dao";
+import { listTrashedMeetingSessions } from "../routes/meetings/lifecycle-dao";
 import { trashedMeetingListQuerySchema } from "@app/shared/meeting-recording";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
@@ -18,14 +18,11 @@ import {
 } from "@app/db-schema/schema";
 import type { RecruitingNode } from "@app/db-schema/schema";
 import type { InitialInterviewSnapshot } from "@app/shared/human-initial-interview";
-import { closeDatabase, db } from "../lib/server/db";
-import {
-  listMeetingSessionsForAccess,
-  loadMeetingSessionForAccess,
-} from "../server/routes/meetings/dao";
-import { searchMeetingSessionsForAccess } from "../server/routes/meetings/routes/search/dao";
-import { listMeetingRecruitingRecordCandidates } from "../server/routes/meetings/recruiting-context-dao";
-import { saveInitialInterviewSnapshot } from "../server/routes/studio/routes/resumes/routes/initial-interviews/dao";
+import { closeDatabase, db } from "../infrastructure/db";
+import { listMeetingSessionsForAccess, loadMeetingSessionForAccess } from "../routes/meetings/dao";
+import { searchMeetingSessionsForAccess } from "../routes/meetings/routes/search/dao";
+import { listMeetingRecruitingRecordCandidates } from "../routes/meetings/recruiting-context-dao";
+import { saveInitialInterviewSnapshot } from "../routes/studio/routes/resumes/routes/initial-interviews/dao";
 
 const testUrl = process.env.RECRUITING_TEST_DATABASE_URL;
 const suite = testUrl ? describe : describe.skip;

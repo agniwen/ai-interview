@@ -4,8 +4,8 @@ import {
   captureBackendException,
   flushBackendSentry,
   initializeBackendSentry,
-} from "./lib/server/sentry";
-import { validateServerEnv } from "./lib/server/env";
+} from "./infrastructure/sentry";
+import { validateServerEnv } from "./infrastructure/env";
 import { resolveStandaloneServerConfig } from "./standalone/config";
 import { loadStandaloneEnv } from "./standalone/env";
 import { RuntimeCloseStack } from "./standalone/runtime-lifecycle";
@@ -18,8 +18,7 @@ async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null>
     return null;
   }
 
-  const { initializeFeishuBots, shutdownFeishuBots } =
-    await import("./server/integrations/feishu/bot");
+  const { initializeFeishuBots, shutdownFeishuBots } = await import("./integrations/feishu/bot");
   await initializeFeishuBots();
   console.info("[backend] Feishu bot websocket connections initialized");
   return shutdownFeishuBots;
@@ -34,13 +33,13 @@ async function main() {
   try {
     const { hostname, port } = resolveStandaloneServerConfig();
     const [{ createServerApp }, { closeDatabase }] = await Promise.all([
-      import("./server/app"),
-      import("./lib/server/db"),
+      import("./app"),
+      import("./infrastructure/db"),
     ]);
     runtime.add("database", closeDatabase);
 
     const { startHumanInterviewDocumentSync } =
-      await import("./server/routes/studio/routes/interviews/adapters/default-document-sync-scheduler");
+      await import("./routes/studio/routes/interviews/adapters/default-document-sync-scheduler");
     const documentSync = startHumanInterviewDocumentSync();
     runtime.add("human interview document sync", documentSync.close);
 

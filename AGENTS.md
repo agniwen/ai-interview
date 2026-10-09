@@ -23,7 +23,7 @@ This is the shared instruction source for coding agents. `CLAUDE.md` imports thi
 Chinese-first voice interview and resume screening application. Product copy and interview prompts use Simplified Chinese.
 
 - `apps/web/`: TanStack Start/Router/Query, React, shadcn/ui, Tailwind; mounts Hono at `/api`.
-- `apps/server/`: Hono, Drizzle/PostgreSQL, Better Auth; shared app factory for Web and standalone entrypoints.
+- `apps/server/`: Hono, Drizzle/PostgreSQL, Better Auth; `src/app.ts` composes routes, `src/routes/` owns capabilities, and `src/infrastructure/` holds runtime adapters and host-bound facades.
 - `apps/worker/`: background processing. `apps/desktop/`: Electron application.
 - `apps/livekit-agent/`: Python LiveKit voice agent. Keep `src/agent.py` as its deployment entrypoint.
 - `packages/`: `@app/*` workspace packages. Keep pure contracts in `@app/shared`, schema/relations in `@app/db-schema`, and runtime tools in their owning package.
@@ -34,16 +34,16 @@ Use Bun for TypeScript workspaces and uv for Python. Read `package.json`, the af
 
 Read the matching reference before changing the corresponding behavior. Relative paths in this table start at the repository root.
 
-| Task                                                                                 | Required reference                                                                                                        |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Job setup, JD snapshots, resume evaluation prompts/results or evaluation UI          | [Resume evaluation contract](docs/agents/resume-evaluation.md) and the ADRs linked there                                  |
-| Hono routes, middleware, application verbs, DAO ownership, Server/Worker integration | [Server architecture](docs/agents/server-architecture.md)                                                                 |
-| Package exports, browser HTTP clients, SSR helpers, shared modules, schema ownership | [Runtime boundaries](docs/agents/runtime-boundaries.md)                                                                   |
-| TanStack Start/Router APIs, navigation, loaders, route masks, search params, SSR     | [TanStack Intent catalog](docs/agents/tanstack-intent.md); run the matching guidance command before editing that behavior |
-| LiveKit agent code, voice prompts, tools, workflows or handoffs                      | [Voice agent](docs/agents/voice-agent.md)                                                                                 |
-| Environment variables, deployment configuration, transactional email                 | [Environment setup](docs/agents/environment.md)                                                                           |
-| Domain terminology or architecture decisions                                         | [Domain documentation](docs/agents/domain.md), root `CONTEXT.md`, and relevant `docs/adr/` entries                        |
-| GitHub issue work                                                                    | [Issue tracker](docs/agents/issue-tracker.md); for triage also read [triage labels](docs/agents/triage-labels.md)         |
+| Task                                                                                     | Required reference                                                                                                        |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Job setup, JD snapshots, resume evaluation prompts/results or evaluation UI              | [Resume evaluation contract](docs/agents/resume-evaluation.md) and the ADRs linked there                                  |
+| Hono routes, middleware, application verbs, DAO ownership, Server/Worker integration     | [Server architecture](docs/agents/server-architecture.md)                                                                 |
+| Directory/module ownership, exports, browser HTTP, SSR, shared modules, schema ownership | [Runtime boundaries](docs/agents/runtime-boundaries.md)                                                                   |
+| TanStack Start/Router APIs, navigation, loaders, route masks, search params, SSR         | [TanStack Intent catalog](docs/agents/tanstack-intent.md); run the matching guidance command before editing that behavior |
+| LiveKit agent code, voice prompts, tools, workflows or handoffs                          | [Voice agent](docs/agents/voice-agent.md)                                                                                 |
+| Environment variables, deployment configuration, transactional email                     | [Environment setup](docs/agents/environment.md)                                                                           |
+| Domain terminology or architecture decisions                                             | [Domain documentation](docs/agents/domain.md), root `CONTEXT.md`, and relevant `docs/adr/` entries                        |
+| GitHub issue work                                                                        | [Issue tracker](docs/agents/issue-tracker.md); for triage also read [triage labels](docs/agents/triage-labels.md)         |
 
 ## Boundaries to keep visible
 

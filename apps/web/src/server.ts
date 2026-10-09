@@ -36,7 +36,7 @@ async function createHonoApp(): Promise<HonoApp> {
 }
 
 async function createOgImageResponse() {
-  const { createOgImageResponse: createResponse } = await import("./lib/server/og-image");
+  const { createOgImageResponse: createResponse } = await import("./lib/og-image/response.server");
   return createResponse();
 }
 

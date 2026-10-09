@@ -221,7 +221,7 @@ function getReportMode(options: Options): ExecutionReport["mode"] {
 
 async function loadRecordSnapshots(ids: string[]) {
   const [{ db }, { inArray }] = await Promise.all([
-    import("../lib/server/db"),
+    import("../infrastructure/db"),
     import("drizzle-orm"),
   ]);
   const rows = await db
@@ -317,7 +317,7 @@ async function run(options: Options): Promise<void> {
       { asc, eq },
       backfill,
     ] = await Promise.all([
-      import("../lib/server/db"),
+      import("../infrastructure/db"),
       import("@app/db-schema/job-description-evaluation"),
       import("@app/db-schema/job-description-structured-config"),
       import("@app/db-schema/schema"),
@@ -462,16 +462,15 @@ async function run(options: Options): Promise<void> {
         )
       : await (async () => {
           const [{ claimForceResumeReparse }, processorModule] = await Promise.all([
-            import("../server/routes/studio/routes/resume-upload-batches/dao/retry"),
-            import("../server/routes/studio/routes/resume-upload-batches/utils/processor"),
+            import("../routes/studio/routes/resume-upload-batches/dao/retry"),
+            import("../routes/studio/routes/resume-upload-batches/utils/processor"),
           ]);
           const processor = processorModule.createResumeUploadBatchProcessor({
             ...processorModule.defaultResumeUploadBatchProcessorDependencies,
             enqueueResumePoolReviewGenerationBestEffort: () => Promise.resolve(true),
-            enqueueResumeReviewGenerationForRecordBestEffort: () =>
-              Promise.resolve({ status: "already_current" }),
             enqueueResumeSemanticIndexJobBestEffort: () => Promise.resolve(true),
             resolveCandidateQuestionGenerationEnabled: () => false,
+            scheduleResumeEvaluationForRecord: () => Promise.resolve({ status: "already_current" }),
           });
           const limit = pLimit(TARGET_CONCURRENCY);
           return Promise.all(
@@ -517,8 +516,8 @@ async function run(options: Options): Promise<void> {
 
     const refreshed = await loadRowsByIds(ids, backfill.loadRecentRows);
     const [reviewQueue, reviewWorker] = await Promise.all([
-      import("../server/routes/studio/routes/resumes/utils/review-queue"),
-      import("../server/routes/studio/routes/resumes/utils/review-worker"),
+      import("../routes/studio/routes/resumes/utils/review-queue"),
+      import("../routes/studio/routes/resumes/utils/review-worker"),
     ]);
     const evaluationStartedAt = Date.now();
     const evaluationLimit = pLimit(TARGET_CONCURRENCY);
@@ -598,7 +597,7 @@ async function run(options: Options): Promise<void> {
     report.fatalError = serializeLogValue(error);
     process.exitCode = 1;
     try {
-      const { closeDatabase } = await import("../lib/server/db");
+      const { closeDatabase } = await import("../infrastructure/db");
       await closeDatabase();
     } catch {
       // Database may not have initialized.

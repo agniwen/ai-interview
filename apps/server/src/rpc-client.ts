@@ -1,9 +1,9 @@
-import type { AppType } from "./server/app";
-import type { chatRouter } from "./server/routes/chat/route";
-import type { publicRouter } from "./server/routes/public/route";
-import type { studioInterviewsRouter } from "./server/routes/studio/routes/interviews/route";
-import type { resumeLibraryRouter } from "./server/routes/studio/routes/resumes/route";
-import type { backgroundCheckRouter } from "./server/routes/studio/routes/interviews/routes/background-check/route";
+import type { AppType } from "./app";
+import type { chatRouter } from "./routes/chat/route";
+import type { publicRouter } from "./routes/public/route";
+import type { studioInterviewsRouter } from "./routes/studio/routes/interviews/route";
+import type { resumeLibraryRouter } from "./routes/studio/routes/resumes/route";
+import type { backgroundCheckRouter } from "./routes/studio/routes/interviews/routes/background-check/route";
 import { hc } from "hono/client";
 
 export type RpcClient = ReturnType<typeof hc<AppType>>;

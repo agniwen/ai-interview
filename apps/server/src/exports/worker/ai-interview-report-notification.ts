@@ -1,2 +1,2 @@
-export { sendInterviewReportReadyFeishuNotification } from "../../server/routes/agent/utils/feishu-interview-notifications";
-export type { SendInterviewReportReadyFeishuNotificationInput } from "../../server/routes/agent/utils/feishu-interview-notifications";
+export { sendInterviewReportReadyFeishuNotification } from "../../routes/agent/utils/feishu-interview-notifications";
+export type { SendInterviewReportReadyFeishuNotificationInput } from "../../routes/agent/utils/feishu-interview-notifications";

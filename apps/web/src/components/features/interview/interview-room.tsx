@@ -32,7 +32,7 @@ import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
-import { InterviewBackground } from "./interview-background";
+import { InterviewEntryBackground } from "./interview-background";
 import { AgentSpeechTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
 import { InterviewRules } from "./interview-rules";
@@ -268,7 +268,7 @@ function WaitingView({
 
   return (
     <>
-      <InterviewBackground entry={showPreparation} />
+      <InterviewEntryBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>

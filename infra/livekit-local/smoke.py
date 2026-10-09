@@ -35,8 +35,8 @@ async def application(action: str, room_name: str) -> dict:
     root = Path(__file__).resolve().parents[2]
     process = await asyncio.create_subprocess_exec(
         "bun",
-        f"--env-file={root / 'apps/web/.env'}",
-        str(Path(__file__).with_name("smoke-application.ts")),
+        f"--env-file={root / 'apps/server/.env'}",
+        str(root / "apps/server/src/scripts/livekit-local-smoke.ts"),
         action,
         room_name,
         cwd=root,

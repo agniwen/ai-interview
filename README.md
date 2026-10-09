@@ -149,15 +149,16 @@ apps/
     src/routes/                 TanStack Router file routes
     src/lib/start/              server functions and Start-only helpers
     src/lib/client/             browser helpers and Hono RPC client
-    src/lib/server/             small web server helpers
+    nitro/                      Nitro plugins and WebSocket handlers
+    src/lib/og-image/            server-only OG response generation
     src/components/             shadcn/ui + project components
     src/server.ts               TanStack Start server entry
     src/client.tsx              browser entry
     vite.config.ts              TanStack Start / Vite / Nitro config
   server/
-    src/server/app.ts           Hono app factory
-    src/server/routes/          route folders with route.ts/schema.ts/dao
-    src/lib/server/             backend runtime helpers
+    src/app.ts                  Hono app factory
+    src/routes/                 route folders with route.ts/schema.ts/dao
+    src/infrastructure/         backend adapters and database-bound facades
     src/index.ts                standalone Bun entrypoint
   desktop/
     src/main/                   Electron main process (Echo capture, SQLite)
@@ -197,7 +198,7 @@ packages/
 ## Backend Route Layout
 
 Every route folder under
-`apps/server/src/server/routes/` is self-contained:
+`apps/server/src/routes/` is self-contained:
 
 - `route.ts` exports a Hono router.
 - `schema.ts` contains Zod schemas when needed.
@@ -205,7 +206,7 @@ Every route folder under
 - `utils.ts` or `utils/` contains feature-internal helpers.
 - Nested sub-resources live under `routes/` and are mounted from the parent.
 
-Keep middleware inside the closest owning router. `server/app.ts` should remain
+Keep middleware inside the closest owning router. `src/app.ts` should remain
 mount-only.
 
 ## External References

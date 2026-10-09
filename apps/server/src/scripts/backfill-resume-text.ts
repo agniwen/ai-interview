@@ -5,8 +5,8 @@ import { and, asc, desc, eq, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { chatAttachment, resumePoolItem } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
-import type { Database } from "../lib/server/db/index";
-import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import type { Database } from "../infrastructure/db/index";
+import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export type ResumeTextBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
@@ -370,7 +370,7 @@ export async function runResumeTextBackfillRecords({
 
 async function backfillResumeText(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("../lib/server/db/index");
+  const { closeDatabase, db } = await import("../infrastructure/db/index");
   const target = parseResumeTextBackfillTarget(process.env.BACKFILL_RESUME_TEXT_TARGET);
   const concurrency = parseResumeTextBackfillConcurrency(
     process.env.BACKFILL_RESUME_TEXT_CONCURRENCY,

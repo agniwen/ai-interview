@@ -8,7 +8,7 @@
 - `./review`：简历评估生成、重评和人才库评估。
 - `./semantic`：简历/JD 语义索引、查重和生命周期。
 - `./mail-ingest` / `./mail-ingest-crypto`：邮件导入 DAO 组合与密钥加解密。
-- `./ingest/database-context`：宿主为迁入的 legacy/internal 模块绑定 `Database` 的边界。
+- `./ingest/database-context`：宿主为共享处理实现绑定 `Database` 的边界。
 
 ## 职责与边界
 
@@ -16,6 +16,7 @@
 - `createResumeIngest`、`createResumeReview`、`createResumeSemanticProcessing` 必须把所有访问共享 DB proxy 的公开操作绑定到宿主数据库。
 - Server/Worker facade 只能导出绑定后的数据库操作；纯函数可以直接 re-export。
 - schema 属于 `@app/db-schema`，跨应用产品契约属于 `@app/shared`，queue payload 属于 `@app/resume-parse-queue`。
+- `src/internal/runtime/` 放解析/OCR 等运行时支持，`src/internal/recruiting/` 放招聘简历处理，`src/internal/attachments/` 放附件持久化；这些目录不拥有 HTTP 路由。
 - `src/internal/` 是实现组织，不是无约束公开 API；新增调用优先经过顶层 factory。
 
 ## 如何修改或新增

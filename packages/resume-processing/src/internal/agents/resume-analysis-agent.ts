@@ -7,15 +7,15 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import { normalizeResumeScoringFacts } from "@app/db-schema/resume-scoring-facts";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
-import { generateResumeStructured } from "../lib/resume-parse-pipeline";
+import { generateResumeStructured } from "../runtime/resume-parse-pipeline";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
   supportedResumeDocumentLabel,
 } from "@app/shared/resume-documents";
-import { isResumeParseCacheEnabled } from "../lib/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "../lib/resume-parse-provider";
-import type { ResumeTextSource } from "../lib/resume-parse-pipeline";
+import { isResumeParseCacheEnabled } from "../runtime/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "../runtime/resume-parse-provider";
+import type { ResumeTextSource } from "../runtime/resume-parse-pipeline";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import {
   generateStructuredWithMastraAgent,
@@ -35,7 +35,7 @@ import {
   createAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
-} from "../chat/dao/chat-attachments";
+} from "../attachments/dao";
 import {
   projectAttachmentToResumeProfile,
   structuredSchema,

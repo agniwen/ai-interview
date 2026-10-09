@@ -70,7 +70,7 @@ uv run ../../infra/livekit-local/smoke.py --application
 
 `--record --candidate-track` 同时检查全场纯音频录音和候选人音轨录音，检查完成状态、文件大小和时长；测试文件保存在录音容器 `/tmp/local-smoke-*.ogg`，不上传 R2。测试后自动关闭自己的房间和录音任务。该测试不代替真实面试的 R2/转录/飞书全流程验收。
 
-`--application` 使用 Web 的 `.env`，调用正式业务录音函数，验证真实 R2 上传及文件存在性。仅允许本地 LiveKit；会在当前录音前缀下的 `human-interviews/local-smoke/` 保存两份约 100 KB 的合成音频，不写业务数据库、不调用 AI、不发送飞书消息。测试文件保留以供检查。
+`--application` 通过 `apps/server/src/scripts/livekit-local-smoke.ts` 调用正式业务录音函数，加载 `apps/server/.env`，验证真实 R2 上传及文件存在性。运行前确保该文件的 LiveKit 开发密钥和 `RECORDING_R2_*` 配置与当前联调环境一致。仅允许本地 LiveKit；会在当前录音前缀下的 `human-interviews/local-smoke/` 保存两份约 100 KB 的合成音频，不写业务数据库、不调用 AI、不发送飞书消息。测试文件保留以供检查。
 
 ### 当前验证结果与边界（2026-09-02）
 

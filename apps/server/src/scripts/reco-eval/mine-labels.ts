@@ -1,7 +1,7 @@
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, isNotNull } from "drizzle-orm";
 
-import { db } from "../../lib/server/db/index";
+import { db } from "../../infrastructure/db/index";
 import { labelKey } from "./labels";
 import type { PositiveLabel } from "./types";
 

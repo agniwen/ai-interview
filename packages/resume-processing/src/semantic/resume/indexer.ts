@@ -1,7 +1,7 @@
 import {
   toRecruitingSearchSource,
   vectorSourceColumn,
-} from "../../internal/lib/resume-semantic/db-source";
+} from "../../internal/runtime/resume-semantic/db-source";
 import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "../../database";

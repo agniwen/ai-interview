@@ -1,0 +1,1020 @@
+import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+/* oxlint-disable max-lines -- Notification event builders share one audited transactional boundary. */
+import type { Transaction } from "../dao";
+import { humanInterviewReviewPath } from "@app/shared/human-interview-review-link";
+import { enqueueInterviewNotificationEvent } from "../dao";
+import { prepareInterviewNotificationDeliveries } from "./prepare-deliveries";
+import {
+  aiInterviewConversation,
+  jobDescription,
+  globalConfig,
+  recruitingNotificationDelivery,
+  recruitingNotificationEvent,
+  recruitingOffer,
+  recruitingBackgroundCheck,
+  organization,
+  humanInterviewMeeting,
+  humanInterviewMeetingInterviewer,
+  humanInterviewMeetingRound,
+  humanInterviewRound,
+  humanInterviewRoundInterviewer,
+  aiInterviewRound,
+  user,
+} from "@app/db-schema/schema";
+import type {
+  AiInvitationExceptionType,
+  InterviewNotificationEventType,
+} from "@app/db-schema/interview-notifications";
+import { activeInterviewNotificationEventStatuses } from "@app/db-schema/interview-notifications";
+import { buildInterviewLink } from "@app/shared/interview/interview-record";
+import { buildInterviewNotificationDedupeKey } from "@app/shared/interview-notifications";
+import {
+  hasExistingInterviewAnswers,
+  isInterviewQuestionSetComplete,
+  parseInterviewDataCollectionResults,
+} from "@app/shared/interview/question-outcomes";
+import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
+import type {
+  HumanInterviewEvaluationDraft,
+  HumanInterviewRoundOutcome,
+} from "@app/db-schema/studio-interviews";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import {
+  buildCandidateInviteToken,
+  hashInviteToken,
+} from "../../routes/studio/routes/interviews/dao/human-interview-meeting-access";
+import { absolutePublicAppUrl } from "../../infrastructure/public-app-url";
+
+// AI interview reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
+// AI 面试提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
+const AI_INTERVIEW_REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+
+// 真人面试已有日程安排，仅保留开始前 1 小时提醒，避免与日程的 24 小时提醒重复。
+const HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES = [60] as const;
+
+export const AI_INTERVIEW_COMPLETION_NOTICES = {
+  complete: (candidateName: string) => `${candidateName} 已完成 AI 面试，报告生成后将另行通知。`,
+  partial:
+    "候选人已结束 AI 面试，但部分问题未完成，系统未自动生成候选人评价表。可前往 AI 面试列表，根据已有回答生成。",
+  unavailable:
+    "候选人已结束 AI 面试，但未产生有效回答，无法生成候选人评价表。可前往 AI 面试列表查看面试记录。",
+} as const;
+
+export function resolveAiInterviewCompletionNotice(
+  dataCollectionResults: InterviewDataCollectionResults | null,
+  candidateName = "候选人",
+): string {
+  if (isInterviewQuestionSetComplete(dataCollectionResults)) {
+    return AI_INTERVIEW_COMPLETION_NOTICES.complete(candidateName);
+  }
+  return hasExistingInterviewAnswers(dataCollectionResults)
+    ? AI_INTERVIEW_COMPLETION_NOTICES.partial
+    : AI_INTERVIEW_COMPLETION_NOTICES.unavailable;
+}
+
+export function resolveInterviewNotificationCompanyName(
+  configuredCompanyName: string | null | undefined,
+  workspaceName: string,
+): string {
+  return configuredCompanyName?.trim() || workspaceName;
+}
+
+async function enqueuePreparedInterviewNotificationEvent(
+  tx: Transaction,
+  input: Parameters<typeof enqueueInterviewNotificationEvent>[1],
+) {
+  const event = await enqueueInterviewNotificationEvent(tx, input);
+  // Keeping both writes on this transaction freezes template, recipient, and
+  // rendered content at the business-event boundary.
+  await prepareInterviewNotificationDeliveries(event, tx);
+  return event;
+}
+
+function reportUrl(roundId: string, organizationSlug: string): string | undefined {
+  return absolutePublicAppUrl(
+    `/w/${encodeURIComponent(organizationSlug)}/studio/interviews?roundId=${encodeURIComponent(roundId)}`,
+  );
+}
+
+function humanInterviewRecordUrl(
+  interviewRecordId: string,
+  organizationSlug: string,
+): string | undefined {
+  return absolutePublicAppUrl(
+    `/w/${encodeURIComponent(organizationSlug)}/studio/resumes/${encodeURIComponent(interviewRecordId)}`,
+  );
+}
+
+function evaluationLine(label: string, value: string | null | undefined): string {
+  return `・${label}：${value?.trim() || "未收集到"}`;
+}
+
+export function buildHumanInterviewEvaluationSummary(
+  rounds: {
+    interviewerNames: string[];
+    label: string;
+    evaluation: HumanInterviewEvaluationDraft | null;
+    outcome: HumanInterviewRoundOutcome | null;
+  }[],
+): string {
+  const sections: string[] = [];
+  for (const round of rounds) {
+    const { evaluation } = round;
+    sections.push(
+      [
+        `🗂️ ${round.label}评价`,
+        evaluationLine("面试官", round.interviewerNames.join("、")),
+        evaluationLine(
+          "结论",
+          { fail: "不通过", inconclusive: "待定", pass: "通过" }[round.outcome ?? "inconclusive"],
+        ),
+        evaluationLine("综合评级", evaluation?.rating),
+        evaluationLine("岗位角色适配定位", evaluation?.rolePosition),
+        evaluationLine("专业技能评估", evaluation?.professionalSkill),
+        evaluationLine("候选人优势特点", evaluation?.strengths),
+        evaluationLine("潜在劣势与风险点", evaluation?.risks),
+        evaluationLine("建议薪资区间", evaluation?.salaryRecommendation),
+      ].join("\n"),
+    );
+  }
+  return sections.join("\n\n");
+}
+
+function buildReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date,
+  offsetsMinutes: readonly number[],
+): { availableAt: Date; offsetMinutes: number }[] {
+  if (!scheduledAt) {
+    return [];
+  }
+  return offsetsMinutes.flatMap((offsetMinutes) => {
+    const availableAt = new Date(scheduledAt.getTime() - offsetMinutes * 60_000);
+    return availableAt.getTime() > now.getTime() ? [{ availableAt, offsetMinutes }] : [];
+  });
+}
+
+export function buildInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, AI_INTERVIEW_REMINDER_OFFSETS_MINUTES);
+}
+
+export function buildHumanInterviewReminderSchedule(
+  scheduledAt: Date | null,
+  now: Date = new Date(),
+): { availableAt: Date; offsetMinutes: number }[] {
+  return buildReminderSchedule(scheduledAt, now, HUMAN_INTERVIEW_REMINDER_OFFSETS_MINUTES);
+}
+
+interface HumanInterviewRoundProgression {
+  currentRoundNumber: number;
+  previousRoundName: string;
+  previousRoundNumber: number;
+}
+
+export function buildHumanInterviewRoundProgression(
+  passedHumanRounds: { label: string }[],
+): HumanInterviewRoundProgression {
+  const currentRoundNumber = passedHumanRounds.length + 2;
+  return {
+    currentRoundNumber,
+    previousRoundName: passedHumanRounds.at(-1)?.label ?? "HR 初面",
+    previousRoundNumber: currentRoundNumber - 1,
+  };
+}
+
+async function loadHumanInterviewRoundProgression(
+  tx: Transaction,
+  input: { currentSortOrder: number; interviewRecordId: string },
+) {
+  const passedHumanRounds = await tx
+    .select({ label: humanInterviewRound.label })
+    .from(humanInterviewRound)
+    .where(
+      and(
+        eq(humanInterviewRound.recruitingRecordId, input.interviewRecordId),
+        lt(humanInterviewRound.sortOrder, input.currentSortOrder),
+        eq(humanInterviewRound.status, "completed"),
+        inArray(humanInterviewRound.outcome, ["pass", "inconclusive"]),
+      ),
+    )
+    .orderBy(asc(humanInterviewRound.sortOrder));
+  return buildHumanInterviewRoundProgression(passedHumanRounds);
+}
+
+export async function enqueueAiInvitationResponseEvent(
+  tx: Transaction,
+  input: {
+    action: "accept" | "decline";
+    invitationVersion: number;
+    respondedAt: Date;
+    scheduleEntryId: string;
+  },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      initiatorEmail: user.email,
+      initiatorName: user.name,
+      interviewRecordId: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduledAt: aiInterviewRound.scheduledAt,
+      workspaceName: organization.name,
+    })
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
+    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
+    .limit(1);
+  if (!context) {
+    throw new Error("AI 面试邀请响应缺少轮次上下文。");
+  }
+  const type = input.action === "accept" ? "ai_invitation_accepted" : "ai_invitation_declined";
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: null,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      scopeId: input.scheduleEntryId,
+      type,
+      version: input.invitationVersion,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      initiatorName: context.initiatorName ?? undefined,
+      interviewLink: absolutePublicAppUrl(
+        buildInterviewLink(context.interviewRecordId, input.scheduleEntryId),
+      ),
+      interviewStartTime: context.scheduledAt?.toISOString(),
+      interviewType: "ai",
+      jobName: context.jobName ?? undefined,
+      responseTime: input.respondedAt.toISOString(),
+      roundName: context.roundLabel,
+      schemaVersion: 1,
+      supportContact: context.initiatorEmail ?? undefined,
+      timeZone: "Asia/Shanghai",
+    },
+    scheduleEntryId: input.scheduleEntryId,
+    scopeType: "ai_round",
+    type,
+  });
+}
+
+export async function enqueueOfferResponseEvent(
+  tx: Transaction,
+  input: {
+    declineReason?: string | null;
+    offerId: string;
+    respondedAt: Date;
+    response: "accepted" | "declined";
+  },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      interviewRecordId: recruitingOffer.recruitingRecordId,
+      organizationId: recruitingOffer.organizationId,
+      organizationSlug: organization.slug,
+      position: recruitingOffer.position,
+      publishedBy: recruitingOffer.publishedBy,
+      workspaceName: organization.name,
+    })
+    .from(recruitingOffer)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingOffer.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingOffer.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, recruitingOffer.organizationId))
+    .where(eq(recruitingOffer.id, input.offerId))
+    .limit(1);
+  if (!context) {
+    throw new Error("Offer 响应通知缺少招聘上下文。");
+  }
+  const type = input.response === "accepted" ? "offer_accepted" : "offer_declined";
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.publishedBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.respondedAt.toISOString(),
+      scopeId: input.offerId,
+      type,
+      version: 1,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      changeReason: input.declineReason?.trim() || "未填写",
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(context.interviewRecordId, context.organizationSlug),
+      jobName: context.position,
+      responseTime: input.respondedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type,
+  });
+}
+
+export async function enqueueBackgroundCheckSubmittedEvent(
+  tx: Transaction,
+  input: { recruitingRecordId: string; submittedAt: Date },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      createdBy: recruitingBackgroundCheck.createdBy,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingBackgroundCheck.organizationId,
+      organizationSlug: organization.slug,
+      workspaceName: organization.name,
+    })
+    .from(recruitingBackgroundCheck)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, recruitingBackgroundCheck.recruitingRecordId),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingBackgroundCheck.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingBackgroundCheck.organizationId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .where(eq(recruitingBackgroundCheck.recruitingRecordId, input.recruitingRecordId))
+    .limit(1);
+  if (!context) {
+    throw new Error("背调提交通知缺少招聘上下文。");
+  }
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.createdBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.submittedAt.toISOString(),
+      scopeId: input.recruitingRecordId,
+      type: "background_check_submitted",
+      version: 1,
+    }),
+    interviewRecordId: input.recruitingRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      interviewLink: humanInterviewRecordUrl(input.recruitingRecordId, context.organizationSlug),
+      jobName: context.jobName ?? undefined,
+      responseTime: input.submittedAt.toISOString(),
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scopeType: "interview_record",
+    type: "background_check_submitted",
+  });
+}
+
+const AI_INVITATION_EXCEPTION_COPY = {
+  invitation_expired: {
+    label: "邀请已过期",
+    suggestedAction: "请重新发起面试邀请，或人工联系候选人确认面试意向。",
+  },
+  response_conflict: {
+    label: "确认状态冲突",
+    suggestedAction: "请人工联系候选人确认最终面试意向，必要时重新发起邀请。",
+  },
+  system_error: {
+    label: "系统处理失败",
+    suggestedAction: "请让候选人稍后重试；如持续失败，请人工确认并联系系统责任人。",
+  },
+} as const satisfies Record<AiInvitationExceptionType, { label: string; suggestedAction: string }>;
+
+export async function enqueueAiInvitationExceptionEvent(
+  tx: Transaction,
+  input: {
+    exceptionType: AiInvitationExceptionType;
+    occurredAt?: Date;
+    scheduleEntryId: string;
+  },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      initiatorEmail: user.email,
+      initiatorName: user.name,
+      interviewRecordId: recruitingRecordReadModel.id,
+      invitationVersion: aiInterviewRound.invitationVersion,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
+      roundLabel: aiInterviewRound.roundLabel,
+      workspaceName: organization.name,
+    })
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
+    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
+    .limit(1);
+  if (!context) {
+    return;
+  }
+
+  const copy = AI_INVITATION_EXCEPTION_COPY[input.exceptionType];
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: null,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.exceptionType,
+      scopeId: input.scheduleEntryId,
+      type: "ai_invitation_exception",
+      version: context.invitationVersion,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      exceptionType: copy.label,
+      initiatorName: context.initiatorName ?? undefined,
+      interviewType: "ai",
+      jobName: context.jobName ?? undefined,
+      occurredAt: (input.occurredAt ?? new Date()).toISOString(),
+      roundName: context.roundLabel,
+      schemaVersion: 1,
+      suggestedAction: copy.suggestedAction,
+      supportContact: context.initiatorEmail ?? undefined,
+      timeZone: "Asia/Shanghai",
+    },
+    scheduleEntryId: input.scheduleEntryId,
+    scopeType: "ai_round",
+    type: "ai_invitation_exception",
+  });
+}
+
+export async function enqueueAiInterviewCompletedEvent(
+  tx: Transaction,
+  input: { scheduleEntryId: string },
+): Promise<void> {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      conversationId: aiInterviewRound.conversationId,
+      createdBy: aiInterviewRound.createdBy,
+      interviewRecordId: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
+      organizationSlug: organization.slug,
+      roundLabel: aiInterviewRound.roundLabel,
+      workspaceName: organization.name,
+    })
+    .from(aiInterviewRound)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewRound.recruitingRecordId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .where(eq(aiInterviewRound.id, input.scheduleEntryId))
+    .limit(1);
+  if (!context) {
+    throw new Error("AI 面试完成通知缺少轮次上下文。");
+  }
+  const [conversation] = await tx
+    .select({ dataCollectionResults: aiInterviewConversation.dataCollectionResults })
+    .from(aiInterviewConversation)
+    .where(
+      context.conversationId
+        ? eq(aiInterviewConversation.conversationId, context.conversationId)
+        : eq(aiInterviewConversation.aiRoundId, input.scheduleEntryId),
+    )
+    .orderBy(desc(aiInterviewConversation.updatedAt))
+    .limit(1);
+  const dataCollectionResults = parseInterviewDataCollectionResults(
+    conversation?.dataCollectionResults,
+  );
+  const completionNotice = resolveAiInterviewCompletionNotice(
+    dataCollectionResults,
+    context.candidateName,
+  );
+  const isIncomplete = !isInterviewQuestionSetComplete(dataCollectionResults);
+  await enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.createdBy,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      scopeId: input.scheduleEntryId,
+      type: "ai_interview_completed",
+      version: 1,
+    }),
+    interviewRecordId: context.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      completionNotice,
+      interviewLink: isIncomplete
+        ? reportUrl(input.scheduleEntryId, context.organizationSlug)
+        : undefined,
+      interviewType: "ai",
+      jobName: context.jobName ?? undefined,
+      roundName: context.roundLabel,
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scheduleEntryId: input.scheduleEntryId,
+    scopeType: "ai_round",
+    type: "ai_interview_completed",
+  });
+}
+
+interface HumanMeetingEventInput {
+  actorUserId: string | null;
+  attendanceStatus?: string;
+  changeReason?: string | null;
+  dedupeDiscriminator?: string;
+  exceptionType?: string;
+  humanRoundId?: string;
+  meetingId: string;
+  missingParticipantNames?: string[];
+  now?: Date;
+  oldScheduledAt?: Date | null;
+  oldValidUntil?: Date | null;
+  scheduleVersion: number;
+  suggestedAction?: string;
+  type:
+    | "human_interview_pending_schedule"
+    | "human_candidate_invitation_requested"
+    | "human_interviewer_confirmation_requested"
+    | "human_interviewer_confirmed"
+    | "human_interviewer_declined"
+    | "human_interview_confirmed"
+    | "human_interview_rescheduled"
+    | "human_invitation_accepted"
+    | "human_invitation_declined"
+    | "human_invitation_exception"
+    | "human_interviewer_added"
+    | "human_interview_cancelled"
+    | "human_interview_completed"
+    | "human_interview_attendance_alert"
+    | "human_interview_not_held"
+    | "human_evaluation_summary_ready";
+}
+
+export function resolveHumanMeetingEventInterviewLink(input: {
+  candidateInviteExpiresAt: Date | null;
+  candidateInviteTokenHash: string | null;
+  humanRoundId: string;
+  interviewRecordId: string;
+  meetingId: string;
+  organizationSlug: string;
+  type: HumanMeetingEventInput["type"];
+}): string | undefined {
+  if (input.type === "human_evaluation_summary_ready") {
+    return absolutePublicAppUrl(
+      humanInterviewReviewPath({
+        candidateId: input.interviewRecordId,
+        roundId: input.humanRoundId,
+        slug: input.organizationSlug,
+      }),
+    );
+  }
+  if (
+    input.type === "human_interview_completed" ||
+    input.type === "human_interview_attendance_alert" ||
+    input.type === "human_interview_not_held"
+  ) {
+    return humanInterviewRecordUrl(input.interviewRecordId, input.organizationSlug);
+  }
+  if (!(input.candidateInviteExpiresAt && input.candidateInviteTokenHash)) {
+    return undefined;
+  }
+  const token = buildCandidateInviteToken({
+    exp: input.candidateInviteExpiresAt.getTime(),
+    meetingId: input.meetingId,
+    roundId: input.humanRoundId,
+  });
+  if (hashInviteToken(token) !== input.candidateInviteTokenHash) {
+    return undefined;
+  }
+  return absolutePublicAppUrl(`/human-interview/${encodeURIComponent(token)}`);
+}
+
+export async function cancelPendingHumanMeetingReminders(
+  tx: Transaction,
+  meetingId: string,
+): Promise<void> {
+  const now = new Date();
+  const cancelledEvents = await tx
+    .update(recruitingNotificationEvent)
+    .set({
+      completedAt: now,
+      lastErrorCode: "notification-superseded",
+      lastErrorMessage: "会议时间或状态已变更，旧提醒已取消。",
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      status: "cancelled",
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(recruitingNotificationEvent.humanMeetingId, meetingId),
+        inArray(recruitingNotificationEvent.type, [
+          "human_interview_reminder",
+          "human_interview_attendance_alert",
+          "human_interview_not_held",
+        ]),
+        inArray(recruitingNotificationEvent.status, activeInterviewNotificationEventStatuses),
+      ),
+    )
+    .returning({ id: recruitingNotificationEvent.id });
+  if (cancelledEvents.length === 0) {
+    return;
+  }
+  await tx
+    .update(recruitingNotificationDelivery)
+    .set({
+      error: "会议时间或状态已变更，旧提醒已取消。",
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      nextAttemptAt: null,
+      status: "cancelled",
+      updatedAt: now,
+    })
+    .where(
+      inArray(
+        recruitingNotificationDelivery.eventId,
+        cancelledEvents.map((event) => event.id),
+      ),
+    );
+}
+
+// Freezes meeting, round, recipient, and progression context into versioned event snapshots; terminal changes also cancel stale reminders.
+// 将会议、轮次、收件人及轮次进度固化为版本化事件快照；终态变更同时取消过期提醒。
+// oxlint-disable-next-line complexity -- event snapshots intentionally cover versioning, cancellation, and reminder scheduling together.
+export async function enqueueHumanMeetingEvents(
+  tx: Transaction,
+  input: HumanMeetingEventInput,
+): Promise<void> {
+  if (
+    input.type === "human_interview_rescheduled" ||
+    input.type === "human_interview_cancelled" ||
+    input.type === "human_interview_completed" ||
+    input.type === "human_interview_not_held"
+  ) {
+    await cancelPendingHumanMeetingReminders(tx, input.meetingId);
+  }
+
+  const rows = await tx
+    .select({
+      candidateInviteExpiresAt: humanInterviewMeetingRound.candidateInviteExpiresAt,
+      candidateInviteStatus: humanInterviewMeetingRound.candidateInviteStatus,
+      candidateInviteTokenHash: humanInterviewMeetingRound.candidateInviteTokenHash,
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      humanRoundId: humanInterviewRound.id,
+      initiatorEmail: user.email,
+      initiatorName: user.name,
+      interviewRecordId: recruitingRecordReadModel.id,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: humanInterviewMeeting.organizationId,
+      organizationSlug: organization.slug,
+      roundName: humanInterviewRound.label,
+      roundSortOrder: humanInterviewRound.sortOrder,
+      scheduledAt: humanInterviewMeeting.scheduledAt,
+      validUntil: humanInterviewMeeting.validUntil,
+      workspaceName: organization.name,
+    })
+    .from(humanInterviewMeetingRound)
+    .innerJoin(
+      humanInterviewMeeting,
+      eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
+    )
+    .innerJoin(humanInterviewRound, eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId))
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, humanInterviewRound.recruitingRecordId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .innerJoin(organization, eq(organization.id, humanInterviewMeeting.organizationId))
+    .leftJoin(globalConfig, eq(globalConfig.organizationId, humanInterviewMeeting.organizationId))
+    .leftJoin(user, eq(user.id, humanInterviewMeeting.createdBy))
+    .where(
+      and(
+        eq(humanInterviewMeetingRound.meetingId, input.meetingId),
+        input.humanRoundId ? eq(humanInterviewMeetingRound.roundId, input.humanRoundId) : undefined,
+      ),
+    );
+  if (rows.length === 0) {
+    throw new Error("真人面试通知事件缺少会议轮次上下文。");
+  }
+
+  const interviewerRows = await tx
+    .select({ name: user.name })
+    .from(humanInterviewMeetingInterviewer)
+    .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+    .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId));
+  const interviewerNames = interviewerRows.map((row) => row.name).filter(Boolean);
+  const now = input.now ?? new Date();
+
+  for (const row of rows) {
+    const roundProgression = await loadHumanInterviewRoundProgression(tx, {
+      currentSortOrder: row.roundSortOrder,
+      interviewRecordId: row.interviewRecordId,
+    });
+    const interviewLink = resolveHumanMeetingEventInterviewLink({
+      candidateInviteExpiresAt: row.candidateInviteExpiresAt,
+      candidateInviteTokenHash: row.candidateInviteTokenHash,
+      humanRoundId: row.humanRoundId,
+      interviewRecordId: row.interviewRecordId,
+      meetingId: input.meetingId,
+      organizationSlug: row.organizationSlug,
+      type: input.type,
+    });
+    let evaluationSummary: string | undefined;
+    if (input.type === "human_interview_completed") {
+      const completedRounds = await tx
+        .select({
+          evaluation: humanInterviewRound.evaluation,
+          evaluationStatus: humanInterviewRound.evaluationStatus,
+          id: humanInterviewRound.id,
+          label: humanInterviewRound.label,
+          outcome: humanInterviewRound.outcome,
+        })
+        .from(humanInterviewRound)
+        .where(
+          and(
+            eq(humanInterviewRound.recruitingRecordId, row.interviewRecordId),
+            eq(humanInterviewRound.organizationId, row.organizationId),
+            eq(humanInterviewRound.status, "completed"),
+            eq(humanInterviewRound.id, row.humanRoundId),
+          ),
+        )
+        .orderBy(asc(humanInterviewRound.sortOrder));
+      const roundIds = completedRounds.map((round) => round.id);
+      const roundInterviewerRows =
+        roundIds.length === 0
+          ? []
+          : await tx
+              .select({
+                name: user.name,
+                roundId: humanInterviewRoundInterviewer.roundId,
+              })
+              .from(humanInterviewRoundInterviewer)
+              .innerJoin(user, eq(user.id, humanInterviewRoundInterviewer.userId))
+              .where(inArray(humanInterviewRoundInterviewer.roundId, roundIds));
+      evaluationSummary = buildHumanInterviewEvaluationSummary(
+        completedRounds.map((round) => ({
+          evaluation: round.evaluationStatus === "submitted" ? round.evaluation : null,
+          interviewerNames: roundInterviewerRows
+            .filter((item) => item.roundId === round.id)
+            .map((item) => item.name)
+            .filter((name): name is string => Boolean(name)),
+          label: round.label,
+          outcome: round.outcome,
+        })),
+      );
+    }
+    const payloadSnapshot = {
+      attendanceStatus: input.attendanceStatus,
+      candidateName: row.candidateName,
+      changeReason: input.changeReason?.trim() || undefined,
+      companyName: resolveInterviewNotificationCompanyName(
+        row.configuredCompanyName,
+        row.workspaceName,
+      ),
+      completedAt: input.type === "human_interview_completed" ? now.toISOString() : undefined,
+      currentRoundNumber: roundProgression.currentRoundNumber,
+      evaluationSummary,
+      exceptionType: input.exceptionType,
+      initiatorName: row.initiatorName ?? undefined,
+      interviewEndTime: row.validUntil?.toISOString(),
+      interviewLink,
+      interviewStartTime: row.scheduledAt?.toISOString(),
+      interviewType: "human" as const,
+      interviewerNames,
+      invitationEndTime: row.candidateInviteExpiresAt?.toISOString(),
+      invitationStartTime: now.toISOString(),
+      jobName: row.jobName ?? undefined,
+      missingParticipantNames: input.missingParticipantNames,
+      occurredAt: input.type === "human_invitation_exception" ? now.toISOString() : undefined,
+      oldInterviewEndTime: input.oldValidUntil?.toISOString(),
+      oldInterviewStartTime: input.oldScheduledAt?.toISOString(),
+      previousRoundName: roundProgression.previousRoundName,
+      previousRoundNumber: roundProgression.previousRoundNumber,
+      responseTime:
+        input.type === "human_invitation_accepted" || input.type === "human_invitation_declined"
+          ? now.toISOString()
+          : undefined,
+      roundName: row.roundName,
+      schemaVersion: 1 as const,
+      suggestedAction: input.suggestedAction,
+      supportContact: row.initiatorEmail ?? undefined,
+      timeZone: "Asia/Shanghai",
+    };
+    await enqueuePreparedInterviewNotificationEvent(tx, {
+      actorUserId: input.actorUserId,
+      dedupeKey: buildInterviewNotificationDedupeKey({
+        discriminator: input.dedupeDiscriminator
+          ? `${row.interviewRecordId}:${input.dedupeDiscriminator}`
+          : row.interviewRecordId,
+        scopeId: input.meetingId,
+        type: input.type,
+        version: input.scheduleVersion,
+      }),
+      humanMeetingId: input.meetingId,
+      humanRoundId: row.humanRoundId,
+      interviewRecordId: row.interviewRecordId,
+      organizationId: row.organizationId,
+      payloadSnapshot,
+      scopeType: "human_meeting",
+      type: input.type,
+    });
+
+    const shouldScheduleReminders =
+      input.type === "human_interview_confirmed" ||
+      (input.type === "human_interview_rescheduled" && row.candidateInviteStatus === "accepted");
+    if (!shouldScheduleReminders) {
+      continue;
+    }
+    for (const reminder of buildHumanInterviewReminderSchedule(row.scheduledAt, now)) {
+      const reminderType: InterviewNotificationEventType = "human_interview_reminder";
+      await enqueuePreparedInterviewNotificationEvent(tx, {
+        actorUserId: input.actorUserId,
+        availableAt: reminder.availableAt,
+        dedupeKey: buildInterviewNotificationDedupeKey({
+          discriminator: `${row.interviewRecordId}:${reminder.offsetMinutes}`,
+          scopeId: input.meetingId,
+          type: reminderType,
+          version: input.scheduleVersion,
+        }),
+        humanMeetingId: input.meetingId,
+        humanRoundId: row.humanRoundId,
+        interviewRecordId: row.interviewRecordId,
+        nextAttemptAt: reminder.availableAt,
+        organizationId: row.organizationId,
+        payloadSnapshot: {
+          ...payloadSnapshot,
+          reminderLeadTime: reminder.offsetMinutes === 1440 ? "24 小时" : "1 小时",
+        },
+        scopeType: "human_meeting",
+        type: reminderType,
+      });
+    }
+  }
+}
+
+// Resolves the report's schedule context before enqueueing so delivery never depends on mutable interview rows later.
+// 入队前解析报告对应的场次上下文，避免后续投递依赖可变的面试记录。
+export async function enqueueAiReportReadyEvent(
+  tx: Transaction,
+  input: { conversationId: string; interviewRecordId: string },
+) {
+  const [context] = await tx
+    .select({
+      candidateName: recruitingRecordReadModel.candidateName,
+      configuredCompanyName: globalConfig.companyName,
+      createdBy: aiInterviewRound.createdBy,
+      initiatorName: user.name,
+      jobName: sql<
+        string | null
+      >`coalesce(${jobDescription.name}, ${recruitingRecordReadModel.targetRole})`,
+      organizationId: recruitingRecordReadModel.organizationId,
+      organizationSlug: organization.slug,
+      roundLabel: aiInterviewRound.roundLabel,
+      scheduleEntryId: aiInterviewConversation.aiRoundId,
+      workspaceName: organization.name,
+    })
+    .from(aiInterviewConversation)
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(recruitingRecordReadModel.id, aiInterviewConversation.recruitingRecordId),
+    )
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, recruitingRecordReadModel.jobDescriptionId),
+        eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
+      ),
+    )
+    .innerJoin(aiInterviewRound, eq(aiInterviewRound.id, aiInterviewConversation.aiRoundId))
+    .innerJoin(organization, eq(organization.id, recruitingRecordReadModel.organizationId))
+    .leftJoin(
+      globalConfig,
+      eq(globalConfig.organizationId, recruitingRecordReadModel.organizationId),
+    )
+    .leftJoin(user, eq(user.id, aiInterviewRound.createdBy))
+    .where(eq(aiInterviewConversation.conversationId, input.conversationId))
+    .limit(1);
+
+  if (!context?.scheduleEntryId) {
+    throw new Error("AI 报告通知事件缺少面试上下文。");
+  }
+  return enqueuePreparedInterviewNotificationEvent(tx, {
+    actorUserId: context.createdBy,
+    conversationId: input.conversationId,
+    dedupeKey: buildInterviewNotificationDedupeKey({
+      discriminator: input.conversationId,
+      scopeId: context.scheduleEntryId,
+      type: "ai_report_ready",
+      version: 2,
+    }),
+    interviewRecordId: input.interviewRecordId,
+    organizationId: context.organizationId,
+    payloadSnapshot: {
+      candidateName: context.candidateName,
+      companyName: resolveInterviewNotificationCompanyName(
+        context.configuredCompanyName,
+        context.workspaceName,
+      ),
+      initiatorName: context.initiatorName ?? undefined,
+      interviewLink: reportUrl(context.scheduleEntryId, context.organizationSlug),
+      interviewType: "ai",
+      jobName: context.jobName ?? undefined,
+      roundName: context.roundLabel,
+      schemaVersion: 1,
+      timeZone: "Asia/Shanghai",
+    },
+    scheduleEntryId: context.scheduleEntryId,
+    scopeType: "ai_round",
+    type: "ai_report_ready",
+  });
+}

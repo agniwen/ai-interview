@@ -7,7 +7,7 @@ import type {
 import {
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
-} from "../../server/routes/meetings/transcription/provider";
+} from "../../routes/meetings/transcription/provider";
 import { MEETING_TRANSCRIPTION_BENCHMARK_MAX_TRANSCRIPT_CHARS } from "./dataset";
 import type { MeetingTranscriptionEvalCase } from "./dataset";
 import { scoreMeetingTranscription } from "./metrics";

@@ -207,22 +207,6 @@ function useShallowStable<V>(value: V, equal: (a: V & object, b: V & object) => 
 /*                                  Context                                   */
 /* -------------------------------------------------------------------------- */
 
-/** The pre-split shape, merged, so `useCascader()` returns what it always did. */
-export interface CascaderContextValue<T = unknown>
-  extends CascaderActionsContextValue<T>, CascaderStateContextValue<T> {}
-
-/**
- * The cascader's internals, typed for the caller's own item payload.
- * @deprecated Reads BOTH halves, so a caller re-renders on every keystroke.
- * Prefer `useCascaderActions()` or `useCascaderState()`. Kept for compat.
- */
-export function useCascader<T = unknown>(): CascaderContextValue<T> {
-  const actions = useCascaderActions<T>();
-  const state = useCascaderState<T>();
-
-  return React.useMemo(() => ({ ...actions, ...state }), [actions, state]);
-}
-
 /* -------------------------------------------------------------------------- */
 /*                              Headless selection                            */
 /* -------------------------------------------------------------------------- */
@@ -2623,25 +2607,13 @@ function CascaderList({ className, style, maxHeight: maxHeightProp, ...props }: 
 /*                              Empty / Loading                               */
 /* -------------------------------------------------------------------------- */
 
-export interface CascaderEmptyProps extends ComboboxPrimitive.Empty.Props {
-  /** @deprecated Ignored: the loading surface no longer draws skeletons. They
-   * promised a shape the level might not have and cost a second layout; the
-   * progress lives on the branch row instead. Kept so call sites compile. */
-  skeletonRows?: number;
-}
+export type CascaderEmptyProps = ComboboxPrimitive.Empty.Props;
 
 /** The empty, loading and error surface, in ONE element that never unmounts.
  * `Combobox.Empty` renders whenever `filteredItems.length === 0`, as true of a
  * fetching level as of an empty one, so swapping siblings would announce "No
  * results found." over every async level. Swap the CHILDREN. */
-function CascaderEmpty({
-  className,
-  children,
-  // Accepted and ignored; destructured so it is never spread onto the DOM.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  skeletonRows,
-  ...props
-}: CascaderEmptyProps) {
+function CascaderEmpty({ className, children, ...props }: CascaderEmptyProps) {
   const { labels, retryLevel } = useCascaderActions();
   const { query, path, searchState } = useCascaderState();
   // The level whose emptiness is on screen; tree always shows the root.

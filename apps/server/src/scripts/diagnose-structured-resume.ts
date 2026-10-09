@@ -10,9 +10,9 @@ import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-descrip
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { z } from "zod";
 import { loadServerEnv } from "../standalone/env";
-import type { StructuredResumeGenerator } from "../server/agents/structured-resume-evaluation";
+import type { StructuredResumeGenerator } from "../agents/structured-resume-evaluation";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
-import type { StructuredResumeWorkflowLogContext } from "../server/agents/mastra/workflows/structured-resume-review-workflow";
+import type { StructuredResumeWorkflowLogContext } from "../agents/mastra/workflows/structured-resume-review-workflow";
 import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
 import type { ArtifactAudit } from "./diagnose-structured-resume-audit";
 
@@ -208,7 +208,7 @@ function defaultOutputPath(candidateName: string): string {
 
 async function loadTargets(options: DiagnosticOptions): Promise<DiagnosticTarget[]> {
   const [{ db }, { jobDescription, organization }, { and, desc, eq }] = await Promise.all([
-    import("../lib/server/db"),
+    import("../infrastructure/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -428,16 +428,16 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     s3Module,
     fileHashModule,
   ] = await Promise.all([
-    import("../server/agents/structured-resume-evaluation"),
-    import("../server/agents/mastra/workflows/structured-resume-review-workflow"),
+    import("../agents/structured-resume-evaluation"),
+    import("../agents/mastra/workflows/structured-resume-review-workflow"),
     import("@app/ai-runtime/simple-generators"),
     import("@app/ai-runtime/models"),
-    import("../lib/server/resume-evaluation-input-hash"),
-    import("../lib/server/resume-parse-pipeline"),
-    import("../lib/server/resume-parse-pipeline-dependencies"),
-    import("../lib/server/resume-parse-provider"),
-    import("../server/agents/resume-analysis-agent"),
-    import("../server/agents/resume-parser-agent"),
+    import("../infrastructure/resume-evaluation-input-hash"),
+    import("../infrastructure/resume-parse-pipeline"),
+    import("../infrastructure/resume-parse-pipeline-dependencies"),
+    import("../infrastructure/resume-parse-provider"),
+    import("../agents/resume-analysis-agent"),
+    import("../agents/resume-parser-agent"),
     import("@app/object-storage"),
     import("@app/shared/file-hash"),
   ]);

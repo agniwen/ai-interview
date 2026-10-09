@@ -1,6 +1,6 @@
-import type { auth } from "../../lib/server/auth";
+import type { auth } from "../../infrastructure/auth";
 
 export type ServerAuth = typeof auth;
-export { pingDatabase } from "../../lib/server/db";
-export { createServerApp } from "../../server/app";
-export { initializeFeishuBots } from "../../server/integrations/feishu/bot";
+export { pingDatabase } from "../../infrastructure/db";
+export { createServerApp } from "../../app";
+export { initializeFeishuBots } from "../../integrations/feishu/bot";

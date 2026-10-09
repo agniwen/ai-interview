@@ -1,6 +1,6 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { processBatchItem } from "../../../studio/resume-upload-batches/utils/processor";
+import { processBatchItem } from "../../../recruiting/resume-upload-batches/utils/processor";
 
 const bulkResumeUploadInputSchema = z.object({
   bypassCache: z.boolean().optional(),

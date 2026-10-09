@@ -16,18 +16,18 @@ import {
   recruitingRecord,
   user,
 } from "@app/db-schema/schema";
-import { db } from "../lib/server/db/index";
+import { db } from "../infrastructure/db/index";
 import {
   createOfferDraft,
   sendOfferDraft,
   respondOfferDraft,
-} from "../server/routes/studio/routes/interviews/dao/offer-drafts";
+} from "../routes/studio/routes/interviews/dao/offer-drafts";
 import {
   createHumanInterviewRound,
   completeHumanInterviewRound,
   cancelHumanInterviewRound,
   editHumanInterviewRound,
-} from "../server/routes/studio/routes/interviews/dao/human-interview-rounds";
+} from "../routes/studio/routes/interviews/dao/human-interview-rounds";
 
 const suite = process.env.RECRUITING_TEST_DATABASE_URL ? describe : describe.skip;
 const orgId = `human-pipeline-${crypto.randomUUID()}`;

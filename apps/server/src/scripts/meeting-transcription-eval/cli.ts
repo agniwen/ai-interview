@@ -14,11 +14,11 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import pRetry from "p-retry";
 import { z } from "zod";
-import { MeetingProviderQuotaError } from "../../server/routes/meetings/transcription/provider";
+import { MeetingProviderQuotaError } from "../../routes/meetings/transcription/provider";
 import type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionProvider,
-} from "../../server/routes/meetings/transcription/provider";
+} from "../../routes/meetings/transcription/provider";
 import {
   MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS,
   assertMeetingTranscriptionFfmpegVersion,
@@ -26,9 +26,9 @@ import {
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
 } from "@app/meeting-media";
-import { createDeepgramMeetingTranscriptionProvider } from "../../server/routes/meetings/transcription/providers/deepgram";
-import { createOpenAiMeetingTranscriptionProvider } from "../../server/routes/meetings/transcription/providers/openai";
-import { createTingwuMeetingTranscriptionProvider } from "../../server/routes/meetings/transcription/providers/tingwu";
+import { createDeepgramMeetingTranscriptionProvider } from "../../routes/meetings/transcription/providers/deepgram";
+import { createOpenAiMeetingTranscriptionProvider } from "../../routes/meetings/transcription/providers/openai";
+import { createTingwuMeetingTranscriptionProvider } from "../../routes/meetings/transcription/providers/tingwu";
 import {
   inspectLocalBenchmarkAsset,
   verifyLocalBenchmarkAsset,

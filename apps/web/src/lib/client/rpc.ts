@@ -7,7 +7,7 @@ import {
   hcWithType,
 } from "@app/server/rpc-client";
 
-// 中文：前端访问 Hono API 的统一 RPC 入口。AppType 由 src/server/app.ts 派生，
+// 中文：前端访问 Hono API 的统一 RPC 入口。AppType 由 apps/server/src/app.ts 派生，
 // 路径形如 rpc.api.studio.interviews.$get(...)，第一段 `api` 对应 server 端
 // .route("/api", apiRoutes) 挂载点；URL 与调用形状一一对应。
 // 项目约定文件上传 (FormData/File)、流式 (SSE) 与二进制响应继续走
@@ -15,7 +15,7 @@ import {
 // JSON RPC 与特殊传输端点之间的清晰边界。
 //
 // English: Unified Hono RPC entry for frontend → /api/* JSON endpoints.
-// AppType is derived from src/server/app.ts; the call shape mirrors the URL,
+// AppType is derived from apps/server/src/app.ts; the call shape mirrors the URL,
 // e.g. rpc.api.studio.interviews.$get(...). The leading `api` segment is the
 // server-side mount in app.ts (.route("/api", apiRoutes)).
 //

@@ -4,15 +4,17 @@ AI Hiring Copilot 的 Hono 后端运行时。它拥有 HTTP/RPC 边界、认证�
 
 ## 职责
 
-- 在 `src/server/app.ts` 组合全局基础设施和业务路由，导出稳定的 `AppType` RPC 契约。
-- 在 `src/server/routes/` 按 URL 所属业务能力组织 Hono 垂直切片。
+- 在 `src/app.ts` 组合全局基础设施和业务路由，导出稳定的 `AppType` RPC 契约。
+- 在 `src/routes/` 按 URL 所属业务能力组织 Hono 垂直切片。
+- 在 `src/infrastructure/` 维护数据库连接、运行时适配和宿主数据库绑定 facade；可复用处理行为留在所属 workspace package。
+- 在 `src/http-context.ts` 声明 Hono 请求上下文类型。
 - 在 route-owned DAO 中执行持久化，在 `application/` 中承载可复用的完整业务动作。
 - 负责 Better Auth、工作区/权限中间件、队列投递、对象存储、AI 和第三方服务的服务端适配。
 - 通过 `./rpc-client`、`./web/runtime` 等显式出口向其它工作区包提供受控能力。
 
 ## 边界
 
-- `src/server/app.ts` 只做组合，不放 feature handler 或 feature middleware。
+- `src/app.ts` 只做组合，不放 feature handler 或 feature middleware。
 - 保持 `.route("/api", apiRoutes)`；不要改为 `.basePath("/api")`，否则 URL 和 `hc<AppType>` 类型会分叉。
 - Hono `Context`、`Request` 和 `Response` 不得进入 application 或 DAO。
 - 新的共享业务契约放 `@app/shared`；数据库 schema 放 `@app/db-schema`；可被 Worker 复用的处理流程放对应 `packages/*`。
@@ -20,7 +22,7 @@ AI Hiring Copilot 的 Hono 后端运行时。它拥有 HTTP/RPC 边界、认证�
 
 ## 修改与新增指南
 
-1. 先找到最接近的 URL owner：`src/server/routes/<capability>/`。
+1. 先找到最接近的 URL owner：`src/routes/<capability>/`。
 2. 新的真实子资源放 `routes/<child>/route.ts`；普通 collection/detail CRUD 留在同一 capability，可用 `collection-route.ts`、`detail-route.ts` 拆分。
 3. `route.ts` 负责验证、读取请求上下文、调用 DAO/application、映射稳定错误和显式状态码。
 4. 多步状态变更、事务、跨入口复用或副作用排序放 `application/<verb>.ts`；数据库原语放 `dao.ts` 或 `dao/`。

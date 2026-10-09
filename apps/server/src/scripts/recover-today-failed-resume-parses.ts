@@ -145,12 +145,12 @@ async function main(options: RecoveryOptions) {
     { closeResumeSemanticIndexQueue },
     { rollbackFailedResumeParseRetry },
   ] = await Promise.all([
-    import("../lib/server/db/index"),
+    import("../infrastructure/db/index"),
     import("@app/db-schema/schema"),
     import("@app/resume-parse-queue/resume-parse"),
     import("@app/resume-parse-queue/resume-review-generation"),
     import("@app/resume-parse-queue/resume-semantic-index"),
-    import("../server/routes/studio/routes/resume-upload-batches/dao/retry"),
+    import("../routes/studio/routes/resume-upload-batches/dao/retry"),
   ]);
 
   const { from, to } = chinaDateWindow(options.date);
@@ -380,7 +380,7 @@ async function main(options: RecoveryOptions) {
 
     if (direct && claimedJobs.length > 0) {
       const processorModule =
-        await import("../server/routes/studio/routes/resume-upload-batches/utils/processor");
+        await import("../routes/studio/routes/resume-upload-batches/utils/processor");
       const processor = processorModule.createResumeUploadBatchProcessor(
         processorModule.defaultResumeUploadBatchProcessorDependencies,
       );

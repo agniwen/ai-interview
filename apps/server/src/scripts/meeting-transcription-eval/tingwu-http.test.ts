@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MeetingProviderQuotaError } from "../../server/routes/meetings/transcription/provider";
+import { MeetingProviderQuotaError } from "../../routes/meetings/transcription/provider";
 import { createTingwuHttpClient, signAlibabaCloudRequest } from "./tingwu-http";
 
 describe("Tingwu benchmark HTTP client", () => {

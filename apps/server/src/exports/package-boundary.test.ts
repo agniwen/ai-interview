@@ -75,6 +75,11 @@ describe("@app/server package boundary", () => {
     expect(packageJson.imports).toBeUndefined();
     expect(Object.keys(packageJson.exports).some((key) => key.includes("*"))).toBe(false);
     expect(JSON.stringify(packageJson.exports)).not.toContain("*");
+    const privateEntryPattern =
+      /^\.\/(?:server|lib|src|routes|infrastructure|access|context|agents|integrations|middlewares|interview-notifications)(?:\/|$)/;
+    expect(Object.keys(packageJson.exports).filter((key) => privateEntryPattern.test(key))).toEqual(
+      [],
+    );
   });
 
   it("does not re-export capabilities already owned by the Worker", () => {
@@ -88,11 +93,13 @@ describe("@app/server package boundary", () => {
   });
 
   it("keeps internal server paths private from web and worker", () => {
-    const violations = ["apps/web/src", "apps/web/server", "apps/worker/src"].flatMap(
+    const violations = ["apps/web/src", "apps/web/nitro", "apps/worker/src"].flatMap(
       (relativeDirectory) =>
         sourceFiles(path.join(repoRoot, relativeDirectory)).flatMap((file) => {
           const source = readFileSync(file, "utf-8");
-          return /@app\/server\/(?:server|lib\/server)\//.test(source)
+          return /@app\/server\/(?:server|lib\/server|routes|infrastructure|access|context|agents|integrations|middlewares|interview-notifications)(?:\/|["'])/.test(
+            source,
+          )
             ? [path.relative(repoRoot, file)]
             : [];
         }),
@@ -136,7 +143,7 @@ describe("@app/server package boundary", () => {
         "utf-8",
       );
       const routeSource = readFileSync(
-        path.join(serverRoot, `src/server/routes/studio/routes/${capability}/route.ts`),
+        path.join(serverRoot, `src/routes/studio/routes/${capability}/route.ts`),
         "utf-8",
       );
 

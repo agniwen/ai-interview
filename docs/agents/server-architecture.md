@@ -2,17 +2,17 @@
 
 Read before changing Hono routes, middleware, application verbs, persistence ownership, or Server/Worker integration. Paths below are relative to the repository root. Read [runtime boundaries](runtime-boundaries.md) when imports or transport contracts change.
 
-## Server Route Layout (`apps/server/src/server/routes/`)
+## Server Route Layout (`apps/server/src/routes/`)
 
 ### Intent
 
 Organize backend code as route-owned vertical slices, while keeping Hono as the transport boundary and complete business actions reusable outside HTTP. The structure should make a capability easy to find from its URL without coupling business behavior to `Hono.Context`.
 
-Apply these boundaries incrementally to the behavior being added or changed. Preserve external APIs, database behavior, and business semantics; do not perform repository-wide directory moves merely for symmetry. A coherent, reversible extraction of one complete application verb is preferred over a rigid global module migration.
+Apply these boundaries incrementally to the behavior being added or changed. Preserve external APIs, database behavior, and business semantics; repository-wide naming or layout governance requires explicit user authorization. For such an authorized refactor, preserve contracts and dependency direction, migrate paths coherently, and verify each affected runtime. A coherent, reversible extraction of one complete application verb is preferred over a rigid global module migration.
 
 ### Composition and middleware
 
-- `apps/server/src/server/app.ts` is the single composition root. It may own global infrastructure concerns such as logging, CORS, Better Auth integration, error handling, and mounting, but it must not contain feature handlers or feature-specific middleware.
+- `apps/server/src/app.ts` is the single composition root. It may own global infrastructure concerns such as logging, CORS, Better Auth integration, error handling, and mounting, but it must not contain feature handlers or feature-specific middleware. Request context types live in `apps/server/src/http-context.ts`.
 - Keep `.route("/api", apiRoutes)`. Do not replace it with `.basePath("/api")`; the `/api` segment must remain present in both the real URL and the inferred `hc<AppType>` client shape (`rpc.api.*`).
 - Aggregator routers such as `/w/:slug` and `/studio` only apply middleware shared by all descendants and mount child routers.
 - Declare middleware with `.use(...)` at the closest common ancestor of every path it protects. Workspace authentication/scope belongs at `/w/:slug`; a feature permission shared by only that feature belongs in that feature router.
@@ -93,8 +93,8 @@ Hono route / Worker / script
 - New cross-capability mutations call the owning capability's application API instead of reaching into its DAO. Shared read projections may be exported deliberately by the owner when that is the smallest useful boundary.
 - Existing cross-route DAO imports may remain until the affected behavior is intentionally extracted. Do not turn a local change into a repository-wide dependency rewrite.
 - This convention does not impose one-table-one-module ownership. When a business verb legitimately spans several tables or existing capabilities, preserve that complete verb and its transaction rather than splitting it to satisfy directory ownership.
-- Do not create top-level `apps/server/src/server/queries/`, `services/`, `controllers/`, or `repositories/` directories. They flatten business ownership into technical layers. Keep code with the capability that owns the behavior.
-- `apps/server/src/server/agents/` and `apps/server/src/server/middlewares/` are intentional root-level shared libraries. Provider integrations shared across routes and runtime adapters live under `apps/server/src/server/integrations/`; the interview-notification workflow shared by the API and Worker lives under `apps/server/src/server/interview-notifications/`. Other root-level sharing requires evidence that it serves multiple capabilities without owning one capability's business workflow.
+- Do not create top-level `apps/server/src/queries/`, `services/`, `controllers/`, or `repositories/` directories. They flatten business ownership into technical layers. Keep code with the capability that owns the behavior.
+- `apps/server/src/agents/` and `apps/server/src/middlewares/` are intentional root-level shared libraries. Provider integrations shared across routes and runtime adapters live under `apps/server/src/integrations/`; the interview-notification workflow shared by the API and Worker lives under `apps/server/src/interview-notifications/`. Other root-level sharing requires evidence that it serves multiple capabilities without owning one capability's business workflow.
 
 ### Runtime and compatibility guardrails
 

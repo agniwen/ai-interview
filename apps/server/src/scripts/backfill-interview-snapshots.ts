@@ -7,7 +7,7 @@ import {
   recruitingEvidenceSnapshot,
   aiInterviewRound,
 } from "@app/db-schema/schema";
-import type { Database } from "../lib/server/db/index";
+import type { Database } from "../infrastructure/db/index";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export type InterviewSnapshotBackfillTarget = "all" | "context" | "evidence";
@@ -293,11 +293,11 @@ async function loadInterviewSnapshotBackfillRecords(
 
 export async function backfillInterviewSnapshots(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("../lib/server/db/index");
+  const { closeDatabase, db } = await import("../infrastructure/db/index");
   const { createInterviewEvidenceSnapshot } =
-    await import("../server/routes/agent/utils/evidence-snapshot");
+    await import("../routes/agent/utils/evidence-snapshot");
   const { createInterviewContextSnapshot } =
-    await import("../server/routes/studio/routes/interviews/dao/context-snapshots");
+    await import("../routes/studio/routes/interviews/dao/context-snapshots");
   const target = parseInterviewSnapshotBackfillTarget(
     process.env.BACKFILL_INTERVIEW_SNAPSHOTS_TARGET,
   );
