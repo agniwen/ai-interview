@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  DetailTitleSkeleton,
+  DetailHeaderSkeleton,
+  DetailBodySkeleton,
+  InterviewResultFramesSkeleton,
+} from "./studio-person-detail-skeletons";
+
 // 弹窗形态的候选人详情入口。所有业务渲染都在 StudioPersonDetailPanel 里;
 // 这里只把 panel 的 5 个 slot 喂给 <Modal>,保持现有调用方 API 不变。
 //
@@ -8,10 +15,7 @@
 // component's external API is unchanged for existing call sites.
 
 import { Modal } from "@/components/ui/modal";
-import {
-  LazyStudioPersonDetailPanel as StudioPersonDetailPanel,
-  StudioPersonDetailPanelFallback,
-} from "./lazy-studio-person-detail-panel";
+import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "./lazy-studio-person-detail-panel";
 import type { StudioPersonDetailMode, StudioPersonDetailTab } from "./studio-person-detail-panel";
 
 export function StudioPersonDetailDialog({
@@ -80,10 +84,24 @@ export function StudioPersonDetailDialog({
             onOpenChange={onOpenChange}
             onOpenChangeComplete={onOpenChangeComplete}
             open
-            size={mode === "resume" ? "2xl" : "full"}
-            title={mode === "resume" ? "候选人详情" : "AI初面详情"}
+            size={mode === "resume" ? "3xl" : "full"}
+            className="sm:rounded-2xl"
+            headerClassName="pb-0"
+            headerExtra={<DetailHeaderSkeleton mode={mode} />}
+            title={
+              <>
+                <span className="sr-only">候选人详情正在加载</span>
+                <DetailTitleSkeleton />
+              </>
+            }
           >
-            <StudioPersonDetailPanelFallback />
+            <output aria-busy="true" aria-label="候选人详情正在加载" className="block">
+              {mode === "interview" ? (
+                <InterviewResultFramesSkeleton />
+              ) : (
+                <DetailBodySkeleton mode={mode} />
+              )}
+            </output>
           </Modal>
         ) : null
       }
@@ -112,6 +130,7 @@ export function StudioPersonDetailDialog({
           description={description}
           footer={mode === "resume" ? footer : undefined}
           headerExtra={headerExtra}
+          headerClassName="pb-0"
           onOpenChange={onOpenChange}
           onOpenChangeComplete={onOpenChangeComplete}
           open={open}

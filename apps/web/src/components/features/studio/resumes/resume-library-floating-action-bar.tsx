@@ -3,7 +3,7 @@
 import { IconTrash } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { cossWhisperShadowClass } from "@/components/ui/coss-style";
+import { FloatingBar } from "@/components/ui/floating-bar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ResumeLibraryFloatingActionBarProps {
@@ -30,9 +30,7 @@ export function ResumeLibraryFloatingActionBar({
           initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
         >
-          <div
-            className={`pointer-events-auto flex items-center gap-2 rounded-md border border-border/50 bg-background/80 bg-clip-padding p-1 backdrop-blur-lg ${cossWhisperShadowClass}`}
-          >
+          <FloatingBar className="flex items-center gap-2 p-1">
             <span className="select-none whitespace-nowrap px-2.5 text-sm text-muted-foreground">
               已选择 {selectedCount} 条
             </span>
@@ -54,7 +52,7 @@ export function ResumeLibraryFloatingActionBar({
                 <TooltipContent>{disabledReason}</TooltipContent>
               ) : null}
             </Tooltip>
-          </div>
+          </FloatingBar>
         </m.div>
       ) : null}
     </AnimatePresence>

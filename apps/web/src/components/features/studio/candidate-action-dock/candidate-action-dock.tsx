@@ -3,10 +3,11 @@
 import { createContext, useContext, useReducer, useState, useEffect, useRef } from "react";
 import type { ReactNode, Dispatch } from "react";
 import { LazyMotion, MotionContext, domMax, m, useReducedMotion } from "motion/react";
-import { cn } from "@app/shared/utils";
-import { DETAIL_PAGE_FLOATING_ACTION_CLASS } from "../studio-person-detail-model";
+import { FloatingBar } from "@/components/ui/floating-bar";
 import { dockReducer } from "./action-flow-state";
 import type { DockEvent, CandidateActionId } from "./action-flow-state";
+
+const MotionFloatingBar = m.create(FloatingBar);
 
 export const DOCK_LAYOUT_DURATION = 0.32;
 
@@ -90,17 +91,14 @@ export function CandidateActionDock({
             bottom: "calc(2.5rem + env(safe-area-inset-bottom) + var(--dock-keyboard-inset, 0px))",
           }}
         >
-          <m.div
+          <MotionFloatingBar
             layout={!reduceMotion}
             layoutAnchor={{ x: 0.5, y: 1 }}
             style={{ originX: 0.5, originY: 1 }}
             transition={{
               layout: { duration: DOCK_LAYOUT_DURATION, ease: [0.22, 1, 0.36, 1], type: "tween" },
             }}
-            className={cn(
-              "pointer-events-auto w-full max-w-full overflow-hidden rounded-xl md:w-auto md:rounded-md",
-              DETAIL_PAGE_FLOATING_ACTION_CLASS,
-            )}
+            className="w-full max-w-full overflow-hidden [--floating-bar-inset:0.5rem] md:w-auto md:[--floating-bar-inset:0.25rem]"
             data-slot="candidate-action-dock"
             data-expanded={Boolean(state.active)}
           >
@@ -111,7 +109,7 @@ export function CandidateActionDock({
             ) : null}
             <DockToolbar active={state.active !== null}>{children}</DockToolbar>
             <div ref={setTarget} />
-          </m.div>
+          </MotionFloatingBar>
         </m.div>
       </DockContext.Provider>
     </LazyMotion>

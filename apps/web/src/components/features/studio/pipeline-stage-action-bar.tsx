@@ -48,6 +48,7 @@ export interface PipelineStageActionBarProps {
   // 真人复面是否全部 completed。
   // Whether all human interview rounds are done.
   humanInterviewDone?: boolean;
+  hasUnfinishedHumanInterview?: boolean;
   // 已完成真人复面是否都填写了评价。
   // Whether every completed human interview round has feedback.
   humanInterviewFeedbackComplete?: boolean;
@@ -85,6 +86,7 @@ export function PipelineStageActionBar({
   canCreateOffer = true,
   hasJobDescription = true,
   humanInterviewDone,
+  hasUnfinishedHumanInterview,
   humanInterviewFeedbackComplete,
   aiRoundReset,
   aiRoundInterviewLink,
@@ -124,6 +126,7 @@ export function PipelineStageActionBar({
     canCreateOffer,
     currentNodePassed,
     hasJobDescription,
+    hasUnfinishedHumanInterview,
     humanInterviewDone,
     humanInterviewFeedbackComplete,
     isAdvancing,
@@ -442,6 +445,7 @@ function getStageActions(props: {
   hasJobDescription: boolean;
   humanInterviewFeedbackComplete?: boolean;
   humanInterviewDone?: boolean;
+  hasUnfinishedHumanInterview?: boolean;
   isAdvancing: boolean;
   isBusy: boolean;
   onAdvance: (target: PipelineStage) => void | Promise<void>;
@@ -486,6 +490,12 @@ function getStageActions(props: {
   let disabledReason: string | null = null;
   if (!allowed) {
     disabledReason = `请先完成${pipelineStageMeta[pipelineStage].label}并确认通过`;
+  }
+  if (
+    (pipelineStage === "second_interview" || pipelineStage === "final_interview") &&
+    props.hasUnfinishedHumanInterview
+  ) {
+    disabledReason = "当前面试尚未完成，请先完成面试并提交评价，或取消该面试";
   }
   if (isHumanTarget && !props.hasJobDescription) {
     disabledReason = "请先绑定在招岗位";

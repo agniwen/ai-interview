@@ -180,7 +180,7 @@ export function InterviewResultFrame({
           />
         </div>
         <MarkdownView
-          className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6"
+          className="mt-5 border-border/50 border-t pt-5 text-foreground text-sm leading-6"
           content={compactText(
             evaluationSummary.overallAssessment ?? report?.transcriptSummary ?? null,
             "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",

@@ -28,7 +28,7 @@ export function ResumeOverviewPanel({
   slug?: string;
 }) {
   return (
-    <div className="space-y-8">
+    <div className="flex min-w-0 flex-col gap-10">
       <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
 
       <ResumeOverviewCandidateInfoSection
@@ -38,7 +38,7 @@ export function ResumeOverviewPanel({
         slug={slug}
       />
 
-      <section className="border-t border-border/50 pt-6">
+      <section className="border-t border-border/50 pt-8">
         <ResumeProfileView
           profile={detail.resumeProfile ?? null}
           showBasicInfo={false}

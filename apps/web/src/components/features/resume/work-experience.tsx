@@ -1,5 +1,4 @@
 "use client";
-import { IconBriefcase2, IconInfinity } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- registry component keeps public component exports above local helpers. */
 
 import dayjs from "dayjs";
@@ -7,10 +6,7 @@ import type { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
 import { MarkdownView } from "@/components/features/display/markdown-view";
-import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@app/shared/utils";
 
 dayjs.extend(customParseFormat);
@@ -77,16 +73,18 @@ export function scrollToWorkExperienceCompany(root: ParentNode | null, companyNa
 
 export function WorkExperience({ className, experiences }: WorkExperienceProps) {
   return (
-    <div
-      className={cn(
-        "relative  px-4 text-foreground",
-        experiences.length > 1 &&
-          "before:absolute before:top-7 before:bottom-7 before:left-7 before:w-px before:bg-border",
-        className,
-      )}
-    >
+    <div className={cn("flex min-w-0 flex-col gap-8", className)}>
       {experiences.map((experience) => (
-        <ExperienceItem experience={experience} key={experience.id} />
+        <section
+          className="flex scroll-mt-20 flex-col gap-8 pb-8 last:pb-0"
+          data-company-name={experience.companyName}
+          data-slot="work-experience-company"
+          key={experience.id}
+        >
+          {experience.positions.map((position) => (
+            <ExperiencePositionItem experience={experience} key={position.id} position={position} />
+          ))}
+        </section>
       ))}
     </div>
   );
@@ -96,166 +94,79 @@ export interface ExperienceItemProps {
   experience: ExperienceItemType;
 }
 
-function ExperienceItem({ experience }: ExperienceItemProps) {
-  return (
-    <div
-      className="relative flex scroll-mt-16 flex-col gap-4 py-4"
-      data-company-name={experience.companyName}
-      data-slot="work-experience-company"
-    >
-      <div className="not-prose flex items-center gap-3">
-        <div className="relative z-[1] flex size-6 shrink-0 items-center justify-center bg-background">
-          {experience.companyLogo ? (
-            // oxlint-disable-next-line next/no-img-element -- Company logos can be arbitrary external URLs; next/image would require tenant-specific allowlists.
-            <img
-              alt={experience.companyName}
-              aria-hidden
-              className="size-6 rounded-full"
-              src={experience.companyLogo}
-            />
-          ) : (
-            <span
-              aria-hidden
-              className="flex size-6 items-center justify-center rounded-full border border-border bg-muted/60 font-medium text-[10px] text-muted-foreground"
-            >
-              {experience.companyName.slice(0, 1).toUpperCase()}
-            </span>
-          )}
-        </div>
-
-        <h3 className="font-semibold text-lg leading-snug">
-          {experience.companyWebsite ? (
-            <a
-              className="link"
-              href={experience.companyWebsite}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {experience.companyName}
-            </a>
-          ) : (
-            experience.companyName
-          )}
-        </h3>
-
-        {experience.isCurrentEmployer && (
-          <span aria-label="Current Employer" className="relative flex items-center justify-center">
-            <span className="absolute inline-flex size-3 animate-ping rounded-full bg-sky-500 opacity-50" />
-            <span className="relative inline-flex size-2 rounded-full bg-sky-500" />
-          </span>
-        )}
-      </div>
-      <div className="relative flex flex-col gap-4 before:absolute before:left-3 before:h-full before:w-px before:bg-border">
-        {experience.positions.map((position) => (
-          <ExperiencePositionItem key={position.id} position={position} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export interface ExperiencePositionItemProps {
   position: ExperiencePositionItemType;
 }
 
-function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
+function ExperiencePositionItem({
+  experience,
+  position,
+}: ExperienceItemProps & ExperiencePositionItemProps) {
   const { end, start } = position.employmentPeriod;
-  const isOngoing = !end;
   const duration = formatWorkExperienceDuration(start, end);
 
   return (
-    <Collapsible
-      defaultOpen={position.isExpanded}
-      disabled={!position.description}
-      render={<div className="relative" />}
-    >
-      <CollapsibleTrigger
-        className={cn(
-          "group/experience-position not-prose block w-full text-left select-none",
-          "relative before:absolute before:-top-1 before:-right-1 before:-bottom-1.5 before:left-7 before:rounded-lg hover:before:bg-muted/30",
-          "data-disabled:before:content-none",
-        )}
+    <article className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)] gap-x-4 sm:grid-cols-[3rem_minmax(0,1fr)] sm:gap-x-5">
+      <div
+        aria-hidden="true"
+        className="flex size-10 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/40 text-base font-medium text-muted-foreground sm:size-12"
       >
-        <div className="relative z-[1] mb-1 flex items-start gap-3 text-base">
-          <div
-            className={cn(
-              "flex size-6 shrink-0 items-center justify-center rounded-lg",
-              "border border-muted-foreground/15 bg-muted text-muted-foreground ring-1 ring-border ring-offset-1 ring-offset-background",
-              "[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-            )}
-          >
-            {position.icon ?? <IconBriefcase2 />}
-          </div>
-
-          <h4 className="flex-1 text-balance font-medium text-foreground">{position.title}</h4>
-
-          <div className="shrink-0 text-muted-foreground group-disabled/experience-position:hidden [&_svg]:h-lh [&_svg]:w-4">
-            <ChevronsUpDownIcon />
-          </div>
-        </div>
-
-        <dl className="relative z-[1] flex items-center gap-2 pl-9 text-muted-foreground text-sm">
-          {position.employmentType && (
-            <>
-              <div>
-                <dt className="sr-only">Employment Type</dt>
-                <dd>{position.employmentType}</dd>
-              </div>
-
-              <Separator
-                className="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
-                orientation="vertical"
-              />
-            </>
-          )}
-
-          <div>
-            <dt className="sr-only">Employment Period</dt>
-            <dd className="flex items-center gap-0.5 tabular-nums">
-              <span>{start}</span>
-              <span className="font-mono">—</span>
-              {isOngoing ? (
-                <IconInfinity aria-label="Present" className="size-4.5 translate-y-[0.5px]" />
+        {experience.companyLogo ? (
+          // oxlint-disable-next-line next/no-img-element -- Company logos are tenant-provided URLs.
+          <img alt="" className="size-full object-contain" src={experience.companyLogo} />
+        ) : (
+          experience.companyName.slice(0, 1).toUpperCase()
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-4">
+        <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h3 className="wrap-break-word text-base font-semibold leading-6">{position.title}</h3>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-6">
+              {experience.companyWebsite ? (
+                <a
+                  className="underline-offset-4 hover:underline"
+                  href={experience.companyWebsite}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {experience.companyName}
+                </a>
               ) : (
-                <span>{end}</span>
+                <span>{experience.companyName}</span>
               )}
-            </dd>
+              {position.employmentType ? (
+                <span className="text-muted-foreground">{position.employmentType}</span>
+              ) : null}
+              {!end && experience.isCurrentEmployer ? (
+                <Badge variant="secondary">在职</Badge>
+              ) : null}
+            </div>
           </div>
-
-          {duration && (
-            <>
-              <Separator
-                className="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
-                orientation="vertical"
-              />
-              <div>
-                <dt className="sr-only">Duration</dt>
-                <dd className="tabular-nums">{duration}</dd>
-              </div>
-            </>
-          )}
-        </dl>
-      </CollapsibleTrigger>
-
-      <CollapsibleContent className="overflow-hidden">
-        {position.description && (
+          <div className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-sm leading-6 text-muted-foreground tabular-nums sm:flex-col sm:items-end">
+            <span>
+              {start} — {end ?? "至今"}
+            </span>
+            {duration ? <span>{duration}</span> : null}
+          </div>
+        </header>
+        {position.description ? (
           <MarkdownView
-            className="pt-2 pl-9 text-muted-foreground [&_a]:text-foreground [&_strong]:text-foreground"
+            className="text-foreground [&_li]:leading-7 [&_li+li]:mt-2 [&_a]:text-foreground [&_strong]:text-foreground"
             content={position.description}
           />
-        )}
-      </CollapsibleContent>
-
-      {Array.isArray(position.skills) && position.skills.length > 0 && (
-        <ul className="not-prose flex flex-wrap gap-1.5 pt-3 pl-9">
-          {position.skills.map((skill, index) => (
-            <li className="flex" key={`${position.id}-skill-${index}`}>
-              <Badge variant="outline">{skill}</Badge>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Collapsible>
+        ) : null}
+        {position.skills && position.skills.length > 0 ? (
+          <ul className="flex flex-wrap gap-2">
+            {position.skills.map((skill, index) => (
+              <li key={`${position.id}-skill-${index}`}>
+                <Badge variant="outline">{skill}</Badge>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </article>
   );
 }
 

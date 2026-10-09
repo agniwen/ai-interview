@@ -9,7 +9,7 @@ import {
 } from "@app/shared/resume-experience";
 import { cn } from "@app/shared/utils";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
-import { DataField } from "@/components/features/display/data-field";
+import { CandidateInfoField as DataField } from "@/components/features/candidate/candidate-info-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
@@ -155,8 +155,8 @@ function ChipList({ items }: { items: string[] }) {
 
 function ResumeProfileSection({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className=" border-border/50 pt-6">
-      <h4 className="mb-3 font-medium text-sm">{title}</h4>
+    <section className="flex min-w-0 flex-col gap-6">
+      <h4 className="font-semibold text-base">{title}</h4>
       {children}
     </section>
   );
@@ -186,7 +186,7 @@ function EducationExperienceList({
           return (
             <FramePanel
               className={cn(
-                "flex min-w-64 flex-none flex-col whitespace-nowrap p-3",
+                "flex min-w-64 flex-none flex-col gap-2 whitespace-nowrap p-5",
                 educationExperiences.length > 1 &&
                   index === 0 &&
                   "rounded-r-[2px] before:rounded-r-[1px]",
@@ -213,7 +213,7 @@ function EducationExperienceList({
                 majorLayout="block"
               />
               {isPresent(education.summary) ? (
-                <p className="mt-1 whitespace-nowrap text-muted-foreground text-sm">
+                <p className="mt-1 whitespace-nowrap text-foreground text-sm">
                   {education.summary}
                 </p>
               ) : null}
@@ -265,9 +265,9 @@ export function ResumeProfileView({
   const schools = profile.schools.filter(isPresent);
 
   return (
-    <div className="space-y-8">
+    <div className="flex min-w-0 flex-col gap-10">
       {showBasicInfo ? (
-        <DataFields columns={2} density="compact">
+        <DataFields columns={2} density="relaxed">
           <ResumeProfileBasicFields profile={profile} />
         </DataFields>
       ) : null}
@@ -282,22 +282,12 @@ export function ResumeProfileView({
         <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
 
-      {educationExperiences.length > 0 || schools.length > 0 ? (
-        <ResumeProfileSection title="教育经历">
-          {educationExperiences.length > 0 ? (
-            <EducationExperienceList educationExperiences={educationExperiences} />
-          ) : (
-            <ChipList items={schools} />
-          )}
-        </ResumeProfileSection>
-      ) : null}
-
       {projectExperiences.length > 0 ? (
         <ResumeProfileSection title="项目经历">
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-6">
             {projectExperiences.map((proj) => (
               <li
-                className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
+                className="flex min-w-0 flex-col gap-3 py-2"
                 key={[
                   proj.name,
                   proj.role,
@@ -316,7 +306,7 @@ export function ResumeProfileView({
                   </span>
                 </div>
                 {isPresent(proj.summary) ? (
-                  <p className="mt-1 whitespace-pre-line text-muted-foreground text-sm">
+                  <p className="whitespace-pre-line text-foreground text-sm leading-7">
                     {proj.summary}
                   </p>
                 ) : null}
@@ -331,6 +321,16 @@ export function ResumeProfileView({
         </ResumeProfileSection>
       ) : null}
 
+      {educationExperiences.length > 0 || schools.length > 0 ? (
+        <ResumeProfileSection title="教育经历">
+          {educationExperiences.length > 0 ? (
+            <EducationExperienceList educationExperiences={educationExperiences} />
+          ) : (
+            <ChipList items={schools} />
+          )}
+        </ResumeProfileSection>
+      ) : null}
+
       <ResumeProfileSection title="掌握技能">
         <ChipList items={profile.skills} />
       </ResumeProfileSection>
@@ -339,7 +339,7 @@ export function ResumeProfileView({
         {profile.personalStrengths.length === 0 ? (
           <EmptyValue className="text-sm" />
         ) : (
-          <ul className="space-y-2 text-sm leading-6">
+          <ul className="flex flex-col gap-3 text-sm leading-7">
             {profile.personalStrengths.map((item) => (
               <li className="flex gap-2" key={item}>
                 <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />

@@ -2,11 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { cossWhisperShadowClass } from "@/components/ui/coss-style";
+import { FloatingBar } from "@/components/ui/floating-bar";
 import { InterviewFlowStepper } from "./interview-flow-stepper";
 import type { InterviewFlowStepId } from "./interview-flow-stepper";
-
-const FLOATING_FLOW_GLASS_CLASS = `relative border border-border/50 bg-background/80 bg-clip-padding backdrop-blur-lg ${cossWhisperShadowClass}`;
 
 export function InterviewFlowFloatingBar({
   actions,
@@ -21,9 +19,7 @@ export function InterviewFlowFloatingBar({
 }) {
   return (
     <div className="pointer-events-none fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom))]">
-      <div
-        className={`pointer-events-auto w-full max-w-[calc(100vw-2rem)] rounded-md p-1 md:w-fit ${FLOATING_FLOW_GLASS_CLASS}`}
-      >
+      <FloatingBar className="w-full max-w-[calc(100vw-2rem)] p-1 md:w-fit">
         <div className="flex justify-center px-3 pt-2 pb-2 md:hidden">
           <InterviewFlowStepper currentStep={currentStep} hasForms={hasForms} />
         </div>
@@ -48,7 +44,7 @@ export function InterviewFlowFloatingBar({
             {actions}
           </div>
         </div>
-      </div>
+      </FloatingBar>
     </div>
   );
 }

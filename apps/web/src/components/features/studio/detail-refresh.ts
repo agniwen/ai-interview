@@ -12,7 +12,10 @@ export function matchesDetailRefresh(
     if (key[3] !== input.recordId) {
       return false;
     }
-    if (key[2] === "timeline" || key[4] === "meetings") {
+    if (key[4] === "meetings") {
+      return false;
+    }
+    if (key[2] === "timeline") {
       return input.tab === "overview";
     }
     return key[2] === "detail";

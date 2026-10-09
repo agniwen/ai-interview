@@ -16,11 +16,8 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
 import { z } from "zod";
-import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
-
-export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/50 bg-background/70 bg-clip-padding backdrop-blur-xl backdrop-saturate-150 ${cossWhisperShadowClass}`;
 
 export type StudioPersonDetailMode = "interview" | "resume";
 export type StudioPersonDetailLayoutMode = "modal" | "page";

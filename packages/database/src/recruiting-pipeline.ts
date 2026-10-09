@@ -283,6 +283,16 @@ export async function transitionRecruitingNodeTx(
   for (const node of traversed) {
     const existing = nodes.find((row) => row.node === node);
     if (
+      (node === "second_interview" || node === "final_interview") &&
+      existing &&
+      ["scheduled", "in_progress", "awaiting_review"].includes(existing.status)
+    ) {
+      throw new RecruitingPipelineError(
+        "当前面试尚未完成，请先完成面试并提交评价，或取消该面试。",
+        "conflict",
+      );
+    }
+    if (
       !skipped.has(node) &&
       !(existing?.status === "completed" && existing.result === "pass") &&
       existing?.status !== "skipped"

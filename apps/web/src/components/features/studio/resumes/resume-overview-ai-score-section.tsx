@@ -188,7 +188,7 @@ export function ResumeOverviewAiScoreSection({
           </div>
           <div className="space-y-1.5">
             {conclusion ? <h4 className="font-semibold text-sm leading-6">{conclusion}</h4> : null}
-            <p className="text-muted-foreground text-sm leading-6">{scoreRationale}</p>
+            <p className="text-foreground text-sm leading-6">{scoreRationale}</p>
           </div>
           {onViewAiScore ? (
             <Button

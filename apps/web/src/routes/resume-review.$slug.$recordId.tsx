@@ -108,7 +108,7 @@ function ResumeReviewDetailContent({ recordId }: { recordId: string }) {
           recordId={recordId}
           shell={({ body, headerExtra, title }) => (
             <div className="flex flex-col gap-4">
-              <header className="flex flex-col gap-2 border-b pb-4">
+              <header className="flex flex-col gap-2 border-b">
                 <h1 className="font-semibold text-xl tracking-normal">{title}</h1>
                 <div className="min-w-0">{headerExtra}</div>
               </header>

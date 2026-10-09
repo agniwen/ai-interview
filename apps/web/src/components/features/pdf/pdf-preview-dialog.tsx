@@ -4,6 +4,7 @@ import { IconDownload, IconX } from "@tabler/icons-react";
 import { Component, Suspense, lazy, useEffect, useMemo, useState } from "react";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Modal } from "@/components/ui/modal";
 import type { PDFViewer as PDFViewerComponent } from "@/components/ui/pdf-viewer";
 
@@ -78,8 +79,8 @@ export function PdfPreviewDialog({
   downloadFileName,
   downloadUrl,
 }: PdfPreviewDialogProps) {
-  const [numPages, setNumPages] = useState(0);
-  const [activePage, setActivePage] = useState(1);
+  const isMobile = useIsMobile();
+  const [toolbarContainer, setToolbarContainer] = useState<HTMLDivElement | null>(null);
 
   const documentOptions = useMemo(
     () => ({
@@ -90,7 +91,6 @@ export function PdfPreviewDialog({
     [],
   );
 
-  const pageCountLabel = numPages ? `第 ${activePage} / ${numPages} 页` : "加载中…";
   const resolvedDownloadFileName = downloadFileName ?? filename ?? "resume.pdf";
 
   useEffect(() => {
@@ -100,18 +100,22 @@ export function PdfPreviewDialog({
   return (
     <Modal
       bodyClassName="min-h-0 overflow-hidden bg-muted/30 p-0"
-      className="h-[92dvh]"
-      description={pageCountLabel}
-      headerClassName="px-5 py-3"
+      fullScreen
+      headerClassName="md:px-3 md:py-2"
       headerLayout="row"
       onOpenChange={onOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
       open={open}
       showCloseButton={false}
       size="full"
-      title={filename ?? "简历预览"}
+      title={
+        <span className="block truncate text-sm font-medium" title={filename}>
+          {filename ?? "简历预览"}
+        </span>
+      }
       headerExtra={
         <div className="flex items-center gap-2">
+          <div className="hidden md:block" ref={setToolbarContainer} />
           <Button
             nativeButton={false}
             render={
@@ -139,32 +143,38 @@ export function PdfPreviewDialog({
         </div>
       }
     >
-      <PdfViewerErrorBoundary
-        key={url}
-        fallback={
-          <iframe
-            className="h-full w-full bg-background"
-            sandbox=""
-            src={url}
-            title={filename ?? "简历预览"}
-          />
-        }
-      >
-        <Suspense fallback={<PdfViewerLoading />}>
-          <PDFViewer
-            className="h-full"
-            defaultThumbnailSidebarOpen
-            defaultZoom={1}
-            documentOptions={documentOptions}
-            downloadFileName={resolvedDownloadFileName}
-            file={url}
-            onActivePageChange={setActivePage}
-            onDocumentLoadSuccess={setNumPages}
-            showDownload={false}
-            showUpload={false}
-          />
-        </Suspense>
-      </PdfViewerErrorBoundary>
+      <div className="h-full min-h-0" data-vaul-no-drag>
+        <PdfViewerErrorBoundary
+          key={url}
+          fallback={
+            <iframe
+              className="h-full w-full bg-background"
+              sandbox=""
+              src={url}
+              title={filename ?? "简历预览"}
+            />
+          }
+        >
+          <Suspense fallback={<PdfViewerLoading />}>
+            <PDFViewer
+              className="h-full"
+              defaultZoom={1}
+              documentOptions={documentOptions}
+              downloadFileName={resolvedDownloadFileName}
+              file={url}
+              enableModifierWheelZoom
+              enableTouchPinchZoom
+              fitWidthOnMobile
+              scrollFade
+              showRotateControlsOnMobile={false}
+              showSearchOnMobile={false}
+              toolbarContainer={isMobile ? undefined : toolbarContainer}
+              showDownload={false}
+              showUpload={false}
+            />
+          </Suspense>
+        </PdfViewerErrorBoundary>
+      </div>
     </Modal>
   );
 }

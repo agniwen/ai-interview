@@ -4,21 +4,44 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type DetailSkeletonMode = "interview" | "resume";
 
+export function DetailTitleSkeleton({ showId = false }: { showId?: boolean }) {
+  return (
+    <span aria-hidden="true" className="flex min-w-0 items-center gap-3">
+      <Skeleton className="size-14 shrink-0 rounded-full" />
+      <span className="flex min-w-0 flex-col gap-2">
+        <span className="flex items-center gap-2">
+          <Skeleton className="h-7 w-28" />
+          {showId ? <Skeleton className="h-4 w-24" /> : null}
+        </span>
+        <Skeleton className="h-4 w-36 max-w-full" />
+      </span>
+    </span>
+  );
+}
+
 export function DetailHeaderSkeleton({ mode }: { mode: DetailSkeletonMode }) {
   return (
-    <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex w-full gap-2 sm:w-auto">
-        <Skeleton className="h-9 flex-1 sm:w-20 sm:flex-none" />
-        {mode === "interview" ? (
-          <>
-            <Skeleton className="h-9 flex-1 sm:w-24 sm:flex-none" />
-            <Skeleton className="h-9 flex-1 sm:w-20 sm:flex-none" />
-          </>
-        ) : (
-          <Skeleton className="h-9 flex-1 sm:w-24 sm:flex-none" />
-        )}
+    <div
+      aria-hidden="true"
+      className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+    >
+      <div className="order-2 flex min-w-0 overflow-hidden pt-1 sm:order-1 sm:flex-1">
+        {["overview", "evaluation", "interview"].map((tab, index) => (
+          <div
+            className="relative flex h-[38px] w-[6em] shrink-0 items-center justify-center"
+            key={tab}
+          >
+            <Skeleton className="h-4 w-12" />
+            {index === 0 ? (
+              <Skeleton className="absolute inset-x-0 bottom-0 h-0.5 rounded-none" />
+            ) : null}
+          </div>
+        ))}
       </div>
-      <Skeleton className="h-9 w-full sm:w-28" />
+      <div className="order-1 flex shrink-0 gap-2 sm:order-2 sm:pb-1.5">
+        <Skeleton className="h-8 flex-1 sm:w-24 sm:flex-none" />
+        {mode === "resume" ? <Skeleton className="h-8 flex-1 sm:w-24 sm:flex-none" /> : null}
+      </div>
     </div>
   );
 }

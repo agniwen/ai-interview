@@ -229,7 +229,7 @@ export function CollectedCandidateInfoList({
               {item.analysis ? (
                 <div className="mt-3 space-y-1">
                   <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
-                  <p className="text-muted-foreground text-xs leading-5">{item.analysis}</p>
+                  <p className="text-foreground text-sm leading-6">{item.analysis}</p>
                 </div>
               ) : null}
             </div>
@@ -340,9 +340,9 @@ export function ResumeScreeningResultPanel({
                     </Badge>
                     <span className="font-medium text-sm">{rule.label}</span>
                   </div>
-                  <p className="mt-2 text-muted-foreground">{rule.reason}</p>
+                  <p className="mt-2 text-foreground">{rule.reason}</p>
                   {rule.evidence.length > 0 ? (
-                    <ul className="mt-2 space-y-1 text-muted-foreground text-xs">
+                    <ul className="mt-2 space-y-1 text-foreground text-sm">
                       {rule.evidence.slice(0, 2).map((evidence, index) => (
                         <li key={`${rule.ruleId}-${index}`}>
                           {evidence.quote ? `“${evidence.quote}”` : evidence.explanation}

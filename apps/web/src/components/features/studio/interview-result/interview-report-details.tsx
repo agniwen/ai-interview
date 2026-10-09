@@ -83,7 +83,7 @@ export function InterviewReportDetails({
             <div className="mb-4 border-border/50 border-b pb-4">
               <DetailRow label="结束原因" value={formatInterviewEndReason(report.metadata)} />
             </div>
-            <div className="text-muted-foreground text-sm leading-6">
+            <div className="text-foreground text-sm leading-6">
               <HighlightedText text={report.transcriptSummary ?? "暂无总结。"} />
             </div>
             {report.latestError ? (

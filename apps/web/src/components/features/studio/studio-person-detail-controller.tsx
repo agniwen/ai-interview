@@ -466,7 +466,6 @@ export function useStudioPersonDetailController({
     setMetadataReport,
     shell,
     showAgentInstructions,
-    showRecruitingMeetings: mode === "resume" && !isPublic && !isReview,
     showTimelineRail: header.showTimelineRail,
     slug,
     tabContentRootRef,

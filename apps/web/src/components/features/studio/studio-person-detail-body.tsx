@@ -1,7 +1,7 @@
 /* oxlint-disable no-explicit-any no-nested-ternary complexity -- tab body has explicit loading/empty/content branches. */
 "use client";
 
-import { IconArrowBackUp, IconLoader2 } from "@tabler/icons-react";
+import { IconArrowBackUp, IconLoader2, IconRobot } from "@tabler/icons-react";
 
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
@@ -11,15 +11,20 @@ import {
 } from "@/components/features/studio/resumes/resume-overview-panel";
 import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import { QualitativeResumeEvaluationPanel } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
-import { CandidateMeetingLinks } from "@/components/features/studio/resumes/candidate-meeting-links";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsContent } from "@/components/ui/tabs";
 import { cn } from "@app/shared/utils";
 
 import { OnboardingStagePanel } from "./onboarding-stage-panel";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
-import { HumanInitialInterviewPanel } from "./initial-interviews/human-initial-interview-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { CandidateDetailRail } from "./candidate-detail-rail";
 import { DetailBodySkeleton } from "./studio-person-detail-skeletons";
@@ -71,7 +76,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     canUseTimelineRailScroll,
     showTimelineRail,
     showAgentInstructions,
-    showRecruitingMeetings,
     tabContentRootRef,
     tabVisibilityRecord,
   } = model;
@@ -109,9 +113,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                   onViewAiScore={() => setActiveTab("ai-analysis")}
                   slug={model.slug}
                 />
-                {showRecruitingMeetings ? (
-                  <CandidateMeetingLinks candidateId={resumeRecord.id} slug={model.slug} />
-                ) : null}
               </>
             ) : (
               <InterviewResultTabContent
@@ -180,30 +181,21 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
           <TabsContent motion="page" value="rounds">
             <section className="flex flex-col gap-6">
-              {resumeRecord ? (
-                <HumanInitialInterviewPanel
-                  slug={model.slug}
-                  recordId={resumeRecord.id}
-                  stage={resumeRecord.pipelineStage}
-                  pipelineVersion={resumeRecord.version}
-                  effectiveVersionId={
-                    resumeRecord.nodeStates.find((node) => node.node === "ai_interview")
-                      ?.effectiveInitialInterviewVersionId
-                  }
-                  canManage={Boolean(model.canUpdateResumeLibrary)}
-                />
-              ) : null}
-              {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / result */}
-              {resumeRecord?.stageProgress
-                .initialInterview ? null : isResumeInterviewResultLoading ? (
+              {isResumeInterviewResultLoading ? (
                 <DetailBodySkeleton mode="interview" />
-              ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or result. */
-              candidateRounds.length === 0 &&
-                resumeRecord?.stageProgress.initialInterview ? null : candidateRounds.length ===
-                0 ? (
-                <p className="text-muted-foreground text-sm leading-normal">
-                  该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
-                </p>
+              ) : candidateRounds.length === 0 ? (
+                <Empty className="min-h-72">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconRobot aria-hidden="true" />
+                    </EmptyMedia>
+                    <EmptyTitle>暂无 AI 初面记录</EmptyTitle>
+                    <EmptyDescription>
+                      该候选人尚未发起 AI
+                      初面。面试发起后，可在这里查看面试进度、沟通记录和评价结果。
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : resumeInterviewResultRecord ? (
                 <InterviewResultTabContent
                   evaluationSummary={selectedResultEvaluationSummary}

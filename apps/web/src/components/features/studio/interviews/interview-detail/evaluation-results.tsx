@@ -86,7 +86,7 @@ function KeyValueEntries({ entries }: { entries: EvaluationPayload }) {
       {items.map(([key, value]) => (
         <div className="border-border/50 border-t pt-3 text-sm" key={key}>
           <p className="font-medium">{key}</p>
-          <p className="mt-1 wrap-break-word text-muted-foreground leading-6">
+          <p className="mt-1 wrap-break-word text-foreground leading-6">
             {z.string().safeParse(value).success ? String(value) : JSON.stringify(value)}
           </p>
         </div>
@@ -161,7 +161,7 @@ function OverallEvaluation({
         ) : null}
       </div>
       {data.overallAssessment ? (
-        <p className="text-muted-foreground text-sm leading-normal">
+        <p className="text-foreground text-sm leading-6">
           <HighlightedText enabledCategories={enabledCategories} text={data.overallAssessment} />
         </p>
       ) : null}
@@ -243,7 +243,7 @@ function QuestionCoverageResults({
                     </span>
                   </div>
                   {outcome.evaluationFocus ? (
-                    <p className="mt-3 text-muted-foreground text-xs leading-5">
+                    <p className="mt-3 text-foreground text-sm leading-6">
                       <span className="font-medium">考核意图：</span>
                       {outcome.evaluationFocus}
                     </p>
@@ -345,7 +345,7 @@ export function EvaluationResults({
         </div>
       )}
       {evaluation.overallAssessment && (
-        <p className="text-muted-foreground text-sm leading-normal">
+        <p className="text-foreground text-sm leading-6">
           <HighlightedText
             enabledCategories={enabledCategories}
             text={evaluation.overallAssessment}

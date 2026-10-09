@@ -7,7 +7,7 @@ import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DataField } from "@/components/features/display/data-field";
+import { CandidateInfoField as DataField } from "@/components/features/candidate/candidate-info-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
@@ -195,13 +195,13 @@ export function ResumeOverviewCandidateInfoSection({
 
   return (
     <section className="border-border/50 border-t pt-6">
-      <div className="mb-3 flex items-center gap-1.5">
+      <div className="mb-6 flex items-center gap-1.5">
         <h3 className="font-medium text-sm">候选人信息</h3>
         {actions}
       </div>
 
       {editing ? (
-        <DataFields columns={3} density="compact">
+        <DataFields columns={2} density="relaxed">
           <Field>
             <FieldLabel htmlFor="overview-candidate-name">
               姓名 <span className="text-destructive">*</span>
@@ -297,7 +297,7 @@ export function ResumeOverviewCandidateInfoSection({
           </Field>
         </DataFields>
       ) : (
-        <DataFields columns={3} density="compact">
+        <DataFields columns={2} density="relaxed">
           <DataField label="姓名" value={displayName} />
           <DataField
             label="关联岗位"

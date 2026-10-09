@@ -248,16 +248,20 @@ export function ResumeDocumentPreviewDialog({
     return (
       <Modal
         bodyClassName="min-h-0 overflow-auto bg-muted/30 p-0"
-        className="h-[92dvh]"
+        fullScreen
         description="JPG / PNG"
-        headerClassName="px-5 py-3"
+        headerClassName="md:px-3 md:py-2"
         headerLayout="row"
         onOpenChange={onOpenChange}
         onOpenChangeComplete={onOpenChangeComplete}
         open={open}
         showCloseButton={false}
         size="full"
-        title={title}
+        title={
+          <span className="block truncate text-sm font-medium" title={title}>
+            {title}
+          </span>
+        }
         headerExtra={
           <ResumePreviewHeaderActions
             downloadFileName={downloadFileName}
@@ -267,7 +271,9 @@ export function ResumeDocumentPreviewDialog({
         }
       >
         <PreviewDialogReady onReady={onReady} url={url} />
-        <ImageResumePreviewContent filename={filename} url={url} />
+        <div className="h-full min-h-0" data-vaul-no-drag>
+          <ImageResumePreviewContent filename={filename} url={url} />
+        </div>
       </Modal>
     );
   }
@@ -275,16 +281,20 @@ export function ResumeDocumentPreviewDialog({
   return (
     <Modal
       bodyClassName="min-h-0 overflow-hidden bg-muted/30 p-0"
-      className="h-[92dvh]"
+      fullScreen
       description={kind === "docx" ? "DOCX" : "XLSX"}
-      headerClassName="px-5 py-3"
+      headerClassName="md:px-3 md:py-2"
       headerLayout="row"
       onOpenChange={onOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
       open={open}
       showCloseButton={false}
       size="full"
-      title={title}
+      title={
+        <span className="block truncate text-sm font-medium" title={title}>
+          {title}
+        </span>
+      }
       headerExtra={
         <ResumePreviewHeaderActions
           downloadFileName={downloadFileName}
@@ -294,27 +304,29 @@ export function ResumeDocumentPreviewDialog({
       }
     >
       <PreviewDialogReady onReady={onReady} url={url} />
-      <Suspense fallback={<ResumeDocumentViewerLoading kind={kind} />}>
-        {kind === "docx"
-          ? dependencies.renderDocxPreview({
-              className: "h-full",
-              fileName: filename,
-              isDark,
-              onIsDarkChange: setIsDark,
-              showDownload: false,
-              showUpload: false,
-              src: url,
-            })
-          : dependencies.renderXlsxPreview({
-              className: "h-full",
-              fileName: filename,
-              isDark,
-              onIsDarkChange: setIsDark,
-              showDownload: false,
-              showUpload: false,
-              src: url,
-            })}
-      </Suspense>
+      <div className="h-full min-h-0" data-vaul-no-drag>
+        <Suspense fallback={<ResumeDocumentViewerLoading kind={kind} />}>
+          {kind === "docx"
+            ? dependencies.renderDocxPreview({
+                className: "h-full",
+                fileName: filename,
+                isDark,
+                onIsDarkChange: setIsDark,
+                showDownload: false,
+                showUpload: false,
+                src: url,
+              })
+            : dependencies.renderXlsxPreview({
+                className: "h-full",
+                fileName: filename,
+                isDark,
+                onIsDarkChange: setIsDark,
+                showDownload: false,
+                showUpload: false,
+                src: url,
+              })}
+        </Suspense>
+      </div>
     </Modal>
   );
 }

@@ -2,6 +2,7 @@
 
 import { IconEye } from "@tabler/icons-react";
 import { useState } from "react";
+import type { ComponentProps } from "react";
 import { PdfPreviewDialog } from "@/components/features/pdf/pdf-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@app/shared/utils";
@@ -12,6 +13,7 @@ export interface PdfPreviewButtonProps {
   label?: string;
   className?: string;
   disabled?: boolean;
+  variant?: ComponentProps<typeof Button>["variant"];
 }
 
 export function PdfPreviewButton({
@@ -20,6 +22,7 @@ export function PdfPreviewButton({
   label = "预览",
   className,
   disabled,
+  variant = "ghost",
 }: PdfPreviewButtonProps) {
   const [open, setOpen] = useState(false);
 
@@ -31,7 +34,7 @@ export function PdfPreviewButton({
         onClick={() => setOpen(true)}
         size="sm"
         type="button"
-        variant="ghost"
+        variant={variant}
       >
         <IconEye className="size-3.5" />
         {label}

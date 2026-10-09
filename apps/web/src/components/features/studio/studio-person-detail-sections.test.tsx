@@ -23,7 +23,7 @@ describe("CollectedCandidateInfoList", () => {
 
     expect(html.indexOf("候选人主要回答")).toBeLessThan(html.indexOf("AI 辅助分析"));
     expect(html).toContain("font-medium text-foreground leading-6");
-    expect(html).toContain("text-muted-foreground text-xs leading-5");
+    expect(html).toContain("text-foreground text-sm leading-6");
   });
 });
 
