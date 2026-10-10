@@ -90,6 +90,7 @@ export async function loadReviewerEvaluationFields(
     .limit(1);
   const fields: Partial<HumanInterviewReviewRecord> = {
     aiEvaluation: ai?.evaluation ?? null,
+    currentReviewerId: input.reviewerId,
     lockedOutcome: await loadLockedOutcome(db, input.roundId, input.organizationId),
     personalEvaluation: Boolean(input.reviewerId),
     reviewerEvaluations: reviewerRows
@@ -238,9 +239,12 @@ export async function loadReviewerEvaluationAggregate(
   const everyoneSubmitted = [...assigned, ...invited].every((item) =>
     submittedReviewers.has(item.userId),
   );
-  // A rejection is visible immediately, but cannot close recruitment before the other interviewers respond.
+  // The first decisive submission completes the round; later reviewers only supplement it.
   const complete =
-    input.roundStatus === "completed" || combinedOutcome === "pass" || everyoneSubmitted;
+    input.roundStatus === "completed" ||
+    combinedOutcome === "pass" ||
+    combinedOutcome === "fail" ||
+    everyoneSubmitted;
 
   return { combinedEvaluation, combinedOutcome, complete };
 }

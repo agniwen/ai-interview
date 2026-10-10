@@ -68,7 +68,7 @@ it("keeps my unsubmitted evaluation editable after another interviewer completes
   });
   const container = await renderReview();
   expect(button(container, "提交评价").disabled).toBe(false);
-  expect(container.textContent).toContain("当前汇总：通过");
+  expect(container.querySelector('output[aria-label="本轮结论"]')?.textContent).toContain("通过");
   await act(() => button(container, "保存草稿").click());
   await flush();
   const saved = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/evaluation-draft"));
@@ -96,7 +96,11 @@ it("shows AI suggestions and attributed reviews separately from my draft", async
   });
   const container = await renderReview();
   expect(container.textContent).toContain("AI 原始建议");
-  expect(container.textContent).toContain("第二面试官 · 不通过");
+  const otherReview = [...container.querySelectorAll("details")].find((item) =>
+    item.querySelector("summary")?.textContent?.includes("第二面试官"),
+  );
+  expect(otherReview?.querySelector("summary")?.textContent).toContain("不通过");
+  expect(otherReview?.textContent).toContain("另一位的评价");
   expect(container.textContent).toContain("另一位的评价");
   const ownEditor = await evaluationField(container);
   expect(ownEditor.textContent).toContain("我的草稿");

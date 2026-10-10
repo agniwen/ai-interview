@@ -166,7 +166,9 @@ export function RoundCard({
   const canCancelRound = canDelete && canCancelHumanInterviewRound(round, meeting, disabled);
   const canCompleteRound = canUpdate && canCompleteHumanInterviewRound(round, meeting, disabled);
   const canReviewRound = Boolean(
-    canUpdate && canWrite && round.status === "pending" && meeting?.status === "ended",
+    canUpdate &&
+    (round.status === "completed" || (canWrite && round.status === "pending")) &&
+    meeting?.status === "ended",
   );
 
   return (
@@ -247,6 +249,7 @@ export function RoundCard({
           canEndMeeting={canUpdate && canEndHumanInterviewMeeting(meeting, disabled)}
           canOpenLinks={canOpenMeetingLinks(meeting)}
           canReviewRound={canReviewRound}
+          reviewCompleted={round.status === "completed"}
           meeting={meeting}
           onCancel={onCancel}
           onComplete={onComplete}
@@ -650,6 +653,7 @@ function RoundCardActions({
   canCreateMeeting,
   canOpenLinks,
   canReviewRound,
+  reviewCompleted,
   canEndMeeting,
   canCancelRound,
   canCompleteRound,
@@ -668,6 +672,7 @@ function RoundCardActions({
   canCreateMeeting: boolean;
   canOpenLinks: boolean;
   canReviewRound: boolean;
+  reviewCompleted: boolean;
   canEndMeeting: boolean;
   canCancelRound: boolean;
   canCompleteRound: boolean;
@@ -747,7 +752,7 @@ function RoundCardActions({
       {canReviewRound ? (
         <Button onClick={handleReview} size="sm">
           <IconChecklist className="size-4" />
-          评价并完成
+          {reviewCompleted ? "补充评价" : "评价并完成"}
         </Button>
       ) : null}
       {canCompleteRound ? (

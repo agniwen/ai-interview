@@ -96,6 +96,7 @@ function RoundMetadata({
 
 export function CandidateInterviewHistory({
   compact = false,
+  showTimeline = true,
   data,
   aiEvaluation,
   aiEvaluationGeneratedAt,
@@ -103,6 +104,7 @@ export function CandidateInterviewHistory({
   resumePreview,
 }: {
   compact?: boolean;
+  showTimeline?: boolean;
   aiEvaluationGeneratedAt?: string | null;
   status?: ReactNode;
   resumePreview?: ReactNode;
@@ -144,6 +146,7 @@ export function CandidateInterviewHistory({
   return (
     <EvaluationTimeline
       compact={compact}
+      showTimeline={showTimeline}
       entries={entries}
       onNavigate={(id) => setCollapsed((ids) => ids.filter((value) => value !== id))}
     >

@@ -17,11 +17,13 @@ export interface EvaluationTimelineEntry {
 
 export function EvaluationTimeline({
   compact = false,
+  showTimeline = true,
   entries,
   onNavigate,
   children,
 }: {
   compact?: boolean;
+  showTimeline?: boolean;
   entries: EvaluationTimelineEntry[];
   onNavigate: (id: string) => void;
   children: (isMobile: boolean) => ReactNode;
@@ -66,6 +68,14 @@ export function EvaluationTimeline({
     if (current?.dataset.evaluationId) {
       setActiveId(current.dataset.evaluationId);
     }
+  }
+
+  if (!showTimeline) {
+    return (
+      <ScrollArea className="h-full" scrollFade scrollbars="leave">
+        <div className="mx-auto w-full max-w-5xl pt-3">{children(isMobile)}</div>
+      </ScrollArea>
+    );
   }
 
   if (isMobile) {

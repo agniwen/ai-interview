@@ -564,7 +564,7 @@ describe("HumanMeetingReview", () => {
     expect(container.textContent).not.toContain("保存转录");
   });
 
-  it("shows uncertain recovery speech only on request without disabling manual submission", async () => {
+  it("allows manual submission when recovery speech has unconfirmed attribution", async () => {
     if (!currentReview.transcript) {
       throw new Error("fixture missing transcript");
     }
@@ -579,25 +579,18 @@ describe("HumanMeetingReview", () => {
       sourceId: "mixed",
     };
     const container = await renderReview();
-    expect(container.textContent).toContain("1 段发言待确认身份");
-    expect(container.textContent).not.toContain("服务端转录");
-    act(() => button(container, "查看待确认片段").click());
-    expect(container.textContent).toContain("服务端转录");
+    await chooseOutcome(container);
     expect(button(container, "提交评价").disabled).toBe(false);
-    act(() => button(container, "候选人").click());
-    const confirmation = button(container, "确认所选身份");
-    expect(confirmation.disabled).toBe(false);
-    act(() => confirmation.click());
+    act(() => button(container, "提交评价").click());
     await flush();
     const call = fetchMock.mock.calls.find(([request]) =>
-      String(request).endsWith("/transcript-attribution"),
+      String(request).endsWith("/evaluation-submit"),
     );
-    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
-      assignments: [{ role: "candidate", turnId: turn.id }],
-      sourceRevisionId: currentReview.transcript.id,
+    expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+      transcriptRevisionId: currentReview.transcript.id,
     });
     expect(
-      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/transcript-attribution")),
     ).toBe(false);
   });
 

@@ -220,8 +220,8 @@ it("isolates drafts and preserves the first decisive submission against conflict
     .from(recruitingRecord)
     .where(eq(recruitingRecord.id, id));
   expect(candidateAfterRejection).toMatchObject({
-    currentStage: "second_interview",
-    outcome: "in_pipeline",
+    currentStage: "closed",
+    outcome: "rejected",
   });
   expect(
     await dao.loadHumanInterviewReview({
@@ -235,7 +235,7 @@ it("isolates drafts and preserves the first decisive submission against conflict
     evaluationStatus: "draft",
     lockedOutcome: "fail",
     roundOutcome: "fail",
-    roundStatus: "pending",
+    roundStatus: "completed",
   });
   expect(
     await dao.saveHumanInterviewEvaluationDraft({
@@ -448,7 +448,11 @@ it.each(["fail", "pass"] as const)(
       .select()
       .from(recruitingRecord)
       .where(eq(recruitingRecord.id, id));
-    expect(beforeAllSubmitted).toMatchObject({ outcome: "in_pipeline" });
+    expect(beforeAllSubmitted).toMatchObject(
+      firstOutcome === "fail"
+        ? { currentStage: "closed", outcome: "rejected" }
+        : { outcome: "in_pipeline" },
+    );
     expect(
       await dao.submitHumanInterviewEvaluation({
         ...shared,
@@ -545,10 +549,14 @@ it.each([
   expect(intermediate).toMatchObject({
     evaluationStatus: "not_started",
     lockedOutcome: first === "inconclusive" ? null : first,
-    roundStatus: first === "pass" ? "completed" : "pending",
+    roundStatus: first === "inconclusive" ? "pending" : "completed",
   });
+  const [firstRound] = await db
+    .select()
+    .from(humanInterviewRound)
+    .where(eq(humanInterviewRound.id, roundId));
   const [openRecord] = await db.select().from(recruitingRecord).where(eq(recruitingRecord.id, id));
-  expect(openRecord.outcome).toBe("in_pipeline");
+  expect(openRecord.outcome).toBe(first === "fail" ? "rejected" : "in_pipeline");
   expect(
     await dao.submitHumanInterviewEvaluation({
       ...shared,
@@ -582,6 +590,13 @@ it.each([
     evaluation: { overallEvaluation: "第二人的独立评价" },
     outcome: result,
   });
+  const [finalRound] = await db
+    .select()
+    .from(humanInterviewRound)
+    .where(eq(humanInterviewRound.id, roundId));
+  if (first !== "inconclusive") {
+    expect(finalRound.completedAt).toEqual(firstRound.completedAt);
+  }
   expect(notifications).toBe(1);
 });
 

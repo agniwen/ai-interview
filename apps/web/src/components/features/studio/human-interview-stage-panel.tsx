@@ -57,7 +57,7 @@ interface PanelProps {
   canDelete?: boolean;
   canUpdate?: boolean;
   // closed 状态时所有写按钮禁用（页面上层已隐藏，这里再兜一手）。
-  // All writes disabled when candidate is closed (defense in depth).
+  // Closed candidates cannot change arrangements; completed rounds still accept supplemental reviews.
   disabled?: boolean;
 }
 

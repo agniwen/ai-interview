@@ -24,6 +24,15 @@ describe("human interview candidate materials access", () => {
     ).toBe(true);
   });
 
+  it("allows ended-meeting materials during the verified invite lifetime", () => {
+    expect(
+      isHumanInterviewCandidateMaterialsAvailable(
+        scope(new Date(validUntil).toISOString(), "ended"),
+        validUntil + 24 * 60 * 60 * 1000,
+      ),
+    ).toBe(true);
+  });
+
   it("blocks materials after the grace window and for cancelled meetings", () => {
     expect(
       isHumanInterviewCandidateMaterialsAvailable(

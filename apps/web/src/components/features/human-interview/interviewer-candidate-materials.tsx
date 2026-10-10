@@ -88,6 +88,7 @@ export interface InterviewerCandidateMaterialsState {
 }
 
 interface InterviewerCandidateMaterialsProps {
+  showTimeline?: boolean;
   showQuestions?: boolean;
   active: boolean;
   headerActionsContainer?: HTMLElement | null;
@@ -167,11 +168,13 @@ export function AiEvaluationContent({
 
 function CandidateEvaluations({
   compact,
+  showTimeline,
   query,
   aiQuery,
   resumePreview,
 }: {
   compact: boolean;
+  showTimeline?: boolean;
   resumePreview: ReactNode;
   query: ReturnType<typeof useHrInformationQuery>;
   aiQuery: ReturnType<typeof useAiEvaluationQuery>;
@@ -205,6 +208,7 @@ function CandidateEvaluations({
   return (
     <CandidateInterviewHistory
       compact={compact}
+      showTimeline={showTimeline}
       status={aiStatus}
       resumePreview={resumePreview}
       aiEvaluation={aiEvaluation}
@@ -616,6 +620,7 @@ function useQuestionsQuery(active: boolean, inviteToken: string, candidateId: st
 
 export function InterviewerCandidateMaterials({
   showQuestions = false,
+  showTimeline,
   active,
   headerActionsContainer,
   inviteToken,
@@ -719,6 +724,7 @@ export function InterviewerCandidateMaterials({
         <section aria-label="候选人概览" className="min-h-0 min-w-0 overflow-hidden">
           <CandidateEvaluations
             compact={desktopQuestionsOpen}
+            showTimeline={showTimeline}
             key={effectiveCandidateId}
             aiQuery={aiQuery}
             query={hrQuery}

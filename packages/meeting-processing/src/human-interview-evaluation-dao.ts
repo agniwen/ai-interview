@@ -359,6 +359,20 @@ export function createHumanInterviewEvaluationDao(
       return null;
     }
     const personalFields = await loadReviewerEvaluationFields(db, input);
+    const transcriptInterviewers = await db
+      .select({
+        image: user.image,
+        name: user.name,
+        userId: humanInterviewMeetingInterviewer.userId,
+      })
+      .from(humanInterviewMeetingInterviewer)
+      .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+      .where(
+        and(
+          eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId),
+          eq(humanInterviewMeetingInterviewer.organizationId, input.organizationId),
+        ),
+      );
     const revisionId = row.activeTranscriptRevisionId ?? row.reviewTranscriptRevisionId;
     const transcript =
       (row.meetingSessionId && revisionId
@@ -388,6 +402,7 @@ export function createHumanInterviewEvaluationDao(
       roundOutcome: row.outcome,
       roundStatus: row.roundStatus,
       transcript,
+      transcriptInterviewers,
       transcriptionError:
         row.transcriptionStatus === "ready"
           ? row.transcriptionError
@@ -836,6 +851,7 @@ export function createHumanInterviewEvaluationDao(
       const [round] = await tx
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+          completedAt: humanInterviewRound.completedAt,
           evaluationStatus: humanInterviewRound.evaluationStatus,
           organizationId: humanInterviewRound.organizationId,
           reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
@@ -882,7 +898,7 @@ export function createHumanInterviewEvaluationDao(
       await tx
         .update(humanInterviewRound)
         .set({
-          completedAt: complete ? now : null,
+          completedAt: complete ? (round.completedAt ?? now) : null,
           evaluation: combinedEvaluation,
           evaluationError: null,
           evaluationStatus: "submitted",

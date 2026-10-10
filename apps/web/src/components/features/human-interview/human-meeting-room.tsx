@@ -317,6 +317,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [candidateResponsePending, setCandidateResponsePending] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState(props.preview.recordingStatus);
   const [recordingFailedPolls, setRecordingFailedPolls] = useState(0);
+  const [reviewMaterialsOpen, setReviewMaterialsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<HumanMeetingViewMode>(() =>
     resolveInitialHumanMeetingViewMode(props.mode, props.preview.status),
   );
@@ -459,46 +460,53 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     if (props.mode === "interviewer" && viewMode !== "meeting") {
       return (
         <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-          <header
+          <div
             className={cn(
-              "flex shrink-0 items-center gap-3 px-4",
-              viewMode === "review" ? "mx-auto w-full max-w-5xl py-3" : "h-11 md:h-12",
+              "shrink-0",
+              viewMode === "review" && reviewMaterialsOpen && "md:pr-[min(46vw,44rem)]",
             )}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              {viewMode === "materials" ? (
-                <Button
-                  aria-label="返回入会页"
-                  className="-ml-2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setViewMode("meeting")}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <IconArrowLeft data-icon="inline-start" />
-                  返回
-                </Button>
-              ) : null}
-              <div className="min-w-0">
-                <h1 className="truncate font-medium text-foreground text-base tracking-normal">
-                  {getRoomTitle(props)}
-                </h1>
-                {viewMode === "review" ? (
-                  <p className="text-muted-foreground text-xs">面试评价</p>
+            <header
+              className={cn(
+                "flex shrink-0 items-center gap-3 px-4",
+                viewMode === "review" ? "mx-auto w-full max-w-5xl py-3" : "h-11 md:h-12",
+              )}
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                {viewMode === "materials" ? (
+                  <Button
+                    aria-label="返回入会页"
+                    className="-ml-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setViewMode("meeting")}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <IconArrowLeft data-icon="inline-start" />
+                    返回
+                  </Button>
                 ) : null}
+                <div className="min-w-0">
+                  <h1 className="truncate font-medium text-foreground text-base tracking-normal">
+                    {getRoomTitle(props)}
+                  </h1>
+                  {viewMode === "review" ? (
+                    <p className="text-muted-foreground text-xs">面试评价</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            {viewMode === "materials" ? (
-              <div
-                ref={setHeaderActionsContainer}
-                data-slot="meeting-materials-actions"
-                className="hidden shrink-0 md:flex"
-              />
-            ) : null}
-            <div className="flex shrink-0 items-center md:min-w-0 md:flex-1 md:justify-end">
-              <ThemeToggle className="hidden shrink-0 md:inline-flex" />
-            </div>
-          </header>
+              {viewMode === "materials" ? (
+                <div
+                  ref={setHeaderActionsContainer}
+                  data-slot="meeting-materials-actions"
+                  className="hidden shrink-0 md:flex"
+                />
+              ) : null}
+              <div className="flex shrink-0 items-center md:min-w-0 md:flex-1 md:justify-end">
+                <ThemeToggle className="hidden shrink-0 md:inline-flex" />
+              </div>
+            </header>
+          </div>
           <div className="min-h-0 flex-1">
             {viewMode === "materials" ? (
               <InterviewerCandidateMaterials
@@ -512,6 +520,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               <HumanMeetingReview
                 active
                 inviteToken={props.inviteToken}
+                onMaterialsOpenChange={setReviewMaterialsOpen}
                 onClose={() => setViewMode("meeting")}
               />
             )}

@@ -572,7 +572,11 @@ describe("RoundCard interviewer arrangement", () => {
     queryClient.clear();
   });
 
-  it("offers the unified review flow after the meeting has ended", () => {
+  it.each([
+    ["pending", false],
+    ["completed", false],
+    ["completed", true],
+  ] as const)("keeps review available for an ended %s round with closed=%s", (status, disabled) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
     document.body.append(host);
@@ -592,6 +596,7 @@ describe("RoundCard interviewer arrangement", () => {
             canDelete
             canUpdate
             dependencies={dependencies}
+            disabled={disabled}
             meeting={endedMeeting}
             onCancel={vi.fn()}
             onComplete={vi.fn()}
@@ -600,7 +605,7 @@ describe("RoundCard interviewer arrangement", () => {
             onOpenLinks={vi.fn()}
             onRescheduled={vi.fn()}
             onReview={onReview}
-            round={round}
+            round={{ ...round, status }}
             roundNumber={2}
             slug="test-workspace"
           />
@@ -609,7 +614,8 @@ describe("RoundCard interviewer arrangement", () => {
     });
 
     const reviewButton = [...host.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "评价并完成",
+      (button) =>
+        button.textContent?.trim() === (status === "completed" ? "补充评价" : "评价并完成"),
     );
     expect(reviewButton).toBeDefined();
     act(() => reviewButton?.click());

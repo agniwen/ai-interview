@@ -248,6 +248,8 @@ export interface HumanInterviewReviewerEvaluationRecord {
 }
 
 export interface HumanInterviewReviewRecord {
+  currentReviewerId?: string;
+  transcriptInterviewers?: { userId: string; name: string; image: string | null }[];
   lockedOutcome?: "pass" | "fail" | null;
   personalEvaluation?: boolean;
   evaluationVersion?: number;

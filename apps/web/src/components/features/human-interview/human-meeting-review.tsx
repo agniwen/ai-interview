@@ -1,5 +1,6 @@
 "use client";
 import { EMPTY_EVALUATION, getReviewFormOutcome } from "./human-meeting-review-state";
+import { HumanMeetingReviewMaterials } from "./human-meeting-review-materials";
 import { HumanMeetingReviewReferences } from "./human-meeting-review-references";
 
 import { IconLoader2 } from "@tabler/icons-react";
@@ -37,7 +38,6 @@ import {
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 import { useMeetingReviewAutosave } from "./use-meeting-review-autosave";
 import { HumanMeetingReviewSaveStatus } from "./human-meeting-review-save-status";
-import { HumanMeetingTranscriptRecovery } from "./human-meeting-transcript-recovery";
 
 type EvaluationTextFieldKey =
   | "overallEvaluation"
@@ -145,16 +145,15 @@ function Field({
     </FormField>
   );
 }
-
 type ReviewProps = {
   active: boolean;
   draftOnly?: boolean;
   selectPortalContainer?: HTMLElement | null;
   onClose: () => void;
   onSaved?: () => void;
+  onMaterialsOpenChange?: (open: boolean) => void;
   renderShell?: (content: ReactNode, requestClose: () => void) => ReactNode;
 } & ({ inviteToken: string; basePath?: never } | { basePath: string; inviteToken?: never });
-
 function HumanMeetingReviewShell({
   children,
   renderShell,
@@ -183,6 +182,7 @@ function HumanMeetingReviewForm({
   onClose,
   onSaved,
   renderShell,
+  onMaterialsOpenChange,
 }: {
   active: boolean;
   draftOnly?: boolean;
@@ -191,6 +191,7 @@ function HumanMeetingReviewForm({
   inviteToken?: string;
   onClose: () => void;
   onSaved?: () => void;
+  onMaterialsOpenChange?: (open: boolean) => void;
   renderShell?: ReviewProps["renderShell"];
 }) {
   const fieldId = useId();
@@ -198,6 +199,10 @@ function HumanMeetingReviewForm({
   const outcomeTriggerRef = useRef<HTMLButtonElement>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
+  useEffect(() => {
+    onMaterialsOpenChange?.(materialsOpen);
+  }, [materialsOpen, onMaterialsOpenChange]);
   const [review, setReview] = useState<HumanInterviewReviewRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const evaluationDirtyRef = useRef(false);
@@ -511,7 +516,12 @@ function HumanMeetingReviewForm({
   }
 
   return wrap(
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <section
+      className={cn(
+        "flex min-h-0 flex-1 flex-col overflow-hidden",
+        materialsOpen && "md:pr-[min(46vw,44rem)]",
+      )}
+    >
       <ScrollArea className="min-h-0 flex-1" scrollFade={!renderShell} scrollbars="never">
         <div className="mx-auto w-full max-w-5xl p-4">
           {draftOnly ? null : (
@@ -524,6 +534,15 @@ function HumanMeetingReviewForm({
                   ) : null}
                 </output>
               </div>
+              {inviteToken ? (
+                <HumanMeetingReviewMaterials
+                  onDesktopOpenChange={setMaterialsOpen}
+                  inviteToken={inviteToken}
+                  transcript={review.transcript}
+                  currentReviewerId={review.currentReviewerId}
+                  interviewers={review.transcriptInterviewers}
+                />
+              ) : null}
             </div>
           )}
           <HumanMeetingReviewReferences
@@ -704,15 +723,6 @@ function HumanMeetingReviewForm({
               ) : null}
             </div>
           ) : null}
-          {!draftOnly && review.transcript ? (
-            <HumanMeetingTranscriptRecovery
-              key={review.transcript.id}
-              transcript={review.transcript}
-              basePath={basePath}
-              disabled={Boolean(busy)}
-              onUpdated={load}
-            />
-          ) : null}
           {!draftOnly && review.evaluationStatus === "generating" ? (
             <p className="mt-3 text-right text-muted-foreground text-xs leading-5">
               AI
@@ -781,7 +791,6 @@ function HumanMeetingReviewForm({
     </section>,
   );
 }
-
 export function HumanMeetingReview(props: ReviewProps) {
   const basePath =
     props.basePath ??

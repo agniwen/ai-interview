@@ -64,17 +64,19 @@ describe("human interview evaluation input", () => {
 
 describe("human interview review materials", () => {
   it("loads incomplete materials for review without declaring them ready", async () => {
-    vi.spyOn(PgAsyncPreparedQuery.prototype, "execute").mockResolvedValue([
-      {
-        activeTranscriptRevisionId: null,
-        evaluationStatus: "not_started",
-        meetingSessionId: "meeting",
-        recordingTracks: [],
-        reviewTranscriptRevisionId: "review",
-        transcriptionError: "known gap",
-        transcriptionStatus: "failed",
-      },
-    ]);
+    vi.spyOn(PgAsyncPreparedQuery.prototype, "execute")
+      .mockResolvedValue([])
+      .mockResolvedValueOnce([
+        {
+          activeTranscriptRevisionId: null,
+          evaluationStatus: "not_started",
+          meetingSessionId: "meeting",
+          recordingTracks: [],
+          reviewTranscriptRevisionId: "review",
+          transcriptionError: "known gap",
+          transcriptionStatus: "failed",
+        },
+      ]);
     const load = vi.fn(() => Promise.resolve(null));
     const dao = createHumanInterviewEvaluationDao(database, {
       enqueueHumanInterviewRoundCompletion: () => Promise.resolve(),
@@ -94,16 +96,18 @@ describe("human interview review materials", () => {
     expect(result?.transcriptionState).toBe("failed");
   });
   it("removes provisional recording notices after successful recovery", async () => {
-    vi.spyOn(PgAsyncPreparedQuery.prototype, "execute").mockResolvedValue([
-      {
-        activeTranscriptRevisionId: "active",
-        meetingSessionId: "meeting",
-        recordingError: "部分录音不完整",
-        recordingTracks: [{ status: "failed" }],
-        transcriptionError: null,
-        transcriptionStatus: "ready",
-      },
-    ]);
+    vi.spyOn(PgAsyncPreparedQuery.prototype, "execute")
+      .mockResolvedValue([])
+      .mockResolvedValueOnce([
+        {
+          activeTranscriptRevisionId: "active",
+          meetingSessionId: "meeting",
+          recordingError: "部分录音不完整",
+          recordingTracks: [{ status: "failed" }],
+          transcriptionError: null,
+          transcriptionStatus: "ready",
+        },
+      ]);
     const dao = createHumanInterviewEvaluationDao(database, {
       enqueueHumanInterviewRoundCompletion: () => Promise.resolve(),
       loadMeetingTranscriptForEvaluation: () => Promise.resolve(null),
