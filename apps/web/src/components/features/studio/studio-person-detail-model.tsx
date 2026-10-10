@@ -58,13 +58,25 @@ const cachedCandidatePagesSchema = z.object({
 
 type CachedCandidateRecord = z.infer<typeof cachedCandidateRecordSchema>;
 
+interface TabVisibilityStage {
+  pipelineStage?: string;
+  closedFromNode?: string | null;
+}
+
+function getTabVisibilityStage(record: TabVisibilityStage | null): string | null {
+  return record?.pipelineStage === "closed"
+    ? (record.closedFromNode ?? null)
+    : (record?.pipelineStage ?? null);
+}
+
 export function shouldShowAiInterviewTab(
-  record: { pipelineStage?: string; hasInitialInterview?: boolean } | null,
+  record: (TabVisibilityStage & { hasInitialInterview?: boolean }) | null,
 ): boolean {
   if (record?.hasInitialInterview) {
     return true;
   }
-  if (!record?.pipelineStage) {
+  const stage = getTabVisibilityStage(record);
+  if (!stage) {
     return false;
   }
   return [
@@ -76,26 +88,24 @@ export function shouldShowAiInterviewTab(
     "offer",
     "background_check",
     "onboarding",
-    "closed",
-  ].includes(record.pipelineStage);
+  ].includes(stage);
 }
 
 // 真人面试 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
-// 关闭后仍显示（HR 想回看历史 / 重新激活时直接点）。
-// Human-interview tab is visible once the candidate has reached or passed that
-// stage; remains visible after close for HR audit and reactivation.
+// 已结束时按结束前的节点判断；实际面试记录仍保留历史查看入口。
 export function shouldShowHumanInterviewTab(
-  record: { hasHumanInterview?: boolean; pipelineStage?: string } | null,
+  record: (TabVisibilityStage & { hasHumanInterview?: boolean }) | null,
   canReadHumanInterview: boolean,
 ): boolean {
   if (!canReadHumanInterview) {
     return false;
   }
-  if (!record?.pipelineStage) {
-    return false;
-  }
-  if (record.hasHumanInterview) {
+  if (record?.hasHumanInterview) {
     return true;
+  }
+  const stage = getTabVisibilityStage(record);
+  if (!stage) {
+    return false;
   }
   return [
     "second_interview",
@@ -105,23 +115,21 @@ export function shouldShowHumanInterviewTab(
     "offer",
     "background_check",
     "onboarding",
-    "closed",
-  ].includes(record.pipelineStage);
+  ].includes(stage);
 }
 
 export function shouldShowOfferTab(
-  record: { pipelineStage?: string } | null,
+  record: TabVisibilityStage | null,
   canReadOffer: boolean,
 ): boolean {
   if (!canReadOffer) {
     return false;
   }
-  if (!record?.pipelineStage) {
+  const stage = getTabVisibilityStage(record);
+  if (!stage) {
     return false;
   }
-  return (
-    isOfferStage(record.pipelineStage) || ["onboarding", "closed"].includes(record.pipelineStage)
-  );
+  return isOfferStage(stage) || stage === "onboarding";
 }
 
 export function shouldShowOnboardingTab(
