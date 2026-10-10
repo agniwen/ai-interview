@@ -433,6 +433,26 @@ describe("parseResumeOcrOnly", () => {
     expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
     expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(4);
   });
+
+  it("keeps the failing OCR model, endpoint and page in the final error", async () => {
+    vi.stubEnv("QWEN_OCR_MODEL", "unavailable-ocr-model");
+    vi.stubEnv("QWEN_OCR_BASE_URL", "https://ocr.example.test/v1?api_key=secret");
+    pdfPageCount = 1;
+    pdfPages = [Buffer.from("page-1")];
+    mocks.qwenVlOcr.mockRejectedValue(
+      Object.assign(new Error("404 Model not exist."), { status: 404 }),
+    );
+    try {
+      const failure = parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
+      await expect(failure).rejects.toThrow("OCR 第 1 页失败");
+      await expect(failure).rejects.toThrow("model=unavailable-ocr-model");
+      await expect(failure).rejects.toThrow("endpoint=https://ocr.example.test/v1");
+      await expect(failure).rejects.toThrow("HTTP=404");
+      expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe("extractResumeDocumentText", () => {
@@ -744,6 +764,13 @@ describe("generateResumeStructured", () => {
   beforeEach(() => {
     resetPipelineMocks();
     mocks.generateStructuredWithMastraAgent.mockResolvedValue(STRUCTURED_RESUME);
+  });
+
+  it("attributes a model-not-found failure to the structured generation stage", async () => {
+    mocks.generateStructuredWithMastraAgent.mockRejectedValue(
+      Object.assign(new Error("404 Model not exist."), { status: 404 }),
+    );
+    await expect(generateResumeStructured("候选人简历文本")).rejects.toThrow("简历结构化");
   });
 
   it("uses Mastra structured output instead of parsing free-form JSON text", async () => {

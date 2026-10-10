@@ -43,7 +43,7 @@ import {
 
 export { getClaimMissRetryError } from "./processor-claims";
 
-const ERROR_MESSAGE_MAX = 500;
+const ERROR_MESSAGE_MAX = 1000;
 
 function truncate(s: string): string {
   return s.length > ERROR_MESSAGE_MAX ? `${s.slice(0, ERROR_MESSAGE_MAX - 1)}…` : s;

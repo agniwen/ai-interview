@@ -8,6 +8,7 @@ import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
 import pRetry from "p-retry";
 import { z } from "zod";
+import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import {
   normalizeResumeStructuredSourceFileName,
   resumeParserGenerationSchema,
@@ -30,6 +31,7 @@ import type { OfficeXmlNode } from "./office-xml";
 import { defaultResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 import type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 import { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
+import { describeResumeParseError } from "./resume-parse-error";
 
 export type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 
@@ -348,13 +350,6 @@ function normalizeOcrRetryError(error: Error): Error {
   return error;
 }
 
-function restoreOcrRetryError(error: Error): never {
-  if (error instanceof RetriableOcrTypeError) {
-    throw error.originalError;
-  }
-  throw error;
-}
-
 async function extractDocxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {
   const mammothResult = await mammoth
     .extractRawText({ buffer: Buffer.from(bytes) })
@@ -580,7 +575,16 @@ async function qwenVlOcrWithRetry(
     );
   } catch (error) {
     const normalizedError = error instanceof Error ? error : new Error(String(error));
-    return restoreOcrRetryError(normalizedError);
+    throw describeResumeParseError(
+      normalizedError instanceof RetriableOcrTypeError
+        ? normalizedError.originalError
+        : normalizedError,
+      {
+        endpoint: process.env.QWEN_OCR_BASE_URL,
+        model: process.env.QWEN_OCR_MODEL,
+        stage: `OCR 第 ${page} 页`,
+      },
+    );
   }
 }
 
@@ -671,20 +675,30 @@ export async function generateResumeStructured(
     fileNameIncluded: Boolean(fileName),
     inputChars: text.length,
   });
-  const output = await dependencies.generateStructuredWithMastraAgent({
-    agent: dependencies.resumeStructuredAgent,
-    fallbackToTextGeneration: true,
-    // Long resumes can legitimately produce large work/project evidence snapshots.
-    // Keep thinking disabled at the agent model and reserve 32K for the final JSON.
-    maxOutputTokens: 32_768,
-    observabilityLabel: "resume-structure",
-    prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}${fileContext}\n\n简历文本：\n${clipForStructured(text)}`,
-    retryOnInvalid: true,
-    retryOnTransient: true,
-    schema: resumeParserGenerationSchema,
-    temperature: 0,
-    validate: validateGeneratedResumeStructured,
-  });
+  let output: ResumeParserStructured;
+  try {
+    output = await dependencies.generateStructuredWithMastraAgent({
+      agent: dependencies.resumeStructuredAgent,
+      fallbackToTextGeneration: true,
+      // Long resumes can legitimately produce large work/project evidence snapshots.
+      // Keep thinking disabled at the agent model and reserve 32K for the final JSON.
+      maxOutputTokens: 32_768,
+      observabilityLabel: "resume-structure",
+      prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}${fileContext}\n\n简历文本：\n${clipForStructured(text)}`,
+      retryOnInvalid: true,
+      retryOnTransient: true,
+      schema: resumeParserGenerationSchema,
+      temperature: 0,
+      validate: validateGeneratedResumeStructured,
+    });
+  } catch (error) {
+    const config = z.object({ url: z.string() }).safeParse(mastraModels.structuredModel);
+    throw describeResumeParseError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: config.success ? config.data.url : undefined,
+      model: getMastraModelIdentifier(mastraModels.structuredModel),
+      stage: "简历结构化",
+    });
+  }
   devOcrLog("structured completed", {
     duration: formatDuration(startedAt),
     inputChars: text.length,
@@ -869,6 +883,21 @@ export function extractResumeDocumentText(
   }
 }
 
+async function parseAliyunResumeDocument(
+  input: ResumeDocumentInput,
+  dependencies: ResumeParsePipelineDependencies,
+): Promise<ParsedResumeDocument> {
+  try {
+    return await dependencies.parseResumeWithAliyun(input);
+  } catch (error) {
+    throw describeResumeParseError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "https://dashscope.aliyuncs.com/api/v2/apps",
+      model: "aliyun-docmining",
+      stage: "阿里云文档解析",
+    });
+  }
+}
+
 export function parseResumeDocument(
   input: ResumeDocumentInput,
   dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
@@ -877,7 +906,7 @@ export function parseResumeDocument(
     throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
   }
   if (dependencies.getResumeParseProvider() === "aliyun-docmining") {
-    return dependencies.parseResumeWithAliyun(input);
+    return parseAliyunResumeDocument(input, dependencies);
   }
   return extractResumeDocumentText(input, dependencies);
 }
