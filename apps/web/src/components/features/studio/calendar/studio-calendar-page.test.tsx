@@ -24,7 +24,10 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
     const dayOfWeek = startAt.getDay() || 7;
     startAt.setDate(startAt.getDate() - (dayOfWeek - 1));
     startAt.setHours(10, 0, 0, 0);
-    const endAt = new Date(startAt.getTime() + 30 * 60 * 1000);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(10, 0, 0, 0);
+    const endAt = new Date(yesterday.getTime() + 30 * 60 * 1000);
     const humanStartAt = new Date();
     humanStartAt.setHours(10, 0, 0, 0);
     const humanEndAt = new Date(humanStartAt.getTime() + 30 * 60 * 1000);
@@ -119,7 +122,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           kind: "human" as const,
           location: "会议室 A",
           meetingUrl: null,
-          startAt: startAt.toISOString(),
+          startAt: yesterday.toISOString(),
           status: "ended" as const,
           title: "赵六-未关联岗位-终面",
           viewerInterviewerInviteToken: null,
@@ -188,7 +191,8 @@ describe("StudioCalendarPage", () => {
     expect(host.textContent).toContain("李四");
     expect(host.textContent).toContain("前端技术经理");
     expect(host.textContent).toContain("技术复面");
-    expect(host.textContent).not.toContain("赵六");
+    expect(host.textContent).toContain("赵六");
+    expect(host.textContent).toContain("昨天 · 9月1日（周二）");
     expect(host.querySelector('[data-slot="event-calendar-agenda-view"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(2);
     expect(host.querySelector('[data-slot="calendar-primary-view-row"]')).not.toBeNull();
@@ -331,8 +335,14 @@ describe("StudioCalendarPage", () => {
       throw new Error("日程查询未执行");
     }
     const [, firstStart, firstEnd] = firstCall;
+    const expectedStart = new Date();
+    expectedStart.setDate(expectedStart.getDate() - 1);
+    expectedStart.setHours(0, 0, 0, 0);
+    expect(new Date(firstStart)).toEqual(expectedStart);
+    expect(host.textContent).toContain("赵六");
+    expect(host.textContent).toContain("昨天 · 9月1日（周二）");
     expect(new Date(firstEnd).getTime() - new Date(firstStart).getTime()).toBe(
-      30 * 24 * 60 * 60 * 1000,
+      31 * 24 * 60 * 60 * 1000,
     );
 
     act(() => root.unmount());

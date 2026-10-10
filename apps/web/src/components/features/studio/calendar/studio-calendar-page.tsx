@@ -87,9 +87,9 @@ const CALENDAR_I18N = {
 } satisfies Partial<EventCalendarI18nConfig>;
 
 function initialRange(): EventCalendarDateRange {
-  const start = startOfDay(new Date());
+  const start = startOfDay(addDays(new Date(), -1));
   return {
-    end: addDays(start, 30),
+    end: addDays(start, 31),
     start,
   };
 }
@@ -139,8 +139,8 @@ function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<Studi
   const typeText = agendaEventTypeText(event);
 
   return (
-    <div className="grid w-full min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 lg:grid-cols-[5rem_minmax(12rem,1.4fr)_minmax(10rem,1fr)_minmax(8rem,0.9fr)_minmax(7rem,0.7fr)_auto]">
-      <div className="self-start tabular-nums">
+    <div className="grid w-full min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-5 gap-y-2 lg:grid-cols-[5rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_auto]">
+      <div className="space-y-1 self-start tabular-nums">
         <div className="font-semibold text-base leading-5">{format(occurrence.start, "HH:mm")}</div>
         <div className="text-muted-foreground text-xs">{durationMinutes} 分钟</div>
       </div>
@@ -178,21 +178,25 @@ function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<Studi
 
 function CalendarAgendaDayHeader({ count, day }: { count: number; day: Date }) {
   const now = new Date();
-  let relativeLabel: "今天" | "明天" | null = null;
+  let relativeLabel: "昨天" | "今天" | "明天" | null = null;
   if (isSameDay(day, now)) {
     relativeLabel = "今天";
+  } else if (isSameDay(day, addDays(now, -1))) {
+    relativeLabel = "昨天";
   } else if (isSameDay(day, addDays(now, 1))) {
     relativeLabel = "明天";
   }
   const dateLabel = format(day, "M月d日（EEE）", { locale: zhCN });
 
   return (
-    <div className="flex w-full items-baseline justify-between gap-3">
+    <div className="flex w-full items-center gap-3">
       <span className="font-semibold">
         {relativeLabel ? `${relativeLabel} · ` : ""}
         {dateLabel}
       </span>
-      <span className="text-muted-foreground font-normal text-xs">{count} 场</span>
+      <span className="rounded-md bg-background px-2 py-0.5 text-muted-foreground font-normal text-xs tabular-nums">
+        {count} 场
+      </span>
     </div>
   );
 }
@@ -280,7 +284,7 @@ export function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | u
 
 function CalendarViewControls() {
   const { setView, view } = useEventCalendarView();
-  const { today } = useEventCalendarNavigation();
+  const { goTo, today } = useEventCalendarNavigation();
   const lastCalendarView = useRef<"month" | "week" | "day">("week");
 
   function handleCalendarValueChange(value: string | number) {
@@ -293,20 +297,30 @@ function CalendarViewControls() {
   function handlePrimaryValueChange(value: string | number) {
     if (value === "list") {
       setView("agenda");
-      today();
+      goTo(initialRange().start);
       return;
     }
     if (value === "calendar") {
       setView(lastCalendarView.current);
+      today();
     }
   }
 
   return (
-    <div
-      className="flex min-w-0 flex-col items-end justify-center gap-1.5"
-      data-slot="calendar-view-controls"
-    >
-      <div data-slot="calendar-primary-view-row">
+    <div className="contents" data-slot="calendar-view-controls">
+      {view === "agenda" ? null : (
+        <div className="ms-2 flex shrink-0 items-center gap-3" data-slot="calendar-range-view-row">
+          <Tabs onValueChange={handleCalendarValueChange} value={view}>
+            <TabsList aria-label="日历范围">
+              <TabsTab value="month">月</TabsTab>
+              <TabsTab value="week">周</TabsTab>
+              <TabsTab value="day">日</TabsTab>
+            </TabsList>
+          </Tabs>
+          <EventCalendarTitle className="border-s ps-3" />
+        </div>
+      )}
+      <div className="ms-auto shrink-0" data-slot="calendar-primary-view-row">
         <Tabs
           onValueChange={handlePrimaryValueChange}
           value={view === "agenda" ? "list" : "calendar"}
@@ -317,17 +331,6 @@ function CalendarViewControls() {
           </TabsList>
         </Tabs>
       </div>
-      {view === "agenda" ? null : (
-        <div data-slot="calendar-range-view-row">
-          <Tabs onValueChange={handleCalendarValueChange} value={view}>
-            <TabsList aria-label="日历范围">
-              <TabsTab value="month">月</TabsTab>
-              <TabsTab value="week">周</TabsTab>
-              <TabsTab value="day">日</TabsTab>
-            </TabsList>
-          </Tabs>
-        </div>
-      )}
     </div>
   );
 }
@@ -368,10 +371,10 @@ function CalendarNav() {
   const { view } = useEventCalendarView();
 
   return (
-    <EventCalendarNav>
+    <EventCalendarNav className="gap-y-3 px-3 py-3">
       <TooltipProvider>
         {view === "agenda" ? (
-          <div className="px-2 font-medium text-sm">今天起 · 未来 30 天</div>
+          <div className="px-2 font-medium text-sm">昨天 · 今天起未来 30 天</div>
         ) : (
           <>
             <EventCalendarNavToday />
@@ -379,10 +382,8 @@ function CalendarNav() {
               <EventCalendarNavPrev />
               <EventCalendarNavNext />
             </div>
-            <EventCalendarTitle className="ms-3" />
           </>
         )}
-        <div className="grow" />
         <CalendarViewControls />
       </TooltipProvider>
     </EventCalendarNav>
@@ -518,7 +519,7 @@ export function StudioCalendarPage({
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
-        description="默认展示今天起未来 30 天的相关面试；日程只读，面试时间需在候选人详情中调整。"
+        description="默认展示昨天及今天起未来 30 天的相关面试；日程只读，面试时间需在候选人详情中调整。"
         title="日程管理"
       />
       {calendarQuery.isError ? (
@@ -543,8 +544,14 @@ export function StudioCalendarPage({
           skeleton={<CalendarSkeleton />}
         >
           <EventCalendar
-            agendaDayCount={30}
+            agendaDayCount={31}
+            defaultDate={range.start}
             className="h-[min(760px,calc(100vh-12rem))] min-h-[560px] overflow-hidden rounded-lg"
+            classNames={{
+              agendaDayHeader: "bg-muted px-5 py-3",
+              agendaItem: "px-5 py-4",
+              agendaView: "border-t-0",
+            }}
             defaultView="agenda"
             events={events}
             eventTooltip
@@ -590,7 +597,9 @@ export function StudioCalendarPage({
           >
             <CalendarNav />
             <EventCalendarContent
-              render={<FramePanel className="min-h-0 flex-1 overflow-hidden rounded-lg p-0" />}
+              render={
+                <FramePanel className="min-h-0 flex-1 overflow-hidden rounded-lg p-0 data-[view=agenda]:border-t-0" />
+              }
             />
           </EventCalendar>
         </SkeletonReveal>
