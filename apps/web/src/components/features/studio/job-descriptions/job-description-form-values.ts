@@ -50,7 +50,7 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   };
 }
 
-export function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
+function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
   return {
     allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
     code: record.code ?? "",
@@ -89,13 +89,6 @@ export function toDepartmentScopedFormValues(
 
 export function normalizeDepartmentId(value: string | null): string {
   return value ?? "";
-}
-
-export function hasUnsavedFormChanges(
-  values: JobDescriptionFormValues,
-  savedValues: JobDescriptionFormValues,
-): boolean {
-  return JSON.stringify(values) !== JSON.stringify(savedValues);
 }
 
 const JOB_DESCRIPTION_BASIC_FIELDS = [

@@ -5,7 +5,7 @@ import {
   recruitingResumeEvaluation,
   recruitingRecord,
 } from "@app/db-schema/schema";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { ResumeEvaluationHistoryResponse } from "@app/shared/studio-resumes";
 import { factory } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";

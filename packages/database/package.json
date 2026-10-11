@@ -2,16 +2,15 @@
   "name": "@app/database",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared Drizzle database factory and database type used by server, worker, and reusable processing packages",
+  "description": "Shared Drizzle database factory, Database type, package-scoped database context, and query helpers used by server, worker, and reusable packages",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./recruiting-read-model": "./src/recruiting-read-model.ts",
-    "./recruiting-records": "./src/recruiting-records.ts",
-    "./offer-approval": "./src/offer-approval.ts",
-    "./recruiting-pipeline": "./src/recruiting-pipeline.ts",
-    "./recruiting-ai-review": "./src/recruiting-ai-review.ts",
-    "./recruiting-reference-retention": "./src/recruiting-reference-retention.ts"
+    "./connection-options": "./src/connection-options.ts",
+    "./context": "./src/context.ts",
+    "./list-text-filters": "./src/list-text-filters.ts",
+    "./pagination": "./src/pagination.ts",
+    "./serialize": "./src/serialize.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -19,6 +18,7 @@
   },
   "dependencies": {
     "@app/db-schema": "workspace:*",
+    "@app/shared": "workspace:*",
     "drizzle-orm": "catalog:",
     "postgres": "^3.4.9"
   },

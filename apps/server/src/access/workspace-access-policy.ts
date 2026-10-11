@@ -2,7 +2,7 @@ import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 import type { statement } from "@app/shared/permissions";
 import { hasPermissionInStatements } from "@app/shared/permission-statements";
 import type { WorkspacePermissionStatements } from "@app/shared/permission-statements";
-import { computeWorkspacePermissionSnapshot } from "./workspace-permission-snapshot";
+import { computeWorkspacePermissionSnapshot } from "@app/recruiting/access/workspace-permission-snapshot";
 
 export type WorkspaceResource = keyof typeof statement;
 export type WorkspaceAction<R extends WorkspaceResource> = (typeof statement)[R][number];

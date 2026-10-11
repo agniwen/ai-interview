@@ -1,5 +1,5 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../runtime/db";
 import { generateInterviewQuestionsForProfile } from "../../../agents/resume-analysis-agent";
@@ -7,7 +7,7 @@ import { jobDescription } from "@app/db-schema/schema";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
-} from "@app/resume-parse-queue/resume-review-generation";
+} from "@app/job-queues/resume-review-generation";
 import { resolveCandidateQuestionGenerationEnabled } from "@app/shared/interview/candidate-question-generation-config";
 
 export interface CandidateQuestionGenerationDependencies {

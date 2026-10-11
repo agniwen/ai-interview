@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import { DetailBodySkeleton, DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import { StudioDateGroupHeaderSkeleton } from "./studio-date-group-virtual-list";
-import { ResumeLibraryCardSkeleton } from "./resumes/resume-library-card-skeleton";
-import { ResumeLibraryMetricsSkeleton } from "./resumes/resume-library-metrics-skeleton";
 import { StudioSummaryCardsSkeleton } from "./studio-summary-cards";
 import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description-charts-skeleton";
 import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
@@ -86,17 +84,6 @@ function ToolbarSkeleton({
   );
 }
 
-function RecruitingListSkeleton() {
-  return (
-    <div className="grid">
-      <StudioDateGroupHeaderSkeleton />
-      {Array.from({ length: 4 }).map((_, index) => (
-        <ResumeLibraryCardSkeleton key={index} />
-      ))}
-    </div>
-  );
-}
-
 function ResumePoolCardsSkeleton() {
   return (
     <div className="grid">
@@ -105,18 +92,6 @@ function ResumePoolCardsSkeleton() {
         <ResumePoolCardSkeleton key={index} />
       ))}
     </div>
-  );
-}
-
-export function RecruitingPageSkeleton() {
-  return (
-    <PageShell label="招聘台">
-      <HeaderSkeleton />
-      <ResumeLibraryMetricsSkeleton />
-      <TabsSkeleton count={6} />
-      <ToolbarSkeleton filterCount={4} />
-      <RecruitingListSkeleton />
-    </PageShell>
   );
 }
 

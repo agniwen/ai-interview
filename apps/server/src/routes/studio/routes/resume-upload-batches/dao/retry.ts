@@ -1,5 +1,5 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import {
@@ -7,7 +7,7 @@ import {
   recruitingUploadBatch,
   recruitingUploadBatchItem,
 } from "@app/db-schema/schema";
-import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
+import type { ResumeParseJobData } from "@app/job-queues/resume-parse";
 import { reconcileBatchProgress } from "./batches";
 
 export type ResumeParseRetryTarget =

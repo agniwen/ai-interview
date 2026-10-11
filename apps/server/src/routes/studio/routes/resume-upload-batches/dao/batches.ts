@@ -23,6 +23,4 @@ export const recoverIncompleteBatchItems: ResumeIngest["recoverIncompleteBatchIt
 export const reviveOrphans: ResumeIngest["reviveOrphans"] = ingest.reviveOrphans;
 export const reviveRetriableFailures: ResumeIngest["reviveRetriableFailures"] =
   ingest.reviveRetriableFailures;
-export const toBatchDto: ResumeIngest["toBatchDto"] = ingest.toBatchDto;
 export const toItemDto: ResumeIngest["toItemDto"] = ingest.toItemDto;
-export type { CreateBatchInput } from "@app/resume-processing/ingest";

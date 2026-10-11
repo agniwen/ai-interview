@@ -15,8 +15,8 @@ import type { createMeetingTranscriptionDao } from "@app/meeting-processing/tran
 import type {
   HumanInterviewRecordingJobData,
   HumanInterviewTrackRecordingJobData,
-} from "@app/meeting-processing-queue/human-interview-recording";
-import type { enqueueMeetingTranscriptionJobs } from "@app/meeting-processing-queue/meeting-transcription";
+} from "@app/job-queues/human-interview-recording";
+import type { enqueueMeetingTranscriptionJobs } from "@app/job-queues/meeting-transcription";
 import { Context, Data, Effect, Layer } from "effect";
 import { z } from "zod";
 import { detectCandidateSilence } from "@app/meeting-media";
@@ -43,12 +43,12 @@ export interface HumanInterviewRecordingProcessorDependencies {
   >["markHumanInterviewTranscriptionUnavailable"];
 }
 
-export class HumanInterviewRecordingProcessor extends Context.Service<
+class HumanInterviewRecordingProcessor extends Context.Service<
   HumanInterviewRecordingProcessor,
   HumanInterviewRecordingProcessorDependencies
 >()("@app/worker/HumanInterviewRecordingProcessor") {}
 
-export const humanInterviewRecordingProcessorLayer = (
+const humanInterviewRecordingProcessorLayer = (
   dependencies: HumanInterviewRecordingProcessorDependencies,
 ) => Layer.succeed(HumanInterviewRecordingProcessor, dependencies);
 
@@ -368,7 +368,7 @@ async function ingestTrackRecordings(
       }));
 }
 
-export function runHumanInterviewRecordingProcessingEffect(
+function runHumanInterviewRecordingProcessingEffect(
   input: HumanInterviewRecordingJobData,
   context: { attempt: number; maxAttempts: number },
 ) {

@@ -2,7 +2,7 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "../../../../../../factory";
-import { isFeishuHumanInterviewEnabled } from "../../../../../../integrations/feishu/provider";
+import { isFeishuHumanInterviewEnabled } from "@app/feishu/provider";
 import { listWorkspaceMembers, queryPaginatedWorkspaceMembers } from "../../dao";
 import type { WorkspaceMemberListQuery } from "../../dao";
 

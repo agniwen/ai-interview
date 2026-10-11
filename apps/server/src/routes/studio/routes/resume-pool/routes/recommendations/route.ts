@@ -4,8 +4,8 @@ import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { JobDescriptionRecommendationResult } from "@app/shared/job-descriptions";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
-import { loadResumePoolItem } from "../../dao";
-import { recommendJobDescriptionsForResume } from "../../utils/jd-recommendations";
+import { loadResumePoolItem } from "@app/resume-processing/review/support/resume-pool-dao";
+import { recommendJobDescriptionsForResume } from "@app/resume-processing/review/support/resume-pool-utils-jd-recommendations";
 import { jdRecommendationBodySchema } from "./schema";
 
 interface ResumePoolRecommendationItem {

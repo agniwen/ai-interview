@@ -1,4 +1,4 @@
-import type { RecruitingRecordValues } from "@app/database/recruiting-records";
+import type { RecruitingRecordValues } from "@app/recruiting/records";
 
 export const INVALIDATED_AI_RESUME_ASSESSMENT = {
   notes: null,

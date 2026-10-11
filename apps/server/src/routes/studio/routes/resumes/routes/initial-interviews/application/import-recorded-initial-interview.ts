@@ -1,6 +1,6 @@
 import type { InitialInterviewSnapshot } from "@app/shared/human-initial-interview";
-import type { InitialInterviewScope } from "../dao";
-import { InitialInterviewError } from "../errors";
+import type { InitialInterviewScope } from "@app/recruiting-workflows/initial-interviews/dao";
+import { InitialInterviewError } from "@app/recruiting-workflows/initial-interviews/errors";
 
 export interface ImportRecordedInitialInterviewInput extends InitialInterviewScope {
   actorId: string;

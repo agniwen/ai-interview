@@ -13,11 +13,11 @@ import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-st
 import {
   HumanInterviewMeetingError,
   resolveValidUntilInput,
-} from "./human-interview-meeting-access";
-import { loadHumanInterviewMeetingById } from "./human-interview-meetings";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
-import { validateHumanInterviewMeetingInterviewerIds } from "./human-interview-meeting-input";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meeting-access";
+import { loadHumanInterviewMeetingById } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
+import { enqueueHumanMeetingEvents } from "@app/recruiting-workflows/notifications/events";
+import { isInterviewNotificationFlowEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
+import { validateHumanInterviewMeetingInterviewerIds } from "@app/recruiting-workflows/human-interviews/human-interview-meeting-input";
 
 export async function updateHumanInterviewMeetingSchedule({
   actorUserId,

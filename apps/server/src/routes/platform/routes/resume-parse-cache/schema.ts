@@ -1,6 +1,5 @@
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { resumeParseCacheFilterSchema } from "@app/shared/resume-parse-cache";
-import type { ResumeParseCacheFilters } from "@app/shared/resume-parse-cache";
 import { z } from "zod";
 
 export const resumeParseCacheQuerySchema = resumeParseCacheFilterSchema.extend({
@@ -11,6 +10,4 @@ export const resumeParseCacheQuerySchema = resumeParseCacheFilterSchema.extend({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
   textFilters: listTextFiltersSchema("parseCache"),
 });
-
-export type { ResumeParseCacheFilters };
 export type ResumeParseCacheQuery = z.infer<typeof resumeParseCacheQuerySchema>;

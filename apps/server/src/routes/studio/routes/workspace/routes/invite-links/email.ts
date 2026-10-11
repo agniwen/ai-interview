@@ -1,4 +1,4 @@
-import { buildSenderFromAddress, getResendClient } from "../../../../../../infrastructure/resend";
+import { buildSenderFromAddress, getResendClient } from "@app/recruiting-workflows/runtime/resend";
 
 function escapeHtml(value: string): string {
   return value

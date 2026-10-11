@@ -17,11 +17,7 @@ const StudioPersonDetailPanel = lazy(async () => {
   return { default: detailModule.StudioPersonDetailPanel };
 });
 
-export function StudioPersonDetailPanelFallback({
-  mode = "resume",
-}: {
-  mode?: "resume" | "interview";
-}) {
+function StudioPersonDetailPanelFallback({ mode = "resume" }: { mode?: "resume" | "interview" }) {
   return (
     <output
       aria-busy="true"

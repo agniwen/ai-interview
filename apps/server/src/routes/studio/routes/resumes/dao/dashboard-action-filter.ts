@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel as record } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel as record } from "@app/recruiting/read-model";
 import { aiInterviewRound, humanInterviewRound, recruitingOffer } from "@app/db-schema/schema";
 import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
 import { and, eq, exists, inArray, isNull } from "drizzle-orm";

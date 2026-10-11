@@ -1,12 +1,12 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
-import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
+import { isInterviewNotificationFlowEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
 import {
   enqueueAiInvitationExceptionEvent,
   enqueueAiInvitationResponseEvent,
   resolveInterviewNotificationCompanyName,
-} from "../../../../../interview-notifications/utils/events";
+} from "@app/recruiting-workflows/notifications/events";
 import { globalConfig, organization, aiInterviewRound } from "@app/db-schema/schema";
 import type { AiInvitationExceptionType } from "@app/db-schema/interview-notifications";
 import type { PublicAiInterviewInvitationPreview } from "@app/shared/studio-pipeline-stages";

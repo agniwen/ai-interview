@@ -17,12 +17,6 @@ export const humanInterviewKeys = {
   studioResumes: () => ["studio-resumes"] as const,
 };
 
-export const interviewNotificationKeys = {
-  recipients: (slug: string, candidateId: string) =>
-    ["interview-notification-recipients", slug, candidateId] as const,
-  workspaceMembers: (slug: string) => ["workspace-members", slug] as const,
-};
-
 export const jobDescriptionKeys = {
   all: ["job-descriptions"] as const,
   recruiting: (slug: string) => [...jobDescriptionKeys.all, "recruiting", slug] as const,

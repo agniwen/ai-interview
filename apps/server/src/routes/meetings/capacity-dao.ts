@@ -32,9 +32,7 @@ export async function lockMeetingDirectUploadCapacity(tx: MeetingTransaction): P
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${DIRECT_UPLOAD_CAPACITY_LOCK}))`);
 }
 
-export function resolveMeetingDirectUploadConcurrency(
-  env: NodeJS.ProcessEnv = process.env,
-): number {
+function resolveMeetingDirectUploadConcurrency(env: NodeJS.ProcessEnv = process.env): number {
   const parsed = Number.parseInt(env.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
 }

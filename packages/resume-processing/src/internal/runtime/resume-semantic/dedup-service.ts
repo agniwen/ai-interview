@@ -1,4 +1,1 @@
-export {
-  createDefaultSemanticDedupDeps,
-  findSemanticResumeDuplicates,
-} from "../../../semantic/resume/dedup-service";
+export { findSemanticResumeDuplicates } from "../../../semantic/resume/dedup-service";

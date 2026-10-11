@@ -29,7 +29,7 @@ import {
 import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
 import type { createRequestAutomaticMeetingIntelligence } from "@app/meeting-processing/intelligence";
 import type { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
-import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
+import type { MeetingTranscriptionJobData } from "@app/job-queues/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
 import type {
   MeetingTranscriptionSourceTrack,
@@ -140,14 +140,13 @@ export interface MeetingTranscriptionDependencies {
   ) => Promise<Result>;
 }
 
-export class MeetingTranscriptionProcessor extends Context.Service<
+class MeetingTranscriptionProcessor extends Context.Service<
   MeetingTranscriptionProcessor,
   MeetingTranscriptionDependencies
 >()("@app/worker/MeetingTranscriptionProcessor") {}
 
-export const meetingTranscriptionProcessorLayer = (
-  dependencies: MeetingTranscriptionDependencies,
-) => Layer.succeed(MeetingTranscriptionProcessor, dependencies);
+const meetingTranscriptionProcessorLayer = (dependencies: MeetingTranscriptionDependencies) =>
+  Layer.succeed(MeetingTranscriptionProcessor, dependencies);
 
 class MeetingTranscriptionFailure extends Data.TaggedError("MeetingTranscriptionFailure")<{
   readonly cause: unknown;
@@ -758,7 +757,7 @@ async function runMeetingTranscriptionProcessingPromise(
   }
 }
 
-export function runMeetingTranscriptionProcessingEffect(
+function runMeetingTranscriptionProcessingEffect(
   input: MeetingTranscriptionJobData,
   context: { attempt: number; maxAttempts: number },
 ) {

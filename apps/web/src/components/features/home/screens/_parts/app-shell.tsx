@@ -13,10 +13,8 @@ import {
   IconMailCheck,
   IconMessageChatbot,
   IconMoon,
-  IconPlus,
   IconRobot,
   IconShieldCheck,
-  IconSquareCheck,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -161,67 +159,6 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
           </ul>
         </div>
       ))}
-    </>
-  );
-}
-
-// ─────────────────── Sidebar body: Chat conversation list ───────────────────
-interface ChatConversation {
-  title: string;
-  active?: boolean;
-  hint?: string;
-}
-
-const CHAT_CONVERSATIONS: ChatConversation[] = [
-  { active: true, hint: "刚刚", title: "资深前端工程师 · 三份简历对比" },
-  { hint: "2 小时前", title: "增长产品经理候选人初筛" },
-  { hint: "昨天", title: "数据分析师 · 含附件对话" },
-  { hint: "昨天", title: "后端架构师评估" },
-  { hint: "3 天前", title: "UI 设计师作品评估" },
-  { hint: "上周", title: "运营专员经验交叉对比" },
-];
-
-export function ChatNav() {
-  return (
-    <>
-      <div className="flex items-center gap-1.5 px-2 pb-2">
-        <button
-          type="button"
-          className="flex h-9 flex-1 items-center gap-2 rounded-md px-2 text-sidebar-foreground/80 hover:bg-sidebar-accent"
-        >
-          <IconPlus className="size-4" />
-          <span className="font-medium text-sm">创建对话</span>
-        </button>
-        <span className="grid size-9 place-items-center rounded-md text-sidebar-foreground/80">
-          <IconSquareCheck className="size-4" />
-        </span>
-      </div>
-      <div className="flex w-full min-w-0 flex-col p-2">
-        <ul className="flex w-full min-w-0 flex-col gap-0.5">
-          {CHAT_CONVERSATIONS.map((c) => (
-            <li className="group/conv relative" key={c.title}>
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm hover:bg-sidebar-accent",
-                  c.active
-                    ? "bg-background font-medium text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px]">{c.title}</div>
-                  {c.hint ? (
-                    <div className="truncate text-[10.5px] text-sidebar-foreground/55">
-                      {c.hint}
-                    </div>
-                  ) : null}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
     </>
   );
 }

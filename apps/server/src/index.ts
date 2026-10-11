@@ -18,7 +18,8 @@ async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null>
     return null;
   }
 
-  const { initializeFeishuBots, shutdownFeishuBots } = await import("./integrations/feishu/bot");
+  const { initializeFeishuBots, shutdownFeishuBots } =
+    await import("@app/recruiting-workflows/feishu-bot/bot");
   await initializeFeishuBots();
   console.info("[backend] Feishu bot websocket connections initialized");
   return shutdownFeishuBots;

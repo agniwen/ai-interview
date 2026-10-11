@@ -1,5 +1,5 @@
 import { loadInterviewContextsForFormAi } from "../dao/form-ai-context";
-import { loadManagedJobDescriptionById } from "../../job-descriptions/dao";
+import { loadManagedJobDescriptionById } from "@app/resume-processing/review/support/job-descriptions-dao";
 import type { AiCandidateContext } from "./ai-candidate-context-format";
 
 export interface AiGenerateJobDescriptionContext {

@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
-import type { Transaction } from "../../../../../interview-notifications/dao";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import type { Transaction } from "@app/recruiting-workflows/notifications/dao";
+import { enqueueHumanMeetingEvents } from "@app/recruiting-workflows/notifications/events";
 import {
   humanInterviewMeeting,
   humanInterviewMeetingRound,

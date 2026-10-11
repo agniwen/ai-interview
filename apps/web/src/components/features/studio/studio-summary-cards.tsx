@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 
-export interface StudioSummaryCardItem {
+interface StudioSummaryCardItem {
   id: string;
   description: ReactNode;
   label: ReactNode;

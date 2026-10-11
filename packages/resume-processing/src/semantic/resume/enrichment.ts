@@ -1,10 +1,10 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../database";
 import { resumePoolItem } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumePoolScope } from "@app/db-schema/schema";
-import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
+import type { ResumeSemanticIndexJobData } from "@app/job-queues/resume-semantic-index";
 import { findSemanticResumeDuplicates } from "./dedup-service";
 import { replaceDuplicateMatchesForSource } from "./duplicate-matches";
 import { runResumeSemanticIndexJob } from "./indexer";

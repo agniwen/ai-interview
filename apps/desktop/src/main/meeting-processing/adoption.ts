@@ -12,7 +12,7 @@ import { MeetingTaskError } from "./task-error";
 const sourceSchema = echoAdoptionSchema.shape.sources.element
   .omit({ url: true })
   .extend({ filePath: z.string() });
-export const localAdoptionSchema = z.object({
+const localAdoptionSchema = z.object({
   context: echoDeviceContextSchema,
   sources: sourceSchema.array(),
   useLocalCapture: z.boolean(),

@@ -1,5 +1,5 @@
-import type { HumanInterviewDocumentContent } from "../../../../../integrations/feishu/human-interview-evaluation-doc";
-import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
+import type { HumanInterviewDocumentContent } from "@app/feishu/human-interview-evaluation-doc";
+import type { FeishuProviderId } from "@app/feishu/provider";
 
 export interface HumanInterviewDocumentSyncJob extends HumanInterviewDocumentContent {
   recruitingRecordId: string;
@@ -17,7 +17,7 @@ export interface HumanInterviewDocumentSyncJob extends HumanInterviewDocumentCon
   ratingOnly?: boolean;
 }
 
-export type ResolvedHumanInterviewDocumentSyncJob = HumanInterviewDocumentSyncJob & {
+type ResolvedHumanInterviewDocumentSyncJob = HumanInterviewDocumentSyncJob & {
   documentId: string;
   documentUrl: string;
   providerId: FeishuProviderId;

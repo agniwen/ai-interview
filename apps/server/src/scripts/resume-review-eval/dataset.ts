@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   getResumeReviewBaseScore,
   getResumeReviewDimension,

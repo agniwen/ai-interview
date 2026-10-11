@@ -139,15 +139,17 @@ flowchart LR
 - `apps/livekit-agent/`：Python 语音面试 agent。
 - `packages/shared/`：同构产品契约、Zod schema、状态机与共享工具。
 - `packages/db-schema/`：Drizzle schema、relations、数据库枚举与持久化相邻契约。
-- `packages/database/`：server/worker/processing 共用的 Drizzle 数据库工厂与类型。
+- `packages/database/`：Drizzle 数据库工厂与类型、共享包的环境数据库上下文、通用查询工具。
+- `packages/recruiting/`：招聘领域数据：招聘记录、流程流转、工作区权限与招聘配置。
 - `packages/ai-runtime/`：与供应商无关的服务端模型选择与文本生成原语。
 - `packages/object-storage/`：S3 兼容对象存储客户端与 key/上传/下载原语。
-- `packages/resume-parse-queue/`：简历解析、评价、语义索引与邮件导入的队列契约。
 - `packages/resume-processing/`：简历导入、解析、评价、语义索引与去重工作流。
 - `packages/meeting-media/`：会议录音归一化与转写前音频准备。
 - `packages/meeting-live-transcript/`：实时转写采集、校正与浏览器到服务端的中继契约。
 - `packages/meeting-processing/`：会议转写、智能分析、清理与检索投影工作流。
-- `packages/meeting-processing-queue/`：会议相关后台任务的队列契约与生产者。
+- `packages/job-queues/`：简历与会议相关后台任务的 BullMQ 队列契约与生产者。
+- `packages/feishu/`：飞书开放平台客户端（应用凭证、tenant token、云文档）。
+- `packages/recruiting-workflows/`：Server 与 Worker 共用的招聘流程：人工面试、AI 面试报告、通知、初面评估、Offer 审批通知与飞书机器人。
 
 ### 前端：TanStack Start + Router + Query
 

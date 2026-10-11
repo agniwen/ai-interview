@@ -645,7 +645,6 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
         scheduledAt={props.preview.scheduledAt}
         canPublish={token.participantRole !== "observer"}
         canUseLiveTranscript={props.mode === "interviewer" && token.participantRole !== "observer"}
-        canUseVoiceEffects={props.mode === "interviewer" && token.participantRole !== "observer"}
         canEndMeeting={props.mode === "interviewer" && token.participantRole !== "observer"}
         isEnding={isEnding}
         onEndMeeting={endMeeting}

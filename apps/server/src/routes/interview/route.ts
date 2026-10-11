@@ -7,7 +7,7 @@ import {
 import {
   lockAiRound,
   updateEffectiveAiProgress,
-} from "../studio/routes/interviews/dao/ai-round-lifecycle";
+} from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
 import { buildInterviewRoomConfig } from "./utils/room-config";
 import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
@@ -19,12 +19,12 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory } from "../../factory";
 import { createInternalErrorResponse } from "../../error-handler";
-import { loadSubmittedTemplateIds } from "../studio/routes/forms/dao/submissions";
+import { loadSubmittedTemplateIds } from "@app/recruiting/forms/submissions";
 import { prepareQuestionBindings } from "./application/prepare-question-bindings";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
-} from "../studio/routes/interviews/dao/context-snapshots";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
 
 import { resolveInterviewRecordingEnabled } from "@app/shared/interview/recording-config";
 import { INTERVIEW_END_REASON } from "@app/shared/interview/end-reason";
@@ -39,8 +39,8 @@ import {
 } from "./utils";
 import { candidateInterviewFeedbackRouter } from "./routes/feedback/route";
 import { resolveAiInterviewAccess } from "./utils/ai-interview-access";
-import { enqueueAiInvitationResponseEvent } from "../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../interview-notifications/utils/feature-flags";
+import { enqueueAiInvitationResponseEvent } from "@app/recruiting-workflows/notifications/events";
+import { isInterviewNotificationFlowEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
 
 type InterviewTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

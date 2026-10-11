@@ -9,7 +9,7 @@ export const QUALITATIVE_RECOMMENDATION_LABEL = {
   undecided: "待定",
 } as const satisfies Record<QualitativeRecommendationLevel, string>;
 
-export const QUALITATIVE_RECOMMENDATION_TEXT_CLASS = {
+const QUALITATIVE_RECOMMENDATION_TEXT_CLASS = {
   highly_recommended: "text-purple-700 dark:text-purple-300",
   not_recommended: "text-red-700 dark:text-red-300",
   recommended: "text-green-700 dark:text-green-300",

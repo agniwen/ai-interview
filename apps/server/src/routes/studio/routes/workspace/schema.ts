@@ -8,10 +8,6 @@ export const recruitingGroupInputSchema = z.object({
   name: z.string().trim().min(1, "请输入组别名称。").max(40, "组别名称不能超过 40 个字符。"),
 });
 
-export const memberRecruitingGroupInputSchema = z.object({
-  groupId: z.string().trim().min(1).nullable(),
-});
-
 export const recruitingGroupRoleSchema = z.enum([
   "recruitingSupervisor",
   "recruitingLead",
@@ -27,5 +23,3 @@ export const recruitingGroupMemberInputSchema = z.object({
 export const recruitingGroupMemberRoleInputSchema = z.object({
   role: recruitingGroupRoleSchema,
 });
-
-export type WorkspaceUpdateInput = z.infer<typeof workspaceUpdateSchema>;

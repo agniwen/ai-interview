@@ -15,10 +15,13 @@ import {
   listAllCandidateFormTemplates,
   loadCandidateFormTemplateById,
   queryPaginatedCandidateFormTemplates,
-} from "./dao/queries";
-import { loadSubmissionsByTemplate } from "./dao/submissions";
-import { loadCandidateFormTemplateVersionById } from "./dao/versions";
-import { listManagedJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+} from "@app/recruiting/forms/queries";
+import { loadSubmissionsByTemplate } from "@app/recruiting/forms/submissions";
+import { loadCandidateFormTemplateVersionById } from "@app/recruiting/forms/versions";
+import {
+  listManagedJobDescriptions,
+  managedJobDescriptionIdsExist,
+} from "@app/resume-processing/review/support/job-descriptions-dao";
 
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { refreshEligibleCandidatesForFormTemplate } from "./dao/refresh-eligible";

@@ -40,7 +40,7 @@ const DESCRIPTION_MAX_LENGTH = 1000;
 const QUESTION_MAX_LENGTH = 1000;
 const errorPayloadSchema = z.object({ error: z.string().optional() });
 
-export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplateInput {
+function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplateInput {
   return {
     description: "",
     jobDescriptionIds: [],

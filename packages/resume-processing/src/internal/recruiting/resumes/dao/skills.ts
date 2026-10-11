@@ -1,5 +1,5 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../../runtime/db";
 import { studioOrgSkill } from "@app/db-schema/schema";

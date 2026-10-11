@@ -9,7 +9,3 @@ export const bulkResumeUploadWorkflow: ResumeIngest["bulkResumeUploadWorkflow"] 
 export const runBulkResumeUploadWorkflow: ResumeIngest["runBulkResumeUploadWorkflow"] =
   ingest.runBulkResumeUploadWorkflow;
 export { createBulkResumeUploadWorkflow };
-export type {
-  BulkResumeUploadWorkflowDeps,
-  BulkResumeUploadWorkflowOutput,
-} from "@app/resume-processing/ingest";

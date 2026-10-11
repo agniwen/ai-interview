@@ -6,7 +6,7 @@ import {
   enqueueMeetingTranscriptionJobs,
   getMeetingTranscriptionQueue,
   meetingTranscriptionJobSchema,
-} from "@app/meeting-processing-queue/meeting-transcription";
+} from "@app/job-queues/meeting-transcription";
 import { z } from "zod";
 import { Effect } from "effect";
 

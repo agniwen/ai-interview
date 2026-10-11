@@ -1,13 +1,13 @@
 import type { db } from "../../../infrastructure/db/index";
 import type { InterviewContextSnapshotPayload } from "@app/db-schema/interview-snapshots";
-import { lockAiRound } from "../../studio/routes/interviews/dao/ai-round-lifecycle";
+import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
 import {
   buildSnapshotPayloadFromDatabase,
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
   refreshInterviewContextSnapshot,
-} from "../../studio/routes/interviews/dao/context-snapshots";
-import { loadSubmissionsByInterview } from "../../studio/routes/forms/dao/submissions";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
+import { loadSubmissionsByInterview } from "@app/recruiting/forms/submissions";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

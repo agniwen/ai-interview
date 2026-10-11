@@ -3,7 +3,7 @@ import {
   saveReviewerEvaluationTx,
   loadReviewerEvaluationAggregate,
 } from "./human-interview-reviewer-dao";
-import { syncHumanInterviewRoundNodeTx } from "@app/database/recruiting-pipeline";
+import { syncHumanInterviewRoundNodeTx } from "@app/recruiting/pipeline";
 import {
   recruitingRecord,
   jobDescription,
@@ -19,7 +19,7 @@ import {
   humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable max-lines -- evaluation read, publish, and submission transactions share one injected DAO boundary. */
 import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
@@ -34,7 +34,7 @@ import {
   humanInterviewEvaluationSubmissionSchema,
   humanInterviewGeneratedEvaluationSchema,
 } from "@app/db-schema/studio-interviews";
-import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
+import type { HumanInterviewEvaluationJobData } from "@app/job-queues/human-interview-evaluation";
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { z } from "zod";
 import {

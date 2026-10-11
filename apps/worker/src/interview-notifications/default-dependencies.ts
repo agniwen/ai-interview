@@ -1,7 +1,7 @@
 import {
   prepareOfferApprovalNotification,
   validateOfferApprovalDelivery,
-} from "@app/server/offer-approval-notifications";
+} from "@app/recruiting-workflows/offer-approvals/notifications";
 import { db } from "../db";
 import {
   claimInterviewNotificationDelivery,

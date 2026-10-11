@@ -2,7 +2,7 @@ import {
   closeInitialInterviewEvaluationQueue,
   createInitialInterviewEvaluationWorker,
   isInitialInterviewEvaluationQueueConfigured,
-} from "@app/meeting-processing-queue/initial-interview-evaluation";
+} from "@app/job-queues/initial-interview-evaluation";
 import type { reportQueueFailure } from "../sentry";
 import type { WorkerLifecycle } from "../effect/lifecycle";
 export async function startInitialInterviewProcessing(input: {
@@ -12,7 +12,7 @@ export async function startInitialInterviewProcessing(input: {
   onFailure: ReturnType<typeof reportQueueFailure>;
 }) {
   const { processInitialInterviewVersion, recoverInitialInterviewEvaluations } =
-    await import("@app/server/initial-interview-evaluation");
+    await import("@app/recruiting-workflows/initial-interviews/recover-initial-interview-evaluations");
   input.resourceLifecycle.addFinalizer(
     "initial-interview-queue",
     closeInitialInterviewEvaluationQueue,

@@ -47,8 +47,6 @@ export const PIPELINE_STAGE_TABS = [
   { description: "已结束候选人", label: "已结束", value: "closed" },
 ] as const;
 
-export type PipelineStageTabValue = (typeof PIPELINE_STAGE_TABS)[number]["value"];
-
 export function parseCsvValues(value: string): string[] {
   if (!value) {
     return [];
@@ -57,10 +55,6 @@ export function parseCsvValues(value: string): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-export function toCsvValues(values: string[]): string {
-  return values.join(",");
 }
 
 export function hasActiveResumeLibraryFilters(

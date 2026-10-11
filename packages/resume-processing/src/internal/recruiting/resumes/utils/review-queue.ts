@@ -1,13 +1,13 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { db } from "../../../runtime/db";
 import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
-} from "@app/resume-parse-queue/resume-review-generation";
-import type { ResumeReviewGenerationJobData } from "@app/resume-parse-queue/resume-review-generation";
+} from "@app/job-queues/resume-review-generation";
+import type { ResumeReviewGenerationJobData } from "@app/job-queues/resume-review-generation";
 import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   listRecruitingJobDescriptions,

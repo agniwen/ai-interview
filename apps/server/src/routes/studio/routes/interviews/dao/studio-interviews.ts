@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";

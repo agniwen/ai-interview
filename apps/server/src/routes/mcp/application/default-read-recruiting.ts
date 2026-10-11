@@ -1,7 +1,7 @@
 import {
   loadManagedJobDescriptionById,
   queryPaginatedJobDescriptions,
-} from "../../studio/routes/job-descriptions/dao";
+} from "@app/resume-processing/review/support/job-descriptions-dao";
 import {
   loadResumeDetail,
   queryPaginatedResumeRecords,

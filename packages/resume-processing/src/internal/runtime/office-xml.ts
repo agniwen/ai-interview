@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export type OfficeXmlNode = OfficeXmlElement | OfficeXmlNode[] | boolean | null | number | string;
 
-export interface OfficeXmlElement {
+interface OfficeXmlElement {
   [key: string]: OfficeXmlNode;
 }
 
@@ -36,7 +36,7 @@ export function parseOfficeXml(xml: string): OfficeXmlNode {
   return officeXmlNodeSchema.parse(xmlParser.parse(xml));
 }
 
-export function officeXmlLocalName(name: string): string {
+function officeXmlLocalName(name: string): string {
   return name.includes(":") ? (name.split(":").pop() ?? name) : name;
 }
 

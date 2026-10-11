@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
@@ -10,9 +10,9 @@ import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-descrip
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { z } from "zod";
 import { loadServerEnv } from "../standalone/env";
-import type { StructuredResumeGenerator } from "../agents/structured-resume-evaluation";
+import type { StructuredResumeGenerator } from "@app/resume-processing/ingest/agents/structured-resume-evaluation";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
-import type { StructuredResumeWorkflowLogContext } from "../agents/mastra/workflows/structured-resume-review-workflow";
+import type { StructuredResumeWorkflowLogContext } from "@app/resume-processing/ingest/agents/mastra/workflows/structured-resume-review-workflow";
 import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
 import type { ArtifactAudit } from "./diagnose-structured-resume-audit";
 
@@ -428,16 +428,16 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     s3Module,
     fileHashModule,
   ] = await Promise.all([
-    import("../agents/structured-resume-evaluation"),
-    import("../agents/mastra/workflows/structured-resume-review-workflow"),
+    import("@app/resume-processing/ingest/agents/structured-resume-evaluation"),
+    import("@app/resume-processing/ingest/agents/mastra/workflows/structured-resume-review-workflow"),
     import("@app/ai-runtime/simple-generators"),
     import("@app/ai-runtime/models"),
-    import("../infrastructure/resume-evaluation-input-hash"),
-    import("../infrastructure/resume-parse-pipeline"),
-    import("../infrastructure/resume-parse-pipeline-dependencies"),
-    import("../infrastructure/resume-parse-provider"),
-    import("../agents/resume-analysis-agent"),
-    import("../agents/resume-parser-agent"),
+    import("@app/resume-processing/ingest/support/resume-evaluation-input-hash"),
+    import("@app/resume-processing/ingest/support/resume-parse-pipeline"),
+    import("@app/resume-processing/ingest/support/resume-parse-pipeline-dependencies"),
+    import("@app/resume-processing/ingest/support/resume-parse-provider"),
+    import("@app/resume-processing/ingest/agents/resume-analysis-agent"),
+    import("@app/resume-processing/ingest/agents/resume-parser-agent"),
     import("@app/object-storage"),
     import("@app/shared/file-hash"),
   ]);

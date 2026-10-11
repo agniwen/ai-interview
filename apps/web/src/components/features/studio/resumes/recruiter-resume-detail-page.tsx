@@ -26,11 +26,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
-
-export {
-  listSearchFromDetailSearch,
-  resumeDetailPageSearchSchema,
-} from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 export type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 
 function getRecruiterResumeDocumentTitle(candidateName: string | null | undefined) {

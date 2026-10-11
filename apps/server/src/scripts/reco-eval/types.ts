@@ -1,4 +1,4 @@
-export type LabelSource = "mined" | "manual";
+type LabelSource = "mined" | "manual";
 
 export interface PositiveLabel {
   // = studio_interview.id
@@ -8,20 +8,14 @@ export interface PositiveLabel {
   source: LabelSource;
 }
 
-export interface FacetSimilarity {
-  resumeOverview?: number;
-  skillRole?: number;
-  workProject?: number;
-}
-
-export type FailureClass =
+type FailureClass =
   | "not_indexed"
   | "recall_capped"
   | "status_filtered"
   | "below_threshold"
   | "retrieved_low_rank";
 
-export type HitOrClass = "hit" | FailureClass;
+type HitOrClass = "hit" | FailureClass;
 
 export interface PositiveVerdict {
   candidateId: string;

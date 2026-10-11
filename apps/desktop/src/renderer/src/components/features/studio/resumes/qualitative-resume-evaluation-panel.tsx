@@ -26,10 +26,7 @@ import {
   QualitativeRecommendationIndicator,
   QUALITATIVE_RECOMMENDATION_LABEL,
 } from "./qualitative-recommendation-indicator";
-export {
-  QualitativeRecommendationIndicator,
-  QUALITATIVE_RECOMMENDATION_LABEL,
-} from "./qualitative-recommendation-indicator";
+export { QUALITATIVE_RECOMMENDATION_LABEL } from "./qualitative-recommendation-indicator";
 
 const DIMENSION_ENTRIES = [
   ["skillMatch", "技能匹配"],

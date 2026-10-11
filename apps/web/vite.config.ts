@@ -11,7 +11,7 @@ import { shouldResolveTslibAsEsm } from "./src/build/tslib-esm-resolution";
 import { loadWebProcessEnv } from "./src/env/load";
 
 const requireFromQueuePackage = createRequire(
-  new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
+  new URL("../../packages/job-queues/package.json", import.meta.url),
 );
 const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/package.json"));
 const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");

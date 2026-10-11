@@ -63,8 +63,6 @@ import type {
   ResumeRecordDetailResult,
   SearchResumeRecordsResult,
 } from "./recruiting-copilot-context";
-export { RecruitingCopilotContextProvider } from "./recruiting-copilot-context";
-export { NewRecruitingThread } from "./new-recruiting-thread";
 
 function ToolNotice({ children }: { children: string }) {
   return (

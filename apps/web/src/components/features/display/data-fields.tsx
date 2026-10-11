@@ -2,8 +2,8 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "@app/shared/utils";
 
-export type DataFieldsColumns = 1 | 2 | 3 | 4;
-export type DataFieldsDensity = "compact" | "default" | "relaxed";
+type DataFieldsColumns = 1 | 2 | 3 | 4;
+type DataFieldsDensity = "compact" | "default" | "relaxed";
 
 const COLUMNS_CLASS = {
   1: "grid-cols-1",

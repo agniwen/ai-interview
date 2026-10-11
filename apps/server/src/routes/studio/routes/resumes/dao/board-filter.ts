@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel as record } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel as record } from "@app/recruiting/read-model";
 import { resolveRecruitingBoardFilterView } from "@app/shared/recruiting-board";
 import type { RecruitingBoardStageView, RecruitingBoardView } from "@app/shared/recruiting-board";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";

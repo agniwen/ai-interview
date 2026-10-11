@@ -15,7 +15,6 @@
       "drizzle-kit": "1.0.0-rc.1",
       "drizzle-orm": "1.0.0-rc.1",
       "effect": "4.0.0-rc.112",
-      "next": "16.1.6",
       "react": "19.3.0",
       "react-dom": "19.3.0",
       "typescript": "7.0.2",

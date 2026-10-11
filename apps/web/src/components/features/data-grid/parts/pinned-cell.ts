@@ -1,79 +1,4 @@
-// src/components/features/data-grid/parts/pinned-cell.ts
-import type { Cell, Header, RowData } from "@tanstack/react-table";
-import type { CSSProperties } from "react";
-
 import { cn } from "@app/shared/utils";
-import type { DataGridFeatures } from "../table-features";
-
-/**
- * Compute layout styles for pinned and/or fixed-width columns.
- *
- * Pin-start uses `insetInlineStart: column.getStart('start')`,
- * pin-end uses `insetInlineEnd: column.getAfter('end')` (TanStack Table V9
- * logical pinning).
- *
- * 关键：同时强制设置 `width` / `minWidth` = `column.getSize()`。
- * getStart('start') sums prior pinned-start column sizes; if rendered width
- * diverges from getSize(), sticky offsets drift.
- *
- * Fixed-width columns (`minSize === maxSize`, e.g. actions / select) also get an
- * explicit width lock when unpinned, so they don't absorb leftover table space.
- *
- * z-index layering (works with sticky thead):
- *   - regular body cell: auto (0)
- *   - pinned body cell: 1
- *   - regular thead cell: 2
- *   - pinned thead cell (corner): 3
- */
-export function getPinningStyles<TData extends RowData>(
-  column:
-    | Header<DataGridFeatures, TData, unknown>["column"]
-    | Cell<DataGridFeatures, TData, unknown>["column"],
-  options: { isHeader?: boolean; stickToTop?: boolean } = {},
-): CSSProperties {
-  const isPinned = column.getIsPinned();
-  const { maxSize, minSize } = column.columnDef;
-  const isFixedWidth = minSize !== undefined && maxSize !== undefined && minSize === maxSize;
-
-  if (!(isPinned || isFixedWidth)) {
-    return {};
-  }
-
-  const size = column.getSize();
-  let zIndex: number | undefined;
-  if (isPinned) {
-    zIndex = options.isHeader ? 3 : 1;
-  }
-
-  return {
-    boxSizing: "border-box",
-    // Logical insets track RTL; LTR maps start→left, end→right.
-    insetInlineEnd: isPinned === "end" ? `${column.getAfter("end")}px` : undefined,
-    insetInlineStart: isPinned === "start" ? `${column.getStart("start")}px` : undefined,
-    maxWidth: `${size}px`,
-    minWidth: `${size}px`,
-    position: isPinned ? "sticky" : undefined,
-    top: isPinned && options.stickToTop ? 0 : undefined,
-    width: `${size}px`,
-    zIndex,
-  };
-}
-
-const OPAQUE_HEADER_SURFACE = "bg-background";
-
-export const PINNED_HEADER_CLASS = OPAQUE_HEADER_SURFACE;
-
-/**
- * Opaque resting fill for sticky body cells. Row hover/selected fills come from
- * TableCell `group-hover/row` / `group-data-[state=selected]/row` so the whole
- * row (including pinned columns) shares one background.
- */
-export const PINNED_CELL_CLASS = "bg-background";
-
-/**
- * Sticky header cells use the same opaque background fill as DataGrid headers.
- */
-export const STICKY_HEADER_CLASS = `sticky top-0 z-2 ${OPAQUE_HEADER_SURFACE}`;
 
 /**
  * Pin-edge divider — only applied while horizontal scroll has content under the pin.
@@ -86,37 +11,9 @@ export const PINNED_EDGE_START_BORDER_CLASS =
 export const PINNED_EDGE_END_BORDER_CLASS =
   "relative before:pointer-events-none before:absolute before:inset-y-0 before:start-0 before:z-[1] before:w-px before:bg-border";
 
-/**
- * Pin-edge columns (without columnOrderingFeature):
- * - start group: last leaf is the inner edge
- * - end group: first leaf is the inner edge
- */
-interface PinnedEdgeSides {
-  isEndEdge: boolean;
-  isStartEdge: boolean;
-}
-
 interface HorizontalScrollOverflow {
   canScrollEnd: boolean;
   canScrollStart: boolean;
-}
-
-export function getPinnedEdgeSides<TData extends RowData>(
-  column:
-    | Header<DataGridFeatures, TData, unknown>["column"]
-    | Cell<DataGridFeatures, TData, unknown>["column"],
-): PinnedEdgeSides {
-  const pin = column.getIsPinned();
-  if (pin === "start") {
-    const startCols = column.table.getStartLeafColumns();
-    const last = startCols.at(-1);
-    return { isEndEdge: false, isStartEdge: last?.id === column.id };
-  }
-  if (pin === "end") {
-    const [first] = column.table.getEndLeafColumns();
-    return { isEndEdge: first?.id === column.id, isStartEdge: false };
-  }
-  return { isEndEdge: false, isStartEdge: false };
 }
 
 /**

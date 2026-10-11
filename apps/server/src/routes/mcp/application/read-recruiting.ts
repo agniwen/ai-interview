@@ -1,7 +1,7 @@
 import type { recruitingReadDependencies } from "./default-read-recruiting";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import type { WorkspaceAuthorizer } from "../../../access/workspace-access-policy";
-import type { RecruitingVisibilityScope } from "../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { McpAccessError } from "../access";
 
 export interface McpReadContext {

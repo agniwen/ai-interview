@@ -1,9 +1,9 @@
-import { RecruitingReferenceRetentionError } from "@app/database/recruiting-reference-retention";
+import { RecruitingReferenceRetentionError } from "@app/recruiting/reference-retention";
 import { zValidator } from "@hono/zod-validator";
 import {
   enqueueMailIngestTrigger,
   isMailIngestTriggerQueueConfigured,
-} from "@app/resume-parse-queue/mail-ingest-trigger";
+} from "@app/job-queues/mail-ingest-trigger";
 import { isWorkspaceAdministratorRole } from "@app/shared/permissions";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";

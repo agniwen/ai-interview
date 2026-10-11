@@ -1,5 +1,5 @@
-import { lockAiRound } from "../../interviews/dao/ai-round-lifecycle";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, exists, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import {
@@ -12,8 +12,8 @@ import {
 import {
   loadActiveInterviewContextSnapshot,
   releaseInterviewContextBinding,
-} from "../../interviews/dao/context-snapshots";
-import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
+import { resolveOrCreateInterviewQuestionTemplateVersion } from "@app/recruiting/interview-questions/versions";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

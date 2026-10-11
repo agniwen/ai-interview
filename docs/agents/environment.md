@@ -6,7 +6,7 @@ Read when adding environment variables, configuring deployables, or changing tra
 
 Each deployable owns its environment: copy `apps/web/.env.example` to `apps/web/.env`, `apps/server/.env.example` to `apps/server/.env`, and `apps/worker/.env.example` to `apps/worker/.env`. Never load another app's `.env` or fall back to legacy application directories. Bun loads the current app's `.env*` files; Vite config uses its official `loadEnv` for `apps/web`.
 
-Environment contracts use T3 Env. Server variables are defined once in `@app/server/env` and reused by Web build validation; Worker variables are validated in `apps/worker/src/env.ts`; public Web variables live in `apps/web/src/env/client.schema.ts`. Add a variable to the owning `.env.example` and schema together. Runtime dependency availability still belongs to health/readiness checks when a capability is optional.
+Environment contracts use T3 Env. Server variables are defined once in `@app/server/web/runtime` and reused by Web build validation; Worker variables are validated in `apps/worker/src/env.ts`; public Web variables live in `apps/web/src/env/client.schema.ts`. Add a variable to the owning `.env.example` and schema together. Runtime dependency availability still belongs to health/readiness checks when a capability is optional.
 
 The voice agent has its own `apps/livekit-agent/.env.example`. See those `.env.example` files for the full list. Key requirements:
 

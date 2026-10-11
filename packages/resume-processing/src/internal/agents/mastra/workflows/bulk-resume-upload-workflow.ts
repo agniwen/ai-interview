@@ -54,7 +54,7 @@ export function createBulkResumeUploadWorkflow(deps: BulkResumeUploadWorkflowDep
   );
 }
 
-export const bulkResumeUploadWorkflow = createBulkResumeUploadWorkflow({
+const bulkResumeUploadWorkflow = createBulkResumeUploadWorkflow({
   processItem: processBatchItem,
 });
 

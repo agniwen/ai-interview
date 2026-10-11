@@ -3,11 +3,11 @@ import type { JsonValue } from "@app/db-schema/json";
 import { z } from "zod";
 import { desktopOAuthEndpoint } from "./oauth-endpoint";
 
-export type OAuthOpenResult =
+type OAuthOpenResult =
   | { ok: true; reason: "success" | "closed" }
   | { ok: false; reason: "error"; message: string };
 
-export interface OAuthOpenPayload {
+interface OAuthOpenPayload {
   /** better-auth base URL, e.g. https://interview.chainthink.cn or …/api/auth */
   authBaseURL: string;
   authApiOrigin: string;

@@ -14,7 +14,7 @@ import {
   isResumeSemanticIndexEnabled,
 } from "../../../../semantic/resume/embedding";
 import { enqueueResumeSemanticIndexJobBestEffort } from "../../../runtime/resume-semantic/enqueue";
-import { isResumeParseQueueConfigured } from "@app/resume-parse-queue/resume-parse";
+import { isResumeParseQueueConfigured } from "@app/job-queues/resume-parse";
 import { getResumeSemanticIndexConfig } from "../../../runtime/resume-semantic/indexer";
 import {
   SEARCH_LIMIT_BY_CHUNK,

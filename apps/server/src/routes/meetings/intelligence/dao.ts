@@ -3,11 +3,11 @@ import { db } from "../../../infrastructure/db/index";
 
 export const {
   claimMeetingIntelligenceRun,
-  heartbeatMeetingIntelligenceRun,
+
   listMeetingsNeedingAutomaticIntelligence,
-  listRecoverableMeetingIntelligenceJobs,
+
   loadMeetingIntelligenceResult,
-  loadMeetingIntelligenceTranscript,
+
   markMeetingIntelligenceFailed,
   publishMeetingIntelligence,
   requestMeetingIntelligenceRun,

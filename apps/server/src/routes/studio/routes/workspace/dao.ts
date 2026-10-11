@@ -1,14 +1,11 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
-import { buildListTextFilterWhere } from "../../../../infrastructure/db/list-text-filters";
-import { serializeDate } from "../../../../infrastructure/db/serialize";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
+import { serializeDate } from "@app/database/serialize";
 import { startOfBeijingDay } from "@app/shared/beijing-calendar";
-import {
-  FEISHU_PROVIDER_IDS,
-  getPreferredFeishuProviderId,
-} from "../../../../integrations/feishu/provider";
-import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
+import { FEISHU_PROVIDER_IDS, getPreferredFeishuProviderId } from "@app/feishu/provider";
+import type { FeishuProviderId } from "@app/feishu/provider";
 import {
   account,
   member,
@@ -19,12 +16,12 @@ import {
 } from "@app/db-schema/schema";
 import { recruitingGroupRoleSchema } from "./schema";
 
-export const DEFAULT_RECRUITING_GROUP_NAME = "默认招聘组";
+const DEFAULT_RECRUITING_GROUP_NAME = "默认招聘组";
 export const UNGROUPED_RECRUITING_GROUP_ID = "__ungrouped__";
 
 export type RecruitingGroupRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
 
-export interface RecruitingGroupMemberRow {
+interface RecruitingGroupMemberRow {
   id: string;
   userId: string;
   name: string;
@@ -121,7 +118,7 @@ export interface WorkspaceMemberListQuery {
   textFilters?: string;
 }
 
-export interface WorkspaceMemberListRecord {
+interface WorkspaceMemberListRecord {
   createdAt: string;
   email: string;
   id: string;

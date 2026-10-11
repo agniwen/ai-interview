@@ -20,12 +20,15 @@ import {
   listAllInterviewQuestionTemplates,
   loadInterviewQuestionTemplateById,
   queryPaginatedInterviewQuestionTemplates,
-} from "./dao/queries";
+} from "@app/recruiting/interview-questions/queries";
 import {
   loadInterviewQuestionTemplateVersionById,
   resolveOrCreateInterviewQuestionTemplateVersion,
-} from "./dao/versions";
-import { listManagedJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+} from "@app/recruiting/interview-questions/versions";
+import {
+  listManagedJobDescriptions,
+  managedJobDescriptionIdsExist,
+} from "@app/resume-processing/review/support/job-descriptions-dao";
 
 import {
   resolveAiGenerateContext,
@@ -34,7 +37,7 @@ import {
 import { generateInterviewQuestionTemplateFromPrompt } from "./utils/ai-interview-questions-generate";
 import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "./dao/refresh-eligible";
 import { compileFollowUpContractsWithDefaults } from "./application/default-compile-follow-up-contracts";
-import { questionsRequiringFollowUpContracts } from "./application/compile-follow-up-contracts";
+import { questionsRequiringFollowUpContracts } from "@app/recruiting/interview-questions/compile-follow-up-contracts";
 
 const generateTemplateQuestionsBodySchema = z.object({
   interviewRecordId: z.string().trim().min(1).optional(),

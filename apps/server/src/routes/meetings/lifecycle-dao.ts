@@ -5,7 +5,7 @@ import {
   assertMeetingRecruitingReferences,
   createMeetingPurgeDao,
 } from "@app/meeting-processing/purge";
-import { buildOrderBy } from "../../infrastructure/db/pagination";
+import { buildOrderBy } from "@app/database/pagination";
 import { db } from "../../infrastructure/db/index";
 import {
   meetingAuditLog,
@@ -434,9 +434,9 @@ export async function recordMeetingLocalRecoveryCleanup(input: {
 export const {
   claimMeetingPurge,
   completeMeetingPurgeStorageBatch,
-  continueMeetingPurgeProviderBatch,
+
   finalizeMeetingPurge,
-  listRecoverableMeetingPurgeJobs,
+
   recordMeetingProviderPurgeOutcome,
   releaseMeetingPurgeClaim,
 } = createMeetingPurgeDao(db);

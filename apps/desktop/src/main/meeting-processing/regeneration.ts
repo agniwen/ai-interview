@@ -11,7 +11,7 @@ import { advanceLocalIntelligence, localIntelligenceResultSchema } from "./intel
 import { echoOperationId, readTaskOutput } from "./pipeline-output";
 import { MeetingTaskError } from "./task-error";
 
-export const regenerationCheckpointSchema = z.object({
+const regenerationCheckpointSchema = z.object({
   epoch: z.number().int().positive(),
   progress: meetingIntelligenceGenerationProgressSchema.nullable().optional(),
   server: echoDeviceContextSchema.optional(),

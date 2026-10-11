@@ -1,99 +1,13 @@
-import { z } from "zod";
 import { factory } from "../../factory";
-import { interviewDataCollectionResultsSchema } from "@app/shared/interview/question-outcomes";
-import { questionCheckpointPayloadSchema } from "./utils/question-checkpoint";
-
-const transcriptTurnSchema = z.object({
-  message: z.string(),
-  role: z.enum(["agent", "user"]),
-  timeInCallSecs: z.number().optional(),
-});
-
-const jsonObjectSchema = z.record(z.string(), z.json());
-
-const recordingPayloadSchema = z
-  .object({
-    durationSecs: z.number().int().nullish(),
-    egressId: z.string().min(1),
-    fileKey: z.string().min(1),
-    status: z.enum(["pending", "active", "completed", "failed"]),
-  })
-  .nullish();
-
-export const reportPayloadSchema = z.object({
-  agentId: z.string().nullish(),
-  callSuccessful: z.string().nullish(),
-  conversationId: z.string().min(1),
-  dataCollectionResults: interviewDataCollectionResultsSchema.nullish(),
-  endedAt: z.string().nullish(),
-  interviewRecordId: z.string().min(1),
-  metadata: jsonObjectSchema.nullish(),
-  // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与每轮 e2e。
-  // 原样落到 interview_conversation.metrics，后续 Studio 渲染延迟/用量面板时直接查。
-  // Aggregates emitted by the agent's metrics_collected listener: STT/LLM/TTS/
-  // EOU/interruption totals plus per-turn e2e latency. Persisted as-is so the
-  // Studio dashboard can render latency/usage panels without re-shaping.
-  metrics: jsonObjectSchema.nullish(),
-  recording: recordingPayloadSchema,
-  scheduleEntryId: z.string().min(1),
-  startedAt: z.string().nullish(),
-  status: z.string().default("completed"),
-  transcript: z.array(transcriptTurnSchema).default([]),
-});
-
-const retryNotificationPayloadSchema = z
-  .object({
-    conversationId: z.string().min(1),
-    interviewRecordId: z.string().min(1),
-  })
-  .partial();
+import { questionCheckpointPayloadSchema } from "@app/recruiting-workflows/ai-interview-reports/question-checkpoint";
+import type { AgentRouterDependencies } from "@app/recruiting-workflows/ai-interview-reports/agent-report-dependencies";
+import {
+  reportPayloadSchema,
+  retryNotificationPayloadSchema,
+} from "@app/recruiting-workflows/ai-interview-reports/report-payload";
 
 const RECOVERY_STALE_MINUTES = 10;
 const RECOVERY_BATCH_SIZE = 20;
-export type ReportPayload = z.infer<typeof reportPayloadSchema>;
-export type CheckpointPayload = z.infer<typeof questionCheckpointPayloadSchema>;
-export type ReportTranscript = ReportPayload["transcript"];
-
-export interface RetrySummaryCandidate {
-  conversationId: string;
-  interviewRecordId: string | null;
-}
-
-export interface AgentRouterDependencies {
-  receiveReport: (data: ReportPayload, dependencies: AgentRouterDependencies) => Promise<void>;
-
-  createInterviewEvidenceSnapshot: (options: {
-    conversationId: string;
-    interviewRecordId: string;
-  }) => Promise<void>;
-  findExistingTranscript: (conversationId: string) => Promise<ReportTranscript | null>;
-  hasKeyInformationColumns: () => Promise<boolean>;
-  listKeyInformationRetryCandidates: (staleThreshold: Date) => Promise<RetrySummaryCandidate[]>;
-  listSummaryRetryCandidates: (staleThreshold: Date) => Promise<RetrySummaryCandidate[]>;
-  notifyInterviewSummaryReady: (options: {
-    conversationId: string;
-    interviewRecordId: string;
-  }) => Promise<void>;
-  persistCheckpoint: (options: {
-    data: CheckpointPayload;
-    now: Date;
-    organizationId: string;
-  }) => Promise<void>;
-  persistReport: (options: {
-    data: ReportPayload;
-    isNewTranscript: boolean;
-    keyInformationColumnsAvailable: boolean;
-    now: Date;
-    organizationId: string;
-  }) => Promise<boolean>;
-  resolveOrgFromInterview: (interviewRecordId: string) => Promise<string>;
-  retryFailedInterviewSummaryNotifications: () => Promise<{ retried: number }>;
-  runKeyInformationJob: (options: {
-    conversationId: string;
-    interviewRecordId: string;
-  }) => Promise<void>;
-  runSummaryJob: (options: { conversationId: string; interviewRecordId: string }) => Promise<void>;
-}
 
 export function createAgentRouter(dependencies: AgentRouterDependencies) {
   return (

@@ -1,4 +1,4 @@
-import { recoverAiInterviewReports } from "@app/server/ai-interview-report-recovery";
+import { recoverAiInterviewReports } from "@app/recruiting-workflows/ai-interview-reports/recover-ai-interview-reports";
 /* oxlint-disable max-lines -- Worker bootstrap owns process-wide resource lifecycles. */
 import { startInitialInterviewProcessing } from "./initial-interview-evaluation/start";
 
@@ -8,59 +8,59 @@ import {
   closeResumeParseQueue,
   createResumeParseWorker,
   isResumeParseQueueConfigured,
-} from "@app/resume-parse-queue/resume-parse";
+} from "@app/job-queues/resume-parse";
 import {
   closeResumeSemanticIndexQueue,
   createResumeSemanticIndexWorker,
   enqueueResumeSemanticIndexJobs,
-} from "@app/resume-parse-queue/resume-semantic-index";
+} from "@app/job-queues/resume-semantic-index";
 import {
   closeResumeReviewGenerationQueue,
   createResumeReviewGenerationWorker,
-} from "@app/resume-parse-queue/resume-review-generation";
-import { createMailIngestTriggerWorker } from "@app/resume-parse-queue/mail-ingest-trigger";
+} from "@app/job-queues/resume-review-generation";
+import { createMailIngestTriggerWorker } from "@app/job-queues/mail-ingest-trigger";
 import {
   closeMeetingAnswerQueue,
   createMeetingAnswerWorker,
   enqueueMeetingAnswerJobs,
   isMeetingAnswerQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-answer";
+} from "@app/job-queues/meeting-answer";
 import {
   closeMeetingIntelligenceQueue,
   createMeetingIntelligenceWorker,
   enqueueMeetingIntelligenceJobs,
   isMeetingIntelligenceQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-intelligence";
+} from "@app/job-queues/meeting-intelligence";
 import {
   closeMeetingPlaybackQueue,
   createMeetingPlaybackWorker,
   enqueueMeetingPlaybackJobs,
   isMeetingProcessingQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-playback";
+} from "@app/job-queues/meeting-playback";
 import {
   closeMeetingPurgeQueue,
   createMeetingPurgeWorker,
   enqueueMeetingPurgeJobs,
   isMeetingPurgeQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-purge";
+} from "@app/job-queues/meeting-purge";
 import {
   closeMeetingTranscriptionQueue,
   createMeetingTranscriptionWorker,
   enqueueMeetingTranscriptionJobs,
   isMeetingTranscriptionQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-transcription";
+} from "@app/job-queues/meeting-transcription";
 import {
   closeHumanInterviewRecordingQueue,
   createHumanInterviewRecordingWorker,
   enqueueHumanInterviewRecordingJobs,
   isHumanInterviewRecordingQueueConfigured,
-} from "@app/meeting-processing-queue/human-interview-recording";
+} from "@app/job-queues/human-interview-recording";
 import {
   closeHumanInterviewEvaluationQueue,
   createHumanInterviewEvaluationWorker,
   enqueueHumanInterviewEvaluationJobs,
   isHumanInterviewEvaluationQueueConfigured,
-} from "@app/meeting-processing-queue/human-interview-evaluation";
+} from "@app/job-queues/human-interview-evaluation";
 import { createWorkerApp } from "./app";
 import { isWorkerBackgroundProcessingEnabled, resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, validateWorkerEnv } from "./env";
@@ -76,8 +76,10 @@ import {
 } from "./sentry";
 import { createWorkerLifecycle, trackWorkerRecoveryRun } from "./effect/lifecycle";
 import { Exit } from "effect";
+import { registerWorkflowDatabase } from "./workflow-database";
 
 validateWorkerEnv();
+registerWorkflowDatabase();
 initializeWorkerSentry();
 
 const reportFinalizerFailure = (failure: { cause: unknown; resource: string }) => {
@@ -134,7 +136,7 @@ const humanTranscriptionTimer = setInterval(() => {
     try {
       await trackRecoveryRun(async () => {
         const { reconcileHumanTranscriptions, acknowledgeHumanTranscriptionDownstream } =
-          await import("@app/server/human-transcription");
+          await import("@app/recruiting-workflows/human-interviews/human-transcription");
         const { requestAutomaticHumanInterviewEvaluation, requestAutomaticMeetingIntelligence } =
           await import("./meeting-processing-daos");
         for (const result of await reconcileHumanTranscriptions()) {
@@ -164,7 +166,7 @@ triggerLifecycle.addFinalizer("human-transcription-recovery", () => {
 // 启动时从数据库恢复未完成批次项，再补入可能因进程退出而丢失的解析队列。 / Restores incomplete batch items from the database at startup and replenishes jobs lost on process exit.
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
   const { recoverIncompleteBatchItems } = await import("./resume-processing/ingest");
-  const { enqueueResumeParseJobs } = await import("@app/resume-parse-queue/resume-parse");
+  const { enqueueResumeParseJobs } = await import("@app/job-queues/resume-parse");
   const jobs = await recoverIncompleteBatchItems();
   if (jobs.length === 0) {
     console.info("[resume-parse-worker] startup recovery found no pending items");
@@ -271,7 +273,7 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 // 防止定时器重叠时同一恢复查询并发入队。 / Prevents overlapping timers from enqueueing the same recovery class concurrently.
 async function recoverIncompleteHumanInterviewRecordingJobs(): Promise<void> {
   const { reconcileHumanInterviewTrackRecordings } =
-    await import("@app/server/human-interview-recording");
+    await import("@app/recruiting-workflows/human-interviews/default-record-human-interview-tracks");
   await reconcileHumanInterviewTrackRecordings();
   const { humanInterviewRecordingDao } = await import("./meeting-processing-daos");
   const jobs = await humanInterviewRecordingDao.listRecoverableHumanInterviewRecordingJobs();
@@ -514,12 +516,12 @@ async function main() {
     },
     reconcileHumanInterviewAttendance: async ({ now }) => {
       const { reconcileDueHumanInterviewAttendance } =
-        await import("@app/server/human-interview-attendance-reconciliation");
+        await import("@app/recruiting-workflows/notifications/reconcile-human-interview-attendance");
       await reconcileDueHumanInterviewAttendance({ now });
     },
     retryCancelledHumanInterviewCalendars: async ({ now }) => {
       const { retryFailedCancelledHumanInterviewMeetingCalendars } =
-        await import("@app/server/human-interview-attendance-reconciliation");
+        await import("@app/recruiting-workflows/human-interviews/sync-cancelled-human-interview-meetings");
       await retryFailedCancelledHumanInterviewMeetingCalendars({ now });
     },
   });

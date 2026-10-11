@@ -13,15 +13,15 @@ import {
   markHumanInterviewParticipantLeft,
   markHumanInterviewRecordingCompleted,
   markHumanInterviewRecordingEgressFailed,
-} from "../studio/routes/interviews/dao/human-interview-meetings";
-import { stopActiveHumanInterviewRecordingByRoomName } from "../studio/routes/interviews/utils/human-interview-recording-service";
-import { enqueueHumanInterviewRecordingJobs } from "@app/meeting-processing-queue/human-interview-recording";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
+import { stopActiveHumanInterviewRecordingByRoomName } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
+import { enqueueHumanInterviewRecordingJobs } from "@app/job-queues/human-interview-recording";
 import { shouldStartHumanInterviewRecording } from "./utils";
 import {
   applyHumanInterviewTrackEgress,
   markHumanInterviewTrackUnpublished,
   synchronizeHumanInterviewTrackRecordings,
-} from "../studio/routes/interviews/application/default-record-human-interview-tracks";
+} from "@app/recruiting-workflows/human-interviews/default-record-human-interview-tracks";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {

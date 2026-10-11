@@ -8,29 +8,11 @@ import { z } from "zod";
 import { formatResumeEducationSchoolWithLevel } from "@app/shared/resume-education";
 import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
 import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@app/shared/studio-resumes";
-
-/** Library list cards keep the original 3-row cap for work/education. */
-const LIBRARY_SNAPSHOT_LIMIT = 3;
 /** Duplicate-match cards: recent 3 companies, 2 education rows, 3 projects. */
 const DEDUP_WORK_LIMIT = 3;
 const DEDUP_EDUCATION_LIMIT = 2;
 const DEDUP_PROJECT_LIMIT = 3;
 const PROFILE_PLACEHOLDER = "未发现信息";
-
-export interface ResumeProfileSnapshotSource {
-  resumeEducationExperiences: unknown;
-  resumeEducationGraduationYear: string | null;
-  resumeEducationLevel: string | null;
-  resumeEducationMajor: string | null;
-  resumeEducationPeriod: string | null;
-  resumeEducationSchool: string | null;
-  resumeProjectExperiences: unknown;
-  resumeSchool: string | null;
-  resumeWorkCompany: string | null;
-  resumeWorkExperiences: unknown;
-  resumeWorkPeriod: string | null;
-  resumeWorkRole: string | null;
-}
 
 function cleanText(value: string | null | undefined) {
   const text = value?.trim();
@@ -122,38 +104,6 @@ function buildProjectLines(items: ProjectExperienceInput[]): SnapshotLine[] {
   });
 }
 
-function legacyWork(row: ResumeProfileSnapshotSource): SnapshotLine[] {
-  const primary = cleanText(row.resumeWorkCompany) ?? cleanText(row.resumeWorkRole);
-  return primary
-    ? [
-        {
-          period: formatPeriod(row.resumeWorkPeriod),
-          primary,
-          secondary: cleanText(row.resumeWorkCompany) ? cleanText(row.resumeWorkRole) : null,
-        },
-      ]
-    : [];
-}
-
-function legacyEducation(row: ResumeProfileSnapshotSource): SnapshotLine[] {
-  const school = cleanText(row.resumeEducationSchool) ?? cleanText(row.resumeSchool);
-  return school
-    ? [
-        {
-          period:
-            formatPeriod(row.resumeEducationPeriod) ??
-            formatPeriod(row.resumeEducationGraduationYear),
-          primary:
-            formatResumeEducationSchoolWithLevel({
-              educationLevel: cleanText(row.resumeEducationLevel),
-              school,
-            }) ?? school,
-          secondary: cleanText(row.resumeEducationMajor),
-        },
-      ]
-    : [];
-}
-
 function dateRank(value: string): number | null {
   const months = [...value.matchAll(/(\d{4})\.(\d{1,2})/gu)].map(([, year, month]) => {
     const parsedMonth = Number(month);
@@ -232,34 +182,6 @@ export function buildResumeProfileSnapshotFromProfile(
       education: DEDUP_EDUCATION_LIMIT,
       projects: DEDUP_PROJECT_LIMIT,
       work: DEDUP_WORK_LIMIT,
-    },
-  );
-}
-
-/**
- * Snapshot for resume-library list cards.
- * Keeps the compact list projection while making recent projects available to
- * the duplicate-match dialog.
- */
-export function buildResumeProfileSnapshot(
-  row: ResumeProfileSnapshotSource,
-): ResumeLibraryProfileSnapshot {
-  const parsedWork = workExperiencesSchema.safeParse(row.resumeWorkExperiences);
-  const parsedEducation = educationExperiencesSchema.safeParse(row.resumeEducationExperiences);
-  const parsedProjects = projectExperiencesSchema.safeParse(row.resumeProjectExperiences);
-  const work = buildWorkLines(parsedWork.success ? parsedWork.data : []);
-  const education = buildEducationLines(parsedEducation.success ? parsedEducation.data : []);
-  const projects = buildProjectLines(parsedProjects.success ? parsedProjects.data : []);
-  return assembleSnapshot(
-    {
-      education: education.length > 0 ? education : legacyEducation(row),
-      projects,
-      work: work.length > 0 ? work : legacyWork(row),
-    },
-    {
-      education: LIBRARY_SNAPSHOT_LIMIT,
-      projects: DEDUP_PROJECT_LIMIT,
-      work: LIBRARY_SNAPSHOT_LIMIT,
     },
   );
 }

@@ -1,37 +1,37 @@
-import { lockAiRound } from "./dao/ai-round-lifecycle";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../infrastructure/db/index";
 import { recruitingFormSubmission, recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { buildInterviewDispatchContract } from "@app/shared/interview/dispatch-contract";
 import {
   nullableInstantDateTimeInputSchema,
   scheduleEntryStatusSchema,
 } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
-import { loadSubmissionsByInterview } from "../forms/dao/submissions";
+import { loadSubmissionsByInterview } from "@app/recruiting/forms/submissions";
 import {
   ensureApplicableBindings,
   loadInterviewQuestionTemplateBindings,
   replaceInterviewBindings,
-} from "../interview-questions/dao/bindings";
+} from "@app/recruiting/interview-questions/bindings";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
   releaseInterviewContextBinding,
-} from "./dao/context-snapshots";
-import { loadHumanInterviewMeetingById } from "./dao/human-interview-meetings";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
+import { loadHumanInterviewMeetingById } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { loadInterviewRoundDetail, resolveCandidateIdForRound } from "./dao/interview-rounds";
 import { loadLatestEndedInterviewConversationForRound } from "./dao/evaluation-documents";
 import { loadLatestFeishuDocumentUrls } from "./dao/feishu-document-urls";
-import { notifyInterviewSummaryReady } from "../../../agent/utils/feishu-interview-notifications";
-import { runSummaryJob } from "../../../agent/utils/interview-summary-job";
-import { enqueueAiReportReadyEvent } from "../../../../interview-notifications/utils/events";
-import { isInterviewNotificationWorkerEnabled } from "../../../../interview-notifications/utils/feature-flags";
+import { notifyInterviewSummaryReady } from "@app/recruiting-workflows/ai-interview-reports/feishu-interview-notifications";
+import { runSummaryJob } from "@app/recruiting-workflows/ai-interview-reports/interview-summary-job";
+import { enqueueAiReportReadyEvent } from "@app/recruiting-workflows/notifications/events";
+import { isInterviewNotificationWorkerEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
 import {
   hasExistingInterviewAnswers,
   isInterviewQuestionSetComplete,

@@ -50,7 +50,7 @@ function normalizeGeneratedEvaluation(
   };
 }
 
-export class HumanInterviewEvaluationInputError extends Error {
+class HumanInterviewEvaluationInputError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "HumanInterviewEvaluationInputError";

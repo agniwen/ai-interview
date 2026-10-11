@@ -10,7 +10,6 @@ import { memo } from "react";
 import { Streamdown } from "streamdown";
 import { cn } from "@app/shared/utils";
 export { Message, MessageContent } from "./message-primitives";
-export type { MessageContentProps, MessageProps } from "./message-primitives";
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown> & {
   isStreaming?: boolean;

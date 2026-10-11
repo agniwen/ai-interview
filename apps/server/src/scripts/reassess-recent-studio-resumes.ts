@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
@@ -186,9 +186,9 @@ async function main(): Promise<void> {
     import("../infrastructure/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
-    import("../routes/studio/routes/resumes/utils/review-queue"),
+    import("@app/resume-processing/review/resumes/utils/review-queue"),
     import("../routes/studio/routes/resumes/utils/review-worker"),
-    import("../infrastructure/resume-evaluation-input-hash"),
+    import("@app/resume-processing/ingest/support/resume-evaluation-input-hash"),
     import("@app/ai-runtime/models"),
   ]);
 

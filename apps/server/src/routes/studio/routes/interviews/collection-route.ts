@@ -1,8 +1,8 @@
 /* oxlint-disable complexity, max-lines -- collection router coordinates validation, persistence, and access policy. */
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   humanInterviewMeetingInputSchema,
   humanInterviewMeetingScheduleUpdateSchema,
@@ -18,34 +18,31 @@ import {
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   loadHumanInterviewMeetingById,
-} from "./dao/human-interview-meetings";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { cancelHumanInterviewMeeting } from "./dao/human-interview-meeting-cancellation";
 import { updateHumanInterviewMeetingSchedule } from "./dao/human-interview-meeting-schedule";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
-} from "./utils/human-interview-livekit";
-import { stopActiveHumanInterviewRecordingByRoomName } from "./utils/human-interview-recording-service";
-import { getFeishuTenantAccessToken } from "../../../../infrastructure/feishu-access-token";
-import {
-  getFeishuAppCredentials,
-  isFeishuHumanInterviewEnabled,
-} from "../../../../integrations/feishu/provider";
+} from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
+import { stopActiveHumanInterviewRecordingByRoomName } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
+import { getFeishuTenantAccessToken } from "@app/feishu/access-token";
+import { getFeishuAppCredentials, isFeishuHumanInterviewEnabled } from "@app/feishu/provider";
 import {
   isFeishuSyncConflictError,
   recordFeishuHumanInterviewSyncFailure,
   resolveHumanInterviewFeishuProviderId,
   syncHumanInterviewMeetingToFeishu,
-} from "./utils/feishu-human-interview-meeting";
+} from "@app/recruiting-workflows/human-interviews/feishu-human-interview-meeting";
 import { recordCandidateActivity } from "./utils/candidate-activity";
 import { resolveCandidateIdForRound, resolveRoundIdFromRecordId } from "./dao/interview-rounds";
 import { buildTokenErrorResponse } from "../../../interview/utils";
 import { requirePermission } from "../../../../middlewares/permission";
 
 import { requireHumanMeetingUpdateAccess } from "./utils/human-meeting-update-access";
-import { loadHumanInterviewMeetingInterviewerIds } from "./dao/human-interview-meeting-input";
-import { syncCancelledHumanInterviewMeetingCalendars } from "./application/sync-cancelled-human-interview-meetings";
+import { loadHumanInterviewMeetingInterviewerIds } from "@app/recruiting-workflows/human-interviews/human-interview-meeting-input";
+import { syncCancelledHumanInterviewMeetingCalendars } from "@app/recruiting-workflows/human-interviews/sync-cancelled-human-interview-meetings";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}

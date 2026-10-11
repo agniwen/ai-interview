@@ -210,12 +210,6 @@ function spansMultipleDays(occ: { start: Date; end: Date }): boolean {
   return occ.end.getTime() - occ.start.getTime() > 24 * 60 * 60 * 1000;
 }
 
-interface PackedPosition {
-  column: number;
-  columnCount: number;
-  columnSpan: number;
-}
-
 /**
  * Google-style overlap packing for one day's timed segments.
  * Mutates column/columnCount/columnSpan on the segments, in place.

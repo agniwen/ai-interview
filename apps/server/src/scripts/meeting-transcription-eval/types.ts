@@ -2,7 +2,7 @@ import type { MeetingTranscriptionProviderId } from "@app/shared/meeting-transcr
 import { z } from "zod";
 import { meetingTranscriptionProviderSchema } from "@app/shared/meeting-transcription";
 
-export type BenchmarkEntityCategory = "english" | "technical";
+type BenchmarkEntityCategory = "english" | "technical";
 
 export interface BenchmarkEntity {
   category: BenchmarkEntityCategory;
@@ -24,11 +24,7 @@ export interface MeetingTranscriptionBenchmarkScore {
   technicalEntityRecall: number;
 }
 
-export type BenchmarkDeletionOutcome =
-  | "deleted"
-  | "delete-failed"
-  | "not-applicable"
-  | "unsupported";
+type BenchmarkDeletionOutcome = "deleted" | "delete-failed" | "not-applicable" | "unsupported";
 
 export interface MeetingTranscriptionBenchmarkRun {
   actualCostUsd: number | null;

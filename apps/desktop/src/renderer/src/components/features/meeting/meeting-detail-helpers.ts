@@ -59,7 +59,7 @@ export function isMeetingSessionPagePending(input: {
   return input.hasRemoteMeeting && input.transcriptPending;
 }
 
-export type MeetingPostSaveStepId = "playback" | "transcript" | "upload";
+type MeetingPostSaveStepId = "playback" | "transcript" | "upload";
 
 export interface MeetingPostSaveStep {
   failed: boolean;

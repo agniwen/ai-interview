@@ -21,7 +21,7 @@ import { rebuildMeetingSearchProjection } from "@app/meeting-processing/transcri
 import {
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
-} from "@app/meeting-processing-queue/meeting-intelligence";
+} from "@app/job-queues/meeting-intelligence";
 import { lockEchoDeviceMeeting } from "./ownership-dao";
 import type { EchoProcessingActor } from "./ownership-dao";
 import { EchoProcessingError } from "./error";

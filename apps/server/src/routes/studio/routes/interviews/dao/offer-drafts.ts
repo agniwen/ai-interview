@@ -1,7 +1,7 @@
 /* oxlint-disable complexity, no-nested-ternary, unicorn/prefer-ternary, anti-slop/require-safety-comment-for-type-assertion -- Offer edits keep version checks, approval invalidation, and field updates in one lock-protected transaction. */
 import { publishOfferTx } from "../../offer-approvals/application/publish-offer";
-import { OfferApprovalError, hashRequest } from "../../offer-approvals/dao";
-import { invalidateOfferApprovalsTx, recordApprovalEventTx } from "@app/database/offer-approval";
+import { OfferApprovalError, hashRequest } from "@app/recruiting-workflows/offer-approvals/dao";
+import { invalidateOfferApprovalsTx, recordApprovalEventTx } from "@app/recruiting/offer-approval";
 import {
   recruitingOfferApproval,
   recruitingNodeState,
@@ -9,10 +9,10 @@ import {
   recruitingOffer,
 } from "@app/db-schema/schema";
 import { isOfferExpired, offerExpiryEndOfDay } from "@app/shared/offer-expiry";
-import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
-import type { RecruitingTransaction as Tx } from "@app/database/recruiting-records";
-import { lockRecruitingRecord } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingNodeTx } from "@app/recruiting/pipeline";
+import type { RecruitingTransaction as Tx } from "@app/recruiting/records";
+import { lockRecruitingRecord } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 // 每条招聘记录仅允许一份有效 Offer；回退失效版本保留为历史。
 
 import { and, desc, eq } from "drizzle-orm";

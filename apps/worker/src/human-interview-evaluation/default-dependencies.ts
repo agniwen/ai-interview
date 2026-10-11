@@ -1,5 +1,5 @@
 import { generateHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
-import { enqueueHumanInterviewEvaluationReady } from "@app/server/human-interview-evaluation-ready";
+import { enqueueHumanInterviewEvaluationReady } from "@app/recruiting-workflows/notifications/human-evaluation-ready";
 import { humanInterviewEvaluationDao } from "../meeting-processing-daos";
 import type { HumanInterviewEvaluationProcessorDependencies } from "./processor";
 

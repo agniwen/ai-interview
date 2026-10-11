@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, eq, isNotNull, isNull, notLike, or } from "drizzle-orm";
 import {
   meetingRecordingAsset,
@@ -10,7 +10,7 @@ import {
   humanInterviewMeetingRound,
   humanInterviewRound,
 } from "@app/db-schema/schema";
-import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
+import type { HumanInterviewRecordingJobData } from "@app/job-queues/human-interview-recording";
 
 import type { Database } from "@app/database";
 import type { RecordingIdentity } from "@app/db-schema/human-interview-recording";

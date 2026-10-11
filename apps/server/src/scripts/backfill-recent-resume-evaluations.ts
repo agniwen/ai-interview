@@ -1,5 +1,5 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import "../standalone/preload";
 
 import { createHash } from "node:crypto";
@@ -7,10 +7,10 @@ import { jobEvaluationBlueprintSchema } from "@app/db-schema/job-description-eva
 import { jobDescriptionStructuredConfigSchema } from "@app/db-schema/job-description-structured-config";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
-import { computeResumeEvaluationInputHash } from "../infrastructure/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "@app/resume-processing/ingest/support/resume-evaluation-input-hash";
 import { deriveStructuredResumeSummaries } from "@app/shared/structured-resume-scoring";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
-import type { GeneratedResumeAssessment } from "../routes/studio/routes/resumes/utils/review-lifecycle";
+import type { GeneratedResumeAssessment } from "@app/resume-processing/review/resumes/utils/review-lifecycle";
 
 export const TARGET_WORKSPACE_ID = "org_default";
 export const TARGET_WORKSPACE_NAME = "极光/幻游";
@@ -550,7 +550,7 @@ async function processTarget(row: RecentResumeRow, campaign: string) {
   }
   try {
     const [{ generateResumeAssessment }, { default: pRetry }] = await Promise.all([
-      import("../routes/studio/routes/resumes/utils/review-generation"),
+      import("@app/resume-processing/review/resumes/utils/review-generation"),
       import("p-retry"),
     ]);
     const aiStartedAt = Date.now();

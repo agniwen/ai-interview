@@ -2,8 +2,11 @@ import type { JsonValue } from "@app/db-schema/json";
 import type { ResumeAnalysisResult, ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
-import type { ChatAttachmentRow, CreateAttachmentInput } from "../chat/dao/chat-attachments";
-import type { ParsedResumeProfileResult } from "../../agents/resume-analysis-agent";
+import type {
+  ChatAttachmentRow,
+  CreateAttachmentInput,
+} from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
+import type { ParsedResumeProfileResult } from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 
 export interface ResumeUploadStorageDependencies {
   buildAttachmentKeyByHash: (contentHash: string, extension: string) => Promise<string>;

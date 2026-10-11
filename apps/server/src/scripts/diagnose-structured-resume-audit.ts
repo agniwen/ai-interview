@@ -8,7 +8,7 @@ import {
   STRUCTURED_RESUME_DIMENSIONS,
 } from "@app/shared/structured-resume-scoring";
 import { z } from "zod";
-import { computeJobEvaluationPayloadHash } from "../infrastructure/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "@app/resume-processing/ingest/support/job-evaluation-hash";
 
 interface AuditCheck {
   detail: string;

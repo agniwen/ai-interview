@@ -15,7 +15,7 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 import { isConfirmedManualHumanEmail } from "@app/shared/manual-human-email";
 
-export interface InterviewNotificationSendResult {
+interface InterviewNotificationSendResult {
   providerMessageId: string | null;
 }
 
@@ -72,12 +72,12 @@ export interface InterviewNotificationProcessorDependencies {
   }): Promise<boolean>;
 }
 
-export class InterviewNotificationProcessor extends Context.Service<
+class InterviewNotificationProcessor extends Context.Service<
   InterviewNotificationProcessor,
   InterviewNotificationProcessorDependencies
 >()("@app/worker/InterviewNotificationProcessor") {}
 
-export const interviewNotificationProcessorLayer = (
+const interviewNotificationProcessorLayer = (
   dependencies: InterviewNotificationProcessorDependencies,
 ) => Layer.succeed(InterviewNotificationProcessor, dependencies);
 
@@ -304,7 +304,7 @@ async function processInterviewNotificationEventPromise(
   await finalizeEvent(event, input.leaseOwner, now, dependencies);
 }
 
-export function processInterviewNotificationEventEffect(
+function processInterviewNotificationEventEffect(
   event: InterviewNotificationEventRecord,
   input: { leaseOwner: string; now?: Date },
 ) {

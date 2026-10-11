@@ -1,5 +1,5 @@
 import { loadRoundReviewerEvaluations } from "./human-interview-round-evaluations";
-import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
+import { updateRecruitingNodeTx } from "@app/recruiting/pipeline";
 import {
   assertCanCreateHumanInterviewRound,
   syncEffectiveHumanRoundNode,
@@ -9,8 +9,8 @@ import { EditRoundError } from "./human-interview-round-errors";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "../../../../../infrastructure/db/index";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
+import { enqueueHumanMeetingEvents } from "@app/recruiting-workflows/notifications/events";
+import { isInterviewNotificationFlowEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
 import {
   humanInterviewMeeting,
   humanInterviewMeetingRound,
@@ -27,21 +27,14 @@ import type {
 import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
 import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-completion";
 import {
-  COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
   HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
   humanInterviewFeedbackSchema,
 } from "../utils/human-interview-readiness";
 import type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 export { EditRoundError } from "./human-interview-round-errors";
-export { syncEffectiveHumanRoundNode } from "./human-interview-pipeline";
 export type { HumanInterviewRoundRecord };
-export {
-  COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
-  HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
-  HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE,
-  getHumanInterviewOfferReadinessError,
-} from "../utils/human-interview-readiness";
+export { getHumanInterviewOfferReadinessError } from "../utils/human-interview-readiness";
 export type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 // drizzle 事务 callback 参数类型；和 db 实例签名差一个 $client 字段，需要单独抽出来。
@@ -114,16 +107,6 @@ export async function loadHumanInterviewRoundReadiness(
     secondInterviewPassed: passed("second_interview"),
     totalRounds: rows.filter((row) => row.status !== null).length,
   };
-}
-
-export async function assertCompletedHumanInterviewRoundsHaveFeedback(
-  interviewRecordId: string,
-  organizationId: string,
-): Promise<void> {
-  const readiness = await loadHumanInterviewRoundReadiness(interviewRecordId, organizationId);
-  if (readiness.completedRoundsMissingFeedback > 0) {
-    throw new EditRoundError(COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE, 400);
-  }
 }
 
 // 把 query 结果（含 interviewer rows 数组）拍平成 DTO。
@@ -254,7 +237,7 @@ export interface CreateRoundOptions {
 }
 
 // 加载单条详情（含 interviewers）。
-export async function loadRoundById(
+async function loadRoundById(
   roundId: string,
   organizationId: string,
 ): Promise<HumanInterviewRoundRecord | null> {

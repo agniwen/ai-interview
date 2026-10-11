@@ -2,7 +2,6 @@ import type {
   RecruitingPipelineAction,
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
-  HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
 } from "@app/shared/studio-pipeline-stages";
@@ -22,12 +21,8 @@ import type {
  */
 
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
-import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
-import type {
-  PaginatedStudioInterviewRoundsResult,
-  StudioInterviewRoundDetail,
-} from "@app/shared/studio-interview-rounds";
+import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
 import type {
   CandidateExpectationsMeta,
   HumanInterviewMeetingInput,
@@ -102,59 +97,6 @@ export interface DedupSourceCandidate {
 }
 
 /**
- * 面试轮次列表分页参数。
- * Interview round list pagination / filter parameters.
- */
-export interface StudioInterviewRoundListParams {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  creatorIds?: string[];
-  status?: string;
-}
-
-interface StudioInterviewRoundsQuery {
-  creatorIds?: string;
-  page?: string;
-  pageSize?: string;
-  search?: string;
-  status?: string;
-}
-
-/**
- * 拉取面试轮次列表（支持分页 / 关键词 / 状态筛选）。
- * Fetch the interview round list (supports pagination / keyword / status filtering).
- */
-export function fetchStudioInterviewRounds(
-  slug: string,
-  params: StudioInterviewRoundListParams = {},
-): Promise<PaginatedStudioInterviewRoundsResult> {
-  const query: StudioInterviewRoundsQuery = {};
-  if (params.page !== undefined) {
-    query.page = String(params.page);
-  }
-  if (params.pageSize !== undefined) {
-    query.pageSize = String(params.pageSize);
-  }
-  if (params.search) {
-    query.search = params.search;
-  }
-  if (params.creatorIds && params.creatorIds.length > 0) {
-    query.creatorIds = params.creatorIds.join(",");
-  }
-  if (params.status) {
-    query.status = params.status;
-  }
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews.$get({
-      param: { slug },
-      query,
-    }),
-    "加载面试列表失败",
-  );
-}
-
-/**
  * 面试轮次概览计数（按状态分组）。
  * Interview round summary counts grouped by status.
  */
@@ -174,29 +116,6 @@ export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoun
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
     "加载概览失败",
-  );
-}
-
-/**
- * 基于解析后的简历画像做语义查重。
- * Look up potential duplicates through semantic resume similarity.
- */
-export function fetchInterviewDedup(
-  slug: string,
-  input: {
-    name: string | null;
-    email: string | null;
-    phone: string | null;
-    resumeProfile?: ResumeProfile | null;
-  },
-  options?: { signal?: AbortSignal },
-): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["dedup-check"].$post(
-      { json: input, param: { slug } },
-      { init: { signal: options?.signal } },
-    ),
-    "查重失败",
   );
 }
 
@@ -439,18 +358,6 @@ export function updateHumanInterviewMeeting(
   );
 }
 
-export function getHumanInterviewMeeting(
-  slug: string,
-  meetingId: string,
-): Promise<HumanInterviewMeetingRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$get({
-      param: { meetingId, slug },
-    }),
-    "加载真人面试会议失败",
-  );
-}
-
 export function issueHumanInterviewMeetingLinks(
   slug: string,
   meetingId: string,
@@ -486,34 +393,6 @@ export function endHumanInterviewMeeting(
       param: { meetingId, slug },
     }),
     "结束真人面试会议失败",
-  );
-}
-
-export function deleteHumanInterviewMeeting(
-  slug: string,
-  meetingId: string,
-): Promise<{ ok: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$delete({
-      param: { meetingId, slug },
-    }),
-    "删除真人面试会议失败",
-  );
-}
-
-export function getHumanInterviewMeetingLiveKitToken(
-  slug: string,
-  meetingId: string,
-  input: { interviewerId?: string } = {},
-): Promise<HumanInterviewMeetingTokenResponse> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"][
-      "livekit-token"
-    ].$post({
-      json: input,
-      param: { meetingId, slug },
-    }),
-    "进入真人面试会议失败",
   );
 }
 

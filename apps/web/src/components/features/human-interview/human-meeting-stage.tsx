@@ -60,7 +60,6 @@ import { cn } from "@app/shared/utils";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { MicrophoneDeviceMenu } from "./human-meeting-audio-controls";
-// import { VoiceEffectMenu } from "./human-meeting-audio-controls";
 import { shouldReturnToMeetingForLocalScreenShare } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
@@ -125,7 +124,6 @@ export interface HumanMeetingStageProps {
   responsibleHrName?: string | null;
   scheduledAt?: string | null;
   canPublish: boolean;
-  canUseVoiceEffects: boolean;
   canUseLiveTranscript: boolean;
   canEndMeeting: boolean;
   candidateMaterialsState: InterviewerCandidateMaterialsState;
@@ -471,8 +469,6 @@ function HumanMeetingStageContent({
               </TrackToggle>
               <MicrophoneDeviceMenu />
             </MicrophoneControls>
-            {/* 暂时隐藏变声入口，保留实现以便恢复。 */}
-            {/* {canUseVoiceEffects ? <VoiceEffectMenu /> : null} */}
             <TrackToggle
               captureOptions={meetingCameraCaptureOptions}
               className={cn(mediaToggleButtonClass, mobileControlClass, "order-2 md:order-none")}

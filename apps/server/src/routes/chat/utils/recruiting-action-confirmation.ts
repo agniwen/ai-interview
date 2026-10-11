@@ -1,8 +1,6 @@
 import { z } from "zod";
 import type { ArcMessage } from "@app/db-schema/ai-message";
 import type { RecruitingActionConfirmationSnapshot } from "@app/db-schema/chat-context-bindings";
-
-export type RecruitingActionConfirmationStatus = "confirmed" | "ignored";
 export type RecruitingActionConfirmation = RecruitingActionConfirmationSnapshot;
 
 interface ToolLikePart {

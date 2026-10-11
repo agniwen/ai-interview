@@ -4,16 +4,7 @@ import type { Badge } from "@/components/ui/badge";
 
 const countFormatter = new Intl.NumberFormat("zh-CN");
 
-export const DEFAULT_QUEUE_NAME = "resume-parse";
-
-const DEFAULT_FILTERS = {
-  parseStatus: "all",
-  queue: DEFAULT_QUEUE_NAME,
-  state: "all",
-  uploadStatus: "all",
-};
-
-export const JOB_STATE_OPTIONS = [
+const JOB_STATE_OPTIONS = [
   { label: "全部状态", value: "all" },
   { label: "等待中", value: "waiting" },
   { label: "处理中", value: "active" },
@@ -25,7 +16,7 @@ export const JOB_STATE_OPTIONS = [
   { label: "等待子任务", value: "waiting-children" },
 ] as const;
 
-export const UPLOAD_STATUS_FILTER_OPTIONS = [
+const UPLOAD_STATUS_FILTER_OPTIONS = [
   { label: "全部上传状态", value: "all" },
   { label: "排队中", value: "pending" },
   { label: "处理中", value: "processing" },
@@ -35,7 +26,7 @@ export const UPLOAD_STATUS_FILTER_OPTIONS = [
   { label: "已取消", value: "cancelled" },
 ] as const;
 
-export const PARSE_STATUS_FILTER_OPTIONS = [
+const PARSE_STATUS_FILTER_OPTIONS = [
   { label: "全部解析状态", value: "all" },
   { label: "待解析", value: "queued" },
   { label: "未解析", value: "unparsed" },
@@ -43,120 +34,9 @@ export const PARSE_STATUS_FILTER_OPTIONS = [
   { label: "已解析", value: "ready" },
   { label: "解析失败", value: "failed" },
 ] as const;
-
-export type QueueFilters = typeof DEFAULT_FILTERS;
 export type JobStateFilter = (typeof JOB_STATE_OPTIONS)[number]["value"];
 export type UploadStatusFilter = (typeof UPLOAD_STATUS_FILTER_OPTIONS)[number]["value"];
 export type ParseStatusFilter = (typeof PARSE_STATUS_FILTER_OPTIONS)[number]["value"];
-
-interface QueueCounts {
-  active: number;
-  completed: number;
-  delayed: number;
-  failed: number;
-  paused: number;
-  prioritized: number;
-  waiting: number;
-  "waiting-children": number;
-}
-
-export interface QueueOverviewRecord {
-  counts: QueueCounts;
-  displayName: string;
-  name: string;
-  redis: {
-    db: number;
-    host: string;
-    port: number;
-    protocol: string;
-    usesPassword: boolean;
-    usesUsername: boolean;
-  } | null;
-  workers: {
-    addr?: string;
-    age?: string;
-    cmd?: string;
-    db?: string;
-    flags?: string;
-    id?: string;
-    idle?: string;
-    name?: string;
-  }[];
-  workersCount: number;
-}
-
-export interface QueuesOverviewResult {
-  records: QueueOverviewRecord[];
-  total: number;
-}
-
-export interface QueueJobRecord {
-  attemptsMade: number;
-  attemptsStarted: number | null;
-  data: unknown;
-  failedReason: string | null;
-  finishedOn: string | null;
-  id: string;
-  name: string;
-  organization: { id: string; name: string; slug: string } | null;
-  processedBy: string | null;
-  processedOn: string | null;
-  progress: unknown;
-  resumeDetail: {
-    attemptCount: number;
-    batch: {
-      failedCount: number;
-      processedCount: number;
-      status: string;
-      succeededCount: number;
-      target: string;
-      totalCount: number;
-    };
-    batchId: string;
-    candidateEmail: string | null;
-    candidateName: string | null;
-    errorMessage: string | null;
-    fileSize: number;
-    finishedAt: string | null;
-    itemId: string;
-    itemStatus: string;
-    organizationId: string;
-    organizationName: string;
-    organizationSlug: string;
-    originalFileName: string;
-    poolItemId: string | null;
-    poolScope: string | null;
-    poolStatus: string | null;
-    queuedAt: string | null;
-    resumeParseError: string | null;
-    resumeParseStatus: string | null;
-    resumeRecordId: string | null;
-    startedAt: string | null;
-    targetRole: string | null;
-    userEmail: string | null;
-    userId: string;
-    userImage: string | null;
-    userName: string | null;
-  } | null;
-  returnvalue: unknown;
-  state: string;
-  timestamp: string | null;
-  triggeredBy: {
-    email: string | null;
-    id: string;
-    image: string | null;
-    name: string | null;
-  } | null;
-}
-
-export interface QueueJobsResult {
-  page: number;
-  pageSize: number;
-  records: QueueJobRecord[];
-  state: string;
-  total: number;
-  totalPages: number;
-}
 
 type BadgeVariant = ComponentProps<typeof Badge>["variant"];
 interface StatusMeta {

@@ -1,6 +1,6 @@
-import { updateRecruitingRecords, deleteRecruitingRecords } from "@app/database/recruiting-records";
-import type { RecruitingRecordValues } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords, deleteRecruitingRecords } from "@app/recruiting/records";
+import type { RecruitingRecordValues } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable max-lines -- resume collection commands and mounted child-resource routers remain co-located at the route boundary. */
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
@@ -11,8 +11,8 @@ import { db as defaultDb } from "../../../../infrastructure/db/index";
 import { recruitingEvent } from "@app/db-schema/schema";
 import { resumeReviewSchema } from "@app/shared/resume-review";
 import type { ResumeReview } from "@app/shared/resume-review";
-import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
@@ -27,7 +27,7 @@ import { factory, jsonValidatorError } from "../../../../factory";
 import {
   parseResumeFastToProfile as defaultParseResumeFastToProfile,
   validateResumeFile as defaultValidateResumeFile,
-} from "../../../../agents/resume-analysis-agent";
+} from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 import { requirePermission as defaultRequirePermission } from "../../../../middlewares/permission";
 import { loadResumeDetail as defaultLoadResumeDetail } from "./dao/resumes";
 import {
@@ -50,17 +50,17 @@ import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndex
 import {
   loadRecruitingJobDescriptionById as defaultLoadRecruitingJobDescriptionById,
   recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
-} from "../job-descriptions/dao";
-import { createResumeRecordFromStorage as defaultCreateResumeRecordFromStorage } from "./utils/create-from-storage";
+} from "@app/resume-processing/review/support/job-descriptions-dao";
+import { createResumeRecordFromStorage as defaultCreateResumeRecordFromStorage } from "@app/resume-processing/review/resumes/utils/create-from-storage";
 import { syncResumeProfileIdentity as defaultSyncResumeProfileIdentity } from "./utils/profile-sync";
-import { generateResumeScreeningBestEffort as defaultGenerateResumeScreeningBestEffort } from "./utils/review-generation";
+import { generateResumeScreeningBestEffort as defaultGenerateResumeScreeningBestEffort } from "@app/resume-processing/review/resumes/utils/review-generation";
 import {
   enqueueResumeReassessmentForRecord as defaultEnqueueResumeReassessmentForRecord,
   scheduleResumeEvaluationForRecord as defaultScheduleResumeEvaluationForRecord,
-} from "./utils/review-queue";
+} from "@app/resume-processing/review/resumes/utils/review-queue";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "./utils/review-worker";
 import type { ResumeReview as ResumeProcessingReview } from "@app/resume-processing/review";
-import { computeResumeEvaluationInputHash } from "../../../../infrastructure/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "@app/resume-processing/ingest/support/resume-evaluation-input-hash";
 import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,

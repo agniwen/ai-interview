@@ -1,6 +1,6 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import type { RecruitingRecordRead } from "@app/recruiting/read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable import/consistent-type-specifier-style -- value and type imports share review-lifecycle to avoid duplicate module imports. */
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../../../runtime/db";
@@ -9,7 +9,7 @@ import type { JsonValue } from "@app/db-schema/json";
 import type {
   ResumeReviewGenerationJobContext,
   ResumeReviewGenerationJobData,
-} from "@app/resume-parse-queue/resume-review-generation";
+} from "@app/job-queues/resume-review-generation";
 import { resumeScreeningResultSchema } from "@app/shared/resume-screening";
 import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";

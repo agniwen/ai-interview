@@ -62,7 +62,7 @@ export default defineConfig({
     },
     {
       // Tests are never compiled by the app's React Compiler transform.
-      files: ["**/__tests__/**/*.{ts,tsx}", "**/__test__/**/*.{ts,tsx}"],
+      files: ["**/__tests__/**/*.{ts,tsx}", "**/__test__/**/*.{ts,tsx}", "**/tests/**/*.{ts,tsx}"],
       rules: {
         "react/globals": "off",
       },

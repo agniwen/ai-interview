@@ -3,7 +3,7 @@ import type {
   createHumanInterviewEvaluationWorkerDao,
   generateHumanInterviewEvaluation,
 } from "@app/meeting-processing/human-interview";
-import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
+import type { HumanInterviewEvaluationJobData } from "@app/job-queues/human-interview-evaluation";
 import { Cause, Context, Data, Effect, Layer } from "effect";
 
 export interface HumanInterviewEvaluationProcessorDependencies {
@@ -20,12 +20,12 @@ export interface HumanInterviewEvaluationProcessorDependencies {
   >["publishHumanInterviewEvaluation"];
 }
 
-export class HumanInterviewEvaluationProcessor extends Context.Service<
+class HumanInterviewEvaluationProcessor extends Context.Service<
   HumanInterviewEvaluationProcessor,
   HumanInterviewEvaluationProcessorDependencies
 >()("@app/worker/HumanInterviewEvaluationProcessor") {}
 
-export const humanInterviewEvaluationProcessorLayer = (
+const humanInterviewEvaluationProcessorLayer = (
   dependencies: HumanInterviewEvaluationProcessorDependencies,
 ) => Layer.succeed(HumanInterviewEvaluationProcessor, dependencies);
 
@@ -44,7 +44,7 @@ function attempt<A>(
   });
 }
 
-export function runHumanInterviewEvaluationProcessingEffect(
+function runHumanInterviewEvaluationProcessingEffect(
   input: HumanInterviewEvaluationJobData,
   context: { attempt: number; maxAttempts: number },
 ) {

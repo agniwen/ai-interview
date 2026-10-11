@@ -13,7 +13,7 @@ import {
   STRUCTURED_RESUME_ENGINE_VERSION,
   STRUCTURED_RESUME_MODEL_ID,
   STRUCTURED_RESUME_PROMPT_VERSION,
-} from "../agents/structured-resume-evaluation";
+} from "@app/resume-processing/ingest/agents/structured-resume-evaluation";
 
 function argument(name: string): string {
   const index = process.argv.indexOf(`--${name}`);

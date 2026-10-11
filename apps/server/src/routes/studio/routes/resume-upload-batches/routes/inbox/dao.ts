@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, count, desc, eq, gt, lt, or } from "drizzle-orm";
 import { db } from "../../../../../../infrastructure/db/index";
 import {

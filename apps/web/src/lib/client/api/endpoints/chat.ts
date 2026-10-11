@@ -12,14 +12,10 @@
 import { validateUIMessages } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import type { AttachmentTextSource } from "@app/db-schema/db-enums";
 import type { JobDescriptionConfig } from "@app/db-schema/job-description-config";
 import type { JsonValue } from "@app/db-schema/json";
 import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@app/db-schema/studio-interviews";
 import { chatRpc, rpc } from "@/lib/client/rpc";
-import { sha256HexOfFile } from "@app/shared/file-hash";
-import { isSupportedResumeDocumentInput } from "@app/shared/resume-documents";
-import { apiFetch } from "../client";
 import { rpcFetch, rpcFetchAs } from "../rpc-fetch";
 
 const storedChatMessageSchema = z
@@ -149,25 +145,6 @@ export interface ConfirmRecruitingActionResult {
 }
 
 /**
- * 上传附件后的返回结构。
- * Upload-attachment response. When the file is a resume PDF, the server runs
- * Qwen-VL OCR + structured extraction inline and returns the result so the
- * client can attach it to the outgoing message as a data part — no need for
- * a second roundtrip and no server-side DB lookup at send time.
- */
-export interface UploadedAttachment {
-  id: string;
-  url: string;
-  parseStatus?: "ready" | "failed" | "pending";
-  parsed?: {
-    text: string;
-    structured: unknown;
-    pageCount: number;
-    textSource: AttachmentTextSource;
-  };
-}
-
-/**
  * 拉取所有会话摘要。
  * Fetch the full list of conversation summaries.
  */
@@ -281,77 +258,4 @@ export async function confirmRecruitingAction(
     }),
     "确认动作失败",
   );
-}
-
-/**
- * 仅对支持的简历文件尝试预检请求：命中缓存则直接返回已有附件，避免重复上传。
- * Try a preflight request for supported resume documents: return the cached
- * attachment on a hit, skipping the redundant upload entirely.
- *
- * 任何失败（哈希计算、网络、服务端错误）都安静降级到 multipart 路径——保持上传可用性。
- * Any failure (hash computation, network, server error) silently degrades to the
- * multipart path to keep uploads available.
- */
-async function tryUploadPreflight(slug: string, file: File): Promise<UploadedAttachment | null> {
-  if (!isSupportedResumeDocumentInput({ fileName: file.name, mediaType: file.type })) {
-    return null;
-  }
-  let hash: string;
-  try {
-    hash = await sha256HexOfFile(file);
-  } catch {
-    return null;
-  }
-  try {
-    const result = await rpcFetch(
-      rpc.api.w[":slug"].chat.uploads.preflight.$post({
-        json: {
-          filename: file.name || "attachment.pdf",
-          hash,
-          mediaType: file.type,
-          size: file.size,
-        },
-        param: { slug },
-      }),
-      "检查附件缓存失败",
-    );
-    if (!result.hit) {
-      return null;
-    }
-    const { hit: _hit, ...rest } = result;
-    return rest;
-  } catch {
-    // preflight 任何失败都安静降级到 multipart 路径——保持上传可用性。
-    // Any preflight failure silently degrades to the multipart path.
-    return null;
-  }
-}
-
-/**
- * 上传附件；支持的简历文件先走预检去重，缓存命中则跳过字节传输；否则降级为 multipart/form-data。
- * Upload an attachment; supported resume documents attempt a preflight dedup
- * first — a cache hit skips byte transfer entirely; otherwise falls back to multipart/form-data.
- */
-export async function uploadAttachment(
-  slug: string,
-  blob: Blob,
-  filename: string,
-): Promise<UploadedAttachment> {
-  const file =
-    blob instanceof File
-      ? blob
-      : new File([blob], filename, { type: blob.type || "application/octet-stream" });
-
-  const hit = await tryUploadPreflight(slug, file);
-  if (hit) {
-    return hit;
-  }
-
-  const form = new FormData();
-  form.append("file", file, filename);
-
-  return apiFetch<UploadedAttachment>(`/api/w/${slug}/chat/uploads`, {
-    body: form,
-    method: "POST",
-  });
 }

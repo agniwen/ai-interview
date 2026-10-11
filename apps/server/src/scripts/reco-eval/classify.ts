@@ -1,9 +1,9 @@
 import type { PositiveVerdict } from "./types";
 
-export const THRESHOLD = 55;
-export const TOP_K = 20;
+const THRESHOLD = 55;
+const TOP_K = 20;
 
-export interface ClassifyCore {
+interface ClassifyCore {
   loadedIds: Set<string>;
   ranked: { candidateId: string; score: number }[];
   retrievedIds: Set<string>;

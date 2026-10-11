@@ -1,5 +1,5 @@
-import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { hasRecruitingReferences } from "@app/recruiting/reference-retention";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
@@ -42,7 +42,7 @@ import {
   loadRecruitingJobDescriptionById,
   queryPaginatedJobDescriptions,
   serializeJobDescription,
-} from "./dao";
+} from "@app/resume-processing/review/support/job-descriptions-dao";
 
 import {
   deleteJobDescriptionSemanticIndexBestEffort,
@@ -55,7 +55,7 @@ import {
   pickAvailableJobDescriptionCode,
 } from "./utils/job-description-code";
 import { recommendCandidatesForJobDescription } from "./utils/recommendations";
-import { getGlobalConfig } from "../global-config/dao";
+import { getGlobalConfig } from "@app/recruiting/global-config";
 import { listAllDepartments } from "../departments/dao";
 import { listAllInterviewers } from "../interviewers/dao";
 import { createJobDescriptionReferralLink } from "./dao/referral-links";

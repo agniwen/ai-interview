@@ -395,61 +395,6 @@ async function loadSnapshotRowsByConversationIds(conversationIds: string[]) {
   return rowsByConversationId;
 }
 
-export async function queryInterviewConversationReports(
-  interviewRecordId: string,
-  options: QueryInterviewConversationReportsOptions = {},
-) {
-  const conversations = await db
-    .select(reportConversationColumns)
-    .from(aiInterviewConversation)
-    .where(eq(aiInterviewConversation.recruitingRecordId, interviewRecordId))
-    .orderBy(
-      desc(
-        sql`coalesce(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt})`,
-      ),
-      desc(aiInterviewConversation.conversationId),
-    );
-
-  if (conversations.length === 0) {
-    return [];
-  }
-
-  const conversationIds = conversations.map((conversation) => conversation.conversationId);
-  const keyInformationByConversationId = await loadKeyInformationByConversationIds(
-    conversationIds,
-    options.includeKeyInformation ?? false,
-  );
-  const turnRows = await db
-    .select()
-    .from(aiInterviewConversationTurn)
-    .where(inArray(aiInterviewConversationTurn.conversationId, conversationIds))
-    .orderBy(
-      asc(aiInterviewConversationTurn.createdAt),
-      asc(aiInterviewConversationTurn.receivedAt),
-    );
-  const snapshotRowsByConversationId = options.includeSnapshotMetadata
-    ? await loadSnapshotRowsByConversationIds(conversationIds)
-    : null;
-
-  return conversations.map((conversation) => {
-    const turns = turnRows.filter((turn) => turn.conversationId === conversation.conversationId);
-    return serializeConversationReport(
-      {
-        ...conversation,
-        keyInformation: keyInformationByConversationId.get(conversation.conversationId) ?? null,
-      },
-      turns,
-      snapshotRowsByConversationId
-        ? (snapshotRowsByConversationId.get(conversation.conversationId) ?? {
-            context: null,
-            evidence: null,
-          })
-        : undefined,
-      options.includeKeyInformation,
-    );
-  });
-}
-
 // 按轮次（scheduleEntryId）过滤 conversations，适用于 round-keyed 的报告端点。
 // Filter conversations by round (scheduleEntryId) for round-keyed report endpoints.
 export async function queryInterviewConversationReportsByRound(

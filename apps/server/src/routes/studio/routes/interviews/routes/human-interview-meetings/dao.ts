@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -12,7 +12,7 @@ import {
 import type { HumanInterviewMeetingDetail } from "@app/shared/human-interview-meeting-detail";
 import { selectHumanInterviewTranscriptRevision } from "@app/shared/human-interview-meeting-detail";
 import { db } from "../../../../../../infrastructure/db";
-import type { RecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { loadMeetingTranscriptRevision } from "../../../../../meetings/transcription/revision-dao";
 
 interface MeetingDetailInput {

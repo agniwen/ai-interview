@@ -10,7 +10,5 @@ export const defaultResumeUploadBatchProcessorDependencies: ResumeIngest["defaul
   ingest.defaultResumeUploadBatchProcessorDependencies;
 export const getClaimMissRetryError: ResumeIngest["getClaimMissRetryError"] =
   ingest.getClaimMissRetryError;
-export const processBatchItem: ResumeIngest["processBatchItem"] = ingest.processBatchItem;
 export const processNextItem: ResumeIngest["processNextItem"] = ingest.processNextItem;
-export const toBatchDto: ResumeIngest["toBatchDto"] = ingest.toBatchDto;
 export type { ResumeUploadBatchProcessorDependencies } from "@app/resume-processing/ingest";

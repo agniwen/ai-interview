@@ -21,6 +21,3 @@ export const approvalDetailOptions = (slug: string, id: string) => ({
   queryKey: approvalKeys.detail(slug, id),
   ...approvalPolling,
 });
-export type ApprovalDetail = Awaited<
-  ReturnType<ReturnType<typeof approvalDetailOptions>["queryFn"]>
->;

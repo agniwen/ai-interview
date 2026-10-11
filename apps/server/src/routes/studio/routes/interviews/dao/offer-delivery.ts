@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { globalConfig, organization, recruitingOffer } from "@app/db-schema/schema";
 import type { OfferEmailInput } from "@app/db-schema/studio-interviews";
 import { validateEmailAttachments } from "@app/shared/email-attachments";
@@ -6,8 +6,8 @@ import type { OfferEmailPreviewRecord } from "@app/shared/studio-pipeline-stages
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { buildEmailAttachments } from "../../../../../infrastructure/email-attachments";
-import { buildSenderFromAddress, getResendClient } from "../../../../../infrastructure/resend";
-import { getGlobalConfig } from "../../global-config/dao";
+import { buildSenderFromAddress, getResendClient } from "@app/recruiting-workflows/runtime/resend";
+import { getGlobalConfig } from "@app/recruiting/global-config";
 import { loadDraftById, OfferDraftError } from "./offer-drafts";
 
 function getAppUrl(): string {
@@ -18,7 +18,7 @@ function getAppUrl(): string {
   return value.replace(/\/$/, "");
 }
 
-export function buildOfferPublicUrl(publicPath: string): string {
+function buildOfferPublicUrl(publicPath: string): string {
   return `${getAppUrl()}${publicPath}`;
 }
 

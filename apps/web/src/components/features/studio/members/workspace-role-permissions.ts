@@ -6,7 +6,7 @@ import {
 import { z } from "zod";
 
 export type PermissionResource = keyof typeof statement;
-export type PermissionAction<R extends PermissionResource = PermissionResource> =
+type PermissionAction<R extends PermissionResource = PermissionResource> =
   (typeof statement)[R][number];
 export type PermissionRecord = Record<string, string[]>;
 
@@ -33,7 +33,7 @@ export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set([
 export const ROLE_ASSIGNED_TO_MEMBERS_MESSAGE =
   "该角色下仍有成员，不能删除。请先将这些成员调整到其他角色。";
 
-export const WORKSPACE_PERMISSION_GROUPS = [
+const WORKSPACE_PERMISSION_GROUPS = [
   {
     description: "控制左侧导航页面是否可见。",
     resources: [
@@ -179,7 +179,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
   }[];
 }[];
 
-export const PERMISSION_ACTION_LABELS = {
+const PERMISSION_ACTION_LABELS = {
   ...STUDIO_PAGE_PERMISSION_LABELS,
   cancel: "取消",
   create: "新增",
@@ -554,7 +554,7 @@ export function normalizeDynamicRoleName(value: string): string {
     .replaceAll(/^-+|-+$/gu, "");
 }
 
-export function getPermissionActions(
+function getPermissionActions(
   permission: PermissionRecord | null | undefined,
   resource: PermissionResource,
 ): string[] {

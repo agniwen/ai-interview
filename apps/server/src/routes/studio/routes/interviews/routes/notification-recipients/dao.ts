@@ -1,7 +1,7 @@
-import { lockRecruitingRecord } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { db } from "../../../../../../infrastructure/db/index";
-import { FEISHU_PROVIDER_IDS } from "../../../../../../integrations/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "@app/feishu/provider";
 import {
   account,
   recruitingEvent,

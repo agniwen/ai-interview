@@ -4,7 +4,12 @@ import {
   buildHumanInterviewCandidateRecordingFileKey,
   headMeetingRecordingObject,
 } from "@app/object-storage";
-import { startHumanInterviewRoomRecording } from "../exports/worker/human-interview-recording";
+import { startHumanInterviewRoomRecording } from "@app/recruiting-workflows/human-interviews/human-interview-recording";
+import { db } from "../infrastructure/db/index";
+import { setDefaultDatabase } from "@app/database/context";
+
+// Shared recruiting workflows read the ambient database; this script runs outside the Server app.
+setDefaultDatabase(db);
 
 const [action, roomName] = process.argv.slice(2);
 if (!roomName || !/^local-smoke-[a-f0-9]{12}$/.test(roomName)) {

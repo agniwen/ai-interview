@@ -7,8 +7,8 @@ import {
   organization as organizationTable,
   user as userTable,
 } from "@app/db-schema/schema";
-import { computeWorkspacePermissionSnapshot } from "../../../access/workspace-permission-snapshot";
-import { isNoAccessWorkspaceRole } from "../../../access/workspace-roles";
+import { computeWorkspacePermissionSnapshot } from "@app/recruiting/access/workspace-permission-snapshot";
+import { isNoAccessWorkspaceRole } from "@app/recruiting/access/workspace-roles";
 
 export const defaultSessionStateDependencies: SessionStateDependencies = {
   async computePermissionSnapshot(input) {

@@ -72,8 +72,6 @@ export function SiteHeader({ className }: { className?: string } = {}) {
         headerOverride ?? (
           <Breadcrumb>
             <BreadcrumbList>
-              {/* <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem> */}
-              {/* <BreadcrumbSeparator className="hidden md:block" /> */}
               <BreadcrumbItem>
                 <BreadcrumbPage>{title}</BreadcrumbPage>
               </BreadcrumbItem>

@@ -22,9 +22,8 @@
  */
 
 export { ApiError, isApiError } from "./errors";
-export { apiFetch, type ApiFetchOptions } from "./client";
+export { apiFetch } from "./client";
 export { rpcFetch } from "./rpc-fetch";
-export { extractResumeDedupConflictMatches } from "./resume-dedup-conflict";
 export * from "./endpoints/chat";
 export * from "./endpoints/background-check";
 export * from "./endpoints/public-interview";

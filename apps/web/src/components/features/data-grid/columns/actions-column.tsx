@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { DataGridFeatures } from "../table-features";
 
-export interface ActionInline<TData> {
+interface ActionInline<TData> {
   /** Visible button text and aria-label/title fallback. */
   label: string;
   onClick: (row: TData) => void | Promise<void>;
@@ -23,7 +23,7 @@ export interface ActionInline<TData> {
   show?: (row: TData) => boolean;
 }
 
-export interface ActionMenuItem<TData> {
+interface ActionMenuItem<TData> {
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   variant?: "default" | "destructive";

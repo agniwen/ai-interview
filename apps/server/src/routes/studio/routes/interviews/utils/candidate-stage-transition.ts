@@ -6,15 +6,15 @@ import {
   reopenRecruitingRecordTx,
   transitionRecruitingNodeTx,
   updateRecruitingNodeTx,
-} from "@app/database/recruiting-pipeline";
+} from "@app/recruiting/pipeline";
 import type {
   RecruitingPipelineCommand,
   RecruitingTransaction,
   RecruitingPipelineResult,
-} from "@app/database/recruiting-pipeline";
-import { reviewAiInterviewRoundTx } from "@app/database/recruiting-ai-review";
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+} from "@app/recruiting/pipeline";
+import { reviewAiInterviewRoundTx } from "@app/recruiting/ai-review";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   recruitingInitialInterviewVersion,
   recruitingEvent,

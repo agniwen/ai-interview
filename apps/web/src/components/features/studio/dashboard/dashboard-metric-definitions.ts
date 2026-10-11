@@ -1,4 +1,4 @@
-export interface DashboardMetricDefinition {
+interface DashboardMetricDefinition {
   definition: string;
   label: string;
 }

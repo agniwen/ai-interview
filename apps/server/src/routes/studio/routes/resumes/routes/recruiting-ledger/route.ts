@@ -11,7 +11,7 @@ import {
   nextShanghaiCalendarDayStart,
   shanghaiCalendarDayStart,
 } from "@app/shared/date-range-filter";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import {

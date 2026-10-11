@@ -19,9 +19,9 @@ import {
   loadInitialInterviewVersion,
   requireInitialInterviewOverwrite,
   withInitialInterviewLock,
-} from "../dao";
-import type { InitialInterviewScope } from "../dao";
-import { InitialInterviewError } from "../errors";
+} from "@app/recruiting-workflows/initial-interviews/dao";
+import type { InitialInterviewScope } from "@app/recruiting-workflows/initial-interviews/dao";
+import { InitialInterviewError } from "@app/recruiting-workflows/initial-interviews/errors";
 import { dispatchInitialInterviewVersion } from "./default-import-recorded-initial-interview";
 
 export function regenerateInitialInterview(

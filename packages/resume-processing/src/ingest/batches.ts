@@ -3,8 +3,8 @@ import {
   lockRecruitingJobForCandidateCreation,
   updateRecruitingRecords,
   deleteRecruitingRecords,
-} from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+} from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../database";
 import {
@@ -26,7 +26,7 @@ import type {
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
 } from "@app/shared/bulk-resume-upload";
-import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
+import type { ResumeParseJobData } from "@app/job-queues/resume-parse";
 import { deleteDuplicateMatchesForSource } from "../semantic/resume/duplicate-matches";
 type BatchRow = typeof recruitingUploadBatch.$inferSelect;
 type ItemRow = typeof recruitingUploadBatchItem.$inferSelect;

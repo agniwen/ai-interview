@@ -8,22 +8,20 @@
 - `./review`：简历评估生成、重评和人才库评估。
 - `./semantic`：简历/JD 语义索引、查重和生命周期。
 - `./mail-ingest` / `./mail-ingest-crypto`：邮件导入 DAO 组合与密钥加解密。
-- `./ingest/database-context`：宿主为共享处理实现绑定 `Database` 的边界。
 
 ## 职责与边界
 
 - 完整业务动作接收显式输入和依赖，不接受 Hono Context 或浏览器对象。
-- `createResumeIngest`、`createResumeReview`、`createResumeSemanticProcessing` 必须把所有访问共享 DB proxy 的公开操作绑定到宿主数据库。
-- Server/Worker facade 只能导出绑定后的数据库操作；纯函数可以直接 re-export。
-- schema 属于 `@app/db-schema`，跨应用产品契约属于 `@app/shared`，queue payload 属于 `@app/resume-parse-queue`。
+- 数据库来自 `@app/database/context`：Server 在 `infrastructure/db` 中注册默认数据库后直接调用本包；Worker 通过 `createResumeIngest`、`createResumeReview`、`createResumeSemanticProcessing` 把公开操作绑定到自己的数据库。
+- schema 属于 `@app/db-schema`，跨应用产品契约属于 `@app/shared`，queue payload 属于 `@app/job-queues`。
 - `src/internal/runtime/` 放解析/OCR 等运行时支持，`src/internal/recruiting/` 放招聘简历处理，`src/internal/attachments/` 放附件持久化；这些目录不拥有 HTTP 路由。
 - `src/internal/` 是实现组织，不是无约束公开 API；新增调用优先经过顶层 factory。
 
 ## 如何修改或新增
 
 1. 先判断能力属于 ingest、review 还是 semantic，并把行为放在对应领域目录。
-2. 需要 DB 的函数使用共享 database context；加入顶层 factory 并在 Server/Worker 组合处导出绑定版本。
-3. 新增 factory 方法时写测试证明它在异步/并发调用中仍使用注入的数据库，避免 `database scope is unavailable` 回归。
+2. 需要 DB 的函数使用 `@app/database/context` 的 `db`；Worker 需要调用时加入顶层 factory 并绑定数据库。
+3. 新增 factory 方法时写测试证明它在异步/并发调用中仍使用注入的数据库，避免 `Database scope is unavailable` 回归。
 4. 多步写入保持一个完整 verb 和清晰事务边界；外部 AI/storage/queue 通过 port 注入。
 5. 只在确有跨包调用方时增加 `package.json.exports`，禁止调用方绕过 export 深挖 `src/internal`。
 6. 提示词或评估输出变化需遵守根目录 ADR 和定性简历评估契约。

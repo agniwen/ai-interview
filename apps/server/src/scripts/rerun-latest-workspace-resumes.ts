@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -516,7 +516,7 @@ async function run(options: Options): Promise<void> {
 
     const refreshed = await loadRowsByIds(ids, backfill.loadRecentRows);
     const [reviewQueue, reviewWorker] = await Promise.all([
-      import("../routes/studio/routes/resumes/utils/review-queue"),
+      import("@app/resume-processing/review/resumes/utils/review-queue"),
       import("../routes/studio/routes/resumes/utils/review-worker"),
     ]);
     const evaluationStartedAt = Date.now();

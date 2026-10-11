@@ -36,7 +36,7 @@ import { useStudioPersonDetailMutations } from "./use-studio-person-detail-mutat
 import { useStudioPersonDetailPermissions } from "./use-studio-person-detail-permissions";
 import { useStudioPersonDetailQueries } from "./use-studio-person-detail-queries";
 
-export function useStudioPersonDetailController({
+function useStudioPersonDetailController({
   recordId,
   roundId,
   mode,

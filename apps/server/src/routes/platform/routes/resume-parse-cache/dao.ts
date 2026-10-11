@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "../../../../infrastructure/db/list-text-filters";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { and, asc, count, desc, eq, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";

@@ -29,7 +29,6 @@ import { getResumeComparisonDocument } from "./resume-dedup-compare-model";
 import type { ResumeComparisonSourceType } from "./resume-dedup-compare-model";
 import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
 import { syncScrollProgress } from "./resume-dedup-scroll-model";
-export { syncScrollProgress } from "./resume-dedup-scroll-model";
 
 interface ResumeComparisonDetail {
   candidateEmail: string | null;

@@ -2,8 +2,8 @@ import {
   generateStructuredWithMastraAgent,
   interviewQuestionAgent,
 } from "@app/ai-runtime/simple-generators";
-import { compileFollowUpContracts } from "./compile-follow-up-contracts";
-import type { FollowUpContractGenerator } from "./compile-follow-up-contracts";
+import { compileFollowUpContracts } from "@app/recruiting/interview-questions/compile-follow-up-contracts";
+import type { FollowUpContractGenerator } from "@app/recruiting/interview-questions/compile-follow-up-contracts";
 
 type StructuredGenerator = (
   input: Parameters<FollowUpContractGenerator>[0] & {

@@ -1,7 +1,7 @@
 import { createSentryOptions, resolveSentryDsn } from "@app/shared/sentry";
 import * as Sentry from "@sentry/hono/node";
 
-export const createWorkerSentryOptions = () =>
+const createWorkerSentryOptions = () =>
   createSentryOptions({
     dsn: resolveSentryDsn(process.env, "SENTRY_WORKER_DSN"),
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,

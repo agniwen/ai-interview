@@ -10,11 +10,6 @@ import { cn } from "@app/shared/utils";
 
 type WheelPickerValue = WheelPickerPrimitive.WheelPickerValue;
 
-type WheelPickerOption<T extends WheelPickerValue = string> =
-  WheelPickerPrimitive.WheelPickerOption<T>;
-
-type WheelPickerClassNames = WheelPickerPrimitive.WheelPickerClassNames;
-
 function WheelPickerWrapper({
   className,
   ...props
@@ -73,4 +68,3 @@ function WheelPicker<T extends WheelPickerValue = string>({
 }
 
 export { WheelPicker, WheelPickerWrapper };
-export type { WheelPickerClassNames, WheelPickerOption };

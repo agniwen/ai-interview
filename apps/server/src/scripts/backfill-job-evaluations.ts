@@ -1,5 +1,5 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import "../standalone/preload";
 
 import { createHash } from "node:crypto";
@@ -304,7 +304,7 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
     import("../routes/studio/routes/job-descriptions/application/default-job-evaluation-lifecycle"),
-    import("../infrastructure/job-evaluation-hash"),
+    import("@app/resume-processing/ingest/support/job-evaluation-hash"),
     import("@app/db-schema/job-description-evaluation"),
     import("@app/shared/structured-resume-scoring"),
   ]);

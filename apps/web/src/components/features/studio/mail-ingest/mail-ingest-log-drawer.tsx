@@ -22,7 +22,7 @@ interface MailMessageAttachment {
   resumeParseError: string | null;
   resumeParseStatus: string | null;
 }
-export interface MailMessageRecord {
+interface MailMessageRecord {
   attachmentCount: number | null;
   attachments: MailMessageAttachment[];
   boundJobDescriptionName: string | null;
@@ -73,7 +73,7 @@ interface MailIngestDateRange {
   receivedTo?: string;
 }
 
-export interface MailIngestMessagesQuery extends MailIngestDateRange {
+interface MailIngestMessagesQuery extends MailIngestDateRange {
   keyword?: string;
   page: string;
   pageSize: string;
@@ -238,7 +238,7 @@ function renderJdBinding(rec: MailMessageRecord): ReactNode {
   return statusTag ?? "—";
 }
 
-export function MailIngestLogMessages({
+function MailIngestLogMessages({
   account,
   dependencies,
   slug,

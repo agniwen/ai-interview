@@ -6,7 +6,7 @@ import {
   isHumanInterviewMeetingBeforeScheduledStart,
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
-} from "../../../studio/routes/interviews/dao/human-interview-meetings";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { listHumanInterviewChatMessages, saveHumanInterviewChatMessage } from "./dao";
 
 const messageInputSchema = z.object({

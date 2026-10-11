@@ -1,5 +1,5 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { pathToFileURL } from "node:url";
 import { and, asc, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -297,7 +297,7 @@ async function extractEducationForRecord(
   }
 
   const [{ extractResumeDocumentText }, { getObjectBytes }] = await Promise.all([
-    import("../infrastructure/resume-parse-pipeline"),
+    import("@app/resume-processing/ingest/support/resume-parse-pipeline"),
     import("@app/object-storage"),
   ]);
   const object = await getObjectBytes(record.storageKey);

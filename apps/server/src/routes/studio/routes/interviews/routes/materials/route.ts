@@ -9,7 +9,7 @@ import {
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { getWorkspaceRequestContext } from "../../../../../../context/workspace-request-context";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { loadResumeDetail } from "../../../resumes/dao/resumes";
 import { findMaterial, listMaterials, removeMaterial, updateMaterialMetadata } from "./dao";
 import { uploadMaterial } from "./application/upload-material";

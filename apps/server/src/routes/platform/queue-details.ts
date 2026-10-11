@@ -1,5 +1,5 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import type { ResumeParseQueueJobsResult } from "@app/resume-parse-queue/resume-parse";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import type { ResumeParseQueueJobsResult } from "@app/job-queues/resume-parse";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -174,9 +174,7 @@ export function filterEnrichedResumeParseQueueJobRecords(
   });
 }
 
-export async function loadResumeQueueDetailsByItemIds(
-  itemIds: string[],
-): Promise<ResumeQueueDetail[]> {
+async function loadResumeQueueDetailsByItemIds(itemIds: string[]): Promise<ResumeQueueDetail[]> {
   if (itemIds.length === 0) {
     return [];
   }

@@ -11,12 +11,6 @@ export interface ResumeCreateDedupConflict {
 
 type FindDuplicates = typeof findSemanticResumeDuplicates;
 
-export function parseResumeCreateDedupPolicy(
-  value: FormDataEntryValue | null,
-): ResumeCreateDedupPolicy {
-  return value === "force" ? "force" : "check";
-}
-
 export async function resolveResumeCreateDedupConflict({
   candidateEmail,
   candidateName,

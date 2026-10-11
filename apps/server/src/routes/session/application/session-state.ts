@@ -8,19 +8,19 @@ export interface SessionUser {
   role?: string | null;
 }
 
-export interface SessionOrganization {
+interface SessionOrganization {
   id: string;
   logo: string | null;
   name: string;
   slug: string;
 }
 
-export interface SessionMembership {
+interface SessionMembership {
   organizationId: string;
   role: string;
 }
 
-export interface WaitingWorkspace extends SessionMembership, SessionOrganization {}
+interface WaitingWorkspace extends SessionMembership, SessionOrganization {}
 
 export interface SessionStateDependencies {
   computePermissionSnapshot: (input: {

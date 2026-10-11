@@ -1,6 +1,6 @@
-import { advanceScreeningRecruitingNodeTx } from "@app/database/recruiting-pipeline";
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { advanceScreeningRecruitingNodeTx } from "@app/recruiting/pipeline";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable max-lines -- resume-pool persistence keeps list/detail/write transactions co-located. */
 import {
   and,

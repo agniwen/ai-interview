@@ -1,5 +1,5 @@
-import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import type { RecruitingRecordRead } from "@app/recruiting/read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import type { parseScheduleEntriesInput } from "@app/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
@@ -11,23 +11,26 @@ import {
   pickCurrentScheduleEntry,
   sortScheduleEntries,
 } from "@app/shared/interview/interview-record";
-import { parseResumeFastToProfile, ResumeAnalysisError } from "../../agents/resume-analysis-agent";
-import { projectAttachmentToResumeProfile } from "../../agents/resume-parser-agent";
+import {
+  parseResumeFastToProfile,
+  ResumeAnalysisError,
+} from "@app/resume-processing/ingest/agents/resume-analysis-agent";
+import { projectAttachmentToResumeProfile } from "@app/resume-processing/ingest/agents/resume-parser-agent";
 import {
   createAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
-} from "../chat/dao/chat-attachments";
-import { generateResumeStructured } from "../../infrastructure/resume-parse-pipeline";
+} from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
+import { generateResumeStructured } from "@app/resume-processing/ingest/support/resume-parse-pipeline";
 import { getResumeDocumentExtension } from "@app/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
-} from "../studio/routes/interviews/dao/context-snapshots";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import { isResumeParseCacheEnabled } from "../../infrastructure/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "../../infrastructure/resume-parse-provider";
+import { isResumeParseCacheEnabled } from "@app/resume-processing/ingest/support/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "@app/resume-processing/ingest/support/resume-parse-provider";
 import { createInternalErrorResponse } from "../../error-handler";
 import { resolveCandidateCompanyContext } from "./candidate-briefing";
 import {

@@ -68,7 +68,7 @@ export interface ResumeParseCacheResult {
   totalPages: number;
 }
 
-export interface ResumeParseCacheDetail {
+interface ResumeParseCacheDetail {
   contentHash: string | null;
   createdAt: string;
   filename: string;
@@ -87,7 +87,7 @@ export interface ResumeParseCacheDetail {
 
 type ResumeParseCacheSortColumn = "createdAt" | "filename" | "parsedAt" | "parsedStatus" | "size";
 
-export interface ResumeParseCacheQuery {
+interface ResumeParseCacheQuery {
   cacheType: ResumeParseCacheFilters["cacheType"];
   page: string;
   pageSize: string;

@@ -8,7 +8,7 @@ import { McpAccessError, permittedMcpScopes } from "./access";
 import { runWithMcpAuthorization } from "./authorization-context";
 import { isMcpEnabled, MCP_SCOPES } from "./config";
 
-import { isNoAccessWorkspaceRole } from "../../access/workspace-roles";
+import { isNoAccessWorkspaceRole } from "@app/recruiting/access/workspace-roles";
 
 const consentInput = z.object({
   accept: z.boolean(),

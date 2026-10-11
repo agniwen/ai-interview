@@ -11,14 +11,14 @@ import { connectQwenRealtimeTranscription } from "./qwen-realtime-transport";
 type ConnectLiveTranscriptProvider =
   LiveTranscriptDraftDependencies<MeetingLiveTranscriptAuthorization>["connect"];
 
-export interface MeetingLiveTranscriptProvider {
+interface MeetingLiveTranscriptProvider {
   capabilities: MeetingLiveTranscriptProviderCapabilities;
   connect: ConnectLiveTranscriptProvider;
   id: MeetingLiveTranscriptProviderId;
   label: string;
 }
 
-export const MEETING_LIVE_TRANSCRIPT_PROVIDERS = {
+const MEETING_LIVE_TRANSCRIPT_PROVIDERS = {
   deepgram: {
     capabilities: MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES.deepgram,
     connect: connectDeepgramRealtimeTranscription,

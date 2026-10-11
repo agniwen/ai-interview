@@ -89,7 +89,7 @@ export function FormSubmissionResetAction({
   );
 }
 
-export function getInterviewRecordLabel(
+function getInterviewRecordLabel(
   report: StudioPersonDetailViewModel["resultReports"][number],
   index: number,
 ) {

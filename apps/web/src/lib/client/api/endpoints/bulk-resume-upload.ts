@@ -12,7 +12,6 @@ import type {
   BulkResumeBatchDto,
   BulkResumeUploadFileDescriptor,
   CreateBulkResumeBatchInput,
-  ProcessNextResult,
 } from "@app/shared/bulk-resume-upload";
 import type { UploadTaskInboxPage } from "@app/shared/upload-task-inbox";
 import { apiFetch } from "@/lib/client/api/client";
@@ -63,17 +62,6 @@ export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[
   );
 }
 
-/**
- * 获取当前活跃批次详情列表；无活跃批次时返回空数组。
- * Get active batch details; returns an empty array when there are no active batches.
- */
-export function getActiveBulkResumeBatches(slug: string): Promise<BulkResumeBatchDetailDto[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].active.$get({ param: { slug } }),
-    "加载活跃批次失败",
-  );
-}
-
 export function getUploadTaskInboxPage(
   slug: string,
   cursor: string | null,
@@ -85,13 +73,6 @@ export function getUploadTaskInboxPage(
     }),
     "加载上传任务失败",
   );
-}
-
-export async function getActiveBulkResumeBatch(
-  slug: string,
-): Promise<BulkResumeBatchDetailDto | null> {
-  const [first] = await getActiveBulkResumeBatches(slug);
-  return first ?? null;
 }
 
 /**
@@ -107,22 +88,6 @@ export function getBulkResumeBatchDetail(
       param: { id: batchId, slug },
     }),
     "加载批次详情失败",
-  );
-}
-
-/**
- * 处理批次中的下一个文件。
- * Process the next item in the batch.
- */
-export function processNextBulkResumeBatch(
-  slug: string,
-  batchId: string,
-): Promise<ProcessNextResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"]["process-next"].$post({
-      param: { id: batchId, slug },
-    }),
-    "处理失败",
   );
 }
 
@@ -155,21 +120,5 @@ export function cancelBulkResumeBatch(
       param: { id: batchId, slug },
     }),
     "取消批次失败",
-  );
-}
-
-/**
- * 删除批次。
- * Delete a batch.
- */
-export function deleteBulkResumeBatch(
-  slug: string,
-  batchId: string,
-): Promise<{ success: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].$delete({
-      param: { id: batchId, slug },
-    }),
-    "删除批次失败",
   );
 }

@@ -15,7 +15,7 @@ const MAX_MEETING_NOTE_COUNT = 200;
 const MAX_MEETING_NOTE_SEARCH_CHARS = 1_000_000;
 const MAX_MEETING_SEARCH_PROJECTION_CHARS = 3_500_000;
 
-export class MeetingSearchProjectionLimitError extends Error {
+class MeetingSearchProjectionLimitError extends Error {
   constructor() {
     super("Meeting search projection exceeds its bounded source budget");
     this.name = "MeetingSearchProjectionLimitError";

@@ -13,25 +13,25 @@ import { z } from "zod";
 import {
   parseResumeFastToProfile as defaultParseResumeFastToProfile,
   validateResumeFile as defaultValidateResumeFile,
-} from "../../../../agents/resume-analysis-agent";
+} from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requirePermission as defaultRequirePermission } from "../../../../middlewares/permission";
 import {
   intersectRequestedCreatorIds as defaultIntersectRequestedCreatorIds,
   resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope,
-} from "../../../../access/recruiting-visibility";
+} from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   normalizeResumeFile as defaultNormalizeResumeFile,
   storeInterviewResume as defaultStoreInterviewResume,
   toBadRequest as defaultToBadRequest,
 } from "../../../interview/utils";
-import { recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist } from "@app/resume-processing/review/support/job-descriptions-dao";
 import { createPptxPreviewPdfResponse as defaultCreatePptxPreviewPdfResponse } from "../../utils/pptx-preview";
 import {
   enqueueResumePoolReviewGenerationBestEffort as defaultEnqueueResumePoolReviewGenerationBestEffort,
   scheduleResumeEvaluationForRecord as defaultScheduleResumeEvaluationForRecord,
-} from "../resumes/utils/review-queue";
-import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "../resumes/utils/candidate-question-generation";
+} from "@app/resume-processing/review/resumes/utils/review-queue";
+import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "@app/resume-processing/review/resumes/utils/candidate-question-generation";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "../resumes/utils/review-worker";
 import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../infrastructure/resume-semantic/dedup-service";
 import { listDuplicateMatchesForSource as defaultListDuplicateMatchesForSource } from "../../../../infrastructure/resume-semantic/duplicate-matches";
@@ -46,7 +46,7 @@ import {
   loadResumePoolItem as defaultLoadResumePoolItem,
   publishPrivatePoolItem as defaultPublishPrivatePoolItem,
   queryResumePoolItems as defaultQueryResumePoolItems,
-} from "./dao";
+} from "@app/resume-processing/review/support/resume-pool-dao";
 import { resumePoolRecommendationsRouter as defaultResumePoolRecommendationsRouter } from "./routes/recommendations/route";
 import { retryFailedResumeParse as defaultRetryFailedResumeParse } from "../resume-upload-batches/utils/retry";
 import { launchAiInterviewRound as defaultLaunchAiInterviewRound } from "../resumes/application/default-launch-ai-interview-round";

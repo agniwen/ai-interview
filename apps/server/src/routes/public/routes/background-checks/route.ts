@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   globalConfig,
   jobDescription,
@@ -10,7 +10,7 @@ import { backgroundCheckFormInputSchema } from "@app/db-schema/background-check"
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
-import { enqueueBackgroundCheckSubmittedEvent } from "../../../../interview-notifications/utils/events";
+import { enqueueBackgroundCheckSubmittedEvent } from "@app/recruiting-workflows/notifications/events";
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
   saveBackgroundCheckDraft,

@@ -6,8 +6,7 @@ import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-co
 export const {
   claimHumanInterviewEvaluationAfterTranscriptCorrection,
   listHumanInterviewEvaluationSnapshotsForAnalysis,
-  listRecoverableHumanInterviewEvaluationJobs,
-  loadHumanInterviewEvaluationInput,
+
   loadHumanInterviewReview,
   markHumanInterviewEvaluationFailed,
   publishHumanInterviewEvaluation,
@@ -20,7 +19,3 @@ export const {
   loadMeetingTranscriptForEvaluation: loadMeetingTranscriptRevision,
   loadMeetingTranscriptRevision,
 });
-
-export type HumanInterviewLiveTranscriptRecoveryResult = Awaited<
-  ReturnType<typeof recoverHumanInterviewReviewFromLiveTranscript>
->;

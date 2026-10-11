@@ -1,5 +1,5 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../runtime/db";
 import {
@@ -19,7 +19,6 @@ import {
   claimPendingItemById,
   loadBatchDetail,
   reconcileBatchProgress,
-  toBatchDto,
 } from "../dao/batches";
 import { projectAttachmentToResumeProfile } from "../../../agents/resume-parser-agent";
 import { findAttachmentByStorageKey, updateParseResultByHash } from "../../../attachments/dao";
@@ -720,5 +719,3 @@ export function createResumeUploadBatchProcessor(
       processNextItem(batchId, organizationId, userId, dependencies),
   };
 }
-
-export { toBatchDto };

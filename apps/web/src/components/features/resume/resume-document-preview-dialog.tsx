@@ -11,7 +11,7 @@ import type { XlsxViewerPreview as XlsxViewerPreviewComponent } from "@/componen
 import { cn } from "@app/shared/utils";
 import { runAsyncAction } from "@/lib/client/async-control";
 
-export type OfficeResumePreviewKind = "docx" | "xlsx";
+type OfficeResumePreviewKind = "docx" | "xlsx";
 export type ResumeDocumentPreviewKind = "pdf" | "image" | OfficeResumePreviewKind;
 
 const DocxViewerPreview = lazy(async () => {

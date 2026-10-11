@@ -15,13 +15,7 @@ import type {
 } from "@app/shared/bulk-resume-upload";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-export type BulkUploadPhase =
-  | "idle"
-  | "uploading"
-  | "processing"
-  | "paused"
-  | "completed"
-  | "cancelled";
+type BulkUploadPhase = "idle" | "uploading" | "processing" | "paused" | "completed" | "cancelled";
 
 export interface BulkUploadState {
   phase: BulkUploadPhase;

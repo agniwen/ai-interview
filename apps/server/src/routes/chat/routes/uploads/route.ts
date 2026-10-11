@@ -1,19 +1,22 @@
 import { zValidator } from "@hono/zod-validator";
-import { parseResumeDocument } from "../../../../infrastructure/resume-parse-pipeline";
-import type { ParsedResumeDocument } from "../../../../infrastructure/resume-parse-pipeline";
-import { isResumeParseCacheSourceCompatible } from "../../../../infrastructure/resume-parse-provider";
+import { parseResumeDocument } from "@app/resume-processing/ingest/support/resume-parse-pipeline";
+import type { ParsedResumeDocument } from "@app/resume-processing/ingest/support/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "@app/resume-processing/ingest/support/resume-parse-provider";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
 } from "@app/shared/resume-documents";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import { isResumeParseCacheEnabled } from "../../../../infrastructure/resume-parse-cache-policy";
+import { isResumeParseCacheEnabled } from "@app/resume-processing/ingest/support/resume-parse-cache-policy";
 import type { AttachmentParseStatus, AttachmentTextSource } from "@app/db-schema/db-enums";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
-import { createAttachment, findAttachmentByContentHash } from "../../dao/chat-attachments";
-import type { ChatAttachmentRow } from "../../dao/chat-attachments";
+import {
+  createAttachment,
+  findAttachmentByContentHash,
+} from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
+import type { ChatAttachmentRow } from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
 import { MAX_ATTACHMENT_SIZE, uploadPreflightSchema } from "../../schema";
 import { factory } from "../../../../factory";
 

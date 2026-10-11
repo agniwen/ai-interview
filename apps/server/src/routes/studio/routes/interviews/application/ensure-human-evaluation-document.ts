@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   account,
   organization,
@@ -9,21 +9,18 @@ import {
 } from "@app/db-schema/schema";
 import { db } from "../../../../../infrastructure/db/index";
 import { getRequiredEnv } from "../../../../../infrastructure/env";
-import { ensureRecordEvaluationDocument } from "./default-ensure-recruiting-evaluation-document";
+import { ensureRecordEvaluationDocument } from "@app/recruiting-workflows/evaluation-documents/default-ensure-recruiting-evaluation-document";
 import {
   buildInterviewEvaluationDocument,
   buildInterviewEvaluationStructureSections,
-} from "../../../../../integrations/feishu/interview-evaluation-doc";
-import {
-  FEISHU_PROVIDER_IDS,
-  selectPreferredFeishuProviderId,
-} from "../../../../../integrations/feishu/provider";
+} from "@app/feishu/interview-evaluation-doc";
+import { FEISHU_PROVIDER_IDS, selectPreferredFeishuProviderId } from "@app/feishu/provider";
 import {
   grantFeishuInterviewEvaluationDocxAccess,
   updateFeishuInterviewEvaluationDocxStructure,
-} from "../../../../../integrations/feishu/feishu-docx";
-import { loadResumeAttachment } from "../../../../agent/utils/feishu-resume-attachment";
-import { generateCandidateInterviewQuestions } from "../../resumes/utils/candidate-question-generation";
+} from "@app/feishu/docx";
+import { loadResumeAttachment } from "@app/recruiting-workflows/ai-interview-reports/feishu-resume-attachment";
+import { generateCandidateInterviewQuestions } from "@app/resume-processing/review/resumes/utils/candidate-question-generation";
 import type { HumanInterviewDocumentSyncJob } from "./sync-human-interview-document";
 
 const defaultDependencies = {

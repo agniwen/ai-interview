@@ -2,7 +2,7 @@ import { getResumeReviewDimension, RESUME_REVIEW_DIMENSIONS } from "@app/shared/
 import type { ResumeReviewAction, ResumeReviewLoose } from "@app/shared/resume-review";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 
-export const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
+const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 export const STRUCTURED_GATE_LABELS = {
   failed: "未通过门槛",
   needs_verification: "门槛待核实",
@@ -13,7 +13,7 @@ export const STRUCTURED_GRADE_LABELS = {
   recommended: "推荐",
   unmatched: "不匹配",
 } as const;
-export const STRUCTURED_DIMENSION_LABELS = {
+const STRUCTURED_DIMENSION_LABELS = {
   educationBackground: "学历",
   experienceRelevance: "经验",
   potential: "潜力",
@@ -21,7 +21,7 @@ export const STRUCTURED_DIMENSION_LABELS = {
   skillMatch: "技能",
   stability: "稳定",
 } as const;
-export const STRUCTURED_RADAR_DIMENSION_ORDER = [
+const STRUCTURED_RADAR_DIMENSION_ORDER = [
   "skillMatch",
   "experienceRelevance",
   "stability",

@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { globalConfigSchema } from "@app/shared/global-config";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requirePermission } from "../../../../middlewares/permission";
-import { getGlobalConfig, upsertGlobalConfig } from "./dao";
+import { getGlobalConfig, upsertGlobalConfig } from "@app/recruiting/global-config";
 
 export interface GlobalConfigRouterDependencies {
   getGlobalConfig: typeof getGlobalConfig;

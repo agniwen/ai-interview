@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { zValidator } from "@hono/zod-validator";
 import { toAISdkStream } from "@mastra/ai-sdk";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { legacyUiMessageToArcMessage } from "../../../../agents/mastra/adapters/arc-message-adapter";
 import { createRecruitingCopilotAgent } from "../../../../agents/mastra/agents/recruiting-copilot-agent";
 import { mastra } from "../../../../agents/mastra/index";

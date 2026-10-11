@@ -13,7 +13,7 @@ import {
   recruitingOffer,
   user,
 } from "@app/db-schema/schema";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { dashboardRecruitingActionScopeValues } from "@app/shared/studio-dashboard";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
@@ -36,14 +36,10 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "../../../../../infrastructure/db/index";
 import { listActiveStudioDuplicateMatchSummaries } from "../../../../../infrastructure/resume-semantic/duplicate-matches";
-import {
-  buildOrderBy,
-  calcTotalPages,
-  makePaginationSchema,
-} from "../../../../../infrastructure/db/pagination";
-import { serializeDate } from "../../../../../infrastructure/db/serialize";
-import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@app/database/pagination";
+import { serializeDate } from "@app/database/serialize";
+import { intersectRequestedCreatorIds } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { candidateOutcomeValues, pipelineStageValues } from "@app/db-schema/studio-interviews";
 import type { JsonValue } from "@app/db-schema/json";
 import type {
@@ -62,9 +58,12 @@ import {
   qualitativeRecommendationLevelSchema,
   qualitativeResumeEvaluationSchema,
 } from "@app/db-schema/qualitative-resume-evaluation";
-import { normalizeSkill } from "./skills";
-import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "./keyword-search";
-import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
+import { normalizeSkill } from "@app/resume-processing/review/resumes/dao/skills";
+import {
+  buildResumeKeywordSearch,
+  buildResumeAtomicSearch,
+} from "@app/resume-processing/review/resumes/dao/keyword-search";
+import { buildResumeProfileSnapshot } from "@app/resume-processing/review/resumes/dao/resume-profile-snapshot";
 import { loadLatestFeishuDocumentUrls } from "../../interviews/dao/feishu-document-urls";
 
 function parseResumeReviewBaseScore(value: string | null | undefined): number | null {

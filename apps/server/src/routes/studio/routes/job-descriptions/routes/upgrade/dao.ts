@@ -1,5 +1,5 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../../../../../infrastructure/db/index";
 import {
@@ -16,7 +16,7 @@ import {
   parseStoredJobDescriptionStructuredConfig,
 } from "@app/db-schema/job-description-structured-config";
 import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@app/shared/structured-resume-scoring";
-import { computeJobEvaluationDraftInputHash } from "../../../../../../infrastructure/job-evaluation-hash";
+import { computeJobEvaluationDraftInputHash } from "@app/resume-processing/ingest/support/job-evaluation-hash";
 import type {
   JobEvaluationUpgradeDraft,
   JobEvaluationUpgradeKey,

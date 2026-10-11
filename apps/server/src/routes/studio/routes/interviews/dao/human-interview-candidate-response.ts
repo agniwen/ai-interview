@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { createInternalErrorResponse } from "../../../../../error-handler";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
+import { enqueueHumanMeetingEvents } from "@app/recruiting-workflows/notifications/events";
+import { isInterviewNotificationFlowEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
 import { humanInterviewMeeting, humanInterviewMeetingRound } from "@app/db-schema/schema";
 import type {
   AiInvitationExceptionType,
@@ -12,7 +12,7 @@ import {
   decodeCandidateInviteToken,
   hashInviteToken,
   HumanInterviewMeetingError,
-} from "./human-interview-meeting-access";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meeting-access";
 import { enqueueHumanMeetingConfirmedIfReady } from "./human-interview-confirmation-readiness";
 
 const HUMAN_INVITATION_EXCEPTION_COPY = {

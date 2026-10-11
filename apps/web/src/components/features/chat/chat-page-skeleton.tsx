@@ -81,18 +81,3 @@ export function ChatConversationThreadSkeleton() {
     </output>
   );
 }
-
-export function ChatMessageListSkeleton() {
-  return (
-    <output
-      aria-busy="true"
-      aria-label="聊天记录加载中"
-      className="flex min-h-0 flex-1 flex-col bg-background text-foreground"
-      style={emptyThreadStyle}
-    >
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <ChatMessageSkeletonContent />
-      </div>
-    </output>
-  );
-}

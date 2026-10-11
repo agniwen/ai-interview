@@ -5,11 +5,11 @@ import { createContext, useCallback, useContext, useState } from "react";
 import type { ReactNode } from "react";
 import * as m from "@/paraglide/messages";
 
-export interface DemoDialog {
+interface DemoDialog {
   kind: "launch" | "schedule" | "resume";
   title: string;
 }
-export interface DemoCandidate {
+interface DemoCandidate {
   title: string;
   id?: string;
   pipeline?: string;

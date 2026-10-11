@@ -32,8 +32,6 @@ import {
 import { JobDescriptionPromptFields } from "./job-description-prompt-fields";
 import { useJobDescriptionFormActions } from "./use-job-description-form-actions";
 
-export { emptyJobDescriptionFormValues } from "./job-description-form-values";
-
 export function isJobDescriptionFormTab(value: string): value is JobDescriptionFormTab {
   return value === "basic" || value === "interview-questions" || value === "forms";
 }

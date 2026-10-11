@@ -1,12 +1,12 @@
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db as defaultDb } from "../../../../../../infrastructure/db/index";
 
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
-import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission as defaultRequirePermission } from "../../../../../../middlewares/permission";

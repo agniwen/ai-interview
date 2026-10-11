@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DEFAULT_DEEPGRAM_ENDPOINTING_MS } from "@app/shared/meeting-transcription";
 import { desktopSettingsSchema } from "../preload/orpc-contract";
-import type { DesktopSettings, ThemeMode } from "../preload/orpc-contract";
+import type { DesktopSettings } from "../preload/orpc-contract";
 
 const DEFAULTS: DesktopSettings = {
   deepgramEndpointingMs: DEFAULT_DEEPGRAM_ENDPOINTING_MS,
@@ -71,4 +71,4 @@ export function applySettingsAtStartup(dependencies?: SettingsStartupDependencie
   runtime.applySettings(runtime.readSettings());
 }
 
-export type { DesktopSettings, ThemeMode };
+export type { DesktopSettings };

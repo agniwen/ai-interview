@@ -12,7 +12,7 @@ import {
 import {
   enqueueMeetingPlaybackJobs,
   isMeetingProcessingQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-playback";
+} from "@app/job-queues/meeting-playback";
 import {
   createOrLoadMeetingSession,
   isMeetingPurgeTombstoned,
@@ -51,7 +51,7 @@ export interface MeetingServiceAsset {
   uploadMode?: string;
 }
 
-export interface MeetingServiceUser {
+interface MeetingServiceUser {
   id: string;
   image: string | null;
   name: string;
@@ -76,7 +76,7 @@ export interface MeetingServiceSession {
   verifiedAt?: Date | null;
 }
 
-export interface MeetingAuthorizedAsset {
+interface MeetingAuthorizedAsset {
   durationMs?: number;
   status: string;
   storageKey: string;
@@ -106,7 +106,7 @@ export interface MeetingAuthorizedSession {
   workspaceCustodied?: boolean;
 }
 
-export interface MeetingLibraryRow {
+interface MeetingLibraryRow {
   recordingType: MeetingRecordingType;
   controllerId: string;
   creatorId: string;

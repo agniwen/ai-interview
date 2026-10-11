@@ -1,16 +1,12 @@
-import { buildListTextFilterWhere } from "../../../../infrastructure/db/list-text-filters";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import type { DepartmentListRecord, DepartmentRecord } from "@app/shared/departments";
 import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../infrastructure/db/index";
-import {
-  buildOrderBy,
-  calcTotalPages,
-  makePaginationSchema,
-} from "../../../../infrastructure/db/pagination";
-import type { PaginatedResult, PaginationParams } from "../../../../infrastructure/db/pagination";
-import { serializeDate } from "../../../../infrastructure/db/serialize";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@app/database/pagination";
+import type { PaginatedResult, PaginationParams } from "@app/database/pagination";
+import { serializeDate } from "@app/database/serialize";
 import { department, interviewer, jobDescription } from "@app/db-schema/schema";
 
 const departmentListFiltersSchema = z.object({
@@ -36,7 +32,7 @@ interface DepartmentPaginationInput {
   sortOrder?: string;
 }
 
-export type DepartmentPaginationParams = PaginationParams<SortColumn>;
+type DepartmentPaginationParams = PaginationParams<SortColumn>;
 
 export type PaginatedDepartmentResult = PaginatedResult<DepartmentListRecord>;
 
@@ -183,9 +179,7 @@ function parseFilters(filters?: { textFilters?: string; search?: string | null }
   return { search: parsed.data.search?.trim() || undefined, textFilters: parsed.data.textFilters };
 }
 
-export function parseDepartmentPagination(
-  params?: DepartmentPaginationInput,
-): DepartmentPaginationParams {
+function parseDepartmentPagination(params?: DepartmentPaginationInput): DepartmentPaginationParams {
   return departmentPaginationSchema.parse(params ?? {});
 }
 

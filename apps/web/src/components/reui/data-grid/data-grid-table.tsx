@@ -20,7 +20,7 @@ import type {
   DataGridTableInstance,
 } from "@/components/reui/data-grid/data-grid";
 import { flexRender, Subscribe } from "@tanstack/react-table";
-import type { Cell, Column, Header, Row, Table } from "@tanstack/react-table";
+import type { Cell, Column, Header, Row } from "@tanstack/react-table";
 
 import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";

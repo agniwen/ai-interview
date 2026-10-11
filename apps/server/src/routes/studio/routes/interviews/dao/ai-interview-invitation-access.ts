@@ -25,7 +25,7 @@ function signature(encodedPayload: string): string {
     .digest("base64url");
 }
 
-export function buildAiInterviewInvitationExpiry(now = Date.now()): number {
+function buildAiInterviewInvitationExpiry(now = Date.now()): number {
   return now + AI_INVITATION_TTL_MS;
 }
 

@@ -6,8 +6,8 @@ import type {
   publishMeetingAnswerExchange,
 } from "./dao";
 import type { generateMeetingAnswer, getMeetingAnswerGeneratorSnapshot } from "./generator";
-import type { MeetingAnswerJobData } from "@app/meeting-processing-queue/meeting-answer";
-import { MEETING_ANSWER_PROMPT_VERSION } from "@app/meeting-processing-queue/meeting-answer";
+import type { MeetingAnswerJobData } from "@app/job-queues/meeting-answer";
+import { MEETING_ANSWER_PROMPT_VERSION } from "@app/job-queues/meeting-answer";
 import {
   isMeetingAnswerTerminalError,
   MeetingAnswerTerminalError,
@@ -24,12 +24,12 @@ export interface MeetingAnswerDependencies {
   publish: typeof publishMeetingAnswerExchange;
 }
 
-export class MeetingAnswerProcessor extends Context.Service<
+class MeetingAnswerProcessor extends Context.Service<
   MeetingAnswerProcessor,
   MeetingAnswerDependencies
 >()("@app/worker/MeetingAnswerProcessor") {}
 
-export const meetingAnswerProcessorLayer = (dependencies: MeetingAnswerDependencies) =>
+const meetingAnswerProcessorLayer = (dependencies: MeetingAnswerDependencies) =>
   Layer.succeed(MeetingAnswerProcessor, dependencies);
 
 class MeetingAnswerFailure extends Data.TaggedError("MeetingAnswerFailure")<{
@@ -50,7 +50,7 @@ function attempt<A>(operation: MeetingAnswerFailure["operation"], evaluate: () =
   });
 }
 
-export function runMeetingAnswerProcessingEffect(
+function runMeetingAnswerProcessingEffect(
   input: MeetingAnswerJobData,
   context: { attempt: number; maxAttempts: number },
 ): Effect.Effect<void, MeetingAnswerFailure, MeetingAnswerProcessor> {

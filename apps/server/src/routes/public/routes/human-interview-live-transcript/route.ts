@@ -16,8 +16,8 @@ import {
 import {
   isHumanInterviewMeetingAfterValidUntil,
   isHumanInterviewMeetingBeforeScheduledStart,
-} from "../../../studio/routes/interviews/dao/human-interview-meeting-access";
-import { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meeting-access";
+import { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 
 const leaseParamSchema = z.object({ captureId: z.uuid(), inviteToken: z.string().min(1) });
 const inviteParamSchema = z.object({ inviteToken: z.string().min(1) });

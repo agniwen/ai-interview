@@ -1,5 +1,5 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { buildListTextFilterWhere } from "../../../../infrastructure/db/list-text-filters";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../infrastructure/db/index";
@@ -21,8 +21,8 @@ import type {
   InterviewNotificationDeliveryStatus,
   InterviewNotificationEventType,
 } from "@app/db-schema/interview-notifications";
-import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
-import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
+import type { FeishuProviderId } from "@app/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "@app/feishu/provider";
 import { reportConversationId } from "./report-conversation";
 
 export const platformNotificationStatusFilterValues = [
@@ -36,10 +36,8 @@ const messageIdentity = sql<
 export const platformNotificationProviderFilterValues = ["all", ...FEISHU_PROVIDER_IDS] as const;
 const feishuProviderIdSchema = z.enum(FEISHU_PROVIDER_IDS);
 
-export type PlatformNotificationStatusFilter =
-  (typeof platformNotificationStatusFilterValues)[number];
-export type PlatformNotificationProviderFilter =
-  (typeof platformNotificationProviderFilterValues)[number];
+type PlatformNotificationStatusFilter = (typeof platformNotificationStatusFilterValues)[number];
+type PlatformNotificationProviderFilter = (typeof platformNotificationProviderFilterValues)[number];
 
 export interface PlatformNotificationsQuery {
   page: number;
@@ -52,7 +50,7 @@ export interface PlatformNotificationsQuery {
   status?: PlatformNotificationStatusFilter;
 }
 
-export interface PlatformNotificationRecord {
+interface PlatformNotificationRecord {
   candidateName: string;
   conversationId: string | null;
   createdAt: string;

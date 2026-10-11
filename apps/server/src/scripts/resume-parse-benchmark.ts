@@ -1,7 +1,7 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { structuredSchema } from "@app/db-schema/resume-parser-schema";
-import { runAliyunResumeExtraction } from "../infrastructure/aliyun-docmining";
+import { runAliyunResumeExtraction } from "@app/resume-processing/ingest/support/aliyun-docmining";
 import { loadStandaloneEnv } from "../standalone/env";
 
 interface TimedResult<T> {
@@ -55,7 +55,7 @@ async function main() {
     { extractResumeDocumentText, generateResumeStructured, RESUME_STRUCTURED_INSTRUCTIONS },
     { parseJsonOutput },
   ] = await Promise.all([
-    import("../infrastructure/resume-parse-pipeline"),
+    import("@app/resume-processing/ingest/support/resume-parse-pipeline"),
     import("@app/ai-runtime/json-output"),
   ]);
   const filePath = path.resolve(arg("file"));

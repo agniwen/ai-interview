@@ -91,12 +91,12 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
   );
 }
 
-export interface ConversationMessage {
+interface ConversationMessage {
   role: "user" | "assistant" | "system" | "data" | "tool";
   content: string;
 }
 
-export type ConversationDownloadProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
+type ConversationDownloadProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
   messages: ConversationMessage[];
   filename?: string;
   formatMessage?: (message: ConversationMessage, index: number) => string;
@@ -107,14 +107,14 @@ function defaultFormatMessage(message: ConversationMessage): string {
   return `**${roleLabel}:** ${message.content}`;
 }
 
-export function messagesToMarkdown(
+function messagesToMarkdown(
   messages: ConversationMessage[],
   formatMessage: (message: ConversationMessage, index: number) => string = defaultFormatMessage,
 ): string {
   return messages.map((msg, i) => formatMessage(msg, i)).join("\n\n");
 }
 
-export function ConversationDownload({
+function ConversationDownload({
   ref,
   messages,
   filename = "conversation.md",

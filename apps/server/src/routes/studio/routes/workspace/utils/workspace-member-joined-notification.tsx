@@ -3,11 +3,8 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section } from "chat";
 import { db } from "../../../../../infrastructure/db/index";
-import {
-  FEISHU_PROVIDER_IDS,
-  selectPreferredFeishuProviderId,
-} from "../../../../../integrations/feishu/provider";
-import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
+import { FEISHU_PROVIDER_IDS, selectPreferredFeishuProviderId } from "@app/feishu/provider";
+import type { FeishuProviderId } from "@app/feishu/provider";
 import { account, organization, user } from "@app/db-schema/schema";
 
 export interface WorkspaceMemberJoinedNotificationContext {
@@ -117,7 +114,7 @@ export interface WorkspaceMemberJoinedNotificationDependencies {
 const defaultDependencies: WorkspaceMemberJoinedNotificationDependencies = {
   loadContext: loadNotificationContext,
   postCard: async (providerId, openId, card) => {
-    const { postFeishuDirectCard } = await import("../../../../../integrations/feishu/bot");
+    const { postFeishuDirectCard } = await import("@app/recruiting-workflows/feishu-bot/bot");
     return postFeishuDirectCard(providerId, openId, card);
   },
 };

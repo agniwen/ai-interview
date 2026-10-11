@@ -21,10 +21,12 @@ Simplified Chinese.
   streaming STT, an OpenAI-compatible LLM, and MiniMax TTS.
 - **Shared packages** (`packages/`): `@app/shared` (isomorphic contracts and
   schemas), `@app/db-schema` (Drizzle schema and relations), `@app/database`
-  (database factory), and `@app/resume-parse-queue`.
+  (database factory, scoped database context, query helpers), `@app/recruiting`
+  (recruiting record domain persistence), and `@app/job-queues` (BullMQ
+  queue contracts).
 - **Application runtime packages** (`packages/`): `@app/ai-runtime`,
   `@app/object-storage`, `@app/meeting-media`, `@app/meeting-live-transcript`,
-  `@app/meeting-processing`, `@app/meeting-processing-queue`, and
+  `@app/meeting-processing`, `@app/feishu`, `@app/recruiting-workflows`, and
   `@app/resume-processing`.
 
 Two package managers are used: **Bun 1.4.0** for TypeScript apps/packages and **uv**
@@ -173,15 +175,17 @@ apps/
 packages/
   shared/                     isomorphic contracts, schemas, state machines
   db-schema/                  Drizzle PostgreSQL schema, relations, enums
-  database/                   shared Drizzle database factory and type
+  database/                   Drizzle factory, scoped database context, query helpers
+  recruiting/                 recruiting records, pipeline, AI review, Offer approval
   ai-runtime/                 provider-neutral server-side model primitives
   object-storage/             S3-compatible client, keys, upload/download/copy
-  resume-parse-queue/         BullMQ contracts for resume parse/review/index
   resume-processing/          resume ingest, parsing, review, semantic workflows
   meeting-media/              recording normalization and audio preparation
   meeting-live-transcript/    live-transcript capture/correction/relay contracts
   meeting-processing/         meeting transcription/intelligence/purge workflows
-  meeting-processing-queue/   BullMQ contracts for meeting jobs
+  job-queues/                 BullMQ contracts for resume and meeting jobs
+  feishu/                     Feishu Open Platform client (credentials, docx)
+  recruiting-workflows/       interview, report, notification workflows (server + worker)
 ```
 
 ## Frontend Data Flow

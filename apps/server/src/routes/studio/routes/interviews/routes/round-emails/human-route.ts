@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { manualHumanEmailTypeSchema } from "@app/shared/manual-human-email";
 import { factory, jsonValidatorError } from "../../../../../../factory";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { ManualInvitationError } from "./application/default-manual-ai-invitation";
 import { previewManualHumanEmail, confirmManualHumanEmail } from "./application/manual-human-email";

@@ -2,7 +2,7 @@ import type { Database } from "@app/database";
 import type { RecruitingMaterialMetadata } from "@app/shared/recruiting-materials";
 import { and, eq, asc } from "drizzle-orm";
 import { recruitingMaterial } from "@app/db-schema/schema";
-import { lockRecruitingRecord } from "@app/database/recruiting-records";
+import { lockRecruitingRecord } from "@app/recruiting/records";
 import { db } from "../../../../../../infrastructure/db";
 import { RecruitingMaterialError } from "./errors";
 

@@ -11,7 +11,7 @@
  * needed.
  */
 
-export type ChatModelProvider = "alibaba" | "deepseek" | "moonshot" | "zhipu" | "minimax" | "other";
+type ChatModelProvider = "alibaba" | "deepseek" | "moonshot" | "zhipu" | "minimax" | "other";
 
 export interface ChatModelOption {
   /** 调用上游时使用的 model id（百炼上架的字面值）。
@@ -50,19 +50,3 @@ export const LOCAL_CHAT_MODELS: readonly ChatModelOption[] = [
  * that's not in `LOCAL_CHAT_MODELS`.
  */
 export const LOCAL_DEFAULT_MODEL_ID = "qwen3.6-plus";
-
-/** 快速 O(1) 校验用。Set for O(1) id validation. */
-export const LOCAL_CHAT_MODEL_IDS: ReadonlySet<string> = new Set(
-  LOCAL_CHAT_MODELS.map((m) => m.id),
-);
-
-/**
- * 把任意 id 收敛到清单内；非法值回落到默认。
- * Clamp an arbitrary id to the local catalog; unknown values fall back to the default.
- */
-export function resolveChatModelId(id: string | null | undefined): string {
-  if (id && LOCAL_CHAT_MODEL_IDS.has(id)) {
-    return id;
-  }
-  return LOCAL_DEFAULT_MODEL_ID;
-}

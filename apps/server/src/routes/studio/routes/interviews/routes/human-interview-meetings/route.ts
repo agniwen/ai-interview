@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { factory } from "../../../../../../factory";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import { loadHumanInterviewMeetingDetail } from "./dao";
 

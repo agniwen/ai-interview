@@ -8,7 +8,7 @@ import type {
   createMeetingPurgeDao,
   MeetingProviderArtifactInput,
 } from "@app/meeting-processing/purge";
-import type { MeetingPurgeJobData } from "@app/meeting-processing-queue/meeting-purge";
+import type { MeetingPurgeJobData } from "@app/job-queues/meeting-purge";
 import { Context, Data, Effect, Layer } from "effect";
 import { retryTransientPromise } from "../effect/retry";
 
@@ -33,12 +33,12 @@ export interface MeetingPurgeDependencies {
   release: ReturnType<typeof createMeetingPurgeDao>["releaseMeetingPurgeClaim"];
 }
 
-export class MeetingPurgeProcessor extends Context.Service<
+class MeetingPurgeProcessor extends Context.Service<
   MeetingPurgeProcessor,
   MeetingPurgeDependencies
 >()("@app/worker/MeetingPurgeProcessor") {}
 
-export const meetingPurgeProcessorLayer = (dependencies: MeetingPurgeDependencies) =>
+const meetingPurgeProcessorLayer = (dependencies: MeetingPurgeDependencies) =>
   Layer.succeed(MeetingPurgeProcessor, dependencies);
 
 class MeetingPurgeFailure extends Data.TaggedError("MeetingPurgeFailure")<{
@@ -183,7 +183,7 @@ async function runMeetingPurgeProcessingPromise(
   }
 }
 
-export function runMeetingPurgeProcessingEffect(input: MeetingPurgeJobData) {
+function runMeetingPurgeProcessingEffect(input: MeetingPurgeJobData) {
   return Effect.gen(function* () {
     const dependencies = yield* MeetingPurgeProcessor;
     yield* Effect.tryPromise({

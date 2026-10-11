@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "../../infrastructure/db/list-text-filters";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { z } from "zod";
 import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
@@ -15,12 +15,12 @@ import {
   listResumeParseQueueJobs,
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
-} from "@app/resume-parse-queue/resume-parse";
+} from "@app/job-queues/resume-parse";
 import {
   getResumeReviewGenerationQueueOverview,
   listResumeReviewGenerationQueueJobs,
   RESUME_REVIEW_GENERATION_QUEUE_NAME,
-} from "@app/resume-parse-queue/resume-review-generation";
+} from "@app/job-queues/resume-review-generation";
 import {
   createMailIngestAccount,
   getMailIngestAccountLoginConfig,

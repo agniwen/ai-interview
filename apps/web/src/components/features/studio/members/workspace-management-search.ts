@@ -2,7 +2,7 @@ import { z } from "zod";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 
-export const DEFAULT_WORKSPACE_MANAGEMENT_TAB = "members";
+const DEFAULT_WORKSPACE_MANAGEMENT_TAB = "members";
 
 const WORKSPACE_MANAGEMENT_TABS = ["members", "groups"] as const;
 const workspaceManagementTabSchema = z.enum(WORKSPACE_MANAGEMENT_TABS);

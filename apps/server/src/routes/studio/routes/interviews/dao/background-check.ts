@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   globalConfig,
   jobDescription,
@@ -18,10 +18,10 @@ import type {
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { buildEmailAttachments } from "../../../../../infrastructure/email-attachments";
-import { buildSenderFromAddress, getResendClient } from "../../../../../infrastructure/resend";
-import { getGlobalConfig } from "../../global-config/dao";
+import { buildSenderFromAddress, getResendClient } from "@app/recruiting-workflows/runtime/resend";
+import { getGlobalConfig } from "@app/recruiting/global-config";
 import { renderEmailContent } from "./offer-delivery";
-import type { Transaction } from "../../../../../interview-notifications/dao";
+import type { Transaction } from "@app/recruiting-workflows/notifications/dao";
 
 export class BackgroundCheckError extends Error {
   readonly status: 400 | 404 | 409;
@@ -56,7 +56,7 @@ function serializeBackgroundCheck(
   };
 }
 
-export function buildBackgroundCheckPublicUrl(publicToken: string): string {
+function buildBackgroundCheckPublicUrl(publicToken: string): string {
   return `${getAppUrl()}/background-check/${encodeURIComponent(publicToken)}`;
 }
 

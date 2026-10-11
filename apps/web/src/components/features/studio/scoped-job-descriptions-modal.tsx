@@ -33,7 +33,7 @@ import { useHasPermission } from "@/hooks/use-has-permission";
 
 // 二选一的 scope：决定按什么维度过滤 JD，以及弹窗 title 怎么拼。
 // Discriminated scope: determines the filter dimension + how the title reads.
-export type JobDescriptionsScope =
+type JobDescriptionsScope =
   | { type: "interviewer"; id: string; name: string }
   | { type: "department"; id: string; name: string };
 

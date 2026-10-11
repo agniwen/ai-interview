@@ -1,7 +1,7 @@
-import { OfferApprovalError } from "../../../offer-approvals/dao";
+import { OfferApprovalError } from "@app/recruiting-workflows/offer-approvals/dao";
 import { getOfferApprovalPolicy } from "../../../offer-approvals/application/templates";
-import type { RecruitingRecordRead } from "@app/database/recruiting-read-model";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import type { RecruitingRecordRead } from "@app/recruiting/read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { bodyLimit } from "hono/body-limit";

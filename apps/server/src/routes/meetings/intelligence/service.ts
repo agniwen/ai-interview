@@ -3,7 +3,7 @@ import {
   isMeetingIntelligenceQueueConfigured,
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
-} from "@app/meeting-processing-queue/meeting-intelligence";
+} from "@app/job-queues/meeting-intelligence";
 import { createRequestAutomaticMeetingIntelligence } from "@app/meeting-processing/intelligence";
 import type {
   MeetingIntelligenceResult,

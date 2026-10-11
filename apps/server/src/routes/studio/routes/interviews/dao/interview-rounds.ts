@@ -1,5 +1,5 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { buildListTextFilterWhere } from "../../../../../infrastructure/db/list-text-filters";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 // Round-keyed DAO for AI 面试 列表与详情。
 // 主查询：FROM studio_interview_schedule LEFT JOIN studio_interview
 // LEFT JOIN job_description LEFT JOIN user LEFT JOIN (conversations 是否存在) AS hasReport。
@@ -11,14 +11,10 @@ import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "../../../../../infrastructure/db/index";
-import {
-  buildOrderBy,
-  calcTotalPages,
-  makePaginationSchema,
-} from "../../../../../infrastructure/db/pagination";
-import { serializeDate } from "../../../../../infrastructure/db/serialize";
-import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@app/database/pagination";
+import { serializeDate } from "@app/database/serialize";
+import { intersectRequestedCreatorIds } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   department,
   aiInterviewConversation,
@@ -342,21 +338,6 @@ export async function queryPaginatedInterviewRounds(
     total,
     totalPages: calcTotalPages(total, pageSize),
   };
-}
-
-/** Cached version for Server Components */
-export function listInterviewRounds(
-  organizationId: string,
-  filters?: {
-    creatorIds?: string[] | null;
-    textFilters?: string;
-    search?: string | null;
-    status?: string | null;
-  },
-  pagination?: RoundsPaginationInput,
-  visibilityScope?: RecruitingVisibilityScope,
-) {
-  return queryPaginatedInterviewRounds(organizationId, filters, pagination, visibilityScope);
 }
 
 /**

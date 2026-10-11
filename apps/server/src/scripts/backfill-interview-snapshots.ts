@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { pathToFileURL } from "node:url";
 import { asc, and, eq, isNotNull, notExists, sql } from "drizzle-orm";
 import {
@@ -295,9 +295,9 @@ export async function backfillInterviewSnapshots(): Promise<void> {
   loadScriptEnv();
   const { closeDatabase, db } = await import("../infrastructure/db/index");
   const { createInterviewEvidenceSnapshot } =
-    await import("../routes/agent/utils/evidence-snapshot");
+    await import("@app/recruiting-workflows/ai-interview-reports/evidence-snapshot");
   const { createInterviewContextSnapshot } =
-    await import("../routes/studio/routes/interviews/dao/context-snapshots");
+    await import("@app/recruiting-workflows/ai-interview-reports/context-snapshots");
   const target = parseInterviewSnapshotBackfillTarget(
     process.env.BACKFILL_INTERVIEW_SNAPSHOTS_TARGET,
   );

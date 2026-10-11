@@ -1,10 +1,10 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable max-lines -- recruiting copilot search/detail/proposal tools stay co-located. */
 import { createTool } from "@mastra/core/tools";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../infrastructure/db/index";
-import type { RecruitingVisibilityScope } from "../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { QdrantResumeVectorStore } from "../../../infrastructure/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
@@ -21,8 +21,8 @@ import { listResumeRecords } from "../../../routes/studio/routes/resumes/dao/res
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
-} from "../../../routes/studio/routes/job-descriptions/dao";
-import { loadResumePoolItem } from "../../../routes/studio/routes/resume-pool/dao";
+} from "@app/resume-processing/review/support/job-descriptions-dao";
+import { loadResumePoolItem } from "@app/resume-processing/review/support/resume-pool-dao";
 import { upsertConversationContextJobBinding } from "../../../routes/chat/dao/chat";
 import type { ChatContextBindings } from "@app/db-schema/chat-context-bindings";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@app/db-schema/chat-context-bindings";
@@ -38,8 +38,6 @@ import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import type { JobDescriptionRecord } from "@app/shared/job-descriptions";
 import type { ResumePoolDetail } from "@app/shared/resume-pool";
 import { normalizeResumePoolItemId } from "./resume-pool-id";
-
-export { normalizeResumePoolItemId } from "./resume-pool-id";
 
 const MAX_SEARCH_LIMIT = 10;
 const MAX_COMPARISON_CANDIDATES = 5;
@@ -78,14 +76,14 @@ async function resolveConversationJobOverlay(input: {
   };
 }
 
-export const copilotCitationSchema = z.object({
+const copilotCitationSchema = z.object({
   id: z.string(),
   label: z.string(),
   recordType: z.enum(["job_description", "resume_pool_item", "resume_record"]),
   secondaryLabel: z.string().nullable(),
 });
 
-export const candidateSummaryCardSchema = z.object({
+const candidateSummaryCardSchema = z.object({
   candidateName: z.string(),
   hasResumeFile: z.boolean(),
   id: z.string(),
@@ -101,7 +99,7 @@ export const candidateSummaryCardSchema = z.object({
   workYears: z.number().nullable(),
 });
 
-export const resumeRecordDetailSchema = z.object({
+const resumeRecordDetailSchema = z.object({
   candidateName: z.string(),
   citation: copilotCitationSchema,
   id: z.string(),
@@ -122,7 +120,7 @@ export const resumeRecordDetailSchema = z.object({
   targetRole: z.string().nullable(),
 });
 
-export const jobDescriptionSummarySchema = z.object({
+const jobDescriptionSummarySchema = z.object({
   code: z.string().nullable(),
   departmentName: z.string().nullable(),
   description: z.string().nullable(),
@@ -131,7 +129,7 @@ export const jobDescriptionSummarySchema = z.object({
   prompt: z.string(),
 });
 
-export const recruitingActionProposalSchema = z.object({
+const recruitingActionProposalSchema = z.object({
   explanation: z.string(),
   id: z.string(),
   payload: z.record(z.string(), z.json()),
@@ -144,7 +142,7 @@ export const recruitingActionProposalSchema = z.object({
   ]),
 });
 
-export const recruitingActionConfirmationSchema = z.object({
+const recruitingActionConfirmationSchema = z.object({
   confirmedAt: z.string(),
   jobDescriptionId: z.string().optional(),
   jobDescriptionName: z.string().nullable().optional(),
@@ -181,7 +179,7 @@ export const getResumeRecordDetailOutputSchema = z.object({
   resumeRecords: z.array(resumeRecordDetailSchema),
 });
 
-export const resumePoolItemDetailSchema = z.object({
+const resumePoolItemDetailSchema = z.object({
   candidateName: z.string(),
   citation: copilotCitationSchema,
   hasAiProfile: z.boolean(),
@@ -226,7 +224,7 @@ export const getJobDescriptionDetailInputSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(MAX_COMPARISON_CANDIDATES),
 });
 
-export const getJobDescriptionDetailOutputSchema = z.object({
+const getJobDescriptionDetailOutputSchema = z.object({
   citations: z.array(copilotCitationSchema),
   jobDescriptions: z.array(jobDescriptionSummarySchema),
   missingIds: z.array(z.string()),
@@ -634,7 +632,7 @@ async function loadSemanticCandidateCards({
   });
 }
 
-export async function searchSemanticResumeRecords(input: {
+async function searchSemanticResumeRecords(input: {
   jobDescriptionIds?: string[];
   limit: number;
   organizationId: string;
@@ -685,7 +683,7 @@ export async function searchSemanticResumeRecords(input: {
   }
 }
 
-export function buildConversationBindProposalId(
+function buildConversationBindProposalId(
   kind: "resume_pool_item" | "resume_record",
   recordId: string,
 ) {
@@ -930,7 +928,7 @@ async function executeProposeRecruitingAction(input: {
   });
 }
 
-export async function getResumeRecordDetailForCopilot(input: {
+async function getResumeRecordDetailForCopilot(input: {
   contextBindings?: ChatContextBindings;
   organizationId: string;
   requests: z.infer<typeof resumeRecordDetailRequestSchema>[];
@@ -1087,7 +1085,7 @@ function toResumePoolItemDetail(
   };
 }
 
-export async function getResumePoolDetailForCopilot(input: {
+async function getResumePoolDetailForCopilot(input: {
   contextBindings?: ChatContextBindings;
   organizationId: string;
   requests: z.infer<typeof resumePoolDetailRequestSchema>[];
@@ -1171,7 +1169,7 @@ function toJobDescriptionCitation(record: JobDescriptionRecord) {
   };
 }
 
-export async function searchJobDescriptionsForCopilot(
+async function searchJobDescriptionsForCopilot(
   input: z.infer<typeof searchJobDescriptionsInputSchema> & { organizationId: string },
 ): Promise<z.infer<typeof searchJobDescriptionsOutputSchema>> {
   const parsed = searchJobDescriptionsInputSchema.parse(input);

@@ -1,12 +1,12 @@
-import { assertNoRecruitingReferences } from "@app/database/recruiting-reference-retention";
+import { assertNoRecruitingReferences } from "@app/recruiting/reference-retention";
 import {
   buildWorkspaceMailIngestFilters,
   buildPlatformMailIngestFilters,
 } from "./dao/account-filters";
 import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
-import { calcTotalPages, makePaginationSchema } from "../../../../infrastructure/db/pagination";
-import type { PaginatedResult, PaginationParams } from "../../../../infrastructure/db/pagination";
+import { calcTotalPages, makePaginationSchema } from "@app/database/pagination";
+import type { PaginatedResult } from "@app/database/pagination";
 import { mailIngestAccount, member, organization, user as userTable } from "@app/db-schema/schema";
 import { encryptMailIngestSecret } from "../../../../infrastructure/mail-ingest-crypto";
 import type { createMailIngestAccountSchema, updateMailIngestAccountSchema } from "./schema";
@@ -27,7 +27,6 @@ import { mailIngestWorkerDao } from "./dao/worker";
 
 export type {
   MailIngestAccountDto,
-  PlatformMailIngestAccountRow,
   WorkerMailIngestAccount,
   WorkspaceMailIngestAccountRow,
 } from "./dao/account-presenters";
@@ -45,16 +44,9 @@ export {
   markMailIngestMessageSkipped,
   updateMailIngestMessageResult,
 } from "./dao/messages";
-export type {
-  MailIngestMessageClaim,
-  MailMessageLogAttachment,
-  MailMessageLogRecord,
-} from "./dao/messages";
 type CreateAccountInput = z.infer<typeof createMailIngestAccountSchema>;
 type UpdateAccountInput = z.infer<typeof updateMailIngestAccountSchema>;
 type WorkspaceMailIngestSortColumn = (typeof WORKSPACE_MAIL_INGEST_SORT_COLUMNS)[number];
-
-export type WorkspaceMailIngestPaginationParams = PaginationParams<WorkspaceMailIngestSortColumn>;
 export type PaginatedWorkspaceMailIngestAccountResult =
   PaginatedResult<WorkspaceMailIngestAccountRow>;
 export type PaginatedPlatformMailIngestAccountResult =
@@ -673,10 +665,6 @@ export function listEnabledMailIngestAccounts(
   scope?: { organizationId: string },
 ): Promise<WorkerMailIngestAccount[]> {
   return mailIngestWorkerDao.listEnabledAccounts(limit, scope);
-}
-
-export function claimMailIngestAccount(accountId: string): Promise<Date | null> {
-  return mailIngestWorkerDao.claimAccount(accountId);
 }
 
 export function finishMailIngestAccountRun(

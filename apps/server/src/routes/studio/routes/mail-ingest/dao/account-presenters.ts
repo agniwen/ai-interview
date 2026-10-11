@@ -127,30 +127,6 @@ export function toNullableMailIngestAccountDto(row: {
   };
 }
 
-export function toWorkerMailIngestAccount(row: AccountRow): WorkerMailIngestAccount {
-  return {
-    dedupPolicy: row.dedupPolicy,
-    emailAddress: row.emailAddress,
-    failedMailbox: row.failedMailbox,
-    id: row.id,
-    imapHost: row.imapHost,
-    imapPort: row.imapPort,
-    imapSecure: row.imapSecure,
-    jdMode: row.jdMode,
-    jobDescriptionId: row.jobDescriptionId,
-    listenStartAt: row.listenStartAt,
-    mailbox: row.mailbox,
-    organizationId: row.organizationId,
-    password: decryptMailIngestSecret(row.encryptedPassword),
-    processedMailbox: row.processedMailbox,
-    resumePoolScope: row.resumePoolScope,
-    subjectKeyword: row.subjectKeyword,
-    target: row.target,
-    userId: row.userId,
-    username: row.username,
-  };
-}
-
 export function toMailIngestLoginConfig(row: AccountRow): MailIngestLoginConfig {
   return {
     imapHost: row.imapHost,

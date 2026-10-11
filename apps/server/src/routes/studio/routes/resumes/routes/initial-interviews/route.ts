@@ -5,13 +5,13 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { presignGetObjectUrl, presignRecordingGetObjectUrl } from "@app/object-storage";
-import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
+import { RecruitingPipelineError } from "@app/recruiting/pipeline";
 import {
   createInitialInterviewSchema,
   initialInterviewRolesSchema,
   regenerateInitialInterviewSchema,
 } from "@app/shared/human-initial-interview";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { createRequestWorkspaceAuthorizer } from "../../../../../../access/workspace-access-policy";
 import { getWorkspaceRequestContext } from "../../../../../../context/workspace-request-context";
 import { factory, jsonValidatorError } from "../../../../../../factory";
@@ -22,14 +22,14 @@ import {
   listInitialInterviews,
   listInitialInterviewSummaries,
   loadInitialInterviewDocument,
-} from "./dao";
+} from "@app/recruiting-workflows/initial-interviews/dao";
 import { importRecordedInitialInterviewSnapshot } from "./application/default-import-recorded-initial-interview";
 import {
   regenerateInitialInterview,
   resumeInitialInterviewVersion,
 } from "./application/change-initial-interview";
 import { reviewInitialInterview } from "./application/review-initial-interview";
-import { InitialInterviewError } from "./errors";
+import { InitialInterviewError } from "@app/recruiting-workflows/initial-interviews/errors";
 
 async function visibleRecord(
   c: Parameters<typeof getWorkspaceRequestContext>[0] & {

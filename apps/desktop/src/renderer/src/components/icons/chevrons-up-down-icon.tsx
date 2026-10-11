@@ -1,6 +1,6 @@
 "use client";
 
-export type ChevronsUpDownIconProps = React.ComponentProps<"svg">;
+type ChevronsUpDownIconProps = React.ComponentProps<"svg">;
 
 const pathClassName =
   "origin-center [transform-box:fill-box] transition-transform duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] in-data-[panel-open]:-scale-y-100 motion-reduce:transition-none";

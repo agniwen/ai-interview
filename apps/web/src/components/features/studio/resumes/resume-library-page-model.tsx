@@ -31,7 +31,7 @@ import {
 
 export { getResumeLibraryCardHeight } from "./resume-library-card-layout";
 
-export interface ResumeFilters extends Record<string, string> {
+interface ResumeFilters extends Record<string, string> {
   createdAtRange: string;
   creatorIds: string;
   dashboardAction: string;
@@ -50,7 +50,7 @@ export interface ResumeFilters extends Record<string, string> {
 // skills = candidate must have ALL selected skills (intersection / AND);
 // jdIds = candidate's linked JD is one of the selection (OR — a resume can
 //          link to only one JD, so AND would always be empty for >1).
-export const EMPTY_FILTERS: ResumeFilters = {
+const EMPTY_FILTERS: ResumeFilters = {
   createdAtRange: "",
   creatorIds: "",
   dashboardAction: "",
@@ -67,7 +67,7 @@ export const EMPTY_FILTERS: ResumeFilters = {
   structuredMinScore: "",
   textFilters: "",
 };
-export const RESUME_LIBRARY_FILTER_KEYS =
+const RESUME_LIBRARY_FILTER_KEYS =
   // SAFETY: Object.keys returns own keys from the fixed ResumeFilters owner contract above.
   Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters & string)[];
 // Stage is URL/query state controlled by tabs, not a resettable toolbar condition.
@@ -79,7 +79,7 @@ const resumeLibraryFilterKeySet = new Set<string>(resumeLibraryToolbarFilterKeys
 function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & string {
   return resumeLibraryFilterKeySet.has(key);
 }
-export const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
+const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
 const RESUME_LIBRARY_CARD_MEDIA_QUERIES = [640, 768, 1024, 1280, 1536].map(
   (width) => `(min-width: ${width}px)`,
 );
@@ -141,7 +141,7 @@ export async function copyResumeDetailLink(slug: string, record: ResumeLibraryLi
   }
 }
 
-export function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null {
+function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null {
   let parent = node?.parentElement ?? null;
   while (parent && parent !== document.body) {
     const style = getComputedStyle(parent);
@@ -197,12 +197,6 @@ export function useResumeLibraryScrollElement(listRootRef: RefObject<HTMLDivElem
   return scrollElement;
 }
 
-export function formatResumeLibraryJobDescriptionLabel(record: ResumeLibraryListRecord) {
-  return record.jobDescriptionName
-    ? [record.jobDescriptionDepartmentName, record.jobDescriptionName].filter(Boolean).join(" / ")
-    : null;
-}
-
 export interface FetchParams {
   knownTotal?: number;
   page: number;
@@ -213,7 +207,7 @@ export interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
-export type ResumeLibraryRowSelection = Record<string, boolean>;
+type ResumeLibraryRowSelection = Record<string, boolean>;
 
 export interface ResumeLibraryQueryState {
   filters: ResumeFilters;

@@ -110,7 +110,7 @@ function TranscriptTurn({
   );
 }
 
-export function LiveTranscriptScrollContent({ className, ...props }: ComponentProps<"div">) {
+function LiveTranscriptScrollContent({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn("container mx-auto max-w-3xl px-4 pb-20 sm:px-6", className)}

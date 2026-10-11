@@ -82,7 +82,7 @@ function getCachedPreview(cacheKey: string) {
   return value;
 }
 
-export function getPptxPreviewPdfFileName(fileName: string | null | undefined) {
+function getPptxPreviewPdfFileName(fileName: string | null | undefined) {
   const trimmed = fileName?.trim();
   if (!trimmed) {
     return "resume-preview.pdf";

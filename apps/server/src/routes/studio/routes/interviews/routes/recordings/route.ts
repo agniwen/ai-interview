@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../../../infrastructure/db/index";
 import { presignRecordingGetObjectUrl } from "@app/object-storage";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { factory } from "../../../../../../factory";
 import { createInternalErrorResponse } from "../../../../../../error-handler";
 import { requirePermission } from "../../../../../../middlewares/permission";

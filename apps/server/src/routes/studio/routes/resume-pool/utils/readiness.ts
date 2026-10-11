@@ -45,7 +45,7 @@ export async function completeResumePoolReadinessWithDefaultAdapters(
 ): Promise<void> {
   const [indexer, poolDao, duplicateMatches] = await Promise.all([
     import("../../../../../infrastructure/resume-semantic/indexer"),
-    import("../dao"),
+    import("@app/resume-processing/review/support/resume-pool-dao"),
     import("../../../../../infrastructure/resume-semantic/duplicate-matches"),
   ]);
   await completeResumePoolReadiness(input, {

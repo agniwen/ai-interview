@@ -24,9 +24,9 @@ import { describeResumeProgress } from "@app/shared/studio-resumes";
 import { and, asc, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../../../../infrastructure/db/index";
-import { serializeDate } from "../../../../../infrastructure/db/serialize";
-import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { serializeDate } from "@app/database/serialize";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { buildScopedResumeWhere, queryPaginatedResumeRecords } from "./resumes";
 
 interface RecruitingLedgerFilters {

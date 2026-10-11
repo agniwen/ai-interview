@@ -20,7 +20,7 @@ import {
   getMeetingIntelligenceGeneratorSnapshot,
   reusableLiveSummaryPrefix,
 } from "@app/meeting-processing/intelligence";
-import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@app/meeting-processing-queue/meeting-transcription";
+import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@app/job-queues/meeting-transcription";
 import {
   echoDeviceContextSchema,
   echoSubmitTranscriptionSchema,

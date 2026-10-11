@@ -11,7 +11,7 @@ import {
   offerApprovalListSchema,
   offerApprovalTemplateInputSchema,
 } from "@app/shared/offer-approval";
-import { listApprovers, OfferApprovalError } from "./dao";
+import { listApprovers, OfferApprovalError } from "@app/recruiting-workflows/offer-approvals/dao";
 import {
   submitOfferApproval,
   decideOfferApproval,

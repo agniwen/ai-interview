@@ -19,11 +19,7 @@ import { meetingLiveTranscriptDraftSchema } from "@app/shared/meeting-transcript
 import { canonicalizeDeepgramLiveTranscriptDraft } from "@app/meeting-processing/transcription";
 import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
-export {
-  createOrLoadMeetingSession,
-  renewMeetingDirectUploadLease,
-  resolveMeetingDirectUploadConcurrency,
-} from "./capacity-dao";
+export { createOrLoadMeetingSession, renewMeetingDirectUploadLease } from "./capacity-dao";
 
 const LIBRARY_MEETING_STATUSES = [
   "workspace-verified",

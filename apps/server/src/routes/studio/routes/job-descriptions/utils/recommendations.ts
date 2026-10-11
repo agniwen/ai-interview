@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import type {
   JobDescriptionTalentRecommendation,
@@ -29,9 +29,12 @@ import type {
   ResumeEmbeddingChunk,
   ResumeVectorStore,
 } from "../../../../../infrastructure/resume-semantic/vector-store";
-import { buildMasteredSkills, buildProfileHighlights } from "../../resume-pool/dao";
+import {
+  buildMasteredSkills,
+  buildProfileHighlights,
+} from "@app/resume-processing/review/support/resume-pool-dao";
 
-export type RecommendJobDescription = JobDescriptionSemanticInput;
+type RecommendJobDescription = JobDescriptionSemanticInput;
 
 interface RecommendationCandidateRecord {
   candidateEmail: string | null;
@@ -49,13 +52,13 @@ interface RecommendationCandidateRecord {
   targetRole: string | null;
 }
 
-export interface FacetSimilarity {
+interface FacetSimilarity {
   resumeOverview?: number;
   skillRole?: number;
   workProject?: number;
 }
 
-export interface CoreRankedEntry {
+interface CoreRankedEntry {
   // 完整候选记录，供生产 DTO 复用
   candidate: RecommendationCandidateRecord;
   candidateId: string;

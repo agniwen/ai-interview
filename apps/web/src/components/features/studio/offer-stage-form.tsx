@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function pad2(n: number): string {
+function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 

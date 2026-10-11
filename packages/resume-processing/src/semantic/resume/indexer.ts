@@ -2,12 +2,12 @@ import {
   toRecruitingSearchSource,
   vectorSourceColumn,
 } from "../../internal/runtime/resume-semantic/db-source";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "../../database";
 import { resumePoolItem, recruitingSearchIndex } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
+import type { ResumeSemanticIndexJobData } from "@app/job-queues/resume-semantic-index";
 import { getCandidateActivityStatus } from "@app/shared/candidate-pipeline-machine";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import { embedResumeSemanticTexts, getResumeEmbeddingConfig } from "./embedding";

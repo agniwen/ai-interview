@@ -3,14 +3,11 @@ import {
   toVectorSearchSource,
   vectorSourceColumn,
 } from "../../internal/runtime/resume-semantic/db-source";
-import {
-  createRecruitingReadModel,
-  recruitingRecordReadModel,
-} from "@app/database/recruiting-read-model";
+import { createRecruitingReadModel, recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../database";
-import { serializeDate } from "./serialize";
+import { serializeDate } from "@app/database/serialize";
 import { describeResumeProgress } from "@app/shared/studio-resumes";
 import { EMPTY_STAGE_PROGRESS, loadResumeStageProgress } from "./resume-derived-fields";
 import type { DedupMatchRecord } from "./types";

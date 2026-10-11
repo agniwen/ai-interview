@@ -1,5 +1,5 @@
 import { loadMcpGrant, loadMcpMember } from "../routes/mcp/dao";
-import { hasRecruitingReferences } from "@app/database/recruiting-reference-retention";
+import { hasRecruitingReferences } from "@app/recruiting/reference-retention";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -14,14 +14,14 @@ import { getAuthRequestHeaders } from "./auth-request-context";
 import { createMcpAuthPlugins } from "./mcp-auth";
 import { isMcpEnabled } from "../routes/mcp/config";
 import { getRequiredEnv } from "./env";
-import { getFeishuTenantAccessToken } from "./feishu-access-token";
+import { getFeishuTenantAccessToken } from "@app/feishu/access-token";
 import { feishuAccountLinking, validateFeishuAccountLinking } from "./feishu-account-linking";
 import { resolveSessionAuthProviderId } from "./session-auth-provider";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
   isNoAccessWorkspaceRole,
-} from "../access/workspace-roles";
+} from "@app/recruiting/access/workspace-roles";
 import {
   addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,

@@ -29,29 +29,6 @@ export interface ResumeChatTitleRequest {
 }
 
 /**
- * 单个可选模型的元数据。数据源由服务端的 `chat-models.config` 维护。
- * Single model option. Source of truth is the server-side `chat-models.config`.
- */
-export interface ChatModelOption {
-  id: string;
-  label: string;
-  provider: "alibaba" | "deepseek" | "moonshot" | "zhipu" | "minimax" | "other";
-}
-
-export interface ChatModelsResponse {
-  defaultId: string;
-  models: readonly ChatModelOption[];
-}
-
-/**
- * 拉取允许在 composer 中选择的模型列表。
- * Fetch the list of models exposed in the chat composer picker.
- */
-export function fetchChatModels(): Promise<ChatModelsResponse> {
-  return rpcFetch(rpc.api.resume.models.$get(), "加载模型列表失败");
-}
-
-/**
  * 智能标题生成请求；失败时调用方应回退到默认标题。
  * Generate a smart title; callers should fall back to a default on failure.
  */

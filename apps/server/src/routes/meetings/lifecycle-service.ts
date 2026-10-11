@@ -1,8 +1,8 @@
-import { RecruitingReferenceRetentionError } from "@app/database/recruiting-reference-retention";
+import { RecruitingReferenceRetentionError } from "@app/recruiting/reference-retention";
 import {
   enqueueMeetingPurgeJobs,
   isMeetingPurgeQueueConfigured,
-} from "@app/meeting-processing-queue/meeting-purge";
+} from "@app/job-queues/meeting-purge";
 import type {
   PaginatedTrashedMeetings,
   TrashedMeetingListQuery,

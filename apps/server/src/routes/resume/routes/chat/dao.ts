@@ -1,6 +1,6 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray } from "drizzle-orm";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { db } from "../../../../infrastructure/db/index";
 
 export async function loadResumeRecordFocus(input: {

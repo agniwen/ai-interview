@@ -6,7 +6,7 @@ import { db } from "../../../../infrastructure/db/index";
 import type { HumanInterviewCandidateMaterialsScope } from "./dao";
 
 export type QuestionTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-export const questionProgressAction = "human_interview.question_asked_changed";
+const questionProgressAction = "human_interview.question_asked_changed";
 
 export async function loadQuestionHistory(
   input: { candidateId: string; scope: HumanInterviewCandidateMaterialsScope },

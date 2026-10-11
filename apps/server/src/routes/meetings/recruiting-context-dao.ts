@@ -1,9 +1,9 @@
-import { lockRecruitingRecord } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../infrastructure/db/index";
-import { resolveRecruitingVisibilityScopeFromRows } from "../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScopeFromRows } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   hasPermissionInStatements,
   normalizePermissionStatements,

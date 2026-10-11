@@ -1,7 +1,7 @@
 /* oxlint-disable complexity -- route handlers coordinate lifecycle cleanup and external calendar failure responses. */
-import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
+import { RecruitingPipelineError } from "@app/recruiting/pipeline";
 import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -24,8 +24,8 @@ import {
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
-} from "./utils/human-interview-livekit";
-import { stopActiveHumanInterviewRecordingByRoomName } from "./utils/human-interview-recording-service";
+} from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
+import { stopActiveHumanInterviewRecordingByRoomName } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
 import { offerDraftsRouter } from "./routes/offer-drafts/route";
 import { backgroundCheckRouter } from "./routes/background-check/route";
 import { recordCandidateActivity } from "./utils/candidate-activity";
@@ -39,7 +39,7 @@ import {
 import { createResolveHumanInterviewOutcomeDao } from "./dao/resolve-human-interview-outcome";
 import { studioHumanInterviewReviewRouter } from "./review-route";
 import { humanInterviewMeetingDetailRouter } from "./routes/human-interview-meetings/route";
-import { syncCancelledHumanInterviewMeetingCalendars } from "./application/sync-cancelled-human-interview-meetings";
+import { syncCancelledHumanInterviewMeetingCalendars } from "@app/recruiting-workflows/human-interviews/sync-cancelled-human-interview-meetings";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}

@@ -23,7 +23,7 @@ import {
 // and binary responses keep using apiFetch/plain fetch from src/lib/client/api.
 // hc supports form uploads, but this boundary keeps JSON RPC separate from
 // special transports.
-export const rpcClientOptions = {
+const rpcClientOptions = {
   // 中文：携带 Cookie，让同源挂载和独立 Hono 域名部署都能保留 better-auth session。
   // English: include cookies for both same-origin mounts and cross-origin Hono deployments.
   init: { credentials: "include" },

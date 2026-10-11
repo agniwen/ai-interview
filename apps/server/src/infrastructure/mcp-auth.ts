@@ -4,7 +4,7 @@ import { jwt } from "better-auth/plugins/jwt";
 import { getMcpAuthorizationContext } from "../routes/mcp/authorization-context";
 import { getMcpResource, MCP_SCOPES } from "../routes/mcp/config";
 import type * as mcpStore from "../routes/mcp/dao";
-import { isNoAccessWorkspaceRole } from "../access/workspace-roles";
+import { isNoAccessWorkspaceRole } from "@app/recruiting/access/workspace-roles";
 
 export function createMcpAuthPlugins(
   baseURL: string,

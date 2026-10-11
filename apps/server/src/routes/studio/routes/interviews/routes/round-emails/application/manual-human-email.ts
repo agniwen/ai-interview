@@ -1,7 +1,7 @@
 import { inArray, and, asc, eq, lt } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   humanInterviewMeeting,
   humanInterviewMeetingRound,
@@ -18,19 +18,19 @@ import {
 import type { ManualHumanEmailType } from "@app/shared/manual-human-email";
 import { renderInterviewNotificationTemplate } from "@app/shared/interview-notifications";
 import { db } from "../../../../../../../infrastructure/db";
-import type { Transaction } from "../../../../../../../interview-notifications/dao";
+import type { Transaction } from "@app/recruiting-workflows/notifications/dao";
 import {
   createInterviewNotificationDelivery,
   enqueueInterviewNotificationEvent,
-} from "../../../../../../../interview-notifications/dao";
-import { CORE_INTERVIEW_NOTIFICATION_TEMPLATES } from "../../../../../../../interview-notifications/utils/templates";
+} from "@app/recruiting-workflows/notifications/dao";
+import { CORE_INTERVIEW_NOTIFICATION_TEMPLATES } from "@app/recruiting-workflows/notifications/templates";
 import {
   buildHumanInterviewRoundProgression,
   resolveHumanMeetingEventInterviewLink,
-} from "../../../../../../../interview-notifications/utils/events";
-import { getGlobalConfig } from "../../../../global-config/dao";
+} from "@app/recruiting-workflows/notifications/events";
+import { getGlobalConfig } from "@app/recruiting/global-config";
 import { loadResumeDetail } from "../../../../resumes/dao/resumes";
-import type { RecruitingVisibilityScope } from "../../../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   ManualInvitationError,
   signManualInvitationPreview,

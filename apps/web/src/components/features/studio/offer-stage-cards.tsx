@@ -817,7 +817,7 @@ function ReadonlyOfferField({
   );
 }
 
-export function PublishOfferConfirmDialog({
+function PublishOfferConfirmDialog({
   isPending,
   onConfirm,
   onOpenChange,

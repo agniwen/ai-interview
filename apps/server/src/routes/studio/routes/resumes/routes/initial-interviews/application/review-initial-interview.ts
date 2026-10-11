@@ -1,12 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { recruitingInitialInterviewVersion } from "@app/db-schema/schema";
-import {
-  transitionRecruitingNodeTx,
-  updateRecruitingNodeTx,
-} from "@app/database/recruiting-pipeline";
+import { transitionRecruitingNodeTx, updateRecruitingNodeTx } from "@app/recruiting/pipeline";
 import { db } from "../../../../../../../infrastructure/db";
-import type { InitialInterviewScope } from "../dao";
-import { InitialInterviewError } from "../errors";
+import type { InitialInterviewScope } from "@app/recruiting-workflows/initial-interviews/dao";
+import { InitialInterviewError } from "@app/recruiting-workflows/initial-interviews/errors";
 
 export function reviewInitialInterview(
   input: InitialInterviewScope & {

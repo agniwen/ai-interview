@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { loadServerEnv } from "../standalone/env";
-import type { StructuredResumeGenerator } from "../agents/structured-resume-evaluation";
+import type { StructuredResumeGenerator } from "@app/resume-processing/ingest/agents/structured-resume-evaluation";
 import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -271,8 +271,8 @@ async function main(): Promise<void> {
     mastraAgentModule,
     artifactSchemaModule,
   ] = await Promise.all([
-    import("../agents/structured-resume-evaluation"),
-    import("../agents/mastra/workflows/structured-resume-review-workflow"),
+    import("@app/resume-processing/ingest/agents/structured-resume-evaluation"),
+    import("@app/resume-processing/ingest/agents/mastra/workflows/structured-resume-review-workflow"),
     import("@app/ai-runtime/simple-generators"),
     import("@app/ai-runtime/models"),
     import("./diagnose-structured-resume-audit"),

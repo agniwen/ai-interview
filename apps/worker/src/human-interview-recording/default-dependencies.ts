@@ -2,7 +2,7 @@ import {
   downloadMeetingRecordingObjectToFile,
   headMeetingRecordingObject,
 } from "@app/object-storage";
-import { enqueueMeetingTranscriptionJobs } from "@app/meeting-processing-queue/meeting-transcription";
+import { enqueueMeetingTranscriptionJobs } from "@app/job-queues/meeting-transcription";
 import {
   humanInterviewRecordingDao,
   meetingTranscriptionDao as transcriptionDao,

@@ -10,10 +10,11 @@ AI Hiring Copilot 的后台 Worker 运行时。它消费简历与会议队列、
 - 在 `src/app.ts` 提供 `/healthz`、`/readyz` 以及受 Bearer 保护的队列/运营快照。
 - `src/resume-processing/` 为 ingest、review、semantic 入口绑定 Worker 自己的数据库；共享包不建立第二套宿主连接。
 - 为共享 processing 包组合真实数据库、队列、对象存储、AI provider 和监控依赖。
+- 启动时通过 `src/workflow-database.ts` 为 `@app/recruiting-workflows` 等共享包注册默认数据库；Worker 自己的处理器使用 `src/db.ts`。
 
 ## 边界
 
-- 可复用业务处理放 `packages/resume-processing` 或 `packages/meeting-processing`；Worker 只做运行时组合和进程生命周期。
+- 可复用业务处理放 `packages/resume-processing`、`packages/meeting-processing` 或 `packages/recruiting-workflows`；Worker 只做运行时组合和进程生命周期，不依赖 `@app/server`。
 - 队列名称、payload 和 producer/consumer 契约归对应 queue 包所有，不能只在 consumer 一侧改字段。
 - HTTP 业务 API 属于 `apps/server`；Worker 的 Hono app 只服务健康和运营诊断。
 - Worker 不依赖 `apps/web`，也不导入浏览器或 TanStack Start 模块。

@@ -11,13 +11,10 @@ dayjs.locale("zh-cn");
 export const APP_TIME_ZONE = "Asia/Shanghai";
 
 /** 默认日期时间：`2026/08/10 23:15` */
-export const APP_DATE_TIME_FORMAT = "YYYY/MM/DD HH:mm";
+const APP_DATE_TIME_FORMAT = "YYYY/MM/DD HH:mm";
 
 /** 仅日期：`2026/08/10` */
-export const APP_DATE_FORMAT = "YYYY/MM/DD";
-
-/** 紧凑日期时间（inbox 等）：`8/10 23:15` */
-export const APP_DATE_TIME_SHORT_FORMAT = "M/D HH:mm";
+const APP_DATE_FORMAT = "YYYY/MM/DD";
 
 type DateInput = string | number | Date | null | undefined;
 
@@ -48,9 +45,3 @@ export function formatAppDateTime(
 export function formatAppDate(value: DateInput, empty = "—"): string {
   return formatAppDateTime(value, APP_DATE_FORMAT, empty);
 }
-
-export function formatAppDateTimeShort(value: DateInput, empty = "—"): string {
-  return formatAppDateTime(value, APP_DATE_TIME_SHORT_FORMAT, empty);
-}
-
-export { dayjs };

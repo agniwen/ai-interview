@@ -1,4 +1,4 @@
-import { startHumanInterviewDocumentSync } from "@app/server/web/document-sync";
+import { startHumanInterviewDocumentSync } from "@app/server/web/runtime";
 import { definePlugin } from "nitro";
 import { applyServerEnv } from "../../src/env/server";
 
@@ -12,10 +12,11 @@ export default definePlugin((app) => {
     return;
   }
 
-  const scheduler = startHumanInterviewDocumentSync();
+  const schedulerStart = startHumanInterviewDocumentSync();
   const close = async () => {
     process.off("SIGINT", close);
     process.off("SIGTERM", close);
+    const scheduler = await schedulerStart;
     await scheduler.close();
   };
   // The Bun preset closes HTTP on signals without invoking Nitro's close hook.

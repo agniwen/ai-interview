@@ -4,12 +4,12 @@ import {
   canEditHumanInterviewQuestions,
   humanInterviewCandidateHrEvaluationSchema,
 } from "@app/shared/human-interview-candidate-materials";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../../../infrastructure/db/index";
-import { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
+import { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import {
   qualitativeResumeEvaluationV1Schema,

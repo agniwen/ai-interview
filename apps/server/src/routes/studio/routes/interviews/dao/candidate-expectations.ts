@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import type { RecruitingTransaction } from "@app/database/recruiting-pipeline";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import type { RecruitingTransaction } from "@app/recruiting/pipeline";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import type { candidateExpectationsMetaSchema } from "@app/db-schema/studio-interviews";
 import type { z } from "zod";
 import { db } from "../../../../../infrastructure/db/index";

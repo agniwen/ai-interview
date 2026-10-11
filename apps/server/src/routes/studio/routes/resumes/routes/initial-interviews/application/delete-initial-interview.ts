@@ -11,9 +11,12 @@ import {
   humanInterviewRound,
 } from "@app/db-schema/schema";
 import { db } from "../../../../../../../infrastructure/db";
-import { initialInterviewRecordScope, withInitialInterviewLock } from "../dao";
-import type { InitialInterviewScope } from "../dao";
-import { InitialInterviewError } from "../errors";
+import {
+  initialInterviewRecordScope,
+  withInitialInterviewLock,
+} from "@app/recruiting-workflows/initial-interviews/dao";
+import type { InitialInterviewScope } from "@app/recruiting-workflows/initial-interviews/dao";
+import { InitialInterviewError } from "@app/recruiting-workflows/initial-interviews/errors";
 
 export async function canDeleteInitialInterview(
   scope: InitialInterviewScope,

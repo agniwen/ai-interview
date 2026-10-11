@@ -6,7 +6,7 @@ import type { findTranscriptAudioAsset } from "./transcript-audio-dao";
 import { factory, jsonValidatorError } from "../../../../factory";
 import type { createHumanMeetingTranscriptRevision } from "../../../meetings/transcription/revision-dao";
 import type { loadHumanInterviewReview } from "../../../studio/routes/interviews/dao/human-interview-evaluation";
-import type { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
+import type { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { resolveHumanInterviewReviewMutationAccess } from "./access";
 import { buildAttributionCorrection } from "./transcript-attribution";
 import type { HumanInterviewReviewScopeResolver } from "../../../studio/routes/interviews/review-actions-route";

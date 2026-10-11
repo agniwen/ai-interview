@@ -3,12 +3,12 @@ import type {
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import { submitHumanInterviewEvaluation } from "../dao/human-interview-evaluation";
-import { endHumanInterviewMeetingsByRound } from "../dao/human-interview-meetings";
+import { endHumanInterviewMeetingsByRound } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
-} from "./human-interview-livekit";
-import { stopActiveHumanInterviewRecordingByRoomName } from "./human-interview-recording-service";
+} from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
+import { stopActiveHumanInterviewRecordingByRoomName } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
 
 interface HumanInterviewEvaluationSubmissionDependencies {
   deleteRoom: typeof deleteHumanInterviewLiveKitRoom;
@@ -24,7 +24,7 @@ const defaultDependencies: HumanInterviewEvaluationSubmissionDependencies = {
   submitEvaluation: submitHumanInterviewEvaluation,
 };
 
-export async function finalizeHumanInterviewRoundMeetings(
+async function finalizeHumanInterviewRoundMeetings(
   input: { organizationId: string; roundId: string },
   overrides: Partial<HumanInterviewEvaluationSubmissionDependencies> = {},
 ): Promise<void> {

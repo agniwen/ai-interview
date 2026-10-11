@@ -9,12 +9,12 @@ import type { MeetingLiveSummarySnapshot } from "@app/shared/meeting-live-summar
 import type { LocalMeetingSession } from "./local-meeting-session";
 
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;
-export const MEETING_CAPTURE_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
-export const SYSTEM_SILENCE_WARNING_MS = 6000;
-export const AUDIBLE_LEVEL_THRESHOLD = 0.005;
+const MEETING_CAPTURE_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
+const SYSTEM_SILENCE_WARNING_MS = 6000;
+const AUDIBLE_LEVEL_THRESHOLD = 0.005;
 
 export type CaptureTrack = "microphone" | "system";
-export type CapturePhase =
+type CapturePhase =
   | "idle"
   | "starting"
   | "active"
@@ -25,7 +25,7 @@ export type CapturePhase =
   | "discarding"
   | "saved-local"
   | "error";
-export type CaptureTrackHealth = "checking" | "healthy" | "silent" | "muted" | "ended";
+type CaptureTrackHealth = "checking" | "healthy" | "silent" | "muted" | "ended";
 
 export interface CaptureTrackState {
   health: CaptureTrackHealth;
@@ -117,7 +117,7 @@ export interface WorkspaceRecordingPort {
   shouldDeleteRecoveryCopy?: (captureId: string, manifestSha256: string) => Promise<boolean>;
 }
 
-export interface CaptureFragment {
+interface CaptureFragment {
   bytes: Uint8Array;
   durationMs: number;
   endedAtMonotonicMs: number;
@@ -207,18 +207,18 @@ export interface MeetingRecordingStore {
   ) => LocalMeetingSession | Promise<LocalMeetingSession>;
 }
 
-export interface StartMeetingCaptureInput {
+interface StartMeetingCaptureInput {
   liveTranscriptHints?: MeetingLiveTranscriptHints;
   microphoneDeviceId?: string;
   recruitingRecordId?: string | null;
 }
 
-export interface DiscardMeetingCaptureInput {
+interface DiscardMeetingCaptureInput {
   captureId?: string;
   includeSaved?: boolean;
 }
 
-export interface SaveMeetingCaptureInput {
+interface SaveMeetingCaptureInput {
   captureId?: string;
   liveSummary?: MeetingLiveSummarySnapshot | null;
   liveTranscriptDraft?: MeetingLiveTranscriptDraft | null;
@@ -251,7 +251,7 @@ interface CreateMeetingCaptureInput {
   workspace?: WorkspaceRecordingPort;
 }
 
-export type MeetingCaptureMetric =
+type MeetingCaptureMetric =
   | {
       committedGapMs: number;
       name: "meeting.capture.saved";

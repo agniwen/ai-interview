@@ -5,7 +5,7 @@ export interface AiCandidateContext {
   resumeProfile: ResumeProfile | null;
 }
 
-export function formatSingleResumeContext(profile: ResumeProfile | null): string {
+function formatSingleResumeContext(profile: ResumeProfile | null): string {
   if (!profile) {
     return "（无简历信息）";
   }

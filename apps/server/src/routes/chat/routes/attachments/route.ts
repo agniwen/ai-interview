@@ -2,19 +2,19 @@ import { getObjectBytes, getObjectStream } from "@app/object-storage";
 import {
   generateResumeStructured,
   parseResumeFast,
-} from "../../../../infrastructure/resume-parse-pipeline";
-import { isResumeParseCacheSourceCompatible } from "../../../../infrastructure/resume-parse-provider";
+} from "@app/resume-processing/ingest/support/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "@app/resume-processing/ingest/support/resume-parse-provider";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
-import { projectAttachmentToResumeProfile } from "../../../../agents/resume-parser-agent";
+import { projectAttachmentToResumeProfile } from "@app/resume-processing/ingest/agents/resume-parser-agent";
 import {
   getUserAttachment,
   updateParseResultByHash,
   updateStructuredByHash,
-} from "../../dao/chat-attachments";
+} from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
 import { factory } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { resolveJobDescriptionMatchBestEffort } from "../../../interview/match-job-description";
-import { listRecruitingJobDescriptions } from "../../../studio/routes/job-descriptions/dao";
+import { listRecruitingJobDescriptions } from "@app/resume-processing/review/support/job-descriptions-dao";
 import { createPptxPreviewPdfResponse } from "../../../studio/utils/pptx-preview";
 
 const PREVIEW_SUFFIX = "-preview.pdf";

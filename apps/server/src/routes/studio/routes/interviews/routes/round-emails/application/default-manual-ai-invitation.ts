@@ -1,22 +1,22 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { db } from "../../../../../../../infrastructure/db/index";
-import { lockAiRound } from "../../../dao/ai-round-lifecycle";
+import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
 import {
   buildAiInterviewInvitationToken,
   hashAiInterviewInvitationToken,
 } from "../../../dao/ai-interview-invitation-access";
-import { getGlobalConfig } from "../../../../global-config/dao";
-import { renderRoundInviteEmail } from "../utils/templates";
+import { getGlobalConfig } from "@app/recruiting/global-config";
+import { renderRoundInviteEmail } from "@app/recruiting-workflows/notifications/round-email-templates";
 import {
   enqueueInterviewNotificationEvent,
   createInterviewNotificationDelivery,
-} from "../../../../../../../interview-notifications/dao";
-import type { Transaction } from "../../../../../../../interview-notifications/dao";
+} from "@app/recruiting-workflows/notifications/dao";
+import type { Transaction } from "@app/recruiting-workflows/notifications/dao";
 import { loadResumeDetail } from "../../../../resumes/dao/resumes";
-import type { RecruitingVisibilityScope } from "../../../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 
 export class ManualInvitationError extends Error {
   readonly status: 400 | 404 | 409;

@@ -1,7 +1,7 @@
 import {
   enqueueHumanInterviewEvaluationJobs,
   isHumanInterviewEvaluationQueueConfigured,
-} from "@app/meeting-processing-queue/human-interview-evaluation";
+} from "@app/job-queues/human-interview-evaluation";
 import { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
 import {
   claimHumanInterviewEvaluationAfterTranscriptCorrection,
@@ -14,7 +14,7 @@ import {
 import {
   isMeetingTranscriptionQueueConfigured,
   retryMeetingTranscriptionJob,
-} from "@app/meeting-processing-queue/meeting-transcription";
+} from "@app/job-queues/meeting-transcription";
 
 export async function requestAutomaticHumanInterviewEvaluation(
   input: {

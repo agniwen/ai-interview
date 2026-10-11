@@ -1,9 +1,9 @@
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { humanInterviewMeeting } from "@app/db-schema/schema";
-import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
-import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
+import { enqueueHumanMeetingEvents } from "@app/recruiting-workflows/notifications/events";
+import { isInterviewNotificationFlowEnabled } from "@app/recruiting-workflows/notifications/feature-flags";
+import { HumanInterviewMeetingError } from "@app/recruiting-workflows/human-interviews/human-interview-meeting-access";
 
 export function cancelHumanInterviewMeeting({
   meetingId,

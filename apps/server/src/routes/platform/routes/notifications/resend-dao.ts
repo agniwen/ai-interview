@@ -1,7 +1,7 @@
 import { and, desc, eq, getTableColumns, inArray, isNull, sql } from "drizzle-orm";
 import { account, member, recruitingNotificationDelivery } from "@app/db-schema/schema";
 import { db } from "../../../../infrastructure/db/index";
-import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "@app/feishu/provider";
 import { reportConversationId } from "./report-conversation";
 
 // Manual delivery owns a separate legacy-compatible row; never reset a Worker

@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { getResumeEmbeddingConfig } from "../infrastructure/resume-semantic/embedding";
 import { getResumeSemanticIndexConfig } from "../infrastructure/resume-semantic/indexer";
 import { QdrantResumeVectorStore } from "../infrastructure/qdrant/resume-vector-store";
-import { loadRecruitingJobDescriptionById } from "../routes/studio/routes/job-descriptions/dao";
+import { loadRecruitingJobDescriptionById } from "@app/resume-processing/review/support/job-descriptions-dao";
 import {
   createDefaultRecommendationDeps,
   loadRecommendationCandidates,

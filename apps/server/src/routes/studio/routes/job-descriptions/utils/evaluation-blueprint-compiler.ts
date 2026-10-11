@@ -17,7 +17,7 @@ import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-str
 import type { StructuredResumeDimension } from "@app/shared/structured-resume-scoring";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@app/shared/structured-resume-scoring";
 import { z } from "zod";
-import { computeJobEvaluationPayloadHash } from "../../../../../infrastructure/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "@app/resume-processing/ingest/support/job-evaluation-hash";
 import {
   generateStructuredWithMastraAgent,
   jobEvaluationBlueprintAgent,
@@ -58,7 +58,7 @@ interface BlueprintExpectationCandidate extends SourceCandidate {
   expectation: string;
 }
 
-export interface ScoringBlueprintCandidate {
+interface ScoringBlueprintCandidate {
   auxiliarySkills: BlueprintSkillCandidate[];
   coreSkills: BlueprintSkillCandidate[];
   dimensionExpectations: Record<StructuredResumeDimension, BlueprintExpectationCandidate[]>;
@@ -75,7 +75,7 @@ export interface ScoringBlueprintCandidate {
   }[];
 }
 
-export interface HardGateCompilerCandidate {
+interface HardGateCompilerCandidate {
   hardGateAtoms: (SourceCandidate & {
     category:
       | "education"
@@ -102,7 +102,7 @@ const expectationCandidateSchema = sourceCandidateSchema.extend({
   expectation: z.string().trim().min(1),
 });
 
-export const scoringBlueprintCandidateSchema = z.object({
+const scoringBlueprintCandidateSchema = z.object({
   auxiliarySkills: z.array(skillCandidateSchema).max(8),
   coreSkills: z.array(skillCandidateSchema).max(8),
   dimensionExpectations: z.object({
@@ -128,7 +128,7 @@ export const scoringBlueprintCandidateSchema = z.object({
   ),
 });
 
-export const hardGateCompilerCandidateSchema = z.object({
+const hardGateCompilerCandidateSchema = z.object({
   hardGateAtoms: z.array(
     sourceCandidateSchema.extend({
       category: z.enum([
@@ -160,10 +160,6 @@ const experienceProjectPotentialStabilityCandidateSchema = z.object({
   }),
   requiredRelevantExperiences: scoringBlueprintCandidateSchema.shape.requiredRelevantExperiences,
 });
-
-export const blueprintCompilerCandidateSchema = scoringBlueprintCandidateSchema.extend(
-  hardGateCompilerCandidateSchema.shape,
-);
 
 export interface CompileEvaluationBlueprintInput {
   description: string | null;

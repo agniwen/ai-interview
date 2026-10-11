@@ -19,7 +19,7 @@ export async function enqueueResumeSemanticIndexJobBestEffort(input: {
       return true;
     }
     const { enqueueResumeSemanticIndexJobs } =
-      await import("@app/resume-parse-queue/resume-semantic-index");
+      await import("@app/job-queues/resume-semantic-index");
     await enqueueResumeSemanticIndexJobs([job]);
     return true;
   } catch (error) {

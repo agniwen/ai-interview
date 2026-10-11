@@ -31,10 +31,6 @@ export function clearCapturePreviewStreams(): void {
   emit();
 }
 
-export function getCapturePreviewStreams(): CapturePreviewStreams {
-  return streams;
-}
-
 export function observeCapturePreviewStreams(
   listener: (next: CapturePreviewStreams) => void,
 ): () => void {

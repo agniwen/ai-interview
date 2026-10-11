@@ -109,7 +109,6 @@ vi.mock("./human-meeting-in-progress-review", () => ({
 
 vi.mock("./human-meeting-audio-controls", () => ({
   MicrophoneDeviceMenu: () => <button aria-label="选择麦克风">当前麦克风</button>,
-  VoiceEffectMenu: () => null,
 }));
 
 vi.mock("./interviewer-candidate-materials", () => ({
@@ -258,7 +257,6 @@ describe("HumanMeetingStage realtime transcript", () => {
             canEndMeeting
             canPublish
             canUseLiveTranscript={false}
-            canUseVoiceEffects={false}
             candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
             chatInviteToken="invite-1"
             chatMode="interviewer"
@@ -313,7 +311,6 @@ describe("HumanMeetingStage realtime transcript", () => {
             canEndMeeting
             canPublish
             canUseLiveTranscript={false}
-            canUseVoiceEffects={false}
             candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
             chatInviteToken="invite-1"
             chatMode="interviewer"
@@ -373,7 +370,6 @@ describe("HumanMeetingStage realtime transcript", () => {
           canEndMeeting
           canPublish
           canUseLiveTranscript
-          canUseVoiceEffects={false}
           candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
           chatInviteToken="invite-1"
           chatMode="interviewer"
@@ -420,7 +416,6 @@ describe("HumanMeetingStage realtime transcript", () => {
               canEndMeeting={canEndMeeting}
               canPublish
               canUseLiveTranscript
-              canUseVoiceEffects={false}
               candidateMaterialsState={{ candidateId: "candidate-1", questionsOpen: false }}
               chatInviteToken="invite-1"
               chatMode="interviewer"
@@ -597,7 +592,6 @@ it.each([
           canEndMeeting={interviewer}
           canPublish
           canUseLiveTranscript
-          canUseVoiceEffects={false}
           candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
           chatInviteToken="invite-1"
           chatMode="interviewer"

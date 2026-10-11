@@ -15,12 +15,14 @@ COPY apps/server/package.json apps/server/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
 COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/feishu/package.json packages/feishu/
+COPY packages/job-queues/package.json packages/job-queues/
 COPY packages/meeting-live-transcript/package.json packages/meeting-live-transcript/
 COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing/package.json packages/meeting-processing/
-COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
 COPY packages/object-storage/package.json packages/object-storage/
-COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
+COPY packages/recruiting/package.json packages/recruiting/
+COPY packages/recruiting-workflows/package.json packages/recruiting-workflows/
 COPY packages/resume-processing/package.json packages/resume-processing/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --filter @app/web

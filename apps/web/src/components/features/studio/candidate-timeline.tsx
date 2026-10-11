@@ -24,7 +24,7 @@ function ActivityRecordShell({ avatar, content }: { avatar: ReactNode; content: 
   );
 }
 
-export function CandidateTimelineSkeleton({
+function CandidateTimelineSkeleton({
   className,
   showHeading = true,
 }: {

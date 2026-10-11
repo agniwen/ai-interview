@@ -1,4 +1,4 @@
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 
 export type RecruitingCopilotFocusInput = { id: string; kind: "resume_record" } | undefined;
 

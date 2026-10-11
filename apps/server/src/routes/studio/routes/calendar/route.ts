@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { requirePermission } from "../../../../middlewares/permission";
 import { listStudioCalendarEvents, loadAiCalendarEventPreview } from "./dao";

@@ -2,7 +2,7 @@ import {
   enqueueMeetingTranscriptionJobs,
   isMeetingTranscriptionQueueConfigured,
   retryMeetingTranscriptionJob,
-} from "@app/meeting-processing-queue/meeting-transcription";
+} from "@app/job-queues/meeting-transcription";
 import type {
   CreateMeetingTranscriptCorrectionInput,
   FinalMeetingTranscriptRevision,

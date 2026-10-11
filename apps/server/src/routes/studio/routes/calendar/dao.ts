@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   and,
   asc,
@@ -16,7 +16,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   aiInterviewConversation,
   aiInterviewConversationTurn,
@@ -40,7 +40,7 @@ import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import {
   buildInterviewerInviteToken,
   buildInviteExpiry,
-} from "../interviews/dao/human-interview-meeting-access";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meeting-access";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;
 

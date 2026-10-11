@@ -13,7 +13,7 @@ import {
   meetingStorageCleanupKey,
   meetingTranscriptRevision,
 } from "@app/db-schema/schema";
-import type { MeetingPurgeJobData } from "@app/meeting-processing-queue/meeting-purge";
+import type { MeetingPurgeJobData } from "@app/job-queues/meeting-purge";
 
 const PURGE_LEASE_MS = 30 * 60 * 1000;
 const PROVIDER_PURGE_BATCH_SIZE = 20;

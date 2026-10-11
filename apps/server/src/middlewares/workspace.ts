@@ -1,5 +1,5 @@
 import { db } from "../infrastructure/db/index";
-import { isNoAccessWorkspaceRole } from "../access/workspace-roles";
+import { isNoAccessWorkspaceRole } from "@app/recruiting/access/workspace-roles";
 import { factory } from "../factory";
 
 const ACTIVE_ORG_COLUMNS = {

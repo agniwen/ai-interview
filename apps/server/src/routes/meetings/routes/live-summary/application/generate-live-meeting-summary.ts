@@ -46,7 +46,7 @@ export const meetingLiveSummaryCandidateSchema = z
 
 export type MeetingLiveSummaryCandidate = z.infer<typeof meetingLiveSummaryCandidateSchema>;
 
-export interface LiveMeetingSummaryGeneratorSnapshot {
+interface LiveMeetingSummaryGeneratorSnapshot {
   model: string;
   provider: string;
 }

@@ -7,7 +7,7 @@ import {
 } from "@app/db-schema/studio-interviews";
 import { isSupportedResumeDocumentInput } from "@app/shared/resume-documents";
 
-export const jobDescriptionConfigSchema = z.union([
+const jobDescriptionConfigSchema = z.union([
   z.object({
     departmentName: z.string().nullable(),
     jobDescriptionId: z.string().min(1),

@@ -6,7 +6,7 @@ import type {
 } from "@app/shared/resume-review";
 import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 
-export interface ScoreBand {
+interface ScoreBand {
   max: number;
   min: number;
 }

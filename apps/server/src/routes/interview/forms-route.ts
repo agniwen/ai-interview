@@ -1,4 +1,4 @@
-import { lockAiRound } from "../studio/routes/interviews/dao/ai-round-lifecycle";
+import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { buildCandidateFormAnswersSchema } from "@app/db-schema/candidate-forms";
@@ -7,8 +7,8 @@ import { db } from "../../infrastructure/db/index";
 import { factory, jsonValidatorError } from "../../factory";
 import { loadCandidateInterviewRecord } from "./utils";
 import { prepareQuestionBindings } from "./application/prepare-question-bindings";
-import { loadActiveInterviewContextSnapshot } from "../studio/routes/interviews/dao/context-snapshots";
-import { loadSubmittedTemplateIds } from "../studio/routes/forms/dao/submissions";
+import { loadActiveInterviewContextSnapshot } from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
+import { loadSubmittedTemplateIds } from "@app/recruiting/forms/submissions";
 
 export const candidateFormsRouter = factory
   .createApp()

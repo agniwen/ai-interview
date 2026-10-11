@@ -20,7 +20,7 @@ export function isFeishuMigrationEnabled(providerIds: FeishuLoginProviderId[]) {
   return providerIds.includes("feishu");
 }
 
-export function FeishuSignInButtonsView({
+function FeishuSignInButtonsView({
   callbackURL,
   providerIds,
 }: {

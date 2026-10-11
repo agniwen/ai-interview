@@ -7,7 +7,7 @@ import {
 } from "@app/db-schema/schema";
 import { factory } from "../../../../factory";
 import { db } from "../../../../infrastructure/db/index";
-import { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
+import { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 
 export const serverTranscriptRouter = factory
   .createApp()

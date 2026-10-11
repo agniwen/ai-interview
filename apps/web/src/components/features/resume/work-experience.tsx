@@ -11,7 +11,7 @@ import { cn } from "@app/shared/utils";
 
 dayjs.extend(customParseFormat);
 
-export interface ExperiencePositionItemType {
+interface ExperiencePositionItemType {
   /** Unique identifier for the position. */
   id: string;
   /** The job title or position name. */
@@ -90,11 +90,11 @@ export function WorkExperience({ className, experiences }: WorkExperienceProps) 
   );
 }
 
-export interface ExperienceItemProps {
+interface ExperienceItemProps {
   experience: ExperienceItemType;
 }
 
-export interface ExperiencePositionItemProps {
+interface ExperiencePositionItemProps {
   position: ExperiencePositionItemType;
 }
 

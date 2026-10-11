@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { CANDIDATE_INTERVIEW_EMAILS_ENABLED } from "@app/shared/interview-notifications";
 // round-emails 子路由：POST /:roundId/send 发送邀请邮件，GET /summary 查询发送摘要。
 // round-emails subrouter: POST /:roundId/send sends invite email, GET /summary queries send summary.
@@ -8,13 +8,13 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "../../../../../../infrastructure/db/index";
-import { buildSenderFromAddress, getResendClient } from "../../../../../../infrastructure/resend";
+import { buildSenderFromAddress, getResendClient } from "@app/recruiting-workflows/runtime/resend";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
-import { getGlobalConfig } from "../../../global-config/dao";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import { getGlobalConfig } from "@app/recruiting/global-config";
 import { insertRoundEmailLog, summarizeRoundEmailLogs } from "./dao";
-import { renderRoundInviteEmail } from "./utils/templates";
+import { renderRoundInviteEmail } from "@app/recruiting-workflows/notifications/round-email-templates";
 import { createManualHumanEmailRouter } from "./human-route";
 import type { SendRoundEmailResponse } from "@app/db-schema/round-email-log";
 import { summaryQuerySchema } from "@app/db-schema/round-email-log";
@@ -297,5 +297,3 @@ export function createRoundEmailsRouter(
 }
 
 export const roundEmailsRouter = createRoundEmailsRouter();
-
-export type RoundEmailsRouter = typeof roundEmailsRouter;

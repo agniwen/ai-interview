@@ -5,7 +5,7 @@ import {
   jobDescriptionStructuredConfigSchema,
 } from "@app/db-schema/job-description-structured-config";
 
-export const upgradeVersionSchema = z.coerce.number().int().positive();
+const upgradeVersionSchema = z.coerce.number().int().positive();
 
 export const updateUpgradeDraftSchema = z
   .object({

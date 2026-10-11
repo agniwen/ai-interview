@@ -24,7 +24,7 @@ export function buildInitialAnswers(snapshot: CandidateFormTemplateSnapshot): An
  * 把 Zod 抛出的"硬错误信息"转成候选人能看懂的提示。
  * Translate raw zod error messages into candidate-friendly hints.
  */
-export function friendlyMessage(raw: string): string {
+function friendlyMessage(raw: string): string {
   // Surface the most common required-field complaints in candidate-friendly
   // wording; unknown messages fall through unchanged.
   // 把最常见的必填校验文案换成候选人友好版本，未识别的原文透传。

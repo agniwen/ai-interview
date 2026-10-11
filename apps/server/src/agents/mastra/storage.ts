@@ -55,7 +55,7 @@ export function createMastraStorage({
   });
 }
 
-export function getMastraStorage(): PostgresStore {
+function getMastraStorage(): PostgresStore {
   if (!globalForMastraStorage.__arcMastraStorage) {
     globalForMastraStorage.__arcMastraStorage = createMastraStorage();
   }

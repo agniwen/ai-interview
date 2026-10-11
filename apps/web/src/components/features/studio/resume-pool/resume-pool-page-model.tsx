@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ResumePoolScope } from "@app/db-schema/schema";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import type {
   ResumePoolImportDuplicateMatchRecord,
@@ -33,13 +32,6 @@ import { rpc } from "@/lib/client/rpc";
 export { dateRangeFilterBounds as resumePoolCreatedAtBounds } from "@app/shared/date-range-filter";
 
 type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
-
-export type ResumePoolCreatedAtRange =
-  | ""
-  | "today"
-  | "yesterday"
-  | "last_7_days"
-  | `custom:${string}:${string}`;
 
 export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
   refetchOnMount: "always",
@@ -198,7 +190,7 @@ export function canImportResumePoolToLibrary(canImportPool: boolean, canCreateLi
   return canImportPool && canCreateLibrary;
 }
 
-export function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
+function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
   const search = rawSearch.trim().toLowerCase();
   if (!search) {
     return true;
@@ -285,47 +277,7 @@ export function sessionUserId(session: { user?: { id?: string | null } } | null 
   return session?.user?.id ?? null;
 }
 
-export function pruneSelectedPrivateResumeIds(
-  current: Set<string>,
-  scope: ResumePoolScope,
-  visibleRecordIds: string[],
-) {
-  if (current.size === 0) {
-    return current;
-  }
-  if (scope !== "private") {
-    return new Set<string>();
-  }
-
-  const visibleIds = new Set(visibleRecordIds);
-  const next = new Set([...current].filter((id) => visibleIds.has(id)));
-  return next.size === current.size ? current : next;
-}
-
-export function updateSelectedPrivateResumeIds(
-  current: Set<string>,
-  id: string,
-  selected: boolean,
-) {
-  const next = new Set(current);
-  if (selected) {
-    next.add(id);
-  } else {
-    next.delete(id);
-  }
-  return next;
-}
-
-export function removeSelectedPrivateResumeId(current: Set<string>, id: string) {
-  if (!current.has(id)) {
-    return current;
-  }
-  const next = new Set(current);
-  next.delete(id);
-  return next;
-}
-
-export function sortPoolRecords(
+function sortPoolRecords(
   records: ResumePoolListRecord[],
   sortBy: string | undefined,
   sortOrder: "asc" | "desc" | undefined,

@@ -9,7 +9,6 @@ import type {
   ActiveMeetingCapture,
   CaptureTrackState,
   MeetingCaptureSnapshot,
-  WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
 import { cn } from "@app/shared/utils";
 import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
@@ -32,7 +31,7 @@ function formatElapsed(milliseconds: number): string {
   return parts.map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-export function useElapsed(active?: ActiveMeetingCapture | null) {
+function useElapsed(active?: ActiveMeetingCapture | null) {
   const [now, setNow] = useState(Date.now());
   const resumedAt = active?.resumedAt;
   useEffect(() => {
@@ -195,107 +194,6 @@ function CombinedTrackVisualizer({
     >
       <div className="min-h-px w-1 shrink-0 rounded-full bg-current/10 transition-[height,opacity,background-color] duration-[80ms] ease-out motion-reduce:transition-none data-[lk-highlighted=true]:bg-current" />
     </AgentAudioVisualizerBar>
-  );
-}
-
-const WORKSPACE_SAVE_COPY = {
-  "action-required": {
-    description: "本地录音仍然安全，可检查网络或工作区后重试。",
-    title: "保存到工作区需要处理",
-  },
-  summarizing: {
-    description: "最后一段字幕正在补齐到总结，完成后自动同步到工作区。",
-    title: "录音已保存，总结补齐中",
-  },
-  "summary-pending": {
-    description: "录音已安全保存，总结将在后台重试，也可以手动重试。",
-    title: "总结待补齐",
-  },
-  uploading: { description: "正在把麦克风与系统音轨直接上传到录音存储。", title: "正在上传" },
-  verifying: { description: "服务器正在核对两条源音轨的对象与完整性。", title: "正在验证" },
-  "waiting-for-network": {
-    description: "本地保存已冻结，正在等待网络和工作区连接。",
-    title: "等待网络",
-  },
-  "workspace-verified": {
-    description: "两条源音轨已由服务器验证并保存到工作区。",
-    title: "已保存到工作区",
-  },
-} satisfies Record<WorkspaceSaveState["state"], { description: string; title: string }>;
-
-function workspaceSaveIcon(state?: WorkspaceSaveState["state"]): string {
-  if (state === "workspace-verified") {
-    return "ph:check-circle-fill";
-  }
-  if (state === "action-required") {
-    return "ph:warning-circle-fill";
-  }
-  return "ph:cloud-arrow-up";
-}
-
-function localSaveDescription(
-  workspaceSave: WorkspaceSaveState | undefined,
-  copy: { description: string; title: string } | null,
-): string {
-  if (workspaceSave?.error) {
-    return workspaceSave.error;
-  }
-  if (workspaceSave?.state === "workspace-verified" && workspaceSave.recoveryCopyDeleteAfter) {
-    return "双轨源音频已验证并同步，本地录音和处理结果继续保留。";
-  }
-  return copy?.description ?? "双轨清单和保存意图已冻结，尚未保存到工作区。";
-}
-
-export function MeetingLocalSaveStatus({
-  captureId,
-  className,
-  onDiscard,
-  onSave,
-  snapshot,
-}: {
-  captureId: string;
-  className?: string;
-  onDiscard: (captureId?: string, includeSaved?: boolean) => void;
-  onSave: (captureId?: string) => void;
-  snapshot: MeetingCaptureSnapshot;
-}) {
-  const saved = snapshot.saved?.captureId === captureId ? snapshot.saved : null;
-  if (!saved) {
-    return null;
-  }
-  const workspaceSave = snapshot.workspaceSaves.find((item) => item.captureId === captureId);
-  const copy = workspaceSave ? WORKSPACE_SAVE_COPY[workspaceSave.state] : null;
-  const needsRetry =
-    workspaceSave?.state === "action-required" || workspaceSave?.state === "summary-pending";
-  return (
-    <div className={cn("grid gap-3 rounded-xl border border-border bg-muted/20 p-4", className)}>
-      <div className="flex items-start gap-2">
-        <Icon
-          className={cn(
-            "mt-0.5 size-5 text-amber-600",
-            workspaceSave?.state === "workspace-verified" && "text-emerald-600",
-            needsRetry && "text-destructive",
-          )}
-          icon={workspaceSaveIcon(workspaceSave?.state)}
-        />
-        <div>
-          <p className="font-semibold text-sm">{copy?.title ?? "录音已安全保存在本地"}</p>
-          <p className="text-muted-foreground text-xs">
-            {localSaveDescription(workspaceSave, copy)}
-          </p>
-        </div>
-      </div>
-      <div className="flex justify-end gap-2">
-        {needsRetry ? (
-          <Button onClick={() => onSave(captureId)} size="sm">
-            重试保存到工作区
-          </Button>
-        ) : null}
-        <Button onClick={() => onDiscard(captureId, true)} size="sm" variant="ghost">
-          清除这份本地保存
-        </Button>
-      </div>
-    </div>
   );
 }
 

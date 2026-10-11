@@ -32,7 +32,7 @@ import { MeetingMoreRoutePage } from "@/routes/meeting-more-page";
 import { MeetingNewRoutePage } from "@/routes/meeting-new-page";
 import { ResumeDetailOverlayRoutePage, ResumeDetailRoutePage } from "@/routes/resume-detail-page";
 
-export interface RouterContext {
+interface RouterContext {
   queryClient: QueryClient;
 }
 
@@ -272,7 +272,7 @@ export function createDesktopRouter(queryClient: QueryClient = getQueryClient())
   });
 }
 
-export type DesktopRouter = ReturnType<typeof createDesktopRouter>;
+type DesktopRouter = ReturnType<typeof createDesktopRouter>;
 
 declare module "@tanstack/react-router" {
   interface Register {

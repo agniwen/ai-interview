@@ -1,4 +1,4 @@
-import { createRecruitingRecords } from "@app/database/recruiting-records";
+import { createRecruitingRecords } from "@app/recruiting/records";
 import { db } from "../../../runtime/db";
 
 import type { StudioInterviewResumeSourceType } from "@app/db-schema/schema";

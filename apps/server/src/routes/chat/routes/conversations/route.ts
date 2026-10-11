@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { legacyUiMessageToArcMessage } from "../../../../agents/mastra/adapters/arc-message-adapter";
 import {
   checkConversationOwner,
@@ -21,7 +21,7 @@ import { requirePermission } from "../../../../middlewares/permission";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { confirmRecruitingAction } from "./actions";
 import { loadResumeDetail } from "../../../studio/routes/resumes/dao/resumes";
-import { loadResumePoolItem } from "../../../studio/routes/resume-pool/dao";
+import { loadResumePoolItem } from "@app/resume-processing/review/support/resume-pool-dao";
 import { normalizeResumePoolItemId } from "../../../../agents/mastra/tools/resume-pool-id";
 
 export interface ConversationsRouteDependencies {

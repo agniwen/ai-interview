@@ -185,8 +185,5 @@ export function createHumanTranscriptionDao(db: Database) {
   return { appendHumanTranscriptionEvents, claimHumanTranscription, readHumanTranscriptionEvents };
 }
 
-export const {
-  claimHumanTranscription,
-  appendHumanTranscriptionEvents,
-  readHumanTranscriptionEvents,
-} = createHumanTranscriptionDao(defaultDb);
+export const { claimHumanTranscription, appendHumanTranscriptionEvents } =
+  createHumanTranscriptionDao(defaultDb);

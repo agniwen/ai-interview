@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "../../../../../infrastructure/db/list-text-filters";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { and, eq, ilike, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { mailIngestAccount, member, organization, user as userTable } from "@app/db-schema/schema";

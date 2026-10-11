@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { getWorkspaceRequestContext } from "../../../../../../context/workspace-request-context";
 import { factory } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";

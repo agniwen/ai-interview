@@ -1,5 +1,5 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { buildListTextFilterWhere } from "../../runtime/db/list-text-filters";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 /* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
 import type {
@@ -22,9 +22,9 @@ import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "../../runtime/db";
-import { buildOrderBy, calcTotalPages, makePaginationSchema } from "../../runtime/db/pagination";
-import type { PaginatedResult, PaginationParams } from "../../runtime/db/pagination";
-import { serializeDate } from "../../runtime/db/serialize";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@app/database/pagination";
+import type { PaginatedResult, PaginationParams } from "@app/database/pagination";
+import { serializeDate } from "@app/database/serialize";
 import {
   department,
   interviewer,

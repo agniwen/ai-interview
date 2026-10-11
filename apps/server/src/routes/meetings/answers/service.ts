@@ -2,7 +2,7 @@ import {
   enqueueMeetingAnswerJobs,
   isMeetingAnswerQueueConfigured,
   MEETING_ANSWER_PROMPT_VERSION,
-} from "@app/meeting-processing-queue/meeting-answer";
+} from "@app/job-queues/meeting-answer";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import type {
   MeetingQuestionExchange,

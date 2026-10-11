@@ -8,9 +8,9 @@ import {
   recruitingNotificationDelivery,
 } from "@app/db-schema/schema";
 import { hasPermissionInStatements } from "@app/shared/permission-statements";
-import { approvalEventIdentity } from "@app/database/offer-approval";
+import { approvalEventIdentity } from "@app/recruiting/offer-approval";
 import { db } from "../../../../../infrastructure/db";
-import { resolveRecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   assertApprovalPermission,
   assertRecordManager,
@@ -19,8 +19,8 @@ import {
   lockOffer,
   OfferApprovalError,
   recordIsVisible,
-} from "../dao";
-import type { Actor } from "../dao";
+} from "@app/recruiting-workflows/offer-approvals/dao";
+import type { Actor } from "@app/recruiting-workflows/offer-approvals/dao";
 import { resolveEnabledTemplatesForPreview } from "./templates";
 
 async function unavailableStepIds(actor: Actor, steps: (typeof stepTable.$inferSelect)[]) {

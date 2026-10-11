@@ -13,9 +13,8 @@ import type { HrStatisticPeriod, HrStatisticsResponse } from "@app/shared/recrui
  * convention as studio-interviews.
  */
 
-import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { AiInterviewLinkValidity } from "@app/shared/interview/ai-interview-invitation";
-import type { MeetingLibraryItem } from "@app/shared/meeting-recording";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
@@ -331,13 +330,6 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
   );
 }
 
-export function fetchStudioResumeMeetings(slug: string, id: string): Promise<MeetingLibraryItem[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].meetings.$get({ param: { id, slug } }),
-    "加载候选人关联会议失败",
-  ).then((payload) => payload.records);
-}
-
 /**
  * Lightweight identity update for the resume detail panel (table columns + resumeProfile JSON).
  */
@@ -462,29 +454,6 @@ export function fetchStudioResumeReviewRounds(
 }
 
 /**
- * 基于解析后的简历画像做语义查重。
- * Look up potential duplicates through semantic resume similarity.
- */
-export function fetchResumeDedup(
-  slug: string,
-  input: {
-    name: string | null;
-    email: string | null;
-    phone: string | null;
-    resumeProfile?: ResumeProfile | null;
-  },
-  options?: { signal?: AbortSignal },
-): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes["dedup-check"].$post(
-      { json: input, param: { slug } },
-      { init: { signal: options?.signal } },
-    ),
-    "查重失败",
-  );
-}
-
-/**
  * 从招聘台「发起 AI 面试」：创建一条默认排期。候选人定制题仅供真人
  * 面试官参考，不会写进 AI 面试上下文。
  *
@@ -524,20 +493,6 @@ export function submitResumeReviewEvaluation(
       param: { id, slug },
     }),
     "提交评估失败",
-  );
-}
-
-export function updateResumeEvaluationStatus(
-  slug: string,
-  id: string,
-  status: ResumeEvaluationStatus | null,
-): Promise<ResumeLibraryDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].evaluation.$patch({
-      json: { status },
-      param: { id, slug },
-    }),
-    "更新评估状态失败",
   );
 }
 

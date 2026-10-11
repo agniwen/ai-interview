@@ -22,7 +22,7 @@ import {
 } from "./platform-sidebar-navigation";
 import { PLATFORM_SIDEBAR_MENU_BUTTON_CLASS } from "./platform-sidebar-styles";
 
-export { platformSidebarNavSections, resolvePlatformSidebarNavItem };
+export { resolvePlatformSidebarNavItem };
 
 export function PlatformSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });

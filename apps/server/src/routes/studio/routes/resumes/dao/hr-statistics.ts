@@ -22,7 +22,7 @@ import type {
 import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../../infrastructure/db/index";
-import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 
 const offerStages = new Set<RecruitingStage>([
   "income_proof",

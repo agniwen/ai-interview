@@ -42,7 +42,7 @@ function resolveMainViewport(): HTMLElement | null {
 }
 
 /** Force the shell main scroller to Y=0 (instant + smooth). */
-export function scrollDesktopMainToTop(behavior: ScrollBehavior = "smooth") {
+function scrollDesktopMainToTop(behavior: ScrollBehavior = "smooth") {
   const viewport = resolveMainViewport();
   if (!viewport) {
     return;

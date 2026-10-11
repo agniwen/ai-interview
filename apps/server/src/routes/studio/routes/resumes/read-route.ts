@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   nextShanghaiCalendarDayStart,
   shanghaiCalendarDayStart,
@@ -14,8 +14,8 @@ import { db } from "../../../../infrastructure/db/index";
 import { getObjectBytes, getObjectStream } from "@app/object-storage";
 
 import { parseCsvParam } from "@app/shared/csv";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { resumeEvaluationStatusSubmitSchema } from "@app/shared/studio-resumes";
 
 import { getWorkspaceRequestContext } from "../../../../context/workspace-request-context";
@@ -29,7 +29,7 @@ import {
 } from "./dao/resumes";
 import { submitResumeEvaluationOnce } from "./dao/evaluation";
 import { loadCandidateTimeline } from "./dao/timeline";
-import { listOrgSkillSuggestions } from "./dao/skills";
+import { listOrgSkillSuggestions } from "@app/resume-processing/review/resumes/dao/skills";
 import {
   structuredResumeGateStatusSchema,
   structuredResumeGradeSchema,
@@ -44,7 +44,7 @@ import { listDuplicateMatchesForSource } from "../../../../infrastructure/resume
 import {
   enqueueResumeReassessmentForRecord,
   ResumeReassessmentEnqueueError,
-} from "./utils/review-queue";
+} from "@app/resume-processing/review/resumes/utils/review-queue";
 import { reassessResumeRecord } from "./utils/review-worker";
 import { createPptxPreviewPdfResponse } from "../../utils/pptx-preview";
 import { launchAiInterviewRound } from "./application/default-launch-ai-interview-round";

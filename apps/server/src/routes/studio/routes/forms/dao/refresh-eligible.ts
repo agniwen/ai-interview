@@ -1,5 +1,5 @@
-import { lockAiRound } from "../../interviews/dao/ai-round-lifecycle";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, exists, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import {
@@ -13,7 +13,7 @@ import {
 import {
   loadActiveInterviewContextSnapshot,
   releaseInterviewContextBinding,
-} from "../../interviews/dao/context-snapshots";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
 
 /**
  * Candidates whose AI interview rounds are all still pending (never started).

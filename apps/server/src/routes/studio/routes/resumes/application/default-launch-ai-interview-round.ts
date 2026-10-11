@@ -1,10 +1,7 @@
-import { lockRecruitingRecord } from "@app/database/recruiting-records";
-import {
-  transitionRecruitingNodeTx,
-  updateRecruitingNodeTx,
-} from "@app/database/recruiting-pipeline";
+import { lockRecruitingRecord } from "@app/recruiting/records";
+import { transitionRecruitingNodeTx, updateRecruitingNodeTx } from "@app/recruiting/pipeline";
 import { recruitingNodeState, recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 
@@ -12,7 +9,7 @@ import { buildScheduleRows } from "../../../../interview/utils";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   refreshInterviewContextSnapshot,
-} from "../../interviews/dao/context-snapshots";
+} from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
 import { createDefaultScheduleEntry } from "@app/db-schema/studio-interviews";
 import { canLaunchInterviewFromResume } from "@app/shared/studio-resumes";
 import {

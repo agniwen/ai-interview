@@ -1,4 +1,1 @@
-export {
-  QdrantResumeVectorStore,
-  isSourceType,
-} from "../../../semantic/qdrant/resume-vector-store";
+export { QdrantResumeVectorStore } from "../../../semantic/qdrant/resume-vector-store";

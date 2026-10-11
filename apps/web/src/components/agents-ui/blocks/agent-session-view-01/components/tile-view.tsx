@@ -10,7 +10,6 @@ import {
 import { Track } from "livekit-client";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
-import * as React from "react";
 import { useMemo } from "react";
 import { AgentAudioVisualizerAura } from "@/components/agents-ui/agent-audio-visualizer-aura";
 import { cn } from "@app/shared/utils";
@@ -35,7 +34,7 @@ const tileViewClassNames = {
   secondTileChatOpen: ["col-start-2 row-start-1", "self-center justify-self-start"],
 };
 
-export function useLocalTrackRef(source: Track.Source) {
+function useLocalTrackRef(source: Track.Source) {
   const { localParticipant } = useLocalParticipant();
   const publication = localParticipant.getTrackPublication(source);
   const trackRef = useMemo<TrackReference | undefined>(

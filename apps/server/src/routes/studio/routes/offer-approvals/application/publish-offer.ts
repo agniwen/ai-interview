@@ -7,8 +7,8 @@ import {
   recruitingEvent,
 } from "@app/db-schema/schema";
 import type { recruitingRecord } from "@app/db-schema/schema";
-import type { RecruitingTransaction as Tx } from "@app/database/recruiting-records";
-import { updateRecruitingNodeTx } from "@app/database/recruiting-pipeline";
+import type { RecruitingTransaction as Tx } from "@app/recruiting/records";
+import { updateRecruitingNodeTx } from "@app/recruiting/pipeline";
 import { hasPermissionInStatements } from "@app/shared/permission-statements";
 import {
   approvalMember,
@@ -18,7 +18,7 @@ import {
   loadOfferSnapshot,
   OfferApprovalError,
   recordIsVisible,
-} from "../dao";
+} from "@app/recruiting-workflows/offer-approvals/dao";
 import { getOfferApprovalPolicy } from "./templates";
 
 export const defaultPublishOfferDependencies = {

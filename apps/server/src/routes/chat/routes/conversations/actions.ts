@@ -1,19 +1,19 @@
 import type { RecruitingPipelineAction } from "@app/shared/studio-pipeline-stages";
-import { updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../../infrastructure/db/index";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { WorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import {
   generateInterviewQuestionsForProfile,
   ResumeAnalysisError,
-} from "../../../../agents/resume-analysis-agent";
+} from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 
 import { transitionCandidateStage } from "../../../studio/routes/interviews/utils/candidate-stage-transition";
-import { loadRecruitingJobDescriptionById } from "../../../studio/routes/job-descriptions/dao";
-import { loadResumePoolItem } from "../../../studio/routes/resume-pool/dao";
+import { loadRecruitingJobDescriptionById } from "@app/resume-processing/review/support/job-descriptions-dao";
+import { loadResumePoolItem } from "@app/resume-processing/review/support/resume-pool-dao";
 import { normalizeResumePoolItemId } from "../../../../agents/mastra/tools/resume-pool-id";
 import { recruitingEvent } from "@app/db-schema/schema";
 import {

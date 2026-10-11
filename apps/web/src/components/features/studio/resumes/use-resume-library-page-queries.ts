@@ -38,11 +38,7 @@ import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope"
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useResumeLibrarySearchState } from "./resume-library-page-model";
-import type {
-  FetchParams,
-  ResumeLibraryGridState,
-  SearchParamsRecord,
-} from "./resume-library-page-model";
+import type { FetchParams, SearchParamsRecord } from "./resume-library-page-model";
 
 const recruitingJobDescriptionsPayloadSchema = z.object({
   records: z.array(
@@ -281,6 +277,3 @@ export function useResumeLibraryPageQueries({
     workspaceMembers,
   };
 }
-
-export type ResumeLibraryPageQueries = ReturnType<typeof useResumeLibraryPageQueries>;
-export type { ResumeLibraryGridState };

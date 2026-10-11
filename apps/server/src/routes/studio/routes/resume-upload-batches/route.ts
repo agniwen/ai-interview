@@ -1,12 +1,12 @@
 import { zValidator } from "@hono/zod-validator";
-import { RecruitingJobNotAcceptingCandidatesError } from "@app/database/recruiting-records";
+import { RecruitingJobNotAcceptingCandidatesError } from "@app/recruiting/records";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
 import { chatAttachment, jobDescription } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { requirePermission } from "../../../../middlewares/permission";
-import { validateResumeFile } from "../../../../agents/resume-analysis-agent";
+import { validateResumeFile } from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 import { normalizeResumeFile, storeResumeObjectOnly } from "../../../interview/utils";
 import {
   cancelBatch,
@@ -23,7 +23,7 @@ import { uploadTaskInboxRouter } from "./routes/inbox/route";
 import { createBatchInputSchema } from "./schema";
 
 async function getResumeParseQueueApi() {
-  return await import("@app/resume-parse-queue/resume-parse");
+  return await import("@app/job-queues/resume-parse");
 }
 
 async function removeCancelledQueueJobsBestEffort(

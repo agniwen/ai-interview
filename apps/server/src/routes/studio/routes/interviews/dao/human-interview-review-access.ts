@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   humanInterviewMeeting,
@@ -6,7 +6,7 @@ import {
   humanInterviewRound,
 } from "@app/db-schema/schema";
 import { db } from "../../../../../infrastructure/db/index";
-import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 
 export async function loadStudioHumanInterviewReviewScope(input: {
   candidateId: string;

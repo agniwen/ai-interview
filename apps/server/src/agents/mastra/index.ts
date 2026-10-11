@@ -24,7 +24,7 @@ import { recruitmentScorers } from "./scorers";
 import { storage } from "./storage";
 import { recruitmentWorkflows } from "./workflows";
 
-export const recruitmentAgents = {
+const recruitmentAgents = {
   formQuestionAgent,
   interviewKeyInformationAgent,
   interviewQuestionAgent,

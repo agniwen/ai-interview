@@ -1,11 +1,11 @@
 import { materialsRouter } from "./routes/materials/route";
+import { reopenRecruitingRecordTx, updateRecruitingNodeTx } from "@app/recruiting/pipeline";
 import {
-  reopenRecruitingRecordTx,
-  updateRecruitingNodeTx,
-} from "@app/database/recruiting-pipeline";
-import { deleteAiRounds, lockAiRound } from "./dao/ai-round-lifecycle";
+  deleteAiRounds,
+  lockAiRound,
+} from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
 import { updateCandidateExpectations } from "./dao/candidate-expectations";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { studioInterviewCollectionRouter } from "./collection-route";
@@ -17,12 +17,12 @@ import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import { db } from "../../../../infrastructure/db/index";
 import { recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { parseCsvParam } from "@app/shared/csv";
 import { candidateExpectationsMetaSchema } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
-import { releaseInterviewContextBinding } from "./dao/context-snapshots";
+import { releaseInterviewContextBinding } from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
 import { findSemanticResumeDuplicates } from "../../../../infrastructure/resume-semantic/dedup-service";
 import {
   loadInterviewRoundDetail,

@@ -5,7 +5,7 @@ import {
   createMeetingQuestionSchema,
 } from "@app/shared/meeting-answer";
 import { echoDeviceOperationSchema } from "@app/shared/meeting-device-processing";
-import { MEETING_ANSWER_PROMPT_VERSION } from "@app/meeting-processing-queue/meeting-answer";
+import { MEETING_ANSWER_PROMPT_VERSION } from "@app/job-queues/meeting-answer";
 import { db } from "../../../../infrastructure/db";
 import { createMeetingAnswerExchange } from "../../answers/dao";
 import { getMeetingAnswerGeneratorSnapshot } from "../../answers/service";

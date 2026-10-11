@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, count, desc, eq, exists, gte, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { startOfBeijingDay, toBeijingCalendarDate } from "@app/shared/beijing-calendar";

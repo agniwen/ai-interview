@@ -51,7 +51,6 @@ export default function HomeShell() {
           <ProductShot />
         </div>
         <div className="relative bg-background">
-          {/* <TrustStrip /> */}
           <FeatureBlocks />
           <div className="relative isolate overflow-hidden">
             <CapabilityGrid />

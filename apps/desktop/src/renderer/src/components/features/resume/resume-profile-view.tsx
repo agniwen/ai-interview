@@ -60,7 +60,7 @@ function extractNormalizedPeriodDates(period: string): string[] {
   ).filter((date): date is string => date !== null);
 }
 
-export function parseResumeEmploymentPeriod(
+function parseResumeEmploymentPeriod(
   period: string | null | undefined,
 ): ExperienceItemType["positions"][number]["employmentPeriod"] {
   const text = cleanText(period);
@@ -80,9 +80,7 @@ export function parseResumeEmploymentPeriod(
   };
 }
 
-export function formatResumeExperienceDescription(
-  summary: string | null | undefined,
-): string | undefined {
+function formatResumeExperienceDescription(summary: string | null | undefined): string | undefined {
   const text = cleanText(summary);
   if (!text) {
     return undefined;
@@ -105,7 +103,7 @@ export function formatResumeExperienceDescription(
   return items.map((item) => `- ${item}`).join("\n");
 }
 
-export function toWorkExperienceItems(experiences: ResumeWorkExperience[]): ExperienceItemType[] {
+function toWorkExperienceItems(experiences: ResumeWorkExperience[]): ExperienceItemType[] {
   const groups: ExperienceItemType[] = [];
   const groupIndexByCompany = new Map<string, ExperienceItemType>();
 

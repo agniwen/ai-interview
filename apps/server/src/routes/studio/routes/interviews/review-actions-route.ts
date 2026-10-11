@@ -1,4 +1,4 @@
-import { RecruitingPipelineError } from "@app/database/recruiting-pipeline";
+import { RecruitingPipelineError } from "@app/recruiting/pipeline";
 import { zValidator } from "@hono/zod-validator";
 import type { Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -31,7 +31,7 @@ import {
   loadHumanInterviewLiveTranscriptDraft,
   saveHumanInterviewLiveTranscriptDraft,
 } from "./dao/human-interview-live-transcript";
-import { resolveHumanInterviewMeetingInterviewerInviteToken } from "./dao/human-interview-meetings";
+import { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import {
   requestAutomaticHumanInterviewEvaluation,
   requestHumanInterviewEvaluationAfterTranscriptCorrection,
@@ -67,7 +67,7 @@ export type HumanInterviewReviewScopeResolver = (
   context: Context<Env>,
 ) => Promise<HumanInterviewReviewScope | null>;
 
-export interface HumanInterviewReviewScope {
+interface HumanInterviewReviewScope {
   canManageReview?: boolean;
   meetingId: string;
   organizationId: string;

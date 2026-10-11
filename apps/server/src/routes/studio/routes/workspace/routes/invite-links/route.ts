@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { canAssignWorkspaceRole } from "../../../../../../access/workspace-roles";
+import { canAssignWorkspaceRole } from "@app/recruiting/access/workspace-roles";
 import { factory, jsonValidatorError } from "../../../../../../factory";
 import { requirePermission } from "../../../../../../middlewares/permission";
 import {

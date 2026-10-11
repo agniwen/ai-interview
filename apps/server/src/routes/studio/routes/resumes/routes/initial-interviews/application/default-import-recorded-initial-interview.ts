@@ -1,26 +1,26 @@
 import { meetingLiveSummarySnapshotSchema } from "@app/shared/meeting-live-summary";
 import { and, eq } from "drizzle-orm";
 import { jobDescription } from "@app/db-schema/schema";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   buildRecruitingInitialInterviewObjectKey,
   copyMeetingRecordingToRecruitingStorage,
   copyRecruitingSnapshotObject,
   deleteRecruitingSnapshotObject,
 } from "@app/object-storage";
-import { enqueueInitialInterviewEvaluationJobs } from "@app/meeting-processing-queue/initial-interview-evaluation";
+import { enqueueInitialInterviewEvaluationJobs } from "@app/job-queues/initial-interview-evaluation";
 import { initialInterviewSnapshotSchema } from "@app/shared/human-initial-interview";
 import { db } from "../../../../../../../infrastructure/db";
 import { loadAuthorizedMeeting, meetingRole } from "../../../../../../meetings/authorized-meeting";
 import { loadActiveMeetingTranscript } from "../../../../../../meetings/transcription/revision-dao";
-import { formatResumeEmploymentContext } from "../../../../../../agent/utils/feishu-hr-evaluation";
+import { formatResumeEmploymentContext } from "@app/recruiting-workflows/ai-interview-reports/feishu-hr-evaluation";
 import {
   loadInitialInterviewVersion,
   requireInitialInterviewOverwrite,
   saveInitialInterviewSnapshot,
   withInitialInterviewLock,
-} from "../dao";
-import { InitialInterviewError } from "../errors";
+} from "@app/recruiting-workflows/initial-interviews/dao";
+import { InitialInterviewError } from "@app/recruiting-workflows/initial-interviews/errors";
 import { importRecordedInitialInterview } from "./import-recorded-initial-interview";
 import type { ImportRecordedInitialInterviewInput } from "./import-recorded-initial-interview";
 

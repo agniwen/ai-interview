@@ -1,4 +1,3 @@
-import { and, eq } from "drizzle-orm";
 import { meetingStorageCleanupKey } from "@app/db-schema/schema";
 import type { Database } from "@app/database";
 import { lockEchoDeviceMeeting } from "./ownership-dao";
@@ -24,19 +23,4 @@ export function registerEchoArtifact(
         target: meetingStorageCleanupKey.storageKey,
       });
   });
-}
-
-export async function retireEchoArtifact(
-  db: Database,
-  input: EchoProcessingActor & { storageKey: string },
-) {
-  await db
-    .delete(meetingStorageCleanupKey)
-    .where(
-      and(
-        eq(meetingStorageCleanupKey.meetingId, input.meetingId),
-        eq(meetingStorageCleanupKey.organizationId, input.organizationId),
-        eq(meetingStorageCleanupKey.storageKey, input.storageKey),
-      ),
-    );
 }

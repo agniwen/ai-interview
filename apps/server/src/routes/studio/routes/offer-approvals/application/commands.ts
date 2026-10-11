@@ -20,7 +20,7 @@ import {
   enqueueApprovalNotificationTx,
   recordApprovalEventTx,
   approvalEventIdentity,
-} from "@app/database/offer-approval";
+} from "@app/recruiting/offer-approval";
 import { db } from "../../../../../infrastructure/db";
 import {
   assertApprovalPermission,
@@ -34,8 +34,8 @@ import {
   OfferApprovalError,
   readReceipt,
   saveReceipt,
-} from "../dao";
-import type { Actor } from "../dao";
+} from "@app/recruiting-workflows/offer-approvals/dao";
+import type { Actor } from "@app/recruiting-workflows/offer-approvals/dao";
 import {
   assertTemplateApproverSelection,
   getEnabledApprovalTemplates,

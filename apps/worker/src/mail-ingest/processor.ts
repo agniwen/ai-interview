@@ -4,7 +4,7 @@ import type { ParsedMail } from "mailparser";
 import { z } from "zod";
 import type { MailIngestDao, WorkerMailIngestAccount } from "@app/resume-processing/mail-ingest";
 import type { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import type { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
+import type { enqueueResumeParseJobs } from "@app/job-queues/resume-parse";
 import { getResumeDocumentExtension } from "@app/shared/resume-documents";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
 import type { MailIngestJdBindStatus } from "@app/db-schema/schema";

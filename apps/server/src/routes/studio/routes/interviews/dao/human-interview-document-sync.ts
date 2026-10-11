@@ -12,8 +12,8 @@ import {
   user,
 } from "@app/db-schema/schema";
 import type { HumanInterviewDocumentSyncJob } from "../application/sync-human-interview-document";
-import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
-import { resolveFeishuDocxDocumentId } from "../../../../../integrations/feishu/feishu-docx";
+import { FEISHU_PROVIDER_IDS } from "@app/feishu/provider";
+import { resolveFeishuDocxDocumentId } from "@app/feishu/docx";
 
 // Internal round projections concatenate individually validated submissions without truncation.
 // This schema is for stored summaries only, never accepted as an individual submission.

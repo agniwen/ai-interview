@@ -6,8 +6,8 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import type { McpReadContext } from "./application/read-recruiting";
 import type { McpScope } from "./config";
 import type { createRequestWorkspaceAuthorizer } from "../../access/workspace-access-policy";
-import type { resolveRecruitingVisibilityScope } from "../../access/recruiting-visibility";
-import { isNoAccessWorkspaceRole } from "../../access/workspace-roles";
+import type { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import { isNoAccessWorkspaceRole } from "@app/recruiting/access/workspace-roles";
 import { factory } from "../../factory";
 import {
   assertActiveMcpGrant,

@@ -1,7 +1,8 @@
 import { createDatabase } from "@app/database";
+import { setDefaultDatabase } from "@app/database/context";
 import type { Database } from "@app/database";
 import postgres from "postgres";
-import { getPostgresConnectionOptions } from "./connection-options";
+import { getPostgresConnectionOptions } from "@app/database/connection-options";
 
 type PostgresClient = ReturnType<typeof postgres>;
 
@@ -47,6 +48,9 @@ export const db = new Proxy(databaseProxyTarget, {
     return typeof value === "function" ? value.bind(database) : value;
   },
 });
+// Shared packages read the ambient database from `@app/database/context`; the Server pool is
+// this process's default. Registering the lazy proxy does not open a connection.
+setDefaultDatabase(db);
 export type { Database };
 
 export async function pingDatabase(): Promise<void> {

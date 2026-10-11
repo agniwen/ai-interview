@@ -1,0 +1,43 @@
+{
+  "name": "@app/recruiting",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Recruiting domain data shared by server, worker, and processing packages: records, read model, pipeline transitions, AI review, Offer approval, workspace access, and recruiting configuration (forms, interview questions, global config)",
+  "type": "module",
+  "exports": {
+    "./access/workspace-permission-snapshot": "./src/access/workspace-permission-snapshot.ts",
+    "./access/workspace-roles": "./src/access/workspace-roles.ts",
+    "./ai-review": "./src/ai-review.ts",
+    "./forms/queries": "./src/forms/queries.ts",
+    "./forms/submissions": "./src/forms/submissions.ts",
+    "./forms/versions": "./src/forms/versions.ts",
+    "./global-config": "./src/global-config.ts",
+    "./interview-questions/bindings": "./src/interview-questions/bindings.ts",
+    "./interview-questions/compile-follow-up-contracts": "./src/interview-questions/compile-follow-up-contracts.ts",
+    "./interview-questions/queries": "./src/interview-questions/queries.ts",
+    "./interview-questions/templates-hash": "./src/interview-questions/templates-hash.ts",
+    "./interview-questions/versions": "./src/interview-questions/versions.ts",
+    "./offer-approval": "./src/offer-approval.ts",
+    "./pipeline": "./src/pipeline.ts",
+    "./read-model": "./src/read-model.ts",
+    "./records": "./src/records.ts",
+    "./reference-retention": "./src/reference-retention.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@app/database": "workspace:*",
+    "@app/db-schema": "workspace:*",
+    "@app/shared": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "postgres": "^3.4.9",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

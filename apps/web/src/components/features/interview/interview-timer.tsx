@@ -23,7 +23,7 @@ function formatElapsed(seconds: number): string {
  * hidden. Designed to sit in the interview session chrome as a ticking
  * elapsed-time display.
  */
-export function InterviewTimer({
+function InterviewTimer({
   startedAt,
   className,
 }: {

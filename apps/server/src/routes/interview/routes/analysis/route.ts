@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
@@ -8,14 +8,14 @@ import {
   streamGenerateResumeReview,
   streamGenerateResumeReviewMarkdownFirst,
   streamParseResumeProfile,
-} from "../../../../agents/resume-analysis-agent";
+} from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { resolveJobDescriptionMatchBestEffort } from "../../match-job-description";
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
-} from "../../../studio/routes/job-descriptions/dao";
+} from "@app/resume-processing/review/support/job-descriptions-dao";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
 
 const streamHeaders = {

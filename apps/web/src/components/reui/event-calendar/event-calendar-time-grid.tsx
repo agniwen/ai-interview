@@ -35,7 +35,6 @@ import type {
   EventCalendarDateRange,
   EventCalendarDragState,
   EventCalendarSegment,
-  EventCalendarSlotDraft,
 } from "@/components/reui/event-calendar/event-calendar-types";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";

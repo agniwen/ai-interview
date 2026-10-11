@@ -138,7 +138,7 @@ export function DataGridContentSkeleton({
   return <DataGridSkeleton columnCount={columnCount} rowCount={rowCount} />;
 }
 
-export interface BulkActionContext<TData> {
+interface BulkActionContext<TData> {
   selectedIds: string[];
   selectedRows: TData[];
   clearSelection: () => void;

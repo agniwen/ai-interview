@@ -1,6 +1,6 @@
 import type { Database } from "@app/database";
-import { buildHumanInterviewEvaluationBlock } from "../../../../../integrations/feishu/human-interview-evaluation-doc";
-import { updateFeishuHumanInterviewEvaluation } from "../../../../../integrations/feishu/feishu-docx";
+import { buildHumanInterviewEvaluationBlock } from "@app/feishu/human-interview-evaluation-doc";
+import { updateFeishuHumanInterviewEvaluation } from "@app/feishu/docx";
 import { createHumanInterviewDocumentSyncDao } from "../dao/human-interview-document-sync";
 import { syncHumanInterviewDocument } from "./sync-human-interview-document";
 import { ensureHumanEvaluationDocument } from "./ensure-human-evaluation-document";

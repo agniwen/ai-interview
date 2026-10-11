@@ -1,7 +1,7 @@
 import { auth, trustedOrigins } from "../../infrastructure/auth";
 import { getRequiredEnv } from "../../infrastructure/env";
 import { createRequestWorkspaceAuthorizer } from "../../access/workspace-access-policy";
-import { resolveRecruitingVisibilityScope } from "../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import * as store from "./dao";
 import { createMcpRouter } from "./route";
 import { createMcpManagementRouter } from "./management-route";

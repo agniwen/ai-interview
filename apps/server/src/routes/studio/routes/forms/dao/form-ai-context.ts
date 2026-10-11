@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { recruitingFormSubmission, jobDescription } from "@app/db-schema/schema";
@@ -106,12 +106,4 @@ export async function loadInterviewContextsForFormAi(
     const row = byId.get(id);
     return row ? [row] : [];
   });
-}
-
-export async function loadInterviewContextForFormAi(
-  organizationId: string,
-  interviewRecordId: string,
-) {
-  const contexts = await loadInterviewContextsForFormAi(organizationId, [interviewRecordId]);
-  return contexts?.[0] ?? null;
 }

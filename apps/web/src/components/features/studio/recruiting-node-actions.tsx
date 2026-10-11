@@ -41,7 +41,7 @@ function failLabel(stage: ResumeLibraryDetail["pipelineStage"]) {
   return stage === "income_proof" ? "驳回并结束" : "淘汰";
 }
 
-export const recruitingNodeActionLabels = {
+const recruitingNodeActionLabels = {
   ai_interview: "确认 AI 初面结果",
   background_check: "确认背调结果",
   closed: "查看结束结果",

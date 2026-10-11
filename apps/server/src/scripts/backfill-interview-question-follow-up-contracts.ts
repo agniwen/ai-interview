@@ -5,11 +5,11 @@ import {
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
 } from "@app/db-schema/schema";
-import { loadInterviewQuestionTemplateById } from "../routes/studio/routes/interview-questions/dao/queries";
-import { resolveOrCreateInterviewQuestionTemplateVersion } from "../routes/studio/routes/interview-questions/dao/versions";
+import { loadInterviewQuestionTemplateById } from "@app/recruiting/interview-questions/queries";
+import { resolveOrCreateInterviewQuestionTemplateVersion } from "@app/recruiting/interview-questions/versions";
 import { compileFollowUpContractsWithDefaults } from "../routes/studio/routes/interview-questions/application/default-compile-follow-up-contracts";
-import { questionsRequiringFollowUpContracts } from "../routes/studio/routes/interview-questions/application/compile-follow-up-contracts";
-import { hashTemplateSourceSnapshot } from "../infrastructure/interview-question-templates-hash";
+import { questionsRequiringFollowUpContracts } from "@app/recruiting/interview-questions/compile-follow-up-contracts";
+import { hashTemplateSourceSnapshot } from "@app/recruiting/interview-questions/templates-hash";
 import type {
   InterviewQuestionTemplateSnapshot,
   InterviewQuestionTemplateSnapshotQuestion,

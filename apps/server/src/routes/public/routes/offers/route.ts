@@ -1,5 +1,5 @@
 import { isOfferExpired, offerExpiryEndOfDay } from "@app/shared/offer-expiry";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   globalConfig,
   organization,
@@ -11,7 +11,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../infrastructure/db/index";
-import { enqueueOfferResponseEvent } from "../../../../interview-notifications/utils/events";
+import { enqueueOfferResponseEvent } from "@app/recruiting-workflows/notifications/events";
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
   OfferDraftError,

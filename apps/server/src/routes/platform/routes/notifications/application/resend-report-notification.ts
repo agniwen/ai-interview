@@ -1,4 +1,4 @@
-import { sendInterviewReportReadyFeishuNotification } from "../../../../agent/utils/feishu-interview-notifications";
+import { sendInterviewReportReadyFeishuNotification } from "@app/recruiting-workflows/ai-interview-reports/feishu-interview-notifications";
 import { claimPlatformReportResend, finishPlatformReportResend } from "../resend-dao";
 
 export async function resendPlatformReportNotification(

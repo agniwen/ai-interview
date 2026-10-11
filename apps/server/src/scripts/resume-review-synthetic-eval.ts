@@ -1,7 +1,9 @@
 import "../standalone/preload";
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { generateResumeReview } from "../agents/resume-analysis-agent";
+import { generateResumeReview } from "@app/resume-processing/ingest/agents/resume-analysis-agent";
+import { setDefaultDatabase } from "@app/database/context";
+import { db } from "../infrastructure/db/index";
 import { SYNTHETIC_RESUME_REVIEW_CASES } from "./resume-review-synthetic-eval/cases";
 import {
   computeSyntheticEvalMetrics,
@@ -9,6 +11,9 @@ import {
 } from "./resume-review-synthetic-eval/metrics";
 import { formatSyntheticEvalReport } from "./resume-review-synthetic-eval/report";
 import type { SyntheticRunRecord } from "./resume-review-synthetic-eval/types";
+
+// Shared resume-processing code reads the ambient database; this script runs outside the Server app.
+setDefaultDatabase(db);
 
 function arg(name: string, fallback?: string): string {
   const equals = process.argv.find((value) => value.startsWith(`--${name}=`));

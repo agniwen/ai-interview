@@ -1,5 +1,5 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
-import { RecruitingJobNotAcceptingCandidatesError } from "@app/database/recruiting-records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import { RecruitingJobNotAcceptingCandidatesError } from "@app/recruiting/records";
 // 中文：公开访问入口路由族。挂在 /api/public 下，不依赖 workspace
 // auth；对 roundId/candidateId/邀请 token 做一次反查拿到 organizationId，然后复用
 // studio 路由族里既有的 DAO 返回完整数据（候选人姓名、简历 PDF、面试报告、
@@ -25,7 +25,7 @@ import {
   normalizeResumeFile,
   storeResumeObjectOnly,
 } from "../interview/utils";
-import { loadSubmissionsByInterview } from "../studio/routes/forms/dao/submissions";
+import { loadSubmissionsByInterview } from "@app/recruiting/forms/submissions";
 import {
   queryInterviewConversationReportByRound,
   queryInterviewConversationReportsByRound,
@@ -36,7 +36,7 @@ import {
   isHumanInterviewMeetingAfterValidUntil,
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
-} from "../studio/routes/interviews/dao/human-interview-meetings";
+} from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { recoverHumanInterviewReviewFromLiveTranscript } from "../studio/routes/interviews/dao/human-interview-evaluation";
 import {
   listInterviewRoundsForCandidate,
@@ -49,8 +49,8 @@ import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
-} from "../studio/routes/interviews/utils/human-interview-livekit";
-import { stopActiveHumanInterviewRecording } from "../studio/routes/interviews/utils/human-interview-recording-service";
+} from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
+import { stopActiveHumanInterviewRecording } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
 import { requestAutomaticHumanInterviewEvaluation } from "../studio/routes/interviews/utils/human-interview-evaluation-service";
 import { loadResumeDetail } from "../studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@app/shared/referrals";
@@ -67,7 +67,7 @@ import { humanInterviewLiveTranscriptRouter } from "./routes/human-interview-liv
 import { humanInterviewChatRouter } from "./routes/human-interview-chat/route";
 import { publicOffersRouter } from "./routes/offers/route";
 import { publicBackgroundChecksRouter } from "./routes/background-checks/route";
-import { validateResumeFile } from "../../agents/resume-analysis-agent";
+import { validateResumeFile } from "@app/resume-processing/ingest/agents/resume-analysis-agent";
 import {
   cancelBatch,
   insertBatchWithItems,
@@ -79,7 +79,7 @@ import {
 } from "../studio/routes/job-descriptions/dao/referral-links";
 
 async function getResumeParseQueueApi() {
-  return await import("@app/resume-parse-queue/resume-parse");
+  return await import("@app/job-queues/resume-parse");
 }
 
 export interface PublicRouterDependencies {

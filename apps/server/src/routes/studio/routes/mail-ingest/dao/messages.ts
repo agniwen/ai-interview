@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "../../../../../infrastructure/db/list-text-filters";
+import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 
 import { db } from "../../../../../infrastructure/db/index";
@@ -19,7 +19,6 @@ import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
 import { mailIngestWorkerDao } from "./worker";
 
 const DISPLAY_ERROR_MAX = 300;
-export type { MailIngestMessageClaim } from "@app/resume-processing/mail-ingest";
 
 export function claimMailIngestMessageForProcessing(input: {
   accountId: string;
@@ -58,7 +57,7 @@ export function markMailIngestMessageSkipped(
   return mailIngestWorkerDao.markMessageSkipped(id, skipReason, extra);
 }
 
-export interface MailMessageLogAttachment {
+interface MailMessageLogAttachment {
   fileName: string;
   hasDuplicate: boolean;
   poolItemId: string | null;

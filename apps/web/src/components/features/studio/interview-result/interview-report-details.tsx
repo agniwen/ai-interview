@@ -25,7 +25,7 @@ import { ReportMetadataButton } from "../studio-person-detail-metadata";
 import type { resolveActiveEvidence } from "../studio-person-detail-sections";
 import type { StudioPersonDetailViewModel } from "../studio-person-detail-controller";
 
-export function InterviewReportDetailSection({
+function InterviewReportDetailSection({
   children,
   className,
   panelClassName,

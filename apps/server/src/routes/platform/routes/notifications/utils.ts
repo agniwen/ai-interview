@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type {
@@ -11,20 +11,20 @@ import {
   recruitingEvaluationDocument,
   recruitingNotificationDelivery,
 } from "@app/db-schema/schema";
-import { generateFeishuHrEvaluationWithPromptForInterview } from "../../../agent/utils/feishu-hr-evaluation";
+import { generateFeishuHrEvaluationWithPromptForInterview } from "@app/recruiting-workflows/ai-interview-reports/feishu-hr-evaluation";
 import {
   buildHrInterviewEvaluationBlock,
   buildInterviewEvaluationStructureSections,
-} from "../../../../integrations/feishu/interview-evaluation-doc";
-import type { HrInterviewEvaluationPreview } from "../../../../integrations/feishu/interview-evaluation-doc";
+} from "@app/feishu/interview-evaluation-doc";
+import type { HrInterviewEvaluationPreview } from "@app/feishu/interview-evaluation-doc";
 import {
   grantFeishuInterviewEvaluationDocxAccess,
   resolveFeishuDocxDocumentId,
   updateFeishuInterviewEvaluationDocxStructure,
-} from "../../../../integrations/feishu/feishu-docx";
-import type { InterviewEvaluationStructureSection } from "../../../../integrations/feishu/feishu-docx";
-import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
-import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
+} from "@app/feishu/docx";
+import type { InterviewEvaluationStructureSection } from "@app/feishu/docx";
+import type { FeishuProviderId } from "@app/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "@app/feishu/provider";
 import { reportConversationId } from "./report-conversation";
 
 const feishuProviderIdSchema = z.enum(FEISHU_PROVIDER_IDS);

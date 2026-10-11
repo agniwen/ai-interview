@@ -10,8 +10,6 @@ export type StudioResumesServerState =
   | { status: "not_found" }
   | { status: "ready" };
 
-export type StudioResumesState = StudioResumesServerState;
-
 export const loadStudioResumesState = createServerFn({ method: "GET" })
   .validator(slugInputSchema)
   .handler(

@@ -2,7 +2,7 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { factory } from "../../../../factory";
 import { requirePermission } from "../../../../middlewares/permission";
-import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { loadStudioHumanInterviewReviewScope } from "./dao/human-interview-review-access";
 import { createHumanInterviewReviewActionsRouter } from "./review-actions-route";
 

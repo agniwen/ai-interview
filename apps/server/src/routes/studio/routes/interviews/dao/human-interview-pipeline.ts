@@ -3,8 +3,8 @@ import {
   reopenRecruitingRecordTx,
   transitionRecruitingNodeTx,
   updateRecruitingNodeTx,
-} from "@app/database/recruiting-pipeline";
-import type { RecruitingTransaction as Tx } from "@app/database/recruiting-pipeline";
+} from "@app/recruiting/pipeline";
+import type { RecruitingTransaction as Tx } from "@app/recruiting/pipeline";
 import { recruitingRecord, recruitingNodeState, humanInterviewRound } from "@app/db-schema/schema";
 import { EditRoundError } from "./human-interview-round-errors";
 import type { CreateRoundOptions } from "./human-interview-rounds";

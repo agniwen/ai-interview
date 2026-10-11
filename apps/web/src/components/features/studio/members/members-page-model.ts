@@ -40,16 +40,6 @@ export function getPageAfterMemberRemoval({
 }): number {
   return page > 1 && visibleRowCount === 1 ? page - 1 : page;
 }
-export { DEFAULT_WORKSPACE_MANAGEMENT_TAB as DEFAULT_TAB } from "@/components/features/studio/members/workspace-management-search";
-export {
-  buildWorkspaceManagementSearch,
-  coerceWorkspaceManagementSearch,
-  parseWorkspaceManagementTab,
-} from "@/components/features/studio/members/workspace-management-search";
-export type {
-  WorkspaceManagementSearch,
-  WorkspaceManagementTab,
-} from "@/components/features/studio/members/workspace-management-search";
 
 const dynamicWorkspaceRoleSchema = z.object({
   createdAt: z.union([z.date(), z.string()]),
@@ -216,10 +206,3 @@ export const GROUP_ROLE_LABELS = {
   recruitingSupervisor: "招聘主管",
   viewer: "只读成员",
 } as const satisfies Record<RecruitingGroupRole, string>;
-
-export const GROUP_ROLE_BADGE_VARIANT = {
-  hr: "secondary",
-  recruitingLead: "secondary",
-  recruitingSupervisor: "default",
-  viewer: "outline",
-} as const satisfies Record<RecruitingGroupRole, "default" | "secondary" | "outline">;

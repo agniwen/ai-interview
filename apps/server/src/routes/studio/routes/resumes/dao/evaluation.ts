@@ -1,5 +1,5 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../../../infrastructure/db/index";
 import { recruitingEvent } from "@app/db-schema/schema";
@@ -47,7 +47,7 @@ async function insertEvaluationAudit(
   });
 }
 
-export async function setResumeEvaluationStatusWithAuditTx(
+async function setResumeEvaluationStatusWithAuditTx(
   tx: Tx,
   input: {
     auditLogId?: string;

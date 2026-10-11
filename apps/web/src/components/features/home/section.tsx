@@ -25,17 +25,6 @@ export function Section({ children, className, id, width = "default" }: SectionP
   );
 }
 
-interface EyebrowProps {
-  children: ReactNode;
-}
-export function Eyebrow({ children }: EyebrowProps) {
-  return (
-    <p className="font-mono font-medium text-primary text-sm uppercase tracking-[0.22em] sm:text-base">
-      {children}
-    </p>
-  );
-}
-
 interface SectionTitleProps {
   children: ReactNode;
   className?: string;
@@ -57,7 +46,7 @@ interface SectionLeadProps {
   children: ReactNode;
   className?: string;
 }
-export function SectionLead({ children, className }: SectionLeadProps) {
+function SectionLead({ children, className }: SectionLeadProps) {
   return (
     <p
       className={cn(

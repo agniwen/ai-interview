@@ -3,13 +3,16 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { jobDescription, member, offerApprovalTemplate, user } from "@app/db-schema/schema";
 import { offerApprovalTemplateNodeSchema } from "@app/db-schema/offer-approval";
 import { offerApprovalTemplateInputSchema } from "@app/shared/offer-approval";
-import type { RecruitingExecutor } from "@app/database/recruiting-records";
+import type { RecruitingExecutor } from "@app/recruiting/records";
 import type { z } from "zod";
 import { db } from "../../../../../infrastructure/db";
-import { assertApprovalPermission, OfferApprovalError } from "../dao";
-import type { Actor } from "../dao";
+import {
+  assertApprovalPermission,
+  OfferApprovalError,
+} from "@app/recruiting-workflows/offer-approvals/dao";
+import type { Actor } from "@app/recruiting-workflows/offer-approvals/dao";
 
-export const approvalResolverLabels = {
+const approvalResolverLabels = {
   fixed_member: "固定审批人",
   job_reporting_manager: "岗位汇报上级",
   recruiting_owner: "招聘负责人",

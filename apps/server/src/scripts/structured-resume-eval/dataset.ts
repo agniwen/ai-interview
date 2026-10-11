@@ -25,7 +25,7 @@ import type {
   StructuredResumeRuleId,
   StructuredResumeRuleJudgment,
 } from "@app/shared/structured-resume-scoring";
-import { computeJobEvaluationPayloadHash } from "../../infrastructure/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "@app/resume-processing/ingest/support/job-evaluation-hash";
 import type {
   StructuredResumeEvalCandidate,
   StructuredResumeEvalCase,
@@ -411,7 +411,7 @@ function validateArtifactInvariants(
   }
 }
 
-export function deriveStructuredResumeEvalCandidateOutput(input: {
+function deriveStructuredResumeEvalCandidateOutput(input: {
   artifact: unknown;
   caseInput: Pick<StructuredResumeEvalCase, "jobInput" | "resumeInput">;
   expectedEngine: { engineVersion: string; modelId: string; promptVersion: string };
@@ -532,8 +532,4 @@ export async function loadStructuredResumeEvalCorpus(manifestPath: string) {
   };
 }
 
-export {
-  evalCaseSchema as structuredResumeEvalCaseSchema,
-  manifestSchema as structuredResumeEvalManifestSchema,
-  validateCorpusCoverage,
-};
+export { validateCorpusCoverage };

@@ -73,7 +73,7 @@ export function getEvaluationSummary<const T>(data: T): EvaluationSummary {
   };
 }
 
-export function formatFormAnswer(question: FormQuestion, rawValue: string | string[] | undefined) {
+function formatFormAnswer(question: FormQuestion, rawValue: string | string[] | undefined) {
   if (
     rawValue === undefined ||
     rawValue === "" ||
@@ -251,7 +251,7 @@ export type ResumeScreeningRuleResult = NonNullable<
   ResumeLibraryDetail["resumeScreeningResult"]
 >["ruleResults"][number];
 
-export function getResumeScreeningRuleStatusMeta(status: ResumeScreeningRuleResult["status"]) {
+function getResumeScreeningRuleStatusMeta(status: ResumeScreeningRuleResult["status"]) {
   if (status === "pass") {
     return { label: "满足", variant: "success" as const };
   }
@@ -261,7 +261,7 @@ export function getResumeScreeningRuleStatusMeta(status: ResumeScreeningRuleResu
   return { label: "待核实", variant: "warning" as const };
 }
 
-export function getResumeScreeningRuleStatusOrder(status: ResumeScreeningRuleResult["status"]) {
+function getResumeScreeningRuleStatusOrder(status: ResumeScreeningRuleResult["status"]) {
   if (status === "pass") {
     return 0;
   }
@@ -271,9 +271,7 @@ export function getResumeScreeningRuleStatusOrder(status: ResumeScreeningRuleRes
   return 2;
 }
 
-export function getResumeScreeningRuleSeverityLabel(
-  severity: ResumeScreeningRuleResult["severity"],
-) {
+function getResumeScreeningRuleSeverityLabel(severity: ResumeScreeningRuleResult["severity"]) {
   if (severity === "blocking") {
     return "阻断";
   }
