@@ -121,7 +121,7 @@ describe("qualitative resume evaluation prompt", () => {
       expect.objectContaining({
         maxOutputTokens: 8192,
         normalizeInvalid: normalizeGeneratedQualitativeResumeEvaluation,
-        observabilityLabel: "qualitative-resume-v8",
+        observabilityLabel: "qualitative-resume-v9",
         temperature: 0,
       }),
     );

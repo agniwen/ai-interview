@@ -1,7 +1,8 @@
 import { deleteRecruitingRecords, createRecruitingRecords } from "@app/recruiting/records";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { CANDIDATE_INTERVIEW_EMAILS_ENABLED } from "@app/shared/interview-notifications";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../../../../../infrastructure/db/index";
 import {
   account,
@@ -41,6 +42,8 @@ async function cleanup() {
 }
 
 beforeAll(async () => {
+  // Invitation expiry is checked against the clock; pin Date (not timers) to the fixture time.
+  vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
   process.env.BETTER_AUTH_SECRET = "ai-notification-test-secret-at-least-32-chars";
   process.env.BETTER_AUTH_URL = "https://recruitment.example.test";
   process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "true";
@@ -103,6 +106,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  vi.useRealTimers();
   await cleanup();
   if (previousEnvironment.betterAuthSecret === undefined) {
     delete process.env.BETTER_AUTH_SECRET;
@@ -256,14 +260,9 @@ describe("AI interview candidate response notification", () => {
       templateVersionId: "system_ai_invitation_exception_initiator_feishu_v1",
     });
     expect(hrDelivery?.renderedContent).toContain("异常类型：邀请已过期");
-    expect(deliveries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          audienceType: "candidate",
-          channel: "email",
-          templateVersionId: "system_ai_invitation_exception_candidate_email_v1",
-        }),
-      ]),
+    // Candidate emails follow the shared emergency pause; HR is still notified.
+    expect(deliveries.some((delivery) => delivery.audienceType === "candidate")).toBe(
+      CANDIDATE_INTERVIEW_EMAILS_ENABLED,
     );
   });
 

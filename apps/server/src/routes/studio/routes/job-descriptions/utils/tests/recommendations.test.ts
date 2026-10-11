@@ -356,10 +356,10 @@ const whereSqlFor = (includeClosed: boolean) =>
     .sql.toLowerCase();
 
 describe("recommendationCandidateWhere — includeClosed 两分支", () => {
-  it("includeClosed=false 含 pipeline_stage 过滤(生产默认)", () => {
-    expect(whereSqlFor(false)).toContain("pipeline_stage");
+  it("includeClosed=false 含 pipelineStage 过滤(生产默认)", () => {
+    expect(whereSqlFor(false)).toContain('"pipelinestage" <>');
   });
-  it("includeClosed=true 不含 pipeline_stage 过滤(评测)", () => {
-    expect(whereSqlFor(true)).not.toContain("pipeline_stage");
+  it("includeClosed=true 不含 pipelineStage 过滤(评测)", () => {
+    expect(whereSqlFor(true)).not.toContain('"pipelinestage" <>');
   });
 });

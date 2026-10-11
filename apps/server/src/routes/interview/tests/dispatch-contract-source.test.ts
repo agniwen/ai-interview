@@ -23,9 +23,9 @@ describe("interview dispatch contract boundary", () => {
 
   it("rejects an empty required-question set before reserving a LiveKit room", () => {
     const emptyQuestionGuard = candidateRouteSource.indexOf(
-      "interviewRecord.jobDescriptionPresetQuestions.length === 0",
+      "flattenPresetQuestionsFromContextSnapshot(prepared).length === 0",
     );
-    const roomReservation = candidateRouteSource.indexOf("const resolution = await db.transaction");
+    const roomReservation = candidateRouteSource.indexOf("liveKitRoomName: freshRoomName");
 
     expect(emptyQuestionGuard).toBeGreaterThan(0);
     expect(emptyQuestionGuard).toBeLessThan(roomReservation);

@@ -10,7 +10,7 @@ import {
   resumeReviewQualitativeAgent,
 } from "@app/ai-runtime/simple-generators";
 
-export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v8";
+export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v9";
 
 const generatedQualitativeResumeEvaluationSchema = qualitativeResumeEvaluationV2Schema
   .omit({ schemaVersion: true })

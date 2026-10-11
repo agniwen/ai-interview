@@ -49,7 +49,8 @@ describe("AI interview invitation token", () => {
   });
 
   it("stores only a hash while keeping the signed token reproducible", () => {
-    const now = new Date("2026-08-20T08:00:00.000Z");
+    // Verification checks expiry against the real clock, so issue the invitation now.
+    const now = new Date();
     const schedule = addAiInterviewInvitationToSchedule({ id: "round_1" }, now);
     const token = buildAiInterviewInvitationToken({
       exp: schedule.candidateInviteExpiresAt.getTime(),

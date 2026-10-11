@@ -361,8 +361,11 @@ describe("atomic AI interview launch persistence", () => {
         .from(recruitingEvent)
         .where(eq(recruitingEvent.recruitingRecordId, ROLLBACK_CANDIDATE_ID)),
     ]);
-    expect(audits).toHaveLength(1);
-    expect(audits[0]?.action).toBe("recruiting_node_updated");
+    // Only the fixture's own audits remain: record creation and the passed screening node.
+    expect(audits.map((audit) => audit.action).toSorted()).toEqual([
+      "recruiting_node_updated",
+      "recruiting_record_created",
+    ]);
     expect({ rounds, snapshots }).toEqual({
       rounds: [],
       snapshots: [],

@@ -18,13 +18,16 @@ import {
 
 const testUrl = process.env.RECRUITING_TEST_DATABASE_URL;
 describe.skipIf(!testUrl)("AI 新表轮次生命周期", () => {
-  if (
-    !testUrl ||
-    process.env.DATABASE_URL !== testUrl ||
-    !new URL(testUrl).pathname.includes("_test_")
-  ) {
-    throw new Error("必须显式配置隔离招聘测试库");
-  }
+  // Runs only when the suite is not skipped; a misconfigured isolated database still fails loudly.
+  beforeAll(() => {
+    if (
+      !testUrl ||
+      process.env.DATABASE_URL !== testUrl ||
+      !new URL(testUrl).pathname.includes("_test_")
+    ) {
+      throw new Error("必须显式配置隔离招聘测试库");
+    }
+  });
   const org = `ai-lifecycle-${crypto.randomUUID()}`;
   beforeAll(async () => {
     await db.insert(organization).values({ id: org, name: "AI生命周期测试", slug: org });

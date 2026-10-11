@@ -3,6 +3,7 @@ import { db as defaultDb } from "../../../../../../../infrastructure/db/index";
 import { factory } from "../../../../../../../factory";
 import type { InterviewQuestionsRouterDependencies } from "../route";
 import { createInterviewQuestionsRouter } from "../route";
+import type * as recruitingRecords from "@app/recruiting/records";
 
 interface QuestionUpdatePatch {
   interviewQuestions?: unknown[];
@@ -10,6 +11,14 @@ interface QuestionUpdatePatch {
 }
 
 const updates: QuestionUpdatePatch[] = [];
+
+// Record persistence lives in @app/recruiting; this route test verifies the patch it hands over.
+const recruitingRecordStubs = vi.hoisted(() => ({ update: vi.fn() }));
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route imports the recruiting domain writer directly; injecting it would widen the router dependency contract only for tests.
+vi.mock("@app/recruiting/records", async (importOriginal) => ({
+  ...(await importOriginal<typeof recruitingRecords>()),
+  updateRecruitingRecords: recruitingRecordStubs.update,
+}));
 const mocks = {
   loadResumeDetail: vi.fn(),
   permissionChecks: new Array<[string, string]>(),
@@ -22,18 +31,8 @@ const requirePermission: InterviewQuestionsRouterDependencies["requirePermission
     return next();
   };
 
-// SAFETY: The test double inherits the full Drizzle client and overrides only the update chain used by this route.
-const testDb = Object.assign(Object.create(defaultDb) as typeof defaultDb, {
-  update: () => ({
-    set: (patch: QuestionUpdatePatch) => {
-      updates.push(patch);
-      return { where: () => Promise.resolve() };
-    },
-  }),
-});
-
 const router = createInterviewQuestionsRouter({
-  db: testDb,
+  db: defaultDb,
 
   loadResumeDetail: mocks.loadResumeDetail,
   requirePermission,
@@ -62,6 +61,14 @@ describe("recommended interview questions route", () => {
     mocks.permissionChecks.length = 0;
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
     mocks.loadResumeDetail.mockResolvedValue({ id: "candidate-1" });
+    recruitingRecordStubs.update.mockImplementation(
+      (...args: Parameters<typeof recruitingRecords.updateRecruitingRecords>) => {
+        const patch = args.at(2);
+        // SAFETY: Route patches are recruiting record values; the test inspects the fields it sent.
+        updates.push(patch as QuestionUpdatePatch);
+        return Promise.resolve();
+      },
+    );
   });
 
   it("persists edited questions and defaults legacy missing dimensions to business", async () => {

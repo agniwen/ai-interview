@@ -69,90 +69,34 @@ afterAll(async () => {
   await cleanup();
 });
 
-// 注：drizzle 抛的错只带 "Failed query: ..." 这条 message，原始 PG 错误对象在
-// error.cause 上；约束名 / 错误码通过 cause.constraint / cause.code 字段读到。
-// Drizzle wraps PG errors with "Failed query: ..."; the original error
-// (with constraint + code) sits on .cause.
-async function expectCheckViolation(promise: Promise<unknown>) {
-  const err = await promise.then(
-    () => null,
-    (error: Error) => error,
-  );
-  expect(err, "expected the UPDATE to reject").toBeTruthy();
-  // PG error 23514 = check_violation。drizzle 的 wrapper 跟 client 版本不同，
-  // .code 和 .cause.code 都试一次；约束名走 message 文本兜底，最稳。
-  // 23514 = check_violation. Different drizzle/pg versions expose code on
-  // either the top-level error or .cause; constraint name matched via
-  // message text is most portable.
-  const code =
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    (err as { cause?: { code?: string }; code?: string })?.cause?.code ??
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    (err as { code?: string })?.code;
-  expect(code).toBe("23514");
-  // 这张表上只有这一个 CHECK 约束，code=23514 + 表名匹配就足以确认是我们的不变量在生效。
-  // 约束名本身在 drizzle 1.0 RC 的 toString 里被吞掉了，不在文本里。
-  // This table has only one CHECK constraint, so code=23514 + table name is
-  // sufficient evidence; the constraint name itself is swallowed by drizzle
-  // 1.0 RC's error.toString.
-  expect(String(err)).toMatch(/studio_interview/);
-}
-
+// Stage, outcome, and close details belong to the recruiting node transaction; a metadata
+// patch must never change them, so invalid combinations cannot be written at all.
 describe("candidate transition invariants", () => {
-  it("DB CHECK 拒绝 outcome=hired 配 pipelineStage=ai_interview（违反不变量）", async () => {
-    await expectCheckViolation(
-      updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
-        outcome: "hired",
-      }),
+  const patchRecord = (patch: Parameters<typeof updateRecruitingRecords>[2]) =>
+    updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), patch);
+
+  it("rejects an outcome change outside the recruiting node transaction", async () => {
+    await expect(patchRecord({ outcome: "hired" })).rejects.toThrow(
+      "流程变化必须通过招聘节点事务执行",
     );
   });
 
-  it("DB CHECK 拒绝 pipelineStage=closed 配 outcome=in_pipeline（违反不变量）", async () => {
-    await expectCheckViolation(
-      updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
-        pipelineStage: "closed",
-      }),
+  it("rejects a pipeline stage change outside the recruiting node transaction", async () => {
+    await expect(patchRecord({ pipelineStage: "closed" })).rejects.toThrow(
+      "流程变化必须通过招聘节点事务执行",
     );
   });
 
-  it("结束：原子写入 pipelineStage + outcome + closedAt + closedReason", async () => {
-    const closedAt = new Date("2026-05-22T09:00:00.000Z");
-    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
-      closedAt,
-      closedReason: "技能匹配度不够",
-      outcome: "rejected",
-      pipelineStage: "closed",
-      updatedAt: closedAt,
-    });
-
-    const [row] = await db
-      .select({
-        closedAt: recruitingRecordReadModel.closedAt,
-        closedReason: recruitingRecordReadModel.closedReason,
-        outcome: recruitingRecordReadModel.outcome,
-        pipelineStage: recruitingRecordReadModel.pipelineStage,
-      })
-      .from(recruitingRecordReadModel)
-      .where(eq(recruitingRecordReadModel.id, RECORD_ID));
-
-    expect(row).toEqual({
-      closedAt,
-      closedReason: "技能匹配度不够",
-      outcome: "rejected",
-      pipelineStage: "closed",
-    });
+  it("rejects close details outside the recruiting node transaction", async () => {
+    await expect(
+      patchRecord({
+        closedAt: new Date("2026-05-22T09:00:00.000Z"),
+        closedReason: "技能匹配度不够",
+      }),
+    ).rejects.toThrow("结束信息必须通过招聘节点事务执行");
   });
 
-  it("重新激活：清空 closedAt + closedReason，回到 ai_interview / in_pipeline", async () => {
-    const reactivatedAt = new Date("2026-05-22T10:00:00.000Z");
-    await updateRecruitingRecords(db, eq(recruitingRecordReadModel.id, RECORD_ID), {
-      closedAt: null,
-      closedReason: null,
-      outcome: "in_pipeline",
-      pipelineStage: "ai_interview",
-      updatedAt: reactivatedAt,
-    });
-
+  it("leaves stage, outcome, and close details unchanged after rejected patches", async () => {
     const [row] = await db
       .select({
         closedAt: recruitingRecordReadModel.closedAt,

@@ -25,8 +25,8 @@ afterEach(() => {
 
 describe("Offer approval nested routes", () => {
   it.each([
-    ["/w/acme/studio/offer-approvals", "列表候选人", "详情申请理由"],
-    ["/w/acme/studio/offer-approvals/approval-1", "详情申请理由", "列表候选人"],
+    ["/w/acme/studio/offer-approvals", "列表页张三", "详情申请理由"],
+    ["/w/acme/studio/offer-approvals/approval-1", "详情申请理由", "列表页张三"],
   ])("renders the matching page at %s", async (url, expected, hidden) => {
     vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     vi.stubGlobal("fetch", () =>
@@ -54,7 +54,7 @@ describe("Offer approval nested routes", () => {
                 items: [
                   {
                     id: "approval-1",
-                    candidateName: "列表候选人",
+                    candidateName: "列表页张三",
                     position: "岗位",
                     status: "pending",
                     createdAt: new Date().toISOString(),

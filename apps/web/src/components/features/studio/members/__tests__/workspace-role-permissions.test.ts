@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { STUDIO_PAGE_PERMISSION_ACTIONS } from "@app/shared/permissions";
 import {
   BUILT_IN_WORKSPACE_ROLE_NAMES,
   ROLE_ASSIGNED_TO_MEMBERS_MESSAGE,
@@ -75,7 +76,8 @@ describe("workspace role permission helpers", () => {
   it("flattens permission groups into stable table columns", () => {
     const items = buildPermissionItems();
 
-    expect(items[0]).toMatchObject({
+    expect(items[0]?.key).toBe(`page:${STUDIO_PAGE_PERMISSION_ACTIONS[0]}`);
+    expect(items.find((item) => item.key === "page:resumes")).toMatchObject({
       action: "resumes",
       description: expect.stringContaining("侧边栏"),
       groupTitle: "页面浏览",

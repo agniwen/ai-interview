@@ -313,38 +313,41 @@ describe("Meeting lifecycle DAO", () => {
     ).toHaveLength(3);
   });
 
-  it("仅旧档案关联不阻止进入清理流程", async () => {
-    const testUrl = process.env.RECRUITING_TEST_DATABASE_URL;
-    if (
-      !testUrl ||
-      testUrl !== process.env.DATABASE_URL ||
-      !new URL(testUrl).pathname.includes("_test_")
-    ) {
-      throw new Error("旧档案测试仅可在隔离测试库执行");
-    }
-    const legacyId = `${CANDIDATE_ID}_legacy`;
-    await db
-      .insert(studioInterview)
-      .values({ candidateName: "旧档案", id: legacyId, organizationId: ORGANIZATION_ID });
-    await db.insert(meetingRecruitingContext).values({
-      meetingId: MEETING_ID,
-      organizationId: ORGANIZATION_ID,
-      recruitingRecordId: legacyId,
-    });
-    await expect(
-      requestMeetingPurge({
-        actorId: OWNER_ID,
+  it.skipIf(!process.env.RECRUITING_TEST_DATABASE_URL)(
+    "仅旧档案关联不阻止进入清理流程",
+    async () => {
+      const testUrl = process.env.RECRUITING_TEST_DATABASE_URL;
+      if (
+        !testUrl ||
+        testUrl !== process.env.DATABASE_URL ||
+        !new URL(testUrl).pathname.includes("_test_")
+      ) {
+        throw new Error("旧档案测试仅可在隔离测试库执行");
+      }
+      const legacyId = `${CANDIDATE_ID}_legacy`;
+      await db
+        .insert(studioInterview)
+        .values({ candidateName: "旧档案", id: legacyId, organizationId: ORGANIZATION_ID });
+      await db.insert(meetingRecruitingContext).values({
         meetingId: MEETING_ID,
         organizationId: ORGANIZATION_ID,
-      }),
-    ).resolves.toEqual({ processingOwner: "worker", state: "purging" });
-    expect(
-      await db
-        .select()
-        .from(meetingRecruitingContext)
-        .where(eq(meetingRecruitingContext.meetingId, MEETING_ID)),
-    ).toHaveLength(1);
-  });
+        recruitingRecordId: legacyId,
+      });
+      await expect(
+        requestMeetingPurge({
+          actorId: OWNER_ID,
+          meetingId: MEETING_ID,
+          organizationId: ORGANIZATION_ID,
+        }),
+      ).resolves.toEqual({ processingOwner: "worker", state: "purging" });
+      expect(
+        await db
+          .select()
+          .from(meetingRecruitingContext)
+          .where(eq(meetingRecruitingContext.meetingId, MEETING_ID)),
+      ).toHaveLength(1);
+    },
+  );
 
   it("re-admits an uploading meeting before restoring it from trash", async () => {
     await withDatabaseAdvisoryTestLock("meeting-direct-capacity-integration", async () => {

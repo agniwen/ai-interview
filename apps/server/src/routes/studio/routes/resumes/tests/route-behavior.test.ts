@@ -3,6 +3,17 @@ import { db as defaultDb } from "../../../../../infrastructure/db/index";
 import { factory } from "../../../../../factory";
 import type { ResumeLibraryRouterDependencies } from "../route";
 import { createResumeLibraryRouter } from "../route";
+import type * as recruitingRecords from "@app/recruiting/records";
+
+// Record persistence lives in @app/recruiting (locking, node state, projections); these route
+// tests only verify the patch the route hands over, so the domain writes are replaced.
+const recruitingRecordStubs = vi.hoisted(() => ({ remove: vi.fn(), update: vi.fn() }));
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route imports the recruiting domain writers directly; injecting them would widen the router dependency contract only for tests.
+vi.mock("@app/recruiting/records", async (importOriginal) => ({
+  ...(await importOriginal<typeof recruitingRecords>()),
+  deleteRecruitingRecords: recruitingRecordStubs.remove,
+  updateRecruitingRecords: recruitingRecordStubs.update,
+}));
 
 interface JobDescriptionChangeDetail {
   fromJobDescriptionId: string;
@@ -261,6 +272,15 @@ describe("resumeLibraryRouter behavior", () => {
       conversion: { withInterview: 0, withoutInterview: 0 },
       dailyAdded: [],
     });
+    recruitingRecordStubs.update.mockImplementation(
+      (...args: Parameters<typeof recruitingRecords.updateRecruitingRecords>) => {
+        const patch = args.at(2);
+        // SAFETY: Route patches are recruiting record values; the test inspects the fields it sent.
+        mocks.updatePatches.push(patch as ResumeRouteMutation);
+        return Promise.resolve();
+      },
+    );
+    recruitingRecordStubs.remove.mockImplementation(() => mocks.deleteReturning());
     // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Drizzle transactions use a callback API.
     mocks.transaction.mockImplementation((callback) => {
       const tx = {

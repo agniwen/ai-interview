@@ -205,6 +205,10 @@ function fixtureNodeStatus(
   if (node === stage) {
     return "pending" as const;
   }
+  // A candidate past screening has passed it; human rounds require a passed screening.
+  if (node === "screening" && index < recruitingNodeValues.indexOf(stage)) {
+    return "completed" as const;
+  }
   if (index < recruitingNodeValues.indexOf(stage)) {
     return "skipped" as const;
   }
@@ -237,10 +241,12 @@ async function resetCandidateStage(
   await db.delete(recruitingNodeState).where(eq(recruitingNodeState.recruitingRecordId, RECORD_ID));
   await db.insert(recruitingNodeState).values(
     recruitingNodeValues.map((node, index) => ({
+      completedAt: fixtureNodeStatus(node, stage, index) === "completed" ? new Date() : null,
       enteredAt: index <= recruitingNodeValues.indexOf(stage) ? new Date() : null,
       node,
       organizationId: ORG,
       recruitingRecordId: RECORD_ID,
+      result: fixtureNodeStatus(node, stage, index) === "completed" ? ("pass" as const) : null,
       status: fixtureNodeStatus(node, stage, index),
     })),
   );
@@ -1703,7 +1709,7 @@ describe("offer drafts DAO", () => {
 
     const edited = await editOfferDraft({
       draftId: draft.id,
-      input: { baseSalary: 27_000 },
+      input: { baseSalary: 27_000, expectedContentRevision: draft.contentRevision },
       organizationId: ORG,
     });
     expect(edited.baseSalary).toBe(27_000);
@@ -1713,11 +1719,11 @@ describe("offer drafts DAO", () => {
       .where(eq(recruitingRecordReadModel.id, RECORD_ID));
     expect(record?.expectations?.agreedBaseSalary).toBe(27_000);
 
-    await sendOfferDraft(draft.id, ORG);
+    await sendOfferDraft(draft.id, ORG, HR_USER);
     await expect(
       editOfferDraft({
         draftId: draft.id,
-        input: { baseSalary: 28_000 },
+        input: { baseSalary: 28_000, expectedContentRevision: edited.contentRevision },
         organizationId: ORG,
       }),
     ).rejects.toBeInstanceOf(OfferDraftError);
@@ -1729,6 +1735,7 @@ describe("offer drafts DAO", () => {
     const draft = await createOfferDraft({
       input: { baseSalary: 30_000, position: "议价岗" },
       interviewRecordId: RECORD_ID,
+      operatorId: HR_USER,
       organizationId: ORG,
       sendImmediately: true,
     });
@@ -1768,6 +1775,7 @@ describe("offer drafts DAO", () => {
     const draft = await createOfferDraft({
       input: { baseSalary: 30_000, position: "前端工程师" },
       interviewRecordId: RECORD_ID,
+      operatorId: HR_USER,
       organizationId: ORG,
       sendImmediately: true,
     });
@@ -1816,7 +1824,7 @@ describe("offer drafts DAO", () => {
     expect(await listOfferDrafts(RECORD_ID, ORG)).toEqual([]);
     const recreated = await createOfferDraft(options);
     expect(recreated.version).toBe(1);
-    await sendOfferDraft(recreated.id, ORG);
+    await sendOfferDraft(recreated.id, ORG, HR_USER);
     await expect(deleteOfferDraft(recreated.id, ORG)).rejects.toBeInstanceOf(OfferDraftError);
     await expect(createOfferDraft(options)).rejects.toBeInstanceOf(OfferDraftError);
     expect(await listOfferDrafts(RECORD_ID, ORG)).toMatchObject([

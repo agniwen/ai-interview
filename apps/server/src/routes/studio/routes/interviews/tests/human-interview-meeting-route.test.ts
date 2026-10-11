@@ -4,6 +4,7 @@ import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { usesIsolatedTestDatabase } from "../../../../../test-utils/isolated-database";
 import { db } from "../../../../../infrastructure/db/index";
 import { factory } from "../../../../../factory";
 import { publicRouter } from "../../../../public/route";
@@ -164,7 +165,13 @@ function makeApp(authProviderId: string | null) {
     .route("/", studioInterviewCollectionRouter);
 }
 
+// Lease claims and notification fan-out need exclusive rows; a running deployment on a shared
+// DATABASE_URL claims them too, so this suite only runs against the isolated test database.
+const isolatedDatabase = usesIsolatedTestDatabase();
 beforeAll(async () => {
+  if (!isolatedDatabase) {
+    return;
+  }
   process.env.FEISHU_APP_ID = "cli_test_feishu_primary";
   process.env.FEISHU_APP_SECRET = "primary-secret";
   process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary";
@@ -370,9 +377,16 @@ beforeAll(async () => {
   ]);
 });
 
-afterAll(cleanup);
+afterAll(async () => {
+  if (isolatedDatabase) {
+    await cleanup();
+  }
+});
 
 beforeEach(async () => {
+  if (!isolatedDatabase) {
+    return;
+  }
   vi.restoreAllMocks();
   process.env.FEISHU_APP_ID = "cli_test_feishu_primary";
   process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary";
@@ -388,7 +402,7 @@ beforeEach(async () => {
   await setRoundInterviewers([INTERVIEWER_ID]);
 });
 
-describe("LiveKit entry with synchronized Feishu meetings", () => {
+describe.skipIf(!isolatedDatabase)("LiveKit entry with synchronized Feishu meetings", () => {
   it("issues an interviewer token instead of redirecting to Feishu", async () => {
     const meetingId = "test_feishu_meeting_livekit_entry";
     await seedReadyFeishuMeeting(meetingId);
@@ -431,7 +445,7 @@ describe("LiveKit entry with synchronized Feishu meetings", () => {
   });
 });
 
-describe("POST /human-interview-meetings", () => {
+describe.skipIf(!isolatedDatabase)("POST /human-interview-meetings", () => {
   it("creates a LiveKit-only meeting without calling Feishu when the integration is disabled", async () => {
     process.env.FEISHU_HUMAN_INTERVIEW_ENABLED = "false";
     const fetchMock = vi.spyOn(globalThis, "fetch");

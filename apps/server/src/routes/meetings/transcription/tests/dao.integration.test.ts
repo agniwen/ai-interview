@@ -1,5 +1,9 @@
 /* oxlint-disable max-lines -- integration suite covering run claims, policy linearization, chunk checkpoints, and default-policy materialization in one transactional fixture. */
 import { and, eq } from "drizzle-orm";
+import {
+  findMeetingTranscriptionProviderCandidate,
+  resolveMeetingTranscriptionProviderModel,
+} from "@app/meeting-processing/transcription";
 import { z } from "zod";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../../infrastructure/db/index";
@@ -72,6 +76,15 @@ function searchTranscript(query: string) {
 async function clean(): Promise<void> {
   await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
   await db.delete(user).where(eq(user.id, USER_ID));
+}
+
+// The default and mixed-track models come from the provider registry (overridable by env).
+function qwenCandidate() {
+  const candidate = findMeetingTranscriptionProviderCandidate("qwen");
+  if (!candidate) {
+    throw new Error("Qwen transcription provider is not registered");
+  }
+  return candidate;
 }
 
 describe("Meeting transcription publication", () => {
@@ -1129,7 +1142,7 @@ describe("Meeting transcription publication", () => {
       }),
     ).resolves.toMatchObject({
       meetingId: MEETING_ID,
-      model: "qwen-audio-3.0-asr-flash-filetrans",
+      model: qwenCandidate().model,
       policyRevision: 1,
       provider: "qwen",
       region: "qwen-cn-beijing",
@@ -1241,6 +1254,10 @@ describe("Meeting transcription publication", () => {
         meetingId: MEETING_ID,
         organizationId: ORGANIZATION_ID,
       }),
-    ).resolves.toMatchObject({ model: "qwen-audio-3.0-asr-flash-filetrans" });
+    ).resolves.toMatchObject({
+      model: resolveMeetingTranscriptionProviderModel(qwenCandidate(), [
+        { status: "ready", track: "mixed" },
+      ]),
+    });
   });
 });

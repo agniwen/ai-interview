@@ -9,6 +9,24 @@ import { ButtonGroup } from "@/components/ui/button-group";
 
 enableReactActEnvironment();
 
+const confirmAdvanceButton = () =>
+  [...document.querySelectorAll("button")].find((button) => button.textContent === "确认推进");
+
+// jsdom has no matchMedia; the action bar reads the mobile breakpoint through useIsMobile.
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: (query: string) => ({
+    addEventListener() {},
+    dispatchEvent() {
+      return true;
+    },
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener() {},
+  }),
+});
+
 describe("recruiting disabled action explanations", () => {
   it("keeps a disabled action focusable, shows its reason and blocks activation without a wrapper", async () => {
     const host = document.createElement("div");
@@ -110,6 +128,9 @@ describe("recruiting disabled action explanations", () => {
       button?.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
     });
+    // Every non-interview advance asks for confirmation before calling onAdvance.
+    await waitForUi(() => expect(confirmAdvanceButton()).toBeDefined());
+    await act(() => confirmAdvanceButton()?.click());
     expect(onAdvance).toHaveBeenCalledWith("onboarding");
     expect(host.textContent).toContain("处理中");
     await act(() => pending.resolve(null));
@@ -121,6 +142,9 @@ describe("recruiting disabled action explanations", () => {
       button?.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
     });
+    // Every non-interview advance asks for confirmation before calling onAdvance.
+    await waitForUi(() => expect(confirmAdvanceButton()).toBeDefined());
+    await act(() => confirmAdvanceButton()?.click());
     expect(onAdvance).toHaveBeenCalledTimes(2);
     await act(() => pending.resolve(null));
     await act(() => root.unmount());

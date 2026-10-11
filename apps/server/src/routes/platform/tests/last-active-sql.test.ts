@@ -10,7 +10,7 @@ function readBackendFile(path: string) {
 
 describe("platform users last active SQL", () => {
   it("keeps API timestamptz activity aggregates as real instants", () => {
-    const files = ["server/routes/platform/route.ts"].map(readBackendFile);
+    const files = ["routes/platform/route.ts"].map(readBackendFile);
 
     for (const source of files) {
       expect(source).not.toContain("AT TIME ZONE 'UTC'");

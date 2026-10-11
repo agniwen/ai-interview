@@ -147,28 +147,7 @@ async function createQueuedSingleItemBatch() {
 async function cleanup() {
   // studio_interview FK refs resumeUploadBatchItem.resume_record_id → delete interview first.
   // 按 FK 顺序清理: interview → batch（items cascade）→ member → org → user
-  const batches = await db
-    .select({ id: recruitingUploadBatch.id })
-    .from(recruitingUploadBatch)
-    .where(eq(recruitingUploadBatch.organizationId, ORG_A));
-
-  // 先找所有 item 的 resumeRecordId，再删对应的 studio_interview。
-  // Find all interview IDs created by these batches before deleting.
-  for (const batch of batches) {
-    const items = await db
-      .select({ resumeRecordId: recruitingUploadBatchItem.recruitingRecordId })
-      .from(recruitingUploadBatchItem)
-      .where(eq(recruitingUploadBatchItem.batchId, batch.id));
-
-    for (const item of items) {
-      if (item.resumeRecordId) {
-        await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.id, item.resumeRecordId));
-      }
-    }
-  }
-
-  // 直接清理 org 下的 studio_interview（含 dedup 测试中手动插入的行）。
-  // Also clean any studio_interview rows directly under the org (e.g. pre-inserted dedup rows).
+  // Every record created by these batches (and the pre-inserted dedup rows) belongs to ORG_A.
   await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG_A));
   // Match pool rows by org/user/storage before deleting parents (SET NULL FKs).
   await deleteFixtureResumePoolItems({
@@ -215,9 +194,10 @@ beforeAll(async () => {
   });
 });
 
+// Cleanup spans many tables on a shared remote database; allow more than the default hook timeout.
 afterAll(async () => {
   await cleanup();
-});
+}, 60_000);
 
 beforeEach(() => {
   for (const dependency of Object.values(dependencies)) {
@@ -365,20 +345,8 @@ describe("processNextItem — happy path", () => {
     expect(dependencies.generateInterviewQuestionsForProfile.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({ name: "Test User" }),
     );
-    expect(
-      dependencies.generateInterviewQuestionsForProfile.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      dependencies.scheduleResumeEvaluationForRecord.mock.invocationCallOrder[0] ??
-        Number.POSITIVE_INFINITY,
-    );
-    expect(dependencies.scheduleResumeEvaluationForRecord).toHaveBeenCalledWith({
-      autoMatchJobDescription: false,
-      generationToken: beforeItem.id,
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      resumeRecordId: recordId,
-      source: "resume_upload",
-    });
+    // An explicitly unbound upload finishes without a job-specific evaluation.
+    expect(dependencies.scheduleResumeEvaluationForRecord).not.toHaveBeenCalled();
     expect(dependencies.enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: recordId,
@@ -532,15 +500,20 @@ describe("processNextItem — resume pool target", () => {
       organizationId: ORG_A,
       updatedAt: NOW,
     });
+    // Only published, actively recruiting jobs accept new candidates.
     await db.insert(jobDescription).values({
       createdAt: NOW,
       createdBy: USER_A,
       departmentId,
       description: "负责基础设施稳定性和运维体系建设",
+      evaluationMode: "qualitative",
       id: jobDescriptionId,
+      lifecycleStatus: "published",
       name: "运维总监",
       organizationId: ORG_A,
       prompt: "重点评估大规模运维、团队管理、稳定性治理经验",
+      publishedAt: NOW,
+      recruitingStatus: "active",
       updatedAt: NOW,
     });
     const batchId = await insertBatchWithItems({

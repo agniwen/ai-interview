@@ -15,7 +15,7 @@ import {
   jobDescriptionVersion,
   member,
   organization,
-  resumeEvaluationVersion,
+  recruitingResumeEvaluation,
   resumePoolEvent,
   resumePoolItem,
   recruitingJobMatchCandidate,
@@ -841,10 +841,11 @@ describe("POST /:id/import job association", () => {
       .select()
       .from(recruitingRecordReadModel)
       .where(eq(recruitingRecordReadModel.id, result.resumeRecordId));
+    // Evaluation history is served from recruiting_resume_evaluation.
     const history = await db
       .select()
-      .from(resumeEvaluationVersion)
-      .where(eq(resumeEvaluationVersion.resumeRecordId, result.resumeRecordId));
+      .from(recruitingResumeEvaluation)
+      .where(eq(recruitingResumeEvaluation.recruitingRecordId, result.resumeRecordId));
 
     expect(record).toMatchObject({
       qualitativeJobDescriptionVersionId: jobDescriptionVersionId,

@@ -1,6 +1,7 @@
 import { createRecruitingRecords } from "@app/recruiting/records";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { usesIsolatedTestDatabase } from "../../../../../../test-utils/isolated-database";
 import { startHumanInterviewDocumentSyncScheduler } from "../../adapters/document-sync-scheduler";
 import { syncHumanInterviewDocument } from "../../application/sync-human-interview-document";
 import type { HumanInterviewDocumentSyncJob } from "../../application/sync-human-interview-document";
@@ -85,7 +86,13 @@ async function notification(suffix: string, providerId: string, date: string) {
     updatedAt: new Date(date),
   });
 }
+// Lease claims and notification fan-out need exclusive rows; a running deployment on a shared
+// DATABASE_URL claims them too, so this suite only runs against the isolated test database.
+const isolatedDatabase = usesIsolatedTestDatabase();
 beforeAll(async () => {
+  if (!isolatedDatabase) {
+    return;
+  }
   await db
     .insert(user)
     .values({ email: `${actor}@example.com`, emailVerified: false, id: actor, name: "测试面试官" });
@@ -101,10 +108,13 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
+  if (!isolatedDatabase) {
+    return;
+  }
   await db.delete(organization).where(eq(organization.id, org));
   await db.delete(user).where(eq(user.id, actor));
 });
-describe("human interview document outbox", () => {
+describe.skipIf(!isolatedDatabase)("human interview document outbox", () => {
   it("maps custom round labels by business order, excluding cancelled rounds and CEO interviews", async () => {
     const id = await seed();
     const previous = [

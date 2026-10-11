@@ -6,6 +6,7 @@ import { db } from "../../../../../../infrastructure/db/index";
 import {
   recruitingNotificationEvent,
   recruitingNodeState,
+  recruitingRecord,
   aiInterviewConversation,
   member,
   organization,
@@ -116,6 +117,12 @@ afterAll(cleanup);
 
 describe("human interview round completion notifications", () => {
   it.each([null, "fail"] as const)("未筛选通过 %s 不能安排真人轮次", async (screeningResult) => {
+    // The screening gate applies when a human round is started directly from screening or
+    // the AI interview; a candidate already in second_interview has passed screening.
+    await db
+      .update(recruitingRecord)
+      .set({ currentStage: "ai_interview" })
+      .where(eq(recruitingRecord.id, CANDIDATE_ID));
     await db
       .update(recruitingNodeState)
       .set({ result: screeningResult, status: screeningResult ? "completed" : "pending" })
@@ -152,6 +159,10 @@ describe("human interview round completion notifications", () => {
           eq(recruitingNodeState.node, "screening"),
         ),
       );
+    await db
+      .update(recruitingRecord)
+      .set({ currentStage: "second_interview" })
+      .where(eq(recruitingRecord.id, CANDIDATE_ID));
   });
   it("仅在本轮完成后通知，只包含本轮评价而不包含历史真人轮次和 AI 报告", async () => {
     const previousFlag = process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED;

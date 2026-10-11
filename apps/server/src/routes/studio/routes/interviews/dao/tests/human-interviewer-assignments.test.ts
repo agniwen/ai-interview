@@ -259,7 +259,8 @@ describe("human interviewer assignment state", () => {
           eq(recruitingNotificationEvent.type, "human_interview_reminder"),
         ),
       );
-    expect(reminderEvents).toHaveLength(2);
+    // Human interviews keep only the one-hour reminder.
+    expect(reminderEvents).toHaveLength(1);
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "false";
   });
 

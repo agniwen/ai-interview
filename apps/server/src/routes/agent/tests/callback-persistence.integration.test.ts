@@ -50,13 +50,16 @@ function post(path: string, body: CheckpointPayload | ReportPayload) {
 
 const testUrl = process.env.RECRUITING_TEST_DATABASE_URL;
 describe.skipIf(!testUrl)("新招聘记录的 Agent 回调", () => {
-  if (
-    !testUrl ||
-    process.env.DATABASE_URL !== testUrl ||
-    !new URL(testUrl).pathname.includes("_test_")
-  ) {
-    throw new Error("必须显式配置隔离招聘测试库");
-  }
+  // Runs only when the suite is not skipped; a misconfigured isolated database still fails loudly.
+  beforeAll(() => {
+    if (
+      !testUrl ||
+      process.env.DATABASE_URL !== testUrl ||
+      !new URL(testUrl).pathname.includes("_test_")
+    ) {
+      throw new Error("必须显式配置隔离招聘测试库");
+    }
+  });
   const org = `callback-${crypto.randomUUID()}`;
   let recordId: string;
   const roundId = crypto.randomUUID();

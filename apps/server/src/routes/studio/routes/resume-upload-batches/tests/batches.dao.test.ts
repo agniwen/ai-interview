@@ -137,14 +137,19 @@ beforeAll(async () => {
     organizationId: ORG_A,
     updatedAt: NOW,
   });
+  // Only published, actively recruiting jobs accept new candidates.
   await db.insert(jobDescription).values({
     createdAt: NOW,
     createdBy: USER_A,
     departmentId: DEPARTMENT_A,
+    evaluationMode: "qualitative",
     id: REFERRAL_JD,
+    lifecycleStatus: "published",
     name: "内推前端工程师",
     organizationId: ORG_A,
     prompt: "负责前端开发。",
+    publishedAt: NOW,
+    recruitingStatus: "active",
     updatedAt: NOW,
   });
 });
