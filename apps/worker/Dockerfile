@@ -36,7 +36,7 @@ COPY packages packages
 
 # The regression test builds the same dist copied into the runtime image and
 # rejects workspace imports that cannot resolve without source packages.
-RUN bun run --filter @app/worker test src/production-build.test.ts
+RUN bun run --filter @app/worker test src/tests/production-build.test.ts
 RUN bun -e "const fs = require('node:fs'); const path = require('node:path'); const entry = require.resolve('mupdf', { paths: ['/repo/packages/resume-processing'] }); fs.copyFileSync(path.join(path.dirname(entry), 'mupdf-wasm.wasm'), '/repo/apps/worker/dist/mupdf-wasm.wasm');"
 
 # --- Production dependencies ---
