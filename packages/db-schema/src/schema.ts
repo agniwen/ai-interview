@@ -2706,7 +2706,7 @@ export const resumePoolItem = pgTable(
         AND ${table.qualitativeRecommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')
         AND ${table.qualitativeResumeSummary} IS NOT NULL
         AND ${table.qualitativeJobDescriptionVersionId} IS NOT NULL
-        AND ${table.resumeEvaluationContractVersion} = 'qualitative-v2'
+        AND ${table.resumeEvaluationContractVersion} IN ('qualitative-v2', 'qualitative-v3')
         AND ${table.resumeEvaluationGeneratedAt} IS NOT NULL
         AND ${table.resumeEvaluationInputHash} IS NOT NULL
       )`,
