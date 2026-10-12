@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { IconSparkles } from "@tabler/icons-react";
 import { describeResumeLibraryReviewCard } from "@app/shared/resume-review";
 import type { ResumeReviewActionTone } from "@app/shared/resume-review";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
 import {
-  QUALITATIVE_RECOMMENDATION_TONE_CLASS,
+  QUALITATIVE_RECOMMENDATION_VERDICT_TONE,
   STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS,
+  StudioListCardAiVerdictBadge,
   StudioListCardEvaluation,
   StudioListCardEvaluationFocus,
   StudioListCardEvaluationFocusSkeleton,
@@ -14,13 +14,7 @@ import {
 } from "@/components/features/studio/studio-list-card-evaluation";
 import { ResumeAiScoreHoverCard } from "./resume-ai-score-hover-card";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
-
-const REVIEW_ACTION_TONE_CLASS = {
-  danger: "text-rose-700 dark:text-rose-300",
-  muted: "text-muted-foreground",
-  success: "text-emerald-700 dark:text-emerald-300",
-  warning: "text-amber-700 dark:text-amber-300",
-} satisfies Record<ResumeReviewActionTone, string>;
+import type { StudioListCardVerdictTone } from "@/components/features/studio/studio-list-card-evaluation";
 
 interface StructuredReviewCardDescription {
   label: string;
@@ -124,6 +118,7 @@ function buildResumeReviewSummaryTitle(
 function renderEvaluationFocus(
   record: ResumeLibraryListRecord,
   artifactMode: ResumeLibraryListRecord["resumeEvaluationArtifactMode"],
+  muted: boolean,
 ): ReactNode {
   const isGenerating =
     record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing";
@@ -131,20 +126,19 @@ function renderEvaluationFocus(
   if (isGenerating && !(level && record.qualitativeResumeFocus)) {
     return <StudioListCardEvaluationFocusSkeleton />;
   }
-  return level ? <StudioListCardEvaluationFocus focus={record.qualitativeResumeFocus} /> : null;
+  return level ? (
+    <StudioListCardEvaluationFocus focus={record.qualitativeResumeFocus} muted={muted} />
+  ) : null;
 }
 
-export function ResumeLibraryEvaluationSummary({
-  className,
-  onOpenDetail,
-  record,
-  summary,
-}: {
-  className?: string;
-  onOpenDetail: ResumeLibraryCardProps["onOpenDetail"];
-  record: ResumeLibraryListRecord;
-  summary: string | null;
-}) {
+const REVIEW_ACTION_VERDICT_TONE = {
+  danger: "danger",
+  muted: "muted",
+  success: "success",
+  warning: "warning",
+} satisfies Record<ResumeReviewActionTone, StudioListCardVerdictTone>;
+
+function describeResumeLibraryReview(record: ResumeLibraryListRecord) {
   const artifactMode = record.resumeEvaluationArtifactMode ?? record.jobEvaluationMode;
   const hasRetainedLegacyReview =
     artifactMode === "legacy" && record.resumeReviewBaseScore !== null;
@@ -168,31 +162,61 @@ export function ResumeLibraryEvaluationSummary({
     hasAiScoreDetail = record.structuredCompositeScore !== null;
   }
   const replacementAttemptLabel = resumeReplacementAttemptLabel(record, artifactMode);
+  const tone =
+    artifactMode === "qualitative" && record.qualitativeRecommendationLevel
+      ? QUALITATIVE_RECOMMENDATION_VERDICT_TONE[record.qualitativeRecommendationLevel]
+      : REVIEW_ACTION_VERDICT_TONE[reviewCard.tone];
+  return { artifactMode, hasAiScoreDetail, replacementAttemptLabel, reviewCard, tone };
+}
+
+/** 标题行的 AI 结论徽标：等级 / 评分结论，重评中时追加状态。 */
+export function ResumeLibraryReviewBadge({
+  muted,
+  record,
+}: {
+  muted?: boolean;
+  record: ResumeLibraryListRecord;
+}) {
+  if (record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing") {
+    return null;
+  }
+  const { replacementAttemptLabel, reviewCard, tone } = describeResumeLibraryReview(record);
+  return (
+    <StudioListCardAiVerdictBadge
+      label={
+        replacementAttemptLabel
+          ? `${reviewCard.label} · ${replacementAttemptLabel}`
+          : reviewCard.label
+      }
+      muted={muted}
+      tone={tone}
+    />
+  );
+}
+
+export function ResumeLibraryEvaluationSummary({
+  className,
+  muted = false,
+  onOpenDetail,
+  record,
+  summary,
+}: {
+  className?: string;
+  muted?: boolean;
+  onOpenDetail: ResumeLibraryCardProps["onOpenDetail"];
+  record: ResumeLibraryListRecord;
+  summary: string | null;
+}) {
+  const { artifactMode, hasAiScoreDetail, replacementAttemptLabel, reviewCard } =
+    describeResumeLibraryReview(record);
   const reviewSummaryTitle = buildResumeReviewSummaryTitle(
     reviewCard.label,
     replacementAttemptLabel,
     summary,
   );
-  const reviewToneClass =
-    artifactMode === "qualitative" && record.qualitativeRecommendationLevel
-      ? QUALITATIVE_RECOMMENDATION_TONE_CLASS[record.qualitativeRecommendationLevel]
-      : REVIEW_ACTION_TONE_CLASS[reviewCard.tone];
-  const reviewLabel = (
-    <span className={cn("font-medium", reviewToneClass)}>{reviewCard.label}</span>
-  );
-  const summaryContent = (
-    <>
-      <IconSparkles
-        aria-hidden
-        className={cn("mr-1 inline size-3.5 align-[-2px]", reviewToneClass)}
-      />
-      {reviewLabel}
-      {replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : null}
-      {summary ? ` ${summary}` : null}
-    </>
-  );
+  const summaryContent = summary || <span className="text-muted-foreground">暂无 AI 评语</span>;
 
-  const focus = renderEvaluationFocus(record, artifactMode);
+  const focus = renderEvaluationFocus(record, artifactMode, muted);
 
   if (record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing") {
     return <StudioListCardEvaluationSkeleton />;

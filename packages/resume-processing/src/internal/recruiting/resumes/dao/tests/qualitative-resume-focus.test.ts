@@ -52,41 +52,49 @@ const current: QualitativeResumeEvaluationV3 = {
   schemaVersion: 3,
 };
 
+function point(label: string) {
+  return {
+    content: `${label}结论。`,
+    jobRequirement: `${label}要求`,
+    point: label,
+    resumeEvidence: `${label}证据`,
+  };
+}
+
 describe("selectQualitativeResumeFocus", () => {
-  it("excerpts structured matching points for recommended results", () => {
+  it("excerpts only matching points for recommended results", () => {
     expect(selectQualitativeResumeFocus(current)).toEqual({
       format: "points",
-      items: [
-        {
-          content: "主导微前端改造。",
-          jobRequirement: "具备大型前端架构设计经验",
-          point: "架构设计",
-          resumeEvidence: "主导微前端改造",
-        },
-        {
-          content: "首屏性能提升明显。",
-          jobRequirement: "熟悉前端性能优化",
-          point: "性能优化",
-          resumeEvidence: "首屏降至 1.4 秒",
-        },
-      ],
-      kind: "matching",
+      items: current.detailedOverall.matchingEvidence.map((item) => ({
+        ...item,
+        kind: "matching",
+      })),
     });
   });
 
-  it("excerpts structured risks for undecided results", () => {
-    expect(selectQualitativeResumeFocus({ ...current, recommendationLevel: "undecided" })).toEqual({
-      format: "points",
-      items: [
-        {
-          content: "简历未体现团队管理经历，需面试确认。",
-          jobRequirement: "带领 5 人以上前端团队",
-          point: "团队管理",
-          resumeEvidence: null,
-        },
-      ],
-      kind: "risk",
+  it("excerpts only risks for undecided and not recommended results", () => {
+    for (const recommendationLevel of ["undecided", "not_recommended"] as const) {
+      expect(selectQualitativeResumeFocus({ ...current, recommendationLevel })).toEqual({
+        format: "points",
+        items: [{ ...current.detailedOverall.risks[0], kind: "risk" }],
+      });
+    }
+  });
+
+  it("caps the excerpt at four points", () => {
+    const focus = selectQualitativeResumeFocus({
+      ...current,
+      detailedOverall: {
+        ...current.detailedOverall,
+        matchingEvidence: ["一", "二", "三", "四", "五"].map((label) => point(label)),
+      },
     });
+    expect(focus?.format === "points" ? focus.items.map((item) => item.point) : null).toEqual([
+      "一",
+      "二",
+      "三",
+      "四",
+    ]);
   });
 
   it("keeps historical Markdown sections", () => {

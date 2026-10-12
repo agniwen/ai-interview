@@ -13,16 +13,19 @@ const POINT_META = {
 
 /** 左栏固定宽度，让各条要点的 Badge 与正文上下对齐。 */
 export const QUALITATIVE_POINT_GRID_CLASS =
-  "grid min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] items-start gap-x-4";
+  "grid min-w-0 grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)] items-start gap-x-3 sm:grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] sm:gap-x-4";
 
 /** 要求点标签：复用原子 Badge，匹配为绿色点赞，风险为琥珀色提示。 */
 export function QualitativeEvaluationPointBadge({
   className,
   kind,
+  muted = false,
   point,
 }: {
   className?: string;
   kind: QualitativeEvaluationPointKind;
+  /** 已淘汰候选人等非活跃记录：保留图标区分匹配 / 风险，颜色退为灰色。 */
+  muted?: boolean;
   point: string;
 }) {
   const meta = POINT_META[kind];
@@ -31,7 +34,7 @@ export function QualitativeEvaluationPointBadge({
     <Badge
       className={cn("max-w-full justify-self-start", className)}
       title={point}
-      variant={meta.variant}
+      variant={muted ? "default" : meta.variant}
     >
       <Icon aria-hidden="true" />
       <span className="truncate">{point}</span>

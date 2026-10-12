@@ -28,7 +28,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { fetchStudioResumeReview } from "@/lib/client/api";
+import { fetchResumePoolItem, fetchStudioResumeReview } from "@/lib/client/api";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface ScoredEvaluationPreview {
@@ -313,6 +313,83 @@ export interface ResumeAiScoreDependencies {
   slug: string | null;
 }
 
+/** 评语悬停浮层外壳：招聘台与人才库共用同一触发样式、尺寸和加载 / 失败状态。 */
+function EvaluationPreviewHoverCard({
+  children,
+  className,
+  isError,
+  isMissing,
+  isPending,
+  onClick,
+  onOpenChange,
+  open,
+  preview,
+  renderQualitativeRadar,
+  renderRadar,
+}: {
+  children: ReactNode;
+  className?: string;
+  isError: boolean;
+  isMissing: boolean;
+  isPending: boolean;
+  onClick?: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  preview: EvaluationPreview | null;
+  renderQualitativeRadar: ResumeAiScoreDependencies["renderQualitativeRadar"];
+  renderRadar: ResumeAiScoreDependencies["renderRadar"];
+}) {
+  return (
+    <HoverCard onOpenChange={onOpenChange} open={open}>
+      <HoverCardTrigger
+        render={
+          <button
+            className={cn(
+              "text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40 focus-visible:decoration-foreground/40 focus-visible:outline-none",
+              className,
+            )}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (onClick) {
+                onClick();
+              } else {
+                onOpenChange(true);
+              }
+            }}
+            type="button"
+          >
+            {children}
+          </button>
+        }
+      />
+      <HoverCardContent
+        align="start"
+        className="w-[56rem] max-w-[calc(100vw-1.5rem)] overflow-hidden p-0"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        sideOffset={8}
+      >
+        {isPending || preview ? (
+          <SkeletonReveal loading={isPending} skeleton={<AiScorePreviewSkeleton />}>
+            {preview?.kind === "qualitative" ? (
+              <QualitativePreviewContent preview={preview} renderRadar={renderQualitativeRadar} />
+            ) : null}
+            {preview?.kind === "scored" ? (
+              <AiScorePreviewContent preview={preview} renderRadar={renderRadar} />
+            ) : null}
+          </SkeletonReveal>
+        ) : null}
+        {isError || isMissing ? (
+          <p className="p-4 text-destructive text-sm">AI评分详情加载失败，请稍后重试。</p>
+        ) : null}
+        {isPending || isError || isMissing || preview ? null : (
+          <p className="p-4 text-muted-foreground text-sm">暂无 AI评分详情。</p>
+        )}
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 export function ResumeAiScoreHoverCardView({
   children,
   className,
@@ -342,53 +419,79 @@ export function ResumeAiScoreHoverCardView({
   }
 
   return (
-    <HoverCard onOpenChange={setOpen} open={open}>
-      <HoverCardTrigger
-        render={
-          <button
-            className={cn(
-              "text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40 focus-visible:decoration-foreground/40 focus-visible:outline-none",
-              className,
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (onClick) {
-                onClick();
-              } else {
-                setOpen(true);
-              }
-            }}
-            type="button"
-          >
-            {children}
-          </button>
-        }
-      />
-      <HoverCardContent
-        align="start"
-        className="w-[56rem] max-w-[calc(100vw-1.5rem)] overflow-hidden p-0"
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-        sideOffset={8}
-      >
-        {detailQuery.isPending || preview ? (
-          <SkeletonReveal loading={detailQuery.isPending} skeleton={<AiScorePreviewSkeleton />}>
-            {preview?.kind === "qualitative" ? (
-              <QualitativePreviewContent preview={preview} renderRadar={renderQualitativeRadar} />
-            ) : null}
-            {preview?.kind === "scored" ? (
-              <AiScorePreviewContent preview={preview} renderRadar={renderRadar} />
-            ) : null}
-          </SkeletonReveal>
-        ) : null}
-        {detailQuery.isError || detailQuery.data === null ? (
-          <p className="p-4 text-destructive text-sm">AI评分详情加载失败，请稍后重试。</p>
-        ) : null}
-        {detailQuery.data && !preview ? (
-          <p className="p-4 text-muted-foreground text-sm">暂无 AI评分详情。</p>
-        ) : null}
-      </HoverCardContent>
-    </HoverCard>
+    <EvaluationPreviewHoverCard
+      className={className}
+      isError={detailQuery.isError}
+      isMissing={detailQuery.data === null}
+      isPending={detailQuery.isPending}
+      onClick={onClick}
+      onOpenChange={setOpen}
+      open={open}
+      preview={preview}
+      renderQualitativeRadar={renderQualitativeRadar}
+      renderRadar={renderRadar}
+    >
+      {children}
+    </EvaluationPreviewHoverCard>
+  );
+}
+
+function renderCompactQualitativeRadar(evaluation: QualitativeResumeEvaluation) {
+  return <QualitativeDimensionRadar compact evaluation={evaluation} />;
+}
+
+function renderCompactRadar(dimensions: ReviewDimensionDisplay[]) {
+  return <OverviewDimensionRadar compact dimensions={dimensions} showTooltip={false} />;
+}
+
+/** 人才库卡片评语：与招聘台相同的 AI 六维评价浮层，数据复用人才详情查询缓存。 */
+export function ResumePoolAiEvaluationHoverCard({
+  children,
+  className,
+  onClick,
+  recordId,
+}: {
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+  recordId: string;
+}) {
+  const slug = useOptionalWorkspaceSlug();
+  const [open, setOpen] = useState(false);
+  const detailQuery = useQuery({
+    enabled: open && Boolean(slug),
+    queryFn: () => fetchResumePoolItem(slug ?? "", recordId),
+    queryKey: ["resume-pool", "detail", slug, recordId] as const,
+    staleTime: 30_000,
+  });
+  const detail = detailQuery.data;
+  const preview: EvaluationPreview | null = detail?.qualitativeResumeEvaluation
+    ? {
+        candidateName: detail.candidateName,
+        evaluation: detail.qualitativeResumeEvaluation,
+        kind: "qualitative",
+      }
+    : null;
+
+  if (!slug) {
+    return <span className={className}>{children}</span>;
+  }
+
+  return (
+    <EvaluationPreviewHoverCard
+      className={className}
+      isError={detailQuery.isError}
+      isMissing={detailQuery.data === null}
+      isPending={detailQuery.isPending}
+      onClick={onClick}
+      onOpenChange={setOpen}
+      open={open}
+      preview={preview}
+      renderQualitativeRadar={renderCompactQualitativeRadar}
+      renderRadar={renderCompactRadar}
+    >
+      {children}
+    </EvaluationPreviewHoverCard>
   );
 }
 
@@ -409,12 +512,8 @@ export function ResumeAiScoreHoverCard({
       className={className}
       dependencies={{
         fetchReview: fetchStudioResumeReview,
-        renderQualitativeRadar: (evaluation) => (
-          <QualitativeDimensionRadar compact evaluation={evaluation} />
-        ),
-        renderRadar: (dimensions) => (
-          <OverviewDimensionRadar compact dimensions={dimensions} showTooltip={false} />
-        ),
+        renderQualitativeRadar: renderCompactQualitativeRadar,
+        renderRadar: renderCompactRadar,
         slug,
       }}
       onClick={onClick}

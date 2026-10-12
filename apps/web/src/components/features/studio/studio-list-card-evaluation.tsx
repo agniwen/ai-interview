@@ -10,6 +10,7 @@ import {
   QUALITATIVE_POINT_GRID_CLASS,
   QualitativeEvaluationPointBadge,
 } from "@/components/features/resume/qualitative-evaluation-points";
+import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -20,12 +21,61 @@ export const QUALITATIVE_RECOMMENDATION_LABEL = {
   undecided: "待定",
 } satisfies Record<QualitativeRecommendationLevel, string>;
 
-export const QUALITATIVE_RECOMMENDATION_TONE_CLASS = {
-  highly_recommended: "text-purple-700 dark:text-purple-300",
-  not_recommended: "text-red-700 dark:text-red-300",
-  recommended: "text-green-700 dark:text-green-300",
-  undecided: "text-yellow-700 dark:text-yellow-300",
-} satisfies Record<QualitativeRecommendationLevel, string>;
+export type StudioListCardVerdictTone = "danger" | "highlight" | "muted" | "success" | "warning";
+
+/** AI 结论徽标配色：非常推荐用紫色强调，其余沿用语义色；与“AI 初面”阶段徽标的紫色同源。 */
+const VERDICT_BADGE_CLASS = {
+  danger: "",
+  highlight:
+    "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-400/30 dark:bg-violet-400/15 dark:text-violet-300",
+  muted: "",
+  success: "",
+  warning: "",
+} satisfies Record<StudioListCardVerdictTone, string>;
+
+const VERDICT_BADGE_VARIANT = {
+  danger: "danger",
+  highlight: "default",
+  muted: "default",
+  success: "success",
+  warning: "warning",
+} as const satisfies Record<StudioListCardVerdictTone, string>;
+
+export const QUALITATIVE_RECOMMENDATION_VERDICT_TONE = {
+  highly_recommended: "highlight",
+  not_recommended: "danger",
+  recommended: "success",
+  undecided: "warning",
+} satisfies Record<QualitativeRecommendationLevel, StudioListCardVerdictTone>;
+
+/**
+ * 标题行里的 AI 结论徽标：扫读列表时第一眼看到“AI 怎么看”，评语行只保留结论文字。
+ * 仅为建议，不代表招聘决策。
+ */
+export function StudioListCardAiVerdictBadge({
+  label,
+  muted = false,
+  tone,
+}: {
+  label: string;
+  /** 已淘汰等非活跃记录：徽标改为灰色。 */
+  muted?: boolean;
+  tone: StudioListCardVerdictTone;
+}) {
+  const effectiveTone = muted ? "muted" : tone;
+  return (
+    <Badge
+      className={cn("shrink-0", VERDICT_BADGE_CLASS[effectiveTone])}
+      data-slot="studio-list-card-ai-verdict"
+      title={`AI 评价：${label}`}
+      variant={VERDICT_BADGE_VARIANT[effectiveTone]}
+    >
+      <IconSparkles aria-hidden />
+      <span className="sr-only">AI 评价：</span>
+      {label}
+    </Badge>
+  );
+}
 
 /** 卡片 hover 背景与骨架同色，hover 时加深骨架，保证占位仍可见。 */
 const CARD_SKELETON_HOVER_CLASS = "group-hover/list-card:bg-foreground/10";
@@ -33,22 +83,6 @@ const CARD_SKELETON_HOVER_CLASS = "group-hover/list-card:bg-foreground/10";
 /** 列表卡片的评价文本统一两行截断，行高固定，便于虚拟列表使用固定行高。 */
 export const STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS =
   "line-clamp-2 text-[13px] text-foreground leading-[19px] wrap-break-word";
-
-export function StudioListCardRecommendationLabel({
-  level,
-}: {
-  level: QualitativeRecommendationLevel;
-}) {
-  const toneClass = QUALITATIVE_RECOMMENDATION_TONE_CLASS[level];
-  return (
-    <>
-      <IconSparkles aria-hidden className={cn("mr-1 inline size-3.5 align-[-2px]", toneClass)} />
-      <span className={cn("font-medium", toneClass)}>
-        {QUALITATIVE_RECOMMENDATION_LABEL[level]}
-      </span>
-    </>
-  );
-}
 
 /**
  * 摘录区固定高度：最多 4 条要点，每条最多两行（19px × 2），条间距 12px → 4 × 38 + 3 × 12 = 188px。
@@ -61,17 +95,23 @@ type FocusPoints = Extract<QualitativeResumeFocus, { format: "points" }>;
 
 function StudioListCardFocusPoint({
   item,
-  kind,
+  muted,
 }: {
   item: FocusPoints["items"][number];
-  kind: FocusPoints["kind"];
+  muted: boolean;
 }) {
+  const { kind } = item;
   return (
     <HoverCard>
       <HoverCardTrigger
         render={
           <li className={cn(QUALITATIVE_POINT_GRID_CLASS, "group/focus-point rounded-sm")}>
-            <QualitativeEvaluationPointBadge className="py-0.5" kind={kind} point={item.point} />
+            <QualitativeEvaluationPointBadge
+              className="py-0.5"
+              kind={kind}
+              muted={muted}
+              point={item.point}
+            />
             <p className="line-clamp-2 min-w-0 wrap-break-word underline decoration-transparent underline-offset-2 transition-colors group-hover/focus-point:decoration-foreground/40">
               {item.content}
             </p>
@@ -97,14 +137,17 @@ function StudioListCardFocusPoint({
 }
 
 /**
- * 评语下方的评价摘录：推荐 / 非常推荐为匹配依据，待定 / 不推荐为风险与待确认项（服务端已按等级选好）。
- * V3 为“左栏要求点 Badge + 右栏结论”的两栏列表，最多 4 条、每条两行，悬停展示完整要点；
+ * 评语下方的评价摘录：V3 为“匹配依据在前、风险与待确认项在后”的平衡要点（服务端已选好，最多 4 条），
+ * 左栏要求点 Badge 区分匹配 / 风险，右栏结论每条两行，悬停展示完整要点；
  * 旧版按受限 Markdown 渲染并在底部渐隐。
  */
 export const StudioListCardEvaluationFocus = memo(function StudioListCardEvaluationFocus({
   focus,
+  muted = false,
 }: {
   focus: QualitativeResumeFocus | null;
+  /** 已淘汰等非活跃记录：要点徽标改为灰色。 */
+  muted?: boolean;
 }) {
   if (!focus || (focus.format === "points" ? focus.items.length === 0 : !focus.text.trim())) {
     return null;
@@ -119,7 +162,11 @@ export const StudioListCardEvaluationFocus = memo(function StudioListCardEvaluat
         data-slot="studio-list-card-evaluation-focus"
       >
         {focus.items.slice(0, STUDIO_LIST_CARD_FOCUS_MAX_POINTS).map((item, index) => (
-          <StudioListCardFocusPoint item={item} key={`${index}-${item.point}`} kind={focus.kind} />
+          <StudioListCardFocusPoint
+            item={item}
+            key={`${index}-${item.kind}-${item.point}`}
+            muted={muted}
+          />
         ))}
       </ul>
     );
@@ -216,20 +263,18 @@ export function StudioListCardEvaluationSkeleton() {
   );
 }
 
-/** 宽屏右侧经历栏在解析中的占位，与正式栏位同宽同间距。 */
+/** 宽屏右侧经历栏在解析中的占位，放在经历栏单元格内，与正式内容同宽。 */
 export function StudioListCardProfileSnapshotSkeleton() {
   return (
     <div
       aria-hidden
-      className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 xl:block"
+      className="grid min-w-0 gap-1"
       data-slot="studio-list-card-profile-snapshot-skeleton"
     >
-      <div className="grid min-w-0 gap-1">
-        <Skeleton className={cn("my-1 h-4 w-full", CARD_SKELETON_HOVER_CLASS)} />
-        <Skeleton className={cn("my-1 h-4 w-4/5", CARD_SKELETON_HOVER_CLASS)} />
-        <div className="my-0.5 border-border/60 border-t" />
-        <Skeleton className={cn("my-1 h-4 w-3/4", CARD_SKELETON_HOVER_CLASS)} />
-      </div>
+      <Skeleton className={cn("my-1 h-4 w-full", CARD_SKELETON_HOVER_CLASS)} />
+      <Skeleton className={cn("my-1 h-4 w-4/5", CARD_SKELETON_HOVER_CLASS)} />
+      <div className="my-0.5 border-border/60 border-t" />
+      <Skeleton className={cn("my-1 h-4 w-3/4", CARD_SKELETON_HOVER_CLASS)} />
     </div>
   );
 }

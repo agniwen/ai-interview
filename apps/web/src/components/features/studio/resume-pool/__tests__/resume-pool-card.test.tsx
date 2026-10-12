@@ -649,12 +649,12 @@ describe("ResumePoolCard", () => {
   });
 
   it("uses fixed virtual-row heights for every responsive breakpoint", () => {
-    expect(getResumePoolCardHeight(390)).toBe(530);
-    expect(getResumePoolCardHeight(640)).toBe(486);
-    expect(getResumePoolCardHeight(768)).toBe(486);
-    expect(getResumePoolCardHeight(1024)).toBe(420);
-    expect(getResumePoolCardHeight(1280)).toBe(420);
-    expect(getResumePoolCardHeight(1536)).toBe(420);
+    expect(getResumePoolCardHeight(390)).toBe(418);
+    expect(getResumePoolCardHeight(640)).toBe(418);
+    expect(getResumePoolCardHeight(768)).toBe(502);
+    expect(getResumePoolCardHeight(1024)).toBe(502);
+    expect(getResumePoolCardHeight(1280)).toBe(368);
+    expect(getResumePoolCardHeight(1536)).toBe(368);
   });
 
   it("labels mail-ingested resumes as an email scan", () => {

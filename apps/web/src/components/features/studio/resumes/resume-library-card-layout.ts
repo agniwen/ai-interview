@@ -1,15 +1,14 @@
-/** 各断点下带评价摘录（评语两行 + 4 条两行要点）卡片的实测最大高度，含底部常驻操作行与行内上下 6px 间距。 */
+/** 卡片按固定槽位排版（见 studio-list-card-profile），各断点高度由布局决定，含行内上下 6px 间距。 */
 const RESUME_LIBRARY_CARD_HEIGHTS = {
-  base: 520,
-  lg: 446,
-  md: 462,
-  sm: 462,
-  xl: 416,
-  xxl: 416,
+  base: 418,
+  lg: 502,
+  md: 502,
+  sm: 418,
+  xl: 368,
+  xxl: 368,
 } as const;
 
-export const RESUME_LIBRARY_CARD_SKELETON_ROW_CLASS =
-  "h-[520px] py-1.5 sm:h-[462px] md:h-[462px] lg:h-[446px] xl:h-[416px] 2xl:h-[416px]";
+export const RESUME_LIBRARY_CARD_SKELETON_ROW_CLASS = "h-[418px] py-1.5 md:h-[502px] xl:h-[368px]";
 
 export function getResumeLibraryCardHeight(viewportWidth: number) {
   if (viewportWidth >= 1536) {

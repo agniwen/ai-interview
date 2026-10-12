@@ -6,8 +6,8 @@ import {
   StudioListCardEvaluationSkeleton,
 } from "../studio-list-card-evaluation";
 
-function point(name: string, content: string) {
-  return { content, jobRequirement: `${name}相关要求`, point: name, resumeEvidence: null };
+function point(name: string, content: string, kind: "matching" | "risk" = "matching") {
+  return { content, jobRequirement: `${name}相关要求`, kind, point: name, resumeEvidence: null };
 }
 
 describe("StudioListCardEvaluationFocus", () => {
@@ -27,7 +27,7 @@ describe("StudioListCardEvaluationFocus", () => {
     ).toBe("");
     expect(
       renderToStaticMarkup(
-        <StudioListCardEvaluationFocus focus={{ format: "points", items: [], kind: "risk" }} />,
+        <StudioListCardEvaluationFocus focus={{ format: "points", items: [] }} />,
       ),
     ).toBe("");
   });
@@ -40,11 +40,10 @@ describe("StudioListCardEvaluationFocus", () => {
           items: [
             point("早期投资经验", "主导完成 10 个投资项目。"),
             point("海外背景", "具备海外学习经历。"),
-            point("行业理解", "熟悉 AI 应用方向。"),
-            point("项目源", "有稳定的项目渠道。"),
-            point("第五条", "不应在卡片中展示。"),
+            point("行业理解", "缺少 AI 应用方向经验。", "risk"),
+            point("项目源", "项目渠道待确认。", "risk"),
+            point("第五条", "不应在卡片中展示。", "risk"),
           ],
-          kind: "matching",
         }}
       />,
     );

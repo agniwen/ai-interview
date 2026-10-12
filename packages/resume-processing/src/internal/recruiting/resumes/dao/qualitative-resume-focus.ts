@@ -13,29 +13,22 @@ import type { QualitativeResumeFocus } from "@app/shared/qualitative-resume-focu
 export const QUALITATIVE_RESUME_FOCUS_MAX_LENGTH = 400;
 /** 卡片最多展示 4 条要点（每条两行），摘录区高度因此固定，虚拟列表行高可确定。 */
 export const QUALITATIVE_RESUME_FOCUS_MAX_POINTS = 4;
-
 const MATCHING_EVIDENCE_LEVELS = [
   "recommended",
   "highly_recommended",
 ] as const satisfies readonly QualitativeRecommendationLevel[];
 
-function formatFocus(
-  section: QualitativeEvaluationSection,
-  kind: "matching" | "risk",
-): QualitativeResumeFocus {
-  if (!Array.isArray(section)) {
-    return { format: "markdown", text: section.slice(0, QUALITATIVE_RESUME_FOCUS_MAX_LENGTH) };
-  }
-  return {
-    format: "points",
-    items: section.slice(0, QUALITATIVE_RESUME_FOCUS_MAX_POINTS).map((item) => ({
-      content: item.content,
-      jobRequirement: item.jobRequirement,
-      point: item.point,
-      resumeEvidence: item.resumeEvidence,
-    })),
+type FocusPointKind = "matching" | "risk";
+type QualitativeEvaluationPoints = Exclude<QualitativeEvaluationSection, string>;
+
+function focusPoints(section: QualitativeEvaluationPoints, kind: FocusPointKind, count: number) {
+  return section.slice(0, count).map((item) => ({
+    content: item.content,
+    jobRequirement: item.jobRequirement,
     kind,
-  };
+    point: item.point,
+    resumeEvidence: item.resumeEvidence,
+  }));
 }
 
 /** 驱动可能返回已解析的 jsonb 对象或 JSON 文本，两种都在此校验。 */
@@ -62,7 +55,8 @@ function parseFocus(value: unknown): QualitativeResumeFocus | null {
 }
 
 /**
- * 推荐 / 非常推荐取“匹配依据”，待定 / 不推荐取“风险与待确认项”。
+ * 卡片评语下方的摘录：推荐 / 非常推荐取“匹配依据”，待定 / 不推荐取“风险与待确认项”，最多 4 条；
+ * V3 为带类型的结构化要点，V1/V2 为截断的 Markdown。
  * Picks the evaluation excerpt a list card shows under the overall summary.
  */
 export function qualitativeResumeFocusSql(
@@ -70,19 +64,19 @@ export function qualitativeResumeFocusSql(
 ): SQL<QualitativeResumeFocus | null> {
   const levels = sql.raw(MATCHING_EVIDENCE_LEVELS.map((level) => `'${level}'`).join(", "));
   const isMatchingEvidence = sql`(${evaluation}->>'recommendationLevel' in (${levels}))`;
-  const section = sql`(case
-    when ${isMatchingEvidence} then ${evaluation}->'detailedOverall'->'matchingEvidence'
-    else ${evaluation}->'detailedOverall'->'risks'
-  end)`;
+  const matching = sql`(${evaluation}->'detailedOverall'->'matchingEvidence')`;
+  const risks = sql`(${evaluation}->'detailedOverall'->'risks')`;
+  const section = sql`(case when ${isMatchingEvidence} then ${matching} else ${risks} end)`;
+  const kind = sql`(case when ${isMatchingEvidence} then 'matching' else 'risk' end)`;
   return sql<QualitativeResumeFocus | null>`case
     when jsonb_typeof(${section}) = 'array' then jsonb_build_object(
       'format', 'points',
-      'kind', case when ${isMatchingEvidence} then 'matching' else 'risk' end,
       'items', coalesce((
         select jsonb_agg(
           jsonb_build_object(
             'content', item.value->>'content',
             'jobRequirement', item.value->>'jobRequirement',
+            'kind', ${kind},
             'point', item.value->>'point',
             'resumeEvidence', item.value->>'resumeEvidence'
           )
@@ -108,7 +102,18 @@ export function selectQualitativeResumeFocus(
   const isMatchingEvidence = MATCHING_EVIDENCE_LEVELS.some(
     (level) => level === evaluation.recommendationLevel,
   );
-  return isMatchingEvidence
-    ? formatFocus(evaluation.detailedOverall.matchingEvidence, "matching")
-    : formatFocus(evaluation.detailedOverall.risks, "risk");
+  const section = isMatchingEvidence
+    ? evaluation.detailedOverall.matchingEvidence
+    : evaluation.detailedOverall.risks;
+  if (!Array.isArray(section)) {
+    return { format: "markdown", text: section.slice(0, QUALITATIVE_RESUME_FOCUS_MAX_LENGTH) };
+  }
+  return {
+    format: "points",
+    items: focusPoints(
+      section,
+      isMatchingEvidence ? "matching" : "risk",
+      QUALITATIVE_RESUME_FOCUS_MAX_POINTS,
+    ),
+  };
 }

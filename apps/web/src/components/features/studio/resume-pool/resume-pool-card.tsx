@@ -10,6 +10,7 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@app/shared/resume-pool";
+import { cn } from "@app/shared/utils";
 import { useSyncExternalStore } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
@@ -28,8 +29,20 @@ import {
   StudioListCardEvaluationFocus,
   StudioListCardEvaluationSkeleton,
   StudioListCardProfileSnapshotSkeleton,
-  StudioListCardRecommendationLabel,
+  QUALITATIVE_RECOMMENDATION_VERDICT_TONE,
+  StudioListCardAiVerdictBadge,
 } from "@/components/features/studio/studio-list-card-evaluation";
+import {
+  STUDIO_LIST_CARD_ACTIONS_CELL_CLASS,
+  STUDIO_LIST_CARD_BODY_GRID_CLASS,
+  STUDIO_LIST_CARD_META_ROW_CLASS,
+  STUDIO_LIST_CARD_NAME_CLASS,
+  STUDIO_LIST_CARD_PROFILE_CELL_CLASS,
+  STUDIO_LIST_CARD_TITLE_ROW_CLASS,
+  StudioListCardProfileColumn,
+  StudioListCardProfileStrip,
+  StudioListCardProfileStripSkeleton,
+} from "@/components/features/studio/studio-list-card-profile";
 
 import {
   getCandidateTitle,
@@ -42,20 +55,20 @@ import {
   uploaderMetaSegments,
 } from "./resume-pool-page-model";
 import { ResumePoolJobBindingMenu } from "./resume-pool-job-binding-menu";
+import { ResumePoolAiEvaluationHoverCard } from "@/components/features/studio/resumes/resume-ai-score-hover-card";
 
-/** 评价摘录区为固定 188px（最多 4 条两行要点），加上底部常驻操作行，各断点行高随之确定。 */
+/** 卡片按固定槽位排版（见 studio-list-card-profile），各断点高度由布局决定，与招聘台一致。 */
 const RESUME_POOL_CARD_HEIGHTS = {
-  base: 530,
-  lg: 420,
-  md: 486,
-  sm: 486,
-  xl: 420,
-  xxl: 420,
+  base: 418,
+  lg: 502,
+  md: 502,
+  sm: 418,
+  xl: 368,
+  xxl: 368,
 } as const;
 const RESUME_POOL_CARD_MEDIA_QUERIES = [640, 768, 1024, 1280, 1536].map(
   (width) => `(min-width: ${width}px)`,
 );
-type ResumePoolProfileSnapshotLine = ResumePoolListRecord["resumeProfileSnapshot"]["work"][number];
 
 export function getResumePoolCardHeight(viewportWidth: number) {
   if (viewportWidth >= 1536) {
@@ -141,9 +154,14 @@ function ResumePoolCardMeta({
   valueContent?: ReactNode;
 }) {
   return (
-    <span className="flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-      <span className="shrink-0 text-muted-foreground">{icon}</span>
-      <span className="shrink-0">{label}</span>
+    <span
+      className="flex h-6 min-w-0 shrink items-center gap-1.5 text-muted-foreground text-xs"
+      title={`${label}：${value}`}
+    >
+      <span aria-hidden className="shrink-0 text-muted-foreground">
+        {icon}
+      </span>
+      <span className="sr-only shrink-0 2xl:not-sr-only">{label}</span>
       <span className="min-w-0 truncate text-foreground" title={value}>
         {valueContent ?? value}
       </span>
@@ -156,7 +174,7 @@ function ResumePoolUploaderMeta({ record }: { record: ResumePoolListRecord }) {
   const segments = uploaderMetaSegments(record);
 
   return (
-    <span className="flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+    <span className="hidden h-6 min-w-0 shrink items-center gap-1.5 text-muted-foreground text-xs md:flex xl:hidden 2xl:flex">
       <span className="shrink-0 text-muted-foreground">
         <IconUpload className="size-3.5" />
       </span>
@@ -181,56 +199,12 @@ function ResumePoolUploaderMeta({ record }: { record: ResumePoolListRecord }) {
   );
 }
 
-function ResumePoolProfileLine({ line }: { line: ResumePoolProfileSnapshotLine }) {
-  return (
-    <p
-      className="flex min-w-0 items-baseline gap-2"
-      title={[line.period, line.primary, line.secondary].filter(Boolean).join(" · ")}
-    >
-      {line.period ? (
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{line.period}</span>
-      ) : null}
-      <span className="min-w-0 truncate text-foreground text-sm">
-        {[line.primary, line.secondary].filter(Boolean).join(" · ")}
-      </span>
-    </p>
-  );
-}
-
-function ResumePoolProfileSnapshot({ record }: { record: ResumePoolListRecord }) {
-  if (isResumePoolRecordParsing(record)) {
-    return <StudioListCardProfileSnapshotSkeleton />;
-  }
-  const work = record.resumeProfileSnapshot.work.slice(0, 3);
-  const education = record.resumeProfileSnapshot.education.slice(0, 3);
-  if (work.length === 0 && education.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 xl:block">
-      <div className="grid min-w-0 content-start gap-1">
-        {work.map((line) => (
-          <ResumePoolProfileLine key={`work-${line.primary}-${line.period ?? ""}`} line={line} />
-        ))}
-        {work.length > 0 && education.length > 0 ? (
-          <div className="my-0.5 border-border/60 border-t" />
-        ) : null}
-        {education.map((line) => (
-          <ResumePoolProfileLine
-            key={`education-${line.primary}-${line.period ?? ""}`}
-            line={line}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ResumePoolCardEvaluation({
+  onOpenDetail,
   record,
   summary,
 }: {
+  onOpenDetail: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
   summary: string;
 }) {
@@ -242,14 +216,21 @@ function ResumePoolCardEvaluation({
 
   return (
     <StudioListCardEvaluation>
-      <p className={STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS} title={title}>
-        {level ? (
-          <>
-            <StudioListCardRecommendationLabel level={level} />{" "}
-          </>
-        ) : null}
-        {summary}
-      </p>
+      {level ? (
+        <p title={title}>
+          <ResumePoolAiEvaluationHoverCard
+            className={cn("block w-full", STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS)}
+            onClick={() => onOpenDetail(record)}
+            recordId={record.id}
+          >
+            {summary}
+          </ResumePoolAiEvaluationHoverCard>
+        </p>
+      ) : (
+        <p className={STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS} title={title}>
+          {summary}
+        </p>
+      )}
       {level ? <StudioListCardEvaluationFocus focus={record.qualitativeResumeFocus} /> : null}
     </StudioListCardEvaluation>
   );
@@ -441,99 +422,124 @@ export function ResumePoolCard({
       }}
       render={<article />}
     >
-      <CardPanel className="grid h-full min-h-0 content-center-safe gap-3 p-4">
-        <div className="min-h-0 min-w-0">
-          <div className="grid min-w-0 gap-x-8 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)]">
-            <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
-              <Avatar
-                className="size-10 shrink-0"
-                generatedSize={40}
-                label={`${title}的头像`}
-                seed={title}
+      <CardPanel className="flex h-full min-h-0 p-4">
+        <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
+          <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
+            <Avatar
+              className="size-10 shrink-0"
+              generatedSize={40}
+              label={`${title}的头像`}
+              seed={title}
+            >
+              <AvatarFallback>{getCandidateInitial(record)}</AvatarFallback>
+            </Avatar>
+            <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
+              <button
+                className={STUDIO_LIST_CARD_NAME_CLASS}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenDetail(record);
+                }}
+                type="button"
               >
-                <AvatarFallback>{getCandidateInitial(record)}</AvatarFallback>
-              </Avatar>
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                <button
-                  className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenDetail(record);
-                  }}
-                  type="button"
-                >
-                  <span>{title}</span>{" "}
-                  <span className="font-normal text-muted-foreground text-xs">
-                    ({formatResumeRecordDisplayId(record.id)})
-                  </span>
-                </button>
-                {resumeParseStatusBadge(record)}
-                {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
-                {resumeRecruitingStatusBadge(record)}
-                {record.sourceChannel === "referral" ? (
-                  <Badge variant="secondary">内推</Badge>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="min-h-0 min-w-0">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 lg:flex-nowrap">
-                <ResumePoolCardMeta
-                  icon={<IconBriefcase className="size-3.5" />}
-                  label="目标岗位"
-                  value={targetRole}
-                />
-                <ResumePoolCardMeta
-                  action={
-                    canRecommend ? (
-                      <ResumePoolJobBindingMenu
-                        binding={bindingJobDescription}
-                        currentJobDescriptionId={record.jobDescriptionId}
-                        onSelect={(jobDescriptionId) =>
-                          onBindJobDescription(record, jobDescriptionId)
-                        }
-                        recordId={record.id}
-                        slug={slug}
-                      />
-                    ) : undefined
-                  }
-                  icon={<IconBuilding className="size-3.5" />}
-                  label="绑定岗位"
-                  value={boundJob}
-                  valueContent={
-                    record.jobDescriptionId && boundJobName ? (
-                      <JobDescriptionHoverCard
-                        className="min-w-0 truncate text-foreground underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40"
-                        jobDescriptionId={record.jobDescriptionId}
-                        name={boundJobName}
-                      />
-                    ) : undefined
+                <span>{title}</span>{" "}
+                <span className="font-normal text-muted-foreground text-xs">
+                  ({formatResumeRecordDisplayId(record.id)})
+                </span>
+              </button>
+              {record.qualitativeRecommendationLevel && !isResumePoolRecordParsing(record) ? (
+                <StudioListCardAiVerdictBadge
+                  label={QUALITATIVE_RECOMMENDATION_LABEL[record.qualitativeRecommendationLevel]}
+                  tone={
+                    QUALITATIVE_RECOMMENDATION_VERDICT_TONE[record.qualitativeRecommendationLevel]
                   }
                 />
-                <ResumePoolUploaderMeta record={record} />
-              </div>
+              ) : null}
+              {resumeParseStatusBadge(record)}
+              {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
+              {resumeRecruitingStatusBadge(record)}
+              {record.sourceChannel === "referral" ? <Badge variant="secondary">内推</Badge> : null}
+            </div>
+          </div>
 
-              <ResumePoolCardEvaluation record={record} summary={summary} />
+          <div className="min-w-0">
+            <div className={STUDIO_LIST_CARD_META_ROW_CLASS}>
+              <ResumePoolCardMeta
+                icon={<IconBriefcase className="size-3.5" />}
+                label="目标岗位"
+                value={targetRole}
+              />
+              <ResumePoolCardMeta
+                action={
+                  canRecommend ? (
+                    <ResumePoolJobBindingMenu
+                      binding={bindingJobDescription}
+                      currentJobDescriptionId={record.jobDescriptionId}
+                      onSelect={(jobDescriptionId) =>
+                        onBindJobDescription(record, jobDescriptionId)
+                      }
+                      recordId={record.id}
+                      slug={slug}
+                    />
+                  ) : undefined
+                }
+                icon={<IconBuilding className="size-3.5" />}
+                label="绑定岗位"
+                value={boundJob}
+                valueContent={
+                  record.jobDescriptionId && boundJobName ? (
+                    <JobDescriptionHoverCard
+                      className="min-w-0 truncate text-foreground underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40"
+                      jobDescriptionId={record.jobDescriptionId}
+                      name={boundJobName}
+                    />
+                  ) : undefined
+                }
+              />
+              <ResumePoolUploaderMeta record={record} />
             </div>
 
-            <ResumePoolProfileSnapshot record={record} />
+            {isResumePoolRecordParsing(record) ? (
+              <StudioListCardProfileStripSkeleton className="mt-3 hidden md:grid xl:hidden" />
+            ) : (
+              <StudioListCardProfileStrip
+                className="mt-3 hidden md:grid xl:hidden"
+                snapshot={record.resumeProfileSnapshot}
+              />
+            )}
+
+            <ResumePoolCardEvaluation
+              onOpenDetail={onOpenDetail}
+              record={record}
+              summary={summary}
+            />
+          </div>
+
+          <div className={STUDIO_LIST_CARD_PROFILE_CELL_CLASS}>
+            {isResumePoolRecordParsing(record) ? (
+              <StudioListCardProfileSnapshotSkeleton />
+            ) : (
+              <StudioListCardProfileColumn snapshot={record.resumeProfileSnapshot} />
+            )}
+          </div>
+
+          <div className={STUDIO_LIST_CARD_ACTIONS_CELL_CLASS}>
+            <ResumePoolCardActions
+              canDelete={canDelete}
+              canEnterRecruiting={canEnterRecruiting}
+              canRetryParse={canRetryParse}
+              deleting={deleting}
+              enteringRecruiting={enteringRecruiting}
+              onDelete={onDelete}
+              onEnterRecruiting={onEnterRecruiting}
+              onOpenDetail={onOpenDetail}
+              onPreviewResume={onPreviewResume}
+              onRetryParse={onRetryParse}
+              record={record}
+              retrying={retrying}
+            />
           </div>
         </div>
-
-        <ResumePoolCardActions
-          canDelete={canDelete}
-          canEnterRecruiting={canEnterRecruiting}
-          canRetryParse={canRetryParse}
-          deleting={deleting}
-          enteringRecruiting={enteringRecruiting}
-          onDelete={onDelete}
-          onEnterRecruiting={onEnterRecruiting}
-          onOpenDetail={onOpenDetail}
-          onPreviewResume={onPreviewResume}
-          onRetryParse={onRetryParse}
-          record={record}
-          retrying={retrying}
-        />
       </CardPanel>
     </Card>
   );
