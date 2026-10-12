@@ -13,7 +13,7 @@ import { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruit
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import {
   qualitativeResumeEvaluationV1Schema,
-  qualitativeResumeEvaluationV2Schema,
+  qualitativeResumeEvaluationWithDimensionLevelsSchema,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import {
   recruitingEvent,
@@ -127,7 +127,9 @@ function resolveAiEvaluation(row: {
   qualitativeResumeEvaluation: unknown;
   resumeReviewStatus: "failed" | "idle" | "processing" | "queued" | "ready";
 }): HumanInterviewCandidateAiEvaluationResponse["aiEvaluation"] {
-  const evaluation = qualitativeResumeEvaluationV2Schema.safeParse(row.qualitativeResumeEvaluation);
+  const evaluation = qualitativeResumeEvaluationWithDimensionLevelsSchema.safeParse(
+    row.qualitativeResumeEvaluation,
+  );
   if (evaluation.success) {
     return { evaluation: evaluation.data, status: "ready" };
   }

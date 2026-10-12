@@ -1,3 +1,4 @@
+import type { QualitativeResumeFocus } from "./qualitative-resume-focus";
 import type {
   RecruitingNode,
   RecruitingNodeStatus,
@@ -198,6 +199,8 @@ export interface ResumeLibraryListRecord {
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
   qualitativeRecommendationLevel: QualitativeRecommendationLevel | null;
   qualitativeResumeSummary: string | null;
+  // 推荐/非常推荐为“匹配依据”，待定/不推荐为“风险与待确认项”；V3 为结构化要点，旧版为截断的受限 Markdown。
+  qualitativeResumeFocus: QualitativeResumeFocus | null;
   resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
   resumeEvaluationAttemptMode: ResumeEvaluationContractMode | null;
   structuredCompositeScore: number | null;

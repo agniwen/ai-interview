@@ -1,4 +1,4 @@
-import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import type { CurrentQualitativeResumeEvaluation } from "@app/db-schema/qualitative-resume-evaluation";
 import type { HumanInterviewEvaluationDraft } from "@app/db-schema/studio-interviews";
 import type {
   HumanInterviewRoundRecord,
@@ -7,16 +7,40 @@ import type {
 } from "@app/shared/studio-pipeline-stages";
 
 /** Local display fixtures only: no recruitment record, invitation, or meeting is persisted. */
-export const demoEvaluation: QualitativeResumeEvaluationV2 = {
+export const demoEvaluation: CurrentQualitativeResumeEvaluation = {
   conciseOverall:
     "真嗣有 8 年前端研发经验，主导微前端架构升级和性能治理，具备高级前端工程师所需的技术深度与跨团队交付能力。建议进入面试。",
   detailedOverall: {
     judgment:
       "**非常推荐。** React / TypeScript 技术栈、复杂系统设计及性能治理经历与资深前端岗位高度匹配，具备独立负责核心模块的能力。",
-    matchingEvidence:
-      "1. 字节跳动期间主导 6 个业务系统的微前端改造，完成公共组件和发布流程统一。\n2. 首屏加载从 3.2 秒降至 1.4 秒，减少 56% 等待时间。\n3. 在网易负责高流量业务页面和组件库，积累完整的工程化经验。",
-    risks:
-      "架构与性能能力有明确项目依据；正式面试重点核实灰度发布和故障回滚策略。跨团队协作经验明确，人员管理不是本岗位的核心要求。",
+    matchingEvidence: [
+      {
+        content: "主导多系统微前端改造，覆盖岗位要求的复杂前端架构设计能力。",
+        jobRequirement: "具备大型前端项目架构设计经验",
+        point: "前端架构设计",
+        resumeEvidence: "主导 6 个业务系统的微前端改造，统一公共组件和发布流程",
+      },
+      {
+        content: "有量化的性能治理成果，符合岗位对性能优化的要求。",
+        jobRequirement: "熟悉前端性能优化",
+        point: "性能优化",
+        resumeEvidence: "首屏加载从 3.2 秒降至 1.4 秒",
+      },
+      {
+        content: "长期负责高流量业务页面与组件库，工程化经验完整。",
+        jobRequirement: "具备前端工程化与组件库建设经验",
+        point: "工程化经验",
+        resumeEvidence: "负责高流量业务页面和组件库建设",
+      },
+    ],
+    risks: [
+      {
+        content: "简历未写明灰度发布和故障回滚做法，正式面试需重点核实。",
+        jobRequirement: "保障大型前端系统的稳定发布",
+        point: "发布稳定性",
+        resumeEvidence: null,
+      },
+    ],
   },
   dimensions: {
     educationBackground: {
@@ -56,7 +80,7 @@ export const demoEvaluation: QualitativeResumeEvaluationV2 = {
     },
   },
   recommendationLevel: "highly_recommended",
-  schemaVersion: 2,
+  schemaVersion: 3,
   seniorityRecommendation: {
     level: "高级前端工程师",
     rationale: "能够独立负责复杂业务模块，制定架构方案并带动跨团队工程治理。",

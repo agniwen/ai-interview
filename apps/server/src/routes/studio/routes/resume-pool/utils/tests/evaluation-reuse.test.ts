@@ -10,8 +10,22 @@ const evaluation = {
   conciseOverall: "候选人的核心经验与岗位要求匹配，建议进入下一轮。",
   detailedOverall: {
     judgment: "整体匹配。",
-    matchingEvidence: "有相关项目经验。",
-    risks: "需确认项目规模。",
+    matchingEvidence: [
+      {
+        content: "有相关项目经验。",
+        jobRequirement: "具备相关项目经验",
+        point: "项目经验",
+        resumeEvidence: "负责相关项目",
+      },
+    ],
+    risks: [
+      {
+        content: "需确认项目规模。",
+        jobRequirement: "主导过大型项目",
+        point: "项目规模",
+        resumeEvidence: null,
+      },
+    ],
   },
   dimensions: {
     educationBackground: dimension,
@@ -22,7 +36,7 @@ const evaluation = {
     stability: dimension,
   },
   recommendationLevel: "recommended" as const,
-  schemaVersion: 2 as const,
+  schemaVersion: 3 as const,
   seniorityRecommendation: null,
   teamPositioning: null,
 };
@@ -36,7 +50,7 @@ function source(overrides: Partial<EvaluationSource> = {}): EvaluationSource {
     qualitativeRecommendationLevel: "recommended",
     qualitativeResumeEvaluation: evaluation,
     qualitativeResumeSummary: evaluation.conciseOverall,
-    resumeEvaluationContractVersion: "qualitative-v2",
+    resumeEvaluationContractVersion: "qualitative-v3",
     resumeEvaluationGeneratedAt: new Date("2026-08-28T02:00:00.000Z"),
     resumeEvaluationInputHash: "input-hash",
     ...overrides,
@@ -44,9 +58,9 @@ function source(overrides: Partial<EvaluationSource> = {}): EvaluationSource {
 }
 
 describe("selectReusableResumePoolEvaluation", () => {
-  it("reuses a qualitative-v2 result when the imported job is unchanged", () => {
+  it("reuses a qualitative-v3 result when the imported job is unchanged", () => {
     expect(selectReusableResumePoolEvaluation(source(), "jd-1")).toMatchObject({
-      contractVersion: "qualitative-v2",
+      contractVersion: "qualitative-v3",
       evaluation,
       jobDescriptionVersionId: "jd-version-1",
     });
@@ -60,6 +74,12 @@ describe("selectReusableResumePoolEvaluation", () => {
     expect(
       selectReusableResumePoolEvaluation(
         source({ resumeEvaluationContractVersion: "legacy-resume-review-v4" }),
+        "jd-1",
+      ),
+    ).toBeNull();
+    expect(
+      selectReusableResumePoolEvaluation(
+        source({ resumeEvaluationContractVersion: "qualitative-v2" }),
         "jd-1",
       ),
     ).toBeNull();

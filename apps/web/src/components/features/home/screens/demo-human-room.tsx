@@ -103,7 +103,7 @@ export default function DemoHumanRoom() {
           <Button variant="ghost" size="icon-sm" disabled aria-label="切换主题">
             <IconMoon />
           </Button>
-          <Badge className="h-8 rounded-md px-2.5" variant="secondary" aria-label="参会人数">
+          <Badge className="h-8 px-2.5" variant="secondary" aria-label="参会人数">
             <IconUsers />2
           </Badge>
         </div>

@@ -1,3 +1,4 @@
+import type { QualitativeResumeEvaluationV3 } from "@app/db-schema/qualitative-resume-evaluation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
@@ -86,6 +87,10 @@ describe("RestrictedMarkdownView", () => {
   });
 });
 
+function textPositions(html: string | undefined, texts: string[]) {
+  return texts.map((text) => html?.indexOf(text) ?? -1);
+}
+
 describe("QualitativeEvaluationDetails", () => {
   it("does not invent dimension levels for qualitative-v1 history", () => {
     const dimensions = {
@@ -101,5 +106,51 @@ describe("QualitativeEvaluationDetails", () => {
 
     expect(html).toContain("此结果生成于六维评级引入前");
     expect(html).not.toContain('aria-label="简历六维定性评价雷达图"');
+  });
+
+  it("shows each structured qualitative-v3 point with its requirement and resume evidence", () => {
+    const current: QualitativeResumeEvaluationV3 = {
+      ...evaluation,
+      detailedOverall: {
+        judgment: evaluation.detailedOverall.judgment,
+        matchingEvidence: [
+          {
+            content: "主导大型前端平台建设，覆盖岗位架构职责。",
+            jobRequirement: "负责大型前端平台的架构设计",
+            point: "前端平台架构",
+            resumeEvidence: "近三年持续负责大型前端平台建设",
+          },
+        ],
+        risks: [
+          {
+            content: "简历未体现团队管理经历，需面试确认。",
+            jobRequirement: "带领 5 人以上前端团队",
+            point: "团队管理",
+            resumeEvidence: null,
+          },
+        ],
+      },
+      schemaVersion: 3,
+    };
+    const html = renderToStaticMarkup(<QualitativeEvaluationDetails evaluation={current} />);
+    const items = html.split("<li").slice(1);
+
+    expect(html).not.toContain("此结果生成于六维评级引入前");
+    const matchingOrder = textPositions(items[0], [
+      "前端平台架构",
+      "主导大型前端平台建设，覆盖岗位架构职责。",
+      "负责大型前端平台的架构设计",
+      "近三年持续负责大型前端平台建设",
+    ]);
+    expect(matchingOrder.every((index) => index >= 0)).toBe(true);
+    expect(matchingOrder).toEqual(matchingOrder.toSorted((left, right) => left - right));
+    const riskOrder = textPositions(items[1], [
+      "团队管理",
+      "简历未体现团队管理经历",
+      "带领 5 人以上前端团队",
+      "简历未提及",
+    ]);
+    expect(riskOrder.every((index) => index >= 0)).toBe(true);
+    expect(riskOrder).toEqual(riskOrder.toSorted((left, right) => left - right));
   });
 });

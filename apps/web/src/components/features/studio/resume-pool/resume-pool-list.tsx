@@ -1,6 +1,7 @@
 "use client";
 
 import { IconFileText, IconHistory, IconUserPlus } from "@tabler/icons-react";
+import { cn } from "@app/shared/utils";
 import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -14,9 +15,11 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
+  STUDIO_RECORD_ROW_DIVIDER_CLASS,
   StudioDateGroupHeaderSkeleton,
   StudioStickyDateGroupHeader,
   buildStudioStickyDateHeaderPositions,
+  hasStudioRecordRowDivider,
   useStudioStickyDateGroup,
 } from "@/components/features/studio/studio-date-group-virtual-list";
 
@@ -236,7 +239,11 @@ export function ResumePoolListContent({
               canDeletePoolRecord(record, { currentOrganizationId, currentUserId });
             return (
               <div
-                className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
+                className={cn(
+                  "absolute top-0 left-0 w-full py-1.5 [contain:layout]",
+                  hasStudioRecordRowDivider(virtualRows, virtualRow.index) &&
+                    STUDIO_RECORD_ROW_DIVIDER_CLASS,
+                )}
                 data-index={virtualRow.index}
                 data-resume-pool-record-id={record.id}
                 key={virtualRow.key}

@@ -3,6 +3,7 @@ import {
   qualitativeResumeEvaluationSchema,
   qualitativeResumeEvaluationV1Schema,
   qualitativeResumeEvaluationV2Schema,
+  qualitativeResumeEvaluationV3Schema,
 } from "@app/db-schema/qualitative-resume-evaluation";
 
 const dimension = (basis: "both" | "general" | "job", evaluation: string) => ({
@@ -72,6 +73,56 @@ describe("qualitative resume evaluation contract", () => {
         },
       }),
     ).toThrow();
+  });
+
+  it("requires structured matching evidence and risks from qualitative-v3 onward", () => {
+    const matching = {
+      content: "主导大型前端平台建设，符合岗位架构职责。",
+      jobRequirement: "负责大型前端平台架构设计",
+      point: "平台架构",
+      resumeEvidence: "近三年持续负责大型前端平台建设",
+    };
+    const risk = {
+      content: "简历未体现团队管理经历，需面试确认。",
+      jobRequirement: "带领 5 人以上团队",
+      point: "团队管理",
+      resumeEvidence: null,
+    };
+    const value = validEvaluation();
+    const v3 = {
+      ...value,
+      detailedOverall: {
+        judgment: value.detailedOverall.judgment,
+        matchingEvidence: [matching],
+        risks: [risk],
+      },
+      schemaVersion: 3,
+    };
+    const withDetails = (detailedOverall: { matchingEvidence?: unknown; risks?: unknown }) => ({
+      ...v3,
+      detailedOverall: { ...v3.detailedOverall, ...detailedOverall },
+    });
+
+    expect(qualitativeResumeEvaluationSchema.parse(v3)).toEqual(v3);
+    expect(() =>
+      qualitativeResumeEvaluationV3Schema.parse({ ...value, schemaVersion: 3 }),
+    ).toThrow();
+    expect(() =>
+      qualitativeResumeEvaluationV3Schema.parse(withDetails({ risks: "需确认。" })),
+    ).toThrow();
+    expect(() =>
+      qualitativeResumeEvaluationV3Schema.parse(withDetails({ matchingEvidence: [] })),
+    ).toThrow();
+    expect(() =>
+      qualitativeResumeEvaluationV3Schema.parse(
+        withDetails({ matchingEvidence: [{ ...matching, resumeEvidence: null }] }),
+      ),
+    ).toThrow();
+    const { point: _point, ...withoutPoint } = matching;
+    expect(() =>
+      qualitativeResumeEvaluationV3Schema.parse(withDetails({ matchingEvidence: [withoutPoint] })),
+    ).toThrow();
+    expect(qualitativeResumeEvaluationSchema.safeParse(value).success).toBe(true);
   });
 
   it("keeps qualitative-v1 readable without inventing dimension ratings", () => {

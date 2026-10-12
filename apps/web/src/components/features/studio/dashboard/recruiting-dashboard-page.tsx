@@ -21,6 +21,7 @@ import { cn } from "@app/shared/utils";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardActivityCard } from "./dashboard-activity-card";
@@ -106,9 +107,7 @@ function FunnelCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
               累计到达人数；右侧为本环节人数 ÷ 上一环节人数
             </p>
           </div>
-          <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground text-xs">
-            不含已归档
-          </span>
+          <Badge>不含已归档</Badge>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-5">

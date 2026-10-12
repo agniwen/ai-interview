@@ -9,8 +9,8 @@ import { formatResumeEducationSchoolWithLevel } from "@app/shared/resume-educati
 import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
 import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@app/shared/studio-resumes";
 
-/** Library list cards keep the original 3-row cap for work/education. */
-const LIBRARY_SNAPSHOT_LIMIT = 3;
+/** Library list cards show up to 4 companies / 3 schools; one extra row tells whether more exist. */
+const LIBRARY_SNAPSHOT_LIMIT = 4;
 /** Duplicate-match cards: recent 3 companies, 2 education rows, 3 projects. */
 const DEDUP_WORK_LIMIT = 3;
 const DEDUP_EDUCATION_LIMIT = 2;
@@ -215,9 +215,13 @@ function assembleSnapshot(
   };
 }
 
-/** Snapshot for duplicate-match cards (3 companies / 2 education / 3 projects). */
+/**
+ * Snapshot from a full profile. Defaults to duplicate-match cards (3 companies / 2 education /
+ * 3 projects); callers with a different card budget may override the work/education caps.
+ */
 export function buildResumeProfileSnapshotFromProfile(
   profile: ResumeProfile | null | undefined,
+  limits: { education?: number; work?: number } = {},
 ): ResumeLibraryProfileSnapshot {
   if (!profile) {
     return EMPTY_RESUME_PROFILE_SNAPSHOT;
@@ -229,9 +233,9 @@ export function buildResumeProfileSnapshotFromProfile(
       work: buildWorkLines(profile.workExperiences),
     },
     {
-      education: DEDUP_EDUCATION_LIMIT,
+      education: limits.education ?? DEDUP_EDUCATION_LIMIT,
       projects: DEDUP_PROJECT_LIMIT,
-      work: DEDUP_WORK_LIMIT,
+      work: limits.work ?? DEDUP_WORK_LIMIT,
     },
   );
 }

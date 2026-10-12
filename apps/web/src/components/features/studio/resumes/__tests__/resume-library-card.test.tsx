@@ -36,6 +36,7 @@ const record: ResumeLibraryListRecord = {
   outcome: "in_pipeline",
   pipelineStage: "screening",
   qualitativeRecommendationLevel: null,
+  qualitativeResumeFocus: null,
   qualitativeResumeSummary: null,
   resumeEvaluationArtifactMode: "structured",
   resumeEvaluationAttemptMode: "structured",
@@ -413,4 +414,45 @@ describe("ResumeLibraryCard", () => {
       expect(content).toContain(replacementStatusLabel);
     },
   );
+
+  it("holds the excerpt space with a skeleton only while an evaluation is still pending", () => {
+    const noop = vi.fn();
+    const renderCard = (overrides: Partial<typeof record>) =>
+      renderWithQueryClient(
+        <ResumeLibraryCard
+          canCreateInterview={false}
+          canDeleteResumeLibrary={false}
+          canForceReparse={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary={false}
+          currentMemberRole="viewer"
+          currentUserId={null}
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onForceReparse={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{ ...record, resumeEvaluationArtifactMode: "qualitative", ...overrides }}
+          retrying={false}
+          selected={false}
+        />,
+      );
+    const skeleton = 'data-slot="studio-list-card-evaluation-focus-skeleton"';
+
+    expect(renderCard({ resumeReviewStatus: "processing" })).toContain(skeleton);
+
+    const reEvaluating = renderCard({
+      qualitativeRecommendationLevel: "recommended",
+      qualitativeResumeFocus: { format: "markdown", text: "**主导**增长项目" },
+      resumeReviewStatus: "queued",
+    });
+    expect(reEvaluating).not.toContain(skeleton);
+    expect(reEvaluating).toContain("<strong>主导</strong>");
+  });
 });

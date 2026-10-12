@@ -34,6 +34,7 @@
     "./mail-ingest-crypto": "./src/mail-ingest-crypto.ts",
     "./review": "./src/review.ts",
     "./review/resumes/dao/keyword-search": "./src/internal/recruiting/resumes/dao/keyword-search.ts",
+    "./review/resumes/dao/qualitative-resume-focus": "./src/internal/recruiting/resumes/dao/qualitative-resume-focus.ts",
     "./review/resumes/dao/resume-profile-snapshot": "./src/internal/recruiting/resumes/dao/resume-profile-snapshot.ts",
     "./review/resumes/dao/skills": "./src/internal/recruiting/resumes/dao/skills.ts",
     "./review/resumes/utils/candidate-question-generation": "./src/internal/recruiting/resumes/utils/candidate-question-generation.ts",

@@ -8,7 +8,6 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -23,6 +22,7 @@ import type {
   ResumeLibraryProfileSnapshotLine,
 } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
+import { StudioListCardProfileSnapshotSkeleton } from "@/components/features/studio/studio-list-card-evaluation";
 import { ResumeLibraryCardActions } from "./resume-library-card-actions";
 import { ResumeLibraryEvaluationSummary } from "./resume-library-evaluation-summary";
 import type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
@@ -277,11 +277,11 @@ function ResumeCardMetaItem({
         className,
       )}
     >
-      <span aria-hidden className="inline-flex shrink-0 items-center text-muted-foreground/70">
+      <span aria-hidden className="inline-flex shrink-0 items-center text-muted-foreground">
         {icon}
       </span>
       <span className="sr-only">{label}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{children}</span>
     </div>
   );
 }
@@ -291,7 +291,7 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
 
   return (
     <span className="flex h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-      <IconUpload aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
+      <IconUpload aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="shrink-0">上传人</span>
       <Avatar
         className="size-4! shrink-0"
@@ -303,7 +303,7 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
         {image ? <AvatarImage alt={displayName} src={image} /> : null}
         <AvatarFallback>{getCreatorInitial(name)}</AvatarFallback>
       </Avatar>
-      <span className="min-w-0 flex-1 truncate">{displayName}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{displayName}</span>
     </span>
   );
 }
@@ -350,10 +350,12 @@ function renderResumeCardProfileHoverLine(line: ResumeLibraryProfileSnapshotLine
 }
 
 function getResumeCardProfileSnapshotGroups(snapshot: ResumeLibraryProfileSnapshot) {
-  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
-  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
+  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 3 : 4);
+  const educationLines = snapshot.education.slice(0, 3);
 
   return {
+    educationHasMore:
+      snapshot.educationHasMore || snapshot.education.length > educationLines.length,
     educationLines,
     hasEducationGroup: educationLines.length > 0 || snapshot.educationHasMore,
     hasWorkGroup: workLines.length > 0 || snapshot.workHasMore,
@@ -377,7 +379,7 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
         {hasWorkGroup && hasEducationGroup ? (
           <div className="my-0.5 border-border/60 border-t" />
         ) : null}
-        {educationLines.slice(0, 2).map(renderResumeCardProfileSnapshotLine)}
+        {educationLines.map(renderResumeCardProfileSnapshotLine)}
       </div>
     </div>
   );
@@ -388,7 +390,7 @@ function ResumeCardProfileSnapshotHoverCard({
 }: {
   snapshot: ResumeLibraryProfileSnapshot;
 }) {
-  const { educationLines, hasEducationGroup, hasWorkGroup, workLines } =
+  const { educationHasMore, educationLines, hasEducationGroup, hasWorkGroup, workLines } =
     getResumeCardProfileSnapshotGroups(snapshot);
 
   if (!(hasWorkGroup || hasEducationGroup)) {
@@ -404,7 +406,7 @@ function ResumeCardProfileSnapshotHoverCard({
             className="inline-flex min-h-6 min-w-0 items-center gap-1.5 rounded-xs text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:hidden"
             type="button"
           >
-            <IconInfoCircle aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
+            <IconInfoCircle aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
             <span>更多</span>
           </button>
         }
@@ -432,7 +434,7 @@ function ResumeCardProfileSnapshotHoverCard({
               <h4 className="mb-1.5 font-medium text-xs">教育经历</h4>
               <div className="grid min-w-0 gap-1">
                 {educationLines.map(renderResumeCardProfileHoverLine)}
-                {snapshot.educationHasMore
+                {educationHasMore
                   ? renderResumeCardProfileSnapshotMoreRow("compact-education-more")
                   : null}
               </div>
@@ -470,13 +472,15 @@ function ResumeLibraryCardComponent({
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
   const profileSnapshot = record.resumeProfileSnapshot;
-  const skills = record.resumeSkills;
   const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
   const toggleSelected = () => onSelectChange(record.id, !selected);
+  const isRejected = record.outcome === "rejected";
+  const isParsing =
+    record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing";
   const pointerGestureRef = useRef<{
     moved: boolean;
     x: number;
@@ -486,12 +490,7 @@ function ResumeLibraryCardComponent({
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
-      className={cn(
-        "h-full overflow-hidden rounded-xl transition-colors hover:border-border hover:bg-muted/30",
-        selected
-          ? "border-primary/40 bg-primary/5 hover:border-primary/60 hover:bg-primary/5"
-          : "dark:bg-background dark:hover:bg-input/30",
-      )}
+      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent transition-colors hover:bg-muted dark:hover:bg-input/30"
       onClick={(event) => {
         if (isResumeCardInteractiveClick(event)) {
           return;
@@ -531,7 +530,7 @@ function ResumeLibraryCardComponent({
       <button
         aria-label={`${selected ? "取消选择" : "选择"} ${record.candidateName}`}
         aria-pressed={selected}
-        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         data-resume-card-interactive="true"
         onClick={(event) => {
           event.preventDefault();
@@ -540,7 +539,7 @@ function ResumeLibraryCardComponent({
         }}
         type="button"
       />
-      <CardPanel className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+      <CardPanel className="grid content-center-safe gap-4 p-4">
         <div className="flex min-w-0 gap-3">
           <Checkbox
             aria-label={`选择 ${record.candidateName}`}
@@ -552,49 +551,55 @@ function ResumeLibraryCardComponent({
             }}
             onCheckedChange={(value) => onSelectChange(record.id, Boolean(value))}
           />
-          <Avatar
-            className="mt-0.5 size-12"
-            generatedSize={48}
-            label={`${record.candidateName}的头像`}
-            seed={getCandidateAvatarSeed(record.candidateName)}
-          >
-            <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
-          </Avatar>
-
           <div className="min-w-0 flex-1">
             <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
-                <button
-                  className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
-                  onClick={() => onOpenDetail(record, "overview")}
-                  type="button"
+              <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
+                <Avatar
+                  className={cn(
+                    "size-10 shrink-0",
+                    isRejected && "opacity-70 contrast-75 grayscale",
+                  )}
+                  generatedSize={40}
+                  label={`${record.candidateName}的头像`}
+                  seed={getCandidateAvatarSeed(record.candidateName)}
                 >
-                  <span>{record.candidateName}</span>{" "}
-                  <span className="font-normal text-muted-foreground/60 text-xs">
-                    ({formatResumeRecordDisplayId(record.id)})
-                  </span>
-                </button>
-                <ResumeLifecycleBadge
-                  className={cn("max-w-full", getLifecycleBadgeStageClass(record.pipelineStage))}
-                  detailLabel={lifecycle.detailLabel}
-                  fullLabel={lifecycle.fullLabel}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenDetail(record, lifecycleTargetTab(record));
-                  }}
-                  stage={record.pipelineStage}
-                  stageLabel={lifecycle.stageLabel}
-                  tone={lifecycle.tone}
-                />
-                <InitialInterviewStatusBadge
-                  record={record}
-                  onOpen={() => onOpenDetail(record, "rounds")}
-                />
-                {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
+                  <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                  <button
+                    className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
+                    onClick={() => onOpenDetail(record, "overview")}
+                    type="button"
+                  >
+                    <span className={cn(isRejected && "text-muted-foreground line-through")}>
+                      {record.candidateName}
+                    </span>{" "}
+                    <span className="font-normal text-muted-foreground text-xs">
+                      ({formatResumeRecordDisplayId(record.id)})
+                    </span>
+                  </button>
+                  <ResumeLifecycleBadge
+                    className={cn("max-w-full", getLifecycleBadgeStageClass(record.pipelineStage))}
+                    detailLabel={lifecycle.detailLabel}
+                    fullLabel={lifecycle.fullLabel}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenDetail(record, lifecycleTargetTab(record));
+                    }}
+                    stage={record.pipelineStage}
+                    stageLabel={lifecycle.stageLabel}
+                    tone={lifecycle.tone}
+                  />
+                  <InitialInterviewStatusBadge
+                    record={record}
+                    onOpen={() => onOpenDetail(record, "rounds")}
+                  />
+                  {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
+                </div>
               </div>
 
               <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 xl:flex-nowrap">
                   <ResumeCardMetaItem
                     className="w-full xl:w-auto"
                     icon={<IconBriefcase className="size-3.5" />}
@@ -622,23 +627,18 @@ function ResumeLibraryCardComponent({
                 </div>
 
                 <ResumeLibraryEvaluationSummary
+                  className={cn(isRejected && "line-through")}
                   onOpenDetail={onOpenDetail}
                   record={record}
                   summary={summary}
                 />
-
-                {skills.length > 0 ? (
-                  <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]">
-                    {skills.map((item) => (
-                      <Badge className="max-w-52 truncate" key={item} variant="outline">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
               </div>
 
-              <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+              {isParsing ? (
+                <StudioListCardProfileSnapshotSkeleton />
+              ) : (
+                <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+              )}
             </div>
           </div>
         </div>

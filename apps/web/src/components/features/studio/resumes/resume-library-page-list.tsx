@@ -1,4 +1,5 @@
 import { IconHistory } from "@tabler/icons-react";
+import { cn } from "@app/shared/utils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { canDeleteResumeRecord } from "@app/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
@@ -17,10 +18,12 @@ import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/res
 import { ListLoadError } from "@/components/features/data-grid/list-load-error";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
+  STUDIO_RECORD_ROW_DIVIDER_CLASS,
   StudioDateGroupHeaderSkeleton,
   StudioStickyDateGroupHeader,
   buildStudioDateGroupedVirtualRows,
   buildStudioStickyDateHeaderPositions,
+  hasStudioRecordRowDivider,
   useStudioStickyDateGroup,
 } from "@/components/features/studio/studio-date-group-virtual-list";
 import { shouldShowStudioListLoadingState } from "@/components/features/studio/studio-list-loading-state";
@@ -263,7 +266,11 @@ export function ResumeLibraryCardList({
             const { record } = row;
             return (
               <div
-                className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
+                className={cn(
+                  "absolute top-0 left-0 w-full py-1.5 [contain:layout]",
+                  hasStudioRecordRowDivider(virtualRows, virtualRow.index) &&
+                    STUDIO_RECORD_ROW_DIVIDER_CLASS,
+                )}
                 data-index={virtualRow.index}
                 data-resume-record-id={record.id}
                 key={virtualRow.key}

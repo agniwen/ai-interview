@@ -69,6 +69,7 @@ const record = {
   publishedAt: null,
   publishedBy: null,
   qualitativeRecommendationLevel: null,
+  qualitativeResumeFocus: null,
   qualitativeResumeSummary: null,
   resumeContentHash: null,
   resumeEvaluationContractVersion: null,
@@ -213,8 +214,6 @@ describe("ResumePoolCard", () => {
     expect(html).not.toContain("负责 AI 招聘产品前端。");
     expect(html).not.toContain("具备完整的 AI 招聘产品设计与落地经验。");
     expect(html).toContain('data-slot="avatar-fallback"');
-    expect(html).toContain("技能 6");
-    expect(html).not.toContain("技能 7");
     expect(html).not.toContain("已解析");
     expect(html).not.toContain("待进入招聘");
 
@@ -252,6 +251,7 @@ describe("ResumePoolCard", () => {
           record={{
             ...record,
             qualitativeRecommendationLevel: "recommended",
+            qualitativeResumeFocus: { format: "markdown", text: "- **主导**招聘产品从 0 到 1" },
             qualitativeResumeSummary: qualitativeSummary,
             resumeEvaluationContractVersion: "qualitative-v2",
           }}
@@ -262,6 +262,8 @@ describe("ResumePoolCard", () => {
 
     expect(html).toContain(qualitativeSummary);
     expect(html).not.toContain("擅长复杂招聘产品的设计与落地");
+    expect(html).toContain("<strong>主导</strong>");
+    expect(html).toContain("招聘产品从 0 到 1");
   });
 
   it("only shows parse failures and the imported recruiting-flow status", () => {
@@ -647,12 +649,12 @@ describe("ResumePoolCard", () => {
   });
 
   it("uses fixed virtual-row heights for every responsive breakpoint", () => {
-    expect(getResumePoolCardHeight(390)).toBe(356);
-    expect(getResumePoolCardHeight(640)).toBe(308);
-    expect(getResumePoolCardHeight(768)).toBe(286);
-    expect(getResumePoolCardHeight(1024)).toBe(246);
-    expect(getResumePoolCardHeight(1280)).toBe(220);
-    expect(getResumePoolCardHeight(1536)).toBe(218);
+    expect(getResumePoolCardHeight(390)).toBe(508);
+    expect(getResumePoolCardHeight(640)).toBe(464);
+    expect(getResumePoolCardHeight(768)).toBe(464);
+    expect(getResumePoolCardHeight(1024)).toBe(354);
+    expect(getResumePoolCardHeight(1280)).toBe(354);
+    expect(getResumePoolCardHeight(1536)).toBe(354);
   });
 
   it("labels mail-ingested resumes as an email scan", () => {

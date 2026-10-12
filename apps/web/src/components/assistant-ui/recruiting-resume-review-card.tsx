@@ -10,7 +10,7 @@ import type { StructuredResumeReview } from "@app/shared/recruiting-copilot";
 import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
-  QualitativeResumeEvaluationV2,
+  QualitativeResumeEvaluationWithDimensionLevels,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,8 +123,8 @@ function ReviewDimensionRadar({ dimensions }: { dimensions: RecruitingResumeRevi
 
 function isQualitativeV2(
   evaluation: QualitativeResumeEvaluation,
-): evaluation is QualitativeResumeEvaluationV2 {
-  return evaluation.schemaVersion === 2;
+): evaluation is QualitativeResumeEvaluationWithDimensionLevels {
+  return evaluation.schemaVersion !== 1;
 }
 
 function QualitativeReviewDimensionRadar({

@@ -87,8 +87,22 @@ const qualitativeEvaluation = {
   conciseOverall: "候选人的核心经验与岗位要求匹配，建议进入下一轮。",
   detailedOverall: {
     judgment: "整体匹配。",
-    matchingEvidence: "有相关项目经验。",
-    risks: "需确认项目规模。",
+    matchingEvidence: [
+      {
+        content: "有相关项目经验。",
+        jobRequirement: "具备相关项目经验",
+        point: "项目经验",
+        resumeEvidence: "负责相关项目",
+      },
+    ],
+    risks: [
+      {
+        content: "需确认项目规模。",
+        jobRequirement: "主导过大型项目",
+        point: "项目规模",
+        resumeEvidence: null,
+      },
+    ],
   },
   dimensions: {
     educationBackground: qualitativeDimension,
@@ -99,7 +113,7 @@ const qualitativeEvaluation = {
     stability: qualitativeDimension,
   },
   recommendationLevel: "recommended" as const,
-  schemaVersion: 2 as const,
+  schemaVersion: 3 as const,
   seniorityRecommendation: null,
   teamPositioning: null,
 };
@@ -815,7 +829,7 @@ describe("POST /:id/import job association", () => {
         qualitativeRecommendationLevel: "recommended",
         qualitativeResumeEvaluation: qualitativeEvaluation,
         qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
-        resumeEvaluationContractVersion: "qualitative-v2",
+        resumeEvaluationContractVersion: "qualitative-v3",
         resumeEvaluationGeneratedAt: generatedAt,
         resumeEvaluationInputHash: "pool-input-hash",
       })
@@ -856,7 +870,7 @@ describe("POST /:id/import job association", () => {
     });
     expect(history).toEqual([
       expect.objectContaining({
-        contractVersion: "qualitative-v2",
+        contractVersion: "qualitative-v3",
         jobDescriptionVersionId,
         numericScore: null,
         recommendationLevel: "recommended",

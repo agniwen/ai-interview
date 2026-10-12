@@ -1,8 +1,17 @@
+import type { ReactNode } from "react";
 import { IconSparkles } from "@tabler/icons-react";
 import { describeResumeLibraryReviewCard } from "@app/shared/resume-review";
 import type { ResumeReviewActionTone } from "@app/shared/resume-review";
 import type { ResumeLibraryListRecord } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
+import {
+  QUALITATIVE_RECOMMENDATION_TONE_CLASS,
+  STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS,
+  StudioListCardEvaluation,
+  StudioListCardEvaluationFocus,
+  StudioListCardEvaluationFocusSkeleton,
+  StudioListCardEvaluationSkeleton,
+} from "@/components/features/studio/studio-list-card-evaluation";
 import { ResumeAiScoreHoverCard } from "./resume-ai-score-hover-card";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 
@@ -12,13 +21,6 @@ const REVIEW_ACTION_TONE_CLASS = {
   success: "text-emerald-700 dark:text-emerald-300",
   warning: "text-amber-700 dark:text-amber-300",
 } satisfies Record<ResumeReviewActionTone, string>;
-
-const QUALITATIVE_RECOMMENDATION_TONE_CLASS = {
-  highly_recommended: "text-purple-700 dark:text-purple-300",
-  not_recommended: "text-red-700 dark:text-red-300",
-  recommended: "text-green-700 dark:text-green-300",
-  undecided: "text-yellow-700 dark:text-yellow-300",
-} satisfies Record<NonNullable<ResumeLibraryListRecord["qualitativeRecommendationLevel"]>, string>;
 
 interface StructuredReviewCardDescription {
   label: string;
@@ -118,11 +120,27 @@ function buildResumeReviewSummaryTitle(
   return `${label}${replacement}${description}`;
 }
 
+/** 评语下方的摘录；AI 评价生成中且尚无摘录时用同高骨架占位。 */
+function renderEvaluationFocus(
+  record: ResumeLibraryListRecord,
+  artifactMode: ResumeLibraryListRecord["resumeEvaluationArtifactMode"],
+): ReactNode {
+  const isGenerating =
+    record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing";
+  const level = artifactMode === "qualitative" ? record.qualitativeRecommendationLevel : null;
+  if (isGenerating && !(level && record.qualitativeResumeFocus)) {
+    return <StudioListCardEvaluationFocusSkeleton />;
+  }
+  return level ? <StudioListCardEvaluationFocus focus={record.qualitativeResumeFocus} /> : null;
+}
+
 export function ResumeLibraryEvaluationSummary({
+  className,
   onOpenDetail,
   record,
   summary,
 }: {
+  className?: string;
   onOpenDetail: ResumeLibraryCardProps["onOpenDetail"];
   record: ResumeLibraryListRecord;
   summary: string | null;
@@ -174,28 +192,32 @@ export function ResumeLibraryEvaluationSummary({
     </>
   );
 
-  if (hasAiScoreDetail) {
-    return (
-      <p className="mt-3" title={reviewSummaryTitle}>
-        <ResumeAiScoreHoverCard
-          className="block w-full line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
-          onClick={
-            artifactMode === "qualitative" ? () => onOpenDetail(record, "ai-analysis") : undefined
-          }
-          recordId={record.id}
-        >
-          {summaryContent}
-        </ResumeAiScoreHoverCard>
-      </p>
-    );
+  const focus = renderEvaluationFocus(record, artifactMode);
+
+  if (record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing") {
+    return <StudioListCardEvaluationSkeleton />;
   }
 
   return (
-    <p
-      className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
-      title={reviewSummaryTitle}
-    >
-      {summaryContent}
-    </p>
+    <StudioListCardEvaluation className={className}>
+      {hasAiScoreDetail ? (
+        <p title={reviewSummaryTitle}>
+          <ResumeAiScoreHoverCard
+            className={cn("block w-full", STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS)}
+            onClick={
+              artifactMode === "qualitative" ? () => onOpenDetail(record, "ai-analysis") : undefined
+            }
+            recordId={record.id}
+          >
+            {summaryContent}
+          </ResumeAiScoreHoverCard>
+        </p>
+      ) : (
+        <p className={STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS} title={reviewSummaryTitle}>
+          {summaryContent}
+        </p>
+      )}
+      {focus}
+    </StudioListCardEvaluation>
   );
 }

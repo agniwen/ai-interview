@@ -15,7 +15,7 @@ import type { ResumeScreeningResult } from "@app/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@app/db-schema/structured-resume-evaluation";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-  qualitativeResumeEvaluationV2Schema,
+  currentQualitativeResumeEvaluationSchema,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import { deriveStructuredResumeSummaries } from "@app/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "../../../runtime/resume-evaluation-input-hash";
@@ -232,7 +232,7 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
           return false;
         }
 
-        const evaluation = qualitativeResumeEvaluationV2Schema.parse(assessment.evaluation);
+        const evaluation = currentQualitativeResumeEvaluationSchema.parse(assessment.evaluation);
         const updated = await updateRecruitingRecords(tx, guardedRecordWhere(input), {
           qualitativeAttemptJobDescriptionVersionId: null,
           qualitativeJobDescriptionVersionId: assessment.jobDescriptionVersionId,
@@ -560,7 +560,7 @@ async function processResumePoolReviewGenerationJob(
     record.resumeEvaluationContractVersion === QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION &&
     record.qualitativeJobDescriptionVersionId === snapshot.id &&
     record.resumeEvaluationInputHash === resumeInputHash &&
-    qualitativeResumeEvaluationV2Schema.safeParse(record.qualitativeResumeEvaluation).success
+    currentQualitativeResumeEvaluationSchema.safeParse(record.qualitativeResumeEvaluation).success
   ) {
     return;
   }
@@ -580,7 +580,7 @@ async function processResumePoolReviewGenerationJob(
   if (generated.mode !== "qualitative") {
     throw new Error("AI 分析生成失败。");
   }
-  const evaluation = qualitativeResumeEvaluationV2Schema.parse(generated.evaluation);
+  const evaluation = currentQualitativeResumeEvaluationSchema.parse(generated.evaluation);
   await db
     .update(resumePoolItem)
     .set({

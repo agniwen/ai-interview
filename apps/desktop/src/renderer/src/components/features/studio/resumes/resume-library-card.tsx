@@ -4,6 +4,7 @@ import { memo, useCallback, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -425,12 +426,9 @@ function ResumeLibraryCardComponent({
               {skills.length > 0 ? (
                 <div className="mt-3 flex h-6 gap-1.5 overflow-hidden mask-[linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
                   {skills.map((item) => (
-                    <span
-                      className="inline-flex max-w-52 shrink-0 truncate rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs"
-                      key={item}
-                    >
-                      {item}
-                    </span>
+                    <Badge className="max-w-52 px-2 py-0.5" key={item} variant="outline">
+                      <span className="truncate">{item}</span>
+                    </Badge>
                   ))}
                 </div>
               ) : null}

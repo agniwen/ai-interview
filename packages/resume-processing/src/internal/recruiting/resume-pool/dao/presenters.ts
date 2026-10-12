@@ -1,6 +1,8 @@
 import type { resumePoolItem } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
+import type { QualitativeResumeFocus } from "@app/shared/qualitative-resume-focus";
+import { selectQualitativeResumeFocus } from "../../resumes/dao/qualitative-resume-focus";
 import { buildResumeProfileSnapshotFromProfile } from "../../resumes/dao/resume-profile-snapshot";
 import {
   formatResumeEducationItems,
@@ -15,7 +17,9 @@ import type {
 } from "@app/shared/resume-pool";
 
 type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
-type PoolListRow = Omit<PoolRow, "qualitativeResumeEvaluation">;
+type PoolListRow = Omit<PoolRow, "qualitativeResumeEvaluation"> & {
+  qualitativeResumeFocus: QualitativeResumeFocus | null;
+};
 interface PoolImportRow {
   creatorImage: string | null;
   creatorName: string | null;
@@ -36,6 +40,9 @@ export const EMPTY_UPLOADER_META: PoolUploaderMeta = {
   uploaderName: null,
   uploaderOrganizationName: null,
 };
+
+/** 人才库卡片右侧经历栏最多展示 3 家公司、3 段教育。 */
+const RESUME_POOL_CARD_SNAPSHOT_LIMIT = 3;
 
 function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
@@ -177,6 +184,7 @@ export function toResumePoolListRecord(
     publishedAt: serializeDate(row.publishedAt),
     publishedBy: row.publishedBy,
     qualitativeRecommendationLevel: row.qualitativeRecommendationLevel,
+    qualitativeResumeFocus: row.qualitativeResumeFocus,
     qualitativeResumeSummary: row.qualitativeResumeSummary,
     resumeContentHash: row.resumeContentHash,
     resumeEvaluationContractVersion: row.resumeEvaluationContractVersion,
@@ -186,7 +194,10 @@ export function toResumePoolListRecord(
     resumeParseRetryable,
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
-    resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(row.resumeProfile),
+    resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(row.resumeProfile, {
+      education: RESUME_POOL_CARD_SNAPSHOT_LIMIT,
+      work: RESUME_POOL_CARD_SNAPSHOT_LIMIT,
+    }),
     resumeStorageKey: row.resumeStorageKey,
     scope: row.scope,
     skillsNormalized: row.skillsNormalized,
@@ -217,7 +228,10 @@ export function toResumePoolDetail(
 ): ResumePoolDetail {
   return {
     ...toResumePoolListRecord(
-      row,
+      {
+        ...row,
+        qualitativeResumeFocus: selectQualitativeResumeFocus(row.qualitativeResumeEvaluation),
+      },
       importRows,
       uploaderMeta,
       sourceChannel,

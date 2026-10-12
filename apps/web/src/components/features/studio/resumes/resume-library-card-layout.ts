@@ -1,14 +1,15 @@
+/** 各断点下带评价摘录（评语两行 + 4 条两行要点）卡片的实测最大高度，含行内上下 6px 间距。 */
 const RESUME_LIBRARY_CARD_HEIGHTS = {
-  base: 395,
-  lg: 297,
-  md: 334,
-  sm: 314,
-  xl: 219,
-  xxl: 217,
+  base: 498,
+  lg: 376,
+  md: 440,
+  sm: 440,
+  xl: 346,
+  xxl: 346,
 } as const;
 
 export const RESUME_LIBRARY_CARD_SKELETON_ROW_CLASS =
-  "h-[395px] pb-3 sm:h-[314px] md:h-[334px] lg:h-[297px] xl:h-[219px] 2xl:h-[217px]";
+  "h-[498px] py-1.5 sm:h-[440px] md:h-[440px] lg:h-[376px] xl:h-[346px] 2xl:h-[346px]";
 
 export function getResumeLibraryCardHeight(viewportWidth: number) {
   if (viewportWidth >= 1536) {

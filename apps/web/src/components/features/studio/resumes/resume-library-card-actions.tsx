@@ -28,6 +28,10 @@ import {
   canLaunchInterviewFromResume,
 } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
+import {
+  STUDIO_LIST_CARD_ACTIONS_STACK_CLASS,
+  STUDIO_LIST_CARD_FLOATING_ACTIONS_CLASS,
+} from "@/components/features/studio/studio-list-card-actions";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 
 const ACTION_ICON_CLASS = "size-3.5";
@@ -239,8 +243,8 @@ export function ResumeLibraryCardActions({
   });
 
   return (
-    <div className="flex justify-end self-center">
-      <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
+    <div className={cn("flex justify-end", STUDIO_LIST_CARD_FLOATING_ACTIONS_CLASS)}>
+      <div className={STUDIO_LIST_CARD_ACTIONS_STACK_CLASS}>
         <ResumeDocumentPreviewAction
           fileName={record.resumeFileName}
           hasResumeFile={record.hasResumeFile}

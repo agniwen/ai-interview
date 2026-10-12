@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
+  QualitativeEvaluationSection,
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
 } from "@app/db-schema/qualitative-resume-evaluation";
@@ -222,6 +223,17 @@ function restrictedMarkdownBlocks(value: string): FeishuDocumentBlock[] {
   });
 }
 
+function evaluationPointBlocks(section: QualitativeEvaluationSection): FeishuDocumentBlock[] {
+  if (!Array.isArray(section)) {
+    return restrictedMarkdownBlocks(section);
+  }
+  return section.flatMap((item) => [
+    { block_type: BLOCK_TYPE.ORDERED, ordered: textContent(`【${item.point}】${item.content}`) },
+    textBlock(`岗位要求：${item.jobRequirement}`),
+    textBlock(`原文证据：${item.resumeEvidence ?? "简历未提及"}`),
+  ]);
+}
+
 function buildResumeEvaluationBlocks(
   evaluation: InterviewEvaluationDocumentInput["resumeEvaluation"],
 ): FeishuDocumentBlock[] {
@@ -234,9 +246,9 @@ function buildResumeEvaluationBlocks(
       textBlock("简历AI简历评价", true),
       ...restrictedMarkdownBlocks(detailedOverall.judgment),
       textBlock("匹配依据", true),
-      ...restrictedMarkdownBlocks(detailedOverall.matchingEvidence),
+      ...evaluationPointBlocks(detailedOverall.matchingEvidence),
       textBlock("风险与待确认项", true),
-      ...restrictedMarkdownBlocks(detailedOverall.risks),
+      ...evaluationPointBlocks(detailedOverall.risks),
     ]),
   ];
 }

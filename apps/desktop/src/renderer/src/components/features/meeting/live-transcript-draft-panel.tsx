@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type {
   LiveTranscriptDraftSnapshot,
@@ -192,9 +193,9 @@ export function LiveTranscriptDraftPanel({
       <div className="container mx-auto grid max-w-3xl gap-3 px-4 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
+            <Badge className="px-1.5 py-0.5 font-medium text-[10px]" variant="warning">
               录制草稿
-            </span>
+            </Badge>
           </div>
           {status === "idle" ? null : (
             <span

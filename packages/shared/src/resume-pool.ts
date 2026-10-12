@@ -1,3 +1,4 @@
+import type { QualitativeResumeFocus } from "./qualitative-resume-focus";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
@@ -96,6 +97,8 @@ export interface ResumePoolListRecord {
   notes: string | null;
   qualitativeRecommendationLevel: QualitativeRecommendationLevel | null;
   qualitativeResumeSummary: string | null;
+  // 推荐/非常推荐为“匹配依据”，待定/不推荐为“风险与待确认项”；V3 为结构化要点，旧版为截断的受限 Markdown。
+  qualitativeResumeFocus: QualitativeResumeFocus | null;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;
   jobBindingMode: ResumePoolJobBindingMode | null;

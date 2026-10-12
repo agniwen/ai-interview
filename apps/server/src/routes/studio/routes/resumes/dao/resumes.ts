@@ -63,6 +63,7 @@ import {
   buildResumeKeywordSearch,
   buildResumeAtomicSearch,
 } from "@app/resume-processing/review/resumes/dao/keyword-search";
+import { qualitativeResumeFocusSql } from "@app/resume-processing/review/resumes/dao/qualitative-resume-focus";
 import { buildResumeProfileSnapshot } from "@app/resume-processing/review/resumes/dao/resume-profile-snapshot";
 import { loadLatestFeishuDocumentUrls } from "../../interviews/dao/feishu-document-urls";
 
@@ -482,6 +483,9 @@ const SELECTED_COLUMNS = {
   qualitativeJobDescriptionVersionId: recruitingRecordReadModel.qualitativeJobDescriptionVersionId,
   qualitativeRecommendationLevel: recruitingRecordReadModel.qualitativeRecommendationLevel,
   qualitativeResumeEvaluation: recruitingRecordReadModel.qualitativeResumeEvaluation,
+  qualitativeResumeFocus: qualitativeResumeFocusSql(
+    recruitingRecordReadModel.qualitativeResumeEvaluation,
+  ).as("qualitative_resume_focus"),
   qualitativeResumeSummary: sql<
     string | null
   >`${recruitingRecordReadModel.qualitativeResumeEvaluation}->>'conciseOverall'`.as(
@@ -615,6 +619,7 @@ const LIST_SELECTED_COLUMNS = {
   outcome: SELECTED_COLUMNS.outcome,
   pipelineStage: SELECTED_COLUMNS.pipelineStage,
   qualitativeRecommendationLevel: SELECTED_COLUMNS.qualitativeRecommendationLevel,
+  qualitativeResumeFocus: SELECTED_COLUMNS.qualitativeResumeFocus,
   qualitativeResumeSummary: SELECTED_COLUMNS.qualitativeResumeSummary,
   resumeEducationExperiences: SELECTED_COLUMNS.resumeEducationExperiences,
   resumeEducationGraduationYear: SELECTED_COLUMNS.resumeEducationGraduationYear,
@@ -857,6 +862,7 @@ function toRecord(
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
     qualitativeRecommendationLevel: row.qualitativeRecommendationLevel,
+    qualitativeResumeFocus: row.qualitativeResumeFocus,
     qualitativeResumeSummary: row.qualitativeResumeSummary,
     resumeEvaluationArtifactMode: resolveResumeEvaluationArtifactMode(row),
     resumeEvaluationAttemptMode: row.resumeEvaluationAttemptMode,

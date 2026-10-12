@@ -292,7 +292,7 @@ function HumanMeetingStageContent({
           ) : null}
           <ThemeToggle className="hidden shrink-0 md:inline-flex" />
           <Badge
-            className="hidden h-8 gap-1.5 rounded-md px-2.5 py-0 md:inline-flex"
+            className="hidden h-8 gap-1.5 px-2.5 py-0 md:inline-flex"
             variant="secondary"
             aria-label="参会人数"
           >

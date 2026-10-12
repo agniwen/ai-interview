@@ -1,5 +1,5 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import type { QualitativeResumeEvaluationWithDimensionLevels } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
   studioInterviewQuestionClientSchema,
   HumanInterviewEvaluationDraft,
@@ -59,7 +59,7 @@ export interface HumanInterviewCandidateAiEvaluationResponse {
   generatedAt: string | null;
   aiEvaluation:
     | {
-        evaluation: QualitativeResumeEvaluationV2;
+        evaluation: QualitativeResumeEvaluationWithDimensionLevels;
         status: "ready";
       }
     | {

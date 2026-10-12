@@ -100,6 +100,7 @@ function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
     notes: null,
     organizationId: ORGANIZATION_ID,
     qualitativeRecommendationLevel: null,
+    qualitativeResumeFocus: null,
     qualitativeResumeSummary: null,
     profileHighlights: {
       educationItems: [],

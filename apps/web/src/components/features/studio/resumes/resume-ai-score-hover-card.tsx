@@ -9,6 +9,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
+import { QualitativeEvaluationPointsView } from "@/components/features/resume/qualitative-evaluation-points";
 import { OverviewDimensionRadar } from "@/components/features/studio/resumes/resume-overview-dimension-radar";
 import {
   QualitativeDimensionRadar,
@@ -262,21 +263,23 @@ function QualitativePreviewContent({
         <Separator />
 
         <section
-          className="grid min-w-0 gap-5 p-4 sm:grid-cols-2"
+          className="flex min-w-0 flex-col gap-5 p-4"
           data-slot="qualitative-evidence-section"
         >
           <div>
-            <h4 className="mb-1 font-medium text-xs">匹配依据</h4>
-            <RestrictedMarkdownView
+            <h4 className="mb-2 font-medium text-xs">匹配依据</h4>
+            <QualitativeEvaluationPointsView
               className="text-muted-foreground text-xs leading-5"
-              content={evaluation.detailedOverall.matchingEvidence}
+              kind="matching"
+              section={evaluation.detailedOverall.matchingEvidence}
             />
           </div>
           <div>
-            <h4 className="mb-1 font-medium text-xs">风险与待确认项</h4>
-            <RestrictedMarkdownView
+            <h4 className="mb-2 font-medium text-xs">风险与待确认项</h4>
+            <QualitativeEvaluationPointsView
               className="text-muted-foreground text-xs leading-5"
-              content={evaluation.detailedOverall.risks}
+              kind="risk"
+              section={evaluation.detailedOverall.risks}
             />
           </div>
         </section>

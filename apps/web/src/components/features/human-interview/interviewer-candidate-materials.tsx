@@ -10,7 +10,7 @@ import {
   IconListDetails,
   IconX,
 } from "@tabler/icons-react";
-import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import type { QualitativeResumeEvaluationWithDimensionLevels } from "@app/db-schema/qualitative-resume-evaluation";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import type { ReactNode } from "react";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
+import { QualitativeEvaluationPointsView } from "@/components/features/resume/qualitative-evaluation-points";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
@@ -142,26 +143,37 @@ function EmptyBlock({ description, title }: { description?: string; title: strin
 export function AiEvaluationContent({
   data,
 }: {
-  data: { aiEvaluation: { evaluation: QualitativeResumeEvaluationV2; status: "ready" } };
+  data: {
+    aiEvaluation: { evaluation: QualitativeResumeEvaluationWithDimensionLevels; status: "ready" };
+  };
 }) {
   const { evaluation } = data.aiEvaluation;
+  const contentClassName = "mt-2 text-base leading-7 md:text-sm md:leading-6";
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-5 py-3 md:grid-cols-2">
-      {(
-        [
-          ["judgment", "判断"],
-          ["matchingEvidence", "匹配依据"],
-          ["risks", "风险与待确认项"],
-        ] as const
-      ).map(([key, label]) => (
-        <section className={cn("min-w-0", key === "judgment" && "md:col-span-2")} key={key}>
-          <h3 className="font-semibold text-base md:text-sm">{label}</h3>
-          <RestrictedMarkdownView
-            className="mt-2 text-base leading-7 md:text-sm md:leading-6"
-            content={evaluation.detailedOverall[key]}
-          />
-        </section>
-      ))}
+      <section className="min-w-0 md:col-span-2">
+        <h3 className="font-semibold text-base md:text-sm">判断</h3>
+        <RestrictedMarkdownView
+          className={contentClassName}
+          content={evaluation.detailedOverall.judgment}
+        />
+      </section>
+      <section className="min-w-0 md:col-span-2">
+        <h3 className="font-semibold text-base md:text-sm">匹配依据</h3>
+        <QualitativeEvaluationPointsView
+          className={contentClassName}
+          kind="matching"
+          section={evaluation.detailedOverall.matchingEvidence}
+        />
+      </section>
+      <section className="min-w-0 md:col-span-2">
+        <h3 className="font-semibold text-base md:text-sm">风险与待确认项</h3>
+        <QualitativeEvaluationPointsView
+          className={contentClassName}
+          kind="risk"
+          section={evaluation.detailedOverall.risks}
+        />
+      </section>
     </div>
   );
 }

@@ -95,6 +95,52 @@ describe("buildInterviewEvaluationDocument", () => {
     ]);
   });
 
+  it("renders structured matching evidence and risks with requirement and resume quote", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      resumeEvaluation: {
+        detailedOverall: {
+          judgment: "整体匹配。",
+          matchingEvidence: [
+            {
+              content: "主导同类系统建设，覆盖岗位核心职责。",
+              jobRequirement: "负责招聘系统架构设计",
+              point: "系统架构",
+              resumeEvidence: "主导招聘系统重构",
+            },
+          ],
+          risks: [
+            {
+              content: "简历未体现团队管理经历。",
+              jobRequirement: "带领 5 人以上团队",
+              point: "团队管理",
+              resumeEvidence: null,
+            },
+          ],
+        },
+      },
+      resumeUrl: "https://example.com/resume",
+    });
+
+    const texts = (document.blocks.at(2)?.children ?? []).map(blockText);
+    const evidenceIndex = texts.indexOf("匹配依据");
+    expect(texts.slice(evidenceIndex + 1, evidenceIndex + 4)).toEqual([
+      "【系统架构】主导同类系统建设，覆盖岗位核心职责。",
+      "岗位要求：负责招聘系统架构设计",
+      "原文证据：主导招聘系统重构",
+    ]);
+    const riskIndex = texts.indexOf("风险与待确认项");
+    expect(texts.slice(riskIndex + 1, riskIndex + 4)).toEqual([
+      "【团队管理】简历未体现团队管理经历。",
+      "岗位要求：带领 5 人以上团队",
+      "原文证据：简历未提及",
+    ]);
+    expect(document.blocks.at(2)?.children?.[evidenceIndex + 1]?.block_type).toBe(
+      BLOCK_TYPE.ORDERED,
+    );
+  });
+
   it("places recommended interview questions after HR evaluation and before rating levels", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",

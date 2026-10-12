@@ -152,7 +152,8 @@ describe("buildResumeProfileSnapshot", () => {
       resumeWorkRole: null,
     });
 
-    expect(snapshot.work).toHaveLength(3);
+    expect(snapshot.work).toHaveLength(4);
+    expect(snapshot.workHasMore).toBe(false);
     expect(snapshot.education).toHaveLength(3);
     expect(snapshot.educationHasMore).toBe(false);
     expect(snapshot.projects.map((line) => line.primary)).toEqual(["项目A", "项目B", "项目C"]);

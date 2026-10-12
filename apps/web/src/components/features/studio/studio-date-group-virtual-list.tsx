@@ -10,7 +10,7 @@ import type { RefObject } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const STUDIO_DATE_GROUP_HEADER_HEIGHT = 44;
-export const STUDIO_DATE_GROUP_HEADER_GAP = 12;
+export const STUDIO_DATE_GROUP_HEADER_GAP = 0;
 export const STUDIO_DATE_GROUP_ROW_HEIGHT =
   STUDIO_DATE_GROUP_HEADER_HEIGHT + STUDIO_DATE_GROUP_HEADER_GAP;
 
@@ -28,6 +28,17 @@ export interface StudioDateGroup<TRecord> {
 export type StudioDateGroupedVirtualRow<TRecord> =
   | { id: string; label: string; recordCount: number; type: "date-header" }
   | { id: string; record: TRecord; type: "record" };
+
+/** 记录行之间的分隔线；分组最后一条不画，避免与下一个日期标题重复分隔。 */
+export const STUDIO_RECORD_ROW_DIVIDER_CLASS =
+  "after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-border";
+
+export function hasStudioRecordRowDivider<TRecord>(
+  rows: StudioDateGroupedVirtualRow<TRecord>[],
+  index: number,
+) {
+  return rows[index + 1]?.type === "record";
+}
 
 export interface StudioStickyDateHeaderPosition {
   index: number;

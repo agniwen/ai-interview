@@ -30,7 +30,7 @@ describe("resume pool list", () => {
       'skeleton={<ResumePoolLoadingState showDateGroup={sortBy === "createdAt"} />}',
     );
     expect(source).not.toContain("if (isInitialPoolLoading)");
-    expect(sharedSource).toContain("STUDIO_DATE_GROUP_HEADER_GAP = 12");
+    expect(sharedSource).toContain("STUDIO_DATE_GROUP_HEADER_GAP = 0");
     expect(sharedSource).toContain("height: STUDIO_DATE_GROUP_HEADER_HEIGHT");
     expect(sharedSource).toContain('active ? "sticky" : "absolute"');
     expect(sharedSource).not.toContain('active ? "sticky z-20" : "absolute"');

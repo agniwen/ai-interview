@@ -65,6 +65,7 @@ import { createResumeRecordFromStorage } from "../resumes/utils/create-from-stor
 import { normalizeSkill } from "../resumes/dao/skills";
 import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "../resumes/dao/keyword-search";
 import { loadBoundJobDescriptionName } from "./dao/job-description-name";
+import { qualitativeResumeFocusSql } from "../resumes/dao/qualitative-resume-focus";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";
 import { admitResumePoolItem } from "./utils/admission";
@@ -707,6 +708,7 @@ export async function queryResumePoolItems(
     .select({
       item: POOL_LIST_COLUMNS,
       jobDescriptionName: jobDescription.name,
+      qualitativeResumeFocus: qualitativeResumeFocusSql(resumePoolItem.qualitativeResumeEvaluation),
       uploaderEmail: user.email,
       uploaderImage: user.image,
       uploaderName: user.name,
@@ -741,7 +743,7 @@ export async function queryResumePoolItems(
   return {
     records: rows.map((row) =>
       toResumePoolListRecord(
-        row.item,
+        { ...row.item, qualitativeResumeFocus: row.qualitativeResumeFocus },
         imports.get(row.item.id) ?? [],
         uploaderMetaFromRow(row),
         sourceChannels.get(row.item.id) ?? null,

@@ -4,7 +4,7 @@ import { IconQuestionMark, IconSparkles, IconThumbUp, IconX } from "@tabler/icon
 import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
-  QualitativeResumeEvaluationV2,
+  QualitativeResumeEvaluationWithDimensionLevels,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import { qualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
+import { QualitativeEvaluationPointsView } from "@/components/features/resume/qualitative-evaluation-points";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { rpcFetch } from "@/lib/client/api";
@@ -114,8 +115,8 @@ export function QualitativeRecommendationIndicator({
 
 function hasDimensionLevels(
   evaluation: QualitativeResumeEvaluation,
-): evaluation is QualitativeResumeEvaluationV2 {
-  return evaluation.schemaVersion === 2;
+): evaluation is QualitativeResumeEvaluationWithDimensionLevels {
+  return evaluation.schemaVersion !== 1;
 }
 
 export function QualitativeDimensionRadar({
@@ -247,14 +248,20 @@ export function QualitativeEvaluationDetails({
               <div className="mb-1 font-medium">判断</div>
               <RestrictedMarkdownView content={evaluation.detailedOverall.judgment} />
             </div>
-            <div className="grid gap-5 md:grid-cols-2" data-qualitative-overall-supporting>
+            <div className="flex flex-col gap-6" data-qualitative-overall-supporting>
               <div className="text-sm leading-6">
-                <div className="mb-1 font-medium">匹配依据</div>
-                <RestrictedMarkdownView content={evaluation.detailedOverall.matchingEvidence} />
+                <div className="mb-3 font-medium">匹配依据</div>
+                <QualitativeEvaluationPointsView
+                  kind="matching"
+                  section={evaluation.detailedOverall.matchingEvidence}
+                />
               </div>
               <div className="text-sm leading-6">
-                <div className="mb-1 font-medium">风险与待确认项</div>
-                <RestrictedMarkdownView content={evaluation.detailedOverall.risks} />
+                <div className="mb-3 font-medium">风险与待确认项</div>
+                <QualitativeEvaluationPointsView
+                  kind="risk"
+                  section={evaluation.detailedOverall.risks}
+                />
               </div>
             </div>
           </div>

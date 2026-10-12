@@ -1,11 +1,11 @@
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-  qualitativeResumeEvaluationV2Schema,
+  currentQualitativeResumeEvaluationSchema,
 } from "@app/db-schema/qualitative-resume-evaluation";
 
 export interface ReusableResumePoolEvaluation {
   contractVersion: typeof QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION;
-  evaluation: ReturnType<typeof qualitativeResumeEvaluationV2Schema.parse>;
+  evaluation: ReturnType<typeof currentQualitativeResumeEvaluationSchema.parse>;
   generatedAt: Date;
   inputHash: string;
   jobDescriptionVersionId: string;
@@ -34,7 +34,9 @@ export function selectReusableResumePoolEvaluation(
   ) {
     return null;
   }
-  const parsed = qualitativeResumeEvaluationV2Schema.safeParse(source.qualitativeResumeEvaluation);
+  const parsed = currentQualitativeResumeEvaluationSchema.safeParse(
+    source.qualitativeResumeEvaluation,
+  );
   if (
     !parsed.success ||
     parsed.data.recommendationLevel !== source.qualitativeRecommendationLevel ||

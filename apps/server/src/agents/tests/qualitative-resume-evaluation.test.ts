@@ -4,7 +4,7 @@ import {
   generateQualitativeResumeEvaluation,
   normalizeGeneratedQualitativeResumeEvaluation,
 } from "@app/resume-processing/ingest/agents/qualitative-resume-evaluation";
-import { qualitativeResumeEvaluationV2Schema } from "@app/db-schema/qualitative-resume-evaluation";
+import { currentQualitativeResumeEvaluationSchema } from "@app/db-schema/qualitative-resume-evaluation";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 
 const profile = {
@@ -29,8 +29,22 @@ const output = {
   detailedOverall: {
     judgment:
       "候选人整体与企业级招聘产品经理岗位较为匹配，建议进入下一轮。其在上一段经历中连续三年负责企业软件产品，从需求调研、方案设计到跨团队交付均有完整实践，并推动招聘流程模块按期上线；这些经历直接支持岗位对B端产品规划、复杂流程抽象和项目协同的要求。候选人还熟悉用户访谈、数据分析与迭代验证，能够结合客户反馈持续优化方案。不过，简历尚未体现招聘行业的长期积累，也缺少大型客户商业化结果和团队管理规模等信息，因此当前判断以已有项目证据为主，相关能力仍需在面试中进一步确认。",
-    matchingEvidence: "候选人连续负责企业软件产品，并有跨团队交付经历。",
-    risks: "简历未说明招聘行业经验，需在面试中确认迁移能力。",
+    matchingEvidence: [
+      {
+        content: "连续负责企业软件产品，与岗位的企业级产品职责直接对应。",
+        jobRequirement: "负责企业级招聘产品",
+        point: "企业级产品经验",
+        resumeEvidence: "曾负责企业软件产品",
+      },
+    ],
+    risks: [
+      {
+        content: "简历未说明招聘行业经验，需在面试中确认迁移能力。",
+        jobRequirement: "负责企业级招聘产品",
+        point: "招聘行业经验",
+        resumeEvidence: null,
+      },
+    ],
   },
   dimensions: Object.fromEntries(
     [
@@ -50,7 +64,7 @@ const output = {
     ]),
   ),
   recommendationLevel: "recommended",
-  schemaVersion: 2,
+  schemaVersion: 3,
   seniorityRecommendation: null,
   teamPositioning: null,
 };
@@ -79,10 +93,15 @@ describe("qualitative resume evaluation prompt", () => {
     expect(prompt).toContain("粗体、斜体和有序列表");
     expect(prompt).toContain("列点时只允许使用有序列表");
     expect(prompt).toContain("不得使用 Markdown 标题");
-    expect(prompt).toContain("risks 有多个风险点时必须使用有序列表");
     expect(prompt).toContain("每个列表项必须独占一行");
     expect(prompt).toContain("1. 第一项\n2. 第二项\n3. 第三项\n4. 第四项");
     expect(prompt).toContain("不得使用无序列表");
+    expect(prompt).toContain(
+      '{"point":"要求点","content":"结论","resumeEvidence":"简历原文证据","jobRequirement":"岗位要求原文"}',
+    );
+    expect(prompt).toContain("同一要求点不得同时出现在 matchingEvidence 和 risks 中");
+    expect(prompt).toContain("逐字摘录");
+    expect(prompt).toContain("不得改写、概括、合并改造或编造原文");
     expect(prompt).not.toContain("硬性门槛");
     expect(prompt).not.toContain("优先条件");
   });
@@ -116,12 +135,12 @@ describe("qualitative resume evaluation prompt", () => {
         },
         generate,
       ),
-    ).resolves.toMatchObject({ recommendationLevel: "recommended", schemaVersion: 2 });
+    ).resolves.toMatchObject({ recommendationLevel: "recommended", schemaVersion: 3 });
     expect(generate).toHaveBeenCalledWith(
       expect.objectContaining({
         maxOutputTokens: 8192,
         normalizeInvalid: normalizeGeneratedQualitativeResumeEvaluation,
-        observabilityLabel: "qualitative-resume-v9",
+        observabilityLabel: "qualitative-resume-v10",
         temperature: 0,
       }),
     );
@@ -129,6 +148,15 @@ describe("qualitative resume evaluation prompt", () => {
     const { schemaVersion: _schemaVersion, ...generatedOutput } = output;
     expect(request?.schema.safeParse(generatedOutput).success).toBe(true);
     expect(request?.schema.safeParse(output).success).toBe(false);
+    expect(
+      request?.schema.safeParse({
+        ...generatedOutput,
+        detailedOverall: {
+          ...generatedOutput.detailedOverall,
+          matchingEvidence: "1. 候选人连续负责企业软件产品。",
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("removes model-owned metadata and canonicalizes missing optional guidance", () => {
@@ -163,6 +191,28 @@ describe("qualitative resume evaluation prompt", () => {
     });
   });
 
+  it("canonicalizes risks without resume evidence to null", () => {
+    const [risk] = output.detailedOverall.risks;
+    const normalized = normalizeGeneratedQualitativeResumeEvaluation({
+      ...output,
+      detailedOverall: {
+        ...output.detailedOverall,
+        risks: [
+          { ...risk, resumeEvidence: "" },
+          { content: risk?.content, jobRequirement: risk?.jobRequirement, point: risk?.point },
+        ],
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      detailedOverall: { risks: [{ resumeEvidence: null }, { resumeEvidence: null }] },
+    });
+    expect(
+      currentQualitativeResumeEvaluationSchema.omit({ schemaVersion: true }).safeParse(normalized)
+        .success,
+    ).toBe(true);
+  });
+
   it("keeps incomplete core evaluation fields invalid", () => {
     const normalized = normalizeGeneratedQualitativeResumeEvaluation({
       ...output,
@@ -176,7 +226,7 @@ describe("qualitative resume evaluation prompt", () => {
     });
 
     expect(
-      qualitativeResumeEvaluationV2Schema.omit({ schemaVersion: true }).safeParse(normalized)
+      currentQualitativeResumeEvaluationSchema.omit({ schemaVersion: true }).safeParse(normalized)
         .success,
     ).toBe(false);
   });
