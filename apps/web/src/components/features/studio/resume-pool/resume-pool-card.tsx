@@ -209,7 +209,7 @@ function ResumePoolProfileSnapshot({ record }: { record: ResumePoolListRecord })
 
   return (
     <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 xl:block">
-      <div className="grid min-w-0 content-start gap-1 xl:max-w-sm">
+      <div className="grid min-w-0 content-start gap-1">
         {work.map((line) => (
           <ResumePoolProfileLine key={`work-${line.primary}-${line.period ?? ""}`} line={line} />
         ))}

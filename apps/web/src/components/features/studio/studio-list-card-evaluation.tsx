@@ -70,9 +70,11 @@ function StudioListCardFocusPoint({
     <HoverCard>
       <HoverCardTrigger
         render={
-          <li className={cn(QUALITATIVE_POINT_GRID_CLASS, "rounded-sm")}>
+          <li className={cn(QUALITATIVE_POINT_GRID_CLASS, "group/focus-point rounded-sm")}>
             <QualitativeEvaluationPointBadge className="py-0.5" kind={kind} point={item.point} />
-            <p className="line-clamp-2 min-w-0 wrap-break-word">{item.content}</p>
+            <p className="line-clamp-2 min-w-0 wrap-break-word underline decoration-transparent underline-offset-2 transition-colors group-hover/focus-point:decoration-foreground/40">
+              {item.content}
+            </p>
           </li>
         }
       />
@@ -222,7 +224,7 @@ export function StudioListCardProfileSnapshotSkeleton() {
       className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 xl:block"
       data-slot="studio-list-card-profile-snapshot-skeleton"
     >
-      <div className="grid min-w-0 gap-1 xl:max-w-sm">
+      <div className="grid min-w-0 gap-1">
         <Skeleton className={cn("my-1 h-4 w-full", CARD_SKELETON_HOVER_CLASS)} />
         <Skeleton className={cn("my-1 h-4 w-4/5", CARD_SKELETON_HOVER_CLASS)} />
         <div className="my-0.5 border-border/60 border-t" />
