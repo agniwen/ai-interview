@@ -28,10 +28,7 @@ import {
   canLaunchInterviewFromResume,
 } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
-import {
-  STUDIO_LIST_CARD_ACTIONS_STACK_CLASS,
-  STUDIO_LIST_CARD_FLOATING_ACTIONS_CLASS,
-} from "@/components/features/studio/studio-list-card-actions";
+import { STUDIO_LIST_CARD_ACTIONS_CLASS } from "@/components/features/studio/studio-list-card-actions";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 
 const ACTION_ICON_CLASS = "size-3.5";
@@ -243,70 +240,68 @@ export function ResumeLibraryCardActions({
   });
 
   return (
-    <div className={cn("flex justify-end", STUDIO_LIST_CARD_FLOATING_ACTIONS_CLASS)}>
-      <div className={STUDIO_LIST_CARD_ACTIONS_STACK_CLASS}>
-        <ResumeDocumentPreviewAction
-          fileName={record.resumeFileName}
-          hasResumeFile={record.hasResumeFile}
-          onPreview={() => onPreviewResume(record)}
+    <div className={STUDIO_LIST_CARD_ACTIONS_CLASS}>
+      <ResumeDocumentPreviewAction
+        fileName={record.resumeFileName}
+        hasResumeFile={record.hasResumeFile}
+        onPreview={() => onPreviewResume(record)}
+      />
+      {flags.canRetry ? (
+        <Button
+          className={ACTION_BUTTON_CLASS}
+          disabled={retrying}
+          onClick={() => onRetryParse(record)}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {retrying ? (
+            <IconLoader2 className={`${ACTION_ICON_CLASS} animate-spin`} />
+          ) : (
+            <IconRefresh className={ACTION_ICON_CLASS} />
+          )}
+          <span>{retrying ? "入队中" : "重新解析"}</span>
+        </Button>
+      ) : null}
+      {flags.canEdit ? (
+        <TextActionButton label="编辑" onClick={() => onEdit(record)}>
+          <IconEdit className={ACTION_ICON_CLASS} />
+        </TextActionButton>
+      ) : null}
+      {flags.canLaunchInterview ? (
+        <TextActionButton label="AI面" onClick={() => onLaunchInterview(record)}>
+          <IconSparkles className={ACTION_ICON_CLASS} />
+        </TextActionButton>
+      ) : null}
+      {record.feishuDocumentUrl ? (
+        <Button
+          className={ACTION_BUTTON_CLASS}
+          nativeButton={false}
+          render={
+            <a href={record.feishuDocumentUrl} rel="noopener noreferrer" target="_blank">
+              <IconFileText className={ACTION_ICON_CLASS} />
+              <span>评价表</span>
+            </a>
+          }
+          size="sm"
+          variant="ghost"
         />
-        {flags.canRetry ? (
-          <Button
-            className={ACTION_BUTTON_CLASS}
-            disabled={retrying}
-            onClick={() => onRetryParse(record)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            {retrying ? (
-              <IconLoader2 className={`${ACTION_ICON_CLASS} animate-spin`} />
-            ) : (
-              <IconRefresh className={ACTION_ICON_CLASS} />
-            )}
-            <span>{retrying ? "入队中" : "重新解析"}</span>
-          </Button>
-        ) : null}
-        {flags.canEdit ? (
-          <TextActionButton label="编辑" onClick={() => onEdit(record)}>
-            <IconEdit className={ACTION_ICON_CLASS} />
-          </TextActionButton>
-        ) : null}
-        {flags.canLaunchInterview ? (
-          <TextActionButton label="AI面" onClick={() => onLaunchInterview(record)}>
-            <IconSparkles className={ACTION_ICON_CLASS} />
-          </TextActionButton>
-        ) : null}
-        {record.feishuDocumentUrl ? (
-          <Button
-            className={ACTION_BUTTON_CLASS}
-            nativeButton={false}
-            render={
-              <a href={record.feishuDocumentUrl} rel="noopener noreferrer" target="_blank">
-                <IconFileText className={ACTION_ICON_CLASS} />
-                <span>评价表</span>
-              </a>
-            }
-            size="sm"
-            variant="ghost"
-          />
-        ) : null}
-        <MoreMenu
-          canClose={flags.canClose}
-          canCopyLink={canCopyLink}
-          canDelete={flags.canDelete}
-          canForceReparse={flags.showForceReparseInMenu}
-          canPreviewFromMenu={flags.canPreviewFromMenu}
-          canReactivate={flags.canReactivate}
-          forceReparsing={retrying && flags.showForceReparseInMenu}
-          onCopyDetailLink={onCopyDetailLink}
-          onDelete={onDelete}
-          onForceReparse={onForceReparse}
-          onPreviewResume={onPreviewResume}
-          onTransition={onTransition}
-          record={record}
-        />
-      </div>
+      ) : null}
+      <MoreMenu
+        canClose={flags.canClose}
+        canCopyLink={canCopyLink}
+        canDelete={flags.canDelete}
+        canForceReparse={flags.showForceReparseInMenu}
+        canPreviewFromMenu={flags.canPreviewFromMenu}
+        canReactivate={flags.canReactivate}
+        forceReparsing={retrying && flags.showForceReparseInMenu}
+        onCopyDetailLink={onCopyDetailLink}
+        onDelete={onDelete}
+        onForceReparse={onForceReparse}
+        onPreviewResume={onPreviewResume}
+        onTransition={onTransition}
+        record={record}
+      />
     </div>
   );
 }

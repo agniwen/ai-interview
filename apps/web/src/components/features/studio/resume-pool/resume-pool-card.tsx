@@ -10,7 +10,6 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@app/shared/resume-pool";
-import { cn } from "@app/shared/utils";
 import { useSyncExternalStore } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
@@ -21,10 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardPanel } from "@/components/ui/card";
-import {
-  STUDIO_LIST_CARD_ACTIONS_STACK_CLASS,
-  STUDIO_LIST_CARD_FLOATING_ACTIONS_CLASS,
-} from "@/components/features/studio/studio-list-card-actions";
+import { STUDIO_LIST_CARD_ACTIONS_CLASS } from "@/components/features/studio/studio-list-card-actions";
 import {
   QUALITATIVE_RECOMMENDATION_LABEL,
   STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS,
@@ -47,14 +43,14 @@ import {
 } from "./resume-pool-page-model";
 import { ResumePoolJobBindingMenu } from "./resume-pool-job-binding-menu";
 
-/** 评价摘录区为固定 170px（最多 4 条两行要点），各断点行高随之确定。 */
+/** 评价摘录区为固定 188px（最多 4 条两行要点），加上底部常驻操作行，各断点行高随之确定。 */
 const RESUME_POOL_CARD_HEIGHTS = {
-  base: 508,
-  lg: 354,
-  md: 464,
-  sm: 464,
-  xl: 354,
-  xxl: 354,
+  base: 530,
+  lg: 420,
+  md: 486,
+  sm: 486,
+  xl: 420,
+  xxl: 420,
 } as const;
 const RESUME_POOL_CARD_MEDIA_QUERIES = [640, 768, 1024, 1280, 1536].map(
   (width) => `(min-width: ${width}px)`,
@@ -294,94 +290,92 @@ function ResumePoolCardActions({
   const actionClass = "h-8 gap-1 px-2 text-xs";
 
   return (
-    <div className={cn("flex justify-end", STUDIO_LIST_CARD_FLOATING_ACTIONS_CLASS)}>
-      <div className={STUDIO_LIST_CARD_ACTIONS_STACK_CLASS}>
-        <ResumeDocumentPreviewAction
-          fileName={record.resumeFileName}
-          hasResumeFile={Boolean(record.resumeStorageKey)}
-          onPreview={() => onPreviewResume(record)}
-        />
+    <div className={STUDIO_LIST_CARD_ACTIONS_CLASS}>
+      <ResumeDocumentPreviewAction
+        fileName={record.resumeFileName}
+        hasResumeFile={Boolean(record.resumeStorageKey)}
+        onPreview={() => onPreviewResume(record)}
+      />
+      <Button
+        aria-label="查看人才详情"
+        className={actionClass}
+        data-resume-pool-card-action="详情"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenDetail(record);
+        }}
+        size="sm"
+        type="button"
+        variant="ghost"
+      >
+        <IconFileDescription data-icon="inline-start" />
+        详情
+      </Button>
+      {canRetryParse && record.resumeParseStatus === "failed" ? (
         <Button
-          aria-label="查看人才详情"
+          aria-label="重新解析简历"
           className={actionClass}
-          data-resume-pool-card-action="详情"
+          data-resume-pool-card-action="重新解析"
+          disabled={retrying}
           onClick={(event) => {
             event.stopPropagation();
-            onOpenDetail(record);
+            onRetryParse(record);
           }}
           size="sm"
           type="button"
           variant="ghost"
         >
-          <IconFileDescription data-icon="inline-start" />
-          详情
-        </Button>
-        {canRetryParse && record.resumeParseStatus === "failed" ? (
-          <Button
-            aria-label="重新解析简历"
-            className={actionClass}
-            data-resume-pool-card-action="重新解析"
-            disabled={retrying}
-            onClick={(event) => {
-              event.stopPropagation();
-              onRetryParse(record);
-            }}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            {retrying ? (
-              <IconLoader2 className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <IconRefresh data-icon="inline-start" />
-            )}
-            {retrying ? "加入队列中…" : "重新解析"}
-          </Button>
-        ) : null}
-        <Button
-          aria-label="进入招聘"
-          className={actionClass}
-          data-resume-pool-card-action="进入招聘"
-          disabled={enterDisabled}
-          onClick={(event) => {
-            event.stopPropagation();
-            onEnterRecruiting(record);
-          }}
-          size="sm"
-          title={record.importedResumeRecordId ? "打开招聘记录" : importActionState.label}
-          type="button"
-          variant="ghost"
-        >
-          {enteringRecruiting || importActionState.loading ? (
+          {retrying ? (
             <IconLoader2 className="animate-spin" data-icon="inline-start" />
           ) : (
-            <IconBriefcase data-icon="inline-start" />
+            <IconRefresh data-icon="inline-start" />
           )}
-          进入招聘
+          {retrying ? "加入队列中…" : "重新解析"}
         </Button>
-        {canDelete ? (
-          <Button
-            aria-label="删除人才记录"
-            className={`${actionClass} text-destructive hover:text-destructive`}
-            data-resume-pool-card-action="删除"
-            disabled={deleting}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete(record);
-            }}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            {deleting ? (
-              <IconLoader2 className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <IconTrash data-icon="inline-start" />
-            )}
-            删除
-          </Button>
-        ) : null}
-      </div>
+      ) : null}
+      <Button
+        aria-label="进入招聘"
+        className={actionClass}
+        data-resume-pool-card-action="进入招聘"
+        disabled={enterDisabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          onEnterRecruiting(record);
+        }}
+        size="sm"
+        title={record.importedResumeRecordId ? "打开招聘记录" : importActionState.label}
+        type="button"
+        variant="ghost"
+      >
+        {enteringRecruiting || importActionState.loading ? (
+          <IconLoader2 className="animate-spin" data-icon="inline-start" />
+        ) : (
+          <IconBriefcase data-icon="inline-start" />
+        )}
+        进入招聘
+      </Button>
+      {canDelete ? (
+        <Button
+          aria-label="删除人才记录"
+          className={`${actionClass} text-destructive hover:text-destructive`}
+          data-resume-pool-card-action="删除"
+          disabled={deleting}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(record);
+          }}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {deleting ? (
+            <IconLoader2 className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <IconTrash data-icon="inline-start" />
+          )}
+          删除
+        </Button>
+      ) : null}
     </div>
   );
 }

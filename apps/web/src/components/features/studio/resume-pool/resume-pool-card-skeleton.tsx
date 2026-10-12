@@ -8,7 +8,7 @@ export function ResumePoolCardSkeleton() {
   return (
     <div
       className={cn(
-        "relative h-[508px] py-1.5 sm:h-[464px] md:h-[464px] lg:h-[354px] xl:h-[354px] 2xl:h-[354px]",
+        "relative h-[530px] py-1.5 sm:h-[486px] md:h-[486px] lg:h-[420px] xl:h-[420px] 2xl:h-[420px]",
         STUDIO_RECORD_ROW_DIVIDER_CLASS,
       )}
       data-slot="resume-pool-card-skeleton"
@@ -49,7 +49,7 @@ export function ResumePoolCardSkeleton() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-1.5 lg:hidden">
+          <div className="flex items-center justify-end gap-1">
             {Array.from({ length: 3 }, (_, index) => (
               <Skeleton
                 className="h-8 w-16"

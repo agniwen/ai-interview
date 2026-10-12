@@ -51,10 +51,10 @@ export function StudioListCardRecommendationLabel({
 }
 
 /**
- * 摘录区固定高度：最多 4 条要点，每条最多两行（19px × 2），条间距 6px → 4 × 38 + 3 × 6 = 170px。
+ * 摘录区固定高度：最多 4 条要点，每条最多两行（19px × 2），条间距 12px → 4 × 38 + 3 × 12 = 188px。
  * 旧版 Markdown 摘录沿用同一高度并在底部渐隐，保证虚拟列表行高不随内容变化。
  */
-const STUDIO_LIST_CARD_FOCUS_HEIGHT_CLASS = "h-[170px]";
+const STUDIO_LIST_CARD_FOCUS_HEIGHT_CLASS = "h-[188px]";
 const STUDIO_LIST_CARD_FOCUS_MAX_POINTS = 4;
 
 type FocusPoints = Extract<QualitativeResumeFocus, { format: "points" }>;
@@ -111,7 +111,7 @@ export const StudioListCardEvaluationFocus = memo(function StudioListCardEvaluat
     return (
       <ul
         className={cn(
-          "grid min-w-0 content-start gap-1.5 overflow-hidden text-[13px] text-foreground leading-[19px]",
+          "grid min-w-0 content-start gap-3 overflow-hidden text-[13px] text-foreground leading-[19px]",
           STUDIO_LIST_CARD_FOCUS_HEIGHT_CLASS,
         )}
         data-slot="studio-list-card-evaluation-focus"
@@ -145,12 +145,12 @@ const FOCUS_SKELETON_ROWS = [
   ["w-16", "w-5/6", "w-1/2"],
 ] as const;
 
-/** 摘录区骨架：4 行“Badge + 两行正文”，与正式摘录区同高（170px）。 */
+/** 摘录区骨架：4 行“Badge + 两行正文”，与正式摘录区同高（188px）。 */
 function StudioListCardFocusSkeletonRows() {
   return (
     <div
       aria-hidden
-      className={cn("grid min-w-0 content-start gap-1.5", STUDIO_LIST_CARD_FOCUS_HEIGHT_CLASS)}
+      className={cn("grid min-w-0 content-start gap-3", STUDIO_LIST_CARD_FOCUS_HEIGHT_CLASS)}
       data-slot="studio-list-card-evaluation-focus-skeleton"
     >
       {FOCUS_SKELETON_ROWS.map(([badge, first, second]) => (
@@ -179,7 +179,7 @@ export function StudioListCardEvaluation({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("mt-3 grid min-w-0 gap-1.5", className)}>{children}</div>;
+  return <div className={cn("mt-3 grid min-w-0 gap-2.5", className)}>{children}</div>;
 }
 
 const SUMMARY_SKELETON_LINES = ["w-full", "w-3/4"] as const;
@@ -187,7 +187,7 @@ const SUMMARY_SKELETON_LINES = ["w-full", "w-3/4"] as const;
 /** 与评价区同高的骨架：评语两行（每行 19px）+ 摘录区，段间距与正式内容一致。 */
 export function StudioListCardEvaluationSkeletonLines({ className }: { className?: string }) {
   return (
-    <div aria-hidden className={cn("mt-3 grid min-w-0 gap-1.5", className)}>
+    <div aria-hidden className={cn("mt-3 grid min-w-0 gap-2.5", className)}>
       <div className="grid">
         {SUMMARY_SKELETON_LINES.map((width) => (
           <Skeleton

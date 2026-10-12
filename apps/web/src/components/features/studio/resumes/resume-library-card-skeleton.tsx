@@ -48,8 +48,8 @@ export function ResumeLibraryCardSkeleton({ className }: { className?: string })
               </div>
             </div>
           </div>
-          <div className="flex justify-end lg:hidden">
-            <div className="flex items-center justify-end gap-1.5">
+          <div className="flex justify-end">
+            <div className="flex items-center justify-end gap-1">
               {Array.from({ length: 3 }, (_, index) => (
                 <Skeleton className="h-8 w-16" key={index} />
               ))}
