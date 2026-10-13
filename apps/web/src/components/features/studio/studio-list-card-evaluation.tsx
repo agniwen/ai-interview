@@ -127,7 +127,7 @@ function StudioListCardFocusPoint({
             <dd className="text-foreground">{item.jobRequirement}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">原文证据</dt>
+            <dt className="text-muted-foreground">简历证据</dt>
             <dd className="text-foreground">{item.resumeEvidence ?? "简历未提及"}</dd>
           </div>
         </dl>

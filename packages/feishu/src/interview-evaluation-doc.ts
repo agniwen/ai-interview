@@ -230,7 +230,7 @@ function evaluationPointBlocks(section: QualitativeEvaluationSection): FeishuDoc
   return section.flatMap((item) => [
     { block_type: BLOCK_TYPE.ORDERED, ordered: textContent(`【${item.point}】${item.content}`) },
     textBlock(`岗位要求：${item.jobRequirement}`),
-    textBlock(`原文证据：${item.resumeEvidence ?? "简历未提及"}`),
+    textBlock(`简历证据：${item.resumeEvidence ?? "简历未提及"}`),
   ]);
 }
 

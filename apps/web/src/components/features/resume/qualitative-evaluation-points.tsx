@@ -71,7 +71,7 @@ export function QualitativeEvaluationPointsView({
                 <dd className="min-w-0">{item.jobRequirement}</dd>
               </div>
               <div className="flex min-w-0 gap-2">
-                <dt className="shrink-0 text-muted-foreground/70">原文证据</dt>
+                <dt className="shrink-0 text-muted-foreground/70">简历证据</dt>
                 <dd className="min-w-0">{item.resumeEvidence ?? "简历未提及"}</dd>
               </div>
             </dl>

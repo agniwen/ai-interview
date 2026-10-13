@@ -109,7 +109,7 @@ export const qualitativeMatchingEvidenceItemSchema = z
   })
   .strict();
 
-/** V3 风险与待确认项：结构同匹配依据；简历缺少相关事实时原文证据为 null。 */
+/** V3 风险与待确认项：结构同匹配依据；简历缺少相关事实时简历证据为 null。 */
 export const qualitativeRiskItemSchema = z
   .object({
     ...qualitativeEvaluationPointFields,
