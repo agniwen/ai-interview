@@ -72,7 +72,7 @@
     "@mastra/core": "^1.75.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
-    "@sentry/hono": "10.71.0",
+    "@sentry/hono": "10.76.2",
     "chat": "catalog:",
     "drizzle-orm": "catalog:",
     "livekit-server-sdk": "^2.15.2",

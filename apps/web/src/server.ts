@@ -1,6 +1,7 @@
 import "./instrument.server";
 
 import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
+import { createServerEntry } from "@tanstack/react-start/server";
 import type { ServerEntry } from "@tanstack/react-start/server-entry";
 import { applyServerEnv } from "./env/server";
 import { paraglideMiddleware } from "./paraglide/server";
@@ -204,4 +205,5 @@ const sentryHandler: ServerEntry = wrapFetchWithSentry({
   fetch: forwardSentryFetch,
 });
 
-export default sentryHandler;
+// createStartHandler rethrows escaped errors; the server entry scope converts them to Start error responses.
+export default createServerEntry(sentryHandler);

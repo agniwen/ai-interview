@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@app/db-schema": "workspace:*",
-    "@tanstack/query-core": "^5.100.9",
+    "@tanstack/query-core": "^5.104.2",
     "better-auth": "^1.7.2",
     "cn": "^0.2.4",
     "dayjs": "^1.11.20",

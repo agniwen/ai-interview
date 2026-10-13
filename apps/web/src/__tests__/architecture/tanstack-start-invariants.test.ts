@@ -57,9 +57,9 @@ describe("TanStack Start architecture invariants", () => {
   it("uses the lane-based router loader scheduler for overlapping preloads", () => {
     const packageJson = readSource("package.json");
 
-    expect(packageJson).toContain('"@tanstack/react-router": "^1.170.32"');
-    expect(packageJson).toContain('"@tanstack/react-router-ssr-query": "1.167.1"');
-    expect(packageJson).toContain('"@tanstack/react-start": "^1.168.49"');
+    expect(packageJson).toContain('"@tanstack/react-router": "^1.170.44"');
+    expect(packageJson).toContain('"@tanstack/react-router-ssr-query": "1.167.3"');
+    expect(packageJson).toContain('"@tanstack/react-start": "^1.169.1"');
   });
 
   it("bridges body scrollbar initialization without flashing native scrollbars", () => {

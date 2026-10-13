@@ -44,7 +44,7 @@
     "@mastra/pg": "^1.30.0",
     "@modelcontextprotocol/server": "2.0.0",
     "@qdrant/js-client-rest": "^1.18.0",
-    "@sentry/hono": "10.71.0",
+    "@sentry/hono": "10.76.2",
     "@t3-oss/env-core": "^0.13.11",
     "ai": "catalog:",
     "better-auth": "^1.7.2",

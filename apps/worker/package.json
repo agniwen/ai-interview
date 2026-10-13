@@ -28,7 +28,7 @@
     "@app/resume-processing": "workspace:*",
     "@app/shared": "workspace:*",
     "@hono/node-server": "^1.19.14",
-    "@sentry/hono": "10.71.0",
+    "@sentry/hono": "10.76.2",
     "@t3-oss/env-core": "^0.13.11",
     "chat": "catalog:",
     "drizzle-orm": "catalog:",
