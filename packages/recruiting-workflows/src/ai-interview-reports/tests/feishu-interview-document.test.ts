@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { ensureAiHrEvaluationInDocument } from "../feishu-interview-document";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import {
+  ensureAiHrEvaluationInDocument,
+  resolveRecommendedInterviewQuestions,
+} from "../feishu-interview-document";
 
 const document = {
   documentId: "doc-1",
@@ -103,5 +107,68 @@ describe("ensureAiHrEvaluationInDocument", () => {
     });
 
     expect(replaceHrEvaluation).not.toHaveBeenCalled();
+  });
+});
+
+const generatedQuestion: InterviewQuestion = {
+  difficulty: "medium",
+  dimension: "business",
+  evaluationFocus: "业务理解",
+  followUpDirections: "追问指标",
+  order: 1,
+  question: "介绍一个你主导的项目",
+};
+
+describe("resolveRecommendedInterviewQuestions", () => {
+  it("keeps existing questions without generating new ones", async () => {
+    const generate = vi.fn();
+
+    const result = await resolveRecommendedInterviewQuestions({
+      current: [generatedQuestion],
+      generate,
+      reload: vi.fn(),
+    });
+
+    expect(result).toEqual([generatedQuestion]);
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it.each(["generated", "already_generated"] as const)(
+    "reloads questions after generation returns %s",
+    async (generation) => {
+      const result = await resolveRecommendedInterviewQuestions({
+        current: [],
+        generate: vi.fn().mockResolvedValue(generation),
+        reload: vi.fn().mockResolvedValue([generatedQuestion]),
+      });
+
+      expect(result).toEqual([generatedQuestion]);
+    },
+  );
+
+  it.each(["disabled", "missing_profile"] as const)(
+    "creates the document without questions when generation returns %s",
+    async (generation) => {
+      const reload = vi.fn();
+
+      const result = await resolveRecommendedInterviewQuestions({
+        current: [],
+        generate: vi.fn().mockResolvedValue(generation),
+        reload,
+      });
+
+      expect(result).toEqual([]);
+      expect(reload).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not block the evaluation document when generation fails", async () => {
+    const result = await resolveRecommendedInterviewQuestions({
+      current: [],
+      generate: vi.fn().mockRejectedValue(new Error("model unavailable")),
+      reload: vi.fn(),
+    });
+
+    expect(result).toEqual([]);
   });
 });

@@ -44,7 +44,7 @@ import { deleteFixtureResumePoolItems } from "../../../../../test-utils/db-fixtu
 const mocks = {
   cloneSemanticIndex: vi.fn<ImportPoolItemDependencies["cloneSemanticIndex"]>(),
   enqueueCandidateQuestionGeneration:
-    vi.fn<ResumePoolRouterDependencies["enqueueCandidateQuestionGenerationForRecordBestEffort"]>(),
+    vi.fn<ResumePoolRouterDependencies["scheduleCandidateQuestionGenerationForRecord"]>(),
   enqueueResumePoolReviewGeneration:
     vi.fn<ResumePoolRouterDependencies["enqueueResumePoolReviewGenerationBestEffort"]>(),
   enqueueResumeReviewGeneration:
@@ -133,8 +133,6 @@ function makeApp() {
     .route(
       "/",
       createResumePoolRouter({
-        enqueueCandidateQuestionGenerationForRecordBestEffort:
-          mocks.enqueueCandidateQuestionGeneration,
         enqueueResumePoolReviewGenerationBestEffort: mocks.enqueueResumePoolReviewGeneration,
         importPoolItemToResumeLibrary: (input) =>
           importPoolItemToResumeLibrary(input, {
@@ -142,6 +140,7 @@ function makeApp() {
             findDuplicateMatches: mocks.findDuplicateMatches,
           }),
         requirePermission: () => async (_c, next) => await next(),
+        scheduleCandidateQuestionGenerationForRecord: mocks.enqueueCandidateQuestionGeneration,
         scheduleResumeEvaluationForRecord: mocks.enqueueResumeReviewGeneration,
       }),
     );
@@ -767,7 +766,7 @@ describe("new mail resume automatic job matching", () => {
 describe("POST /:id/import job association", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.enqueueCandidateQuestionGeneration.mockResolvedValue(true);
+    mocks.enqueueCandidateQuestionGeneration.mockResolvedValue();
     mocks.enqueueResumeReviewGeneration.mockResolvedValue({
       runId: "resume-pool-import-review-run",
       status: "enqueued",

@@ -89,30 +89,57 @@ export async function generateCandidateInterviewQuestions(
   return updated.length > 0 ? "generated" : "already_generated";
 }
 
-export async function enqueueCandidateQuestionGenerationForRecordBestEffort(input: {
-  organizationId: string;
-  resumeRecordId: string;
-}): Promise<boolean> {
+export interface CandidateQuestionSchedulingDependencies {
+  enqueue: typeof enqueueResumeReviewGenerationJobs;
+  generate: typeof generateCandidateInterviewQuestions;
+  isQueueConfigured: typeof isResumeReviewGenerationQueueConfigured;
+}
+
+const defaultCandidateQuestionSchedulingDependencies: CandidateQuestionSchedulingDependencies = {
+  enqueue: enqueueResumeReviewGenerationJobs,
+  generate: generateCandidateInterviewQuestions,
+  isQueueConfigured: isResumeReviewGenerationQueueConfigured,
+};
+
+/**
+ * 优先交给队列补题；队列未配置或投递失败时在当前进程后台生成，
+ * 避免转入的候选人永久缺少推荐面试题。返回时不等待后台生成完成。
+ */
+export async function scheduleCandidateQuestionGenerationForRecord(
+  input: {
+    organizationId: string;
+    resumeRecordId: string;
+  },
+  dependencies: CandidateQuestionSchedulingDependencies = defaultCandidateQuestionSchedulingDependencies,
+): Promise<void> {
   if (!resolveCandidateQuestionGenerationEnabled(process.env)) {
-    return true;
+    return;
   }
-  if (!isResumeReviewGenerationQueueConfigured()) {
-    return false;
-  }
-  try {
-    await enqueueResumeReviewGenerationJobs([
-      {
-        organizationId: input.organizationId,
+  if (dependencies.isQueueConfigured()) {
+    try {
+      await dependencies.enqueue([
+        {
+          organizationId: input.organizationId,
+          resumeRecordId: input.resumeRecordId,
+          source: "resume_pool_import_questions",
+        },
+      ]);
+      return;
+    } catch (error) {
+      console.warn("[candidate-question-generation] enqueue failed", {
+        error,
         resumeRecordId: input.resumeRecordId,
-        source: "resume_pool_import_questions",
-      },
-    ]);
-    return true;
-  } catch (error) {
-    console.warn("[candidate-question-generation] enqueue failed", {
-      error,
-      resumeRecordId: input.resumeRecordId,
-    });
-    return false;
+      });
+    }
   }
+  void (async () => {
+    try {
+      await dependencies.generate(input);
+    } catch (error) {
+      console.error("[candidate-question-generation] in-process generation failed", {
+        error,
+        resumeRecordId: input.resumeRecordId,
+      });
+    }
+  })();
 }

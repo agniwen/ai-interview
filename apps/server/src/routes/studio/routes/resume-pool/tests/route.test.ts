@@ -14,8 +14,6 @@ const mocks = {
     vi.fn<ResumePoolRouterDependencies["createPptxPreviewPdfResponse"]>(),
   createResumePoolItem: vi.fn<ResumePoolRouterDependencies["createResumePoolItem"]>(),
   deleteOwnPoolItem: vi.fn<ResumePoolRouterDependencies["deleteOwnPoolItem"]>(),
-  enqueueCandidateQuestionGenerationForRecordBestEffort:
-    vi.fn<ResumePoolRouterDependencies["enqueueCandidateQuestionGenerationForRecordBestEffort"]>(),
   findSemanticResumeDuplicates:
     vi.fn<ResumePoolRouterDependencies["findSemanticResumeDuplicates"]>(),
   getObjectBytes: vi.fn<ResumePoolRouterDependencies["getObjectBytes"]>(),
@@ -54,6 +52,8 @@ const mocks = {
   resolveRecruitingVisibilityScope:
     vi.fn<ResumePoolRouterDependencies["resolveRecruitingVisibilityScope"]>(),
   retryFailedResumeParse: vi.fn<ResumePoolRouterDependencies["retryFailedResumeParse"]>(),
+  scheduleCandidateQuestionGenerationForRecord:
+    vi.fn<ResumePoolRouterDependencies["scheduleCandidateQuestionGenerationForRecord"]>(),
   scheduleResumeEvaluationForRecord:
     vi.fn<ResumePoolRouterDependencies["scheduleResumeEvaluationForRecord"]>(),
   storeInterviewResume: vi.fn<ResumePoolRouterDependencies["storeInterviewResume"]>(),
@@ -509,7 +509,7 @@ describe("resumePoolImportInputSchema", () => {
 describe("resume pool import route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.enqueueCandidateQuestionGenerationForRecordBestEffort.mockResolvedValue(true);
+    mocks.scheduleCandidateQuestionGenerationForRecord.mockResolvedValue();
     mocks.scheduleResumeEvaluationForRecord.mockResolvedValue({
       runId: "review-run-1",
       status: "enqueued",
@@ -548,7 +548,7 @@ describe("resume pool import route", () => {
       poolItemId: "pool-item-1",
       reimport: true,
     });
-    expect(mocks.enqueueCandidateQuestionGenerationForRecordBestEffort).toHaveBeenCalledWith({
+    expect(mocks.scheduleCandidateQuestionGenerationForRecord).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
       resumeRecordId: "resume-record-2",
     });
@@ -610,7 +610,7 @@ describe("resume pool import route", () => {
         resumeRecordId: "resume-record-ai-retry",
         status: "imported",
       });
-      expect(mocks.enqueueCandidateQuestionGenerationForRecordBestEffort).toHaveBeenCalled();
+      expect(mocks.scheduleCandidateQuestionGenerationForRecord).toHaveBeenCalled();
       expect(mocks.scheduleResumeEvaluationForRecord).toHaveBeenCalled();
     },
   );

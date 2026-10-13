@@ -31,7 +31,7 @@ import {
   enqueueResumePoolReviewGenerationBestEffort as defaultEnqueueResumePoolReviewGenerationBestEffort,
   scheduleResumeEvaluationForRecord as defaultScheduleResumeEvaluationForRecord,
 } from "@app/resume-processing/review/resumes/utils/review-queue";
-import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "@app/resume-processing/review/resumes/utils/candidate-question-generation";
+import { scheduleCandidateQuestionGenerationForRecord as defaultScheduleCandidateQuestionGenerationForRecord } from "@app/resume-processing/review/resumes/utils/candidate-question-generation";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "../resumes/utils/review-worker";
 import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../infrastructure/resume-semantic/dedup-service";
 import { listDuplicateMatchesForSource as defaultListDuplicateMatchesForSource } from "../../../../infrastructure/resume-semantic/duplicate-matches";
@@ -68,7 +68,7 @@ export interface ResumePoolRouterDependencies {
   createResumePoolItem: typeof defaultCreateResumePoolItem;
   db: typeof defaultDb;
   deleteOwnPoolItem: typeof defaultDeleteOwnPoolItem;
-  enqueueCandidateQuestionGenerationForRecordBestEffort: typeof defaultEnqueueCandidateQuestionGenerationForRecordBestEffort;
+  scheduleCandidateQuestionGenerationForRecord: typeof defaultScheduleCandidateQuestionGenerationForRecord;
   enqueueResumePoolReviewGenerationBestEffort: typeof defaultEnqueueResumePoolReviewGenerationBestEffort;
   scheduleResumeEvaluationForRecord: typeof defaultScheduleResumeEvaluationForRecord;
   findSemanticResumeDuplicates: typeof defaultFindSemanticResumeDuplicates;
@@ -140,8 +140,6 @@ const defaultResumePoolRouterDependencies: ResumePoolRouterDependencies = {
   createResumePoolItem: defaultCreateResumePoolItem,
   db: defaultDb,
   deleteOwnPoolItem: defaultDeleteOwnPoolItem,
-  enqueueCandidateQuestionGenerationForRecordBestEffort:
-    defaultEnqueueCandidateQuestionGenerationForRecordBestEffort,
   enqueueResumePoolReviewGenerationBestEffort: defaultEnqueueResumePoolReviewGenerationBestEffort,
   findSemanticResumeDuplicates: defaultFindSemanticResumeDuplicates,
   getObjectBytes: defaultGetObjectBytes,
@@ -163,6 +161,7 @@ const defaultResumePoolRouterDependencies: ResumePoolRouterDependencies = {
   resolveRecruitingVisibilityScope: defaultResolveRecruitingVisibilityScope,
   resumePoolRecommendationsRouter: defaultResumePoolRecommendationsRouter,
   retryFailedResumeParse: defaultRetryFailedResumeParse,
+  scheduleCandidateQuestionGenerationForRecord: defaultScheduleCandidateQuestionGenerationForRecord,
   scheduleResumeEvaluationForRecord: defaultScheduleResumeEvaluationForRecord,
   storeInterviewResume: defaultStoreInterviewResume,
   toBadRequest: defaultToBadRequest,
@@ -177,7 +176,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
     createResumePoolItem,
     db,
     deleteOwnPoolItem,
-    enqueueCandidateQuestionGenerationForRecordBestEffort,
+    scheduleCandidateQuestionGenerationForRecord,
     enqueueResumePoolReviewGenerationBestEffort,
     scheduleResumeEvaluationForRecord,
     findSemanticResumeDuplicates,
@@ -669,7 +668,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
               );
             }
             if (result.status === "imported") {
-              await enqueueCandidateQuestionGenerationForRecordBestEffort({
+              await scheduleCandidateQuestionGenerationForRecord({
                 organizationId: activeOrg.id,
                 resumeRecordId: result.resumeRecordId,
               });
