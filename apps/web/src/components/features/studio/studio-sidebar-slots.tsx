@@ -242,12 +242,22 @@ export function isStudioSidebarParentActive(
   return active && (!isRecruitingBoard || !selectedRecruitingPreset);
 }
 
-export function shouldToggleStudioSidebarSubmenu(
-  isRecruitingBoard: boolean,
-  isParentActive: boolean,
+/**
+ * 只有正停在招聘台列表页时，点父级才展开 / 收起子菜单；
+ * 从候选人详情等招聘台子页面点击应直接跳回列表。
+ */
+export function shouldToggleStudioSidebarSubmenu({
+  isParentActive,
+  isRecruitingBoard,
   modifiedNavigation = false,
-): boolean {
-  return isRecruitingBoard && isParentActive && !modifiedNavigation;
+  onListPage,
+}: {
+  isParentActive: boolean;
+  isRecruitingBoard: boolean;
+  modifiedNavigation?: boolean;
+  onListPage: boolean;
+}): boolean {
+  return isRecruitingBoard && isParentActive && onListPage && !modifiedNavigation;
 }
 
 export function resolveStudioSidebarNavItem(pathname: string): NavItem | undefined {
@@ -262,11 +272,14 @@ function SidebarNavItem({
   active,
   href,
   onHover,
+  onListPage,
   selectedRecruitingPreset,
 }: {
   item: NavItem;
   active: boolean;
   href: string;
+  /** 当前路径正好是该菜单的列表页（不含详情等子路径）。 */
+  onListPage: boolean;
   onHover: (target: HTMLElement) => void;
   selectedRecruitingPreset: string | undefined;
 }) {
@@ -307,11 +320,12 @@ function SidebarNavItem({
               event.metaKey ||
               event.shiftKey;
             if (
-              !shouldToggleStudioSidebarSubmenu(
-                isRecruitingBoard,
+              !shouldToggleStudioSidebarSubmenu({
                 isParentActive,
+                isRecruitingBoard,
                 modifiedNavigation,
-              )
+                onListPage,
+              })
             ) {
               return;
             }
@@ -422,6 +436,7 @@ function StudioSidebarNavigation() {
                   active={isActive(item.path)}
                   href={buildHref(item.path)}
                   onHover={moveToMenuItem}
+                  onListPage={pathname === buildHref(item.path)}
                   selectedRecruitingPreset={selectedRecruitingPreset}
                 />
               ))}
