@@ -5,13 +5,13 @@ import type { StudioPagePermissionAction } from "@/lib/start/auth-session-types"
  * Keep in sync with studio sidebar navigation.
  */
 export const STUDIO_PAGE_PATHS = [
-  { action: "offerApprovals", path: "/offer-approvals" },
   { action: "resumes", path: "/resumes" },
   { action: "resumePool", path: "/resume-pool" },
   { action: "interviews", path: "/interviews" },
   { action: "interviews", path: "/calendar" },
   { action: "dashboard", path: "/dashboard" },
   { action: "recruitingLedger", path: "/recruiting-ledger" },
+  { action: "offerApprovals", path: "/offer-approvals" },
   { action: "departments", path: "/departments" },
   { action: "interviewers", path: "/interviewers" },
   { action: "jobDescriptions", path: "/job-descriptions" },
