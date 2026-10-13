@@ -16,10 +16,11 @@ export const STUDIO_LIST_CARD_BODY_GRID_CLASS =
   "grid h-full min-h-0 min-w-0 flex-1 grid-rows-[auto_auto_1fr] gap-x-8 gap-y-3 xl:grid-cols-[minmax(0,46rem)_minmax(18rem,1fr)] xl:grid-rows-[auto_1fr]";
 /**
  * 标题区：xl 起姓名与徽标同一行；更窄时姓名独占第一行、徽标排第二行（与 40px 头像等高），
- * 固定两行高，超出的徽标被裁掉而不是换到第三行。
+ * 固定两行高，超出的徽标被裁掉而不是换到第三行。两行时徽标压到 22px，
+ * 使 20px 姓名 + 4px 行距 + 徽标恰好等于 46px，避免上下边被裁。
  */
 export const STUDIO_LIST_CARD_TITLE_ROW_CLASS =
-  "flex h-[2.875rem] min-w-0 flex-1 flex-wrap content-center items-center gap-x-2 gap-y-1 overflow-hidden xl:h-auto xl:flex-nowrap";
+  "flex h-[2.875rem] min-w-0 flex-1 flex-wrap content-center items-center gap-x-2 gap-y-1 overflow-hidden max-xl:[&>:not(:first-child)]:h-[1.375rem] max-xl:[&>:not(:first-child)]:py-0 xl:h-auto xl:flex-nowrap";
 /** 标题区里的姓名：窄屏独占一行。 */
 export const STUDIO_LIST_CARD_NAME_CLASS =
   "min-w-16 max-w-full shrink basis-full truncate text-left font-semibold text-base leading-5 underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40 xl:basis-auto";
