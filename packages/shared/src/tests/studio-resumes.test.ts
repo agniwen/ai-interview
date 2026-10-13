@@ -485,6 +485,28 @@ describe("describeResumeProgress", () => {
       }),
     ).toEqual({ label: "已结束 · 已淘汰", tone: "outline" });
   });
+
+  it.each([
+    ["interview_failed", "final_interview", "已结束 · 面试淘汰"],
+    ["resume_rejected", "screening", "已结束 · 简历淘汰"],
+    ["salary_disagreement", "salary_negotiation", "已结束 · 谈薪失败"],
+    ["other", "second_interview", "已结束 · 面试淘汰"],
+    ["other", "offer", "已结束 · 其他原因"],
+    [null, "ai_interview", "已结束 · 面试淘汰"],
+  ] as const)(
+    "closed × rejected 附带淘汰理由：%s / %s → %s",
+    (closeReason, closedFromNode, label) => {
+      expect(
+        describeResumeProgress({
+          closeReason,
+          closedFromNode,
+          outcome: "rejected",
+          pipelineStage: "closed",
+          stageProgress: EMPTY,
+        }),
+      ).toEqual({ label, tone: "outline" });
+    },
+  );
 });
 
 describe("canLaunchInterviewFromResume", () => {

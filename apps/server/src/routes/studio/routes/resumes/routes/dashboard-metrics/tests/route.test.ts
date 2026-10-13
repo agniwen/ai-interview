@@ -18,11 +18,7 @@ describe("dashboard metrics route", () => {
       jobPipeline: [],
       offerStatuses: [],
       recruiterProgress: [],
-      resume: {
-        byPipeline: [],
-        conversion: { withInterview: 0, withoutInterview: 0 },
-        dailyAdded: [],
-      },
+      resume: { conversion: { withInterview: 0, withoutInterview: 0 } },
       summary: {
         activeJobs: 0,
         aiCompleted30d: 0,

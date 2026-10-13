@@ -180,20 +180,13 @@ export const resumeLibraryReadRouter = factory
           .trim()
           .refine((value) => Boolean(resolveRecruitingBoardStagePreset(value)))
           .optional(),
-        scope: z.enum(["team", "personal"]).optional().default("team"),
       }),
       jsonValidatorError("招聘指标参数无效。"),
     ),
     async (c) => {
       const { organization } = getWorkspaceRequestContext(c);
-      const { boardPreset, scope } = c.req.valid("query");
-      if (scope === "personal" && !c.var.user?.id) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const metrics = await loadResumeLibraryMetrics(organization.id, {
-        boardPreset,
-        createdByUserId: scope === "personal" ? c.var.user?.id : undefined,
-      });
+      const { boardPreset } = c.req.valid("query");
+      const metrics = await loadResumeLibraryMetrics(organization.id, boardPreset);
       return c.json(metrics, 200);
     },
   )

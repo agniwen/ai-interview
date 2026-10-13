@@ -11,6 +11,7 @@ import type { ResumeReview, ResumeReviewAction } from "@app/db-schema/resume-rev
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   pipelineStageMeta,
+  recruitingCloseReasonMeta,
   recruitingPipelineNodeValues,
   recruitingNodeStatusMeta,
   resumeEvaluationStatusMeta,
@@ -224,6 +225,9 @@ export interface ResumeLibraryListRecord {
   // 最终结论（in_pipeline / hired / rejected / withdrawn / archived）。
   // 不变量：outcome !== 'in_pipeline' ⇔ pipelineStage === 'closed'。
   outcome: CandidateOutcome;
+  /** 结束原因与结束前所在环节；未结束时为 null。 */
+  closeReason: RecruitingCloseReason | null;
+  closedFromNode: RecruitingNode | null;
   // 派生的当前阶段进度信息；目前仅 ai_interview 阶段会有 schedule 数据。
   // Derived progress for the current stage; only ai_interview produces
   // schedule data today, others are placeholders.
@@ -260,8 +264,6 @@ export interface RecruitingNodeStateRecord {
 }
 
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
-  closedFromNode: RecruitingNode | null;
-  closeReason: RecruitingCloseReason | null;
   nodeStates: RecruitingNodeStateRecord[];
   candidateExpectationsMeta: CandidateExpectationsMeta | null;
   closedAt: string | null;
@@ -332,6 +334,8 @@ interface Description {
 }
 
 interface ResumeProgressInput {
+  closeReason?: RecruitingCloseReason | null;
+  closedFromNode?: RecruitingNode | null;
   nodeStatus?: RecruitingNodeStatus | null;
   nodeResult?: RecruitingNodeResult | null;
   pipelineStage: PipelineStage;
@@ -422,13 +426,36 @@ function describeOffer(p: OfferProgress | null): Description {
   }
 }
 
-function describeClosedOutcome(outcome: ResumeProgressInput["outcome"]): Description {
-  switch (outcome) {
+/** 旧数据或手动结束可能只记了“其他”，此时按结束前环节推断淘汰类型。 */
+const REJECTION_REASON_BY_NODE = new Map<RecruitingNode, RecruitingCloseReason>([
+  ["ai_interview", "interview_failed"],
+  ["background_check", "background_check_failed"],
+  ["final_interview", "interview_failed"],
+  ["salary_negotiation", "salary_disagreement"],
+  ["screening", "resume_rejected"],
+  ["second_interview", "interview_failed"],
+]);
+
+/** 淘汰理由文案，如“面试淘汰”“简历淘汰”；无法判断时为“已淘汰”。 */
+export function describeRejectionReason(
+  closeReason: RecruitingCloseReason | null | undefined,
+  closedFromNode: RecruitingNode | null | undefined,
+): string {
+  const inferred = closedFromNode ? REJECTION_REASON_BY_NODE.get(closedFromNode) : undefined;
+  const reason = closeReason && closeReason !== "other" ? closeReason : (inferred ?? closeReason);
+  return reason ? recruitingCloseReasonMeta[reason].label : "已淘汰";
+}
+
+function describeClosedOutcome(record: ResumeProgressInput): Description {
+  switch (record.outcome) {
     case "hired": {
       return { label: "已结束 · 已入职", tone: "success" };
     }
     case "rejected": {
-      return { label: "已结束 · 已淘汰", tone: "outline" };
+      return {
+        label: `已结束 · ${describeRejectionReason(record.closeReason, record.closedFromNode)}`,
+        tone: "outline",
+      };
     }
     case "withdrawn": {
       return { label: "已结束 · 已撤回", tone: "outline" };
@@ -450,7 +477,7 @@ function describeClosedOutcome(outcome: ResumeProgressInput["outcome"]): Descrip
  * tone for the resume library "面试进度" cell, detail panel, and elsewhere.
  */
 export function describeResumeProgress(record: ResumeProgressInput): Description {
-  const { pipelineStage, outcome, resumeParseStatus, resumeReviewStatus, stageProgress } = record;
+  const { pipelineStage, resumeParseStatus, resumeReviewStatus, stageProgress } = record;
 
   if (resumeParseStatus && resumeParseStatus !== "ready") {
     const meta = resumeParseStatusMeta[resumeParseStatus];
@@ -465,7 +492,7 @@ export function describeResumeProgress(record: ResumeProgressInput): Description
 
   // closed 阶段：用 outcome 决定标签和色调。
   if (pipelineStage === "closed") {
-    return describeClosedOutcome(outcome);
+    return describeClosedOutcome(record);
   }
   if (record.nodeStatus === "completed" && record.nodeResult === "pass") {
     return {
@@ -728,38 +755,16 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 }
 
 /**
- * 招聘台页头部 chart 的聚合数据。
- * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
- * - dailyAdded：近一年（365 天）每日新增；每日附带 byUser 拆分，供客户端聚合
- *   今日、昨日、本周和本月的入库成员排行。
- * - conversion：是否已发起 AI 面试的对比（archived 排除）。
+ * 招聘台标签计数（全工作区），与列表的看板筛选口径一致。
+ * - groupCounts：每个主阶段标签的人数。
+ * - boardStatusCounts：固定子菜单页各子状态标签的人数；主招聘台为空。
  *
- * Aggregations for the charts shown above the resume-library table.
- * - byPipeline: candidate count grouped by (pipelineStage, outcome). Archived
- *   outcomes are excluded so the funnel reflects the live pool.
- * - boardStatusCounts: exact child-status counts for a fixed recruiting-board
- *   stage. Omitted by older consumers and empty outside submenu metrics.
- * - dailyAdded: daily new rows over the last 365 days. Each day includes a
- *   byUser split so the client can aggregate uploader rankings by date range.
- * - conversion: how many candidates have already launched an AI interview
- *   round vs not (archived excluded).
+ * Recruiting-board tab counts for the whole workspace, using the list filters.
+ * - groupCounts: candidate count for each top-level stage tab.
+ * - boardStatusCounts: child-status tab counts on a fixed sidebar submenu page;
+ *   empty on the main board.
  */
-export interface ResumeLibraryDailyAddedUserCount {
-  count: number;
-  userId: string;
-  userImage: string | null;
-  userName: string;
-}
-
-export interface ResumeLibraryDailyAdded {
-  byUser: ResumeLibraryDailyAddedUserCount[];
-  count: number;
-  day: string;
-}
-
 export interface ResumeLibraryMetrics {
-  boardStatusCounts?: { count: number; label: string; view: string }[];
-  byPipeline: { stage: PipelineStage; outcome: CandidateOutcome; count: number }[];
-  dailyAdded: ResumeLibraryDailyAdded[];
-  conversion: { withInterview: number; withoutInterview: number };
+  boardStatusCounts: { count: number; view: string }[];
+  groupCounts: { count: number; id: string }[];
 }

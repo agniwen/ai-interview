@@ -16,6 +16,8 @@ const record: ResumeLibraryListRecord = {
   candidateEmail: null,
   candidateName: "测试候选人",
   candidatePhone: null,
+  closeReason: null,
+  closedFromNode: null,
   createdAt: "2026-08-04T00:00:00.000Z",
   createdBy: null,
   creatorImage: null,

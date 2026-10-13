@@ -105,9 +105,7 @@ const resumeLibraryReadRouter: ResumeLibraryRouterDependencies["resumeLibraryRea
     requirePermission("page", "resumes"),
     requirePermission("resumeLibrary", "read"),
     async (c) => {
-      const result = await mocks.loadResumeLibraryMetrics(c.var.activeOrg?.id, {
-        createdByUserId: undefined,
-      });
+      const result = await mocks.loadResumeLibraryMetrics(c.var.activeOrg?.id);
       return c.json(result, 200);
     },
   )
@@ -268,9 +266,8 @@ describe("resumeLibraryRouter behavior", () => {
       totalPages: 56,
     });
     mocks.loadResumeLibraryMetrics.mockResolvedValue({
-      byPipeline: [],
-      conversion: { withInterview: 0, withoutInterview: 0 },
-      dailyAdded: [],
+      boardStatusCounts: [],
+      groupCounts: [],
     });
     recruitingRecordStubs.update.mockImplementation(
       (...args: Parameters<typeof recruitingRecords.updateRecruitingRecords>) => {
@@ -322,13 +319,10 @@ describe("resumeLibraryRouter behavior", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      byPipeline: [],
-      conversion: { withInterview: 0, withoutInterview: 0 },
-      dailyAdded: [],
+      boardStatusCounts: [],
+      groupCounts: [],
     });
-    expect(mocks.loadResumeLibraryMetrics).toHaveBeenCalledWith(ORGANIZATION_ID, {
-      createdByUserId: undefined,
-    });
+    expect(mocks.loadResumeLibraryMetrics).toHaveBeenCalledWith(ORGANIZATION_ID, undefined);
     expect(mocks.permissionChecks).toEqual([
       ["page", "resumes"],
       ["resumeLibrary", "read"],

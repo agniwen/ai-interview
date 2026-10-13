@@ -1,7 +1,5 @@
 "use client";
 
-import { ResumeLibraryCharts } from "@/components/features/studio/resumes/resume-library-charts";
-import { createDemoMetrics } from "./demo-metrics";
 import { DemoCandidateDetail } from "./demo-candidate-detail";
 
 /* oxlint-disable max-lines -- Recruitment chart, tabs and card mirror the production desk within a standalone demo. */
@@ -19,13 +17,12 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 // 用途：landing 用「Studio › 招聘台」简化版 UI。对齐真实组件：
-// - PageHeader: <h1 class="text-2xl"> + view switch / refresh actions
-// - ResumeLibraryCharts: 3 张 shadcn chart card，顶部含指标分栏
+// - PageHeader: <h1 class="text-2xl">
 // - ResumeLibraryCardList: Toolbar + 当前候选人卡片结构
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -51,43 +48,12 @@ import { ScreenFrame } from "./screen-frame";
 const DemoHumanRoom = lazy(() => import("./demo-human-room"));
 const DemoLiveInterview = lazy(() => import("./demo-live-interview"));
 
-function ChartsRow() {
-  const demo = useDemo();
-  const [metrics] = useState(() => ({
-    personal: createDemoMetrics(true),
-    team: createDemoMetrics(false),
-  }));
-  return (
-    <div className="[&>div]:grid-cols-3">
-      <ResumeLibraryCharts
-        metrics={demo.personal ? metrics.personal : metrics.team}
-        onRefresh={() => {
-          demo.setNotice("统计数据已刷新");
-          return Promise.resolve();
-        }}
-      />
-    </div>
-  );
-}
-
 // ─────────────────── PageHeader ───────────────────
 function PageHeader({ title }: { title: string }) {
-  const demo = useDemo();
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 w-full">
         <h1 className="min-w-0 text-2xl tracking-tight">{title}</h1>
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button
-          className="opacity-80 hover:opacity-100"
-          size="xs"
-          type="button"
-          variant="ghost"
-          onClick={() => demo.setPersonal(!demo.personal)}
-        >
-          {demo.personal ? "切换到团队维度" : m.home_frame_personal_view()}
-        </Button>
       </div>
     </header>
   );
@@ -517,8 +483,7 @@ function ResumeCardList() {
     return (
       matchesDemoPipeline(record.pipeline, demo.stage) &&
       text.includes(demo.query.toLowerCase()) &&
-      text.includes(demo.filter.toLowerCase()) &&
-      (!demo.personal || record.creator === candidates[0].creator || record.id === "01842")
+      text.includes(demo.filter.toLowerCase())
     );
   });
 
@@ -672,7 +637,6 @@ function ResumesContent() {
           </Button>
         </output>
       )}
-      <ChartsRow />
       <PipelineStageTabs />
       <div className="flex flex-col gap-4">
         <ResumeToolbar />

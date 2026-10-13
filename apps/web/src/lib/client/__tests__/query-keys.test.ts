@@ -83,16 +83,15 @@ describe("studioCalendarKeys", () => {
 describe("studioResumeKeys", () => {
   it("keeps metrics out of resume-list invalidations", async () => {
     const queryClient = new QueryClient();
-    const metricsKey = studioResumeKeys.metrics("acme", "team");
-    expect(studioResumeKeys.metrics("acme", "team", "interview")).toEqual([
+    const metricsKey = studioResumeKeys.metrics("acme");
+    expect(studioResumeKeys.metrics("acme", "interview")).toEqual([
       "studio-resume-metrics",
       "acme",
-      "team",
       "interview",
     ]);
 
     queryClient.setQueryData(["studio-resumes", "acme", "list"], []);
-    queryClient.setQueryData(metricsKey, { totalCandidates: 12 });
+    queryClient.setQueryData(metricsKey, { boardStatusCounts: [], groupCounts: [] });
 
     await queryClient.invalidateQueries({
       queryKey: ["studio-resumes"],

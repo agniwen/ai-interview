@@ -36,7 +36,6 @@ function useDemoState() {
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState("all");
   const [stage, setStage] = useState("all");
-  const [personal, setPersonal] = useState(false);
   const [notice, setNotice] = useState("");
   return {
     candidate,
@@ -45,7 +44,6 @@ function useDemoState() {
     group,
     notice,
     page: m.home_frame_nav_recruitment(),
-    personal,
     phase,
     query,
     setCandidate,
@@ -53,7 +51,6 @@ function useDemoState() {
     setFilter,
     setGroup,
     setNotice,
-    setPersonal,
     setPhase,
     setQuery,
     setStage,
@@ -78,7 +75,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setStage,
     setQuery,
     setFilter,
-    setPersonal,
     setNotice,
   } = state;
   const reset = useCallback(() => {
@@ -90,7 +86,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setStage("all");
     setQuery("");
     setFilter("");
-    setPersonal(false);
     setNotice("");
   }, [
     setPhase,
@@ -101,7 +96,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setStage,
     setQuery,
     setFilter,
-    setPersonal,
     setNotice,
   ]);
   return (

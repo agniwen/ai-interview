@@ -71,14 +71,10 @@ export function ResumeLibraryPage() {
     jobDescriptions,
     loadedResumeRecords,
     loadedResumeRowsById,
-    metricsChartKey,
     metricsQuery,
-    metricsScope,
-    metricsSwitching,
     resumeLibraryListQuery,
     resumeLibraryTotal,
     retryParseMutation,
-    setMetricsScope,
     skillSuggestions,
     slug,
     workspaceMembers,
@@ -149,16 +145,6 @@ export function ResumeLibraryPage() {
         fixedRecruitingGroup={firstSearchValue(routeSearch.boardPreset)}
         grid={grid}
         metrics={metricsQuery.data}
-        metricsChartKey={metricsChartKey}
-        metricsError={metricsQuery.error}
-        metricsFetching={metricsQuery.isFetching}
-        metricsScope={metricsScope}
-        metricsSwitching={metricsSwitching}
-        onMetricsRetry={async () => {
-          await metricsQuery.refetch();
-        }}
-        onMetricsScopeChange={setMetricsScope}
-        slug={slug}
       >
         <ResumeLibraryCardList
           canCreateInterview={canCreateInterview}

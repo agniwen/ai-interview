@@ -91,6 +91,7 @@ export {
   recruitingNodeResultMeta,
   recruitingCloseReasonValues,
   recruitingCloseReasonSchema,
+  recruitingCloseReasonMeta,
   normalizeLegacyPipelineStage,
 } from "./recruiting-contracts";
 export type { LegacyPipelineStage, PipelineStage } from "./recruiting-contracts";

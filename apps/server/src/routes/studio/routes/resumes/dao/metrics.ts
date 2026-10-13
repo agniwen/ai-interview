@@ -21,18 +21,17 @@ import {
 import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 import {
   getRecruitingBoardPresetStatusTabs,
-  recruitingBoardStagePresets,
+  recruitingBoardGroups,
 } from "@app/shared/recruiting-board";
+import type { RecruitingBoardView } from "@app/shared/recruiting-board";
 import { buildRecruitingBoardFilter } from "./board-filter";
 import { buildDashboardActionFilter } from "./dashboard-action-filter";
 import {
   buildActiveRecruitingJobFilter,
   buildNonArchivedRecruitingRecordFilter,
 } from "./dashboard-metric-scope";
-import { candidateOutcomeSchema, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 
 const DASHBOARD_LOOKBACK_DAYS = 30;
-const DAILY_ADDED_LOOKBACK_DAYS = 365;
 
 // 子查询：该候选人是否已有任意 AI 面试轮次。与 dao/resumes.ts 里的版本同形——
 // 这里独立一份避免相互 import 循环，并让聚合查询自包含。
@@ -45,126 +44,31 @@ const hasInterviewRoundsSql = exists(
     .where(eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id)),
 );
 
-function resumeMetricsOrgFilters(organizationId: string, createdByUserId?: string) {
-  return and(
-    eq(recruitingRecordReadModel.organizationId, organizationId),
-    createdByUserId ? eq(recruitingRecordReadModel.createdBy, createdByUserId) : undefined,
-  );
-}
-
-async function loadByPipeline(
-  organizationId: string,
-  createdByUserId?: string,
-  boardPreset?: string,
-) {
-  const presetView = recruitingBoardStagePresets.find((preset) => preset.id === boardPreset)?.view;
-  // 漏斗分布：按 (pipelineStage, outcome) 分桶；常规视图排除 archived，避免冷藏长尾
-  // 压扁主流程。已结束子页面保留 archived，确保“已归档”二级 Tab 有对应分布。
-  // Pipeline funnel: bucket by (pipelineStage, outcome). Regular views exclude
-  // archived rows; the closed submenu keeps them for its archived child tab.
-  const rows = await db
-    .select({
-      count: count(),
-      outcome: recruitingRecordReadModel.outcome,
-      pipelineStage: recruitingRecordReadModel.pipelineStage,
-    })
-    .from(recruitingRecordReadModel)
-    .where(
-      and(
-        resumeMetricsOrgFilters(organizationId, createdByUserId),
-        presetView ? (buildRecruitingBoardFilter(presetView) ?? undefined) : undefined,
-        boardPreset === "closed" ? undefined : ne(recruitingRecordReadModel.outcome, "archived"),
-      ),
-    )
-    .groupBy(recruitingRecordReadModel.pipelineStage, recruitingRecordReadModel.outcome);
-
-  return rows.map((row) => ({
-    count: row.count,
-    outcome: candidateOutcomeSchema.parse(row.outcome),
-    stage: pipelineStageSchema.parse(row.pipelineStage),
-  }));
-}
-
-function loadBoardStatusCounts(
-  organizationId: string,
-  createdByUserId?: string,
-  boardPreset?: string,
-): Promise<NonNullable<ResumeLibraryMetrics["boardStatusCounts"]>> {
-  const tabs = getRecruitingBoardPresetStatusTabs(boardPreset);
-  return Promise.all(
-    tabs.map(async (tab) => {
-      const [row] = await db
-        .select({ count: count() })
-        .from(recruitingRecordReadModel)
-        .where(
-          and(
-            resumeMetricsOrgFilters(organizationId, createdByUserId),
-            buildRecruitingBoardFilter(tab.value) ?? undefined,
-          ),
-        );
-      return { count: row?.count ?? 0, label: tab.label, view: tab.value };
+/**
+ * 统计一组看板视图的人数：复用列表的看板筛选条件，单条查询内并行 COUNT FILTER，
+ * 保证标签上的数字与点进去的列表口径一致（已结束记录同时计入来源环节）。
+ */
+async function countBoardViews(organizationId: string, views: RecruitingBoardView[]) {
+  if (views.length === 0) {
+    return [];
+  }
+  const selection = Object.fromEntries(
+    views.map((view, index) => {
+      const filter = buildRecruitingBoardFilter(view);
+      return [
+        `view${index}`,
+        filter ? sql<number>`COUNT(*) FILTER (WHERE ${filter})`.mapWith(Number) : count(),
+      ];
     }),
   );
-}
-
-async function loadDailyAdded(
-  organizationId: string,
-  createdByUserId?: string,
-): Promise<ResumeLibraryMetrics["dailyAdded"]> {
-  // Truncate created_at to day and group by day + uploader. The client combines
-  // these rows into today / yesterday / current-week / current-month rankings.
-  const since = startOfBeijingDay(
-    new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
-  );
-
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${recruitingRecordReadModel.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
-
-  const rows = await db
-    .select({
-      count: count(),
-      day: dayExpr,
-      userId: recruitingRecordReadModel.createdBy,
-      userImage: user.image,
-      userName: user.name,
-    })
+  const [row] = await db
+    .select(selection)
     .from(recruitingRecordReadModel)
-    .leftJoin(user, eq(user.id, recruitingRecordReadModel.createdBy))
-    .where(
-      and(
-        resumeMetricsOrgFilters(organizationId, createdByUserId),
-        gte(recruitingRecordReadModel.createdAt, since),
-      ),
-    )
-    .groupBy(dayExpr, recruitingRecordReadModel.createdBy, user.image, user.name)
-    .orderBy(dayExpr);
-
-  const byDay = new Map<
-    string,
-    { byUser: ResumeLibraryMetrics["dailyAdded"][number]["byUser"]; count: number; day: string }
-  >();
-
-  for (const row of rows) {
-    const existing = byDay.get(row.day) ?? { byUser: [], count: 0, day: row.day };
-    existing.count += row.count;
-    existing.byUser.push({
-      count: row.count,
-      userId: row.userId ?? "unknown",
-      userImage: row.userImage,
-      userName: row.userName?.trim() || "未知用户",
-    });
-    byDay.set(row.day, existing);
-  }
-
-  return [...byDay.values()]
-    .toSorted((left, right) => left.day.localeCompare(right.day))
-    .map((row) => ({
-      byUser: row.byUser.toSorted((left, right) => right.count - left.count),
-      count: row.count,
-      day: row.day,
-    }));
+    .where(eq(recruitingRecordReadModel.organizationId, organizationId));
+  return views.map((_, index) => Number(row?.[`view${index}`] ?? 0));
 }
 
-async function loadConversion(organizationId: string, createdByUserId?: string) {
+async function loadConversion(organizationId: string) {
   // 把"已发起 AI 面试 vs 未发起"压成两个 count，archived 排除。
   // FILTER 表达式拿 hasInterviewRoundsSql 直接复用为布尔条件。
   // Pack "launched vs not launched" into two parallel counts in a single query;
@@ -179,7 +83,7 @@ async function loadConversion(organizationId: string, createdByUserId?: string) 
     .from(recruitingRecordReadModel)
     .where(
       and(
-        resumeMetricsOrgFilters(organizationId, createdByUserId),
+        eq(recruitingRecordReadModel.organizationId, organizationId),
         ne(recruitingRecordReadModel.outcome, "archived"),
       ),
     );
@@ -188,30 +92,6 @@ async function loadConversion(organizationId: string, createdByUserId?: string) 
     withInterview: row?.withInterview ?? 0,
     withoutInterview: row?.withoutInterview ?? 0,
   };
-}
-
-export interface ResumeLibraryMetricsOptions {
-  /** Fixed recruiting-board stage used by sidebar submenu pages. */
-  boardPreset?: string;
-  /** When set, only count candidates created by this user (personal scope). */
-  createdByUserId?: string;
-}
-
-async function queryResumeLibraryMetrics(
-  organizationId: string,
-  options?: ResumeLibraryMetricsOptions,
-): Promise<ResumeLibraryMetrics> {
-  const createdByUserId = options?.createdByUserId;
-  const boardPreset = options?.boardPreset;
-  const [boardStatusCounts, byPipeline, dailyAdded, conversion] = await Promise.all([
-    loadBoardStatusCounts(organizationId, createdByUserId, boardPreset),
-    loadByPipeline(organizationId, createdByUserId, boardPreset),
-    boardPreset ? Promise.resolve([]) : loadDailyAdded(organizationId, createdByUserId),
-    boardPreset
-      ? Promise.resolve({ withInterview: 0, withoutInterview: 0 })
-      : loadConversion(organizationId, createdByUserId),
-  ]);
-  return { boardStatusCounts, byPipeline, conversion, dailyAdded };
 }
 
 function makeLookbackStart(days = DASHBOARD_LOOKBACK_DAYS) {
@@ -721,7 +601,7 @@ export async function loadRecruitingDashboardMetrics(
   organizationId: string,
 ): Promise<RecruitingDashboardMetrics> {
   const [
-    resume,
+    conversion,
     actions,
     activity,
     jobPipeline,
@@ -731,7 +611,7 @@ export async function loadRecruitingDashboardMetrics(
     cumulativeFunnel,
     recruiterProgress,
   ] = await Promise.all([
-    queryResumeLibraryMetrics(organizationId),
+    loadConversion(organizationId),
     loadActionItems(organizationId),
     loadDashboardActivity(organizationId),
     loadJobPipeline(organizationId),
@@ -749,7 +629,7 @@ export async function loadRecruitingDashboardMetrics(
     jobPipeline,
     offerStatuses,
     recruiterProgress,
-    resume,
+    resume: { conversion },
     summary: {
       ...activity.summary,
       activeJobs: vacancies.length,
@@ -765,17 +645,29 @@ export async function loadRecruitingDashboardMetrics(
 }
 
 /**
- * 招聘台聚合数据的缓存入口。三段并发查询：状态分布 / 近一年每日新增 / AI 面试转化。
- * cacheTag 与现有列表查询一致（`studio-resumes`），写入侧的 invalidate 已经覆盖。
+ * 招聘台标签计数（全工作区）：主阶段标签人数；固定子菜单页再附带各子状态标签人数。
  *
- * Cached entry point used by the resume-library page header charts. Three
- * concurrent queries: status distribution, daily new rows over the last 30
- * days, and AI-interview conversion. Shares the `studio-resumes` cache tag
- * with the list query so existing invalidation hooks already cover it.
+ * Recruiting-board tab counts for the whole workspace: one count per top-level
+ * stage tab, plus child-status tab counts on a fixed sidebar submenu page.
  */
-export function loadResumeLibraryMetrics(
+export async function loadResumeLibraryMetrics(
   organizationId: string,
-  options?: ResumeLibraryMetricsOptions,
+  boardPreset?: string,
 ): Promise<ResumeLibraryMetrics> {
-  return queryResumeLibraryMetrics(organizationId, options);
+  const statusTabs = getRecruitingBoardPresetStatusTabs(boardPreset);
+  const counts = await countBoardViews(organizationId, [
+    ...recruitingBoardGroups.map((group) => group.tabs[0].value),
+    ...statusTabs.map((tab) => tab.value),
+  ]);
+  const groupCount = recruitingBoardGroups.length;
+  return {
+    boardStatusCounts: statusTabs.map((tab, index) => ({
+      count: counts[groupCount + index] ?? 0,
+      view: tab.value,
+    })),
+    groupCounts: recruitingBoardGroups.map((group, index) => ({
+      count: counts[index] ?? 0,
+      id: group.id,
+    })),
+  };
 }

@@ -272,13 +272,12 @@ export function updateRecruitingLedgerInformationSync(
 
 export function fetchStudioResumeMetrics(
   slug: string,
-  scope: "team" | "personal" = "team",
   boardPreset?: string,
 ): Promise<ResumeLibraryMetrics> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.resumes.metrics.$get({
       param: { slug },
-      query: { boardPreset, scope },
+      query: { boardPreset },
     }),
     "加载招聘指标失败",
   );

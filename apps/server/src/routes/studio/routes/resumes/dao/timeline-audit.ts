@@ -9,6 +9,8 @@ import {
   recruitingNodeStatusMeta,
   recruitingNodeResultSchema,
   recruitingNodeResultMeta,
+  recruitingCloseReasonMeta,
+  recruitingCloseReasonSchema,
 } from "@app/db-schema/studio-interviews";
 import type { CandidateTimelineEventTone } from "@app/shared/studio-resumes";
 import { describeResumeEvaluationStatus } from "@app/shared/studio-resumes";
@@ -129,18 +131,6 @@ function jobDescriptionChangeLabel(
   return detail[nameKey]?.trim() || detail[idKey]?.trim() || "未绑定岗位";
 }
 
-const CLOSE_REASON_LABELS = new Map([
-  ["background_check_failed", "背调异常"],
-  ["candidate_withdrew", "候选人放弃"],
-  ["interview_failed", "面试淘汰"],
-  ["offer_declined", "候选人拒绝 Offer"],
-  ["onboarded", "已入职"],
-  ["onboarding_no_show", "候选人爽约"],
-  ["other", "其他原因"],
-  ["position_closed", "岗位关闭"],
-  ["resume_rejected", "简历淘汰"],
-  ["salary_disagreement", "谈薪失败"],
-]);
 function decisionLabel(value: string): string {
   const parsed = recruitingNodeResultSchema.safeParse(value);
   return parsed.success ? recruitingNodeResultMeta[parsed.data].label : "待确认";
@@ -172,7 +162,10 @@ function pipelineDescription(detail: AuditDetail, action: string): string | null
     return `${stageLabel(detail.fromStage)} → ${stageLabel(detail.toStage)}，恢复为待处理${reason}`;
   }
   if (action === "recruiting_closed") {
-    const closeReason = detail.reasonCode ? CLOSE_REASON_LABELS.get(detail.reasonCode) : undefined;
+    const reasonCode = recruitingCloseReasonSchema.safeParse(detail.reasonCode);
+    const closeReason = reasonCode.success
+      ? recruitingCloseReasonMeta[reasonCode.data].label
+      : undefined;
     return `${stageLabel(detail.fromStage)} → 已结束，结论：${outcomeLabel(detail.toOutcome)}${closeReason && closeReason !== outcomeLabel(detail.toOutcome) ? `（${closeReason}）` : ""}${reason}`;
   }
   if (action === "recruiting_node_updated") {

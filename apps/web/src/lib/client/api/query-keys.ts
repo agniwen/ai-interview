@@ -33,10 +33,10 @@ export const studioCalendarKeys = {
 };
 
 export const studioResumeKeys = {
-  metrics: (slug: string, scope: "team" | "personal" = "team", boardPreset?: string) =>
+  metrics: (slug: string, boardPreset?: string) =>
     boardPreset
-      ? (["studio-resume-metrics", slug, scope, boardPreset] as const)
-      : (["studio-resume-metrics", slug, scope] as const),
+      ? (["studio-resume-metrics", slug, boardPreset] as const)
+      : (["studio-resume-metrics", slug] as const),
 };
 
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;
