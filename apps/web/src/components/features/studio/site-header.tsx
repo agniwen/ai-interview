@@ -22,7 +22,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
   { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
   { meta: { title: "AI初面" }, prefix: "/studio/interviews" },
-  { meta: { title: "日程管理" }, prefix: "/studio/calendar" },
+  { meta: { title: "面试管理" }, prefix: "/studio/calendar" },
   { meta: { title: "数据看板" }, prefix: "/studio/dashboard" },
   { meta: { title: "部门管理" }, prefix: "/studio/departments" },
   { meta: { title: "AI面试官管理" }, prefix: "/studio/interviewers" },

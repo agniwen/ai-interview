@@ -95,7 +95,7 @@ const navGroups: NavGroup[] = [
         icon: IconCalendarEvent,
         path: "/studio/calendar",
         resource: "page",
-        title: "日程管理",
+        title: "面试管理",
       },
       {
         action: "dashboard",

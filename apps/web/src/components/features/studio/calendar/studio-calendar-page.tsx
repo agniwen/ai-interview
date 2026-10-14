@@ -520,7 +520,7 @@ export function StudioCalendarPage({
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
         description="默认展示昨天及今天起未来 30 天的相关面试；日程只读，面试时间需在候选人详情中调整。"
-        title="日程管理"
+        title="面试管理"
       />
       {calendarQuery.isError ? (
         <Alert variant="destructive">
