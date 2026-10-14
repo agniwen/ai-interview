@@ -2,10 +2,11 @@
 
 import { IconAlertCircle, IconArrowLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
+import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,10 @@ import {
   canManageResumePoolJobBinding,
   useRecordOwnedOpenState,
 } from "./resume-pool-details";
+import { ResumePoolCareerRail } from "./resume-pool-career-rail";
+import { ResumePoolDetailFloatingBar } from "./resume-pool-detail-floating-bar";
 import {
+  canImportResumePoolToLibrary,
   getCandidateTitle,
   resumeParseStatusBadge,
   resumeRecruitingStatusBadge,
@@ -223,6 +227,7 @@ export function ResumePoolDetailPage({
   const currentUserId = sessionUserId(session);
   const canImportResumePool = useHasPermission("resumePool", "import");
   const canReadJobDescriptions = useHasPermission("jd", "read");
+  const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canRecommend = canImportResumePool && canReadJobDescriptions;
   const [
     recommendationsOpen,
@@ -230,6 +235,7 @@ export function ResumePoolDetailPage({
     recommendationsRecordId,
     handleRecommendationsOpenChangeComplete,
   ] = useRecordOwnedOpenState(recordId);
+  const contentRef = useRef<HTMLDivElement>(null);
   const detailQuery = useQuery({
     queryFn: () => fetchResumePoolItem(slug, recordId),
     queryKey: ["resume-pool", "detail", slug, recordId] as const,
@@ -274,7 +280,7 @@ export function ResumePoolDetailPage({
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
+      <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-6 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         <ResumePoolDetailHeaderOverride onBack={onBack} />
         <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-5">
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -310,26 +316,45 @@ export function ResumePoolDetailPage({
           </div>
         </header>
 
-        <div className="flex min-w-0 flex-col gap-8">
-          <ResumePoolQualitativeEvaluationPanel detail={detail} />
-          <ResumePoolDetailSummaryPanel
-            detail={detail}
-            isError={false}
-            isLoading={false}
-            onRequestRecommendations={
-              canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
-            }
-            resumeProfile={detail.resumeProfile}
-            slug={slug}
-          />
-          <ResumePoolStructuredInfoPanel
-            detail={detail}
-            isLoading={false}
-            resumeProfile={detail.resumeProfile}
-          />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-x-10 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="flex min-w-0 flex-col gap-8" ref={contentRef}>
+            <ResumePoolQualitativeEvaluationPanel detail={detail} />
+            <ResumePoolDetailSummaryPanel
+              detail={detail}
+              isError={false}
+              isLoading={false}
+              onRequestRecommendations={
+                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
+              }
+              resumeProfile={detail.resumeProfile}
+              slug={slug}
+            />
+            <ResumePoolStructuredInfoPanel
+              detail={detail}
+              isLoading={false}
+              resumeProfile={detail.resumeProfile}
+            />
+          </div>
+          <aside className="hidden min-w-0 max-w-full overflow-hidden xl:sticky xl:top-[calc(var(--header-height)+1rem)] xl:block xl:self-start">
+            <ResumePoolCareerRail
+              onWorkExperienceSelect={(companyName) => {
+                scrollToWorkExperienceCompany(contentRef.current, companyName);
+              }}
+              profile={detail.resumeProfile}
+            />
+          </aside>
         </div>
       </main>
 
+      <ResumePoolDetailFloatingBar
+        canEnterRecruiting={canImportResumePoolToLibrary(
+          canImportResumePool,
+          canCreateResumeLibrary,
+        )}
+        detail={detail}
+        key={detail.id}
+        slug={slug}
+      />
       <ResumePoolRecommendationsDialog
         canRecommend={canRecommend}
         currentUserId={currentUserId}

@@ -272,7 +272,10 @@ export function ResumePoolQualitativeEvaluationPanel({ detail }: { detail: Resum
   }
   return (
     <section data-resume-pool-qualitative-evaluation>
-      <QualitativeEvaluationDetails evaluation={detail.qualitativeResumeEvaluation} />
+      <QualitativeEvaluationDetails
+        collapsibleDimensions
+        evaluation={detail.qualitativeResumeEvaluation}
+      />
     </section>
   );
 }

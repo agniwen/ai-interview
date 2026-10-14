@@ -1,6 +1,12 @@
 "use client";
 
-import { IconQuestionMark, IconSparkles, IconThumbUp, IconX } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconQuestionMark,
+  IconSparkles,
+  IconThumbUp,
+  IconX,
+} from "@tabler/icons-react";
 import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
@@ -14,10 +20,13 @@ import type {
 } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { QualitativeEvaluationPointsView } from "@/components/features/resume/qualitative-evaluation-points";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
@@ -217,19 +226,75 @@ function QualitativeDimensionGroup({
   );
 }
 
+const QUALITATIVE_DIMENSION_GROUPS = [
+  QUALITATIVE_DIMENSION_ENTRIES.slice(0, 2),
+  QUALITATIVE_DIMENSION_ENTRIES.slice(2, 4),
+  QUALITATIVE_DIMENSION_ENTRIES.slice(4, 6),
+] as const;
+
+function QualitativeDimensionsGrid({ evaluation }: { evaluation: QualitativeResumeEvaluation }) {
+  return (
+    <div className="grid gap-1 lg:grid-cols-2">
+      <FramePanel
+        className="flex min-w-0 items-center justify-center lg:rounded-[2px] lg:rounded-tl-xl"
+        data-qualitative-radar-panel
+      >
+        <QualitativeDimensionRadar evaluation={evaluation} />
+      </FramePanel>
+      {QUALITATIVE_DIMENSION_GROUPS.map((entries, index) => (
+        <QualitativeDimensionGroup
+          className={DIMENSION_GROUP_DESKTOP_CORNER_CLASSES[index]}
+          entries={entries}
+          evaluation={evaluation}
+          key={entries.map(([key]) => key).join("-")}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CollapsibleQualitativeDimensions({
+  evaluation,
+}: {
+  evaluation: QualitativeResumeEvaluation;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible onOpenChange={setOpen} open={open}>
+      <Frame>
+        <FrameHeader className="justify-between gap-3">
+          <FrameTitle>六维评价</FrameTitle>
+          <CollapsibleTrigger
+            render={<Button className="-my-1" size="xs" type="button" variant="ghost" />}
+          >
+            {open ? "收起" : "展开"}
+            <IconChevronDown
+              className={cn(
+                "transition-transform duration-[var(--duration-fast)] motion-reduce:transition-none",
+                open && "rotate-180",
+              )}
+              data-icon="inline-end"
+            />
+          </CollapsibleTrigger>
+        </FrameHeader>
+        <CollapsibleContent>
+          <QualitativeDimensionsGrid evaluation={evaluation} />
+        </CollapsibleContent>
+      </Frame>
+    </Collapsible>
+  );
+}
+
 export function QualitativeEvaluationDetails({
+  collapsibleDimensions = false,
   evaluation,
   summaryAction,
 }: {
+  /** 六维评价默认收起，点击后展开。 */
+  collapsibleDimensions?: boolean;
   evaluation: QualitativeResumeEvaluation;
   summaryAction?: ReactNode;
 }) {
-  const dimensionGroups = [
-    QUALITATIVE_DIMENSION_ENTRIES.slice(0, 2),
-    QUALITATIVE_DIMENSION_ENTRIES.slice(2, 4),
-    QUALITATIVE_DIMENSION_ENTRIES.slice(4, 6),
-  ];
-
   return (
     <div className="flex flex-col gap-6">
       <Frame>
@@ -268,27 +333,16 @@ export function QualitativeEvaluationDetails({
         </FramePanel>
       </Frame>
 
-      <Frame>
-        <FrameHeader className="justify-between gap-3">
-          <FrameTitle>六维评价</FrameTitle>
-        </FrameHeader>
-        <div className="grid gap-1 lg:grid-cols-2">
-          <FramePanel
-            className="flex min-w-0 items-center justify-center lg:rounded-[2px] lg:rounded-tl-xl"
-            data-qualitative-radar-panel
-          >
-            <QualitativeDimensionRadar evaluation={evaluation} />
-          </FramePanel>
-          {dimensionGroups.map((entries, index) => (
-            <QualitativeDimensionGroup
-              className={DIMENSION_GROUP_DESKTOP_CORNER_CLASSES[index]}
-              entries={entries}
-              evaluation={evaluation}
-              key={entries.map(([key]) => key).join("-")}
-            />
-          ))}
-        </div>
-      </Frame>
+      {collapsibleDimensions ? (
+        <CollapsibleQualitativeDimensions evaluation={evaluation} />
+      ) : (
+        <Frame>
+          <FrameHeader className="justify-between gap-3">
+            <FrameTitle>六维评价</FrameTitle>
+          </FrameHeader>
+          <QualitativeDimensionsGrid evaluation={evaluation} />
+        </Frame>
+      )}
 
       {evaluation.seniorityRecommendation || evaluation.teamPositioning ? (
         <div className="grid gap-4 md:grid-cols-2">
