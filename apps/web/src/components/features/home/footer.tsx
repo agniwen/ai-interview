@@ -11,7 +11,7 @@ export function HomeFooter() {
     <footer className="mx-auto w-full max-w-360 px-6 pb-10 sm:px-8 lg:px-12">
       <Separator className="mb-10 bg-border/60" />
       <div className="flex flex-wrap items-end justify-between gap-8 pb-12 lg:pb-20">
-        <p className="max-w-[10em] text-pretty font-medium text-[clamp(2rem,5.5vw,5rem)] text-foreground leading-[1.15] tracking-[-0.05em]">
+        <p className="max-w-[10em] text-pretty font-medium text-[clamp(2rem,4vw,3.5rem)] text-foreground leading-[1.2] tracking-[-0.04em]">
           AI Hiring Copilot
         </p>
       </div>

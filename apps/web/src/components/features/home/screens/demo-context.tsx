@@ -1,6 +1,5 @@
 "use client";
 
-import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { createContext, useCallback, useContext, useState } from "react";
 import type { ReactNode } from "react";
 import * as m from "@/paraglide/messages";
@@ -10,11 +9,8 @@ interface DemoDialog {
   title: string;
 }
 interface DemoCandidate {
-  title: string;
   id?: string;
   pipeline?: string;
-  profile?: ResumeProfile;
-  fields?: { label: string; value: string }[];
 }
 
 export type DemoPhase =
@@ -32,27 +28,21 @@ function useDemoState() {
   const [turn, setTurn] = useState(0);
   const [candidate, setCandidate] = useState<DemoCandidate | null>(null);
   const [dialog, setDialog] = useState<DemoDialog | null>(null);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("");
   const [group, setGroup] = useState("all");
   const [stage, setStage] = useState("all");
   const [notice, setNotice] = useState("");
   return {
     candidate,
     dialog,
-    filter,
     group,
     notice,
     page: m.home_frame_nav_recruitment(),
     phase,
-    query,
     setCandidate,
     setDialog,
-    setFilter,
     setGroup,
     setNotice,
     setPhase,
-    setQuery,
     setStage,
     setTurn,
     stage,
@@ -66,17 +56,7 @@ const DemoResetContext = createContext<(() => void) | null>(null);
 
 export function DemoProvider({ children }: { children: ReactNode }) {
   const state = useDemoState();
-  const {
-    setPhase,
-    setTurn,
-    setCandidate,
-    setDialog,
-    setGroup,
-    setStage,
-    setQuery,
-    setFilter,
-    setNotice,
-  } = state;
+  const { setPhase, setTurn, setCandidate, setDialog, setGroup, setStage, setNotice } = state;
   const reset = useCallback(() => {
     setPhase("screening");
     setTurn(0);
@@ -84,20 +64,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setDialog(null);
     setGroup("all");
     setStage("all");
-    setQuery("");
-    setFilter("");
     setNotice("");
-  }, [
-    setPhase,
-    setTurn,
-    setCandidate,
-    setDialog,
-    setGroup,
-    setStage,
-    setQuery,
-    setFilter,
-    setNotice,
-  ]);
+  }, [setPhase, setTurn, setCandidate, setDialog, setGroup, setStage, setNotice]);
   return (
     <DemoResetContext.Provider value={reset}>
       <DemoContext.Provider value={state}>{children}</DemoContext.Provider>

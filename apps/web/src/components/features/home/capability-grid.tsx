@@ -54,7 +54,7 @@ function BentoTile({
   return (
     <article
       className={cn(
-        "relative flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-background p-6 sm:p-8",
+        "relative flex h-full flex-col overflow-hidden rounded-[12px] border border-border/70 bg-home-card p-6 [&_[data-slot=badge]]:rounded-[8px] sm:p-8",
         className,
       )}
     >
@@ -84,26 +84,26 @@ function BentoTile({
 function ChatBubblesVisual() {
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="ml-auto max-w-[78%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
+      <div className="ml-auto max-w-[78%] rounded-[8px] ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         {messages.home_chat_question_one()}
       </div>
-      <div className="max-w-[88%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
+      <div className="max-w-[88%] rounded-[8px] ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         {messages.home_chat_answer_one()}
         <span className="mt-1 block text-foreground/68 text-xs">
           {messages.home_chat_followup()}
         </span>
       </div>
-      <div className="ml-auto max-w-[82%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
+      <div className="ml-auto max-w-[82%] rounded-[8px] ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         {messages.home_chat_question_two()}
       </div>
-      <div className="max-w-[90%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
+      <div className="max-w-[90%] rounded-[8px] ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         <span className="block">{messages.home_chat_answer_two()}</span>
         <span className="mt-1.5 flex flex-wrap gap-1.5">
           <Badge variant="success">{messages.home_chat_strength()}</Badge>
           <Badge variant="warning">{messages.home_chat_risk()}</Badge>
         </span>
       </div>
-      <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
+      <div className="ml-auto max-w-[70%] rounded-[8px] ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         {messages.home_chat_shortlist()}
       </div>
       <div className="inline-flex items-center gap-1 self-start text-foreground/68 text-xs">
@@ -119,12 +119,12 @@ function ChatBubblesVisual() {
 // 工作台配置：mock 岗位列表，每行带题数与状态
 function WorkbenchVisual() {
   const positions = [
-    { count: 12, draft: false, name: messages.home_position_frontend() },
-    { count: 8, draft: false, name: messages.home_position_product() },
-    { count: 6, draft: true, name: messages.home_position_data() },
+    { count: 12, draft: false, name: messages.home_position_pilot() },
+    { count: 8, draft: false, name: messages.home_position_engineer() },
+    { count: 6, draft: true, name: messages.home_position_commander() },
   ];
   return (
-    <ul className="flex flex-col divide-y divide-foreground/[0.06] overflow-hidden rounded-xl ring-1 ring-foreground/5 bg-background/70 shadow-sm">
+    <ul className="flex flex-col divide-y divide-foreground/[0.06] overflow-hidden rounded-[10px] ring-1 ring-foreground/5 bg-background/70 shadow-sm">
       {positions.map((p) => (
         <li
           className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-[13px]"
@@ -149,14 +149,14 @@ function WorkbenchVisual() {
 function FollowUpVisual() {
   return (
     <div className="flex flex-col gap-1.5 font-mono text-[12px]">
-      <div className="rounded-md ring-1 ring-foreground/5 bg-background/80 px-2.5 py-1.5 text-foreground/80 shadow-sm">
-        {messages.home_followup_state()}
+      <div className="rounded-[8px] ring-1 ring-foreground/5 bg-background/80 px-2.5 py-1.5 text-foreground/80 shadow-sm">
+        {messages.home_followup_question()}
       </div>
-      <div className="ml-3 rounded-md ring-1 ring-foreground/5 bg-background/60 px-2.5 py-1.5 text-foreground/65 shadow-sm">
-        {messages.home_followup_zustand()}
+      <div className="ml-3 rounded-[8px] ring-1 ring-foreground/5 bg-background/60 px-2.5 py-1.5 text-foreground/65 shadow-sm">
+        {messages.home_followup_choice()}
       </div>
-      <div className="ml-6 rounded-md ring-1 ring-foreground/5 bg-background/40 px-2.5 py-1.5 text-foreground/55 shadow-sm">
-        {messages.home_followup_migration()}
+      <div className="ml-6 rounded-[8px] ring-1 ring-foreground/5 bg-background/40 px-2.5 py-1.5 text-foreground/55 shadow-sm">
+        {messages.home_followup_cost()}
       </div>
     </div>
   );
@@ -188,7 +188,7 @@ function LiveVoiceVisual() {
           />
         ))}
       </div>
-      <p className="truncate rounded-md ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/70 shadow-sm">
+      <p className="truncate rounded-[8px] ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/70 shadow-sm">
         {messages.home_live_transcript()}
       </p>
       <style>{`
@@ -244,7 +244,7 @@ function PrivacyVisual() {
     <ul className="flex flex-col gap-1.5">
       {items.map((t) => (
         <li
-          className="flex items-center gap-2 rounded-md ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/75 shadow-sm"
+          className="flex items-center gap-2 rounded-[8px] ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/75 shadow-sm"
           key={t}
         >
           <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
@@ -352,7 +352,7 @@ function CapabilityCarousel() {
 
 export function CapabilityGrid() {
   return (
-    <Section width="wide">
+    <Section>
       <SectionHeader
         title={messages.home_capability_title()}
         lead={messages.home_capability_lead()}

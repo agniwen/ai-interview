@@ -2,6 +2,8 @@ export interface DemoPlaybackStep {
   target: string;
   caption: string;
   hold?: number;
+  /** 点击后展开的内容区域：停留期间平滑滚动展示它。 Region revealed by the click; scrolled into view during the hold. */
+  reveal?: string;
 }
 
 export interface DemoPlaybackPort {
@@ -9,7 +11,12 @@ export interface DemoPlaybackPort {
   reset: () => void;
   move: (target: string, caption: string) => Promise<boolean>;
   click: (target: string) => void;
+  /** 在给定时长内滚动展示区域；返回 false 表示已中止。 Scrolls a region into view within the budget. */
+  reveal?: (selector: string, budget: number) => Promise<boolean>;
 }
+
+/** 揭示滚动后至少再停留这么久，让访客读到停下来的画面。 Minimum dwell after a reveal scroll settles. */
+const REVEAL_SETTLE_MS = 700;
 
 interface PendingPlaybackDelay {
   timer?: ReturnType<typeof setTimeout>;
@@ -57,7 +64,17 @@ export async function runDemoPlayback(
         return;
       }
       port.click(step.target);
-      if (!(await playbackDelay(step.hold ?? 1700, signal))) {
+      const hold = step.hold ?? 1700;
+      if (step.reveal && port.reveal) {
+        const startedAt = Date.now();
+        if (!(await port.reveal(step.reveal, hold - REVEAL_SETTLE_MS))) {
+          return;
+        }
+        const remaining = Math.max(REVEAL_SETTLE_MS, hold - (Date.now() - startedAt));
+        if (!(await playbackDelay(remaining, signal))) {
+          return;
+        }
+      } else if (!(await playbackDelay(hold, signal))) {
         return;
       }
     }

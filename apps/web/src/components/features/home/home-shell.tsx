@@ -4,7 +4,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { RecruitmentCopilotMark } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
-import { BackgroundLayers } from "./background-layers";
 import { CapabilityGrid } from "./capability-grid";
 import { Faq } from "./faq";
 import { FeatureBlocks } from "./feature-blocks";
@@ -30,10 +29,13 @@ export default function HomeShell() {
   return (
     <div>
       <PageGrain />
-      <main className="relative flex w-full flex-col items-stretch bg-background" id="main-content">
-        <div className="relative isolate overflow-hidden">
-          <BackgroundLayers fadeToBackground />
-          <header className="mx-auto flex w-full max-w-360 items-center justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8 lg:px-12">
+      <main
+        className="relative flex w-full flex-col items-stretch bg-home-surface"
+        id="main-content"
+      >
+        {/* 首屏画布带一点蓝调（对标 qoder 的中性偏绿底），只用于导航、首屏文案与舞台两侧。 */}
+        <div className="relative isolate overflow-hidden bg-home-canvas">
+          <header className="mx-auto flex w-full max-w-[105rem] items-center justify-between gap-4 px-6 pt-6 sm:px-8 lg:px-16 3xl:px-0">
             <div className="flex items-center gap-2.5 text-foreground">
               <RecruitmentCopilotMark className="size-7 sm:size-8" />
               <span className="font-medium text-sm tracking-tight sm:text-base">
@@ -45,14 +47,16 @@ export default function HomeShell() {
               <ThemeToggle />
             </div>
           </header>
-          <div className="mx-auto w-full max-w-360 px-6 pt-16 sm:px-8 sm:pt-20 lg:px-12 lg:pt-24">
+          <div className="mx-auto w-full max-w-[105rem] px-6 sm:px-8 lg:px-16 3xl:px-0 pt-14 pb-12 sm:pt-16 sm:pb-14 lg:pt-20 lg:pb-16">
             <Hero onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
           </div>
           <ProductShot />
         </div>
-        <div className="relative bg-background">
+        <div className="relative bg-home-surface">
           <FeatureBlocks />
-          <div className="relative isolate overflow-hidden">
+          {/* 能力区落在偏蓝画布带上，卡片用更亮的表面，与上下白底区块形成层次。
+              Capability band sits on the tinted canvas so lighter cards read as a layer. */}
+          <div className="relative isolate overflow-hidden bg-home-canvas">
             <CapabilityGrid />
             <Personas />
           </div>

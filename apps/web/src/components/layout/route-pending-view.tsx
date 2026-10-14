@@ -1,16 +1,13 @@
 import { useRouterState } from "@tanstack/react-router";
-import { BackgroundLayersView } from "@/components/features/home/background-layers";
 
 export function RoutePendingContent({ pathname }: { pathname: string }) {
   if (pathname === "/") {
     return (
       <output
         aria-label="首页正在准备"
-        className="relative isolate block h-screen w-full overflow-hidden bg-background"
+        className="relative isolate block h-screen w-full overflow-hidden bg-home-canvas"
         data-slot="home-route-pending"
-      >
-        <BackgroundLayersView />
-      </output>
+      />
     );
   }
 

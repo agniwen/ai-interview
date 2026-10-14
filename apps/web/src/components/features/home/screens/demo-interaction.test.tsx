@@ -2,34 +2,29 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import { setLocale } from "@/paraglide/runtime";
 import DemoHumanRoom from "./demo-human-room";
 import { DemoCandidateDetail } from "./demo-candidate-detail";
 import { DemoProvider, useDemo } from "./demo-context";
 import { DemoDialogLayer } from "./demo-dialog";
+import { getDemoScreenCopy } from "./demo-screen-copy";
+import { DEMO_CANDIDATE_ID } from "./demo-workflow-data";
 
 // SAFETY: React's test-only act flag belongs to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const HAN_CHARACTER = /\p{Script=Han}/u;
 
 function Harness() {
   const demo = useDemo();
   return (
     <>
-      <button
-        type="button"
-        data-open
-        onClick={() =>
-          demo.setCandidate({
-            fields: [{ label: "姓名", value: "真嗣" }],
-            id: "01842",
-            title: "真嗣 · 候选人详情",
-          })
-        }
-      >
-        打开记录
+      <button type="button" data-open onClick={() => demo.setCandidate({ id: DEMO_CANDIDATE_ID })}>
+        open
       </button>
       <button type="button" data-finish-ai onClick={() => demo.setPhase("ai-completed")}>
-        模拟 AI 完成
+        finish AI
       </button>
       {demo.candidate &&
         (demo.phase === "human-live" ? <DemoHumanRoom /> : <DemoCandidateDetail />)}
@@ -38,7 +33,8 @@ function Harness() {
   );
 }
 
-it("keeps the identity while showing actual evaluation, round and Offer structures", async () => {
+/** Walks the same scenes as the homepage tour; `visit` inspects the window after every step. */
+async function walkWorkflow(visit: (container: HTMLElement, step: string) => void) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -51,11 +47,6 @@ it("keeps the identity while showing actual evaluation, round and Offer structur
     value: scrollIntoView,
   });
   const pageStyles = [document.body.style.cssText, document.documentElement.style.cssText];
-  const expectPageScrollUnlocked = () => {
-    expect([document.body.style.cssText, document.documentElement.style.cssText]).toEqual(
-      pageStyles,
-    );
-  };
   vi.stubGlobal("matchMedia", () => ({
     addEventListener: vi.fn(),
     matches: false,
@@ -65,6 +56,10 @@ it("keeps the identity while showing actual evaluation, round and Offer structur
     const button = container.querySelector<HTMLButtonElement>(selector);
     expect(button, selector).not.toBeNull();
     await act(() => button?.click());
+    expect([document.body.style.cssText, document.documentElement.style.cssText]).toEqual(
+      pageStyles,
+    );
+    visit(container, selector);
   };
   try {
     await act(() =>
@@ -81,61 +76,26 @@ it("keeps the identity while showing actual evaluation, round and Offer structur
     await act(async () => {
       await import("./demo-interview-panels");
     });
-    expect(container.textContent).toContain("六维评价");
-    expect(container.textContent).toContain("非常推荐");
+    visit(container, "evaluation-loaded");
     await click("[data-demo-launch]");
-    expect(container.querySelector('[data-slot="demo-dialog"]')?.textContent).toContain(
-      "发起 AI 初面",
-    );
-    expectPageScrollUnlocked();
     await click("[data-demo-enter-interview]");
-    expect(container.querySelector('[data-slot="demo-dialog"]')).toBeNull();
     await click("[data-finish-ai]");
     await click('[data-demo-detail-tab="interviews"]');
-    expect(container.textContent).toContain("86 / 100");
+    await click("[data-demo-ai-transcript]");
     await click("[data-demo-transition-human]");
-    expect(container.textContent).toContain("安排真人面试");
-    expectPageScrollUnlocked();
-    expect(container.querySelector('[data-slot="demo-dialog"] button:disabled')?.textContent).toBe(
-      "保存安排",
-    );
     await click("[data-demo-dialog-close]");
     await click("[data-demo-enter-human-room]");
-    expect(container.querySelector('[data-slot="meeting-grid-layout"]')).not.toBeNull();
     await click("[data-demo-room-materials]");
-    expect(container.querySelector('[aria-label="评价时间线"]')).not.toBeNull();
-    expect(container.textContent).toContain("AI 初面 · 86 分");
-    await click('[aria-label="全屏查看简历"]');
-    expect(container.querySelector('[data-slot="demo-dialog"]')?.textContent).toContain(
-      "结构化简历",
-    );
-    expectPageScrollUnlocked();
-    expect(container.querySelector('[data-slot="demo-dialog"]')?.textContent).not.toContain(
-      "保存安排",
-    );
+    await click("[data-demo-timeline] li:nth-child(2) button");
+    await click("[data-demo-resume-fullscreen]");
     await click("[data-demo-dialog-close]");
     await click("[data-demo-room-questions]");
-    expect(container.querySelector('[aria-label="面试题"]')).not.toBeNull();
     await click("[data-demo-room-review]");
-    expect(container.querySelector('[data-slot="meeting-review-panel"]')?.textContent).toContain(
-      "我的结论",
-    );
     await click("[data-demo-finish-human]");
     await click('[data-demo-detail-tab="human"]');
-    expect(container.textContent).toContain("第 1 轮 · 技术复面");
-    expect(container.textContent).toContain("评级");
-    expect(container.textContent).toContain("通过");
     await click("[data-demo-human-analysis] button[aria-expanded]");
-    expect(container.textContent).toContain("完整详细分析");
-    expect(scrollIntoView).not.toHaveBeenCalled();
     await click("[data-demo-transition-offer]");
-    expect(container.textContent).toContain("Offer 协商进度");
-    expect(container.textContent).toContain("34,000");
-    expect(
-      container.querySelector<HTMLElement>('[data-slot="demo-candidate-detail"]')?.dataset
-        .candidateId,
-    ).toBe("01842");
-    expect(container.querySelector("h1")?.textContent).toBe("真嗣");
+    expect(scrollIntoView).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
   } finally {
     act(() => root.unmount());
@@ -149,4 +109,73 @@ it("keeps the identity while showing actual evaluation, round and Offer structur
     client.clear();
     container.remove();
   }
+}
+
+afterEach(() => {
+  setLocale("zh-CN", { reload: false });
+});
+
+it("keeps the identity while showing evaluation, round and Offer scenes", async () => {
+  setLocale("zh-CN", { reload: false });
+  const copy = getDemoScreenCopy();
+  const seen = new Map<string, string>();
+  await walkWorkflow((container, step) => {
+    seen.set(step, container.textContent ?? "");
+    if (step === "[data-demo-transition-offer]") {
+      expect(
+        container.querySelector<HTMLElement>('[data-slot="demo-candidate-detail"]')?.dataset
+          .candidateId,
+      ).toBe(DEMO_CANDIDATE_ID);
+      expect(container.querySelector("h1")?.textContent).toBe(copy.people.candidate);
+    }
+    if (step === "[data-demo-launch]") {
+      expect(container.querySelector('[data-slot="demo-dialog"]')?.textContent).toContain(
+        copy.detail.launchAi,
+      );
+    }
+    if (step === "[data-demo-transition-human]") {
+      expect(
+        container.querySelector('[data-slot="demo-dialog"] button:disabled')?.textContent,
+      ).toBe(copy.dialog.saveSchedule);
+    }
+    if (step === "[data-demo-resume-fullscreen]") {
+      const dialog = container.querySelector('[data-slot="demo-dialog"]')?.textContent;
+      expect(dialog).toContain(copy.dialog.structuredResume);
+      expect(dialog).not.toContain(copy.dialog.saveSchedule);
+    }
+    if (step === "[data-demo-enter-interview]") {
+      expect(container.querySelector('[data-slot="demo-dialog"]')).toBeNull();
+    }
+  });
+  expect(seen.get("evaluation-loaded")).toContain(copy.evaluationUi.dimensionsTitle);
+  expect(seen.get("evaluation-loaded")).toContain(copy.desk.highlyRecommended);
+  expect(seen.get('[data-demo-detail-tab="interviews"]')).toContain("86 / 100");
+  expect(seen.get("[data-demo-enter-human-room]")).toContain(copy.people.interviewer);
+  expect(seen.get("[data-demo-timeline] li:nth-child(2) button")).toContain(
+    copy.room.historyRoundLabel,
+  );
+  expect(seen.get("[data-demo-room-review]")).toContain(copy.room.reviewFields.conclusion);
+  expect(seen.get('[data-demo-detail-tab="human"]')).toContain(
+    copy.round.title(1, copy.humanInterview.roundLabel),
+  );
+  expect(seen.get("[data-demo-human-analysis] button[aria-expanded]")).toContain(
+    copy.round.detailedAnalysis,
+  );
+  expect(seen.get("[data-demo-transition-offer]")).toContain(copy.offer.progress.label);
+  expect(seen.get("[data-demo-transition-offer]")).toContain("34,000");
+});
+
+it("renders every demo scene in the visitor's language without Chinese leftovers", async () => {
+  setLocale("en", { reload: false });
+  await walkWorkflow((container, step) => {
+    const leftover = [...container.querySelectorAll("*")]
+      .flatMap((element) => [
+        ...[...element.childNodes]
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent ?? ""),
+        element.getAttribute("aria-label") ?? "",
+      ])
+      .find((text) => HAN_CHARACTER.test(text));
+    expect(leftover, step).toBeUndefined();
+  });
 });

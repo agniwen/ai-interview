@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconArrowLeft,
   IconBuilding,
   IconCalendarEvent,
   IconChartBar,
@@ -27,6 +28,7 @@ import {
 // classes match the actual shadcn primitives the production app uses.
 
 import { useOptionalDemo } from "../demo-context";
+import { getDemoScreenCopy } from "../demo-screen-copy";
 import { DemoAutoplay } from "../demo-autoplay";
 import { DemoDialogLayer } from "../demo-dialog";
 import { Button } from "@/components/ui/button";
@@ -166,17 +168,22 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
 // ─────────────────── Sidebar footer: user section ───────────────────
 function SidebarUserSection() {
   // 真实展开态只显示小头像和用户名；工作区切换位于页面标题栏。
+  const { recruiter } = getDemoScreenCopy().people;
   return (
     <div className="border-border border-t px-2 py-2">
       <button
         type="button"
         className="flex h-9 w-full items-center gap-2 rounded-lg px-2 hover:bg-sidebar-accent"
       >
-        <Avatar generatedSize={32} label="葛城美里的头像" seed="recruiter:葛城美里">
-          <AvatarFallback>葛</AvatarFallback>
+        <Avatar
+          generatedSize={32}
+          label={m.home_frame_candidate_avatar({ name: recruiter })}
+          seed="recruiter:misato"
+        >
+          <AvatarFallback>{recruiter.slice(0, 1)}</AvatarFallback>
         </Avatar>
         <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">
-          葛城美里
+          {recruiter}
         </p>
       </button>
     </div>
@@ -225,7 +232,7 @@ function ThemeToggleButton() {
   // 真实 ThemeToggle 是 Button variant="ghost" size="icon-sm" 内嵌 Sun/Moon
   // Real: ghost icon-sm button with sun/moon swap
   return (
-    <Button aria-label="切换演示主题" variant="ghost" size="icon-sm">
+    <Button aria-label={getDemoScreenCopy().shell.themeToggle} variant="ghost" size="icon-sm">
       <IconMoon className="size-4" />
     </Button>
   );
@@ -235,7 +242,7 @@ function SidebarTriggerButton() {
   // 真实 SidebarTrigger 是 Button variant="ghost" size="icon" className="size-7" 内嵌 PanelLeft
   // Real: ghost icon button (size-7) with PanelLeft, inset header gives -ml-1
   return (
-    <Button aria-label="展开或收起演示侧栏" variant="ghost" size="icon-sm">
+    <Button aria-label={getDemoScreenCopy().shell.sidebarToggle} variant="ghost" size="icon-sm">
       <IconLayoutSidebarLeftCollapse className="size-4" />
     </Button>
   );
@@ -251,13 +258,9 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   const demo = useOptionalDemo();
   let currentCrumbs = breadcrumb.slice(-1);
   if (demo) {
-    let label = demo.page;
-    if (demo.page === m.home_frame_nav_recruitment()) {
-      label = m.home_frame_recruitment_desk();
-    }
-    currentCrumbs = demo.candidate
-      ? [{ label }, { current: true, label: demo.candidate.title }]
-      : [{ current: true, label }];
+    const label =
+      demo.page === m.home_frame_nav_recruitment() ? m.home_frame_recruitment_desk() : demo.page;
+    currentCrumbs = [{ current: true, label }];
   }
 
   return (
@@ -270,7 +273,22 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
     >
       <div className="relative z-1 flex min-w-0 items-center gap-2">
         <SidebarTriggerButton />
-        <BreadcrumbBar crumbs={currentCrumbs} />
+        {demo?.candidate ? (
+          // 对齐真实详情页：useStudioHeaderOverride 用返回按钮替换面包屑。
+          <Button
+            className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
+            data-demo-detail-back
+            onClick={() => demo.setCandidate(null)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <IconArrowLeft className="size-4" />
+            {getDemoScreenCopy().detail.backTo(m.home_frame_recruitment_desk())}
+          </Button>
+        ) : (
+          <BreadcrumbBar crumbs={currentCrumbs} />
+        )}
       </div>
       <div className="relative z-1 flex items-center gap-1">
         {actions ?? <WorkspaceSwitcher />}
@@ -345,7 +363,7 @@ export function AppShell({
           + layout 上还加了 border border-border */}
       <section
         inert={Boolean(demo)}
-        aria-label="演示工作台"
+        aria-label={getDemoScreenCopy().shell.workbench}
         className={cn(
           "relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background",
           (demo?.phase === "live" || demo?.phase === "human-live") && "m-0 rounded-none border-0",

@@ -1,30 +1,54 @@
 "use client";
 
-import { m, useReducedMotion } from "motion/react";
-import { ResumesScreen } from "@/components/features/home/screens/resumes-screen";
+import { lazy, Suspense } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
+import { StageArtwork } from "./stage-artwork";
+import { ScreenFrame } from "./screens/screen-frame";
 
-const PRODUCT_SHOT_HIDDEN = { opacity: 0, transform: "translateY(16px)" } as const;
-const PRODUCT_SHOT_VISIBLE = { opacity: 1, transform: "translateY(0px)" } as const;
-const PRODUCT_SHOT_TRANSITION = {
-  duration: 0.55,
-  ease: [0.23, 1, 0.32, 1],
-} as const;
+// 演示窗口依赖整套 Studio 组件，单独分包，水合后再加载，不阻塞首屏 SSR 内容。
+// The demo pulls in Studio components, so it ships as its own chunk loaded after hydration.
+const ResumesScreen = lazy(async () => {
+  const { ResumesScreen: Screen } = await import("./screens/resumes-screen");
+  return { default: Screen };
+});
 
+/** SSR 与加载期间的同尺寸空窗口，避免布局跳动。 Same-size empty window for SSR and loading. */
+function DemoWindowPlaceholder() {
+  return (
+    <ScreenFrame>
+      <div className="size-full bg-background" data-slot="home-demo-placeholder" />
+    </ScreenFrame>
+  );
+}
+
+/**
+ * 首屏产品舞台：SVG 品牌背景作为舞台，演示窗口居中、四周留白，随断点收放留白而非放大内容。
+ * Brand stage with the demo window centered; breakpoints change the breathing room.
+ */
 export function ProductShot() {
-  const reducedMotion = useReducedMotion();
+  const hydrated = useHydrated();
 
   return (
-    <div className="mx-auto w-full max-w-360 px-6 pt-14 pb-14 sm:px-8 sm:pt-16 sm:pb-16 lg:px-12 lg:pt-20 lg:pb-20">
-      <m.div
-        animate={PRODUCT_SHOT_VISIBLE}
-        className="home-product-shot-enter"
-        initial={PRODUCT_SHOT_HIDDEN}
-        transition={reducedMotion ? { duration: 0 } : PRODUCT_SHOT_TRANSITION}
-      >
-        <div className="home-product-shot-scroll w-full drop-shadow-[0_24px_40px_rgba(61,78,113,0.12)] dark:drop-shadow-[0_24px_40px_rgba(0,0,0,0.3)]">
-          <ResumesScreen />
+    // 舞台跟随 1680 首屏容器：超宽屏两侧露出页面底色，而不是无限通栏。
+    // The stage follows the 1680px hero container, so ultra-wide screens show page canvas at the sides.
+    <section
+      className="relative isolate mx-auto w-full max-w-[105rem] overflow-hidden"
+      data-slot="home-product-stage"
+    >
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <StageArtwork />
+      </div>
+      <div className="mx-auto w-full max-w-[calc(1280px+8rem)] px-4 py-6 sm:py-12 lg:px-16 lg:py-[4.5rem]">
+        <div className="w-full drop-shadow-[0_24px_48px_rgba(15,23,42,0.18)] animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-[550ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none dark:drop-shadow-[0_24px_48px_rgba(0,0,0,0.45)]">
+          {hydrated ? (
+            <Suspense fallback={<DemoWindowPlaceholder />}>
+              <ResumesScreen />
+            </Suspense>
+          ) : (
+            <DemoWindowPlaceholder />
+          )}
         </div>
-      </m.div>
-    </div>
+      </div>
+    </section>
   );
 }

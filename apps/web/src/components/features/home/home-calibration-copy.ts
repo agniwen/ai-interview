@@ -4,24 +4,24 @@ const CALIBRATION_COPY = {
   en: {
     calibrationEvidence: "Shared evidence",
     calibrationEvidenceBody:
-      "Design-system migration across 4 product lines; delivery time reduced by 30%.",
+      "Synchronized twin-unit kill on the Seventh Angel with Unit-01 in 62 seconds.",
     calibrationReviewers: [
       {
         judgment: "Recommended",
         name: "Misato",
-        note: "Project ownership is supported by clear evidence.",
+        note: "Her combat role is backed by clear sortie evidence.",
         role: "Recruiter",
       },
       {
         judgment: "Recommended",
         name: "Ritsuko",
-        note: "Architecture decisions and rollback criteria are well explained.",
+        note: "Sync data and retreat criteria were verified in follow-ups.",
         role: "Technical interviewer",
       },
       {
         judgment: "Pending",
-        name: "Shinji",
-        note: "Validate the scope of team leadership in the next round.",
+        name: "Gendo",
+        note: "Confirm formation teamwork and chain of command next round.",
         role: "Hiring manager",
       },
     ],
@@ -30,24 +30,24 @@ const CALIBRATION_COPY = {
   },
   ja: {
     calibrationEvidence: "共通の根拠",
-    calibrationEvidenceBody: "4 つの製品ラインでデザインシステムを移行し、納期を 30% 短縮。",
+    calibrationEvidenceBody: "初号機と同期し、第7使徒を 62 秒で二機同時殲滅。",
     calibrationReviewers: [
       {
         judgment: "推薦",
         name: "ミサト",
-        note: "プロジェクトでの担当範囲に明確な根拠がある。",
+        note: "作戦での役割に明確な出撃根拠がある。",
         role: "採用担当",
       },
       {
         judgment: "推薦",
         name: "リツコ",
-        note: "設計判断とロールバック基準の説明が具体的。",
+        note: "シンクロデータと撤退基準を追加質問で確認済み。",
         role: "技術面接官",
       },
       {
         judgment: "保留",
-        name: "シンジ",
-        note: "次の面接でチーム管理の範囲を確認する。",
+        name: "ゲンドウ",
+        note: "次の面接で編隊連携と指揮系統への順応を確認する。",
         role: "採用マネージャー",
       },
     ],
@@ -56,24 +56,24 @@ const CALIBRATION_COPY = {
   },
   ko: {
     calibrationEvidence: "공통 근거",
-    calibrationEvidenceBody: "4개 제품군의 디자인 시스템을 이전하고 평균 납기를 30% 단축했습니다.",
+    calibrationEvidenceBody: "초호기와 동기화해 제7사도를 62초 만에 2기 동시 섬멸했습니다.",
     calibrationReviewers: [
       {
         judgment: "추천",
         name: "미사토",
-        note: "프로젝트 담당 범위에 명확한 근거가 있습니다.",
+        note: "작전에서 맡은 역할에 명확한 출격 근거가 있습니다.",
         role: "채용 담당자",
       },
       {
         judgment: "추천",
         name: "리츠코",
-        note: "설계 결정과 롤백 기준을 구체적으로 설명했습니다.",
+        note: "싱크로 데이터와 철수 기준을 추가 질문으로 확인했습니다.",
         role: "기술 면접관",
       },
       {
         judgment: "보류",
-        name: "신지",
-        note: "다음 면접에서 팀 관리 범위를 확인합니다.",
+        name: "겐도",
+        note: "다음 면접에서 편대 협동과 지휘 체계 적응을 확인합니다.",
         role: "채용 관리자",
       },
     ],
@@ -82,24 +82,24 @@ const CALIBRATION_COPY = {
   },
   "zh-CN": {
     calibrationEvidence: "共同证据",
-    calibrationEvidenceBody: "主导设计系统迁移，覆盖 4 条产品线，平均交付周期缩短 30%。",
+    calibrationEvidenceBody: "与初号机同步作战，62 秒内完成第七使徒双机歼灭。",
     calibrationReviewers: [
       {
         judgment: "推荐",
         name: "葛城美里",
-        note: "项目职责清晰，关键成果有直接证据支撑。",
+        note: "作战职责清晰，关键战果有直接出击证据支撑。",
         role: "招聘负责人",
       },
       {
         judgment: "推荐",
         name: "赤木律子",
-        note: "架构决策与回滚标准，已经在追问中验证。",
+        note: "同步数据与撤离标准，已经在追问中验证。",
         role: "技术面试官",
       },
       {
         judgment: "待定",
-        name: "碇真嗣",
-        note: "下一轮重点确认带队规模与管理职责。",
+        name: "碇源堂",
+        note: "下一轮重点确认编队配合与服从指挥。",
         role: "用人经理",
       },
     ],

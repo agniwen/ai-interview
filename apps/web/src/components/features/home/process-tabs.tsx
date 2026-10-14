@@ -9,8 +9,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as messages from "@/paraglide/messages";
 import { cn } from "@app/shared/utils";
 import { getHomeDemoCopy } from "./home-demo-copy";
-import { ModernArtwork } from "./modern-artwork";
+import type { StageArtworkTone } from "./stage-artwork";
+import { StageArtwork } from "./stage-artwork";
 import { Section, SectionHeader } from "./section";
+
+// 每一步换一个相邻蓝色调，与色带姿态一起过渡。 Each step shifts to a neighbouring blue tone.
+const PROCESS_TONES: readonly StageArtworkTone[] = ["blue", "indigo", "sky", "azure"];
 
 type StepValue = "decision" | "interview" | "role" | "screening";
 
@@ -65,22 +69,22 @@ function RoleBlueprintBlock() {
   const copy = getHomeDemoCopy().process.role;
 
   return (
-    <div className="w-full max-w-[34rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+    <div className="w-full max-w-[44rem]" data-process-ui-block>
+      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex min-w-0 items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold text-sm">{copy.title}</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">{copy.subtitle}</p>
+            <p className="truncate font-semibold text-base">{copy.title}</p>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
           </div>
-          <span className="shrink-0 text-[9px] text-muted-foreground">{copy.updated}</span>
+          <span className="shrink-0 text-[12px] text-muted-foreground">{copy.updated}</span>
         </div>
 
         <div className="grid sm:grid-cols-[minmax(0,1.35fr)_minmax(9rem,0.65fr)]">
           <div className="space-y-3.5 px-4 py-4 sm:border-r">
-            <p className="font-medium text-[9px] text-muted-foreground">{copy.weights}</p>
+            <p className="font-medium text-[12px] text-muted-foreground">{copy.weights}</p>
             {copy.criteria.map(([label, value, width]) => (
               <div key={label}>
-                <div className="flex items-center justify-between gap-3 text-[10px]">
+                <div className="flex items-center justify-between gap-3 text-[13px]">
                   <span>{label}</span>
                   <span className="font-medium tabular-nums">{value}</span>
                 </div>
@@ -93,14 +97,14 @@ function RoleBlueprintBlock() {
 
           <div className="divide-y divide-border/70 border-t sm:border-t-0">
             <div className="px-3.5 py-3.5">
-              <p className="font-medium text-[9px] text-muted-foreground">
+              <p className="font-medium text-[12px] text-muted-foreground">
                 {copy.hardRequirementsLabel}
               </p>
-              <p className="mt-2 text-[10px] leading-relaxed">{copy.hardRequirements}</p>
+              <p className="mt-2 text-[13px] leading-relaxed">{copy.hardRequirements}</p>
             </div>
             <div className="px-3.5 py-3.5">
-              <p className="font-medium text-[9px] text-muted-foreground">{copy.scopeLabel}</p>
-              <p className="mt-2 text-[10px] leading-relaxed">{copy.scope}</p>
+              <p className="font-medium text-[12px] text-muted-foreground">{copy.scopeLabel}</p>
+              <p className="mt-2 text-[13px] leading-relaxed">{copy.scope}</p>
             </div>
           </div>
         </div>
@@ -113,8 +117,8 @@ function EvidenceScreeningBlock() {
   const copy = getHomeDemoCopy().process.evidence;
 
   return (
-    <div className="w-full max-w-[34rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+    <div className="w-full max-w-[44rem]" data-process-ui-block>
+      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="flex items-center gap-2.5">
             <Avatar
@@ -124,23 +128,23 @@ function EvidenceScreeningBlock() {
               seed="candidate:明日香"
               size="sm"
             >
-              <AvatarFallback>李</AvatarFallback>
+              <AvatarFallback>{getHomeDemoCopy().feature.candidateName.slice(0, 1)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold text-[11px]">{copy.name}</p>
-              <p className="mt-0.5 text-[9px] text-muted-foreground">{copy.role}</p>
+              <p className="font-semibold text-[14px]">{copy.name}</p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">{copy.role}</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="font-semibold text-lg tabular-nums leading-none">87</p>
-            <p className="mt-1 text-[8px] text-muted-foreground">{copy.overallScore}</p>
+            <p className="font-semibold text-2xl tabular-nums leading-none">87</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{copy.overallScore}</p>
           </div>
         </div>
 
         <div className="grid sm:grid-cols-[minmax(9rem,0.78fr)_minmax(0,1.22fr)]">
           <div className="px-4 py-3.5 sm:border-r">
-            <p className="font-medium text-[9px] text-muted-foreground">{copy.originalTitle}</p>
-            <div className="mt-3 space-y-3 text-[9px] text-foreground/58 leading-relaxed">
+            <p className="font-medium text-[12px] text-muted-foreground">{copy.originalTitle}</p>
+            <div className="mt-3 space-y-3 text-[12px] text-foreground/58 leading-relaxed">
               {copy.originalLines.map((line, index) => (
                 <p className={index === 2 ? "text-foreground/38" : undefined} key={line}>
                   {line}
@@ -153,10 +157,10 @@ function EvidenceScreeningBlock() {
             {copy.items.map(([label, detail, source]) => (
               <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-2.5" key={label}>
                 <div className="min-w-0">
-                  <p className="font-medium text-[10px]">{label}</p>
-                  <p className="mt-0.5 truncate text-[9px] text-muted-foreground">{detail}</p>
+                  <p className="font-medium text-[13px]">{label}</p>
+                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{detail}</p>
                 </div>
-                <span className="self-center text-[8px] text-muted-foreground">{source}</span>
+                <span className="self-center text-[11px] text-muted-foreground">{source}</span>
               </div>
             ))}
           </div>
@@ -170,39 +174,39 @@ function InterviewGuideBlock() {
   const copy = getHomeDemoCopy().process.interview;
 
   return (
-    <div className="w-full max-w-[34rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+    <div className="w-full max-w-[44rem]" data-process-ui-block>
+      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold text-sm">{copy.title}</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">{copy.subtitle}</p>
+            <p className="truncate font-semibold text-base">{copy.title}</p>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
           </div>
-          <span className="shrink-0 text-[9px] text-muted-foreground">{copy.count}</span>
+          <span className="shrink-0 text-[12px] text-muted-foreground">{copy.count}</span>
         </div>
 
-        <div className="grid grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.3fr)] border-b bg-muted/24 px-4 py-2 font-medium text-[8px] text-muted-foreground uppercase tracking-[0.08em]">
+        <div className="grid grid-cols-[minmax(9rem,0.7fr)_minmax(0,1.3fr)] border-b bg-muted/24 px-4 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
           <span>{copy.headers[0]}</span>
           <span>{copy.headers[1]}</span>
         </div>
         <div className="divide-y divide-border/65 px-4">
           {copy.questions.map(([label, question, source], index) => (
             <div
-              className="grid grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.3fr)] gap-4 py-3"
+              className="grid grid-cols-[minmax(9rem,0.7fr)_minmax(0,1.3fr)] gap-4 py-3"
               key={label}
             >
               <div className="flex min-w-0 items-start gap-2.5">
-                <span className="font-mono text-[9px] text-primary leading-6">0{index + 1}</span>
+                <span className="font-mono text-[12px] text-primary leading-6">0{index + 1}</span>
                 <div className="min-w-0">
-                  <p className="font-medium text-[10px]">{label}</p>
-                  <p className="mt-1 text-[8px] text-muted-foreground">{source}</p>
+                  <p className="font-medium text-[13px]">{label}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{source}</p>
                 </div>
               </div>
-              <p className="text-[10px] text-foreground/72 leading-relaxed">{question}</p>
+              <p className="text-[13px] text-foreground/72 leading-relaxed">{question}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-[9px] text-muted-foreground">
+        <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-[12px] text-muted-foreground">
           <span>{copy.footers[0]}</span>
           <span>{copy.footers[1]}</span>
         </div>
@@ -215,20 +219,20 @@ function TeamDecisionBlock() {
   const copy = getHomeDemoCopy().process.decision;
 
   return (
-    <div className="w-full max-w-[34rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+    <div className="w-full max-w-[44rem]" data-process-ui-block>
+      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div>
-            <p className="font-semibold text-sm">{copy.title}</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">{copy.subtitle}</p>
+            <p className="font-semibold text-base">{copy.title}</p>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
           </div>
-          <span className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
             <span className="size-1.5 rounded-full bg-emerald-500" />
             {copy.collected}
           </span>
         </div>
 
-        <div className="grid grid-cols-[4rem_minmax(5rem,0.65fr)_minmax(0,1fr)] bg-muted/24 px-4 py-2 font-medium text-[8px] text-muted-foreground uppercase tracking-[0.08em]">
+        <div className="grid grid-cols-[5.5rem_minmax(6rem,0.65fr)_minmax(0,1fr)] bg-muted/24 px-4 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
           <span>{copy.headers[0]}</span>
           <span>{copy.headers[1]}</span>
           <span>{copy.headers[2]}</span>
@@ -236,7 +240,7 @@ function TeamDecisionBlock() {
         <div className="divide-y divide-border/65 px-4">
           {copy.verdicts.map(([name, verdict, note]) => (
             <div
-              className="grid grid-cols-[4rem_minmax(5rem,0.65fr)_minmax(0,1fr)] items-center py-3 text-[10px]"
+              className="grid grid-cols-[5.5rem_minmax(6rem,0.65fr)_minmax(0,1fr)] items-center py-3 text-[13px]"
               key={name}
             >
               <span className="flex items-center gap-1.5 font-medium">
@@ -263,19 +267,19 @@ function TeamDecisionBlock() {
         >
           <div className="flex items-center justify-between gap-4">
             <div className="shrink-0">
-              <p className="text-[9px] text-muted-foreground">{copy.finalDecision}</p>
-              <p className="mt-1 font-semibold text-sm">{copy.finalValue}</p>
+              <p className="text-[12px] text-muted-foreground">{copy.finalDecision}</p>
+              <p className="mt-1 font-semibold text-base">{copy.finalValue}</p>
             </div>
             <div className="grid flex-1 grid-cols-3 gap-3">
               {copy.facts.map(([label, value]) => (
                 <div className="border-border/70 border-l pl-3 text-right" key={label}>
-                  <p className="font-semibold text-sm tabular-nums leading-none">{value}</p>
-                  <p className="mt-1 text-[8px] text-muted-foreground">{label}</p>
+                  <p className="font-semibold text-base tabular-nums leading-none">{value}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
                 </div>
               ))}
             </div>
           </div>
-          <p className="mt-2.5 border-border/70 border-t pt-2 text-[9px] text-muted-foreground leading-relaxed">
+          <p className="mt-2.5 border-border/70 border-t pt-2 text-[12px] text-muted-foreground leading-relaxed">
             {copy.summary}
           </p>
         </div>
@@ -382,7 +386,7 @@ export function ProcessTabs() {
   const reducedMotion = prefersReducedMotion ?? false;
 
   return (
-    <Section className="overflow-hidden" width="wide">
+    <Section className="overflow-hidden">
       <div ref={sectionRef}>
         <SectionHeader title={messages.home_process_title()} lead={messages.home_process_lead()} />
 
@@ -465,17 +469,14 @@ export function ProcessTabs() {
 
           <div
             aria-live="polite"
-            className="relative min-h-[27rem] overflow-hidden rounded-xl sm:min-h-[32rem] lg:sticky lg:top-24 lg:min-h-0 lg:self-stretch"
+            className="relative min-h-[27rem] overflow-hidden rounded-[12px] [&_[data-slot=badge]]:rounded-[8px] sm:min-h-[32rem] lg:sticky lg:top-24 lg:min-h-0 lg:self-stretch"
             id="process-demo-panel"
             role="tabpanel"
           >
-            <ModernArtwork
-              className="absolute inset-0 size-full object-cover contrast-[0.96] saturate-[0.84] dark:hidden"
-              dataAttributes={{ "data-process-artwork": "light" }}
-            />
-            <ModernArtwork
-              className="absolute inset-0 hidden size-full object-cover contrast-[0.98] saturate-[0.88] dark:block"
-              dataAttributes={{ "data-process-artwork": "dark" }}
+            <StageArtwork
+              composition="panel"
+              pose={activeIndex}
+              tone={PROCESS_TONES[activeIndex]}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/[0.04] dark:to-black/15" />
 

@@ -1,71 +1,45 @@
-// 用途：landing page 的简化版 UI 画板。固定 1600×900 内部画布，通过 container query
+// 用途：landing page 的简化版 UI 画板。固定 1440×856 内部画布，通过 container query
 // scale 到容器实际宽度，保持像素级布局的精确性同时随容器自适应。
-// Purpose: fixed 1600x900 inner canvas scaled to fit container width via cqi units,
+// 横向比例接近桌面浏览器，列表与详情可以铺开展示。
+// Purpose: fixed 1440x856 inner canvas scaled to fit container width via cqi units,
 // keeping pixel-perfect mock layout while flexing to outer width.
 import type { ReactNode } from "react";
 import { cn } from "@app/shared/utils";
 
-const WINDOW_CONTROL_BASE_CLASS =
-  "relative size-3.5 overflow-hidden rounded-full shadow-[inset_0_1px_1px_rgb(255_255_255_/_0.18)]";
-
-const WINDOW_CONTROLS = [
-  {
-    colorClass: "bg-[linear-gradient(145deg,#df3e47_0%,#ff5c5f_52%,#ff9196_100%)]",
-    name: "close",
-  },
-  {
-    colorClass: "bg-[linear-gradient(145deg,#d69400_0%,#ffc400_52%,#ffe184_100%)]",
-    name: "minimize",
-  },
-  {
-    colorClass: "bg-[linear-gradient(145deg,#218b3d_0%,#32bd56_52%,#99df7a_100%)]",
-    name: "zoom",
-  },
-] as const;
+export const DEMO_CANVAS_WIDTH = 1440;
+export const DEMO_CANVAS_HEIGHT = 856;
 
 interface ScreenFrameProps {
   children: ReactNode;
   className?: string;
-  // 是否显示窗口顶部的 macOS 三色点（与原 Screenshot 等价的外观）
-  // Show the macOS-style traffic-light dots on top of the window
-  chrome?: boolean;
 }
 
-export function ScreenFrame({ children, className, chrome = true }: ScreenFrameProps) {
+// 不再模仿 macOS 窗口：去掉标题栏与内边距，把高度留给演示内容。
+// No faux macOS chrome: the title bar and padding go, leaving the height to the demo.
+export function ScreenFrame({ children, className }: ScreenFrameProps) {
   return (
     <div
       data-slot="screen-frame"
       className={cn(
-        "relative overflow-hidden rounded-xl bg-background/75 p-1 select-none backdrop-blur-sm",
+        "relative overflow-hidden rounded-[12px] bg-background ring-1 ring-black/5 select-none dark:ring-white/10",
         className,
       )}
     >
-      {chrome ? (
-        <div className="flex h-7 flex-row items-center">
-          <div className="flex gap-2 px-2">
-            {WINDOW_CONTROLS.map(({ colorClass, name }) => (
-              <span
-                aria-hidden="true"
-                className={cn(WINDOW_CONTROL_BASE_CLASS, colorClass)}
-                data-window-control={name}
-                key={name}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
       <div
         data-slot="screen-frame-content"
-        className="relative aspect-[1600/900] w-full overflow-hidden rounded-lg bg-background"
-        style={{ containerType: "inline-size" }}
+        className="relative w-full overflow-hidden"
+        style={{
+          aspectRatio: `${DEMO_CANVAS_WIDTH} / ${DEMO_CANVAS_HEIGHT}`,
+          containerType: "inline-size",
+        }}
       >
         <div
           className="absolute top-0 left-0"
           style={{
-            height: 900,
-            transform: "scale(calc(100cqi / 1600px))",
+            height: DEMO_CANVAS_HEIGHT,
+            transform: `scale(calc(100cqi / ${DEMO_CANVAS_WIDTH}px))`,
             transformOrigin: "top left",
-            width: 1600,
+            width: DEMO_CANVAS_WIDTH,
           }}
         >
           {children}

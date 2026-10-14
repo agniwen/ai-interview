@@ -23,10 +23,7 @@ export function Faq() {
   ];
 
   return (
-    <Section
-      className="grid gap-10 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-20"
-      width="wide"
-    >
+    <Section className="grid gap-10 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-20">
       <SectionTitle className="lg:sticky lg:top-16 lg:self-start">
         {m.home_faq_title()}
       </SectionTitle>

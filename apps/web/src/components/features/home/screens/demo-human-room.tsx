@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   IconClipboardText,
   IconDeviceDesktopUp,
   IconFileDescription,
+  IconInfoCircle,
   IconListDetails,
+  IconMaximize,
   IconMessageCircle,
   IconMicrophone,
   IconMoon,
@@ -16,94 +18,222 @@ import {
   IconVideo,
   IconX,
 } from "@tabler/icons-react";
-import { CandidateInterviewHistory } from "@/components/features/human-interview/candidate-interview-history";
-import { CandidateResumePreview } from "@/components/features/human-interview/candidate-resume-preview";
-import { CandidateQuestionsPanel } from "@/components/features/human-interview/candidate-questions-panel";
-import { MeetingInfoHoverCard } from "@/components/features/human-interview/meeting-info-hover-card";
 import { humanMeetingControlButtonClass } from "@/components/features/human-interview/human-meeting-stage";
-import { AiEvaluationContent } from "@/components/features/human-interview/interviewer-candidate-materials";
-import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@app/shared/utils";
-import { demoConversation, demoEvaluation, demoHumanEvaluation } from "./demo-workflow-data";
+import { DemoEvaluationSummary } from "./_parts/demo-evaluation";
+import { DemoResumeProfile } from "./_parts/demo-records";
 import { useDemo } from "./demo-context";
+import { getDemoScreenCopy } from "./demo-screen-copy";
+import { DEMO_CANDIDATE_ID } from "./demo-workflow-data";
 
-const history = {
-  hrInitialInformation: {
-    conversationId: "01842-ai",
-    generatedAt: "2026-10-08T03:24:00.000Z",
-    roundLabel: "AI 初面 · 86 分 · 推荐进入真人面试",
-    values: {
-      availability: "目前在职，Offer 确认后 3 周可到岗。",
-      careerProgression: "从业务前端成长为平台技术骨干，负责架构评审与迁移推进。",
-      compensationExpectations: "当前月薪 ¥30,000，期望 ¥32,000–35,000，14 薪。",
-      jobMotivation: "希望承担更完整的前端架构与工程化建设职责。",
-      overseasTravel: null,
-      projectHighlights:
-        "主导 6 个系统的微前端迁移；首屏加载从 3.2 秒降至 1.4 秒，持续两周验证 P75 指标。",
-      recentWork: "字节跳动高级前端工程师，负责业务平台升级、性能治理和跨团队发布流程。",
-    },
-  },
-  previousEvaluations: [],
-};
+function MeetingInfo() {
+  const { humanInterview, job, meetingInfo: copy, people } = getDemoScreenCopy();
+  const [open, setOpen] = useState(false);
+  const details = [
+    [copy.job, job.label],
+    [copy.round, humanInterview.roundLabel],
+    [copy.time, copy.timeValue],
+    [copy.responsibleHr, people.recruiter],
+  ] as const;
+  return (
+    <HoverCard onOpenChange={setOpen} open={open}>
+      <HoverCardTrigger
+        render={
+          <button
+            className="-ml-2 inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 font-medium text-foreground text-sm whitespace-nowrap hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            onClick={() => setOpen(true)}
+            type="button"
+          >
+            <span>{copy.title}</span>
+            <IconInfoCircle aria-hidden="true" className="size-4 shrink-0" />
+          </button>
+        }
+      />
+      <HoverCardContent align="start" className="w-72 p-4" sideOffset={8}>
+        <h2 className="mb-3 font-medium text-sm">{copy.title}</h2>
+        <dl className="space-y-3 text-sm">
+          {details.map(([label, value]) => (
+            <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2" key={label}>
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="min-w-0 break-words text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
 
-/** Real meeting chrome and materials primitives, with local participants instead of LiveKit/network access. */
+/** Evaluation timeline + resume preview + AI and HR screening notes, scoped to the demo canvas. */
+function CandidateMaterials({ compact }: { compact: boolean }) {
+  const demo = useDemo();
+  const { job, people, resume, room } = getDemoScreenCopy();
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const entries = [
+    { id: "ai-evaluation", time: "10/08 10:00", title: room.aiEvaluation },
+    { id: "hr-initial", time: "10/08 11:24", title: room.hrInitial },
+  ];
+  const [activeId, setActiveId] = useState(entries[0].id);
+  const navigate = (id: string) => {
+    setActiveId(id);
+    const viewport = viewportRef.current;
+    const target = viewport?.querySelector<HTMLElement>(`[data-evaluation-id="${id}"]`);
+    if (viewport && target) {
+      viewport.scrollTop =
+        target.getBoundingClientRect().top -
+        viewport.getBoundingClientRect().top +
+        viewport.scrollTop;
+    }
+  };
+  return (
+    <ScrollArea
+      className="h-full"
+      scrollbars="leave"
+      viewportRef={viewportRef}
+      viewportProps={{ "aria-label": room.evaluationDetails }}
+    >
+      <div
+        className={cn(
+          "grid w-full grid-cols-[15rem_minmax(0,1fr)] gap-6 px-3 pt-3",
+          !compact && "grid-cols-[15rem_minmax(0,1fr)_15rem]",
+        )}
+      >
+        <aside className="sticky top-3 self-start">
+          <nav aria-label={room.timeline} className="p-1" data-demo-timeline>
+            <ol className="flex flex-col gap-1">
+              {entries.map((entry) => (
+                <li className="min-w-0" key={entry.id}>
+                  <Button
+                    aria-current={activeId === entry.id ? "step" : undefined}
+                    className="h-auto w-full items-center justify-start gap-2 px-3 py-1.5 text-left"
+                    onClick={() => navigate(entry.id)}
+                    variant={activeId === entry.id ? "secondary" : "ghost"}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "size-3 shrink-0 rounded-full border-2 border-background",
+                        activeId === entry.id ? "bg-primary" : "bg-muted-foreground/40",
+                      )}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                      {entry.title}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-normal text-muted-foreground">
+                      {entry.time}
+                    </span>
+                  </Button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </aside>
+        <div className="min-w-0 pb-8">
+          <section aria-label={resume.fileName} className="mx-4 mb-4 pt-3">
+            <div className="flex aspect-[16/10] w-full flex-col overflow-hidden rounded-xl border bg-background">
+              <div className="min-h-0 flex-1 overflow-hidden px-10 py-6">
+                <h2 className="text-xl font-semibold">
+                  {people.candidate} · {job.title}
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">{resume.previewSubtitle}</p>
+                <div className="mt-6">
+                  <DemoResumeProfile withDetails={false} />
+                </div>
+              </div>
+              <Button
+                aria-label={room.fullscreenResume}
+                className="h-auto w-full justify-start rounded-none border-0 px-4 py-3 text-left"
+                data-demo-resume-fullscreen
+                onClick={() =>
+                  demo.setDialog({
+                    kind: "resume",
+                    title: getDemoScreenCopy().dialog.resumeDetails,
+                  })
+                }
+                variant="text"
+              >
+                <ResumeDocumentFileIcon kind="pdf" />
+                <span className="min-w-0 flex-1 truncate">{resume.fileName}</span>
+                <IconMaximize />
+              </Button>
+            </div>
+          </section>
+          <section className="border-b border-border/60 py-3" data-evaluation-id="ai-evaluation">
+            <h2 className="px-4 py-3 font-semibold text-lg">{room.aiEvaluation}</h2>
+            <DemoEvaluationSummary className="px-4 pt-2" />
+          </section>
+          <section className="border-b border-border/60 py-3" data-evaluation-id="hr-initial">
+            <h2 className="px-4 py-3 font-semibold text-lg">{room.hrInitial}</h2>
+            <div className="flex flex-col px-4 pt-2">
+              <p className="pb-3 text-muted-foreground text-sm leading-6">
+                {room.historyRoundLabel}
+              </p>
+              {room.history.map((entry) => (
+                <section className="py-3" key={entry.label}>
+                  <h3 className="font-semibold text-base">{entry.label}</h3>
+                  <p className="mt-2 whitespace-pre-wrap text-base leading-7">{entry.value}</p>
+                </section>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
+/** Real meeting chrome with homepage-only materials, local participants and no LiveKit/network access. */
 export default function DemoHumanRoom() {
   const demo = useDemo();
   const [materials, setMaterials] = useState(false);
   const [questions, setQuestions] = useState(false);
   const [review, setReview] = useState(false);
+  const { conversation, humanEvaluation, people, room } = getDemoScreenCopy();
   return (
     <main
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background"
       data-slot="demo-human-room"
-      data-candidate-id="01842"
+      data-candidate-id={DEMO_CANDIDATE_ID}
     >
       <header className="flex h-12 shrink-0 items-center gap-2 pr-1.5 pl-4">
         <div className="flex min-w-0 flex-1 items-center">
-          <MeetingInfoHoverCard
-            meetingTitle="真嗣 · 技术复面"
-            jobDescriptionName="技术部 / 资深前端工程师"
-            roundLabel="技术复面"
-            scheduledAt="2026-10-09T06:00:00.000Z"
-            responsibleHrName="葛城美里"
-            responsibleHrImage={null}
-            showResponsibleHr
-          />
+          <MeetingInfo />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {materials && (
             <Button
               data-demo-room-questions
               aria-expanded={questions}
-              aria-label="面试题"
               size="sm"
               variant={questions ? "secondary" : "ghost"}
               onClick={() => setQuestions(!questions)}
             >
               <IconListDetails />
-              面试题
+              {room.questions}
             </Button>
           )}
           <Button variant="ghost" size="sm" disabled>
             <IconSubtitles />
-            字幕
+            {room.subtitles}
           </Button>
           <output className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="size-2 rounded-full bg-destructive" />
-            录制中
+            {room.recording}
           </output>
-          <Button variant="ghost" size="icon-sm" disabled aria-label="切换主题">
+          <Button variant="ghost" size="icon-sm" disabled aria-label={room.toggleTheme}>
             <IconMoon />
           </Button>
-          <Badge className="h-8 px-2.5" variant="secondary" aria-label="参会人数">
+          <Badge className="h-8 px-2.5" variant="secondary" aria-label={room.participants}>
             <IconUsers />2
           </Badge>
         </div>
@@ -116,62 +246,48 @@ export default function DemoHumanRoom() {
               questions ? "grid-cols-[minmax(0,1fr)_min(32%,30rem)]" : "grid-cols-[minmax(0,1fr)]",
             )}
           >
-            <section className="min-h-0 min-w-0 overflow-hidden" aria-label="候选人概览">
-              <CandidateInterviewHistory
-                compact={questions}
-                data={history}
-                aiEvaluationGeneratedAt="2026-10-08T02:00:00.000Z"
-                aiEvaluation={
-                  <AiEvaluationContent
-                    data={{ aiEvaluation: { evaluation: demoEvaluation, status: "ready" } }}
-                  />
-                }
-                resumePreview={
-                  <CandidateResumePreview
-                    candidate={{ hasResumeFile: true, resumeFileName: "真嗣_前端工程师.pdf" }}
-                    onOpen={() => demo.setDialog({ kind: "resume", title: "简历详情" })}
-                  >
-                    <div className="h-full overflow-hidden px-10 py-6">
-                      <h2 className="text-xl font-semibold">真嗣 · 资深前端工程师</h2>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        8 年经验 · React / TypeScript · 微前端 · 性能治理
-                      </p>
-                      {demo.candidate?.profile && (
-                        <div className="mt-6">
-                          <ResumeProfileView
-                            profile={demo.candidate.profile}
-                            showBasicInfo={false}
-                            showTargetRoles={false}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CandidateResumePreview>
-                }
-              />
+            <section
+              className="min-h-0 min-w-0 overflow-hidden"
+              aria-label={room.candidateOverview}
+            >
+              <CandidateMaterials compact={questions} />
             </section>
             {questions && (
-              <CandidateQuestionsPanel
-                id="demo-human-questions"
-                isMobile={false}
-                open
-                onClose={() => setQuestions(false)}
+              <section
+                aria-label={room.questions}
+                className="flex min-h-0 min-w-0 flex-col overflow-hidden pr-3"
+                data-slot="demo-room-questions"
               >
-                <div className="space-y-5 p-5">
-                  {demoConversation.map((turn, index) => (
-                    <section className="space-y-3 border-b pb-5" key={turn.question}>
-                      <div className="flex items-center gap-2">
-                        <Checkbox disabled checked={index === 0} />
-                        <span className="text-xs text-muted-foreground">参考问题 {index + 1}</span>
-                      </div>
-                      <p className="text-sm font-medium leading-6">{turn.question}</p>
-                      <p className="text-xs leading-6 text-muted-foreground">
-                        根据 AI 初面已确认的回答，继续核实实现细节与技术取舍。
-                      </p>
-                    </section>
-                  ))}
+                <div className="flex shrink-0 items-center justify-between gap-2 px-5 pt-6 pb-1">
+                  <h2 className="font-semibold text-base">{room.questions}</h2>
+                  <Button
+                    aria-label={room.closeQuestions}
+                    onClick={() => setQuestions(false)}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <IconX />
+                  </Button>
                 </div>
-              </CandidateQuestionsPanel>
+                <ScrollArea className="min-h-0 flex-1" scrollbars="leave">
+                  <div className="space-y-5 p-5">
+                    {conversation.map((turn, index) => (
+                      <section className="space-y-3 border-b pb-5" key={turn.question}>
+                        <div className="flex items-center gap-2">
+                          <Checkbox disabled checked={index === 0} />
+                          <span className="text-xs text-muted-foreground">
+                            {room.referenceQuestion(index + 1)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium leading-6">{turn.question}</p>
+                        <p className="text-xs leading-6 text-muted-foreground">
+                          {room.referenceNote}
+                        </p>
+                      </section>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </section>
             )}
           </div>
         ) : (
@@ -180,8 +296,8 @@ export default function DemoHumanRoom() {
             data-slot="meeting-grid-layout"
           >
             {[
-              { name: "真嗣", role: "候选人" },
-              { local: true, name: "赤木律子", role: "主持人" },
+              { name: people.candidate, role: room.candidateRole },
+              { local: true, name: people.interviewer, role: room.hostRole },
             ].map((person) => (
               <div
                 className="relative isolate grid h-full min-h-0 place-items-center overflow-hidden rounded-sm border border-border/50 bg-muted/40"
@@ -192,7 +308,7 @@ export default function DemoHumanRoom() {
                     className="size-24"
                     generatedSize={96}
                     seed="demo-reviewer"
-                    label="赤木律子"
+                    label={person.name}
                   />
                 ) : (
                   <IconUser className="size-16 text-muted-foreground" />
@@ -200,7 +316,7 @@ export default function DemoHumanRoom() {
                 <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5 rounded-md bg-background px-2 py-1 text-sm">
                     {person.name}
-                    {person.local && " (我)"}
+                    {person.local && room.self}
                     <span className="text-[10px] text-muted-foreground">{person.role}</span>
                   </div>
                   <span className="rounded-md bg-background px-2 py-1 text-xs text-emerald-600">
@@ -218,15 +334,13 @@ export default function DemoHumanRoom() {
           >
             <header className="flex items-start justify-between gap-3 border-b p-6">
               <div>
-                <h2 className="text-lg font-semibold">面试评价</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  填写后每秒自动保存，结束后继续完善并提交。
-                </p>
+                <h2 className="text-lg font-semibold">{room.reviewTitle}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{room.reviewDescription}</p>
               </div>
               <Button
                 size="icon-sm"
                 variant="ghost"
-                aria-label="关闭评价"
+                aria-label={room.closeReview}
                 onClick={() => setReview(false)}
               >
                 <IconX />
@@ -236,9 +350,15 @@ export default function DemoHumanRoom() {
               <div className="space-y-6 p-4">
                 <div className="grid grid-cols-3 gap-5">
                   {[
-                    { label: "我的结论", value: "通过" },
-                    { label: "评级", value: "A" },
-                    { label: "专业技能", value: "优" },
+                    {
+                      label: room.reviewFields.conclusion,
+                      value: getDemoScreenCopy().round.outcomePass,
+                    },
+                    { label: room.reviewFields.rating, value: humanEvaluation.rating },
+                    {
+                      label: room.reviewFields.professionalSkill,
+                      value: humanEvaluation.professionalSkill,
+                    },
                   ].map((field) => (
                     <div key={field.label}>
                       <Label>{field.label}</Label>
@@ -248,23 +368,27 @@ export default function DemoHumanRoom() {
                 </div>
                 <div className="grid grid-cols-2 gap-5">
                   {[
-                    { label: "整体评价", value: demoHumanEvaluation.overallEvaluation },
-                    { label: "角色定位", value: demoHumanEvaluation.rolePosition },
-                    { label: "优势特点", value: demoHumanEvaluation.strengths },
-                    { label: "劣势风险", value: demoHumanEvaluation.risks },
-                    { label: "薪资建议", value: demoHumanEvaluation.salaryRecommendation },
+                    {
+                      label: room.reviewFields.overall,
+                      span: true,
+                      value: humanEvaluation.overallEvaluation,
+                    },
+                    { label: room.reviewFields.rolePosition, value: humanEvaluation.rolePosition },
+                    { label: room.reviewFields.strengths, value: humanEvaluation.strengths },
+                    { label: room.reviewFields.risks, value: humanEvaluation.risks },
+                    {
+                      label: room.reviewFields.salary,
+                      value: humanEvaluation.salaryRecommendation,
+                    },
                   ].map((field) => (
-                    <div
-                      className={field.label === "整体评价" ? "col-span-2" : ""}
-                      key={field.label}
-                    >
+                    <div className={field.span ? "col-span-2" : ""} key={field.label}>
                       <Label>{field.label}</Label>
                       <Textarea className="mt-2 min-h-24" readOnly value={field.value} />
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-end">
-                  <Button disabled>提交评价</Button>
+                  <Button disabled>{room.submitReview}</Button>
                 </div>
               </div>
             </ScrollArea>
@@ -273,9 +397,9 @@ export default function DemoHumanRoom() {
       </div>
       <footer className="relative flex shrink-0 items-center justify-center gap-2 px-4 py-3">
         {[
-          { icon: IconMicrophone, label: "麦克风" },
-          { icon: IconVideo, label: "摄像头已关" },
-          { icon: IconDeviceDesktopUp, label: "共享屏幕" },
+          { icon: IconMicrophone, label: room.microphone },
+          { icon: IconVideo, label: room.camera },
+          { icon: IconDeviceDesktopUp, label: room.shareScreen },
         ].map(({ icon: Icon, label }) => (
           <button className={humanMeetingControlButtonClass} type="button" key={label}>
             <Icon className="size-4" />
@@ -296,7 +420,7 @@ export default function DemoHumanRoom() {
           ) : (
             <IconFileDescription className="size-4" />
           )}
-          {materials ? "会议视图" : "候选人信息"}
+          {materials ? room.meetingView : room.candidateInfo}
         </button>
         <button
           className={humanMeetingControlButtonClass}
@@ -305,11 +429,11 @@ export default function DemoHumanRoom() {
           onClick={() => setReview(!review)}
         >
           <IconClipboardText className="size-4" />
-          评价
+          {room.review}
         </button>
         <button className={humanMeetingControlButtonClass} type="button">
           <IconMessageCircle className="size-4" />
-          聊天
+          {room.chat}
         </button>
         <Button
           variant="destructive"
@@ -317,7 +441,7 @@ export default function DemoHumanRoom() {
           onClick={() => demo.setPhase("human-completed")}
         >
           <IconPlayerStopFilled className="size-4" />
-          结束会议
+          {room.endMeeting}
         </Button>
       </footer>
     </main>

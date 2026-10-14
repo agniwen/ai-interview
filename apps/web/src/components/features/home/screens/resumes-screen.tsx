@@ -8,12 +8,13 @@ import {
   IconDots,
   IconEdit,
   IconFileText,
+  IconFileUpload,
   IconFilterX,
   IconFilterPlus,
-  IconPlus,
   IconRefresh,
-  IconSearch,
   IconSparkles,
+  IconThumbUp,
+  IconAlertTriangle,
   IconUpload,
 } from "@tabler/icons-react";
 // 用途：landing 用「Studio › 招聘台」简化版 UI。对齐真实组件：
@@ -21,11 +22,9 @@ import {
 // - ResumeLibraryCardList: Toolbar + 当前候选人卡片结构
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
-import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import type { DemoPhase } from "./demo-context";
 import { DemoProvider, useDemo } from "./demo-context";
 
@@ -41,6 +40,15 @@ import { matchesDemoPipeline } from "./demo-candidate-stages";
 import type { RecruitingBoardStageView } from "@app/shared/recruiting-board";
 import { recruitingBoardGroups } from "@app/shared/recruiting-board";
 import { getHomeDeskCopy, localizeBoardLabel } from "./recruiting-desk-copy";
+import { getDemoScreenCopy } from "./demo-screen-copy";
+import type { DemoDateGroup, DemoDeskVerdictLevel } from "./demo-workflow-data";
+import {
+  DEMO_BOARD_COUNTS,
+  DEMO_CANDIDATE_EMAIL,
+  DEMO_CANDIDATE_ID,
+  DEMO_CREATED_AT,
+  DEMO_DESK_RECORDS,
+} from "./demo-workflow-data";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -60,6 +68,23 @@ function PageHeader({ title }: { title: string }) {
 }
 
 // ─────────────────── Pipeline stage tabs ───────────────────
+const TAB_COUNT_MAX = 999;
+
+/** 对齐 RecruitingBoardTabs 的右上角数量角标；超过上限显示“999+”。 */
+function TabCountBadge({ count }: { count?: number }) {
+  if (!count) {
+    return null;
+  }
+  return (
+    <span
+      aria-label={getDemoScreenCopy().desk.countLabel(count)}
+      className="pointer-events-none absolute -top-2.5 -right-1 z-10 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 font-semibold text-[11px] text-white tabular-nums leading-none antialiased"
+    >
+      {count > TAB_COUNT_MAX ? `${TAB_COUNT_MAX}+` : count}
+    </span>
+  );
+}
+
 function PipelineStageTabs() {
   const demo = useDemo();
   const copy = getHomeDeskCopy();
@@ -77,15 +102,16 @@ function PipelineStageTabs() {
           }
         }}
       >
-        <TabsList aria-label={copy.stages} className="w-fit">
+        <TabsList aria-label={copy.stages} className="w-fit overflow-visible">
           {recruitingBoardGroups.map((tab) => (
             <TabsTrigger
               data-demo-group={tab.id}
-              className="h-10! px-7 text-sm"
+              className="h-10! px-6 text-sm"
               key={tab.id}
               value={tab.id}
             >
               {localizeBoardLabel(tab.label)}
+              <TabCountBadge count={DEMO_BOARD_COUNTS.get(tab.id)} />
             </TabsTrigger>
           ))}
         </TabsList>
@@ -121,127 +147,61 @@ function PipelineStageTabs() {
   );
 }
 
-// ─────────────────── DataGrid Toolbar (search filter + 上传简历 button) ───────────────────
-function FilterSelectChip({ label, options }: { label: string; options: string[] }) {
-  const demo = useDemo();
-  return (
-    <select
-      aria-label={label}
-      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-      value={options.includes(demo.filter) ? demo.filter : ""}
-      onChange={(event) => demo.setFilter(event.target.value)}
-    >
-      <option value="">{label}</option>
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function ToolbarIconButton({
-  children,
-  disabled,
-  label,
-}: {
-  children: React.ReactNode;
-  disabled?: boolean;
-  label: string;
-}) {
-  const demo = useDemo();
-  return (
-    <Button
-      onClick={() => {
-        if (label === m.home_frame_reset_filters()) {
-          demo.setFilter("");
-          demo.setQuery("");
-        } else {
-          demo.setNotice("候选人列表已刷新");
-        }
-      }}
-      aria-label={label}
-      className="shrink-0"
-      disabled={disabled}
-      size="icon"
-      type="button"
-      variant="outline"
-    >
-      {children}
-    </Button>
-  );
-}
-
+// ─────────────────── DataGrid Toolbar ───────────────────
+// 真实招聘台筛选项较多，Toolbar 进入高级模式：添加筛选 · 清空筛选 · 刷新 · 创建招聘记录。
+// The real desk has enough filters for the toolbar's advanced mode, so no inline search/selects.
 function ResumeToolbar() {
   const demo = useDemo();
-  // 真实 Toolbar 布局: flex flex-col gap-3 sm:flex-row sm:items-center
-  // Filters 与 toolbarRight 同一个 flex row 顺序排列，不做左右分栏。
+  const { desk } = getDemoScreenCopy();
   return (
-    <div className="flex flex-wrap items-start gap-3">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative min-w-[15rem]">
-          <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
-          <Input
-            aria-label={m.home_frame_search_placeholder()}
-            className="pl-9"
-            placeholder={m.home_frame_search_placeholder()}
-            value={demo.query}
-            onChange={(event) => demo.setQuery(event.target.value)}
-          />
-        </div>
-        <FilterSelectChip
-          label={m.home_frame_skill_filter()}
-          options={["React", "TypeScript", "Java", "PostgreSQL"]}
-        />
-        <FilterSelectChip
-          label={m.home_frame_job_filter()}
-          options={["技术部 / 资深前端工程师", "产品部 / 增长产品经理", "技术部 / 后端架构师"]}
-        />
-        <Button type="button" variant="outline" disabled>
-          <IconFilterPlus data-icon="inline-start" />
-          {getHomeDeskCopy().addFilter}
-        </Button>
-      </div>
-      <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-        <ToolbarIconButton label={m.home_frame_refresh()}>
-          <IconRefresh />
-        </ToolbarIconButton>
-        <ToolbarIconButton
-          disabled={!demo.filter && !demo.query}
-          label={m.home_frame_reset_filters()}
-        >
-          <IconFilterX />
-        </ToolbarIconButton>
-        <Button type="button" disabled>
-          <IconPlus />
-          {m.home_frame_create_record()}
-        </Button>
-      </div>
+    <div className="flex min-w-0 flex-wrap items-center gap-2" data-slot="data-grid-toolbar">
+      <Button type="button" variant="outline" disabled>
+        <IconFilterPlus data-icon="inline-start" />
+        {getHomeDeskCopy().addFilter}
+      </Button>
+      <Button type="button" variant="outline" disabled>
+        <IconFilterX data-icon="inline-start" />
+        {desk.clearFilters}
+      </Button>
+      <Button type="button" variant="outline" onClick={() => demo.setNotice(desk.refreshed)}>
+        <IconRefresh data-icon="inline-start" />
+        {m.home_frame_refresh()}
+      </Button>
+      <Button type="button" disabled>
+        <IconFileUpload className="size-4" />
+        {m.home_frame_create_record()}
+      </Button>
     </div>
   );
 }
 
 // ─────────────────── Current card list ───────────────────
+const DATE_GROUPS: readonly DemoDateGroup[] = ["today", "yesterday", "earlier"];
+
 interface ResumeCardData {
   pipeline: Exclude<RecruitingBoardStageView, `${string}:all`>;
-  progress?: string;
-  canLaunchInterview: boolean;
   createdAt: string;
   creator: string;
-  education: ProfileSnapshotLineData[];
+  education: readonly ProfileSnapshotLineData[];
   email: string;
+  group: DemoDateGroup;
   id: string;
   isScreening: boolean;
   job: string;
   lifecycleDetail: string;
   lifecycleStage: string;
+  focus: readonly DemoFocusPoint[];
+  level: DemoDeskVerdictLevel;
   name: string;
-  score: string;
-  scoreTone: "success" | "warning";
-  skills: string[];
   summary: string;
-  work: ProfileSnapshotLineData[];
+  verdict: string;
+  work: readonly ProfileSnapshotLineData[];
+}
+
+interface DemoFocusPoint {
+  content: string;
+  kind: "matching" | "risk";
+  point: string;
 }
 
 interface ProfileSnapshotLineData {
@@ -250,33 +210,32 @@ interface ProfileSnapshotLineData {
   secondary: string;
 }
 
-const RESUMES: ResumeCardData[] = [
-  {
-    canLaunchInterview: false,
-    createdAt: "2025-05-12 14:32",
-    creator: "葛城美里",
-    education: [{ period: "2013–2017", primary: "浙江大学", secondary: "计算机科学" }],
-    email: "shinji@example.com",
-    id: "01842",
-    isScreening: false,
-    job: "技术部 / 资深前端工程师",
-    lifecycleDetail: "1/2 待下轮",
-    lifecycleStage: "AI 面试",
-    name: "真嗣",
-    pipeline: "interview:ai",
-    score: "推荐 · 86 分",
-    scoreTone: "success",
-    skills: ["React", "TypeScript", "微前端", "性能优化"],
-    summary: "8 年前端经验，主导过中大型架构升级；技术深度与岗位核心要求匹配。",
-    work: [
-      { period: "2021–至今", primary: "字节跳动", secondary: "高级前端工程师" },
-      { period: "2017–2021", primary: "网易", secondary: "前端工程师" },
+function getDemoResume(): Omit<ResumeCardData, "lifecycleDetail" | "lifecycleStage" | "pipeline"> {
+  const { desk, evaluation, job, people, resume } = getDemoScreenCopy();
+  return {
+    createdAt: DEMO_CREATED_AT,
+    creator: people.recruiter,
+    education: resume.education,
+    email: DEMO_CANDIDATE_EMAIL,
+    // 与真实 V3 摘录一致：匹配依据在前、风险在后。 Matching evidence first, then risks, as in V3.
+    focus: [
+      ...evaluation.matchingEvidence.map(({ content, point }) => ({
+        content,
+        kind: "matching" as const,
+        point,
+      })),
+      ...evaluation.risks.map(({ content, point }) => ({ content, kind: "risk" as const, point })),
     ],
-  },
-];
-
-function getLocalizedResumes(): ResumeCardData[] {
-  return RESUMES;
+    group: "today",
+    id: DEMO_CANDIDATE_ID,
+    isScreening: false,
+    job: job.label,
+    level: "highly_recommended",
+    name: people.candidate,
+    summary: resume.summary,
+    verdict: desk.highlyRecommended,
+    work: resume.work,
+  };
 }
 
 function CandidateAvatar({ record }: { record: ResumeCardData }) {
@@ -284,8 +243,8 @@ function CandidateAvatar({ record }: { record: ResumeCardData }) {
 
   return (
     <Avatar
-      className="mt-0.5 size-12"
-      generatedSize={48}
+      className="size-10 shrink-0"
+      generatedSize={40}
       label={m.home_frame_candidate_avatar({ name: record.name })}
       seed={`candidate:${seed}`}
     >
@@ -304,20 +263,20 @@ function ResumeCardMetaItem({
   label: string;
 }) {
   return (
-    <span className="flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-      <span aria-hidden="true" className="inline-flex shrink-0 text-muted-foreground/70">
+    <span className="flex min-h-6 w-auto max-w-full min-w-0 shrink items-center gap-1.5 text-muted-foreground text-xs">
+      <span aria-hidden="true" className="inline-flex shrink-0 items-center text-muted-foreground">
         {icon}
       </span>
       <span className="sr-only">{label}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{children}</span>
     </span>
   );
 }
 
 function ResumeCardCreatorMeta({ name }: { name: string }) {
   return (
-    <span className="flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-      <IconUpload aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/70" />
+    <span className="flex h-6 max-w-36 min-w-0 shrink-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <IconUpload aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="shrink-0">{m.home_frame_uploader()}</span>
       <Avatar
         className="size-4! shrink-0"
@@ -328,33 +287,105 @@ function ResumeCardCreatorMeta({ name }: { name: string }) {
       >
         <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
       </Avatar>
-      <span className="min-w-0 truncate">{name}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{name}</span>
     </span>
   );
 }
 
-function ProfileSnapshotLine({ line }: { line: ProfileSnapshotLineData }) {
+// 对齐 StudioListCardAiVerdictBadge：非常推荐用紫色强调，其余沿用语义色。
+// Mirrors StudioListCardAiVerdictBadge: violet for highly recommended, semantic colors otherwise.
+const VERDICT_BADGE = {
+  highly_recommended: {
+    className:
+      "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-400/30 dark:bg-violet-400/15 dark:text-violet-300",
+    variant: "default",
+  },
+  recommended: { className: "", variant: "success" },
+  undecided: { className: "", variant: "warning" },
+} as const satisfies Record<DemoDeskVerdictLevel, { className: string; variant: string }>;
+
+function ResumeCardVerdictBadge({ record }: { record: ResumeCardData }) {
+  const { className, variant } = VERDICT_BADGE[record.level];
+  return (
+    <Badge className={`shrink-0 ${className}`} title={record.verdict} variant={variant}>
+      <IconSparkles aria-hidden="true" />
+      {record.verdict}
+    </Badge>
+  );
+}
+
+const FOCUS_POINT_ICON = { matching: IconThumbUp, risk: IconAlertTriangle } as const;
+const FOCUS_POINT_VARIANT = { matching: "success", risk: "warning" } as const;
+
+/** 对齐 StudioListCardEvaluationFocus：固定 188px，要点徽标 + 两行结论。 Mirrors the real focus block. */
+function ResumeCardEvaluation({ record }: { record: ResumeCardData }) {
+  return (
+    <div className="mt-3 grid min-w-0 gap-2.5">
+      <p className="line-clamp-2 text-[13px] text-foreground leading-[19px] wrap-break-word">
+        {record.summary}
+      </p>
+      <ul className="grid h-[188px] min-w-0 content-start gap-3 overflow-hidden text-[13px] text-foreground leading-[19px]">
+        {record.focus.map(({ content, kind, point }) => {
+          const Icon = FOCUS_POINT_ICON[kind];
+          return (
+            <li
+              className="grid min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] items-start gap-x-4"
+              key={point}
+            >
+              <Badge
+                className="max-w-full justify-self-start py-0.5"
+                title={point}
+                variant={FOCUS_POINT_VARIANT[kind]}
+              >
+                <Icon aria-hidden="true" />
+                <span className="truncate">{point}</span>
+              </Badge>
+              <p className="line-clamp-2 min-w-0 wrap-break-word">{content}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ProfileSnapshotLine({
+  emphasized = false,
+  line,
+}: {
+  emphasized?: boolean;
+  line: ProfileSnapshotLineData;
+}) {
   return (
     <p
-      className="flex min-w-0 items-baseline gap-2"
+      className="flex h-6 min-w-0 items-center gap-2"
       title={`${line.period} · ${line.primary} · ${line.secondary}`}
     >
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{line.period}</span>
-      <span className="min-w-0 truncate text-foreground text-sm">
+      <span className="w-[7.25rem] shrink-0 truncate font-mono text-[11px] text-muted-foreground tabular-nums">
+        {line.period}
+      </span>
+      <span
+        className={`min-w-0 truncate text-foreground text-sm ${emphasized ? "font-medium" : ""}`}
+      >
         {line.primary} · {line.secondary}
       </span>
     </p>
   );
 }
 
-function ResumeCardProfileSnapshot({ record }: { record: ResumeCardData }) {
+/** 对齐 StudioListCardProfileColumn：虚线分隔的右栏，工作在上、教育在下。 Mirrors the real profile column. */
+function ResumeCardProfileColumn({ record }: { record: ResumeCardData }) {
   return (
-    <div className="block min-w-0 border-border/60 border-l border-dashed pl-8">
-      <div className="grid min-w-0 content-start gap-1 text-sm max-w-sm">
-        {record.work.map((line) => (
-          <ProfileSnapshotLine key={`${line.period}-${line.primary}`} line={line} />
+    <div className="col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden border-border/60 border-l border-dashed pl-8">
+      <div className="grid max-w-[30rem] min-w-0 content-start">
+        {record.work.map((line, index) => (
+          <ProfileSnapshotLine
+            emphasized={index === 0}
+            key={`${line.period}-${line.primary}`}
+            line={line}
+          />
         ))}
-        <div className="my-0.5 border-border/60 border-t" />
+        <div className="my-1.5 border-border/60 border-t" />
         {record.education.map((line) => (
           <ProfileSnapshotLine key={`${line.period}-${line.primary}`} line={line} />
         ))}
@@ -363,243 +394,214 @@ function ResumeCardProfileSnapshot({ record }: { record: ResumeCardData }) {
   );
 }
 
-function getCandidateRecommendation(score: string) {
-  if (score.startsWith("非常推荐")) {
-    return "非常推荐";
-  }
-  if (score.startsWith("不推荐")) {
-    return "不推荐";
-  }
-  if (score.startsWith("推荐")) {
-    return "推荐";
-  }
-  return "待定";
-}
-
-function candidateFields(record: ResumeCardData) {
-  return [
-    { label: "姓名", value: record.name },
-    { label: "综合评价", value: getCandidateRecommendation(record.score) },
-    { label: "关联岗位", value: record.job },
-    { label: "招聘阶段", value: `${record.lifecycleStage} · ${record.lifecycleDetail}` },
-    { label: "邮箱", value: record.email },
-    { label: "技能", value: record.skills.join(" · ") },
-    { label: "经历摘要", value: record.summary },
-    { label: "最新进展", value: record.progress ?? "招聘团队已完成材料核对，下一步查看面试证据。" },
-  ];
-}
-
-function candidateProfile(record: ResumeCardData): ResumeProfile {
-  return {
-    age: null,
-    educationExperiences: record.education.map((entry) => ({
-      degree: null,
-      educationLevel: null,
-      graduationYear: null,
-      major: entry.secondary,
-      period: entry.period,
-      school: entry.primary,
-      summary: null,
-    })),
-    email: record.email,
-    gender: null,
-    name: record.name,
-    personalStrengths: [],
-    phone: "138 0000 1842",
-    projectExperiences: [],
-    schools: record.education.map((entry) => entry.primary),
-    skills: record.skills,
-    targetRoles: [record.job],
-    workExperiences: record.work.map((entry) => ({
-      company: entry.primary,
-      period: entry.period,
-      role: entry.secondary,
-      summary: record.summary,
-    })),
-    workYears: 8,
-  };
-}
-
 function ResumeCardActions() {
   return (
-    <div className="flex flex-col items-stretch gap-1.5 self-center">
-      {[
-        { icon: IconFileText, label: m.home_frame_resume() },
-        { icon: IconEdit, label: m.home_frame_edit() },
-        { icon: IconDots, label: m.home_frame_candidate_more() },
-      ].map(({ icon: Icon, label }) => (
-        <Button variant="ghost" size="sm" className="h-8" disabled key={label}>
-          <Icon className="size-3.5" />
-          {label}
-        </Button>
-      ))}
+    <div className="col-start-2 row-start-2 flex min-w-0 items-end justify-end self-end pl-8">
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        {[
+          { icon: IconFileText, label: m.home_frame_resume() },
+          { icon: IconEdit, label: m.home_frame_edit() },
+          { icon: IconDots, label: m.home_frame_candidate_more() },
+        ].map(({ icon: Icon, label }) => (
+          <Button className="h-8 gap-1 px-2 text-xs" disabled key={label} size="sm" variant="ghost">
+            <Icon className="size-3.5" />
+            <span>{label}</span>
+          </Button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+/**
+ * 对齐真实 ResumeLibraryCard 在 xl 宽度下的槽位布局：标题行横跨两栏；左栏元信息 + 评语 + 要点，
+ * 右栏经历，操作贴右下角。演示画布是固定 1440 宽的缩放画布，所以直接写 xl 布局，不用断点。
+ * Mirrors the real card's xl slot layout; the demo canvas is a fixed 1440px scaled canvas,
+ * so the xl layout is written directly instead of relying on viewport breakpoints.
+ */
+function ResumeCard({ record }: { record: ResumeCardData }) {
+  const demo = useDemo();
+  // 只有导览候选人有完整详情页；其他卡片仅用于还原真实列表的密度。
+  const openDetail =
+    record.id === DEMO_CANDIDATE_ID
+      ? () => demo.setCandidate({ id: record.id, pipeline: record.pipeline })
+      : undefined;
+  return (
+    <Card
+      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent transition-colors hover:bg-muted dark:hover:bg-input/30"
+      render={<article />}
+    >
+      <CardPanel className="flex h-full min-h-0 gap-3 p-4">
+        <Checkbox
+          aria-label={m.home_frame_select_candidate({ name: record.name })}
+          className="relative z-20 mt-3"
+        />
+        <div className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,46rem)_minmax(18rem,1fr)] grid-rows-[auto_1fr] gap-x-8 gap-y-3">
+          <div className="col-span-2 flex min-w-0 items-center gap-3">
+            <CandidateAvatar record={record} />
+            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-2 overflow-hidden">
+              <button
+                className="min-w-16 max-w-full shrink truncate text-left font-semibold text-base leading-5 underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
+                data-demo-candidate={record.id}
+                onClick={openDetail}
+                type="button"
+              >
+                {record.name}{" "}
+                <span className="font-normal text-muted-foreground text-xs">({record.id})</span>
+              </button>
+              <ResumeCardVerdictBadge record={record} />
+              <ResumeLifecycleBadge
+                className="shrink-0"
+                detailLabel={record.lifecycleDetail}
+                fullLabel={`${record.lifecycleStage} · ${record.lifecycleDetail}`}
+                onClick={openDetail}
+                stageLabel={record.lifecycleStage}
+                tone={record.isScreening ? "outline" : "info"}
+              />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex h-6 min-w-0 flex-nowrap items-center gap-x-4 overflow-hidden">
+              <ResumeCardMetaItem
+                icon={<IconBriefcase className="size-3.5" />}
+                label={m.home_frame_related_job()}
+              >
+                {record.job}
+              </ResumeCardMetaItem>
+              <ResumeCardCreatorMeta name={record.creator} />
+              <span className="inline-flex h-6 shrink-0 items-center whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+                {record.createdAt}
+              </span>
+            </div>
+            <ResumeCardEvaluation record={record} />
+          </div>
+
+          <ResumeCardProfileColumn record={record} />
+          <ResumeCardActions />
+        </div>
+      </CardPanel>
+    </Card>
   );
 }
 
 function ResumeCardList() {
   const demo = useDemo();
+  const { desk, stages } = getDemoScreenCopy();
   const scene = {
     "ai-completed": {
-      lifecycleDetail: "已完成 · 86 分",
-      lifecycleStage: "AI 面试",
+      lifecycleDetail: stages.aiCompleted,
+      lifecycleStage: stages.aiInterview,
       pipeline: "interview:ai",
     },
     "human-completed": {
-      lifecycleDetail: "已完成 · 通过",
-      lifecycleStage: "真人面试",
+      lifecycleDetail: stages.humanPassed,
+      lifecycleStage: stages.humanInterview,
       pipeline: "interview:second",
     },
     "human-live": {
-      lifecycleDetail: "进行中",
-      lifecycleStage: "真人面试",
+      lifecycleDetail: stages.inProgress,
+      lifecycleStage: stages.humanInterview,
       pipeline: "interview:second",
     },
     "human-scheduled": {
-      lifecycleDetail: "已安排",
-      lifecycleStage: "真人面试",
+      lifecycleDetail: stages.scheduled,
+      lifecycleStage: stages.humanInterview,
       pipeline: "interview:second",
     },
-    invited: { lifecycleDetail: "已发起", lifecycleStage: "AI 面试", pipeline: "interview:ai" },
-    live: { lifecycleDetail: "进行中", lifecycleStage: "AI 面试", pipeline: "interview:ai" },
-    offer: { lifecycleDetail: "已发送", lifecycleStage: "Offer 协商", pipeline: "offer:send" },
+    invited: {
+      lifecycleDetail: stages.invited,
+      lifecycleStage: stages.aiInterview,
+      pipeline: "interview:ai",
+    },
+    live: {
+      lifecycleDetail: stages.inProgress,
+      lifecycleStage: stages.aiInterview,
+      pipeline: "interview:ai",
+    },
+    offer: {
+      lifecycleDetail: stages.offerSent,
+      lifecycleStage: stages.offer,
+      pipeline: "offer:send",
+    },
     screening: {
-      lifecycleDetail: "已合格",
-      lifecycleStage: "简历筛选",
+      lifecycleDetail: stages.qualified,
+      lifecycleStage: stages.screening,
       pipeline: "screening:pass",
     },
   } satisfies Record<
     DemoPhase,
     { pipeline: ResumeCardData["pipeline"]; lifecycleStage: string; lifecycleDetail: string }
   >;
-  const candidates = getLocalizedResumes().map((record) => ({
-    ...record,
-    ...scene[demo.phase],
-    canLaunchInterview: demo.phase === "screening",
-    score: demo.phase === "screening" ? "非常推荐" : "推荐 · 86 分",
-  }));
-  const resumes = candidates.filter((record) => {
-    const text = [record.name, record.email, record.job, ...record.skills].join(" ").toLowerCase();
-    return (
-      matchesDemoPipeline(record.pipeline, demo.stage) &&
-      text.includes(demo.query.toLowerCase()) &&
-      text.includes(demo.filter.toLowerCase())
-    );
-  });
+  const { deskRecords, people } = getDemoScreenCopy();
+  const candidates: ResumeCardData[] = [
+    {
+      ...getDemoResume(),
+      ...scene[demo.phase],
+    },
+    ...DEMO_DESK_RECORDS.map((meta) => {
+      const record = deskRecords[meta.id];
+      return {
+        createdAt: meta.createdAt,
+        creator: people.recruiter,
+        education: record.education,
+        email: `${meta.id}@nerv.example`,
+        focus: record.focus,
+        group: meta.group,
+        id: meta.id,
+        isScreening: meta.pipeline.startsWith("screening"),
+        job: record.job,
+        level: meta.level,
+        lifecycleDetail: record.detail,
+        lifecycleStage: record.stage,
+        name: record.name,
+        pipeline: meta.pipeline,
+        summary: record.summary,
+        verdict: record.verdict,
+        work: record.work,
+      };
+    }),
+  ];
+  const resumes = candidates.filter((record) => matchesDemoPipeline(record.pipeline, demo.stage));
+  const groups = DATE_GROUPS.map((group) => ({
+    group,
+    records: resumes.filter((record) => record.group === group),
+  })).filter(({ records }) => records.length > 0);
 
   return (
-    <div className="grid gap-3">
+    <div className="flex flex-col gap-1">
       {resumes.length === 0 && (
         <Card>
-          <CardPanel className="p-10 text-center text-muted-foreground">
-            当前条件下没有候选人
-          </CardPanel>
+          <CardPanel className="p-10 text-center text-muted-foreground">{desk.empty}</CardPanel>
         </Card>
       )}
-      {resumes.map((record) => (
-        <Card
-          className="h-full overflow-hidden rounded-xl dark:bg-background"
-          key={record.id}
-          render={<article />}
-        >
-          <CardPanel className="grid gap-4 p-4 grid-cols-[minmax(0,1fr)_auto] items-start">
-            <div className="flex min-w-0 gap-3">
-              <Checkbox
-                aria-label={m.home_frame_select_candidate({ name: record.name })}
-                className="relative z-20 mt-3"
-              />
-              <CandidateAvatar record={record} />
-              <div className="min-w-0 flex-1">
-                <div className="grid min-w-0 gap-x-4 gap-y-3 grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] gap-x-8">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 col-span-2">
-                    <button
-                      data-demo-candidate={record.id}
-                      type="button"
-                      onClick={() =>
-                        demo.setCandidate({
-                          fields: candidateFields(record),
-                          id: record.id,
-                          pipeline: record.pipeline,
-                          profile: candidateProfile(record),
-                          title: `${record.name} · 候选人详情`,
-                        })
-                      }
-                      className="min-w-0 truncate font-semibold text-base underline decoration-transparent underline-offset-4 hover:decoration-current focus-visible:outline-ring"
-                    >
-                      {record.name}{" "}
-                      <span className="font-normal text-muted-foreground/60 text-xs">
-                        ({record.id})
-                      </span>
-                    </button>
-                    <ResumeLifecycleBadge
-                      onClick={() =>
-                        demo.setCandidate({
-                          fields: candidateFields(record),
-                          id: record.id,
-                          pipeline: record.pipeline,
-                          profile: candidateProfile(record),
-                          title: `${record.name} · 招聘流程`,
-                        })
-                      }
-                      detailLabel={record.lifecycleDetail}
-                      fullLabel={`${record.lifecycleStage} · ${record.lifecycleDetail}`}
-                      stageLabel={record.lifecycleStage}
-                      tone={record.isScreening ? "outline" : "info"}
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
-                      <ResumeCardMetaItem
-                        icon={<IconBriefcase className="size-3.5" />}
-                        label={m.home_frame_related_job()}
-                      >
-                        <span className="text-foreground underline decoration-transparent underline-offset-2">
-                          {record.job}
-                        </span>
-                      </ResumeCardMetaItem>
-                      <ResumeCardCreatorMeta name={record.creator} />
-                      <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs tabular-nums">
-                        {record.createdAt}
-                      </span>
-                    </div>
-
-                    <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
-                      <IconSparkles
-                        aria-hidden="true"
-                        className={`mr-1 inline size-3.5 align-[-2px] ${
-                          record.scoreTone === "success"
-                            ? "text-emerald-700 dark:text-emerald-300"
-                            : "text-amber-700 dark:text-amber-300"
-                        }`}
-                      />
-                      <span
-                        className={`font-medium ${
-                          record.scoreTone === "success"
-                            ? "text-emerald-700 dark:text-emerald-300"
-                            : "text-amber-700 dark:text-amber-300"
-                        }`}
-                      >
-                        {record.score}
-                      </span>{" "}
-                      {record.progress ?? record.summary}
-                    </p>
-                    <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
-                      {record.skills.map((skill) => (
-                        <Badge className="max-w-52 truncate" key={skill} variant="outline">
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <ResumeCardProfileSnapshot record={record} />
-                </div>
+      {groups.map(({ group, records }) => (
+        <section aria-labelledby={`demo-date-${group}`} key={group}>
+          <h2
+            className="flex h-11 items-center gap-2 px-4 font-medium text-sm"
+            id={`demo-date-${group}`}
+          >
+            <span>{desk.dateGroups[group]}</span>
+            <span className="font-normal text-muted-foreground text-xs">
+              {desk.resumeCount(records.length)}
+            </span>
+          </h2>
+          {/* 对齐真实列表：每行上下 6px，行间一条细分隔线。 Real list rows: 6px padding, hairline dividers. */}
+          <div className="grid">
+            {records.map((record, index) => (
+              <div
+                className={
+                  index < records.length - 1
+                    ? "relative py-1.5 after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-border"
+                    : "relative py-1.5"
+                }
+                key={record.id}
+              >
+                <ResumeCard record={record} />
               </div>
-            </div>
-            <ResumeCardActions />
-          </CardPanel>
-        </Card>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );
@@ -633,7 +635,7 @@ function ResumesContent() {
         <output className="flex items-center justify-between rounded-lg bg-muted px-4 py-2 text-sm">
           {demo.notice}
           <Button variant="ghost" size="xs" onClick={() => demo.setNotice("")}>
-            关闭
+            {getDemoScreenCopy().desk.close}
           </Button>
         </output>
       )}

@@ -4,7 +4,28 @@ import { memo, useEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import { useDemoReset } from "./demo-context";
 import { runDemoPlayback, playbackDelay } from "./demo-playback";
+import { getDemoScreenCopy } from "./demo-screen-copy";
 import { getDemoTourSteps } from "./demo-tour-steps";
+
+const CURSOR_START = "translate3d(1100px, 640px, 0)";
+const VIEWPORT_SELECTOR = "[data-overlayscrollbars-viewport]";
+/** 揭示内容时的阅读速度（画布像素 / 毫秒）与时长边界。 Reveal reading speed and duration bounds. */
+const REVEAL_SPEED = 0.32;
+const REVEAL_MIN_MS = 700;
+/** 光标移动前把目标滚进视口的时长。 Duration for bringing a target into view before the cursor moves. */
+const BRING_INTO_VIEW_MS = 650;
+const REVEAL_TOP_GAP = 16;
+
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+
+function clampScroll(viewport: HTMLElement, top: number) {
+  return Math.min(Math.max(0, top), viewport.scrollHeight - viewport.clientHeight);
+}
+
+/** 画布被整体缩放，屏幕像素需换算回视口自身的像素。 The canvas is scaled; convert screen px to viewport px. */
+function viewportScale(viewport: HTMLElement) {
+  return viewport.getBoundingClientRect().width / viewport.offsetWidth || 1;
+}
 
 /** Scoped to the fixed-size canvas. Cursor movement uses WAAPI, never React position state. */
 export const DemoAutoplay = memo(function DemoAutoplay() {
@@ -64,20 +85,87 @@ export const DemoAutoplay = memo(function DemoAutoplay() {
       }
       return !controller.signal.aborted;
     };
-    const move = async (selector: string, text: string) => {
-      const target = host.querySelector<HTMLElement>(selector);
-      if (!target) {
+    // 只滚动演示窗口内部的视口，从不移动访客的首页。用 rAF 缓动，滚动和光标一样有过程。
+    // Only the window's own viewports scroll, never the homepage; rAF easing keeps it gradual.
+    const scrollViewport = (viewport: HTMLElement, to: number, duration: number) => {
+      const from = viewport.scrollTop;
+      const target = clampScroll(viewport, to);
+      if (Math.abs(target - from) < 1) {
+        return Promise.resolve(true);
+      }
+      if (reducedMotion) {
+        viewport.scrollTop = target;
+        return Promise.resolve(true);
+      }
+      const startedAt = performance.now();
+      const { promise, resolve } = Promise.withResolvers<boolean>();
+      const frame = (now: number) => {
+        if (controller.signal.aborted) {
+          resolve(false);
+          return;
+        }
+        const progress = Math.min(1, (now - startedAt) / duration);
+        viewport.scrollTop = from + (target - from) * easeInOutCubic(progress);
+        if (progress < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          resolve(true);
+        }
+      };
+      requestAnimationFrame(frame);
+      return promise;
+    };
+    const bringIntoView = (target: HTMLElement) => {
+      const viewport = target.closest<HTMLElement>(VIEWPORT_SELECTOR);
+      if (!viewport) {
+        return Promise.resolve(true);
+      }
+      const visible = viewport.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      if (targetRect.bottom <= visible.bottom && targetRect.top >= visible.top) {
+        return Promise.resolve(true);
+      }
+      const offset = (targetRect.top - visible.top - visible.height / 3) / viewportScale(viewport);
+      return scrollViewport(viewport, viewport.scrollTop + offset, BRING_INTO_VIEW_MS);
+    };
+    /** 先把区域顶部带进视口，再按阅读速度往下滚，直到区域底部可见或用完时长。 */
+    const reveal = async (selector: string, budget: number) => {
+      // 等新内容渲染并完成布局。 Let the revealed content render and lay out first.
+      if (!(await playbackDelay(450, controller.signal))) {
         return false;
       }
-      // Scroll only the window's own viewport; never move the visitor's homepage.
-      const viewport = target.closest<HTMLElement>("[data-overlayscrollbars-viewport]");
-      if (viewport) {
-        const visible = viewport.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-        const scale = visible.width / viewport.offsetWidth;
-        if (targetRect.bottom > visible.bottom || targetRect.top < visible.top) {
-          viewport.scrollTop += (targetRect.top - visible.top - visible.height / 3) / scale;
-        }
+      const region = host.querySelector<HTMLElement>(selector);
+      const viewport = region?.closest<HTMLElement>(VIEWPORT_SELECTOR);
+      if (!(region && viewport) || viewport.scrollHeight <= viewport.clientHeight) {
+        return true;
+      }
+      const scale = viewportScale(viewport);
+      const visible = viewport.getBoundingClientRect();
+      const rect = region.getBoundingClientRect();
+      const regionTop = viewport.scrollTop + (rect.top - visible.top) / scale - REVEAL_TOP_GAP;
+      const regionEnd =
+        viewport.scrollTop + (rect.bottom - visible.bottom) / scale + REVEAL_TOP_GAP;
+      const startedAt = performance.now();
+      // 区域顶部在视口上方或贴近底部：先较快地把顶部带进来。
+      // If the region's top is above the viewport or near its bottom, bring the top in first.
+      const topOffscreen = rect.top < visible.top || rect.top > visible.bottom - visible.height / 4;
+      if (topOffscreen && !(await scrollViewport(viewport, regionTop, BRING_INTO_VIEW_MS))) {
+        return false;
+      }
+      // 再按阅读速度往下，直到区域底部露出。 Then read downward until the region's bottom shows.
+      const target = clampScroll(viewport, regionEnd);
+      const distance = target - viewport.scrollTop;
+      if (distance < 1) {
+        return true;
+      }
+      const remaining = budget - 450 - (performance.now() - startedAt);
+      const duration = Math.max(REVEAL_MIN_MS, Math.min(distance / REVEAL_SPEED, remaining));
+      return scrollViewport(viewport, target, duration);
+    };
+    const move = async (selector: string, text: string) => {
+      const target = host.querySelector<HTMLElement>(selector);
+      if (!(target && (await bringIntoView(target)))) {
+        return false;
       }
       const rect = target.getBoundingClientRect();
       const bounds = host.getBoundingClientRect();
@@ -130,8 +218,9 @@ export const DemoAutoplay = memo(function DemoAutoplay() {
                   viewport.scrollTop = 0;
                   viewport.scrollLeft = 0;
                 }
-                cursor.style.transform = "translate3d(1180px, 700px, 0)";
+                cursor.style.transform = CURSOR_START;
               },
+              reveal,
             },
             getDemoTourSteps(),
             controller.signal,
@@ -171,7 +260,7 @@ export const DemoAutoplay = memo(function DemoAutoplay() {
         ref={cursorRef}
         aria-hidden="true"
         className="absolute top-0 left-0 opacity-0"
-        style={{ transform: "translate3d(1180px, 700px, 0)", willChange: "transform" }}
+        style={{ transform: CURSOR_START, willChange: "transform" }}
       >
         <span
           ref={rippleRef}
@@ -198,7 +287,7 @@ export const DemoAutoplay = memo(function DemoAutoplay() {
       </div>
       <div className="absolute right-5 bottom-4 rounded-full border bg-background/95 px-4 py-2 shadow-sm">
         <span ref={captionRef} className="text-xs text-muted-foreground">
-          招聘流程自动演示
+          {getDemoScreenCopy().autoplayCaption}
         </span>
       </div>
     </div>

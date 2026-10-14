@@ -1,15 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import {
-  QualitativeEvaluationDetails,
-  QualitativeDimensionRadar,
-} from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
-import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
-import { RoundCard } from "@/components/features/studio/human-interview-stage-rounds";
-import { OfferNegotiationProgress } from "@/components/features/studio/offer-stage-panel";
-import { OfferDraftReadonlyFields } from "@/components/features/studio/offer-stage-cards";
-import { SummaryMetric } from "@/components/features/studio/studio-person-detail-skeletons";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,124 +8,122 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
-import { useDemo } from "./demo-context";
+import { DemoDimensionRadar, DemoEvaluationDetails } from "./_parts/demo-evaluation";
 import {
-  createDemoHumanRound,
-  createDemoHumanMeeting,
-  demoOfferNodes,
-  demoConversation,
-  demoEvaluation,
-  demoOffer,
-} from "./demo-workflow-data";
+  DemoCandidateBasicInfo,
+  DemoOfferFields,
+  DemoOfferProgress,
+  DemoRoundCard,
+} from "./_parts/demo-records";
+import { useDemo } from "./demo-context";
+import { getDemoScreenCopy } from "./demo-screen-copy";
 
-const noop = () => {
-  /* Read-only demo cards never persist changes. */
-};
+function SummaryMetric({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className="mt-1 truncate font-medium text-sm leading-6">{value}</p>
+    </div>
+  );
+}
 
 function AiInterviewResult() {
   const [transcript, setTranscript] = useState(false);
+  const { aiInterview: copy, conversation, people } = getDemoScreenCopy();
   return (
     <div className="space-y-6" data-slot="demo-ai-result">
       <div className="flex items-center gap-3 text-sm">
-        <Button variant="outline">第 1 轮 · AI 初面 · 10/08 11:00</Button>
-        <Badge variant="success">已完成</Badge>
+        <Button variant="outline">{copy.roundButton}</Button>
+        <Badge variant="success">{copy.completed}</Badge>
       </div>
       <div className="grid grid-cols-2 items-stretch gap-4">
         <Frame className="h-full">
           <FrameHeader className="justify-between">
-            <FrameTitle>面试结果</FrameTitle>
-            <Badge variant="success">已完成</Badge>
+            <FrameTitle>{copy.resultTitle}</FrameTitle>
+            <Badge variant="success">{copy.completed}</Badge>
           </FrameHeader>
           <FramePanel className="flex-1">
             <div className="grid grid-cols-2 gap-8">
-              <SummaryMetric label="开始时间" value="2026/10/08 11:00" />
-              <SummaryMetric label="结束时间" value="2026/10/08 11:24" />
+              <SummaryMetric label={copy.startTime} value="2026/10/08 11:00" />
+              <SummaryMetric label={copy.endTime} value="2026/10/08 11:24" />
             </div>
             <div className="mt-5 grid grid-cols-3 gap-8 border-t border-border/50 pt-5">
-              <SummaryMetric label="评分" value="86 / 100" />
-              <SummaryMetric label="建议" value={<Badge variant="success">推荐</Badge>} />
-              <SummaryMetric label="对话" value="12 次候选人回复" />
+              <SummaryMetric label={copy.scoreLabel} value="86 / 100" />
+              <SummaryMetric
+                label={copy.suggestionLabel}
+                value={<Badge variant="success">{copy.recommendBadge}</Badge>}
+              />
+              <SummaryMetric label={copy.conversationLabel} value={copy.conversationValue} />
             </div>
             <MarkdownView
               className="mt-5 border-t border-border/50 pt-5 text-sm leading-6"
-              content="**建议进入真人面试。** 真嗣能够完整说明微前端迁移方案、灰度回滚策略和性能优化方法。项目贡献明确，首屏加载从 3.2 秒降至 1.4 秒，有持续两周的真实用户监测支持。真人复面重点验证复杂场景下的架构取舍。"
+              content={copy.resultMarkdown}
             />
             <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border/50 pt-5">
               <Button variant="outline" disabled>
-                查看推荐问题
+                {copy.viewQuestions}
               </Button>
               <Button variant="outline" disabled>
-                复制面试链接
+                {copy.copyLink}
               </Button>
             </div>
           </FramePanel>
         </Frame>
         <Frame className="h-full">
           <FrameHeader>
-            <FrameTitle>候选人信息</FrameTitle>
+            <FrameTitle>{copy.candidateInfo}</FrameTitle>
           </FrameHeader>
           <FramePanel className="flex-1">
-            <CandidateBasicInfoView
-              candidateName="真嗣"
-              candidateEmail="shinji@example.com"
-              candidatePhone="138 0000 1842"
-              creatorName="葛城美里"
-              jobDescriptionName="技术部 / 资深前端工程师"
-              targetRole="资深前端工程师"
-              hasResumeFile
-              resumeFileName="真嗣_前端工程师.pdf"
-            />
+            <DemoCandidateBasicInfo />
           </FramePanel>
         </Frame>
-        <Frame>
+        <Frame className="h-full">
           <FrameHeader className="justify-between">
-            <FrameTitle>表单题</FrameTitle>
-            <Badge variant="outline">3 项</Badge>
+            <FrameTitle>{copy.formQuestions}</FrameTitle>
+            <Badge variant="outline">{copy.itemCount(copy.formAnswers.length)}</Badge>
           </FrameHeader>
-          <FramePanel>
+          <FramePanel className="flex-1">
             <DataFields columns={2}>
-              <DataField label="工作年限" value="8 年" />
-              <DataField label="期望薪资" value="¥32,000–35,000 / 月" />
-              <DataField label="到岗时间" value="Offer 确认后 3 周" />
+              {copy.formAnswers.map((answer) => (
+                <DataField key={answer.label} label={answer.label} value={answer.value} />
+              ))}
             </DataFields>
           </FramePanel>
         </Frame>
-        <Frame>
+        <Frame className="h-full">
           <FrameHeader className="justify-between">
-            <FrameTitle>沟通题</FrameTitle>
-            <Badge variant="outline">3 项</Badge>
+            <FrameTitle>{copy.conversationQuestions}</FrameTitle>
+            <Badge variant="outline">{copy.itemCount(conversation.length)}</Badge>
           </FrameHeader>
-          <FramePanel>
-            <p className="text-sm font-medium">微前端迁移中的个人贡献</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              负责方案设计、6 个系统的迁移推进与发布治理，迁移分三批完成。
-            </p>
+          <FramePanel className="flex-1">
+            <p className="text-sm font-medium">{copy.contributionTitle}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy.contributionBody}</p>
           </FramePanel>
         </Frame>
       </div>
       <Frame>
         <FrameHeader className="justify-between">
-          <FrameTitle>面试对话</FrameTitle>
+          <FrameTitle>{copy.transcriptTitle}</FrameTitle>
           <Button
             data-demo-ai-transcript
             size="sm"
             variant="ghost"
             onClick={() => setTranscript(!transcript)}
           >
-            {transcript ? "收起对话记录" : "查看对话记录"}
+            {transcript ? copy.hideTranscript : copy.showTranscript}
           </Button>
         </FrameHeader>
         {transcript && (
-          <FramePanel>
+          <FramePanel data-demo-reveal="ai-transcript">
             <ScrollArea className="max-h-[320px]" scrollbars="leave">
               <div className="space-y-5">
-                {demoConversation.map((turn, i) => (
+                {conversation.map((turn, i) => (
                   <div key={turn.question}>
                     <p className="text-xs text-muted-foreground">
-                      {String(i * 6).padStart(2, "0")}:12 · AI 面试官
+                      {String(i * 6).padStart(2, "0")}:12 · {copy.aiInterviewer}
                     </p>
                     <p className="mt-1 text-sm font-medium">{turn.question}</p>
-                    <p className="mt-3 text-xs text-primary">真嗣</p>
+                    <p className="mt-3 text-xs text-primary">{people.candidate}</p>
                     <p className="mt-1 text-sm leading-6">{turn.answer}</p>
                   </div>
                 ))}
@@ -150,53 +139,34 @@ function AiInterviewResult() {
 function HumanInterview() {
   const demo = useDemo();
   const completed = demo.phase === "human-completed" || demo.phase === "offer";
-  const round = createDemoHumanRound(completed);
+  const { humanInterview: copy } = getDemoScreenCopy();
   return (
     <div className="space-y-6" data-slot="demo-human-interview">
       <header className="flex items-start justify-between">
         <div>
-          <h2 className="text-base font-medium">真人面试进度</h2>
-          <p className="mt-1 text-sm text-muted-foreground">查看面试安排、轮次结果与面试评价</p>
+          <h2 className="text-base font-medium">{copy.progressTitle}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{copy.progressDescription}</p>
         </div>
         <Button variant="outline" disabled>
-          安排面试
+          {copy.schedule}
         </Button>
       </header>
-      <h3 className="text-sm font-medium">{completed ? "历史面试" : "待处理"}</h3>
+      <h3 className="text-sm font-medium">{completed ? copy.history : copy.pending}</h3>
       <div data-demo-human-analysis>
-        <RoundCard
-          round={round}
-          autoScrollDetails={false}
-          roundNumber={1}
-          meeting={createDemoHumanMeeting(completed)}
-          canCreate={false}
-          canDelete={false}
-          canUpdate={false}
-          disabled
-          slug="demo"
-          onComplete={noop}
-          onCancel={noop}
-          onCreateMeeting={noop}
-          onEndMeeting={noop}
-          onOpenLinks={noop}
-          onRescheduled={noop}
-          onReview={noop}
-        />
+        <DemoRoundCard completed={completed} />
       </div>
       {!completed && (
         <Frame>
           <FrameHeader>
-            <FrameTitle>本轮面试重点</FrameTitle>
+            <FrameTitle>{copy.focusTitle}</FrameTitle>
           </FrameHeader>
           <FramePanel>
             <ol className="list-decimal space-y-3 pl-5 text-sm leading-6">
-              <li>微前端拆分过程中，如何平衡共享依赖与独立发布？</li>
-              <li>上线前如何设计灰度指标及回滚策略？</li>
-              <li>如何验证性能优化对真实用户的影响？</li>
+              {copy.focusItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ol>
-            <p className="mt-4 text-xs text-muted-foreground">
-              参考 AI 初面已确认的项目证据，深入核实关键技术决策。
-            </p>
+            <p className="mt-4 text-xs text-muted-foreground">{copy.focusNote}</p>
           </FramePanel>
         </Frame>
       )}
@@ -205,42 +175,38 @@ function HumanInterview() {
 }
 
 function OfferInterview() {
+  const { offer } = getDemoScreenCopy();
   return (
     <div className="space-y-6" data-slot="demo-offer">
-      <OfferNegotiationProgress stage="offer" offerStatus="sent" nodeStates={demoOfferNodes} />
+      <DemoOfferProgress />
       <Frame>
         <FrameHeader>
-          <FrameTitle>候选人期望</FrameTitle>
+          <FrameTitle>{offer.expectationsTitle}</FrameTitle>
         </FrameHeader>
         <FramePanel>
-          <p className="mb-3 text-xs text-muted-foreground">
-            发 Offer 前先收集候选人期望，做议价参考。
-          </p>
+          <p className="mb-3 text-xs text-muted-foreground">{offer.expectationsNote}</p>
           <DataFields columns={3}>
-            <DataField label="期望月薪" value="¥ 35,000" />
-            <DataField label="当前月薪" value="¥ 30,000" />
-            <DataField label="转正工资" value="¥ 34,000" />
-            <DataField label="试用期工资" value="¥ 34,000" />
-            <DataField label="最早入职日" value="2026/11/02" />
-            <DataField label="备注" value="技术复面通过，薪资已沟通一致" />
+            {offer.expectations.map((field) => (
+              <DataField key={field.label} label={field.label} value={field.value} />
+            ))}
           </DataFields>
         </FramePanel>
       </Frame>
       <Frame>
         <FrameHeader className="justify-between">
-          <FrameTitle>Offer · 第 1 版</FrameTitle>
-          <Badge variant="info">已发送</Badge>
+          <FrameTitle>{offer.title}</FrameTitle>
+          <Badge variant="info">{offer.sent}</Badge>
         </FrameHeader>
         <FramePanel>
-          <OfferDraftReadonlyFields draft={demoOffer} />
+          <DemoOfferFields />
           <div className="mt-4 flex gap-2 border-t pt-4">
             <Button variant="outline" disabled>
-              编辑
+              {offer.edit}
             </Button>
             <Button variant="outline" disabled>
-              复制 Offer 链接
+              {offer.copyLink}
             </Button>
-            <Button disabled>记录候选人响应</Button>
+            <Button disabled>{offer.recordResponse}</Button>
           </div>
         </FramePanel>
       </Frame>
@@ -251,11 +217,10 @@ function OfferInterview() {
 export default function DemoInterviewPanels({ tab }: { tab: string }) {
   if (tab === "evaluation") {
     return (
-      <QualitativeEvaluationDetails
-        evaluation={demoEvaluation}
+      <DemoEvaluationDetails
         summaryAction={
           <Button size="sm" variant="ghost" disabled>
-            重新评价
+            {getDemoScreenCopy().offer.reEvaluate}
           </Button>
         }
       />
@@ -270,5 +235,5 @@ export default function DemoInterviewPanels({ tab }: { tab: string }) {
   if (tab === "offer") {
     return <OfferInterview />;
   }
-  return <QualitativeDimensionRadar evaluation={demoEvaluation} compact />;
+  return <DemoDimensionRadar compact />;
 }

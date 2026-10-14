@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "@app/shared/utils";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { BackgroundLayers } from "@/components/features/home/background-layers";
 import { PageGrain } from "@/components/features/home/page-grain";
+import { StageArtwork } from "@/components/features/home/stage-artwork";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,10 @@ export function AuthPageLayout({
   return (
     <main className="relative isolate min-h-dvh overflow-hidden" id="main-content">
       {grain ? <PageGrain /> : null}
-      <BackgroundLayers />
+      {/* 与首页首屏同一套 SVG 舞台背景，纯 CSS 动效，不再依赖 WebGL。 Same SVG stage as the homepage hero. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <StageArtwork composition="auth" />
+      </div>
 
       <section className="relative flex min-h-dvh w-full border-border/70 border-r bg-background/90 backdrop-blur-md backdrop-saturate-100 md:w-[34rem] lg:w-[38rem]">
         <div className="mx-auto flex w-full max-w-md flex-col px-6 py-4 sm:px-10 lg:px-12">

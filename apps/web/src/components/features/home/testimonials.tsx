@@ -16,32 +16,32 @@ interface HiringPrinciple {
 
 const principlesRow1: HiringPrinciple[] = [
   {
-    description: "职责、能力要求与筛选门槛先对齐，后面的每一步才有共同标准。",
+    description: "先对齐职责、能力要求与筛选门槛，后面每一步才有共同标准。",
     label: "岗位语境",
     title: "先定义，什么叫合适。",
   },
   {
-    description: "亮点和风险都对应简历原文。看到结论，也看得到结论从哪里来。",
+    description: "亮点和风险都对应简历原文，结论从哪来，一眼可见。",
     label: "简历筛选",
     title: "结论旁边，始终有证据。",
   },
   {
-    description: "回答太泛，就继续追问案例、角色和结果，把模糊的信息问具体。",
+    description: "回答太泛，就追问案例、角色和结果，直到说具体。",
     label: "AI 面试",
     title: "答案没说清，就接着问。",
   },
   {
-    description: "对话、录音与结构化评估放在一起，复盘不再依赖零散印象。",
+    description: "对话、录音与结构化评估放在一起，复盘不再靠零散印象。",
     label: "评估",
     title: "从记录，回到判断。",
   },
   {
-    description: "先看 AI 面试里已经确认和仍有疑问的部分，把时间留给关键问题。",
+    description: "先看 AI 面试已确认和仍存疑的部分，把时间留给关键问题。",
     label: "真人复面",
     title: "人来判断，真正重要的事。",
   },
   {
-    description: "招聘负责人和用人经理看到同一份候选人上下文，交接不再重新讲一遍。",
+    description: "招聘负责人和用人经理共享同一份上下文，交接不用再讲一遍。",
     label: "团队协同",
     title: "同一个人，同一份事实。",
   },
@@ -49,32 +49,32 @@ const principlesRow1: HiringPrinciple[] = [
 
 const principlesRow2: HiringPrinciple[] = [
   {
-    description: "无需注册，也无需安装应用。跟随清晰提示，把注意力留给表达本身。",
+    description: "无需注册或安装，跟着提示作答，专心表达即可。",
     label: "候选人体验",
     title: "打开链接，就可以开始。",
   },
   {
-    description: "关键回答、追问过程和评估依据一并保留，需要时可以完整回看。",
+    description: "关键回答、追问过程与评估依据一并保留，随时完整回看。",
     label: "过程记录",
     title: "每一次回答，都不丢。",
   },
   {
-    description: "从筛选到 AI 面试，再到真人复面，每次推进都有明确状态与上下文。",
+    description: "从筛选到 AI 面试再到真人复面，每次推进都有明确状态。",
     label: "多轮招聘",
     title: "阶段清楚，交接自然。",
   },
   {
-    description: "先看能力与证据的差异，再讨论谁更适合岗位，不让一个分数替代判断。",
+    description: "先比较能力与证据的差异，再谈谁更合适，不让一个分数替代判断。",
     label: "候选人对比",
     title: "差异，比排名更重要。",
   },
   {
-    description: "决定之后仍能回到当时的简历、回答和评估依据，让流程持续变好。",
+    description: "决定之后，仍能回到当时的简历、回答与评估依据。",
     label: "招聘复盘",
     title: "每个决定，都可以回看。",
   },
   {
-    description: "AI 整理证据、补齐问题、给出参考。最终决定，始终由招聘团队做出。",
+    description: "AI 整理证据、补齐问题、给出参考，最终由招聘团队决定。",
     label: "人机边界",
     title: "AI 给依据。人做决定。",
   },
@@ -82,7 +82,7 @@ const principlesRow2: HiringPrinciple[] = [
 
 function PrincipleCard({ description, label, title }: HiringPrinciple) {
   return (
-    <article className="mr-4 flex h-full w-[320px] flex-col rounded-xl bg-background/70 p-6 sm:w-[380px] sm:p-8">
+    <article className="mr-4 flex h-full w-[320px] flex-col rounded-[12px] bg-background/70 p-6 sm:w-[380px] sm:p-8">
       <p className="text-primary text-sm">{label}</p>
       <h3 className="mt-4 min-h-[2lh] text-pretty font-medium text-foreground text-2xl leading-[1.3] tracking-[-0.035em] sm:text-3xl">
         {title}
@@ -103,7 +103,7 @@ export function DecisionPrinciples() {
 
   return (
     <div className="overflow-hidden bg-primary/[0.035]">
-      <Section width="wide">
+      <Section>
         <SectionHeader title={m.home_principles_title()} lead={m.home_principles_lead()} />
 
         <FadeContent>

@@ -1,10 +1,11 @@
 import { expect, it } from "vitest";
 import { getDemoTourSteps } from "./demo-tour-steps";
+import { DEMO_CANDIDATE_ID } from "./demo-workflow-data";
 
 it("follows one candidate from invitation through AI and human interviews to Offer", () => {
   const targets = getDemoTourSteps().map((step) => step.target);
   expect(targets.filter((target) => target.includes("data-demo-candidate="))).toEqual([
-    '[data-demo-candidate="01842"]',
+    `[data-demo-candidate="${DEMO_CANDIDATE_ID}"]`,
   ]);
   const actions = [
     "launch",

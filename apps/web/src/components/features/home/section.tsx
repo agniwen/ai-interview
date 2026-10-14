@@ -7,15 +7,14 @@ interface SectionProps {
   children: ReactNode;
   className?: string;
   id?: string;
-  width?: "default" | "wide";
 }
 
-export function Section({ children, className, id, width = "default" }: SectionProps) {
+/** 内容板块统一 1440 容器、左右 64px 留白（与首屏 1680 容器区分）。 */
+export function Section({ children, className, id }: SectionProps) {
   return (
     <section
       className={cn(
-        "mx-auto w-full px-6 py-20 sm:px-8 sm:py-24 lg:px-12 lg:py-32",
-        width === "wide" ? "max-w-360" : "max-w-6xl",
+        "mx-auto w-full max-w-360 px-6 py-20 sm:px-8 sm:py-24 lg:px-16 lg:py-28",
         className,
       )}
       id={id}
@@ -33,7 +32,7 @@ export function SectionTitle({ children, className }: SectionTitleProps) {
   return (
     <h2
       className={cn(
-        "max-w-[13em] text-balance font-medium text-[clamp(2rem,4.2vw,4rem)] text-foreground leading-[1.18] tracking-[-0.045em]",
+        "max-w-[20em] text-balance font-medium text-[clamp(1.75rem,2.4vw,2rem)] text-foreground leading-[1.3] tracking-[-0.02em]",
         className,
       )}
     >
@@ -42,28 +41,46 @@ export function SectionTitle({ children, className }: SectionTitleProps) {
   );
 }
 
-interface SectionLeadProps {
-  children: ReactNode;
-  className?: string;
-}
-function SectionLead({ children, className }: SectionLeadProps) {
+const CJK_SENTENCE_END = /(?<=[。！？])(?=\S)/u;
+
+/**
+ * 落地页说明段：中文按句换行，句内只在标点/空格处折行并均衡行长，避免单字断词与孤字尾行。
+ * Lead copy: one CJK sentence per line, wrapping only at punctuation or spaces and balancing
+ * line lengths; Latin text keeps normal flow.
+ */
+export function LeadText({ children, className }: { children: string; className?: string }) {
+  const sentences = children.split(CJK_SENTENCE_END);
   return (
     <p
       className={cn(
-        "max-w-[25rem] text-pretty text-base text-muted-foreground leading-[1.9] sm:text-lg lg:text-base xl:text-lg",
+        "max-w-[28rem] text-muted-foreground text-base leading-[1.8] [overflow-wrap:anywhere] [word-break:keep-all] sm:text-lg lg:text-base xl:text-lg",
         className,
       )}
     >
-      {children}
+      {sentences.map((sentence) => (
+        <span className="block text-balance" key={sentence}>
+          {sentence}
+        </span>
+      ))}
     </p>
   );
 }
 
-export function SectionHeader({ title, lead }: { title: ReactNode; lead: ReactNode }) {
+export function SectionHeader({
+  align = "start",
+  lead,
+  title,
+}: {
+  /** 居中用于轮播类板块（对齐 qoder 的产品展示）。 Centered for carousel sections. */
+  align?: "center" | "start";
+  lead: string;
+  title: ReactNode;
+}) {
+  const centered = align === "center";
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.42fr)] lg:items-end lg:gap-16">
+    <div className={cn("flex flex-col gap-3", centered && "items-center text-center")}>
       <SectionTitle>{title}</SectionTitle>
-      <SectionLead>{lead}</SectionLead>
+      <LeadText className="max-w-[40rem] sm:text-base xl:text-base">{lead}</LeadText>
     </div>
   );
 }

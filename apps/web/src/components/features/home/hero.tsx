@@ -1,49 +1,45 @@
 "use client";
 
 import { IconArrowUpRight } from "@tabler/icons-react";
-import { m, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import * as messages from "@/paraglide/messages";
+import { LeadText } from "./section";
 
 interface HeroProps {
   onResumeFiltering: () => void;
   onWorkbench: () => void;
 }
 
+// 入场动画用 CSS（tw-animate-css），SSR 文本无需等水合即可显示。
+// CSS entrance animations keep SSR text visible without waiting for hydration.
+const ENTER =
+  "animate-in fade-in fill-mode-both duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none";
+
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
-  const reducedMotion = useReducedMotion();
-  const tagline = messages.home_hero_tagline().replace(/([，、,.])\s*/u, "$1\n");
-
   return (
-    <section className="relative grid w-full gap-y-8 text-left lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.42fr)] lg:gap-x-16 lg:gap-y-10">
-      <m.h1
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-[9em] whitespace-pre-line font-medium text-[clamp(2.75rem,7.8vw,7.5rem)] text-foreground leading-[1.12] tracking-[-0.055em] dark:text-white"
-        initial={reducedMotion ? false : { opacity: 0, y: 18 }}
-        transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+    // 标题两行（品牌 + 定位、不带标点）；桌面端说明段放右栏底部右对齐，移动端依次排在标题下方。
+    // Two-line title; on desktop the lead sits bottom-right, on mobile it stacks under the title.
+    <section className="relative flex w-full flex-col items-start text-left lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.5fr)] lg:gap-x-16">
+      <h1
+        className={`${ENTER} slide-in-from-bottom-[18px] font-medium text-4xl text-foreground leading-[1.33] tracking-[-0.02em] dark:text-white`}
       >
-        {tagline}
-      </m.h1>
+        <span className="block">AI Hiring Copilot</span>
+        <span className="block">{messages.home_hero_tagline()}</span>
+      </h1>
 
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-[23rem] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-end lg:pb-1"
-        initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-        transition={{ delay: 0.12, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+      <div
+        className={`${ENTER} slide-in-from-bottom-3 mt-4 max-w-[30rem] delay-[120ms] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-end lg:justify-self-end lg:pb-1 lg:text-right`}
       >
-        <p className="text-pretty text-base text-foreground/70 leading-[1.9] dark:text-white/75 sm:text-lg lg:text-base xl:text-lg">
+        <LeadText className="max-w-none text-base text-muted-foreground leading-[1.6] sm:text-base lg:text-base xl:text-base">
           {messages.home_hero_description()}
-        </p>
-      </m.div>
+        </LeadText>
+      </div>
 
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-wrap items-center gap-x-5 gap-y-3 lg:col-start-1 lg:row-start-2 sm:gap-x-8"
-        initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-        transition={{ delay: 0.18, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+      <div
+        className={`${ENTER} slide-in-from-bottom-3 delay-[180ms] mt-8 flex flex-wrap items-center gap-3 lg:col-start-1 lg:row-start-2`}
       >
         <Button
-          className="group h-12 gap-6 rounded-full px-6 text-sm shadow-none has-[>svg]:px-6 sm:h-14 sm:px-7 sm:text-base sm:has-[>svg]:px-7"
+          className="group h-9 gap-2 rounded-full px-5 font-medium text-sm shadow-none has-[>svg]:px-5"
           onClick={onResumeFiltering}
           type="button"
         >
@@ -55,16 +51,14 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
           />
         </Button>
         <Button
-          className="h-12 px-0 text-sm sm:text-base"
+          className="h-9 rounded-full border-foreground/15 bg-transparent px-5 font-medium text-sm shadow-none hover:bg-foreground/5"
           onClick={onWorkbench}
           type="button"
-          variant="text"
+          variant="outline"
         >
-          <span className="underline decoration-foreground/30 underline-offset-8">
-            {messages.home_hero_workbench_cta()}
-          </span>
+          {messages.home_hero_workbench_cta()}
         </Button>
-      </m.div>
+      </div>
     </section>
   );
 }
