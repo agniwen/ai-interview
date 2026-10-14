@@ -12,7 +12,7 @@ installNoopWebAnimations();
 
 const dimension = {
   basis: "job",
-  evaluation: "符合岗位要求。",
+  evaluation: "**符合**岗位要求。",
   level: "recommended",
 } as const;
 
@@ -24,7 +24,7 @@ const evaluation = {
     experienceRelevance: dimension,
     potential: dimension,
     projectMatch: dimension,
-    skillMatch: dimension,
+    skillMatch: { ...dimension, evaluation: "React 实践充分。", level: "highly_recommended" },
     stability: dimension,
   },
   recommendationLevel: "recommended",
@@ -37,43 +37,31 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-async function render(collapsibleDimensions: boolean) {
-  const container = document.createElement("div");
-  document.body.append(container);
-  const root = createRoot(container);
-  await act(() => {
-    root.render(
-      <QualitativeEvaluationDetails
-        collapsibleDimensions={collapsibleDimensions}
-        evaluation={evaluation}
-      />,
-    );
-  });
-  return container;
-}
-
-describe("QualitativeEvaluationDetails collapsible dimensions", () => {
-  it("keeps six dimensions collapsed until the toggle is clicked", async () => {
-    const container = await render(true);
-    const toggle = [...container.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("展开"),
-    );
-
-    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
-    expect(container.querySelector("[data-qualitative-radar-panel]")).toBeNull();
-    expect(container.querySelector("[data-qualitative-overall-judgment]")).not.toBeNull();
-
+describe("QualitativeEvaluationDetails dimension rows", () => {
+  it("lists every dimension and expands one row's full evaluation on click", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
     await act(() => {
-      toggle?.click();
+      root.render(<QualitativeEvaluationDetails evaluation={evaluation} />);
     });
 
-    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
-    expect(container.querySelector("[data-qualitative-radar-panel]")).not.toBeNull();
-  });
+    const rows = container.querySelectorAll<HTMLButtonElement>(
+      "[data-qualitative-dimension-header]",
+    );
+    expect(rows).toHaveLength(6);
+    const skillRow = container.querySelector<HTMLButtonElement>(
+      '[data-qualitative-dimension-header="skillMatch"]',
+    );
+    expect(skillRow?.getAttribute("aria-label")).toContain("技能匹配：非常推荐");
+    expect(skillRow?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("[data-qualitative-dimension-basis]")).toBeNull();
 
-  it("shows six dimensions directly when not collapsible", async () => {
-    const container = await render(false);
+    await act(() => {
+      skillRow?.click();
+    });
 
-    expect(container.querySelector("[data-qualitative-radar-panel]")).not.toBeNull();
+    expect(skillRow?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelectorAll("[data-qualitative-dimension-basis]")).toHaveLength(1);
   });
 });

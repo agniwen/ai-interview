@@ -17,7 +17,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Frame, FrameHeader, FramePanel } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { fetchResumePoolItem } from "@/lib/client/api";
@@ -63,11 +62,15 @@ const RESUME_POOL_DETAIL_STRUCTURED_SKELETON_SECTIONS = [
   { bodyClassName: "h-16 w-full max-w-3xl", id: "strengths" },
 ] as const;
 
-const RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_PANELS = [
-  "radar",
-  "skills-and-experience",
-  "projects-and-education",
-  "potential-and-stability",
+const RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_COLUMNS = ["matching", "risks"] as const;
+
+const RESUME_POOL_DETAIL_DIMENSION_SKELETON_ROWS = [
+  "skill-match",
+  "experience-relevance",
+  "project-match",
+  "education-background",
+  "potential",
+  "stability",
 ] as const;
 
 function ResumePoolDetailHeaderOverride({ onBack }: { onBack: () => void }) {
@@ -119,47 +122,45 @@ export function ResumePoolDetailPageSkeleton() {
       </header>
       <div className="flex flex-col gap-8">
         <div
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-10"
           data-resume-pool-detail-skeleton="qualitative-evaluation"
         >
-          <Frame>
-            <FrameHeader>
-              <Skeleton className="h-4 w-16" />
-            </FrameHeader>
-            <FramePanel className="flex flex-col gap-4">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-5 w-full max-w-2xl" />
+          <div className="flex flex-col gap-5">
+            <Skeleton className="h-4 w-16" />
+            <div className="flex max-w-4xl flex-col gap-4">
+              <Skeleton className="h-7 w-24 rounded-md" />
+              <Skeleton className="h-7 w-full max-w-2xl" />
               <Skeleton className="h-4 w-full max-w-3xl" />
               <Skeleton className="h-4 w-4/5 max-w-2xl" />
-            </FramePanel>
-          </Frame>
-          <Frame>
-            <FrameHeader>
-              <Skeleton className="h-4 w-16" />
-            </FrameHeader>
-            <div className="grid gap-1 lg:grid-cols-2">
-              {RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_PANELS.map((panel) => (
-                <FramePanel className="flex min-h-36 flex-col gap-3" key={panel}>
+            </div>
+          </div>
+          <div className="grid gap-x-12 gap-y-10 border-border/50 border-t pt-8 lg:grid-cols-2">
+            {RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_COLUMNS.map((column) => (
+              <div className="flex flex-col gap-3" key={column}>
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1 border-border/50 border-t pt-8">
+            <Skeleton className="h-3 w-16" />
+            <div className="flex flex-col">
+              {RESUME_POOL_DETAIL_DIMENSION_SKELETON_ROWS.map((row) => (
+                <div
+                  className="flex items-center gap-4 border-border/50 border-b py-4 last:border-b-0"
+                  key={row}
+                >
                   <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-4/5" />
-                </FramePanel>
+                  <Skeleton className="h-2 w-24 max-sm:hidden" />
+                  <Skeleton className="h-4 flex-1" />
+                </div>
               ))}
             </div>
-          </Frame>
+          </div>
         </div>
 
         <section className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Skeleton className="h-5 w-20" />
-              <Skeleton className="h-6 w-14 rounded-sm" />
-              <Skeleton className="h-6 w-24 rounded-sm" />
-            </div>
-            <Skeleton className="h-4 w-full max-w-3xl" />
-            <Skeleton className="h-4 w-4/5 max-w-2xl" />
-          </div>
-
           <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
             {RESUME_POOL_DETAIL_SKELETON_FIELDS.map((field) => (
               <div data-resume-pool-detail-skeleton="summary-item" key={field}>
@@ -327,6 +328,7 @@ export function ResumePoolDetailPage({
                 canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
               }
               resumeProfile={detail.resumeProfile}
+              showCandidateSummary={false}
               slug={slug}
             />
             <ResumePoolStructuredInfoPanel

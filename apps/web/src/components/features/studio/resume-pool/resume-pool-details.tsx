@@ -101,25 +101,17 @@ export function useRecordOwnedOpenState(recordId: string) {
   ] as const;
 }
 
-export function ResumePoolDetailSummaryPanel({
+function ResumePoolCandidateSummary({
   detail,
   isError,
   isLoading,
   onOpenDuplicateMatches,
-  onRequestRecommendations,
-  resumeProfile,
-  slug,
 }: {
   detail: ResumePoolDetailLike;
   isError: boolean;
   isLoading: boolean;
   onOpenDuplicateMatches?: () => void;
-  onRequestRecommendations?: () => void;
-  resumeProfile: ResumePoolProfile;
-  slug: string;
 }) {
-  const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
-  const strengths = resumeProfile?.personalStrengths.slice(0, 3) ?? [];
   const note = detail.notes?.trim();
   const qualitativeSummary = detail.qualitativeResumeSummary?.trim();
   let summaryContent: ReactNode = (
@@ -139,24 +131,58 @@ export function ResumePoolDetailSummaryPanel({
   }
 
   return (
-    <section className="space-y-6 rounded-2xl">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-sm">候选人摘要</h3>
-            {resumeParseStatusBadge(detail)}
-            {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
-            {resumeRecruitingStatusBadge(detail)}
-          </div>
-          {summaryContent}
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-medium text-sm">候选人摘要</h3>
+          {resumeParseStatusBadge(detail)}
+          {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
+          {resumeRecruitingStatusBadge(detail)}
         </div>
-        {isLoading ? (
-          <span className="inline-flex shrink-0 items-center gap-2 text-muted-foreground text-xs">
-            <IconLoader2 className="size-3.5 animate-spin" />
-            正在加载完整详情
-          </span>
-        ) : null}
+        {summaryContent}
       </div>
+      {isLoading ? (
+        <span className="inline-flex shrink-0 items-center gap-2 text-muted-foreground text-xs">
+          <IconLoader2 className="size-3.5 animate-spin" />
+          正在加载完整详情
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export function ResumePoolDetailSummaryPanel({
+  detail,
+  isError,
+  isLoading,
+  onOpenDuplicateMatches,
+  onRequestRecommendations,
+  resumeProfile,
+  showCandidateSummary = true,
+  slug,
+}: {
+  detail: ResumePoolDetailLike;
+  isError: boolean;
+  isLoading: boolean;
+  onOpenDuplicateMatches?: () => void;
+  onRequestRecommendations?: () => void;
+  resumeProfile: ResumePoolProfile;
+  /** 详情页已在上方展示完整 AI 评价，不再重复候选人摘要。 */
+  showCandidateSummary?: boolean;
+  slug: string;
+}) {
+  const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
+  const strengths = resumeProfile?.personalStrengths.slice(0, 3) ?? [];
+  return (
+    <section className="space-y-6 rounded-2xl">
+      {showCandidateSummary ? (
+        <ResumePoolCandidateSummary
+          detail={detail}
+          isError={isError}
+          isLoading={isLoading}
+          onOpenDuplicateMatches={onOpenDuplicateMatches}
+        />
+      ) : null}
 
       <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
@@ -272,10 +298,7 @@ export function ResumePoolQualitativeEvaluationPanel({ detail }: { detail: Resum
   }
   return (
     <section data-resume-pool-qualitative-evaluation>
-      <QualitativeEvaluationDetails
-        collapsibleDimensions
-        evaluation={detail.qualitativeResumeEvaluation}
-      />
+      <QualitativeEvaluationDetails evaluation={detail.qualitativeResumeEvaluation} />
     </section>
   );
 }

@@ -25,11 +25,9 @@ import type { ReactNode } from "react";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { QualitativeEvaluationPointsView } from "@/components/features/resume/qualitative-evaluation-points";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
-import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
@@ -77,12 +75,6 @@ export const QUALITATIVE_DIMENSION_ENTRIES = [
   ["educationBackground", "教育与背景"],
   ["potential", "潜力"],
   ["stability", "稳定性"],
-] as const;
-
-const DIMENSION_GROUP_DESKTOP_CORNER_CLASSES = [
-  "lg:rounded-[2px] lg:rounded-tr-xl",
-  "lg:rounded-[2px] lg:rounded-bl-xl",
-  "lg:rounded-[2px] lg:rounded-br-xl",
 ] as const;
 
 export const QUALITATIVE_BASIS_DESCRIPTIONS = {
@@ -182,193 +174,225 @@ export function QualitativeDimensionRadar({
 
 type QualitativeDimensionEntry = (typeof QUALITATIVE_DIMENSION_ENTRIES)[number];
 
-function QualitativeDimensionGroup({
-  className,
-  entries,
-  evaluation,
-}: {
-  className?: string;
-  entries: readonly QualitativeDimensionEntry[];
-  evaluation: QualitativeResumeEvaluation;
-}) {
-  return (
-    <FramePanel
-      className={cn("flex flex-col gap-4", className)}
-      data-qualitative-dimension-group={entries.map(([key]) => key).join(",")}
-    >
-      {entries.map(([key, label], index) => {
-        const dimension = evaluation.dimensions[key];
-        return (
-          <div className={cn(index > 0 && "border-border/50 border-t pt-4")} key={key}>
-            <div
-              className="flex items-start justify-between gap-3"
-              data-qualitative-dimension-header={key}
-            >
-              <div className="font-medium text-sm">{label}</div>
-              {"level" in dimension ? (
-                <QualitativeRecommendationIndicator className="shrink-0" level={dimension.level} />
-              ) : null}
-            </div>
-            <RestrictedMarkdownView
-              className="mt-3 text-sm leading-6"
-              content={dimension.evaluation}
-            />
-            <p
-              className="mt-2 text-muted-foreground text-xs leading-5"
-              data-qualitative-dimension-basis={dimension.basis}
-            >
-              {QUALITATIVE_BASIS_DESCRIPTIONS[dimension.basis]}
-            </p>
-          </div>
-        );
-      })}
-    </FramePanel>
-  );
+const LEVEL_SURFACE_CLASS = {
+  highly_recommended: "bg-purple-500/10 dark:bg-purple-400/12",
+  not_recommended: "bg-red-500/10 dark:bg-red-400/12",
+  recommended: "bg-green-500/10 dark:bg-green-400/12",
+  undecided: "bg-yellow-500/12 dark:bg-yellow-400/12",
+} as const satisfies Record<QualitativeRecommendationLevel, string>;
+
+const LEVEL_METER_FILL_CLASS = {
+  highly_recommended: "bg-purple-500 dark:bg-purple-400",
+  not_recommended: "bg-red-500 dark:bg-red-400",
+  recommended: "bg-green-500 dark:bg-green-400",
+  undecided: "bg-yellow-500 dark:bg-yellow-400",
+} as const satisfies Record<QualitativeRecommendationLevel, string>;
+
+const LEVEL_METER_SEGMENTS = [1, 2, 3, 4] as const;
+const MARKDOWN_DECORATION_PATTERN = /[*_`#>]+|^\s*(?:[-+]|\d+\.)\s+/gm;
+const WHITESPACE_PATTERN = /\s+/g;
+
+/** 一览行只展示纯文本摘要；完整评价展开后仍走受限 Markdown。 */
+function toPlainSummary(markdown: string) {
+  return markdown.replace(MARKDOWN_DECORATION_PATTERN, "").replace(WHITESPACE_PATTERN, " ").trim();
 }
 
-const QUALITATIVE_DIMENSION_GROUPS = [
-  QUALITATIVE_DIMENSION_ENTRIES.slice(0, 2),
-  QUALITATIVE_DIMENSION_ENTRIES.slice(2, 4),
-  QUALITATIVE_DIMENSION_ENTRIES.slice(4, 6),
-] as const;
-
-function QualitativeDimensionsGrid({ evaluation }: { evaluation: QualitativeResumeEvaluation }) {
+function QualitativeLevelMeter({ level }: { level: QualitativeRecommendationLevel }) {
+  const filled = LEVEL_RADAR_VALUE[level];
   return (
-    <div className="grid gap-1 lg:grid-cols-2">
-      <FramePanel
-        className="flex min-w-0 items-center justify-center lg:rounded-[2px] lg:rounded-tl-xl"
-        data-qualitative-radar-panel
-      >
-        <QualitativeDimensionRadar evaluation={evaluation} />
-      </FramePanel>
-      {QUALITATIVE_DIMENSION_GROUPS.map((entries, index) => (
-        <QualitativeDimensionGroup
-          className={DIMENSION_GROUP_DESKTOP_CORNER_CLASSES[index]}
-          entries={entries}
-          evaluation={evaluation}
-          key={entries.map(([key]) => key).join("-")}
+    <span aria-hidden="true" className="flex items-center gap-0.5">
+      {LEVEL_METER_SEGMENTS.map((segment) => (
+        <span
+          className={cn(
+            "h-1.5 w-4 rounded-full",
+            segment <= filled ? LEVEL_METER_FILL_CLASS[level] : "bg-muted-foreground/15",
+          )}
+          key={segment}
         />
       ))}
-    </div>
+    </span>
   );
 }
 
-function CollapsibleQualitativeDimensions({
+function QualitativeDimensionRow({
+  entry: [key, label],
   evaluation,
 }: {
+  entry: QualitativeDimensionEntry;
   evaluation: QualitativeResumeEvaluation;
 }) {
   const [open, setOpen] = useState(false);
+  const dimension = evaluation.dimensions[key];
+  const level = "level" in dimension ? dimension.level : null;
   return (
-    <Collapsible onOpenChange={setOpen} open={open}>
-      <Frame>
-        <FrameHeader className="justify-between gap-3">
-          <FrameTitle>六维评价</FrameTitle>
-          <CollapsibleTrigger
-            render={<Button className="-my-1" size="xs" type="button" variant="ghost" />}
+    <Collapsible
+      className="border-border/50 border-b last:border-b-0"
+      data-qualitative-dimension-item={key}
+      onOpenChange={setOpen}
+      open={open}
+    >
+      <CollapsibleTrigger
+        aria-label={`${label}${level ? `：${LEVEL_META[level].label}` : ""}，${open ? "收起" : "展开"}详细评价`}
+        className="group/dimension grid w-full grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-x-4 rounded-md py-3.5 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:grid-cols-[6.5rem_9.5rem_minmax(0,1fr)_auto]"
+        data-qualitative-dimension-header={key}
+      >
+        <span className="font-medium text-sm">{label}</span>
+        <span className="flex items-center gap-2 max-sm:hidden">
+          {level ? (
+            <>
+              <QualitativeLevelMeter level={level} />
+              <span className={cn("text-xs", LEVEL_META[level].className)}>
+                {LEVEL_META[level].label}
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          )}
+        </span>
+        <span className="truncate text-muted-foreground text-sm">
+          {toPlainSummary(dimension.evaluation)}
+        </span>
+        <IconChevronDown
+          aria-hidden="true"
+          className={cn(
+            "size-4 text-muted-foreground/60 transition-transform duration-[var(--duration-fast)] group-hover/dimension:text-foreground motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="flex flex-col gap-2 pb-5 sm:pl-[calc(6.5rem+1rem)]">
+          {level ? (
+            <QualitativeRecommendationIndicator className="sm:hidden" level={level} />
+          ) : null}
+          <RestrictedMarkdownView className="text-sm leading-7" content={dimension.evaluation} />
+          <p
+            className="text-muted-foreground/70 text-xs leading-5"
+            data-qualitative-dimension-basis={dimension.basis}
           >
-            {open ? "收起" : "展开"}
-            <IconChevronDown
-              className={cn(
-                "transition-transform duration-[var(--duration-fast)] motion-reduce:transition-none",
-                open && "rotate-180",
-              )}
-              data-icon="inline-end"
-            />
-          </CollapsibleTrigger>
-        </FrameHeader>
-        <CollapsibleContent>
-          <QualitativeDimensionsGrid evaluation={evaluation} />
-        </CollapsibleContent>
-      </Frame>
+            {QUALITATIVE_BASIS_DESCRIPTIONS[dimension.basis]}
+          </p>
+        </div>
+      </CollapsibleContent>
     </Collapsible>
   );
 }
 
+const SECTION_TITLE_CLASS = "font-medium text-sm";
+const SUBSECTION_LABEL_CLASS = "mb-4 text-muted-foreground text-xs";
+
+function QualitativeDimensionsSection({ evaluation }: { evaluation: QualitativeResumeEvaluation }) {
+  return (
+    <section className="border-border/50 border-t pt-8">
+      <h3 className={SUBSECTION_LABEL_CLASS}>六维评价</h3>
+      {hasDimensionLevels(evaluation) ? null : (
+        <p className="mb-2 text-muted-foreground/70 text-xs">
+          此结果生成于六维评级引入前，重新评价后可查看六维评级。
+        </p>
+      )}
+      <div className="-mt-3 flex flex-col">
+        {QUALITATIVE_DIMENSION_ENTRIES.map((entry) => (
+          <QualitativeDimensionRow entry={entry} evaluation={evaluation} key={entry[0]} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function QualitativeEvaluationDetails({
-  collapsibleDimensions = false,
   evaluation,
   summaryAction,
 }: {
-  /** 六维评价默认收起，点击后展开。 */
-  collapsibleDimensions?: boolean;
   evaluation: QualitativeResumeEvaluation;
   summaryAction?: ReactNode;
 }) {
+  const levelMeta = LEVEL_META[evaluation.recommendationLevel];
+  const LevelIcon = levelMeta.icon;
+  const appendixItems = [
+    evaluation.seniorityRecommendation
+      ? {
+          label: "职级建议",
+          rationale: evaluation.seniorityRecommendation.rationale,
+          value: evaluation.seniorityRecommendation.level,
+        }
+      : null,
+    evaluation.teamPositioning
+      ? {
+          label: "团队定位",
+          rationale: evaluation.teamPositioning.rationale,
+          value: evaluation.teamPositioning.suggestion,
+        }
+      : null,
+  ].filter((item) => item !== null);
+
   return (
-    <div className="flex flex-col gap-6">
-      <Frame>
-        <FrameHeader className="justify-between gap-3">
-          <FrameTitle>综合评价</FrameTitle>
+    <div className="flex flex-col gap-10">
+      <section className="flex flex-col gap-5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className={SECTION_TITLE_CLASS}>综合评价</h3>
           {summaryAction}
-        </FrameHeader>
-        <FramePanel>
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-muted-foreground text-xs">推荐建议</span>
-              <QualitativeRecommendationIndicator level={evaluation.recommendationLevel} />
-            </div>
-            <h3 className="font-semibold text-base leading-7">{evaluation.conciseOverall}</h3>
-            <div className="text-sm leading-6" data-qualitative-overall-judgment>
-              <div className="mb-1 font-medium">判断</div>
-              <RestrictedMarkdownView content={evaluation.detailedOverall.judgment} />
-            </div>
-            <div className="flex flex-col gap-6" data-qualitative-overall-supporting>
-              <div className="text-sm leading-6">
-                <div className="mb-3 font-medium">匹配依据</div>
-                <QualitativeEvaluationPointsView
-                  kind="matching"
-                  section={evaluation.detailedOverall.matchingEvidence}
-                />
-              </div>
-              <div className="text-sm leading-6">
-                <div className="mb-3 font-medium">风险与待确认项</div>
-                <QualitativeEvaluationPointsView
-                  kind="risk"
-                  section={evaluation.detailedOverall.risks}
-                />
-              </div>
-            </div>
-          </div>
-        </FramePanel>
-      </Frame>
-
-      {collapsibleDimensions ? (
-        <CollapsibleQualitativeDimensions evaluation={evaluation} />
-      ) : (
-        <Frame>
-          <FrameHeader className="justify-between gap-3">
-            <FrameTitle>六维评价</FrameTitle>
-          </FrameHeader>
-          <QualitativeDimensionsGrid evaluation={evaluation} />
-        </Frame>
-      )}
-
-      {evaluation.seniorityRecommendation || evaluation.teamPositioning ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {evaluation.seniorityRecommendation ? (
-            <Frame>
-              <FrameHeader>
-                <FrameTitle>职级建议</FrameTitle>
-              </FrameHeader>
-              <FramePanel className="flex flex-1 flex-col gap-2 text-sm leading-6">
-                <p className="font-medium">{evaluation.seniorityRecommendation.level}</p>
-                <RestrictedMarkdownView content={evaluation.seniorityRecommendation.rationale} />
-              </FramePanel>
-            </Frame>
-          ) : null}
-          {evaluation.teamPositioning ? (
-            <Frame>
-              <FrameHeader>
-                <FrameTitle>团队定位</FrameTitle>
-              </FrameHeader>
-              <FramePanel className="flex flex-1 flex-col gap-2 text-sm leading-6">
-                <p className="font-medium">{evaluation.teamPositioning.suggestion}</p>
-                <RestrictedMarkdownView content={evaluation.teamPositioning.rationale} />
-              </FramePanel>
-            </Frame>
-          ) : null}
         </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <span
+            className={cn(
+              "inline-flex w-fit items-center gap-1.5 rounded-md px-2.5 py-1 font-medium text-sm",
+              levelMeta.className,
+              LEVEL_SURFACE_CLASS[evaluation.recommendationLevel],
+            )}
+            data-qualitative-recommendation={evaluation.recommendationLevel}
+          >
+            <LevelIcon aria-hidden="true" className="size-4" />
+            {levelMeta.label}
+          </span>
+          <p className="font-semibold text-xl leading-9 tracking-tight">
+            {evaluation.conciseOverall}
+          </p>
+          <div
+            className="text-muted-foreground text-sm leading-7"
+            data-qualitative-overall-judgment
+          >
+            <RestrictedMarkdownView content={evaluation.detailedOverall.judgment} />
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="grid gap-x-12 gap-y-10 border-border/50 border-t pt-8 text-sm leading-6 lg:grid-cols-2"
+        data-qualitative-overall-supporting
+      >
+        <div className="min-w-0">
+          <h3 className={SUBSECTION_LABEL_CLASS}>匹配依据</h3>
+          <QualitativeEvaluationPointsView
+            kind="matching"
+            section={evaluation.detailedOverall.matchingEvidence}
+          />
+        </div>
+        <div className="min-w-0 lg:border-border/50 lg:border-l lg:pl-8">
+          <h3 className={SUBSECTION_LABEL_CLASS}>风险与待确认项</h3>
+          <QualitativeEvaluationPointsView kind="risk" section={evaluation.detailedOverall.risks} />
+        </div>
+      </section>
+
+      <QualitativeDimensionsSection evaluation={evaluation} />
+
+      {appendixItems.length > 0 ? (
+        <dl className="flex flex-col gap-5 border-border/50 border-t pt-8 text-sm leading-6">
+          {appendixItems.map((item) => (
+            <div
+              className="grid gap-1 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:gap-x-4"
+              key={item.label}
+            >
+              <dt className="text-muted-foreground text-xs leading-6">{item.label}</dt>
+              <dd className="flex min-w-0 flex-col gap-1">
+                <span className="font-medium">{item.value}</span>
+                <RestrictedMarkdownView
+                  className="text-muted-foreground"
+                  content={item.rationale}
+                />
+              </dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
     </div>
   );

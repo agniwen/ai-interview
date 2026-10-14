@@ -700,7 +700,7 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("<li>核心能力匹配岗位</li>");
   });
 
-  it("prefers the qualitative recommendation and keeps six dimensions collapsed", () => {
+  it("prefers the qualitative recommendation and lists six collapsed dimensions", () => {
     const summary = renderToStaticMarkup(
       <ResumePoolDetailSummaryPanel
         detail={{
@@ -732,8 +732,8 @@ describe("ResumePoolCard", () => {
     expect(summary).toContain('data-qualitative-recommendation="recommended"');
     expect(summary).toContain(qualitativeEvaluation.conciseOverall);
     expect(summary).not.toContain("旧六维数字评分");
-    expect(details).toContain('aria-expanded="false"');
-    expect(details).not.toContain("data-qualitative-dimension-header");
+    expect(details.match(/data-qualitative-dimension-header/g)).toHaveLength(6);
+    expect(details).not.toContain("data-qualitative-dimension-basis");
   });
 
   it("keeps the evaluation unseparated and adds one separator above structured details", () => {

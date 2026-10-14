@@ -66,12 +66,12 @@ export function QualitativeEvaluationPointsView({
           <div className="min-w-0 wrap-break-word">
             <p className="text-foreground">{item.content}</p>
             <dl className="mt-1.5 grid gap-0.5 text-muted-foreground text-xs leading-5">
-              <div className="flex min-w-0 gap-2">
-                <dt className="shrink-0 text-muted-foreground/70">岗位要求</dt>
+              <div className="flex min-w-0">
+                <dt className="shrink-0 text-muted-foreground/70">岗位要求：</dt>
                 <dd className="min-w-0">{item.jobRequirement}</dd>
               </div>
-              <div className="flex min-w-0 gap-2">
-                <dt className="shrink-0 text-muted-foreground/70">简历证据</dt>
+              <div className="flex min-w-0">
+                <dt className="shrink-0 text-muted-foreground/70">简历证据：</dt>
                 <dd className="min-w-0">{item.resumeEvidence ?? "简历未提及"}</dd>
               </div>
             </dl>
