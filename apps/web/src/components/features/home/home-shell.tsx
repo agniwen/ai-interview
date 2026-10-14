@@ -9,7 +9,6 @@ import { Faq } from "./faq";
 import { FeatureBlocks } from "./feature-blocks";
 import { HomeFooter } from "./footer";
 import { Hero } from "./hero";
-import { Personas } from "./personas";
 import { PageGrain } from "./page-grain";
 import { ProcessTabs } from "./process-tabs";
 import { ProductShot } from "./product-shot";
@@ -58,7 +57,6 @@ export default function HomeShell() {
               Capability band sits on the tinted canvas so lighter cards read as a layer. */}
           <div className="relative isolate overflow-hidden bg-home-canvas">
             <CapabilityGrid />
-            <Personas />
           </div>
           <DecisionPrinciples />
           <ProcessTabs />

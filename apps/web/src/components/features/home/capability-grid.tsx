@@ -1,12 +1,15 @@
 "use client";
 
 import {
+  IconBriefcase,
   IconClipboardList,
   IconGauge,
   IconMessage2,
+  IconMicrophone,
   IconRadio,
   IconShieldCheck,
   IconSparkles,
+  IconUsers,
 } from "@tabler/icons-react";
 // 用途：Bento 风格的能力分区，主特性卡 + 宽窄不一的 tile，承载招聘场景的核心能力
 // Purpose: Bento-style capability section — featured tile + varied-size tiles for headline capabilities.
@@ -320,6 +323,68 @@ function getTiles(): BentoConfig[] {
   ];
 }
 
+interface PersonaConfig {
+  Icon: ComponentType<SVGProps<SVGSVGElement>>;
+  description: string;
+  role: string;
+  title: string;
+}
+
+function getPersonas(): PersonaConfig[] {
+  return [
+    {
+      Icon: IconBriefcase,
+      description: messages.home_persona_hr_description(),
+      role: messages.home_persona_hr_role(),
+      title: messages.home_persona_hr_title(),
+    },
+    {
+      Icon: IconUsers,
+      description: messages.home_persona_manager_description(),
+      role: messages.home_persona_manager_role(),
+      title: messages.home_persona_manager_title(),
+    },
+    {
+      Icon: IconMicrophone,
+      description: messages.home_persona_candidate_description(),
+      role: messages.home_persona_candidate_role(),
+      title: messages.home_persona_candidate_title(),
+    },
+  ];
+}
+
+function PersonaTile({ Icon, description, role, title }: PersonaConfig) {
+  return (
+    <article className="flex h-full flex-col rounded-[12px] border border-border/70 bg-home-card p-6 sm:p-8">
+      <div className="flex items-center gap-2.5">
+        <Icon aria-hidden="true" className="size-6 text-primary" strokeWidth={1.25} />
+        <p className="text-muted-foreground text-sm">{role}</p>
+      </div>
+      <h3 className="mt-8 text-balance font-medium text-foreground text-2xl leading-tight tracking-[-0.035em]">
+        {title}
+      </h3>
+      <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
+        {description}
+      </p>
+    </article>
+  );
+}
+
+// 角色卡作为 Bento 的收尾一行：三等分占满整宽，移动端在轮播下方纵向排列。
+// Persona tiles close the bento as a full-width row of three; stacked below the carousel on mobile.
+function PersonaRow() {
+  const personas = getPersonas();
+  return (
+    <div className="mt-6 grid gap-4 md:grid-cols-3 lg:mt-4">
+      {personas.map((persona, index) => (
+        <FadeContent className="h-full" delay={0.05 * (index + 6)} key={persona.role}>
+          <PersonaTile {...persona} />
+        </FadeContent>
+      ))}
+    </div>
+  );
+}
+
 // PC（lg+）：原 Bento 网格 / Desktop bento grid
 function CapabilityBento() {
   const tiles = getTiles();
@@ -360,6 +425,7 @@ export function CapabilityGrid() {
 
       <CapabilityBento />
       <CapabilityCarousel />
+      <PersonaRow />
     </Section>
   );
 }
