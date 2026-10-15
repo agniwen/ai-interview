@@ -7,10 +7,12 @@ import type {
   CreateAttachmentInput,
 } from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
 import type { ParsedResumeProfileResult } from "@app/resume-processing/ingest/agents/resume-analysis-agent";
+import type { EnsureCandidateAvatarInput } from "@app/resume-processing/ingest/support/candidate-avatar";
 
 export interface ResumeUploadStorageDependencies {
   buildAttachmentKeyByHash: (contentHash: string, extension: string) => Promise<string>;
   createAttachment: (input: CreateAttachmentInput) => Promise<void>;
+  ensureCandidateAvatar: (input: EnsureCandidateAvatarInput) => Promise<void>;
   findAttachmentByContentHash: (hash: string) => Promise<ChatAttachmentRow | null>;
   generateResumeStructured: (
     text: string,
@@ -144,6 +146,17 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
         dependencies.isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
           ? cachedAttachment
           : null;
+
+      if (existing) {
+        // 复用注册表解析结果会跳过 OCR，头像识别在这里补做。
+        // Reusing a registry parse skips OCR, so backfill the candidate headshot here.
+        await dependencies.ensureCandidateAvatar({
+          contentHash,
+          fileName: file.name,
+          loadBytes: () => Promise.resolve(bytes),
+          mediaType: file.type,
+        });
+      }
 
       const structuredCache = getStructuredCacheForFile(existing, file.name);
       if (structuredCache) {

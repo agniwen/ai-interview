@@ -2,6 +2,7 @@ import {
   generateStructuredWithMastraAgent,
   resumeStructuredAgent,
 } from "@app/ai-runtime/simple-generators";
+import { extractCandidateAvatar } from "./candidate-avatar/extract-candidate-avatar";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import { extractPdfTextPages, processPdfPagesWithMeta } from "./pdf-rasterize";
 import { parseResumeWithAliyun } from "./resume-parse-aliyun";
@@ -10,6 +11,7 @@ import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
 export interface ResumeParsePipelineDependencies {
   convertLegacyOfficeToOoxml: typeof convertLegacyOfficeToOoxml;
+  extractCandidateAvatar: typeof extractCandidateAvatar;
   extractPdfTextPages: typeof extractPdfTextPages;
   generateStructuredWithMastraAgent: typeof generateStructuredWithMastraAgent;
   getResumeParseProvider: typeof getResumeParseProvider;
@@ -22,6 +24,7 @@ export interface ResumeParsePipelineDependencies {
 
 export const defaultResumeParsePipelineDependencies: ResumeParsePipelineDependencies = {
   convertLegacyOfficeToOoxml,
+  extractCandidateAvatar,
   extractPdfTextPages,
   generateStructuredWithMastraAgent,
   getResumeParseProvider,

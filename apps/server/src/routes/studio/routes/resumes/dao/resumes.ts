@@ -66,6 +66,7 @@ import {
 import { qualitativeResumeFocusSql } from "@app/resume-processing/review/resumes/dao/qualitative-resume-focus";
 import { buildResumeProfileSnapshot } from "@app/resume-processing/review/resumes/dao/resume-profile-snapshot";
 import { loadLatestFeishuDocumentUrls } from "../../interviews/dao/feishu-document-urls";
+import { loadCandidateAvatarVersions } from "@app/resume-processing/review/support/candidate-avatars-dao";
 
 function parseResumeReviewBaseScore(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value.trim() === "") {
@@ -623,6 +624,7 @@ const LIST_SELECTED_COLUMNS = {
   qualitativeRecommendationLevel: SELECTED_COLUMNS.qualitativeRecommendationLevel,
   qualitativeResumeFocus: SELECTED_COLUMNS.qualitativeResumeFocus,
   qualitativeResumeSummary: SELECTED_COLUMNS.qualitativeResumeSummary,
+  resumeContentHash: SELECTED_COLUMNS.resumeContentHash,
   resumeEducationExperiences: SELECTED_COLUMNS.resumeEducationExperiences,
   resumeEducationGraduationYear: SELECTED_COLUMNS.resumeEducationGraduationYear,
   resumeEducationLevel: SELECTED_COLUMNS.resumeEducationLevel,
@@ -748,6 +750,7 @@ function selectRows({
 // 但 row.stageProgress 可能是 null —— 兜一手让下游永远拿到完整 shape）。
 // Default fallback when the aggregation row returns null altogether.
 interface ResumeDerivedFields {
+  candidateAvatarVersion: string | null;
   feishuDocumentUrl: string | null;
   hasInterviewRounds: boolean;
   lastInterviewAt: string | null;
@@ -755,6 +758,7 @@ interface ResumeDerivedFields {
 }
 
 const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
+  candidateAvatarVersion: null,
   feishuDocumentUrl: null,
   hasInterviewRounds: false,
   lastInterviewAt: null,
@@ -764,13 +768,15 @@ const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
 // 在共享阶段进度之上补充文档链接，组装招聘台列表/详情需要的完整派生字段。
 // Composes document links on top of the shared stage-progress bundle.
 async function loadResumeDerivedFields(
-  candidateIds: string[],
+  records: { id: string; resumeContentHash: string | null }[],
   organizationId: string,
 ): Promise<Map<string, ResumeDerivedFields>> {
-  const ids = uniq(candidateIds.filter(Boolean));
-  const [stageProgressById, documentUrls] = await Promise.all([
+  const ids = uniq(records.map((record) => record.id).filter(Boolean));
+  const contentHashById = new Map(records.map((record) => [record.id, record.resumeContentHash]));
+  const [stageProgressById, documentUrls, avatarVersions] = await Promise.all([
     loadResumeStageProgress(ids),
     loadLatestFeishuDocumentUrls({ ids, key: "interviewRecordId", organizationId }),
+    loadCandidateAvatarVersions([...contentHashById.values()]),
   ]);
   const result = new Map<string, ResumeDerivedFields>();
   for (const id of ids) {
@@ -779,6 +785,7 @@ async function loadResumeDerivedFields(
       stageProgress: { ...EMPTY_STAGE_PROGRESS },
     };
     result.set(id, {
+      candidateAvatarVersion: avatarVersions.get(contentHashById.get(id) ?? "") ?? null,
       feishuDocumentUrl: documentUrls.get(id) ?? null,
       hasInterviewRounds: bundle.stageProgress.aiInterview !== null,
       lastInterviewAt: bundle.lastInterviewAt,
@@ -841,6 +848,7 @@ function toRecord(
 ): ResumeLibraryListRecord {
   const resolvedDerived = derived ?? EMPTY_DERIVED_FIELDS;
   return {
+    candidateAvatarVersion: resolvedDerived.candidateAvatarVersion,
     candidateEmail: row.candidateEmail,
     candidateName: row.candidateName,
     candidatePhone: row.candidatePhone,
@@ -982,7 +990,7 @@ export async function queryPaginatedResumeRecords(
 
   const recordIds = rows.map((row) => row.id);
   const [derivedFields, duplicateMatches] = await Promise.all([
-    loadResumeDerivedFields(recordIds, organizationId),
+    loadResumeDerivedFields(rows, organizationId),
     listActiveStudioDuplicateMatchSummaries({
       organizationId,
       sourceIds: recordIds,
@@ -1097,7 +1105,7 @@ export async function loadResumeDetail(
     rest.qualitativeResumeEvaluation,
   );
   const [derivedFields, duplicateMatches, states] = await Promise.all([
-    loadResumeDerivedFields([rest.id], organizationId),
+    loadResumeDerivedFields([rest], organizationId),
     listActiveStudioDuplicateMatchSummaries({
       organizationId,
       sourceIds: [rest.id],
@@ -1163,6 +1171,26 @@ export async function loadResumeDetail(
     writtenTestScheduledAt: serializeDate(rest.writtenTestScheduledAt),
     writtenTestScore: rest.writtenTestScore,
   };
+}
+
+// 头像请求只需要可见性校验后的简历内容哈希，避免为列表里的每张头像加载完整详情。
+// Avatar requests only need the visibility-checked content hash, not the full detail payload.
+export async function loadVisibleResumeContentHash(
+  id: string,
+  organizationId: string,
+  visibilityScope: RecruitingVisibilityScope,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ resumeContentHash: recruitingRecordReadModel.resumeContentHash })
+    .from(recruitingRecordReadModel)
+    .where(
+      and(
+        eq(recruitingRecordReadModel.id, id),
+        buildScopedResumeWhere(organizationId, {}, visibilityScope),
+      ),
+    )
+    .limit(1);
+  return row?.resumeContentHash ?? null;
 }
 
 export function loadResumeDetailForWorkspaceMember(

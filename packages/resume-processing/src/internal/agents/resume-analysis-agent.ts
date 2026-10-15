@@ -7,6 +7,7 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import { normalizeResumeScoringFacts } from "@app/db-schema/resume-scoring-facts";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
+import { ensureCandidateAvatarForFile } from "../runtime/candidate-avatar/ensure-candidate-avatar";
 import { generateResumeStructured } from "../runtime/resume-parse-pipeline";
 import {
   getResumeDocumentExtension,
@@ -528,6 +529,8 @@ export function streamParseResumeProfile(
         cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
           ? cachedAttachment
           : null;
+      // Registry hits skip OCR, so backfill the candidate headshot before reusing them.
+      await (existing && ensureCandidateAvatarForFile(file, bytes, contentHash));
       if (
         existing?.parsedStructured &&
         isResumeStructuredSourceFileNameCompatible(existing.parsedStructured, file.name)

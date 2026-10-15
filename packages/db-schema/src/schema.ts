@@ -3395,6 +3395,22 @@ export const chatAttachment = pgTable(
   ],
 );
 
+// 简历首页候选人头像，按简历文件内容哈希（sha256）记录，人才库与招聘台记录通过各自的 content_hash 关联读取。
+// storage_key 为 NULL 表示最近一次识别未得到可信头像。
+// Candidate headshot cropped from a resume's first page, keyed by the file's sha256 content hash.
+export const resumeCandidateAvatar = pgTable("resume_candidate_avatar", {
+  boxConfidence: doublePrecision("box_confidence").notNull(),
+  contentHash: text("content_hash").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  model: text("model").notNull(),
+  photoProbability: doublePrecision("photo_probability").notNull(),
+  storageKey: text("storage_key"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
 /** @deprecated 已由 recruitingEvent 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewAuditLog = pgTable(
   "interview_audit_log",

@@ -11,6 +11,7 @@ import type { ResumeUploadStorageDependencies } from "../resume-upload-storage";
 const mocks = {
   buildAttachmentKeyByHash: vi.fn<ResumeUploadStorageDependencies["buildAttachmentKeyByHash"]>(),
   createAttachment: vi.fn<ResumeUploadStorageDependencies["createAttachment"]>(),
+  ensureCandidateAvatar: vi.fn<ResumeUploadStorageDependencies["ensureCandidateAvatar"]>(),
   findAttachmentByContentHash:
     vi.fn<ResumeUploadStorageDependencies["findAttachmentByContentHash"]>(),
   generateResumeStructured: vi.fn<ResumeUploadStorageDependencies["generateResumeStructured"]>(),

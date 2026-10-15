@@ -497,6 +497,14 @@ export async function buildInterviewResumeKeyByHash(hash: string): Promise<strin
   return `${prefix}studio-resumes/${hash}.pdf`;
 }
 
+// 基于简历内容哈希命名的候选人头像 S3 key——同一份简历文件只存一张头像。
+// Hash-keyed S3 key for a candidate headshot cropped from a resume file.
+export async function buildCandidateAvatarKeyByHash(hash: string): Promise<string> {
+  const { config } = await getClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  return `${prefix}candidate-avatars/${hash}.jpg`;
+}
+
 export async function putObjectBytes(input: {
   storageKey: string;
   contentType: string;

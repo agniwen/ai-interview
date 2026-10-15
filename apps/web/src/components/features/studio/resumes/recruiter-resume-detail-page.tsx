@@ -21,6 +21,7 @@ import { resolveResumeDetailDefaultTab } from "@/components/features/studio/resu
 import type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
@@ -156,6 +157,7 @@ function RecruiterResumeDetailHeaderText({
   avatarLabel,
   avatarSeed,
   avatarValue,
+  avatarVersion,
   description,
   recordId,
   title,
@@ -163,6 +165,7 @@ function RecruiterResumeDetailHeaderText({
   avatarLabel: string;
   avatarSeed: string;
   avatarValue: string;
+  avatarVersion: string | null;
   description: ReactNode;
   recordId: string;
   title: ReactNode;
@@ -175,6 +178,7 @@ function RecruiterResumeDetailHeaderText({
         label={`${avatarLabel}的头像`}
         seed={avatarSeed}
       >
+        <CandidateAvatarImage recordId={recordId} source="resumes" version={avatarVersion} />
         <AvatarFallback>{avatarValue}</AvatarFallback>
       </Avatar>
       <div className="min-w-0">
@@ -334,6 +338,7 @@ export function RecruiterResumeDetailPage({
                       avatarLabel={avatarIdentity.label}
                       avatarSeed={avatarIdentity.seed}
                       avatarValue={avatarIdentity.value}
+                      avatarVersion={detail?.candidateAvatarVersion ?? null}
                       description={description}
                       recordId={recordId}
                       title={title}

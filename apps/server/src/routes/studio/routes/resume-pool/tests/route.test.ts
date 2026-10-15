@@ -83,6 +83,7 @@ const resumeProfile: ResumeProfile = {
 function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
   // oxlint-disable-next-line sort-keys -- fixture fields follow the DTO's product-facing groups.
   return {
+    candidateAvatarVersion: null,
     candidateEmail: null,
     candidateName: "候选人",
     candidatePhone: null,

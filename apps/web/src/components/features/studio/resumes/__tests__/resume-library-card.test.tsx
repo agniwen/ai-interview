@@ -13,6 +13,7 @@ function renderWithQueryClient(element: ReactElement) {
 }
 
 const record: ResumeLibraryListRecord = {
+  candidateAvatarVersion: null,
   candidateEmail: null,
   candidateName: "测试候选人",
   candidatePhone: null,

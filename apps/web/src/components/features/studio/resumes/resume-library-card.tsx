@@ -8,6 +8,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -532,6 +533,11 @@ function ResumeLibraryCardComponent({
               label={`${record.candidateName}的头像`}
               seed={getCandidateAvatarSeed(record.candidateName)}
             >
+              <CandidateAvatarImage
+                recordId={record.id}
+                source="resumes"
+                version={record.candidateAvatarVersion}
+              />
               <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
             </Avatar>
             <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>

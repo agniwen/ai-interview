@@ -16,7 +16,9 @@ import type {
   ResumePoolSourceChannel,
 } from "@app/shared/resume-pool";
 
-type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
+type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams"> & {
+  candidateAvatarVersion?: string | null;
+};
 type PoolListRow = Omit<PoolRow, "qualitativeResumeEvaluation"> & {
   qualitativeResumeFocus: QualitativeResumeFocus | null;
 };
@@ -159,6 +161,7 @@ export function toResumePoolListRecord(
 ): ResumePoolListRecord {
   const latestImport = importRows[0] ?? null;
   return {
+    candidateAvatarVersion: row.candidateAvatarVersion ?? null,
     candidateEmail: row.candidateEmail,
     candidateName: row.candidateName,
     candidatePhone: row.candidatePhone,

@@ -85,6 +85,22 @@ export default defineConfig(({ mode }) => {
           return null;
         },
       },
+      {
+        // Nitro's dev middleware treats any request whose Sec-Fetch-Dest is an asset type
+        // (e.g. <img src="/api/.../avatar">) as a Vite static asset, so extension-less API
+        // images 404 in development only. API routes are never static assets; let Nitro
+        // route them to the app like any other request. Must be registered before nitro().
+        apply: "serve",
+        configureServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url?.startsWith("/api/")) {
+              delete req.headers["sec-fetch-dest"];
+            }
+            next();
+          });
+        },
+        name: "arc-dev-api-not-static-asset",
+      },
       tailwindcss(),
       tanstackStart({
         router: {

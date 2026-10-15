@@ -41,6 +41,7 @@ import type {
   ResolveResumeUploadStorageInput,
   ResumeUploadStorageResult,
 } from "./resume-upload-storage";
+import { ensureCandidateAvatar } from "@app/resume-processing/ingest/support/candidate-avatar";
 
 export type StudioInterviewRow = RecruitingRecordRead;
 export type StudioInterviewScheduleRow = typeof aiInterviewRound.$inferSelect;
@@ -149,6 +150,7 @@ export function normalizeResumeFile(value: FormDataEntryValue | null) {
 const resumeUploadStorage = createResumeUploadStorage({
   buildAttachmentKeyByHash,
   createAttachment,
+  ensureCandidateAvatar,
   findAttachmentByContentHash,
   generateResumeStructured,
   getResumeDocumentExtension,

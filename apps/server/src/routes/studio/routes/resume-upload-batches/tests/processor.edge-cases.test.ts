@@ -37,6 +37,7 @@ const dependencies = {
     vi.fn<ResumeUploadBatchProcessorDependencies["enqueueResumePoolReviewGenerationBestEffort"]>(),
   enqueueResumeSemanticIndexJobBestEffort:
     vi.fn<ResumeUploadBatchProcessorDependencies["enqueueResumeSemanticIndexJobBestEffort"]>(),
+  ensureCandidateAvatar: vi.fn(() => Promise.resolve()),
   findAttachmentByStorageKey:
     vi.fn<ResumeUploadBatchProcessorDependencies["findAttachmentByStorageKey"]>(),
   generateInterviewQuestionsForProfile:

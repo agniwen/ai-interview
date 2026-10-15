@@ -9,6 +9,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -292,6 +293,11 @@ export function ResumePoolDetailPage({
                 label={`${candidateName}的头像`}
                 seed={candidateName}
               >
+                <CandidateAvatarImage
+                  recordId={detail.id}
+                  source="resume-pool"
+                  version={detail.candidateAvatarVersion}
+                />
                 <AvatarFallback>{avatarValue}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">

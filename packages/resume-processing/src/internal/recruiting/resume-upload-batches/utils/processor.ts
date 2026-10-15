@@ -10,6 +10,7 @@ import {
 import type { ProcessNextResult } from "@app/shared/bulk-resume-upload";
 import { getObjectStream } from "@app/object-storage";
 import { parseResumeBytesToProfile } from "../../../agents/resume-analysis-agent";
+import { ensureCandidateAvatar } from "../../../runtime/candidate-avatar/ensure-candidate-avatar";
 import { isResumeParseCacheEnabled } from "../../../runtime/resume-parse-cache-policy";
 import { isResumeParseCacheSourceCompatible } from "../../../runtime/resume-parse-provider";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
@@ -64,6 +65,7 @@ type BatchRow = typeof recruitingUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 
 export interface ResumeUploadBatchProcessorDependencies extends ParsedResumeEnrichmentDependencies {
+  ensureCandidateAvatar: typeof ensureCandidateAvatar;
   findAttachmentByStorageKey: typeof findAttachmentByStorageKey;
   getObjectStream: typeof getObjectStream;
   parseResumeBytesToProfile: typeof parseResumeBytesToProfile;
@@ -74,6 +76,7 @@ export interface ResumeUploadBatchProcessorDependencies extends ParsedResumeEnri
 export const defaultResumeUploadBatchProcessorDependencies: ResumeUploadBatchProcessorDependencies =
   {
     ...defaultParsedResumeEnrichmentDependencies,
+    ensureCandidateAvatar,
     findAttachmentByStorageKey,
     getObjectStream,
     parseResumeBytesToProfile,
@@ -135,6 +138,16 @@ async function resolveResumeProfile(
         : null;
     if (fromCache) {
       logStep("cache.lookup.hit", { durationMs: elapsed(startedAt), itemId: item.id });
+      // 命中缓存跳过了 OCR，头像识别在这里补做。
+      // The cache hit skipped OCR, so backfill the candidate headshot here.
+      await dependencies.ensureCandidateAvatar({
+        contentHash: item.contentHash,
+        fileName: item.originalFileName,
+        loadBytes: async () => {
+          const object = await dependencies.getObjectStream(item.storageKey);
+          return object ? new Uint8Array(await new Response(object.body).arrayBuffer()) : null;
+        },
+      });
       return { parsed: null, resumeProfile: fromCache, resumeText: cached?.parsedText ?? null };
     }
     logStep("cache.lookup.miss", { durationMs: elapsed(startedAt), itemId: item.id });

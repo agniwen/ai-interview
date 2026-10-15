@@ -32,6 +32,7 @@ afterEach(() => {
 });
 
 const record = {
+  candidateAvatarVersion: null,
   candidateEmail: "candidate@example.com",
   candidateName: "测试候选人",
   candidatePhone: "13800138000",

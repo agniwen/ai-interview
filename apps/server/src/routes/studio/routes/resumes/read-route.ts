@@ -15,6 +15,7 @@ import { getObjectBytes, getObjectStream } from "@app/object-storage";
 
 import { parseCsvParam } from "@app/shared/csv";
 import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import { openCandidateAvatarObject } from "@app/resume-processing/review/support/candidate-avatars-dao";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { resumeEvaluationStatusSubmitSchema } from "@app/shared/studio-resumes";
 
@@ -24,6 +25,7 @@ import { requirePermission } from "../../../../middlewares/permission";
 import {
   loadResumeDetailForWorkspaceMember,
   loadResumeDetail,
+  loadVisibleResumeContentHash,
   queryPaginatedResumeRecords,
   ResumeStructuredScoreQueryError,
 } from "./dao/resumes";
@@ -612,6 +614,35 @@ export const resumeLibraryReadRouter = factory
       return c.json(detail, 201);
     },
   )
+  .get("/:id/avatar", requirePermission("resumeLibrary", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const contentHash = await loadVisibleResumeContentHash(
+      c.req.param("id"),
+      activeOrg.id,
+      visibilityScope,
+    );
+    const object = await openCandidateAvatarObject(contentHash);
+    if (!object) {
+      return c.json({ error: "候选人头像不存在。" }, 404);
+    }
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "private, max-age=86400",
+        "Content-Type": object.contentType ?? "image/jpeg",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
+  })
   .get("/:id/resume", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

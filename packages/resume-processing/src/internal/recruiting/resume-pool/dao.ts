@@ -22,6 +22,7 @@ import {
 import type { SQL } from "drizzle-orm";
 import { omit } from "lodash-es";
 import { db } from "../../runtime/db";
+import { loadCandidateAvatarVersions } from "../candidate-avatars/dao";
 import {
   jobDescription,
   recruitingMailMessage,
@@ -732,18 +733,23 @@ export async function queryResumePoolItems(
     rows.map((row) => row.item.id),
     input.organizationId,
   );
-  const [sourceChannels, duplicateMatches, jobBindingModes] = await Promise.all([
+  const [sourceChannels, duplicateMatches, jobBindingModes, avatarVersions] = await Promise.all([
     loadSourceChannels(rows.map((row) => row.item.id)),
     loadPoolDuplicateMatches({
       organizationId: input.organizationId,
       rows: rows.map((row) => row.item),
     }),
     loadJobBindingModes(rows.map((row) => row.item.id)),
+    loadCandidateAvatarVersions(rows.map((row) => row.item.resumeContentHash)),
   ]);
   return {
     records: rows.map((row) =>
       toResumePoolListRecord(
-        { ...row.item, qualitativeResumeFocus: row.qualitativeResumeFocus },
+        {
+          ...row.item,
+          candidateAvatarVersion: avatarVersions.get(row.item.resumeContentHash ?? "") ?? null,
+          qualitativeResumeFocus: row.qualitativeResumeFocus,
+        },
         imports.get(row.item.id) ?? [],
         uploaderMetaFromRow(row),
         sourceChannels.get(row.item.id) ?? null,
@@ -755,6 +761,17 @@ export async function queryResumePoolItems(
     ),
     total: totalRow?.total ?? 0,
   };
+}
+
+// 头像请求只需要可见性校验后的简历内容哈希，避免为列表里的每张头像加载完整详情。
+// Avatar requests only need the visibility-checked content hash, not the full detail payload.
+export async function loadVisibleResumePoolContentHash(input: {
+  organizationId: string;
+  poolItemId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<string | null> {
+  const row = await loadVisiblePoolItem(input);
+  return row?.resumeContentHash ?? null;
 }
 
 export async function loadResumePoolItem(
@@ -789,12 +806,16 @@ export async function loadResumePoolItem(
     }),
     loadBoundJobDescriptionName(row.jobDescriptionId, input.organizationId),
   ]);
-  const [sourceChannels, jobBindingModes] = await Promise.all([
+  const [sourceChannels, jobBindingModes, avatarVersions] = await Promise.all([
     loadSourceChannels([row.id]),
     loadJobBindingModes([row.id]),
+    loadCandidateAvatarVersions([row.resumeContentHash]),
   ]);
   return toResumePoolDetail(
-    row,
+    {
+      ...row,
+      candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
+    },
     importRows,
     uploaderMeta,
     sourceChannels.get(row.id) ?? null,

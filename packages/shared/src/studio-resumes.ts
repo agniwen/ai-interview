@@ -214,6 +214,9 @@ export interface ResumeLibraryListRecord {
   resumeSkills: string[];
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;
+  // 简历首页候选人头像的缓存版本号；null 表示没有可展示的头像。
+  // Cache version of the candidate headshot from the resume's first page; null when none.
+  candidateAvatarVersion: string | null;
   duplicateMatch: ResumeDuplicateMatchSummary | null;
   feishuDocumentUrl: string | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。

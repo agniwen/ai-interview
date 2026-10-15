@@ -19,6 +19,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { ResumeDocumentPreviewAction } from "@/components/features/resume/resume-document-preview-action";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardPanel } from "@/components/ui/card";
@@ -464,6 +465,11 @@ export function ResumePoolCard({
               label={`${title}的头像`}
               seed={title}
             >
+              <CandidateAvatarImage
+                recordId={record.id}
+                source="resume-pool"
+                version={record.candidateAvatarVersion}
+              />
               <AvatarFallback>{getCandidateInitial(record)}</AvatarFallback>
             </Avatar>
             <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>

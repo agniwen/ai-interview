@@ -32,6 +32,7 @@ const processPdfPagesWithMeta = vi.fn<ProcessPdfPagesWithMeta>() as ReturnType<
 const mocks = {
   convertLegacyOfficeToOoxml:
     vi.fn<ResumeParsePipelineDependencies["convertLegacyOfficeToOoxml"]>(),
+  extractCandidateAvatar: vi.fn<ResumeParsePipelineDependencies["extractCandidateAvatar"]>(),
   extractPdfTextPages: vi.fn(),
   generateStructuredWithMastraAgent,
   getResumeParseProvider: vi.fn<ResumeParsePipelineDependencies["getResumeParseProvider"]>(),
@@ -66,6 +67,7 @@ function resetPipelineMocks() {
     Promise.resolve({ pageCount: pdfPageCount, pages: pdfPages.map(() => "") }),
   );
   mocks.isQwenOcrConfigured.mockReturnValue(true);
+  mocks.extractCandidateAvatar.mockResolvedValue(null);
   mocks.getResumeParseProvider.mockImplementation(() =>
     process.env.RESUME_PARSE_PROVIDER === "aliyun-docmining" ? "aliyun-docmining" : "ocr-llm",
   );

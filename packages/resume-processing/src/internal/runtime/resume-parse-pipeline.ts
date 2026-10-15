@@ -898,17 +898,32 @@ async function parseAliyunResumeDocument(
   }
 }
 
-export function parseResumeDocument(
+function extractResumeDocumentContent(
+  input: ResumeDocumentInput,
+  dependencies: ResumeParsePipelineDependencies,
+): Promise<ParsedResumeDocument> {
+  if (dependencies.getResumeParseProvider() === "aliyun-docmining") {
+    return parseAliyunResumeDocument(input, dependencies);
+  }
+  return extractResumeDocumentText(input, dependencies);
+}
+
+// OCR 阶段同时识别首页候选人头像：解析结果等待头像识别结束，但头像失败不会阻断解析。
+// The OCR stage also extracts the first-page headshot; parsing waits for it, but avatar
+// failures never fail the parse.
+export async function parseResumeDocument(
   input: ResumeDocumentInput,
   dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
 ): Promise<ParsedResumeDocument> {
   if (!getResumeDocumentKind(input)) {
     throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
   }
-  if (dependencies.getResumeParseProvider() === "aliyun-docmining") {
-    return parseAliyunResumeDocument(input, dependencies);
+  const avatarTask = dependencies.extractCandidateAvatar(input);
+  try {
+    return await extractResumeDocumentContent(input, dependencies);
+  } finally {
+    await avatarTask;
   }
-  return extractResumeDocumentText(input, dependencies);
 }
 
 /**

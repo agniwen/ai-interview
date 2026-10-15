@@ -76,6 +76,9 @@ export type ResumePoolJobBindingMode = "automatic" | "manual";
 
 export interface ResumePoolListRecord {
   id: string;
+  // 简历首页候选人头像的缓存版本号；null 表示没有可展示的头像。
+  // Cache version of the candidate headshot from the resume's first page; null when none.
+  candidateAvatarVersion: string | null;
   scope: ResumePoolScope;
   status: ResumePoolStatus;
   organizationId: string | null;
