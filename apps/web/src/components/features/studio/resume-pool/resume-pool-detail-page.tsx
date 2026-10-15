@@ -8,8 +8,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -278,7 +277,6 @@ export function ResumePoolDetailPage({
   }
 
   const candidateName = getCandidateTitle(detail);
-  const avatarValue = (detail.candidateName || detail.candidateEmail || "?").trim().slice(0, 1);
 
   return (
     <>
@@ -287,19 +285,15 @@ export function ResumePoolDetailPage({
         <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-5">
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <Avatar
-                className="size-14 shrink-0"
+              <CandidateAvatar
+                className="size-14"
                 generatedSize={56}
-                label={`${candidateName}的头像`}
+                label={candidateName}
+                recordId={detail.id}
                 seed={candidateName}
-              >
-                <CandidateAvatarImage
-                  recordId={detail.id}
-                  source="resume-pool"
-                  version={detail.candidateAvatarVersion}
-                />
-                <AvatarFallback>{avatarValue}</AvatarFallback>
-              </Avatar>
+                source="resume-pool"
+                version={detail.candidateAvatarVersion}
+              />
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <h1 className="truncate font-semibold text-2xl tracking-normal">

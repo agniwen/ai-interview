@@ -8,7 +8,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -527,19 +527,16 @@ function ResumeLibraryCardComponent({
         />
         <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
           <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
-            <Avatar
-              className={cn("size-10 shrink-0", isRejected && "opacity-70 contrast-75 grayscale")}
+            <CandidateAvatar
+              className="size-10"
               generatedSize={40}
-              label={`${record.candidateName}的头像`}
+              label={record.candidateName}
+              muted={isRejected}
+              recordId={record.id}
               seed={getCandidateAvatarSeed(record.candidateName)}
-            >
-              <CandidateAvatarImage
-                recordId={record.id}
-                source="resumes"
-                version={record.candidateAvatarVersion}
-              />
-              <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
-            </Avatar>
+              source="resumes"
+              version={record.candidateAvatarVersion}
+            />
             <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
               <button
                 className={STUDIO_LIST_CARD_NAME_CLASS}

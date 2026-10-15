@@ -20,8 +20,7 @@ import { TransitionCandidateDialog } from "@/components/features/studio/resumes/
 import { resolveResumeDetailDefaultTab } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
@@ -43,7 +42,6 @@ function getRecruiterResumeAvatarIdentity(input: {
   return {
     label,
     seed: input.candidateName?.trim() || "未命名候选人",
-    value: label.slice(0, 1).toUpperCase(),
   };
 }
 
@@ -156,7 +154,6 @@ function RecruiterResumeDetailHeaderOverride({
 function RecruiterResumeDetailHeaderText({
   avatarLabel,
   avatarSeed,
-  avatarValue,
   avatarVersion,
   description,
   recordId,
@@ -164,7 +161,6 @@ function RecruiterResumeDetailHeaderText({
 }: {
   avatarLabel: string;
   avatarSeed: string;
-  avatarValue: string;
   avatarVersion: string | null;
   description: ReactNode;
   recordId: string;
@@ -172,15 +168,15 @@ function RecruiterResumeDetailHeaderText({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <Avatar
-        className="size-14 shrink-0"
+      <CandidateAvatar
+        className="size-14"
         generatedSize={56}
-        label={`${avatarLabel}的头像`}
+        label={avatarLabel}
+        recordId={recordId}
         seed={avatarSeed}
-      >
-        <CandidateAvatarImage recordId={recordId} source="resumes" version={avatarVersion} />
-        <AvatarFallback>{avatarValue}</AvatarFallback>
-      </Avatar>
+        source="resumes"
+        version={avatarVersion}
+      />
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-baseline gap-2">
           <h1 className="font-semibold text-2xl tracking-normal">{title}</h1>
@@ -337,7 +333,6 @@ export function RecruiterResumeDetailPage({
                     <RecruiterResumeDetailHeaderText
                       avatarLabel={avatarIdentity.label}
                       avatarSeed={avatarIdentity.seed}
-                      avatarValue={avatarIdentity.value}
                       avatarVersion={detail?.candidateAvatarVersion ?? null}
                       description={description}
                       recordId={recordId}

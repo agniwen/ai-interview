@@ -19,7 +19,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { ResumeDocumentPreviewAction } from "@/components/features/resume/resume-document-preview-action";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CandidateAvatarImage } from "@/components/features/studio/candidate-avatar-image";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardPanel } from "@/components/ui/card";
@@ -139,10 +139,6 @@ function isTextSelectionClick() {
 
 function isResumePoolRecordParsing(record: ResumePoolListRecord) {
   return record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing";
-}
-
-function getCandidateInitial(record: ResumePoolListRecord) {
-  return (record.candidateName || record.candidateEmail || "?").trim().slice(0, 1).toUpperCase();
 }
 
 function ResumePoolCardMeta({
@@ -459,19 +455,15 @@ export function ResumePoolCard({
       <CardPanel className="flex h-full min-h-0 p-4">
         <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
           <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
-            <Avatar
-              className="size-10 shrink-0"
+            <CandidateAvatar
+              className="size-10"
               generatedSize={40}
-              label={`${title}的头像`}
+              label={title}
+              recordId={record.id}
               seed={title}
-            >
-              <CandidateAvatarImage
-                recordId={record.id}
-                source="resume-pool"
-                version={record.candidateAvatarVersion}
-              />
-              <AvatarFallback>{getCandidateInitial(record)}</AvatarFallback>
-            </Avatar>
+              source="resume-pool"
+              version={record.candidateAvatarVersion}
+            />
             <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
               <button
                 className={STUDIO_LIST_CARD_NAME_CLASS}
