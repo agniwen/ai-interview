@@ -6,6 +6,7 @@ import { enqueueMeetingTranscriptionJobs } from "@app/job-queues/meeting-transcr
 import {
   humanInterviewRecordingDao,
   meetingTranscriptionDao as transcriptionDao,
+  requestAutomaticHumanInterviewEvaluation,
 } from "../meeting-processing-daos";
 import type { HumanInterviewRecordingProcessorDependencies } from "./processor";
 
@@ -19,4 +20,5 @@ export const defaultHumanInterviewRecordingDependencies: HumanInterviewRecording
     markError: humanInterviewRecordingDao.saveHumanInterviewRecordingProcessingError,
     markTranscriptionUnavailable:
       humanInterviewRecordingDao.markHumanInterviewTranscriptionUnavailable,
+    requestEvaluation: requestAutomaticHumanInterviewEvaluation,
   };

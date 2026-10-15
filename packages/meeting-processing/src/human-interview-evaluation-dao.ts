@@ -10,8 +10,6 @@ import {
   humanInterviewEvaluationDocumentSync,
   recruitingMeetingContext,
   meetingSession,
-  meetingTranscriptRevision,
-  meetingTranscriptTurn,
   humanInterviewMeeting,
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
@@ -21,7 +19,6 @@ import {
 } from "@app/db-schema/schema";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable max-lines -- evaluation read, publish, and submission transactions share one injected DAO boundary. */
-import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type {
   HumanInterviewEvaluation,
@@ -41,6 +38,11 @@ import {
   isHumanInterviewEvaluationPublishCurrent,
   isHumanInterviewEvaluationSubmissionCurrent,
 } from "./human-interview-evaluation-state";
+import {
+  liveTranscriptManifestSha256,
+  publishLiveTranscriptRevisionTx,
+  selectLiveTranscriptSource,
+} from "./human-interview-live-transcript-promotion";
 
 import type { Database } from "@app/database";
 import type { TranscriptAttribution } from "@app/db-schema/human-interview-recording";
@@ -118,14 +120,15 @@ export function createHumanInterviewEvaluationDao(
     | { status: "no-live-transcript" }
     | { status: "not-found" };
 
+  /** 会议结束后把面试官实时字幕发布为正式转录；已有正式转录时幂等返回。 */
   async function recoverHumanInterviewReviewFromLiveTranscript(input: {
     actorId: string;
     meetingId: string;
     organizationId: string;
-    roundId: string;
+    roundId?: string;
   }): Promise<HumanInterviewLiveTranscriptRecoveryResult> {
     return await db.transaction(
-      // eslint-disable-next-line complexity -- one transaction owns the idempotent fallback session and transcript creation.
+      // eslint-disable-next-line complexity -- one transaction owns the idempotent session and transcript creation.
       async (tx) => {
         const [meeting] = await tx
           .select({
@@ -137,6 +140,7 @@ export function createHumanInterviewEvaluationDao(
             interviewRecordId: humanInterviewRound.recruitingRecordId,
             processingMeetingSessionId: humanInterviewMeeting.processingMeetingSessionId,
             recordingStatus: humanInterviewMeeting.recordingStatus,
+            roundId: humanInterviewRound.id,
             scheduledAt: humanInterviewMeeting.scheduledAt,
             startedAt: humanInterviewMeeting.startedAt,
             status: humanInterviewMeeting.status,
@@ -159,7 +163,7 @@ export function createHumanInterviewEvaluationDao(
             and(
               eq(humanInterviewMeeting.id, input.meetingId),
               eq(humanInterviewMeeting.organizationId, input.organizationId),
-              eq(humanInterviewRound.id, input.roundId),
+              input.roundId ? eq(humanInterviewRound.id, input.roundId) : undefined,
             ),
           )
           .for("update", { of: humanInterviewMeeting })
@@ -170,11 +174,16 @@ export function createHumanInterviewEvaluationDao(
         if (meeting.status !== "ended") {
           return { status: "meeting-not-ended" };
         }
+        let existingSessionId: string | null = null;
         if (meeting.processingMeetingSessionId) {
           const [existing] = await tx
-            .select({ activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId })
+            .select({
+              activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+              transcriptionStatus: meetingSession.transcriptionStatus,
+            })
             .from(meetingSession)
             .where(eq(meetingSession.id, meeting.processingMeetingSessionId))
+            .for("update")
             .limit(1);
           if (existing?.activeTranscriptRevisionId) {
             return {
@@ -183,7 +192,11 @@ export function createHumanInterviewEvaluationDao(
               transcriptRevisionId: existing.activeTranscriptRevisionId,
             };
           }
-          return { status: "no-live-transcript" };
+          // 录音转写仍在进行时不抢写，只有失败后才用字幕补位。
+          if (existing?.transcriptionStatus !== "failed") {
+            return { status: "no-live-transcript" };
+          }
+          existingSessionId = meeting.processingMeetingSessionId;
         }
 
         const interviewers = await tx
@@ -196,115 +209,68 @@ export function createHumanInterviewEvaluationDao(
           .from(humanInterviewMeetingInterviewer)
           .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
           .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId));
-        const transcriptOwner =
-          interviewers.find(
-            (interviewer) =>
-              interviewer.userId === input.actorId && interviewer.liveTranscriptDraft?.turns.length,
-          ) ??
-          interviewers.find(
-            (interviewer) =>
-              interviewer.role === "host" && interviewer.liveTranscriptDraft?.turns.length,
-          ) ??
-          interviewers.find((interviewer) => interviewer.liveTranscriptDraft?.turns.length);
-        const liveTranscriptDraft = transcriptOwner?.liveTranscriptDraft;
-        const draftTurns = liveTranscriptDraft?.turns.filter((turn) => turn.final) ?? [];
-        if (!(transcriptOwner && liveTranscriptDraft && draftTurns.length > 0)) {
+        const source = selectLiveTranscriptSource(interviewers, input.actorId);
+        if (!source) {
           return { status: "no-live-transcript" };
         }
 
-        const manifestSha256 = createHash("sha256")
-          .update(JSON.stringify(liveTranscriptDraft))
-          .digest("hex");
-        const meetingSessionId = crypto.randomUUID();
-        const transcriptRevisionId = crypto.randomUUID();
         const now = new Date();
-        const ownerId = meeting.createdBy ?? transcriptOwner.userId;
-        await tx.insert(meetingSession).values({
-          custodianId: ownerId,
-          id: meetingSessionId,
-          intelligenceStatus: "pending",
-          liveTranscriptDraft,
-          manifestSha256,
+        const meetingSessionId = existingSessionId ?? crypto.randomUUID();
+        if (!existingSessionId) {
+          const ownerId = meeting.createdBy ?? source.owner.userId;
+          await tx.insert(meetingSession).values({
+            custodianId: ownerId,
+            id: meetingSessionId,
+            intelligenceStatus: "pending",
+            liveTranscriptDraft: source.draft,
+            manifestSha256: liveTranscriptManifestSha256(source.draft),
+            organizationId: input.organizationId,
+            ownerId,
+            savedAt: meeting.endedAt ?? now,
+            startedAt: meeting.startedAt ?? meeting.scheduledAt ?? meeting.createdAt,
+            status: "ready",
+            title: meeting.title,
+            transcriptionStatus: "pending",
+            verifiedAt: now,
+            visibility: "restricted",
+          });
+          await tx.insert(recruitingMeetingContext).values({
+            linkedAt: now,
+            linkedBy: input.actorId,
+            meetingId: meetingSessionId,
+            organizationId: input.organizationId,
+            recruitingRecordId: meeting.interviewRecordId,
+          });
+        }
+        const transcriptRevisionId = await publishLiveTranscriptRevisionTx(tx, {
+          actorId: input.actorId,
+          candidateName: meeting.candidateName,
+          meetingSessionId,
           organizationId: input.organizationId,
-          ownerId,
-          savedAt: meeting.endedAt ?? now,
-          startedAt: meeting.startedAt ?? meeting.scheduledAt ?? meeting.createdAt,
-          status: "ready",
-          title: meeting.title,
-          transcriptionStatus: "pending",
-          verifiedAt: now,
-          visibility: "restricted",
+          roundId: meeting.roundId,
+          source,
         });
-        await tx.insert(recruitingMeetingContext).values({
-          linkedAt: now,
-          linkedBy: input.actorId,
-          meetingId: meetingSessionId,
-          organizationId: input.organizationId,
-          recruitingRecordId: meeting.interviewRecordId,
-        });
-        await tx.insert(meetingTranscriptRevision).values({
-          basedOnRevisionId: null,
-          createdBy: input.actorId,
-          id: transcriptRevisionId,
-          kind: "human",
-          language: "zh-CN",
-          meetingId: meetingSessionId,
-          model: "qwen-realtime-reviewed",
-          organizationId: input.organizationId,
-          pipelineVersion: "human-live-transcript-recovery-v1",
-          processingRunId: null,
-          provider: "qwen",
-          region: "cn-beijing",
-          revision: 1,
-          sourceManifestSha256: manifestSha256,
-        });
-        await tx.insert(meetingTranscriptTurn).values(
-          draftTurns.map((turn, sequence) => {
-            const startMs = turn.startMs ?? sequence * 1000;
-            const endMs = Math.max(startMs + 1, turn.endMs ?? startMs + 1000);
-            const candidate = turn.track === "system";
-            return {
-              confidence: null,
-              endMs,
-              id: crypto.randomUUID(),
-              revisionId: transcriptRevisionId,
-              sequence,
-              speakerDisplayName: candidate ? meeting.candidateName : transcriptOwner.name,
-              speakerKey: candidate
-                ? `candidate:${input.roundId}`
-                : `interviewer:${transcriptOwner.userId}`,
-              startMs,
-              text: turn.text,
-              track: candidate ? "remote" : "local",
-            };
-          }),
-        );
-        await tx
-          .update(meetingSession)
-          .set({
-            activeTranscriptRevisionId: transcriptRevisionId,
-            transcriptionError: null,
-            transcriptionStatus: "ready",
-          })
-          .where(eq(meetingSession.id, meetingSessionId));
-        await tx
-          .update(humanInterviewMeeting)
-          .set({
-            candidateRecordingError:
-              meeting.candidateRecordingStatus === "pending"
-                ? "完整录音未生成，已使用实时字幕恢复评价流程"
-                : undefined,
-            candidateRecordingStatus:
-              meeting.candidateRecordingStatus === "pending" ? "failed" : undefined,
-            processingMeetingSessionId: meetingSessionId,
-            recordingError:
-              meeting.recordingStatus === "pending"
-                ? "完整录音未生成，已使用实时字幕恢复评价流程"
-                : undefined,
-            recordingStatus: meeting.recordingStatus === "pending" ? "failed" : undefined,
-            updatedAt: now,
-          })
-          .where(eq(humanInterviewMeeting.id, input.meetingId));
+        if (!existingSessionId) {
+          // 录音仍在生成时保留其状态，入库后只作为归档挂到这场会议。
+          await tx
+            .update(humanInterviewMeeting)
+            .set({
+              candidateRecordingError:
+                meeting.candidateRecordingStatus === "pending"
+                  ? "完整录音未生成，已使用实时字幕作为正式转录"
+                  : undefined,
+              candidateRecordingStatus:
+                meeting.candidateRecordingStatus === "pending" ? "failed" : undefined,
+              processingMeetingSessionId: meetingSessionId,
+              recordingError:
+                meeting.recordingStatus === "pending"
+                  ? "完整录音未生成，已使用实时字幕作为正式转录"
+                  : undefined,
+              recordingStatus: meeting.recordingStatus === "pending" ? "failed" : undefined,
+              updatedAt: now,
+            })
+            .where(eq(humanInterviewMeeting.id, input.meetingId));
+        }
         return { meetingSessionId, status: "ready", transcriptRevisionId };
       },
     );

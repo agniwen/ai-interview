@@ -19,6 +19,7 @@ import {
   listHumanInterviewMeetings,
   loadHumanInterviewMeetingById,
 } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
+import { publishHumanInterviewLiveTranscriptAfterEnd } from "./application/publish-human-interview-live-transcript";
 import { cancelHumanInterviewMeeting } from "./dao/human-interview-meeting-cancellation";
 import { updateHumanInterviewMeetingSchedule } from "./dao/human-interview-meeting-schedule";
 import {
@@ -512,7 +513,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
         "/human-interview-meetings/:meetingId/end",
         permission("humanInterview", "update"),
         async (c) => {
-          const { activeOrg } = c.var;
+          const { activeOrg, user } = c.var;
           if (!activeOrg) {
             return c.json({ message: "Unauthorized" }, 401);
           }
@@ -521,6 +522,13 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
               meetingId: c.req.param("meetingId"),
               organizationId: activeOrg.id,
             });
+            if (user) {
+              await publishHumanInterviewLiveTranscriptAfterEnd({
+                actorId: user.id,
+                meetingId: c.req.param("meetingId"),
+                organizationId: activeOrg.id,
+              });
+            }
             if (roomName) {
               try {
                 await stopActiveHumanInterviewRecordingByRoomName(roomName);

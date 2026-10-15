@@ -37,7 +37,7 @@ import {
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
 } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
-import { recoverHumanInterviewReviewFromLiveTranscript } from "../studio/routes/interviews/dao/human-interview-evaluation";
+import { publishHumanInterviewLiveTranscriptAfterEnd } from "../studio/routes/interviews/application/publish-human-interview-live-transcript";
 import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
@@ -51,7 +51,6 @@ import {
   signHumanInterviewMeetingToken,
 } from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
 import { stopActiveHumanInterviewRecording } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
-import { requestAutomaticHumanInterviewEvaluation } from "../studio/routes/interviews/utils/human-interview-evaluation-service";
 import { loadResumeDetail } from "../studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@app/shared/referrals";
 import {
@@ -327,24 +326,12 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         console.warn("failed to stop livekit human interview recording", error);
       }
       const roomName = await endHumanInterviewMeeting({ meetingId: scope.meetingId });
-      if (scope.recordingStatus === "pending" || scope.recordingStatus === "failed") {
-        try {
-          const recovered = await recoverHumanInterviewReviewFromLiveTranscript({
-            actorId: scope.userId,
-            meetingId: scope.meetingId,
-            organizationId: scope.organizationId,
-            roundId: scope.roundId,
-          });
-          if (recovered.status === "ready") {
-            await requestAutomaticHumanInterviewEvaluation({
-              meetingSessionId: recovered.meetingSessionId,
-              organizationId: scope.organizationId,
-            });
-          }
-        } catch (error) {
-          console.warn("failed to recover human interview review from live transcript", error);
-        }
-      }
+      await publishHumanInterviewLiveTranscriptAfterEnd({
+        actorId: scope.userId,
+        meetingId: scope.meetingId,
+        organizationId: scope.organizationId,
+        roundId: scope.roundId,
+      });
       try {
         await deleteHumanInterviewLiveKitRoom(roomName);
       } catch (error) {

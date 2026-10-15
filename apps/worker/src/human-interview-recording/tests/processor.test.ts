@@ -31,7 +31,11 @@ describe("runHumanInterviewRecordingProcessing", () => {
         updatedAtMs: 14_000,
       }));
       const ingest = vi.fn<HumanInterviewRecordingProcessorDependencies["ingest"]>(() =>
-        Promise.resolve({ meetingSessionId: "session", organizationId: "org" }),
+        Promise.resolve({
+          liveTranscriptPublished: false,
+          meetingSessionId: "session",
+          organizationId: "org",
+        }),
       );
       await runHumanInterviewRecordingProcessing(
         { meetingId: "meeting", organizationId: "org", tracks, version: 2 },
@@ -56,6 +60,7 @@ describe("runHumanInterviewRecordingProcessing", () => {
           inspectAudio: () => Promise.resolve(10_000),
           markError: () => Promise.resolve(),
           markTranscriptionUnavailable: () => Promise.resolve(),
+          requestEvaluation: vi.fn(() => Promise.resolve()),
         },
       );
       const input = ingest.mock.calls[0]?.[0];
@@ -95,7 +100,11 @@ describe("runHumanInterviewRecordingProcessing", () => {
       if (new Set(keys).size !== keys.length) {
         throw new Error("duplicate meeting recording track");
       }
-      return Promise.resolve({ meetingSessionId: "session-1", organizationId: "org-1" });
+      return Promise.resolve({
+        liveTranscriptPublished: false,
+        meetingSessionId: "session-1",
+        organizationId: "org-1",
+      });
     });
     await runHumanInterviewRecordingProcessing(
       { meetingId: "meeting-1", organizationId: "org-1", tracks, version: 2 },
@@ -120,6 +129,7 @@ describe("runHumanInterviewRecordingProcessing", () => {
         inspectAudio: () => Promise.resolve(10_000),
         markError: () => Promise.resolve(),
         markTranscriptionUnavailable: () => Promise.resolve(),
+        requestEvaluation: vi.fn(() => Promise.resolve()),
       },
     );
     const assets = ingest.mock.calls[0]?.[0].assets ?? [];
@@ -153,7 +163,11 @@ describe("runHumanInterviewRecordingProcessing", () => {
         updatedAtMs: 11_000,
       }));
       const ingest = vi.fn<HumanInterviewRecordingProcessorDependencies["ingest"]>(() =>
-        Promise.resolve({ meetingSessionId: "session-1", organizationId: "org-1" }),
+        Promise.resolve({
+          liveTranscriptPublished: false,
+          meetingSessionId: "session-1",
+          organizationId: "org-1",
+        }),
       );
       const markError = vi.fn(() => Promise.resolve());
       await runHumanInterviewRecordingProcessing(
@@ -182,6 +196,7 @@ describe("runHumanInterviewRecordingProcessing", () => {
           inspectAudio: () => Promise.resolve(10_000),
           markError,
           markTranscriptionUnavailable: () => Promise.resolve(),
+          requestEvaluation: vi.fn(() => Promise.resolve()),
         },
       );
       expect(markError).not.toHaveBeenCalled();
@@ -197,7 +212,11 @@ describe("runHumanInterviewRecordingProcessing", () => {
   );
   it("验证并入库 mixed 音频后复用统一转录队列", async () => {
     const ingest = vi.fn(() =>
-      Promise.resolve({ meetingSessionId: "session-1", organizationId: "org-1" }),
+      Promise.resolve({
+        liveTranscriptPublished: false,
+        meetingSessionId: "session-1",
+        organizationId: "org-1",
+      }),
     );
     const enqueueTranscription = vi.fn(() => Promise.resolve());
     await runHumanInterviewRecordingProcessing(
@@ -244,6 +263,7 @@ describe("runHumanInterviewRecordingProcessing", () => {
         ingest,
         markError: vi.fn(() => Promise.resolve()),
         markTranscriptionUnavailable: vi.fn(() => Promise.resolve()),
+        requestEvaluation: vi.fn(() => Promise.resolve()),
       },
     );
 
@@ -295,10 +315,15 @@ describe("runHumanInterviewRecordingProcessing", () => {
           }),
         ),
         ingest: vi.fn(() =>
-          Promise.resolve({ meetingSessionId: "session-1", organizationId: "org-1" }),
+          Promise.resolve({
+            liveTranscriptPublished: false,
+            meetingSessionId: "session-1",
+            organizationId: "org-1",
+          }),
         ),
         markError: vi.fn(() => Promise.resolve()),
         markTranscriptionUnavailable,
+        requestEvaluation: vi.fn(() => Promise.resolve()),
       },
     );
 
@@ -307,6 +332,62 @@ describe("runHumanInterviewRecordingProcessing", () => {
       meetingSessionId: "session-1",
       organizationId: "org-1",
     });
+  });
+
+  it("uses the published live transcript instead of transcribing the recording", async () => {
+    const enqueueTranscription = vi.fn(() => Promise.resolve());
+    const getTranscriptionJob = vi.fn(() => Promise.resolve(null));
+    const requestEvaluation = vi.fn(() => Promise.resolve());
+
+    await runHumanInterviewRecordingProcessing(
+      {
+        candidateDurationMs: 10_000,
+        candidateEgressId: "egress-candidate",
+        candidateFileKey: "human-interviews/org-1/meeting-1/candidate-audio.ogg",
+        candidateSizeBytes: 5,
+        durationMs: 10_000,
+        egressId: "egress-1",
+        fileKey: "human-interviews/org-1/meeting-1/room-audio.ogg",
+        meetingId: "meeting-1",
+        organizationId: "org-1",
+        sizeBytes: 5,
+      },
+      { attempt: 1, maxAttempts: 5 },
+      {
+        download: async ({ filePath }) => {
+          const { writeFile } = await import("node:fs/promises");
+          await writeFile(filePath, "audio");
+        },
+        enqueueTranscription,
+        getTranscriptionJob,
+        head: vi.fn(() =>
+          Promise.resolve({
+            checksumSha256: null,
+            contentLength: 5,
+            contentType: "audio/ogg",
+            etag: null,
+            sha256: null,
+          }),
+        ),
+        ingest: vi.fn(() =>
+          Promise.resolve({
+            liveTranscriptPublished: true,
+            meetingSessionId: "session-1",
+            organizationId: "org-1",
+          }),
+        ),
+        markError: vi.fn(() => Promise.resolve()),
+        markTranscriptionUnavailable: vi.fn(() => Promise.resolve()),
+        requestEvaluation,
+      },
+    );
+
+    expect(requestEvaluation).toHaveBeenCalledWith({
+      meetingSessionId: "session-1",
+      organizationId: "org-1",
+    });
+    expect(getTranscriptionJob).not.toHaveBeenCalled();
+    expect(enqueueTranscription).not.toHaveBeenCalled();
   });
 
   it("marks the recording processing error terminal after the retry budget is exhausted", async () => {
@@ -334,6 +415,7 @@ describe("runHumanInterviewRecordingProcessing", () => {
           ingest: vi.fn(),
           markError,
           markTranscriptionUnavailable: vi.fn(() => Promise.resolve()),
+          requestEvaluation: vi.fn(() => Promise.resolve()),
         },
       ),
     ).rejects.toThrow("真人复面录音文件不存在或为空");

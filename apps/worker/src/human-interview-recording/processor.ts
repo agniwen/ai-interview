@@ -41,6 +41,7 @@ export interface HumanInterviewRecordingProcessorDependencies {
   markTranscriptionUnavailable: ReturnType<
     typeof createHumanInterviewRecordingDao
   >["markHumanInterviewTranscriptionUnavailable"];
+  requestEvaluation: (input: { meetingSessionId: string; organizationId: string }) => Promise<void>;
 }
 
 class HumanInterviewRecordingProcessor extends Context.Service<
@@ -62,6 +63,28 @@ async function sha256File(filePath: string): Promise<string> {
     hash.update(chunk);
   }
   return hash.digest("hex");
+}
+
+// 字幕已作为正式转录时直接生成面评；否则才转写录音。
+async function continueAfterRecordingIngest(
+  result: Awaited<ReturnType<HumanInterviewRecordingProcessorDependencies["ingest"]>>,
+  dependencies: HumanInterviewRecordingProcessorDependencies,
+): Promise<void> {
+  const session = {
+    meetingSessionId: result.meetingSessionId,
+    organizationId: result.organizationId,
+  };
+  if (result.liveTranscriptPublished) {
+    await dependencies.requestEvaluation(session);
+    return;
+  }
+  const job = await dependencies.getTranscriptionJob({
+    meetingId: result.meetingSessionId,
+    organizationId: result.organizationId,
+  });
+  await (job
+    ? dependencies.enqueueTranscription([job])
+    : dependencies.markTranscriptionUnavailable(session));
 }
 
 async function runHumanInterviewRecordingProcessingPromise(
@@ -147,16 +170,7 @@ async function runHumanInterviewRecordingProcessingPromise(
         sizeBytes: input.sizeBytes,
       },
     });
-    const transcriptionJob = await dependencies.getTranscriptionJob({
-      meetingId: result.meetingSessionId,
-      organizationId: result.organizationId,
-    });
-    await (transcriptionJob
-      ? dependencies.enqueueTranscription([transcriptionJob])
-      : dependencies.markTranscriptionUnavailable({
-          meetingSessionId: result.meetingSessionId,
-          organizationId: result.organizationId,
-        }));
+    await continueAfterRecordingIngest(result, dependencies);
   } catch (error) {
     hasPrimaryFailure = true;
     const message = error instanceof Error ? error.message : "真人复面录音处理失败";
@@ -356,16 +370,7 @@ async function ingestTrackRecordings(
     startedAtMs: start,
     warning,
   });
-  const job = await dependencies.getTranscriptionJob({
-    meetingId: result.meetingSessionId,
-    organizationId: result.organizationId,
-  });
-  await (job
-    ? dependencies.enqueueTranscription([job])
-    : dependencies.markTranscriptionUnavailable({
-        meetingSessionId: result.meetingSessionId,
-        organizationId: result.organizationId,
-      }));
+  await continueAfterRecordingIngest(result, dependencies);
 }
 
 function runHumanInterviewRecordingProcessingEffect(
