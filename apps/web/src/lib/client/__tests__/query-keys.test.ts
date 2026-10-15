@@ -4,6 +4,7 @@ import {
   humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
   invalidateHumanInterviewWorkspaceQueries,
+  invalidateStudioResumeListQueries,
   jobDescriptionKeys,
   studioCalendarKeys,
   studioResumeKeys,
@@ -99,6 +100,22 @@ describe("studioResumeKeys", () => {
     });
 
     expect(queryClient.getQueryState(metricsKey)?.isInvalidated).toBe(false);
+  });
+
+  it("refreshes board tab counts together with the workspace resume list", async () => {
+    const queryClient = new QueryClient();
+    const listKey = ["studio-resumes", "acme", "list"];
+    const presetMetricsKey = studioResumeKeys.metrics("acme", "interview");
+    const otherWorkspaceMetricsKey = studioResumeKeys.metrics("other");
+    queryClient.setQueryData(listKey, []);
+    queryClient.setQueryData(presetMetricsKey, { boardStatusCounts: [], groupCounts: [] });
+    queryClient.setQueryData(otherWorkspaceMetricsKey, { boardStatusCounts: [], groupCounts: [] });
+
+    await invalidateStudioResumeListQueries(queryClient, "acme");
+
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(presetMetricsKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherWorkspaceMetricsKey)?.isInvalidated).toBe(false);
   });
 });
 

@@ -13,6 +13,7 @@ import type {
   BulkResumeBatchDetailDto,
   CreateBulkResumeBatchInput,
 } from "@app/shared/bulk-resume-upload";
+import { invalidateStudioResumeListQueries } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 type BulkUploadPhase = "idle" | "uploading" | "processing" | "paused" | "completed" | "cancelled";
@@ -86,8 +87,8 @@ export function useBulkUploadWithDependencies({
       return;
     }
     lastInvalidateRef.current = now;
-    void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
-  }, [qc]);
+    void invalidateStudioResumeListQueries(qc, slug);
+  }, [qc, slug]);
 
   const pollLoop = useCallback(
     async (batchId: string) => {
@@ -114,7 +115,7 @@ export function useBulkUploadWithDependencies({
             setState((s) => ({ ...s, phase: "completed" }));
             void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
             void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
-            void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
+            void invalidateStudioResumeListQueries(qc, slug);
             onRecordsChanged?.();
             return;
           }
@@ -208,7 +209,7 @@ export function useBulkUploadWithDependencies({
         setState((s) => ({ ...s, detail, phase: "processing" }));
         void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
         void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
-        void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
+        void invalidateStudioResumeListQueries(qc, slug);
         onBatchQueued?.(detail);
         void pollLoop(detail.batch.id);
       } catch (error) {
@@ -271,7 +272,7 @@ export function useBulkUploadWithDependencies({
     setState((s) => ({ ...s, detail, phase: "cancelled" }));
     void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
     void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
-    void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void invalidateStudioResumeListQueries(qc, slug);
   }, [cancelBatch, slug, state.detail, qc]);
 
   const abort = useCallback(() => {

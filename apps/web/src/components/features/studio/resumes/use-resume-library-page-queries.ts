@@ -26,7 +26,11 @@ import {
   rpcFetch,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { jobDescriptionKeys, studioResumeKeys } from "@/lib/client/api/query-keys";
+import {
+  invalidateStudioResumeListQueries,
+  jobDescriptionKeys,
+  studioResumeKeys,
+} from "@/lib/client/api/query-keys";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useResumeLibrarySearchState } from "./resume-library-page-model";
@@ -66,11 +70,11 @@ export function useResumeLibraryPageQueries({
   const queryClient = useQueryClient();
 
   const invalidateAll = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void invalidateStudioResumeListQueries(queryClient, slug);
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
     void router.invalidate();
-  }, [queryClient, router]);
+  }, [queryClient, router, slug]);
 
   const fetcher = useMemo(
     () =>
@@ -152,7 +156,7 @@ export function useResumeLibraryPageQueries({
   });
 
   const refreshResumeList = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+    void invalidateStudioResumeListQueries(queryClient, slug);
   }, [queryClient, slug]);
 
   const grid = useResumeLibrarySearchState({

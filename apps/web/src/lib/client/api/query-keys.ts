@@ -41,6 +41,17 @@ export const studioResumeKeys = {
 
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;
 
+/** Refreshes the resume list together with the recruiting board tab counts. */
+export async function invalidateStudioResumeListQueries(
+  queryClient: QueryInvalidator,
+  slug: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] }),
+    queryClient.invalidateQueries({ queryKey: studioResumeKeys.metrics(slug) }),
+  ]);
+}
+
 export async function invalidateHumanInterviewCandidateQueries(
   queryClient: QueryInvalidator,
   {

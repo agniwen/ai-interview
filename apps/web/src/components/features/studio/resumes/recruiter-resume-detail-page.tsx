@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
+import { invalidateStudioResumeListQueries } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
 export type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
@@ -237,7 +238,7 @@ export function RecruiterResumeDetailPage({
   }, [documentTitle]);
 
   const invalidateAll = () => {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void invalidateStudioResumeListQueries(queryClient, slug);
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
     void router.invalidate();

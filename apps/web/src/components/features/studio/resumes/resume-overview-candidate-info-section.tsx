@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { updateStudioResumeIdentity } from "@/lib/client/api";
+import { invalidateStudioResumeListQueries } from "@/lib/client/api/query-keys";
 import { runAsyncAction } from "@/lib/client/async-control";
 
 interface OverviewIdentityDraft {
@@ -145,7 +146,7 @@ export function ResumeOverviewCandidateInfoSection({
         await updateStudioResumeIdentity(slug, detail.id, payload);
         toast.success("候选人信息已保存");
         setEditing(false);
-        await queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+        await invalidateStudioResumeListQueries(queryClient, slug);
         onUpdated?.();
       },
     });
