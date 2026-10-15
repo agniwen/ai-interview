@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 # Participants may join fifteen minutes early; allow another five minutes for
 # the other side to arrive before replacing an idle collector.
 WAIT_FOR_PARTICIPANTS_SECONDS = 20 * 60
+# A republished microphone first lets the old stream finalize normally; only a
+# stream that cannot finish in time is cancelled and recorded as a coverage gap.
+REPLACED_TRACK_DRAIN_SECONDS = 8
 
 
 class SentenceLedger:
@@ -64,8 +67,12 @@ async def run_human_transcription(ctx: JobContext) -> None:
     events_ready = asyncio.Event()
     tasks: dict[str, asyncio.Task] = {}
     audio_streams: dict[str, rtc.AudioStream] = {}
+    current_tracks: dict[str, str] = {}
     seen: set[str] = set()
     error: str | None = None
+    # Leaving because nobody can be captured loses no audio; the server then waits
+    # for the next participant to dispatch a fresh collector instead of failing.
+    idle_exit = False
     finish_task: asyncio.Task | None = None
     empty_since: float | None = None
     connected_at = time.monotonic()
@@ -233,6 +240,37 @@ async def run_human_transcription(ctx: JobContext) -> None:
                 if audio_streams.pop(publication.sid, None) is not None:
                     await audio.aclose()
 
+        def record_gap(identity: str, text: str):
+            at = elapsed()
+            epoch = str(uuid4())
+            outbox.append(
+                {
+                    "eventId": str(uuid4()),
+                    "itemId": str(uuid4()),
+                    "kind": "gap",
+                    "participantIdentity": identity,
+                    "providerTaskId": epoch,
+                    "revision": 0,
+                    "startMs": at,
+                    "endMs": at,
+                    "streamEpoch": epoch,
+                    "text": text,
+                    "trackId": "unavailable",
+                }
+            )
+            events_ready.set()
+
+        def speaking_participants():
+            return [
+                p
+                for p in ctx.room.remote_participants.values()
+                if p.identity in participants
+                and any(
+                    pub.source == rtc.TrackSource.SOURCE_MICROPHONE and pub.track
+                    for pub in p.track_publications.values()
+                )
+            ]
+
         def start_tracks(*_):
             nonlocal error
             if stopping.is_set():
@@ -263,13 +301,24 @@ async def run_human_transcription(ctx: JobContext) -> None:
                     error = "会议音轨超过实时转录容量，等待录音补救"
                     continue
                 seen.add(publication.sid)
-                if previous and not previous.done():
-                    previous.cancel()
+                previous_sid = current_tracks.get(person.identity)
+                current_tracks[person.identity] = publication.sid
                 tasks[person.identity] = asyncio.create_task(
-                    replace_capture(previous, publication, person)
+                    replace_capture(previous, previous_sid, publication, person)
                 )
 
-        async def replace_capture(previous, publication, person):
+        async def replace_capture(previous, previous_sid, publication, person):
+            if previous and not previous.done():
+                # Switching devices only ends the old track: close it so its stream
+                # finalizes without being counted as an interruption.
+                stale = audio_streams.pop(previous_sid, None)
+                if stale is not None:
+                    await stale.aclose()
+                _, unfinished = await asyncio.wait(
+                    {previous}, timeout=REPLACED_TRACK_DRAIN_SECONDS
+                )
+                for task in unfinished:
+                    task.cancel()
             if previous:
                 await asyncio.gather(previous, return_exceptions=True)
             await capture_with_retries(
@@ -325,7 +374,10 @@ async def run_human_transcription(ctx: JobContext) -> None:
                 async with asyncio.timeout(5):
                     while outbox.pending():
                         await flush()
-                    await post("finish", {"error": error})
+                    await post(
+                        "finish",
+                        {"error": error, "idle": idle_exit and error is None},
+                    )
                     outbox.set_metadata(
                         {"baseUrl": base_url, "payload": payload, "acknowledged": True}
                     )
@@ -384,16 +436,25 @@ async def run_human_transcription(ctx: JobContext) -> None:
             await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
             if (await post("ready")).get("stop"):
                 stopping.set()
+            present = speaking_participants()
+            if job.generation > 1 and {
+                participants[p.identity]["role"] for p in present
+            } >= {"candidate", "interviewer"}:
+                # A resumed collector cannot prove nothing was said before it attached.
+                error = "采集器重新接入前已有参会者在会中，可能遗漏发言"
+                for person in present:
+                    record_gap(person.identity, "采集器接入前未覆盖")
             start_tracks()
             failures = 0
             while not stopping.is_set():
                 if empty_since is not None and time.monotonic() - empty_since >= 5:
+                    idle_exit = True
                     break
                 if (
                     not tasks
                     and time.monotonic() - connected_at >= WAIT_FOR_PARTICIPANTS_SECONDS
                 ):
-                    error = "等待参会者超时，未采集音频"
+                    idle_exit = True
                     break
                 try:
                     events_ready.clear()

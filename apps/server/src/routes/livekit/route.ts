@@ -15,6 +15,7 @@ import {
   markHumanInterviewRecordingEgressFailed,
 } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 import { stopActiveHumanInterviewRecordingByRoomName } from "@app/recruiting-workflows/human-interviews/human-interview-recording-service";
+import { prepareHumanTranscription } from "@app/recruiting-workflows/human-interviews/human-transcription";
 import { enqueueHumanInterviewRecordingJobs } from "@app/job-queues/human-interview-recording";
 import { shouldStartHumanInterviewRecording } from "./utils";
 import {
@@ -77,6 +78,17 @@ async function handleHumanInterviewWebhook(
       identity: event.participant.identity,
       roomName,
     });
+    // 自动重连不会重新签发入会凭证；由入会事件唤醒空闲的实时转录任务。
+    if (/^(candidate|interviewer)_/.test(event.participant.identity)) {
+      try {
+        await prepareHumanTranscription(roomName);
+      } catch (error) {
+        console.warn("failed to resume human transcription after participant joined", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          roomName,
+        });
+      }
+    }
   }
   if (shouldStartHumanInterviewRecording(event)) {
     try {

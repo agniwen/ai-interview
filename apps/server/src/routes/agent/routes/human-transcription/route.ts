@@ -30,17 +30,19 @@ export function createHumanTranscriptionRouter(dependencies: HumanTranscriptionR
         "json",
         humanTranscriptionCallbackSchema.extend({
           error: z.string().max(2000).nullable().optional(),
+          idle: z.boolean().optional(),
         }),
         jsonValidatorError("收尾任务无效"),
       ),
       async (c) => {
-        const { error: reportedError, ...job } = c.req.valid("json");
+        const { error: reportedError, idle, ...job } = c.req.valid("json");
         try {
           return c.json(
             await finishHumanTranscription(
               job,
               z.enum(["ready", "cutoff", "finish"]).parse(c.req.param("phase")),
               reportedError,
+              idle,
             ),
           );
         } catch (error) {

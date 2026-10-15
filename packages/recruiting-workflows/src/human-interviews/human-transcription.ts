@@ -9,6 +9,7 @@ import {
 import { db } from "@app/database/context";
 import { loadTrackRecordingScope } from "./human-interview-recording-tracks";
 import { createHumanTranscriptionStopper } from "./human-transcription-stop";
+import { isIdleHumanTranscriptionRun } from "./human-transcription-state";
 
 function clients() {
   const url = process.env.LIVEKIT_URL?.replace(/^ws/, "http");
@@ -249,8 +250,13 @@ export async function reconcileHumanTranscriptions() {
         }
         continue;
       }
-      if (["ended", "cancelled"].includes(meeting.status) && !run.endedAt) {
+      if (["ended", "cancelled", "not_held"].includes(meeting.status) && !run.endedAt) {
         await requestHumanTranscriptionStop(run.roomName);
+        continue;
+      }
+      if (isIdleHumanTranscriptionRun(run)) {
+        // 空闲任务等参会者入会时再派发采集器，不按失联处理。
+        continue;
       }
       if (!run.executionId && !run.endedAt && Date.now() - run.createdAt.getTime() < 60_000) {
         await prepareHumanTranscription(run.roomName);

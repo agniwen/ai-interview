@@ -181,6 +181,7 @@ class CollectorHarness:
             await self.cutoff_release.wait()
         elif path == "finish":
             self.connected_at_finish = self.connected
+            self.finish_payload = json
         return SimpleNamespace(raise_for_status=lambda: None, json=lambda: result)
 
 
@@ -257,7 +258,15 @@ async def test_republished_microphone_keeps_speaker_identity_and_closes_old_stre
     ]
     assert {e["trackId"] for e in finals} == {"track-person-0", "replacement"}
     assert len({e["streamEpoch"] for e in finals}) == 2
-    assert any(e["kind"] == "gap" for e in h.events.values())
+    old_epoch = next(
+        e["streamEpoch"] for e in finals if e["trackId"] == "track-person-0"
+    )
+    assert any(
+        e["kind"] == "stream_ended" and e["streamEpoch"] == old_epoch
+        for e in h.events.values()
+    )
+    assert not any(e["kind"] == "gap" for e in h.events.values())
+    assert h.finish_payload["error"] is None
     assert len(Audio.instances) == 4
     assert all(a.close_calls == 1 for a in Audio.instances)
 
@@ -362,3 +371,64 @@ async def test_early_arrival_does_not_time_out_after_five_minutes(
     box = EventOutbox(next(tmp_path.glob("*.sqlite")))
     assert box.metadata()["acknowledged"] is True
     assert not h.connected
+
+
+def _controlled_clock(monkeypatch):
+    clock = [0]
+    monkeypatch.setattr(
+        runtime,
+        "time",
+        SimpleNamespace(
+            monotonic=lambda: clock[0],
+            time=lambda: datetime.now(timezone.utc).timestamp(),
+        ),
+    )
+    return clock
+
+
+async def test_everyone_leaving_finishes_as_idle_without_error(monkeypatch, tmp_path):
+    h = CollectorHarness(monkeypatch, tmp_path, people=2, stop_automatically=False)
+    clock = _controlled_clock(monkeypatch)
+    task = asyncio.create_task(runtime.run_human_transcription(h.ctx))
+
+    async def wait_for_finals():
+        while sum(e["kind"] == "final" for e in h.events.values()) < 2:
+            await asyncio.sleep(0.01)
+
+    await asyncio.wait_for(wait_for_finals(), 2)
+    h.room.remote_participants = {}
+    h.listeners["participant_disconnected"][0]()
+    clock[0] += 6
+    await asyncio.wait_for(task, 5)
+    assert h.finish_payload == {**h.finish_payload, "error": None, "idle": True}
+    assert not any(e["kind"] == "gap" for e in h.events.values())
+
+
+async def test_waiting_for_the_other_side_finishes_as_idle(monkeypatch, tmp_path):
+    h = CollectorHarness(monkeypatch, tmp_path, stop_automatically=False)
+    h.room.remote_participants = {"person-0": h.room.remote_participants["person-0"]}
+    clock = _controlled_clock(monkeypatch)
+    original_connect = h.ctx.connect
+
+    async def connect(**options):
+        await original_connect(**options)
+        clock[0] = runtime.WAIT_FOR_PARTICIPANTS_SECONDS + 1
+
+    h.ctx.connect = connect
+    await asyncio.wait_for(runtime.run_human_transcription(h.ctx), 5)
+    assert h.finish_payload["error"] is None
+    assert h.finish_payload["idle"] is True
+
+
+async def test_resumed_collector_marks_possible_loss_when_speakers_were_present(
+    monkeypatch, tmp_path
+):
+    h = CollectorHarness(monkeypatch, tmp_path, people=2)
+    h.ctx.job.metadata = json.dumps(
+        HumanJob("org", "meeting", "run", 2, "human_meeting").payload()
+    )
+    await asyncio.wait_for(runtime.run_human_transcription(h.ctx), 5)
+    gaps = [e for e in h.events.values() if e["kind"] == "gap"]
+    assert {e["participantIdentity"] for e in gaps} == set(h.people)
+    assert h.finish_payload["error"]
+    assert h.finish_payload["idle"] is False

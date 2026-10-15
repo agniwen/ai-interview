@@ -2,6 +2,24 @@ import { eq } from "drizzle-orm";
 import type { Database } from "@app/database";
 import { humanTranscriptionRun } from "@app/db-schema/schema";
 
+type HumanTranscriptionRun = typeof humanTranscriptionRun.$inferSelect;
+
+/** 会议结束时的收尾补丁；没有采集器认领的任务无音频可排空，直接进入可发布状态。 */
+export function buildHumanTranscriptionStopPatch(
+  run: Pick<HumanTranscriptionRun, "cutoffAt" | "drainedAt" | "endedAt" | "executionId">,
+  now: Date,
+): Partial<HumanTranscriptionRun> {
+  const patch: Partial<HumanTranscriptionRun> = {
+    endedAt: run.endedAt ?? now,
+    status: "finalizing",
+  };
+  if (!run.executionId) {
+    patch.cutoffAt = run.cutoffAt ?? now;
+    patch.drainedAt = run.drainedAt ?? now;
+  }
+  return patch;
+}
+
 export function createHumanTranscriptionStopper(database: Database) {
   return (roomName: string) =>
     database.transaction(async (tx) => {
@@ -15,7 +33,7 @@ export function createHumanTranscriptionStopper(database: Database) {
       }
       const [updated] = await tx
         .update(humanTranscriptionRun)
-        .set({ endedAt: run.endedAt ?? new Date(), status: "finalizing" })
+        .set(buildHumanTranscriptionStopPatch(run, new Date()))
         .where(eq(humanTranscriptionRun.id, run.id))
         .returning();
       return updated;

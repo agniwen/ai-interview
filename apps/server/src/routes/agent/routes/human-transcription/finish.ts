@@ -5,11 +5,35 @@ import type { HumanTranscriptionCallback } from "@app/shared/human-transcription
 import { db } from "../../../../infrastructure/db/index";
 import { HumanTranscriptionConflictError } from "./errors";
 
+type HumanTranscriptionRun = typeof humanTranscriptionRun.$inferSelect;
+
+function isLosslessIdleExit(
+  run: HumanTranscriptionRun,
+  idle: boolean,
+  error: string | null | undefined,
+): boolean {
+  return idle && !error && !run.error && !run.endedAt;
+}
+
+// 无人可采时采集器退出不丢音频：清空执行权，等下一位参会者入会时以新代次重新派发。
+function idleResumePatch(run: HumanTranscriptionRun, now: Date): Partial<HumanTranscriptionRun> {
+  return {
+    cutoffAt: null,
+    dispatchId: null,
+    drainedAt: null,
+    executionId: null,
+    generation: run.generation + 1,
+    heartbeatAt: now,
+    status: "pending",
+  };
+}
+
 export function createHumanTranscriptionFinisher(database: Database) {
   return (
     job: HumanTranscriptionCallback,
     phase: "ready" | "cutoff" | "finish",
     error?: string | null,
+    idle = false,
   ) =>
     database.transaction(async (tx) => {
       const [run] = await tx
@@ -55,7 +79,9 @@ export function createHumanTranscriptionFinisher(database: Database) {
           status: run.endedAt ? "finalizing" : run.status,
         };
       }
-      if (phase === "finish") {
+      if (phase === "finish" && isLosslessIdleExit(run, idle, error)) {
+        patch = idleResumePatch(run, now);
+      } else if (phase === "finish") {
         Object.assign(patch, {
           drainedAt: run.drainedAt ?? now,
           error: run.error ?? error ?? (run.endedAt ? null : "采集器已退出，等待恢复实时转录"),

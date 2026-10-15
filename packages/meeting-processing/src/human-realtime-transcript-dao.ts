@@ -38,7 +38,7 @@ export function createHumanRealtimeTranscriptDao(db: Database) {
           ),
         )
         .for("update");
-      if (!meeting || !["ended", "cancelled"].includes(meeting.status)) {
+      if (!meeting || !["ended", "cancelled", "not_held"].includes(meeting.status)) {
         return null;
       }
       const [run] = await tx
@@ -52,6 +52,14 @@ export function createHumanRealtimeTranscriptDao(db: Database) {
         !run.endedAt ||
         ["ready", "needs_review"].includes(run.status)
       ) {
+        return null;
+      }
+      if (meeting.status === "not_held") {
+        // 会议从未建立，没有可发布的面试材料；终结任务，避免恢复循环反复处理。
+        await tx
+          .update(humanTranscriptionRun)
+          .set({ error: run.error ?? "会议未召开，未生成实时转录", status: "needs_review" })
+          .where(eq(humanTranscriptionRun.id, run.id));
         return null;
       }
       const events = await tx
