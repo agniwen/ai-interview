@@ -29,6 +29,7 @@ import {
   dateTimeLocalInputToISOString,
   isoStringToDateTimeLocalInput,
 } from "@/lib/client/datetime-local";
+import { RESUME_EMAIL_INGEST_SECTION_ID } from "./profile-anchors";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   DEFAULT_MAIL_INGEST_PROVIDER_ID,
@@ -224,7 +225,11 @@ export function MailIngestAccountCard() {
 
   return (
     <>
-      <SettingsSection description="符合条件的简历邮件会自动导入你的招聘台。" title="简历邮箱采集">
+      <SettingsSection
+        description="符合条件的简历邮件会自动导入你的招聘台。"
+        id={RESUME_EMAIL_INGEST_SECTION_ID}
+        title="简历邮箱采集"
+      >
         <SettingsGroup>
           <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
             <div className="flex min-w-0 items-center gap-2.5">

@@ -319,7 +319,13 @@ export function ResumePoolDetailPage({
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-x-10 2xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="flex min-w-0 flex-col gap-8" ref={contentRef}>
-            <ResumePoolQualitativeEvaluationPanel detail={detail} />
+            <ResumePoolQualitativeEvaluationPanel
+              detail={detail}
+              onRequestRecommendations={
+                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
+              }
+              slug={slug}
+            />
             <ResumePoolDetailSummaryPanel
               detail={detail}
               isError={false}

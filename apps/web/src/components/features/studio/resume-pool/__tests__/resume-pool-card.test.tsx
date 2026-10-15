@@ -726,6 +726,7 @@ describe("ResumePoolCard", () => {
           qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
           resumeProfile: null,
         }}
+        slug="default"
       />,
     );
 
@@ -744,6 +745,7 @@ describe("ResumePoolCard", () => {
           qualitativeResumeEvaluation: qualitativeEvaluation,
           resumeProfile: null,
         }}
+        slug="default"
       />,
     );
     const structured = renderToStaticMarkup(
@@ -752,6 +754,26 @@ describe("ResumePoolCard", () => {
 
     expect(evaluation).toMatch(/^<section data-resume-pool-qualitative-evaluation="true">/u);
     expect(structured).toMatch(/^<section class="space-y-4 border-border\/50 border-t pt-6">/u);
+  });
+
+  it("previews the evaluation only while no job is bound", () => {
+    const render = (jobDescriptionId: string | null) =>
+      renderToStaticMarkup(
+        <ResumePoolQualitativeEvaluationPanel
+          detail={{
+            ...record,
+            jobDescriptionId,
+            qualitativeResumeEvaluation: null,
+            resumeProfile: null,
+          }}
+          onRequestRecommendations={vi.fn()}
+          slug="default"
+        />,
+      );
+
+    expect(render(null)).toContain("data-resume-pool-evaluation-placeholder");
+    expect(render(null)).toContain("推荐岗位");
+    expect(render("jd_1")).toBe("");
   });
 
   it("denies job recommendation actions without permission", () => {

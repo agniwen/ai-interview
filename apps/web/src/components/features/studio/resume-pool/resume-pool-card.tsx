@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { cn } from "@app/shared/utils";
+import { Link } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
@@ -27,6 +28,7 @@ import {
   STUDIO_LIST_CARD_EVALUATION_TEXT_CLASS,
   StudioListCardEvaluation,
   StudioListCardEvaluationFocus,
+  StudioListCardEvaluationFocusPlaceholder,
   StudioListCardEvaluationSkeleton,
   StudioListCardProfileSnapshotSkeleton,
   QUALITATIVE_RECOMMENDATION_VERDICT_TONE,
@@ -55,6 +57,8 @@ import {
   uploaderMetaSegments,
 } from "./resume-pool-page-model";
 import { ResumePoolJobBindingMenu } from "./resume-pool-job-binding-menu";
+import { RESUME_EMAIL_INGEST_SECTION_ID } from "@/components/features/studio/profile/profile-anchors";
+import { useWorkspaceCan } from "@/lib/client/workspace-context";
 import { ResumePoolAiEvaluationHoverCard } from "@/components/features/studio/resumes/resume-ai-score-hover-card";
 
 /** 卡片按固定槽位排版（见 studio-list-card-profile），各断点高度由布局决定，与招聘台一致。 */
@@ -202,12 +206,16 @@ function ResumePoolUploaderMeta({ record }: { record: ResumePoolListRecord }) {
 function ResumePoolCardEvaluation({
   onOpenDetail,
   record,
+  slug,
   summary,
 }: {
   onOpenDetail: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
+  slug: string;
   summary: string;
 }) {
+  const canOpenProfile = useWorkspaceCan("page", "me");
+  const canManageMailIngest = useWorkspaceCan("resumeEmailIngest", "read") && canOpenProfile;
   if (isResumePoolRecordParsing(record)) {
     return <StudioListCardEvaluationSkeleton />;
   }
@@ -232,6 +240,31 @@ function ResumePoolCardEvaluation({
         </p>
       )}
       {level ? <StudioListCardEvaluationFocus focus={record.qualitativeResumeFocus} /> : null}
+      {!level && !record.jobDescriptionId ? (
+        <StudioListCardEvaluationFocusPlaceholder>
+          <p className="text-foreground">未绑定岗位，还没有匹配依据和风险</p>
+          <p className="mt-0.5 text-muted-foreground text-xs leading-5">
+            绑定岗位后生成；接入简历邮箱后，收到的简历会自动匹配岗位
+          </p>
+          {canManageMailIngest ? (
+            <Button
+              className="mt-2 h-7 px-2.5 text-[13px]"
+              nativeButton={false}
+              render={
+                <Link
+                  hash={RESUME_EMAIL_INGEST_SECTION_ID}
+                  params={{ slug }}
+                  to="/w/$slug/studio/me"
+                />
+              }
+              size="xs"
+              variant="secondary"
+            >
+              去设置
+            </Button>
+          ) : null}
+        </StudioListCardEvaluationFocusPlaceholder>
+      ) : null}
     </StudioListCardEvaluation>
   );
 }
@@ -511,6 +544,7 @@ export function ResumePoolCard({
             <ResumePoolCardEvaluation
               onOpenDetail={onOpenDetail}
               record={record}
+              slug={slug}
               summary={summary}
             />
           </div>

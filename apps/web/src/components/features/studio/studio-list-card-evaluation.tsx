@@ -220,6 +220,42 @@ export function StudioListCardEvaluationFocusSkeleton() {
   return <StudioListCardFocusSkeletonRows />;
 }
 
+const FOCUS_PLACEHOLDER_ROW_CLASS = "bg-muted group-hover/list-card:bg-foreground/10";
+
+/**
+ * 尚无岗位相关评估时的静态占位：与摘录区同高，淡化的要点行示意版式，中间叠一张小便签说明原因；
+ * 不使用 Skeleton 的脉冲动画，避免被误读为“生成中”。
+ */
+export function StudioListCardEvaluationFocusPlaceholder({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className={cn("relative min-w-0 overflow-hidden", STUDIO_LIST_CARD_FOCUS_HEIGHT_CLASS)}
+      data-slot="studio-list-card-evaluation-focus-placeholder"
+    >
+      <div aria-hidden className="grid content-start gap-3 opacity-70">
+        {FOCUS_SKELETON_ROWS.map(([badge, first, second]) => (
+          <div className={QUALITATIVE_POINT_GRID_CLASS} key={`${badge}-${first}-${second}`}>
+            <span className={cn("h-[22px] rounded-[8px]", FOCUS_PLACEHOLDER_ROW_CLASS, badge)} />
+            <span className="grid">
+              <span
+                className={cn("my-[3px] h-[13px] rounded-sm", FOCUS_PLACEHOLDER_ROW_CLASS, first)}
+              />
+              <span
+                className={cn("my-[3px] h-[13px] rounded-sm", FOCUS_PLACEHOLDER_ROW_CLASS, second)}
+              />
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center px-4">
+        <div className="max-w-sm rounded-md border border-border/40 bg-background/55 px-3 py-2 backdrop-blur-[2px] transition-colors group-hover/list-card:border-foreground/10 group-hover/list-card:bg-muted/60 text-[13px] leading-[19px]">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 卡片评价区：概述在上，摘录在下；外层控制与元信息行的间距。 */
 export function StudioListCardEvaluation({
   children,
