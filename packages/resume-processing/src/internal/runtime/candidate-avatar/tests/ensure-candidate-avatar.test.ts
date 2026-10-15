@@ -12,7 +12,7 @@ function createDependencies(attempt: CandidateAvatarAttempt | null) {
     extractCandidateAvatar: vi.fn<EnsureCandidateAvatarDependencies["extractCandidateAvatar"]>(() =>
       Promise.resolve("avatar-key"),
     ),
-    getApiKey: vi.fn<() => string | null>(() => "jev-test-key"),
+    getApiKey: vi.fn<() => string | null>(() => "dashscope-test-key"),
     loadAvatarAttempt: vi.fn(() => Promise.resolve(attempt)),
   } satisfies EnsureCandidateAvatarDependencies;
 }
@@ -39,7 +39,7 @@ describe("ensureCandidateAvatar", () => {
     ["an avatar was detected", { attempts: 1, status: "detected" }],
     ["no avatar was found", { attempts: 1, status: "not_detected" }],
     ["failures reached the retry limit", { attempts: 3, status: "failed" }],
-  ] as const)("does not call Jev or load the file again once %s", async (_label, attempt) => {
+  ] as const)("does not call the model or load the file again once %s", async (_label, attempt) => {
     const dependencies = createDependencies(attempt);
     const loadBytes = vi.fn(() => Promise.resolve(BYTES));
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { extractCandidateAvatar } from "../extract-candidate-avatar";
 import type { CandidateAvatarDependencies } from "../extract-candidate-avatar";
-import type { HeadshotLocation } from "../jev-headshot";
+import type { HeadshotLocation } from "../qwen-headshot";
 
 const PDF_INPUT = {
   bytes: new Uint8Array([1, 2, 3]),
@@ -14,7 +14,7 @@ function headshot(
   overrides: { personConfidence?: number; photoProbability?: number } = {},
 ): HeadshotLocation {
   return {
-    model: "jev-1.14.0",
+    model: "qwen3-vl-plus",
     person: {
       box: { bottom: 0.35, left: 0.08, right: 0.27, top: 0.12 },
       confidence: overrides.personConfidence ?? 0.92,
@@ -27,7 +27,7 @@ function headshot(
 function createDependencies(location: HeadshotLocation | Error = headshot()) {
   const cropAvatarJpeg = vi.fn(() => AVATAR_JPEG);
   const dependencies = {
-    getApiKey: vi.fn<() => string | null>(() => "jev-test-key"),
+    getApiKey: vi.fn<() => string | null>(() => "dashscope-test-key"),
     hashBytes: vi.fn(() => Promise.resolve("content-hash")),
     locateHeadshot: vi.fn(() =>
       location instanceof Error ? Promise.reject(location) : Promise.resolve(location),
@@ -56,7 +56,7 @@ describe("extractCandidateAvatar", () => {
       contentHash: "content-hash",
       durationMs: 2400,
       errorMessage: null,
-      model: "jev-1.14.0",
+      model: "qwen3-vl-plus",
       photoProbability: 0.95,
       status: "detected",
       storageKey: "prefix/candidate-avatars/content-hash.jpg",
@@ -81,10 +81,18 @@ describe("extractCandidateAvatar", () => {
     );
   });
 
-  it("records the failure reason and duration when Jev fails", async () => {
-    const { dependencies } = createDependencies(
-      new Error("Jev headshot request failed with HTTP 503: upstream unavailable"),
+  it("treats an answer without a person box as no avatar", async () => {
+    const { cropAvatarJpeg, dependencies } = createDependencies({ ...headshot(), person: null });
+
+    await expect(extractCandidateAvatar(PDF_INPUT, dependencies)).resolves.toBeNull();
+    expect(cropAvatarJpeg).not.toHaveBeenCalled();
+    expect(dependencies.saveAvatarRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ boxConfidence: null, status: "not_detected" }),
     );
+  });
+
+  it("records the failure reason and duration when the model call fails", async () => {
+    const { dependencies } = createDependencies(new Error("503 upstream unavailable"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await expect(extractCandidateAvatar(PDF_INPUT, dependencies)).resolves.toBeNull();
@@ -92,7 +100,7 @@ describe("extractCandidateAvatar", () => {
       boxConfidence: null,
       contentHash: "content-hash",
       durationMs: 2400,
-      errorMessage: "Error: Jev headshot request failed with HTTP 503: upstream unavailable",
+      errorMessage: "Error: 503 upstream unavailable",
       model: null,
       photoProbability: null,
       status: "failed",
@@ -110,7 +118,7 @@ describe("extractCandidateAvatar", () => {
     warn.mockRestore();
   });
 
-  it("skips extraction entirely when Jev is not configured", async () => {
+  it("skips extraction entirely when the model key is not configured", async () => {
     const { dependencies } = createDependencies();
     dependencies.getApiKey.mockReturnValue(null);
 

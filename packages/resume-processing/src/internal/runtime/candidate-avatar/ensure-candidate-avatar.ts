@@ -1,5 +1,5 @@
 // Backfills the candidate headshot when a parse is served from cache and OCR is skipped.
-// 解析命中缓存（跳过 OCR）时补做头像识别：同一份简历已有结果就不再调用 Jev，失败的记录会有限次重试。
+// 解析命中缓存（跳过 OCR）时补做头像识别：同一份简历已有结果就不再调用模型，失败的记录会有限次重试。
 
 import { eq } from "drizzle-orm";
 import { resumeCandidateAvatar } from "@app/db-schema/schema";
@@ -7,7 +7,7 @@ import type { ResumeCandidateAvatarStatus } from "@app/db-schema/schema";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { db } from "../db";
 import { extractCandidateAvatar } from "./extract-candidate-avatar";
-import { getJevApiKey } from "./jev-headshot";
+import { getQwenHeadshotApiKey } from "./qwen-headshot";
 
 export interface EnsureCandidateAvatarInput {
   // sha256 of the file bytes when the caller already knows it; avoids loading bytes when a
@@ -47,7 +47,7 @@ async function loadAvatarAttempt(contentHash: string): Promise<CandidateAvatarAt
 
 const defaultDependencies: EnsureCandidateAvatarDependencies = {
   extractCandidateAvatar,
-  getApiKey: getJevApiKey,
+  getApiKey: getQwenHeadshotApiKey,
   loadAvatarAttempt,
 };
 

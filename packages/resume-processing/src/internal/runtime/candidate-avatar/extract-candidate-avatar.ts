@@ -11,8 +11,8 @@ import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { db } from "../db";
 import { withFirstPageImage } from "./first-page-image";
 import type { FirstPageSourceMediaType } from "./first-page-image";
-import { getJevApiKey, locateHeadshotWithJev } from "./jev-headshot";
-import type { HeadshotLocation } from "./jev-headshot";
+import { getQwenHeadshotApiKey, locateHeadshotWithQwen } from "./qwen-headshot";
+import type { HeadshotLocation, LocatedBox } from "./qwen-headshot";
 
 // 低于该置信度的头像判断一律视为未获取到。
 // Below this confidence the headshot is treated as not found.
@@ -42,7 +42,7 @@ export interface CandidateAvatarDependencies {
   hashBytes: typeof sha256HexOfBytes;
   locateHeadshot: (input: {
     apiKey: string;
-    image: Uint8Array<ArrayBuffer>;
+    image: Uint8Array;
     mediaType: "image/png";
     signal: AbortSignal;
   }) => Promise<HeadshotLocation>;
@@ -77,18 +77,21 @@ async function saveAvatarRecord(record: CandidateAvatarRecord): Promise<void> {
 }
 
 export const defaultCandidateAvatarDependencies: CandidateAvatarDependencies = {
-  getApiKey: getJevApiKey,
+  getApiKey: getQwenHeadshotApiKey,
   hashBytes: sha256HexOfBytes,
-  locateHeadshot: locateHeadshotWithJev,
+  locateHeadshot: locateHeadshotWithQwen,
   now: () => performance.now(),
   saveAvatarRecord,
   storeAvatarImage,
   withFirstPageImage,
 };
 
-export function isConfidentHeadshot(location: HeadshotLocation): boolean {
+export function isConfidentHeadshot(
+  location: HeadshotLocation,
+): location is HeadshotLocation & { person: LocatedBox } {
   return (
     location.photoProbability >= CANDIDATE_AVATAR_MIN_CONFIDENCE &&
+    location.person !== null &&
     location.person.confidence >= CANDIDATE_AVATAR_MIN_CONFIDENCE
   );
 }
@@ -135,7 +138,7 @@ async function locateAndStoreAvatar(
   if (!result) {
     return {
       boxConfidence: null,
-      errorMessage: "First page could not be rendered within Jev image limits.",
+      errorMessage: "First page is too small to detect a headshot.",
       model: null,
       photoProbability: null,
       status: "not_detected",
@@ -147,7 +150,7 @@ async function locateAndStoreAvatar(
     ? await dependencies.storeAvatarImage(contentHash, result.avatar)
     : null;
   return {
-    boxConfidence: result.location.person.confidence,
+    boxConfidence: result.location.person?.confidence ?? null,
     errorMessage: null,
     model: result.location.model,
     photoProbability: result.location.photoProbability,

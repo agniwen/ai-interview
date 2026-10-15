@@ -3396,7 +3396,7 @@ export const chatAttachment = pgTable(
 );
 
 // detected：已裁出头像；not_detected：识别完成但没有可信头像；failed：识别调用失败，error_message 记录原因。
-// detected: avatar stored; not_detected: Jev answered without a confident headshot;
+// detected: avatar stored; not_detected: the model answered without a confident headshot;
 // failed: the extraction itself failed and error_message holds the reason.
 export type ResumeCandidateAvatarStatus = "detected" | "not_detected" | "failed";
 

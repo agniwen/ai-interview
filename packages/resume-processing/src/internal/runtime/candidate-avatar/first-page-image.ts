@@ -1,13 +1,15 @@
-// Renders a resume's first page (PDF page or image) within Jev's image limits and crops headshots.
-// 把简历首页（PDF 首页或图片本身）渲染到 Jev 允许的尺寸，并按 Jev 标注的人像区域裁剪头像。
+// Renders a resume's first page (PDF page or image) for headshot detection and crops headshots.
+// 把简历首页（PDF 首页或图片本身）渲染成头像识别用的图片，并按模型标注的人像区域裁剪头像。
 
 import type * as MupdfModuleNs from "mupdf";
-import type { HeadshotBox, HeadshotLocation } from "./jev-headshot";
+import type { HeadshotBox, LocatedBox } from "./qwen-headshot";
 
 type MupdfModule = typeof MupdfModuleNs;
 
-// Jev accepts 256–1568 px per side and 78,400–2,458,624 total pixels; stay a little inside
-// because mupdf rounds pixmap bounds outward.
+// 长边 1560px 在定位精度与图片 token 成本之间取平衡；过小的页面不做识别。
+// A 1560 px longest side balances box precision against image-token cost; pages too small to
+// read a face from are skipped. Stay a little inside round numbers because mupdf rounds
+// pixmap bounds outward.
 const VISION_LONGEST_SIDE = 1560;
 const VISION_MIN_SIDE = 256;
 const VISION_MIN_PIXELS = 78_400;
@@ -48,7 +50,10 @@ export function resolveVisionScale(pageWidth: number, pageHeight: number): numbe
   return minSide >= VISION_MIN_SIDE && pixels >= VISION_MIN_PIXELS ? scale : null;
 }
 
-export type AvatarCropTarget = Pick<HeadshotLocation, "person" | "photo">;
+export interface AvatarCropTarget {
+  person: LocatedBox;
+  photo: LocatedBox | null;
+}
 
 // 照片框可信时，裁剪不越过照片边界；否则只限制在页面内。
 // Below this confidence the photo box is not trusted as a crop boundary.
@@ -74,25 +79,26 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-// Crops exactly the person region Jev marked (head plus visible torso), clipped to the
+// Crops exactly the person region the model marked (head plus visible torso), clipped to the
 // headshot photo so it never spills into the surrounding resume text.
-// 按 Jev 标注的人像区域（头部加可见躯干）截取，并限制在证件照范围内，避免截到旁边的简历文字。
+// 按模型标注的人像区域（头部加可见躯干）截取，并限制在证件照范围内，避免截到旁边的简历文字。
 export function toAvatarCrop(
   target: AvatarCropTarget,
   imageWidth: number,
   imageHeight: number,
 ): PixelRect | null {
   const person = toPixelBounds(target.person.box, imageWidth, imageHeight);
-  const photo = toPixelBounds(target.photo.box, imageWidth, imageHeight);
+  const photo = target.photo ? toPixelBounds(target.photo.box, imageWidth, imageHeight) : null;
   const centerX = (person.left + person.right) / 2;
   const centerY = (person.top + person.bottom) / 2;
   const photoContainsPerson =
+    photo !== null &&
     centerX >= photo.left &&
     centerX <= photo.right &&
     centerY >= photo.top &&
     centerY <= photo.bottom;
   const bounds =
-    target.photo.confidence >= PHOTO_BOUNDS_MIN_CONFIDENCE && photoContainsPerson
+    photo && photoContainsPerson && (target.photo?.confidence ?? 0) >= PHOTO_BOUNDS_MIN_CONFIDENCE
       ? photo
       : { bottom: imageHeight, left: 0, right: imageWidth, top: 0 };
   const left = Math.round(clamp(person.left, bounds.left, bounds.right));

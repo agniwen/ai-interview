@@ -88,7 +88,7 @@ function cropTarget(
 }
 
 describe("toAvatarCrop", () => {
-  it("crops exactly the person region Jev marked, keeping its aspect ratio", () => {
+  it("crops exactly the person region the model marked, keeping its aspect ratio", () => {
     expect(
       toAvatarCrop(cropTarget({ bottom: 0.5, left: 0.2, right: 0.4, top: 0.2 }), 1000, 1000),
     ).toEqual({ height: 300, width: 200, x: 200, y: 200 });
@@ -129,13 +129,13 @@ describe("toAvatarCrop", () => {
 });
 
 describe("resolveVisionScale", () => {
-  it("fits an A4 page inside Jev's longest-side limit", () => {
+  it("fits an A4 page inside the vision longest-side limit", () => {
     const scale = resolveVisionScale(595, 842);
     expect(scale).not.toBeNull();
     expect(842 * (scale ?? 0)).toBeLessThanOrEqual(1568);
   });
 
-  it("rejects pages whose short side would fall under Jev's minimum", () => {
+  it("rejects pages whose short side would fall under the vision minimum", () => {
     expect(resolveVisionScale(100, 2000)).toBeNull();
   });
 });
