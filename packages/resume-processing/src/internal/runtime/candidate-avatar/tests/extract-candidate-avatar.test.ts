@@ -32,6 +32,7 @@ function createDependencies(location: HeadshotLocation | Error = headshot()) {
     locateHeadshot: vi.fn(() =>
       location instanceof Error ? Promise.reject(location) : Promise.resolve(location),
     ),
+    now: vi.fn<() => number>().mockReturnValueOnce(1000).mockReturnValueOnce(3400),
     saveAvatarRecord: vi.fn(() => Promise.resolve()),
     storeAvatarImage: vi.fn(() => Promise.resolve("prefix/candidate-avatars/content-hash.jpg")),
     withFirstPageImage: vi.fn((_source, use) =>
@@ -53,8 +54,11 @@ describe("extractCandidateAvatar", () => {
     expect(dependencies.saveAvatarRecord).toHaveBeenCalledWith({
       boxConfidence: 0.92,
       contentHash: "content-hash",
+      durationMs: 2400,
+      errorMessage: null,
       model: "jev-1.14.0",
       photoProbability: 0.95,
+      status: "detected",
       storageKey: "prefix/candidate-avatars/content-hash.jpg",
     });
   });
@@ -69,16 +73,40 @@ describe("extractCandidateAvatar", () => {
     expect(cropAvatarJpeg).not.toHaveBeenCalled();
     expect(dependencies.storeAvatarImage).not.toHaveBeenCalled();
     expect(dependencies.saveAvatarRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ contentHash: "content-hash", storageKey: null }),
+      expect.objectContaining({
+        contentHash: "content-hash",
+        status: "not_detected",
+        storageKey: null,
+      }),
     );
   });
 
-  it("resolves to null without persisting when Jev fails", async () => {
-    const { dependencies } = createDependencies(new Error("HTTP 503"));
+  it("records the failure reason and duration when Jev fails", async () => {
+    const { dependencies } = createDependencies(
+      new Error("Jev headshot request failed with HTTP 503: upstream unavailable"),
+    );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await expect(extractCandidateAvatar(PDF_INPUT, dependencies)).resolves.toBeNull();
-    expect(dependencies.saveAvatarRecord).not.toHaveBeenCalled();
+    expect(dependencies.saveAvatarRecord).toHaveBeenCalledWith({
+      boxConfidence: null,
+      contentHash: "content-hash",
+      durationMs: 2400,
+      errorMessage: "Error: Jev headshot request failed with HTTP 503: upstream unavailable",
+      model: null,
+      photoProbability: null,
+      status: "failed",
+      storageKey: null,
+    });
+    warn.mockRestore();
+  });
+
+  it("still resolves to null when recording the failure also fails", async () => {
+    const { dependencies } = createDependencies(new Error("network down"));
+    dependencies.saveAvatarRecord.mockRejectedValue(new Error("database unavailable"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(extractCandidateAvatar(PDF_INPUT, dependencies)).resolves.toBeNull();
     warn.mockRestore();
   });
 

@@ -2,8 +2,10 @@
 // 与简历 OCR 并行的候选人头像提取：仅支持 PDF 首页与图片简历，失败或置信度不足都不影响解析。
 
 import { setTimeout as delay } from "node:timers/promises";
+import { eq, sql } from "drizzle-orm";
 import { buildCandidateAvatarKeyByHash, putObjectBytes } from "@app/object-storage";
 import { resumeCandidateAvatar } from "@app/db-schema/schema";
+import type { ResumeCandidateAvatarStatus } from "@app/db-schema/schema";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
 import { db } from "../db";
@@ -16,6 +18,7 @@ import type { HeadshotLocation } from "./jev-headshot";
 // Below this confidence the headshot is treated as not found.
 export const CANDIDATE_AVATAR_MIN_CONFIDENCE = 0.5;
 const AVATAR_EXTRACTION_TIMEOUT_MS = 45_000;
+const ERROR_MESSAGE_MAX_LENGTH = 500;
 
 export interface CandidateAvatarInput {
   bytes: Uint8Array;
@@ -24,10 +27,13 @@ export interface CandidateAvatarInput {
 }
 
 export interface CandidateAvatarRecord {
-  boxConfidence: number;
+  boxConfidence: number | null;
   contentHash: string;
-  model: string;
-  photoProbability: number;
+  durationMs: number;
+  errorMessage: string | null;
+  model: string | null;
+  photoProbability: number | null;
+  status: ResumeCandidateAvatarStatus;
   storageKey: string | null;
 }
 
@@ -40,6 +46,7 @@ export interface CandidateAvatarDependencies {
     mediaType: "image/png";
     signal: AbortSignal;
   }) => Promise<HeadshotLocation>;
+  now: () => number;
   saveAvatarRecord: (record: CandidateAvatarRecord) => Promise<void>;
   storeAvatarImage: (contentHash: string, jpeg: Uint8Array) => Promise<string>;
   withFirstPageImage: typeof withFirstPageImage;
@@ -51,18 +58,20 @@ async function storeAvatarImage(contentHash: string, jpeg: Uint8Array): Promise<
   return storageKey;
 }
 
+// 失败记录只覆盖此前的失败，不会冲掉已完成的识别结果。
+// A failure only overwrites an earlier failure, never a completed result.
 async function saveAvatarRecord(record: CandidateAvatarRecord): Promise<void> {
+  const { contentHash: _contentHash, ...fields } = record;
   await db
     .insert(resumeCandidateAvatar)
     .values(record)
     .onConflictDoUpdate({
       set: {
-        boxConfidence: record.boxConfidence,
-        model: record.model,
-        photoProbability: record.photoProbability,
-        storageKey: record.storageKey,
+        ...fields,
+        attempts: sql`${resumeCandidateAvatar.attempts} + 1`,
         updatedAt: new Date(),
       },
+      setWhere: record.status === "failed" ? eq(resumeCandidateAvatar.status, "failed") : undefined,
       target: resumeCandidateAvatar.contentHash,
     });
 }
@@ -71,6 +80,7 @@ export const defaultCandidateAvatarDependencies: CandidateAvatarDependencies = {
   getApiKey: getJevApiKey,
   hashBytes: sha256HexOfBytes,
   locateHeadshot: locateHeadshotWithJev,
+  now: () => performance.now(),
   saveAvatarRecord,
   storeAvatarImage,
   withFirstPageImage,
@@ -101,17 +111,17 @@ function resolveFirstPageSource(
   return null;
 }
 
-async function runCandidateAvatarExtraction(
-  input: CandidateAvatarInput,
+function describeError(error: Error): string {
+  return `${error.name}: ${error.message}`.slice(0, ERROR_MESSAGE_MAX_LENGTH);
+}
+
+async function locateAndStoreAvatar(
+  source: { bytes: Uint8Array; mediaType: FirstPageSourceMediaType },
+  contentHash: string,
   apiKey: string,
   signal: AbortSignal,
   dependencies: CandidateAvatarDependencies,
-): Promise<string | null> {
-  const source = resolveFirstPageSource(input);
-  if (!source) {
-    return null;
-  }
-  const contentHash = await dependencies.hashBytes(input.bytes);
+): Promise<Omit<CandidateAvatarRecord, "contentHash" | "durationMs">> {
   const result = await dependencies.withFirstPageImage(source, async (page) => {
     const location = await dependencies.locateHeadshot({
       apiKey,
@@ -123,20 +133,78 @@ async function runCandidateAvatarExtraction(
     return { avatar, location };
   });
   if (!result) {
-    return null;
+    return {
+      boxConfidence: null,
+      errorMessage: "First page could not be rendered within Jev image limits.",
+      model: null,
+      photoProbability: null,
+      status: "not_detected",
+      storageKey: null,
+    };
   }
   signal.throwIfAborted();
   const storageKey = result.avatar
     ? await dependencies.storeAvatarImage(contentHash, result.avatar)
     : null;
-  await dependencies.saveAvatarRecord({
+  return {
     boxConfidence: result.location.person.confidence,
-    contentHash,
+    errorMessage: null,
     model: result.location.model,
     photoProbability: result.location.photoProbability,
+    status: storageKey ? "detected" : "not_detected",
     storageKey,
-  });
-  return storageKey;
+  };
+}
+
+// 每次识别（成功、无头像或失败）都落一条记录；超时后台继续时也会在结束时补记。从不抛错。
+// Records every attempt — detected, not detected, or failed — even when it settles after the
+// caller stopped waiting. Never throws.
+async function runCandidateAvatarExtraction(
+  input: CandidateAvatarInput,
+  source: { bytes: Uint8Array; mediaType: FirstPageSourceMediaType },
+  apiKey: string,
+  signal: AbortSignal,
+  dependencies: CandidateAvatarDependencies,
+): Promise<string | null> {
+  const startedAt = dependencies.now();
+  let contentHash: string | null = null;
+  let outcome: Omit<CandidateAvatarRecord, "contentHash" | "durationMs">;
+  try {
+    contentHash = await dependencies.hashBytes(input.bytes);
+    outcome = await locateAndStoreAvatar(source, contentHash, apiKey, signal, dependencies);
+  } catch (error) {
+    outcome = {
+      boxConfidence: null,
+      errorMessage: describeError(error instanceof Error ? error : new Error(String(error))),
+      model: null,
+      photoProbability: null,
+      status: "failed",
+      storageKey: null,
+    };
+  }
+  const durationMs = Math.round(dependencies.now() - startedAt);
+  if (outcome.status === "failed") {
+    console.warn("[resume-avatar] candidate avatar extraction failed", {
+      contentHash,
+      durationMs,
+      error: outcome.errorMessage,
+      fileName: input.fileName,
+    });
+  }
+  if (!contentHash) {
+    return null;
+  }
+  try {
+    await dependencies.saveAvatarRecord({ ...outcome, contentHash, durationMs });
+  } catch (error) {
+    console.warn("[resume-avatar] failed to record avatar extraction result", {
+      contentHash,
+      error: describeError(error instanceof Error ? error : new Error(String(error))),
+      status: outcome.status,
+    });
+    return null;
+  }
+  return outcome.storageKey;
 }
 
 async function waitForTimeout(ms: number, signal: AbortSignal): Promise<null> {
@@ -160,7 +228,8 @@ export async function extractCandidateAvatar(
   dependencies: CandidateAvatarDependencies = defaultCandidateAvatarDependencies,
 ): Promise<string | null> {
   const apiKey = dependencies.getApiKey();
-  if (!apiKey) {
+  const source = apiKey ? resolveFirstPageSource(input) : null;
+  if (!(apiKey && source)) {
     return null;
   }
   const signal = AbortSignal.timeout(AVATAR_EXTRACTION_TIMEOUT_MS);
@@ -170,15 +239,9 @@ export async function extractCandidateAvatar(
   const timedOut = waitForTimeout(AVATAR_EXTRACTION_TIMEOUT_MS, stopTimer.signal);
   try {
     return await Promise.race([
-      runCandidateAvatarExtraction(input, apiKey, signal, dependencies),
+      runCandidateAvatarExtraction(input, source, apiKey, signal, dependencies),
       timedOut,
     ]);
-  } catch (error) {
-    console.warn("[resume-avatar] candidate avatar extraction skipped", {
-      error: error instanceof Error ? error.message : String(error),
-      fileName: input.fileName,
-    });
-    return null;
   } finally {
     stopTimer.abort();
   }

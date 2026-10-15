@@ -52,8 +52,17 @@ export interface HeadshotLocation {
   photoProbability: number;
 }
 
+let reportedMissingApiKey = false;
+
+// 未配置时每个进程只提示一次，从日志即可确认头像识别是否启用。
+// Logs once per process when unset so a disabled extractor is visible in the logs.
 export function getJevApiKey(env: NodeJS.ProcessEnv = process.env): string | null {
-  return env.JEV_API_KEY?.trim() || null;
+  const apiKey = env.JEV_API_KEY?.trim() || null;
+  if (!(apiKey || reportedMissingApiKey)) {
+    reportedMissingApiKey = true;
+    console.info("[resume-avatar] disabled: JEV_API_KEY is not set");
+  }
+  return apiKey;
 }
 
 export async function locateHeadshotWithJev(input: {

@@ -3395,15 +3395,25 @@ export const chatAttachment = pgTable(
   ],
 );
 
+// detected：已裁出头像；not_detected：识别完成但没有可信头像；failed：识别调用失败，error_message 记录原因。
+// detected: avatar stored; not_detected: Jev answered without a confident headshot;
+// failed: the extraction itself failed and error_message holds the reason.
+export type ResumeCandidateAvatarStatus = "detected" | "not_detected" | "failed";
+
 // 简历首页候选人头像，按简历文件内容哈希（sha256）记录，人才库与招聘台记录通过各自的 content_hash 关联读取。
-// storage_key 为 NULL 表示最近一次识别未得到可信头像。
+// 识别失败同样落库，便于直接查询失败原因并在下次解析时重试。
 // Candidate headshot cropped from a resume's first page, keyed by the file's sha256 content hash.
+// Failed attempts are recorded too so their cause is queryable and later parses can retry.
 export const resumeCandidateAvatar = pgTable("resume_candidate_avatar", {
-  boxConfidence: doublePrecision("box_confidence").notNull(),
+  attempts: integer("attempts").notNull().default(1),
+  boxConfidence: doublePrecision("box_confidence"),
   contentHash: text("content_hash").primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  model: text("model").notNull(),
-  photoProbability: doublePrecision("photo_probability").notNull(),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+  model: text("model"),
+  photoProbability: doublePrecision("photo_probability"),
+  status: text("status").$type<ResumeCandidateAvatarStatus>().notNull(),
   storageKey: text("storage_key"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
