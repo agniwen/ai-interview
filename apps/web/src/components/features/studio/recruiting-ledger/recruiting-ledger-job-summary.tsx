@@ -33,8 +33,8 @@ function JobSummaryMetrics({ rows }: { rows: RecruitingLedgerJobSummary[] }) {
   const metrics = [
     { className: "", label: "在招岗位", value: summary.activeJobs },
     { className: "", label: "总需求", value: formatIncompleteTotal(summary.totalDemand) },
-    { className: "text-emerald-600", label: "已确定", value: summary.confirmed },
-    { className: "text-rose-600", label: "总缺口", value: formatIncompleteTotal(summary.totalGap) },
+    { className: "text-green-ink", label: "已确定", value: summary.confirmed },
+    { className: "text-red-ink", label: "总缺口", value: formatIncompleteTotal(summary.totalGap) },
   ] as const;
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -53,7 +53,7 @@ function JobSummaryMetrics({ rows }: { rows: RecruitingLedgerJobSummary[] }) {
 function jobSummaryStatus(row: RecruitingLedgerJobSummary) {
   if (row.recruitingStatus === "paused") {
     return {
-      className: "text-amber-600 dark:text-amber-400",
+      className: "text-amber-ink",
       label: "已暂停招聘，存量候选人继续推进",
     };
   }
@@ -65,12 +65,12 @@ function jobSummaryStatus(row: RecruitingLedgerJobSummary) {
   }
   if (row.gap !== null && row.gap > 0) {
     return {
-      className: "text-rose-600 dark:text-rose-400",
+      className: "text-red-ink",
       label: `还差 ${row.gap} 人，建议继续补充候选人`,
     };
   }
   return {
-    className: "text-emerald-600 dark:text-emerald-400",
+    className: "text-green-ink",
     label: "✓ 招聘目标已达成",
   };
 }
@@ -99,7 +99,7 @@ function JobSummaryCard({
   return (
     <article
       className={`rounded-xl border bg-card p-4 text-left transition-colors hover:bg-muted/20 ${
-        hasGap ? "border-rose-300/70 dark:border-rose-800/70" : "hover:border-primary/30"
+        hasGap ? "border-red-line " : "hover:border-primary/30"
       }`}
     >
       <div className="flex items-start justify-between gap-3">

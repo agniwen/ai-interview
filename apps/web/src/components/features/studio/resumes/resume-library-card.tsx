@@ -189,8 +189,7 @@ function textOrDash(value: string | null | undefined) {
   return text || "—";
 }
 
-const AI_INTERVIEW_BADGE_CLASS =
-  "border-violet-500/30 bg-violet-500/10 text-violet-700 hover:ring-violet-500/10 dark:border-violet-400/40 dark:bg-violet-400/15 dark:text-violet-300";
+const AI_INTERVIEW_BADGE_CLASS = "bg-purple-tint text-purple-ink hover:bg-purple-line";
 
 function getLifecycleBadgeStageClass(stage: ResumeLibraryListRecord["pipelineStage"]) {
   return stage === "ai_interview" ? AI_INTERVIEW_BADGE_CLASS : undefined;

@@ -40,9 +40,7 @@ export function CreatedAtRelativeLabel({
       className={cn(
         "ml-1.5 whitespace-nowrap",
         className,
-        relation === "earlier"
-          ? "text-red-600 dark:text-red-400"
-          : "text-green-600 dark:text-green-400",
+        relation === "earlier" ? "text-red-ink" : "text-green-ink",
       )}
     >
       比当前简历加入{relation === "earlier" ? "早" : "晚"}

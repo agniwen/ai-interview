@@ -703,9 +703,7 @@ function HumanParticipantTile({
       data-speaking={highlightSpeaker}
       className={cn(
         "relative isolate h-full min-h-0 overflow-hidden rounded-sm border bg-muted/40 transition-colors duration-200 dark:bg-muted",
-        highlightSpeaker
-          ? "border-emerald-500 dark:border-emerald-400"
-          : "border-border/50 dark:border-border",
+        highlightSpeaker ? "border-green" : "border-border/50 dark:border-border",
       )}
     >
       <ParticipantTile

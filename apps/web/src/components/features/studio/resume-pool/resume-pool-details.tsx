@@ -16,7 +16,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
   QualitativeEvaluationDetails,
-  QualitativeRecommendationIndicator,
+  QualitativeRecommendationBadge,
 } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { cn } from "@app/shared/utils";
 import { Badge } from "@/components/ui/badge";
@@ -125,7 +125,7 @@ function ResumePoolCandidateSummary({
   } else if (detail.qualitativeRecommendationLevel && qualitativeSummary) {
     summaryContent = (
       <div className="mt-2 flex flex-col gap-2">
-        <QualitativeRecommendationIndicator level={detail.qualitativeRecommendationLevel} />
+        <QualitativeRecommendationBadge level={detail.qualitativeRecommendationLevel} size="sm" />
         <p className="text-muted-foreground text-sm leading-6">{qualitativeSummary}</p>
       </div>
     );

@@ -22,8 +22,7 @@ function typeLabel(type: string): string {
   return type;
 }
 
-const mentionChipClassName =
-  "mx-0.5 inline align-baseline font-medium text-blue-700 text-[0.95em] dark:text-blue-300";
+const mentionChipClassName = "mx-0.5 inline align-baseline font-medium text-blue-ink text-[0.95em]";
 
 function RecruitingMentionChip({
   label,

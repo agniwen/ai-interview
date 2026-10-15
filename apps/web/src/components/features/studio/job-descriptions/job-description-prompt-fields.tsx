@@ -94,7 +94,7 @@ export function JobDescriptionPromptFields({
                   value={field.state.value}
                 />
                 {field.state.value.trim().length > 0 && field.state.value.trim().length < 80 ? (
-                  <p className="text-amber-600 text-xs dark:text-amber-400">
+                  <p className="text-amber-ink text-xs">
                     当前 JD 内容较少，仍可直接保存；补充职责、经验或技能要求可让 AI 评价更贴合岗位。
                   </p>
                 ) : null}

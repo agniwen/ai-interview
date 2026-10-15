@@ -78,13 +78,13 @@ function ItemIcon({ status }: { status: BulkResumeBatchItemDto["status"] }) {
     return <IconLoader2 className="size-4 animate-spin text-muted-foreground" />;
   }
   if (status === "succeeded") {
-    return <IconCircleCheck className="size-4 text-emerald-500" />;
+    return <IconCircleCheck className="size-4 text-green" />;
   }
   if (status === "failed") {
     return <IconCircleX className="size-4 text-destructive" />;
   }
   if (status === "duplicate_skipped") {
-    return <IconPlayerSkipForward className="size-4 text-amber-500" />;
+    return <IconPlayerSkipForward className="size-4 text-amber" />;
   }
   return <IconCircle className="size-4 text-muted-foreground" />;
 }
@@ -264,7 +264,7 @@ export function BulkUploadProgressDialog({
                           <span className="min-w-0">
                             <span className="block truncate">{item.originalFileName}</span>
                             {duplicateText ? (
-                              <span className="block truncate text-amber-700 text-xs dark:text-amber-300">
+                              <span className="block truncate text-amber-ink text-xs">
                                 {duplicateText}
                               </span>
                             ) : null}

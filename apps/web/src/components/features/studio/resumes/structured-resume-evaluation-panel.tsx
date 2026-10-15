@@ -644,7 +644,7 @@ export function StructuredResumeEvaluationPanel({
   return (
     <section className="space-y-6">
       {retainedResultNotice ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-sm dark:text-amber-400">
+        <p className="rounded-md border border-amber-line bg-amber-tint px-3 py-2 text-amber-ink text-sm">
           {retainedResultNotice}
         </p>
       ) : null}

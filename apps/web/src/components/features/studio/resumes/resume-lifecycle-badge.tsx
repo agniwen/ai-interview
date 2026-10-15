@@ -5,7 +5,7 @@ import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import type { ButtonHTMLAttributes } from "react";
 
 import {
-  getCandidateStageBadgeHoverRingClass,
+  getCandidateStageBadgeHoverClass,
   getCandidateStageBadgeVariant,
 } from "@/components/features/studio/candidate-stage-badge";
 import { badgeVariants } from "@/components/ui/badge";
@@ -13,11 +13,12 @@ import { cn } from "@app/shared/utils";
 
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 
-const lifecycleHoverRingClass = {
-  info: "hover:ring-indigo-500/10",
-  outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
-  success: "hover:ring-emerald-500/10",
-  warning: "hover:ring-amber-500/10",
+/** 悬停加深底色而不是外扩光环：徽标所在的标题行 overflow-hidden，外扩效果会被裁切。 */
+const lifecycleHoverClass = {
+  info: "hover:bg-foreground/10",
+  outline: "hover:bg-muted",
+  success: "hover:bg-green-line",
+  warning: "hover:bg-amber-line",
 } satisfies Record<ResumeLifecycleBadgeTone, string>;
 
 const lifecycleBadgeVariant = {
@@ -52,16 +53,16 @@ export function ResumeLifecycleBadge({
   const hasDetail = Boolean(detailLabel);
   const accessibleLabel = hasDetail ? `${stageLabel}，${detailLabel}` : stageLabel;
   const stageVariant = getCandidateStageBadgeVariant(stage);
-  const stageHoverRingClass = getCandidateStageBadgeHoverRingClass(stage);
+  const stageHoverClass = getCandidateStageBadgeHoverClass(stage);
 
   return (
     <button
       aria-label={accessibleLabel}
       className={cn(
         badgeVariants({ variant: stageVariant ?? lifecycleBadgeVariant[tone] }),
-        "group/lifecycle max-w-full justify-start gap-1.5 px-2.5 py-1 pr-1.5 text-left font-normal",
-        "duration-200 hover:ring-2 focus-visible:outline-none",
-        stageHoverRingClass ?? lifecycleHoverRingClass[tone],
+        "group/lifecycle max-w-full justify-start gap-1.5 px-2.5 pr-1.5 text-left font-normal",
+        "duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset",
+        stageHoverClass ?? lifecycleHoverClass[tone],
         className,
       )}
       title={title ?? fullLabel}
@@ -79,7 +80,7 @@ export function ResumeLifecycleBadge({
       ) : null}
       <span
         aria-hidden
-        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
+        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
       >
         <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
       </span>

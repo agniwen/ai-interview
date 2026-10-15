@@ -8,9 +8,9 @@ const stateConfig: Record<string, { label: string; dotClass: string }> = {
   connecting: { dotClass: "bg-gray-400", label: "正在连接..." },
   idle: { dotClass: "bg-gray-400", label: "等待中..." },
   initializing: { dotClass: "bg-gray-400", label: "正在初始化..." },
-  listening: { dotClass: "bg-blue-500", label: "请开始回答..." },
-  speaking: { dotClass: "bg-green-500", label: "面试官正在讲话" },
-  thinking: { dotClass: "bg-amber-500", label: "面试官正在思考" },
+  listening: { dotClass: "bg-blue", label: "请开始回答..." },
+  speaking: { dotClass: "bg-green", label: "面试官正在讲话" },
+  thinking: { dotClass: "bg-amber", label: "面试官正在思考" },
 };
 
 interface AgentStateIndicatorProps {

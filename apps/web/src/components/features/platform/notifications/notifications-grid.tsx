@@ -230,7 +230,7 @@ function previewBlockClassName(blockType: number): string {
     return "mb-4 text-base font-semibold text-foreground";
   }
   if (blockType === 15) {
-    return "my-2 border-orange-300 border-l-2 pl-3 text-muted-foreground text-sm";
+    return "my-2 border-orange-line border-l-2 pl-3 text-muted-foreground text-sm";
   }
   return "whitespace-pre-wrap text-sm leading-6 text-foreground/85";
 }
@@ -313,7 +313,7 @@ function FeishuNotificationPreviewDialog({
               <TabsTrigger value="prompt">最终 Prompt</TabsTrigger>
             </TabsList>
             <TabsContent
-              className="min-h-0 overflow-y-auto rounded-xl border border-orange-200/80 bg-orange-50/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-orange-900/70 dark:bg-orange-950/25"
+              className="min-h-0 overflow-y-auto rounded-xl border border-orange-line bg-orange-tint/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
               value="preview"
             >
               {previewMutation.data.block.children?.map((block) => (

@@ -33,9 +33,9 @@ import type { ReactNode } from "react";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 
 const DIFFICULTY_PILL = {
-  easy: `${DIFFICULTY_PILL_CLASS.easy} hover:bg-emerald-500/15`,
-  hard: `${DIFFICULTY_PILL_CLASS.hard} hover:bg-rose-500/15`,
-  medium: `${DIFFICULTY_PILL_CLASS.medium} hover:bg-amber-500/15`,
+  easy: `${DIFFICULTY_PILL_CLASS.easy} hover:bg-green-line`,
+  hard: `${DIFFICULTY_PILL_CLASS.hard} hover:bg-red-line`,
+  medium: `${DIFFICULTY_PILL_CLASS.medium} hover:bg-amber-line`,
 } satisfies Record<InterviewQuestionTemplateDifficulty, string>;
 
 interface SortableQuestionListItem {

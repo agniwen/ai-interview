@@ -153,13 +153,13 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                   {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
                   (resumeRecord.resumeReviewStatus === "queued" ||
                     resumeRecord.resumeReviewStatus === "processing") ? (
-                    <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+                    <p className="rounded-md border border-amber-line bg-amber-tint px-3 py-2 text-sm text-amber-ink">
                       正在使用新版重新评价，当前展示老版本结果。
                     </p>
                   ) : null}
                   {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
                   resumeRecord.resumeReviewStatus === "failed" ? (
-                    <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                    <p className="rounded-md border border-red-line bg-red-tint px-3 py-2 text-sm text-red-ink">
                       {resumeRecord.resumeReviewError || "新版评价失败"}，当前展示老版本结果。
                     </p>
                   ) : null}

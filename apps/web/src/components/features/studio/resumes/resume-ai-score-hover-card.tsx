@@ -15,6 +15,7 @@ import {
   QualitativeDimensionRadar,
   QUALITATIVE_BASIS_DESCRIPTIONS,
   QUALITATIVE_DIMENSION_ENTRIES,
+  QualitativeRecommendationBadge,
   QualitativeRecommendationIndicator,
 } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import {
@@ -247,7 +248,7 @@ function QualitativePreviewContent({
           </div>
           <section className="flex min-w-0 flex-col gap-3 wrap-break-word">
             <div className="flex flex-wrap items-center gap-2">
-              <QualitativeRecommendationIndicator level={evaluation.recommendationLevel} />
+              <QualitativeRecommendationBadge level={evaluation.recommendationLevel} size="sm" />
               <h4 className="font-medium text-sm leading-6">{evaluation.conciseOverall}</h4>
             </div>
             <div>

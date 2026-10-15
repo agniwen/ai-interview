@@ -37,9 +37,9 @@ const BUSINESS_EVALUATION_ENTRIES = [
 
 const OUTCOME_LABEL = { fail: "不通过", inconclusive: "待定", pass: "通过" } as const;
 const OUTCOME_TEXT_COLOR = {
-  fail: "text-rose-700 dark:text-rose-300",
-  inconclusive: "text-amber-700 dark:text-amber-300",
-  pass: "text-emerald-700 dark:text-emerald-300",
+  fail: "text-red-ink",
+  inconclusive: "text-amber-ink",
+  pass: "text-green-ink",
 } as const;
 
 function EvaluationTitle({ title, timestamp }: { title: string; timestamp?: string | null }) {

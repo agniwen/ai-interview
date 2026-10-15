@@ -611,7 +611,7 @@ function PDFViewerPage({
               {searchHighlights.map((highlight) => (
                 <div
                   key={highlight.id}
-                  className="absolute rounded-[2px] bg-yellow-300/45 mix-blend-multiply ring-1 ring-yellow-500/20 dark:bg-yellow-300/35"
+                  className="absolute rounded-[2px] bg-amber/45 mix-blend-multiply ring-1 ring-amber-line"
                   style={{
                     left: highlight.left,
                     top: highlight.top,

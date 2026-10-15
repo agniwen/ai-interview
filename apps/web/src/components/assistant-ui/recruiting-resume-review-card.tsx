@@ -21,6 +21,7 @@ import {
   STRUCTURED_GATE_LABELS,
   STRUCTURED_GRADE_LABELS,
 } from "@/components/features/studio/resumes/resume-review-display";
+import { QualitativeRecommendationBadge } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { RecruitingChatCard } from "./recruiting-chat-card";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type { ResumeRecordDetailResult } from "./recruiting-copilot-context";
@@ -229,9 +230,10 @@ export function RecruitingResumeReviewCard({
         <div className="shrink-0 text-right">
           {qualitativeEvaluation ? (
             <>
-              <div className="font-semibold text-base leading-none">
-                {QUALITATIVE_LEVEL_LABEL[qualitativeEvaluation.recommendationLevel]}
-              </div>
+              <QualitativeRecommendationBadge
+                level={qualitativeEvaluation.recommendationLevel}
+                size="sm"
+              />
               <div className="mt-1 text-muted-foreground text-[11px]">推荐建议</div>
             </>
           ) : (

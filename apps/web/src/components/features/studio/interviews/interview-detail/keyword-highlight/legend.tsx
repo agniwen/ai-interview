@@ -5,9 +5,9 @@ import { cn } from "@app/shared/utils";
 import { useKeywordHighlight } from "./context";
 
 const CATEGORY_META: { category: KeywordCategory; label: string; dotClass: string }[] = [
-  { category: "skill", dotClass: "bg-blue-500", label: "技能" },
-  { category: "metric", dotClass: "bg-emerald-500", label: "数字/绩效" },
-  { category: "risk", dotClass: "bg-amber-500", label: "风险词" },
+  { category: "skill", dotClass: "bg-blue", label: "技能" },
+  { category: "metric", dotClass: "bg-green", label: "数字/绩效" },
+  { category: "risk", dotClass: "bg-amber", label: "风险词" },
 ];
 
 export function KeywordHighlightLegend({ className }: { className?: string }) {

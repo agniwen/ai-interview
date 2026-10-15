@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { OverviewDimensionRadar } from "./resume-overview-dimension-radar";
 import {
   QualitativeDimensionRadar,
-  QUALITATIVE_RECOMMENDATION_LABEL,
+  QualitativeRecommendationBadge,
 } from "./qualitative-resume-evaluation-panel";
 import {
   actionVariant,
@@ -40,7 +40,7 @@ export function ResumeOverviewAiScoreSection({
           <h3 className="font-medium text-sm">AI评价</h3>
         </div>
         {isUpdating ? (
-          <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+          <p className="rounded-md border border-amber-line bg-amber-tint px-3 py-2 text-sm text-amber-ink">
             正在重新评价，当前展示上一次结果。
           </p>
         ) : null}
@@ -51,11 +51,8 @@ export function ResumeOverviewAiScoreSection({
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-col gap-1.5">
               <div className="text-muted-foreground text-xs">综合评价</div>
-              <div
-                className="font-semibold text-4xl leading-none tracking-tight"
-                data-qualitative-overview-recommendation
-              >
-                {QUALITATIVE_RECOMMENDATION_LABEL[evaluation.recommendationLevel]}
+              <div data-qualitative-overview-recommendation>
+                <QualitativeRecommendationBadge level={evaluation.recommendationLevel} />
               </div>
             </div>
             <div data-qualitative-overview-judgment>
@@ -170,7 +167,7 @@ export function ResumeOverviewAiScoreSection({
       </div>
 
       {retainedResultNotice ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-sm dark:text-amber-400">
+        <p className="rounded-md border border-amber-line bg-amber-tint px-3 py-2 text-amber-ink text-sm">
           {retainedResultNotice}
         </p>
       ) : null}

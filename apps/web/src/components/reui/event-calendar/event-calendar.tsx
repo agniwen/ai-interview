@@ -1229,7 +1229,7 @@ interface EventCalendarViewConfig<TData = unknown> {
   stickyNav: boolean;
   /**
    * Custom per-day indication (light background classes work in both themes,
-   * e.g. "bg-amber-500/10"). Applied to month cells, time-grid day columns,
+   * e.g. "bg-amber-tint"). Applied to month cells, time-grid day columns,
    * and all-day cells; content stays readable on top of it.
    */
   dayClassName?: (day: Date) => string | undefined;

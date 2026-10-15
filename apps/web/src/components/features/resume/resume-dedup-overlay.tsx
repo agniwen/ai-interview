@@ -224,7 +224,7 @@ function JudgmentLines({ match }: { match: DedupMatchRecord }) {
       {conflicts.length > 0 ? (
         <FieldLine
           label="差异"
-          value={<span className="text-amber-800 dark:text-amber-200">{conflicts.join("、")}</span>}
+          value={<span className="text-amber-ink">{conflicts.join("、")}</span>}
         />
       ) : null}
     </div>

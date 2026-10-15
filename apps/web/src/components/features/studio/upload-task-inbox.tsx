@@ -111,9 +111,7 @@ function UploadTaskRow({
             </div>
           ) : null}
           {record.queueState === "failed" && record.errorMessage ? (
-            <p className="mt-1 line-clamp-1 text-rose-600 text-xs dark:text-rose-300">
-              {record.errorMessage}
-            </p>
+            <p className="mt-1 line-clamp-1 text-red-ink text-xs">{record.errorMessage}</p>
           ) : null}
         </div>
       </div>

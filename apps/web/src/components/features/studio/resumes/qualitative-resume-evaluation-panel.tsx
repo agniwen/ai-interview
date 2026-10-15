@@ -39,10 +39,10 @@ export const QUALITATIVE_RECOMMENDATION_LABEL = {
 } as const satisfies Record<QualitativeRecommendationLevel, string>;
 
 const QUALITATIVE_RECOMMENDATION_TEXT_CLASS = {
-  highly_recommended: "text-purple-700 dark:text-purple-300",
-  not_recommended: "text-red-700 dark:text-red-300",
-  recommended: "text-green-700 dark:text-green-300",
-  undecided: "text-yellow-700 dark:text-yellow-300",
+  highly_recommended: "text-purple-ink",
+  not_recommended: "text-red-ink",
+  recommended: "text-green-ink",
+  undecided: "text-amber-ink",
 } as const satisfies Record<QualitativeRecommendationLevel, string>;
 
 const LEVEL_META = {
@@ -175,17 +175,51 @@ export function QualitativeDimensionRadar({
 type QualitativeDimensionEntry = (typeof QUALITATIVE_DIMENSION_ENTRIES)[number];
 
 const LEVEL_SURFACE_CLASS = {
-  highly_recommended: "bg-purple-500/10 dark:bg-purple-400/12",
-  not_recommended: "bg-red-500/10 dark:bg-red-400/12",
-  recommended: "bg-green-500/10 dark:bg-green-400/12",
-  undecided: "bg-yellow-500/12 dark:bg-yellow-400/12",
+  highly_recommended: "bg-purple-tint",
+  not_recommended: "bg-red-tint",
+  recommended: "bg-green-tint",
+  undecided: "bg-amber-tint",
 } as const satisfies Record<QualitativeRecommendationLevel, string>;
 
+const RECOMMENDATION_BADGE_SIZE_CLASS = {
+  default: "gap-1.5 px-2.5 py-1 text-sm [&_svg]:size-4",
+  sm: "gap-1 px-2 py-0.5 text-xs [&_svg]:size-3.5",
+} as const;
+
+/** 综合推荐等级徽标：等级色文字 + 同色浅底 + 图标，用于展示整体评价结论（维度等级仍用文字指示）。 */
+export function QualitativeRecommendationBadge({
+  className,
+  level,
+  size = "default",
+}: {
+  className?: string;
+  level: QualitativeRecommendationLevel;
+  size?: keyof typeof RECOMMENDATION_BADGE_SIZE_CLASS;
+}) {
+  const meta = LEVEL_META[level];
+  const Icon = meta.icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit shrink-0 items-center rounded-md font-medium",
+        RECOMMENDATION_BADGE_SIZE_CLASS[size],
+        meta.className,
+        LEVEL_SURFACE_CLASS[level],
+        className,
+      )}
+      data-qualitative-recommendation={level}
+    >
+      <Icon aria-hidden="true" className="shrink-0" />
+      {meta.label}
+    </span>
+  );
+}
+
 const LEVEL_METER_FILL_CLASS = {
-  highly_recommended: "bg-purple-500 dark:bg-purple-400",
-  not_recommended: "bg-red-500 dark:bg-red-400",
-  recommended: "bg-green-500 dark:bg-green-400",
-  undecided: "bg-yellow-500 dark:bg-yellow-400",
+  highly_recommended: "bg-purple",
+  not_recommended: "bg-red",
+  recommended: "bg-green",
+  undecided: "bg-amber",
 } as const satisfies Record<QualitativeRecommendationLevel, string>;
 
 const LEVEL_METER_SEGMENTS = [1, 2, 3, 4] as const;
@@ -306,8 +340,6 @@ export function QualitativeEvaluationDetails({
   evaluation: QualitativeResumeEvaluation;
   summaryAction?: ReactNode;
 }) {
-  const levelMeta = LEVEL_META[evaluation.recommendationLevel];
-  const LevelIcon = levelMeta.icon;
   const appendixItems = [
     evaluation.seniorityRecommendation
       ? {
@@ -333,17 +365,7 @@ export function QualitativeEvaluationDetails({
           {summaryAction}
         </div>
         <div className="flex min-w-0 flex-col gap-4">
-          <span
-            className={cn(
-              "inline-flex w-fit items-center gap-1.5 rounded-md px-2.5 py-1 font-medium text-sm",
-              levelMeta.className,
-              LEVEL_SURFACE_CLASS[evaluation.recommendationLevel],
-            )}
-            data-qualitative-recommendation={evaluation.recommendationLevel}
-          >
-            <LevelIcon aria-hidden="true" className="size-4" />
-            {levelMeta.label}
-          </span>
+          <QualitativeRecommendationBadge level={evaluation.recommendationLevel} />
           <p className="font-semibold text-xl leading-9 tracking-tight">
             {evaluation.conciseOverall}
           </p>
@@ -469,7 +491,7 @@ function EvaluationFailureItem({ item }: { item: ResumeEvaluationFailureRecord }
           <span className="text-muted-foreground">展开失败原因</span>
         </div>
       </summary>
-      <p className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-700 text-sm dark:text-red-300">
+      <p className="mt-4 rounded-md border border-red-line bg-red-tint px-3 py-2 text-red-ink text-sm">
         {item.errorMessage}
       </p>
     </details>
@@ -554,12 +576,12 @@ export function QualitativeResumeEvaluationPanel({
   return (
     <section className="space-y-6">
       {isUpdating ? (
-        <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+        <p className="rounded-md border border-amber-line bg-amber-tint px-3 py-2 text-sm text-amber-ink">
           正在重新评价，当前继续展示上一次已完成的结果。
         </p>
       ) : null}
       {detail.resumeReviewStatus === "failed" ? (
-        <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+        <p className="rounded-md border border-red-line bg-red-tint px-3 py-2 text-sm text-red-ink">
           {detail.resumeReviewError || "重新评价失败"}，当前继续展示上一次已完成的结果。
         </p>
       ) : null}

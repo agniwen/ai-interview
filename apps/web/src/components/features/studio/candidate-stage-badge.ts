@@ -18,11 +18,9 @@ export function getCandidateStageBadgeVariant(
   return null;
 }
 
-export function getCandidateStageBadgeHoverRingClass(
-  stage: string | null | undefined,
-): string | null {
+export function getCandidateStageBadgeHoverClass(stage: string | null | undefined): string | null {
   if (stage === "second_interview" || stage === "final_interview") {
-    return "hover:ring-sky-500/10";
+    return "hover:bg-sky-line";
   }
   if (
     stage === "income_proof" ||
@@ -31,7 +29,7 @@ export function getCandidateStageBadgeHoverRingClass(
     stage === "background_check" ||
     stage === "onboarding"
   ) {
-    return "hover:ring-pink-500/10";
+    return "hover:bg-pink-line";
   }
   return null;
 }

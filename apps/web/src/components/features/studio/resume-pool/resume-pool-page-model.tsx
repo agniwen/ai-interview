@@ -103,15 +103,25 @@ export function getCandidateTitleWithId(record: ResumePoolListRecord) {
 
 export function resumeParseStatusBadge(record: ResumePoolListRecord) {
   if (record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing") {
-    return <Badge variant="warning">解析中</Badge>;
+    return (
+      <Badge dot variant="warning">
+        解析中
+      </Badge>
+    );
   }
   return record.resumeParseStatus === "failed" ? (
-    <Badge variant="destructive">解析失败</Badge>
+    <Badge dot variant="destructive">
+      解析失败
+    </Badge>
   ) : null;
 }
 
 export function resumeRecruitingStatusBadge(record: ResumePoolListRecord) {
-  return record.importedResumeRecordId ? <Badge variant="success">已在招聘流程</Badge> : null;
+  return record.importedResumeRecordId ? (
+    <Badge dot variant="success">
+      已在招聘流程
+    </Badge>
+  ) : null;
 }
 
 export function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () => void) {

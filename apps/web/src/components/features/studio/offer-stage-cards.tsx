@@ -452,7 +452,7 @@ export function OfferCardView({
           />
 
           {approvedApproval ? (
-            <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300/70 bg-amber-50/50 p-3 text-sm dark:bg-amber-950/20">
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-line bg-amber-tint/50 p-3 text-sm">
               <Checkbox
                 aria-label="确认修改会使已通过审批失效"
                 checked={invalidateApprovedApproval}

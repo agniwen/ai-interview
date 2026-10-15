@@ -26,8 +26,7 @@ export type StudioListCardVerdictTone = "danger" | "highlight" | "muted" | "succ
 /** AI 结论徽标配色：非常推荐用紫色强调，其余沿用语义色；与“AI 初面”阶段徽标的紫色同源。 */
 const VERDICT_BADGE_CLASS = {
   danger: "",
-  highlight:
-    "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-400/30 dark:bg-violet-400/15 dark:text-violet-300",
+  highlight: "bg-purple-tint text-purple-ink",
   muted: "",
   success: "",
   warning: "",

@@ -1461,9 +1461,9 @@ function DataGridTableBodyRow<TData extends object>({
         // scrolled content), so they get the same tint pre-mixed over the
         // background instead of inheriting the translucent row fill.
         props.getRowStatus &&
-          "data-[row-status=deleted]:bg-destructive/5 data-[row-status=deleted]:opacity-60 data-[row-status=dirty]:bg-amber-500/5 data-[row-status=new]:bg-green-500/5 data-[row-status=deleted]:[&_td]:line-through",
+          "data-[row-status=deleted]:bg-destructive/5 data-[row-status=deleted]:opacity-60 data-[row-status=dirty]:bg-amber-tint data-[row-status=new]:bg-green-tint data-[row-status=deleted]:[&_td]:line-through",
         props.getRowStatus &&
-          "data-[row-status=deleted]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--destructive)_5%,var(--background))] data-[row-status=dirty]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--color-amber-500)_5%,var(--background))] data-[row-status=new]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--color-green-500)_5%,var(--background))]",
+          "data-[row-status=deleted]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--destructive)_5%,var(--background))] data-[row-status=dirty]:[&>td[data-pinned]]:bg-amber-tint data-[row-status=new]:[&>td[data-pinned]]:bg-green-tint",
         rowStatus === "new" && props.tableClassNames?.rowNew,
         rowStatus === "dirty" && props.tableClassNames?.rowDirty,
         rowStatus === "deleted" && props.tableClassNames?.rowDeleted,
@@ -1659,7 +1659,7 @@ function DataGridTableBodyRowCell<TData extends object>({
         // getCellStatus is wired: amber for "dirty", destructive for
         // "invalid".
         props.getCellStatus &&
-          "data-[cell-status=invalid]:after:border-t-destructive data-[cell-status]:relative data-[cell-status]:after:absolute data-[cell-status]:after:end-0 data-[cell-status]:after:top-0 data-[cell-status]:after:size-0 data-[cell-status]:after:border-s-[5px] data-[cell-status]:after:border-t-[5px] data-[cell-status]:after:border-s-transparent data-[cell-status]:after:content-[''] data-[cell-status=dirty]:after:border-t-amber-500",
+          "data-[cell-status=invalid]:after:border-t-destructive data-[cell-status]:relative data-[cell-status]:after:absolute data-[cell-status]:after:end-0 data-[cell-status]:after:top-0 data-[cell-status]:after:size-0 data-[cell-status]:after:border-s-[5px] data-[cell-status]:after:border-t-[5px] data-[cell-status]:after:border-s-transparent data-[cell-status]:after:content-[''] data-[cell-status=dirty]:after:border-t-amber",
         props.tableLayout?.cellBorder && "border-e",
         props.tableLayout?.cellBorder && isFirstEndPinned && "border-s",
         // Mirror of the head cell rule: the end-pinned column owns this

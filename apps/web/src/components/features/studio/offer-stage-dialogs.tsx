@@ -121,7 +121,7 @@ export function CreateOrEditOfferDialog({
         <OfferDraftFormFields form={form} idPrefix="offer" onFieldChange={setFormField} />
 
         {mode === "edit" && existingDraft?.currentApprovalId ? (
-          <div className="flex items-start gap-2 rounded-md border border-amber-300/70 bg-amber-50/50 p-3 text-sm dark:bg-amber-950/20">
+          <div className="flex items-start gap-2 rounded-md border border-amber-line bg-amber-tint/50 p-3 text-sm">
             <Checkbox
               aria-label="确认修改可能使已通过审批失效"
               checked={invalidateApproval}

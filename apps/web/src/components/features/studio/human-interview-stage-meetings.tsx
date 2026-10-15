@@ -199,7 +199,7 @@ function MeetingLinksContent({
         </div>
       ) : null}
       {links.feishu?.status === "unknown" ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-amber-700 text-sm dark:text-amber-300">
+        <p className="rounded-lg border border-amber-line bg-amber-tint p-3 text-amber-ink text-sm">
           历史飞书同步结果未知，请先在飞书中人工核查，暂时不能直接重试。
         </p>
       ) : null}
@@ -326,14 +326,14 @@ function getFeishuRetryCopy(status: FeishuHumanInterviewSyncStatus | undefined) 
     return {
       button: "继续飞书同步",
       message: "飞书日程同步尚未完成，可以继续创建日程并邀请面试官。",
-      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+      tone: "border-amber-line bg-amber-tint text-amber-ink",
     };
   }
   if (status === "creating") {
     return {
       button: "检查并恢复同步",
       message: "飞书同步可能仍在进行；若长时间未完成，可以检查并恢复。",
-      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+      tone: "border-amber-line bg-amber-tint text-amber-ink",
     };
   }
   return null;
