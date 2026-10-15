@@ -42,17 +42,41 @@ function Avatar({
         className,
       )}
       role={seed !== undefined && !isDecorative ? "img" : undefined}
-      style={{ backgroundColor: fallbackColor, ...style }}
+      style={style}
       {...props}
     >
       {seed === undefined ? null : (
-        <GradientAvatar
+        // 生成头像是 canvas：只在没有图片或图片加载失败时渲染；图片加载中显示与 Skeleton 一致的灰色占位，
+        // 加载成功后整个占位卸载。
+        // The generated avatar is a canvas, so render it only when there is no image or the image
+        // failed. While the image loads, show the same grey pulse as Skeleton; once it loads the
+        // placeholder unmounts.
+        <AvatarPrimitive.Fallback
           aria-hidden="true"
           className="absolute inset-0 size-full"
-          radius="inherit"
-          seed={seed}
-          size={renderSize}
-          style={{ height: "100%", width: "100%" }}
+          data-slot="avatar-generated"
+          render={(fallbackProps, state) =>
+            state.imageLoadingStatus === "loading" ? (
+              <span
+                {...fallbackProps}
+                className={cn(fallbackProps.className, "animate-pulse bg-accent")}
+                data-avatar-loading=""
+              />
+            ) : (
+              <span
+                {...fallbackProps}
+                style={{ ...fallbackProps.style, backgroundColor: fallbackColor }}
+              >
+                <GradientAvatar
+                  className="absolute inset-0 size-full"
+                  radius="inherit"
+                  seed={seed}
+                  size={renderSize}
+                  style={{ height: "100%", width: "100%" }}
+                />
+              </span>
+            )
+          }
         />
       )}
       {visibleChildren}
