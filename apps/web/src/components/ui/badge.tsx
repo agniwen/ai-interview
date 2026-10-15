@@ -24,12 +24,6 @@ const badgeVariants = cva(
       variant: "default",
     },
     variants: {
-      // 进行中 / 结果类状态（解析中、已在招聘流程等）用“圆点 + 正文色文字”，读起来像一句说明；
-      // 其余标签保持小号浅底，不默认加圆点。
-      dot: {
-        false: "",
-        true: "border-transparent bg-transparent px-0 text-foreground before:size-1.5 before:shrink-0 before:rounded-full before:content-['']",
-      },
       variant: {
         // Reserve badges for scan-worthy states and selectable tags; names, counts, and dates use text.
         // 只有白 / 灰等接近背景色的中性徽标（secondary、outline）保留描边；彩色徽标只用浅底，不加描边。
@@ -48,6 +42,13 @@ const badgeVariants = cva(
         warning: "bg-amber-tint text-amber-ink",
         danger: "bg-red-tint text-red-ink",
         inverse: "border-white/[0.06] bg-white/5 text-white/70",
+      },
+      // 进行中 / 结果类状态（解析中、已在招聘流程等）用“圆点 + 正文色文字”，读起来像一句说明；
+      // 其余标签保持小号浅底，不默认加圆点。
+      // 必须排在 variant 之后：cva 按键顺序拼接，tailwind-merge 才会让这里的透明底 / 正文色覆盖色调底色。
+      dot: {
+        false: "",
+        true: "border-transparent bg-transparent px-0 text-foreground before:size-1.5 before:shrink-0 before:rounded-full before:content-['']",
       },
     },
   },
