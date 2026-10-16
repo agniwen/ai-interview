@@ -57,6 +57,8 @@ const MAX_TOTAL_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
 const MIN_DISK_HEADROOM_BYTES = 512 * 1024 * 1024;
 // 启动恢复可删除 24 小时前遗留目录，同时避免触碰仍可能运行的近期作业。 / Recovery may delete temp directories older than 24 hours while leaving potentially active recent jobs untouched.
 const STALE_DIRECTORY_AGE_MS = 24 * 60 * 60 * 1000;
+// 身份不明发言不作为候选人证据；断线重连等零星片段累计不超过 30 秒时无需人工复核。 / Unattributed speech is never candidate evidence, so brief reconnect fragments up to 30 seconds do not require human review.
+const MAX_UNREVIEWED_UNKNOWN_SPEECH_MS = 30 * 1000;
 
 interface SourceAsset {
   recordingIdentity?: RecordingIdentity | null;
@@ -677,13 +679,18 @@ async function runMeetingTranscriptionProcessingPromise(
       ),
     );
     const transcript = mergeMeetingTranscriptionChunkResults(chunkResults, exclusions);
+    const unknownSpeechMs = transcript.turns
+      .filter((turn) => turn.attribution?.role === "unknown")
+      .reduce((total, turn) => total + turn.endMs - turn.startMs, 0);
     let warning: string | undefined;
     if (
       identityRecording &&
-      (hasUnrecoveredAudio || transcript.turns.some((turn) => turn.attribution?.role === "unknown"))
+      (hasUnrecoveredAudio ||
+        failedRanges.length > 0 ||
+        unknownSpeechMs > MAX_UNREVIEWED_UNKNOWN_SPEECH_MS)
     ) {
       warning =
-        "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；待确认发言不作为候选人能力证据。";
+        "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；身份未知的发言不作为候选人能力证据。";
     }
     const published = await dependencies.publish({
       ...input,

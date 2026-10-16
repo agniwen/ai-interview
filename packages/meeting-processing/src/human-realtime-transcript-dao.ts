@@ -151,10 +151,8 @@ export function createHumanRealtimeTranscriptDao(db: Database) {
         startedAt: run.startedAt,
         status: "ready",
         title: meeting.title,
-        transcriptionError: eligible
-          ? null
-          : (run.error ?? "实时转录材料不完整，请复核或等待录音补救"),
-        transcriptionStatus: eligible ? "ready" : "failed",
+        // Incomplete live capture is not a failure: show it and let the recording fill gaps.
+        transcriptionStatus: eligible ? "ready" : "pending",
         verifiedAt: new Date(),
       });
       await tx.insert(meetingTranscriptRevision).values({

@@ -264,7 +264,7 @@ function chunkSpeakerName(
     return "面试官";
   }
   if (attribution?.role === "unknown") {
-    return "待确认";
+    return "未知";
   }
   return fallback ?? null;
 }

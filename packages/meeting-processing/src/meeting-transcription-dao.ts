@@ -792,9 +792,9 @@ export function createMeetingTranscriptionDao(
             .where(eq(meetingTranscriptRevision.id, meeting.reviewTranscriptRevisionId))
         : [];
       const preserveHumanReview = reviewHead?.kind === "human";
-      const needsReview =
-        meeting.sourceKind === "livekit_realtime" &&
-        (Boolean(input.warning) || preserveHumanReview);
+      // Recovery warnings are notices, not failures: publish whatever was transcribed.
+      // Only an existing human revision keeps priority over a later machine result.
+      const needsReview = meeting.sourceKind === "livekit_realtime" && preserveHumanReview;
       const [existing] = await tx
         .select({ id: meetingTranscriptRevision.id })
         .from(meetingTranscriptRevision)

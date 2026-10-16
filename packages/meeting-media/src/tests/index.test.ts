@@ -220,7 +220,7 @@ describe("mergeMeetingTranscriptionChunkResults", () => {
         method: hasProof ? "candidate-excluded" : "unconfirmed",
         role: hasProof ? "interviewer" : "unknown",
       });
-      expect(result.turns[0]?.speakerDisplayName).toBe(hasProof ? "面试官" : "待确认");
+      expect(result.turns[0]?.speakerDisplayName).toBe(hasProof ? "面试官" : "未知");
     },
   );
   it("does not exclude candidate across recording gaps or partial silence", () => {
@@ -341,7 +341,7 @@ describe("mergeMeetingTranscriptionChunkResults", () => {
     expect(result.turns).toEqual([
       expect.objectContaining({ speakerDisplayName: "候选人 · 测试候选人", startMs: 89_490 }),
       expect.objectContaining({
-        speakerDisplayName: "待确认",
+        speakerDisplayName: "未知",
         text: "那你们是怎么解决在本地加载的问题呢？",
       }),
       expect.objectContaining({ speakerDisplayName: "候选人 · 测试候选人", startMs: 117_690 }),
@@ -403,9 +403,9 @@ describe("mergeMeetingTranscriptionChunkResults", () => {
     ]);
 
     expect(transcript.turns).toEqual([
-      expect.objectContaining({ speakerDisplayName: "待确认", text: "请介绍一下支付系统项目" }),
+      expect.objectContaining({ speakerDisplayName: "未知", text: "请介绍一下支付系统项目" }),
       expect.objectContaining({
-        speakerDisplayName: "待确认",
+        speakerDisplayName: "未知",
         text: "我负责支付系统的核心架构和稳定性治理",
       }),
       expect.objectContaining({
