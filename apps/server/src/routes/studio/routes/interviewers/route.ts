@@ -33,6 +33,7 @@ async function validateDepartmentExists(
 
 const interviewerListQuerySchema = z.object({
   departmentId: z.string().optional(),
+  jobDescriptionId: z.string().optional(),
   page: z.string().optional(),
   pageSize: z.string().optional(),
   search: z.string().optional(),
@@ -61,6 +62,7 @@ export const interviewersRouter = factory
         activeOrg.id,
         {
           departmentId: q.departmentId,
+          jobDescriptionId: q.jobDescriptionId,
           search: q.search,
           textFilters: q.textFilters,
         },
@@ -208,7 +210,7 @@ export const interviewersRouter = factory
 
     const refs = await loadInterviewerReferenceCounts(id);
     if (refs.jobDescriptionCount > 0) {
-      return c.json({ error: "该面试官仍被在招岗位引用，无法删除。", refs }, 400);
+      return c.json({ error: "该面试官 Agent 仍被在招岗位引用，无法删除。", refs }, 400);
     }
 
     await db
