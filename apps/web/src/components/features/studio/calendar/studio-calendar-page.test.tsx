@@ -200,7 +200,6 @@ describe("StudioCalendarPage", () => {
     expect(host.textContent).toContain("今天 · 9月2日（周三）");
     expect(host.textContent).toContain("真人面试");
     expect(host.textContent).toContain("王面试官");
-    expect(host.textContent).toContain("线上");
     expect(host.querySelector('[data-slot="event-calendar-event-dot"]')).toBeNull();
 
     const aiAgendaRow = [
@@ -270,7 +269,7 @@ describe("StudioCalendarPage", () => {
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
     ].find((event) => event.textContent?.includes("李四-前端技术经理-技术复面"));
 
-    expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试记录");
+    expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试");
     expect(humanEvent?.getAttribute("aria-label")).toContain("真人面试");
     expect(aiEvent?.dataset.calendarEventPreview).toBe("ai");
     expect(humanEvent?.dataset.calendarEventPreview).toBeUndefined();

@@ -19,6 +19,7 @@ import type {
   StudioCalendarEventStatus,
 } from "@app/shared/studio-calendar";
 import { interviewCalendarJobNames } from "@app/shared/interview-calendar";
+import { cn } from "@app/shared/utils";
 import { PageHeader } from "@/components/features/studio/page-header";
 import {
   EventCalendar,
@@ -108,15 +109,29 @@ function uniqueText(values: (string | null | undefined)[]): string {
   return [...new Set(values.filter((value): value is string => Boolean(value?.trim())))].join("、");
 }
 
-function agendaEventTypeText(event: StudioCalendarEvent): string {
-  if (event.kind === "ai") {
-    return event.source === "result" ? "AI 面试记录" : "AI 面试计划";
-  }
-  const formatLabel = humanInterviewFormatMeta[event.format].label;
-  if (event.format === "onsite" && event.location) {
-    return `真人面试 · ${formatLabel} · ${event.location}`;
-  }
-  return `真人面试 · ${formatLabel}`;
+// 色调与招聘台阶段徽标一致：AI 面试用紫色，真人面试（复面 / 终面）用天蓝。
+const EVENT_TYPE_META = {
+  ai: { className: "bg-purple-tint text-purple-ink", icon: IconSparkles, label: "AI 面试" },
+  human: { className: "bg-sky-tint text-sky-ink", icon: IconUser, label: "真人面试" },
+} as const satisfies Record<
+  StudioCalendarEvent["kind"],
+  { className: string; icon: typeof IconUser; label: string }
+>;
+
+function CalendarEventTypeBadge({
+  className,
+  event,
+}: {
+  className?: string;
+  event: StudioCalendarEvent;
+}) {
+  const { className: toneClassName, icon: Icon, label } = EVENT_TYPE_META[event.kind];
+  return (
+    <Badge className={cn("w-22", toneClassName, className)}>
+      <Icon aria-hidden="true" />
+      {label}
+    </Badge>
+  );
 }
 
 function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<StudioCalendarEvent>) {
@@ -136,7 +151,6 @@ function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<Studi
     Math.round((occurrence.end.getTime() - occurrence.start.getTime()) / 60_000),
   );
   const status = EVENT_STATUS_META[event.status];
-  const typeText = agendaEventTypeText(event);
 
   return (
     <div className="grid w-full min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-5 gap-y-2 lg:grid-cols-[5rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_auto]">
@@ -150,7 +164,7 @@ function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<Studi
           {roundLabels ? <span className="ms-2 text-primary text-xs">{roundLabels}</span> : null}
         </div>
         <div className="truncate text-muted-foreground text-xs lg:hidden">
-          {jobNames} · {interviewerNames} · {typeText}
+          {jobNames} · {interviewerNames}
         </div>
       </div>
       <div className="hidden min-w-0 truncate text-muted-foreground lg:block" title={jobNames}>
@@ -162,11 +176,14 @@ function CalendarAgendaEvent({ occurrence }: EventCalendarRenderEventProps<Studi
       >
         {interviewerNames}
       </div>
-      <div className="hidden min-w-0 truncate text-muted-foreground lg:block" title={typeText}>
-        {typeText}
+      <div className="hidden min-w-0 lg:block">
+        <CalendarEventTypeBadge event={event} />
       </div>
       <div className="col-start-2 flex w-fit items-center gap-1.5 lg:col-start-auto">
-        <Badge variant={status.variant}>{status.label}</Badge>
+        <CalendarEventTypeBadge className="lg:hidden" event={event} />
+        <Badge dot variant={status.variant}>
+          {status.label}
+        </Badge>
         <IconChevronRight
           aria-hidden="true"
           className="size-4 text-muted-foreground transition-colors group-hover/ec-event:text-foreground"
@@ -221,10 +238,7 @@ function calendarEventSurfaceClassName(event: StudioCalendarEvent): string {
 }
 
 function calendarEventTypeLabel(event: StudioCalendarEvent): string {
-  if (event.kind === "human") {
-    return "真人面试";
-  }
-  return event.source === "result" ? "AI 面试记录" : "AI 面试计划";
+  return EVENT_TYPE_META[event.kind].label;
 }
 
 function toCalendarEvent(event: StudioCalendarEvent): CalendarEvent<StudioCalendarEvent> {
@@ -248,7 +262,7 @@ function CalendarEventIcon({ occurrence }: EventCalendarRenderEventProps<StudioC
   if (!event) {
     return null;
   }
-  const Icon = event.kind === "human" ? IconUser : IconSparkles;
+  const { icon: Icon } = EVENT_TYPE_META[event.kind];
 
   return (
     <Icon aria-hidden="true" className="size-3 shrink-0" data-calendar-event-icon={event.kind} />
