@@ -20,7 +20,9 @@ async function renderPreview(contentType = "image/png") {
   const revokeUrl = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
-    .mockResolvedValue(new Response(new Blob(["media"], { type: "application/octet-stream" })));
+    .mockResolvedValue(
+      new Response("media", { headers: { "content-type": "application/octet-stream" } }),
+    );
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
