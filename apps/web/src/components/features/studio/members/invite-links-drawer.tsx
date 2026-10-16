@@ -24,7 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import {
@@ -35,6 +34,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
@@ -162,11 +169,13 @@ function LinkMembers({ id, slug }: { id: string; slug: string }) {
   return (
     <ul className="mt-3 space-y-1 text-xs">
       {members.map((m) => (
-        <li className="flex justify-between" key={m.userId}>
-          <span>
+        <li className="flex min-w-0 justify-between gap-3" key={m.userId}>
+          <span className="min-w-0 truncate">
             {m.name} <span className="text-muted-foreground">({m.email})</span>
           </span>
-          <TimeDisplay value={m.joinedAt} />
+          <span className="shrink-0 text-muted-foreground">
+            <TimeDisplay value={m.joinedAt} />
+          </span>
         </li>
       ))}
     </ul>
@@ -204,12 +213,12 @@ function LinkRow({
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="truncate font-mono text-sm">{url}</div>
-            <div className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 truncate text-xs text-muted-foreground">
               {link.creatorName ?? "已删除用户"} · <TimeDisplay value={link.createdAt} />
               {disabled ? " · 已禁用" : ""}
             </div>
-            <div className="mt-2">
-              <Badge variant="outline">
+            <div className="mt-2 flex min-w-0">
+              <Badge className="max-w-full truncate" variant="outline">
                 初始化角色：{roleLabelByValue.get(link.initialRole) ?? link.initialRole}
               </Badge>
             </div>
@@ -251,7 +260,7 @@ async function copyInviteUrl(code: string) {
   }
 }
 
-export function InviteLinksDialog({
+export function InviteLinksDrawer({
   assignableRoleOptions,
   assignableRoles = ASSIGNABLE_ROLES,
 }: {
@@ -362,53 +371,56 @@ export function InviteLinksDialog({
   const links = linksData?.links ?? [];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
         render={
           <Button variant="outline">
             <IconLink /> 邀请链接
           </Button>
         }
       />
-      <DialogContent className="w-[min(calc(100vw-2rem),56rem)] overflow-hidden sm:max-w-none">
-        <DialogHeader>
-          <DialogTitle>共享邀请链接</DialogTitle>
-          <DialogDescription>
+      <SheetContent className="w-full gap-0 sm:max-w-xl">
+        <SheetHeader className="border-b pr-12">
+          <SheetTitle>共享邀请链接</SheetTitle>
+          <SheetDescription>
             生成的链接可重复使用、永不过期；用户登录后会按链接设置的初始化角色加入工作区。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex justify-end">
-          <Button disabled={assignableRoles.length === 0} onClick={openCreateDialog}>
-            生成新链接
-          </Button>
-        </div>
-
-        {isPending ? (
-          <div className="py-8 text-center text-muted-foreground">加载中...</div>
-        ) : (
-          <div className="flex min-w-0 flex-col gap-2">
-            {links.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">还没有邀请链接</div>
-            ) : (
-              links.map((link) => (
-                <LinkRow
-                  expanded={expandedId === link.id}
-                  key={link.id}
-                  link={link}
-                  onCopy={() => copyInviteUrl(link.code)}
-                  onDisable={() => disableMutation.mutate(link.id)}
-                  onEdit={() => openEditDialog(link)}
-                  onEnable={() => enableMutation.mutate(link.id)}
-                  onToggleExpand={() => setExpandedId((cur) => (cur === link.id ? null : link.id))}
-                  roleLabelByValue={roleLabelByValue}
-                  slug={slug}
-                />
-              ))
-            )}
+          </SheetDescription>
+          <div className="pt-2">
+            <Button disabled={assignableRoles.length === 0} onClick={openCreateDialog}>
+              生成新链接
+            </Button>
           </div>
-        )}
-      </DialogContent>
+        </SheetHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {isPending ? (
+            <div className="py-8 text-center text-muted-foreground">加载中...</div>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-2">
+              {links.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">还没有邀请链接</div>
+              ) : (
+                links.map((link) => (
+                  <LinkRow
+                    expanded={expandedId === link.id}
+                    key={link.id}
+                    link={link}
+                    onCopy={() => copyInviteUrl(link.code)}
+                    onDisable={() => disableMutation.mutate(link.id)}
+                    onEdit={() => openEditDialog(link)}
+                    onEnable={() => enableMutation.mutate(link.id)}
+                    onToggleExpand={() =>
+                      setExpandedId((cur) => (cur === link.id ? null : link.id))
+                    }
+                    roleLabelByValue={roleLabelByValue}
+                    slug={slug}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </SheetContent>
       <InviteLinkRoleDialog
         actionLabel="生成链接"
         assignableRoleOptions={assignableRoleOptions}
@@ -443,6 +455,6 @@ export function InviteLinksDialog({
         title="编辑初始化角色"
         value={editRole}
       />
-    </Dialog>
+    </Sheet>
   );
 }

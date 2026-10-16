@@ -53,7 +53,7 @@ import {
   useWorkspaceSlug,
 } from "@/lib/client/workspace-context";
 import { InviteDialog } from "@/components/features/studio/members/invite-dialog";
-import { InviteLinksDialog } from "@/components/features/studio/members/invite-links-dialog";
+import { InviteLinksDrawer } from "@/components/features/studio/members/invite-links-drawer";
 import { PendingInvitationsButton } from "@/components/features/studio/members/pending-invitations-section";
 import {
   buildWorkspaceRoleOptions,
@@ -625,7 +625,7 @@ export function MembersManagementPage() {
                   <PendingInvitationsButton organizationId={org?.id ?? null} />
                 </PermissionGate>
                 <PermissionGate action="create" resource="invitation">
-                  <InviteLinksDialog
+                  <InviteLinksDrawer
                     assignableRoleOptions={assignableRoleOptions}
                     assignableRoles={assignableRoles}
                   />
