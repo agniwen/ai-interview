@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { cn } from "@app/shared/utils";
 
+import { JobDescriptionInterviewerAgents } from "../interviewers/job-description-interviewer-agents";
 import { copyInterviewLink } from "../interviews/interview-link-actions";
 import { resolveAiInterviewLinkState } from "../interviews/ai-interview-link-state";
 import {
@@ -116,6 +117,7 @@ function InterviewResultActionRow({
 }
 
 export function InterviewResultFrame({
+  interviewerAgents,
   invitation,
   canEditQuestions,
   evaluationSummary,
@@ -123,6 +125,8 @@ export function InterviewResultFrame({
   record,
   report,
 }: {
+  /** 有权限且已关联岗位时，展示该岗位的面试官 Agent。Shown when the job is known and readable. */
+  interviewerAgents?: { slug: string; jobDescriptionId: string };
   invitation?: { slug: string; roundId: string };
   canEditQuestions: boolean;
   evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
@@ -135,7 +139,7 @@ export function InterviewResultFrame({
   return (
     <Frame className="h-full">
       <FrameHeader className="flex-row items-center justify-between gap-3">
-        <FrameTitle>面试结果</FrameTitle>
+        <FrameTitle>面试详情</FrameTitle>
         <Badge variant={report ? getReportBadgeVariant(report.status) : "outline"}>
           {report ? formatReportStatus(report.status) : "暂无报告"}
         </Badge>
@@ -153,6 +157,12 @@ export function InterviewResultFrame({
             value={<TimeDisplay emptyText="未记录" value={report?.endedAt ?? report?.updatedAt} />}
           />
         </div>
+        {interviewerAgents ? (
+          <div className="mt-5 border-border/50 border-t pt-5">
+            <p className="mb-2 text-muted-foreground text-xs">面试官 Agent</p>
+            <JobDescriptionInterviewerAgents {...interviewerAgents} />
+          </div>
+        ) : null}
         <div className="mt-5 grid gap-x-8 gap-y-4 border-border/50 border-t pt-5 sm:grid-cols-3">
           <SummaryMetric
             label="评分"

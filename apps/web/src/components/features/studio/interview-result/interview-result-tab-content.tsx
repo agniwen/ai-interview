@@ -11,6 +11,8 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/fram
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 
+import { useHasPermission } from "@/hooks/use-has-permission";
+
 import { InterviewReportDetailsDisclosure } from "../interview-report-details-disclosure";
 import {
   FormsSkeleton,
@@ -69,6 +71,11 @@ export function InterviewResultTabContent({
     updatingRoundId,
   } = model;
   const showRoundActions = canUseManagementActions && !isPublic;
+  const canReadInterviewers = useHasPermission("interviewer", "read");
+  const interviewerAgents =
+    canReadInterviewers && !isPublic && model.slug && record.jobDescriptionId
+      ? { jobDescriptionId: record.jobDescriptionId, slug: model.slug }
+      : undefined;
   const selectedRoundId = record.roundId;
   const handleResetSelectedRound = selectedRoundId ? () => handleResetRound(selectedRoundId) : null;
   const handleToggleSelectedRoundTextInput = selectedRoundId
@@ -107,6 +114,7 @@ export function InterviewResultTabContent({
               <InterviewResultOverviewSkeleton />
             ) : (
               <InterviewResultFrame
+                interviewerAgents={interviewerAgents}
                 invitation={
                   model.canUpdateInterview &&
                   showRoundActions &&
