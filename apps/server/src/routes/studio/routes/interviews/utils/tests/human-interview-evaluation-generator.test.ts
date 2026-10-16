@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateHumanInterviewEvaluation } from "../human-interview-evaluation-generator";
 
-const supportedReview = { generate: vi.fn(() => Promise.resolve({ text: '{"issues":[]}' })) };
+const supportedReview = { generate: vi.fn(() => Promise.resolve({ text: '{"findings":[]}' })) };
 
 describe("generateHumanInterviewEvaluation", () => {
   it("repairs an untrusted citation before evidence review", async () => {
@@ -23,7 +23,7 @@ describe("generateHumanInterviewEvaluation", () => {
       .mockResolvedValue({
         text: JSON.stringify({ ...evaluation, evidenceTurnIds: ["candidate-turn"] }),
       });
-    const review = vi.fn(() => Promise.resolve({ text: '{"issues":[]}' }));
+    const review = vi.fn(() => Promise.resolve({ text: '{"findings":[]}' }));
 
     await expect(
       generateHumanInterviewEvaluation(
@@ -126,8 +126,14 @@ describe("generateHumanInterviewEvaluation", () => {
       const issue = "未提问管理经验及转录名称歧义不能作为负面评级或沟通风险依据";
       const review = vi
         .fn()
-        .mockResolvedValueOnce({ text: JSON.stringify({ issues: [issue] }) })
-        .mockResolvedValueOnce({ text: JSON.stringify({ issues: persistent ? [issue] : [] }) });
+        .mockResolvedValueOnce({
+          text: JSON.stringify({ findings: [{ reason: issue, violation: true }] }),
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify({
+            findings: persistent ? [{ reason: issue, violation: true }] : [],
+          }),
+        });
       const result = generateHumanInterviewEvaluation(
         {
           candidateName: "候选人",
@@ -170,7 +176,7 @@ describe("generateHumanInterviewEvaluation", () => {
       strengths: "-",
     };
     const generate = vi.fn().mockResolvedValue({ text: JSON.stringify(evaluation) });
-    const review = vi.fn().mockResolvedValue({ text: '{"issues":[]}' });
+    const review = vi.fn().mockResolvedValue({ text: '{"findings":[]}' });
     await expect(
       generateHumanInterviewEvaluation(
         {
