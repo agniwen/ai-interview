@@ -30,12 +30,11 @@ export function CandidateAvatarImage({
 const MUTED_GENERATED_AVATAR_CLASS =
   "[&_[data-slot=avatar-generated]]:opacity-70 [&_[data-slot=avatar-generated]]:contrast-75 [&_[data-slot=avatar-generated]]:grayscale";
 
-// 招聘台与人才库记录的候选人头像：带描边，优先显示简历头像，否则显示按姓名生成的头像。
+// 招聘台与人才库记录的候选人头像：带描边，优先显示简历头像，否则显示按姓名选发型的灰度人像。
 // Candidate avatar for recruiting and talent-pool records: outlined, showing the resume headshot
-// when there is one and the name-seeded generated avatar otherwise.
+// when there is one and a name-seeded greyscale portrait otherwise.
 export function CandidateAvatar({
   className,
-  generatedSize,
   label,
   muted = false,
   recordId,
@@ -44,7 +43,6 @@ export function CandidateAvatar({
   version,
 }: {
   className?: string;
-  generatedSize: number;
   label: string;
   muted?: boolean;
   recordId: string;
@@ -59,7 +57,6 @@ export function CandidateAvatar({
         muted && MUTED_GENERATED_AVATAR_CLASS,
         className,
       )}
-      generatedSize={generatedSize}
       label={`${label}的头像`}
       seed={seed}
     >

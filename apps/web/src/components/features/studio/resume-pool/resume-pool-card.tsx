@@ -457,7 +457,6 @@ export function ResumePoolCard({
           <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
             <CandidateAvatar
               className="size-10"
-              generatedSize={40}
               label={title}
               recordId={record.id}
               seed={title}

@@ -155,7 +155,6 @@ const ApprovalNode = memo(function ApprovalNode({ data }: NodeProps<ApprovalFlow
               {data.approver ? (
                 <Avatar
                   className="data-[size=sm]:size-5"
-                  generatedSize={20}
                   label={`${data.approver.label}的头像`}
                   seed={`option:${data.approver.value}`}
                   size="sm"

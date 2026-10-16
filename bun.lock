@@ -34,7 +34,6 @@
         "@orpc/client": "2.0.0-beta.25",
         "@orpc/contract": "2.0.0-beta.25",
         "@orpc/server": "2.0.0-beta.25",
-        "@outpacelabs/avatars": "^0.4.1",
         "@sentry/electron": "7.17.0",
         "@tanstack/react-query": "^5.104.2",
         "@tanstack/react-router": "^1.170.44",
@@ -173,7 +172,6 @@
         "@lexical/react": "^0.52.0",
         "@livekit/components-react": "^2.9.24",
         "@ncdai/react-wheel-picker": "^1.2.3",
-        "@outpacelabs/avatars": "^0.4.1",
         "@radix-ui/react-visually-hidden": "^1.2.4",
         "@sentry/tanstackstart-react": "10.76.2",
         "@shadcn/react": "^0.1.0",
@@ -1267,8 +1265,6 @@
     "@orpc/server": ["@orpc/server@2.0.0-beta.25", "", { "dependencies": { "@orpc/client": "2.0.0-beta.25", "@orpc/contract": "2.0.0-beta.25", "@orpc/shared": "2.0.0-beta.25", "@standardserver/aws-lambda": "0.7.1", "@standardserver/core": "0.7.1", "@standardserver/fastify": "0.7.1", "@standardserver/fetch": "0.7.1", "@standardserver/node": "0.7.1", "@standardserver/peer": "0.7.1", "cookie": "2.0.1" }, "peerDependencies": { "crossws": ">=0.3.4", "fastify": ">=5.6.1" }, "optionalPeers": ["crossws", "fastify"] }, "sha512-qyEWWKTYGVh4HyFb0OLPQsojIWnb3DcAdmzGvce1JGIizv5yVpov9dhxPZKCLNrQHsgbTTP7+KTaby4p8AhrDQ=="],
 
     "@orpc/shared": ["@orpc/shared@2.0.0-beta.25", "", { "dependencies": { "@standardserver/shared": "0.7.1", "radash": "12.1.1", "type-fest": "5.8.0" }, "peerDependencies": { "@opentelemetry/api": ">=1.9.0" }, "optionalPeers": ["@opentelemetry/api"] }, "sha512-6Uah75bNnxudWiADIk5Sv+pyh5y6+eQFwGxAKwfmfo3xK+hFOrM24N79w1E3EKPrDst2/T2Y6YBYgq55KJkavQ=="],
-
-    "@outpacelabs/avatars": ["@outpacelabs/avatars@0.4.1", "", { "peerDependencies": { "react": "19.2.7" } }, "sha512-22vZeWZBaZWM9eKUU1BRVjhIomevCJG707pnqhggHANFAyOcb6f9pz4zYkliZcS1ZURMcZFOUYs3ywShoy7kEw=="],
 
     "@oxc-parser/binding-android-arm-eabi": ["@oxc-parser/binding-android-arm-eabi@0.143.0", "", { "os": "android", "cpu": "arm" }, "sha512-n9uozULWflPqBtdmI8lAabLqGKNgLVNN0ZH8HfgCwpKGNtzRzauB76jTiW/3YLkcA7N1zskpi9GdVnZuu1SAvg=="],
 

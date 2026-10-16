@@ -170,7 +170,6 @@ function RecruiterResumeDetailHeaderText({
     <div className="flex min-w-0 items-center gap-3">
       <CandidateAvatar
         className="size-14"
-        generatedSize={56}
         label={avatarLabel}
         recordId={recordId}
         seed={avatarSeed}

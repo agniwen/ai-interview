@@ -175,11 +175,7 @@ function SidebarUserSection() {
         type="button"
         className="flex h-9 w-full items-center gap-2 rounded-lg px-2 hover:bg-sidebar-accent"
       >
-        <Avatar
-          generatedSize={32}
-          label={m.home_frame_candidate_avatar({ name: recruiter })}
-          seed="recruiter:misato"
-        >
+        <Avatar label={m.home_frame_candidate_avatar({ name: recruiter })} seed="recruiter:misato">
           <AvatarFallback>{recruiter.slice(0, 1)}</AvatarFallback>
         </Avatar>
         <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">

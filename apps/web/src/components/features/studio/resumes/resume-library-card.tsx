@@ -309,7 +309,6 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
       <span className="shrink-0">上传人</span>
       <Avatar
         className="size-4! shrink-0"
-        generatedSize={16}
         label={`${displayName}的头像`}
         seed={`recruiter:${displayName}`}
         size="sm"
@@ -529,7 +528,6 @@ function ResumeLibraryCardComponent({
           <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
             <CandidateAvatar
               className="size-10"
-              generatedSize={40}
               label={record.candidateName}
               muted={isRejected}
               recordId={record.id}

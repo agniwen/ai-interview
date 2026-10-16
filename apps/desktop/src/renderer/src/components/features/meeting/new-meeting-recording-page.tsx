@@ -67,7 +67,6 @@ function CreatorDetailRow({ record }: { record: ResumeLibraryListRecord }) {
       >
         <Avatar
           className="size-4!"
-          generatedSize={16}
           label={`${creatorName}的头像`}
           seed={`recruiter:${creatorName}`}
           size="sm"

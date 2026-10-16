@@ -157,12 +157,7 @@ export function RoundEvaluation({
         <TabsList variant="underline" aria-label="按面试官查看评价">
           {reviews.map((review) => (
             <TabsTrigger key={review.id} value={review.id}>
-              <Avatar
-                className="size-4.5"
-                generatedSize={18}
-                seed={review.reviewerId ?? review.id}
-                aria-hidden
-              >
+              <Avatar className="size-4.5" seed={review.reviewerId ?? review.id} aria-hidden>
                 {review.reviewerImage ? <AvatarImage src={review.reviewerImage} alt="" /> : null}
               </Avatar>
               {review.reviewerName}

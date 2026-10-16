@@ -121,13 +121,7 @@ function EvidenceScreeningBlock() {
       <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <Avatar
-              className="size-7"
-              generatedSize={28}
-              label={copy.avatarLabel}
-              seed="candidate:明日香"
-              size="sm"
-            >
+            <Avatar className="size-7" label={copy.avatarLabel} seed="candidate:明日香" size="sm">
               <AvatarFallback>{getHomeDemoCopy().feature.candidateName.slice(0, 1)}</AvatarFallback>
             </Avatar>
             <div>
@@ -244,13 +238,7 @@ function TeamDecisionBlock() {
               key={name}
             >
               <span className="flex items-center gap-1.5 font-medium">
-                <Avatar
-                  className="size-5"
-                  generatedSize={20}
-                  label={name}
-                  seed={`interviewer:${name}`}
-                  size="sm"
-                >
+                <Avatar className="size-5" label={name} seed={`interviewer:${name}`} size="sm">
                   <AvatarFallback>{name}</AvatarFallback>
                 </Avatar>
                 {name}

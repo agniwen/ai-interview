@@ -76,12 +76,7 @@ function DuplicateMatchBadgeContent({
       {description.creatorName && description.suffix ? (
         <span className="inline-flex min-w-0 items-center">
           <span className="shrink-0">{description.prefix}</span>
-          <Avatar
-            aria-hidden
-            className="mx-0.5 size-4"
-            generatedSize={16}
-            seed={`creator:${description.creatorName}`}
-          >
+          <Avatar aria-hidden className="mx-0.5 size-4" seed={`creator:${description.creatorName}`}>
             <AvatarImage alt="" src={description.creatorImage ?? undefined} />
             <AvatarFallback aria-hidden className="text-[8px] leading-none">
               {description.creatorName.slice(0, 1)}

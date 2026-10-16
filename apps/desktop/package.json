@@ -37,7 +37,6 @@
     "@orpc/client": "2.0.0-beta.25",
     "@orpc/contract": "2.0.0-beta.25",
     "@orpc/server": "2.0.0-beta.25",
-    "@outpacelabs/avatars": "^0.4.1",
     "@sentry/electron": "7.17.0",
     "@tanstack/react-query": "^5.104.2",
     "@tanstack/react-router": "^1.170.44",

@@ -244,7 +244,6 @@ function CandidateAvatar({ record }: { record: ResumeCardData }) {
   return (
     <Avatar
       className="size-10 shrink-0"
-      generatedSize={40}
       label={m.home_frame_candidate_avatar({ name: record.name })}
       seed={`candidate:${seed}`}
     >
@@ -280,7 +279,6 @@ function ResumeCardCreatorMeta({ name }: { name: string }) {
       <span className="shrink-0">{m.home_frame_uploader()}</span>
       <Avatar
         className="size-4! shrink-0"
-        generatedSize={16}
         label={m.home_frame_candidate_avatar({ name })}
         seed={`recruiter:${name}`}
         size="sm"

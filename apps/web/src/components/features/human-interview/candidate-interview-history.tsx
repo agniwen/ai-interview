@@ -69,7 +69,6 @@ function RoundMetadata({
             {round.submittedBy ? (
               <Avatar
                 className="size-[18px]"
-                generatedSize={18}
                 label={`${round.submittedBy}的头像`}
                 seed={`creator:${round.submittedBy}`}
               >

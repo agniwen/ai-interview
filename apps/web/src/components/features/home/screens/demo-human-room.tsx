@@ -304,12 +304,7 @@ export default function DemoHumanRoom() {
                 key={person.name}
               >
                 {person.local ? (
-                  <Avatar
-                    className="size-24"
-                    generatedSize={96}
-                    seed="demo-reviewer"
-                    label={person.name}
-                  />
+                  <Avatar className="size-24" seed="demo-reviewer" label={person.name} />
                 ) : (
                   <IconUser className="size-16 text-muted-foreground" />
                 )}

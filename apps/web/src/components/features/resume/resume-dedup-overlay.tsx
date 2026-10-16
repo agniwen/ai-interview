@@ -187,7 +187,6 @@ function UploaderMeta({
       <div className="flex min-w-0 items-center gap-1.5">
         <Avatar
           className="size-4 shrink-0"
-          generatedSize={16}
           label={`${displayName}的头像`}
           seed={`uploader:${displayName}`}
         >

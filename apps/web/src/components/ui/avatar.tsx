@@ -1,28 +1,24 @@
 "use client";
 
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
-import { generatePalette, GradientAvatar } from "@outpacelabs/avatars";
 import * as React from "react";
 
+import { PersonSilhouette } from "@/components/ui/person-silhouette";
 import { cn } from "@app/shared/utils";
 
 function Avatar({
   className,
   children,
-  generatedSize,
   label,
   seed,
   size = "default",
   style,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
-  generatedSize?: number;
   label?: string;
   seed?: number | string;
   size?: "default" | "sm" | "lg";
 }) {
-  const fallbackColor = seed === undefined ? undefined : generatePalette(seed).colors[0];
-  const renderSize = generatedSize ?? { default: 32, lg: 40, sm: 24 }[size];
   const isDecorative = props["aria-hidden"] === true;
   const visibleChildren =
     seed === undefined
@@ -46,9 +42,9 @@ function Avatar({
       {...props}
     >
       {seed === undefined ? null : (
-        // 生成头像是 canvas：只在没有图片或图片加载失败时渲染；图片加载中显示与 Skeleton 一致的灰色占位，
-        // 加载成功后整个占位卸载。
-        // The generated avatar is a canvas, so render it only when there is no image or the image
+        // 有种子时显示按种子选发型的灰度人像，只在没有图片或图片加载失败时渲染；图片加载中显示与 Skeleton
+        // 一致的灰色占位，加载成功后整个占位卸载。
+        // The seed picks a greyscale portrait, rendered only when there is no image or the image
         // failed. While the image loads, show the same grey pulse as Skeleton; once it loads the
         // placeholder unmounts.
         <AvatarPrimitive.Fallback
@@ -63,17 +59,8 @@ function Avatar({
                 data-avatar-loading=""
               />
             ) : (
-              <span
-                {...fallbackProps}
-                style={{ ...fallbackProps.style, backgroundColor: fallbackColor }}
-              >
-                <GradientAvatar
-                  className="absolute inset-0 size-full"
-                  radius="inherit"
-                  seed={seed}
-                  size={renderSize}
-                  style={{ height: "100%", width: "100%" }}
-                />
+              <span {...fallbackProps}>
+                <PersonSilhouette seed={seed} />
               </span>
             )
           }

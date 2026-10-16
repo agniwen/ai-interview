@@ -66,7 +66,7 @@ function CandidateScoreCard() {
     >
       <CardHeader className="grid grid-rows-1 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Avatar generatedSize={36} label={copy.avatarLabel} seed="candidate:明日香">
+          <Avatar label={copy.avatarLabel} seed="candidate:明日香">
             <AvatarFallback>{copy.candidateName.slice(0, 1)}</AvatarFallback>
           </Avatar>
           <div className="flex min-w-0 flex-col gap-1">
@@ -225,7 +225,6 @@ function PersonAvatar({ kind, name, size = 20 }: { kind: string; name: string; s
   return (
     <Avatar
       className="ring-2 ring-background"
-      generatedSize={size}
       label={name}
       seed={`${kind}:${name}`}
       size="sm"
@@ -368,12 +367,7 @@ function TeamCalibrationCard() {
         <ul className="mt-2 flex flex-col divide-y divide-border/60">
           {calibration.calibrationReviewers.map((reviewer, index) => (
             <li className="flex items-start gap-2.5 py-3.5" key={reviewer.name}>
-              <Avatar
-                generatedSize={28}
-                label={reviewer.name}
-                seed={`interviewer:${reviewer.name}`}
-                size="sm"
-              >
+              <Avatar label={reviewer.name} seed={`interviewer:${reviewer.name}`} size="sm">
                 <AvatarFallback>{reviewer.name.slice(0, 1)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">

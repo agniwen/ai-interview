@@ -69,7 +69,6 @@ function SelectWorkspaceRoute() {
                   <article className="group flex items-center gap-4 rounded-xl border border-border bg-background px-4 py-3.5 shadow-xs transition-[transform,border-color,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-foreground/10 hover:bg-card hover:shadow-sm">
                     <Avatar
                       className="size-11 shrink-0"
-                      generatedSize={44}
                       label={`${organization.name}的头像`}
                       seed={`workspace:${organization.id}`}
                     >

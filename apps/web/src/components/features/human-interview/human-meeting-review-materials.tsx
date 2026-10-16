@@ -176,7 +176,6 @@ export function HumanMeetingReviewMaterials({
                             {interviewer?.image ? (
                               <Avatar
                                 className="size-[14px]"
-                                generatedSize={14}
                                 label={`${interviewer.name}的头像`}
                                 seed={`user:${interviewer.userId}`}
                               >

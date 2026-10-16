@@ -306,7 +306,6 @@ function ResumeLibraryCardComponent({
       <div className="flex gap-3 p-4">
         <Avatar
           className="mt-0.5 size-12"
-          generatedSize={48}
           label={`${record.candidateName}的头像`}
           seed={getCandidateAvatarSeed(record.candidateName)}
         >
@@ -385,7 +384,6 @@ function ResumeLibraryCardComponent({
                   <span className="shrink-0">上传人</span>
                   <Avatar
                     className="size-4! shrink-0"
-                    generatedSize={16}
                     label={`${textOrDash(record.creatorName)}的头像`}
                     seed={`recruiter:${textOrDash(record.creatorName)}`}
                     size="sm"

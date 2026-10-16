@@ -100,7 +100,6 @@ function ProfileHero({
     <div className="flex flex-col items-center gap-3 py-2 text-center">
       <Avatar
         className="size-20 ring-1 ring-border"
-        generatedSize={80}
         label={`${displayName}的头像`}
         seed={`user:${email || displayName}`}
         size="lg"

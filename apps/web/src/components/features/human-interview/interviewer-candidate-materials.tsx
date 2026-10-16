@@ -303,12 +303,7 @@ function CandidateDetail({
     <ScrollArea className="h-full" scrollFade scrollbars="leave">
       <div className="flex flex-col gap-8 p-5 lg:p-7">
         <header className="flex min-w-0 items-center gap-3">
-          <Avatar
-            className="size-14 shrink-0"
-            generatedSize={56}
-            label={`${avatarLabel}的头像`}
-            seed={candidateName}
-          >
+          <Avatar className="size-14 shrink-0" label={`${avatarLabel}的头像`} seed={candidateName}>
             <AvatarFallback>{avatarValue}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">

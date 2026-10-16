@@ -181,7 +181,6 @@ function ActivityAvatar({ actor }: { actor: ActivityActor }) {
   return (
     <Avatar
       className="size-5 bg-muted text-muted-foreground"
-      generatedSize={20}
       label={`${actor.name}的头像`}
       seed={`actor:${actor.icon ?? "user"}:${actor.name}`}
       size="sm"

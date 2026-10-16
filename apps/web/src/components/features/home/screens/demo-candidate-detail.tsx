@@ -48,7 +48,6 @@ export function DemoCandidateDetail() {
           <div className="flex min-w-0 items-center gap-3">
             <Avatar
               className="size-14 shrink-0"
-              generatedSize={56}
               seed="candidate:shinji"
               label={m.home_frame_candidate_avatar({ name })}
             >

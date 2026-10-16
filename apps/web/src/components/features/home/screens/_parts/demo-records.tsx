@@ -197,12 +197,7 @@ export function DemoRoundCard({ completed }: { completed: boolean }) {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
           <span className="inline-flex items-center gap-1.5">
             <span className="text-muted-foreground">{round.interviewer}</span>
-            <Avatar
-              className="size-[18px]"
-              generatedSize={18}
-              label={people.interviewer}
-              seed="demo-reviewer"
-            />
+            <Avatar className="size-[18px]" label={people.interviewer} seed="demo-reviewer" />
             {people.interviewer}
           </span>
           <dl className="flex items-center gap-2">

@@ -232,7 +232,6 @@ export function buildStudioPersonDetailHeader({
       <span className="flex min-w-0 items-center gap-3">
         <Avatar
           className="size-14 shrink-0"
-          generatedSize={56}
           label={`${avatarLabel}的头像`}
           seed={avatarName || "未命名候选人"}
         >
