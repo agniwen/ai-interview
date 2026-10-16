@@ -26,6 +26,9 @@ interface EntityFormDialogProps {
   onSubmit: () => void;
   /** Field 列；通常是若干 `<form.Field name="X">…</form.Field>`。 */
   children: ReactNode;
+  /** 编辑详情加载中：以 loadingSkeleton 代替表单字段，并禁用提交。Detail still loading. */
+  loading?: boolean;
+  loadingSkeleton?: ReactNode;
   /** 覆盖默认按钮文案。 */
   submitLabel?: { create: string; update: string };
 }
@@ -49,6 +52,8 @@ export function EntityFormDialog({
   submitDisabled = false,
   onSubmit,
   children,
+  loading = false,
+  loadingSkeleton = null,
   submitLabel = { create: "创建", update: "保存" },
 }: EntityFormDialogProps) {
   return (
@@ -59,7 +64,7 @@ export function EntityFormDialog({
           <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
             取消
           </Button>
-          <Button disabled={isSubmitting || submitDisabled} form={formId} type="submit">
+          <Button disabled={isSubmitting || submitDisabled || loading} form={formId} type="submit">
             {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {isEdit ? submitLabel.update : submitLabel.create}
           </Button>
@@ -78,7 +83,13 @@ export function EntityFormDialog({
           onSubmit();
         }}
       >
-        <FieldGroup className="gap-5">{children}</FieldGroup>
+        {loading ? (
+          <output aria-busy="true" aria-label="正在加载" className="block">
+            {loadingSkeleton}
+          </output>
+        ) : (
+          <FieldGroup className="gap-5">{children}</FieldGroup>
+        )}
       </form>
     </Modal>
   );

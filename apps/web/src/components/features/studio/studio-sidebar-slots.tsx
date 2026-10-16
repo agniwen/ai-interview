@@ -135,7 +135,7 @@ const navGroups: NavGroup[] = [
         icon: IconUserCircle,
         path: "/studio/interviewers",
         resource: "page",
-        title: "AI面试官管理",
+        title: "面试官 Agent 管理",
       },
       {
         action: "jobDescriptions",

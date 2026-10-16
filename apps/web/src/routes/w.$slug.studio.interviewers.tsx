@@ -1,6 +1,6 @@
 import { createFileRoute, getRouteApi, notFound, redirect } from "@tanstack/react-router";
 import { InterviewerManagementPage } from "@/components/features/studio/interviewers/interviewer-management-page";
-import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { InterviewerAgentsPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
@@ -30,8 +30,8 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
     }
     return state;
   },
-  head: () => ({ meta: [{ title: formatDocumentTitle("AI面试官管理") }] }),
+  head: () => ({ meta: [{ title: formatDocumentTitle("面试官 Agent 管理") }] }),
   component: StudioInterviewersRoute,
-  pendingComponent: () => <StudioTablePageSkeleton columnCount={6} label="AI面试官管理" />,
+  pendingComponent: InterviewerAgentsPageSkeleton,
   shouldReload: false,
 });

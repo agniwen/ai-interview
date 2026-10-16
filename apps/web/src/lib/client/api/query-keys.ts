@@ -19,6 +19,7 @@ export const humanInterviewKeys = {
 
 export const jobDescriptionKeys = {
   all: ["job-descriptions"] as const,
+  managed: (slug: string) => [...jobDescriptionKeys.all, "managed", slug] as const,
   recruiting: (slug: string) => [...jobDescriptionKeys.all, "recruiting", slug] as const,
   recruitingFilterOptions: (slug: string) =>
     [...jobDescriptionKeys.all, "recruiting-filter-options", slug] as const,

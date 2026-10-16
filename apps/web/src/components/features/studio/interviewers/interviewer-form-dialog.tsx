@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
@@ -65,21 +66,48 @@ function toFormValues(record: InterviewerRecord): InterviewerFormValues {
   };
 }
 
+function FieldSkeleton({ className }: { className: string }) {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-16" />
+      <Skeleton className={className} />
+    </div>
+  );
+}
+
+/** 与表单字段同布局的加载骨架。Loading skeleton mirroring the form field layout. */
+function InterviewerFormSkeleton() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid gap-5 md:grid-cols-2">
+        <FieldSkeleton className="h-9 w-full" />
+        <FieldSkeleton className="h-9 w-full" />
+      </div>
+      <FieldSkeleton className="h-9 w-full" />
+      <FieldSkeleton className="h-20 w-full" />
+      <FieldSkeleton className="h-64 w-full" />
+    </div>
+  );
+}
+
 export function InterviewerFormDialog({
   open,
   onOpenChange,
   record,
+  loading = false,
   departments,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: InterviewerRecord | null;
+  /** 编辑详情加载中（弹窗已打开）。The edit detail is still loading behind the open dialog. */
+  loading?: boolean;
   departments: DepartmentRecord[];
   onSaved: () => void;
 }) {
   const slug = useWorkspaceSlug();
-  const isEdit = record !== null;
+  const isEdit = record !== null || loading;
   const fallbackDepartmentId = departments[0]?.id ?? "";
   const noDepartments = departments.length === 0;
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -156,7 +184,7 @@ export function InterviewerFormDialog({
         voice: value.voice,
       };
 
-      const response = isEdit
+      const response = record
         ? await rpc.api.w[":slug"].studio.interviewers[":id"].$patch({
             json: body,
             param: { id: record.id, slug },
@@ -169,11 +197,12 @@ export function InterviewerFormDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "AI面试官已更新" : "AI面试官已创建");
+      toast.success(isEdit ? "面试官 Agent 已更新" : "面试官 Agent 已创建");
       onSaved();
       onOpenChange(false);
     },
-    open,
+    // 详情加载完成后才视为打开，届时用记录重置表单。Reset with the record once it has loaded.
+    open: open && !loading,
     schema: interviewerFormSchema,
   });
 
@@ -183,6 +212,8 @@ export function InterviewerFormDialog({
       formId="interviewer-form"
       isEdit={isEdit}
       isSubmitting={isSubmitting}
+      loading={loading}
+      loadingSkeleton={<InterviewerFormSkeleton />}
       onOpenChange={handleOpenChange}
       onSubmit={async () => {
         await form.handleSubmit();
@@ -190,7 +221,7 @@ export function InterviewerFormDialog({
       open={open}
       size="xl"
       submitDisabled={noDepartments}
-      title={isEdit ? "编辑 AI面试官" : "创建AI面试官"}
+      title={isEdit ? "编辑面试官 Agent" : "创建面试官 Agent"}
     >
       <div className="grid gap-5 md:grid-cols-2">
         <form.Field name="name">

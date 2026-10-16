@@ -6,7 +6,8 @@ import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description
 import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
 import { DashboardPanelsSkeleton } from "./dashboard-page-skeleton";
 import { ResumePoolCardSkeleton } from "./resume-pool/resume-pool-card-skeleton";
-import { DataGridContentSkeleton } from "@/components/features/data-grid";
+import { InterviewerAgentCardSkeleton } from "./interviewers/interviewer-agent-card";
+import { DataCardListSkeleton, DataGridContentSkeleton } from "@/components/features/data-grid";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PageShell({ children, label }: { children: ReactNode; label: string }) {
@@ -124,6 +125,18 @@ export function StudioTablePageSkeleton({
         {summary ? <StudioSummaryCardsSkeleton /> : null}
         <ToolbarSkeleton filterCount={filterCount} />
         <DataGridContentSkeleton columnCount={columnCount} />
+      </div>
+    </PageShell>
+  );
+}
+
+export function InterviewerAgentsPageSkeleton() {
+  return (
+    <PageShell label="面试官 Agent 管理">
+      <HeaderSkeleton />
+      <div className="flex flex-col gap-4" data-slot="data-card-list-shell-skeleton">
+        <ToolbarSkeleton />
+        <DataCardListSkeleton cardSkeleton={<InterviewerAgentCardSkeleton />} />
       </div>
     </PageShell>
   );
