@@ -58,6 +58,8 @@ export interface PublicAiInterviewInvitationPreview {
  */
 export interface HumanInterviewRoundRecord {
   reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
+  /** 最近一次 AI 生成的评价快照；面试官提交后仍保留，供对照参考。 */
+  aiEvaluation?: HumanInterviewEvaluationDraft | null;
   roundKind: "second_interview" | "final_interview";
   id: string;
   interviewRecordId: string;

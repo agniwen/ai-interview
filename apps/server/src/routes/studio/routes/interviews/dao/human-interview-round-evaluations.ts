@@ -1,5 +1,10 @@
-import { and, asc, eq, inArray, isNotNull, or } from "drizzle-orm";
-import { humanInterviewReviewerEvaluation, user } from "@app/db-schema/schema";
+import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
+import {
+  humanInterviewEvaluationSnapshot,
+  humanInterviewReviewerEvaluation,
+  user,
+} from "@app/db-schema/schema";
+import type { HumanInterviewEvaluationDraft } from "@app/db-schema/studio-interviews";
 import type { HumanInterviewReviewerEvaluationRecord } from "@app/shared/studio-pipeline-stages";
 import { db } from "../../../../../infrastructure/db/index";
 
@@ -45,6 +50,34 @@ export async function loadRoundReviewerEvaluations(roundIds: string[], organizat
       version: review.version,
     });
     byRound.set(review.roundId, entries);
+  }
+  return byRound;
+}
+
+/** Latest AI-generated snapshot per round, kept after interviewers submit. */
+export async function loadRoundAiEvaluations(roundIds: string[], organizationId: string) {
+  const byRound = new Map<string, HumanInterviewEvaluationDraft>();
+  if (roundIds.length === 0) {
+    return byRound;
+  }
+  const rows = await db
+    .select({
+      evaluation: humanInterviewEvaluationSnapshot.evaluation,
+      roundId: humanInterviewEvaluationSnapshot.roundId,
+    })
+    .from(humanInterviewEvaluationSnapshot)
+    .where(
+      and(
+        inArray(humanInterviewEvaluationSnapshot.roundId, roundIds),
+        eq(humanInterviewEvaluationSnapshot.organizationId, organizationId),
+        eq(humanInterviewEvaluationSnapshot.source, "ai_generated"),
+      ),
+    )
+    .orderBy(desc(humanInterviewEvaluationSnapshot.createdAt));
+  for (const row of rows) {
+    if (!byRound.has(row.roundId)) {
+      byRound.set(row.roundId, row.evaluation);
+    }
   }
   return byRound;
 }

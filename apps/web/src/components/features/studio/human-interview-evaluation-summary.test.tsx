@@ -124,3 +124,25 @@ it("hides missing fields and omits an empty details disclosure", async () => {
   }
   expect(container.textContent).toContain("旧评价");
 });
+it("lists the AI evaluation after every interviewer as a reference", async () => {
+  await act(() =>
+    root.render(
+      <RoundEvaluation
+        evaluation={evaluation}
+        round={{
+          aiEvaluation: { ...evaluation, overallEvaluation: "AI 的意见", rating: "C" },
+          evaluationStatus: "submitted",
+          reviewerEvaluations: [review("a", "甲", "pass"), review("b", "乙", "fail")],
+        }}
+      />,
+    ),
+  );
+  const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  expect(tabs.map((tab) => tab.textContent)).toEqual(["甲", "乙", "AI 评价"]);
+  expect(container.textContent).not.toContain("AI 的意见");
+  await act(() => tabs[2]?.click());
+  const panel = container.querySelector('[role="tabpanel"]')?.textContent;
+  expect(panel).toContain("AI 的意见");
+  expect(panel).toContain("仅供参考");
+  expect(panel).not.toContain("通过");
+});

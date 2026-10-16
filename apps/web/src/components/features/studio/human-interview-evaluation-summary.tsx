@@ -9,6 +9,9 @@ import { cn } from "@app/shared/utils";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
+import { IconSparkles } from "@tabler/icons-react";
+
+const AI_EVALUATION_TAB = "ai-evaluation";
 
 function EvaluationField({
   label,
@@ -42,6 +45,7 @@ function SingleEvaluation({
   compact = false,
   autoScrollDetails = true,
   hideTitle = false,
+  aiGenerated = false,
   outcome,
 }: {
   evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
@@ -50,6 +54,7 @@ function SingleEvaluation({
   compact?: boolean;
   autoScrollDetails?: boolean;
   hideTitle?: boolean;
+  aiGenerated?: boolean;
   outcome?: HumanInterviewRoundRecord["outcome"];
 }) {
   const submitted = round.evaluationStatus === "submitted";
@@ -94,11 +99,13 @@ function SingleEvaluation({
             {{ fail: "不通过", inconclusive: "待定", pass: "通过" }[outcome]}
           </Badge>
         ) : null}
-        {submitted ? (
+        {aiGenerated ? (
+          <span className="text-muted-foreground text-xs">AI 生成 · 仅供参考</span>
+        ) : null}
+        {!aiGenerated && submitted ? (
           <span className="text-muted-foreground text-xs">评价 · {statusLabel}</span>
-        ) : (
-          <Badge variant="warning">评价 · {statusLabel}</Badge>
-        )}
+        ) : null}
+        {aiGenerated || submitted ? null : <Badge variant="warning">评价 · {statusLabel}</Badge>}
       </div>
       {hasSummary ? (
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
@@ -128,7 +135,10 @@ export function RoundEvaluation({
   autoScrollDetails = true,
 }: {
   evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
-  round: Pick<HumanInterviewRoundRecord, "evaluationStatus" | "reviewerEvaluations">;
+  round: Pick<
+    HumanInterviewRoundRecord,
+    "aiEvaluation" | "evaluationStatus" | "reviewerEvaluations"
+  >;
   className?: string;
   compact?: boolean;
   autoScrollDetails?: boolean;
@@ -163,6 +173,12 @@ export function RoundEvaluation({
               {review.reviewerName}
             </TabsTrigger>
           ))}
+          {round.aiEvaluation ? (
+            <TabsTrigger value={AI_EVALUATION_TAB}>
+              <IconSparkles className="size-4" aria-hidden />
+              AI 评价
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         {reviews.map((review) => (
           <TabsContent key={review.id} value={review.id} className="pt-3">
@@ -177,6 +193,19 @@ export function RoundEvaluation({
             />
           </TabsContent>
         ))}
+        {round.aiEvaluation ? (
+          <TabsContent value={AI_EVALUATION_TAB} className="pt-3">
+            <SingleEvaluation
+              evaluation={round.aiEvaluation}
+              round={{ evaluationStatus: "submitted" }}
+              className="border-t-0 pt-0"
+              autoScrollDetails={autoScrollDetails}
+              compact={compact}
+              aiGenerated
+              hideTitle
+            />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </section>
   );

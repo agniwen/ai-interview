@@ -1,4 +1,7 @@
-import { loadRoundReviewerEvaluations } from "./human-interview-round-evaluations";
+import {
+  loadRoundAiEvaluations,
+  loadRoundReviewerEvaluations,
+} from "./human-interview-round-evaluations";
 import { updateRecruitingNodeTx } from "@app/recruiting/pipeline";
 import {
   assertCanCreateHumanInterviewRound,
@@ -208,9 +211,13 @@ export async function listHumanInterviewRounds(
     list.push(ir);
     byRound.set(ir.roundId, list);
   }
-  const evaluations = await loadRoundReviewerEvaluations(roundIds, organizationId);
+  const [evaluations, aiEvaluations] = await Promise.all([
+    loadRoundReviewerEvaluations(roundIds, organizationId),
+    loadRoundAiEvaluations(roundIds, organizationId),
+  ]);
   return rounds.map((round) => ({
     ...toRecord({ interviewers: byRound.get(round.id) ?? [], round }),
+    aiEvaluation: aiEvaluations.get(round.id) ?? null,
     reviewerEvaluations: evaluations.get(round.id) ?? [],
   }));
 }
@@ -268,9 +275,13 @@ async function loadRoundById(
     .from(humanInterviewRoundInterviewer)
     .innerJoin(user, eq(humanInterviewRoundInterviewer.userId, user.id))
     .where(eq(humanInterviewRoundInterviewer.roundId, roundId));
-  const evaluations = await loadRoundReviewerEvaluations([roundId], organizationId);
+  const [evaluations, aiEvaluations] = await Promise.all([
+    loadRoundReviewerEvaluations([roundId], organizationId),
+    loadRoundAiEvaluations([roundId], organizationId),
+  ]);
   return {
     ...toRecord({ interviewers: interviewerRows, round }),
+    aiEvaluation: aiEvaluations.get(roundId) ?? null,
     reviewerEvaluations: evaluations.get(roundId) ?? [],
   };
 }
