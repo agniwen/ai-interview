@@ -3,7 +3,7 @@ import { findEffectiveAiRound } from "./effective-ai-round";
 import { RecruitingNodeActions } from "./recruiting-node-actions";
 /* oxlint-disable complexity -- header builder composes title, tabs, action bar, and layout classes. */
 
-import { IconExternalLink, IconRobot, IconRefresh } from "@tabler/icons-react";
+import { IconExternalLink, IconFileText, IconRobot, IconRefresh } from "@tabler/icons-react";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
@@ -445,6 +445,24 @@ export function buildStudioPersonDetailHeader({
         <div className="order-1 flex shrink-0 flex-col items-stretch gap-2 sm:order-2 sm:flex-row sm:items-center sm:justify-end sm:pb-1.5">
           {headerActionBar}
           <div className="flex items-center gap-2">
+            {mode === "resume" && resumeRecord?.feishuDocumentUrl ? (
+              <Button
+                className="h-8 flex-1 gap-1.5 sm:flex-none"
+                nativeButton={false}
+                render={
+                  <a
+                    href={resumeRecord.feishuDocumentUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <IconFileText className="size-3.5" data-icon="inline-start" />
+                    查看评价表
+                  </a>
+                }
+                size="sm"
+                variant="outline"
+              />
+            ) : null}
             <ResumeDocumentPreviewButton
               className="flex-1 sm:flex-none"
               disabled={!record.hasResumeFile}
