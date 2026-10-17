@@ -12,8 +12,12 @@ import type { StudioPersonDetailPanel as StudioPersonDetailPanelType } from "./s
 
 type StudioPersonDetailPanelProps = ComponentProps<typeof StudioPersonDetailPanelType>;
 
+export function preloadStudioPersonDetailPanel() {
+  return import("./studio-person-detail-controller");
+}
+
 const StudioPersonDetailPanel = lazy(async () => {
-  const detailModule = await import("./studio-person-detail-controller");
+  const detailModule = await preloadStudioPersonDetailPanel();
   return { default: detailModule.StudioPersonDetailPanel };
 });
 

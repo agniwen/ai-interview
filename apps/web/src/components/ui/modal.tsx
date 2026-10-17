@@ -11,6 +11,12 @@ import {
   cossModalOverlayMotionClass,
   cossModalSurfaceClass,
 } from "@/components/ui/coss-style";
+import {
+  type ModalPlacement,
+  sideModalMotionClass,
+  sideModalPositionClass,
+  useModalPlacement,
+} from "@/components/ui/modal-placement";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 
@@ -44,6 +50,8 @@ export interface ModalProps {
   /** 可滚动的主体区域。 */
   children: React.ReactNode;
   size?: ModalSize;
+  /** 桌面端呈现位置；默认继承 ModalPlacementProvider，未设置时居中。 */
+  placement?: ModalPlacement;
   fullScreen?: boolean;
   showCloseButton?: boolean;
   /** 为 false 时屏蔽 ESC、点击遮罩关闭与移动端下滑关闭，调用方需自己提供关闭路径。 */
@@ -70,6 +78,7 @@ function DialogModal({
   headerLayout = "stack",
   children,
   size = "md",
+  placement,
   fullScreen = false,
   showCloseButton = true,
   dismissible = true,
@@ -78,7 +87,16 @@ function DialogModal({
   headerClassName,
   footerClassName,
 }: ModalProps) {
+  const isSide = useModalPlacement(placement) === "side" && !fullScreen;
   const popupRef = React.useRef<HTMLDivElement | null>(null);
+  // Base UI 只在 open 从 false 变为 true 时播放入场过渡；挂载时即为打开态的弹窗
+  // （例如调用方随 key 重新挂载）先以关闭态提交一次，保证入场动画照常播放。
+  // / Base UI only runs the enter transition on a false → true change, so a modal
+  // mounted already open first commits closed to keep its enter animation.
+  const [hasMounted, setHasMounted] = React.useState(false);
+  React.useEffect(() => {
+    setHasMounted(true);
+  }, []);
   const handleOpenChange: DialogPrimitive.Root.Props["onOpenChange"] = (nextOpen, details) => {
     if (
       !dismissible &&
@@ -93,7 +111,7 @@ function DialogModal({
   return (
     <DialogPrimitive.Root
       disablePointerDismissal={!dismissible}
-      open={open}
+      open={open && hasMounted}
       onOpenChange={handleOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
     >
@@ -116,9 +134,13 @@ function DialogModal({
             // Visual frame (background, border, overflow-hidden) lives on the inner div,
             // so position:fixed descendants (popovers) escape the visual frame even though
             // their containing block is still this transformed Content.
-            "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
-            "w-full max-w-[calc(100%-2rem)] outline-none",
-            cossModalMotionClass,
+            isSide
+              ? [sideModalPositionClass, sideModalMotionClass]
+              : [
+                  "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
+                  "w-full max-w-[calc(100%-2rem)] outline-none",
+                  cossModalMotionClass,
+                ],
             SIZE_CLASS[size],
             fullScreen &&
               "inset-0 top-0 left-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 sm:w-screen",
@@ -127,9 +149,13 @@ function DialogModal({
           <div
             className={cn(
               cossModalSurfaceClass,
-              "flex max-h-[90vh] flex-col overflow-hidden rounded-lg",
+              "flex max-h-[90vh] flex-col overflow-hidden rounded-xl",
+              isSide && "rounded-none border-y-0 border-r-0 shadow-none",
               fullScreen && "h-dvh max-h-dvh rounded-none border-0",
               className,
+              // 抽屉始终铺满视口高度，覆盖调用方为居中弹窗设置的高度上限。
+              // / Side drawers always fill the viewport height, overriding centered max-heights.
+              isSide && "h-full max-h-none sm:max-h-none",
             )}
           >
             <ModalHeader
@@ -138,14 +164,16 @@ function DialogModal({
               headerExtra={headerExtra}
               headerLayout={headerLayout}
               isMobile={false}
-              className={cn("border-b px-5 pt-4 pb-3", headerClassName)}
+              titleSize={isSide ? "lg" : "md"}
+              className={cn(isSide ? "px-5 pt-5" : "px-4 pt-3", headerClassName)}
             />
             {showCloseButton ? (
               <DialogPrimitive.Close
                 data-slot="modal-close"
                 className={cn(
-                  "absolute right-4 top-4 rounded-xs opacity-70 transition-opacity",
-                  "hover:opacity-100 focus:outline-hidden",
+                  "absolute flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors",
+                  isSide ? "top-5 right-4" : "top-3 right-3",
+                  "hover:bg-accent hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                   "disabled:pointer-events-none data-popup-open:bg-accent data-popup-open:text-muted-foreground",
                   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
                 )}
@@ -156,14 +184,19 @@ function DialogModal({
             ) : null}
             <div
               data-slot="modal-body"
-              className={cn("min-h-0 flex-1 overflow-y-auto px-5 py-4", bodyClassName)}
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto py-4",
+                isSide ? "px-5" : "px-4",
+                bodyClassName,
+              )}
             >
               {children}
             </div>
             {footer ? (
               <div
                 className={cn(
-                  "flex shrink-0 flex-col-reverse gap-2 border-t bg-background px-5 py-3",
+                  "flex shrink-0 flex-col-reverse gap-2 bg-background",
+                  isSide ? "px-5 pb-5" : "px-4 pb-4",
                   "sm:flex-row sm:justify-end",
                   footerClassName,
                 )}
@@ -258,7 +291,8 @@ function DrawerModal({
               headerExtra={headerExtra}
               headerLayout={headerLayout}
               isMobile={true}
-              className={cn("border-b px-4 pt-3 pb-3", headerClassName)}
+              titleSize="lg"
+              className={cn("px-4 pt-3", headerClassName)}
             />
             <div
               data-slot="modal-body"
@@ -269,7 +303,7 @@ function DrawerModal({
             {footer ? (
               <div
                 className={cn(
-                  "flex shrink-0 flex-row items-stretch gap-2 border-t bg-background px-4 pt-3",
+                  "flex shrink-0 flex-row items-stretch gap-2 bg-background px-4 pt-1",
                   "pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1",
                   footerClassName,
                 )}
@@ -290,6 +324,7 @@ function ModalHeader({
   headerExtra,
   headerLayout,
   isMobile,
+  titleSize,
   className,
 }: {
   title: React.ReactNode;
@@ -297,13 +332,22 @@ function ModalHeader({
   headerExtra?: React.ReactNode;
   headerLayout: HeaderLayout;
   isMobile: boolean;
+  /** "md" 用于居中弹窗，"lg" 用于抽屉。"md" for centered dialogs, "lg" for drawers. */
+  titleSize: "md" | "lg";
   className?: string;
 }) {
   // Title/Description primitives wire ARIA labelledby/describedby for us.
   const TitleEl = isMobile ? DrawerPrimitive.Title : DialogPrimitive.Title;
   const DescEl = isMobile ? DrawerPrimitive.Description : DialogPrimitive.Description;
   const titleNode = (
-    <TitleEl className="text-lg font-semibold leading-none text-foreground">{title}</TitleEl>
+    <TitleEl
+      className={cn(
+        "font-medium leading-6 text-foreground",
+        titleSize === "lg" ? "text-lg" : "text-[0.9375rem]",
+      )}
+    >
+      {title}
+    </TitleEl>
   );
   const descriptionNode = description ? (
     <DescEl className="text-sm text-muted-foreground">{description}</DescEl>

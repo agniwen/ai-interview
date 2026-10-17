@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   DetailTitleSkeleton,
   DetailHeaderSkeleton,
@@ -15,7 +16,10 @@ import {
 // component's external API is unchanged for existing call sites.
 
 import { Modal } from "@/components/ui/modal";
-import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "./lazy-studio-person-detail-panel";
+import {
+  LazyStudioPersonDetailPanel as StudioPersonDetailPanel,
+  preloadStudioPersonDetailPanel,
+} from "./lazy-studio-person-detail-panel";
 import type { StudioPersonDetailMode, StudioPersonDetailTab } from "./studio-person-detail-panel";
 
 export function StudioPersonDetailDialog({
@@ -74,6 +78,21 @@ export function StudioPersonDetailDialog({
    */
   defaultTab?: StudioPersonDetailTab;
 }) {
+  // Panel 以 recordId/roundId 作为 key 重建会话；关闭时调用方会清空 id，这里保留
+  // 最后一次打开的 id，让同一个 Modal 实例播完退场动画而不是被立即卸载。
+  // / The panel keys its session by ids. Callers clear the ids on close, so keep the
+  // last opened ids while closed and let the same Modal instance play its exit animation.
+  // 预取详情 chunk，避免首次打开时骨架 Modal 与正式 Modal 先后各播一次入场动画。
+  // / Preload the detail chunk so the first open does not animate the skeleton and real modal twice.
+  useEffect(() => {
+    void preloadStudioPersonDetailPanel();
+  }, []);
+
+  const [displayedIds, setDisplayedIds] = useState({ recordId, roundId });
+  if (open && (displayedIds.recordId !== recordId || displayedIds.roundId !== roundId)) {
+    setDisplayedIds({ recordId, roundId });
+  }
+
   return (
     <StudioPersonDetailPanel
       defaultTab={defaultTab}
@@ -112,8 +131,8 @@ export function StudioPersonDetailDialog({
       onRequestClose={onRequestClose}
       onRequestReactivate={onRequestReactivate}
       onUpdated={onUpdated}
-      recordId={recordId}
-      roundId={roundId}
+      recordId={displayedIds.recordId}
+      roundId={displayedIds.roundId}
       shell={({
         body,
         bodyClassName,

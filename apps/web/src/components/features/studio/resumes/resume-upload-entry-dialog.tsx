@@ -106,6 +106,7 @@ export function ResumeUploadEntryDialog({
       }
       onOpenChange={handleOpenChange}
       open={open}
+      placement="center"
       size="md"
       title={title}
     >

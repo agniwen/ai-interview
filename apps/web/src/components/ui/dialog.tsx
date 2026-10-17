@@ -11,6 +11,13 @@ import {
   cossModalOverlayMotionClass,
   cossModalSurfaceClass,
 } from "@/components/ui/coss-style";
+import {
+  type ModalPlacement,
+  ModalPlacementProvider,
+  sideModalMotionClass,
+  sideModalPositionClass,
+  useModalPlacement,
+} from "@/components/ui/modal-placement";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 
@@ -132,11 +139,15 @@ function DialogContent({
   children,
   showCloseButton = true,
   initialFocus,
+  placement,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
+  /** 桌面端呈现位置；默认继承 ModalPlacementProvider，未设置时居中。 */
+  placement?: ModalPlacement;
 }) {
   const { isMobile } = useResponsiveDialog();
+  const isSide = useModalPlacement(placement) === "side";
   const popupRef = React.useRef<HTMLDivElement | null>(null);
 
   if (isMobile) {
@@ -181,19 +192,38 @@ function DialogContent({
         data-slot="dialog-content"
         initialFocus={initialFocus ?? popupRef}
         tabIndex={-1}
-        className={cn(
-          cossModalSurfaceClass,
-          cossModalMotionClass,
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 outline-none sm:max-w-lg",
-          className,
-        )}
+        className={
+          isSide
+            ? cn(
+                cossModalSurfaceClass,
+                sideModalPositionClass,
+                sideModalMotionClass,
+                "grid content-start gap-4 overflow-y-auto border-y-0 border-r-0 p-5 shadow-none sm:max-w-lg",
+                className,
+                // 抽屉始终铺满视口高度，覆盖调用方为居中弹窗设置的高度上限。
+                // / Side drawers always fill the viewport height, overriding centered max-heights.
+                "h-dvh max-h-none rounded-none sm:max-h-none",
+              )
+            : cn(
+                cossModalSurfaceClass,
+                cossModalMotionClass,
+                "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl px-4 pt-3 pb-4 outline-none sm:max-w-lg",
+                className,
+              )
+        }
         {...props}
       >
-        {children}
+        {/* 子级 DialogTitle 据此选择居中弹窗或抽屉的标题字号。/ Lets DialogTitle size itself for the surface. */}
+        <ModalPlacementProvider placement={isSide ? "side" : "center"}>
+          {children}
+        </ModalPlacementProvider>
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="data-popup-open:bg-accent data-popup-open:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className={cn(
+              "absolute flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+              isSide ? "top-5 right-4" : "top-3 right-3",
+            )}
           >
             <IconX />
             <span className="sr-only">Close</span>
@@ -213,7 +243,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         isMobile
           ? "flex flex-col gap-1.5 text-center sm:text-left"
-          : "flex flex-col gap-2 text-center sm:text-left",
+          : "flex flex-col gap-1 pr-8 text-left",
         className,
       )}
       {...props}
@@ -238,12 +268,12 @@ function DialogFooter({
         isMobile
           ? // 横向铺满：每个按钮 flex-1 平分宽度（两按钮各占一半，单按钮占满）。
             // mt-auto / sticky bottom-0：内容短时贴底，内容长时滚动钉底。
-            // -mx-4 + border-t：贯穿 drawer 边到边的分隔。
+            // -mx-4 + bg-background：边到边铺底，滚动内容不会从按钮间透出。
             // safe-area inset：避开 iOS 主屏指示条。
             // / Row layout where every direct child is flex-1 — two buttons
             // each take half, a single button fills the row. mt-auto + sticky
             // bottom-0 keep it pinned in both short and long content.
-            "-mx-4 sticky bottom-0 z-10 mt-auto flex flex-row items-stretch gap-2 border-t bg-background px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1"
+            "-mx-4 sticky bottom-0 z-10 mt-auto flex flex-row items-stretch gap-2 bg-background px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1"
           : "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className,
       )}
@@ -268,7 +298,12 @@ function DialogFooter({
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   const { isMobile } = useResponsiveDialog();
-  const titleClassName = cn("text-lg leading-none font-semibold", className);
+  const isSide = useModalPlacement() === "side";
+  const titleClassName = cn(
+    "font-medium leading-6",
+    isMobile || isSide ? "text-lg" : "text-[0.9375rem]",
+    className,
+  );
 
   return isMobile ? (
     <DrawerPrimitive.Title
