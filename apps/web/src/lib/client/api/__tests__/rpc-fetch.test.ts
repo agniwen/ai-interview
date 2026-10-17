@@ -23,6 +23,26 @@ function successfulRpcCall<T>(payload: T) {
 }
 
 describe("rpcFetch error compatibility", () => {
+  it("retains gateway status and retry metadata without exposing an HTML error page", async () => {
+    // SAFETY: A gateway can return a non-JSON error in place of the typed endpoint response.
+    const response = new Response("<html><h1>502 Bad Gateway</h1></html>", {
+      headers: { "content-type": "text/html", "retry-after": "2", "x-request-id": "gateway-1" },
+      status: 502,
+    }) as ClientResponse<never>;
+    await expect(rpcFetch(Promise.resolve(response), "创建批次失败")).rejects.toMatchObject({
+      message: "服务暂时不可用，请稍后重试。",
+      requestId: "gateway-1",
+      retryAfterMs: 2000,
+      status: 502,
+    });
+  });
+
+  it("classifies failed connections for bounded upload retry", async () => {
+    await expect(
+      rpcFetch(Promise.reject(new TypeError("Failed to fetch")), "创建批次失败"),
+    ).rejects.toMatchObject({ status: 0 });
+  });
+
   it("prefers the canonical error field", async () => {
     await expect(
       rpcFetch(failedRpcCall({ error: "canonical", message: "legacy" }), "fallback"),

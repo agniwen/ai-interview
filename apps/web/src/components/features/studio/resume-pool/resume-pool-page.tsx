@@ -242,8 +242,10 @@ export function ResumePoolPage() {
   }, [grid.bind.pagination, invalidatePool]);
 
   const bulk = useBulkUpload({
-    onBatchQueued: () => {
-      setProgressOpen(false);
+    onBatchQueued: (_detail, { failedCount }) => {
+      if (failedCount === 0) {
+        setProgressOpen(false);
+      }
       toast.success("已加入后台解析队列");
       void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       invalidatePool();
@@ -468,7 +470,16 @@ export function ResumePoolPage() {
                 canUpload={canUploadResumePool}
                 hasActiveUploadBatches={hasActiveUploadBatches}
                 onOpenBatchList={() => setBatchListOpen(true)}
-                onUpload={() => setUploadEntryOpen(true)}
+                onUpload={() => {
+                  if (
+                    bulk.state.canRetry ||
+                    ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+                  ) {
+                    setProgressOpen(true);
+                  } else {
+                    setUploadEntryOpen(true);
+                  }
+                }}
               />
             }
           />
@@ -502,7 +513,16 @@ export function ResumePoolPage() {
             onPreviewResume={setPreviewRecord}
             onRetryParse={retryParseMutation.mutate}
             onResetFilters={grid.bind.onResetFilters}
-            onUpload={() => setUploadEntryOpen(true)}
+            onUpload={() => {
+              if (
+                bulk.state.canRetry ||
+                ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+              ) {
+                setProgressOpen(true);
+              } else {
+                setUploadEntryOpen(true);
+              }
+            }}
             records={loadedPoolRecords}
             retryingRecordId={
               retryParseMutation.isPending ? (retryParseMutation.variables?.id ?? null) : null
@@ -567,9 +587,11 @@ export function ResumePoolPage() {
           void batchListQuery.refetch();
         }}
         onCancel={async () => {
-          await bulk.cancel();
-          setProgressOpen(false);
-          toast.success("批次已取消");
+          const message = await bulk.cancel();
+          if (message) {
+            setProgressOpen(false);
+            toast.success(message);
+          }
         }}
         onOpenChange={(open) => {
           if (!open && bulk.state.phase !== "completed" && bulk.state.phase !== "cancelled") {
@@ -577,6 +599,7 @@ export function ResumePoolPage() {
           }
           setProgressOpen(open);
         }}
+        onRetry={bulk.retryFailed}
         onResume={async () => {
           if (bulk.state.detail) {
             await bulk.resume(bulk.state.detail.batch.id);

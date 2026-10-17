@@ -1,3 +1,5 @@
+import { resumeUploadRequestId } from "./upload-request";
+import { replayUploadBatch } from "./batch-request";
 import {
   createRecruitingRecords,
   lockRecruitingJobForCandidateCreation,
@@ -72,6 +74,7 @@ export function toItemDto(row: ItemRow): BulkResumeBatchItemDto {
 }
 
 export interface CreateBatchInput {
+  requestId?: string;
   organizationId: string;
   userId: string;
   jdMode: "bind" | "auto" | "none";
@@ -95,11 +98,16 @@ function candidateNameFromFileName(fileName: string): string {
 // Create a batch plus all items in one transaction. Active-batch conflict bubbles
 // up from the partial unique index as a Postgres unique-violation error.
 export async function insertBatchWithItems(input: CreateBatchInput): Promise<string> {
-  const batchId = crypto.randomUUID();
+  const batchId = input.requestId
+    ? resumeUploadRequestId("batch", input.organizationId, input.userId, input.requestId)
+    : crypto.randomUUID();
   const now = new Date();
   const target = input.target ?? "resume_library";
   const scope = input.resumePoolScope ?? "private";
   await db.transaction(async (tx) => {
+    if (input.requestId && (await replayUploadBatch(tx, input, batchId))) {
+      return;
+    }
     if (input.jdMode === "bind" && input.jobDescriptionId) {
       await lockRecruitingJobForCandidateCreation(tx, {
         jobDescriptionId: input.jobDescriptionId,

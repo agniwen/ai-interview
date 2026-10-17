@@ -18,6 +18,7 @@ import {
 import { projectAttachmentToResumeProfile } from "@app/resume-processing/ingest/agents/resume-parser-agent";
 import {
   createAttachment,
+  getUserAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
 } from "@app/resume-processing/ingest/support/chat-dao-chat-attachments";
@@ -154,6 +155,7 @@ const resumeUploadStorage = createResumeUploadStorage({
   findAttachmentByContentHash,
   generateResumeStructured,
   getResumeDocumentExtension,
+  getUserAttachment,
   isResumeAnalysisError: (error) => error instanceof ResumeAnalysisError,
   isResumeParseCacheEnabled,
   isResumeParseCacheSourceCompatible,

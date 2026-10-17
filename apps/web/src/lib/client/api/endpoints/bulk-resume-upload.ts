@@ -25,12 +25,21 @@ import { rpcFetch } from "../rpc-fetch";
 export function uploadResumeForBulk(
   slug: string,
   file: File,
+  options?: { requestId: string; signal?: AbortSignal },
 ): Promise<BulkResumeUploadFileDescriptor> {
   const fd = new FormData();
   fd.append("file", file);
+  if (options) {
+    fd.append("requestId", options.requestId);
+  }
   return apiFetch<BulkResumeUploadFileDescriptor>(
     `/api/w/${slug}/studio/resume-upload-batches/uploads`,
-    { body: fd, method: "POST" },
+    {
+      body: fd,
+      headers: { "x-request-id": crypto.randomUUID() },
+      method: "POST",
+      signal: options?.signal,
+    },
   );
 }
 
@@ -41,12 +50,16 @@ export function uploadResumeForBulk(
 export function createBulkResumeBatch(
   slug: string,
   input: CreateBulkResumeBatchInput,
+  options?: { signal?: AbortSignal },
 ): Promise<BulkResumeBatchDetailDto> {
   return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].$post({
-      json: input,
-      param: { slug },
-    }),
+    rpc.api.w[":slug"].studio["resume-upload-batches"].$post(
+      {
+        json: input,
+        param: { slug },
+      },
+      { headers: { "x-request-id": crypto.randomUUID() }, init: { signal: options?.signal } },
+    ),
     "创建批次失败",
   );
 }

@@ -160,7 +160,16 @@ export function ResumeLibraryPage() {
             <ResumeLibraryPageEmptyState
               canUploadResumeLibrary={canUploadResumeLibrary}
               hrHandling={grid.filters.hrHandling === "true"}
-              onOpenUploadEntry={() => setUploadEntryOpen(true)}
+              onOpenUploadEntry={() => {
+                if (
+                  bulk.state.canRetry ||
+                  ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+                ) {
+                  setProgressOpen(true);
+                } else {
+                  setUploadEntryOpen(true);
+                }
+              }}
               stageFilter={grid.filters.stage}
               uploadEntryDisabled={uploadEntryDisabled}
             />
@@ -186,7 +195,16 @@ export function ResumeLibraryPage() {
           onLaunchInterview={startAiInterview}
           onOpenBatchList={() => setBatchListOpen(true)}
           onOpenDetail={onOpenDetail}
-          onOpenUploadEntry={() => setUploadEntryOpen(true)}
+          onOpenUploadEntry={() => {
+            if (
+              bulk.state.canRetry ||
+              ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+            ) {
+              setProgressOpen(true);
+            } else {
+              setUploadEntryOpen(true);
+            }
+          }}
           onPreviewResume={setPreviewRecord}
           onRetry={() => {
             void resumeLibraryListQuery.refetch();

@@ -25,13 +25,64 @@ export class ApiError extends Error {
    * Decoded body returned by the server (may be string, object or null).
    */
   readonly payload: unknown;
+  readonly requestId: string | null;
+  readonly retryAfterMs: number | null;
 
-  constructor(message: string, options: { status: number; payload?: unknown; cause?: unknown }) {
+  constructor(
+    message: string,
+    options: {
+      status: number;
+      payload?: unknown;
+      cause?: unknown;
+      requestId?: string | null;
+      retryAfterMs?: number | null;
+    },
+  ) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = "ApiError";
     this.status = options.status;
     this.payload = options.payload ?? null;
+    this.requestId = options.requestId ?? null;
+    this.retryAfterMs = options.retryAfterMs ?? null;
   }
+}
+
+export function safeApiErrorMessage(
+  message: string | null,
+  status: number,
+  fallback?: string,
+): string {
+  if (message && !/<\/?[a-z!][^>]*>/i.test(message)) {
+    return message.slice(0, 500);
+  }
+  if ([502, 503, 504].includes(status)) {
+    return "服务暂时不可用，请稍后重试。";
+  }
+  if (status === 401) {
+    return "登录已失效，请重新登录后重试。";
+  }
+  if (status === 403) {
+    return "没有操作权限，请联系管理员。";
+  }
+  if (status === 429) {
+    return "请求过于频繁，请稍后重试。";
+  }
+  return fallback ?? `请求失败（${status}），请稍后重试。`;
+}
+
+export function apiErrorResponseMetadata(response: Response) {
+  const id = response.headers.get("x-request-id");
+  const retryAfter = response.headers.get("retry-after");
+  let delay = Number.NaN;
+  if (retryAfter !== null) {
+    delay = /^\d+(?:\.\d+)?$/.test(retryAfter)
+      ? Number(retryAfter) * 1000
+      : Date.parse(retryAfter) - Date.now();
+  }
+  return {
+    requestId: id && /^[\w.:-]{1,128}$/.test(id) ? id : null,
+    retryAfterMs: Number.isFinite(delay) ? Math.max(0, delay) : null,
+  };
 }
 
 /**

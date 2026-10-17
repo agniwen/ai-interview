@@ -1,3 +1,8 @@
+import {
+  assertSameUploadFile,
+  resumeUploadRequestId,
+  ResumeUploadRequestConflictError,
+} from "@app/resume-processing/ingest";
 import type { JsonValue } from "@app/db-schema/json";
 import type { ResumeAnalysisResult, ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
@@ -12,6 +17,11 @@ import type { EnsureCandidateAvatarInput } from "@app/resume-processing/ingest/s
 export interface ResumeUploadStorageDependencies {
   buildAttachmentKeyByHash: (contentHash: string, extension: string) => Promise<string>;
   createAttachment: (input: CreateAttachmentInput) => Promise<void>;
+  getUserAttachment: (
+    userId: string,
+    organizationId: string,
+    id: string,
+  ) => Promise<ChatAttachmentRow | null>;
   ensureCandidateAvatar: (input: EnsureCandidateAvatarInput) => Promise<void>;
   findAttachmentByContentHash: (hash: string) => Promise<ChatAttachmentRow | null>;
   generateResumeStructured: (
@@ -103,11 +113,13 @@ async function createObjectAttachment(
   storageKey: string,
   contentHash: string,
   existing: ExistingAttachment | null,
+  attachmentId?: string,
 ) {
   const input: CreateAttachmentInput = {
     contentHash,
     filename: file.name.slice(0, 255) || existing?.filename || "resume.pdf",
-    id: crypto.randomUUID(),
+    id: attachmentId ?? crypto.randomUUID(),
+    idempotent: Boolean(attachmentId),
     mediaType: file.type || existing?.mediaType || "application/octet-stream",
     organizationId,
     size: file.size,
@@ -279,14 +291,39 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
     file: File,
     userId: string,
     organizationId: string,
+    options?: { requestId?: string; onStage?: (stage: string) => void },
   ): Promise<{ storageKey: string; contentHash: string } | null> {
+    const onStage =
+      options?.onStage ??
+      (() => {
+        /* Stage tracing is optional for legacy callers. */
+      });
     try {
+      onStage("read-file");
       const bytes = new Uint8Array(await file.arrayBuffer());
+      onStage("hash-file");
       const contentHash = await dependencies.sha256HexOfBytes(bytes);
       const storageKey = await dependencies.buildAttachmentKeyByHash(
         contentHash,
         dependencies.getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
       );
+      const attachmentId = options?.requestId
+        ? resumeUploadRequestId("file", organizationId, userId, options.requestId)
+        : undefined;
+      onStage("lookup-attachment");
+      if (attachmentId) {
+        const receipt = await dependencies.getUserAttachment(userId, organizationId, attachmentId);
+        if (receipt) {
+          assertSameUploadFile(receipt, {
+            contentHash,
+            filename: file.name.slice(0, 255),
+            size: file.size,
+            storageKey,
+          });
+          onStage("complete");
+          return { contentHash, storageKey };
+        }
+      }
       const cachedAttachment = dependencies.isResumeParseCacheEnabled()
         ? await dependencies.findAttachmentByContentHash(contentHash)
         : null;
@@ -295,13 +332,13 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
         dependencies.isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
           ? cachedAttachment
           : null;
-
+      onStage("store-object");
       await dependencies.putObjectBytes({
         body: bytes,
         contentType: file.type || existing?.mediaType || "application/octet-stream",
         storageKey,
       });
-
+      onStage("register-attachment");
       await createObjectAttachment(
         dependencies,
         file,
@@ -310,9 +347,14 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
         storageKey,
         contentHash,
         existing,
+        attachmentId,
       );
+      onStage("complete");
       return { contentHash, storageKey };
     } catch (error) {
+      if (error instanceof ResumeUploadRequestConflictError || options?.requestId) {
+        throw error;
+      }
       console.error("[studio-interview] failed to upload resume object to S3:", error);
       return null;
     }

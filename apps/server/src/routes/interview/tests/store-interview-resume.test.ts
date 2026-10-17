@@ -17,6 +17,7 @@ const mocks = {
   generateResumeStructured: vi.fn<ResumeUploadStorageDependencies["generateResumeStructured"]>(),
   getResumeDocumentExtension:
     vi.fn<ResumeUploadStorageDependencies["getResumeDocumentExtension"]>(),
+  getUserAttachment: vi.fn<ResumeUploadStorageDependencies["getUserAttachment"]>(),
   isResumeAnalysisError: vi.fn<ResumeUploadStorageDependencies["isResumeAnalysisError"]>(),
   isResumeParseCacheEnabled: vi.fn<ResumeUploadStorageDependencies["isResumeParseCacheEnabled"]>(),
   isResumeParseCacheSourceCompatible:

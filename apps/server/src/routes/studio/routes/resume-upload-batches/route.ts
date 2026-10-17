@@ -1,8 +1,10 @@
+import { z } from "zod";
+import { ResumeUploadRequestConflictError } from "@app/resume-processing/ingest";
 import { zValidator } from "@hono/zod-validator";
 import { RecruitingJobNotAcceptingCandidatesError } from "@app/recruiting/records";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
-import { chatAttachment, jobDescription } from "@app/db-schema/schema";
+import { chatAttachment } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { requirePermission } from "../../../../middlewares/permission";
@@ -53,13 +55,57 @@ async function removeCancelledQueueJobsBestEffort(
 
 export const resumeUploadBatchesRouter = factory
   .createApp()
+  .use("*", async (c, next) => {
+    if (c.req.method !== "POST") {
+      await next();
+      return;
+    }
+    const incoming = c.req.header("x-request-id");
+    const requestId =
+      incoming && /^[\w.:-]{1,128}$/.test(incoming) ? incoming : crypto.randomUUID();
+    c.header("x-request-id", requestId);
+    const startedAt = performance.now();
+    try {
+      await next();
+    } finally {
+      console.info("[bulk-upload] request", {
+        durationMs: Math.round(performance.now() - startedAt),
+        method: c.req.method,
+        operation: c.req.path.endsWith("/uploads") ? "upload-file" : "batch-action",
+        requestId,
+        status: c.res.status,
+      });
+    }
+  })
   .route("/inbox", uploadTaskInboxRouter)
   .post("/uploads", requirePermission("resumeUploadBatch", "create"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    const requestId = c.res.headers.get("x-request-id");
+    const startedAt = performance.now();
+    let stage = "read-multipart";
+    let operationId = "";
+    const onStage = (nextStage: string) => {
+      stage = nextStage;
+      console.info("[bulk-upload] stage", {
+        elapsedMs: Math.round(performance.now() - startedAt),
+        operationId,
+        requestId,
+        stage,
+      });
+    };
+    onStage(stage);
     const formData = await c.req.formData();
+    const operation = z
+      .uuid()
+      .optional()
+      .safeParse(formData.get("requestId") ?? undefined);
+    if (!operation.success) {
+      return c.json({ error: "上传请求编号无效。" }, 400);
+    }
+    operationId = operation.data ?? "";
     const file = normalizeResumeFile(formData.get("file"));
     if (!file) {
       return c.json({ error: "未提供文件。" }, 400);
@@ -71,8 +117,20 @@ export const resumeUploadBatchesRouter = factory
     }
     let result: Awaited<ReturnType<typeof storeResumeObjectOnly>>;
     try {
-      result = await storeResumeObjectOnly(file, user.id, activeOrg.id);
+      result = await storeResumeObjectOnly(file, user.id, activeOrg.id, {
+        onStage,
+        requestId: operation.data,
+      });
     } catch (error) {
+      if (error instanceof ResumeUploadRequestConflictError) {
+        return c.json({ error: error.message }, 409);
+      }
+      console.error("[bulk-upload] stage failed", {
+        elapsedMs: Math.round(performance.now() - startedAt),
+        errorType: error instanceof Error ? error.name : "unknown",
+        requestId,
+        stage,
+      });
       // S3 / 注册表写入抛错时给个人类可读的中文反馈，避免 AWS SDK 原始堆栈泄露到前端。
       // Surface a friendly Chinese error instead of leaking the raw AWS SDK trace.
       return c.json(
@@ -116,6 +174,11 @@ export const resumeUploadBatchesRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
+      console.info("[bulk-upload] submit batch", {
+        fileCount: input.files.length,
+        operationId: input.requestId,
+        requestId: c.res.headers.get("x-request-id"),
+      });
       const { enqueueResumeParseJobs, isResumeParseQueueConfigured } =
         await getResumeParseQueueApi();
       if (!isResumeParseQueueConfigured()) {
@@ -124,26 +187,11 @@ export const resumeUploadBatchesRouter = factory
       if (input.target === "resume_pool" && !input.resumePoolScope) {
         return c.json({ error: "简历池上传必须选择归属范围。" }, 400);
       }
-      if (input.jdMode === "bind") {
-        if (!input.jobDescriptionId) {
-          return c.json({ error: "绑定模式必须选择岗位。" }, 400);
-        }
-        const [jd] = await db
-          .select({ id: jobDescription.id })
-          .from(jobDescription)
-          .where(
-            and(
-              eq(jobDescription.id, input.jobDescriptionId),
-              eq(jobDescription.organizationId, activeOrg.id),
-              eq(jobDescription.lifecycleStatus, "published"),
-              eq(jobDescription.recruitingStatus, "active"),
-            ),
-          )
-          .limit(1);
-        if (!jd) {
-          return c.json({ error: "选择的岗位不存在。" }, 400);
-        }
+      if (input.jdMode === "bind" && !input.jobDescriptionId) {
+        return c.json({ error: "绑定模式必须选择岗位。" }, 400);
       }
+      // The transactional creator validates and locks an active job for new batches.
+      // A retry of an existing batch must still work after that job changes status.
 
       // 校验每个 storageKey 都在 chat_attachment 表里（由 /uploads 写入）。
       // Validate every storageKey exists in chat_attachment (written by /uploads).
@@ -172,12 +220,16 @@ export const resumeUploadBatchesRouter = factory
           jdMode: input.jdMode,
           jobDescriptionId: input.jobDescriptionId ?? null,
           organizationId: activeOrg.id,
+          requestId: input.requestId,
           resumePoolScope: input.resumePoolScope ?? null,
           target: input.target,
           userId: user.id,
         });
       } catch (error) {
-        if (error instanceof RecruitingJobNotAcceptingCandidatesError) {
+        if (
+          error instanceof RecruitingJobNotAcceptingCandidatesError ||
+          error instanceof ResumeUploadRequestConflictError
+        ) {
           return c.json({ error: error.message }, 409);
         }
         throw error;
@@ -188,16 +240,22 @@ export const resumeUploadBatchesRouter = factory
       }
       try {
         await enqueueResumeParseJobs(
-          detail.items.map((item) => ({
-            batchId,
-            itemId: item.id,
-            organizationId: activeOrg.id,
-            userId: user.id,
-          })),
+          detail.items
+            .filter((item) => item.status === "pending")
+            .map((item) => ({
+              batchId,
+              itemId: item.id,
+              organizationId: activeOrg.id,
+              userId: user.id,
+            })),
         );
       } catch (error) {
         console.error("[bulk-upload] enqueue failed:", error);
-        await cancelBatch(batchId, activeOrg.id, user.id);
+        // Keep a retryable receipt when the client supplied an operation identity.
+        // The same request can safely re-enqueue pending items after a queue outage.
+        if (!input.requestId) {
+          await cancelBatch(batchId, activeOrg.id, user.id);
+        }
         return c.json({ error: "简历解析队列入队失败，请稍后重试。" }, 503);
       }
       const enqueuedDetail = await loadBatchDetail(batchId, activeOrg.id, user.id);

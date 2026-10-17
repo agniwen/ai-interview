@@ -249,9 +249,11 @@ export function ResumeLibraryPageOverlays({
           void batchListQuery.refetch();
         }}
         onCancel={async () => {
-          await bulk.cancel();
-          setProgressOpen(false);
-          toast.success("批次已取消");
+          const message = await bulk.cancel();
+          if (message) {
+            setProgressOpen(false);
+            toast.success(message);
+          }
         }}
         onOpenChange={(open) => {
           if (!open) {
@@ -261,6 +263,7 @@ export function ResumeLibraryPageOverlays({
             setProgressOpen(false);
           }
         }}
+        onRetry={bulk.retryFailed}
         onResume={async () => {
           if (bulk.state.detail) {
             await bulk.resume(bulk.state.detail.batch.id);

@@ -26,9 +26,11 @@ export function useResumeLibraryBulkUpload({
   const queryClient = useQueryClient();
 
   const bulk = useBulkUpload({
-    onBatchQueued: (detail) => {
-      setProgressOpen(false);
-      setPendingFiles([]);
+    onBatchQueued: (detail, { failedCount }) => {
+      if (failedCount === 0) {
+        setProgressOpen(false);
+        setPendingFiles([]);
+      }
       void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       toast.success(`${detail.batch.totalCount} 份简历已上传，正在解析`);
     },
@@ -51,7 +53,7 @@ export function useResumeLibraryBulkUpload({
   );
 
   const canUploadResumeLibrary = canCreateResumeLibrary && canCreateResumeUploadBatch;
-  const uploadEntryDisabled = bulk.state.phase === "uploading" || !canUploadResumeLibrary;
+  const uploadEntryDisabled = !canUploadResumeLibrary;
   const hasActiveUploadBatches = libraryBatches.some(
     (batch) => batch.status === "pending" || batch.status === "running",
   );

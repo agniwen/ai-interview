@@ -22,6 +22,7 @@ window.matchMedia = ((query: string) => ({
 })) as typeof window.matchMedia;
 
 const completedState: BulkUploadState = {
+  canRetry: false,
   detail: {
     batch: {
       completedAt: "2026-06-15T08:00:10.000Z",
@@ -58,12 +59,23 @@ const completedState: BulkUploadState = {
     ],
   },
   phase: "completed",
+  queuedCount: 0,
+  uploadAttempts: [],
   uploadError: null,
+  uploadErrors: [],
   uploadFileNames: [],
   uploadStatus: [],
 };
 
-function renderDialog({ onAfterClose = vi.fn() }: { onAfterClose?: () => void }) {
+function renderDialog({
+  onAfterClose = vi.fn(),
+  state = completedState,
+  onRetry = vi.fn(),
+}: {
+  onAfterClose?: () => void;
+  state?: BulkUploadState;
+  onRetry?: () => void;
+}) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -77,8 +89,9 @@ function renderDialog({ onAfterClose = vi.fn() }: { onAfterClose?: () => void })
         onCancel={vi.fn()}
         onOpenChange={onOpenChange}
         onResume={vi.fn()}
+        onRetry={onRetry}
         open={true}
-        state={completedState}
+        state={state}
       />,
     );
   });
@@ -92,6 +105,34 @@ afterEach(() => {
 });
 
 describe("BulkUploadProgressDialog", () => {
+  it("keeps failed files attributable and offers retry after successful files were queued", () => {
+    const onRetry = vi.fn();
+    const { root } = renderDialog({
+      onRetry,
+      state: {
+        ...completedState,
+        canRetry: true,
+        phase: "partial_failure",
+        queuedCount: 1,
+        uploadAttempts: [3, 1],
+        uploadErrors: ["服务暂时不可用", null],
+        uploadFileNames: ["失败.pdf", "成功.pdf"],
+        uploadStatus: ["failed", "uploaded"],
+      },
+    });
+    const row = [...document.querySelectorAll("li")].find((item) =>
+      item.textContent?.includes("失败.pdf"),
+    );
+    expect(row?.textContent).toContain("服务暂时不可用");
+    const retry = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent === "仅重试失败文件",
+    );
+    expect(retry).toBeTruthy();
+    act(() => retry?.click());
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    act(() => root.unmount());
+  });
+
   it("notifies parent after closing the batch detail dialog", () => {
     const { onAfterClose, onOpenChange, root } = renderDialog({});
     const closeButton = [...document.querySelectorAll("button")].find(

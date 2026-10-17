@@ -7,6 +7,7 @@ import {
   IconLoader2,
   IconPlayerSkipForward,
 } from "@tabler/icons-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,7 @@ interface Props {
   onCancel: () => void | Promise<void>;
   onAbort: () => void;
   onResume: () => void | Promise<void>;
+  onRetry: () => void | Promise<void>;
   onAfterClose?: () => void;
 }
 
@@ -104,12 +106,29 @@ function duplicateMatchesText(snapshot: DuplicateMatchSnapshot): string | null {
   return `疑似重复：${labels.join("、")}`;
 }
 
+function uploadProgress(state: BulkUploadState) {
+  const batch = state.detail?.batch;
+  const hasUploads = state.uploadStatus.length > 0;
+  const uploaded = state.uploadStatus.filter((status) => status === "uploaded").length;
+  const failed = state.uploadStatus.filter((status) => status === "failed").length;
+  const uploadFinished =
+    uploaded + failed + state.uploadStatus.filter((status) => status === "cancelled").length;
+  const showUploadFiles =
+    hasUploads && !["processing", "completed", "paused"].includes(state.phase);
+  const total = showUploadFiles ? state.uploadStatus.length : (batch?.totalCount ?? 0);
+  const processed = showUploadFiles ? uploadFinished : (batch?.processedCount ?? 0);
+  const percent = total === 0 ? 0 : Math.round((processed / total) * 100);
+
+  return { failed, hasUploads, percent, processed, showUploadFiles, total, uploaded };
+}
+
 export function BulkUploadProgressDialog({
   onAfterClose,
   onAbort,
   onCancel,
   onOpenChange,
   onResume,
+  onRetry,
   open,
   state,
 }: Props) {
@@ -118,10 +137,8 @@ export function BulkUploadProgressDialog({
   const items = detail?.items ?? [];
   const target = batch?.target ?? "resume_library";
 
-  const total = batch?.totalCount ?? state.uploadStatus.length;
-  const processed =
-    batch?.processedCount ?? state.uploadStatus.filter((s) => s === "uploaded").length;
-  const percent = total === 0 ? 0 : Math.round((processed / total) * 100);
+  const { hasUploads, showUploadFiles, uploaded, failed, total, processed, percent } =
+    uploadProgress(state);
 
   const isTerminal = phase === "completed" || phase === "cancelled";
 
@@ -155,6 +172,18 @@ export function BulkUploadProgressDialog({
     if (phase === "cancelled") {
       return "批次已取消";
     }
+    if (phase === "creating") {
+      return "正在提交解析任务…";
+    }
+    if (phase === "upload_failed") {
+      return "文件上传失败";
+    }
+    if (phase === "partial_failure") {
+      return "部分文件上传失败";
+    }
+    if (phase === "batch_failed") {
+      return "批次提交待确认";
+    }
     return "准备中";
   }
 
@@ -163,6 +192,30 @@ export function BulkUploadProgressDialog({
   // 根据当前阶段构建 footer 按钮组。
   // Builds the footer button group for the current phase.
   function buildFooter() {
+    if (["upload_failed", "partial_failure", "batch_failed", "creating"].includes(phase)) {
+      return (
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => handleOpenChange(false)} type="button" variant="ghost">
+            关闭
+          </Button>
+          {phase !== "batch_failed" && phase !== "creating" ? (
+            <Button onClick={onCancel} type="button" variant="outline">
+              结束本次上传
+            </Button>
+          ) : null}
+          {state.canRetry && phase !== "creating" ? (
+            <Button onClick={onRetry} type="button">
+              {phase === "batch_failed" ? "重试提交" : "仅重试失败文件"}
+            </Button>
+          ) : null}
+          {phase === "creating" ? (
+            <Button disabled type="button">
+              正在确认提交结果…
+            </Button>
+          ) : null}
+        </div>
+      );
+    }
     if (isTerminal) {
       return (
         <div className="flex justify-end">
@@ -193,7 +246,7 @@ export function BulkUploadProgressDialog({
           关闭
         </Button>
         <Button onClick={onCancel} type="button" variant="destructive">
-          取消批次
+          {phase === "uploading" ? "停止上传" : "取消批次"}
         </Button>
       </div>
     );
@@ -203,7 +256,7 @@ export function BulkUploadProgressDialog({
     <Modal
       description={
         batch
-          ? `成功 ${batch.succeededCount} · 失败 ${batch.failedCount} · 跳过 ${batch.skippedCount}`
+          ? `解析成功 ${batch.succeededCount} · 解析失败 ${batch.failedCount} · 跳过 ${batch.skippedCount}`
           : undefined
       }
       dismissible={isTerminal}
@@ -215,34 +268,58 @@ export function BulkUploadProgressDialog({
       size="lg"
       title={title}
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div>
           <div className="mb-1 flex justify-between text-muted-foreground text-xs">
             <span>
-              {processed} / {total} 已处理
+              {processed} / {total} {showUploadFiles ? "份文件已完成上传尝试" : "已处理"}
             </span>
             <span>{percent}%</span>
           </div>
-          <Progress value={percent} />
+          <Progress
+            aria-label={showUploadFiles ? "文件上传进度" : "后台解析进度"}
+            value={percent}
+          />
+          {hasUploads ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              上传成功 {uploaded} · 失败 {failed} · 已提交解析 {state.queuedCount}
+            </p>
+          ) : null}
+          {hasUploads && batch ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              最近提交批次：{batch.processedCount} / {batch.totalCount}{" "}
+              已处理。上传失败的文件不会影响已提交的解析任务。
+            </p>
+          ) : null}
         </div>
 
         <Card className="gap-0 overflow-hidden rounded-md py-0">
           <CardContent className="p-0">
             <ul className="max-h-72 space-y-1 overflow-y-auto bg-muted/20 p-2 text-sm">
-              {items.length === 0 && phase === "uploading"
+              {showUploadFiles
                 ? state.uploadStatus.map((s, idx) => (
                     <li
                       className="flex items-center justify-between rounded px-2 py-1"
                       // 上传阶段无 id，用 index 作 key。Upload phase has no id; use index as key.
                       key={`upload-${idx}`}
                     >
-                      <span className="min-w-0 truncate" title={state.uploadFileNames[idx]}>
-                        {state.uploadFileNames[idx] ?? `文件 ${idx + 1}`}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="block truncate" title={state.uploadFileNames[idx]}>
+                          {state.uploadFileNames[idx] ?? `文件 ${idx + 1}`}
+                        </span>
+                        {state.uploadErrors[idx] ? (
+                          <span className="block text-destructive text-xs">
+                            {state.uploadErrors[idx]}
+                          </span>
+                        ) : null}
+                      </div>
                       <span className="text-muted-foreground text-xs">
                         {s === "uploaded" ? "已上传" : null}
                         {s === "failed" ? "上传失败" : null}
-                        {s === "pending" ? "上传中" : null}
+                        {s === "pending" ? "等待上传" : null}
+                        {s === "uploading" ? "上传中" : null}
+                        {s === "retrying" ? `正在重试（${state.uploadAttempts[idx] - 1}/2）` : null}
+                        {s === "cancelled" ? "已停止" : null}
                       </span>
                     </li>
                   ))
@@ -289,8 +366,10 @@ export function BulkUploadProgressDialog({
           </CardContent>
         </Card>
 
-        {state.uploadError && phase === "idle" ? (
-          <p className="text-destructive text-sm">{state.uploadError}</p>
+        {state.uploadError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{state.uploadError}</AlertDescription>
+          </Alert>
         ) : null}
       </div>
     </Modal>

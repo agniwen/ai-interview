@@ -1,3 +1,4 @@
+import { assertSameUploadFile } from "../../ingest/upload-request";
 import { structuredSchema } from "@app/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
@@ -31,6 +32,7 @@ function sanitizeParsedStructured(
 }
 
 export interface CreateAttachmentInput {
+  idempotent?: boolean;
   id: string;
   organizationId: string;
   userId: string;
@@ -48,8 +50,27 @@ export interface CreateAttachmentInput {
   contentHash?: string | null;
 }
 
+export async function getUserAttachment(
+  userId: string,
+  organizationId: string,
+  attachmentId: string,
+): Promise<ChatAttachmentRow | null> {
+  const [row] = await db
+    .select()
+    .from(chatAttachment)
+    .where(
+      and(
+        eq(chatAttachment.id, attachmentId),
+        eq(chatAttachment.userId, userId),
+        eq(chatAttachment.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 export async function createAttachment(input: CreateAttachmentInput): Promise<void> {
-  await db.insert(chatAttachment).values({
+  const insert = db.insert(chatAttachment).values({
     contentHash: input.contentHash ?? null,
     filename: input.filename,
     id: input.id,
@@ -66,6 +87,16 @@ export async function createAttachment(input: CreateAttachmentInput): Promise<vo
     storageKey: input.storageKey,
     userId: input.userId,
   });
+  if (!input.idempotent) {
+    await insert;
+    return;
+  }
+  await insert.onConflictDoNothing({ target: chatAttachment.id });
+  const existing = await getUserAttachment(input.userId, input.organizationId, input.id);
+  if (!existing) {
+    throw new Error("上传登记不存在。");
+  }
+  assertSameUploadFile(existing, input);
 }
 
 export interface UpdateAttachmentParseInput {
@@ -94,25 +125,6 @@ export async function updateAttachmentParseResult(
       parsedTextSource: input.parsedTextSource ?? null,
     })
     .where(and(eq(chatAttachment.id, input.attachmentId), eq(chatAttachment.userId, input.userId)));
-}
-
-export async function getUserAttachment(
-  userId: string,
-  organizationId: string,
-  attachmentId: string,
-): Promise<ChatAttachmentRow | null> {
-  const [row] = await db
-    .select()
-    .from(chatAttachment)
-    .where(
-      and(
-        eq(chatAttachment.id, attachmentId),
-        eq(chatAttachment.userId, userId),
-        eq(chatAttachment.organizationId, organizationId),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
 }
 
 export async function getUserAttachments(
