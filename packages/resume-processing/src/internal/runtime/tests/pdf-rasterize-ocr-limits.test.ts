@@ -7,6 +7,10 @@ import {
   processPdfPagesWithMeta,
 } from "../pdf-rasterize";
 
+// mupdf renders multi-megapixel images here; under parallel workspace test runs this
+// has exceeded vitest's 5s default although it passes quickly when run alone.
+vi.setConfig({ testTimeout: 30_000 });
+
 function pdfWithPage(widthPt: number, heightPt: number): Uint8Array {
   const doc = new mupdf.PDFDocument();
   doc.insertPage(-1, doc.addPage([0, 0, widthPt, heightPt], 0, {}, ""));

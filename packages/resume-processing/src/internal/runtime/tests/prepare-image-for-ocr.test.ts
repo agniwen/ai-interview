@@ -1,6 +1,10 @@
 import * as mupdf from "mupdf";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { OCR_MAX_IMAGE_BYTES, OCR_MAX_PIXELS, prepareImageForOcr } from "../pdf-rasterize";
+
+// mupdf renders multi-megapixel images here; under parallel workspace test runs this
+// has exceeded vitest's 5s default although it passes quickly when run alone.
+vi.setConfig({ testTimeout: 30_000 });
 
 function rgbPixmap(width: number, height: number, fill: "noise" | "white"): mupdf.Pixmap {
   const pixmap = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, [0, 0, width, height], false);
