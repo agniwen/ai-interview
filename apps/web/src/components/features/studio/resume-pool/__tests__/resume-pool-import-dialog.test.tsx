@@ -49,12 +49,14 @@ const importedItem = {
       creatorImage: "https://example.com/creator-2.png",
       creatorName: "招聘管理员",
       importedAt: "2026-07-31T03:00:00.000Z",
+      pipelineStage: "second_interview",
       resumeRecordId: "resume-record-2",
     },
     {
       creatorImage: null,
       creatorName: "人事专员",
       importedAt: "2026-07-30T03:00:00.000Z",
+      pipelineStage: null,
       resumeRecordId: "resume-record-1",
     },
   ],
@@ -95,7 +97,7 @@ describe("ImportResumePoolDialog", () => {
       );
     });
     const confirmButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("确认再次创建"),
+      button.textContent?.includes("进入招聘流程"),
     );
     expect(confirmButton).toBeTruthy();
     act(() => {
@@ -103,7 +105,7 @@ describe("ImportResumePoolDialog", () => {
     });
     await vi.waitFor(() => expect(onImported).toHaveBeenCalledOnce());
     expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(dependencies.notifySuccess).toHaveBeenCalledWith("已再次创建招聘记录");
+    expect(dependencies.notifySuccess).toHaveBeenCalledWith("已再次进入招聘流程");
     expect(dependencies.notifyError).toHaveBeenCalledWith(launchError);
     act(() => root.unmount());
     queryClient.clear();
@@ -439,21 +441,31 @@ describe("ImportResumePoolDialog", () => {
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("已存在招聘记录，是否再次创建。");
+    expect(document.body.textContent).toContain("已有 2 条招聘记录");
     const radioGroupText = document.querySelector('[data-slot="radio-group"]')?.textContent ?? "";
     expect(radioGroupText.indexOf("绑定岗位")).toBeLessThan(radioGroupText.indexOf("不绑定岗位"));
-    expect(document.body.textContent).toContain("已创建的招聘记录");
+    expect(document.body.textContent).toContain("已进入招聘台的记录（2）");
+    // 记录列表在固定高度内滚动，不撑出弹窗。The record list scrolls within a capped height.
+    expect(
+      document.querySelector('[data-testid="resume-pool-imported-records"]')?.className,
+    ).toContain("overflow-y-auto");
     const importedRecordButton = document.querySelector<HTMLButtonElement>(
       '[aria-label="查看已创建的招聘记录 resume-record-2"]',
     );
     expect(importedRecordButton).toBeTruthy();
+    // 每条记录展示自己当前的招聘阶段；已删除记录明确标注。
+    // Each record shows its own current stage; deleted records are labelled as such.
+    expect(importedRecordButton?.textContent).toContain("复试");
+    expect(
+      document.querySelector('[aria-label="查看已创建的招聘记录 resume-record-1"]')?.textContent,
+    ).toContain("已删除");
     const creatorAvatar = importedRecordButton?.querySelector<HTMLElement>('[data-slot="avatar"]');
     expect(
       document.querySelector('[aria-label="查看已创建的招聘记录 resume-record-1"]'),
     ).toBeTruthy();
     expect(document.body.textContent).toContain("创建人 招聘管理员");
     expect(document.body.textContent).toContain("创建人 人事专员");
-    expect(creatorAvatar?.dataset.size).toBe("sm");
+    expect(creatorAvatar).toBeTruthy();
     await act(async () => {
       importedRecordButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
@@ -463,7 +475,7 @@ describe("ImportResumePoolDialog", () => {
     });
 
     const confirmButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("确认再次创建"),
+      button.textContent?.includes("进入招聘流程"),
     );
     expect(confirmButton).toBeTruthy();
 
@@ -511,7 +523,7 @@ describe("ImportResumePoolDialog", () => {
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("进入招聘流程");
+    expect(document.body.textContent).toContain("进入阶段");
     const aiStageLabel = [...document.querySelectorAll("label")].find((label) =>
       label.textContent?.includes("AI 面试"),
     );

@@ -58,6 +58,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     description,
     dispatchUi,
     floatingActionBar,
+    floatingActionBarPlacement,
     headerExtra,
     humanInterviewQuestionDialogOpen,
     isLoading,
@@ -74,8 +75,29 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
   } = model;
 
   const body = <StudioPersonDetailBody model={model} />;
+  const actionDock = floatingActionBar ? (
+    <CandidateActionDock
+      placement={floatingActionBarPlacement}
+      key={`${model.slug}:${model.record?.id}`}
+      candidateName={model.record?.candidateName ?? "候选人"}
+    >
+      {floatingActionBar}
+      <HumanInterviewQuestionDialog
+        candidateName={model.record?.candidateName ?? null}
+        onConfirmed={onConfirmHumanInterviewQuestions}
+        onOpenChange={onHumanInterviewQuestionDialogOpenChange}
+        open={humanInterviewQuestionDialogOpen}
+        recordId={model.record?.id ?? null}
+      />
+    </CandidateActionDock>
+  ) : null;
   const footer = null;
-  const bodyClassName = undefined;
+  // 悬浮操作栏盖在弹窗底部，给主体留出同等空间，避免遮住最后的内容。
+  // Reserve room under the in-modal dock so it never covers the last content.
+  const bodyClassName =
+    floatingActionBar && floatingActionBarPlacement === "container"
+      ? "pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-[calc(5.5rem+env(safe-area-inset-bottom))]"
+      : undefined;
   const modalClassName = "sm:rounded-2xl";
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
@@ -86,6 +108,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
       <Tabs
         className={cn(
           floatingActionBar &&
+            floatingActionBarPlacement === "viewport" &&
             "pb-[calc(14rem+env(safe-area-inset-bottom))] md:pb-[calc(7rem+env(safe-area-inset-bottom))]",
         )}
         onValueChange={(value) => {
@@ -104,28 +127,14 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
           isLoading,
           modalClassName,
           modalSize,
+          // 弹窗里悬浮操作栏相对弹窗居中，交给外壳渲染在弹窗内部。
+          // In a modal the dock is rendered by the shell inside the modal so it centers there.
+          overlay: floatingActionBarPlacement === "container" ? actionDock : null,
           title,
         })}
       </Tabs>
-      {isHydrated
-        ? createPortal(
-            floatingActionBar ? (
-              <CandidateActionDock
-                key={`${model.slug}:${model.record?.id}`}
-                candidateName={model.record?.candidateName ?? "候选人"}
-              >
-                {floatingActionBar}
-                <HumanInterviewQuestionDialog
-                  candidateName={model.record?.candidateName ?? null}
-                  onConfirmed={onConfirmHumanInterviewQuestions}
-                  onOpenChange={onHumanInterviewQuestionDialogOpenChange}
-                  open={humanInterviewQuestionDialogOpen}
-                  recordId={model.record?.id ?? null}
-                />
-              </CandidateActionDock>
-            ) : null,
-            document.body,
-          )
+      {isHydrated && floatingActionBarPlacement === "viewport"
+        ? createPortal(actionDock, document.body)
         : null}
       {mode === "interview" && canViewReportMetadata ? (
         <InterviewReportMetadataDialog

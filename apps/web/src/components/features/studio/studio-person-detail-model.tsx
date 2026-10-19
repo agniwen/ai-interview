@@ -247,6 +247,8 @@ export interface StudioPersonDetailSlots {
   modalClassName?: string;
   modalSize?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
   footer: ReactNode;
+  /** 叠在弹窗内容之上、相对弹窗定位的层（如悬浮操作栏）。Layer positioned over the modal content. */
+  overlay?: ReactNode;
 }
 
 export function renderHeaderDescription({

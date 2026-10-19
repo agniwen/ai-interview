@@ -30,6 +30,7 @@ import {
   organization,
   resumePoolEvent,
   recruitingPoolImport,
+  recruitingRecord,
   resumePoolItem,
   recruitingJobMatchCandidate,
   recruitingJobMatchRun,
@@ -37,6 +38,7 @@ import {
   user,
 } from "@app/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@app/db-schema/schema";
+import type { PipelineStage } from "@app/db-schema/recruiting-contracts";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
 import type { JsonObject } from "@app/db-schema/json";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
@@ -512,6 +514,7 @@ async function loadImportsForOrg(
     creatorImage: string | null;
     creatorName: string | null;
     importedAt: Date;
+    pipelineStage: PipelineStage | null;
     resumeRecordId: string;
   }[]
 > {
@@ -520,10 +523,19 @@ async function loadImportsForOrg(
       creatorImage: user.image,
       creatorName: user.name,
       importedAt: recruitingPoolImport.importedAt,
+      // 招聘记录被删除时为 null。Null once the recruiting record is deleted.
+      pipelineStage: recruitingRecord.currentStage,
       resumeRecordId: recruitingPoolImport.recruitingRecordId,
     })
     .from(recruitingPoolImport)
     .leftJoin(user, eq(recruitingPoolImport.importedBy, user.id))
+    .leftJoin(
+      recruitingRecord,
+      and(
+        eq(recruitingRecord.id, recruitingPoolImport.recruitingRecordId),
+        eq(recruitingRecord.organizationId, recruitingPoolImport.organizationId),
+      ),
+    )
     .where(
       and(
         eq(recruitingPoolImport.poolItemId, poolItemId),
@@ -544,6 +556,7 @@ async function loadImportsForPoolItems(
       creatorName: string | null;
       importedAt: Date;
       resumeRecordId: string;
+      pipelineStage: PipelineStage | null;
     }[]
   >
 > {
@@ -555,11 +568,20 @@ async function loadImportsForPoolItems(
       creatorImage: user.image,
       creatorName: user.name,
       importedAt: recruitingPoolImport.importedAt,
+      // 招聘记录被删除时为 null。Null once the recruiting record is deleted.
+      pipelineStage: recruitingRecord.currentStage,
       poolItemId: recruitingPoolImport.poolItemId,
       resumeRecordId: recruitingPoolImport.recruitingRecordId,
     })
     .from(recruitingPoolImport)
     .leftJoin(user, eq(recruitingPoolImport.importedBy, user.id))
+    .leftJoin(
+      recruitingRecord,
+      and(
+        eq(recruitingRecord.id, recruitingPoolImport.recruitingRecordId),
+        eq(recruitingRecord.organizationId, recruitingPoolImport.organizationId),
+      ),
+    )
     .where(
       and(
         inArray(recruitingPoolImport.poolItemId, poolItemIds),
@@ -574,6 +596,7 @@ async function loadImportsForPoolItems(
       creatorName: string | null;
       importedAt: Date;
       resumeRecordId: string;
+      pipelineStage: PipelineStage | null;
     }[]
   >();
   for (const row of rows) {
@@ -582,6 +605,7 @@ async function loadImportsForPoolItems(
       creatorImage: row.creatorImage,
       creatorName: row.creatorName,
       importedAt: row.importedAt,
+      pipelineStage: row.pipelineStage,
       resumeRecordId: row.resumeRecordId,
     });
     imports.set(row.poolItemId, current);
@@ -1171,6 +1195,65 @@ export async function deleteOwnPoolItem(
     organizationId: input.organizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
+  });
+}
+
+export interface UpdateOwnPoolItemProfileInput {
+  organizationId: string;
+  poolItemId: string;
+  resumeProfile: ResumeProfile;
+  userId: string;
+}
+
+/**
+ * 上传者人工修正人才库简历画像：同步身份列与技能投影，并清空基于旧画像的 AI 评价。
+ * Uploader-only manual correction of a pool item's Resume Profile. Mirrors identity
+ * columns and the skill projection, and clears the AI evaluation built on the old facts.
+ * Returns null when the item is missing, archived, not parsed, or owned by someone else.
+ */
+export async function updateOwnPoolItemProfile(
+  input: UpdateOwnPoolItemProfileInput,
+): Promise<{ jobDescriptionId: string | null } | null> {
+  const profile = input.resumeProfile;
+  return await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(resumePoolItem)
+      .set({
+        candidateEmail: profile.email,
+        candidateName: profile.name,
+        candidatePhone: profile.phone,
+        qualitativeJobDescriptionVersionId: null,
+        qualitativeRecommendationLevel: null,
+        qualitativeResumeEvaluation: null,
+        qualitativeResumeSummary: null,
+        resumeEvaluationContractVersion: null,
+        resumeEvaluationGeneratedAt: null,
+        resumeEvaluationInputHash: null,
+        resumeProfile: profile,
+        skillsNormalized: normalizeSkills(profile.skills),
+        targetRole: profile.targetRoles[0] ?? null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(resumePoolItem.id, input.poolItemId),
+          eq(resumePoolItem.status, "active"),
+          eq(resumePoolItem.resumeParseStatus, "ready"),
+          eq(resumePoolItem.organizationId, input.organizationId),
+          eq(resumePoolItem.createdBy, input.userId),
+        ),
+      )
+      .returning({ jobDescriptionId: resumePoolItem.jobDescriptionId });
+    if (!updated) {
+      return null;
+    }
+    await writeResumePoolEvent(tx, {
+      actorId: input.userId,
+      organizationId: input.organizationId,
+      poolItemId: input.poolItemId,
+      type: "profile_edited",
+    });
+    return updated;
   });
 }
 

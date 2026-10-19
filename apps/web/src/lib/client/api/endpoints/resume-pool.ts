@@ -11,6 +11,7 @@ import type {
   ResumePoolUploaderOption,
 } from "@app/shared/resume-pool";
 import type { ResumePoolScope } from "@app/db-schema/schema";
+import type { ResumeProfileEditInput } from "@app/shared/resume-profile-edit";
 import { rpc } from "@/lib/client/rpc";
 import type { DedupMatchRecord } from "./studio-interviews";
 import { rpcFetch } from "../rpc-fetch";
@@ -80,6 +81,21 @@ export function fetchResumePoolItemReview(
     }),
     "加载简历详情失败",
     { allow404: true },
+  );
+}
+
+/** 上传者修正人才库简历的 AI 解析信息。Uploader corrects the pool item's parsed profile. */
+export function updateResumePoolItemProfile(
+  slug: string,
+  id: string,
+  resumeProfile: ResumeProfileEditInput,
+): Promise<ResumePoolDetail> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].profile.$patch({
+      json: { resumeProfile },
+      param: { id, slug },
+    }),
+    "保存简历信息失败",
   );
 }
 

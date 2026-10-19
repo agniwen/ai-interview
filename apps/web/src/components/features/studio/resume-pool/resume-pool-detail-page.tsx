@@ -229,6 +229,7 @@ export function ResumePoolDetailPage({
   const canImportResumePool = useHasPermission("resumePool", "import");
   const canReadJobDescriptions = useHasPermission("jd", "read");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
+  const canCreateResumePool = useHasPermission("resumePool", "create");
   const canRecommend = canImportResumePool && canReadJobDescriptions;
   const [
     recommendationsOpen,
@@ -354,10 +355,12 @@ export function ResumePoolDetailPage({
       </main>
 
       <ResumePoolDetailFloatingBar
+        canCreateResumePool={canCreateResumePool}
         canEnterRecruiting={canImportResumePoolToLibrary(
           canImportResumePool,
           canCreateResumeLibrary,
         )}
+        currentUserId={currentUserId}
         detail={detail}
         key={detail.id}
         slug={slug}

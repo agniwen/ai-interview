@@ -2600,7 +2600,8 @@ export type ResumePoolEventType =
   | "imported"
   | "bound"
   | "archived"
-  | "restored";
+  | "restored"
+  | "profile_edited";
 
 export const resumePoolItem = pgTable(
   "resume_pool_item",

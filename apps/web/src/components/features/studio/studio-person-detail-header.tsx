@@ -95,6 +95,7 @@ export interface StudioPersonDetailHeaderResult {
   description: ReactNode;
   detailScrollClassName: string;
   floatingActionBar: ReactNode;
+  floatingActionBarPlacement: "container" | "viewport";
   headerExtra: ReactNode;
   resumePreviewUrl: string;
   showTimelineRail: boolean;
@@ -391,8 +392,12 @@ export function buildStudioPersonDetailHeader({
       />
     ) : null;
 
-  const headerActionBar = layoutMode === "modal" ? actionBar : null;
-  const floatingActionBar = layoutMode === "page" ? actionBar : null;
+  // 推进动作统一走悬浮操作栏：页面里相对视口居中，弹窗/抽屉里相对弹窗居中。
+  // Pipeline actions always use the floating dock: viewport-centered on pages,
+  // container-centered inside the modal/drawer.
+  const floatingActionBar = actionBar;
+  const floatingActionBarPlacement: "container" | "viewport" =
+    layoutMode === "modal" ? "container" : "viewport";
 
   const headerControls = record ? (
     <div className="mt-2 flex flex-col gap-3">
@@ -443,7 +448,6 @@ export function buildStudioPersonDetailHeader({
           ) : null}
         </TabsList>
         <div className="order-1 flex shrink-0 flex-col items-stretch gap-2 sm:order-2 sm:flex-row sm:items-center sm:justify-end sm:pb-1.5">
-          {headerActionBar}
           <div className="flex items-center gap-2">
             {mode === "resume" && resumeRecord?.feishuDocumentUrl ? (
               <Button
@@ -519,6 +523,7 @@ export function buildStudioPersonDetailHeader({
     description,
     detailScrollClassName,
     floatingActionBar,
+    floatingActionBarPlacement,
     headerExtra,
     resumePreviewUrl,
     showTimelineRail,

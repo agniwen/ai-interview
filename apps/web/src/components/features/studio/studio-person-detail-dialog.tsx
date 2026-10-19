@@ -141,6 +141,7 @@ export function StudioPersonDetailDialog({
         headerExtra,
         modalClassName,
         modalSize,
+        overlay,
         title,
       }) => (
         <Modal
@@ -153,6 +154,7 @@ export function StudioPersonDetailDialog({
           onOpenChange={onOpenChange}
           onOpenChangeComplete={onOpenChangeComplete}
           open={open}
+          overlay={overlay}
           size={modalSize ?? (mode === "resume" ? "2xl" : "full")}
           title={title}
         >

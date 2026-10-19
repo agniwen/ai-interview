@@ -49,6 +49,8 @@ export interface ModalProps {
   headerLayout?: HeaderLayout;
   /** 可滚动的主体区域。 */
   children: React.ReactNode;
+  /** 叠在内容之上、相对弹窗定位的层（如悬浮操作栏），不随主体滚动。Overlay positioned within the modal surface. */
+  overlay?: React.ReactNode;
   size?: ModalSize;
   /** 桌面端呈现位置；默认继承 ModalPlacementProvider，未设置时居中。 */
   placement?: ModalPlacement;
@@ -86,6 +88,7 @@ function DialogModal({
   bodyClassName,
   headerClassName,
   footerClassName,
+  overlay,
 }: ModalProps) {
   const isSide = useModalPlacement(placement) === "side" && !fullScreen;
   const popupRef = React.useRef<HTMLDivElement | null>(null);
@@ -165,7 +168,10 @@ function DialogModal({
               headerLayout={headerLayout}
               isMobile={false}
               titleSize={isSide ? "lg" : "md"}
-              className={cn(isSide ? "px-5 pt-5" : "px-4 pt-3", headerClassName)}
+              // 上下留白放在固定的头尾而非滚动主体里，滚动时内容不会贴住标题和按钮。
+              // Spacing lives on the fixed header/footer, not the scroll body,
+              // so scrolled content never touches the title or the actions.
+              className={cn(isSide ? "px-5 pt-5 pb-4" : "px-4 pt-3 pb-3", headerClassName)}
             />
             {showCloseButton ? (
               <DialogPrimitive.Close
@@ -185,8 +191,8 @@ function DialogModal({
             <div
               data-slot="modal-body"
               className={cn(
-                "min-h-0 flex-1 overflow-y-auto py-4",
-                isSide ? "px-5" : "px-4",
+                "min-h-0 flex-1 overflow-y-auto",
+                isSide ? "px-5 py-1" : "px-4 py-1",
                 bodyClassName,
               )}
             >
@@ -196,7 +202,7 @@ function DialogModal({
               <div
                 className={cn(
                   "flex shrink-0 flex-col-reverse gap-2 bg-background",
-                  isSide ? "px-5 pb-5" : "px-4 pb-4",
+                  isSide ? "px-5 pt-4 pb-5" : "px-4 pt-3 pb-4",
                   "sm:flex-row sm:justify-end",
                   footerClassName,
                 )}
@@ -204,6 +210,7 @@ function DialogModal({
                 <ButtonSizeProvider size="default">{footer}</ButtonSizeProvider>
               </div>
             ) : null}
+            {overlay}
           </div>
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
@@ -227,6 +234,7 @@ function DrawerModal({
   bodyClassName,
   headerClassName,
   footerClassName,
+  overlay,
 }: ModalProps) {
   const previousOpenRef = React.useRef(open);
 
@@ -292,18 +300,18 @@ function DrawerModal({
               headerLayout={headerLayout}
               isMobile={true}
               titleSize="lg"
-              className={cn("px-4 pt-3", headerClassName)}
+              className={cn("px-4 pt-3 pb-3", headerClassName)}
             />
             <div
               data-slot="modal-body"
-              className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-4", bodyClassName)}
+              className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-1", bodyClassName)}
             >
               {children}
             </div>
             {footer ? (
               <div
                 className={cn(
-                  "flex shrink-0 flex-row items-stretch gap-2 bg-background px-4 pt-1",
+                  "flex shrink-0 flex-row items-stretch gap-2 bg-background px-4 pt-3",
                   "pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1",
                   footerClassName,
                 )}
@@ -311,6 +319,7 @@ function DrawerModal({
                 <ButtonSizeProvider size="default">{footer}</ButtonSizeProvider>
               </div>
             ) : null}
+            {overlay}
           </div>
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@app/shared/utils";
 import { createContext, useContext, useReducer, useState, useEffect, useRef } from "react";
 import type { ReactNode, Dispatch } from "react";
 import { LazyMotion, MotionContext, domMax, m, useReducedMotion } from "motion/react";
@@ -47,9 +48,16 @@ function DockToolbar({ active, children }: { active: boolean; children: ReactNod
 export function CandidateActionDock({
   children,
   candidateName,
+  placement = "viewport",
 }: {
   children: ReactNode;
   candidateName: string;
+  /**
+   * viewport：固定在视口底部居中（详情页）；container：相对最近的定位容器底部居中（弹窗/抽屉）。
+   * viewport pins to the viewport bottom (detail page); container centers within the
+   * nearest positioned ancestor (modal / drawer).
+   */
+  placement?: "container" | "viewport";
 }) {
   const [state, dispatch] = useReducer(dockReducer, { active: null });
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
@@ -86,9 +94,16 @@ export function CandidateActionDock({
         <m.div
           ref={rootRef}
           layoutRoot
-          className="pointer-events-none fixed inset-x-4 z-40 flex justify-center"
+          className={cn(
+            "pointer-events-none inset-x-4 z-40 flex justify-center",
+            placement === "viewport" ? "fixed" : "absolute",
+          )}
+          data-placement={placement}
           style={{
-            bottom: "calc(2.5rem + env(safe-area-inset-bottom) + var(--dock-keyboard-inset, 0px))",
+            bottom:
+              placement === "viewport"
+                ? "calc(2.5rem + env(safe-area-inset-bottom) + var(--dock-keyboard-inset, 0px))"
+                : "calc(1.25rem + env(safe-area-inset-bottom))",
           }}
         >
           <MotionFloatingBar

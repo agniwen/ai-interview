@@ -414,6 +414,7 @@ function useStudioPersonDetailController({
     effectiveSelectedResultConversationId,
     enabled,
     floatingActionBar: header.floatingActionBar,
+    floatingActionBarPlacement: header.floatingActionBarPlacement,
     formSubmissions,
     handleReassessResume,
     handleResetRound,

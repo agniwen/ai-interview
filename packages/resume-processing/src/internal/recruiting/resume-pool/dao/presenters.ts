@@ -1,3 +1,4 @@
+import type { PipelineStage } from "@app/db-schema/recruiting-contracts";
 import type { resumePoolItem } from "@app/db-schema/schema";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeDuplicateMatchSummary } from "@app/shared/resume-duplicates";
@@ -26,6 +27,7 @@ interface PoolImportRow {
   creatorImage: string | null;
   creatorName: string | null;
   importedAt: Date;
+  pipelineStage: PipelineStage | null;
   resumeRecordId: string;
 }
 
@@ -174,6 +176,7 @@ export function toResumePoolListRecord(
       creatorImage: item.creatorImage,
       creatorName: item.creatorName,
       importedAt: item.importedAt.toISOString(),
+      pipelineStage: item.pipelineStage,
       resumeRecordId: item.resumeRecordId,
     })),
     importedResumeRecordId: latestImport?.resumeRecordId ?? null,

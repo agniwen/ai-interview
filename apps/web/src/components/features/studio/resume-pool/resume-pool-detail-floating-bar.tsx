@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBriefcase, IconLoader2 } from "@tabler/icons-react";
+import { IconBriefcase, IconLoader2, IconPencil } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ResumePoolDetail } from "@app/shared/resume-pool";
 import { useState } from "react";
@@ -20,6 +20,10 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { RecruitingActionButton as Button } from "../recruiting-action-button";
 
 import { ImportResumePoolDialog } from "./resume-pool-dialogs";
+import {
+  getResumePoolProfileEditDisabledReason,
+  ResumePoolProfileEditDialog,
+} from "./resume-pool-profile-edit-dialog";
 import { getResumePoolImportActionState } from "./resume-pool-page-model";
 
 const FLOATING_BUTTON_CLASS = "max-md:h-11 max-md:flex-1 max-md:px-4 max-md:text-sm";
@@ -43,11 +47,15 @@ function getEnterRecruitingDisabledReason(detail: ResumePoolDetail, canEnterRecr
 
 /** 已在招聘流程中的人才也走创建弹窗，便于以另一个岗位再次加入招聘台。 */
 export function ResumePoolDetailFloatingBar({
+  canCreateResumePool,
   canEnterRecruiting,
+  currentUserId,
   detail,
   slug,
 }: {
+  canCreateResumePool: boolean;
   canEnterRecruiting: boolean;
+  currentUserId: string | null;
   detail: ResumePoolDetail;
   slug: string;
 }) {
@@ -55,6 +63,7 @@ export function ResumePoolDetailFloatingBar({
   const queryClient = useQueryClient();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const importLoading = getResumePoolImportActionState(detail).loading;
 
   if (!isHydrated) {
@@ -86,6 +95,21 @@ export function ResumePoolDetailFloatingBar({
             </Button>
             <Button
               className={FLOATING_BUTTON_CLASS}
+              disabledReason={getResumePoolProfileEditDisabledReason({
+                canCreateResumePool,
+                currentUserId,
+                record: detail,
+              })}
+              onClick={() => setEditOpen(true)}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <IconPencil data-icon="inline-start" />
+              编辑信息
+            </Button>
+            <Button
+              className={FLOATING_BUTTON_CLASS}
               disabledReason={getEnterRecruitingDisabledReason(detail, canEnterRecruiting)}
               isLoading={importLoading}
               onClick={() => setImportOpen(true)}
@@ -112,6 +136,12 @@ export function ResumePoolDetailFloatingBar({
             ? `/api/w/${slug}/studio/resume-pool/${detail.id}/resume`
             : null
         }
+      />
+      <ResumePoolProfileEditDialog
+        detail={detail}
+        onOpenChange={setEditOpen}
+        open={editOpen}
+        slug={slug}
       />
       <ImportResumePoolDialog
         item={importOpen ? detail : null}

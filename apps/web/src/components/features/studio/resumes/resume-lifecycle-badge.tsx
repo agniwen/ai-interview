@@ -7,6 +7,7 @@ import type { ButtonHTMLAttributes } from "react";
 import {
   getCandidateStageBadgeHoverClass,
   getCandidateStageBadgeVariant,
+  recruitingStatusToneBadgeVariant,
 } from "@/components/features/studio/candidate-stage-badge";
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@app/shared/utils";
@@ -20,13 +21,6 @@ const lifecycleHoverClass = {
   success: "hover:bg-green-line",
   warning: "hover:bg-amber-line",
 } satisfies Record<ResumeLifecycleBadgeTone, string>;
-
-const lifecycleBadgeVariant = {
-  info: "default",
-  outline: "outline",
-  success: "success",
-  warning: "warning",
-} as const satisfies Record<ResumeLifecycleBadgeTone, "default" | ResumeLifecycleBadgeTone>;
 
 interface ResumeLifecycleBadgeProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -59,7 +53,7 @@ export function ResumeLifecycleBadge({
     <button
       aria-label={accessibleLabel}
       className={cn(
-        badgeVariants({ variant: stageVariant ?? lifecycleBadgeVariant[tone] }),
+        badgeVariants({ variant: stageVariant ?? recruitingStatusToneBadgeVariant[tone] }),
         "group/lifecycle max-w-full justify-start gap-1.5 px-2.5 pr-1.5 text-left font-normal",
         "duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset",
         stageHoverClass ?? lifecycleHoverClass[tone],

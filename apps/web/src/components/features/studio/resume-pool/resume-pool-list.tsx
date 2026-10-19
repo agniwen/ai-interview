@@ -24,6 +24,7 @@ import {
 } from "@/components/features/studio/studio-date-group-virtual-list";
 
 import { ResumePoolCard, useResumePoolCardHeight } from "./resume-pool-card";
+import { canEditResumePoolProfile } from "./resume-pool-profile-edit-dialog";
 import { ResumePoolCardSkeleton } from "./resume-pool-card-skeleton";
 import { buildResumePoolVirtualRows, canDeletePoolRecord } from "./resume-pool-page-model";
 
@@ -86,6 +87,7 @@ export function ResumePoolEmptyState({
 export function ResumePoolListContent({
   bindingJobDescriptionRecordId,
   canDeletePoolRecords,
+  canEditPoolRecords,
   canEnterRecruiting,
   canRecommend,
   canRetryResumeParse,
@@ -95,10 +97,10 @@ export function ResumePoolListContent({
   currentUserId,
   deletingRecordId,
   emptyTitle,
-  enteringRecruitingRecordId,
   isInitialPoolLoading,
   onBindJobDescription,
   onDelete,
+  onEdit,
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
@@ -114,6 +116,8 @@ export function ResumePoolListContent({
 }: {
   bindingJobDescriptionRecordId: string | null;
   canDeletePoolRecords: boolean;
+  /** 当前成员可上传人才库简历；编辑仍限上传者本人。Can upload; editing stays uploader-only. */
+  canEditPoolRecords: boolean;
   canEnterRecruiting: boolean;
   canRecommend: boolean;
   canRetryResumeParse: boolean;
@@ -123,10 +127,10 @@ export function ResumePoolListContent({
   currentUserId: string | null;
   deletingRecordId: string | null;
   emptyTitle: string;
-  enteringRecruitingRecordId: string | null;
   isInitialPoolLoading: boolean;
   onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
   onDelete: (record: ResumePoolListRecord) => void;
+  onEdit: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
@@ -237,6 +241,11 @@ export function ResumePoolListContent({
             const canDelete =
               canDeletePoolRecords &&
               canDeletePoolRecord(record, { currentOrganizationId, currentUserId });
+            const canEdit = canEditResumePoolProfile({
+              canCreateResumePool: canEditPoolRecords,
+              currentUserId,
+              record,
+            });
             return (
               <div
                 className={cn(
@@ -255,13 +264,14 @@ export function ResumePoolListContent({
                 <ResumePoolCard
                   bindingJobDescription={bindingJobDescriptionRecordId === record.id}
                   canDelete={canDelete}
+                  canEdit={canEdit}
                   canEnterRecruiting={canEnterRecruiting}
                   canRecommend={canRecommend}
                   canRetryParse={canRetryResumeParse}
                   deleting={deletingRecordId === record.id}
-                  enteringRecruiting={enteringRecruitingRecordId === record.id}
                   onBindJobDescription={onBindJobDescription}
                   onDelete={onDelete}
+                  onEdit={onEdit}
                   onEnterRecruiting={onEnterRecruiting}
                   onOpenDetail={onOpenDetail}
                   onOpenDuplicateMatches={onOpenDuplicateMatches}

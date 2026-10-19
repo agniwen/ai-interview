@@ -48,6 +48,7 @@ import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context
 
 import { DateRangeFilterEditor } from "@/components/features/data-grid/parts/date-range-filter";
 import { ImportResumePoolDialog } from "./resume-pool-dialogs";
+import { ResumePoolProfileEditByIdDialog } from "./resume-pool-profile-edit-dialog";
 import { ResumePoolListContent, ResumePoolToolbarActions } from "./resume-pool-list";
 import {
   RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
@@ -67,7 +68,6 @@ import {
 import type { ResumePoolFilters } from "./resume-pool-page-model";
 
 const resumePoolDetailRouteApi = getRouteApi("/w/$slug/studio/resume-pool/overlay/$recordId");
-const recruiterDetailRouteApi = getRouteApi("/w/$slug/studio/resumes/overlay/$recordId");
 const RESUME_POOL_INITIAL_PAGE_SIZE = 60;
 
 export function ResumePoolPage() {
@@ -76,7 +76,6 @@ export function ResumePoolPage() {
   const { data: session } = authClient.useSession();
   const queryClient = useQueryClient();
   const navigatePoolDetail = resumePoolDetailRouteApi.useNavigate();
-  const navigateRecruiterDetail = recruiterDetailRouteApi.useNavigate();
   const canCreateResumePool = useHasPermission("resumePool", "create");
   const canDeleteResumePool = useHasPermission("resumePool", "delete");
   const canImportResumePool = useHasPermission("resumePool", "import");
@@ -95,11 +94,11 @@ export function ResumePoolPage() {
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [importTarget, setImportTarget] = useState<ResumePoolListRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResumePoolListRecord | null>(null);
+  const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumePoolListRecord | null>(
     null,
   );
   const [previewRecord, setPreviewRecord] = useState<ResumePoolListRecord | null>(null);
-  const [enteringRecruitingRecordId, setEnteringRecruitingRecordId] = useState<string | null>(null);
   const [loadedPoolResult, setLoadedPoolResult] = useState<{
     records: ResumePoolListRecord[];
     signature: string;
@@ -332,22 +331,10 @@ export function ResumePoolPage() {
     });
   }
 
-  async function enterRecruiting(record: ResumePoolListRecord) {
-    if (!record.importedResumeRecordId) {
-      setImportTarget(record);
-      return;
-    }
-    setEnteringRecruitingRecordId(record.id);
-    try {
-      await navigateRecruiterDetail({
-        params: { recordId: record.importedResumeRecordId, slug },
-        resetScroll: false,
-        state: (previous) => ({ ...previous, fromResumePoolList: true }),
-        to: "/w/$slug/studio/resumes/overlay/$recordId",
-      });
-    } finally {
-      setEnteringRecruitingRecordId(null);
-    }
+  // 同一份简历可多次进入招聘台：已有招聘记录时也打开创建弹窗，弹窗内列出既有记录。
+  // A resume may enter the recruiting desk repeatedly; existing records are listed in the dialog.
+  function enterRecruiting(record: ResumePoolListRecord) {
+    setImportTarget(record);
   }
 
   const bindJobDescriptionMutation = useMutation({
@@ -490,6 +477,7 @@ export function ResumePoolPage() {
                 : null
             }
             canDeletePoolRecords={canDeleteResumePool}
+            canEditPoolRecords={canCreateResumePool}
             canEnterRecruiting={canImportToLibrary}
             canRecommend={canImportResumePool && canReadJobDescriptions}
             canRetryResumeParse={canRetryResumeParse}
@@ -501,12 +489,12 @@ export function ResumePoolPage() {
               deleteMutation.isPending ? (deleteMutation.variables?.id ?? null) : null
             }
             emptyTitle={emptyTitle}
-            enteringRecruitingRecordId={enteringRecruitingRecordId}
             isInitialPoolLoading={isInitialPoolLoading}
             onBindJobDescription={(record, jobDescriptionId) => {
               bindJobDescriptionMutation.mutate({ jobDescriptionId, record });
             }}
             onDelete={setDeleteTarget}
+            onEdit={(record) => setEditTargetId(record.id)}
             onEnterRecruiting={enterRecruiting}
             onOpenDetail={openPoolDetail}
             onOpenDuplicateMatches={setDuplicateMatchRecord}
@@ -607,6 +595,15 @@ export function ResumePoolPage() {
         }}
         open={progressOpen}
         state={bulk.state}
+      />
+      <ResumePoolProfileEditByIdDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTargetId(null);
+          }
+        }}
+        recordId={editTargetId}
+        slug={slug}
       />
       <ImportResumePoolDialog
         item={importTarget}

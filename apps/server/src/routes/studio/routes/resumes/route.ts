@@ -11,6 +11,8 @@ import { db as defaultDb } from "../../../../infrastructure/db/index";
 import { recruitingEvent } from "@app/db-schema/schema";
 import { resumeReviewSchema } from "@app/shared/resume-review";
 import type { ResumeReview } from "@app/shared/resume-review";
+import { applyResumeProfileEdit, resumeProfileEditSchema } from "@app/shared/resume-profile-edit";
+import type { ResumeProfileEdit } from "@app/shared/resume-profile-edit";
 import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
@@ -116,6 +118,30 @@ export function parseResumeLibraryCreateFormInput(formData: FormData) {
 
 export function parseResumeLibraryEditFormInput(formData: FormData) {
   return parseResumeLibraryFormData(formData, resumeLibraryEditFormSchema);
+}
+
+/**
+ * 编辑弹窗可选提交人工修正后的简历画像（JSON 字符串）；缺省表示不改画像。
+ * Optional manually corrected resume profile (JSON string); absent means unchanged.
+ */
+export function parseResumeProfileEditFormInput(
+  value: FormDataEntryValue | null,
+): { data: ResumeProfileEdit | null; success: true } | { error: string; success: false } {
+  const parsedValue = formDataTextSchema.safeParse(value);
+  if (!parsedValue.success || parsedValue.data.trim().length === 0) {
+    return { data: null, success: true };
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(parsedValue.data);
+  } catch {
+    return { error: "简历解析信息格式无效。", success: false };
+  }
+  const result = resumeProfileEditSchema.safeParse(raw);
+  if (!result.success) {
+    return { error: result.error.issues[0]?.message ?? "简历解析信息无效。", success: false };
+  }
+  return { data: result.data, success: true };
 }
 
 export function parseResumeReviewFormInput(
@@ -775,6 +801,16 @@ export function createResumeLibraryRouter(
           if (!input.success) {
             return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
           }
+          const profileEdit = parseResumeProfileEditFormInput(formData.get("resumeProfile"));
+          if (!profileEdit.success) {
+            return c.json({ error: profileEdit.error }, 400);
+          }
+          if (profileEdit.data && !existing.resumeProfile) {
+            return c.json({ error: "该简历暂无解析信息，无法修正。" }, 409);
+          }
+          const editedResumeProfile = profileEdit.data
+            ? applyResumeProfileEdit(existing.resumeProfile, profileEdit.data)
+            : existing.resumeProfile;
 
           // 编辑接口不再接受简历文件替换 / 系统评价（notes、resumeReview）更新。
           // Edit no longer accepts resume file replacement or system notes / review updates.
@@ -791,7 +827,9 @@ export function createResumeLibraryRouter(
               ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)
               : null;
 
-          const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, input.data);
+          // 表格身份字段（姓名/邮箱/电话/目标岗位）始终以表单为准镜像进画像。
+          // Table identity fields stay authoritative and are mirrored into the profile.
+          const resumeProfile = syncResumeProfileIdentity(editedResumeProfile, input.data);
           const resumeEvidenceChanged = Boolean(
             resumeProfile &&
             existing.resumeProfile &&

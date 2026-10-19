@@ -1,6 +1,7 @@
 import type { QualitativeResumeFocus } from "./qualitative-resume-focus";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@app/db-schema/studio-interviews";
+import type { PipelineStage } from "@app/db-schema/recruiting-contracts";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
@@ -68,6 +69,8 @@ export interface ResumePoolImportedRecord {
   creatorImage: string | null;
   creatorName: string | null;
   importedAt: string;
+  /** 该招聘记录当前所处阶段；记录已删除时为 null。 */
+  pipelineStage: PipelineStage | null;
   resumeRecordId: string;
 }
 
