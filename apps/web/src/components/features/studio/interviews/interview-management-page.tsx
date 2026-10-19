@@ -104,6 +104,18 @@ function aiStageLockedReason(row: StudioInterviewRoundListRecord): string | null
   return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI初面相关操作已锁定。如需修改请先回退阶段或重新激活。`;
 }
 
+// 已结束的轮次不再允许编辑。Completed rounds are read-only.
+function isRoundEditLocked(row: StudioInterviewRoundListRecord): boolean {
+  return isAiStageLocked(row) || row.status === "completed";
+}
+
+function roundEditLockedReason(row: StudioInterviewRoundListRecord): string | null {
+  if (isAiStageLocked(row)) {
+    return aiStageLockedReason(row);
+  }
+  return row.status === "completed" ? "面试已结束，不可编辑。" : null;
+}
+
 export function InterviewManagementPage() {
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
@@ -449,8 +461,8 @@ export function InterviewManagementPage() {
         inline: [
           { label: "查看", onClick: (r) => setDetailRoundId(r.id) },
           {
-            disabled: isAiStageLocked,
-            disabledReason: aiStageLockedReason,
+            disabled: isRoundEditLocked,
+            disabledReason: roundEditLockedReason,
             label: "编辑",
             onClick: (r) => setEditRecordId(r.id),
             show: () => canUpdateInterview,
