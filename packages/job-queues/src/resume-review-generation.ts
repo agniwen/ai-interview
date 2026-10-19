@@ -488,6 +488,43 @@ export async function enqueueResumeReviewGenerationJobs(
   );
 }
 
+/**
+ * 已持久化评价运行在队列中的状态：pending 仍在等待或执行；finished 已结束（完成或失败）；
+ * missing 队列里找不到。Redis 不可用时抛错，由调用方按「无法确认」处理。
+ *
+ * Queue state of a persisted review run: pending (waiting/active), finished (completed or
+ * failed), or missing. Throws when Redis is unavailable so callers can treat it as unknown.
+ */
+export type ResumeReviewGenerationRunQueueState = "pending" | "finished" | "missing";
+
+/** 按任务 ID 读取任务的最小接口，便于替换。Minimal job lookup so callers can substitute it. */
+export type ResumeReviewGenerationJobLookup = (
+  jobId: string,
+) => Promise<{ getState: () => Promise<string> } | null | undefined>;
+
+const lookupResumeReviewGenerationJob: ResumeReviewGenerationJobLookup = async (jobId) =>
+  await getResumeReviewGenerationQueue().getJob(jobId);
+
+export async function getResumeReviewGenerationRunQueueState(
+  input: {
+    jobDescriptionId: string | null;
+    resumeRecordId: string;
+    runId: string;
+  },
+  lookupJob: ResumeReviewGenerationJobLookup = lookupResumeReviewGenerationJob,
+): Promise<ResumeReviewGenerationRunQueueState> {
+  const job = await lookupJob(buildResumeReviewGenerationJobId(input));
+  if (!job) {
+    return "missing";
+  }
+  const state = await job.getState();
+  if (state === "completed" || state === "failed") {
+    return "finished";
+  }
+  // BullMQ 对已被删除的任务返回 unknown。BullMQ reports deleted jobs as unknown.
+  return state === "unknown" ? "missing" : "pending";
+}
+
 export function createResumeReviewGenerationWorker(
   processJob: ResumeReviewGenerationJobProcessor,
 ): Worker<ResumeReviewGenerationJobData> {

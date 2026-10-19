@@ -44,6 +44,7 @@
     "./review/resumes/utils/review-generation": "./src/internal/recruiting/resumes/utils/review-generation.ts",
     "./review/resumes/utils/review-lifecycle": "./src/internal/recruiting/resumes/utils/review-lifecycle.ts",
     "./review/resumes/utils/review-queue": "./src/internal/recruiting/resumes/utils/review-queue.ts",
+    "./review/resumes/utils/review-recovery": "./src/internal/recruiting/resumes/utils/review-recovery.ts",
     "./review/support/access-recruiting-visibility": "./src/internal/access/recruiting-visibility.ts",
     "./review/support/candidate-avatars-dao": "./src/internal/recruiting/candidate-avatars/dao.ts",
     "./review/support/job-descriptions-dao": "./src/internal/recruiting/job-descriptions/dao.ts",

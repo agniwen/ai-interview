@@ -16,6 +16,11 @@ import {
 import { matchJobDescriptionForResume } from "../../../agents/job-description-match-agent";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { ensureCurrentJobDescriptionVersion } from "./job-description-version";
+import {
+  defaultResumeReviewRecoveryDependencies,
+  recoverResumeReviewRunForRecord,
+} from "./review-recovery";
+import type { ResumeReviewRecoveryDependencies } from "./review-recovery";
 
 type PersistedResumeRecordReviewJobData = Extract<
   ResumeReviewGenerationJobData,
@@ -392,6 +397,7 @@ export async function enqueueResumeReassessmentForRecord(
     resumeRecordId: string;
   },
   dependencies: ResumeEvaluationSchedulingDependencies = defaultResumeEvaluationSchedulingDependencies,
+  recoveryDependencies: ResumeReviewRecoveryDependencies = defaultResumeReviewRecoveryDependencies,
 ): Promise<"already_in_progress" | "enqueued" | "fallback_sync"> {
   const context = await dependencies.loadSchedulingContext(input);
   if (!context) {
@@ -405,7 +411,16 @@ export async function enqueueResumeReassessmentForRecord(
     throw new ResumeReassessmentEnqueueError("已结束候选人不能重新评估。");
   }
   if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
-    return "already_in_progress";
+    // 进行中的运行可能已在队列里丢失：能原样重投就重投；已被判定失败则继续新建一次评估。
+    // An in-flight run may have been lost from the queue: re-enqueue it as-is, or start a
+    // fresh run once it has been marked failed.
+    const recovery = await recoverResumeReviewRunForRecord(input, {}, recoveryDependencies);
+    if (recovery === "requeued") {
+      return "enqueued";
+    }
+    if (recovery !== "marked_failed") {
+      return "already_in_progress";
+    }
   }
 
   const result = await scheduleResumeEvaluationForRecord(

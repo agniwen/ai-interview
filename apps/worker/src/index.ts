@@ -64,7 +64,7 @@ import {
 import { createWorkerApp } from "./app";
 import { isWorkerBackgroundProcessingEnabled, resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, validateWorkerEnv } from "./env";
-import { getResumeParseConfigSummary } from "./parse-config";
+import { getResumeParseConfigSummary, getResumeReviewRecoveryConfig } from "./parse-config";
 import { startMailIngestScheduler } from "./mail-ingest/scheduler";
 import type { MailIngestScheduler } from "./mail-ingest/scheduler";
 import { startInterviewNotificationScheduler } from "./interview-notifications/scheduler";
@@ -532,6 +532,7 @@ async function main() {
   }
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
+  let reviewRecoveryTimer: NodeJS.Timeout | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
   let mailIngestTriggerWorker: ReturnType<typeof createMailIngestTriggerWorker> | null = null;
   let meetingAnswerWorker: ReturnType<typeof createMeetingAnswerWorker> | null = null;
@@ -798,6 +799,41 @@ async function main() {
     resourceLifecycle.addFinalizer("resume-review-generation-worker", () =>
       reviewGenerationWorker?.close(),
     );
+    // 定时补投在 Redis 中丢失的简历 AI 评价任务，避免记录永久停在「AI 评估中」。
+    // Periodically recovers resume review jobs lost from Redis so records never stay queued.
+    const reviewRecovery = getResumeReviewRecoveryConfig();
+    if (reviewRecovery.intervalMs > 0) {
+      let reviewRecoveryRunning = false;
+      const recoverReviewRuns = async () => {
+        if (reviewRecoveryRunning) {
+          return;
+        }
+        reviewRecoveryRunning = true;
+        try {
+          const { recoverStaleResumeReviewRuns } = await import("./resume-processing/review");
+          const summary = await recoverStaleResumeReviewRuns({
+            staleAfterMs: reviewRecovery.staleAfterMs,
+          });
+          if (summary.requeued > 0 || summary.marked_failed > 0 || summary.errors > 0) {
+            console.info("[resume-review-recovery] sweep finished", summary);
+          }
+        } catch (error) {
+          captureWorkerException(error, "worker.resume-review.recovery");
+        } finally {
+          reviewRecoveryRunning = false;
+        }
+      };
+      void trackRecoveryRun(recoverReviewRuns);
+      reviewRecoveryTimer = setInterval(() => {
+        void trackRecoveryRun(recoverReviewRuns);
+      }, reviewRecovery.intervalMs);
+      reviewRecoveryTimer.unref();
+      triggerLifecycle.addFinalizer("resume-review-recovery", () => {
+        if (reviewRecoveryTimer) {
+          clearInterval(reviewRecoveryTimer);
+        }
+      });
+    }
     mailIngestScheduler = startMailIngestScheduler();
     if (mailIngestScheduler) {
       triggerLifecycle.addFinalizer("mail-ingest-scheduler", () => mailIngestScheduler?.close());

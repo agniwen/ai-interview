@@ -78,3 +78,39 @@ export function getResumeParseConfigSummary(
     staleProcessingSeconds: getEnvNumberString(env.RESUME_PARSE_STALE_PROCESSING_SECONDS, 900),
   };
 }
+
+const DEFAULT_RESUME_REVIEW_STALE_SECONDS = 600;
+const DEFAULT_RESUME_REVIEW_RECOVERY_INTERVAL_SECONDS = 300;
+const MAX_RESUME_REVIEW_RECOVERY_INTERVAL_SECONDS = 24 * 60 * 60;
+
+function parseNonNegativeSeconds(raw: string | undefined, fallback: number): number {
+  const value = Number(raw?.trim() || fallback);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+export interface ResumeReviewRecoveryConfig {
+  /** 0 表示关闭定时巡检。0 disables the periodic sweep. */
+  intervalMs: number;
+  staleAfterMs: number;
+}
+
+/** 简历 AI 评价丢失任务的巡检配置。Sweep config for lost resume review runs. */
+export function getResumeReviewRecoveryConfig(
+  env: Record<string, string | undefined> = process.env,
+): ResumeReviewRecoveryConfig {
+  const staleSeconds = parseNonNegativeSeconds(
+    env.RESUME_REVIEW_STALE_SECONDS,
+    DEFAULT_RESUME_REVIEW_STALE_SECONDS,
+  );
+  const intervalSeconds = parseNonNegativeSeconds(
+    env.RESUME_REVIEW_RECOVERY_INTERVAL_SECONDS,
+    DEFAULT_RESUME_REVIEW_RECOVERY_INTERVAL_SECONDS,
+  );
+  return {
+    // setInterval 超过约 24.8 天会被钳制为 1ms，这里上限取 1 天。
+    // setInterval clamps delays above ~24.8 days to 1ms, so cap at one day.
+    intervalMs: Math.min(intervalSeconds, MAX_RESUME_REVIEW_RECOVERY_INTERVAL_SECONDS) * 1000,
+    // 阈值过小会与正常入队竞争，至少保留 1 分钟。Keep at least one minute to avoid racing enqueue.
+    staleAfterMs: Math.max(staleSeconds, 60) * 1000,
+  };
+}
