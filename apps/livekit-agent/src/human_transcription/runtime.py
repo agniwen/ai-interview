@@ -53,6 +53,31 @@ class SentenceLedger:
         return key, revision
 
 
+async def claim_execution(post, *, run_id: str, generation: int) -> dict | None:
+    """Claim the run, or return None when the server fences this dispatch.
+
+    A 409 means a newer generation or another execution owns the run (for
+    example LiveKit re-dispatching a job the server already replaced), so this
+    collector must leave quietly instead of failing the job.
+    """
+    try:
+        return await post("claim")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 409:
+            raise
+        try:
+            reason = exc.response.json().get("error")
+        except ValueError:
+            reason = None
+        logger.warning(
+            "human transcription claim rejected: run=%s generation=%s reason=%s",
+            run_id,
+            generation,
+            reason or exc.response.text[:200],
+        )
+        return None
+
+
 async def run_human_transcription(ctx: JobContext) -> None:
     job = parse_human_job(ctx.job.metadata, ctx.room.name)
     execution_id = str(uuid4())
@@ -91,7 +116,16 @@ async def run_human_transcription(ctx: JobContext) -> None:
             result.raise_for_status()
             return result.json()
 
-        claim = await post("claim")
+        claim = await claim_execution(
+            post, run_id=job.run_id, generation=job.generation
+        )
+        if claim is None:
+            # Nothing was captured; let outbox recovery clean the empty spool.
+            outbox.set_metadata(
+                {"baseUrl": base_url, "payload": payload, "acknowledged": True}
+            )
+            ctx.shutdown(reason="human transcription dispatch superseded")
+            return
         participants = claim["participants"]
 
         async def publish_preview(data, **options):

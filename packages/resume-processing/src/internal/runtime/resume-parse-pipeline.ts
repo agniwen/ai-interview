@@ -32,6 +32,7 @@ import { defaultResumeParsePipelineDependencies } from "./resume-parse-pipeline-
 import type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 import { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
 import { describeResumeParseError } from "./resume-parse-error";
+import { ocrImageMediaType } from "./pdf-rasterize";
 
 export type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 
@@ -765,7 +766,7 @@ export async function parseResumeOcrOnly(
         totalPages: sourcePageCount,
         type: "ocr.page.started",
       });
-      const text = await qwenVlOcrWithRetry(png, index + 1, "image/png", dependencies);
+      const text = await qwenVlOcrWithRetry(png, index + 1, ocrImageMediaType(png), dependencies);
       devOcrLog("page completed", {
         chars: text.length,
         duration: formatDuration(pageStartedAt),

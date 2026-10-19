@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+from livekit.agents import ToolError
 from test_realtime_interview_agent import context
 
 from realtime_interview_agent import AnswerUpdate, RealtimeInterviewAgent
@@ -288,3 +290,90 @@ async def test_stopping_followup_preserves_verified_facts_without_reopening_draf
             reason="completed", final_question_id="", final_answer_summary=""
         )
         assert agent._closing
+
+
+def _hanging_extractor():
+    calls = []
+
+    async def extract(questions, turns):
+        calls.append(turns)
+        await asyncio.Event().wait()
+
+    return extract, calls
+
+
+async def test_saving_answers_never_waits_for_slow_reconciliation():
+    extract, _calls = _hanging_extractor()
+    agent = RealtimeInterviewAgent(context(), answer_extractor=extract)
+    agent.observe_turn("u1", "user", "团队解散", 1)
+    agent.schedule_reconciliation()
+    try:
+        state = await asyncio.wait_for(
+            agent.record_answers(
+                updates=[
+                    AnswerUpdate(
+                        question_id="q2", status="answered", answer_summary="团队解散"
+                    )
+                ]
+            ),
+            0.2,
+        )
+        assert state["questions"][1]["status"] == "answered"
+    finally:
+        agent._reconcile_task.cancel()
+
+
+async def test_state_check_waits_only_briefly_and_reports_running(monkeypatch):
+    monkeypatch.setattr("realtime_interview_agent.STATE_RECONCILE_WAIT_SECONDS", 0.05)
+    extract, _calls = _hanging_extractor()
+    agent = RealtimeInterviewAgent(context(), answer_extractor=extract)
+    agent.observe_turn("u1", "user", "团队解散", 1)
+    try:
+        state = await asyncio.wait_for(agent.get_interview_state(), 0.5)
+        assert state["reconciliation_status"] == "running"
+    finally:
+        agent._reconcile_task.cancel()
+
+
+async def test_finish_waits_only_briefly_for_reconciliation(monkeypatch):
+    monkeypatch.setattr("realtime_interview_agent.FINISH_RECONCILE_WAIT_SECONDS", 0.05)
+    extract, _calls = _hanging_extractor()
+    agent = RealtimeInterviewAgent(context(), answer_extractor=extract)
+    agent.observe_turn("u1", "user", "团队解散", 1)
+    try:
+        with pytest.raises(ToolError, match="尚未处理"):
+            await asyncio.wait_for(
+                agent.finish_interview(
+                    reason="completed", final_question_id="", final_answer_summary=""
+                ),
+                0.5,
+            )
+    finally:
+        agent._reconcile_task.cancel()
+
+
+async def test_failed_revision_is_retried_only_after_new_speech_or_at_session_end():
+    calls = []
+
+    async def extract(questions, turns):
+        calls.append(len(turns))
+        raise TimeoutError("provider timeout")
+
+    agent = RealtimeInterviewAgent(context(), answer_extractor=extract)
+    agent.observe_turn("u1", "user", "团队解散", 1)
+    await agent.get_interview_state()
+    await agent.record_answers(
+        updates=[
+            AnswerUpdate(question_id="q2", status="answered", answer_summary="团队解散")
+        ]
+    )
+    assert (await agent.get_interview_state())["reconciliation_status"] == "failed"
+    assert calls == [1]
+
+    agent.observe_turn("u2", "user", "补充一下", 2)
+    await agent.get_interview_state()
+    assert calls == [1, 2]
+
+    # The post-call report path still makes a final attempt for this revision.
+    await agent.reconcile_answers()
+    assert calls == [1, 2, 2]

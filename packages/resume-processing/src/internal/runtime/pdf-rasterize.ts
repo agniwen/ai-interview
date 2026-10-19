@@ -1,4 +1,4 @@
-// Rasterize PDF pages to PNG buffers (server-side, Node.js).
+// Rasterize PDF pages to PNG (or JPEG when PNG exceeds the OCR size limit) buffers.
 // Used to feed PDFs to Qwen-VL OCR (which only accepts images).
 //
 // Backed by `mupdf` (WASM): no native build, no canvas/CMap fragility, ships
@@ -54,18 +54,67 @@ export interface PdfPageRenderer {
   openDocument: (bytes: Uint8Array, scale: number) => Promise<PdfPageDocument>;
 }
 
+// Qwen OCR accepts Base64 strings up to 10MB and downsamples anything above its
+// default max_pixels (8192×32×32), so rendering beyond that only inflates
+// requests. An A4 page at the default 4× scale (~8.02M px) stays untouched.
+export const OCR_MAX_PIXELS = 8192 * 32 * 32;
+// Pixel dimensions round up; keep the clamped render strictly inside the budget.
+const OCR_SCALE_ROUNDING_MARGIN = 0.995;
+// Raw bytes whose Base64 form (4/3 larger) stays safely under 10MB.
+export const OCR_MAX_IMAGE_BYTES = 7_000_000;
+const OCR_JPEG_QUALITIES = [85, 60] as const;
+
+/** Returns the first encoding within the OCR size limit, else the smallest-effort last one. */
+export function encodeWithinOcrLimit(
+  encoders: readonly (() => Buffer)[],
+  maxBytes = OCR_MAX_IMAGE_BYTES,
+): Buffer {
+  let encoded: Buffer = Buffer.alloc(0);
+  for (const encode of encoders) {
+    encoded = encode();
+    if (encoded.byteLength <= maxBytes) {
+      return encoded;
+    }
+  }
+  return encoded;
+}
+
+const JPEG_SIGNATURE = Buffer.from("ffd8", "hex");
+
+export function ocrImageMediaType(image: Buffer): "image/jpeg" | "image/png" {
+  return image.subarray(0, JPEG_SIGNATURE.length).equals(JPEG_SIGNATURE)
+    ? "image/jpeg"
+    : "image/png";
+}
+
+function toBuffer(bytes: Uint8Array): Buffer {
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
+
 function renderPdfPage(
   mupdf: MupdfModule,
   doc: MupdfModuleNs.Document,
-  matrix: MupdfModuleNs.Matrix,
+  requestedScale: number,
   index: number,
 ): Buffer {
   const page = doc.loadPage(index);
   try {
-    const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false);
+    const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = page.getBounds();
+    const area = (x1 - x0) * (y1 - y0);
+    const scale =
+      area > 0
+        ? Math.min(requestedScale, Math.sqrt(OCR_MAX_PIXELS / area) * OCR_SCALE_ROUNDING_MARGIN)
+        : requestedScale;
+    const pixmap = page.toPixmap(
+      mupdf.Matrix.scale(scale, scale),
+      mupdf.ColorSpace.DeviceRGB,
+      false,
+    );
     try {
-      const png = pixmap.asPNG();
-      return Buffer.from(png.buffer, png.byteOffset, png.byteLength);
+      return encodeWithinOcrLimit([
+        () => toBuffer(pixmap.asPNG()),
+        ...OCR_JPEG_QUALITIES.map((quality) => () => toBuffer(pixmap.asJPEG(quality))),
+      ]);
     } finally {
       pixmap.destroy();
     }
@@ -78,11 +127,10 @@ const defaultPdfPageRenderer: PdfPageRenderer = {
   openDocument: async (bytes, scale) => {
     const mupdf = await loadMupdf();
     const doc = mupdf.Document.openDocument(bytes, "application/pdf");
-    const matrix = mupdf.Matrix.scale(scale, scale);
     return {
       destroy: () => doc.destroy(),
       pageCount: doc.countPages(),
-      renderPage: (index) => renderPdfPage(mupdf, doc, matrix, index),
+      renderPage: (index) => renderPdfPage(mupdf, doc, scale, index),
     };
   },
 };

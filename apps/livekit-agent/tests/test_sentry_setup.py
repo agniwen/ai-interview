@@ -70,3 +70,11 @@ def test_initialize_sentry_scrubs_candidate_data() -> None:
         "request": {"headers": {"x-request-id": "request-1"}},
         "user": {"id": "internal-user-id"},
     }
+
+
+def test_importing_the_agent_under_tests_never_reports_to_sentry():
+    import sentry_sdk
+
+    import agent  # noqa: F401
+
+    assert sentry_sdk.get_client().is_active() is False

@@ -6,6 +6,7 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createRoom: vi.fn(),
+  deleteDispatch: vi.fn(),
   deleteRoom: vi.fn(),
   dispatch: vi.fn(),
   listDispatch: vi.fn().mockResolvedValue([]),
@@ -27,6 +28,7 @@ vi.mock("livekit-server-sdk", () => ({
   AgentDispatchClient: class {
     listDispatch = mocks.listDispatch;
     createDispatch = mocks.dispatch;
+    deleteDispatch = mocks.deleteDispatch;
   },
   RoomServiceClient: class {
     createRoom = mocks.createRoom;
@@ -81,7 +83,7 @@ it.skipIf(!testUrl)(
   async () => {
     const id = crypto.randomUUID();
     await client`insert into human_interview_meeting (id,organization_id,title,status,transcription_mode) values (${id},'org','test','in_progress','server_realtime')`;
-    await client`insert into human_transcription_run (id,organization_id,meeting_id,room_name,mode,participants,status,execution_id,started_at,created_at,heartbeat_at,cutoff_at,drained_at) values (${id},'org',${id},'room','server_realtime',${JSON.stringify({ candidate: { displayName: "候选人", role: "candidate" } })},'recovering','old-execution',now()-interval '10 minutes',now()-interval '10 minutes',now(),now(),now())`;
+    await client`insert into human_transcription_run (id,organization_id,meeting_id,room_name,mode,participants,status,dispatch_id,execution_id,started_at,created_at,heartbeat_at,cutoff_at,drained_at) values (${id},'org',${id},'room','server_realtime',${JSON.stringify({ candidate: { displayName: "候选人", role: "candidate" } })},'recovering','old-dispatch','old-execution',now()-interval '10 minutes',now()-interval '10 minutes',now(),now(),now())`;
     mocks.scope.mockResolvedValue({
       meeting: { id, status: "in_progress", transcriptionMode: "server_realtime" },
     });
@@ -93,6 +95,7 @@ it.skipIf(!testUrl)(
     expect(restarted.generation).toBe(2);
     expect(restarted.status).toBe("starting");
     expect(restarted.dispatch_id).toBe("new-dispatch");
+    expect(mocks.deleteDispatch).toHaveBeenCalledWith("old-dispatch", "room");
     expect(restarted.ended_at).toBeNull();
     expect(restarted.cutoff_at).toBeNull();
     expect(restarted.drained_at).toBeNull();

@@ -43,6 +43,8 @@ const pollTaskResponseSchema = z
   .object({
     output: z
       .object({
+        code: z.string().nullish(),
+        message: z.string().nullish(),
         // qwen3-asr-flash-filetrans 单任务响应：SUCCEEDED 时结果在 output.result.transcription_url；
         // 保留 results 数组分支以兼容其他 DashScope 模型的响应形态。
         result: z
@@ -68,6 +70,17 @@ const pollTaskResponseSchema = z
       .passthrough(),
   })
   .passthrough();
+
+// DashScope 错误码文档：两者都表示音频里没有可识别的语音（VAD 无有效片段 / 最终结果为空）。
+// 分轨录音里某人整段只听不说是正常情况，应得到空转录而不是失败。
+const NO_SPEECH_CODES: ReadonlySet<string> = new Set([
+  "ASR_RESPONSE_HAVE_NO_WORDS",
+  "SUCCESS_WITH_NO_VALID_FRAGMENT",
+]);
+
+function isNoSpeechCode(code: string | null | undefined): boolean {
+  return code !== null && code !== undefined && NO_SPEECH_CODES.has(code);
+}
 
 const transcriptionResultSchema = z
   .object({
@@ -327,9 +340,13 @@ export function createQwenAsrMeetingTranscriptionProvider(
         (parsed.output.results ?? []).find((result) => result.subtask_status !== "FAILED")
           ?.transcription_url;
       if (!transcriptionUrl) {
-        const failure = (parsed.output.results ?? []).find(
+        const failures = (parsed.output.results ?? []).filter(
           (result) => result.subtask_status === "FAILED",
         );
+        if (failures.length > 0 && failures.every((result) => isNoSpeechCode(result.code))) {
+          return { state: "ready", url: null };
+        }
+        const [failure] = failures;
         throw new MeetingProviderResponseError(
           "partial-result",
           `Qwen ASR ${failure?.code ?? "subtask"}`,
@@ -338,7 +355,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
       return { state: "ready", url: transcriptionUrl };
     }
     if (parsed.output.task_status === "FAILED" || parsed.output.task_status === "CANCELED") {
-      if (parsed.output.code === "SUCCESS_WITH_NO_VALID_FRAGMENT") {
+      if (isNoSpeechCode(parsed.output.code)) {
         return { state: "ready", url: null };
       }
       throw new MeetingProviderResponseError(

@@ -395,3 +395,92 @@ def test_human_recognition_hints_are_sent_without_changing_ai_defaults():
     assert (
         hinted["payload"]["input"]["context"][0]["content"][0]["text"] == "岗位：研发"
     )
+
+
+class _RecordingWebSocket(_FakeWebSocket):
+    def __init__(self):
+        super().__init__()
+        self.sent_bytes = []
+
+    async def send_bytes(self, data):
+        await super().send_bytes(data)
+        self.sent_bytes.append(data)
+
+
+async def test_stream_sends_silence_while_input_audio_pauses(monkeypatch):
+    # DashScope fails a task after 23 seconds without any audio; heartbeat only
+    # keeps the connection open while silence is actually being sent.
+    monkeypatch.setattr("aliyun_stt.KEEPALIVE_IDLE_SECONDS", 0.02)
+    websocket = _RecordingWebSocket()
+    recognizer = STT(api_key="test-key", http_session=_FakeHttpSession(websocket))
+    stream = recognizer.stream(conn_options=DEFAULT_API_CONNECT_OPTIONS)
+
+    try:
+        while not websocket.sent_json:
+            await asyncio.sleep(0)
+        task_id = websocket.sent_json[0]["header"]["task_id"]
+        await websocket.messages.put(
+            SimpleNamespace(
+                data=json.dumps(
+                    {
+                        "header": {"event": "task-started", "task_id": task_id},
+                        "payload": {},
+                    }
+                ),
+                type=aiohttp.WSMsgType.TEXT,
+            )
+        )
+        while not websocket.sent_bytes:
+            await asyncio.sleep(0.01)
+        silence = list(websocket.sent_bytes)
+        stream.push_frame(rtc.AudioFrame.create(16000, 1, 1600))
+        stream.end_input()
+        await stream._task
+    finally:
+        await stream.aclose()
+
+    assert all(chunk == bytes(3200) for chunk in silence)
+    # Injected silence is not caller audio, so backlog accounting ignores it.
+    assert stream.sent_ms == 100
+    assert websocket.sent_json[-1]["header"]["action"] == "finish-task"
+
+
+def test_transcript_times_exclude_injected_silence():
+    stream = object.__new__(SpeechStream)
+    final = []
+    stream.final_handler = lambda _task, sentence: final.append(sentence)
+    stream.interim_handler = None
+    stream._event_ch = _EventChannel()
+    stream._language = "zh"
+    stream._request_id = "request-id"
+    stream._speaking = False
+    # Provider audio: 1s caller audio, then 5s injected silence, then speech.
+    stream._keepalive_segments = [(1000.0, 5000.0)]
+
+    stream._process_stream_event(
+        {
+            "header": {"event": "result-generated"},
+            "payload": {
+                "output": {
+                    "sentence": {
+                        "begin_time": 6200,
+                        "end_time": 6900,
+                        "text": "继续",
+                        "sentence_end": True,
+                        "words": [
+                            {"begin_time": 6200, "end_time": 6900, "text": "继续"}
+                        ],
+                    }
+                }
+            },
+        }
+    )
+
+    transcript = next(
+        event
+        for event in stream._event_ch.events
+        if event.type == stt.SpeechEventType.FINAL_TRANSCRIPT
+    ).alternatives[0]
+    assert transcript.start_time == 1.2
+    assert transcript.end_time == 1.9
+    assert (final[0]["begin_time"], final[0]["end_time"]) == (1200, 1900)

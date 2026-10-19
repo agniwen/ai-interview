@@ -9,7 +9,7 @@ import {
 import { db } from "@app/database/context";
 import { loadTrackRecordingScope } from "./human-interview-recording-tracks";
 import { createHumanTranscriptionStopper } from "./human-transcription-stop";
-import { isIdleHumanTranscriptionRun } from "./human-transcription-state";
+import { isCollectorLeaseExpired, isIdleHumanTranscriptionRun } from "./human-transcription-state";
 
 function clients() {
   const url = process.env.LIVEKIT_URL?.replace(/^ws/, "http");
@@ -120,6 +120,19 @@ async function prepareHumanTranscriptionRun(
         eq(humanTranscriptionRun.generation, run.generation),
       ),
     );
+}
+
+// 代次提升后旧派发仍留在房间里；LiveKit 会在采集器失败或掉线时按原元数据重新拉起它，
+// 旧任务认领必然被拒。删除失败不阻断新派发：旧任务认领被拒后会自行退出。
+async function deleteSupersededDispatch(dispatchId: string, roomName: string) {
+  try {
+    await clients().dispatch.deleteDispatch(dispatchId, roomName);
+  } catch (error) {
+    console.warn("failed to delete superseded human transcription dispatch", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      roomName,
+    });
+  }
 }
 
 export async function prepareHumanTranscription(roomName: string) {
@@ -262,7 +275,7 @@ export async function reconcileHumanTranscriptions() {
         await prepareHumanTranscription(run.roomName);
         continue;
       }
-      const abandoned = Date.now() - (run.heartbeatAt ?? run.createdAt).getTime() > 30_000;
+      const abandoned = isCollectorLeaseExpired(run.heartbeatAt ?? run.createdAt);
       const overdue = run.endedAt && Date.now() - run.endedAt.getTime() > 30_000;
       if (
         (abandoned || run.status === "recovering") &&
@@ -270,7 +283,7 @@ export async function reconcileHumanTranscriptions() {
         ["scheduled", "in_progress"].includes(meeting.status) &&
         run.generation < 3
       ) {
-        await db.transaction(async (tx) => {
+        const superseded = await db.transaction(async (tx) => {
           const [current] = await tx
             .select()
             .from(humanTranscriptionRun)
@@ -280,10 +293,9 @@ export async function reconcileHumanTranscriptions() {
             !current ||
             current.generation !== run.generation ||
             current.endedAt ||
-            (current.status !== "recovering" &&
-              (current.heartbeatAt?.getTime() ?? 0) > Date.now() - 30_000)
+            (current.status !== "recovering" && !isCollectorLeaseExpired(current.heartbeatAt))
           ) {
-            return;
+            return null;
           }
           let cursor = current.eventSeq;
           for (const identity of Object.keys(current.participants)) {
@@ -328,7 +340,11 @@ export async function reconcileHumanTranscriptions() {
               status: "pending",
             })
             .where(eq(humanTranscriptionRun.id, run.id));
+          return current.dispatchId;
         });
+        if (superseded) {
+          await deleteSupersededDispatch(superseded, run.roomName);
+        }
         await prepareHumanTranscription(run.roomName);
         continue;
       }

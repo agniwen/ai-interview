@@ -1,4 +1,7 @@
-from human_transcription.runtime import SentenceLedger
+import httpx
+import pytest
+
+from human_transcription.runtime import SentenceLedger, claim_execution
 
 
 def test_corrections_use_sentence_identity_not_request_or_text():
@@ -68,3 +71,38 @@ async def test_cutoff_during_failure_prevents_another_provider_connection():
 
     await capture_with_retries(capture, stopping)
     assert len(attempts) == 1
+
+
+def _status_error(status, body):
+    request = httpx.Request(
+        "POST", "https://server.invalid/api/agent/human-transcription/claim"
+    )
+    response = httpx.Response(status, json=body, request=request)
+    return httpx.HTTPStatusError("rejected", request=request, response=response)
+
+
+async def test_stale_dispatch_claim_exits_quietly_with_server_reason(caplog):
+    async def post(path):
+        assert path == "claim"
+        raise _status_error(409, {"error": "任务已被其他执行者认领"})
+
+    assert await claim_execution(post, run_id="run", generation=2) is None
+    assert "任务已被其他执行者认领" in caplog.text
+    assert "generation=2" in caplog.text
+
+
+async def test_claim_failures_other_than_conflict_still_raise():
+    async def post(_path):
+        raise _status_error(500, {"error": "boom"})
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await claim_execution(post, run_id="run", generation=1)
+
+
+async def test_successful_claim_is_returned():
+    async def post(_path):
+        return {"participants": {}}
+
+    assert await claim_execution(post, run_id="run", generation=1) == {
+        "participants": {}
+    }

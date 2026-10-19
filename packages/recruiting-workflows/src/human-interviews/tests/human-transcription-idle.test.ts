@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isIdleHumanTranscriptionRun } from "../human-transcription-state";
+import { isCollectorLeaseExpired, isIdleHumanTranscriptionRun } from "../human-transcription-state";
 import { buildHumanTranscriptionStopPatch } from "../human-transcription-stop";
 
 const idleRun = {
@@ -44,5 +44,20 @@ describe("buildHumanTranscriptionStopPatch", () => {
     expect(
       buildHumanTranscriptionStopPatch({ ...unclaimedRun, executionId: "execution-1" }, now),
     ).toEqual({ endedAt: now, status: "finalizing" });
+  });
+});
+
+describe("isCollectorLeaseExpired", () => {
+  const now = new Date("2026-10-19T06:42:00.000Z");
+  const secondsAgo = (seconds: number) => new Date(now.getTime() - seconds * 1000);
+
+  it("tolerates LiveKit re-dispatch and dispatch delays before declaring a collector lost", () => {
+    // LiveKit needs ~15s to notice a lost agent and dispatches can lag further.
+    expect(isCollectorLeaseExpired(secondsAgo(45), now)).toBe(false);
+    expect(isCollectorLeaseExpired(secondsAgo(61), now)).toBe(true);
+  });
+
+  it("treats a collector that never reported as expired", () => {
+    expect(isCollectorLeaseExpired(null, now)).toBe(true);
   });
 });
