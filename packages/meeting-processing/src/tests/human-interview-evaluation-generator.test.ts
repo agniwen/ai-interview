@@ -37,6 +37,7 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
       text: JSON.stringify({
         findings: [
           {
+            quote: "候选人明确表示没有带过正式团队",
             reason: "候选人明确回答未带过正职，属于合规的劣势缺点，不构成违规。",
             violation: false,
           },
@@ -58,8 +59,8 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
     const review = vi.fn().mockResolvedValue({
       text: JSON.stringify({
         findings: [
-          { reason: compliant, violation: false },
-          { reason: violation, violation: true },
+          { quote: "管理经验", reason: compliant, violation: false },
+          { quote: "跨部门协作", reason: violation, violation: true },
         ],
       }),
     });
@@ -68,10 +69,57 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
 
     await expect(result).rejects.toThrow(violation);
     await expect(result).rejects.not.toThrow(compliant);
-    expect(generate).toHaveBeenCalledTimes(2);
-    expect(review).toHaveBeenCalledTimes(2);
+    expect(generate).toHaveBeenCalledTimes(3);
+    expect(review).toHaveBeenCalledTimes(3);
     const retryPrompt = String(generate.mock.calls[1]?.[0]);
     expect(retryPrompt).toContain(violation);
     expect(retryPrompt).not.toContain(compliant);
+  });
+
+  it("asks for a revision before review when judgment fields cite uncovered material", async () => {
+    const uncovered = "面试未展示跨部门协作经验，评级 C";
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: JSON.stringify({ ...evaluation, overallEvaluation: `${uncovered}。` }),
+      })
+      .mockResolvedValueOnce({ text: JSON.stringify(evaluation) });
+    const review = vi.fn().mockResolvedValue({ text: JSON.stringify({ findings: [] }) });
+
+    await expect(
+      generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
+    ).resolves.toEqual(evaluation);
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(review).toHaveBeenCalledOnce();
+    expect(String(generate.mock.calls[1]?.[0])).toContain(uncovered);
+  });
+
+  it("keeps candidate statements that mention uncovered work", async () => {
+    const stated = {
+      ...evaluation,
+      risks: "候选人明确表示从未涉及团队管理，岗位要求 5 人以上团队管理经验。",
+    };
+    const generate = vi.fn().mockResolvedValue({ text: JSON.stringify(stated) });
+    const review = vi.fn().mockResolvedValue({ text: JSON.stringify({ findings: [] }) });
+
+    await expect(
+      generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
+    ).resolves.toEqual(stated);
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the neutral unassessed list in the overall evaluation alone", async () => {
+    const listed = {
+      ...evaluation,
+      overallEvaluation:
+        "管理经验与岗位硬性要求冲突，评级 C。\n面试未考察：未涉及的跨部门协作、海外市场理解",
+    };
+    const generate = vi.fn().mockResolvedValue({ text: JSON.stringify(listed) });
+    const review = vi.fn().mockResolvedValue({ text: JSON.stringify({ findings: [] }) });
+
+    await expect(
+      generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
+    ).resolves.toEqual(listed);
+    expect(generate).toHaveBeenCalledOnce();
   });
 });
