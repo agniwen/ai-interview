@@ -610,7 +610,7 @@ One preserved generation of the seven HR information fields from a human initial
 _Avoid_: AI interview report version, current Feishu document body, meeting summary
 
 **Human Interview Evaluation**:
-Each interviewer owns an independent draft and submission for one human interview round. AI-generated suggestions remain separate and may be explicitly adopted. The round aggregates submitted outcomes with pass taking precedence over fail, then inconclusive; missing evaluations do not override submitted decisions. A pass can complete the round immediately; without a pass, recruitment closure waits for every assigned, non-declined interviewer and every non-observer in non-cancelled meetings to submit. Historical authored feedback is retained under its known author; unattributed feedback remains a historical round evaluation. See ADR-0042.
+Each interviewer owns an independent draft and submission for one human interview round. Only the round's interviewers (non-declined assignees and non-observers in non-cancelled meetings) may write or submit one; other members, including managers, can only read. AI-generated suggestions remain separate and may be explicitly adopted. The round aggregates submitted outcomes with pass taking precedence over fail, then inconclusive; missing evaluations do not override submitted decisions. A pass can complete the round immediately; without a pass, recruitment closure waits for every assigned, non-declined interviewer and every non-observer in non-cancelled meetings to submit. Historical authored feedback is retained under its known author; unattributed feedback remains a historical round evaluation. See ADR-0042.
 _Avoid_: Shared editable evaluation, last-writer-wins feedback
 
 **Human Interview Evaluation Snapshot**:

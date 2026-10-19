@@ -23,7 +23,7 @@ export function HumanMeetingReviewReferences({
 }: {
   review: HumanInterviewReviewRecord;
   canAdopt: boolean;
-  onAdopt: (evaluation: HumanInterviewEvaluationDraft) => void;
+  onAdopt?: (evaluation: HumanInterviewEvaluationDraft) => void;
 }) {
   if (!review.personalEvaluation) {
     return null;
@@ -55,7 +55,7 @@ export function HumanMeetingReviewReferences({
           </summary>
           <div className="px-4 pb-4">
             <RoundEvaluation evaluation={suggestion} round={{ evaluationStatus: "draft" }} />
-            {canAdopt ? (
+            {canAdopt && onAdopt ? (
               <Button variant="outline" size="sm" onClick={() => onAdopt(suggestion)}>
                 使用 AI 建议作为我的草稿
               </Button>

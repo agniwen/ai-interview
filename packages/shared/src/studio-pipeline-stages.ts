@@ -250,6 +250,8 @@ export interface HumanInterviewReviewerEvaluationRecord {
 }
 
 export interface HumanInterviewReviewRecord {
+  /** Only the round's interviewers may write or submit an evaluation. */
+  canEvaluate?: boolean;
   currentReviewerId?: string;
   transcriptInterviewers?: { userId: string; name: string; image: string | null }[];
   lockedOutcome?: "pass" | "fail" | null;

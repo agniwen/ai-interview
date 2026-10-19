@@ -109,6 +109,7 @@ beforeEach(() => {
   mocks.resolveInvite.mockResolvedValue(scope);
   mocks.visibility.mockResolvedValue({ kind: "restricted", userIds: ["reviewer"] });
   mocks.review.mockResolvedValue({
+    canEvaluate: true,
     evaluationStatus: "draft",
     meetingSessionId: null,
     roundId,
@@ -249,13 +250,20 @@ describe("system human interview review", () => {
     );
     expect(mocks.permissions).toContain("humanInterview:update");
   });
-  it("allows an HR with update permission to submit without meeting assignment", async () => {
+  it("denies evaluation by an HR with update permission who is not a round interviewer", async () => {
     mocks.load.mockResolvedValue({ ...scope, canManageReview: true, role: "observer" });
-    const response = await request("evaluation-submit", "pass");
-    expect(response.status).toBe(200);
-    expect(mocks.submit).toHaveBeenCalledWith(
-      expect.objectContaining({ actorId: "reviewer", outcome: "pass", roundId }),
-    );
+    mocks.review.mockResolvedValue({
+      canEvaluate: false,
+      evaluationStatus: "draft",
+      meetingSessionId: null,
+      roundId,
+      transcript: null,
+    });
+    const submitted = await request("evaluation-submit", "inconclusive");
+    const drafted = await request("evaluation-draft", null);
+    expect([submitted.status, drafted.status]).toEqual([403, 403]);
+    expect(mocks.submit).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
   });
   it("denies unauthenticated users, missing scope and permission failures", async () => {
     const unauthorized = await request("review", null, false);

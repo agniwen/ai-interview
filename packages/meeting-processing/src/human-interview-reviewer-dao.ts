@@ -45,6 +45,45 @@ async function loadLockedOutcome(
     : null;
 }
 
+/**
+ * The round's interviewers: non-declined assignees plus non-observer participants of
+ * non-cancelled linked meetings. Only they may evaluate, and an all-inconclusive round
+ * completes once every one of them has submitted.
+ */
+export async function loadRoundReviewerIds(
+  db: Pick<Database, "select">,
+  roundId: string,
+): Promise<Set<string>> {
+  const assigned = await db
+    .select({ userId: humanInterviewRoundInterviewer.userId })
+    .from(humanInterviewRoundInterviewer)
+    .where(
+      and(
+        eq(humanInterviewRoundInterviewer.roundId, roundId),
+        ne(humanInterviewRoundInterviewer.status, "declined"),
+      ),
+    );
+  const invited = await db
+    .select({ userId: humanInterviewMeetingInterviewer.userId })
+    .from(humanInterviewMeetingInterviewer)
+    .innerJoin(
+      humanInterviewMeetingRound,
+      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeetingInterviewer.meetingId),
+    )
+    .innerJoin(
+      humanInterviewMeeting,
+      eq(humanInterviewMeeting.id, humanInterviewMeetingInterviewer.meetingId),
+    )
+    .where(
+      and(
+        eq(humanInterviewMeetingRound.roundId, roundId),
+        ne(humanInterviewMeetingInterviewer.role, "observer"),
+        ne(humanInterviewMeeting.status, "cancelled"),
+      ),
+    );
+  return new Set([...assigned, ...invited].map((item) => item.userId));
+}
+
 export async function loadReviewerEvaluationFields(
   db: Database,
   input: { roundId: string; organizationId: string; reviewerId?: string },
@@ -88,8 +127,10 @@ export async function loadReviewerEvaluationFields(
     )
     .orderBy(desc(humanInterviewEvaluationSnapshot.createdAt))
     .limit(1);
+  const reviewerIds = await loadRoundReviewerIds(db, input.roundId);
   const fields: Partial<HumanInterviewReviewRecord> = {
     aiEvaluation: ai?.evaluation ?? null,
+    canEvaluate: Boolean(input.reviewerId && reviewerIds.has(input.reviewerId)),
     currentReviewerId: input.reviewerId,
     lockedOutcome: await loadLockedOutcome(db, input.roundId, input.organizationId),
     personalEvaluation: Boolean(input.reviewerId),
@@ -133,6 +174,10 @@ export async function saveReviewerEvaluationTx(
   },
 ): Promise<boolean> {
   // The caller holds the round lock, serializing both submissions and draft writes.
+  const reviewerIds = await loadRoundReviewerIds(tx, input.roundId);
+  if (!reviewerIds.has(input.actorId)) {
+    return false;
+  }
   const [existing] = await tx
     .select()
     .from(humanInterviewReviewerEvaluation)
@@ -208,37 +253,9 @@ export async function loadReviewerEvaluationAggregate(
   const combinedOutcome =
     (await loadLockedOutcome(tx, input.roundId, input.organizationId)) ??
     aggregateHumanInterviewOutcomes(submissions.map((item) => item.outcome));
-  const assigned = await tx
-    .select({ userId: humanInterviewRoundInterviewer.userId })
-    .from(humanInterviewRoundInterviewer)
-    .where(
-      and(
-        eq(humanInterviewRoundInterviewer.roundId, input.roundId),
-        ne(humanInterviewRoundInterviewer.status, "declined"),
-      ),
-    );
-  const invited = await tx
-    .select({ userId: humanInterviewMeetingInterviewer.userId })
-    .from(humanInterviewMeetingInterviewer)
-    .innerJoin(
-      humanInterviewMeetingRound,
-      eq(humanInterviewMeetingRound.meetingId, humanInterviewMeetingInterviewer.meetingId),
-    )
-    .innerJoin(
-      humanInterviewMeeting,
-      eq(humanInterviewMeeting.id, humanInterviewMeetingInterviewer.meetingId),
-    )
-    .where(
-      and(
-        eq(humanInterviewMeetingRound.roundId, input.roundId),
-        ne(humanInterviewMeetingInterviewer.role, "observer"),
-        ne(humanInterviewMeeting.status, "cancelled"),
-      ),
-    );
+  const reviewerIds = await loadRoundReviewerIds(tx, input.roundId);
   const submittedReviewers = new Set(submissions.map((item) => item.reviewerId));
-  const everyoneSubmitted = [...assigned, ...invited].every((item) =>
-    submittedReviewers.has(item.userId),
-  );
+  const everyoneSubmitted = [...reviewerIds].every((userId) => submittedReviewers.has(userId));
   // The first decisive submission completes the round; later reviewers only supplement it.
   const complete =
     input.roundStatus === "completed" ||

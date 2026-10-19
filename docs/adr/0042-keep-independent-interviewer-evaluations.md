@@ -4,7 +4,7 @@ status: accepted
 
 # Keep independent interviewer evaluations
 
-Each interviewer owns one draft and one final submission per human interview round. The authenticated or invite-resolved actor determines ownership; clients cannot nominate another reviewer. Draft saves and submissions carry the observed version so stale browser windows cannot overwrite newer work. Other interviewers' unsubmitted drafts are not exposed, except pre-existing shared historical evaluations.
+Each interviewer owns one draft and one final submission per human interview round. The authenticated or invite-resolved actor determines ownership; clients cannot nominate another reviewer. Only the round's interviewers may evaluate: the same non-declined assignees and non-observers in non-cancelled linked meetings whose submissions complete an all-inconclusive round. Members with review-management permission but no interviewer role can read evaluations, not write them, so a submission can never come from someone the round does not wait for. Draft saves and submissions carry the observed version so stale browser windows cannot overwrite newer work. Other interviewers' unsubmitted drafts are not exposed, except pre-existing shared historical evaluations.
 
 AI suggestions remain in generation snapshots and are shown separately. Saving a new personal draft does not change the round's AI generation state. Adopting an AI suggestion is an explicit action on an empty personal form. Existing AI generation is still stopped once the round has submitted results; it never replaces personal content.
 

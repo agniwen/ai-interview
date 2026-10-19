@@ -63,6 +63,8 @@ const humanInterviewEvaluationDraftSaveSchema = z
   })
   .strict();
 
+const NOT_ROUND_INTERVIEWER_MESSAGE = "只有本轮面试官可以填写和提交评价。";
+
 export type HumanInterviewReviewScopeResolver = (
   context: Context<Env>,
 ) => Promise<HumanInterviewReviewScope | null>;
@@ -335,6 +337,9 @@ export function createHumanInterviewReviewActionsRouter(
         if (!review) {
           return c.json({ error: "真人复面复核内容不存在。" }, 404);
         }
+        if (!review.canEvaluate) {
+          return c.json({ error: NOT_ROUND_INTERVIEWER_MESSAGE }, 403);
+        }
         const input = c.req.valid("json");
         if (
           input.transcriptRevisionId !== null &&
@@ -446,6 +451,9 @@ export function createHumanInterviewReviewActionsRouter(
         });
         if (!review) {
           return c.json({ error: "真人复面复核内容不存在。" }, 404);
+        }
+        if (!review.canEvaluate) {
+          return c.json({ error: NOT_ROUND_INTERVIEWER_MESSAGE }, 403);
         }
         try {
           const submitted = await submitAndFinalizeHumanInterviewEvaluation({

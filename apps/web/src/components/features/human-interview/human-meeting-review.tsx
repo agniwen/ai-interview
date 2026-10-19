@@ -2,6 +2,8 @@
 import { EMPTY_EVALUATION, getReviewFormOutcome } from "./human-meeting-review-state";
 import { HumanMeetingReviewMaterials } from "./human-meeting-review-materials";
 import { HumanMeetingReviewReferences } from "./human-meeting-review-references";
+import { HumanMeetingReviewReadOnly } from "./human-meeting-review-read-only";
+import { HumanMeetingReviewField as Field } from "./human-meeting-review-field";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import { useForm, useStore, revalidateLogic } from "@tanstack/react-form";
@@ -25,7 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
 import { HumanMeetingReviewSelect } from "./human-meeting-review-select";
-import { Field as FormField, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import { cn } from "@app/shared/utils";
 import {
   AlertDialog,
@@ -115,36 +117,6 @@ function validateReview({ evaluation, outcome }: ReviewFormValues) {
   return Object.keys(fields).length ? { fields } : undefined;
 }
 
-function Field({
-  children,
-  label,
-  id,
-  required = false,
-  wide = false,
-  error,
-}: {
-  children: ReactNode;
-  label: string;
-  id: string;
-  required?: boolean;
-  wide?: boolean;
-  error?: string;
-}) {
-  return (
-    <FormField data-invalid={Boolean(error)} className={cn("gap-2", wide && "md:col-span-2")}>
-      <FieldLabel htmlFor={id}>
-        {label}
-        {required ? (
-          <span aria-hidden="true" className="ml-1 text-destructive">
-            *
-          </span>
-        ) : null}
-      </FieldLabel>
-      {children}
-      {error ? <FieldError id={`${id}-error`}>{error}</FieldError> : null}
-    </FormField>
-  );
-}
 type ReviewProps = {
   active: boolean;
   draftOnly?: boolean;
@@ -439,6 +411,17 @@ function HumanMeetingReviewForm({
           </Button>
         ) : null}
       </div>,
+    );
+  }
+
+  if (review.canEvaluate === false) {
+    return wrap(
+      <HumanMeetingReviewReadOnly
+        draftOnly={Boolean(draftOnly)}
+        onClose={requestClose}
+        review={review}
+        showClose={Boolean(renderShell)}
+      />,
     );
   }
 

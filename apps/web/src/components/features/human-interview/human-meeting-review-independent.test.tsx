@@ -130,3 +130,32 @@ it.each(["pass", "fail"] as const)(
     });
   },
 );
+
+it("lets only the round's interviewers write or submit an evaluation", async () => {
+  currentReview = reviewRecord({
+    canEvaluate: false,
+    personalEvaluation: true,
+    reviewerEvaluations: [
+      {
+        evaluation: { ...evaluation, overallEvaluation: "面试官的评价" },
+        id: "interviewer",
+        legacy: false,
+        outcome: "inconclusive",
+        reviewerId: "interviewer",
+        reviewerName: "本轮面试官",
+        submittedAt: "2026-10-19T00:00:00Z",
+        updatedAt: "2026-10-19T00:00:00Z",
+        version: 1,
+      },
+    ],
+  });
+  const container = await renderReview();
+
+  expect(container.querySelector("output")?.textContent).toContain(
+    "只有本轮面试官可以填写和提交评价",
+  );
+  expect(container.textContent).toContain("本轮面试官");
+  const actions = [...container.querySelectorAll("button")].map((item) => item.textContent);
+  expect(actions).not.toContain("提交评价");
+  expect(actions).not.toContain("保存草稿");
+});
