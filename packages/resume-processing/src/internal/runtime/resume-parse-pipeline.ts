@@ -32,7 +32,7 @@ import { defaultResumeParsePipelineDependencies } from "./resume-parse-pipeline-
 import type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 import { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
 import { describeResumeParseError } from "./resume-parse-error";
-import { ocrImageMediaType } from "./pdf-rasterize";
+import { ocrImageMediaType, prepareImageForOcr } from "./pdf-rasterize";
 
 export type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 
@@ -245,7 +245,10 @@ function toOcrTextPreview(text: string) {
   return text.trim().replaceAll(/\s+/g, " ").slice(0, OCR_PAGE_TEXT_PREVIEW_MAX_CHARS);
 }
 
-function inferImageMediaType(input: { fileName?: string; mediaType?: string }): string {
+function inferImageMediaType(input: {
+  fileName?: string;
+  mediaType?: string;
+}): "image/jpeg" | "image/png" {
   const normalizedMediaType = input.mediaType?.trim().toLowerCase();
   if (normalizedMediaType === "image/jpeg" || normalizedMediaType === "image/png") {
     return normalizedMediaType;
@@ -597,7 +600,7 @@ async function extractImageText(
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
 
-  const mediaType = inferImageMediaType(input);
+  const { image, mediaType } = await prepareImageForOcr(input.bytes, inferImageMediaType(input));
   const startedAt = nowMs();
   emitResumeParseProgress(input.onProgress, {
     renderedPages: 1,
@@ -609,7 +612,7 @@ async function extractImageText(
     totalPages: 1,
     type: "ocr.page.started",
   });
-  const text = await qwenVlOcrWithRetry(Buffer.from(input.bytes), 1, mediaType, dependencies);
+  const text = await qwenVlOcrWithRetry(image, 1, mediaType, dependencies);
   emitResumeParseProgress(input.onProgress, {
     charCount: text.length,
     page: 1,
@@ -621,6 +624,7 @@ async function extractImageText(
     bytes: input.bytes.byteLength,
     duration: formatDuration(startedAt),
     mediaType,
+    ocrBytes: image.byteLength,
     outputChars: text.length,
   });
 

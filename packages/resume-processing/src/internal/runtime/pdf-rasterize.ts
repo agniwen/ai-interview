@@ -91,6 +91,29 @@ function toBuffer(bytes: Uint8Array): Buffer {
   return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
+function renderPageWithinOcrLimit(
+  mupdf: MupdfModule,
+  page: MupdfModuleNs.Page,
+  requestedScale: number,
+  allowPng: boolean,
+): Buffer {
+  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = page.getBounds();
+  const area = (x1 - x0) * (y1 - y0);
+  const scale =
+    area > 0
+      ? Math.min(requestedScale, Math.sqrt(OCR_MAX_PIXELS / area) * OCR_SCALE_ROUNDING_MARGIN)
+      : requestedScale;
+  const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB, false);
+  try {
+    return encodeWithinOcrLimit([
+      ...(allowPng ? [() => toBuffer(pixmap.asPNG())] : []),
+      ...OCR_JPEG_QUALITIES.map((quality) => () => toBuffer(pixmap.asJPEG(quality))),
+    ]);
+  } finally {
+    pixmap.destroy();
+  }
+}
+
 function renderPdfPage(
   mupdf: MupdfModule,
   doc: MupdfModuleNs.Document,
@@ -99,27 +122,64 @@ function renderPdfPage(
 ): Buffer {
   const page = doc.loadPage(index);
   try {
-    const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = page.getBounds();
-    const area = (x1 - x0) * (y1 - y0);
-    const scale =
-      area > 0
-        ? Math.min(requestedScale, Math.sqrt(OCR_MAX_PIXELS / area) * OCR_SCALE_ROUNDING_MARGIN)
-        : requestedScale;
-    const pixmap = page.toPixmap(
-      mupdf.Matrix.scale(scale, scale),
-      mupdf.ColorSpace.DeviceRGB,
-      false,
-    );
-    try {
-      return encodeWithinOcrLimit([
-        () => toBuffer(pixmap.asPNG()),
-        ...OCR_JPEG_QUALITIES.map((quality) => () => toBuffer(pixmap.asJPEG(quality))),
-      ]);
-    } finally {
-      pixmap.destroy();
-    }
+    return renderPageWithinOcrLimit(mupdf, page, requestedScale, true);
   } finally {
     page.destroy();
+  }
+}
+
+export interface OcrImage {
+  image: Buffer;
+  mediaType: "image/jpeg" | "image/png";
+}
+
+function readImagePixels(mupdf: MupdfModule, bytes: Uint8Array): number | null {
+  try {
+    const image = new mupdf.Image(bytes);
+    try {
+      return image.getWidth() * image.getHeight();
+    } finally {
+      image.destroy();
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Shrinks an uploaded image resume to Qwen OCR's pixel and size limits. Images already within
+ * both limits, or ones mupdf cannot decode, are returned byte-for-byte so OCR sees the original.
+ */
+export async function prepareImageForOcr(
+  bytes: Uint8Array,
+  mediaType: "image/jpeg" | "image/png",
+): Promise<OcrImage> {
+  const original = { image: toBuffer(bytes), mediaType };
+  const mupdf = await loadMupdf();
+  const nativePixels = readImagePixels(mupdf, bytes);
+  if (
+    nativePixels === null ||
+    (nativePixels <= OCR_MAX_PIXELS && bytes.byteLength <= OCR_MAX_IMAGE_BYTES)
+  ) {
+    return original;
+  }
+  // The image document applies EXIF orientation and sizes the page from the image DPI, so
+  // render at the scale that maps the page back to its native pixel count.
+  const doc = mupdf.Document.openDocument(bytes, mediaType);
+  try {
+    const page = doc.loadPage(0);
+    try {
+      const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = page.getBounds();
+      const area = (x1 - x0) * (y1 - y0);
+      const nativeScale = area > 0 ? Math.sqrt(nativePixels / area) : 1;
+      // Photos re-encoded as PNG grow far beyond the byte limit; keep JPEG sources as JPEG.
+      const image = renderPageWithinOcrLimit(mupdf, page, nativeScale, mediaType === "image/png");
+      return { image, mediaType: ocrImageMediaType(image) };
+    } finally {
+      page.destroy();
+    }
+  } finally {
+    doc.destroy();
   }
 }
 
