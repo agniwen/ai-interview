@@ -16,12 +16,17 @@ interface StageComposition {
   viewBox: string;
 }
 
+// 路径控制点按曲率连续性整理过：多段曲线在接点两侧曲率相近、不再突然反向，单段曲线去掉了端部的
+// 急弯，整体走势与原构图偏差在 8px（两条长 S 线约 17px）以内。改动构图时请保持控制柄长度均衡。
+// Control points are tuned for curvature continuity: joints no longer flip curvature abruptly and
+// single curves lose their end hooks, staying within ~8px of the original course (~17px for the two
+// long S lines). Keep handle lengths balanced when editing the composition.
 const HERO_COMPOSITION = {
   dashes: [
-    "M0 96C320 60 520 450 850 545S1430 760 1720 640",
-    "M352 -20C300 250 530 430 250 940",
-    "M1720 300C1390 360 1210 130 1270 -40",
-    "M1090 940C1180 700 1500 610 1720 830",
+    "M0 96C319 104 460 370 850 545C1128 670 1469 720 1720 640",
+    "M352 -20C333 302 497 520 250 940",
+    "M1720 300C1402 367 1230 149 1270 -40",
+    "M1090 940C1197 690 1531 628 1720 830",
   ],
   focusPoints: [
     { cx: 132, cy: 82, r: 7 },
@@ -29,10 +34,14 @@ const HERO_COMPOSITION = {
     { cx: 1612, cy: 778, r: 6 },
   ],
   ribbons: [
-    { d: "M-120 170C240 110 430 520 780 610S1310 960 1560 1040", strong: true, width: 132 },
-    { d: "M1800 90C1520 250 1390 110 1200 -80", strong: true, width: 96 },
-    { d: "M250 -80C390 220 170 430 -90 540", strong: false, width: 78 },
-    { d: "M1800 690C1520 640 1420 830 1320 1010", strong: false, width: 88 },
+    {
+      d: "M-120 170C178 150 406 440 780 610C1299 846 1340 920 1560 1040",
+      strong: true,
+      width: 132,
+    },
+    { d: "M1800 90C1598 236 1349 120 1200 -80", strong: true, width: 96 },
+    { d: "M250 -80C376 185 174 461 -90 540", strong: false, width: 78 },
+    { d: "M1800 690C1569 644 1385 828 1320 1010", strong: false, width: 88 },
   ],
   viewBox: "0 0 1680 904",
 } satisfies StageComposition;
@@ -44,20 +53,20 @@ const COMPOSITIONS = {
   hero: HERO_COMPOSITION,
   panel: {
     dashes: [
-      "M0 470C260 420 420 640 700 740",
-      "M960 230C760 250 640 90 700 -20",
-      "M120 -10C180 160 60 300 -10 360",
-      "M960 600C840 610 760 700 780 740",
+      "M0 470C265 444 448 631 700 740",
+      "M960 230C775 262 660 112 700 -20",
+      "M120 -10C160 175 62 300 -10 360",
+      "M960 600C873 595 796 656 780 740",
     ],
     focusPoints: [
       { cx: 92, cy: 462, r: 6 },
       { cx: 884, cy: 236, r: 7 },
     ],
     ribbons: [
-      { d: "M-80 560C200 470 360 700 620 800", strong: true, width: 110 },
-      { d: "M1040 120C820 160 760 -20 640 -90", strong: true, width: 90 },
-      { d: "M-60 90C150 140 240 -10 300 -80", strong: false, width: 60 },
-      { d: "M1040 520C900 560 860 700 900 820", strong: false, width: 70 },
+      { d: "M-80 560C188 485 395 694 620 800", strong: true, width: 110 },
+      { d: "M1040 120C874 151 738 1 640 -90", strong: true, width: 90 },
+      { d: "M-60 90C86 116 230 46 300 -80", strong: false, width: 60 },
+      { d: "M1040 520C920 566 858 699 900 820", strong: false, width: 70 },
     ],
     viewBox: "0 0 960 720",
   },

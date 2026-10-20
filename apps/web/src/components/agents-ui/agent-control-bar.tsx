@@ -36,20 +36,22 @@ import {
 } from "@/lib/client/microphone-device";
 import { cn } from "@app/shared/utils";
 
-const LK_TOGGLE_VARIANT_1 = [
-  "data-[state=off]:bg-accent data-[state=off]:hover:bg-foreground/10",
-  "data-[state=off]:[&_~_button]:bg-accent data-[state=off]:[&_~_button]:hover:bg-foreground/10",
-  "data-[state=off]:border-border data-[state=off]:hover:border-foreground/12",
-  "data-[state=off]:[&_~_button]:border-border data-[state=off]:[&_~_button]:hover:border-foreground/12",
-  "data-[state=off]:text-destructive data-[state=off]:hover:text-destructive data-[state=off]:focus:text-destructive",
-  "data-[state=off]:focus-visible:ring-foreground/12 data-[state=off]:focus-visible:border-ring",
-  "dark:data-[state=off]:[&_~_button]:bg-accent dark:data-[state=off]:[&_~_button]:hover:bg-foreground/10",
+// 麦克风开关与设备下拉合成一颗胶囊：底色只放在外层，两段按钮透明，避免两侧底色不一致。
+// 静音时整颗胶囊变为浅红。Toggle 用 data-pressed，下拉用 data-track-state 表示开关状态。
+// / One pill for the mic toggle and device select: the fill lives on the wrapper so both halves
+// always match, turning light red while muted.
+const LK_MIC_GROUP_VARIANT = [
+  "rounded-full bg-muted transition-colors",
+  "has-[[data-track-state=off]]:bg-destructive/10 has-[[data-track-state=off]]:text-destructive",
+  "[&_button]:bg-transparent! [&_button]:shadow-none [&_button]:hover:bg-foreground/6!",
+  "[&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
+  "[&_button:last-child]:relative [&_button:last-child]:before:absolute [&_button:last-child]:before:inset-y-2 [&_button:last-child]:before:left-0 [&_button:last-child]:before:w-px [&_button:last-child]:before:bg-foreground/10",
 ];
 
 const LK_ACTION_TOGGLE_VARIANT = [
-  "bg-transparent text-foreground hover:bg-accent/60 hover:text-foreground",
-  "data-pressed:bg-accent data-pressed:text-accent-foreground",
-  "data-pressed:hover:bg-accent",
+  "bg-transparent text-foreground hover:bg-muted hover:text-foreground",
+  "data-pressed:bg-muted data-pressed:text-foreground",
+  "data-pressed:hover:bg-foreground/8",
   "focus-visible:border-ring focus-visible:ring-foreground/12",
 ];
 
@@ -77,20 +79,9 @@ interface AgentChatInputProps {
   chatOpen: boolean;
   onSend?: (message: string) => void;
   className?: string;
-  /**
-   * When false, disables the textarea and send button so candidates cannot
-   * submit text replies. Defaults to true.
-   * 当为 false 时，禁用输入框与发送按钮（用于轮次未开启文本作答的场景）。
-   */
-  inputEnabled?: boolean;
 }
 
-function AgentChatInput({
-  chatOpen,
-  onSend = async () => {},
-  className,
-  inputEnabled = true,
-}: AgentChatInputProps) {
+function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentChatInputProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState<string>("");
@@ -99,10 +90,9 @@ function AgentChatInput({
   // Covers connecting, initializing, pre-connect-buffering, thinking, speaking,
   // disconnected, and failed — all should block the send button.
   const isAgentReady = agentState === "listening" || agentState === "idle";
-  const isDisabled = !inputEnabled || isSending || !isAgentReady || message.trim().length === 0;
-  const placeholderHint = !inputEnabled
-    ? "本轮未开启文本作答"
-    : agentState === "speaking"
+  const isDisabled = isSending || !isAgentReady || message.trim().length === 0;
+  const placeholderHint =
+    agentState === "speaking"
       ? "面试官讲话中，请稍候..."
       : agentState === "thinking"
         ? "面试官思考中，请稍候..."
@@ -152,11 +142,11 @@ function AgentChatInput({
   // disabled in the DOM until React flushes the isSending/agentState change —
   // focus() on a disabled element is a no-op.
   useEffect(() => {
-    if (!chatOpen || isSending || !isAgentReady || !inputEnabled) {
+    if (!chatOpen || isSending || !isAgentReady) {
       return;
     }
     inputRef.current?.focus();
-  }, [chatOpen, isSending, isAgentReady, inputEnabled]);
+  }, [chatOpen, isSending, isAgentReady]);
 
   return (
     <div className={cn("mb-3 flex grow items-end gap-2 rounded-md pl-1 text-sm", className)}>
@@ -164,7 +154,7 @@ function AgentChatInput({
         autoFocus
         ref={inputRef}
         value={message}
-        disabled={!chatOpen || isSending || !inputEnabled}
+        disabled={!chatOpen || isSending}
         placeholder={placeholderHint}
         onKeyDown={handleKeyDown}
         onChange={(e) => setMessage(e.target.value)}
@@ -260,8 +250,8 @@ export interface AgentControlBarProps extends UseInputControlsProps {
   isChatOpen?: boolean;
   /**
    * Whether the candidate is allowed to submit text replies. When false the
-   * textarea + send button are rendered disabled. Defaults to true.
-   * 是否允许候选人通过文本回复；为 false 时文本输入框处于禁用状态。
+   * composer is not rendered; the chat toggle still opens the transcript.
+   * 是否允许候选人通过文本回复；为 false 时不渲染输入框，聊天按钮仍可查看对话记录。
    *
    * @default true
    */
@@ -392,19 +382,22 @@ export function AgentControlBar({
           visibleControls.microphone && "relative z-10 rounded-b-[24px] bg-background p-3",
         )}
       >
-        <motion.div
-          {...MOTION_PROPS}
-          inert={!isChatOpenEffective}
-          animate={isChatOpenEffective ? "visible" : "hidden"}
-          className="border-input/50 flex w-full items-start overflow-hidden border-b"
-        >
-          <AgentChatInput
-            chatOpen={isChatOpenEffective}
-            inputEnabled={chatInputEnabled}
-            onSend={handleSendMessage}
-            className={cn(variant === "livekit" && "[&_button]:rounded-full")}
-          />
-        </motion.div>
+        {/* 轮次未开启文本作答时不渲染输入框；聊天按钮仍可打开对话记录。
+            / No composer when text answers are off; the chat toggle still opens the transcript. */}
+        {chatInputEnabled ? (
+          <motion.div
+            {...MOTION_PROPS}
+            inert={!isChatOpenEffective}
+            animate={isChatOpenEffective ? "visible" : "hidden"}
+            className="border-input/50 flex w-full items-start overflow-hidden border-b"
+          >
+            <AgentChatInput
+              chatOpen={isChatOpenEffective}
+              onSend={handleSendMessage}
+              className={cn(variant === "livekit" && "[&_button]:rounded-full")}
+            />
+          </motion.div>
+        ) : null}
 
         <div className="flex gap-1">
           <div className="flex grow gap-1">
@@ -422,12 +415,7 @@ export function AgentControlBar({
                 onPressedChange={microphoneToggle.toggle}
                 onActiveDeviceChange={handleAudioDeviceChange}
                 onMediaDeviceError={handleMicrophoneDeviceSelectError}
-                className={cn(
-                  variant === "livekit" && [
-                    LK_TOGGLE_VARIANT_1,
-                    "rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
-                  ],
-                )}
+                className={cn(variant === "livekit" && LK_MIC_GROUP_VARIANT)}
               />
             )}
 

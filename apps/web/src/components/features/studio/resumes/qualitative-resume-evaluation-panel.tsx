@@ -201,7 +201,7 @@ export function QualitativeRecommendationBadge({
   return (
     <span
       className={cn(
-        "inline-flex w-fit shrink-0 items-center rounded-md font-medium",
+        "inline-flex w-fit shrink-0 items-center rounded-lg font-medium",
         RECOMMENDATION_BADGE_SIZE_CLASS[size],
         meta.className,
         LEVEL_SURFACE_CLASS[level],
