@@ -260,7 +260,7 @@ function renderSessionItem({
             render={
               <Button
                 aria-label="删除聊天记录"
-                className="absolute right-0 size-7 cursor-default rounded-md opacity-0 transition-opacity group-focus-within/session-item:opacity-100 group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive focus-visible:opacity-100 data-popup-open:opacity-100"
+                className="absolute right-0 size-7 cursor-default rounded-lg opacity-0 transition-opacity group-focus-within/session-item:opacity-100 group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive focus-visible:opacity-100 data-popup-open:opacity-100"
                 disabled={isDeletingThisConversation}
                 onClick={(event) => {
                   event.stopPropagation();

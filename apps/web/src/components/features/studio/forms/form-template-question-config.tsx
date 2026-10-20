@@ -74,7 +74,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
     }
 
     return (
-      <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 text-muted-foreground text-sm">
+      <div className="flex h-9 items-center rounded-lg border border-input bg-background px-3 text-muted-foreground text-sm">
         请输入你的回答…
       </div>
     );
@@ -92,7 +92,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
     <div className="space-y-1.5">
       {question.options.map((option) => (
         <div
-          className="flex min-h-11 items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent"
+          className="flex min-h-11 items-center gap-3 rounded-lg border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent"
           key={option.value}
         >
           <span
@@ -112,7 +112,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
 
 function PreviewSelect({ placeholder }: { placeholder: string }) {
   return (
-    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm">
+    <div className="flex h-10 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-muted-foreground text-sm">
       <span>{placeholder}</span>
       <IconChevronDown className="size-4 shrink-0 opacity-50" />
     </div>

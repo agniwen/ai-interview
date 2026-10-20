@@ -50,7 +50,7 @@ function MeetingInfo() {
       <HoverCardTrigger
         render={
           <button
-            className="-ml-2 inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 font-medium text-foreground text-sm whitespace-nowrap hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            className="-ml-2 inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 font-medium text-foreground text-sm whitespace-nowrap hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
             onClick={() => setOpen(true)}
             type="button"
           >

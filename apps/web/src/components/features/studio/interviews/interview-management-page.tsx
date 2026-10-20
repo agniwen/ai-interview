@@ -314,7 +314,7 @@ export function InterviewManagementPage() {
               {r.hasResumeFile && previewable ? (
                 <button
                   aria-label={previewTitle}
-                  className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

@@ -75,7 +75,7 @@ export function QuestionView({
       >
         {question.options.map((option) => (
           <Label
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
             htmlFor={`${inputId}-${option.value}`}
             key={option.value}
           >
@@ -133,7 +133,7 @@ export function QuestionView({
           const checked = selected.has(option.value);
           return (
             <Label
-              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
               htmlFor={`${inputId}-${option.value}`}
               key={option.value}
             >

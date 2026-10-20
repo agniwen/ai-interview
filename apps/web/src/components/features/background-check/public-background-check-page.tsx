@@ -294,7 +294,7 @@ export function PublicBackgroundCheckPage({
                   <RequiredMark />
                 </Label>
                 <select
-                  className="h-9 rounded-md border bg-background px-3 text-sm"
+                  className="h-9 rounded-lg border bg-background px-3 text-sm"
                   id="background-gender"
                   required
                   value={form.gender}
@@ -411,7 +411,7 @@ export function PublicBackgroundCheckPage({
                       <RequiredMark />
                     </Label>
                     <select
-                      className="h-9 rounded-md border bg-background px-3 text-sm"
+                      className="h-9 rounded-lg border bg-background px-3 text-sm"
                       id={`employment-left-${index}`}
                       required
                       value={booleanChoiceValue(record.hasLeftCompany)}
@@ -436,7 +436,7 @@ export function PublicBackgroundCheckPage({
                       离职原因{record.hasLeftCompany === true ? <RequiredMark /> : null}
                     </Label>
                     <select
-                      className="h-9 rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-9 rounded-lg border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={record.hasLeftCompany !== true}
                       id={`employment-reason-${index}`}
                       required={record.hasLeftCompany === true}
@@ -490,7 +490,7 @@ export function PublicBackgroundCheckPage({
                         />
                       ) : (
                         <div
-                          className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-muted-foreground text-sm"
+                          className="flex h-9 items-center rounded-lg border bg-muted/40 px-3 text-muted-foreground text-sm"
                           id={`employment-end-${index}`}
                         >
                           {record.hasLeftCompany === false ? "至今" : "请先选择是否已离职"}
@@ -555,7 +555,7 @@ export function PublicBackgroundCheckPage({
                     <RequiredMark />
                   </Label>
                   <select
-                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                    className="h-9 rounded-lg border bg-background px-3 text-sm"
                     id={`contact-permission-${index}`}
                     required
                     value={booleanChoiceValue(record.contactPermission)}

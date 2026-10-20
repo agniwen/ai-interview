@@ -38,7 +38,7 @@ import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/di
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { Frame, FrameFooter, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from "@/components/ui/label";
 import {
@@ -181,7 +181,6 @@ export function RoundCard({
             </h4>
           </FrameTitle>
         </div>
-        {meeting?.status === "ended" ? meetingDetailLink : null}
       </FrameHeader>
       <FramePanel className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
@@ -260,6 +259,11 @@ export function RoundCard({
           slug={slug}
         />
       </FramePanel>
+      {meeting?.status === "ended" && meetingDetailLink ? (
+        <FrameFooter className="flex min-h-10 items-center justify-end px-4 py-2">
+          {meetingDetailLink}
+        </FrameFooter>
+      ) : null}
     </Frame>
   );
 }

@@ -213,7 +213,7 @@ function SidebarUserSection() {
     <div className="px-2 pt-1 pb-1">
       <button
         type="button"
-        className="flex h-9 w-full items-center gap-2 rounded-lg px-2 hover:bg-sidebar-accent"
+        className="flex h-9 w-full items-center gap-2 rounded-[14px] px-1.5 hover:bg-sidebar-accent"
       >
         <Avatar
           label={m.home_frame_candidate_avatar({ name: recruiter })}
