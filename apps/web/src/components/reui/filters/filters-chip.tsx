@@ -74,7 +74,16 @@ type ChipSegment = "operator" | "value" | "menu";
  *  can spread onto any element without a cast, and a no-op here. */
 const noopAutoFocusRef: React.RefCallback<HTMLElement> = () => {};
 
-const IMPLICIT_OPERATOR_VALUES = new Set(["contains", "is", "is_any_of"]);
+// `has_all_of`、`gte` / `lte` 由字段文案说明（如“已选 2 个技能（同时具备）”、“起始日期”）。
+// / `has_all_of`, `gte` and `lte` are spelled out by the field copy (summary, "起始日期") instead.
+const IMPLICIT_OPERATOR_VALUES = new Set([
+  "contains",
+  "is",
+  "is_any_of",
+  "has_all_of",
+  "gte",
+  "lte",
+]);
 
 function defaultValueDisplay<V>(
   value: V | undefined,
@@ -835,7 +844,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
   // behind it is gated. That puts "Convert to advanced filter" out of reach
   // while locked; a consumer-composed menu still draws it.
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const inlineTextId = React.useId();
+  const valueControlId = React.useId();
   // Exactly one chip is in the tab order at a time. Before anything has been
   // focused that is the first chip, so Tab reaches the row in one press.
   const isTabStop = focused || (noFocus && index === 0);
@@ -843,7 +852,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
   const field = getFilterField(actions.index, rule.path);
   const operators = field ? actions.resolveOperators(field) : [];
   const operator = getFilterOperator(operators, rule.operator);
-  // 唯一且语义默认的操作符（包含 / 是 / 属于任意）无可选择，不单独占一段。
+  // 唯一的操作符（包含 / 是 / 属于任意 / 同时具备 / 不早于 / 不晚于）无可选择，不单独占一段。
   // / A sole default operator offers no choice, so it gets no segment of its own.
   const operatorImplicit =
     operator !== undefined &&
@@ -951,11 +960,11 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
       }}
       data-index={index}
     >
-      {/* DISPLAY ONLY: not a button, not a tab stop, no popover. The attribute
-          is fixed for the life of the chip. Beside an inline text value it is
-          that input's <label>, so a click on the field name focuses it. */}
+      {/* Not a button, not a tab stop, no popover of its own: the <label> of
+          the value control, so a click on the field name focuses the inline
+          input or activates the value trigger (opening its editor). */}
       <ButtonGroupText
-        render={hasValue && inlineText ? <label htmlFor={inlineTextId} /> : undefined}
+        render={hasValue ? <label htmlFor={valueControlId} /> : undefined}
         /* Dropped while the path is collapsed: the ellipsis inside carries the
            same sentence as a tooltip, and the two would stack. */
         title={pathCollapsed ? undefined : pathText}
@@ -992,7 +1001,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
       {/* No condition, no value: `getFilterArity(undefined)` defaults to "one",
           so testing the operator alone renders a stray value segment. */}
       {hasValue && inlineText ? (
-        <FilterInlineText id={inlineTextId} rule={rule} field={field} />
+        <FilterInlineText id={valueControlId} rule={rule} field={field} />
       ) : hasValue ? (
         <FilterValuePopover
           rule={rule}
@@ -1000,6 +1009,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
           operator={operator}
           trigger={
             <ButtonGroupText
+              id={valueControlId}
               render={<button type="button" />}
               /* Named explicitly rather than by its contents: avatars or a
                  "+2" badge, and "plus two" says nothing about two people. It

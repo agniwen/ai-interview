@@ -408,7 +408,9 @@ describe("Toolbar filter editing", () => {
     await openChipValue("起始日期");
     expect(document.querySelector('[data-slot="calendar"]')).not.toBeNull();
     expect(document.querySelector('input[type="date"]')).toBeNull();
-    expect(document.querySelector('[data-slot="filter-chip"]')?.textContent).toContain("不早于");
+    const chip = document.querySelector('[data-slot="filter-chip"]');
+    expect(chip?.textContent).not.toContain("不早于");
+    expect(chip?.getAttribute("aria-label")).toContain("不早于");
     expect(onChange).not.toHaveBeenCalled();
     const today = formatDatePickerValue(new Date());
     await selectDate(today);
@@ -505,12 +507,12 @@ describe("Toolbar filter editing", () => {
       roots.push(root);
       await clickText("button", "添加筛选");
       await clickText('[role="option"]', "技能");
-      // 唯一的默认操作符（属于任意）不单独显示；改变语义的“同时具备”仍要说出来。
-      const chipText = document.querySelector('[data-slot="filter-chip"]')?.textContent;
+      // 唯一的操作符不单独占一段；“同时具备”的语义仍保留在筛选项的无障碍名称里。
+      const chip = document.querySelector('[data-slot="filter-chip"]');
+      const operatorLabel = match === "all" ? "同时具备" : "属于任意";
+      expect(chip?.textContent).not.toContain(operatorLabel);
       if (match === "all") {
-        expect(chipText).toContain("同时具备");
-      } else {
-        expect(chipText).not.toContain("属于任意");
+        expect(chip?.getAttribute("aria-label")).toContain(operatorLabel);
       }
       expect(onChange).not.toHaveBeenCalled();
       await openChipValue("技能");
