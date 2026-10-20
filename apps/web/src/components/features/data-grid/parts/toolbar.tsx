@@ -132,6 +132,25 @@ export function Toolbar({
   ) {
     return null;
   }
+  const actions = (
+    <>
+      {filtersExtra}
+      {onResetFilters ? (
+        <Button disabled={!canClear} onClick={clearFilterValues} size="default" variant="outline">
+          <IconFilterX data-icon="inline-start" />
+          <span>清空筛选</span>
+        </Button>
+      ) : null}
+      {onRefresh ? (
+        <Button disabled={refreshing} onClick={onRefresh} size="default" variant="outline">
+          <IconRefresh data-icon="inline-start" className={cn(refreshing && "animate-spin")} />
+          <span>刷新</span>
+        </Button>
+      ) : null}
+      {toolbarRight ? <div>{toolbarRight}</div> : null}
+      {bulkActionsSlot}
+    </>
+  );
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2" data-slot="data-grid-toolbar">
       {directFilters.length > 0 ? (
@@ -224,42 +243,23 @@ export function Toolbar({
           })}
         </div>
       ) : null}
-      {conditions.length > 0 || filtersExtra ? (
+      {conditions.length > 0 ? (
+        <FilterConditions
+          actions={actions}
+          configs={conditions}
+          selected={selected}
+          onSelectionChange={setSelected}
+          onChange={onFilterChange}
+          values={filterValues}
+        />
+      ) : (
         <div
           className="flex min-w-0 flex-wrap items-center gap-2"
-          data-slot="data-grid-toolbar-filters"
+          data-slot="data-grid-toolbar-actions"
         >
-          {conditions.length > 0 ? (
-            <FilterConditions
-              configs={conditions}
-              selected={selected}
-              onSelectionChange={setSelected}
-              onChange={onFilterChange}
-              values={filterValues}
-            />
-          ) : null}
-          {filtersExtra}
+          {actions}
         </div>
-      ) : null}
-      <div
-        className="flex min-w-0 flex-wrap items-center gap-2"
-        data-slot="data-grid-toolbar-actions"
-      >
-        {onResetFilters ? (
-          <Button disabled={!canClear} onClick={clearFilterValues} size="default" variant="outline">
-            <IconFilterX data-icon="inline-start" />
-            <span>清空筛选</span>
-          </Button>
-        ) : null}
-        {onRefresh ? (
-          <Button disabled={refreshing} onClick={onRefresh} size="default" variant="outline">
-            <IconRefresh data-icon="inline-start" className={cn(refreshing && "animate-spin")} />
-            <span>刷新</span>
-          </Button>
-        ) : null}
-        {toolbarRight ? <div>{toolbarRight}</div> : null}
-        {bulkActionsSlot}
-      </div>
+      )}
     </div>
   );
 }

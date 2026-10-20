@@ -26,7 +26,7 @@ export { resolvePlatformSidebarNavItem };
 
 export function PlatformSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { state } = useSidebar();
+  const { isMobile, state } = useSidebar();
   const activeNavItem = resolvePlatformSidebarNavItem(pathname);
   const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
     useSidebarMenuHoverHighlight();
@@ -74,7 +74,7 @@ export function PlatformSidebarSlots() {
       <SidebarFooterPortalContent>
         <SidebarUserSection
           callbackURL="/platform/organizations"
-          collapsed={state === "collapsed"}
+          collapsed={!isMobile && state === "collapsed"}
           showHomeLink={true}
         />
       </SidebarFooterPortalContent>

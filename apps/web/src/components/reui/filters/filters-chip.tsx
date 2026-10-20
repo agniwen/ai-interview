@@ -931,7 +931,12 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
       data-incomplete={incomplete || undefined}
       data-rule-id={rule.id}
       tabIndex={isTabStop ? 0 : -1}
-      className={cn("max-w-full min-w-0")}
+      className={cn(
+        "max-w-full min-w-0",
+        // 没有菜单按钮撑高度时，按控件档位给出同样的高度。
+        // / Without the kebab to set the height, match the control rung directly.
+        actions.variant === "basic" && (sizes.button === "sm" ? "h-8" : "h-9"),
+      )}
       onFocusCapture={() => {
         if (!focused) focusStore.set({ id: rule.id, segment: null, autoOpen: false });
       }}
@@ -1003,18 +1008,9 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
         />
       ) : null}
 
-      {actions.variant === "basic" ? (
-        <Button
-          variant="outline"
-          size={sizes.icon}
-          aria-label={`移除${field.label}筛选`}
-          disabled={actions.disabled}
-          {...filterReadOnlyProps(actions)}
-          onClick={() => actions.removeNode(rule.id)}
-        >
-          <IconX />
-        </Button>
-      ) : (
+      {/* 基础筛选栏不放移除按钮：字段的增删统一在“添加筛选”清单里勾选/取消。
+          / The basic bar has no remove button; fields are toggled in the Add filter checklist. */}
+      {actions.variant === "basic" ? null : (
         <DropdownMenu
           open={menuOpen}
           onOpenChange={(next) => {

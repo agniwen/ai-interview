@@ -51,7 +51,7 @@ export function FilterInlineText<V, O>({
       ref={inputRef}
       aria-label={field.label}
       placeholder={field.placeholder ?? actions.labels.valuePlaceholder}
-      className="h-auto min-h-8 w-40 min-w-16 max-w-64 self-stretch rounded-none border-l-0 has-focus-visible:shadow-none"
+      className="h-auto min-h-8 w-40 min-w-16 max-w-64 self-stretch rounded-l-none border-l-0 has-focus-visible:shadow-none"
       value={state.draft}
       readOnly={locked}
       disabled={actions.disabled}

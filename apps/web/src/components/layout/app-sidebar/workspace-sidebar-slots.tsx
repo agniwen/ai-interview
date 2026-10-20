@@ -18,7 +18,7 @@ export function WorkspaceSidebarSlots() {
   // oxlint-disable-next-line react/refs -- The ref is read by a post-render callback or transition calculation.
   const direction = resolveSidebarSlotDirection(previousTabRef.current, activeTab);
   const slug = useWorkspaceSlug();
-  const { state } = useSidebar();
+  const { isMobile, state } = useSidebar();
 
   useEffect(() => {
     previousTabRef.current = activeTab;
@@ -34,7 +34,7 @@ export function WorkspaceSidebarSlots() {
       <SidebarFooterPortalContent>
         <SidebarUserSection
           callbackURL={callbackURL}
-          collapsed={state === "collapsed"}
+          collapsed={!isMobile && state === "collapsed"}
           showHomeLink={false}
         />
       </SidebarFooterPortalContent>

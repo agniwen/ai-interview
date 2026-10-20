@@ -56,7 +56,7 @@ describe("Toolbar", () => {
     expect(html).toContain("岗位 B");
     expect(html).toContain("+1");
     expect(html).toContain("属于任意");
-    expect(html).toContain("移除全部岗位筛选");
+    expect(html).not.toContain("移除全部岗位筛选");
   });
 
   it("renders one or two independent filters directly", () => {
@@ -91,9 +91,11 @@ describe("Toolbar", () => {
         toolbarRight={<button type="button">创建记录</button>}
       />,
     );
-    expect(html.indexOf('data-slot="data-grid-toolbar-filters"')).toBeLessThan(
-      html.indexOf("清空筛选"),
-    );
+    const actionsStart = html.indexOf('data-slot="data-grid-toolbar-actions"');
+    expect(html.split('data-slot="data-grid-toolbar-actions"')).toHaveLength(2);
+    expect(html.indexOf('data-slot="filters"')).toBeLessThan(actionsStart);
+    expect(actionsStart).toBeLessThan(html.indexOf("添加筛选"));
+    expect(html.indexOf("添加筛选")).toBeLessThan(html.indexOf("清空筛选"));
     expect(html.indexOf("清空筛选")).toBeLessThan(html.indexOf(">刷新<"));
     expect(html.indexOf(">刷新<")).toBeLessThan(html.indexOf("创建记录"));
   });

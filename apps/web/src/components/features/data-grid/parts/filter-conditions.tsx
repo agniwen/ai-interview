@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Filters } from "@/components/reui/filters/filters";
+import type { ReactNode } from "react";
+import { Filters, FiltersBuilder, FiltersRow } from "@/components/reui/filters/filters";
 import type { FilterField, FilterQuery } from "@/components/reui/filters/filters-types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getToolbarFilterOperator } from "./filter-config";
@@ -8,14 +9,10 @@ import { ToolbarDateEditor } from "./filter-date-editor";
 import { toolbarFilterLabels } from "./filter-labels";
 import { buildToolbarFilterQuery, toolbarFilterChanges } from "./filter-query";
 
-function buildField(
-  config: ToolbarConditionConfig,
-  active: boolean,
-): FilterField<ToolbarFilterValue> {
+function buildField(config: ToolbarConditionConfig): FilterField<ToolbarFilterValue> {
   const operator = getToolbarFilterOperator(config);
   const field: FilterField<ToolbarFilterValue> = {
     defaultOperator: operator.value,
-    disabled: active,
     id: config.key,
     label: config.label ?? config.placeholder ?? config.key,
     operators: [operator],
@@ -94,7 +91,10 @@ export function FilterConditions({
   onSelectionChange,
   values,
   onChange,
+  actions,
 }: {
+  /** 与“添加筛选”同处一个容器的其他操作。/ Toolbar actions sharing the Add filter container. */
+  actions?: ReactNode;
   configs: ToolbarConditionConfig[];
   selected: string[];
   onSelectionChange: (keys: string[]) => void;
@@ -119,16 +119,7 @@ export function FilterConditions({
     query = buildToolbarFilterQuery(configs, values, ids, selected);
     setState({ query, signature });
   }
-  const fields = useMemo(
-    () =>
-      configs.map((config) =>
-        buildField(
-          config,
-          query.rules.some((rule) => rule.type === "rule" && rule.path[0] === config.key),
-        ),
-      ),
-    [configs, query],
-  );
+  const fields = useMemo(() => configs.map((config) => buildField(config)), [configs]);
 
   function applyQuery(next: FilterQuery<ToolbarFilterValue>) {
     const changes = toolbarFilterChanges(next, configs, values);
@@ -151,13 +142,22 @@ export function FilterConditions({
 
   return (
     <Filters<ToolbarFilterValue>
-      className="min-w-0 max-w-full"
       fields={fields}
       labels={toolbarFilterLabels}
       query={query}
       onQueryChange={applyQuery}
       onBeforeQueryChange={(next) => toolbarFilterChanges(next, configs, values) !== null}
       variant="basic"
-    />
+    >
+      {/* 没有条件时整行移出布局，但保留其中的读屏播报区。/ An empty row leaves the layout but keeps its live region. */}
+      <FiltersRow className="min-w-0 max-w-full data-empty:sr-only" showBuilder={false} />
+      <div
+        className="flex min-w-0 flex-wrap items-center gap-2"
+        data-slot="data-grid-toolbar-actions"
+      >
+        <FiltersBuilder />
+        {actions}
+      </div>
+    </Filters>
   );
 }

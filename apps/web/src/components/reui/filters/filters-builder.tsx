@@ -23,6 +23,7 @@ import { CascaderVirtualItems } from "@/components/reui/cascader/cascader-virtua
 import {
   filterControlSizes,
   filterReadOnlyProps,
+  isFilterLocked,
   useFilterActions,
   useFilterState,
 } from "@/components/reui/filters/filters-context";
@@ -34,6 +35,7 @@ import {
   splitFilterPath,
 } from "@/components/reui/filters/filters-lib";
 import { getDefaultFilterOperator } from "@/components/reui/filters/filters-operators";
+import { createFilterRule, flattenFilterRules } from "@/components/reui/filters/filters-query";
 import type { FilterField } from "@/components/reui/filters/filters-types";
 
 import { cn } from "@app/shared/utils";
@@ -75,13 +77,19 @@ export interface FilterFieldPickerProps {
   query: string;
   onQueryChange: (query: string) => void;
   /** A field was chosen, with its starting operator already resolved. */
-  onSelect: (path: string[], defaultOperator: string | null) => void;
+  onSelect?: (path: string[], defaultOperator: string | null) => void;
   /** Viewport height before the list scrolls. */
   maxHeight?: number;
   /** Cascader-only strings; the `FilterLabels` bridge below covers the rest. */
   labels?: Partial<CascaderLabels>;
   /** Pinned footer rows, OUT of the option ring so arrows never land on one. */
   actions?: CascaderActionItem[];
+  /**
+   * 传入时切换为勾选清单：已勾选的字段路径，勾选/取消通过 `onToggle` 回调。
+   * / Turns the picker into a checklist of these joined field paths; toggles go to `onToggle`.
+   */
+  selected?: string[];
+  onToggle?: (path: string[], defaultOperator: string | null, checked: boolean) => void;
 }
 
 /**
@@ -97,6 +105,8 @@ export function FilterFieldPicker<V, O>({
   maxHeight = 260,
   labels: labelsProp,
   actions: actionItems,
+  selected,
+  onToggle,
 }: FilterFieldPickerProps) {
   const actions = useFilterActions<V, O>();
 
@@ -121,53 +131,92 @@ export function FilterFieldPicker<V, O>({
     [actions.labels, labelsProp],
   );
 
+  const defaultOperatorOf = (fieldPath: string[]) => {
+    const field = getFilterField(actions.index, fieldPath);
+    return field ? getDefaultFilterOperator(field, actions.resolveOperators(field)) : undefined;
+  };
+
+  const sharedProps = {
+    inline: true,
+    /* Pinned open: inline renders no popup and forces `open`, so the
+       single-select commit's `setOpen(false)` dismisses nothing. That avoids
+       the `multiple` plus `max` workaround and its `aria-multiselectable`. */
+    open: true,
+    onOpenChange: () => {},
+    items,
+    /* No `selectable` predicate: LEAVES commit, branches navigate. Honouring
+       a branch's opt-in made one click mean both drill and commit. */
+    searchScope: "deep" as const,
+    path,
+    onPathChange,
+    /* Controlled: the single-select arm of `commit()` never clears the query,
+       so an uncontrolled one would bleed into the next step. */
+    inputValue: query,
+    onInputValueChange: onQueryChange,
+    labels: cascaderLabels,
+    actions: actionItems,
+    /* Set here only: `CascaderList` takes its own `maxHeight` and that WINS,
+       so a second copy on the list is a divergence waiting to happen. */
+    maxHeight,
+  };
+
+  const panel = (
+    <CascaderPanel>
+      <CascaderNav>
+        <CascaderInput placeholder={actions.labels.searchFields} />
+      </CascaderNav>
+      <CascaderBreadcrumb />
+      <CascaderEmpty />
+      <CascaderList>
+        {/* WINDOWED: the picker is where scale lives and nothing here pins.
+          Below the threshold it renders what `CascaderItems` does. */}
+        <CascaderVirtualItems />
+      </CascaderList>
+      <CascaderFooter />
+      <CascaderStatus />
+    </CascaderPanel>
+  );
+
+  if (selected) {
+    return (
+      <Cascader
+        {...sharedProps}
+        multiple
+        value={selected}
+        onValueChange={(next) => {
+          const before = new Set(selected);
+          const after = new Set(next);
+          for (const value of next) {
+            if (before.has(value)) continue;
+            const fieldPath = splitFilterPath(value);
+            const operator = defaultOperatorOf(fieldPath);
+            if (operator !== undefined) onToggle?.(fieldPath, operator, true);
+          }
+          for (const value of selected) {
+            if (after.has(value)) continue;
+            onToggle?.(splitFilterPath(value), null, false);
+          }
+        }}
+      >
+        {panel}
+      </Cascader>
+    );
+  }
+
   return (
     <Cascader
-      inline
-      /* Pinned open: inline renders no popup and forces `open`, so the
-         single-select commit's `setOpen(false)` dismisses nothing. That avoids
-         the `multiple` plus `max` workaround and its `aria-multiselectable`. */
-      open
-      onOpenChange={() => {}}
-      items={items}
-      /* No `selectable` predicate: LEAVES commit, branches navigate. Honouring
-         a branch's opt-in made one click mean both drill and commit. */
-      searchScope="deep"
+      {...sharedProps}
       /* Nothing is ever selected, so the ~24px check gutter is dead space. */
       indicator={false}
-      path={path}
-      onPathChange={onPathChange}
-      /* Controlled: the single-select arm of `commit()` never clears the query,
-         so an uncontrolled one would bleed into the next step. */
-      inputValue={query}
-      onInputValueChange={onQueryChange}
       value=""
       onValueChange={(value) => {
         const nextPath = splitFilterPath(value);
-        const field = getFilterField(actions.index, nextPath);
-        if (!field) return;
-        onSelect(nextPath, getDefaultFilterOperator(field, actions.resolveOperators(field)));
+        const operator = defaultOperatorOf(nextPath);
+        if (operator === undefined) return;
+        onSelect?.(nextPath, operator);
       }}
-      labels={cascaderLabels}
-      actions={actionItems}
-      /* Set here only: `CascaderList` takes its own `maxHeight` and that WINS,
-         so a second copy on the list is a divergence waiting to happen. */
-      maxHeight={maxHeight}
     >
-      <CascaderPanel>
-        <CascaderNav>
-          <CascaderInput placeholder={actions.labels.searchFields} />
-        </CascaderNav>
-        <CascaderBreadcrumb />
-        <CascaderEmpty />
-        <CascaderList>
-          {/* WINDOWED: the picker is where scale lives and nothing here pins.
-            Below the threshold it renders what `CascaderItems` does. */}
-          <CascaderVirtualItems />
-        </CascaderList>
-        <CascaderFooter />
-        <CascaderStatus />
-      </CascaderPanel>
+      {panel}
     </Cascader>
   );
 }
@@ -195,14 +244,114 @@ export interface FiltersBuilderProps {
   className?: string;
 }
 
-/**
- * The Add filter popover. ONE panel, the field step: picking a field commits
- * the rule with its default operator and focuses its value. `open` derives from the
- * draft and `openCreate` is gated, so read-only and disabled shut every route.
- */
-export function FiltersBuilder<V, O>({ trigger, className }: FiltersBuilderProps) {
+/** The Add filter popover: a checklist in the basic bar, the create step in advanced. */
+export function FiltersBuilder<V, O>(props: FiltersBuilderProps) {
   const actions = useFilterActions<V, O>();
+  return actions.variant === "basic" ? (
+    <FiltersChecklistBuilder<V, O> {...props} />
+  ) : (
+    <FiltersCreateBuilder<V, O> {...props} />
+  );
+}
+
+function AddFilterTrigger({ trigger }: { trigger?: React.ReactNode }) {
+  const actions = useFilterActions();
   const sizes = filterControlSizes(actions);
+  return (
+    <PopoverTrigger
+      /* On the TRIGGER so a consumer's own `trigger` wears the state too. */
+      disabled={actions.disabled}
+      {...filterReadOnlyProps(actions)}
+      render={
+        trigger ? (
+          (trigger as React.ReactElement)
+        ) : (
+          <Button
+            variant="outline"
+            size={sizes.button}
+            className="transition-[color,background-color,border-color,box-shadow]"
+          >
+            {/* No filter-plus glyph in phosphor or remixicon. */}
+            <IconFilterPlus data-icon="inline-start" />
+            {actions.labels.addFilter}
+          </Button>
+        )
+      }
+    />
+  );
+}
+
+/**
+ * 基础筛选栏的“添加筛选”：字段勾选清单。勾选即添加条件、取消勾选即移除条件，
+ * 菜单保持打开，只有点击外部或按 Esc 才关闭。
+ * / The basic bar's Add filter: a field checklist. Checking adds a condition and
+ * unchecking removes it; the panel stays open until an outside press or Escape.
+ */
+function FiltersChecklistBuilder<V, O>({ trigger, className }: FiltersBuilderProps) {
+  const actions = useFilterActions<V, O>();
+  const { query } = useFilterState<V>();
+  const [open, setOpen] = React.useState(false);
+  const [path, setPath] = React.useState<string[]>([]);
+  const [search, setSearch] = React.useState("");
+  const rules = React.useMemo(() => flattenFilterRules(query), [query]);
+  const selected = React.useMemo(
+    () => [...new Set(rules.map((rule) => joinFilterPath(rule.path)))],
+    [rules],
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next && isFilterLocked(actions)) return;
+        setOpen(next);
+        if (!next) {
+          setPath([]);
+          setSearch("");
+        }
+      }}
+    >
+      <AddFilterTrigger trigger={trigger} />
+      <PopoverContent
+        align="start"
+        className={cn(FILTER_FIELD_PICKER_CLASS, actions.fieldPickerClassName, className)}
+      >
+        <FilterFieldPicker<V, O>
+          path={path}
+          onPathChange={setPath}
+          query={search}
+          onQueryChange={setSearch}
+          selected={selected}
+          onToggle={(fieldPath, operator, checked) => {
+            if (checked) {
+              actions.addRule(
+                createFilterRule<V>({
+                  id: actions.nextId(),
+                  path: fieldPath,
+                  operator: operator ?? "",
+                  value: undefined,
+                }),
+              );
+              return;
+            }
+            const key = joinFilterPath(fieldPath);
+            for (const rule of rules) {
+              if (joinFilterPath(rule.path) === key) actions.removeNode(rule.id);
+            }
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * ONE panel, the field step: picking a field commits the rule with its default
+ * operator and focuses its value. `open` derives from the draft and
+ * `openCreate` is gated, so read-only and disabled shut every route.
+ */
+function FiltersCreateBuilder<V, O>({ trigger, className }: FiltersBuilderProps) {
+  const actions = useFilterActions<V, O>();
   const { draft } = useFilterState<V>();
   const open = draft !== null && draft.ruleId === null;
   // The HANDOFF close, the one that must not FADE: the panel is a 224px card
@@ -222,26 +371,7 @@ export function FiltersBuilder<V, O>({ trigger, className }: FiltersBuilderProps
         else actions.openCreate();
       }}
     >
-      <PopoverTrigger
-        /* On the TRIGGER so a consumer's own `trigger` wears the state too. */
-        disabled={actions.disabled}
-        {...filterReadOnlyProps(actions)}
-        render={
-          trigger ? (
-            (trigger as React.ReactElement)
-          ) : (
-            <Button
-              variant="outline"
-              size={sizes.button}
-              className="transition-[color,background-color,border-color,box-shadow]"
-            >
-              {/* No filter-plus glyph in phosphor or remixicon. */}
-              <IconFilterPlus data-icon="inline-start" />
-              {actions.labels.addFilter}
-            </Button>
-          )
-        }
-      />
+      <AddFilterTrigger trigger={trigger} />
       {/* The default, then the root override, then this `className` last, so
         the specific wins. */}
       <PopoverContent
