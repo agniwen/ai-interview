@@ -38,7 +38,7 @@ import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/di
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Frame, FrameFooter, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from "@/components/ui/label";
 import {
@@ -182,7 +182,7 @@ export function RoundCard({
           </FrameTitle>
         </div>
       </FrameHeader>
-      <FramePanel className="flex flex-col gap-4">
+      <FramePanel className="flex flex-col gap-4 pb-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
           <RoundScheduledAtControl
             canUpdate={canUpdate}
@@ -250,6 +250,7 @@ export function RoundCard({
           canReviewRound={canReviewRound}
           reviewCompleted={round.status === "completed"}
           meeting={meeting}
+          meetingDetailLink={meeting?.status === "ended" ? meetingDetailLink : null}
           onCancel={onCancel}
           onComplete={onComplete}
           onCreateMeeting={onCreateMeeting}
@@ -259,11 +260,6 @@ export function RoundCard({
           slug={slug}
         />
       </FramePanel>
-      {meeting?.status === "ended" && meetingDetailLink ? (
-        <FrameFooter className="flex min-h-10 items-center justify-end px-4 py-2">
-          {meetingDetailLink}
-        </FrameFooter>
-      ) : null}
     </Frame>
   );
 }
@@ -654,6 +650,7 @@ function RoundCardActions({
   roundId,
   recordId,
   meeting,
+  meetingDetailLink,
   canCreateMeeting,
   canOpenLinks,
   canReviewRound,
@@ -673,6 +670,7 @@ function RoundCardActions({
   roundId: string;
   recordId: string;
   meeting: HumanInterviewMeetingRecord | null;
+  meetingDetailLink?: ReactNode;
   canCreateMeeting: boolean;
   canOpenLinks: boolean;
   canReviewRound: boolean;
@@ -695,7 +693,8 @@ function RoundCardActions({
     canEndMeeting ||
     canCancelRound ||
     canCompleteRound ||
-    canReviewRound;
+    canReviewRound ||
+    Boolean(meetingDetailLink);
   if (!hasActions) {
     return null;
   }
@@ -753,6 +752,7 @@ function RoundCardActions({
           结束会议
         </Button>
       ) : null}
+      {meetingDetailLink}
       {canReviewRound ? (
         <Button onClick={handleReview} size="sm">
           <IconChecklist className="size-4" />

@@ -14,6 +14,10 @@ import { selectHumanInterviewTranscriptRevision } from "@app/shared/human-interv
 import { db } from "../../../../../../infrastructure/db";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { loadMeetingTranscriptRevision } from "../../../../../meetings/transcription/revision-dao";
+import {
+  loadRoundAiEvaluations,
+  loadRoundReviewerEvaluations,
+} from "../../dao/human-interview-round-evaluations";
 
 interface MeetingDetailInput {
   candidateId: string;
@@ -121,6 +125,17 @@ function getTranscriptNotice(
   return null;
 }
 
+async function loadMeetingRoundEvaluations(roundId: string, organizationId: string) {
+  const [reviewerEvaluations, aiEvaluations] = await Promise.all([
+    loadRoundReviewerEvaluations([roundId], organizationId),
+    loadRoundAiEvaluations([roundId], organizationId),
+  ]);
+  return {
+    aiEvaluation: aiEvaluations.get(roundId) ?? null,
+    reviewerEvaluations: reviewerEvaluations.get(roundId) ?? [],
+  };
+}
+
 export async function loadHumanInterviewMeetingDetail(
   input: MeetingDetailInput,
 ): Promise<HumanInterviewMeetingDetail | null> {
@@ -169,7 +184,7 @@ export async function loadHumanInterviewMeetingDetail(
     evaluationStatus: round.evaluationStatus,
     hasEvaluation: Boolean(round.evaluation),
   });
-  const [transcript, interviewers] = await Promise.all([
+  const [transcript, interviewers, evaluations] = await Promise.all([
     meeting.processingMeetingSessionId && selection.revisionId
       ? loadMeetingTranscriptRevision({
           meetingId: meeting.processingMeetingSessionId,
@@ -182,12 +197,14 @@ export async function loadHumanInterviewMeetingDetail(
       .from(humanInterviewMeetingInterviewer)
       .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
       .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId)),
+    loadMeetingRoundEvaluations(round.id, input.organizationId),
   ]);
   const transcriptionNotice =
     row.transcriptionState === "ready"
       ? "转录已完成，部分内容可能缺失或发言人身份待确认。"
       : "转录处理遇到问题，已保存的内容仍可查看。";
   return {
+    ...evaluations,
     candidateId: candidate.candidateId,
     candidateName: candidate.candidateName,
     endedAt: meeting.endedAt?.toISOString() ?? null,
