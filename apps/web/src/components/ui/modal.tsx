@@ -11,12 +11,6 @@ import {
   cossModalOverlayMotionClass,
   cossModalSurfaceClass,
 } from "@/components/ui/coss-style";
-import {
-  type ModalPlacement,
-  sideModalMotionClass,
-  sideModalPositionClass,
-  useModalPlacement,
-} from "@/components/ui/modal-placement";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 
@@ -52,8 +46,6 @@ export interface ModalProps {
   /** 叠在内容之上、相对弹窗定位的层（如悬浮操作栏），不随主体滚动。Overlay positioned within the modal surface. */
   overlay?: React.ReactNode;
   size?: ModalSize;
-  /** 桌面端呈现位置；默认继承 ModalPlacementProvider，未设置时居中。 */
-  placement?: ModalPlacement;
   fullScreen?: boolean;
   showCloseButton?: boolean;
   /** 为 false 时屏蔽 ESC、点击遮罩关闭与移动端下滑关闭，调用方需自己提供关闭路径。 */
@@ -80,7 +72,6 @@ function DialogModal({
   headerLayout = "stack",
   children,
   size = "md",
-  placement,
   fullScreen = false,
   showCloseButton = true,
   dismissible = true,
@@ -90,7 +81,6 @@ function DialogModal({
   footerClassName,
   overlay,
 }: ModalProps) {
-  const isSide = useModalPlacement(placement) === "side" && !fullScreen;
   const popupRef = React.useRef<HTMLDivElement | null>(null);
   // Base UI 只在 open 从 false 变为 true 时播放入场过渡；挂载时即为打开态的弹窗
   // （例如调用方随 key 重新挂载）先以关闭态提交一次，保证入场动画照常播放。
@@ -137,13 +127,9 @@ function DialogModal({
             // Visual frame (background, border, overflow-hidden) lives on the inner div,
             // so position:fixed descendants (popovers) escape the visual frame even though
             // their containing block is still this transformed Content.
-            isSide
-              ? [sideModalPositionClass, sideModalMotionClass]
-              : [
-                  "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
-                  "w-full max-w-[calc(100%-2rem)] outline-none",
-                  cossModalMotionClass,
-                ],
+            "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
+            "w-full max-w-[calc(100%-2rem)] outline-none",
+            cossModalMotionClass,
             SIZE_CLASS[size],
             fullScreen &&
               "inset-0 top-0 left-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 sm:w-screen",
@@ -153,12 +139,8 @@ function DialogModal({
             className={cn(
               cossModalSurfaceClass,
               "flex max-h-[90vh] flex-col overflow-hidden rounded-xl",
-              isSide && "rounded-none border-y-0 border-r-0 shadow-none",
               fullScreen && "h-dvh max-h-dvh rounded-none border-0",
               className,
-              // 抽屉始终铺满视口高度，覆盖调用方为居中弹窗设置的高度上限。
-              // / Side drawers always fill the viewport height, overriding centered max-heights.
-              isSide && "h-full max-h-none sm:max-h-none",
             )}
           >
             <ModalHeader
@@ -167,18 +149,18 @@ function DialogModal({
               headerExtra={headerExtra}
               headerLayout={headerLayout}
               isMobile={false}
-              titleSize={isSide ? "lg" : "md"}
+              titleSize="md"
               // 上下留白放在固定的头尾而非滚动主体里，滚动时内容不会贴住标题和按钮。
               // Spacing lives on the fixed header/footer, not the scroll body,
               // so scrolled content never touches the title or the actions.
-              className={cn(isSide ? "px-5 pt-5 pb-4" : "px-4 pt-3 pb-3", headerClassName)}
+              className={cn("px-4 pt-3 pb-3", headerClassName)}
             />
             {showCloseButton ? (
               <DialogPrimitive.Close
                 data-slot="modal-close"
                 className={cn(
                   "absolute flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors",
-                  isSide ? "top-5 right-4" : "top-3 right-3",
+                  "top-3 right-3",
                   "hover:bg-accent hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                   "disabled:pointer-events-none data-popup-open:bg-accent data-popup-open:text-muted-foreground",
                   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -190,19 +172,14 @@ function DialogModal({
             ) : null}
             <div
               data-slot="modal-body"
-              className={cn(
-                "min-h-0 flex-1 overflow-y-auto",
-                isSide ? "px-5 py-1" : "px-4 py-1",
-                bodyClassName,
-              )}
+              className={cn("scroll-fade min-h-0 flex-1 overflow-y-auto px-4 py-1", bodyClassName)}
             >
               {children}
             </div>
             {footer ? (
               <div
                 className={cn(
-                  "flex shrink-0 flex-col-reverse gap-2 bg-background",
-                  isSide ? "px-5 pt-4 pb-5" : "px-4 pt-3 pb-4",
+                  "flex shrink-0 flex-col-reverse gap-2 bg-background px-4 pt-3 pb-4",
                   "sm:flex-row sm:justify-end",
                   footerClassName,
                 )}
@@ -304,7 +281,7 @@ function DrawerModal({
             />
             <div
               data-slot="modal-body"
-              className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-1", bodyClassName)}
+              className={cn("scroll-fade min-h-0 flex-1 overflow-y-auto px-4 py-1", bodyClassName)}
             >
               {children}
             </div>

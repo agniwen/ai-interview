@@ -79,7 +79,6 @@ export function BulkUploadConfirmDialog({
       }
       onOpenChange={onOpenChange}
       open={open}
-      placement="center"
       size="md"
       title="批量上传简历"
     >

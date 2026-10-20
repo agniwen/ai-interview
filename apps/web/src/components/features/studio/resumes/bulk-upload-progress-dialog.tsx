@@ -263,7 +263,6 @@ export function BulkUploadProgressDialog({
       footer={buildFooter()}
       onOpenChange={handleOpenChange}
       open={open}
-      placement="center"
       showCloseButton
       size="lg"
       title={title}

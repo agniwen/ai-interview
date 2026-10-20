@@ -31,7 +31,15 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
       <SidebarContent className="relative overflow-hidden">
-        <ScrollArea className="min-h-0 flex-1" scrollFade scrollbars="leave">
+        <ScrollArea
+          className="min-h-0 flex-1"
+          scrollFade
+          scrollbars="leave"
+          options={{
+            overflow: { x: "hidden", y: "scroll" },
+            scrollbars: { autoHide: "leave", autoHideDelay: 600, theme: "os-theme-app" },
+          }}
+        >
           <SidebarBodyPortalTarget className="contents" />
           <SidebarSlotHydrationFallback>
             <SidebarBodySkeleton />

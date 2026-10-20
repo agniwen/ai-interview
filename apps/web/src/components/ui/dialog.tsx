@@ -11,13 +11,6 @@ import {
   cossModalOverlayMotionClass,
   cossModalSurfaceClass,
 } from "@/components/ui/coss-style";
-import {
-  type ModalPlacement,
-  ModalPlacementProvider,
-  sideModalMotionClass,
-  sideModalPositionClass,
-  useModalPlacement,
-} from "@/components/ui/modal-placement";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 
@@ -139,15 +132,11 @@ function DialogContent({
   children,
   showCloseButton = true,
   initialFocus,
-  placement,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
-  /** 桌面端呈现位置；默认继承 ModalPlacementProvider，未设置时居中。 */
-  placement?: ModalPlacement;
 }) {
   const { isMobile } = useResponsiveDialog();
-  const isSide = useModalPlacement(placement) === "side";
   const popupRef = React.useRef<HTMLDivElement | null>(null);
 
   if (isMobile) {
@@ -170,7 +159,7 @@ function DialogContent({
           {...(props as unknown as React.ComponentProps<typeof DrawerPrimitive.Content>)}
         >
           <div className="mx-auto mt-4 h-2 w-25 shrink-0 rounded-full bg-muted" />
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
+          <div className="scroll-fade flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
             {children}
           </div>
         </DrawerPrimitive.Content>
@@ -192,38 +181,19 @@ function DialogContent({
         data-slot="dialog-content"
         initialFocus={initialFocus ?? popupRef}
         tabIndex={-1}
-        className={
-          isSide
-            ? cn(
-                cossModalSurfaceClass,
-                sideModalPositionClass,
-                sideModalMotionClass,
-                "grid content-start gap-4 overflow-y-auto border-y-0 border-r-0 p-5 shadow-none sm:max-w-lg",
-                className,
-                // 抽屉始终铺满视口高度，覆盖调用方为居中弹窗设置的高度上限。
-                // / Side drawers always fill the viewport height, overriding centered max-heights.
-                "h-dvh max-h-none rounded-none sm:max-h-none",
-              )
-            : cn(
-                cossModalSurfaceClass,
-                cossModalMotionClass,
-                "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl px-4 pt-3 pb-4 outline-none sm:max-w-lg",
-                className,
-              )
-        }
+        className={cn(
+          cossModalSurfaceClass,
+          cossModalMotionClass,
+          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl px-4 pt-3 pb-4 outline-none sm:max-w-lg",
+          className,
+        )}
         {...props}
       >
-        {/* 子级 DialogTitle 据此选择居中弹窗或抽屉的标题字号。/ Lets DialogTitle size itself for the surface. */}
-        <ModalPlacementProvider placement={isSide ? "side" : "center"}>
-          {children}
-        </ModalPlacementProvider>
+        {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className={cn(
-              "absolute flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-              isSide ? "top-5 right-4" : "top-3 right-3",
-            )}
+            className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <IconX />
             <span className="sr-only">Close</span>
@@ -298,10 +268,9 @@ function DialogFooter({
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   const { isMobile } = useResponsiveDialog();
-  const isSide = useModalPlacement() === "side";
   const titleClassName = cn(
     "font-medium leading-6",
-    isMobile || isSide ? "text-lg" : "text-[0.9375rem]",
+    isMobile ? "text-lg" : "text-[0.9375rem]",
     className,
   );
 

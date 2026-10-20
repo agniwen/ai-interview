@@ -15,7 +15,6 @@ import {
 } from "@/components/features/studio/studio-content-route-overlay";
 import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
-import { ModalPlacementProvider } from "@/components/ui/modal-placement";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
@@ -42,29 +41,27 @@ function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <StudioHeaderProvider>
       <StudioContentOverlayProvider>
-        <ModalPlacementProvider placement="side">
-          <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_12px_-4px_rgb(0_0_0/0.06)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
-            {isApprovalEditor ? (
-              <>
-                <SiteHeader className="pointer-events-none absolute inset-x-0 top-0 [&>div]:pointer-events-auto" />
-                <PendingOutlet className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                  {children}
-                </PendingOutlet>
-              </>
-            ) : (
-              <ScrollArea
-                className="@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
-                scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
-              >
-                <SiteHeader />
-                <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
-                  {children}
-                </PendingOutlet>
-              </ScrollArea>
-            )}
-            <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />
-          </SidebarInset>
-        </ModalPlacementProvider>
+        <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_12px_-4px_rgb(0_0_0/0.06)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
+          {isApprovalEditor ? (
+            <>
+              <SiteHeader className="pointer-events-none absolute inset-x-0 top-0 [&>div]:pointer-events-auto" />
+              <PendingOutlet className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                {children}
+              </PendingOutlet>
+            </>
+          ) : (
+            <ScrollArea
+              className="@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
+              scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
+            >
+              <SiteHeader />
+              <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
+                {children}
+              </PendingOutlet>
+            </ScrollArea>
+          )}
+          <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />
+        </SidebarInset>
       </StudioContentOverlayProvider>
     </StudioHeaderProvider>
   );

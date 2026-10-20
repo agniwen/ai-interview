@@ -5,7 +5,6 @@ import { AppVersionProvider } from "@/components/features/app-version/app-versio
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { PlatformSidebarShell } from "@/components/layout/platform-sidebar/platform-sidebar-shell";
-import { ModalPlacementProvider } from "@/components/ui/modal-placement";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { PlatformHeader } from "./platform-header";
@@ -28,9 +27,7 @@ export function PlatformLayout({ children }: { children: ReactNode }) {
       <PlatformSidebarShell>
         <PlatformSidebarSlots />
         <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1.5rem)]">
-          <ModalPlacementProvider placement="side">
-            <PlatformContent>{children}</PlatformContent>
-          </ModalPlacementProvider>
+          <PlatformContent>{children}</PlatformContent>
         </SidebarInset>
         <BackgroundStreamToaster />
       </PlatformSidebarShell>
