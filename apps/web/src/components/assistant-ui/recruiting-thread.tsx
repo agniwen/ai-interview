@@ -42,7 +42,10 @@ import { pipelineStageMeta, pipelineStageSchema } from "@app/db-schema/studio-in
 import { RecruitingContextPanel } from "./recruiting-context-panel";
 import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import {
+  composerActionsClass,
+  composerInputClass,
   composerSendButtonClass,
+  composerShellClass,
   recruitingComposerDisclaimer,
   recruitingComposerPlaceholder,
 } from "./recruiting-composer-style";
@@ -66,7 +69,7 @@ import type {
 
 function ToolNotice({ children }: { children: string }) {
   return (
-    <div className="aui-tool-notice mt-2 rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+    <div className="aui-tool-notice mt-2 rounded-xl border border-transparent bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
       {children}
     </div>
   );
@@ -180,12 +183,12 @@ function UserActionBar() {
 function EditComposer() {
   return (
     <MessagePrimitive.Root className="aui-edit-composer-wrapper flex flex-col px-2">
-      <ComposerPrimitive.Root className="aui-edit-composer ms-auto flex w-full max-w-[70%] flex-col rounded-[22px] border bg-background shadow-sm">
+      <ComposerPrimitive.Root className="aui-edit-composer ms-auto flex w-full max-w-[70%] flex-col rounded-[14px] border border-transparent bg-control shadow-default">
         <ComposerPrimitive.Input
           autoFocus
-          className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base text-foreground outline-none"
+          className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent px-3.5 pt-2.5 pb-1 text-base text-foreground outline-none"
         />
-        <div className="aui-edit-composer-footer mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
+        <div className="aui-edit-composer-footer mx-1.5 mb-1.5 flex items-center gap-1 self-end">
           <ComposerPrimitive.Cancel asChild>
             <Button size="sm" variant="ghost">
               取消
@@ -227,7 +230,7 @@ function UserMessage() {
       className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150 [&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]"
       data-role="user"
     >
-      <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-border bg-muted/55 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-muted/35">
+      <div className="aui-user-message-content max-w-[70%] rounded-[14px] border border-transparent bg-control px-3.5 py-2 text-foreground leading-6 shadow-default wrap-break-word empty:hidden">
         <MessagePrimitive.Parts components={{ Text: RecruitingDirectiveText }} />
       </div>
       <div className="flex min-h-8 items-center justify-end">
@@ -260,11 +263,7 @@ function RecruitingComposerInput({ autoFocus = true }: { autoFocus?: boolean }) 
     <LexicalComposerInput
       aria-label="招聘问题输入"
       autoFocus={autoFocus}
-      className={cn(
-        "aui-composer-input relative -me-3 max-h-36 min-w-0 flex-1 bg-transparent text-base text-foreground",
-        "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-1.5 [&_.aui-lexical-input]:ps-1 [&_.aui-lexical-input]:pe-14 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
-        "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:start-1 [&_.aui-lexical-placeholder]:end-14 [&_.aui-lexical-placeholder]:top-1.5 [&_.aui-lexical-placeholder]:text-muted-foreground",
-      )}
+      className={composerInputClass}
       directiveChip={RecruitingComposerDirectiveChip}
       placeholder={recruitingComposerPlaceholder}
       submitMode="enter"
@@ -282,12 +281,9 @@ function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
           className="aui-composer-root relative flex w-full flex-col"
           onClick={focusComposerInputFromShellClick}
         >
-          <div
-            className="aui-composer-shell relative flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-md transition-shadow focus-within:shadow-xl data-[multiline]:pb-13 data-[multiline]:[&_.aui-lexical-input]:pe-1"
-            ref={composerShellRef}
-          >
+          <div className={composerShellClass} ref={composerShellRef}>
             <RecruitingComposerInput autoFocus={autoFocus} />
-            <div className="aui-composer-action-wrapper absolute right-3 bottom-2 z-1 flex shrink-0 items-center justify-end gap-1">
+            <div className={composerActionsClass}>
               <AuiIf condition={(state) => !state.thread.isRunning}>
                 <ComposerPrimitive.Send asChild>
                   <Button
@@ -304,11 +300,11 @@ function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
                 <ComposerPrimitive.Cancel asChild>
                   <Button
                     aria-label="停止生成"
-                    className="size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90"
+                    className={composerSendButtonClass}
                     size="icon"
                     type="button"
                   >
-                    <IconSquare className="size-3.5 fill-current" />
+                    <IconSquare className="size-3 fill-current" />
                   </Button>
                 </ComposerPrimitive.Cancel>
               </AuiIf>
@@ -410,7 +406,7 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
   const openDetail = () => openResumeDetail(card.id);
 
   return (
-    <div className="aui-candidate-card group relative w-full rounded-xl border bg-background p-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/35">
+    <div className="aui-candidate-card group relative w-full rounded-xl border border-transparent bg-card p-3 text-left shadow-default transition-colors hover:bg-(--gray-2) dark:hover:bg-(--gray-3)">
       <button
         aria-label={`查看 ${card.candidateName} 的简历详情`}
         className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -620,7 +616,7 @@ export function RecruitingThread({
               <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
                 <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
                 {isRunning ? (
-                  <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
+                  <div className="aui-assistant-working w-fit rounded-xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
                     思考中...
                   </div>
                 ) : null}

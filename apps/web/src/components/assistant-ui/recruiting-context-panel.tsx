@@ -37,7 +37,7 @@ function CitationList({ citations }: { citations: CopilotCitation[] }) {
           </>
         );
         const className =
-          "group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+          "group flex min-w-0 items-start justify-between gap-2 rounded-lg border border-transparent bg-card px-3 py-2 text-left text-sm shadow-default transition-colors hover:bg-(--gray-2) dark:hover:bg-(--gray-3) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
         const key = `${citation.recordType}:${citation.id}`;
 
         if (citation.recordType === "job_description") {
@@ -81,7 +81,10 @@ function ProposalList({
   return (
     <div className="grid gap-2">
       {proposals.map((proposal) => (
-        <div className="rounded-lg border bg-background px-3 py-2 text-sm" key={proposal.id}>
+        <div
+          className="rounded-lg border border-transparent bg-card px-3 py-2 text-sm shadow-default"
+          key={proposal.id}
+        >
           <div className="flex items-start justify-between gap-2">
             <p className="min-w-0 truncate font-medium">{proposal.title}</p>
             <Badge className="shrink-0" variant="outline">
@@ -110,7 +113,7 @@ function ContextPanelContent() {
       </section>
       <section>
         <h2 className="font-medium text-sm">检索范围</h2>
-        <div className="mt-2 rounded-lg border bg-background px-3 py-2 text-sm">
+        <div className="mt-2 rounded-lg border border-transparent bg-card px-3 py-2 text-sm shadow-default">
           <p>当前 workspace 招聘台与岗位库</p>
           <p className="mt-1 text-muted-foreground text-xs">
             已收集 {citations.length} 条引用，{pendingCount} 个动作待确认。

@@ -13,7 +13,10 @@ import { Button } from "@/components/ui/button";
 import { withCleanup } from "@/lib/client/async-control";
 import { cn } from "@/lib/utils";
 import {
+  composerActionsClass,
+  composerInputClass,
   composerSendButtonClass,
+  composerShellClass,
   recruitingComposerPlaceholder,
 } from "./recruiting-composer-style";
 import { focusComposerInputFromShellClick } from "./recruiting-composer-focus";
@@ -72,14 +75,6 @@ function RecruitingWelcomeBlobatar() {
     />
   );
 }
-
-const newComposerInputClassName = cn(
-  // Keep empty-state height close to the old textarea (min-h-9 + shell py-2).
-  // Avoid stacking min-height on both the Lexical wrapper and contenteditable.
-  "aui-composer-input relative -me-3 max-h-36 min-w-0 flex-1 bg-transparent text-base text-foreground",
-  "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-1.5 [&_.aui-lexical-input]:ps-1 [&_.aui-lexical-input]:pe-14 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
-  "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:start-1 [&_.aui-lexical-placeholder]:end-14 [&_.aui-lexical-placeholder]:top-1.5 [&_.aui-lexical-placeholder]:text-muted-foreground",
-);
 
 function NewThreadEnterSubmitPlugin({
   disabled,
@@ -169,32 +164,31 @@ function NewRecruitingComposerShell({
 
   return (
     <div
-      className={cn(
-        "aui-composer-shell relative flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-md transition-shadow focus-within:shadow-xl data-[multiline]:pb-13 data-[multiline]:[&_.aui-lexical-input]:pe-1",
-        disabled && "pointer-events-none opacity-60",
-      )}
+      className={cn(composerShellClass, disabled && "pointer-events-none opacity-60")}
       ref={composerShellRef}
     >
       <LexicalComposerInput
         aria-label="招聘问题输入"
         autoFocus={!disabled}
-        className={newComposerInputClassName}
+        className={composerInputClass}
         directiveChip={RecruitingComposerDirectiveChip}
         placeholder={recruitingComposerPlaceholder}
         submitMode="none"
       />
       <NewThreadEnterSubmitPlugin disabled={!canSubmit} onSubmit={handleSubmit} />
-      <Button
-        aria-label="发送"
-        className={cn(composerSendButtonClass, "absolute right-3 bottom-2 z-1 shrink-0")}
-        disabled={!canSubmit}
-        onClick={handleSubmit}
-        size="icon"
-        title="发送"
-        type="button"
-      >
-        <IconArrowUp className="size-4" />
-      </Button>
+      <div className={composerActionsClass}>
+        <Button
+          aria-label="发送"
+          className={composerSendButtonClass}
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+          size="icon"
+          title="发送"
+          type="button"
+        >
+          <IconArrowUp className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -210,7 +204,7 @@ function NewRecruitingComposer({
   return (
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
       <ComposerPrimitive.Root
-        className="aui-composer-root relative flex w-full flex-col"
+        className="aui-composer-root relative mx-auto flex w-full max-w-xl flex-col"
         onClick={focusComposerInputFromShellClick}
       >
         <NewRecruitingComposerShell disabled={disabled} onSubmit={onSubmit} />
@@ -240,7 +234,7 @@ export function NewRecruitingThread({
           </h1>
         </div>
         <NewRecruitingComposer disabled={disabled} onSubmit={onSubmit} />
-        <p className="mt-2 text-center text-muted-foreground text-xs">
+        <p className="mx-auto mt-2 max-w-xl text-balance text-center text-muted-foreground text-xs">
           AI Hiring Copilot 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
           人才库候选人。
         </p>

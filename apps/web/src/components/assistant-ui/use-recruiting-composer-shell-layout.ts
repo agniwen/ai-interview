@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 const readPixels = (value: string) => Number.parseFloat(value) || 0;
-const singleLinePaddingEnd = "3.5rem";
+const singleLinePaddingEnd = "2.25rem";
 
 function measureMultilineInput(shell: HTMLElement, input: HTMLElement) {
   const measurement = input.cloneNode(true);

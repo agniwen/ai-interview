@@ -318,7 +318,7 @@ function ChatSessionListSkeleton({ collapsed }: { collapsed: boolean }) {
         <ul className="space-y-1.5 px-1">
           {Array.from({ length: 6 }).map((_, index) => (
             <li key={index}>
-              <div className="rounded-md px-1.5 py-1.5">
+              <div className="rounded-lg px-1.5 py-1.5">
                 <Skeleton
                   className={cn("h-1.5 rounded-full", index % 2 === 0 ? "w-full" : "w-3/4")}
                 />
@@ -335,7 +335,7 @@ function ChatSessionListSkeleton({ collapsed }: { collapsed: boolean }) {
       <ul className="space-y-0.5 px-1.5 py-1">
         {Array.from({ length: 8 }).map((_, index) => (
           <li key={index}>
-            <div className="flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5">
+            <div className="flex items-center gap-1 rounded-lg border border-transparent px-1 py-0.5">
               <div className="min-w-0 flex-1 rounded-md px-2 py-1">
                 <Skeleton className={cn("h-5 max-w-full", index % 3 === 0 ? "w-4/5" : "w-3/5")} />
               </div>
@@ -422,7 +422,7 @@ function ChatSidebarBody({
                     render={
                       <Link
                         className={cn(
-                          "relative z-10 block cursor-default rounded-md px-1.5 py-1.5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+                          "relative z-10 block cursor-default rounded-lg px-1.5 py-1.5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
                           isActive ? "bg-sidebar-accent" : "hover:bg-transparent!",
                         )}
                         onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
@@ -475,7 +475,7 @@ function ChatSidebarBody({
           <li key={conversation.id}>
             <div
               className={cn(
-                "group/session-item relative z-10 flex cursor-default items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
+                "group/session-item relative z-10 flex cursor-default items-center gap-1 rounded-lg border border-transparent px-1 py-0.5 transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
                 isActive && !editMode
                   ? "border-sidebar-border/60 bg-sidebar-accent"
                   : "hover:bg-transparent!",
