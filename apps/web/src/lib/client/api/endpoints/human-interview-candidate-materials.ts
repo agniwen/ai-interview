@@ -73,6 +73,24 @@ export function getHumanInterviewCandidateResumeUrl(inviteToken: string, candida
   )}/${encodeURIComponent(candidateId)}/resume`;
 }
 
+/** 面试官用自己的邀请链接取候选人头像，权限与简历一致。/ Interviewer-side headshot, same access as the resume. */
+export function getHumanInterviewCandidateAvatarUrl(
+  inviteToken: string,
+  candidateId: string,
+  version: string,
+) {
+  return `/api/public/human-interview-candidate-materials/${encodeURIComponent(
+    inviteToken,
+  )}/${encodeURIComponent(candidateId)}/avatar?v=${encodeURIComponent(version)}`;
+}
+
+/** 候选人用自己的入会链接取本人头像。/ The candidate's own headshot via their join link. */
+export function getHumanInterviewOwnCandidateAvatarUrl(inviteToken: string, version: string) {
+  return `/api/public/human-interview-meetings/${encodeURIComponent(
+    inviteToken,
+  )}/avatar?v=${encodeURIComponent(version)}`;
+}
+
 export function getHumanInterviewCandidatePptxPreviewUrl(inviteToken: string, candidateId: string) {
   return `/api/public/human-interview-candidate-materials/${encodeURIComponent(
     inviteToken,

@@ -129,6 +129,7 @@ describe("human interview candidate materials routes", () => {
   it("records the first-view audit only after resolving a meeting candidate", async () => {
     mocks.loadOverview.mockResolvedValue({
       candidate: {
+        avatarVersion: null,
         candidateEmail: null,
         candidateName: "候选人甲",
         candidatePhone: null,

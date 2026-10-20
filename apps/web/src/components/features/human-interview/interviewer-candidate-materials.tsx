@@ -28,7 +28,7 @@ import {
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -57,6 +57,7 @@ import {
   fetchHumanInterviewCandidateMaterials,
   fetchHumanInterviewCandidateQuestions,
   getHumanInterviewCandidatePptxPreviewUrl,
+  getHumanInterviewCandidateAvatarUrl,
   getHumanInterviewCandidateResumeUrl,
 } from "@/lib/client/api";
 import { resolveEffectiveCandidateId } from "./human-meeting-materials-model";
@@ -282,9 +283,11 @@ function ResumeViewToggle({ onClick, structured }: { onClick: () => void; struct
 }
 
 function CandidateDetail({
+  inviteToken,
   query,
   toolbarAction,
 }: {
+  inviteToken: string;
   query: ReturnType<typeof useOverviewQuery>;
   toolbarAction: ReactNode;
 }) {
@@ -298,13 +301,27 @@ function CandidateDetail({
   const candidateName = candidate.candidateName.trim() || "未命名候选人";
   const avatarLabel =
     candidate.candidateName.trim() || candidate.candidateEmail?.trim() || "候选人";
-  const avatarValue = avatarLabel.slice(0, 1).toUpperCase();
   return (
     <ScrollArea className="h-full" scrollFade scrollbars="leave">
       <div className="flex flex-col gap-8 p-5 lg:p-7">
         <header className="flex min-w-0 items-center gap-3">
-          <Avatar className="size-14 shrink-0" label={`${avatarLabel}的头像`} seed={candidateName}>
-            <AvatarFallback>{avatarValue}</AvatarFallback>
+          {/* 与招聘台卡片一致：有简历头像就显示，否则显示按姓名生成的人像。
+              / Same as the recruiting cards: the resume headshot, else the name-seeded portrait. */}
+          <Avatar
+            className="size-14 shrink-0 ring-1 ring-border"
+            label={`${avatarLabel}的头像`}
+            seed={candidateName}
+          >
+            {candidate.avatarVersion ? (
+              <AvatarImage
+                alt=""
+                src={getHumanInterviewCandidateAvatarUrl(
+                  inviteToken,
+                  candidate.id,
+                  candidate.avatarVersion,
+                )}
+              />
+            ) : null}
           </Avatar>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-baseline gap-2">
@@ -572,7 +589,11 @@ function CandidateResumeDialog({
     >
       <div className="h-full min-h-0" data-vaul-no-drag>
         {showStructuredResume ? (
-          <CandidateDetail query={query} toolbarAction={isMobile ? resumeViewToggle : null} />
+          <CandidateDetail
+            inviteToken={inviteToken}
+            query={query}
+            toolbarAction={isMobile ? resumeViewToggle : null}
+          />
         ) : (
           <ResumePreview
             toolbarContainer={isMobile ? undefined : pdfToolbarContainer}

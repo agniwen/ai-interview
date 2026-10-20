@@ -25,6 +25,7 @@ import {
   user,
 } from "@app/db-schema/schema";
 import { studioInterviewQuestionClientSchema } from "@app/db-schema/studio-interviews";
+import { loadCandidateAvatarVersion } from "../human-interview-candidate-avatar/dao";
 import type {
   HumanInterviewCandidateAiEvaluationResponse,
   HumanInterviewCandidateHrInformationResponse,
@@ -157,6 +158,7 @@ export async function loadHumanInterviewCandidateOverview(input: {
       creatorName: creator.name,
       id: recruitingRecordReadModel.id,
       jobDescriptionName: jobDescription.name,
+      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
       resumeFileName: recruitingRecordReadModel.resumeFileName,
       resumeProfile: recruitingRecordReadModel.resumeProfile,
       resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
@@ -184,6 +186,7 @@ export async function loadHumanInterviewCandidateOverview(input: {
   const resumeProfile = resumeProfileSchema.safeParse(row.resumeProfile);
   return {
     candidate: {
+      avatarVersion: await loadCandidateAvatarVersion(row.resumeContentHash),
       candidateEmail: row.candidateEmail,
       candidateName: row.candidateName,
       candidatePhone: row.candidatePhone,
@@ -196,6 +199,30 @@ export async function loadHumanInterviewCandidateOverview(input: {
       targetRole: row.targetRole,
     },
   };
+}
+
+/** 本场会议中这位候选人的简历指纹，用于取头像。/ The candidate's resume hash within this meeting. */
+export async function loadHumanInterviewCandidateResumeContentHash(input: {
+  candidateId: string;
+  scope: HumanInterviewCandidateMaterialsScope;
+}): Promise<string | null> {
+  const [row] = await db
+    .select({ contentHash: recruitingRecordReadModel.resumeContentHash })
+    .from(humanInterviewMeetingRound)
+    .innerJoin(humanInterviewRound, eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id))
+    .innerJoin(
+      recruitingRecordReadModel,
+      eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+    )
+    .where(
+      and(
+        eq(humanInterviewMeetingRound.meetingId, input.scope.meetingId),
+        eq(recruitingRecordReadModel.id, input.candidateId),
+        eq(recruitingRecordReadModel.organizationId, input.scope.organizationId),
+      ),
+    )
+    .limit(1);
+  return row?.contentHash ?? null;
 }
 
 export async function loadHumanInterviewCandidateAiEvaluation(input: {

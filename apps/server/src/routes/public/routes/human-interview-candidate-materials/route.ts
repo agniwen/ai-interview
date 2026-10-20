@@ -12,8 +12,10 @@ import {
   loadHumanInterviewCandidateOverview,
   loadHumanInterviewCandidateQuestions,
   loadHumanInterviewCandidateResume,
+  loadHumanInterviewCandidateResumeContentHash,
   recordHumanInterviewCandidateMaterialView,
 } from "./dao";
+import { createCandidateAvatarResponse } from "../human-interview-candidate-avatar/dao";
 
 export interface HumanInterviewCandidateMaterialsRouterDependencies {
   setQuestionAsked: typeof setHumanInterviewQuestionAsked;
@@ -27,11 +29,14 @@ export interface HumanInterviewCandidateMaterialsRouterDependencies {
   loadOverview: typeof loadHumanInterviewCandidateOverview;
   loadQuestions: typeof loadHumanInterviewCandidateQuestions;
   loadResume: typeof loadHumanInterviewCandidateResume;
+  loadResumeContentHash: typeof loadHumanInterviewCandidateResumeContentHash;
+  createAvatarResponse: typeof createCandidateAvatarResponse;
   recordView: typeof recordHumanInterviewCandidateMaterialView;
 }
 
 const defaultDependencies: HumanInterviewCandidateMaterialsRouterDependencies = {
   authorize: authorizeHumanInterviewCandidateMaterials,
+  createAvatarResponse: createCandidateAvatarResponse,
   createPptxPreviewPdfResponse,
   getObjectBytes,
   getObjectStream,
@@ -41,6 +46,7 @@ const defaultDependencies: HumanInterviewCandidateMaterialsRouterDependencies = 
   loadOverview: loadHumanInterviewCandidateOverview,
   loadQuestions: loadHumanInterviewCandidateQuestions,
   loadResume: loadHumanInterviewCandidateResume,
+  loadResumeContentHash: loadHumanInterviewCandidateResumeContentHash,
   recordView: recordHumanInterviewCandidateMaterialView,
   setQuestionAsked: setHumanInterviewQuestionAsked,
 };
@@ -156,6 +162,23 @@ export function createHumanInterviewCandidateMaterialsRouter(
         return c.json(result.data, 200);
       },
     )
+    .get("/:inviteToken/:candidateId/avatar", async (c) => {
+      // 与简历同一套权限：面试官邀请链接有效、且仍在资料查看时间内。
+      // / Same access as the resume: a valid interviewer link within the materials window.
+      const authorization = await authorizeRequest(c.req.param("inviteToken"));
+      if (authorization.status === "not_found") {
+        return c.json({ error: "真人复面链接不可用。" }, 404);
+      }
+      if (authorization.status === "unavailable") {
+        return c.json({ error: "候选人资料查看时间已结束。" }, 410);
+      }
+      const contentHash = await dependencies.loadResumeContentHash({
+        candidateId: c.req.param("candidateId"),
+        scope: authorization.scope,
+      });
+      const response = contentHash ? await dependencies.createAvatarResponse(contentHash) : null;
+      return response ?? c.json({ error: "候选人头像不存在。" }, 404);
+    })
     .get("/:inviteToken/:candidateId/resume", async (c) => {
       const authorization = await authorizeRequest(c.req.param("inviteToken"));
       if (authorization.status === "not_found") {

@@ -54,7 +54,7 @@ import {
 } from "./human-meeting-video-quality";
 import { notifyMeetingMediaError } from "./human-meeting-media-errors";
 import type { MouseEvent, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { cn } from "@app/shared/utils";
 import { Modal } from "@/components/ui/modal";
@@ -68,11 +68,19 @@ import { HumanMeetingInProgressReview } from "./human-meeting-in-progress-review
 import { HumanMeetingChat } from "./human-meeting-chat";
 import { HumanMeetingTranscriptPanel } from "./human-meeting-transcript-panel";
 import { MeetingInfoHoverCard } from "./meeting-info-hover-card";
+import {
+  CandidatePlaceholderAvatar,
+  InterviewerPlaceholderAvatar,
+  MeetingViewerContext,
+  resolveCandidateAvatarUrl,
+} from "./meeting-participant-avatars";
 import type { HumanMeetingLiveTranscriptHandle } from "./human-meeting-live-transcript";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 
 const participantMetadataSchema = z.object({
   avatar_url: z.string().nullable().optional(),
+  avatar_version: z.string().nullable().optional(),
+  interview_record_id: z.string().optional(),
   participant_role: z.string().optional(),
   participant_type: z.string().optional(),
 });
@@ -139,9 +147,15 @@ export interface HumanMeetingStageProps {
 }
 
 export function HumanMeetingStage(props: HumanMeetingStageProps) {
+  const viewer = useMemo(
+    () => ({ inviteToken: props.chatInviteToken, mode: props.chatMode }),
+    [props.chatInviteToken, props.chatMode],
+  );
   return (
     <Provider key={props.inviteToken ?? props.chatInviteToken}>
-      <HumanMeetingStageContent {...props} />
+      <MeetingViewerContext.Provider value={viewer}>
+        <HumanMeetingStageContent {...props} />
+      </MeetingViewerContext.Provider>
     </Provider>
   );
 }
@@ -649,38 +663,6 @@ function getMeetingTrackKey(track: TrackReferenceOrPlaceholder) {
   return JSON.stringify([track.participant.identity, track.source]);
 }
 
-function InterviewerPlaceholderAvatar({ image, name }: { image: string; name: string }) {
-  const [loaded, setLoaded] = useState(false);
-
-  return (
-    <div
-      data-slot="interviewer-placeholder-avatar"
-      className={cn(
-        "pointer-events-none absolute inset-0 z-[5] grid place-items-center transition-opacity duration-200",
-        loaded ? "opacity-100" : "opacity-0",
-      )}
-    >
-      <div className="relative grid size-28 place-items-center">
-        {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no Next image runtime; this decorative layer reuses the participant avatar URL. */}
-        <img
-          src={image}
-          alt=""
-          aria-hidden="true"
-          className="absolute size-32 scale-125 rounded-full object-cover opacity-25 blur-2xl"
-        />
-        {/* oxlint-disable-next-line next/no-img-element -- Native image load/error events control when the participant placeholder becomes visible. */}
-        <img
-          src={image}
-          alt={`${name}的头像`}
-          className="relative size-24 rounded-full bg-muted object-cover shadow-lg"
-          onLoad={() => setLoaded(true)}
-          onError={() => setLoaded(false)}
-        />
-      </div>
-    </div>
-  );
-}
-
 function HumanParticipantTile({
   onFocusTrack,
   onResetFocus,
@@ -693,10 +675,13 @@ function HumanParticipantTile({
   const highlightSpeaker = isSpeaking && trackRef.source === Track.Source.Camera;
   const roleLabel = getParticipantRoleLabel(trackRef);
   const metadata = parseParticipantMetadata(trackRef.participant.metadata);
+  const isCameraTrack = trackRef.source === Track.Source.Camera;
   const interviewerImage =
-    metadata.participant_type === "interviewer" && trackRef.source === Track.Source.Camera
+    metadata.participant_type === "interviewer" && isCameraTrack
       ? metadata.avatar_url?.trim()
       : null;
+  const viewer = useContext(MeetingViewerContext);
+  const showCandidateAvatar = metadata.participant_type === "candidate" && isCameraTrack;
 
   return (
     <div
@@ -720,6 +705,12 @@ function HumanParticipantTile({
         )}
         trackRef={trackRef}
       />
+      {showCandidateAvatar ? (
+        <CandidatePlaceholderAvatar
+          image={resolveCandidateAvatarUrl(viewer, metadata)}
+          name={trackRef.participant.name || "候选人"}
+        />
+      ) : null}
       {interviewerImage ? (
         <InterviewerPlaceholderAvatar
           key={interviewerImage}

@@ -62,6 +62,11 @@ import {
 import { aiInterviewInvitationsRouter } from "./routes/ai-interview-invitations/route";
 import { authConfigRouter } from "./routes/auth-config/route";
 import { humanInterviewCandidateMaterialsRouter } from "./routes/human-interview-candidate-materials/route";
+import {
+  createCandidateAvatarResponse,
+  loadCandidateAvatarVersion,
+  loadRoundResumeContentHash,
+} from "./routes/human-interview-candidate-avatar/dao";
 import { humanInterviewLiveTranscriptRouter } from "./routes/human-interview-live-transcript/route";
 import { humanInterviewChatRouter } from "./routes/human-interview-chat/route";
 import { publicOffersRouter } from "./routes/offers/route";
@@ -402,6 +407,16 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         }
       },
     )
+    .get("/human-interview-meetings/:inviteToken/avatar", async (c) => {
+      const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
+      if (!scope) {
+        return c.json({ error: "真人复面链接不可用。" }, 404);
+      }
+      const response = await createCandidateAvatarResponse(
+        await loadRoundResumeContentHash(scope.roundId),
+      );
+      return response ?? c.json({ error: "候选人头像不存在。" }, 404);
+    })
     .post("/human-interview-meetings/:inviteToken/livekit-token", async (c) => {
       const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
       if (!scope) {
@@ -426,10 +441,15 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         return c.json({ error: "会议房间尚未初始化。" }, 409);
       }
 
+      // 只放头像版本：参会人各自用自己的邀请链接取图，与简历同一套权限。
+      // / Only the version travels; each participant fetches it with their own invite link.
+      const contentHash = await loadRoundResumeContentHash(scope.roundId);
+      const avatarVersion = await loadCandidateAvatarVersion(contentHash);
       try {
         const token = await signHumanInterviewMeetingToken({
           canPublish: true,
           metadata: {
+            avatar_version: avatarVersion,
             human_interview_meeting_id: scope.meetingId,
             interview_record_id: scope.interviewRecordId,
             participant_role: "candidate",

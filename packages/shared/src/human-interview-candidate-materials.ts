@@ -42,6 +42,8 @@ export interface HumanInterviewCandidateMaterialListResponse {
 
 export interface HumanInterviewCandidateOverviewResponse {
   candidate: {
+    /** 简历头像版本；没有头像时为 null。/ Resume headshot version, or null without one. */
+    avatarVersion: string | null;
     candidateEmail: string | null;
     candidateName: string;
     candidatePhone: string | null;
