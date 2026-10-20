@@ -72,8 +72,8 @@ export function EmailPasswordSignInForm({
   }
 
   return (
-    <form className={className ?? "space-y-3"} onSubmit={handleSubmit}>
-      <div className="space-y-1.5">
+    <form className={className ?? "flex flex-col gap-4"} onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="signin-email">{m.login_email_label()}</Label>
         <Input
           autoComplete="username"
@@ -87,7 +87,7 @@ export function EmailPasswordSignInForm({
           value={email}
         />
       </div>
-      <div className="space-y-1.5">
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="signin-password">{m.login_password_label()}</Label>
         <Input
           autoComplete="current-password"
@@ -101,7 +101,7 @@ export function EmailPasswordSignInForm({
           value={password}
         />
       </div>
-      <Button className="w-full gap-2" disabled={submitting} size="lg" type="submit">
+      <Button className="w-full gap-2" disabled={submitting} size="default" type="submit">
         {submitting ? (
           <>
             <IconLoader2 className="size-4 animate-spin" />

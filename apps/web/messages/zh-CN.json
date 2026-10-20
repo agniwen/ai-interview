@@ -26,7 +26,7 @@
   "login_description": "为了保存你的会话、同步简历分析记录和面试结果，请先使用飞书账号或账号密码登录。",
   "login_google_tab": "Google 登录",
   "login_feishu_tab": "飞书登录",
-  "login_password_tab": "账号密码登录",
+  "login_password_tab": "账号登录",
   "login_jiguang_hr_feishu": "飞书/Lark 登陆",
   "login_jiguang_employee_feishu": "极光员工飞书登录",
   "login_google_button": "使用 Google 账号登录",

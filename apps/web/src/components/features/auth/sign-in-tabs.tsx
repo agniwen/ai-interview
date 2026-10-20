@@ -69,34 +69,40 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
   function renderActivePanel() {
     if (activeTab === "password") {
       return (
-        <TabsContent className="mt-4" value="password">
+        <TabsContent value="password">
           <EmailPasswordSignInForm callbackURL={callbackURL} />
         </TabsContent>
       );
     }
     if (SHOW_GOOGLE_LOGIN) {
       return (
-        <TabsContent className="mt-4" value="oauth">
+        <TabsContent value="oauth">
           <GoogleSignInButton callbackURL={callbackURL} />
         </TabsContent>
       );
     }
     return (
-      <TabsContent className="mt-4 space-y-3" value="feishu">
+      <TabsContent className="flex flex-col gap-3" value="feishu">
         <FeishuSignInButtons callbackURL={callbackURL} />
       </TabsContent>
     );
   }
 
   return (
-    <Tabs className="w-full" onValueChange={handleValueChange} value={activeTab}>
+    <Tabs className="w-full gap-4" onValueChange={handleValueChange} value={activeTab}>
       <TabsList className="grid w-full grid-cols-2">
         {SHOW_GOOGLE_LOGIN ? (
-          <TabsTrigger value="oauth">{messages.login_google_tab()}</TabsTrigger>
+          <TabsTrigger className="h-7 text-[13px] leading-5" value="oauth">
+            {messages.login_google_tab()}
+          </TabsTrigger>
         ) : (
-          <TabsTrigger value="feishu">{messages.login_feishu_tab()}</TabsTrigger>
+          <TabsTrigger className="h-7 text-[13px] leading-5" value="feishu">
+            {messages.login_feishu_tab()}
+          </TabsTrigger>
         )}
-        <TabsTrigger value="password">{messages.login_password_tab()}</TabsTrigger>
+        <TabsTrigger className="h-7 text-[13px] leading-5" value="password">
+          {messages.login_password_tab()}
+        </TabsTrigger>
       </TabsList>
       <AnimatedHeight animateOnMobile>
         <div className="relative">

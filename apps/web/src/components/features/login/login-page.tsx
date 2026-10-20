@@ -24,7 +24,12 @@ export function LoginPage({
   const providerIds = useFeishuLoginProviderIds();
   const showMigration = Boolean(feishuMigration && isFeishuMigrationEnabled(providerIds));
   return (
-    <AuthPageLayout backBehavior={backBehavior} grain>
+    <AuthPageLayout
+      backBehavior={backBehavior}
+      contentClassName="md:w-80 md:self-center"
+      panelClassName="md:w-[29rem] lg:w-[33rem]"
+      grain
+    >
       <div className="flex flex-col gap-2">
         <h1 className="font-medium text-2xl text-foreground tracking-tight sm:text-3xl">
           {m.login_heading()}
@@ -32,7 +37,7 @@ export function LoginPage({
         <p className="text-muted-foreground text-sm leading-6">{m.login_description()}</p>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-6">
         {showMigration ? (
           <FeishuAccountMigration callbackURL={callbackURL} error={error} />
         ) : (
