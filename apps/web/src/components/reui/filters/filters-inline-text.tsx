@@ -12,9 +12,11 @@ import { Input } from "@/components/ui/input";
 
 /** Keep typing local to this value; only Enter/blur changes the list query. */
 export function FilterInlineText<V, O>({
+  id,
   rule,
   field,
 }: {
+  id?: string;
   rule: FilterRule<V>;
   field: FilterField<V, O>;
 }) {
@@ -49,6 +51,7 @@ export function FilterInlineText<V, O>({
   return (
     <Input
       ref={inputRef}
+      id={id}
       aria-label={field.label}
       placeholder={field.placeholder ?? actions.labels.valuePlaceholder}
       className="h-auto min-h-7 w-40 min-w-16 max-w-64 self-stretch rounded-l-none"

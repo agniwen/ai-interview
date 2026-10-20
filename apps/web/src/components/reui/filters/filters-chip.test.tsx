@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FilterValuePopover } from "@/components/reui/filters/filters-chip";
+import { FilterChip, FilterValuePopover } from "@/components/reui/filters/filters-chip";
 import { Filters, createFilterQuery, createFilterRule } from "@/components/reui/filters/filters";
 import type {
   FilterEditorProps,
@@ -138,5 +138,34 @@ describe("FilterValuePopover draft lifecycle", () => {
 
     expect(observedDrafts.at(-1)).toBe("draft");
     expect(observedDrafts.every((value) => value === "draft")).toBe(true);
+  });
+});
+
+describe("FilterChip inline text", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("labels the inline text input with the field name", () => {
+    const field: FilterField = { id: "phone", label: "电话", type: "text" };
+    const rule = createFilterRule({ id: "rule-1", path: [field.id], operator: "contains" });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    act(() =>
+      root.render(
+        <Filters fields={[field]} query={createFilterQuery([rule])}>
+          <FilterChip index={0} rule={rule} />
+        </Filters>,
+      ),
+    );
+
+    const label = [...document.querySelectorAll("label")].find(
+      (entry) => entry.textContent === "电话",
+    );
+    expect(label?.control).toBe(document.querySelector('input[aria-label="电话"]'));
+
+    act(() => root.unmount());
   });
 });

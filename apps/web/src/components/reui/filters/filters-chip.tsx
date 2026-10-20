@@ -835,6 +835,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
   // behind it is gated. That puts "Convert to advanced filter" out of reach
   // while locked; a consumer-composed menu still draws it.
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const inlineTextId = React.useId();
   // Exactly one chip is in the tab order at a time. Before anything has been
   // focused that is the first chip, so Tab reaches the row in one press.
   const isTabStop = focused || (noFocus && index === 0);
@@ -950,9 +951,11 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
       }}
       data-index={index}
     >
-      {/* DISPLAY ONLY: a div, not a button, not a tab stop, no popover. The
-          attribute is fixed for the life of the chip. */}
+      {/* DISPLAY ONLY: not a button, not a tab stop, no popover. The attribute
+          is fixed for the life of the chip. Beside an inline text value it is
+          that input's <label>, so a click on the field name focuses it. */}
       <ButtonGroupText
+        render={hasValue && inlineText ? <label htmlFor={inlineTextId} /> : undefined}
         /* Dropped while the path is collapsed: the ellipsis inside carries the
            same sentence as a tooltip, and the two would stack. */
         title={pathCollapsed ? undefined : pathText}
@@ -989,7 +992,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
       {/* No condition, no value: `getFilterArity(undefined)` defaults to "one",
           so testing the operator alone renders a stray value segment. */}
       {hasValue && inlineText ? (
-        <FilterInlineText rule={rule} field={field} />
+        <FilterInlineText id={inlineTextId} rule={rule} field={field} />
       ) : hasValue ? (
         <FilterValuePopover
           rule={rule}
