@@ -5,7 +5,7 @@ export function RecruitmentCopilotMark({ className }: { className?: string }) {
     <span
       aria-hidden="true"
       className={cn(
-        "block shrink-0 bg-[url('/logo.png')] bg-center bg-contain bg-no-repeat",
+        "block shrink-0 bg-[url('/logo.png')] bg-center bg-contain bg-no-repeat dark:bg-[url('/logo-dark.png')]",
         className,
       )}
       data-slot="recruitment-copilot-mark"

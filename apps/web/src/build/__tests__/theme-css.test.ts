@@ -39,7 +39,9 @@ describe("production theme CSS", () => {
       )
       ?.source.toString();
 
-    expect(css?.match(/--sidebar-ring:var\(--primary\)/g)).toHaveLength(2);
+    // 亮暗两套主题都要保留侧栏焦点环声明（指向主色或通用焦点环色）。
+    // Both themes must keep their sidebar ring declaration after compilation.
+    expect(css?.match(/--sidebar-ring:var\(--(?:primary|ring)\)/g)).toHaveLength(2);
     // LiveKit's placeholder paths carry fillOpacity=0.25. The override must
     // survive Tailwind compilation, otherwise light-mode silhouettes disappear.
     expect(css).toMatch(/lk-participant-placeholder path\{[^}]*fill-opacity:1/);

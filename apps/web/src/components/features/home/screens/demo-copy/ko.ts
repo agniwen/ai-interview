@@ -600,7 +600,6 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     title: (index: number, label: string) => `${index}차 · ${label}`,
   },
   shell: {
-    sidebarToggle: "데모 사이드바 열기/닫기",
     themeToggle: "데모 테마 전환",
     workbench: "데모 워크스페이스",
   },

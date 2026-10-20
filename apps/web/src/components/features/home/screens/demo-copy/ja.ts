@@ -587,7 +587,6 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     title: (index: number, label: string) => `第 ${index} 回 · ${label}`,
   },
   shell: {
-    sidebarToggle: "デモのサイドバーを開閉",
     themeToggle: "デモのテーマを切り替え",
     workbench: "デモワークスペース",
   },

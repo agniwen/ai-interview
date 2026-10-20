@@ -65,7 +65,7 @@ export default function DemoLiveInterview() {
         <AgentAudioVisualizerAura
           className="size-[340px]"
           state={demo.turn % 2 ? "listening" : "speaking"}
-          color="#1d4ed8"
+          color="#0090ff"
         />
       </div>
       <div className="absolute right-8 top-20 bottom-40 w-[33%] rounded-xl border bg-background/90 p-4">

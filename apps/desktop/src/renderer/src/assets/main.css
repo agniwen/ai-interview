@@ -135,8 +135,8 @@
   --card-foreground: var(--foreground);
   --popover: #ffffff;
   --popover-foreground: var(--foreground);
-  /* Match Web's Klein blue light-mode actions. */
-  --primary: #1d4ed8;
+  /* Match Web's brand blue (Radix blue-9) light-mode actions. */
+  --primary: #0090ff;
   --primary-foreground: #ffffff;
   --secondary: #f5f5f5;
   --secondary-foreground: var(--foreground);
@@ -149,12 +149,12 @@
   /* Content borders match Web; native chrome uses --sidebar-border below. */
   --border: rgb(0 0 0 / 8%);
   --input: rgb(0 0 0 / 10%);
-  --ring: #4f70d2;
-  --chart-1: #1d4ed8;
-  --chart-2: #4f70d2;
-  --chart-3: #7699ef;
-  --chart-4: #9ebaf6;
-  --chart-5: #c7d8fa;
+  --ring: #5eb1ef;
+  --chart-1: #0090ff;
+  --chart-2: #5eb1ef;
+  --chart-3: #8ec8f6;
+  --chart-4: #acd8fc;
+  --chart-5: #c2e5ff;
   /*
    * Sidebar chrome tokens. On macOS/Win the glass panel is mostly transparent
    * so native vibrancy/acrylic (window-level) shows through. A faint wash

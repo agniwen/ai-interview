@@ -82,7 +82,7 @@ const principlesRow2: HiringPrinciple[] = [
 
 function PrincipleCard({ description, label, title }: HiringPrinciple) {
   return (
-    <article className="mr-4 flex h-full w-[320px] flex-col rounded-[12px] bg-background/70 p-6 sm:w-[380px] sm:p-8">
+    <article className="mr-4 flex h-full w-[320px] flex-col rounded-[12px] border border-transparent bg-control p-6 shadow-default sm:w-[380px] sm:p-8">
       <p className="text-primary text-sm">{label}</p>
       <h3 className="mt-4 min-h-[2lh] text-pretty font-medium text-foreground text-2xl leading-[1.3] tracking-[-0.035em] sm:text-3xl">
         {title}

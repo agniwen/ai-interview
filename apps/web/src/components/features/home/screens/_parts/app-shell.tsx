@@ -8,7 +8,7 @@ import {
   IconChevronRight,
   IconClipboardList,
   IconFileText,
-  IconLayoutSidebarLeftCollapse,
+  IconInbox,
   IconLayoutGrid,
   IconListCheck,
   IconMailCheck,
@@ -16,6 +16,8 @@ import {
   IconMoon,
   IconRobot,
   IconShieldCheck,
+  IconSitemap,
+  IconTable,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -43,6 +45,8 @@ import { cn } from "@app/shared/utils";
 interface NavItem {
   icon: typeof IconRobot;
   label: string;
+  // 招聘台在真实侧栏里带阶段子菜单。 The recruiting desk carries stage sub-items in the real sidebar.
+  children?: string[];
 }
 
 interface NavGroup {
@@ -56,11 +60,23 @@ function getStudioNavGroups(): NavGroup[] {
   return [
     {
       items: [
-        { icon: IconUsers, label: m.home_frame_nav_recruitment() },
+        {
+          children: [
+            m.home_frame_nav_sub_screening(),
+            m.home_frame_nav_sub_interview(),
+            m.home_frame_nav_sub_offer(),
+            m.home_frame_nav_sub_onboarding(),
+            m.home_frame_tab_closed(),
+          ],
+          icon: IconUsers,
+          label: m.home_frame_nav_recruitment(),
+        },
         { icon: IconLayoutGrid, label: m.home_frame_nav_talent_pool() },
         { icon: IconRobot, label: m.home_frame_nav_ai_interview() },
         { icon: IconCalendarEvent, label: m.home_frame_nav_calendar() },
         { icon: IconChartBar, label: m.home_frame_nav_dashboard() },
+        { icon: IconTable, label: m.home_frame_nav_ledger() },
+        { icon: IconClipboardList, label: m.home_frame_nav_approvals() },
       ],
       label: m.home_frame_nav_workbench(),
     },
@@ -85,6 +101,7 @@ function getStudioNavGroups(): NavGroup[] {
         { icon: IconUserCog, label: m.home_frame_nav_workspace() },
         { icon: IconMailCheck, label: m.home_frame_nav_mail() },
         { icon: IconShieldCheck, label: m.home_frame_nav_permissions() },
+        { icon: IconSitemap, label: m.home_frame_nav_approval_flows() },
         { icon: IconMessageChatbot, label: m.home_frame_nav_context() },
       ],
       label: m.home_frame_nav_system(),
@@ -103,8 +120,8 @@ function SidebarTabs({ active }: SidebarTabsProps) {
   return (
     <Tabs activationMode="manual" className="w-full" value={value}>
       <TabsList className="w-full select-none bg-sidebar-accent dark:bg-black/15">
-        <TabsTrigger value="agent">Agent</TabsTrigger>
-        <TabsTrigger value="studio">Studio</TabsTrigger>
+        <TabsTrigger value="agent">{m.home_frame_tab_agent()}</TabsTrigger>
+        <TabsTrigger value="studio">{m.home_frame_tab_studio()}</TabsTrigger>
       </TabsList>
     </Tabs>
   );
@@ -142,19 +159,41 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                   <button
                     type="button"
                     data-demo-page={item.label}
-                    // SidebarMenuButton default: flex w-full items-center gap-2 rounded-md p-2 text-sm h-8
+                    // SidebarMenuButton default: flex w-full items-center gap-2 rounded-lg p-2 text-sm h-8
                     // active: bg-sidebar-accent font-medium text-sidebar-accent-foreground
                     className={cn(
-                      "flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm hover:bg-sidebar-accent focus-visible:outline-ring",
+                      "flex h-8 w-full items-center gap-2 overflow-hidden rounded-lg p-2 text-left text-sm hover:bg-sidebar-accent focus-visible:outline-ring",
                       active
-                        ? "border-sidebar-border/80 bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        ? "border-sidebar-border/60 bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                         : "border-transparent text-sidebar-foreground opacity-90",
+                      item.children && "pr-8",
                       "border",
                     )}
                   >
                     <Icon className="size-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </button>
+                  {item.children ? (
+                    <>
+                      {/* SidebarMenuAction：展开态的子菜单箭头。 Expanded sub-menu chevron. */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1.5 right-1 flex size-5 items-center justify-center text-sidebar-foreground"
+                      >
+                        <IconChevronRight className="size-4 rotate-90" />
+                      </span>
+                      {/* SidebarMenuSub + SidebarMenuSubButton */}
+                      <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-sidebar-border border-l px-2.5 pt-1 pb-0.5">
+                        {item.children.map((child) => (
+                          <li key={child}>
+                            <span className="flex h-7 min-w-0 -translate-x-px items-center rounded-lg border border-transparent px-2 text-sidebar-foreground text-sm">
+                              <span className="truncate">{child}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
                 </li>
               );
             })}
@@ -170,12 +209,17 @@ function SidebarUserSection() {
   // 真实展开态只显示小头像和用户名；工作区切换位于页面标题栏。
   const { recruiter } = getDemoScreenCopy().people;
   return (
-    <div className="border-border border-t px-2 py-2">
+    // 真实 SidebarUserSection：px-2 pt-1 pb-1，无分隔线；头像 size="sm"。
+    <div className="px-2 pt-1 pb-1">
       <button
         type="button"
         className="flex h-9 w-full items-center gap-2 rounded-lg px-2 hover:bg-sidebar-accent"
       >
-        <Avatar label={m.home_frame_candidate_avatar({ name: recruiter })} seed="recruiter:misato">
+        <Avatar
+          label={m.home_frame_candidate_avatar({ name: recruiter })}
+          seed="recruiter:misato"
+          size="sm"
+        >
           <AvatarFallback>{recruiter.slice(0, 1)}</AvatarFallback>
         </Avatar>
         <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">
@@ -234,13 +278,32 @@ function ThemeToggleButton() {
   );
 }
 
-function SidebarTriggerButton() {
-  // 真实 SidebarTrigger 是 Button variant="ghost" size="icon" className="size-7" 内嵌 PanelLeft
-  // Real: ghost icon button (size-7) with PanelLeft, inset header gives -ml-1
+function UploadTaskInboxButton() {
+  // 真实 UploadTaskInbox 触发器：Button variant="ghost" size="icon-sm" 内嵌 Inbox。
+  // Real: ghost icon-sm button with an inbox icon.
   return (
-    <Button aria-label={getDemoScreenCopy().shell.sidebarToggle} variant="ghost" size="icon-sm">
-      <IconLayoutSidebarLeftCollapse className="size-4" />
+    <Button aria-label={m.home_frame_upload_inbox()} variant="ghost" size="icon-sm">
+      <IconInbox className="size-4" />
     </Button>
+  );
+}
+
+function ActiveMenuIcon({ label }: { label: string }) {
+  // 真实桌面端页头用当前菜单图标替代 SidebarTrigger。
+  // Desktop header shows the active menu icon in place of SidebarTrigger.
+  const Icon = getStudioNavGroups()
+    .flatMap((group) => group.items)
+    .find((item) => item.label === label)?.icon;
+  if (!Icon) {
+    return null;
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="-ml-1 flex size-7 shrink-0 items-center justify-center text-foreground"
+    >
+      <Icon className="size-4" />
+    </span>
   );
 }
 
@@ -253,6 +316,7 @@ interface InsetHeaderProps {
 function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   const demo = useOptionalDemo();
   let currentCrumbs = breadcrumb.slice(-1);
+  const activePage = demo?.page ?? m.home_frame_nav_recruitment();
   if (demo) {
     const label =
       demo.page === m.home_frame_nav_recruitment() ? m.home_frame_recruitment_desk() : demo.page;
@@ -268,7 +332,7 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
       )}
     >
       <div className="relative z-1 flex min-w-0 items-center gap-2">
-        <SidebarTriggerButton />
+        {demo?.candidate ? null : <ActiveMenuIcon label={activePage} />}
         {demo?.candidate ? (
           // 对齐真实详情页：useStudioHeaderOverride 用返回按钮替换面包屑。
           <Button
@@ -287,7 +351,12 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
         )}
       </div>
       <div className="relative z-1 flex items-center gap-1">
-        {actions ?? <WorkspaceSwitcher />}
+        {actions ?? (
+          <>
+            <WorkspaceSwitcher />
+            <UploadTaskInboxButton />
+          </>
+        )}
         <ThemeToggleButton />
       </div>
     </header>
@@ -355,14 +424,14 @@ export function AppShell({
         </div>
       </aside>
       {/* SidebarInset: relative flex w-full flex-1 flex-col bg-background
-          + variant=inset: m-3 ml-0 rounded-xl shadow-none
-          + layout 上还加了 border border-border */}
+          + variant=inset: m-3 ml-0 rounded-2xl shadow-default；暗色去阴影改 0.5px ring */}
       <section
         inert={Boolean(demo)}
         aria-label={getDemoScreenCopy().shell.workbench}
         className={cn(
-          "relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background",
-          (demo?.phase === "live" || demo?.phase === "human-live") && "m-0 rounded-none border-0",
+          "relative m-3 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-background shadow-default dark:shadow-none dark:ring-[0.5px] dark:ring-border",
+          (demo?.phase === "live" || demo?.phase === "human-live") &&
+            "m-0 rounded-none shadow-none dark:ring-0",
         )}
       >
         {demo?.phase === "live" || demo?.phase === "human-live" ? (

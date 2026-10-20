@@ -629,7 +629,6 @@ export const enDemoScreenCopy: DemoScreenCopy = {
     title: (index: number, label: string) => `Round ${index} · ${label}`,
   },
   shell: {
-    sidebarToggle: "Toggle demo sidebar",
     themeToggle: "Toggle demo theme",
     workbench: "Demo workspace",
   },

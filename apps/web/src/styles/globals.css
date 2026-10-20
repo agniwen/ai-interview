@@ -53,12 +53,12 @@
   }
 }
 
-/* 首页舞台色系：克莱因蓝附近的四个相邻色调，暗色下压暗。
-   Homepage stage tones: four neighbours of Klein blue, deepened in dark mode. */
+/* 首页舞台色系：亮色取品牌蓝附近的四个相邻色调，暗色沿用压暗的克莱因蓝。
+   Homepage stage tones: brand-blue neighbours in light mode, deepened Klein blue in dark mode. */
 .home-stage-artwork {
-  --stage-bg: #8fa9f7;
-  --stage-ribbon: #3d66e8;
-  --stage-ribbon-soft: #6d8cf1;
+  --stage-bg: #8ec8f6;
+  --stage-ribbon: #0588f0;
+  --stage-ribbon-soft: #5eb1ef;
   --stage-dash: rgb(255 255 255 / 50%);
   background: var(--stage-bg);
 }
@@ -432,11 +432,12 @@
   --popover: #ffffff;
   --control: #ffffff;
   --popover-foreground: var(--foreground);
-  /* Klein blue actions on neutral light-mode surfaces. */
-  --primary: #1d4ed8;
+  /* 品牌蓝（Interfere brand = Radix blue）：实色填充用 blue-9，链接文字用 blue-11 保证对比度。
+     Brand blue actions (Radix blue-9); links use blue-11 for AA text contrast on light surfaces. */
+  --primary: #0090ff;
   --primary-foreground: #ffffff;
-  --primary-border: var(--primary);
-  --primary-link: var(--primary);
+  --primary-border: #0588f0;
+  --primary-link: #0d74ce;
   --secondary: var(--gray-3);
   --secondary-foreground: var(--foreground);
   --muted: var(--gray-3);
@@ -452,9 +453,9 @@
   --border: var(--gray-a4);
   --border-strong: var(--gray-a6);
   --input: var(--gray-a5);
-  --ring: #4f70d2;
-  /* Only charts that followed the light primary green adopt the dark action blue. */
-  --chart-primary: #1d4ed8;
+  --ring: #5eb1ef;
+  /* Only charts that followed the light primary green adopt the brand blue. */
+  --chart-primary: #0090ff;
   --chart-1: #38bdf8;
   --chart-2: #c084fc;
   --chart-3: #2dd4bf;
@@ -481,12 +482,13 @@
   --sidebar-accent: var(--gray-a3);
   --sidebar-accent-foreground: var(--gray-12);
   --sidebar-border: var(--gray-a3);
-  --sidebar-ring: var(--primary);
+  --sidebar-ring: var(--ring);
   /* 语义色板（亮色）：基色 → 文字 ink（混入正文色，保证可读）/ 浅底 tint / 描边 line。
      Semantic palette: one base per hue; text, fill, and border are derived so every hue reads as one family. */
   --green: oklch(0.652 0.131 162.9);
   --sky: oklch(0.671 0.118 219.4);
-  --blue: oklch(0.626 0.205 254.9);
+  /* 与品牌蓝同源，徽标与选中态和主色保持一致。 Shares the brand blue so badges match primary. */
+  --blue: #0090ff;
   --purple: oklch(0.62 0.18 293);
   --pink: oklch(0.67 0.19 3);
   --red: oklch(0.64 0.19 27);
@@ -623,6 +625,8 @@
   --sidebar-border: var(--gray-a3);
   --sidebar-ring: var(--primary);
   /* 语义色板（暗色）：基色不变，文字提亮、浅底与描边加深混合比例，保证暗底上的层次。 */
+  /* 暗色蓝沿用克莱因蓝色系。 Dark-mode blue stays in the Klein blue family. */
+  --blue: oklch(0.626 0.205 254.9);
   --green-ink: color-mix(in oklab, var(--green) 80%, white);
   --green-tint: color-mix(in oklab, var(--green) 24%, var(--background));
   --green-line: color-mix(in oklab, var(--green) 40%, var(--background));

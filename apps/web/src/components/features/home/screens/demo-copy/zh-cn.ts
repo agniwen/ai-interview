@@ -577,7 +577,6 @@ export const zhCNDemoScreenCopy = {
     title: (index: number, label: string) => `第 ${index} 轮 · ${label}`,
   },
   shell: {
-    sidebarToggle: "展开或收起演示侧栏",
     themeToggle: "切换演示主题",
     workbench: "演示工作台",
   },
