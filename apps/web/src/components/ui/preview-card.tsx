@@ -45,7 +45,7 @@ export function PreviewCardPopup({
       >
         <PreviewCardPrimitive.Popup
           className={cn(
-            "relative flex w-64 text-balance rounded-lg border bg-popover p-4 text-popover-foreground text-sm shadow-sm",
+            "relative flex w-64 text-balance rounded-lg bg-popover p-4 text-popover-foreground text-sm shadow-large",
             cossAnchoredPopupMotionClass,
             className,
           )}

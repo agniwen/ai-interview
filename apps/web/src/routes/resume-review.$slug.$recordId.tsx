@@ -60,7 +60,7 @@ function ResumeReviewEvaluationBar({
   if (hasSubmittedEvaluation) {
     const meta = describeResumeEvaluationStatus(status);
     return (
-      <div className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+      <div className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_var(--gray-a3)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-md items-center justify-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm">
           <span className="text-muted-foreground">评估结果</span>
           <Badge variant={meta.tone}>{meta.label}</Badge>
@@ -74,7 +74,7 @@ function ResumeReviewEvaluationBar({
   }
 
   return (
-    <div className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+    <div className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_var(--gray-a3)] backdrop-blur">
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2">
         <Button disabled={disabled} onClick={() => mutation.mutate("pass")} type="button">
           <IconCircleCheck className="size-4" />

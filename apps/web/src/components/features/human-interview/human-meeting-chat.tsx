@@ -175,7 +175,7 @@ export function HumanMeetingChat({
         <div className="min-w-0 flex-1">
           <textarea
             aria-label="输入聊天消息"
-            className="field-sizing-content block max-h-32 min-h-10 w-full resize-none rounded-md bg-muted/40 px-3 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:bg-muted/60 md:text-sm"
+            className="field-sizing-content block max-h-32 min-h-9 w-full resize-none rounded-lg border border-transparent bg-control px-2.5 py-1.5 text-base leading-5 shadow-default outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/15 md:text-[13px]"
             ref={textareaRef}
             maxLength={2000}
             onChange={(event) => setDraft(event.target.value)}
@@ -187,9 +187,9 @@ export function HumanMeetingChat({
         </div>
         <Button
           aria-label="发送消息"
-          className="border-border/30"
+          className="size-9"
           disabled={!draft.trim() || isSaving}
-          size="icon-lg"
+          size="icon"
           type="submit"
           variant="secondary"
         >

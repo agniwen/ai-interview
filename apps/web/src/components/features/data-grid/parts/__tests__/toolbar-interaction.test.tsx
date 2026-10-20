@@ -505,9 +505,13 @@ describe("Toolbar filter editing", () => {
       roots.push(root);
       await clickText("button", "添加筛选");
       await clickText('[role="option"]', "技能");
-      expect(document.querySelector('[data-slot="filter-chip"]')?.textContent).toContain(
-        match === "all" ? "同时具备" : "属于任意",
-      );
+      // 唯一的默认操作符（属于任意）不单独显示；改变语义的“同时具备”仍要说出来。
+      const chipText = document.querySelector('[data-slot="filter-chip"]')?.textContent;
+      if (match === "all") {
+        expect(chipText).toContain("同时具备");
+      } else {
+        expect(chipText).not.toContain("属于任意");
+      }
       expect(onChange).not.toHaveBeenCalled();
       await openChipValue("技能");
       await clickText('[role="option"]', "React");

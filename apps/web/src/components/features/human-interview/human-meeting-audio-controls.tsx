@@ -69,7 +69,7 @@ export function MicrophoneDeviceMenu() {
     <Button
       className="group/microphone-menu shrink-0 aria-expanded:bg-accent aria-expanded:text-accent-foreground max-md:order-3 max-md:h-11 max-md:min-w-0 max-md:flex-1 max-md:flex-col max-md:gap-1 max-md:border-0 max-md:bg-transparent max-md:px-1 max-md:text-[10px] max-md:shadow-none max-md:hover:bg-transparent max-md:aria-expanded:bg-transparent max-md:aria-expanded:text-primary max-md:[&_svg]:size-5"
       size="icon"
-      variant="secondary"
+      variant="outline"
       type="button"
       disabled={isSelecting}
       aria-expanded={menuOpen}

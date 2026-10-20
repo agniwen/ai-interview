@@ -311,7 +311,7 @@ export function InterviewerFormDialog({
                     >
                       <SelectTrigger
                         aria-invalid={!!errors?.length}
-                        className="h-13! flex-1 text-left"
+                        className="flex-1 text-left"
                         id={field.name}
                       >
                         <SelectValue placeholder="选择音色" />
@@ -330,7 +330,7 @@ export function InterviewerFormDialog({
                       </SelectContent>
                     </Select>
                     <Button
-                      className="h-13 shrink-0"
+                      className="shrink-0"
                       disabled={loadingPreviewVoice !== null}
                       onClick={async () => {
                         await handlePreviewVoice(field.state.value);

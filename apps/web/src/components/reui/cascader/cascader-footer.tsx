@@ -227,7 +227,7 @@ export interface CascaderActionProps extends Omit<React.ComponentProps<"button">
  * rather than ReUI theme CSS so an installed footer needs only Tailwind.
  */
 const FLYOUT_SURFACE_CLASS =
-  "max-h-72 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
+  "max-h-72 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-large";
 
 /**
  * One footer command, shaped like a row and deliberately NOT one. A real

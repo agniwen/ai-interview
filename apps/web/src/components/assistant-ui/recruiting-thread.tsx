@@ -187,14 +187,12 @@ function EditComposer() {
         />
         <div className="aui-edit-composer-footer mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
           <ComposerPrimitive.Cancel asChild>
-            <Button className="h-8 rounded-full px-3.5" size="sm" variant="ghost">
+            <Button size="sm" variant="ghost">
               取消
             </Button>
           </ComposerPrimitive.Cancel>
           <ComposerPrimitive.Send asChild>
-            <Button className="h-8 rounded-full px-3.5" size="sm">
-              更新
-            </Button>
+            <Button size="sm">更新</Button>
           </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
@@ -366,7 +364,7 @@ function CandidateResumePreviewIcon({ card }: { card: CandidateSummaryCard }) {
             render={
               <Button
                 aria-label={`预览 ${label}`}
-                className="size-8 shrink-0 rounded-md p-0"
+                className="size-8 shrink-0 p-0"
                 onClick={(event) => {
                   event.stopPropagation();
                   openResumePreview({ id: card.id, resumeFileName: card.resumeFileName ?? null });

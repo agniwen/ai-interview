@@ -464,7 +464,7 @@ function ResumeLibraryCardComponent({
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
-      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent transition-colors hover:bg-muted dark:hover:bg-input/30"
+      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent shadow-none transition-colors hover:bg-component/60"
       onClick={(event) => {
         if (isResumeCardInteractiveClick(event)) {
           return;
@@ -601,7 +601,7 @@ function ResumeLibraryCardComponent({
               <StudioListCardProfileStripSkeleton className="mt-3 hidden md:grid xl:hidden" />
             ) : (
               <StudioListCardProfileStrip
-                className="mt-3 hidden md:grid xl:hidden"
+                className={cn("mt-3 hidden md:grid xl:hidden", isRejected && "line-through")}
                 snapshot={profileSnapshot}
               />
             )}
@@ -615,7 +615,7 @@ function ResumeLibraryCardComponent({
             />
           </div>
 
-          <div className={STUDIO_LIST_CARD_PROFILE_CELL_CLASS}>
+          <div className={cn(STUDIO_LIST_CARD_PROFILE_CELL_CLASS, isRejected && "line-through")}>
             {isParsing ? (
               <StudioListCardProfileSnapshotSkeleton />
             ) : (

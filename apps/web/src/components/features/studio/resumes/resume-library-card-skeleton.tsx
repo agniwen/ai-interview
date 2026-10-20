@@ -28,7 +28,7 @@ export function ResumeLibraryCardSkeleton({ className }: { className?: string })
       data-slot="resume-library-card-skeleton-row"
     >
       <Card
-        className="h-full overflow-hidden rounded-lg border-0 bg-transparent"
+        className="h-full overflow-hidden rounded-lg border-0 bg-transparent shadow-none"
         data-slot="resume-library-card-skeleton"
       >
         <CardPanel className="flex h-full min-h-0 gap-3 p-4">

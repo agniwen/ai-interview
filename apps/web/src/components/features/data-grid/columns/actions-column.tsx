@@ -63,7 +63,7 @@ const HEADER_LABEL = "操作";
 
 /** Text-only table action that adopts the secondary button surface on hover. */
 export const TABLE_ACTION_BUTTON_CLASS =
-  "h-8 px-2.5 text-xs hover:border-border hover:bg-secondary/80 hover:text-secondary-foreground";
+  "h-7 px-2.5 text-xs hover:bg-component hover:text-secondary-foreground";
 
 /** focusableWhenDisabled 渲染 aria-disabled 而非原生 disabled，需补齐禁用态样式。 */
 const DISABLED_WITH_REASON_CLASS =

@@ -84,7 +84,7 @@ export function InterviewerAgentCard({
   return (
     <Card
       className={cn(
-        "h-full gap-3 p-3 shadow-none transition-colors",
+        "h-full gap-3 p-3 transition-colors",
         onEdit &&
           "hover:bg-accent/40 has-[[data-card-edit]:focus-visible]:border-ring has-[[data-card-edit]:focus-visible]:ring-[3px] has-[[data-card-edit]:focus-visible]:ring-ring/50",
       )}
@@ -156,7 +156,7 @@ export function InterviewerAgentCard({
 
 export function InterviewerAgentCardSkeleton() {
   return (
-    <Card className="h-full gap-3 p-3 shadow-none">
+    <Card className="h-full gap-3 p-3">
       <div className="flex items-center gap-3">
         <Skeleton className="size-10 shrink-0 rounded-lg" />
         <div className="flex-1 space-y-1.5">

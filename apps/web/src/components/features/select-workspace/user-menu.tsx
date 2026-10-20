@@ -41,7 +41,7 @@ export function UserMenu({ name, email, avatarUrl, initials }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button className="h-9 gap-2 px-2" type="button" variant="ghost">
+          <Button className="gap-2 px-2" type="button" variant="ghost">
             <Avatar className="size-7" label={`${name}的头像`} seed={`user:${email || name}`}>
               <AvatarImage alt={name} src={avatarUrl ?? undefined} />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>

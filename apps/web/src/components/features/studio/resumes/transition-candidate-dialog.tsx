@@ -286,7 +286,7 @@ function CloseDialog({
           ).map((value) => (
             <div className="flex items-center gap-2" key={value}>
               <RadioGroupItem id={`outcome-${value}`} value={value} />
-              <Label className="cursor-pointer text-sm" htmlFor={`outcome-${value}`}>
+              <Label className="cursor-pointer" htmlFor={`outcome-${value}`}>
                 {candidateOutcomeMeta[value].label}
               </Label>
             </div>
@@ -391,7 +391,7 @@ function CloseDialog({
                   onChange={(e) => setTalentPoolEligible(e.target.checked)}
                   type="checkbox"
                 />
-                <Label className="cursor-pointer text-sm" htmlFor="talent-pool">
+                <Label className="cursor-pointer" htmlFor="talent-pool">
                   进入人才库（未来可召回）
                 </Label>
               </div>
@@ -412,9 +412,7 @@ function CloseDialog({
         ) : null}
 
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="close-feedback">
-            对外反馈话术（可选，给候选人看）
-          </Label>
+          <Label htmlFor="close-feedback">对外反馈话术（可选，给候选人看）</Label>
           <Textarea
             id="close-feedback"
             maxLength={5000}
@@ -426,9 +424,7 @@ function CloseDialog({
         </div>
 
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="close-notes">
-            内部备注（可选）
-          </Label>
+          <Label htmlFor="close-notes">内部备注（可选）</Label>
           <Textarea
             id="close-notes"
             maxLength={5000}
@@ -551,9 +547,7 @@ function ReactivateDialog({
     >
       <div className="grid gap-4 py-2">
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="reactivation-target-stage">
-            回退阶段
-          </Label>
+          <Label htmlFor="reactivation-target-stage">回退阶段</Label>
           <Select
             onValueChange={(value) => {
               const parsed = pipelineStageSchema.safeParse(value);
@@ -581,9 +575,7 @@ function ReactivateDialog({
         </div>
 
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="reactivation-reason">
-            激活原因
-          </Label>
+          <Label htmlFor="reactivation-reason">激活原因</Label>
           <Textarea
             aria-describedby="reactivation-reason-limit"
             aria-invalid={reasonTooLong || undefined}

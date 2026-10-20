@@ -44,7 +44,7 @@ function AlertDialogContent({
         data-size={size}
         className={cn(
           cossModalMotionClass,
-          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-sm data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-lg",
+          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl bg-background p-6 shadow-extra-large data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-lg",
           className,
         )}
         {...props}

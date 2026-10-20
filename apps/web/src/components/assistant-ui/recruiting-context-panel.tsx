@@ -156,9 +156,8 @@ export function RecruitingContextPanel() {
       ) : (
         <Button
           aria-label="展开上下文"
-          className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:inline-flex"
+          className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 hidden bg-background/95 shadow-large backdrop-blur lg:inline-flex"
           onClick={() => setDesktopOpen(true)}
-          size="sm"
           type="button"
           variant="outline"
         >
@@ -167,9 +166,8 @@ export function RecruitingContextPanel() {
         </Button>
       )}
       <Button
-        className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:hidden"
+        className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 bg-background/95 shadow-large backdrop-blur lg:hidden"
         onClick={() => setMobileOpen(true)}
-        size="sm"
         type="button"
         variant="outline"
       >

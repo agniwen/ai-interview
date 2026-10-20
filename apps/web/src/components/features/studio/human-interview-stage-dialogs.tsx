@@ -339,7 +339,7 @@ export function ScheduleRoundDialogView({
         </FieldGroup>
 
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="scheduled-at">
+          <Label htmlFor="scheduled-at">
             面试时间{" "}
             <span aria-hidden="true" className="text-destructive">
               *
@@ -354,15 +354,13 @@ export function ScheduleRoundDialogView({
         </div>
 
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="valid-until">
-            有效时间至
-          </Label>
+          <Label htmlFor="valid-until">有效时间至</Label>
           <DateTimePicker id="valid-until" onValueChange={setValidUntil} value={validUntil} />
         </div>
       </div>
       <div hidden={!steps.showInterviewers} className="space-y-3">
         <div className="grid gap-1.5">
-          <Label className="text-sm">
+          <Label>
             面试官{" "}
             <span aria-hidden="true" className="text-destructive">
               *
@@ -411,9 +409,7 @@ export function ScheduleRoundDialogView({
         </div>
 
         <div className="grid gap-1.5">
-          <Label className="text-sm" htmlFor="round-notes">
-            备注（可选）
-          </Label>
+          <Label htmlFor="round-notes">备注（可选）</Label>
           <Textarea
             aria-describedby="round-notes-limit"
             aria-invalid={notesTooLong || undefined}
@@ -507,7 +503,7 @@ export function CompleteRoundDialog({
 
         <div className="space-y-4 py-2">
           <div className="grid gap-1.5">
-            <Label className="text-sm">
+            <Label>
               结果{" "}
               <span aria-hidden="true" className="text-destructive">
                 *
@@ -528,7 +524,7 @@ export function CompleteRoundDialog({
                 .map((v) => (
                   <div className="flex items-center gap-2" key={v}>
                     <RadioGroupItem id={`outcome-${v}`} value={v} />
-                    <Label className="cursor-pointer text-sm" htmlFor={`outcome-${v}`}>
+                    <Label className="cursor-pointer" htmlFor={`outcome-${v}`}>
                       {humanInterviewRoundOutcomeMeta[v].label}
                     </Label>
                   </div>
@@ -537,7 +533,7 @@ export function CompleteRoundDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="round-feedback">
+            <Label htmlFor="round-feedback">
               反馈{" "}
               <span aria-hidden="true" className="text-destructive">
                 *
@@ -630,9 +626,7 @@ export function CancelRoundDialog({
         </DialogHeader>
 
         <div className="grid gap-1.5 py-2">
-          <Label className="text-sm" htmlFor="cancel-reason">
-            取消原因（可选）
-          </Label>
+          <Label htmlFor="cancel-reason">取消原因（可选）</Label>
           <Textarea
             id="cancel-reason"
             maxLength={500}

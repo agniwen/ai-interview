@@ -41,7 +41,7 @@ function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <StudioHeaderProvider>
       <StudioContentOverlayProvider>
-        <SidebarInset className="h-dvh overflow-hidden border border-foreground/12 md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_5px_14px_-5px_rgb(0_0_0/0.09)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
+        <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
           {isApprovalEditor ? (
             <>
               <SiteHeader className="pointer-events-none absolute inset-x-0 top-0 [&>div]:pointer-events-auto" />

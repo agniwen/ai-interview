@@ -106,7 +106,7 @@ function ChatSidebarHeader({
       <SidebarMenu>
         <SidebarMenuItem className="select-none">
           <SidebarMenuButton
-            className="h-9 justify-center  gap-2 text-sidebar-foreground/80"
+            className="h-8 justify-center gap-2 text-sidebar-foreground/80"
             onClick={onNewConversation}
             size="default"
             tooltip="创建对话"
@@ -122,7 +122,7 @@ function ChatSidebarHeader({
     return (
       <div className="flex items-center select-none gap-1.5 px-1">
         <Button
-          className="h-9 flex-1 gap-2"
+          className="h-8 flex-1 gap-2"
           disabled={selectedCount === 0 || isBulkDeleting}
           onClick={onBulkDelete}
           size="sm"
@@ -136,7 +136,7 @@ function ChatSidebarHeader({
             render={
               <Button
                 aria-label="退出批量编辑"
-                className="size-9 shrink-0"
+                className="size-8 shrink-0"
                 disabled={isBulkDeleting}
                 onClick={onToggleEditMode}
                 size="icon"
@@ -155,7 +155,7 @@ function ChatSidebarHeader({
   return (
     <div className="flex items-center gap-1.5 ">
       <Button
-        className="h-9 flex-1 select-none justify-start gap-2 text-sidebar-foreground/80"
+        className="h-8 flex-1 select-none justify-start gap-2 text-sidebar-foreground/80"
         onClick={onNewConversation}
         size="sm"
         variant="ghost"
@@ -168,7 +168,7 @@ function ChatSidebarHeader({
           render={
             <Button
               aria-label="批量编辑"
-              className="size-9 shrink-0 text-sidebar-foreground/80"
+              className="size-8 shrink-0 text-sidebar-foreground/80"
               onClick={onToggleEditMode}
               size="icon"
               variant="ghost"

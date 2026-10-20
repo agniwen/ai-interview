@@ -10,7 +10,7 @@ import { cn } from "@app/shared/utils";
 // Only real controls should affect shared corners. Class names must stay full string
 // literals for Tailwind scanning.
 const buttonGroupVariants = cva(
-  "flex w-fit items-stretch [&>*]:focus-visible:z-10 [&>*]:focus-visible:relative [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-md has-[>[data-slot=button-group]]:gap-2",
+  "flex w-fit items-stretch [&>*]:focus-visible:z-10 [&>*]:focus-visible:relative [&>*]:has-focus-visible:z-10 [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-lg has-[>[data-slot=button-group]]:gap-2",
   {
     defaultVariants: {
       orientation: "horizontal",
@@ -18,9 +18,9 @@ const buttonGroupVariants = cva(
     variants: {
       orientation: {
         horizontal:
-          "[&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:rounded-l-none [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:border-l-0 [&>:not([data-base-ui-focus-guard]):not(span[aria-owns]):has(~:not([data-base-ui-focus-guard]):not(span[aria-owns]))]:rounded-r-none",
+          "[&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:rounded-l-none [&>:not([data-base-ui-focus-guard]):not(span[aria-owns]):has(~:not([data-base-ui-focus-guard]):not(span[aria-owns]))]:rounded-r-none",
         vertical:
-          "flex-col [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:rounded-t-none [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:border-t-0 [&>:not([data-base-ui-focus-guard]):not(span[aria-owns]):has(~:not([data-base-ui-focus-guard]):not(span[aria-owns]))]:rounded-b-none",
+          "flex-col [&>:not([data-base-ui-focus-guard]):not(span[aria-owns])~:not([data-base-ui-focus-guard]):not(span[aria-owns])]:rounded-t-none [&>:not([data-base-ui-focus-guard]):not(span[aria-owns]):has(~:not([data-base-ui-focus-guard]):not(span[aria-owns]))]:rounded-b-none",
       },
     },
   },
@@ -48,7 +48,7 @@ function ButtonGroupText({ className, render, ...props }: useRender.ComponentPro
     props: mergeProps<"div">(
       {
         className: cn(
-          "relative flex items-center gap-2 rounded-md border bg-muted px-4 text-sm font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+          "relative flex items-center gap-2 rounded-lg border border-transparent bg-control px-3 text-[13px] leading-5 font-medium shadow-default [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
           className,
         ),
       },

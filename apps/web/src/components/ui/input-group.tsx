@@ -17,8 +17,8 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
       role="group"
       className={cn(
         cossFieldSurfaceClass,
-        "group/input-group flex w-full items-center text-base md:text-sm [&>*]:relative [&>*]:z-10",
-        "h-9 min-w-0 has-[>textarea]:h-auto",
+        "group/input-group flex w-full items-center text-base md:text-[13px] [&>*]:relative [&>*]:z-10",
+        "h-8 min-w-0 has-[>textarea]:h-auto",
 
         // Variants based on alignment.
         "has-[>[data-align=inline-start]]:[&>input]:pl-2",
@@ -85,9 +85,9 @@ const inputGroupButtonVariants = cva("text-sm shadow-none flex gap-2 items-cente
   },
   variants: {
     size: {
-      "icon-sm": "size-8 p-0 has-[>svg]:p-0",
+      "icon-sm": "size-7 p-0 has-[>svg]:p-0",
       "icon-xs": "size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0",
-      sm: "h-8 px-2.5 gap-1.5 rounded-md has-[>svg]:px-2.5",
+      sm: "h-7 px-2 gap-1.5 rounded-lg has-[>svg]:px-2",
       xs: "h-6 gap-1 px-2 rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",
     },
   },

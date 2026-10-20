@@ -61,7 +61,7 @@ export function useSidebarMenuHoverHighlight<
     hoverHighlight: (
       <m.span
         aria-hidden="true"
-        className="pointer-events-none absolute top-0 left-0 rounded-md bg-sidebar-accent"
+        className="pointer-events-none absolute top-0 left-0 rounded-lg bg-sidebar-accent"
         style={{ height, opacity, width, x, y }}
       />
     ),

@@ -268,18 +268,31 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* Yohaku / kami depth:
-     - Resting surfaces: ring/border only — no drop shadow.
-     - Elevated overlays: one whisper (0 4px 24px / 0.05).
-     - Hard drop shadows are forbidden. */
-  --shadow-2xs: 0 0 #0000;
-  --shadow-xs: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-DEFAULT: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-xl: 0 8px 32px 0 rgb(0 0 0 / 0.06);
-  --shadow-2xl: 0 12px 40px 0 rgb(0 0 0 / 0.06);
+  /* 四级深度（参考 Interfere）：border 描边 → default 静止控件/卡片 → large 锚定浮层 → extra-large 对话框。
+     暗色下投影消失，改用 0.5px 白色内高光；数值在 :root / .dark 的 --elevation-* 里。
+     Four depth levels: border → default (resting controls, cards) → large (anchored popups)
+     → extra-large (modals). Dark mode trades drop shadows for a 0.5px inner highlight. */
+  --shadow-border: var(--elevation-border);
+  --shadow-default: var(--elevation-default);
+  --shadow-large: var(--elevation-large);
+  --shadow-extra-large: var(--elevation-extra-large);
+  --shadow-2xs: var(--elevation-border);
+  --shadow-xs: var(--elevation-default);
+  --shadow-sm: var(--elevation-default);
+  --shadow: var(--elevation-default);
+  --shadow-md: var(--elevation-large);
+  --shadow-lg: var(--elevation-large);
+  --shadow-xl: var(--elevation-extra-large);
+  --shadow-2xl: var(--elevation-extra-large);
+  /* 中性层级：sunken 凹陷区，component 填充控件及其 hover/active，边框分 subtle / strong 两档补充 --border。
+     Neutral layers: sunken wells, filled components with hover/active, and border tiers around --border. */
+  --color-sunken: var(--sunken);
+  --color-control: var(--control);
+  --color-component: var(--component);
+  --color-component-hover: var(--component-hover);
+  --color-component-active: var(--component-active);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
   --color-invert-foreground: var(--invert-foreground);
   --color-invert: var(--invert);
   --color-warning-foreground: var(--warning-foreground);
@@ -368,32 +381,77 @@
   --toggle-track-duration: 0ms;
   --toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
 
-  --radius: 0.875rem;
-  --background: oklch(1 0 0);
+  /* Radix Colors gray（MIT）：12 级实色 + 12 级半透明，所有中性语义色都指向其中一级。
+     Radix Colors gray (MIT): every neutral semantic token points at one of these steps. */
+  --gray-1: #fcfcfc;
+  --gray-2: #f9f9f9;
+  --gray-3: #f0f0f0;
+  --gray-4: #e8e8e8;
+  --gray-5: #e0e0e0;
+  --gray-6: #d9d9d9;
+  --gray-7: #cecece;
+  --gray-8: #bbbbbb;
+  --gray-9: #8d8d8d;
+  --gray-10: #838383;
+  --gray-11: #646464;
+  --gray-12: #202020;
+  --gray-a1: #00000003;
+  --gray-a2: #00000006;
+  --gray-a3: #0000000f;
+  --gray-a4: #00000017;
+  --gray-a5: #0000001f;
+  --gray-a6: #00000026;
+  --gray-a7: #00000031;
+  --gray-a8: #00000044;
+  --gray-a9: #00000072;
+  --gray-a10: #0000007c;
+  --gray-a11: #0000009b;
+  --gray-a12: #000000df;
+
+  --elevation-border: 0 0 0 1px #00000012;
+  --elevation-default: 0 0 0 0.5px #0000000f, 0 1px 1px -1px #0000001a, 0 1px 2px 0 #0000000d;
+  --elevation-large:
+    0 0 0 0.5px color-mix(in oklab, var(--gray-a3), var(--gray-3) 25%),
+    0 2px 3px -2px var(--gray-a3), 0 3px 12px -4px rgb(0 0 0 / 0.1),
+    0 4px 16px -8px rgb(0 0 0 / 0.05);
+  --elevation-extra-large:
+    0 0 0 0.5px #0000000f, 0 8px 40px 0 #0000000d, 0 12px 32px -16px #00000026;
+
+  --radius: 0.5rem;
+  /* 三层表面（参考 Interfere）：外壳 shell（侧栏）→ 内容面板 background（gray-1，略低于纯白）→ 卡片 / 浮层 / 控件纯白。
+     Three surfaces: shell (sidebar) → content panel (gray-1, just under white) → white cards, popovers and controls. */
+  --background: var(--gray-1);
   /* 首页画布：中性灰带一点蓝调。 Homepage canvas: neutral with a faint blue cast. */
   --home-canvas: #f2f4f7;
   /* 首页正文底色与卡片表面。 Homepage page surface and card surface. */
   --home-surface: #ffffff;
   --home-card: #ffffff;
-  --foreground: #262626;
-  --card: var(--background);
+  --foreground: var(--gray-12);
+  --card: #ffffff;
   --card-foreground: var(--foreground);
   --popover: #ffffff;
+  --control: #ffffff;
   --popover-foreground: var(--foreground);
   /* Klein blue actions on neutral light-mode surfaces. */
   --primary: #1d4ed8;
   --primary-foreground: #ffffff;
   --primary-border: var(--primary);
   --primary-link: var(--primary);
-  --secondary: #f5f5f5;
+  --secondary: var(--gray-3);
   --secondary-foreground: var(--foreground);
-  --muted: #f5f5f5;
-  --muted-foreground: #666666;
-  --accent: #f5f5f5;
+  --muted: var(--gray-3);
+  --muted-foreground: var(--gray-11);
+  --accent: var(--gray-3);
   --accent-foreground: var(--foreground);
+  --sunken: var(--gray-a2);
+  --component: var(--gray-a3);
+  --component-hover: var(--gray-a4);
+  --component-active: var(--gray-a5);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: rgb(0 0 0 / 8%);
-  --input: rgb(0 0 0 / 10%);
+  --border-subtle: var(--gray-a3);
+  --border: var(--gray-a4);
+  --border-strong: var(--gray-a6);
+  --input: var(--gray-a5);
   --ring: #4f70d2;
   /* Only charts that followed the light primary green adopt the dark action blue. */
   --chart-primary: #1d4ed8;
@@ -414,13 +472,15 @@
   --calendar-ai-interview-foreground: var(--purple-ink);
   --calendar-human-interview: var(--sky);
   --calendar-human-interview-foreground: var(--sky-ink);
-  --sidebar: #fafafa;
-  --sidebar-foreground: #404040;
+  /* 侧栏即应用外壳（shell），比主面板低一档。 The sidebar doubles as the app shell, one step below the main panel. */
+  --sidebar: oklch(0.973 0 0);
+  /* 非激活项比正文略浅一档，仍保证可读。 Inactive items sit one notch under body text. */
+  --sidebar-foreground: #000000bf;
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: #f0f0f0;
-  --sidebar-accent-foreground: #262626;
-  --sidebar-border: rgb(0 0 0 / 6%);
+  --sidebar-accent: var(--gray-a3);
+  --sidebar-accent-foreground: var(--gray-12);
+  --sidebar-border: var(--gray-a3);
   --sidebar-ring: var(--primary);
   /* 语义色板（亮色）：基色 → 文字 ink（混入正文色，保证可读）/ 浅底 tint / 描边 line。
      Semantic palette: one base per hue; text, fill, and border are derived so every hue reads as one family. */
@@ -464,36 +524,78 @@
   --info-foreground: var(--purple-ink);
   --warning: var(--amber);
   --warning-foreground: var(--amber-ink);
-  --invert: var(--color-zinc-900);
-  --invert-foreground: var(--color-zinc-50);
+  --invert: var(--gray-12);
+  --invert-foreground: var(--gray-1);
 }
 
 .dark {
-  --background: oklch(0.215 0.018 254);
-  /* 首页暗色比应用背景提亮一档：画布带略深偏蓝，正文表面居中，卡片最亮。
+  /* 暗色为纯中性灰（Radix gray dark），不再偏蓝。 Dark mode uses pure neutral Radix gray, no blue cast. */
+  --gray-1: #111111;
+  --gray-2: #191919;
+  --gray-3: #222222;
+  --gray-4: #2a2a2a;
+  --gray-5: #313131;
+  --gray-6: #3a3a3a;
+  --gray-7: #484848;
+  --gray-8: #606060;
+  --gray-9: #6e6e6e;
+  --gray-10: #7b7b7b;
+  --gray-11: #b4b4b4;
+  --gray-12: #eeeeee;
+  --gray-a1: #00000000;
+  --gray-a2: #ffffff09;
+  --gray-a3: #ffffff12;
+  --gray-a4: #ffffff1b;
+  --gray-a5: #ffffff22;
+  --gray-a6: #ffffff2c;
+  --gray-a7: #ffffff3b;
+  --gray-a8: #ffffff55;
+  --gray-a9: #ffffff64;
+  --gray-a10: #ffffff72;
+  --gray-a11: #ffffffaf;
+  --gray-a12: #ffffffed;
+
+  --elevation-border: 0 0 0 1px #ffffff12;
+  --elevation-default: inset 0 0 0 0.5px #ffffff12;
+  --elevation-large:
+    0 0 0 1px color-mix(in oklab, var(--gray-a3), var(--gray-6) 25%),
+    0 2px 3px -2px rgb(0 0 0 / 0.15), 0 3px 8px -2px rgb(0 0 0 / 0.4),
+    0 4px 12px -4px rgb(0 0 0 / 0.5);
+  --elevation-extra-large:
+    inset 0 0 0 0.5px #ffffff12, 0 8px 40px 0 #0000000d, 0 12px 32px -16px #00000026;
+
+  --background: var(--gray-1);
+  /* 首页暗色比应用背景提亮一档：画布、正文表面、卡片逐级变亮。
      Homepage dark mode sits one step above the app background: canvas band, surface, then cards. */
-  --home-canvas: oklch(0.245 0.022 258);
-  --home-surface: oklch(0.265 0.016 256);
-  --home-card: oklch(0.305 0.018 256);
-  --foreground: oklch(0.97 0.006 254);
-  --card: oklch(0.215 0.018 254);
-  --card-foreground: oklch(0.97 0.006 254);
-  --popover: oklch(0.215 0.018 254);
-  --popover-foreground: oklch(0.97 0.006 254);
+  --home-canvas: oklch(0.245 0 0);
+  --home-surface: oklch(0.265 0 0);
+  --home-card: oklch(0.305 0 0);
+  --foreground: var(--gray-12);
+  --card: var(--gray-2);
+  --card-foreground: var(--gray-12);
+  --popover: var(--gray-2);
+  --popover-foreground: var(--gray-12);
+  --control: var(--gray-2);
   /* Dark mode keeps Klein blue as the action color; paired blue tints stay legible on dark surfaces. */
   --primary: #1d4ed8;
   --primary-foreground: #ffffff;
   --primary-border: var(--ring);
   --primary-link: var(--primary);
-  --secondary: oklch(0.255 0.02 254);
-  --secondary-foreground: oklch(0.97 0.006 254);
-  --muted: oklch(0.255 0.02 254);
-  --muted-foreground: oklch(0.74 0.03 254);
-  --accent: oklch(0.255 0.02 254);
-  --accent-foreground: oklch(0.97 0.006 254);
+  --secondary: var(--gray-3);
+  --secondary-foreground: var(--gray-12);
+  --muted: var(--gray-3);
+  --muted-foreground: var(--gray-11);
+  --accent: var(--gray-3);
+  --accent-foreground: var(--gray-12);
+  --sunken: rgb(0 0 0 / 0.4);
+  --component: var(--gray-a3);
+  --component-hover: var(--gray-a4);
+  --component-active: var(--gray-a5);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --border-subtle: var(--gray-a3);
+  --border: var(--gray-a4);
+  --border-strong: var(--gray-a6);
+  --input: var(--gray-a5);
   --ring: #4f70d2;
   --chart-1: #38bdf8;
   --chart-2: #c084fc;
@@ -505,20 +607,20 @@
   --job-weight-project: oklch(0.54 0.06 78);
   --job-weight-education: oklch(0.52 0.07 300);
   --job-weight-potential: oklch(0.54 0.06 32);
-  --job-weight-stability: oklch(0.48 0.02 254);
+  --job-weight-stability: oklch(0.48 0 0);
   --job-weight-chip-mix: 10%;
   --job-weight-chip-border-mix: 16%;
   --calendar-ai-interview: var(--purple);
   --calendar-ai-interview-foreground: var(--purple-ink);
   --calendar-human-interview: var(--sky);
   --calendar-human-interview-foreground: var(--sky-ink);
-  --sidebar: #0e151e;
-  --sidebar-foreground: oklch(0.97 0.006 254);
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffffcc;
   --sidebar-primary: #1d4ed8;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: oklch(0.255 0.02 254);
-  --sidebar-accent-foreground: oklch(0.97 0.006 254);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: var(--gray-a3);
+  --sidebar-accent-foreground: var(--gray-12);
+  --sidebar-border: var(--gray-a3);
   --sidebar-ring: var(--primary);
   /* 语义色板（暗色）：基色不变，文字提亮、浅底与描边加深混合比例，保证暗底上的层次。 */
   --green-ink: color-mix(in oklab, var(--green) 80%, white);
@@ -552,8 +654,8 @@
   --info-foreground: var(--purple-ink);
   --warning: var(--amber);
   --warning-foreground: var(--amber-ink);
-  --invert: var(--color-zinc-700);
-  --invert-foreground: var(--color-zinc-50);
+  --invert: var(--gray-6);
+  --invert-foreground: var(--gray-12);
 }
 
 @layer base {
@@ -984,6 +1086,18 @@
   [class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+}
+
+/* 高对比度偏好：边框与次要文字各提一档。 Higher contrast preference: borders and secondary text step up. */
+@media (prefers-contrast: more) {
+  :root,
+  .dark {
+    --border-subtle: var(--gray-a6);
+    --border: var(--gray-a7);
+    --border-strong: var(--gray-a8);
+    --input: var(--gray-a8);
+    --muted-foreground: var(--gray-12);
   }
 }
 

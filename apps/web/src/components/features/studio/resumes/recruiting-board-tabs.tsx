@@ -136,7 +136,7 @@ export function RecruitingBoardTabs({
               const count = BADGE_HIDDEN_GROUPS.has(entry.id) ? undefined : counts?.get(entry.id);
               return (
                 <TabsTrigger
-                  className="h-10! flex-1 px-4 text-sm sm:flex-none sm:px-6"
+                  className="flex-1 px-4 sm:h-8 sm:flex-none sm:px-5"
                   key={entry.id}
                   value={entry.id}
                 >

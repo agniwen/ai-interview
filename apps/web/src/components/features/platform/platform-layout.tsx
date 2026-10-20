@@ -26,7 +26,7 @@ export function PlatformLayout({ children }: { children: ReactNode }) {
     <AppVersionProvider>
       <PlatformSidebarShell>
         <PlatformSidebarSlots />
-        <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1.5rem)]">
+        <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1.5rem)]">
           <PlatformContent>{children}</PlatformContent>
         </SidebarInset>
         <BackgroundStreamToaster />

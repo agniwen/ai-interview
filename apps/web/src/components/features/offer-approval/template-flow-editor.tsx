@@ -97,7 +97,7 @@ const ApprovalNode = memo(function ApprovalNode({ data }: NodeProps<ApprovalFlow
           className={cn(
             "w-full overflow-hidden rounded-xl border bg-card text-left shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
             data.active
-              ? "border-foreground/60 ring-2 ring-foreground/10 dark:border-neutral-500 dark:ring-1 dark:ring-neutral-500/20"
+              ? "border-foreground/60 ring-2 ring-foreground/10 dark:border-border-strong dark:ring-1 dark:ring-border"
               : "border-border hover:border-foreground/40",
           )}
         >

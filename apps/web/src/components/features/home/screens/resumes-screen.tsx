@@ -426,7 +426,7 @@ function ResumeCard({ record }: { record: ResumeCardData }) {
       : undefined;
   return (
     <Card
-      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent transition-colors hover:bg-muted dark:hover:bg-input/30"
+      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent shadow-none transition-colors hover:bg-component/60"
       render={<article />}
     >
       <CardPanel className="flex h-full min-h-0 gap-3 p-4">

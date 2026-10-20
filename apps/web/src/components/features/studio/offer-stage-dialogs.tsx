@@ -236,7 +236,7 @@ export function RespondOfferDialog({
               {(["accepted", "declined", "counter"] as const).map((value) => (
                 <div className="flex items-center gap-2" key={value}>
                   <RadioGroupItem id={`resp-${value}`} value={value} />
-                  <Label className="cursor-pointer text-sm" htmlFor={`resp-${value}`}>
+                  <Label className="cursor-pointer" htmlFor={`resp-${value}`}>
                     {offerResponseLabel(value)}
                   </Label>
                 </div>
@@ -246,9 +246,7 @@ export function RespondOfferDialog({
 
           {response === "counter" ? (
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="counter-content">
-                议价内容
-              </Label>
+              <Label htmlFor="counter-content">议价内容</Label>
               <Textarea
                 id="counter-content"
                 maxLength={2000}
@@ -261,9 +259,7 @@ export function RespondOfferDialog({
           ) : null}
           {response === "declined" ? (
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="offer-decline-reason">
-                拒绝原因（选填）
-              </Label>
+              <Label htmlFor="offer-decline-reason">拒绝原因（选填）</Label>
               <Textarea
                 id="offer-decline-reason"
                 maxLength={1000}

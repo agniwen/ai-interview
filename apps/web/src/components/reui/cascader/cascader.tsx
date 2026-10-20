@@ -2139,7 +2139,7 @@ const CHIP_REMOVE_CLASS = "opacity-50 hover:opacity-100 -ml-1";
  * left out (mirrored in `cascader-nav.tsx`), as are its `max-h-72` and
  * `min-w-*`: `CascaderContent` sets both from the positioner's variables. */
 const CONTENT_SURFACE_CLASS =
-  "overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
+  "overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-large";
 
 const EMPTY_CLASS =
   "text-muted-foreground hidden w-full justify-center py-2 text-center group-data-empty/combobox-content:flex text-sm";

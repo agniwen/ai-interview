@@ -294,7 +294,7 @@ export function QuestionConfigPanel({
                     id={`q-${index}-required`}
                     onCheckedChange={(checked) => field.handleChange(checked)}
                   />
-                  <Label className="text-sm" htmlFor={`q-${index}-required`}>
+                  <Label htmlFor={`q-${index}-required`}>
                     {field.state.value ? "必填" : "选填"}
                   </Label>
                 </div>

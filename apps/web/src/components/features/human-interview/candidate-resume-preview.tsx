@@ -23,7 +23,7 @@ export function CandidateResumePreview({
   }
   return (
     <section aria-label="简历预览" className="mx-2 mb-4 pt-3 md:mx-4">
-      <div className="flex aspect-[16/10] w-full flex-col overflow-hidden rounded-xl border bg-background">
+      <div className="flex aspect-[16/10] w-full flex-col overflow-hidden rounded-xl bg-control shadow-default">
         <div
           className="min-h-0 flex-1 cursor-zoom-in overflow-hidden"
           onPointerDownCapture={(event) => {

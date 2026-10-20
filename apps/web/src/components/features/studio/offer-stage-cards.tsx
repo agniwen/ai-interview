@@ -125,9 +125,7 @@ export function CandidateExpectationsBlock({
         <FramePanel>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="exp-salary">
-                期望月薪
-              </Label>
+              <Label htmlFor="exp-salary">期望月薪</Label>
               <Input
                 id="exp-salary"
                 inputMode="numeric"
@@ -139,9 +137,7 @@ export function CandidateExpectationsBlock({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="cur-salary">
-                当前月薪
-              </Label>
+              <Label htmlFor="cur-salary">当前月薪</Label>
               <Input
                 id="cur-salary"
                 inputMode="numeric"
@@ -153,9 +149,7 @@ export function CandidateExpectationsBlock({
               />
             </div>
             <div className="grid gap-1.5 sm:col-span-2">
-              <Label className="text-sm" htmlFor="exp-joining">
-                最早入职日
-              </Label>
+              <Label htmlFor="exp-joining">最早入职日</Label>
               <DatePicker
                 id="exp-joining"
                 onValueChange={setEarliestJoiningDate}
@@ -163,9 +157,7 @@ export function CandidateExpectationsBlock({
               />
             </div>
             <div className="grid gap-1.5 sm:col-span-2">
-              <Label className="text-sm" htmlFor="exp-notes">
-                备注
-              </Label>
+              <Label htmlFor="exp-notes">备注</Label>
               <Textarea
                 id="exp-notes"
                 maxLength={1000}

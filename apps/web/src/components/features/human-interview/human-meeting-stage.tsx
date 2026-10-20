@@ -770,7 +770,7 @@ function HumanParticipantTile({
 }
 
 export const humanMeetingControlButtonClass =
-  "inline-flex h-9 items-center gap-2 rounded-md border border-border bg-secondary px-3 text-sm text-foreground transition hover:bg-accent";
+  "inline-flex h-8 items-center gap-1.5 rounded-lg border border-transparent bg-control px-3 text-[13px] leading-5 font-medium text-foreground shadow-default transition hover:bg-(--gray-2) dark:hover:bg-(--gray-3)";
 
 const mediaToggleButtonClass = `${humanMeetingControlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
 

@@ -130,9 +130,9 @@ export function SidebarUserSection({
 
   if (showLoading) {
     content = collapsed ? (
-      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
     ) : (
-      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
     );
   } else if (session?.user) {
     content = collapsed ? (

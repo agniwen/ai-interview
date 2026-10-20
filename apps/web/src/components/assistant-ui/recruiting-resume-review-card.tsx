@@ -277,7 +277,7 @@ export function RecruitingResumeReviewCard({
 
       <CardFooter className="justify-end px-4 pt-0 pb-4">
         <Button
-          className="h-8 px-2.5 text-xs"
+          className="h-7 px-2.5 text-xs"
           onClick={() => openResumeDetail(record.id, "ai-analysis")}
           size="sm"
           type="button"

@@ -215,7 +215,6 @@ export function RecruitingGroupsPanel({
         {canUpdate ? (
           <div className="flex items-center gap-2 sm:w-72">
             <Input
-              className="h-9"
               onChange={(event) => setNewGroupName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {

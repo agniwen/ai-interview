@@ -63,11 +63,11 @@ function ToolbarSkeleton({
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2" data-slot="list-toolbar-skeleton">
       {filterCount > 2 ? (
-        <Skeleton className="h-9 w-28 rounded-lg" data-slot="filter-control-skeleton" />
+        <Skeleton className="h-8 w-28 rounded-lg" data-slot="filter-control-skeleton" />
       ) : (
         Array.from({ length: filterCount }, (_, index) => (
           <Skeleton
-            className="h-9 w-full rounded-lg sm:w-60"
+            className="h-8 w-full rounded-lg sm:w-60"
             data-slot="filter-control-skeleton"
             key={index}
           />
@@ -77,9 +77,9 @@ function ToolbarSkeleton({
         className="flex min-w-0 flex-wrap items-center gap-2"
         data-slot="toolbar-actions-skeleton"
       >
-        <Skeleton className="h-9 w-28 rounded-lg" data-slot="clear-filter-skeleton" />
-        <Skeleton className="h-9 w-20 rounded-lg" data-slot="refresh-skeleton" />
-        {primaryAction ? <Skeleton className="h-9 w-28 rounded-lg" /> : null}
+        <Skeleton className="h-8 w-28 rounded-lg" data-slot="clear-filter-skeleton" />
+        <Skeleton className="h-8 w-20 rounded-lg" data-slot="refresh-skeleton" />
+        {primaryAction ? <Skeleton className="h-8 w-28 rounded-lg" /> : null}
       </div>
     </div>
   );

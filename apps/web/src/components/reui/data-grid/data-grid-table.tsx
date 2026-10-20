@@ -975,9 +975,7 @@ function DataGridTableHeadRowCell<TData extends object>({
         props.tableLayout?.columnsPinnable &&
           isPinned &&
           cn(
-            props.tableLayout?.headerBackground
-              ? "data-pinned:bg-muted"
-              : "data-pinned:bg-background",
+            props.tableLayout?.headerBackground ? "data-pinned:bg-muted" : "data-pinned:bg-control",
             "data-outer-pinned-col:bg-clip-padding data-pinned:isolate",
             "[&[data-pinned=end]:last-child_div.cursor-col-resize:last-child]:opacity-0",
             "[&:not([data-pinned]):has(+[data-pinned])_div.cursor-col-resize:last-child]:opacity-0 [&[data-last-col=start]_div.cursor-col-resize:last-child]:opacity-0",
@@ -1285,7 +1283,7 @@ function DataGridTableFootRow({ children }: { children: ReactNode }) {
     <tr
       data-slot="data-grid-table-foot-row"
       className={cn(
-        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-background",
+        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-control",
         props.tableLayout?.rowBorder && footRowBottomBorderClasses,
         props.tableLayout?.cellBorder && "*:last:border-e-0",
         // The fill foot cell is the :last child, so the rule above only
@@ -1323,7 +1321,7 @@ function DataGridTableFootRowCell({
       className={cn(
         "text-secondary-foreground/80 align-middle font-medium",
         spacing,
-        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-background",
+        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-control",
         props.tableLayout?.cellBorder && "border-e",
         className,
       )}
@@ -1393,7 +1391,7 @@ function DataGridTableBodyRowSkeletonCell<TData extends object>({
         column.columnDef.meta?.cellClassName,
         props.tableLayout?.columnsPinnable &&
           isPinned &&
-          "data-pinned:bg-background data-pinned:isolate",
+          "data-pinned:bg-control data-pinned:isolate",
         column.getIndex() === 0 || column.getIndex() === table.getVisibleLeafColumns().length - 1
           ? props.tableClassNames?.edgeCell
           : "",
@@ -1676,7 +1674,7 @@ function DataGridTableBodyRowCell<TData extends object>({
         cell.column.columnDef.meta?.cellClassName,
         props.tableLayout?.columnsPinnable &&
           isPinned &&
-          "data-pinned:bg-background data-pinned:isolate",
+          "data-pinned:bg-control data-pinned:isolate",
         column.getIndex() === 0 || column.getIndex() === row.getVisibleCells().length - 1
           ? props.tableClassNames?.edgeCell
           : "",

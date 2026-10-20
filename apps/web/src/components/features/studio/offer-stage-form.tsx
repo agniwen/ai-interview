@@ -125,7 +125,7 @@ export function OfferDraftFormFields({
   return (
     <div className="grid gap-3 py-2 sm:grid-cols-2">
       <div className={`grid gap-1.5 ${fullSpanClassName}`}>
-        <Label className="text-sm" htmlFor={`${idPrefix}-position`}>
+        <Label htmlFor={`${idPrefix}-position`}>
           职位
           <RequiredMark />
         </Label>
@@ -140,7 +140,7 @@ export function OfferDraftFormFields({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-sm" htmlFor={`${idPrefix}-base`}>
+        <Label htmlFor={`${idPrefix}-base`}>
           Base 月薪 (¥)
           <RequiredMark />
         </Label>
@@ -156,9 +156,7 @@ export function OfferDraftFormFields({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-sm" htmlFor={`${idPrefix}-bonus`}>
-          年度奖金 (¥，可选)
-        </Label>
+        <Label htmlFor={`${idPrefix}-bonus`}>年度奖金 (¥，可选)</Label>
         <Input
           id={`${idPrefix}-bonus`}
           inputMode="numeric"
@@ -169,9 +167,7 @@ export function OfferDraftFormFields({
         />
       </div>
       <div className={`grid gap-1.5 ${fullSpanClassName}`}>
-        <Label className="text-sm" htmlFor={`${idPrefix}-equity`}>
-          期权 / 股票（可选，自由文本）
-        </Label>
+        <Label htmlFor={`${idPrefix}-equity`}>期权 / 股票（可选，自由文本）</Label>
         <Input
           id={`${idPrefix}-equity`}
           maxLength={500}
@@ -181,9 +177,7 @@ export function OfferDraftFormFields({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-sm" htmlFor={`${idPrefix}-joining`}>
-          预计入职日（可选）
-        </Label>
+        <Label htmlFor={`${idPrefix}-joining`}>预计入职日（可选）</Label>
         <DatePicker
           id={`${idPrefix}-joining`}
           onValueChange={(value) => onFieldChange("joiningDate", value)}
@@ -191,9 +185,7 @@ export function OfferDraftFormFields({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-sm" htmlFor={`${idPrefix}-expires`}>
-          Offer 有效期至（含当天，可选）
-        </Label>
+        <Label htmlFor={`${idPrefix}-expires`}>Offer 有效期至（含当天，可选）</Label>
         <DatePicker
           id={`${idPrefix}-expires`}
           onValueChange={(value) => onFieldChange("expiresAt", value)}
@@ -201,9 +193,7 @@ export function OfferDraftFormFields({
         />
       </div>
       <div className={`grid gap-1.5 ${fullSpanClassName}`}>
-        <Label className="text-sm" htmlFor={`${idPrefix}-notes`}>
-          备注（可选）
-        </Label>
+        <Label htmlFor={`${idPrefix}-notes`}>备注（可选）</Label>
         <Textarea
           id={`${idPrefix}-notes`}
           maxLength={2000}

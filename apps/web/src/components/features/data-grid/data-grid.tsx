@@ -117,7 +117,7 @@ function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowC
         tableClassNames={{ bodyRow: DATA_GRID_ROW_CLASS }}
         tableLayout={{ cellBorder: true, headerBackground: false, rowBorder: true, width: "auto" }}
       >
-        <ReuiDataGridContainer className="rounded-lg border shadow-none">
+        <ReuiDataGridContainer className="rounded-lg bg-control shadow-default">
           <DataGridScrollArea>
             <DataGridTable />
           </DataGridScrollArea>
@@ -423,7 +423,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         headerSticky: "sticky top-0 z-40 bg-background",
       }}
     >
-      <ReuiDataGridContainer className="rounded-lg border shadow-none">
+      <ReuiDataGridContainer className="rounded-lg bg-control shadow-default">
         <DataGridScrollArea style={maxHeight ? { maxHeight } : undefined}>
           <DataGridTable />
         </DataGridScrollArea>

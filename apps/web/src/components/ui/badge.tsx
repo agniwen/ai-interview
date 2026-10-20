@@ -6,7 +6,7 @@ import { cva } from "class-variance-authority";
 import { cn } from "@app/shared/utils";
 
 const badgeVariants = cva(
-  "inline-flex h-7 w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border border-transparent px-2.5 text-xs leading-none font-normal whitespace-nowrap transition-[color,background-color,box-shadow] focus-visible:border-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex h-7 w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-transparent px-2.5 text-xs leading-none font-normal whitespace-nowrap transition-[color,background-color,box-shadow] focus-visible:border-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     compoundVariants: [
       { className: "before:bg-muted-foreground/50", dot: true, variant: "default" },

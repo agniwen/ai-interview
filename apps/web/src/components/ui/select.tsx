@@ -116,7 +116,7 @@ function SelectTrigger({
       data-size={size}
       className={cn(
         cossTriggerSurfaceClass,
-        "flex w-fit items-center justify-between gap-2 px-3 py-2 text-sm whitespace-nowrap data-placeholder:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 dark:hover:bg-input/50 *:relative *:z-10 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
+        "flex w-fit items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] whitespace-nowrap data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 dark:hover:bg-input/50 *:relative *:z-10 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -201,7 +201,7 @@ function SelectItem({
       data-slot="select-item"
       label={itemLabel}
       className={cn(
-        "data-highlighted:bg-accent data-highlighted:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "data-highlighted:bg-component data-highlighted:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-lg py-1.5 pr-8 pl-2 text-[13px] outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className,
       )}
       {...props}

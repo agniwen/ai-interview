@@ -24,7 +24,7 @@ export function ResumePoolCardSkeleton() {
       )}
       data-slot="resume-pool-card-skeleton"
     >
-      <Card className="h-full overflow-hidden rounded-lg border-0 bg-transparent">
+      <Card className="h-full overflow-hidden rounded-lg border-0 bg-transparent shadow-none">
         <CardPanel className="flex h-full min-h-0 p-4">
           <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
             <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
