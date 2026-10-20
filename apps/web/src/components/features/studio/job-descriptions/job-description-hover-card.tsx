@@ -79,11 +79,14 @@ export function JobDescriptionHoverCardView({
   className,
   jobDescriptionId,
   name,
+  triggerElement = "button",
 }: {
   dependencies: JobDescriptionHoverCardDependencies;
   className?: string;
   jobDescriptionId: string | null | undefined;
   name: string | null | undefined;
+  /** 放在其他按钮里时用 `span`，避免按钮嵌套。/ Use `span` inside another button to avoid nesting. */
+  triggerElement?: "button" | "span";
 }) {
   const { fetchDetail, slug } = dependencies;
   const [open, setOpen] = useState(false);
@@ -108,23 +111,40 @@ export function JobDescriptionHoverCardView({
 
   return (
     <HoverCard onOpenChange={setOpen} open={open}>
-      <HoverCardTrigger
-        render={
-          <button
-            className={cn(
-              "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
-              className,
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpen(true);
-            }}
-            type="button"
-          >
-            {displayName}
-          </button>
-        }
-      />
+      {triggerElement === "span" ? (
+        <HoverCardTrigger
+          onClick={(event) => {
+            // 嵌在整行按钮里：点击只打开预览，不触发整行。/ Inside a row button: open, don't activate the row.
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(true);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          render={
+            <span className={cn("text-left underline-offset-4 hover:underline", className)} />
+          }
+        >
+          {displayName}
+        </HoverCardTrigger>
+      ) : (
+        <HoverCardTrigger
+          render={
+            <button
+              className={cn(
+                "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
+                className,
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(true);
+              }}
+              type="button"
+            >
+              {displayName}
+            </button>
+          }
+        />
+      )}
       <HoverCardContent
         align="start"
         className="w-96 max-w-[calc(100vw-2rem)]"
@@ -149,6 +169,7 @@ export function JobDescriptionHoverCard(props: {
   className?: string;
   jobDescriptionId: string | null | undefined;
   name: string | null | undefined;
+  triggerElement?: "button" | "span";
 }) {
   const slug = useOptionalWorkspaceSlug();
   return (

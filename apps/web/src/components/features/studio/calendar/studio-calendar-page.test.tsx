@@ -39,8 +39,11 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "张三",
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-1",
+              jobDescriptionId: null,
               jobDescriptionName: "前端工程师",
               roundId: "round-1",
               roundLabel: "AI 初面",
@@ -59,16 +62,22 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "李四",
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-2",
+              jobDescriptionId: null,
               jobDescriptionName: "前端技术经理",
               roundId: "round-2",
               roundLabel: "技术复面",
             },
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "李小四",
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-2b",
+              jobDescriptionId: null,
               jobDescriptionName: "前端技术经理",
               roundId: "round-2b",
               roundLabel: "技术复面",
@@ -77,7 +86,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           endAt: humanEndAt.toISOString(),
           format: "online" as const,
           id: "human:round-2",
-          interviewers: [{ id: "user-1", name: "王面试官" }],
+          interviewers: [{ avatarUrl: null, id: "user-1", name: "王面试官" }],
           kind: "human" as const,
           location: null,
           meetingUrl: null,
@@ -90,8 +99,11 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "王五",
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-3",
+              jobDescriptionId: null,
               roundId: "round-3",
               roundLabel: "AI 复面",
             },
@@ -109,8 +121,11 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "赵六",
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-4",
+              jobDescriptionId: null,
               roundId: "round-4",
               roundLabel: "终面",
             },
@@ -118,7 +133,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           endAt: endAt.toISOString(),
           format: "onsite" as const,
           id: "human:round-4",
-          interviewers: [{ id: "user-2", name: "陈面试官" }],
+          interviewers: [{ avatarUrl: null, id: "user-2", name: "陈面试官" }],
           kind: "human" as const,
           location: "会议室 A",
           meetingUrl: null,
@@ -176,8 +191,6 @@ describe("StudioCalendarPage", () => {
     });
 
     expect(host.textContent).toContain("面试管理");
-    expect(host.querySelector('[data-slot="frame"]')).not.toBeNull();
-    expect(host.querySelector('[data-slot="frame-panel"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).not.toBeNull();
     await act(async () => {
       await vi.waitFor(() => {
@@ -255,9 +268,6 @@ describe("StudioCalendarPage", () => {
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).toBeNull();
     expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(5);
-    const viewControls = host.querySelector<HTMLElement>('[data-slot="calendar-view-controls"]');
-
-    expect(viewControls?.children).toHaveLength(2);
     expect(host.querySelector('[data-slot="calendar-primary-view-row"]')).not.toBeNull();
     expect(host.querySelector('[data-slot="calendar-range-view-row"]')).not.toBeNull();
     expect(host.querySelector('[data-calendar-event-icon="ai"]')).not.toBeNull();

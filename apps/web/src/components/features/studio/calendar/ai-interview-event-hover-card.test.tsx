@@ -22,8 +22,11 @@ const event: StudioAiCalendarEvent = {
   candidates: [
     {
       canOpenRecruitingRecord: true,
+      candidateAvatarVersion: null,
       candidateName: "张三",
+      evaluationConclusion: "none",
       interviewRecordId: "candidate-1",
+      jobDescriptionId: null,
       roundId: "round-1",
       roundLabel: "技术初筛",
     },

@@ -12,3 +12,5 @@ export { createHumanInterviewRecordingDao } from "./human-interview-recording-da
 export { createMeetingTranscriptLoader } from "./meeting-transcript-loader";
 export { loadHumanInterviewRecognitionDocuments } from "./human-interview-recognition-context";
 export { createHumanRealtimeTranscriptDao } from "./human-realtime-transcript-dao";
+export { loadRoundReviewerIds } from "./human-interview-reviewer-dao";
+export { aggregateHumanInterviewOutcomes } from "./human-interview-reviewer-evaluation";

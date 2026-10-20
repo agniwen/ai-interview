@@ -1,16 +1,58 @@
 import type {
+  HumanInterviewEvaluationStatus,
   HumanInterviewMeetingStatus,
+  HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   ScheduleEntryStatus,
 } from "@app/db-schema/studio-interviews";
-import type { StudioAiCalendarEvent, StudioCalendarEvent } from "@app/shared/studio-calendar";
+import { aggregateHumanInterviewOutcomes } from "@app/meeting-processing/human-interview";
+import type {
+  StudioAiCalendarEvent,
+  StudioCalendarEvaluationConclusion,
+  StudioCalendarEvent,
+} from "@app/shared/studio-calendar";
 import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
+
+/**
+ * 真人轮次的决定性结论，与评价提交流程同一规则：已锁定的通过/未通过优先，否则按提交顺序取
+ * 第一个通过/未通过，其余已提交评价为待定；没有任何提交时为未评价。
+ * / The same rule the submission flow uses: a locked pass/fail wins, else the first decisive
+ * submission, else inconclusive; with nothing submitted the round is unevaluated.
+ */
+export function resolveHumanRoundConclusion({
+  evaluationStatus,
+  outcome,
+  submittedOutcomes,
+}: {
+  evaluationStatus: HumanInterviewEvaluationStatus;
+  outcome: HumanInterviewRoundOutcome | null;
+  /** 已提交评价的结论，按提交时间升序。/ Submitted outcomes in submission order. */
+  submittedOutcomes: (HumanInterviewRoundOutcome | null)[];
+}): StudioCalendarEvaluationConclusion {
+  const roundSubmitted = evaluationStatus === "submitted" && outcome !== null;
+  if (roundSubmitted && (outcome === "pass" || outcome === "fail")) {
+    return outcome;
+  }
+  if (submittedOutcomes.length > 0) {
+    return aggregateHumanInterviewOutcomes(submittedOutcomes);
+  }
+  return roundSubmitted ? outcome : "none";
+}
+
+/** AI 轮次只有人工决定的结论；AI 报告本身不给出通过与否。/ Only a human decision concludes an AI round. */
+export function resolveAiRoundConclusion(
+  reviewOutcome: "pass" | "fail" | null,
+): StudioCalendarEvaluationConclusion {
+  return reviewOutcome ?? "none";
+}
 
 export interface AiCalendarScheduledRow {
   candidateName: string;
+  jobDescriptionId?: string | null;
   jobDescriptionName?: string | null;
   interviewRecordId: string;
   roundId: string;
+  reviewOutcome?: "pass" | "fail" | null;
   roundLabel: string;
   scheduledAt: Date | null;
   scheduledEndAt: Date | null;
@@ -19,10 +61,12 @@ export interface AiCalendarScheduledRow {
 
 export interface AiCalendarConversationRow {
   candidateName: string;
+  jobDescriptionId?: string | null;
   jobDescriptionName?: string | null;
   conversationId: string;
   endedAt: Date | null;
   interviewRecordId: string;
+  reviewOutcome?: "pass" | "fail" | null;
   roundId: string;
   roundLabel: string;
   startedAt: Date | null;
@@ -72,8 +116,11 @@ export function buildAiCalendarEvents({
         candidates: [
           {
             canOpenRecruitingRecord: true,
+            candidateAvatarVersion: null,
             candidateName: row.candidateName,
+            evaluationConclusion: resolveAiRoundConclusion(row.reviewOutcome ?? null),
             interviewRecordId: row.interviewRecordId,
+            jobDescriptionId: row.jobDescriptionId ?? null,
             jobDescriptionName: row.jobDescriptionName ?? null,
             roundId: row.roundId,
             roundLabel: row.roundLabel,
@@ -103,8 +150,11 @@ export function buildAiCalendarEvents({
         candidates: [
           {
             canOpenRecruitingRecord: true,
+            candidateAvatarVersion: null,
             candidateName: row.candidateName,
+            evaluationConclusion: resolveAiRoundConclusion(row.reviewOutcome ?? null),
             interviewRecordId: row.interviewRecordId,
+            jobDescriptionId: row.jobDescriptionId ?? null,
             jobDescriptionName: row.jobDescriptionName ?? null,
             roundId: row.roundId,
             roundLabel: row.roundLabel,

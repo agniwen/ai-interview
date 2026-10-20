@@ -31,6 +31,8 @@ export const studioCalendarKeys = {
   range: (slug: string, start: string, end: string) =>
     [...studioCalendarKeys.ranges(slug), start, end] as const,
   ranges: (slug: string) => ["studio-calendar", slug, "ranges"] as const,
+  roundEvaluation: (slug: string, kind: "ai" | "human", roundId: string) =>
+    ["studio-calendar", slug, "round-evaluation", kind, roundId] as const,
 };
 
 export const studioResumeKeys = {

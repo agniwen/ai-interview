@@ -40,6 +40,7 @@ const badgeVariants = cva(
         info: "bg-sky-tint text-sky-ink",
         pink: "bg-pink-tint text-pink-ink",
         warning: "bg-amber-tint text-amber-ink",
+        orange: "bg-orange-tint text-orange-ink",
         danger: "bg-red-tint text-red-ink",
         inverse: "border-white/[0.06] bg-white/5 text-white/70",
       },

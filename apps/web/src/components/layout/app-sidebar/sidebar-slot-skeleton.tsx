@@ -53,7 +53,7 @@ export function SidebarBodySkeleton() {
 
 export function SidebarFooterSkeleton() {
   return (
-    <div aria-hidden="true" className="px-2 pt-2 pb-1">
+    <div aria-hidden="true" className="px-2 pt-1 pb-1">
       <div className="flex items-center gap-2 rounded-full p-1">
         <Skeleton className="size-8 rounded-full" />
         <div className="min-w-0 flex-1 space-y-1.5 group-data-[collapsible=icon]:hidden">

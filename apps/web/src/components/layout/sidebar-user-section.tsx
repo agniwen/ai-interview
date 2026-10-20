@@ -252,7 +252,7 @@ export function SidebarUserSection({
     ) : null;
 
   return (
-    <div className="px-2 pt-2 pb-1 select-none">
+    <div className="px-2 pt-1 pb-1 select-none">
       {collapsed ? (
         <div className="flex w-full flex-col items-center gap-2">
           {content}

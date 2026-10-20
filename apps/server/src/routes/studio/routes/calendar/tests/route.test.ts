@@ -6,6 +6,8 @@ import { createStudioCalendarRouter } from "../route";
 const mocks = {
   listStudioCalendarEvents: vi.fn(),
   loadAiCalendarEventPreview: vi.fn(),
+  loadAiRoundEvaluation: vi.fn(),
+  loadHumanRoundEvaluation: vi.fn(),
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
   permissionChecks: [] as [string, string][],
   resolveRecruitingVisibilityScope: vi.fn(),
@@ -13,6 +15,8 @@ const mocks = {
 
 const dependencies = {
   listEvents: mocks.listStudioCalendarEvents,
+  loadAiEvaluation: mocks.loadAiRoundEvaluation,
+  loadHumanEvaluation: mocks.loadHumanRoundEvaluation,
   loadPreview: mocks.loadAiCalendarEventPreview,
   requirePermission:
     (resource: string, action: string) =>

@@ -1,4 +1,5 @@
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import { loadCandidateAvatarVersions } from "@app/resume-processing/review/support/candidate-avatars-dao";
 import {
   and,
   asc,
@@ -24,18 +25,27 @@ import {
   humanInterviewMeeting,
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
+  humanInterviewReviewerEvaluation,
   humanInterviewRound,
   humanInterviewRoundInterviewer,
   aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
 import type {
+  HumanInterviewEvaluationStatus,
+  HumanInterviewRoundOutcome,
+} from "@app/db-schema/studio-interviews";
+import type {
   StudioAiCalendarEventPreview,
   StudioCalendarCandidate,
   StudioCalendarEvent,
   StudioCalendarInterviewer,
 } from "@app/shared/studio-calendar";
-import { buildAiCalendarEvents, resolveHumanCalendarEventStatus } from "./events";
+import {
+  buildAiCalendarEvents,
+  resolveHumanCalendarEventStatus,
+  resolveHumanRoundConclusion,
+} from "./events";
 import { buildInterviewCalendarTitle } from "@app/shared/interview-calendar";
 import {
   buildInterviewerInviteToken,
@@ -130,6 +140,7 @@ function listHumanRoundInterviewers(roundIds: string[]) {
   }
   return db
     .select({
+      avatarUrl: user.image,
       id: user.id,
       name: user.name,
       roundId: humanInterviewRoundInterviewer.roundId,
@@ -143,6 +154,77 @@ function listHumanRoundInterviewers(roundIds: string[]) {
       ),
     )
     .orderBy(asc(user.name));
+}
+
+/** 各轮次已提交评价的结论，按提交时间升序。/ Submitted outcomes per round, oldest first. */
+async function listSubmittedOutcomesByRound(roundIds: string[], organizationId: string) {
+  const outcomesByRound = new Map<string, (HumanInterviewRoundOutcome | null)[]>();
+  if (roundIds.length === 0) {
+    return outcomesByRound;
+  }
+  const rows = await db
+    .select({
+      outcome: humanInterviewReviewerEvaluation.outcome,
+      roundId: humanInterviewReviewerEvaluation.roundId,
+    })
+    .from(humanInterviewReviewerEvaluation)
+    .where(
+      and(
+        inArray(humanInterviewReviewerEvaluation.roundId, [...new Set(roundIds)]),
+        eq(humanInterviewReviewerEvaluation.organizationId, organizationId),
+        isNotNull(humanInterviewReviewerEvaluation.submittedAt),
+      ),
+    )
+    .orderBy(
+      asc(humanInterviewReviewerEvaluation.submittedAt),
+      asc(humanInterviewReviewerEvaluation.id),
+    );
+  for (const row of rows) {
+    const outcomes = outcomesByRound.get(row.roundId) ?? [];
+    outcomes.push(row.outcome);
+    outcomesByRound.set(row.roundId, outcomes);
+  }
+  return outcomesByRound;
+}
+
+function groupHumanCandidatesByEvent(
+  rows: {
+    candidateName: string;
+    createdBy: string | null;
+    evaluationStatus: HumanInterviewEvaluationStatus;
+    interviewRecordId: string;
+    jobDescriptionId: string | null;
+    jobDescriptionName: string | null;
+    meetingId: string | null;
+    outcome: HumanInterviewRoundOutcome | null;
+    roundId: string;
+    roundLabel: string;
+  }[],
+  visibilityScope: RecruitingVisibilityScope,
+  submittedOutcomesByRound: Map<string, (HumanInterviewRoundOutcome | null)[]>,
+) {
+  const candidatesByEvent = new Map<string, StudioCalendarCandidate[]>();
+  for (const row of rows) {
+    const eventId = eventIdFor(row);
+    const candidates = candidatesByEvent.get(eventId) ?? [];
+    candidates.push({
+      canOpenRecruitingRecord: canOpenRecruitingRecord(row.createdBy, visibilityScope),
+      candidateAvatarVersion: null,
+      candidateName: row.candidateName,
+      evaluationConclusion: resolveHumanRoundConclusion({
+        evaluationStatus: row.evaluationStatus,
+        outcome: row.outcome,
+        submittedOutcomes: submittedOutcomesByRound.get(row.roundId) ?? [],
+      }),
+      interviewRecordId: row.interviewRecordId,
+      jobDescriptionId: row.jobDescriptionId,
+      jobDescriptionName: row.jobDescriptionName,
+      roundId: row.roundId,
+      roundLabel: row.roundLabel,
+    });
+    candidatesByEvent.set(eventId, candidates);
+  }
+  return candidatesByEvent;
 }
 
 function buildViewerInterviewerInviteToken({
@@ -165,6 +247,28 @@ function buildViewerInterviewerInviteToken({
   });
 }
 
+/** 按招聘记录补上简历头像版本。/ Attaches each candidate's resume headshot version. */
+async function attachCandidateAvatarVersions(
+  events: StudioCalendarEvent[],
+  rows: { interviewRecordId: string; resumeContentHash: string | null }[],
+): Promise<StudioCalendarEvent[]> {
+  const hashByRecordId = new Map(rows.map((row) => [row.interviewRecordId, row.resumeContentHash]));
+  const versions = await loadCandidateAvatarVersions([...hashByRecordId.values()]);
+  if (versions.size === 0) {
+    return events;
+  }
+  return events.map(
+    (event): StudioCalendarEvent => ({
+      ...event,
+      candidates: event.candidates.map((candidate) => ({
+        ...candidate,
+        candidateAvatarVersion:
+          versions.get(hashByRecordId.get(candidate.interviewRecordId) ?? "") ?? null,
+      })),
+    }),
+  );
+}
+
 export async function listStudioCalendarEvents({
   end,
   organizationId,
@@ -182,13 +286,17 @@ export async function listStudioCalendarEvents({
         candidateName: recruitingRecordReadModel.candidateName,
         createdBy: recruitingRecordReadModel.createdBy,
         endedAt: humanInterviewMeeting.endedAt,
+        evaluationStatus: humanInterviewRound.evaluationStatus,
         format: humanInterviewRound.format,
         interviewRecordId: recruitingRecordReadModel.id,
+        jobDescriptionId: jobDescription.id,
         jobDescriptionName: jobDescription.name,
         location: humanInterviewRound.location,
         meetingId: humanInterviewMeeting.id,
         meetingStatus: humanInterviewMeeting.status,
         meetingUrl: humanInterviewRound.meetingUrl,
+        outcome: humanInterviewRound.outcome,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
         roundId: humanInterviewRound.id,
         roundLabel: humanInterviewRound.label,
         roundStatus: humanInterviewRound.status,
@@ -261,7 +369,10 @@ export async function listStudioCalendarEvents({
       .select({
         candidateName: recruitingRecordReadModel.candidateName,
         interviewRecordId: recruitingRecordReadModel.id,
+        jobDescriptionId: jobDescription.id,
         jobDescriptionName: jobDescription.name,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+        reviewOutcome: aiInterviewRound.reviewOutcome,
         roundId: aiInterviewRound.id,
         roundLabel: aiInterviewRound.roundLabel,
         scheduledAt: aiInterviewRound.scheduledAt,
@@ -297,7 +408,10 @@ export async function listStudioCalendarEvents({
         conversationId: aiInterviewConversation.conversationId,
         endedAt: aiInterviewConversation.endedAt,
         interviewRecordId: recruitingRecordReadModel.id,
+        jobDescriptionId: jobDescription.id,
         jobDescriptionName: jobDescription.name,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+        reviewOutcome: aiInterviewRound.reviewOutcome,
         roundId: aiInterviewRound.id,
         roundLabel: aiInterviewRound.roundLabel,
         startedAt: aiInterviewConversation.startedAt,
@@ -335,38 +449,31 @@ export async function listStudioCalendarEvents({
   const roundIds = candidateRows.map((row) => row.roundId);
   const meetingIds = uniqueMeetingIds(candidateRows);
   const aiRoundIds = aiRows.map((row) => row.roundId);
-  const [interviewerRows, viewerMeetingRows, aiResultRoundRows] = await Promise.all([
-    listHumanRoundInterviewers(roundIds),
-    listViewerMeetingAssignments(meetingIds, organizationId, viewerUserId),
-    aiRoundIds.length === 0
-      ? []
-      : db
-          .selectDistinct({ roundId: aiInterviewConversation.aiRoundId })
-          .from(aiInterviewConversation)
-          .where(
-            and(
-              eq(aiInterviewConversation.organizationId, organizationId),
-              inArray(aiInterviewConversation.aiRoundId, aiRoundIds),
-              isNotNull(aiInterviewConversation.startedAt),
-              isNotNull(aiInterviewConversation.endedAt),
+  const [interviewerRows, viewerMeetingRows, aiResultRoundRows, submittedOutcomesByRound] =
+    await Promise.all([
+      listHumanRoundInterviewers(roundIds),
+      listViewerMeetingAssignments(meetingIds, organizationId, viewerUserId),
+      aiRoundIds.length === 0
+        ? []
+        : db
+            .selectDistinct({ roundId: aiInterviewConversation.aiRoundId })
+            .from(aiInterviewConversation)
+            .where(
+              and(
+                eq(aiInterviewConversation.organizationId, organizationId),
+                inArray(aiInterviewConversation.aiRoundId, aiRoundIds),
+                isNotNull(aiInterviewConversation.startedAt),
+                isNotNull(aiInterviewConversation.endedAt),
+              ),
             ),
-          ),
-  ]);
+      listSubmittedOutcomesByRound(roundIds, organizationId),
+    ]);
 
-  const candidatesByEvent = new Map<string, StudioCalendarCandidate[]>();
-  for (const row of candidateRows) {
-    const eventId = eventIdFor(row);
-    const candidates = candidatesByEvent.get(eventId) ?? [];
-    candidates.push({
-      canOpenRecruitingRecord: canOpenRecruitingRecord(row.createdBy, visibilityScope),
-      candidateName: row.candidateName,
-      interviewRecordId: row.interviewRecordId,
-      jobDescriptionName: row.jobDescriptionName,
-      roundId: row.roundId,
-      roundLabel: row.roundLabel,
-    });
-    candidatesByEvent.set(eventId, candidates);
-  }
+  const candidatesByEvent = groupHumanCandidatesByEvent(
+    candidateRows,
+    visibilityScope,
+    submittedOutcomesByRound,
+  );
 
   const eventIdByRound = new Map(candidateRows.map((row) => [row.roundId, eventIdFor(row)]));
   const viewerMeetingRoleById = new Map(
@@ -380,7 +487,7 @@ export async function listStudioCalendarEvents({
     }
     const interviewers = interviewersByEvent.get(eventId) ?? [];
     if (!interviewers.some((interviewer) => interviewer.id === row.id)) {
-      interviewers.push({ id: row.id, name: row.name });
+      interviewers.push({ avatarUrl: row.avatarUrl, id: row.id, name: row.name });
     }
     interviewersByEvent.set(eventId, interviewers);
   }
@@ -419,7 +526,11 @@ export async function listStudioCalendarEvents({
     scheduledRows: aiRows,
   });
 
-  return [...events.values(), ...aiEvents].toSorted(
+  const allEvents = await attachCandidateAvatarVersions(
+    [...events.values(), ...aiEvents],
+    [...candidateRows, ...aiRows, ...aiConversationRows],
+  );
+  return allEvents.toSorted(
     (left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime(),
   );
 }

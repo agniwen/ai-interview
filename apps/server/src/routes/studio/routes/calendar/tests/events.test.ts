@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildAiCalendarEvents, resolveHumanCalendarEventStatus } from "../events";
+import {
+  buildAiCalendarEvents,
+  resolveAiRoundConclusion,
+  resolveHumanCalendarEventStatus,
+  resolveHumanRoundConclusion,
+} from "../events";
 
 describe("resolveHumanCalendarEventStatus", () => {
   it("keeps a not-held meeting visible as not held", () => {
@@ -152,5 +157,51 @@ describe("buildAiCalendarEvents", () => {
       source: "scheduled",
       status: "scheduled",
     });
+  });
+});
+
+describe("resolveHumanRoundConclusion", () => {
+  it("prefers the locked pass or fail outcome of a submitted round", () => {
+    expect(
+      resolveHumanRoundConclusion({
+        evaluationStatus: "submitted",
+        outcome: "fail",
+        submittedOutcomes: ["pass"],
+      }),
+    ).toBe("fail");
+  });
+
+  it("uses the first decisive submission and treats other submissions as inconclusive", () => {
+    expect(
+      resolveHumanRoundConclusion({
+        evaluationStatus: "draft",
+        outcome: null,
+        submittedOutcomes: ["inconclusive", "pass", "fail"],
+      }),
+    ).toBe("pass");
+    expect(
+      resolveHumanRoundConclusion({
+        evaluationStatus: "draft",
+        outcome: null,
+        submittedOutcomes: ["inconclusive"],
+      }),
+    ).toBe("inconclusive");
+  });
+
+  it("reports an unevaluated round when nothing has been submitted", () => {
+    expect(
+      resolveHumanRoundConclusion({
+        evaluationStatus: "not_started",
+        outcome: null,
+        submittedOutcomes: [],
+      }),
+    ).toBe("none");
+  });
+});
+
+describe("resolveAiRoundConclusion", () => {
+  it("only concludes an AI round from the recorded human decision", () => {
+    expect(resolveAiRoundConclusion("pass")).toBe("pass");
+    expect(resolveAiRoundConclusion(null)).toBe("none");
   });
 });
