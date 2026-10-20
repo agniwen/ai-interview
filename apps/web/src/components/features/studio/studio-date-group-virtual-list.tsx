@@ -289,9 +289,8 @@ export function StudioStickyDateGroupHeader({
   return (
     <div
       className={cn(
-        "left-0 z-10 flex w-fit items-center rounded-r-xl border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70 [contain:layout]",
+        "left-0 z-10 flex w-fit items-center [contain:layout]",
         active ? "sticky" : "absolute",
-        isStuck && "border-input bg-background/80 backdrop-blur-md",
       )}
       style={{
         height: STUDIO_DATE_GROUP_HEADER_HEIGHT,
@@ -301,7 +300,10 @@ export function StudioStickyDateGroupHeader({
     >
       <h2 className="font-medium text-sm" id={headingId}>
         <button
-          className="-mx-4 -my-2 flex items-center gap-2 px-4 py-2 text-left outline-none"
+          className={cn(
+            "flex items-center gap-2 rounded-r-lg bg-background px-3 py-1.5 text-left outline-none transition-shadow hover:shadow-default focus-visible:ring-2 focus-visible:ring-ring",
+            isStuck && "shadow-default",
+          )}
           onClick={onNavigate}
           type="button"
         >

@@ -48,6 +48,7 @@ import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { statement } from "@app/shared/permissions";
+import { cn } from "@app/shared/utils";
 
 export interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */
@@ -219,7 +220,7 @@ const navGroups: NavGroup[] = [
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 const RECRUITING_BOARD_PATH = "/studio/resumes";
 const STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS =
-  "relative z-10 border border-transparent transition-[background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:border-sidebar-border/60 data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
+  "relative z-10 transition-[background-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:font-medium data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
 
 export function buildRecruitingBoardSearch(
   previous: SearchParamsRecord,
@@ -307,7 +308,10 @@ function SidebarNavItem({
   );
   const menuButton = (
     <SidebarMenuButton
-      className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/60 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${isParentActive ? "" : " hover:bg-transparent!"}`}
+      className={cn(
+        "relative z-10 cursor-default select-none transition-[width,height,padding,background-color,color,transform] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+        !isParentActive && "hover:bg-transparent!",
+      )}
       isActive={isParentActive}
       onPointerEnter={(event) => onHover(event.currentTarget)}
       render={

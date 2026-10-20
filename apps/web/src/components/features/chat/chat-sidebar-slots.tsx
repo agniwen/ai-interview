@@ -98,27 +98,10 @@ function ChatSidebarHeader({
   onBulkDelete: () => void;
   isBulkDeleting: boolean;
 }) {
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
+  const { isMobile, state } = useSidebar();
+  const isCollapsed = !isMobile && state === "collapsed";
 
-  if (isCollapsed) {
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem className="select-none">
-          <SidebarMenuButton
-            className="h-8 justify-center gap-2 text-sidebar-foreground/80"
-            onClick={onNewConversation}
-            size="default"
-            tooltip="创建对话"
-          >
-            <IconPlus className="size-4" />
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
-  }
-
-  if (editMode) {
+  if (editMode && !isCollapsed) {
     return (
       <div className="flex items-center select-none gap-1.5 px-1">
         <Button
@@ -153,32 +136,41 @@ function ChatSidebarHeader({
   }
 
   return (
-    <div className="flex items-center gap-1.5 ">
-      <Button
-        className="h-8 flex-1 select-none justify-start gap-2 text-sidebar-foreground/80"
-        onClick={onNewConversation}
-        size="sm"
-        variant="ghost"
+    <div className="flex flex-col gap-3 group-data-[collapsible=icon]:gap-0">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={onNewConversation} tooltip="创建对话">
+            <IconPlus />
+            <span>创建对话</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+      <div
+        className="grid grid-rows-[1fr] opacity-100 transition-[grid-template-rows,opacity] duration-180 group-data-[collapsible=icon]:grid-rows-[0fr] group-data-[collapsible=icon]:opacity-0 motion-reduce:transition-none"
+        inert={isCollapsed}
       >
-        <IconPlus className="size-4" />
-        <span className="font-medium text-sm">创建对话</span>
-      </Button>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              aria-label="批量编辑"
-              className="size-8 shrink-0 text-sidebar-foreground/80"
-              onClick={onToggleEditMode}
-              size="icon"
-              variant="ghost"
-            >
-              <IconSquareCheck className="size-4" />
-            </Button>
-          }
-        />
-        <TooltipContent>批量编辑</TooltipContent>
-      </Tooltip>
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex h-8 items-center justify-between pl-2">
+            <h2 className="text-xs font-medium text-muted-foreground">聊天记录</h2>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label="批量编辑"
+                    className="size-8 shrink-0 text-sidebar-foreground/80"
+                    onClick={onToggleEditMode}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <IconSquareCheck className="size-4" />
+                  </Button>
+                }
+              />
+              <TooltipContent>批量编辑</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -188,6 +180,7 @@ function renderSessionItem({
   slug,
   editMode,
   isSelected,
+  isActive,
   itemBody,
   closeOnNavigate,
   onToggleSelect,
@@ -201,6 +194,7 @@ function renderSessionItem({
   slug: string;
   editMode: boolean;
   isSelected: boolean;
+  isActive: boolean;
   itemBody: React.ReactNode;
   closeOnNavigate: () => void;
   onToggleSelect: (id: string) => void;
@@ -212,7 +206,7 @@ function renderSessionItem({
 }) {
   if (editMode) {
     return (
-      <label className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded-md text-left">
+      <label className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded-lg text-left">
         <Checkbox
           checked={isSelected}
           className="ml-2 shrink-0 cursor-default"
@@ -229,20 +223,32 @@ function renderSessionItem({
 
   return (
     <>
-      <Link
-        // focus 指示器统一交给外层 wrapper（用 ring-inset 不裁切），Link 自己的
-        // outline 关掉，避免在窄 padding 里溢出顶到 sidebar 容器被截。
-        // Focus indicator lives on the wrapper (ring-inset, no clipping). Drop
-        // the Link's own outline so it doesn't bleed into the sidebar edge.
-        className="min-w-0 flex-1 cursor-default rounded-md focus-visible:outline-none"
-        params={{ sessionId: conversation.id, slug }}
-        to="/w/$slug/agent/$sessionId"
-        onClick={closeOnNavigate}
-      >
-        {itemBody}
-      </Link>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Link
+              // focus 指示器统一交给外层 wrapper（用 ring-inset 不裁切），Link 自己的
+              // outline 关掉，避免在窄 padding 里溢出顶到 sidebar 容器被截。
+              // Focus indicator lives on the wrapper (ring-inset, no clipping). Drop
+              // the Link's own outline so it doesn't bleed into the sidebar edge.
+              aria-current={isActive ? "page" : undefined}
+              className="min-w-0 flex-1 cursor-default rounded-lg focus-visible:outline-none"
+              params={{ sessionId: conversation.id, slug }}
+              to="/w/$slug/agent/$sessionId"
+              onClick={closeOnNavigate}
+            >
+              {itemBody}
+            </Link>
+          }
+        />
+        <TooltipContent side="right">
+          {conversation.isTitleGenerating
+            ? GENERATING_CHAT_TITLE
+            : conversation.title || "未命名对话"}
+        </TooltipContent>
+      </Tooltip>
 
-      <div className="relative flex h-7 w-12 shrink-0 items-center justify-end">
+      <div className="relative flex h-7 w-12 shrink-0 items-center justify-end group-data-[collapsible=icon]:hidden">
         <time
           className={cn(
             "absolute right-1 whitespace-nowrap text-muted-foreground/70 text-xs tabular-nums transition-opacity group-focus-within/session-item:opacity-0 group-hover/session-item:opacity-0",
@@ -378,7 +384,7 @@ function ChatSidebarBody({
   onToggleSelect: (id: string) => void;
 }) {
   const { state, setOpenMobile, isMobile } = useSidebar();
-  const isCollapsed = state === "collapsed";
+  const isCollapsed = !isMobile && state === "collapsed";
   const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
     useSidebarMenuHoverHighlight<HTMLUListElement>();
 
@@ -400,108 +406,69 @@ function ChatSidebarBody({
     return <p className="px-3 py-3 text-muted-foreground text-xs">暂无聊天记录</p>;
   }
 
-  if (isCollapsed) {
-    return (
-      <TooltipProvider>
-        <ul
-          className="relative space-y-1.5 px-1"
-          onPointerLeave={hideMenuHighlight}
-          ref={containerRef}
-        >
-          {hoverHighlight}
-          {conversations.map((conversation) => {
-            const isActive = activeSessionId === conversation.id;
-            const visibleTitle = conversation.isTitleGenerating
-              ? GENERATING_CHAT_TITLE
-              : conversation.title;
-
-            return (
-              <li key={conversation.id}>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Link
-                        className={cn(
-                          "relative z-10 block cursor-default rounded-lg px-1.5 py-1.5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
-                          isActive ? "bg-sidebar-accent" : "hover:bg-transparent!",
-                        )}
-                        onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
-                        params={{ sessionId: conversation.id, slug }}
-                        to="/w/$slug/agent/$sessionId"
-                        onClick={closeOnNavigate}
-                      >
-                        <div
-                          className={cn(
-                            "h-1.5 rounded-full",
-                            isActive
-                              ? "bg-sidebar-foreground/40 w-full"
-                              : "bg-muted-foreground/20 w-3/4",
-                          )}
-                        />
-                      </Link>
-                    }
-                  />
-                  <TooltipContent side="right">{visibleTitle}</TooltipContent>
-                </Tooltip>
-              </li>
-            );
-          })}
-        </ul>
-      </TooltipProvider>
-    );
-  }
-
   return (
-    <ul
-      className="relative space-y-0.5 px-1.5 py-1"
-      onPointerLeave={hideMenuHighlight}
-      ref={containerRef}
-    >
-      {hoverHighlight}
-      {conversations.map((conversation) => {
-        const isActive = activeSessionId === conversation.id;
-        const isSelected = selectedIds.has(conversation.id);
-        const visibleTitle = conversation.isTitleGenerating
-          ? GENERATING_CHAT_TITLE
-          : conversation.title;
+    <TooltipProvider delay={400}>
+      <ul
+        className="relative flex flex-col gap-px px-2"
+        onPointerLeave={hideMenuHighlight}
+        ref={containerRef}
+      >
+        {hoverHighlight}
+        {conversations.map((conversation) => {
+          const isActive = activeSessionId === conversation.id;
+          const isSelected = selectedIds.has(conversation.id);
+          const visibleTitle = conversation.isTitleGenerating
+            ? GENERATING_CHAT_TITLE
+            : conversation.title;
 
-        const itemBody = (
-          <div className="min-w-0 select-none flex-1 rounded-md px-2 py-1 text-left">
-            <p className="truncate font-medium text-[13px] leading-5">{visibleTitle}</p>
-          </div>
-        );
-
-        return (
-          <li key={conversation.id}>
-            <div
-              className={cn(
-                "group/session-item relative z-10 flex cursor-default items-center gap-1 rounded-lg border border-transparent px-1 py-0.5 transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
-                isActive && !editMode
-                  ? "border-sidebar-border/60 bg-sidebar-accent"
-                  : "hover:bg-transparent!",
-                editMode && isSelected ? "border-sidebar-border/80 bg-sidebar-accent" : "",
-              )}
-              onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
-            >
-              {renderSessionItem({
-                closeOnNavigate,
-                conversation,
-                deleteTargetId,
-                deletingConversationId,
-                editMode,
-                isSelected,
-                itemBody,
-                now,
-                onConfirmDelete,
-                onDeleteOpenChange,
-                onToggleSelect,
-                slug,
-              })}
+          const itemBody = (
+            <div className="relative flex h-8 min-w-0 select-none items-center px-2 text-left">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute left-2 h-1 rounded-full opacity-0 transition-opacity duration-180 group-data-[collapsible=icon]:opacity-100 motion-reduce:transition-none",
+                  isActive ? "w-4 bg-sidebar-foreground/40" : "w-3 bg-muted-foreground/20",
+                )}
+              />
+              <span className="truncate text-[13px] leading-5 transition-[opacity,transform] duration-180 group-data-[collapsible=icon]:-translate-x-2 group-data-[collapsible=icon]:opacity-0 motion-reduce:transition-none">
+                {visibleTitle || "未命名对话"}
+              </span>
             </div>
-          </li>
-        );
-      })}
-    </ul>
+          );
+
+          return (
+            <li key={conversation.id}>
+              <div
+                className={cn(
+                  "group/session-item relative z-10 flex h-8 w-full cursor-default items-center gap-1 rounded-lg ring-sidebar-ring transition-[width,background-color,transform] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)] has-focus-visible:ring-2 has-focus-visible:ring-inset group-data-[collapsible=icon]:w-8 has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
+                  isActive && (!editMode || isCollapsed)
+                    ? "bg-sidebar-accent font-medium"
+                    : "hover:bg-transparent!",
+                  editMode && !isCollapsed && isSelected && "bg-sidebar-accent",
+                )}
+                onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
+              >
+                {renderSessionItem({
+                  closeOnNavigate,
+                  conversation,
+                  deleteTargetId,
+                  deletingConversationId,
+                  editMode: editMode && !isCollapsed,
+                  isActive,
+                  isSelected,
+                  itemBody,
+                  now,
+                  onConfirmDelete,
+                  onDeleteOpenChange,
+                  onToggleSelect,
+                  slug,
+                })}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </TooltipProvider>
   );
 }
 

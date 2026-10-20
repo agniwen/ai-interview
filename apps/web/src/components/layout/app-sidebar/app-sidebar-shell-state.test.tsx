@@ -8,7 +8,7 @@ import {
   SidebarPersistenceProvider,
   useSidebarPersistence,
 } from "@/components/layout/sidebar-persistence-context";
-import { Sidebar, SidebarRail } from "@/components/ui/sidebar";
+import { Sidebar, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
 import { enableReactActEnvironment, renderInAct, unmountInAct } from "@/test-utils/react-act";
 
 enableReactActEnvironment();
@@ -47,6 +47,7 @@ afterEach(async () => {
   roots.length = 0;
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("AppSidebarShell persisted state", () => {
@@ -97,5 +98,56 @@ describe("AppSidebarShell persisted state", () => {
       "expanded",
     );
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("true");
+  });
+
+  it("exposes the current expanded state and persists toggles from the visible trigger", async () => {
+    const { root } = await renderInAct(
+      <SidebarPersistenceProvider value={{ menuOpen: {}, open: true }}>
+        <PersistedSidebarProvider>
+          <Sidebar collapsible="icon">
+            <SidebarTrigger />
+          </Sidebar>
+        </PersistedSidebarProvider>
+      </SidebarPersistenceProvider>,
+    );
+    roots.push(root);
+
+    const toggle = document.querySelector<HTMLButtonElement>('[data-sidebar="trigger"]');
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+
+    act(() => toggle?.click());
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("false");
+    expect(document.querySelector<HTMLElement>('[data-slot="sidebar"]')?.dataset.state).toBe(
+      "collapsed",
+    );
+
+    act(() => toggle?.click());
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("true");
+  });
+
+  it("toggles the mobile drawer without changing the saved desktop collapse preference", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    window.localStorage.setItem(STORAGE_KEY, "false");
+    const { root } = await renderInAct(
+      <SidebarPersistenceProvider value={{ menuOpen: {}, open: false }}>
+        <PersistedSidebarProvider>
+          <SidebarTrigger />
+        </PersistedSidebarProvider>
+      </SidebarPersistenceProvider>,
+    );
+    roots.push(root);
+
+    const toggle = document.querySelector<HTMLButtonElement>('[data-sidebar="trigger"]');
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => toggle?.click());
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("false");
+
+    act(() => toggle?.click());
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("false");
   });
 });

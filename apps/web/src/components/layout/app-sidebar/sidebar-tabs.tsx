@@ -3,7 +3,7 @@
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { RecruitmentCopilotBrand } from "./recruitment-copilot-brand";
+import { useSidebar } from "@/components/ui/sidebar";
 import { resolveSidebarTab } from "./sidebar-slot-transition";
 import type { SidebarTabValue } from "./sidebar-slot-transition";
 
@@ -53,49 +53,50 @@ export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDep
   };
 
   return (
-    <div className="flex w-full flex-col gap-3 group-data-[collapsible=icon]:gap-0">
-      <RecruitmentCopilotBrand />
-      <Tabs
-        // Manual activation: Radix's default "automatic" mode calls
-        // onValueChange on focus — when sonner restores focus to the
-        // previously-active tab trigger after dismissing a toast, that
-        // would route us back to the wrong tab.
-        activationMode="manual"
-        className="w-full group-data-[collapsible=icon]:hidden"
-        onValueChange={handleChange}
-        value={activeTab ?? "agent"}
-      >
-        <TabsList className="w-full select-none bg-sidebar-accent dark:bg-black/15">
-          <TabsTrigger
-            onFocus={() => {
-              preloadTab("agent");
-            }}
-            onPointerEnter={() => {
-              preloadTab("agent");
-            }}
-            onTouchStart={() => {
-              preloadTab("agent");
-            }}
-            value="agent"
-          >
-            智能体
-          </TabsTrigger>
-          <TabsTrigger
-            onFocus={() => {
-              preloadTab("studio");
-            }}
-            onPointerEnter={() => {
-              preloadTab("studio");
-            }}
-            onTouchStart={() => {
-              preloadTab("studio");
-            }}
-            value="studio"
-          >
-            工作台
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <div className="grid grid-rows-[1fr] opacity-100 transition-[grid-template-rows,opacity,transform] duration-180 ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[collapsible=icon]:grid-rows-[0fr] group-data-[collapsible=icon]:-translate-x-2 group-data-[collapsible=icon]:opacity-0 motion-reduce:transition-none">
+      <div className="min-h-0 overflow-hidden">
+        <Tabs
+          // Manual activation: Radix's default "automatic" mode calls
+          // onValueChange on focus — when sonner restores focus to the
+          // previously-active tab trigger after dismissing a toast, that
+          // would route us back to the wrong tab.
+          activationMode="manual"
+          className="w-full"
+          onValueChange={handleChange}
+          value={activeTab ?? "agent"}
+        >
+          <TabsList className="w-full select-none">
+            <TabsTrigger
+              onFocus={() => {
+                preloadTab("agent");
+              }}
+              onPointerEnter={() => {
+                preloadTab("agent");
+              }}
+              onTouchStart={() => {
+                preloadTab("agent");
+              }}
+              value="agent"
+            >
+              智能体
+            </TabsTrigger>
+            <TabsTrigger
+              onFocus={() => {
+                preloadTab("studio");
+              }}
+              onPointerEnter={() => {
+                preloadTab("studio");
+              }}
+              onTouchStart={() => {
+                preloadTab("studio");
+              }}
+              value="studio"
+            >
+              工作台
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
     </div>
   );
 }
@@ -105,15 +106,18 @@ export function SidebarTabs() {
   const navigate = useNavigate();
   const router = useRouter();
   const slug = useWorkspaceSlug();
+  const { isMobile, state } = useSidebar();
 
   return (
-    <SidebarTabsView
-      dependencies={{
-        navigate,
-        pathname,
-        preloadRoute: router.preloadRoute,
-        slug,
-      }}
-    />
+    <div inert={!isMobile && state === "collapsed"}>
+      <SidebarTabsView
+        dependencies={{
+          navigate,
+          pathname,
+          preloadRoute: router.preloadRoute,
+          slug,
+        }}
+      />
+    </div>
   );
 }
