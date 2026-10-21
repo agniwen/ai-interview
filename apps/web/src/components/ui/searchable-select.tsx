@@ -69,6 +69,14 @@ export interface SearchableSelectProps {
   renderSelected?: (option: SearchableSelectOption) => ReactNode;
   /** Whether the open list locks document scrolling and outside interaction. */
   modal?: boolean;
+  /**
+   * 服务端搜索：传入后不再本地过滤，打开时以空关键词回调、输入时以关键词回调，
+   * 由调用方按结果更新 options。Server-side search: disables local filtering and
+   * reports the query (empty on open) so the caller can refresh `options`.
+   */
+  onSearchChange?: (query: string) => void;
+  /** 服务端搜索加载中，空列表时显示加载文案。Shows a loading message while results are empty. */
+  loading?: boolean;
 }
 
 function getOptionSearchText(option: SearchableSelectOption) {
@@ -116,6 +124,8 @@ export function SearchableSelect({
   contentSide = "bottom",
   id,
   modal = true,
+  onSearchChange,
+  loading = false,
 }: SearchableSelectProps) {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -136,8 +146,17 @@ export function SearchableSelect({
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (!nextOpen) {
+    if (nextOpen) {
+      onSearchChange?.("");
+    } else {
       setInputValue(selectedLabel);
+    }
+  };
+
+  const handleInputValueChange = (next: string) => {
+    setInputValue(next);
+    if (open) {
+      onSearchChange?.(next);
     }
   };
 
@@ -160,7 +179,7 @@ export function SearchableSelect({
   return (
     <Combobox<SearchableSelectOption>
       disabled={disabled}
-      filter={filterSearchableOption}
+      filter={onSearchChange ? null : filterSearchableOption}
       inputValue={inputValue}
       isItemEqualToValue={(item, selectedItem) => item.value === selectedItem.value}
       itemToStringLabel={(item) => item.label}
@@ -168,7 +187,7 @@ export function SearchableSelect({
       items={options}
       limit={INITIAL_RESULT_LIMIT}
       modal={modal}
-      onInputValueChange={(next) => setInputValue(next)}
+      onInputValueChange={handleInputValueChange}
       onOpenChange={handleOpenChange}
       onValueChange={handleValueChange}
       open={open}
@@ -196,7 +215,7 @@ export function SearchableSelect({
         collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
         side={contentSide}
       >
-        <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
+        <ComboboxEmpty>{loading ? "加载中…" : emptyMessage}</ComboboxEmpty>
         <ComboboxList className={cn("max-h-72 overflow-y-auto", listClassName)}>
           {(option: SearchableSelectOption) => (
             <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
