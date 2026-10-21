@@ -92,8 +92,12 @@ export function createMcpRouter(dependencies: McpRouteDependencies) {
           organizationId: grant.organizationId,
           userId: claims.sub,
         });
+        const workspacePath = `/w/${encodeURIComponent(membership.workspaceSlug)}`;
         const context = {
           authorize,
+          candidateUrl: (candidateId: string) =>
+            new URL(`${workspacePath}/studio/resumes/${encodeURIComponent(candidateId)}`, baseURL)
+              .href,
           organizationId: grant.organizationId,
           visibility,
         };

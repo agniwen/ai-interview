@@ -35,6 +35,11 @@
       "cache": false,
       "persistent": true
     },
+    "@app/web#dev": {
+      "cache": false,
+      "dependsOn": ["@app/recruiting-mcp-apps#build"],
+      "persistent": true
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []

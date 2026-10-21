@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/*
+ * MCP Apps 标准样式变量（SEP-1865 Theming）。宿主下发时由 useHostStyles 覆盖到 :root；
+ * 未下发的变量回退到 AI Hiring Copilot 自己的设计变量（Radix gray / blue 色阶，light-dark 双值）。
+ * Standard MCP Apps style variables with fallbacks to the product's own tokens.
+ */
+:root {
+  color-scheme: light dark;
+  --color-background-primary: light-dark(#ffffff, #191919);
+  --color-background-secondary: light-dark(#f9f9f9, #222222);
+  --color-background-tertiary: light-dark(#f0f0f0, #2a2a2a);
+  --color-background-info: light-dark(#e6f4fe, #0d2847);
+  --color-background-success: light-dark(#e6f6eb, #132d21);
+  --color-background-warning: light-dark(#fff7c2, #302008);
+  --color-text-primary: light-dark(#202020, #eeeeee);
+  --color-text-secondary: light-dark(#646464, #b4b4b4);
+  --color-text-tertiary: light-dark(#8d8d8d, #7b7b7b);
+  --color-text-info: light-dark(#0d74ce, #70b8ff);
+  --color-text-success: light-dark(#218358, #3dd68c);
+  --color-text-warning: light-dark(#ab6400, #ffca16);
+  --color-border-tertiary: light-dark(#0000000f, #ffffff12);
+  --color-ring-primary: light-dark(#0090ff, #3b9eff);
+  --font-sans:
+    "MiSans", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui,
+    sans-serif;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --shadow-hairline:
+    0 0 0 0.5px light-dark(#0000000f, #ffffff12), 0 1px 1px -1px light-dark(#0000001a, transparent),
+    0 1px 2px 0 light-dark(#0000000d, transparent);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-surface: var(--color-background-primary);
+  --color-surface-muted: var(--color-background-secondary);
+  --color-surface-hover: var(--color-background-tertiary);
+  --color-fg: var(--color-text-primary);
+  --color-fg-muted: var(--color-text-secondary);
+  --color-fg-subtle: var(--color-text-tertiary);
+  --color-line: var(--color-border-tertiary);
+  --color-focus: var(--color-ring-primary);
+  --radius-control: var(--border-radius-md);
+  --radius-card: var(--border-radius-lg);
+  --shadow-card: var(--shadow-hairline);
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}

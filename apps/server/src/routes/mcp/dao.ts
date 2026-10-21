@@ -18,11 +18,12 @@ export async function loadMcpGrant(id: string): Promise<typeof mcpGrant.$inferSe
 export async function loadMcpMember(
   userId: string,
   organizationId: string,
-): Promise<{ role: string; banned: boolean } | null> {
+): Promise<{ role: string; banned: boolean; workspaceSlug: string } | null> {
   const [row] = await db
-    .select({ banned: user.banned, role: member.role })
+    .select({ banned: user.banned, role: member.role, workspaceSlug: organization.slug })
     .from(member)
     .innerJoin(user, eq(member.userId, user.id))
+    .innerJoin(organization, eq(member.organizationId, organization.id))
     .where(and(eq(member.userId, userId), eq(member.organizationId, organizationId)))
     .limit(1);
   return row ?? null;

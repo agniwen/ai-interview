@@ -22,6 +22,7 @@ COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing/package.json packages/meeting-processing/
 COPY packages/object-storage/package.json packages/object-storage/
 COPY packages/recruiting/package.json packages/recruiting/
+COPY packages/recruiting-mcp-apps/package.json packages/recruiting-mcp-apps/
 COPY packages/recruiting-workflows/package.json packages/recruiting-workflows/
 COPY packages/resume-processing/package.json packages/resume-processing/
 COPY packages/shared/package.json packages/shared/

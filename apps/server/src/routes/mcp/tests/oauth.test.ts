@@ -63,7 +63,7 @@ const store = {
   loadMcpMember: (userId: string, organizationId: string) =>
     Promise.resolve(
       fixture.members.has(`${userId}:${organizationId}`)
-        ? { banned: fixture.banned, role: "member" }
+        ? { banned: fixture.banned, role: "member", workspaceSlug: "acme" }
         : null,
     ),
   revokeMcpGrant: (id: string, userId: string) => {

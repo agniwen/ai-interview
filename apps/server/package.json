@@ -13,10 +13,13 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.rpc-client.json",
+    "predev:standalone": "bun run --filter @app/recruiting-mcp-apps build",
     "dev:standalone": "bun --watch src/index.ts",
+    "prestart": "bun run --filter @app/recruiting-mcp-apps build",
     "start": "bun src/index.ts",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
+    "pretypecheck": "bun run --filter @app/recruiting-mcp-apps build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,6 +33,7 @@
     "@app/meeting-processing": "workspace:*",
     "@app/object-storage": "workspace:*",
     "@app/recruiting": "workspace:*",
+    "@app/recruiting-mcp-apps": "workspace:*",
     "@app/recruiting-workflows": "workspace:*",
     "@app/resume-processing": "workspace:*",
     "@app/shared": "workspace:*",
@@ -42,6 +46,7 @@
     "@mastra/core": "^1.75.0",
     "@mastra/observability": "^1.18.4",
     "@mastra/pg": "^1.30.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
     "@modelcontextprotocol/server": "2.0.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "@sentry/hono": "10.76.2",

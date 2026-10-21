@@ -11,6 +11,7 @@
 | 流程层：跨能力的招聘业务流程     | `recruiting-workflows`                                                | 下面所有层         | Server、Worker                   |
 | 处理层：可复用的单领域工作流     | `meeting-processing`、`resume-processing`                             | 领域层及以下       | Server、Worker、流程层           |
 | 领域层：招聘领域数据和规则       | `recruiting`                                                          | 基础层、契约层     | Server、Worker、处理层与流程层   |
+| 视图层：MCP 宿主内渲染的静态视图 | `recruiting-mcp-apps`                                                 | 契约层             | Server（作为 `ui://` 资源返回）  |
 | 队列契约：BullMQ 队列名、payload | `job-queues`                                                          | 契约层             | 生产者与消费者两侧               |
 | 基础层：与业务无关的运行时工具   | `database`、`object-storage`、`ai-runtime`、`meeting-media`、`feishu` | 契约层             | Server、Worker、Desktop、上层包  |
 | 契约层：同构类型、schema、状态机 | `shared`、`db-schema`、`meeting-live-transcript`                      | 契约层内更底层的包 | 所有应用（包括浏览器和 Desktop） |
