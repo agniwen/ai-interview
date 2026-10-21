@@ -210,6 +210,7 @@ export function ResumeLibraryCardList({
     },
     [updateRowSelection],
   );
+  const clearSelection = useCallback(() => updateRowSelection(() => ({})), [updateRowSelection]);
   const hasLockedSelection = selectedRows.some(
     (record) => !canDeleteResumeRecord(record.resumeParseStatus),
   );
@@ -369,6 +370,7 @@ export function ResumeLibraryCardList({
           disabled={hasLockedSelection}
           disabledReason={bulkDeleteLockedReason}
           onBulkDelete={onBulkDelete}
+          onClearSelection={clearSelection}
           selectedCount={selectedIds.length}
         />
       ) : null}

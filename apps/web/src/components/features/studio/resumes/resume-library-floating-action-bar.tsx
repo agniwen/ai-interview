@@ -1,6 +1,6 @@
 "use client";
 
-import { IconTrash } from "@tabler/icons-react";
+import { IconTrash, IconX } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { FloatingBar } from "@/components/ui/floating-bar";
@@ -10,6 +10,7 @@ interface ResumeLibraryFloatingActionBarProps {
   disabled?: boolean;
   disabledReason?: string;
   onBulkDelete: () => void;
+  onClearSelection: () => void;
   selectedCount: number;
 }
 
@@ -17,6 +18,7 @@ export function ResumeLibraryFloatingActionBar({
   disabled,
   disabledReason,
   onBulkDelete,
+  onClearSelection,
   selectedCount,
 }: ResumeLibraryFloatingActionBarProps) {
   const reduceMotion = useReducedMotion();
@@ -52,6 +54,16 @@ export function ResumeLibraryFloatingActionBar({
                 <TooltipContent>{disabledReason}</TooltipContent>
               ) : null}
             </Tooltip>
+            <Button
+              className="max-md:h-11 max-md:px-4 max-md:text-sm"
+              onClick={onClearSelection}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <IconX data-icon="inline-start" />
+              取消选择
+            </Button>
           </FloatingBar>
         </m.div>
       ) : null}
