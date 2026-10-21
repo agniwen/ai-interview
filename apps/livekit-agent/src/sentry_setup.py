@@ -62,7 +62,33 @@ def _sanitize_headers(headers: object) -> dict[object, object]:
     return {key: value for key, value in headers.items() if not _is_sensitive_key(key)}
 
 
-def _before_send(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
+# The Rust SDK logs each step of a reconnect at error level through the
+# "livekit" logger. These steps recover on their own; a reconnect that finally
+# fails surfaces through other errors, which are still reported.
+_LIVEKIT_RECONNECT_LOGGER = "livekit"
+_LIVEKIT_RECONNECT_MARKERS = (
+    "resuming connection",
+    "restarting connection",
+    "websocket recv error",
+    "closed unexpectedly",
+)
+
+
+def _is_recoverable_livekit_reconnect_log(event: dict[str, Any]) -> bool:
+    if event.get("logger") != _LIVEKIT_RECONNECT_LOGGER:
+        return False
+    logentry = event.get("logentry")
+    if not isinstance(logentry, dict):
+        return False
+    message = logentry.get("formatted") or logentry.get("message")
+    return isinstance(message, str) and any(
+        marker in message for marker in _LIVEKIT_RECONNECT_MARKERS
+    )
+
+
+def _before_send(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any] | None:
+    if _is_recoverable_livekit_reconnect_log(event):
+        return None
     sanitized = dict(event)
     for key in ("extra", "contexts", "breadcrumbs"):
         if key in sanitized:
