@@ -240,7 +240,7 @@ function UserMessage() {
       className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150 [&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]"
       data-role="user"
     >
-      <div className="aui-user-message-content max-w-[70%] rounded-[14px] border border-transparent bg-control px-3.5 py-2 text-foreground leading-6 shadow-default wrap-break-word empty:hidden">
+      <div className="aui-user-message-content max-w-[70%] rounded-[14px] border border-transparent bg-control px-3.5 py-2 text-foreground text-sm leading-6 shadow-default wrap-break-word empty:hidden">
         <MessagePrimitive.Parts components={{ Text: RecruitingDirectiveText }} />
       </div>
       <div className="flex min-h-8 items-center justify-end">
