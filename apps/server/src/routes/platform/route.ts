@@ -46,6 +46,10 @@ import { createPlatformNotificationsRouter } from "./routes/notifications/route"
 import type { PlatformNotificationsRouterDependencies } from "./routes/notifications/route";
 import { platformResumeParseCacheRouter } from "./routes/resume-parse-cache/route";
 import { platformLiveKitRouter } from "./routes/livekit/route";
+import { AddUserToWorkspaceError, addUserToWorkspace } from "./application/add-user-to-workspace";
+import type { AddUserToWorkspaceFailure } from "./application/add-user-to-workspace";
+import { defaultAddUserToWorkspaceDependencies } from "./application/default-add-user-to-workspace";
+import { addUserWorkspaceSchema } from "./schema";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -226,6 +230,13 @@ const updateUserRemarkSchema = z.object({
   remark: z.string().max(80).nullable(),
 });
 
+const ADD_USER_WORKSPACE_ERRORS = {
+  already_member: { message: "该用户已是这个工作区的成员", status: 409 },
+  membership_limit_reached: { message: "该工作区成员数已达上限", status: 409 },
+  user_not_found: { message: "用户不存在", status: 404 },
+  workspace_not_found: { message: "工作区不存在", status: 404 },
+} as const satisfies Record<AddUserToWorkspaceFailure, { message: string; status: 404 | 409 }>;
+
 const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
   MAX(${session.updatedAt}),
   MAX(${user.lastActiveAt})
@@ -359,6 +370,39 @@ const platformUsers = factory
         },
         200,
       );
+    },
+  )
+  .post(
+    "/users/:userId/workspaces",
+    zValidator(
+      "json",
+      addUserWorkspaceSchema,
+      jsonValidatorError("请选择要加入的工作区和有效的成员角色"),
+    ),
+    async (c) => {
+      const actor = c.var.user;
+      if (!actor) {
+        return c.json({ error: "未登录" }, 401);
+      }
+      const { organizationId, role } = c.req.valid("json");
+      try {
+        const membership = await addUserToWorkspace(
+          {
+            actorUserId: actor.id,
+            organizationId,
+            role,
+            userId: c.req.param("userId"),
+          },
+          defaultAddUserToWorkspaceDependencies,
+        );
+        return c.json(membership, 201);
+      } catch (error) {
+        if (error instanceof AddUserToWorkspaceError) {
+          const { message, status } = ADD_USER_WORKSPACE_ERRORS[error.reason];
+          return c.json({ code: error.reason, error: message }, status);
+        }
+        throw error;
+      }
     },
   )
   .get("/users/:userId/workspaces", async (c) => {

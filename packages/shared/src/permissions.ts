@@ -95,6 +95,19 @@ export const ac = createAccessControl(statement);
 
 export const NO_ACCESS_WORKSPACE_ROLE = "noAccess";
 
+// 平台管理员为新用户指定初始工作区时可分配的成员角色，与工作区成员页可分配的内置角色一致。
+// owner 只能通过 Better Auth 的转让流程产生；各工作区自定义的动态角色不在平台层开放。
+// Roles a platform admin may grant in a new user's initial workspace: the same built-in
+// roles the workspace members page can assign. Owner only arises via ownership transfer.
+export const PLATFORM_INITIAL_WORKSPACE_ROLES = [
+  "member",
+  "admin",
+  NO_ACCESS_WORKSPACE_ROLE,
+] as const;
+export type PlatformInitialWorkspaceRole = (typeof PLATFORM_INITIAL_WORKSPACE_ROLES)[number];
+export const DEFAULT_PLATFORM_INITIAL_WORKSPACE_ROLE =
+  "member" satisfies PlatformInitialWorkspaceRole;
+
 export function isWorkspaceAdministratorRole(
   role: string | null | undefined,
 ): role is "admin" | "owner" {
