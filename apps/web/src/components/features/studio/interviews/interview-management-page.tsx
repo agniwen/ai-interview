@@ -618,10 +618,7 @@ export function InterviewManagementPage() {
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader
-          description="仅显示过去 3 天、今天和未来 3 天的面试；未排期的按开始或发起时间计算。"
-          title="AI初面"
-        />
+        <PageHeader title="AI初面" />
         <DataGrid<StudioInterviewRoundListRecord>
           {...grid.bind}
           columns={columns}
@@ -652,10 +649,9 @@ export function InterviewManagementPage() {
                 <EmptyMedia variant="icon">
                   <IconRobot className="size-5" />
                 </EmptyMedia>
-                <EmptyTitle>近 7 天没有面试记录</EmptyTitle>
+                <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                 <EmptyDescription>
-                  这里仅显示过去 3 天到未来 3
-                  天的面试。如需发起新面试，请前往招聘台选择「保存并发起面试」。
+                  请前往招聘台创建招聘记录，选择「保存并发起面试」即可创建面试。
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>

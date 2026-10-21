@@ -345,13 +345,16 @@ describe("StudioCalendarPage", () => {
     }
     const [, firstStart, firstEnd] = firstCall;
     const expectedStart = new Date();
-    expectedStart.setDate(expectedStart.getDate() - 1);
+    expectedStart.setDate(expectedStart.getDate() - 3);
     expectedStart.setHours(0, 0, 0, 0);
     expect(new Date(firstStart)).toEqual(expectedStart);
     expect(host.textContent).toContain("赵六");
     expect(host.textContent).toContain("昨天 · 9月1日（周二）");
+    // 过去 3 天、今天、未来 3 天，标签给出同一窗口的具体日期。
+    // Three days back, today and three ahead; the label names the same window's dates.
+    expect(host.textContent).toContain("8月30日 – 9月5日");
     expect(new Date(firstEnd).getTime() - new Date(firstStart).getTime()).toBe(
-      31 * 24 * 60 * 60 * 1000,
+      7 * 24 * 60 * 60 * 1000,
     );
 
     act(() => root.unmount());

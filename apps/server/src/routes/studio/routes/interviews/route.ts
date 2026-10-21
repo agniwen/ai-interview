@@ -20,7 +20,6 @@ import { recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import { parseCsvParam } from "@app/shared/csv";
-import { calendarDaysAroundToday } from "@app/shared/date-range-filter";
 import { candidateExpectationsMetaSchema } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { releaseInterviewContextBinding } from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
@@ -51,10 +50,6 @@ const dedupCheckInputSchema = z.object({
 // 真人复面：「取消」的 input。reason 可选，便于后续审计 / 通知候选人。
 // Human interview "cancel" input; reason optional.
 
-// 「AI初面」页只展示过去 3 天、今天、未来 3 天（应用时区自然日）的面试。
-// The AI interview page only lists rounds from 3 calendar days before to 3 after today.
-const RECENT_INTERVIEW_DAYS_AROUND_TODAY = 3;
-
 function loadVisibilityScope(
   organizationId: string,
   currentRole: string | null | undefined,
@@ -78,11 +73,7 @@ export const studioInterviewsRouter = factory
       c.var.member?.role,
       c.var.user?.id,
     );
-    const summary = await summarizeInterviewRoundCounts(
-      activeOrg.id,
-      visibilityScope,
-      calendarDaysAroundToday(RECENT_INTERVIEW_DAYS_AROUND_TODAY),
-    );
+    const summary = await summarizeInterviewRoundCounts(activeOrg.id, visibilityScope);
     return c.json(summary, 200);
   })
   .post(
@@ -149,7 +140,6 @@ export const studioInterviewsRouter = factory
         activeOrg.id,
         {
           creatorIds: parseCsvParam(q.creatorIds),
-          interviewAtWindow: calendarDaysAroundToday(RECENT_INTERVIEW_DAYS_AROUND_TODAY),
           search: q.search,
           status: q.status,
           textFilters: q.textFilters,

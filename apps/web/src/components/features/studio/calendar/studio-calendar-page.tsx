@@ -1,14 +1,7 @@
 "use client";
 
 import { IconChevronRight, IconSparkles, IconUser } from "@tabler/icons-react";
-import {
-  addDays,
-  format,
-  isFirstDayOfMonth,
-  isLastDayOfMonth,
-  isSameDay,
-  startOfDay,
-} from "date-fns";
+import { addDays, format, isFirstDayOfMonth, isLastDayOfMonth, isSameDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
@@ -22,6 +15,11 @@ import type {
 import { interviewCalendarJobNames } from "@app/shared/interview-calendar";
 import { cn } from "@app/shared/utils";
 import { PageHeader } from "@/components/features/studio/page-header";
+import {
+  AGENDA_DAY_COUNT,
+  AgendaWindowLabel,
+  agendaWindowRange,
+} from "./studio-calendar-agenda-window";
 import {
   EventCalendar,
   useEventCalendarNavigation,
@@ -41,7 +39,6 @@ import {
 import type {
   CalendarView,
   CalendarEvent,
-  EventCalendarDateRange,
   EventCalendarRangeInfo,
 } from "@/components/reui/event-calendar/event-calendar-types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -89,14 +86,6 @@ const CALENDAR_I18N = {
     week: "周",
   },
 } satisfies Partial<EventCalendarI18nConfig>;
-
-function initialRange(): EventCalendarDateRange {
-  const start = startOfDay(addDays(new Date(), -1));
-  return {
-    end: addDays(start, 31),
-    start,
-  };
-}
 
 const EVENT_STATUS_META = {
   ended: { label: "已结束", variant: "success" },
@@ -480,7 +469,7 @@ function CalendarNav() {
   function handlePrimaryValueChange(value: string | number) {
     if (value === "list") {
       setView("agenda");
-      goTo(initialRange().start);
+      goTo(agendaWindowRange().start);
       return;
     }
     if (value === "calendar") {
@@ -498,7 +487,7 @@ function CalendarNav() {
           key={mode}
         >
           {mode === "list" ? (
-            <span className="font-medium text-sm">昨天 · 今天起未来 30 天</span>
+            <AgendaWindowLabel />
           ) : (
             <>
               <EventCalendarNavToday />
@@ -657,7 +646,7 @@ export function StudioCalendarPage({
   onOpenAgendaEvent: (event: StudioCalendarEvent, candidate: StudioCalendarCandidate) => void;
   slug: string;
 }) {
-  const [range, setRange] = useState(initialRange);
+  const [range, setRange] = useState(() => agendaWindowRange());
   const [candidatePickerEvent, setCandidatePickerEvent] = useState<StudioCalendarEvent | null>(
     null,
   );
@@ -698,7 +687,7 @@ export function StudioCalendarPage({
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
-        description="默认展示昨天及今天起未来 30 天的相关面试；日程只读，面试时间需在候选人详情中调整。"
+        description="列表展示今天前后 3 天的面试；日程只读，面试时间需在候选人详情中调整。"
         title="面试管理"
       />
       {calendarQuery.isError ? (
@@ -723,7 +712,7 @@ export function StudioCalendarPage({
           skeleton={<CalendarSkeleton />}
         >
           <EventCalendar
-            agendaDayCount={31}
+            agendaDayCount={AGENDA_DAY_COUNT}
             defaultDate={range.start}
             className="h-[min(760px,calc(100vh-12rem))] min-h-[560px] overflow-hidden rounded-lg"
             classNames={{
