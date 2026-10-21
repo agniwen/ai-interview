@@ -22,6 +22,7 @@ import {
   aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
+import type { InstantWindow } from "@app/shared/date-range-filter";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
 import { deriveJdRequiredSkills } from "@app/shared/resume-screening";
 import {
@@ -57,6 +58,15 @@ const roundsPaginationInputSchema = z.object({
 });
 type RoundsPaginationInput = z.input<typeof roundsPaginationInputSchema>;
 
+// 列表时间窗使用的「面试时间」：排期优先，未排期时取实际开始时间，再退回创建（发起邀请）时间。
+// Interview time used by the list window: schedule first, then actual session start,
+// then creation (invitation) time for unscheduled rounds.
+const roundInterviewAt = sql`COALESCE(${aiInterviewRound.scheduledAt}, ${aiInterviewRound.sessionStartedAt}, ${aiInterviewRound.createdAt})`;
+
+function buildInterviewAtWindowCondition(window: InstantWindow) {
+  return sql`${roundInterviewAt} >= ${window.start.toISOString()}::timestamptz AND ${roundInterviewAt} < ${window.endExclusive.toISOString()}::timestamptz`;
+}
+
 function parsePagination(params?: RoundsPaginationInput) {
   return roundsPaginationSchema.parse(roundsPaginationInputSchema.parse(params ?? {}));
 }
@@ -89,6 +99,7 @@ function buildWhere(
   filters?: {
     creatorIds?: string[];
     forceEmpty?: boolean;
+    interviewAtWindow?: InstantWindow;
     textFilters?: string;
     search?: string;
     statuses?: ScheduleEntryStatus[];
@@ -118,6 +129,9 @@ function buildWhere(
   }
   if (filters?.creatorIds && filters.creatorIds.length > 0) {
     conditions.push(inArray(aiInterviewRound.createdBy, filters.creatorIds));
+  }
+  if (filters?.interviewAtWindow) {
+    conditions.push(buildInterviewAtWindowCondition(filters.interviewAtWindow));
   }
   return and(
     ...conditions,
@@ -199,6 +213,7 @@ export async function queryPaginatedInterviewRounds(
   organizationId: string,
   filters?: {
     creatorIds?: string[] | null;
+    interviewAtWindow?: InstantWindow;
     textFilters?: string;
     search?: string | null;
     status?: string | null;
@@ -218,6 +233,7 @@ export async function queryPaginatedInterviewRounds(
   const where = buildWhere(organizationId, {
     creatorIds: scopedCreatorIds ?? undefined,
     forceEmpty: Array.isArray(scopedCreatorIds) && scopedCreatorIds.length === 0,
+    interviewAtWindow: filters?.interviewAtWindow,
     search,
     statuses,
     textFilters: filters?.textFilters,
@@ -562,6 +578,7 @@ export interface InterviewRoundSummary {
 export async function summarizeInterviewRoundCounts(
   organizationId: string,
   visibilityScope?: RecruitingVisibilityScope,
+  interviewAtWindow?: InstantWindow,
 ): Promise<InterviewRoundSummary> {
   if (visibilityScope?.kind === "none") {
     return { completed: 0, inProgress: 0, interrupted: 0, pending: 0, total: 0 };
@@ -576,6 +593,7 @@ export async function summarizeInterviewRoundCounts(
   const conditions = [
     eq(aiInterviewRound.organizationId, organizationId),
     visibilityCondition,
+    interviewAtWindow ? buildInterviewAtWindowCondition(interviewAtWindow) : null,
   ].filter((condition) => condition !== null);
   const rows = await db
     .select({ count: count(), status: aiInterviewRound.status })

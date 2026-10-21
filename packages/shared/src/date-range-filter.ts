@@ -51,6 +51,25 @@ function addCalendarDays(value: string, days: number): string {
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
+export interface InstantWindow {
+  /** 包含。/ Inclusive. */
+  start: Date;
+  /** 不包含：最后一个自然日次日 00:00。/ Exclusive: 00:00 of the day after the last day. */
+  endExclusive: Date;
+}
+
+/**
+ * 以应用时区（Asia/Shanghai）的今天为中心，前后各 `daysAround` 个自然日的时间窗。
+ * Calendar-day window centred on today in the app time zone, `daysAround` days each side.
+ */
+export function calendarDaysAroundToday(daysAround: number, now: Date = new Date()): InstantWindow {
+  const today = formatDateInAppTimeZone(now, "YYYY-MM-DD");
+  return {
+    endExclusive: nextShanghaiCalendarDayStart(addCalendarDays(today, daysAround)),
+    start: shanghaiCalendarDayStart(addCalendarDays(today, -daysAround)),
+  };
+}
+
 function customDateRange(value: string): CalendarDateRange | null {
   const match = /^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/u.exec(value);
   if (!match) {

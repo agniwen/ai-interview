@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calendarDaysAroundToday,
   createdAtDateQuerySchema,
   dateRangeFilterBounds,
   dateRangeFilterLabel,
@@ -77,5 +78,27 @@ describe("calendar date filters", () => {
     { createdFrom: "2026-08-26", createdTo: "2026-08-26" },
   ])("allows empty, one-sided and same-day ranges: %j", (query) => {
     expect(createdAtDateQuerySchema.parse(query)).toEqual(query);
+  });
+});
+
+describe("calendarDaysAroundToday", () => {
+  it("spans three Shanghai calendar days before and after today", () => {
+    // 2026-10-21 23:30 Asia/Shanghai
+    const window = calendarDaysAroundToday(3, new Date("2026-10-21T15:30:00Z"));
+    expect(window.start.toISOString()).toBe("2026-10-17T16:00:00.000Z");
+    expect(window.endExclusive.toISOString()).toBe("2026-10-24T16:00:00.000Z");
+  });
+
+  it("uses the Shanghai date rather than the UTC date around midnight", () => {
+    // 2026-10-22 00:10 Asia/Shanghai, still 2026-10-21 in UTC
+    const window = calendarDaysAroundToday(3, new Date("2026-10-21T16:10:00Z"));
+    expect(window.start.toISOString()).toBe("2026-10-18T16:00:00.000Z");
+    expect(window.endExclusive.toISOString()).toBe("2026-10-25T16:00:00.000Z");
+  });
+
+  it("crosses month boundaries", () => {
+    const window = calendarDaysAroundToday(3, new Date("2026-03-01T04:00:00Z"));
+    expect(window.start.toISOString()).toBe("2026-02-25T16:00:00.000Z");
+    expect(window.endExclusive.toISOString()).toBe("2026-03-04T16:00:00.000Z");
   });
 });
