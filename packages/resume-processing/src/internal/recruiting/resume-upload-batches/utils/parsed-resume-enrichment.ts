@@ -70,10 +70,35 @@ function logStep(
   console.info("[bulk-upload-worker]", { step, ...data });
 }
 
-async function requireEnrichmentTasks(tasks: Promise<boolean>[]): Promise<void> {
-  const results = await Promise.all(tasks);
-  if (results.some((enqueued) => !enqueued)) {
-    throw new Error("简历后续分析任务入队失败。");
+interface EnrichmentTask {
+  label: string;
+  run: Promise<EnrichmentTaskResult>;
+}
+
+interface EnrichmentTaskResult {
+  detail?: string;
+  ok: boolean;
+}
+
+async function toTaskResult(enqueued: Promise<boolean>): Promise<EnrichmentTaskResult> {
+  return { ok: await enqueued };
+}
+
+function bestEffortTask(label: string, enqueued: Promise<boolean>): EnrichmentTask {
+  return { label, run: toTaskResult(enqueued) };
+}
+
+// Throws only for retryable enqueue failures, naming each failed task so the
+// queue failure report carries the cause instead of a generic message.
+async function requireEnrichmentTasks(tasks: EnrichmentTask[]): Promise<void> {
+  const settled = await Promise.all(
+    tasks.map(async (task) => ({ label: task.label, ...(await task.run) })),
+  );
+  const failures = settled
+    .filter((task) => !task.ok)
+    .map((task) => (task.detail ? `${task.label}（${task.detail}）` : task.label));
+  if (failures.length > 0) {
+    throw new Error(`简历后续分析任务入队失败：${failures.join("、")}。`);
   }
 }
 
@@ -86,17 +111,26 @@ async function scheduleLibraryEvaluation(
     resumeRecordId: string;
   },
   dependencies: ParsedResumeEnrichmentDependencies,
-): Promise<boolean> {
+): Promise<EnrichmentTaskResult> {
   // Explicitly unbound uploads can finish without a job-specific evaluation.
   if (!input.jobDescriptionId && !input.autoMatchJobDescription) {
-    return true;
+    return { ok: true };
   }
   const result = await dependencies.scheduleResumeEvaluationForRecord({
     ...input,
     source: "resume_upload",
   });
   if (result.status === "failed") {
-    return false;
+    // Retrying cannot help when no published job matches or another run owns
+    // the record; the resume stays visible and can be evaluated later.
+    if (result.reason !== "enqueue_failed") {
+      logStep("evaluation.schedule.skipped", {
+        reason: result.reason,
+        resumeRecordId: input.resumeRecordId,
+      });
+      return { ok: true };
+    }
+    return { detail: result.errorMessage, ok: false };
   }
   if (result.status === "fallback_sync") {
     await dependencies.reassessResumeRecord({
@@ -104,7 +138,7 @@ async function scheduleLibraryEvaluation(
       resumeRecordId: input.resumeRecordId,
     });
   }
-  return true;
+  return { ok: true };
 }
 
 export async function generateParsedResumeQuestionsBestEffort(
@@ -153,43 +187,55 @@ export async function completeParsedResumeEnrichment(
 
   if (input.succeededRecordId) {
     await requireEnrichmentTasks([
-      scheduleLibraryEvaluation(
-        {
-          autoMatchJobDescription: input.autoMatchJobDescription,
-          generationToken: input.generationToken,
-          jobDescriptionId: input.jobDescriptionId,
+      {
+        label: "AI 评估",
+        run: scheduleLibraryEvaluation(
+          {
+            autoMatchJobDescription: input.autoMatchJobDescription,
+            generationToken: input.generationToken,
+            jobDescriptionId: input.jobDescriptionId,
+            organizationId: input.organizationId,
+            resumeRecordId: input.succeededRecordId,
+          },
+          dependencies,
+        ),
+      },
+      bestEffortTask(
+        "语义索引",
+        dependencies.enqueueResumeSemanticIndexJobBestEffort({
           organizationId: input.organizationId,
-          resumeRecordId: input.succeededRecordId,
-        },
-        dependencies,
+          sourceId: input.succeededRecordId,
+          sourceType: "studio_interview",
+        }),
       ),
-      dependencies.enqueueResumeSemanticIndexJobBestEffort({
-        organizationId: input.organizationId,
-        sourceId: input.succeededRecordId,
-        sourceType: "studio_interview",
-      }),
     ]);
     return;
   }
   if (!input.succeededPoolItemId) {
     return;
   }
-  const tasks: Promise<boolean>[] = [
-    dependencies.enqueueResumeSemanticIndexJobBestEffort({
-      organizationId: input.organizationId,
-      sourceId: input.succeededPoolItemId,
-      sourceType: "resume_pool_item",
-    }),
+  const tasks: EnrichmentTask[] = [
+    bestEffortTask(
+      "语义索引",
+      dependencies.enqueueResumeSemanticIndexJobBestEffort({
+        organizationId: input.organizationId,
+        sourceId: input.succeededPoolItemId,
+        sourceType: "resume_pool_item",
+      }),
+    ),
   ];
   if (input.autoMatchJobDescription || input.jobDescriptionId) {
     tasks.push(
-      dependencies.enqueueResumePoolReviewGenerationBestEffort({
-        autoMatchJobDescription: input.autoMatchJobDescription,
-        generationToken: input.generationToken,
-        jobDescriptionId: input.jobDescriptionId,
-        organizationId: input.organizationId,
-        poolItemId: input.succeededPoolItemId,
-      }),
+      bestEffortTask(
+        "人才库评估",
+        dependencies.enqueueResumePoolReviewGenerationBestEffort({
+          autoMatchJobDescription: input.autoMatchJobDescription,
+          generationToken: input.generationToken,
+          jobDescriptionId: input.jobDescriptionId,
+          organizationId: input.organizationId,
+          poolItemId: input.succeededPoolItemId,
+        }),
+      ),
     );
   }
   await requireEnrichmentTasks(tasks);

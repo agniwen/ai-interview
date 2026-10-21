@@ -575,7 +575,14 @@ async function processClaimedItem(
         dependencies,
       );
     } catch (error) {
-      await releaseBatchItemForRetry(batchRow.id, item.id);
+      if (options.retryParseFailure) {
+        await releaseBatchItemForRetry(batchRow.id, item.id);
+        throw error;
+      }
+      // The resume is already parsed and visible. Once retries are exhausted,
+      // finish the item so startup recovery stops replaying it, and still
+      // surface the enrichment failure to the queue's failure report.
+      await writeOutcome(item, batchRow.id, outcome);
       throw error;
     }
   }

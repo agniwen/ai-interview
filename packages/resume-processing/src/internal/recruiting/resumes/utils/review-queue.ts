@@ -91,7 +91,18 @@ export interface ResumeEvaluationSchedulingDependencies {
 export type ResumeReviewSchedulingResult =
   | { status: "already_current" }
   | { runId: string; status: "enqueued" | "fallback_sync" }
-  | { errorMessage: string; status: "failed" };
+  | {
+      errorMessage: string;
+      // not_schedulable: no published job to evaluate against; in_progress: another
+      // run owns the record; enqueue_failed: the queue rejected the job (retryable).
+      reason: ResumeReviewSchedulingFailureReason;
+      status: "failed";
+    };
+
+export type ResumeReviewSchedulingFailureReason =
+  | "enqueue_failed"
+  | "in_progress"
+  | "not_schedulable";
 
 function hasCurrentStructuredEvaluation(record: {
   structuredCompositeScore: number | null;
@@ -296,6 +307,7 @@ export async function scheduleResumeEvaluationForRecord(
   if (!context?.record.resumeProfile) {
     return {
       errorMessage: "记录不存在、简历尚未解析或绑定岗位尚未发布。",
+      reason: "not_schedulable",
       status: "failed",
     };
   }
@@ -310,6 +322,7 @@ export async function scheduleResumeEvaluationForRecord(
   ) {
     return {
       errorMessage: "AI 评估任务正在处理中。",
+      reason: "in_progress",
       status: "failed",
     };
   }
@@ -325,6 +338,7 @@ export async function scheduleResumeEvaluationForRecord(
   if (!persisted) {
     return {
       errorMessage: "AI 评估任务正在处理中。",
+      reason: "in_progress",
       status: "failed",
     };
   }
@@ -355,7 +369,7 @@ export async function scheduleResumeEvaluationForRecord(
       error,
       resumeRecordId: input.resumeRecordId,
     });
-    return { errorMessage, status: "failed" };
+    return { errorMessage, reason: "enqueue_failed", status: "failed" };
   }
 }
 
