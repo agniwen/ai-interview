@@ -1,5 +1,7 @@
 import { MediaDeviceFailure } from "livekit-client";
+import { useEffect } from "react";
 import { toast } from "sonner";
+import { isMediaDeviceError } from "@/lib/client/media-device-errors";
 
 export function getMeetingMediaErrorMessage(failure?: MediaDeviceFailure): string {
   switch (failure) {
@@ -24,4 +26,21 @@ export function notifyMeetingMediaFailure(failure?: MediaDeviceFailure) {
 
 export function notifyMeetingMediaError(error: Error) {
   notifyMeetingMediaFailure(MediaDeviceFailure.getFailure(error));
+}
+
+/**
+ * LiveKit switches capture devices on its own when hardware changes and does
+ * not catch the resulting getUserMedia failure; tell the participant instead
+ * of failing silently.
+ */
+export function useMeetingMediaRejectionNotice() {
+  useEffect(() => {
+    function handleRejection(event: PromiseRejectionEvent) {
+      if (isMediaDeviceError(event.reason)) {
+        notifyMeetingMediaError(event.reason);
+      }
+    }
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => window.removeEventListener("unhandledrejection", handleRejection);
+  }, []);
 }

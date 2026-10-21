@@ -52,7 +52,10 @@ import {
   meetingCameraCaptureOptions,
   meetingScreenShareCaptureOptions,
 } from "./human-meeting-video-quality";
-import { notifyMeetingMediaError } from "./human-meeting-media-errors";
+import {
+  notifyMeetingMediaError,
+  useMeetingMediaRejectionNotice,
+} from "./human-meeting-media-errors";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
@@ -182,6 +185,7 @@ function HumanMeetingStageContent({
   title,
   viewMode,
 }: HumanMeetingStageProps) {
+  useMeetingMediaRejectionNotice();
   const isMobile = useIsMobile();
   const MicrophoneControls = isMobile ? "fieldset" : ButtonGroup;
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
