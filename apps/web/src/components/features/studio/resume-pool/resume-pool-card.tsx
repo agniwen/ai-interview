@@ -448,7 +448,7 @@ export function ResumePoolCard({
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
-      className="group/list-card h-full overflow-hidden rounded-lg border-0 bg-transparent shadow-none transition-colors hover:bg-component/60"
+      className="group/list-card h-full overflow-hidden rounded-xl border-0 bg-transparent shadow-none transition-[background-color,box-shadow] hover:bg-card hover:shadow-default"
       onClick={(event) => {
         if (isInteractiveCardClick(event) || isTextSelectionClick()) {
           return;

@@ -27,6 +27,8 @@ const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+// 略长于 duration-280 的宽度过渡；减弱动效或 transitionend 未触发时兜底清除过渡标记。
+const SIDEBAR_TRANSITION_FALLBACK_MS = 400;
 
 interface SidebarContextProps {
   state: "expanded" | "collapsed";
@@ -148,6 +150,46 @@ function SidebarProvider({
   );
 }
 
+// 宽度过渡期间在侧栏根节点标记 data-transitioning，内容区可据此在过渡中固定为最终宽度，避免每帧重排。
+// 直接写 DOM 属性，不触发重渲染。
+// Marks the sidebar root with data-transitioning during the width transition without re-rendering.
+function useSidebarTransitionMarker(state: "expanded" | "collapsed") {
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const gapRef = React.useRef<HTMLDivElement>(null);
+  const previousStateRef = React.useRef(state);
+
+  React.useLayoutEffect(() => {
+    if (previousStateRef.current === state) {
+      return;
+    }
+    previousStateRef.current = state;
+    const root = rootRef.current;
+    const gap = gapRef.current;
+    if (!(root && gap)) {
+      return;
+    }
+
+    root.dataset.transitioning = "";
+    const clear = () => {
+      delete root.dataset.transitioning;
+    };
+    const handleTransitionEnd = (event: TransitionEvent) => {
+      if (event.target === gap && event.propertyName === "width") {
+        clear();
+      }
+    };
+    gap.addEventListener("transitionend", handleTransitionEnd);
+    const fallbackTimer = window.setTimeout(clear, SIDEBAR_TRANSITION_FALLBACK_MS);
+
+    return () => {
+      gap.removeEventListener("transitionend", handleTransitionEnd);
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [state]);
+
+  return { gapRef, rootRef };
+}
+
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -161,6 +203,7 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none";
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { gapRef, rootRef } = useSidebarTransitionMarker(state);
 
   if (collapsible === "none") {
     return (
@@ -204,6 +247,7 @@ function Sidebar({
 
   return (
     <div
+      ref={rootRef}
       className="group peer hidden text-sidebar-foreground md:block"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
@@ -213,6 +257,7 @@ function Sidebar({
     >
       {/* This is what handles the sidebar gap on desktop */}
       <div
+        ref={gapRef}
         data-slot="sidebar-gap"
         className={cn(
           "relative w-(--sidebar-width) bg-transparent transition-[width] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",

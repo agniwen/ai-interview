@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/client/auth-client";
 import { BUILD_TIME } from "@/lib/client/build-info";
@@ -135,16 +136,14 @@ export function SidebarUserSection({
       <div className="h-9 w-full animate-pulse rounded-xl bg-muted" />
     );
   } else if (session?.user) {
-    content = collapsed ? (
+    // 复用 SidebarMenuButton，跟随侧栏 data-collapsible 的宽度过渡与文字淡出；收起时保持 p-1 让头像位置不变。
+    content = (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button
-              aria-label="用户菜单"
-              className="w-full rounded-xl transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-hover hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
-              size="icon"
+            <SidebarMenuButton
+              className="h-9 rounded-[14px] p-1 transition-[width,height,padding,background-color,color] group-data-[collapsible=icon]:p-1!"
               type="button"
-              variant="ghost"
             >
               <Avatar
                 label={`${userName}的头像`}
@@ -154,52 +153,8 @@ export function SidebarUserSection({
                 <AvatarImage alt={userName} src={session.user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="space-y-0.5">
-              <p className="truncate font-medium text-sm">{userName}</p>
-              <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
-              {organizationName ? (
-                <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
-              ) : null}
-              <p className="flex items-center gap-1 text-muted-foreground text-xs">
-                <span>更新于</span>
-                <TimeDisplay as="span" value={BUILD_TIME} />
-              </p>
-            </DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <SidebarUserMenuLinks
-            onSignOut={handleSignOut}
-            showHomeLink={showHomeLink}
-            showPlatformLink={showPlatformLink}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ) : (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              className="h-9 w-full justify-start gap-2 rounded-[14px] px-1.5 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-hover hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
-              type="button"
-              variant="ghost"
-            >
-              <Avatar
-                label={`${userName}的头像`}
-                seed={`user:${userEmail || session.user.id}`}
-                size="sm"
-              >
-                <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-                <AvatarFallback>{userInitials}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1 text-left">
-                <p className="truncate font-medium text-sm leading-none">{userName}</p>
-              </div>
-            </Button>
+              <span className="min-w-0 flex-1 font-medium text-sm leading-none">{userName}</span>
+            </SidebarMenuButton>
           }
         />
         <DropdownMenuContent align="end" className="w-56">
@@ -253,17 +208,13 @@ export function SidebarUserSection({
 
   return (
     <div className="px-2 pt-1 pb-1 select-none">
-      {collapsed ? (
-        <div className="flex w-full flex-col items-center gap-2">
+      {/* 用 CSS 跟随 data-collapsible 切换排列，保持 DOM 结构不变，避免收起时按钮重新挂载导致头像跳动。 */}
+      <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col">
+        <div className="min-w-0 flex-1 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:flex-none">
           {content}
-          {updateButton}
         </div>
-      ) : (
-        <div className="flex w-full items-center gap-2">
-          <div className="min-w-0 flex-1">{content}</div>
-          {updateButton}
-        </div>
-      )}
+        {updateButton}
+      </div>
     </div>
   );
 }

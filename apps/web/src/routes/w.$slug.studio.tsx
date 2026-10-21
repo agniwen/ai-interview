@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
 import { hasPermissionInStatements } from "@app/shared/permission-statements";
+import { cn } from "@app/shared/utils";
 
 function findStudioPageByPath(pathname: string, slug: string) {
   const studioBasePath = `/w/${slug}/studio`;
@@ -33,6 +34,13 @@ async function findFirstAllowedStudioPath(slug: string) {
   return await getFirstAllowedStudioPagePath({ data: { slug } });
 }
 
+// 侧栏展开/收起过渡期间（Sidebar 根节点带 data-transitioning），桌面端内容区直接取过渡结束后的最终宽度：
+// 只重排一次，过渡中仅随左边缘平移并被 SidebarInset 裁剪；静止时恢复 w-full，不依赖下面的宽度算式。
+// 最终宽度 = 视口 - 侧栏占位(inset 变体收起时为 icon 宽 + 1rem) - SidebarInset 外边距(展开 mr-2，收起 mx-2)。
+// While the sidebar width transitions, desktop content takes its final width so it relayouts once instead of every frame.
+const STUDIO_CONTENT_TRANSITION_WIDTH_CLASS =
+  "md:group-has-[[data-slot=sidebar][data-transitioning][data-state=expanded]]/sidebar-wrapper:w-[calc(100vw-var(--sidebar-width)-0.5rem)] md:group-has-[[data-slot=sidebar][data-transitioning][data-state=collapsed]]/sidebar-wrapper:w-[calc(100vw-var(--sidebar-width-icon)-2rem)]";
+
 function StudioLayout({ children }: { children: ReactNode }) {
   const isApprovalEditor = useRouterState({
     select: (state) =>
@@ -44,14 +52,27 @@ function StudioLayout({ children }: { children: ReactNode }) {
         <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
           {isApprovalEditor ? (
             <>
-              <SiteHeader className="pointer-events-none absolute inset-x-0 top-0 [&>div]:pointer-events-auto" />
-              <PendingOutlet className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <SiteHeader
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 top-0 [&>div]:pointer-events-auto",
+                  STUDIO_CONTENT_TRANSITION_WIDTH_CLASS,
+                )}
+              />
+              <PendingOutlet
+                className={cn(
+                  "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+                  STUDIO_CONTENT_TRANSITION_WIDTH_CLASS,
+                )}
+              >
                 {children}
               </PendingOutlet>
             </>
           ) : (
             <ScrollArea
-              className="@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
+              className={cn(
+                "@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!",
+                STUDIO_CONTENT_TRANSITION_WIDTH_CLASS,
+              )}
               scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
             >
               <SiteHeader />
@@ -60,7 +81,12 @@ function StudioLayout({ children }: { children: ReactNode }) {
               </PendingOutlet>
             </ScrollArea>
           )}
-          <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />
+          <StudioContentOverlayTarget
+            className={cn(
+              "pointer-events-none absolute inset-0 z-10",
+              STUDIO_CONTENT_TRANSITION_WIDTH_CLASS,
+            )}
+          />
         </SidebarInset>
       </StudioContentOverlayProvider>
     </StudioHeaderProvider>
