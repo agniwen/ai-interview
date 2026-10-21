@@ -55,7 +55,7 @@ export const Route = createFileRoute("/platform/organizations")({
     return state;
   },
   head: () => ({
-    meta: [{ title: formatDocumentTitle("平台 · 所有工作区") }],
+    meta: [{ title: formatDocumentTitle("平台 · 工作区管理") }],
   }),
   component: PlatformOrganizationsRoute,
   shouldReload: false,
