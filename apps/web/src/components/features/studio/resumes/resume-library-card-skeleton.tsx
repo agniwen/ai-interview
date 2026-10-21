@@ -35,7 +35,7 @@ export function ResumeLibraryCardSkeleton({ className }: { className?: string })
           <Skeleton className="mt-3 size-4 shrink-0" />
           <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
             <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
-              <Skeleton className="size-10 shrink-0 rounded-full" />
+              <Skeleton className="mb-2 size-12 shrink-0 rounded-full" />
               <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
                 <Skeleton className="h-5 w-36 max-w-full xl:basis-auto" />
                 <div className="basis-full xl:hidden" />

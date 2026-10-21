@@ -47,32 +47,73 @@ export const QUALITATIVE_RECOMMENDATION_VERDICT_TONE = {
   undecided: "warning",
 } satisfies Record<QualitativeRecommendationLevel, StudioListCardVerdictTone>;
 
+const HIGHLY_RECOMMENDED_LABEL = QUALITATIVE_RECOMMENDATION_LABEL.highly_recommended;
+// 头像下空间有限：非常推荐只显示「推荐」，靠加粗与紫色区分；完整结论留给 title 与读屏。
+// Space under the avatar is tight: 非常推荐 shows as bold 推荐; title and screen readers keep the full verdict.
+const COMPACT_HIGHLY_RECOMMENDED_LABEL = QUALITATIVE_RECOMMENDATION_LABEL.recommended;
+
+/** 头像底边叠放的紧凑版 AI 结论徽标位置与尺寸。 Compact verdict pinned to the avatar's bottom edge. */
+const STUDIO_LIST_CARD_AVATAR_VERDICT_CLASS =
+  "absolute bottom-0 left-1/2 z-10 h-[18px] -translate-x-1/2 gap-0.5 rounded-full px-1.5 text-[10px] leading-none [&>svg]:size-2.5";
+
 /**
  * 标题行里的 AI 结论徽标：扫读列表时第一眼看到“AI 怎么看”，评语行只保留结论文字。
  * 仅为建议，不代表招聘决策。
  */
 export function StudioListCardAiVerdictBadge({
+  compact = false,
   label,
   muted = false,
   tone,
 }: {
+  /** 叠在头像底边的紧凑版：更小的字号与高度，「非常推荐」缩写为加粗的「推荐」。 */
+  compact?: boolean;
   label: string;
   /** 已淘汰等非活跃记录：徽标改为灰色。 */
   muted?: boolean;
   tone: StudioListCardVerdictTone;
 }) {
   const effectiveTone = muted ? "muted" : tone;
+  const abbreviated = compact && label === HIGHLY_RECOMMENDED_LABEL;
   return (
     <Badge
-      className={cn("shrink-0", VERDICT_BADGE_CLASS[effectiveTone])}
+      className={cn(
+        "shrink-0",
+        VERDICT_BADGE_CLASS[effectiveTone],
+        compact && STUDIO_LIST_CARD_AVATAR_VERDICT_CLASS,
+        abbreviated && "font-semibold",
+      )}
       data-slot="studio-list-card-ai-verdict"
       title={`AI 评价：${label}`}
       variant={VERDICT_BADGE_VARIANT[effectiveTone]}
     >
       <IconSparkles aria-hidden />
       <span className="sr-only">AI 评价：</span>
-      {label}
+      {abbreviated ? (
+        <>
+          <span aria-hidden>{COMPACT_HIGHLY_RECOMMENDED_LABEL}</span>
+          <span className="sr-only">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </Badge>
+  );
+}
+
+/** 头像与叠放的 AI 结论徽标；底部留出徽标露出的高度，避免压到下一行。 */
+export function StudioListCardAvatarWithVerdict({
+  avatar,
+  verdict,
+}: {
+  avatar: ReactNode;
+  verdict: ReactNode;
+}) {
+  return (
+    <div className="relative shrink-0 pb-2" data-slot="studio-list-card-avatar">
+      {avatar}
+      {verdict}
+    </div>
   );
 }
 

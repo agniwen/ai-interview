@@ -1,7 +1,9 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
+  StudioListCardAiVerdictBadge,
   StudioListCardEvaluationFocus,
   StudioListCardEvaluationSkeleton,
 } from "../studio-list-card-evaluation";
@@ -59,5 +61,33 @@ describe("StudioListCardEvaluationFocus", () => {
     expect(renderToStaticMarkup(<StudioListCardEvaluationSkeleton />)).toContain(
       'aria-label="简历解析中"',
     );
+  });
+});
+
+function renderVerdict(label: string, compact: boolean) {
+  const element = document.createElement("div");
+  element.innerHTML = renderToStaticMarkup(
+    <StudioListCardAiVerdictBadge compact={compact} label={label} tone="highlight" />,
+  );
+  const badge = element.querySelector<HTMLElement>('[data-slot="studio-list-card-ai-verdict"]');
+  const visible = [...(badge?.childNodes ?? [])]
+    .filter((node) => !(node instanceof HTMLElement && node.classList.contains("sr-only")))
+    .map((node) => node.textContent)
+    .join("");
+  return { badge, visible };
+}
+
+describe("StudioListCardAiVerdictBadge", () => {
+  it("abbreviates 非常推荐 under the avatar but keeps the full verdict for title and readers", () => {
+    const { badge, visible } = renderVerdict("非常推荐", true);
+    expect(visible).toBe("推荐");
+    expect(badge?.title).toBe("AI 评价：非常推荐");
+    expect(badge?.textContent).toContain("AI 评价：");
+    expect(badge?.querySelector(".sr-only:last-child")?.textContent).toBe("非常推荐");
+  });
+
+  it("shows other verdicts and the full-size badge unchanged", () => {
+    expect(renderVerdict("待定", true).visible).toBe("待定");
+    expect(renderVerdict("非常推荐", false).visible).toBe("非常推荐");
   });
 });

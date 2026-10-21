@@ -34,6 +34,7 @@ import {
   StudioListCardProfileSnapshotSkeleton,
   QUALITATIVE_RECOMMENDATION_VERDICT_TONE,
   StudioListCardAiVerdictBadge,
+  StudioListCardAvatarWithVerdict,
 } from "@/components/features/studio/studio-list-card-evaluation";
 import {
   STUDIO_LIST_CARD_ACTIONS_CELL_CLASS,
@@ -459,13 +460,28 @@ export function ResumePoolCard({
       <CardPanel className="flex h-full min-h-0 p-4">
         <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
           <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
-            <CandidateAvatar
-              className="size-10"
-              label={title}
-              recordId={record.id}
-              seed={title}
-              source="resume-pool"
-              version={record.candidateAvatarVersion}
+            <StudioListCardAvatarWithVerdict
+              avatar={
+                <CandidateAvatar
+                  className="size-12"
+                  label={title}
+                  recordId={record.id}
+                  seed={title}
+                  source="resume-pool"
+                  version={record.candidateAvatarVersion}
+                />
+              }
+              verdict={
+                record.qualitativeRecommendationLevel && !isResumePoolRecordParsing(record) ? (
+                  <StudioListCardAiVerdictBadge
+                    compact
+                    label={QUALITATIVE_RECOMMENDATION_LABEL[record.qualitativeRecommendationLevel]}
+                    tone={
+                      QUALITATIVE_RECOMMENDATION_VERDICT_TONE[record.qualitativeRecommendationLevel]
+                    }
+                  />
+                ) : null
+              }
             />
             <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
               <button
@@ -481,14 +497,6 @@ export function ResumePoolCard({
                   ({formatResumeRecordDisplayId(record.id)})
                 </span>
               </button>
-              {record.qualitativeRecommendationLevel && !isResumePoolRecordParsing(record) ? (
-                <StudioListCardAiVerdictBadge
-                  label={QUALITATIVE_RECOMMENDATION_LABEL[record.qualitativeRecommendationLevel]}
-                  tone={
-                    QUALITATIVE_RECOMMENDATION_VERDICT_TONE[record.qualitativeRecommendationLevel]
-                  }
-                />
-              ) : null}
               {resumeParseStatusBadge(record)}
               {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
               {resumeRecruitingStatusBadge(record)}

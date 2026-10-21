@@ -23,7 +23,10 @@ import type {
   ResumeLibraryProfileSnapshotLine,
 } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
-import { StudioListCardProfileSnapshotSkeleton } from "@/components/features/studio/studio-list-card-evaluation";
+import {
+  StudioListCardAvatarWithVerdict,
+  StudioListCardProfileSnapshotSkeleton,
+} from "@/components/features/studio/studio-list-card-evaluation";
 import {
   STUDIO_LIST_CARD_ACTIONS_CELL_CLASS,
   STUDIO_LIST_CARD_BODY_GRID_CLASS,
@@ -38,6 +41,7 @@ import {
 import { ResumeLibraryCardActions } from "./resume-library-card-actions";
 import {
   ResumeLibraryEvaluationSummary,
+  ResumeLibraryReviewAttemptBadge,
   ResumeLibraryReviewBadge,
 } from "./resume-library-evaluation-summary";
 import type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
@@ -526,14 +530,19 @@ function ResumeLibraryCardComponent({
         />
         <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
           <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
-            <CandidateAvatar
-              className="size-10"
-              label={record.candidateName}
-              muted={isRejected}
-              recordId={record.id}
-              seed={getCandidateAvatarSeed(record.candidateName)}
-              source="resumes"
-              version={record.candidateAvatarVersion}
+            <StudioListCardAvatarWithVerdict
+              avatar={
+                <CandidateAvatar
+                  className="size-12"
+                  label={record.candidateName}
+                  muted={isRejected}
+                  recordId={record.id}
+                  seed={getCandidateAvatarSeed(record.candidateName)}
+                  source="resumes"
+                  version={record.candidateAvatarVersion}
+                />
+              }
+              verdict={<ResumeLibraryReviewBadge compact muted={isRejected} record={record} />}
             />
             <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
               <button
@@ -548,7 +557,7 @@ function ResumeLibraryCardComponent({
                   ({formatResumeRecordDisplayId(record.id)})
                 </span>
               </button>
-              <ResumeLibraryReviewBadge muted={isRejected} record={record} />
+              <ResumeLibraryReviewAttemptBadge record={record} />
               <ResumeLifecycleBadge
                 className={cn("shrink-0", getLifecycleBadgeStageClass(record.pipelineStage))}
                 detailLabel={lifecycle.detailLabel}

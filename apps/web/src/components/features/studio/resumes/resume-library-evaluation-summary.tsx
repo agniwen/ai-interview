@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import type { ReactNode } from "react";
 import { describeResumeLibraryReviewCard } from "@app/shared/resume-review";
 import type { ResumeReviewActionTone } from "@app/shared/resume-review";
@@ -169,28 +170,57 @@ function describeResumeLibraryReview(record: ResumeLibraryListRecord) {
   return { artifactMode, hasAiScoreDetail, replacementAttemptLabel, reviewCard, tone };
 }
 
-/** 标题行的 AI 结论徽标：等级 / 评分结论，重评中时追加状态。 */
+function isResumeLibraryRecordParsing(record: ResumeLibraryListRecord) {
+  return record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing";
+}
+
+/**
+ * AI 结论徽标：等级 / 评分结论。叠在头像上的紧凑版只放结论（`compact`），
+ * 重评状态改由 `ResumeLibraryReviewAttemptBadge` 放在标题行。
+ * Verdict badge; the compact avatar version omits the re-review status, which the title row shows.
+ */
 export function ResumeLibraryReviewBadge({
+  compact = false,
   muted,
   record,
 }: {
+  /** 叠在头像上的紧凑版：不带重评状态（由 `ResumeLibraryReviewAttemptBadge` 显示）。 */
+  compact?: boolean;
   muted?: boolean;
   record: ResumeLibraryListRecord;
 }) {
-  if (record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing") {
+  if (isResumeLibraryRecordParsing(record)) {
     return null;
   }
   const { replacementAttemptLabel, reviewCard, tone } = describeResumeLibraryReview(record);
   return (
     <StudioListCardAiVerdictBadge
+      compact={compact}
       label={
-        replacementAttemptLabel
+        !compact && replacementAttemptLabel
           ? `${reviewCard.label} · ${replacementAttemptLabel}`
           : reviewCard.label
       }
       muted={muted}
       tone={tone}
     />
+  );
+}
+
+/** 标题行的重评状态（重新评价中 / 失败）；没有进行中的重评时不渲染。 */
+export function ResumeLibraryReviewAttemptBadge({ record }: { record: ResumeLibraryListRecord }) {
+  if (isResumeLibraryRecordParsing(record)) {
+    return null;
+  }
+  const { replacementAttemptLabel } = describeResumeLibraryReview(record);
+  if (!replacementAttemptLabel) {
+    return null;
+  }
+  const failed = record.resumeReviewStatus === "failed";
+  return (
+    <Badge className="shrink-0" variant={failed ? "danger" : "default"}>
+      {replacementAttemptLabel}
+    </Badge>
   );
 }
 
