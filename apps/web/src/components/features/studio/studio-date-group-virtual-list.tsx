@@ -31,7 +31,7 @@ export type StudioDateGroupedVirtualRow<TRecord> =
 
 /** 记录行之间的分隔线；分组最后一条不画，避免与下一个日期标题重复分隔。 */
 export const STUDIO_RECORD_ROW_DIVIDER_CLASS =
-  "after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-border";
+  "after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-border-subtle";
 
 export function hasStudioRecordRowDivider<TRecord>(
   rows: StudioDateGroupedVirtualRow<TRecord>[],

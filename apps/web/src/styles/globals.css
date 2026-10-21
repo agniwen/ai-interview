@@ -233,6 +233,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active-hover: var(--sidebar-active-hover);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -246,6 +249,15 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-solid-active: var(--danger-solid-active);
+  --color-on-danger-solid: var(--on-danger-solid);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-subtle-hover: var(--danger-subtle-hover);
+  --color-danger-subtle-active: var(--danger-subtle-active);
+  --color-danger-subtle-ring: var(--danger-subtle-ring);
+  --color-danger-foreground: var(--danger-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -407,6 +419,17 @@
   --gray-a10: #0000007c;
   --gray-a11: #0000009b;
   --gray-a12: #000000df;
+  /* Radix tomato（Interfere Danger 规范），只引入按钮用到的阶。 Radix tomato for the Interfere danger buttons; only the steps in use. */
+  --tomato-1: #fffcfc;
+  --tomato-9: #e54d2e;
+  --tomato-10: #dd4425;
+  --tomato-11: #d13415;
+  --tomato-a2: #ff200008;
+  --tomato-a3: #f52b0018;
+  --tomato-a5: #ff2e003d;
+  --tomato-a6: #f92d0050;
+  --tomato-a10: #d72400da;
+  --tomato-a11: #cd2200ea;
 
   --elevation-border: 0 0 0 1px #00000012;
   --elevation-default: 0 0 0 0.5px #0000000f, 0 1px 1px -1px #0000001a, 0 1px 2px 0 #0000000d;
@@ -449,6 +472,17 @@
   --component-hover: var(--gray-a4);
   --component-active: var(--gray-a5);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Danger 按钮：实心用 tomato 9/10/11，浅底用 tomato alpha 2/3/5，文字 a10。 Danger buttons per the Interfere spec. */
+  --danger-solid: var(--tomato-9);
+  --danger-solid-hover: var(--tomato-10);
+  --danger-solid-active: var(--tomato-11);
+  --on-danger-solid: var(--tomato-1);
+  --danger-subtle: var(--tomato-a2);
+  --danger-subtle-hover: var(--tomato-a3);
+  --danger-subtle-active: var(--tomato-a5);
+  /* 浅底按钮补一圈同色描边，避免在浅色面上太淡。 Subtle danger gets a same-hue ring so it doesn't wash out. */
+  --danger-subtle-ring: var(--tomato-a6);
+  --danger-foreground: var(--tomato-a10);
   --border-subtle: var(--gray-a3);
   --border: var(--gray-a4);
   --border-strong: var(--gray-a6);
@@ -479,8 +513,14 @@
   --sidebar-foreground: #000000bf;
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
+  /* 悬停是半透明灰（同 ghost 按钮）；选中项像分段 Tabs 的选中块一样抬升为控件面。
+     Hover is a translucent wash (like ghost buttons); the current item lifts onto the control surface like the selected tab. */
   --sidebar-accent: var(--gray-a3);
   --sidebar-accent-foreground: var(--gray-12);
+  /* 导航项悬停比 accent 再淡 20%。 Nav item hover is 20% lighter than the accent wash. */
+  --sidebar-hover: color-mix(in srgb, var(--gray-a3) 80%, transparent);
+  --sidebar-active: var(--control);
+  --sidebar-active-hover: var(--gray-2);
   --sidebar-border: var(--gray-a3);
   --sidebar-ring: var(--ring);
   /* 语义色板（亮色）：基色 → 文字 ink（混入正文色，保证可读）/ 浅底 tint / 描边 line。
@@ -556,6 +596,16 @@
   --gray-a10: #ffffff72;
   --gray-a11: #ffffffaf;
   --gray-a12: #ffffffed;
+  --tomato-1: #181111;
+  --tomato-9: #e54d2e;
+  --tomato-10: #ec6142;
+  --tomato-11: #ff977d;
+  --tomato-a2: #ff55330f;
+  --tomato-a3: #ff35232b;
+  --tomato-a5: #fe332153;
+  --tomato-a6: #ff4f3864;
+  --tomato-a10: #ff6847eb;
+  --tomato-a11: #ff977d;
 
   --elevation-border: 0 0 0 1px #ffffff12;
   --elevation-default: inset 0 0 0 0.5px #ffffff12;
@@ -594,6 +644,8 @@
   --component-hover: var(--gray-a4);
   --component-active: var(--gray-a5);
   --destructive: oklch(0.704 0.191 22.216);
+  /* 暗色实心 Danger 文字用纯白。 Solid danger text is white in dark mode. */
+  --on-danger-solid: #ffffff;
   --border-subtle: var(--gray-a3);
   --border: var(--gray-a4);
   --border-strong: var(--gray-a6);
@@ -622,6 +674,9 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--gray-a3);
   --sidebar-accent-foreground: var(--gray-12);
+  --sidebar-hover: color-mix(in srgb, var(--gray-a3) 80%, transparent);
+  --sidebar-active: var(--gray-3);
+  --sidebar-active-hover: var(--gray-4);
   --sidebar-border: var(--gray-a3);
   --sidebar-ring: var(--primary);
   /* 语义色板（暗色）：基色不变，文字提亮、浅底与描边加深混合比例，保证暗底上的层次。 */
@@ -1102,6 +1157,7 @@
     --border-strong: var(--gray-a8);
     --input: var(--gray-a8);
     --muted-foreground: var(--gray-12);
+    --danger-foreground: var(--tomato-a11);
   }
 }
 

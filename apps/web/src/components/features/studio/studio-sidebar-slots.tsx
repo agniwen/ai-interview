@@ -220,7 +220,7 @@ const navGroups: NavGroup[] = [
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 const RECRUITING_BOARD_PATH = "/studio/resumes";
 const STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS =
-  "relative z-10 transition-[background-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:font-medium data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
+  "relative z-10 transition-[background-color,box-shadow,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:font-medium data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
 
 export function buildRecruitingBoardSearch(
   previous: SearchParamsRecord,
@@ -309,7 +309,7 @@ function SidebarNavItem({
   const menuButton = (
     <SidebarMenuButton
       className={cn(
-        "relative z-10 cursor-default select-none transition-[width,height,padding,background-color,color,transform] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+        "relative z-10 cursor-default select-none transition-[width,height,padding,background-color,box-shadow,color,transform] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
         !isParentActive && "hover:bg-transparent!",
       )}
       isActive={isParentActive}

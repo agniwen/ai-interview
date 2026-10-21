@@ -231,7 +231,7 @@ export function BulkUploadProgressDialog({
           <Button onClick={() => handleOpenChange(false)} type="button" variant="ghost">
             稍后再说
           </Button>
-          <Button onClick={onCancel} type="button" variant="destructive">
+          <Button onClick={onCancel} type="button" variant="destructive-subtle">
             取消批次
           </Button>
           <Button onClick={onResume} type="button">
@@ -245,7 +245,7 @@ export function BulkUploadProgressDialog({
         <Button onClick={() => handleOpenChange(false)} type="button" variant="ghost">
           关闭
         </Button>
-        <Button onClick={onCancel} type="button" variant="destructive">
+        <Button onClick={onCancel} type="button" variant="destructive-subtle">
           {phase === "uploading" ? "停止上传" : "取消批次"}
         </Button>
       </div>

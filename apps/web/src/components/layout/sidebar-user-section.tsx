@@ -141,7 +141,7 @@ export function SidebarUserSection({
           render={
             <Button
               aria-label="用户菜单"
-              className="w-full rounded-xl transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
+              className="w-full rounded-xl transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-hover hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
               size="icon"
               type="button"
               variant="ghost"
@@ -184,7 +184,7 @@ export function SidebarUserSection({
         <DropdownMenuTrigger
           render={
             <Button
-              className="h-9 w-full justify-start gap-2 rounded-[14px] px-1.5 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
+              className="h-9 w-full justify-start gap-2 rounded-[14px] px-1.5 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-hover hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
               type="button"
               variant="ghost"
             >

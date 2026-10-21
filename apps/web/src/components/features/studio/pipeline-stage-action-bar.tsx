@@ -190,7 +190,7 @@ export function PipelineStageActionBar({
           ) : null}
           {actions.left}
           {canClose ? (
-            <Button onClick={onRequestClose} size="sm" type="button" variant="destructive">
+            <Button onClick={onRequestClose} size="sm" type="button" variant="destructive-subtle">
               <IconCircleOff className="size-4" />
               标记结束
             </Button>

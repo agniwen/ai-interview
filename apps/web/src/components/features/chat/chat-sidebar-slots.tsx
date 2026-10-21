@@ -83,7 +83,7 @@ function useActiveSessionId() {
   });
 }
 
-function ChatSidebarHeader({
+export function ChatSidebarHeader({
   onNewConversation,
   editMode,
   onToggleEditMode,
@@ -100,46 +100,15 @@ function ChatSidebarHeader({
 }) {
   const { isMobile, state } = useSidebar();
   const isCollapsed = !isMobile && state === "collapsed";
+  const isEditing = editMode && !isCollapsed;
 
-  if (editMode && !isCollapsed) {
-    return (
-      <div className="flex items-center select-none gap-1.5 px-1">
-        <Button
-          className="h-8 flex-1 gap-2"
-          disabled={selectedCount === 0 || isBulkDeleting}
-          onClick={onBulkDelete}
-          size="sm"
-          variant="destructive"
-        >
-          <IconTrash className="size-4" />
-          {isBulkDeleting ? "正在删除…" : `删除 (${selectedCount})`}
-        </Button>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label="退出批量编辑"
-                className="size-8 shrink-0"
-                disabled={isBulkDeleting}
-                onClick={onToggleEditMode}
-                size="icon"
-                variant="ghost"
-              >
-                <IconX className="size-4" />
-              </Button>
-            }
-          />
-          <TooltipContent>退出批量编辑</TooltipContent>
-        </Tooltip>
-      </div>
-    );
-  }
-
+  // 批量编辑只替换「聊天记录」这一行（同为 h-8），「创建对话」保留并禁用，避免整列上下跳动。
+  // Bulk edit swaps only the h-8 history row; New chat stays in place, disabled, so nothing shifts.
   return (
     <div className="flex flex-col gap-3 group-data-[collapsible=icon]:gap-0">
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={onNewConversation} tooltip="创建对话">
+          <SidebarMenuButton disabled={isEditing} onClick={onNewConversation} tooltip="创建对话">
             <IconPlus />
             <span>创建对话</span>
           </SidebarMenuButton>
@@ -150,25 +119,57 @@ function ChatSidebarHeader({
         inert={isCollapsed}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="flex h-8 items-center justify-between pl-2">
-            <h2 className="text-xs font-medium text-muted-foreground">聊天记录</h2>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    aria-label="批量编辑"
-                    className="size-8 shrink-0 text-sidebar-foreground/80"
-                    onClick={onToggleEditMode}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <IconSquareCheck className="size-4" />
-                  </Button>
-                }
-              />
-              <TooltipContent>批量编辑</TooltipContent>
-            </Tooltip>
-          </div>
+          {isEditing ? (
+            <div className="flex h-8 items-center gap-1.5 select-none">
+              <Button
+                className="h-8 flex-1 gap-2"
+                disabled={selectedCount === 0 || isBulkDeleting}
+                onClick={onBulkDelete}
+                size="sm"
+                variant="destructive-subtle"
+              >
+                <IconTrash className="size-4" />
+                {isBulkDeleting ? "正在删除…" : `删除 (${selectedCount})`}
+              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      aria-label="退出批量编辑"
+                      className="size-8 shrink-0"
+                      disabled={isBulkDeleting}
+                      onClick={onToggleEditMode}
+                      size="icon"
+                      variant="ghost"
+                    >
+                      <IconX className="size-4" />
+                    </Button>
+                  }
+                />
+                <TooltipContent>退出批量编辑</TooltipContent>
+              </Tooltip>
+            </div>
+          ) : (
+            <div className="flex h-8 items-center justify-between pl-2">
+              <h2 className="text-xs font-medium text-muted-foreground">聊天记录</h2>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      aria-label="批量编辑"
+                      className="size-8 shrink-0 text-sidebar-foreground/80"
+                      onClick={onToggleEditMode}
+                      size="icon"
+                      variant="ghost"
+                    >
+                      <IconSquareCheck className="size-4" />
+                    </Button>
+                  }
+                />
+                <TooltipContent>批量编辑</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -248,10 +249,10 @@ function renderSessionItem({
         </TooltipContent>
       </Tooltip>
 
-      <div className="relative flex h-7 w-12 shrink-0 items-center justify-end group-data-[collapsible=icon]:hidden">
+      <div className="relative mr-0.5 flex h-7 w-12 shrink-0 items-center justify-end group-data-[collapsible=icon]:hidden">
         <time
           className={cn(
-            "absolute right-1 whitespace-nowrap text-muted-foreground/70 text-xs tabular-nums transition-opacity group-focus-within/session-item:opacity-0 group-hover/session-item:opacity-0",
+            "absolute right-0.5 whitespace-nowrap text-muted-foreground/70 text-xs tabular-nums transition-opacity group-focus-within/session-item:opacity-0 group-hover/session-item:opacity-0",
             isDeletePopoverOpen && "opacity-0",
           )}
           dateTime={conversation.updatedAt}
@@ -266,7 +267,7 @@ function renderSessionItem({
             render={
               <Button
                 aria-label="删除聊天记录"
-                className="absolute right-0 size-7 cursor-default rounded-lg opacity-0 transition-opacity group-focus-within/session-item:opacity-100 group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive focus-visible:opacity-100 data-popup-open:opacity-100"
+                className="absolute right-0 size-7 cursor-default rounded-md opacity-0 transition-opacity group-focus-within/session-item:opacity-100 group-hover/session-item:opacity-100 hover:bg-danger-subtle-hover hover:text-danger-foreground focus-visible:opacity-100 data-popup-open:opacity-100"
                 disabled={isDeletingThisConversation}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -440,9 +441,9 @@ function ChatSidebarBody({
             <li key={conversation.id}>
               <div
                 className={cn(
-                  "group/session-item relative z-10 flex h-8 w-full cursor-default items-center gap-1 rounded-lg ring-sidebar-ring transition-[width,background-color,transform] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)] has-focus-visible:ring-2 has-focus-visible:ring-inset group-data-[collapsible=icon]:w-8 has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
+                  "group/session-item relative z-10 flex h-8 w-full cursor-default items-center gap-1 rounded-lg ring-sidebar-ring transition-[width,background-color,box-shadow,transform] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)] has-focus-visible:ring-2 has-focus-visible:ring-inset group-data-[collapsible=icon]:w-8 has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
                   isActive && (!editMode || isCollapsed)
-                    ? "bg-sidebar-accent font-medium"
+                    ? "bg-sidebar-active font-medium text-sidebar-accent-foreground shadow-default hover:bg-sidebar-active-hover"
                     : "hover:bg-transparent!",
                   editMode && !isCollapsed && isSelected && "bg-sidebar-accent",
                 )}

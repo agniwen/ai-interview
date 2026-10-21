@@ -635,7 +635,7 @@ export function InterviewManagementPage() {
                   <Button
                     className="flex-1 sm:flex-none"
                     onClick={() => setBulkDeleteOpen(true)}
-                    variant="destructive"
+                    variant="destructive-subtle"
                   >
                     <IconTrash className="size-4" />
                     批量删除 ({selectedIds.length})

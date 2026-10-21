@@ -26,8 +26,13 @@ const buttonVariants = cva(
       variant: {
         default:
           "border border-primary-border bg-primary text-primary-foreground shadow-[0_1px_2px_0_--theme(--color-primary/24%)] inset-shadow-[0_1px_--theme(--color-white/16%)] hover:bg-primary/90 active:inset-shadow-[0_1px_--theme(--color-black/8%)]",
+        // Interfere Danger：实心用于不可逆操作的最终确认，subtle 用于常驻或次要的删除入口。
+        // 禁用态按规范改为灰底灰字，不再整体半透明。
+        // Solid danger confirms irreversible actions; subtle marks resident or secondary destructive entries.
         destructive:
-          "border border-destructive/20 bg-destructive/8 text-destructive hover:border-destructive/30 hover:bg-destructive/12 hover:text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/12 dark:hover:bg-destructive/18",
+          "border border-transparent bg-danger-solid text-on-danger-solid hover:bg-danger-solid-hover active:bg-danger-solid-active focus-visible:border-transparent focus-visible:ring-danger-solid/40 disabled:bg-(--gray-a3) disabled:text-(--gray-a8) disabled:opacity-100 dark:disabled:bg-(--gray-a2)",
+        "destructive-subtle":
+          "border border-transparent bg-danger-subtle text-danger-foreground inset-ring inset-ring-danger-subtle-ring hover:bg-danger-subtle-hover active:bg-danger-subtle-active focus-visible:border-transparent focus-visible:ring-danger-solid/40 disabled:bg-(--gray-a3) disabled:text-(--gray-a8) disabled:opacity-100 disabled:inset-ring-transparent dark:disabled:bg-(--gray-a2)",
         ghost:
           "border border-transparent hover:bg-component hover:text-accent-foreground active:bg-component-active",
         link: "cursor-pointer text-primary-link underline-offset-4 hover:underline focus-visible:border-transparent focus-visible:underline focus-visible:ring-0",

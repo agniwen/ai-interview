@@ -37,7 +37,7 @@ function findButton(element: ParentNode, label: string) {
 describe("招聘台删除浮动栏", () => {
   it("选中后提供批量删除和取消选择", () => {
     const element = renderBar(2);
-    expect(findButton(element, "批量删除")?.dataset.variant).toBe("destructive");
+    expect(findButton(element, "批量删除")?.dataset.variant).toBe("destructive-subtle");
     expect(findButton(element, "取消选择")).toBeDefined();
     expect(element.textContent).toContain("已选择 2 条");
     expect(element.textContent).not.toContain("推进");

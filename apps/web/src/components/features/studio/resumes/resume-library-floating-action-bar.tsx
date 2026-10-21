@@ -44,7 +44,7 @@ export function ResumeLibraryFloatingActionBar({
                   onClick={onBulkDelete}
                   size="sm"
                   type="button"
-                  variant="destructive"
+                  variant="destructive-subtle"
                 >
                   <IconTrash data-icon="inline-start" />
                   批量删除
