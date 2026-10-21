@@ -9,7 +9,6 @@ import {
   ThreadPrimitive,
   useAuiState,
 } from "@assistant-ui/react";
-import type { TextMessagePartComponent } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import {
   IconArrowDown,
@@ -23,7 +22,6 @@ import {
 } from "@tabler/icons-react";
 import { useEffect } from "react";
 import type { ComponentProps, ReactNode } from "react";
-import { MarkdownView } from "@/components/features/display/markdown-view";
 import { getCandidateStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";
 import {
   ResumeDocumentFileIcon,
@@ -38,6 +36,12 @@ import { Button } from "@/components/ui/button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { RecruitingMarkdownText } from "./recruiting-markdown-text";
+import {
+  RecruitingThinkingIndicator,
+  ThinkingClockContext,
+  useThinkingClock,
+} from "./recruiting-thinking-indicator";
 import { pipelineStageMeta, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
 import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
@@ -203,9 +207,14 @@ function EditComposer() {
   );
 }
 
-const MarkdownTextPart: TextMessagePartComponent = ({ text }) => (
-  <MarkdownView className="aui-markdown-text" content={text} />
-);
+// 运行中的思考指示器跟在助手回复内容之后，而不是固定在线程底部。
+function AssistantRunningIndicator() {
+  const isRunning = useAuiState((state) => state.message.status?.type === "running");
+  if (!isRunning) {
+    return null;
+  }
+  return <RecruitingThinkingIndicator className="mt-3" />;
+}
 
 function AssistantMessage() {
   return (
@@ -214,7 +223,8 @@ function AssistantMessage() {
       data-role="assistant"
     >
       <div className="aui-assistant-message-content min-w-0 max-w-full text-foreground leading-7 wrap-break-word">
-        <MessagePrimitive.Parts components={{ Text: MarkdownTextPart }} />
+        <MessagePrimitive.Parts components={{ Text: RecruitingMarkdownText }} />
+        <AssistantRunningIndicator />
       </div>
       <div className="mt-1 flex min-h-8 items-center">
         <BranchPicker />
@@ -592,59 +602,61 @@ export function RecruitingThread({
   historyLoadingFallback: ReactNode;
   isRunning: boolean;
 }) {
+  const lastMessageRole = useAuiState((state) => state.thread.messages.at(-1)?.role);
+  // 助手消息出现前（刚发送）在线程末尾占位；之后由助手消息自己展示。
+  const awaitingAssistantMessage = isRunning && lastMessageRole !== "assistant";
+  const thinkingClock = useThinkingClock(isRunning);
   return (
-    <ThreadPrimitive.Root
-      aria-busy={historyLoading || undefined}
-      className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
-      inert={historyLoading || undefined}
-      style={activeThreadStyle}
-    >
-      <div className="relative flex min-h-0 flex-1">
-        <div className="relative flex min-w-0 flex-1 flex-col">
-          <ThreadPrimitive.Viewport
-            autoScroll
-            className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-(--header-height) scroll-smooth"
-            scrollToBottomOnRunStart
-            turnAnchor="top"
-          >
-            <SkeletonReveal
-              className="min-h-full"
-              contentClassName="min-h-full"
-              loading={historyLoading}
-              skeleton={historyLoadingFallback}
+    <ThinkingClockContext.Provider value={thinkingClock}>
+      <ThreadPrimitive.Root
+        aria-busy={historyLoading || undefined}
+        className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
+        inert={historyLoading || undefined}
+        style={activeThreadStyle}
+      >
+        <div className="relative flex min-h-0 flex-1">
+          <div className="relative flex min-w-0 flex-1 flex-col">
+            <ThreadPrimitive.Viewport
+              autoScroll
+              className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-(--header-height) scroll-smooth"
+              scrollToBottomOnRunStart
+              turnAnchor="top"
             >
-              <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
-                <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
-                {isRunning ? (
-                  <div className="aui-assistant-working w-fit rounded-xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
-                    思考中...
-                  </div>
-                ) : null}
+              <SkeletonReveal
+                className="min-h-full"
+                contentClassName="min-h-full"
+                loading={historyLoading}
+                skeleton={historyLoadingFallback}
+              >
+                <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
+                  <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
+                  {awaitingAssistantMessage ? <RecruitingThinkingIndicator /> : null}
+                </div>
+              </SkeletonReveal>
+            </ThreadPrimitive.Viewport>
+            <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
+              <div className="relative mx-auto w-full max-w-(--thread-max-width)">
+                <ThreadPrimitive.ScrollToBottom asChild>
+                  <Button
+                    aria-label="回到底部"
+                    className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
+                    size="icon"
+                    type="button"
+                    variant="outline"
+                  >
+                    <IconArrowDown className="size-4" />
+                  </Button>
+                </ThreadPrimitive.ScrollToBottom>
+                <Composer autoFocus={!historyLoading} />
+                <p className="mt-2 text-center text-muted-foreground text-xs">
+                  {recruitingComposerDisclaimer}
+                </p>
               </div>
-            </SkeletonReveal>
-          </ThreadPrimitive.Viewport>
-          <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
-            <div className="relative mx-auto w-full max-w-(--thread-max-width)">
-              <ThreadPrimitive.ScrollToBottom asChild>
-                <Button
-                  aria-label="回到底部"
-                  className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
-                  size="icon"
-                  type="button"
-                  variant="outline"
-                >
-                  <IconArrowDown className="size-4" />
-                </Button>
-              </ThreadPrimitive.ScrollToBottom>
-              <Composer autoFocus={!historyLoading} />
-              <p className="mt-2 text-center text-muted-foreground text-xs">
-                {recruitingComposerDisclaimer}
-              </p>
             </div>
           </div>
+          <RecruitingContextPanel />
         </div>
-        <RecruitingContextPanel />
-      </div>
-    </ThreadPrimitive.Root>
+      </ThreadPrimitive.Root>
+    </ThinkingClockContext.Provider>
   );
 }

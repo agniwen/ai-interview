@@ -4,6 +4,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./typeset.css";
+@import "streamdown/styles.css";
 
 /* Triangle Blur by @ncdai (MIT), scoped to explicit theme changes.
    https://chanhdai.com/components/theme-toggle-effect */
@@ -972,6 +973,55 @@
   animation: text-shimmer var(--text-shimmer-duration, 2s) linear infinite;
 }
 
+/* Streamdown 根节点自带 space-y-4（utilities 层），回退到 typeset 的段落间距。 */
+@layer utilities {
+  .streaming-markdown > * {
+    margin-block: revert-layer;
+  }
+}
+
+/* beautifului.dev Loading State：像素格 + 文字流光。 */
+@keyframes pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  18%,
+  42% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes loading-shimmer-text {
+  from {
+    background-position: 150% center;
+  }
+  to {
+    background-position: -50% center;
+  }
+}
+
+.ai-pixel-loader-cell {
+  opacity: 0.15;
+  animation: pixel-on 650ms ease-in-out infinite;
+}
+
+.ai-loading-shimmer-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 65%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: loading-shimmer-text 1.4s linear infinite;
+}
+
 /* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
    transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
@@ -990,6 +1040,17 @@
   .ai-text-shimmer {
     animation: none !important;
     background-position: 0% center;
+  }
+
+  .ai-pixel-loader-cell {
+    animation: none !important;
+    opacity: 0.6;
+  }
+
+  .ai-loading-shimmer-text {
+    animation: none !important;
+    background: none;
+    color: var(--color-muted-foreground);
   }
 
   .t-toggle-thumb {
