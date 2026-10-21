@@ -1020,7 +1020,9 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
                  more to say than the segment already says. */
               title={valueFullText === valueText ? undefined : valueFullText}
               className={cn(
-                "hover:bg-(--gray-2) dark:hover:bg-(--gray-3) bg-control cursor-default min-w-0 overflow-hidden",
+                /* The inline text input's width as a floor, so a short prompt such
+                 as "选择…" still reads as a field rather than a stub. */
+                "hover:bg-(--gray-2) dark:hover:bg-(--gray-3) bg-control cursor-default min-w-40 overflow-hidden",
                 valueEmpty && "text-muted-foreground",
               )}
               onPointerDown={() => focusSegment("value")}
