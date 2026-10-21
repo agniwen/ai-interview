@@ -17,6 +17,7 @@ import { getRequiredEnv } from "./env";
 import { getFeishuTenantAccessToken } from "@app/feishu/access-token";
 import { feishuAccountLinking, validateFeishuAccountLinking } from "./feishu-account-linking";
 import { resolveSessionAuthProviderId } from "./session-auth-provider";
+import { enforcePasswordPolicy } from "./password-policy-hook";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
@@ -28,6 +29,7 @@ import {
 } from "../routes/studio/routes/workspace/dao";
 import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../routes/studio/routes/workspace/utils/workspace-member-joined-notification";
 import { ac, roles } from "@app/shared/permissions";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@app/shared/password-policy";
 import { db } from "./db";
 import * as schema from "@app/db-schema/schema";
 
@@ -323,14 +325,20 @@ export const auth = betterAuth({
     },
   },
   // 开启邮箱+密码登录。注册入口关闭——账号只能通过飞书 OAuth 自动创建，
-  // 或由 admin 在「用户管理」里调 setUserPassword 设定登录密码。
-  // Email+password sign-in. Public sign-up is disabled — accounts are only
-  // created via Feishu OAuth or by admin's setUserPassword from the user-mgmt page.
+  // 或由平台管理员在「用户管理」里调 admin.createUser 创建 / setUserPassword 设定登录密码。
+  // Email+password sign-in. Public sign-up is disabled — accounts are only created via
+  // Feishu OAuth or by a platform admin's admin.createUser / setUserPassword on the users page.
   emailAndPassword: {
     autoSignIn: true,
     disableSignUp: true,
     enabled: true,
-    minPasswordLength: 8,
+    maxPasswordLength: PASSWORD_MAX_LENGTH,
+    minPasswordLength: PASSWORD_MIN_LENGTH,
+  },
+  // 字符类要求不在 Better Auth 内置配置里，通过 before 钩子统一执行。
+  // Character-class rules aren't built in; enforce them in a before hook.
+  hooks: {
+    before: enforcePasswordPolicy,
   },
   // 被封禁用户走 OAuth 回调时 better-auth 会重定向到 `${errorURL}?error=banned&...`。
   // 指向 /login —— 那边的 LoginErrorToast 会把 error_description 弹成 toast，
