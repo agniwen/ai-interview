@@ -48,6 +48,8 @@ const contextValue = {
 describe("RecruitingContextPanel", () => {
   it("opens candidate citations in a modal while keeping job citations as links", async () => {
     const container = document.createElement("div");
+    // 挂到 document 上，焦点移交才可观测。
+    document.body.append(container);
     const root = createRoot(container);
 
     await act(() =>
@@ -90,6 +92,7 @@ describe("RecruitingContextPanel", () => {
     expect(mobileOverlay?.hasAttribute("inert")).toBe(true);
     expect(mobilePanel?.dataset.open).toBe("false");
     await act(() => expand?.click());
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("收起上下文");
 
     const candidateButtons = [
       ...container.querySelectorAll<HTMLButtonElement>("aside button"),
@@ -113,6 +116,19 @@ describe("RecruitingContextPanel", () => {
     expect(container.querySelector('a[href="/w/acme/studio/resumes"]')).toBeNull();
     expect(container.querySelector('a[href="/w/acme/studio/resume-pool"]')).toBeNull();
 
+    const desktopPanel = container.querySelector<HTMLElement>(
+      '[data-slot="recruiting-context-panel"]',
+    );
+    expect(desktopPanel?.dataset.open).toBe("true");
+    expect(desktopPanel?.hasAttribute("inert")).toBe(false);
+
+    const collapse = container.querySelector<HTMLButtonElement>('[aria-label="收起上下文"]');
+    await act(() => collapse?.click());
+    expect(desktopPanel?.dataset.open).toBe("false");
+    expect(desktopPanel?.hasAttribute("inert")).toBe(true);
+    expect(document.activeElement).toBe(expand);
+
     await act(() => root.unmount());
+    container.remove();
   });
 });

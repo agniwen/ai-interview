@@ -1,9 +1,13 @@
 "use client";
 
 import { IconChevronRight, IconExternalLink, IconX } from "@tabler/icons-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cossPopupSurfaceClass } from "@/components/ui/coss-style";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type {
@@ -104,15 +108,15 @@ function ContextPanelContent() {
     (proposal) => (proposalStatuses[proposal.id] ?? "pending") === "pending",
   ).length;
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 text-sm">
       <section>
-        <h2 className="font-medium text-sm">引用记录</h2>
+        <h3 className="font-medium text-muted-foreground text-xs">引用记录</h3>
         <div className="mt-2">
           <CitationList citations={citations} />
         </div>
       </section>
       <section>
-        <h2 className="font-medium text-sm">检索范围</h2>
+        <h3 className="font-medium text-muted-foreground text-xs">检索范围</h3>
         <div className="mt-2 rounded-lg border border-transparent bg-card px-3 py-2 text-sm shadow-default">
           <p>当前 workspace 招聘台与岗位库</p>
           <p className="mt-1 text-muted-foreground text-xs">
@@ -121,7 +125,7 @@ function ContextPanelContent() {
         </div>
       </section>
       <section>
-        <h2 className="font-medium text-sm">待确认动作</h2>
+        <h3 className="font-medium text-muted-foreground text-xs">待确认动作</h3>
         <div className="mt-2">
           <ProposalList proposals={proposals} statuses={proposalStatuses} />
         </div>
@@ -130,46 +134,85 @@ function ContextPanelContent() {
   );
 }
 
+// 桌面面板常驻 DOM，用 data-open 驱动过渡：从触发按钮所在的右上角轻微缩放 + 淡入，
+// 收起时更快（quick），与 coss 弹层的 250ms 开 / 150ms 关节奏一致。
+const desktopPanelMotionClass =
+  "origin-top-right transition-[scale,opacity,filter] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-[open=false]:pointer-events-none data-[open=false]:scale-(--scale-medium) data-[open=false]:opacity-0 data-[open=false]:blur-(--blur-small) data-[open=false]:duration-[var(--duration-quick)] motion-reduce:transition-none";
+
+const desktopTriggerMotionClass =
+  "transition-[scale,opacity] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-[open=true]:pointer-events-none data-[open=true]:scale-(--scale-small) data-[open=true]:opacity-0 data-[open=true]:duration-[var(--duration-quick)] motion-reduce:transition-none";
+
+// 常驻面板属于静止表面：与输入框、卡片同用 shadow-default，不用弹层的 shadow-large。
+const residentPanelSurfaceClass =
+  "rounded-xl bg-popover text-popover-foreground shadow-default outline-none";
+
+const floatingTopClass = "top-[calc(var(--header-height)+1rem)]";
+
 export function RecruitingContextPanel() {
   const [desktopOpen, setDesktopOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const desktopTriggerRef = useRef<HTMLButtonElement>(null);
+  const desktopCloseRef = useRef<HTMLButtonElement>(null);
+
+  // 面板与触发按钮互斥可聚焦（inert），先同步提交状态再移交焦点。
+  const toggleDesktop = (open: boolean) => {
+    flushSync(() => setDesktopOpen(open));
+    (open ? desktopCloseRef : desktopTriggerRef).current?.focus();
+  };
+
   return (
     <>
-      {desktopOpen ? (
-        <aside className="absolute top-[calc(var(--header-height)+1rem)] right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-sm backdrop-blur lg:flex">
-          <div className="flex h-full min-h-0 flex-1 flex-col">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
-              <h2 className="font-medium text-sm">上下文</h2>
-              <Button
-                aria-label="收起上下文"
-                className="ms-auto size-8"
-                onClick={() => setDesktopOpen(false)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <IconX className="size-4" />
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <ContextPanelContent />
-            </div>
-          </div>
-        </aside>
-      ) : (
-        <Button
-          aria-label="展开上下文"
-          className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 hidden bg-background/95 shadow-large backdrop-blur lg:inline-flex"
-          onClick={() => setDesktopOpen(true)}
-          type="button"
-          variant="outline"
-        >
-          <IconExternalLink className="size-4" />
-          上下文
-        </Button>
-      )}
       <Button
-        className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 bg-background/95 shadow-large backdrop-blur lg:hidden"
+        aria-label="展开上下文"
+        className={cn(
+          "absolute right-4 z-20 hidden lg:inline-flex",
+          floatingTopClass,
+          desktopTriggerMotionClass,
+        )}
+        data-open={desktopOpen}
+        inert={desktopOpen}
+        onClick={() => toggleDesktop(true)}
+        ref={desktopTriggerRef}
+        type="button"
+        variant="outline"
+      >
+        <IconExternalLink className="size-4" />
+        上下文
+      </Button>
+      <aside
+        aria-label="上下文"
+        className={cn(
+          residentPanelSurfaceClass,
+          "absolute right-4 z-30 hidden max-h-[calc(100%-var(--header-height)-2rem)] w-80 flex-col overflow-hidden lg:flex",
+          floatingTopClass,
+          desktopPanelMotionClass,
+        )}
+        data-open={desktopOpen}
+        data-slot="recruiting-context-panel"
+        inert={!desktopOpen}
+      >
+        <div className="flex h-11 shrink-0 items-center justify-between ps-4 pe-2">
+          <h2 className="font-medium text-[13px]">上下文</h2>
+          <Button
+            aria-label="收起上下文"
+            className="size-7"
+            onClick={() => toggleDesktop(false)}
+            ref={desktopCloseRef}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <IconX className="size-4" />
+          </Button>
+        </div>
+        <ScrollArea className="min-h-0 flex-1" scrollFade>
+          <div className="px-4 pt-1 pb-4">
+            <ContextPanelContent />
+          </div>
+        </ScrollArea>
+      </aside>
+      <Button
+        className={cn("absolute right-4 z-30 lg:hidden", floatingTopClass)}
         onClick={() => setMobileOpen(true)}
         type="button"
         variant="outline"
@@ -184,15 +227,18 @@ export function RecruitingContextPanel() {
         inert={!mobileOpen}
       >
         <div
-          className="t-panel-slide absolute inset-x-3 bottom-20 max-h-[70vh] overflow-y-auto rounded-2xl border bg-background p-3 shadow-lg"
+          className={cn(
+            cossPopupSurfaceClass,
+            "t-panel-slide absolute inset-x-3 bottom-20 flex max-h-[70vh] flex-col overflow-hidden",
+          )}
           data-open={mobileOpen}
           data-slot="recruiting-context-mobile-panel"
         >
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-medium text-sm">上下文</h2>
+          <div className="flex h-11 shrink-0 items-center justify-between ps-4 pe-2">
+            <h2 className="font-medium text-[13px]">上下文</h2>
             <Button
               aria-label="关闭上下文"
-              className="size-8"
+              className="size-7"
               onClick={() => setMobileOpen(false)}
               size="icon"
               type="button"
@@ -201,7 +247,11 @@ export function RecruitingContextPanel() {
               <IconX className="size-4" />
             </Button>
           </div>
-          <ContextPanelContent />
+          <ScrollArea className="min-h-0 flex-1" scrollFade>
+            <div className="px-4 pt-1 pb-4">
+              <ContextPanelContent />
+            </div>
+          </ScrollArea>
         </div>
       </div>
     </>
